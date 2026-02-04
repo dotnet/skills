@@ -1,0 +1,22 @@
+{
+    "name": "dotnet-agent-skills",
+    "owner": {
+        "name": "DotNet Skills Team",
+        "email": "dotnet-skills@microsoft.com"
+    },
+    "metadata": {
+        "description": "DotNet core skills",
+        "version": "1.0.0"
+    },
+    "plugins": [
+        {
+            "name": "core-skills",
+            "description": "Collection of core DotNet skills for handling common dotnet coding tasks.",
+            "source": "./",
+            "strict": false,
+            "skills": [
+                "./skills/dotnet-profile"
+            ]
+        }
+    ]
+}

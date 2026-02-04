@@ -1,0 +1,184 @@
+name: agent-skill-validation
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - "skills/**"
+    pull_request:
+        paths:
+            - "skills/**"
+
+concurrency:
+    group: validate-skills-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    detect-changes:
+        runs-on: ubuntu-latest
+        if: github.event_name == 'push' || github.event.pull_request.draft != true
+        outputs:
+            skills: ${{ steps.changed-skills.outputs.skills }}
+            has_skills: ${{ steps.changed-skills.outputs.has_skills }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+
+            - name: Get changed skills
+              id: changed-skills
+              run: |
+                  if [ "${{ github.event_name }}" = "pull_request" ]; then
+                    BASE=${{ github.event.pull_request.base.sha }}
+                    HEAD=${{ github.event.pull_request.head.sha }}
+                  else
+                    BASE=${{ github.event.before }}
+                    HEAD=${{ github.event.after }}
+                  fi
+
+                  # Find changed SKILL.md files in skills/ directory and extract skill directories
+                  SKILLS=$(git diff --name-only $BASE $HEAD | \
+                    grep '^skills/.*SKILL.md$' | \
+                    xargs -I {} dirname {} | \
+                    sort -u | \
+                    jq -R -s -c 'split("\n") | map(select(length > 0))')
+
+                  echo "skills=$SKILLS" >> $GITHUB_OUTPUT
+
+                  if [ "$SKILLS" = "[]" ] || [ -z "$SKILLS" ]; then
+                    echo "has_skills=false" >> $GITHUB_OUTPUT
+                    echo "No skills changed"
+                  fi
+
+    validate:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.has_skills == 'true'
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                skill: ${{ fromJson(needs.detect-changes.outputs.skills) }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
+
+            - name: Validate ${{ matrix.skill }}
+              id: validate
+              uses: Flash-Brew-Digital/validate-skill@v1
+              with:
+                  path: ${{ matrix.skill }}
+                  fail-on-warning: "true"
+                  validate-references: "true"
+
+            - name: Save result
+              if: always()
+              run: |
+                  mkdir -p results
+                  SKILL_NAME=$(basename "${{ matrix.skill }}")
+                  VALID="${{ steps.validate.outputs.valid }}"
+                  ERRORS='${{ steps.validate.outputs.errors }}'
+                  WARNINGS='${{ steps.validate.outputs.warnings }}'
+
+                  # Create result file
+                  cat > "results/${SKILL_NAME}.json" << EOF
+                  {
+                    "skill": "$SKILL_NAME",
+                    "path": "${{ matrix.skill }}",
+                    "valid": $VALID,
+                    "errors": $ERRORS,
+                    "warnings": $WARNINGS
+                  }
+                  EOF
+
+            - name: Upload result
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: result-${{ strategy.job-index }}
+                  path: results/
+                  retention-days: 1
+
+    summary:
+        needs: [detect-changes, validate]
+        if: always() && needs.detect-changes.outputs.has_skills == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Download all results
+              uses: actions/download-artifact@v4
+              with:
+                  pattern: result-*
+                  path: results
+                  merge-multiple: true
+
+            - name: Generate summary
+              run: |
+                  echo "## Agent Skills Validation" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "| Skill | Status | Details |" >> $GITHUB_STEP_SUMMARY
+                  echo "|-------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+
+                  has_errors=false
+                  has_warnings=false
+
+                  for result_file in results/*.json; do
+                    if [ -f "$result_file" ]; then
+                      skill_name=$(jq -r '.skill' "$result_file")
+                      valid=$(jq -r '.valid' "$result_file")
+                      errors=$(jq -r '.errors | length' "$result_file")
+                      warnings=$(jq -r '.warnings | length' "$result_file")
+                      
+                      # Build details string
+                      details=""
+                      if [ "$errors" -gt 0 ]; then
+                        error_msgs=$(jq -r '.errors | join("; ")' "$result_file")
+                        details="$error_msgs"
+                      fi
+                      if [ "$warnings" -gt 0 ]; then
+                        warning_msgs=$(jq -r '.warnings | join("; ")' "$result_file")
+                        if [ -n "$details" ]; then
+                          details="$details | Warnings: $warning_msgs"
+                        else
+                          details="Warnings: $warning_msgs"
+                        fi
+                      fi
+                      
+                      # Determine status
+                      if [ "$valid" = "false" ]; then
+                        status="❌ Error"
+                        has_errors=true
+                        [ -z "$details" ] && details="Validation failed"
+                      elif [ "$warnings" -gt 0 ]; then
+                        status="⚠️ Warning"
+                        has_warnings=true
+                      else
+                        status="✅ Valid"
+                        details="All checks passed"
+                      fi
+                      
+                      echo "| \`$skill_name\` | $status | $details |" >> $GITHUB_STEP_SUMMARY
+                    fi
+                  done
+
+                  echo "" >> $GITHUB_STEP_SUMMARY
+
+                  if [ "$has_errors" = true ]; then
+                    echo "### ❌ Validation failed" >> $GITHUB_STEP_SUMMARY
+                    echo "One or more skills have validation errors that must be fixed." >> $GITHUB_STEP_SUMMARY
+                    exit 1
+                  elif [ "$has_warnings" = true ]; then
+                    echo "### ⚠️ Validation passed with warnings" >> $GITHUB_STEP_SUMMARY
+                  else
+                    echo "### ✅ All skills validated successfully" >> $GITHUB_STEP_SUMMARY
+                  fi
+
+    no-changes:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.has_skills != 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Report no skills changed
+              run: |
+                  echo "## Agent Skills Validation" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "No skills were modified in this PR." >> $GITHUB_STEP_SUMMARY
