@@ -42,7 +42,7 @@ Analyze and optimize a .NET 8+ application's deployment pipeline to produce smal
    - **Web API / MVC / Razor Pages**: `<Project Sdk="Microsoft.NET.Sdk.Web">` with no Blazor packages
    - **Blazor**: `Sdk="Microsoft.NET.Sdk.Web"` plus `Microsoft.AspNetCore.Components` packages
    - **gRPC**: `Sdk="Microsoft.NET.Sdk.Web"` plus `Grpc.AspNetCore` package reference
-   - **Worker Service**: `Sdk="Microsoft.NET.Sdk.Worker">` or reference to `Microsoft.Extensions.Hosting` without a web SDK
+   - **Worker Service**: `Sdk="Microsoft.NET.Sdk.Worker"`, or `Sdk="Microsoft.NET.Sdk"` with a `BackgroundService` or `IHostedService` implementation and a reference to `Microsoft.Extensions.Hosting`
    - **Console**: `Sdk="Microsoft.NET.Sdk"` with `<OutputType>Exe</OutputType>`
    - **WinForms / WPF**: `<UseWindowsForms>true</UseWindowsForms>` or `<UseWPF>true</UseWPF>`
 
@@ -59,6 +59,13 @@ Evaluate and recommend the most appropriate publish mode based on the applicatio
 | Native AOT | Console or API apps needing minimal startup time and memory; no reflection-heavy libraries |
 
 Provide the recommended `dotnet publish` command with appropriate flags:
+
+```bash
+# Example: self-contained single-file publish for Linux
+dotnet publish -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true
+```
+
+Or equivalently, set the properties in the project file:
 
 ```xml
 <!-- Example: project file properties for single-file self-contained -->
@@ -81,11 +88,14 @@ Before combining publish properties, verify the combination is valid. The follow
 | `PublishAot` | `PublishTrimmed` | **Redundant** | AOT implies trimming; setting `PublishTrimmed` explicitly is unnecessary (but not harmful) |
 | `PublishSingleFile` | `SelfContained=false` | **Not recommended** | Framework-dependent single-file bundles are supported but rarely useful; the host still requires the shared runtime |
 | `ReadyToRun` | `PublishTrimmed` | **Caution** | Supported but may increase size because R2R adds native code on top of IL; trimming savings can be offset by R2R overhead |
+| `ReadyToRun` | `SelfContained=false` | **Conflict** | ReadyToRun pre-compiles app IL to native code and requires the runtime to be bundled; framework-dependent apps cannot use R2R |
 | `PublishTrimmed` | `SelfContained=false` | **Conflict** | Trimming requires self-contained deployment; framework-dependent apps cannot be trimmed |
 
 When reviewing a project file, flag any of these combinations and recommend removing the conflicting or redundant property.
 
 ### Step 3: Apply trimming and tree-shaking
+
+> **Skip this step** if Native AOT was chosen in Step 2 — AOT applies trimming automatically.
 
 1. Check if the application is trim-compatible by scanning for known trim-incompatible patterns:
    - Heavy use of `System.Reflection` and using string representations of types, strongly typed reflection is not problematic
@@ -120,7 +130,7 @@ When reviewing a project file, flag any of these combinations and recommend remo
 </PropertyGroup>
 ```
 
-3. Note trade-offs: longer build time, platform-specific output, no JIT.
+3. Note trade-offs: longer build time, platform-specific output, no JIT. For long-running services (Worker Services, daemons), the JIT with tiered compilation can optimize hot paths over time — AOT eliminates this benefit. Consider ReadyToRun as a middle ground for long-running workloads.
 4. If not compatible, document the blockers and suggest alternatives (trimming, ReadyToRun).
 
 ### Step 5: Optimize Docker images
@@ -174,7 +184,9 @@ Review the pipeline configuration and recommend:
 
 ### Step 7: Review configuration and environment management
 
-1. Verify that `appsettings.Production.json` does not contain secrets.
+> **Skip this step** if the application has no configuration files (`appsettings.json`, environment variables, or similar).
+
+1. Verify that no `appsettings*.json` file contains secrets (check the base `appsettings.json`, `appsettings.Production.json`, and any other environment-specific files).
 2. Recommend environment variables or a secret manager for sensitive values.
 3. Confirm that configuration binding uses the Options pattern (`IOptions<T>`).
 4. Suggest using `DOTNET_ENVIRONMENT` or `ASPNETCORE_ENVIRONMENT` to control configuration layering.
@@ -185,6 +197,8 @@ Review the pipeline configuration and recommend:
 > **Skip this step** for console applications and CLI tools that do not run as long-lived services.
 
 For web applications and worker services:
+
+**For web applications** (Web API, MVC, Blazor, gRPC):
 
 1. Add the health checks middleware:
 
@@ -205,6 +219,33 @@ builder.Services.AddHealthChecks()
 ```
 
 4. Document how orchestrators (Kubernetes, Docker Compose) should configure probes pointing at these endpoints.
+
+**For Worker Services** (no HTTP endpoints by default):
+
+1. Option A — Add a minimal Kestrel endpoint for health checks:
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy());
+
+builder.WebHost.UseKestrel(o => o.ListenAnyIP(8080));
+var app = builder.Build();
+app.MapHealthChecks("/healthz");
+```
+
+2. Option B — Use a health check publisher to write status to a file or external system that orchestrators can monitor:
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy());
+builder.Services.Configure<HealthCheckPublisherOptions>(options =>
+{
+    options.Period = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddSingleton<IHealthCheckPublisher, FileHealthCheckPublisher>();
+```
+
+3. Option C — Use a TCP health check listener for simple liveness probes without adding HTTP overhead.
 
 ### Step 9: Summarize recommendations
 
