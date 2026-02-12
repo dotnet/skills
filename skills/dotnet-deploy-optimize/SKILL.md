@@ -5,7 +5,7 @@ description: Optimizes .NET 8+ application deployments by analyzing publish conf
 
 # .NET Deployment Optimization
 
-Analyze and optimize a .NET 8+ application's deployment pipeline to produce smaller, faster, and more reliable production artifacts. The skill walks through publish modes, binary trimming, Native AOT, container optimization, CI/CD tuning, configuration management, and health-check readiness.
+Analyze and optimize a .NET 8+ application's deployment pipeline to produce smaller, faster, and more reliable production artifacts. The skill walks through publish modes, trimming, Native AOT, container optimization, CI/CD tuning, configuration management, and health-check readiness.
 
 ## When to Use
 
@@ -93,12 +93,11 @@ When reviewing a project file, flag any of these combinations and recommend remo
    - `System.Text.Json` source generators not configured
    - COM interop
    - Check trim-compatibility of dependencies, including from nuget
-2. If size is the desire, offer to assist to enable trimming and fix errors:
+2. If compatible, offer to assist to enable trimming and fix errors:
 
 ```xml
 <PropertyGroup>
   <PublishTrimmed>true</PublishTrimmed>
-  <!-- TrimMode defaults to 'link' in .NET 8+; only set explicitly if you need 'copyused' for compatibility -->
 </PropertyGroup>
 ```
 
@@ -113,7 +112,7 @@ When reviewing a project file, flag any of these combinations and recommend remo
    - All serialization uses source generators
    - No runtime code generation (e.g., `System.Reflection.Emit`)
    - Check AOT-compatibility of dependencies, including from nuget
-2. If this form factor is desired, recommend enabling AOT and offer to fix any errors:
+2. If compatible, recommend enabling AOT and offer to fix any errors:
 
 ```xml
 <PropertyGroup>
