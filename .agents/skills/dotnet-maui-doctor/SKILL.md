@@ -130,14 +130,14 @@ If the build succeeds, the environment is verified. If it fails, use the error o
 
 ### Run Verification (Optional — Ask User First)
 
-As of the latest .NET 10 SDK (10.0.103), `dotnet run` works for MAUI projects. After a successful build, **ask the user** if they want to launch the app on a target platform to verify end-to-end:
+After a successful build, **ask the user** if they want to launch the app on a target platform to verify end-to-end:
 
 ```bash
 # Replace net10.0 with the current major .NET version
-dotnet run -f net10.0-android
-dotnet run -f net10.0-ios        # macOS only
-dotnet run -f net10.0-maccatalyst # macOS only
-dotnet run -f net10.0-windows    # Windows only
+dotnet build -t:Run -f net10.0-android
+dotnet build -t:Run -f net10.0-ios        # macOS only
+dotnet build -t:Run -f net10.0-maccatalyst # macOS only
+dotnet build -t:Run -f net10.0-windows    # Windows only
 ```
 
 Only run the target frameworks relevant to the user's platform and intent. This step deploys to an emulator/simulator/device, so confirm with the user before proceeding.
