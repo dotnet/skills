@@ -196,7 +196,7 @@ After migrating all patterns, remove or replace any remaining references:
 ### Step 8: Verify the migration
 
 1. Build the project targeting the new framework. Confirm zero `AppDomain`-related compile errors.
-2. Run existing tests. If tests created AppDomains for isolation, update them to use `AssemblyLoadContext` or `[assembly: CollectibleContext]`.
+2. Run existing tests. If tests created AppDomains for isolation, update them to use a custom `AssemblyLoadContext` with `isCollectible: true`.
 3. For unloadability scenarios, add a test that:
    - Loads an assembly into a collectible `AssemblyLoadContext`
    - Unloads the context
