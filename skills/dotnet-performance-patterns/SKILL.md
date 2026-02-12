@@ -27,9 +27,6 @@ Scan a body of C# / .NET code and produce a prioritized list of performance find
 ## When Not to Use
 
 - **Algorithmic complexity analysis** — this skill targets API usage patterns, not algorithm design
-- **JIT / runtime internals** — use `dotnet-jit-optimization` for inlining thresholds, PGO, tiered compilation
-- **Async architectural decisions** — use `dotnet-async-patterns` for async state machine design and ValueTask lifecycle
-- **Synchronization primitive selection** — use `dotnet-sync-primitives` for lock contention analysis
 - **Code that is not on a hot path** and has no performance requirements — avoid premature optimization
 
 ## Inputs
