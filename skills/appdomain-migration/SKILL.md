@@ -18,7 +18,7 @@ This skill helps an agent migrate .NET Framework code that uses `System.AppDomai
 
 ## When Not to Use
 
-- The code only uses `AppDomain.CurrentDomain` for event subscriptions like `UnhandledException` or `AssemblyResolve` (these still work in modern .NET; no migration needed)
+- The code only uses `AppDomain.CurrentDomain` for event subscriptions like `UnhandledException`, `AssemblyResolve`, or `ProcessExit`. These events still work in modern .NET and do not require migration. Do not refactor them to use `AssemblyLoadContext` or other replacements.
 - The project will remain on .NET Framework indefinitely
 - The AppDomain usage is inside a third-party library you do not control
 
@@ -61,125 +61,18 @@ Categorize every usage into one of the following patterns:
 | **Unloadability** | Loading code that must be unloaded to free memory or update in place | Collectible `AssemblyLoadContext` |
 | **Cross-domain remoting** | Using `MarshalByRefObject` proxies to call across domains | In-process interfaces across `AssemblyLoadContext` boundaries, or out-of-process communication (named pipes, gRPC) |
 
-If a single AppDomain serves multiple purposes, list all patterns and address each one.
+**Critical:** If a single AppDomain serves multiple purposes, list every pattern separately and address each one. Do not pick a single replacement strategy for a multi-pattern AppDomain.
 
-### Step 3: Migrate plugin isolation and unloadability
+### Step 3: Apply the replacement for each pattern
 
-For code that creates an AppDomain to load and later unload plugins:
+Use the modern replacement from the table above. Key implementation notes per pattern:
 
-1. Create a custom `AssemblyLoadContext` subclass with `isCollectible: true`:
+- **Plugin isolation / unloadability**: Create a custom `AssemblyLoadContext` subclass with `isCollectible: true`. Use `AssemblyDependencyResolver` in the `Load` override. Override `LoadUnmanagedDll` to resolve native dependencies from the plugin directory. After calling `Unload()`, release all references to types from that context and use `WeakReference` to verify the context is garbage collected.
+- **MarshalByRefObject / cross-domain remoting**: Define a shared interface in an assembly loaded by the default context. The plugin implements that interface and the host casts to it. If strong security isolation is needed, use a separate process with IPC instead.
+- **Sandboxing / partial trust**: Modern .NET does not support CAS or partial trust. Remove all `PermissionSet`, `SecurityPermission`, and `AppDomain.SetAppDomainPolicy` calls. Replace with a separate process running under restricted OS permissions (Windows: Job Objects or restricted user account; Linux: containers, seccomp, or AppArmor).
+- **Configuration isolation**: Replace `AppDomainSetup.ConfigurationFile` with `Microsoft.Extensions.Configuration`. Create a per-component `IConfiguration` instance using `ConfigurationBuilder`. Remove `AppDomainSetup` and any `ConfigurationManager` calls that relied on per-domain config files.
 
-```csharp
-public class PluginLoadContext : AssemblyLoadContext
-{
-    private readonly AssemblyDependencyResolver _resolver;
-
-    public PluginLoadContext(string pluginPath) : base(isCollectible: true)
-    {
-        _resolver = new AssemblyDependencyResolver(pluginPath);
-    }
-
-    protected override Assembly? Load(AssemblyName assemblyName)
-    {
-        string? assemblyPath = _resolver.ResolveAssemblyPath(assemblyName);
-        if (assemblyPath != null)
-        {
-            return LoadFromAssemblyPath(assemblyPath);
-        }
-        return null;
-    }
-
-    protected override IntPtr LoadUnmanagedDll(string unmanagedDllName)
-    {
-        string? libraryPath = _resolver.ResolveUnmanagedDllPath(unmanagedDllName);
-        if (libraryPath != null)
-        {
-            return LoadUnmanagedDllFromPath(libraryPath);
-        }
-        return IntPtr.Zero;
-    }
-}
-```
-
-2. Replace `AppDomain.CreateDomain` + `CreateInstanceAndUnwrap` with loading into the custom context:
-
-```csharp
-var context = new PluginLoadContext(pluginPath);
-var assembly = context.LoadFromAssemblyPath(pluginPath);
-var type = assembly.GetType("MyPlugin.PluginClass");
-var instance = Activator.CreateInstance(type!);
-```
-
-3. Replace `AppDomain.Unload(domain)` with unloading the context:
-
-```csharp
-context.Unload();
-```
-
-4. Ensure no references to types loaded in the context are held after `Unload()`, otherwise the context will not be garbage collected. Use `WeakReference` to verify collectibility during testing.
-
-### Step 4: Migrate MarshalByRefObject cross-domain communication
-
-`MarshalByRefObject` has no equivalent across `AssemblyLoadContext` boundaries. Choose a replacement based on isolation needs:
-
-**If the code stays in-process (same `AssemblyLoadContext` boundary):**
-
-1. Define a shared interface in an assembly loaded by the default context.
-2. Have the plugin implement that interface.
-3. Cast the loaded type to the shared interface instead of using `MarshalByRefObject` proxies.
-
-```csharp
-// Shared contract (loaded in default context)
-public interface IPlugin
-{
-    string Execute(string input);
-}
-
-// In plugin (loaded in PluginLoadContext)
-public class MyPlugin : IPlugin
-{
-    public string Execute(string input) => $"Processed: {input}";
-}
-
-// Host code
-var instance = (IPlugin)Activator.CreateInstance(type!);
-var result = instance.Execute("hello");
-```
-
-**If strong isolation is required (untrusted code):**
-
-1. Move the plugin to a separate process.
-2. Communicate via named pipes, gRPC, or another IPC mechanism.
-3. The host process starts and manages the plugin process lifecycle.
-
-### Step 5: Migrate sandboxing and partial trust
-
-Modern .NET does not support Code Access Security (CAS) or partial trust. Replace with:
-
-1. Run untrusted code in a **separate process** with restricted OS permissions.
-2. On Windows, use Job Objects or a restricted user account.
-3. On Linux, use containers, seccomp, or AppArmor profiles.
-4. Communicate with the sandboxed process via IPC (named pipes, gRPC, Unix domain sockets).
-
-Remove all `PermissionSet`, `SecurityPermission`, and `AppDomain.SetAppDomainPolicy` calls — they have no effect in modern .NET.
-
-### Step 6: Migrate configuration isolation
-
-Replace `AppDomainSetup.ConfigurationFile` with the modern configuration system:
-
-1. Add `Microsoft.Extensions.Configuration` packages if not already present.
-2. Create a per-component `IConfiguration` instance:
-
-```csharp
-var config = new ConfigurationBuilder()
-    .SetBasePath(pluginDirectory)
-    .AddJsonFile("pluginsettings.json", optional: true)
-    .Build();
-```
-
-3. Remove `AppDomainSetup` configuration and any `ConfigurationManager` calls that relied on per-domain config files.
-
-### Step 7: Clean up removed APIs
+### Step 4: Clean up removed APIs
 
 After migrating all patterns, remove or replace any remaining references:
 
@@ -193,7 +86,7 @@ After migrating all patterns, remove or replace any remaining references:
 | `MarshalByRefObject` | Shared interface or IPC |
 | `[Serializable]` for cross-domain transfer | Shared types in a common assembly, or DTO serialization over IPC |
 
-### Step 8: Verify the migration
+### Step 5: Verify the migration
 
 1. Build the project targeting the new framework. Confirm zero `AppDomain`-related compile errors.
 2. Run existing tests. If tests created AppDomains for isolation, update them to use a custom `AssemblyLoadContext` with `isCollectible: true`.
