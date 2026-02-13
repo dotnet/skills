@@ -111,6 +111,7 @@ Use these skills during Pass 2 for deep, systematic pattern matching.
   - `collections-and-linq.md` — FrozenDictionary, CollectionsMarshal, LINQ vectorization, EnsureCapacity
   - `io-and-serialization.md` — JSON source generators, Utf8JsonWriter, async FileStream, HttpCompletionOption
   - `regex-patterns.md` — GeneratedRegex, NonBacktracking, EnumerateMatches, span-based APIs
+  - `structural-patterns.md` — sealed classes, readonly structs, IEquatable\<T\>, absence-based detection
 
 ## Escalation & Out-of-Scope
 
