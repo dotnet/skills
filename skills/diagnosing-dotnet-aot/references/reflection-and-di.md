@@ -2,6 +2,13 @@
 
 How to annotate reflection usage and design DI registrations for trim and AOT compatibility.
 
+## Contents
+- [The Annotation Workflow](#the-annotation-workflow) — Decision tree for handling reflection warnings
+- [DynamicallyAccessedMembers — Step by Step](#dynamicallyaccessedmembers--step-by-step) — API-to-annotation mapping, propagation, common mistakes
+- [RequiresUnreferencedCode and RequiresDynamicCode](#requiresunreferencedcode-and-requiresdynamiccode) — When and how to mark APIs
+- [Suppressing Warnings Safely](#suppressing-warnings-safely) — Legitimate suppression, DynamicDependency
+- [Dependency Injection Patterns](#dependency-injection-patterns) — Static registration, keyed services, open generics
+
 ## The Annotation Workflow
 
 When you encounter an AOT or trim warning on reflection code, follow these steps in order:

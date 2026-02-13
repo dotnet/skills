@@ -2,6 +2,13 @@
 
 How generic instantiation, `MakeGenericType`, and `System.Linq.Expressions` behave under Native AOT.
 
+## Contents
+- [Generic Value Type Specialization](#generic-value-type-specialization) — The fundamental rule, MakeGenericType safety, rooting instantiations
+- [MakeGenericMethod](#makegenericmethod) — Same rules as MakeGenericType
+- [Generic Virtual Methods](#generic-virtual-methods) — Binary size impact
+- [System.Linq.Expressions](#systemlinqexpressions) — Expression.Compile limitations, safe vs unsafe usage
+- [Nullable Value Types and Generics](#nullable-value-types-and-generics)
+
 ## Generic Value Type Specialization
 
 ### The Fundamental Rule

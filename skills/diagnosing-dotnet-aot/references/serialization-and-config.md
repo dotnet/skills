@@ -2,6 +2,13 @@
 
 Source-generated alternatives for reflection-based serialization and configuration binding.
 
+## Contents
+- [System.Text.Json Source Generation](#systemtextjson-source-generation) — JsonSerializerContext, polymorphic types, custom converters
+- [Migrating from Newtonsoft.Json](#migrating-from-newtonsoftjson) — API mapping, behavioral differences
+- [Configuration Binding Source Generator](#configuration-binding-source-generator) — EnableConfigurationBindingGenerator, options pattern
+- [Options Validation Source Generator](#options-validation-source-generator) — OptionsValidator
+- [Logging Source Generation](#logging-source-generation) — LoggerMessage
+
 ## System.Text.Json Source Generation
 
 ### Creating a JsonSerializerContext

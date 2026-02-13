@@ -2,6 +2,14 @@
 
 MSBuild properties, analyzer configuration, warning codes, and CI pipeline patterns for Native AOT.
 
+## Contents
+- [Essential MSBuild Properties](#essential-msbuild-properties) — Application and library project config
+- [Warning Codes Reference](#warning-codes-reference) — IL2xxx trimming, IL3xxx AOT, single-file
+- [Roslyn Analyzers vs ILC](#roslyn-analyzers-vs-ilc-full-publish) — When to use each
+- [CI Pipeline Validation](#ci-pipeline-validation) — AOT test app pattern, GitHub Actions
+- [Multi-Targeting for AOT Compatibility](#multi-targeting-for-aot-compatibility) — Cross-framework annotations
+- [Recommended Project Setup Checklist](#recommended-project-setup-checklist)
+
 ## Essential MSBuild Properties
 
 ### Application Projects

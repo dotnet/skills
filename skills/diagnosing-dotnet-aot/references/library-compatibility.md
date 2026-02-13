@@ -1,9 +1,21 @@
 # .NET Library AOT Compatibility Status
 
-AOT compatibility status of commonly used .NET libraries and frameworks as of .NET 10 (2026).
+AOT compatibility status of commonly used .NET libraries and frameworks.
 All recommendations stay within the .NET ecosystem.
 
 > **Key**: ✅ Fully compatible | ⚠️ Partially compatible / experimental | 🔴 Not compatible
+
+## Contents
+- [ASP.NET Core](#aspnet-core) — Minimal APIs, gRPC, MVC status
+- [Entity Framework Core](#entity-framework-core) — Compiled models, precompiled queries
+- [System.Text.Json](#systemtextjson) — Source-generated serialization
+- [Microsoft.Extensions.*](#microsoftextensions) — DI, config, logging, options
+- [Networking and Communication](#networking-and-communication) — HttpClient, gRPC, Redis
+- [Serialization](#serialization) — STJ, protobuf, MessagePack, XML
+- [Observability](#observability) — OpenTelemetry, EventSource
+- [Authentication and Identity](#authentication-and-identity)
+- [Desktop UI Frameworks](#desktop-ui-frameworks) — WPF, WinForms, MAUI
+- [Evaluating Unlisted Libraries](#evaluating-unlisted-libraries)
 
 ## ASP.NET Core
 
@@ -130,7 +142,7 @@ Stay within .NET but consider:
 
 | Library | AOT Status | Notes |
 |---------|:---:|-------|
-| OpenTelemetry (core) | ✅ | Made AOT-compatible in 2023. HttpClient and ASP.NET Core instrumentation work. |
+| OpenTelemetry (core) | ✅ | AOT-compatible. HttpClient and ASP.NET Core instrumentation work. |
 | OpenTelemetry SqlClient instrumentation | 🔴 | Marked `[RequiresUnreferencedCode]` — underlying SqlClient not AOT compatible. |
 | EventSource / EventPipe | ⚠️ | Requires `<EventSourceSupport>true</EventSourceSupport>`. Not all runtime events supported. |
 | dotnet-trace / dotnet-counters | ⚠️ | Work with EventPipe support enabled. |

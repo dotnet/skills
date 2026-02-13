@@ -1,7 +1,15 @@
 # Critical .NET AOT Incompatibilities
 
 Patterns that **will** crash, throw, or produce corrupt data in a Native AOT application.
-Every pattern here is a hard rule: violating it causes failure after AOT publish.
+
+## Contents
+- [Dynamic Code Generation](#dynamic-code-generation) — Reflection.Emit, dynamic loading, `dynamic` keyword
+- [Reflection](#reflection) — Type.GetType, static constructors
+- [Serialization](#serialization) — JSON, BinaryFormatter
+- [Expressions](#expressions) — Expression.Compile
+- [Configuration](#configuration) — Config binding
+- [Regex](#regex) — Compiled regex
+- [COM and Platform](#com-and-platform) — COM, C++/CLI
 
 ## Dynamic Code Generation
 
