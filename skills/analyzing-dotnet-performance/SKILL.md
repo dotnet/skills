@@ -146,6 +146,3 @@ Before delivering results, verify:
 | Suggesting `[GeneratedRegex]` for dynamic patterns | Only flag when the pattern string is a compile-time literal |
 | Merging `IsMatch` + `Replace` into one call | Keep `IsMatch` as a fast-path guard when most inputs don't match |
 
-## Further Reading
-
-- The annual "Performance Improvements in .NET" series on the .NET Blog
