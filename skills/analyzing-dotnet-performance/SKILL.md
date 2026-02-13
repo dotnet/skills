@@ -148,5 +148,4 @@ Before delivering results, verify:
 
 ## Further Reading
 
-- [Full .NET Performance Patterns Reference (162 patterns)](https://gist.github.com/artl93/73f93751bd31d3725f8ff9fc8bd4cd3f)
 - The annual "Performance Improvements in .NET" series on the .NET Blog
