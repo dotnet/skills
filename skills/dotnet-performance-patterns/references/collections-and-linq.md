@@ -214,3 +214,104 @@ if (myList.Any()) { /* ... */ } // allocation-free, single interface dispatch
 ```
 
 **Impact: Any() is now allocation-free and uses one interface dispatch for ICollection\<T\>.**
+
+---
+
+### Hoist Static Data Out of Method Bodies
+🟡 **AVOID** creating collections with static/deterministic data inside method bodies | .NET Core+
+
+When a `Dictionary`, `List`, `HashSet`, or array is created inside a method body and populated with the same data on every call, it should be hoisted to a `static readonly` field. This eliminates per-call allocation of the collection, its internal storage, and any delegate/closure objects stored in it.
+
+❌
+```csharp
+public string Convert(long number)
+{
+    // Rebuilt on every call — Dictionary + internal arrays + 7 Func<> closures
+    var groupsMap = new Dictionary<long, Func<long, string>>
+    {
+        { 1_000_000_000, n => $"{Convert(n)} billion" },
+        { 1_000_000, n => $"{Convert(n)} million" },
+        { 1_000, n => $"{Convert(n)} thousand" },
+    };
+    // ... use groupsMap
+}
+```
+✅
+```csharp
+private static readonly FrozenDictionary<long, Func<long, string>> s_groupsMap =
+    new Dictionary<long, Func<long, string>>
+    {
+        { 1_000_000_000, n => $"{Convert(n)} billion" },
+        { 1_000_000, n => $"{Convert(n)} million" },
+        { 1_000, n => $"{Convert(n)} thousand" },
+    }.ToFrozenDictionary();
+
+public string Convert(long number)
+{
+    // ... use s_groupsMap — zero allocation per call
+}
+```
+
+**Impact: Eliminates collection + internal storage + closure allocations per call. For a Dictionary with N entries, saves ~N+3 allocations per invocation.**
+
+---
+
+### Add Overloads to Avoid params Array Allocation
+🟡 **DO** add 1- and 2-argument overloads for methods that accept `params T[]` | .NET Core+
+
+Every call to a `params T[]` method allocates an array on the heap, even for 1 or 2 arguments. Adding explicit overloads for the common 1- and 2-argument cases eliminates the array allocation entirely. On .NET 9+ / C# 13, consider `params ReadOnlySpan<T>` overloads instead.
+
+❌
+```csharp
+// Every call allocates a new IStringTransformer[] array
+public static string Transform(this string input, params IStringTransformer[] transformers) =>
+    transformers.Aggregate(input, (current, t) => t.Transform(current));
+
+// Caller: allocates IStringTransformer[1]
+"hello".Transform(To.TitleCase);
+```
+✅
+```csharp
+// Zero-allocation overload for the common single-transformer case
+public static string Transform(this string input, IStringTransformer transformer) =>
+    transformer.Transform(input);
+
+// Zero-allocation overload for two transformers
+public static string Transform(this string input, IStringTransformer t1, IStringTransformer t2) =>
+    t2.Transform(t1.Transform(input));
+
+// Keep params overload for 3+ transformers
+public static string Transform(this string input, params IStringTransformer[] transformers) =>
+    transformers.Aggregate(input, (current, t) => t.Transform(current));
+```
+
+**Impact: Eliminates one array allocation per call for the common 1- and 2-argument cases.**
+
+---
+
+## Detection
+
+Scan recipes for collection and LINQ anti-patterns. Run these and report exact counts.
+
+```bash
+# Static Dictionary not using FrozenDictionary (read-only after init)
+grep -rn --include='*.cs' 'static readonly Dictionary<' --exclude-dir=bin --exclude-dir=obj . | wc -l
+
+# Static FrozenDictionary (already optimized — verify the inverse)
+grep -rn --include='*.cs' 'static readonly FrozenDictionary<' --exclude-dir=bin --exclude-dir=obj . | wc -l
+
+# Per-call List allocation (inside method bodies, not static/readonly fields)
+grep -rn --include='*.cs' 'new List<' --exclude-dir=bin --exclude-dir=obj . | grep -v 'static\|readonly' | wc -l
+
+# Per-call Dictionary allocation (inside method bodies, not static/readonly fields)
+grep -rn --include='*.cs' 'new Dictionary<' --exclude-dir=bin --exclude-dir=obj . | grep -v 'static\|readonly' | wc -l
+
+# StringComparer.CurrentCulture usage (almost always wrong in library code — use Ordinal)
+grep -rn --include='*.cs' 'StringComparer.CurrentCulture' --exclude-dir=bin --exclude-dir=obj . | wc -l
+```
+
+### Patterns Requiring Manual Review
+
+- **ContainsKey + indexer double-lookup**: Requires verifying the same key is used in a subsequent indexer access — multi-line/multi-statement context
+- **LINQ on hot paths**: Can't distinguish hot path from cold path via grep — requires profiling or hot-path annotation
+- **`new Dictionary/List<` in method bodies vs fields**: The grep heuristic (`grep -v 'static\|readonly'`) catches most cases but may include false positives from field initializers without `static`/`readonly` — spot-check flagged lines

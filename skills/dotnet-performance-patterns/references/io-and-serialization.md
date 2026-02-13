@@ -215,3 +215,21 @@ class Foo
 ```
 
 **Impact: Enables better JIT optimization and reduces potential lock overhead on static method access.**
+
+---
+
+## Detection
+
+Scan recipes for I/O and serialization anti-patterns. Run these and report exact counts.
+
+```bash
+# new HttpClient() (socket exhaustion risk)
+grep -rn --include='*.cs' 'new HttpClient(' --exclude-dir=bin --exclude-dir=obj . | wc -l
+
+# new JsonSerializerOptions() not cached (592x slower in .NET 6)
+grep -rn --include='*.cs' 'new JsonSerializerOptions' --exclude-dir=bin --exclude-dir=obj . | grep -v 'static\|readonly' | wc -l
+```
+
+### Patterns Requiring Manual Review
+
+- **`JsonSerializer.Serialize/Deserialize` without source-gen context**: Can't determine from grep if a context parameter is passed

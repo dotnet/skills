@@ -123,3 +123,79 @@ foreach (ValueMatch m in Regex.EnumerateMatches(text, @"\b\w+\b"))
 ```
 
 **Impact: Eliminates string allocations when working with spans — particularly valuable in high-throughput parsing pipelines.**
+
+---
+
+### Budget Compiled Regex Instances at Startup
+🟡 **CONSIDER** the cumulative startup cost when using many `RegexOptions.Compiled` instances | .NET Core+
+
+Each `RegexOptions.Compiled` regex generates IL via `Reflection.Emit` at construction time — significantly more expensive than the default interpreted mode. When dozens or hundreds of compiled regexes are created during static initialization (e.g., pluralization rule tables, validation rule engines), the cumulative startup cost can be substantial: hundreds of milliseconds of JIT time plus persistent memory for generated IL.
+
+For dynamically-constructed patterns (where `[GeneratedRegex]` cannot be used), evaluate whether `Compiled` is justified. The interpreter has lower startup cost, and for short input strings (single words), the steady-state throughput difference is minimal.
+
+❌
+```csharp
+// 100+ rules, each compiled at startup — hundreds of ms startup cost
+class Rule(string pattern, string replacement)
+{
+    readonly Regex regex = new(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    // Each instance: ~1-5ms construction + persistent IL memory
+}
+```
+✅
+```csharp
+// Option A: Use interpreter for dynamic patterns with short inputs
+class Rule(string pattern, string replacement)
+{
+    readonly Regex regex = new(pattern, RegexOptions.IgnoreCase);
+    // Each instance: ~0.01-0.1ms construction, slightly slower matching
+}
+
+// Option B: Lazy compilation — interpret first, compile on repeated use
+class Rule(string pattern, string replacement)
+{
+    readonly Regex regex = new(pattern, RegexOptions.IgnoreCase);
+    Regex? compiledRegex;
+
+    public string? Apply(string word)
+    {
+        var r = compiledRegex ?? regex;
+        // Promote to compiled after N uses if desired
+    }
+}
+
+// Option C: Fast-path with exact/prefix matching before regex
+static readonly FrozenDictionary<string, string> s_exactRules = /* ... */;
+
+public string? Apply(string word)
+{
+    if (s_exactRules.TryGetValue(word, out var result))
+        return result; // skip regex entirely
+    return regex.IsMatch(word) ? regex.Replace(word, replacement) : null;
+}
+```
+
+**Impact: Startup cost scales linearly with compiled regex count. For 100 rules: ~100-500ms saved at startup. Steady-state throughput trade-off is minimal for short inputs (<50 chars). Benchmark to validate for your specific workload.**
+
+---
+
+## Detection
+
+Scan recipes for regex anti-patterns. Run these and report exact counts.
+
+```bash
+# Compiled regex count (startup cost budget — compare ratio to GeneratedRegex)
+grep -rn --include='*.cs' 'RegexOptions.Compiled' --exclude-dir=bin --exclude-dir=obj . | wc -l
+
+# GeneratedRegex count (already optimized — verify the inverse)
+grep -rn --include='*.cs' 'GeneratedRegex' --exclude-dir=bin --exclude-dir=obj . | wc -l
+
+# Uncached new Regex() calls (construction cost per call)
+grep -rn --include='*.cs' 'new Regex(' --exclude-dir=bin --exclude-dir=obj . | wc -l
+```
+
+When `RegexOptions.Compiled` appears inside a class constructor or field initializer of an instantiated class (not a static singleton), count how many instances of that class are created at startup to determine total compiled regex budget. For example, if a `Rule` class compiles a regex in its constructor and 122 rules are registered, that is 122 compiled regexes at startup.
+
+### Patterns Requiring Manual Review
+
+- **`new Regex(` uncached**: Field assignment may span multiple lines — grep on one line is unreliable. Verify that matched instances are stored in `static readonly` fields or `[GeneratedRegex]`.

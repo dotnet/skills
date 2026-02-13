@@ -207,3 +207,98 @@ public struct Point : IEquatable<Point>
 ```
 
 **Impact: ~2.5x faster equality checks, eliminates boxing allocations in Dictionary/HashSet lookups.**
+
+---
+
+### Avoid Chained String-Returning Operations
+🟡 **AVOID** chains of 3+ string-returning method calls that each allocate intermediates | .NET Core+
+
+Each call to `.Replace()`, `.ToLower()`, `.ToUpper()`, `.Trim()`, or `Regex.Replace()` allocates a new string. When chained, N calls produce N-1 throwaway intermediate strings. Also flag `+=` on strings inside loops — each iteration allocates a new, progressively larger string.
+
+❌
+```csharp
+// 3 intermediate strings from Replace chain
+string result = input.Replace("a", "b").Replace("c", "d").Replace("e", "f");
+
+// 3 intermediate strings from Regex chain + 1 from ToLower
+public static string Underscore(this string input) =>
+    Regex3.Replace(Regex2.Replace(Regex1.Replace(input, "$1_$2"), "$1_$2"), "_").ToLower();
+
+// O(n²) allocations from += in loop
+string result = "";
+foreach (var part in parts)
+    result += separator + part; // new string every iteration
+```
+✅
+```csharp
+// Single-pass with StringBuilder
+var sb = new StringBuilder(input.Length);
+// ... single pass replacing all patterns
+
+// Or use string.Create for known-length results
+return string.Create(totalLength, state, (span, s) => { /* write directly */ });
+
+// For loops, use StringBuilder or List<string> + string.Join
+var sb = new StringBuilder();
+foreach (var part in parts)
+    sb.Append(separator).Append(part);
+return sb.ToString();
+```
+
+**Impact: Eliminates N-1 intermediate string allocations per chain. For `+=` in loops, eliminates O(n²) total allocation.**
+
+---
+
+### Cache char.ToString() for Known Character Sets
+🟡 **DO** cache `char.ToString()` results when the set of characters is small and known | .NET Core+
+
+`char.ToString()` allocates a new single-character string on every call. When called in a loop or repeatedly for a small, known set of characters (e.g., metric symbols, unit abbreviations), cache the string representations.
+
+❌
+```csharp
+// Allocates a new string every call
+return symbol.ToString(); // symbol is one of 16 known chars
+
+// Inside a loop — 16 allocations per call
+foreach (var prefix in UnitPrefixes)
+    input = input.Replace(prefix.Value.Name, prefix.Key.ToString());
+```
+✅
+```csharp
+// Cache in a static dictionary
+private static readonly FrozenDictionary<char, string> s_charStrings =
+    new Dictionary<char, string>
+    {
+        ['k'] = "k", ['M'] = "M", ['G'] = "G", // ...
+    }.ToFrozenDictionary();
+
+return s_charStrings[symbol]; // zero allocation
+```
+
+**Impact: Eliminates one string allocation per char.ToString() call. Significant when called in loops or on hot paths.**
+
+---
+
+## Detection
+
+Scan recipes for memory and string anti-patterns. Run these and report exact counts.
+
+```bash
+# .ToLower()/.ToUpper() without culture parameter (allocates + culture-sensitive)
+grep -rn --include='*.cs' -E '\.(ToLower|ToUpper)\(\)' --exclude-dir=bin --exclude-dir=obj . | wc -l
+
+# Chained .Replace( calls (3+ on one line — intermediate string allocations)
+grep -rn --include='*.cs' '\.Replace(.*\.Replace(.*\.Replace(' --exclude-dir=bin --exclude-dir=obj . | wc -l
+
+# params in method signatures (array allocation per call)
+grep -rn --include='*.cs' 'params ' --exclude-dir=bin --exclude-dir=obj . | wc -l
+
+# LINQ on strings — .All/.Any on IEnumerable<char> (replace with foreach loop)
+grep -rn --include='*.cs' -E '\.(All|Any)\(char\.' --exclude-dir=bin --exclude-dir=obj . | wc -l
+```
+
+### Patterns Requiring Manual Review
+
+- **Boxing via string.Format**: Can't determine argument types from grep — needs type analysis
+- **`+=` string concatenation in loops**: `+=` matches all types (int, list, event, string) — needs type context to confirm string
+- **`char.ToString()`**: Requires knowing the variable type is `char` — not reliably greppable

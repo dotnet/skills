@@ -384,18 +384,8 @@ await s_http.GetStringAsync(url);
 ### 23. Seal Classes for Devirtualization
 🔴 **DO** | .NET Core 3.0+
 
-Sealing lets the JIT devirtualize/inline virtual calls and use pointer comparison for type checks.
+→ **Moved to [structural-patterns.md](structural-patterns.md)** — this is an absence pattern requiring codebase-wide counting scans. See that file for detection recipes and scale-based severity rules.
 
-❌
-```csharp
-internal class MyHandler : Base
-{ public override int Run() => 42; } // virtual dispatch
-```
-✅
-```csharp
-internal sealed class MyHandler : Base
-{ public override int Run() => 42; } // devirtualized + inlined
-```
 **Impact: Virtual calls up to 500x faster; type checks ~25x faster.**
 
 ### 24. Use SearchValues\<T\> for Repeated Set Searches
@@ -413,3 +403,20 @@ private static readonly SearchValues<char> s_hex = SearchValues.Create("ABCDEF")
 int pos = text.AsSpan().IndexOfAny(s_hex);
 ```
 **Impact: 2-10x faster for chars; 10-30x faster for multi-string (.NET 9+).**
+
+---
+
+## Detection
+
+Scan recipes for critical anti-patterns. Run these and report exact counts.
+
+```bash
+# .IndexOf(string) without StringComparison (culture-aware, 2-3x slower)
+grep -rn --include='*.cs' -E '\.IndexOf\("[^"]+"\)' --exclude-dir=bin --exclude-dir=obj . | wc -l
+
+# .Substring( calls (allocates new string — consider AsSpan)
+grep -rn --include='*.cs' '\.Substring(' --exclude-dir=bin --exclude-dir=obj . | wc -l
+
+# .StartsWith/.EndsWith/.Contains without StringComparison (culture-aware, 2-3x slower)
+grep -rn --include='*.cs' -E '\.(StartsWith|EndsWith|Contains)\("[^"]+"\)' --exclude-dir=bin --exclude-dir=obj . | wc -l
+```

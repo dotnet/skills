@@ -229,3 +229,18 @@ finally { _semaphore.Release(); }
 ```
 
 **Impact: Enables async-compatible synchronization without thread pool starvation or deadlocks.**
+
+---
+
+## Detection
+
+Scan recipes for async anti-patterns. Run these and report exact counts.
+
+```bash
+# async void methods (crashes on exception) — critical-patterns.md #1
+grep -rn --include='*.cs' 'async void' --exclude-dir=bin --exclude-dir=obj . | grep -v 'event' | wc -l
+```
+
+### Patterns Requiring Manual Review
+
+- **Sync-over-async** (`.Result`, `.Wait()`): `.Result` matches any property named Result — needs type context to confirm it's `Task.Result`

@@ -52,9 +52,23 @@ Scan the code for signals that indicate which topic-specific reference files to 
 |----------------|----------------|----------|
 | `async`, `await`, `Task`, `ValueTask` | [async-patterns.md](references/async-patterns.md) | `ConfigureAwait`, `ValueTask` reuse, `Parallel.ForEachAsync` |
 | `Span<`, `Memory<`, `stackalloc`, `ArrayPool`, `string.Substring`, string concatenation in loops | [memory-and-strings.md](references/memory-and-strings.md) | `AsSpan()`, interpolation handlers, `u8` literals |
+| `.Replace(`, `.ToLower()`, `.ToUpper()`, `+=` inside loops, `char.ToString()` | [memory-and-strings.md](references/memory-and-strings.md) | Chained string intermediates, per-char allocation |
+| `params ` in method signatures | [memory-and-strings.md](references/memory-and-strings.md) | `params T[]` array allocation on every call |
 | `Regex`, `[GeneratedRegex]`, `Regex.Match`, `Regex.Replace` | [regex-patterns.md](references/regex-patterns.md) | Engine selection, `EnumerateMatches`, span-based APIs |
+| `RegexOptions.Compiled` (count > 10 instances in codebase) | [regex-patterns.md](references/regex-patterns.md) | Startup cost budget for many compiled regexes |
 | `Dictionary<`, `List<`, `IEnumerable`, `.ToList()`, `.Where(`, `.Select(`, LINQ methods | [collections-and-linq.md](references/collections-and-linq.md) | `FrozenDictionary`, `CollectionsMarshal`, `EnsureCapacity` |
+| `new Dictionary<`, `new List<`, `new HashSet<` inside method bodies (not fields) | [collections-and-linq.md](references/collections-and-linq.md) | Per-call collection creation that should be hoisted to static fields |
+| `static readonly Dictionary<` (not `FrozenDictionary`) | [collections-and-linq.md](references/collections-and-linq.md) | Missed `FrozenDictionary` opportunity on read-heavy tables |
 | `JsonSerializer`, `HttpClient`, `Stream`, `FileStream`, `Utf8JsonWriter` | [io-and-serialization.md](references/io-and-serialization.md) | Source-generated JSON, `HttpCompletionOption`, async I/O |
+
+#### Structural-Absence Signals (always load)
+
+These patterns are detected by the **absence** of a keyword, not its presence. Always load `structural-patterns.md` and run the counting scans described in it.
+
+| Absence Signal | Load Reference | What to Count |
+|----------------|----------------|---------------|
+| Classes missing `sealed` keyword | [structural-patterns.md](references/structural-patterns.md) | Non-abstract, non-static classes that are not sealed |
+| Structs missing `IEquatable<T>` | [structural-patterns.md](references/structural-patterns.md) | Structs without `IEquatable<T>` that appear in collections |
 
 **Scan depth controls loading:**
 - `critical-only`: Only Step 1 (critical patterns)
@@ -67,6 +81,36 @@ For each loaded pattern, check whether the code under review exhibits the anti-p
 - API usage (e.g., `.Result`, `new Regex(`, `new HttpClient()`)
 - Structural patterns (e.g., `lock` around `await`, string concatenation in loops)
 - Missing best practices (e.g., unsealed classes, missing `ConfigureAwait` in libraries)
+
+#### Scan Recipes
+
+Each reference file contains a **## Detection** section with grep-based scan recipes and a **### Patterns Requiring Manual Review** section for items that need type context or multi-line analysis. After loading a reference file in Step 2, run all of its detection recipes and report exact counts. Do not rely on summarized agent output for counting.
+
+**Rules:**
+- Run every recipe in every loaded reference file
+- Report exact counts, not estimates
+- When a compiled regex appears inside a class constructor, count how many instances of that class are created at startup to determine total budget
+- For absence patterns, always count both sides (the Verify-the-Inverse Rule below)
+
+#### Verify-the-Inverse Rule
+
+For every absence pattern, **always count both sides** and report the ratio:
+- "N of M classes are sealed" (not just "N classes are unsealed")
+- "N of M structs implement IEquatable" (not just "N structs are missing it")
+- "N of M static dictionaries use FrozenDictionary" (not just "N are plain Dictionary")
+
+A 0/185 ratio is a codebase-wide systematic issue. A 12/15 ratio is a consistency fix. The ratio determines severity.
+
+### Step 3b: Cross-File Consistency Check
+
+For each optimization pattern detected in one file, check whether sibling files use the un-optimized equivalent. Siblings are files in the same directory, implementing the same interface, or inheriting from the same base class.
+
+**Examples:**
+- If one truncator uses `StringHumanizeExtensions.Concat()` with `.AsSpan()`, flag sibling truncators that use `value + truncationString` (raw `+` concatenation)
+- If one number-to-words converter uses `StringBuilder`, flag sibling converters that use `+=` in loops
+- If one static dictionary uses `FrozenDictionary`, flag sibling static dictionaries that use plain `Dictionary`
+
+Flag inconsistencies as 🟡 Moderate — the optimized pattern is already proven in the codebase but not applied uniformly. Include the file that uses the optimized pattern as evidence.
 
 ### Step 4: Classify and Prioritize Findings
 
@@ -82,6 +126,14 @@ Assign each finding a severity:
 1. If the user identified hot-path code, elevate all findings in that code to their maximum severity
 2. If hot-path context is unknown, report 🔴 Critical findings unconditionally; report 🟡 Moderate findings with a note: _"Impactful if this code is on a hot path"_
 3. Never suggest micro-optimizations on code that is clearly not performance-sensitive (startup, configuration, one-time initialization)
+
+**Scale-based severity escalation:**
+When the same pattern appears across many instances, escalate severity:
+- 1-10 instances of the same anti-pattern → report at the pattern's base severity
+- 11-50 instances → escalate ℹ️ Info patterns to 🟡 Moderate
+- 50+ instances → escalate to 🟡 Moderate with elevated priority; flag as a codebase-wide systematic issue
+
+Always report exact counts (from scan recipes), not estimates or agent summaries.
 
 ### Step 5: Generate Fix Suggestions
 
