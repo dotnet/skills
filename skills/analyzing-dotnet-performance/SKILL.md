@@ -1,10 +1,10 @@
 ---
 name: analyzing-dotnet-performance
 description: >-
-  Scans .NET code for performance anti-patterns and optimization opportunities
-  based on the official .NET performance analysis articles. Use when reviewing
-  hot-path code, async patterns, memory allocation, regex usage, collections,
-  serialization, or I/O for customer-actionable improvements.
+  Scans .NET code for 85+ performance anti-patterns across async, memory,
+  strings, collections, LINQ, regex, serialization, and I/O with tiered
+  severity classification. Use when analyzing .NET code for optimization
+  opportunities, reviewing hot paths, or auditing allocation-heavy patterns.
 ---
 
 # .NET Performance Patterns
