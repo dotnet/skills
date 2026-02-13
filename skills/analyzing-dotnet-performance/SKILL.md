@@ -66,6 +66,15 @@ For each loaded reference file, run every grep/scan recipe from its `## Detectio
 
 If an optimized pattern is found in one file, check whether sibling files (same directory, same interface, same base class) use the un-optimized equivalent. Flag as 🟡 Moderate with the optimized file as evidence.
 
+### Step 3c: Compound Allocation Check
+
+After running scan recipes, look for these multi-allocation patterns that single-line recipes miss:
+
+1. **Branched `.Replace()` chains:** Methods that call `.Replace()` across multiple `if/else` branches — report total allocation count across all branches, not just per-line.
+2. **Cross-method chaining:** When a public method delegates to another method that itself allocates intermediates (e.g., A calls B which does 3 regex replaces, then A calls C), report the total chain cost as one finding.
+3. **Compound `+=` with embedded allocating calls:** Lines like `result += $"...{Foo().ToLower()}"` are 2+ allocations (interpolation + ToLower + concatenation) — flag the compound cost, not just the `.ToLower()`.
+4. **`string.Format` specificity:** Distinguish resource-loaded format strings (not fixable) from compile-time literal format strings (fixable with interpolation). Enumerate the actionable sites.
+
 ### Step 4: Classify and Prioritize Findings
 
 Assign each finding a severity:
@@ -145,4 +154,3 @@ Before delivering results, verify:
 | Flagging `new HttpClient()` in DI services | Check if `IHttpClientFactory` is already in use |
 | Suggesting `[GeneratedRegex]` for dynamic patterns | Only flag when the pattern string is a compile-time literal |
 | Merging `IsMatch` + `Replace` into one call | Keep `IsMatch` as a fast-path guard when most inputs don't match |
-
