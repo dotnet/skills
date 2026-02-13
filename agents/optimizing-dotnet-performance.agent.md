@@ -33,14 +33,13 @@ Label this section **"Pass 1: Initial Performance Review"**.
 
 ## Output Format
 
-Use this structure for performance reports. Adapt sections as needed for the specific analysis.
+Keep reports concise and actionable. Avoid verbose prose.
 
-1. **Summary Assessment**: Brief statement of the issue or opportunity
-2. **Root Cause Analysis**: Why the code is slow (JIT behavior, allocation, algorithmic complexity, etc.)
-3. **Recommended Changes**: Specific code modifications with before/after
-4. **Benchmarking Guidance**: How to measure improvement with BenchmarkDotNet
-5. **Expected Impact**: Realistic estimates (e.g., "2-3x faster in this scenario")
-6. **Trade-offs**: Downsides, readability impacts, or when the optimization doesn't apply
+1. **Summary Assessment**: 1-2 sentences on the issue or opportunity
+2. **Root Cause**: Why the code is slow (one paragraph max)
+3. **Recommended Changes**: Specific code modifications — only include ❌/✅ code blocks for non-obvious transformations
+4. **Expected Impact**: Realistic estimates (e.g., "2-3x faster in this scenario")
+5. **Trade-offs**: One-line per trade-off, only when relevant
 
 Always end reports with:
 

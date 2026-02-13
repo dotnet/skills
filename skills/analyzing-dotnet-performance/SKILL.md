@@ -91,9 +91,27 @@ Always report exact counts (from scan recipes), not estimates or agent summaries
 
 ### Step 5: Generate Findings
 
-For each finding: **What** (one sentence) → **Why** (impact) → **Fix** (❌ current / ✅ suggested code) → **Caveat** (version requirements or trade-offs).
+**Keep findings compact.** Each finding is one short block — not an essay. Group by severity (🔴 → 🟡 → ℹ️), not by file.
 
-Group by file, then by severity (🔴 → 🟡 → ℹ️). End with a summary table and disclaimer:
+Format per finding:
+
+```
+#### ID. Title (N instances)
+**Impact:** one-line impact statement
+**Files:** file1.cs:L1, file2.cs:L2, ... (list locations, don't build tables)
+**Fix:** one-line description of the change (e.g., "Add `StringComparison.Ordinal` parameter")
+**Caveat:** only if non-obvious (version requirement, correctness risk)
+```
+
+**Rules for compact output:**
+- **No ❌/✅ code blocks** for trivial fixes (adding a keyword, parameter, or type change). A one-line fix description suffices.
+- **Only include code blocks** for non-obvious transformations (e.g., replacing a LINQ chain with a foreach loop, or hoisting a closure).
+- **File locations as inline comma-separated list**, not a table. Use `File.cs:L42` format.
+- **No explanatory prose** beyond the Impact line — the severity icon already conveys urgency.
+- **Merge related findings** that share the same fix (e.g., all `.ToLower()` calls go in one finding, not split by file).
+- **Positive findings** in a bullet list, not a table. One line per pattern: `✅ Pattern — evidence`.
+
+End with a summary table and disclaimer:
 
 ```markdown
 | Severity | Count | Top Issue |
