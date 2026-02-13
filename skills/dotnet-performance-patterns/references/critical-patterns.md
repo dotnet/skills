@@ -1,36 +1,31 @@
 # Critical .NET Performance Anti-Patterns
 
 24 patterns that cause deadlocks, crashes, order-of-magnitude regressions, or security vulnerabilities.
-Every pattern here is a hard rule: violating it causes measurable harm in production.
 
 ## Async / Tasks
 
 ### 1. Avoid async void
 🔴 **AVOID** | .NET Core+
 
-`async void` cannot be awaited and crashes the process on unhandled exceptions. Only valid for event handlers.
-
 ❌
 ```csharp
 public async void ProcessAsync()
-{ await FetchAsync(); throw new Exception(); } // crashes process
+{ await FetchAsync(); throw new Exception(); }
 ```
 ✅
 ```csharp
 public async Task ProcessAsync()
-{ await FetchAsync(); } // exceptions stored in Task
+{ await FetchAsync(); }
 ```
 **Impact: Unhandled exceptions crash the process; callers cannot observe completion.**
 
 ### 2. Never Block on Async (Sync-over-Async)
 🔴 **AVOID** | .NET Core+
 
-`.Wait()`, `.Result`, `.GetAwaiter().GetResult()` cause deadlocks on limited-concurrency contexts and thread pool starvation everywhere else.
-
 ❌
 ```csharp
 public string GetData()
-    => GetDataAsync().Result; // DEADLOCK or starvation
+    => GetDataAsync().Result;
 ```
 ✅
 ```csharp
@@ -42,29 +37,24 @@ public async Task<string> GetDataAsync()
 ### 3. Never Await a ValueTask Multiple Times
 🔴 **AVOID** | .NET Core 2.1+
 
-A `ValueTask` must only be awaited once. The backing `IValueTaskSource` may be recycled — second await yields corrupt data.
-
 ❌
 ```csharp
 ValueTask<int> vt = SomeMethodAsync();
 int a = await vt;
-int b = await vt; // UNDEFINED BEHAVIOR
+int b = await vt;
 ```
 ✅
 ```csharp
 int result = await SomeMethodAsync();
-// reuse result; .AsTask() if you need Task semantics
 ```
 **Impact: Undefined behavior — silent data corruption or exceptions.**
 
 ### 4. Don't Use lock with Async Code
 🔴 **AVOID** | .NET Core+
 
-`await` inside `lock` is a compile error. `Monitor.Enter/Exit` across async boundaries fails — exit may run on a different thread.
-
 ❌
 ```csharp
-lock (_sync) { await DoWorkAsync(); } // CS1996
+lock (_sync) { await DoWorkAsync(); }
 ```
 ✅
 ```csharp
@@ -76,8 +66,6 @@ try { await DoWorkAsync(); } finally { _sem.Release(); }
 
 ### 5. Async All the Way Down
 🔴 **DO** | .NET Core+
-
-Propagate async through the entire call chain. One sync-over-async point blocks a thread and can starve the pool under load.
 
 ❌
 ```csharp
@@ -96,26 +84,22 @@ public async Task<IActionResult> Index()
 ### 6. Use Span\<T\> Instead of Arrays for Slicing
 🔴 **DO** | .NET Core 2.1+
 
-`Span<T>` provides zero-allocation views. `Substring()` and `Array.Copy()` allocate on every call.
-
 ❌
 ```csharp
-string sub = input.Substring(5, 10); // allocates new string
+string sub = input.Substring(5, 10);
 ```
 ✅
 ```csharp
-ReadOnlySpan<char> sub = input.AsSpan(5, 10); // zero allocation
+ReadOnlySpan<char> sub = input.AsSpan(5, 10);
 ```
 **Impact: Eliminates per-slice allocations; 2-4x faster via vectorization.**
 
 ### 7. Use ArrayPool\<T\> for Temporary Buffers
 🔴 **DO** | .NET Core+
 
-Allocating/discarding byte arrays creates GC pressure. `ArrayPool<T>.Shared` provides reusable arrays.
-
 ❌
 ```csharp
-byte[] buf = new byte[4096]; // allocation every call
+byte[] buf = new byte[4096];
 ```
 ✅
 ```csharp
@@ -127,12 +111,10 @@ try { Process(buf); } finally { ArrayPool<byte>.Shared.Return(buf); }
 ### 8. Avoid stackalloc in Loops
 🔴 **AVOID** | .NET 5+
 
-Stack memory may not be freed until method return. `stackalloc` in a loop accumulates and crashes with `StackOverflowException`.
-
 ❌
 ```csharp
 for (int i = 0; i < 10_000; i++)
-    Span<byte> buf = stackalloc byte[1024]; // accumulates
+    Span<byte> buf = stackalloc byte[1024];
 ```
 ✅
 ```csharp
@@ -144,15 +126,13 @@ for (int i = 0; i < 10_000; i++) { Process(buf); }
 ### 9. Avoid Boxing Value Types
 🔴 **AVOID** | .NET Core+
 
-Boxing wraps value types in heap objects. Sources: old `string.Format`, non-generic interface calls, non-generic enum methods.
-
 ❌
 ```csharp
-string s = string.Format("{0}.{1}", major, minor); // boxes both
+string s = string.Format("{0}.{1}", major, minor);
 ```
 ✅
 ```csharp
-string s = $"{major}.{minor}"; // C# 10+, no boxing
+string s = $"{major}.{minor}";
 ```
 **Impact: C# 10 interpolation ~40% faster, ~5x less allocation.**
 
@@ -160,8 +140,6 @@ string s = $"{major}.{minor}"; // C# 10+, no boxing
 
 ### 10. Use StringComparison.Ordinal for Non-Linguistic Comparisons
 🔴 **DO** | .NET Core+
-
-Default `string.IndexOf(string)` uses culture-aware comparison — 2-3x slower. Use `Ordinal` for protocols, paths, identifiers.
 
 ❌
 ```csharp
@@ -175,8 +153,6 @@ bool found = text.Contains("Content-Type", StringComparison.Ordinal);
 
 ### 11. Use AsSpan Instead of Substring
 🔴 **DO** | .NET Core 2.1+
-
-`Substring()` allocates a new string. `AsSpan()` provides a zero-allocation slice for parsing or comparison.
 
 ❌
 ```csharp
@@ -193,8 +169,6 @@ int val = int.Parse(str.AsSpan(5, 3));
 ### 12. Use Source-Generated Regex [GeneratedRegex]
 🔴 **DO** | .NET 7+
 
-`[GeneratedRegex]` emits optimized C# at compile time — equal throughput to `Compiled` with near-zero startup. AOT-compatible.
-
 ❌
 ```csharp
 private static readonly Regex s_re =
@@ -210,11 +184,9 @@ private static partial Regex EmailRegex();
 ### 13. Use NonBacktracking for Untrusted Input
 🔴 **DO** | .NET 7+
 
-`NonBacktracking` guarantees O(n) worst-case. Without it, untrusted input triggers O(2^N) backtracking — a ReDoS vector.
-
 ❌
 ```csharp
-var r = new Regex(userPattern); // O(2^N) worst case
+var r = new Regex(userPattern);
 ```
 ✅
 ```csharp
@@ -225,11 +197,9 @@ var r = new Regex(userPattern, RegexOptions.NonBacktracking);
 ### 14. Avoid Nested Quantifiers (Catastrophic Backtracking)
 🔴 **AVOID** | .NET Core+
 
-Patterns like `(\w+)+$` cause O(2^N) backtracking on non-matching input — the primary cause of ReDoS vulnerabilities.
-
 ❌
 ```csharp
-var r = new Regex(@"^(\w+)+$"); // hangs on crafted input
+var r = new Regex(@"^(\w+)+$");
 ```
 ✅
 ```csharp
@@ -240,11 +210,9 @@ var r = new Regex(@"^\w+$", RegexOptions.NonBacktracking);
 ### 15. Cache and Reuse Regex Instances
 🔴 **DO** | .NET Core+
 
-`new Regex()` parses, optimizes, and generates IL. Store in `static readonly` or use `[GeneratedRegex]`.
-
 ❌
 ```csharp
-bool ok = new Regex(@"\d{3}-\d{4}").IsMatch(s); // rebuilds each call
+bool ok = new Regex(@"\d{3}-\d{4}").IsMatch(s);
 ```
 ✅
 ```csharp
@@ -256,11 +224,9 @@ bool ok = s_re.IsMatch(s);
 ### 16. Set Timeouts on Regex with Untrusted Input
 🔴 **DO** | .NET Core+
 
-Always set a timeout for user-supplied patterns or inputs. Defense-in-depth even with `NonBacktracking`.
-
 ❌
 ```csharp
-var r = new Regex(userPattern); // unbounded CPU
+var r = new Regex(userPattern);
 ```
 ✅
 ```csharp
@@ -268,17 +234,13 @@ var r = new Regex(userPattern, RegexOptions.None, TimeSpan.FromSeconds(2));
 ```
 **Impact: Prevents unbounded CPU consumption; no cost on normal matches.**
 
-## Collections
-
 ### 17. Use TryGetValue Instead of ContainsKey + Indexer
 🔴 **DO** | .NET Core+
-
-`ContainsKey()` then indexer = two hash lookups. `TryGetValue` = one. Flagged by CA1854.
 
 ❌
 ```csharp
 if (dict.ContainsKey(key))
-    Use(dict[key]); // second lookup
+    Use(dict[key]);
 ```
 ✅
 ```csharp
@@ -287,12 +249,8 @@ if (dict.TryGetValue(key, out var value))
 ```
 **Impact: ~2x faster (50% reduction in lookup time).**
 
-## LINQ
-
 ### 18. Avoid LINQ in Hot Paths
 🔴 **AVOID** | .NET Core+
-
-LINQ incurs delegate + enumerator allocations and virtual dispatch. In hot loops, use `foreach`.
 
 ❌
 ```csharp
@@ -309,12 +267,10 @@ foreach (var item in items)
 ### 19. Don't Iterate IEnumerable Multiple Times
 🔴 **AVOID** | .NET Core+
 
-Multiple enumeration doubles cost and may produce different results from deferred sources. Flagged by CA1851.
-
 ❌
 ```csharp
 foreach (Type t in types) { Validate(t); }
-_types = types.ToArray(); // second enumeration
+_types = types.ToArray();
 ```
 ✅
 ```csharp
@@ -329,11 +285,9 @@ _types = arr;
 ### 20. Use System.Text.Json Source Generator
 🔴 **DO** | .NET 6+
 
-Source generator eliminates runtime reflection, generating serialization code at compile time. Required for AOT/trimming.
-
 ❌
 ```csharp
-string json = JsonSerializer.Serialize(post); // reflection-based
+string json = JsonSerializer.Serialize(post);
 ```
 ✅
 ```csharp
@@ -346,11 +300,9 @@ string json = JsonSerializer.Serialize(post, AppJsonCtx.Default.BlogPost);
 ### 21. Cache JsonSerializerOptions
 🔴 **DO** | .NET 5+
 
-New `JsonSerializerOptions` per call re-generates metadata. In .NET 6 this caused 592x slowdown. Cache in `static readonly`.
-
 ❌
 ```csharp
-JsonSerializer.Serialize(obj, new JsonSerializerOptions()); // 592x slower
+JsonSerializer.Serialize(obj, new JsonSerializerOptions());
 ```
 ✅
 ```csharp
@@ -364,11 +316,9 @@ JsonSerializer.Serialize(obj, s_opts);
 ### 22. Reuse HttpClient Instances
 🔴 **DO** | .NET Core 2.1+
 
-New `HttpClient` per request exhausts sockets (240s `TIME_WAIT`). Create one per endpoint; set `PooledConnectionLifetime` for DNS.
-
 ❌
 ```csharp
-using var client = new HttpClient(); // socket exhaustion
+using var client = new HttpClient();
 await client.GetStringAsync(url);
 ```
 ✅
@@ -384,14 +334,12 @@ await s_http.GetStringAsync(url);
 ### 23. Seal Classes for Devirtualization
 🔴 **DO** | .NET Core 3.0+
 
-→ **Moved to [structural-patterns.md](structural-patterns.md)** — this is an absence pattern requiring codebase-wide counting scans. See that file for detection recipes and scale-based severity rules.
+→ **Moved to [structural-patterns.md](structural-patterns.md)**
 
 **Impact: Virtual calls up to 500x faster; type checks ~25x faster.**
 
 ### 24. Use SearchValues\<T\> for Repeated Set Searches
 🔴 **DO** | .NET 8+
-
-`SearchValues<T>` pre-computes SIMD search algorithms. Create once in `static readonly`; raw `IndexOfAny` rebuilds vectors each call.
 
 ❌
 ```csharp
@@ -403,8 +351,6 @@ private static readonly SearchValues<char> s_hex = SearchValues.Create("ABCDEF")
 int pos = text.AsSpan().IndexOfAny(s_hex);
 ```
 **Impact: 2-10x faster for chars; 10-30x faster for multi-string (.NET 9+).**
-
----
 
 ## Detection
 

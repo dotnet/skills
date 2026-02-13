@@ -1,15 +1,6 @@
 # Structural Patterns
 
-Patterns detected by the **absence** of a keyword or interface, rather than the presence of an anti-pattern. These require codebase-wide counting scans, not single-file matching.
-
-## Why a Separate File
-
-Structural-absence patterns are fundamentally different from API-usage patterns:
-- They can't be found by grepping for a bad API call — you must grep for what's **missing**
-- Their severity scales with **count** — 3 unsealed classes is ℹ️ Info, 150 is 🟡 Moderate
-- They require **ratio reporting** (e.g., "0 of 185 classes are sealed") to convey impact
-
----
+Patterns detected by the **absence** of a keyword or interface. These require codebase-wide counting scans, not single-file matching.
 
 ### Seal Classes for Devirtualization
 🟡 **DO** seal all leaf classes (those not subclassed) | .NET Core 3.0+
@@ -31,12 +22,12 @@ grep -rn --include='*.cs' 'sealed class' --exclude-dir=bin --exclude-dir=obj . |
 ❌
 ```csharp
 internal class MyHandler : Base
-{ public override int Run() => 42; } // virtual dispatch
+{ public override int Run() => 42; }
 ```
 ✅
 ```csharp
 internal sealed class MyHandler : Base
-{ public override int Run() => 42; } // devirtualized + inlined
+{ public override int Run() => 42; }
 ```
 
 **Impact: Virtual calls up to 500x faster; type checks ~25x faster. Severity scales with count.**
@@ -46,14 +37,10 @@ internal sealed class MyHandler : Base
 - 11-50 unsealed leaf classes → 🟡 Moderate
 - 50+ unsealed leaf classes → 🟡 Moderate (elevated priority)
 
----
-
 ### Implement IEquatable\<T\> on Structs to Avoid Boxing
 🟡 **DO** implement `IEquatable<T>` on all structs used in collections or comparisons | .NET Core+
 
-Without `IEquatable<T>`, struct equality uses reflection-based comparison or boxing to call `object.Equals`. Implementing it enables the JIT to devirtualize and inline the comparison.
-
-**Detection:** This is an absence pattern — scan for structs that do NOT implement `IEquatable<T>`.
+**Detection:** Scan for structs that do NOT implement `IEquatable<T>`.
 
 ```bash
 # Count structs without IEquatable
@@ -68,7 +55,6 @@ grep -rn --include='*.cs' -E 'struct .+IEquatable' --exclude-dir=bin --exclude-d
 public struct Point
 {
     public int X, Y;
-    // Default equality uses reflection — slow and allocates
 }
 ```
 ✅
