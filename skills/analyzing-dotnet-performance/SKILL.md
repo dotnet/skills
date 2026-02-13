@@ -1,5 +1,5 @@
 ---
-name: dotnet-performance-patterns
+name: analyzing-dotnet-performance
 description: >-
   Scans .NET code for performance anti-patterns and optimization opportunities
   based on the official .NET performance analysis articles. Use when reviewing
