@@ -67,10 +67,12 @@ Categorize every usage into one of the following patterns:
 
 Use the modern replacement from the table above. Key implementation notes per pattern:
 
-- **Plugin isolation / unloadability**: Create a custom `AssemblyLoadContext` subclass with `isCollectible: true`. Use `AssemblyDependencyResolver` in the `Load` override. Override `LoadUnmanagedDll` to resolve native dependencies from the plugin directory. After calling `Unload()`, release all references to types from that context and use `WeakReference` to verify the context is garbage collected.
+- **Plugin isolation / unloadability**: Create a custom `AssemblyLoadContext` subclass with `isCollectible: true`. Use `AssemblyDependencyResolver` in the `Load` override. Override `LoadUnmanagedDll` to resolve native dependencies from the plugin directory. Do not use `Assembly.LoadFrom` — it loads into the default context and bypasses isolation. Always use `AssemblyLoadContext.LoadFromAssemblyPath` on the custom context. After calling `Unload()`, release all references to types from that context and use `WeakReference` to verify the context is garbage collected.
 - **MarshalByRefObject / cross-domain remoting**: Define a shared interface in an assembly loaded by the default context. The plugin implements that interface and the host casts to it. If strong security isolation is needed, use a separate process with IPC instead.
 - **Sandboxing / partial trust**: Modern .NET does not support CAS or partial trust. Remove all `PermissionSet`, `SecurityPermission`, and `AppDomain.SetAppDomainPolicy` calls. Replace with a separate process running under restricted OS permissions (Windows: Job Objects or restricted user account; Linux: containers, seccomp, or AppArmor).
 - **Configuration isolation**: Replace `AppDomainSetup.ConfigurationFile` with `Microsoft.Extensions.Configuration`. Create a per-component `IConfiguration` instance using `ConfigurationBuilder`. Remove `AppDomainSetup` and any `ConfigurationManager` calls that relied on per-domain config files.
+- **Cross-domain state (`SetData` / `GetData`)**: Replace with explicit parameter passing, dependency injection, or `AsyncLocal<T>` for ambient state. Do not rely on implicit shared state.
+- **`DoCallBack`**: Replace with a direct method call on the loaded type. Since `AssemblyLoadContext` does not create a remoting boundary, there is no need for a callback delegate — load the assembly, instantiate the type, and invoke methods directly.
 
 ### Step 4: Clean up removed APIs
 

@@ -1,0 +1,186 @@
+scenarios:
+  - name: "Plugin host with AppDomain isolation"
+    prompt: |
+      Migrate this .NET Framework code to .NET 8. Provide complete migration guidance with code and pitfalls.
+
+      ```csharp
+      public class PluginHost
+      {
+          private AppDomain _pluginDomain;
+          public IPluginResult LoadAndExecute(string pluginDllPath, string inputData)
+          {
+              var setup = new AppDomainSetup
+              {
+                  ApplicationBase = Path.GetDirectoryName(pluginDllPath),
+                  ConfigurationFile = Path.Combine(Path.GetDirectoryName(pluginDllPath), "plugin.config")
+              };
+              _pluginDomain = AppDomain.CreateDomain("PluginDomain", null, setup);
+              var proxy = (PluginProxy)_pluginDomain.CreateInstanceAndUnwrap(
+                  typeof(PluginProxy).Assembly.FullName, typeof(PluginProxy).FullName);
+              var result = proxy.Execute(pluginDllPath, inputData);
+              AppDomain.Unload(_pluginDomain);
+              return result;
+          }
+      }
+
+      [Serializable]
+      public class PluginResult : IPluginResult
+      {
+          public string Output { get; set; }
+          public bool Success { get; set; }
+      }
+
+      public class PluginProxy : MarshalByRefObject
+      {
+          public PluginResult Execute(string dllPath, string input)
+          {
+              var assembly = Assembly.LoadFrom(dllPath);
+              var type = assembly.GetTypes().First(t => typeof(IPlugin).IsAssignableFrom(t));
+              var plugin = (IPlugin)Activator.CreateInstance(type);
+              return plugin.Run(input);
+          }
+      }
+      ```
+    assertions:
+      - type: output_contains
+        value: "AssemblyLoadContext"
+      - type: output_contains
+        value: "isCollectible"
+      - type: output_contains
+        value: "LoadUnmanagedDll"
+      - type: exit_success
+    rubric:
+      - "Warns about InvalidCastException from shared types loaded in both default and plugin AssemblyLoadContext"
+      - "Mentions WeakReference to verify unloading works"
+      - "Cautions about removing [Serializable] only after checking for BinaryFormatter or other serializer usage"
+      - "Recommends using AssemblyLoadContext.LoadFromAssemblyPath instead of Assembly.LoadFrom for isolation"
+      - "Addresses the ConfigurationFile replacement with IConfiguration"
+    timeout: 120
+
+  - name: "Sandboxing with CAS and partial trust"
+    prompt: |
+      Migrate this .NET Framework sandboxing code to .NET 8. Provide complete migration guidance with code and pitfalls.
+
+      ```csharp
+      public class SandboxRunner
+      {
+          public object RunUntrusted(string assemblyPath, string typeName, string methodName)
+          {
+              var permissions = new PermissionSet(PermissionState.None);
+              permissions.AddPermission(new SecurityPermission(SecurityPermissionFlag.Execution));
+              permissions.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, @"C:\SafeData"));
+              var setup = new AppDomainSetup { ApplicationBase = Path.GetDirectoryName(assemblyPath) };
+              var domain = AppDomain.CreateDomain("Sandbox", null, setup, permissions);
+              domain.SetData("SharedConfig", new Dictionary<string, string> { ["MaxItems"] = "100" });
+              try
+              {
+                  var instance = domain.CreateInstanceAndUnwrap(
+                      Path.GetFileNameWithoutExtension(assemblyPath), typeName);
+                  var result = instance.GetType().GetMethod(methodName).Invoke(instance, null);
+                  return result;
+              }
+              finally { AppDomain.Unload(domain); }
+          }
+      }
+      ```
+    assertions:
+      - type: output_contains
+        value: "process"
+      - type: output_not_contains
+        value: "AssemblyLoadContext provides security"
+      - type: exit_success
+    rubric:
+      - "Correctly identifies this as a sandboxing pattern, not a plugin isolation pattern"
+      - "States that CAS and partial trust are not supported in modern .NET"
+      - "Recommends separate process isolation rather than AssemblyLoadContext for security"
+      - "Addresses the SetData/GetData replacement with dependency injection, arguments, or AsyncLocal"
+      - "Does not suggest AssemblyLoadContext as a security boundary"
+    timeout: 120
+
+  - name: "Multi-pattern AppDomain decomposition"
+    prompt: |
+      Migrate this .NET Framework code to .NET 8. This code uses AppDomain for MULTIPLE purposes simultaneously. Provide complete migration guidance.
+
+      ```csharp
+      public class WorkerManager
+      {
+          public void RunWorker(string workerDllPath, Dictionary<string, string> config)
+          {
+              var setup = new AppDomainSetup
+              {
+                  ApplicationBase = Path.GetDirectoryName(workerDllPath),
+                  ConfigurationFile = Path.Combine(Path.GetDirectoryName(workerDllPath), "worker.exe.config")
+              };
+              var domain = AppDomain.CreateDomain("Worker_" + Guid.NewGuid(), null, setup);
+              foreach (var kvp in config)
+                  domain.SetData(kvp.Key, kvp.Value);
+              domain.DoCallBack(() =>
+              {
+                  var workerConfig = AppDomain.CurrentDomain.GetData("ConnectionString") as string;
+                  var maxRetries = AppDomain.CurrentDomain.GetData("MaxRetries") as string;
+                  var assembly = Assembly.LoadFrom(workerDllPath);
+                  var workerType = assembly.GetTypes().First(t => t.Name == "Worker");
+                  var worker = Activator.CreateInstance(workerType);
+                  workerType.GetMethod("Start").Invoke(worker, new object[] { workerConfig, int.Parse(maxRetries) });
+              });
+              AppDomain.Unload(domain);
+          }
+      }
+      ```
+    assertions:
+      - type: output_contains
+        value: "AssemblyLoadContext"
+      - type: output_contains
+        value: "IConfiguration"
+      - type: exit_success
+    rubric:
+      - "Explicitly decomposes the code into multiple patterns before migrating (plugin loading, config isolation, cross-domain state, DoCallBack)"
+      - "Addresses DoCallBack replacement with direct method invocation"
+      - "Addresses SetData/GetData replacement with dependency injection or parameters"
+      - "Addresses ConfigurationFile replacement with IConfiguration or ConfigurationBuilder"
+      - "Warns about Assembly.LoadFrom loading into the default context without isolation"
+    timeout: 120
+
+  - name: "CurrentDomain event subscriptions only - should not migrate"
+    prompt: |
+      Migrate this .NET Framework code to .NET 8. Provide your migration guidance.
+
+      ```csharp
+      public class AppStartup
+      {
+          public static void Initialize()
+          {
+              AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
+              {
+                  var ex = (Exception)args.ExceptionObject;
+                  Logger.Fatal($"Unhandled exception: {ex}");
+                  Environment.Exit(1);
+              };
+              AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
+              {
+                  var name = new AssemblyName(args.Name);
+                  var probePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "libs", name.Name + ".dll");
+                  if (File.Exists(probePath))
+                      return Assembly.LoadFrom(probePath);
+                  return null;
+              };
+              AppDomain.CurrentDomain.ProcessExit += (sender, args) =>
+              {
+                  Logger.Info("Application shutting down");
+                  CleanupResources();
+              };
+          }
+      }
+      ```
+    assertions:
+      - type: output_contains
+        value: "no migration"
+      - type: output_not_contains
+        value: "AssemblyLoadContext"
+      - type: exit_success
+    rubric:
+      - "Correctly identifies that this code only uses AppDomain.CurrentDomain event subscriptions"
+      - "States that these events still work in modern .NET and do not require migration"
+      - "Does NOT recommend replacing AssemblyResolve with AssemblyLoadContext"
+      - "Does NOT over-migrate working code"
+    timeout: 120
