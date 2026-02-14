@@ -11,6 +11,20 @@ description: >-
 
 Scan C# code for Native AOT and trimming incompatibilities and produce prioritized fixes. Goal: **zero-warning AOT publish**.
 
+## Why This Skill Exists
+
+LLMs already know general AOT concepts. This skill adds knowledge that base models **consistently get wrong**:
+
+| What Claude Gets Wrong Without This Skill | Correct Answer |
+|------------------------------------------|----------------|
+| Suggests `#pragma warning disable` for trim warnings | `#pragma` is **not preserved in IL** — trimmer ignores it. Must use `[UnconditionalSuppressMessage]` |
+| Flags ALL `MakeGenericType` as dangerous | Safe for **reference types** (shared canonical code). Only value types need pre-generated code |
+| Misses `Expression.Compile()` perf cliff | Falls back to **10-100x slower interpreter** in AOT — **no warning emitted** |
+| Suggests fixing `EventSource.WriteEvent` IL2026 | False positive for >3 params with **primitive types** — safe to suppress |
+| Doesn't know `IsAotCompatible=true` cascades | Automatically enables `IsTrimmable` + `EnableTrimAnalyzer` + `EnableSingleFileAnalyzer` + `EnableAotAnalyzer` |
+| Gives incomplete annotation workflow | Must propagate `[DynamicallyAccessedMembers]` through **entire call chain** — leaf → caller → caller → call site |
+| Inconsistent on EF Core AOT status | Experimental: requires compiled models + precompiled queries, not production-ready |
+
 ## When to Use
 
 - Preparing an app for `<PublishAot>true</PublishAot>` or a library for `<IsAotCompatible>true</IsAotCompatible>`
