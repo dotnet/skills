@@ -1,0 +1,74 @@
+scenarios:
+  - name: "Detects critical patterns: sync-over-async, ReDoS, string concat in loop"
+    prompt: "Analyze this C# code for performance issues. Treat all code paths as potentially hot."
+    setup:
+      files:
+        - path: "TextProcessor.cs"
+          source: "tests/fixtures/critical-antipatterns.cs"
+    assertions:
+      - type: "output_contains"
+        value: "Result"
+      - type: "output_contains"
+        value: "ReDoS"
+      - type: "exit_success"
+    rubric:
+      - "Identifies .Result on async call as sync-over-async that risks deadlock"
+      - "Flags the regex pattern as vulnerable to catastrophic backtracking (ReDoS)"
+      - "Catches string concatenation with += in a loop and recommends StringBuilder"
+      - "Flags .ToLower() without StringComparison as allocating unnecessarily"
+      - "Classifies sync-over-async and ReDoS as Critical severity"
+    timeout: 120
+
+  - name: "Finds collection, LINQ, and allocation issues"
+    prompt: "Scan this report generator for .NET performance anti-patterns. The GenerateReport method is called thousands of times per second."
+    setup:
+      files:
+        - path: "ReportGenerator.cs"
+          source: "tests/fixtures/collections-and-allocations.cs"
+    assertions:
+      - type: "output_contains"
+        value: "StringBuilder"
+      - type: "output_contains"
+        value: "ContainsKey"
+      - type: "exit_success"
+    rubric:
+      - "Flags string concatenation with += in the report-building loop"
+      - "Identifies ContainsKey + indexer as a double-lookup and recommends TryGetValue"
+      - "Notes that the LINQ chain with .ToList() allocates intermediate collections on a hot path"
+      - "Flags the O(n²) duplicate-finding loop with nested LINQ .Any() inside"
+      - "Suggests the read-only dictionary could be a FrozenDictionary since it's never mutated"
+    timeout: 120
+
+  - name: "Catches I/O and async performance issues"
+    prompt: "Review this data service for performance problems. It handles high-throughput data ingestion."
+    setup:
+      files:
+        - path: "DataService.cs"
+          source: "tests/fixtures/io-and-async-issues.cs"
+    assertions:
+      - type: "output_contains"
+        value: "HttpClient"
+      - type: "exit_success"
+    rubric:
+      - "Flags new HttpClient() in constructor instead of IHttpClientFactory"
+      - "Identifies sequential awaits in a loop that should use Task.WhenAll for concurrent fetching"
+      - "Catches File.ReadAllTextAsync loading entire file into memory instead of streaming with ReadLinesAsync"
+      - "Flags .ToLower() on both line and searchTerm every iteration instead of using StringComparison.OrdinalIgnoreCase"
+    timeout: 120
+
+  - name: "Detects struct missing IEquatable<T>"
+    prompt: "Analyze the Money struct and its usage for performance concerns."
+    setup:
+      files:
+        - path: "Models.cs"
+          source: "tests/fixtures/struct-missing-iequatable.cs"
+    assertions:
+      - type: "output_contains"
+        value: "IEquatable"
+      - type: "exit_success"
+    rubric:
+      - "Identifies the struct implements Equals(object) but not IEquatable<Money>, causing boxing"
+      - "Recommends implementing IEquatable<Money> with a strongly-typed Equals(Money other) method"
+      - "Notes the struct is mutable and should be a readonly struct for performance and correctness"
+      - "Explains that boxing occurs when Money is used as a Dictionary key or in LINQ comparisons without IEquatable<T>"
+    timeout: 120
