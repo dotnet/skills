@@ -1,128 +1,164 @@
 # Expected output WITH skill
 
-This represents the type of review Claude gives with the `reviewing-dotnet-api-design` skill loaded. The review follows the 9-step structured workflow, uses caller-first methodology, classifies findings by severity, and references specific conventions.
+This represents the type of review Claude gives with the `reviewing-dotnet-api-design` skill loaded. The review follows the 9-step structured workflow with convention-specific catches that require the reference files.
 
 ## Characteristics of a with-skill review
 
-- **Loads the skill** — invokes `reviewing-dotnet-api-design` skill before starting the review
-- **Caller-first** — writes sample calling code for top scenarios before analyzing the API
-- **Surface classification** — identifies this as a "New library API" requiring full review
-- **Severity grouping** — Critical → Warning → Suggestion ordering
-- **Catches `List<T>`** — flags as Critical because `List<T>` exposes internal implementation; convention is `Collection<T>` or `ReadOnlyCollection<T>`
-- **Catches mutable struct** — flags as Critical because `ConnectionInfo` has mutable properties, reference-type fields, and side-effecting methods
-- **Convention-specific naming** — identifies `Result()` as noun-named method, cites verb convention
-- **Error handling conventions** — flags missing `paramName`, recommends `ArgumentNullException.ThrowIfNull`
-- **Notes strengths** — praises correct event pattern and IDisposable implementation
-- **Before/after fixes** — concrete code examples for each issue
+- **Loads the skill** — invokes `reviewing-dotnet-api-design` skill
+- **Caller-first** — writes calling code that reveals `MessageEnvelope` is awkward as a struct (value-copy semantics on a large, mutable type)
+- **Surface classification** — identifies as "New library API" for NuGet distribution
+- **Severity grouping** — Critical → Warning → Suggestion with specific criteria
+- **Catches struct triple violation** — mutability + >16 bytes + reference-type field, with size calculation
+- **Catches `[Flags]` non-power-of-two** — `ExactlyOnce = 3` silently aliases the combination; flags values must be powers of two
+- **Catches parameter name inconsistency** — `topicName`/`callback` vs `topic`/`handler` across methods
+- **Catches async validation timing** — argument validation must happen synchronously before first `await`
+- **Catches operator pair** — `==` without `!=`, `Equals`, `GetHashCode` violates operator convention
+- **Catches missing `TryParse`** — `Parse` method that throws should have a `TryParse` companion
+- **Notes strengths** — correct `CancellationToken` placement, `ReadOnlyMemory<byte>` for payload
 
 ## Example with-skill output
 
 ### Surface Classification
 
-**Type:** New library API
-**Context:** `Contoso.Networking` namespace — appears to be a library for network connectivity
+**Type:** New library API (NuGet package)
+**Namespace:** `Contoso.Messaging` — pub/sub message broker
 
 ### Scenario Code
 
 ```csharp
-// Scenario 1: Create a connection
-var info = new ConnectionInfo { Host = "example.com", Port = 443 };
-info.Connect();
+// Scenario 1: Publish a message
+var envelope = new MessageEnvelope
+{
+    Topic = "orders.created",
+    Payload = payloadBytes,
+    Headers = new Dictionary<string, string> { ["content-type"] = "application/json" },
+    SentAt = DateTimeOffset.UtcNow
+};
+var broker = new MessageBroker();
+broker.Publish(envelope);
 
-// Scenario 2: Process data
-var processor = new DataProcessor();
-string encoded = processor.Result(data);
-List<string> items = processor.GetItems();
+// Scenario 2: Subscribe to a topic
+broker.Subscribe("orders.created", msg => Console.WriteLine(msg.Topic));
 
-// Scenario 3: Watch for file changes
-using var watcher = new FileWatcher();
-watcher.Changed += (s, e) => Console.WriteLine(e.FilePath);
+// Scenario 3: Parse a result
+var result = MessageResult.Parse("OK|");
 ```
 
-**Assessment:** Scenario 1 is problematic — `ConnectionInfo` is a value type, so `info.Connect()` operates on a copy in some contexts. Scenario 2 has awkward naming (`Result` is unclear) and leaks internal `List<T>`. Scenario 3 is clean.
+**Assessment:** Scenario 1 is awkward — `MessageEnvelope` is a struct but requires initializing 5 properties including a `Dictionary`. Assigning this to another variable copies all fields, but the `Dictionary` is shared by reference. This is a class, not a struct. Scenario 2 is clean. Scenario 3 has no safe alternative if the format is wrong.
 
 ### 🔴 Critical
 
-#### C1. Mutable Struct with Reference Semantics — `ConnectionInfo`
+#### C1. `MessageEnvelope` — Mutable struct with reference-type field, exceeds 16-byte guideline
 
-**Convention:** Structs should be small, immutable, represent single values, have no reference-type fields, and have no side effects. (`DateTime`, `TimeSpan`, `Guid` are the model.)
+**Convention:** Structs should be ≤16 bytes, immutable (`readonly struct`), with no reference-type fields. `MessageEnvelope` has 5 properties including `Dictionary<string, string>` and `string` fields — far exceeding 16 bytes and creating value-copy confusion.
 
-**Issue:** `ConnectionInfo` is mutable (`set` accessors), has a `List<string>` field (reference type causes unexpected sharing on copy), and has a `Connect()` method (side effect on value type).
+**Fix:** Convert to `sealed class` or `readonly record struct` (if immutable and small).
+
+#### C2. `[Flags] DeliveryMode` — Values are not powers of two
+
+**Convention:** `[Flags]` enum values must be powers of two (1, 2, 4, 8...) so bitwise combination works correctly. `ExactlyOnce = 3` silently equals `AtMostOnce | AtLeastOnce`, making it impossible to distinguish.
 
 **Fix:**
 ```csharp
-// ❌ Before
-public struct ConnectionInfo { ... }
-
-// ✅ After — Class with identity and side effects
-public sealed class ConnectionInfo : IDisposable
+[Flags]
+public enum DeliveryMode
 {
-    public ConnectionInfo(string host, int port) { ... }
-    public string Host { get; }
-    public int Port { get; }
-    public void Connect() { ... }
-    public void Dispose() { ... }
+    AtMostOnce = 1,
+    AtLeastOnce = 2,
+    ExactlyOnce = 4
 }
 ```
 
-#### C2. `List<T>` Return Type in Public API — `DataProcessor.GetItems()`
+Or remove `[Flags]` if these are mutually exclusive modes (use singular `DeliveryMode` without `[Flags]`).
 
-**Convention:** Public APIs return `Collection<T>` or `ReadOnlyCollection<T>`, not `List<T>`. `List<T>` exposes `Add`, `Sort`, `Reverse` etc. which callers should not use to mutate the internal collection.
+#### C3. `ActiveTopics` returns `List<string>` in public API
 
-**Fix:**
-```csharp
-// ❌ Before
-public List<string> GetItems() => new List<string>();
+**Convention:** Public APIs return `ReadOnlyCollection<T>` or `IReadOnlyList<T>`, not `List<T>`.
 
-// ✅ After
-public ReadOnlyCollection<string> GetItems() => new List<string>().AsReadOnly();
-```
+**Fix:** Return `ReadOnlyCollection<string>` or `IReadOnlyList<string>`.
 
 ### 🟡 Warning
 
-#### W1. Noun-Named Method — `DataProcessor.Result()`
+#### W1. Parameter names inconsistent across related methods
 
-**Convention:** Methods use verbs or verb phrases (`Read`, `Parse`, `ComputeHash`). Properties use nouns.
+**Convention:** Parameters representing the same concept must use identical names across all methods.
 
-**Fix:** Rename to `ComputeResult(byte[] data)` or `Encode(byte[] data)`.
+| Method | Topic param | Handler param |
+|--------|------------|---------------|
+| `Publish` | `envelope` (contains `.Topic`) | — |
+| `Subscribe` | `topicName` ← inconsistent | `callback` ← inconsistent |
+| `Unsubscribe` | `topic` | — |
 
-#### W2. Missing `paramName` on ArgumentNullException
+**Fix:** Standardize to `topic` and `handler` across all methods.
 
-**Convention:** Always pass `nameof(parameter)` or use `ArgumentNullException.ThrowIfNull()`.
+#### W2. `PublishAsync` validates arguments inside `Task.Run`
+
+**Convention:** Async methods must validate arguments synchronously before the first `await`. Deferring validation into the task means the caller gets a faulted `Task` instead of an immediate exception at the call site.
 
 **Fix:**
 ```csharp
-// ❌ Before
-throw new ArgumentNullException();
+public Task PublishAsync(MessageEnvelope envelope, CancellationToken token)
+{
+    ArgumentNullException.ThrowIfNull(envelope.Topic);
+    return PublishAsyncCore(envelope, token);
+}
 
-// ✅ After
-ArgumentNullException.ThrowIfNull(data);
+private async Task PublishAsyncCore(MessageEnvelope envelope, CancellationToken token)
+{
+    await Task.Run(() => Publish(envelope), token);
+}
 ```
 
-#### W3. Unsealed Leaf Class — `DataProcessor`
+#### W3. `operator ==` without `!=`, `Equals`, or `GetHashCode`
 
-**Convention:** Classes with no virtual members and not designed for inheritance should be sealed.
+**Convention:** Operators must be implemented in pairs. `==` requires `!=`, and both require consistent `Equals(object)` and `GetHashCode()` overrides.
 
-**Fix:** Add `sealed` modifier: `public sealed class DataProcessor`
+**Fix:** Implement `!=`, override `Equals(object)`, override `GetHashCode()`, and implement `IEquatable<MessageBroker>`.
+
+#### W4. `ArgumentNullException` without `paramName` in `Subscribe()`
+
+**Convention:** Always pass `nameof(parameter)`. Use `ArgumentNullException.ThrowIfNull()` (.NET 6+).
+
+#### W5. `ArgumentException` for null topic in `Publish()` — wrong exception type
+
+**Convention:** Null arguments get `ArgumentNullException`, not `ArgumentException`.
+
+#### W6. `BrokerException(string msg)` — abbreviated parameter name
+
+**Convention:** No abbreviations in public APIs. Use `message` not `msg`.
+
+#### W7. `MessageResult.Parse` throws bare `Exception`; no `TryParse` variant
+
+**Convention:** Use `FormatException` for parse failures. Provide a `TryParse(string, out MessageResult)` companion for callers who expect failures.
+
+#### W8. `Retrieval()` — noun-named method
+
+**Convention:** Methods use verbs. Rename to `Retrieve()` or `GetNextMessage()`.
 
 ### 💡 Suggestion
 
-#### S1. Property Does Expensive Work — `DataProcessor.Checksum`
+#### S1. `MessageBroker` unsealed with no virtual members
 
-**Convention:** Properties should be cheap and idempotent. Expensive operations should be methods (`ComputeChecksum()`).
+**Convention:** Seal classes not designed for inheritance. No virtual members = not designed for extension.
 
-**Fix:** Convert to method: `public byte[] ComputeChecksum()`
+#### S2. `IMessageBroker` has no async methods
+
+For an I/O-bound broker, consider adding `PublishAsync`/`SubscribeAsync` to the interface.
+
+#### S3. `ContainsKey` + indexer double-lookup in `Subscribe()`
+
+**Convention:** Use `TryGetValue` for single-lookup pattern.
 
 ### ✅ Strengths
 
-- **Correct event pattern** — `FileWatcher` uses `EventHandler<FileChangedEventArgs>` with `protected virtual OnChanged()`
-- **Standard IDisposable** — `FileWatcher` implements the full dispose pattern with `Dispose(bool)` and `GC.SuppressFinalize`
-- **Proper EventArgs** — `FileChangedEventArgs` derives from `EventArgs` with correct suffix naming
+- **`CancellationToken` last** — `PublishAsync(envelope, token)` follows correct parameter ordering
+- **`ReadOnlyMemory<byte>` for Payload** — Avoids mutable `byte[]` in the public surface
+- **`BrokerException`** — Correct `Exception` suffix naming
 
 ### Summary
 
-| Severity | Count | Issues |
-|----------|-------|--------|
-| 🔴 Critical | 2 | Mutable struct, `List<T>` in public API |
-| 🟡 Warning | 3 | Noun method name, missing paramName, unsealed class |
-| 💡 Suggestion | 1 | Expensive property |
+| Severity | Count | Key Issues |
+|----------|-------|------------|
+| 🔴 Critical | 3 | Mutable oversized struct, `[Flags]` non-power-of-two, `List<T>` return |
+| 🟡 Warning | 8 | Param name inconsistency, async validation timing, unpaired operator, missing TryParse, wrong exception types, abbreviation |
+| 💡 Suggestion | 3 | Unsealed class, no async interface, double-lookup |

@@ -1,87 +1,126 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace Contoso.Networking;
+namespace Contoso.Messaging;
 
-// --- Deliberate violations for testing ---
+// A message broker library for pub/sub messaging.
+// Target: .NET 8, NuGet package.
 
-// Critical: Mutable struct with reference-type field and side effects
-public struct ConnectionInfo
+public struct MessageEnvelope
 {
-    public string Host { get; set; }
-    public int Port { get; set; }
-    public List<string> Tags { get; set; }
-
-    public void Connect()
-    {
-        // Side-effecting method on a value type
-    }
+    public string Topic { get; set; }
+    public string CorrelationId { get; set; }
+    public Dictionary<string, string> Headers { get; set; }
+    public ReadOnlyMemory<byte> Payload { get; set; }
+    public DateTimeOffset SentAt { get; set; }
 }
 
-// Warning: Unsealed leaf class with no virtual members
-public class DataProcessor
+[Flags]
+public enum DeliveryMode
 {
-    // Warning: Method named with noun instead of verb
-    public string Result(byte[] data)
-    {
-        if (data == null)
-            // Warning: Missing paramName on ArgumentNullException
-            throw new ArgumentNullException();
+    AtMostOnce = 1,
+    AtLeastOnce = 2,
+    ExactlyOnce = 3
+}
 
-        return Convert.ToBase64String(data);
-    }
+public interface IMessageBroker
+{
+    void Publish(MessageEnvelope envelope);
+    void Subscribe(string topic, Action<MessageEnvelope> handler);
+    void Unsubscribe(string topic);
+}
 
-    // Critical: List<T> return type in public API
-    public List<string> GetItems()
-    {
-        return new List<string>();
-    }
+public class MessageBroker : IMessageBroker
+{
+    private readonly Dictionary<string, List<Action<MessageEnvelope>>> _handlers = new();
 
-    // Suggestion: Property that does expensive work (should be a method)
-    public byte[] Checksum
+    public string BrokerEndpoint { get; set; }
+
+    public List<string> ActiveTopics
     {
         get
         {
-            // Expensive computation — violates property contract
-            System.Threading.Thread.Sleep(100);
-            return System.Security.Cryptography.SHA256.HashData(Array.Empty<byte>());
+            var topics = new List<string>();
+            foreach (var kvp in _handlers)
+                if (kvp.Value.Count > 0)
+                    topics.Add(kvp.Key);
+            return topics;
         }
     }
-}
 
-// --- Things done well (strengths) ---
-
-// Correct event pattern
-public class FileWatcher : IDisposable
-{
-    private bool _disposed;
-
-    public event EventHandler<FileChangedEventArgs>? Changed;
-
-    protected virtual void OnChanged(FileChangedEventArgs e)
+    public void Publish(MessageEnvelope envelope)
     {
-        Changed?.Invoke(this, e);
+        if (envelope.Topic == null)
+            throw new ArgumentException("Topic is required");
+
+        if (_handlers.TryGetValue(envelope.Topic, out var handlers))
+            foreach (var handler in handlers)
+                handler(envelope);
     }
 
-    // Correct IDisposable pattern
-    public void Dispose()
+    public void Subscribe(string topicName, Action<MessageEnvelope> callback)
     {
-        Dispose(true);
-        GC.SuppressFinalize(this);
+        if (topicName == null) throw new ArgumentNullException();
+        if (callback == null) throw new ArgumentNullException();
+
+        if (!_handlers.ContainsKey(topicName))
+            _handlers[topicName] = new List<Action<MessageEnvelope>>();
+        _handlers[topicName].Add(callback);
     }
 
-    protected virtual void Dispose(bool disposing)
+    public void Unsubscribe(string topic)
     {
-        if (!_disposed)
+        _handlers.Remove(topic);
+    }
+
+    public async Task PublishAsync(MessageEnvelope envelope, CancellationToken token)
+    {
+        await Task.Run(() =>
         {
-            if (disposing) { /* release managed resources */ }
-            _disposed = true;
+            if (envelope.Topic == null)
+                throw new ArgumentException("Topic is required");
+
+            Publish(envelope);
+        }, token);
+    }
+
+    public MessageEnvelope? Retrieval(string topic)
+    {
+        return null;
+    }
+
+    public int MessageCount
+    {
+        get
+        {
+            int count = 0;
+            foreach (var kvp in _handlers)
+                count += kvp.Value.Count;
+            return count;
         }
     }
+
+    public static bool operator ==(MessageBroker left, MessageBroker right)
+        => left?.BrokerEndpoint == right?.BrokerEndpoint;
 }
 
-public class FileChangedEventArgs : EventArgs
+public class BrokerException : Exception
 {
-    public string FilePath { get; }
-    public FileChangedEventArgs(string filePath) => FilePath = filePath;
+    public BrokerException(string msg) : base(msg) { }
+}
+
+public class MessageResult
+{
+    public bool Success { get; set; }
+    public string Error { get; set; }
+
+    public static MessageResult Parse(string raw)
+    {
+        if (raw == null) throw new Exception("Input required");
+        var parts = raw.Split('|');
+        if (parts.Length != 2) throw new Exception("Bad format");
+        return new MessageResult { Success = parts[0] == "OK", Error = parts[1] };
+    }
 }

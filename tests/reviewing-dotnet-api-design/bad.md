@@ -1,32 +1,42 @@
 # Expected output WITHOUT skill
 
-This represents the type of review Claude gives without the `reviewing-dotnet-api-design` skill loaded. The review is generic — it catches some issues but misses convention-specific violations, has no structured methodology, and lacks severity classification.
+This represents the type of review Claude gives without the `reviewing-dotnet-api-design` skill loaded. Claude catches general code quality issues but misses .NET-specific API design conventions.
 
 ## Characteristics of a without-skill review
 
-- **No caller-first methodology** — jumps straight into reviewing code, never writes sample calling code
-- **No API surface classification** — doesn't identify whether this is a new API, extension, or modification
-- **No severity grouping** — lists issues in arbitrary order without Critical/Warning/Suggestion classification
-- **Misses `List<T>` convention** — the code compiles and works fine, so a generic review won't flag `List<T>` as a public API issue
-- **May not flag the mutable struct** — `ConnectionInfo` is valid C# and works as written; flagging it requires knowing the value-type-with-reference-semantics convention
-- **Misses `paramName`** — `throw new ArgumentNullException()` compiles fine; knowing to require `paramName` is convention-specific
-- **No breaking change assessment** — doesn't evaluate what changes would break consumers
-- **No reference to specific conventions** — generic advice like "consider making this immutable" without citing established patterns
+- **No caller-first methodology** — reviews code top-to-bottom, never writes calling code to test usability
+- **No API surface classification** — doesn't identify this as a library API with different conventions than application code
+- **No severity grouping** — flat list of observations
+- **Misses struct size convention** — `MessageEnvelope` compiles fine; Claude won't know the ≤16 byte soft limit
+- **Misses `[Flags]` power-of-two rule** — `ExactlyOnce = 3` compiles and works; requires knowing bitwise combination semantics
+- **Misses parameter name consistency** — `topicName` vs `topic` across methods is invisible without cross-method convention checking
+- **Misses async validation timing** — both paths throw the same exception; requires knowing the .NET convention for immediate vs deferred validation
+- **Misses operator pair convention** — `operator ==` without `!=`/`Equals`/`GetHashCode` generates a warning but Claude likely won't explain the convention depth
+- **Misses `TryParse` convention** — `Parse` that throws is valid; knowing to also provide `TryParse` is .NET-specific
+- **Catches some obvious issues** — bare `Exception`, `List<T>` (maybe), noun-named method (maybe)
 
 ## Example without-skill output
 
-Here are some observations about this code:
+Here are some observations about the `Contoso.Messaging` API:
 
-1. **`ConnectionInfo` struct** — Consider making this immutable. Mutable structs can lead to confusing behavior with value copy semantics. The `Tags` list is a reference type which may cause unexpected sharing.
+1. **`MessageEnvelope` struct** — This struct has mutable properties and a `Dictionary<string, string>` field. Consider whether a class might be more appropriate since it contains reference types.
 
-2. **`DataProcessor.Result` method** — The name `Result` is a bit unclear. Consider renaming to something more descriptive like `ProcessData` or `ComputeResult`.
+2. **`DeliveryMode` enum** — Has `[Flags]` attribute. Note that `ExactlyOnce = 3` which is the combination of the other two values — this might be intentional for bitwise combination.
 
-3. **Null check** — You're throwing `ArgumentNullException` without specifying the parameter name. Consider using `throw new ArgumentNullException(nameof(data))`.
+3. **`Subscribe` method** — The null checks throw `ArgumentNullException` without parameter names. Consider adding `nameof()`.
 
-4. **`GetItems` return type** — Looks fine, returns a `List<string>`.
+4. **`Publish` method** — Throws `ArgumentException` for a null topic. The error message is okay but you might want to be more specific.
 
-5. **`Checksum` property** — This property appears to do expensive work (thread sleep and hash computation). Properties should generally be lightweight.
+5. **`PublishAsync`** — Uses `Task.Run` which isn't ideal for a library. Consider using truly async I/O instead.
 
-6. **`FileWatcher`** — Good use of the dispose pattern and events.
+6. **`Retrieval` method** — The name is a bit unusual. Consider `Retrieve` or `GetMessage` instead.
 
-Overall the code looks reasonable. Consider adding XML documentation comments and making `ConnectionInfo` a class instead of a struct if it needs mutable behavior.
+7. **`ActiveTopics`** — Returns a `List<string>`. Consider whether an `IReadOnlyList<string>` would be more appropriate.
+
+8. **`operator ==`** — You've defined `==` but the compiler will warn about missing `!=` and `GetHashCode`. Consider implementing those too.
+
+9. **`MessageResult.Parse`** — Throws generic `Exception`. Use a more specific exception type.
+
+10. **`BrokerException`** — Good use of a custom exception type.
+
+Overall the code structure is reasonable. The main areas to improve are exception handling specificity and the struct vs class decision for `MessageEnvelope`.

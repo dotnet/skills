@@ -6,42 +6,50 @@ The skill is considered successful if the output looks like the bad output witho
 
 ## Input prompt
 
-Review this API for consistency with .NET conventions: `tests/reviewing-dotnet-api-design/test-api.cs`
+Review this API for consistency with .NET conventions. This is a NuGet library targeting .NET 8: `tests/reviewing-dotnet-api-design/test-api.cs`
 
 ## Test asset
 
-`test-api.cs` — A C# file containing a `Contoso.Networking` namespace with deliberate API design violations and some correctly implemented patterns.
+`test-api.cs` — A C# file containing a `Contoso.Messaging` namespace implementing a message broker library. The code compiles and works correctly, but contains subtle API design convention violations that require .NET-specific knowledge to catch.
 
-### Embedded violations
+### Embedded violations (hard — most require convention knowledge)
 
-| # | Violation | Severity | Category |
-|---|-----------|----------|----------|
-| 1 | `ConnectionInfo` is a mutable struct with reference-type field and side-effecting method | Critical | Type design |
-| 2 | `GetItems()` returns `List<string>` in public API | Critical | Collection convention |
-| 3 | `Result()` method named with a noun instead of a verb | Warning | Naming |
-| 4 | `throw new ArgumentNullException()` missing `paramName` | Warning | Error handling |
-| 5 | `DataProcessor` is unsealed with no virtual members | Warning | Extensibility |
-| 6 | `Checksum` property does expensive computation (should be a method) | Suggestion | Member design |
+| # | Violation | Severity | Category | Claude catches without skill? |
+|---|-----------|----------|----------|-------------------------------|
+| 1 | `MessageEnvelope` is a mutable struct >16 bytes with `Dictionary<>` field | Critical | Type design | Unlikely — compiles fine, struct size rule is .NET-specific |
+| 2 | `[Flags] DeliveryMode` values aren't powers of two — `ExactlyOnce = 3` aliases `AtMostOnce | AtLeastOnce` silently | Critical | Type design | Unlikely — compiles fine, requires knowing flags must be powers of two |
+| 3 | `ActiveTopics` returns `List<string>` in public API | Critical | Collections | Sometimes — code works, convention is `ReadOnlyCollection<T>` |
+| 4 | `Subscribe()` uses different parameter names (`topicName`/`callback`) than `Publish()`/`Unsubscribe()` (`topic`/`handler`) — inconsistent across overloads of the same concept | Warning | Member design | Unlikely — each method compiles independently, requires cross-method convention check |
+| 5 | `PublishAsync` validates arguments inside `Task.Run` instead of synchronously before first await | Warning | Error handling | Unlikely — both paths throw, requires knowing .NET async validation convention |
+| 6 | `ArgumentNullException()` thrown without `paramName` in `Subscribe()` — two instances | Warning | Error handling | Sometimes — compiles fine |
+| 7 | `ArgumentException("Topic is required")` instead of `ArgumentNullException(nameof(envelope.Topic))` for null topic | Warning | Error handling | Unlikely — both throw, requires knowing exception type hierarchy convention |
+| 8 | `Retrieval()` method named with noun instead of verb | Warning | Naming | Sometimes — requires naming convention knowledge |
+| 9 | `operator ==` defined without matching `operator !=`, `Equals`, or `GetHashCode` | Warning | Member design | Unlikely — compiles with warning only, requires knowing operator pair convention |
+| 10 | `BrokerException` constructor uses `msg` parameter instead of `message` — abbreviation in public API | Warning | Naming | Unlikely — compiles fine, requires knowing abbreviation convention |
+| 11 | `MessageResult.Parse()` throws bare `Exception` instead of `FormatException`; no `TryParse` variant | Warning | Error handling | Sometimes catches `Exception`; unlikely to flag missing `TryParse` |
+| 12 | `IMessageBroker` interface has no async methods despite I/O-bound operations | Suggestion | Member design | Sometimes — requires domain judgment |
+| 13 | `MessageBroker` unsealed with no virtual members | Suggestion | Extensibility | Sometimes |
+| 14 | `ContainsKey` + indexer double-lookup in `Subscribe()` | Suggestion | Member design | Sometimes — functional but inefficient |
 
-### Embedded strengths
+### Things done well (strengths)
 
 | # | Good practice | Category |
 |---|---------------|----------|
-| 1 | `FileWatcher` uses `EventHandler<TEventArgs>` with `protected virtual OnChanged` | Event pattern |
-| 2 | `FileWatcher` implements `IDisposable` with standard dispose pattern | Resource management |
-| 3 | `FileChangedEventArgs` derives from `EventArgs` with proper suffix | Naming / type design |
+| 1 | `CancellationToken` is last parameter in `PublishAsync` | Member design |
+| 2 | `BrokerException` derives from `Exception` with proper suffix | Naming |
+| 3 | `ReadOnlyMemory<byte>` used for `Payload` (not `byte[]`) | Type design |
 
 ## Evaluation criteria
 
-The skill adds value if the review:
+The skill demonstrates unique value if the review:
 
-1. Loads the `reviewing-dotnet-api-design` skill
-2. Writes sample calling code BEFORE reviewing (caller-first methodology)
-3. Classifies the API surface (new library API / extension / modification)
-4. Groups findings by severity (Critical → Warning → Suggestion)
-5. Catches the mutable struct as Critical (not just a warning)
-6. Catches the `List<T>` return type as a convention violation (not just valid code)
-7. Identifies the noun-named method with reference to naming conventions
-8. Flags the missing `paramName` on `ArgumentNullException`
-9. Notes strengths — correct event pattern and IDisposable implementation
-10. Provides concrete before/after code fixes for each issue
+1. Writes sample calling code BEFORE reviewing (caller-first — the calling code should reveal that `MessageEnvelope` is awkward as a struct)
+2. Classifies the API surface type (new library API)
+3. Groups findings by severity (Critical → Warning → Suggestion)
+4. Catches the struct size / mutability / reference-type field triple violation on `MessageEnvelope`
+5. Catches the `[Flags]` enum with non-power-of-two values (`ExactlyOnce = 3`)
+6. Catches the parameter name inconsistency across `Subscribe` vs `Publish`/`Unsubscribe`
+7. Catches the async argument validation timing issue in `PublishAsync`
+8. Catches the unpaired `operator ==` (missing `!=`, `Equals`, `GetHashCode`)
+9. Flags the missing `TryParse` variant on `MessageResult.Parse`
+10. Notes strengths — `CancellationToken` placement, `ReadOnlyMemory<byte>` usage
