@@ -1,81 +1,20 @@
 # Member Design Patterns Reference
 
-Established C# member design conventions.
-
 ## Properties vs Methods
-
-There is a clear line between properties (state access) and methods (operations).
 
 ### Use Properties When:
 - Access is cheap (field-like)
 - Calling twice returns the same value
 - No observable side effects
-- Represents a logical attribute of the type
-
-```csharp
-// System.IO.Stream — properties for state
-public abstract long Length { get; }
-public abstract long Position { get; set; }
-public abstract bool CanRead { get; }
-public abstract bool CanSeek { get; }
-
-// System.Collections.Generic.List<T>
-public int Count { get; }
-public int Capacity { get; set; }
-```
 
 ### Use Methods When:
 - The operation is a conversion (`ToString()`, `ToArray()`)
 - The call is expensive or has side effects
-- Different results each time (`DateTime.Now` is a well-known exception)
 - Returns a new object or array
-
-```csharp
-// Conversions — always methods
-public override string ToString();
-public T[] ToArray();
-public List<T> ToList();
-
-// Operations with side effects — always methods
-public int Read(byte[] buffer, int offset, int count);
-public void Write(byte[] buffer, int offset, int count);
-
-// Expensive operations — always methods
-public DataTable GetSchemaTable();
-public byte[] ComputeHash(byte[] buffer);
-```
 
 ## Method Overloading Patterns
 
-Established convention: overloads form a progressive series from simplest to most complete.
-
-### StringBuilder.Append Pattern
-```csharp
-// Simplest → most complete, all consistent
-public StringBuilder Append(string value);
-public StringBuilder Append(string value, int startIndex, int count);
-public StringBuilder Append(char value);
-public StringBuilder Append(char value, int repeatCount);
-```
-
-### Stream.Read Pattern
-```csharp
-// Modern .NET adds Span overloads alongside array overloads
-public abstract int Read(byte[] buffer, int offset, int count);
-public virtual int Read(Span<byte> buffer);
-```
-
-### Console.WriteLine Pattern
-```csharp
-// Many overloads, all following the same naming
-public static void WriteLine();
-public static void WriteLine(string value);
-public static void WriteLine(string format, object arg0);
-public static void WriteLine(string format, object arg0, object arg1);
-public static void WriteLine(string format, params object[] arg);
-```
-
-**Key patterns:**
+**Key overload rules:**
 1. Parameter order is consistent across all overloads
 2. Simpler overloads delegate to the most complete one
 3. Parameter names are identical across overloads
@@ -84,18 +23,7 @@ public static void WriteLine(string format, params object[] arg);
 
 ## Constructor Patterns
 
-### Simple Instantiation
-The convention supports creating instances with minimal ceremony:
-
 ```csharp
-// Default constructor — ready to use
-var sb = new StringBuilder();
-var list = new List<string>();
-
-// Parameterized — for required values
-var uri = new Uri("https://example.com");
-var fs = new FileStream(path, FileMode.Open);
-
 // Common pattern: overloads from minimal to full
 public StringBuilder();
 public StringBuilder(string value);
@@ -115,11 +43,7 @@ public FileStream(string path, FileMode mode)
 
 ## Event Patterns
 
-Established event design conventions (as seen in `FileSystemWatcher`, `ObservableCollection<T>`, etc.):
-
-### Standard Pattern
 ```csharp
-// 1. Define EventArgs if needed
 public class FileChangedEventArgs : EventArgs
 {
     public string FileName { get; }
@@ -132,48 +56,40 @@ public class FileChangedEventArgs : EventArgs
     }
 }
 
-// 2. Declare event using EventHandler<T>
 public event EventHandler<FileChangedEventArgs> FileChanged;
 
-// 3. Raise through protected virtual method
 protected virtual void OnFileChanged(FileChangedEventArgs e)
 {
     FileChanged?.Invoke(this, e);
 }
 ```
 
-### Established Conventions:
+**Conventions:**
 - `EventHandler<TEventArgs>` is the standard delegate type
-- Raising method is named `On<EventName>`
-- Raising method is `protected virtual` for extensibility
+- Raising method is `On<EventName>`, `protected virtual`
 - `EventArgs.Empty` used when no data is needed
 - EventArgs properties are typically read-only
 
 ## Operator Overloading Patterns
 
-Operators are overloaded only on types with natural mathematical or comparison semantics:
+Only on types with natural mathematical or comparison semantics:
 
 ```csharp
-// DateTime — subtraction produces TimeSpan
 public static TimeSpan operator -(DateTime d1, DateTime d2);
 public static DateTime operator +(DateTime d, TimeSpan t);
 
-// Decimal — full arithmetic operators
 public static decimal operator +(decimal d1, decimal d2);
-public static decimal operator -(decimal d1, decimal d2);
 public static bool operator ==(decimal d1, decimal d2);
 public static bool operator !=(decimal d1, decimal d2);
 ```
 
-**Operator conventions:**
+**Rules:**
 - Operators always come in pairs (`==`/`!=`, `<`/`>`, `<=`/`>=`)
 - `IEquatable<T>` is implemented alongside `==`/`!=`
 - `GetHashCode()` is overridden whenever `Equals()` is
 - Named method equivalents exist (`Add`, `Subtract`, `Equals`, `CompareTo`)
 
 ## IEquatable<T> Pattern
-
-As seen in `DateTime`, `Guid`, `Int32`, etc.:
 
 ```csharp
 public readonly struct Money : IEquatable<Money>
@@ -197,8 +113,6 @@ public readonly struct Money : IEquatable<Money>
 
 ## IComparable<T> Pattern
 
-As seen in `String`, `DateTime`, `Int32`:
-
 ```csharp
 public readonly struct Version : IComparable<Version>, IEquatable<Version>
 {
@@ -215,40 +129,17 @@ public readonly struct Version : IComparable<Version>, IEquatable<Version>
 
 ## ToString Pattern
 
-Every type should override `ToString()` with a human-readable representation:
-
-```csharp
-// DateTime
-public override string ToString() => "2/12/2026 2:39:17 AM";
-
-// Guid
-public override string ToString() => "d85b1407-351d-4694-9392-03acc5870eb1";
-
-// Custom types should follow the same pattern
-public override string ToString() => $"{Name} ({Count} items)";
-```
+Every type should override `ToString()` with a human-readable representation.
 
 ## Virtual Member Patterns
 
 Virtual members should be used deliberately, not speculatively:
 
 ```csharp
-public class HttpMessageHandler
-{
-    // Virtual: designed as customization point
-    protected internal virtual HttpResponseMessage Send(
-        HttpRequestMessage request, CancellationToken cancellationToken);
-}
-
 public abstract class Stream
 {
-    // Abstract: MUST be implemented
     public abstract int Read(byte[] buffer, int offset, int count);
-
-    // Virtual: CAN be overridden (has default implementation)
     public virtual void CopyTo(Stream destination, int bufferSize) { /* default */ }
-
-    // Non-virtual: fixed behavior
     public void Dispose() { /* fixed cleanup workflow */ }
 }
 ```

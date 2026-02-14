@@ -1,22 +1,6 @@
 # API Review Checklist Reference
 
-A structured checklist for .NET API reviews, based on established C# conventions.
-
-## API Review Process
-
-Every public API should be reviewed before release. A structured process ensures consistency and quality.
-
-### Process Flow
-
-1. **File a proposal** containing an API sketch and usage samples
-2. **Area owner reviews** and engages in discussion
-3. **Owner marks** the proposal ready for review when actionable
-4. **Review panel evaluates** the proposal in a scheduled meeting
-5. **Outcome**: approved, needs work, or rejected
-
 ## Proposal Template
-
-When proposing APIs, write a proposal that shows usage before listing signatures:
 
 ```markdown
 ## API Proposal: [Feature Name]

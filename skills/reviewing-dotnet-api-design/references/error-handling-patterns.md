@@ -1,10 +1,6 @@
 # Error Handling Patterns Reference
 
-Established C# error handling conventions.
-
 ## Standard Exception Types
-
-Use a consistent set of exception types. Custom exception types should be rare.
 
 | Exception Type | When It Is Thrown | Example |
 |---------------|----------------------|---------|
@@ -22,16 +18,13 @@ Use a consistent set of exception types. Custom exception types should be rare.
 | `IndexOutOfRangeException` | Array/span index invalid | Runtime-thrown, not user code |
 | `NullReferenceException` | Null dereference | Runtime-thrown, not user code |
 
-**What to avoid:**
-- Throws `Exception` directly
-- Throws `SystemException` directly
-- Throws `ApplicationException` (legacy, unused)
-- Throws `NullReferenceException` or `IndexOutOfRangeException` from library code (these are runtime errors)
+**Never throw directly:**
+- `Exception`, `SystemException`, `ApplicationException`
+- `NullReferenceException` or `IndexOutOfRangeException` (runtime errors only)
 
 ## Argument Validation Patterns
 
 ### Modern Pattern (.NET 6+)
-Use static `ThrowIf` methods for argument validation:
 
 ```csharp
 public void SetName(string name)
@@ -68,7 +61,7 @@ public string Name
 }
 ```
 
-Note: Use `value` as the parameter name in property setter exceptions (it's the implicit parameter name).
+Note: Use `value` as the parameter name in property setter exceptions.
 
 ### Legacy Pattern (pre-.NET 6)
 ```csharp
@@ -84,18 +77,13 @@ public void SetName(string name)
 
 ## The Try-Parse Pattern
 
-The convention is to provide both throwing and non-throwing variants for operations that commonly fail:
+Provide both throwing and non-throwing variants for operations that commonly fail:
 
 ```csharp
-// Throwing variant — for when failure is exceptional
+// Throwing variant
 public static int Parse(string s);
-public static DateTime Parse(string s);
-public static IPAddress Parse(string ipString);
-
-// Non-throwing variant — for when failure is expected
+// Non-throwing variant
 public static bool TryParse(string s, out int result);
-public static bool TryParse(string s, out DateTime result);
-public static bool TryParse(string ipString, out IPAddress? address);
 ```
 
 **Modern Try-Parse pattern (.NET 7+):**
@@ -115,17 +103,14 @@ public interface IParsable<TSelf> where TSelf : IParsable<TSelf>
 
 ## Exception Messages
 
-Established convention: exception messages describe what went wrong and often hint at what to do:
-
 ```csharp
-// Good messages
 "Stream does not support reading."
 "Non-negative number required. (Parameter 'count')"
 "Collection was modified; enumeration operation may not execute."
 "Index was out of range. Must be non-negative and less than the size of the collection."
 ```
 
-**Characteristics of good exception messages:**
+**Requirements:**
 - Complete sentences with proper punctuation
 - State the problem clearly
 - Include relevant values when possible
@@ -138,7 +123,6 @@ Validate arguments synchronously (before the first `await`) so callers get immed
 ```csharp
 public Task<string> ReadFileAsync(string path, CancellationToken cancellationToken)
 {
-    // Validate BEFORE async work — throws immediately
     ArgumentNullException.ThrowIfNull(path);
     return ReadFileCoreAsync(path, cancellationToken);
 }
@@ -152,10 +136,9 @@ private async Task<string> ReadFileCoreAsync(string path, CancellationToken ct)
 
 ## Exception Builder Pattern
 
-Use helper methods to throw exceptions, keeping call sites small enough for JIT inlining:
+Helper methods keep call sites small enough for JIT inlining:
 
 ```csharp
-// Common pattern for hot paths
 private static void ThrowInvalidOperation()
     => throw new InvalidOperationException("Enumeration already finished.");
 
@@ -163,15 +146,13 @@ public bool MoveNext()
 {
     if (_index >= _count)
     {
-        ThrowInvalidOperation();  // Keeps MoveNext small for inlining
+        ThrowInvalidOperation();
     }
     // ...
 }
 ```
 
 ## Methods That Should Not Throw
-
-Established convention: these methods avoid throwing exceptions:
 
 | Method | Why |
 |--------|-----|

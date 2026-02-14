@@ -1,10 +1,6 @@
 # Type Design Patterns Reference
 
-Established C# type design conventions.
-
 ## When to Use Structs
-
-Use structs for small, immutable types that represent single values.
 
 | Struct | Size | Characteristics |
 |--------|------|----------------|
@@ -18,16 +14,14 @@ Use structs for small, immutable types that represent single values.
 | `CancellationToken` | 8 bytes | Lightweight, passed by value |
 | `ReadOnlySpan<T>` | 16 bytes | ref struct, zero-allocation view |
 
-**Consistent struct characteristics:**
+**Struct requirements:**
 - Small (≤ 16 bytes typically)
 - Immutable (use `readonly struct`)
 - Represent a single logical value
-- Value equality semantics (`Equals`/`GetHashCode` based on content)
+- Value equality semantics
 - No inheritance needed
-- Rarely boxed in typical usage
 
 ```csharp
-// Established struct pattern
 public readonly struct Point : IEquatable<Point>
 {
     public double X { get; }
@@ -43,8 +37,6 @@ public readonly struct Point : IEquatable<Point>
 
 ## When to Use Classes
 
-Use classes for types with identity, complex behavior, large size, or inheritance.
-
 | Class | Why Not Struct |
 |-------|---------------|
 | `String` | Variable size, reference semantics, sealed |
@@ -56,22 +48,17 @@ Use classes for types with identity, complex behavior, large size, or inheritanc
 
 ## When to Use Interfaces
 
-Interfaces are used for cross-hierarchy contracts that multiple unrelated types implement.
-
 ```csharp
-// IDisposable — implemented by classes (Stream, HttpClient) and some structs
 public interface IDisposable
 {
     void Dispose();
 }
 
-// IEnumerable<T> — implemented by List<T>, Array, Dictionary<K,V>, etc.
 public interface IEnumerable<T> : IEnumerable
 {
     IEnumerator<T> GetEnumerator();
 }
 
-// IComparable<T> — implemented by String, Int32, DateTime, etc.
 public interface IComparable<T>
 {
     int CompareTo(T other);
@@ -80,16 +67,11 @@ public interface IComparable<T>
 
 **Interface conventions:**
 - Every interface should have multiple implementations
-- Interfaces are consumed by other APIs (`IEnumerable<T>` consumed by LINQ)
 - New interfaces are added cautiously (adding members breaks implementors)
-- `I` prefix is universal and mandatory
 
 ## Abstract Class Patterns
 
-Use abstract classes when shared implementation is needed alongside enforced customization:
-
 ```csharp
-// Stream — abstract base with shared logic + abstract customization points
 public abstract class Stream : IDisposable, IAsyncDisposable
 {
     // Abstract: derived types MUST implement
@@ -101,35 +83,13 @@ public abstract class Stream : IDisposable, IAsyncDisposable
     public virtual void CopyTo(Stream destination) { /* default impl */ }
     public virtual void Close() { Dispose(true); }
 
-    // Concrete: shared behavior
     public void Dispose() { Dispose(true); GC.SuppressFinalize(this); }
 }
 ```
 
 ## Enum Patterns
+Flag enums use plural nouns, `[Flags]` attribute, and power-of-two values:
 
-### Non-Flag Enums (Singular Noun)
-```csharp
-public enum ConsoleColor
-{
-    Black = 0,
-    DarkBlue = 1,
-    DarkGreen = 2,
-    // ...
-}
-
-public enum FileMode
-{
-    CreateNew = 1,
-    Create = 2,
-    Open = 3,
-    OpenOrCreate = 4,
-    Truncate = 5,
-    Append = 6,
-}
-```
-
-### Flag Enums (Plural Noun + `[Flags]` + Powers of Two)
 ```csharp
 [Flags]
 public enum FileAttributes
@@ -141,13 +101,9 @@ public enum FileAttributes
     Archive = 0x0020,
     Normal = 0x0080,
 }
-
-// Usage: var attrs = FileAttributes.ReadOnly | FileAttributes.Hidden;
 ```
 
 ## Sealed vs Unsealed
-
-Established convention: most types are unsealed. Sealing is used selectively.
 
 | Sealed | Why |
 |--------|-----|
@@ -162,29 +118,9 @@ Established convention: most types are unsealed. Sealing is used selectively.
 | `Collection<T>` | Designed for customization |
 | `Exception` | Custom exception types derive from it |
 
-## Static Class Patterns
+## Static Classes
 
-Use static classes as utility containers:
-
-```csharp
-public static class Math
-{
-    public static double Sqrt(double d) { ... }
-    public static int Max(int val1, int val2) { ... }
-}
-
-public static class Console
-{
-    public static void WriteLine(string value) { ... }
-    public static string ReadLine() { ... }
-}
-
-public static class Path
-{
-    public static string Combine(string path1, string path2) { ... }
-    public static string GetExtension(string path) { ... }
-}
-```
+Static classes serve as utility containers (e.g., `Math`, `Console`, `Path`).
 
 ## Type Design Checklist
 
