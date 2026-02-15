@@ -31,3 +31,9 @@ Conversions with multiple overlapping complexities. The agent must audit several
 Each scenario's `README.md` describes the file structure and project contents. The `src/` directories that contain buildable .NET solutions are git-ignored and must be generated locally. Use the following prompt to create them:
 
 > Read each scenario README under tests/convert-to-cpm/ and generate a buildable .NET solution into a `src/` folder within each scenario directory, matching the described project structure and package references. Verify each solution restores and builds successfully.
+
+## Evaluating the skill
+
+After generating the test solutions, evaluate the skill by running it against each scenario. Use the following prompt:
+
+> Load the convert-to-cpm skill and evaluate it against each test scenario under tests/convert-to-cpm/. For each scenario, use the `src/` directory as the working context and the scenario's `README.md` input prompt. Compare the agent's output against the `with-skill.md` (expected behavior) and `without-skill.md` (baseline behavior without the skill). Report any discrepancies in workflow steps, package versions, user interactions, or comparison table format.
