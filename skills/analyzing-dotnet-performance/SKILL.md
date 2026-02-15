@@ -1,7 +1,7 @@
 ---
 name: analyzing-dotnet-performance
 description: >-
-  Scans .NET code for 85+ performance anti-patterns across async, memory,
+  Scans .NET code for ~50 performance anti-patterns across async, memory,
   strings, collections, LINQ, regex, serialization, and I/O with tiered
   severity classification. Use when analyzing .NET code for optimization
   opportunities, reviewing hot paths, or auditing allocation-heavy patterns.
@@ -10,6 +10,13 @@ description: >-
 # .NET Performance Patterns
 
 Scan C#/.NET code for performance anti-patterns and produce prioritized findings with concrete fixes. Patterns sourced from the official .NET performance blog series, distilled to customer-actionable guidance.
+
+## When to Use
+
+- Reviewing C#/.NET code for performance optimization opportunities
+- Auditing hot paths for allocation-heavy or inefficient patterns
+- Systematic scan of a codebase for known anti-patterns before release
+- Second-opinion analysis after manual performance review
 
 ## When Not to Use
 
@@ -29,7 +36,7 @@ Scan C#/.NET code for performance anti-patterns and produce prioritized findings
 
 ### Step 1: Load Critical Patterns
 
-Always load `references/critical-patterns.md`. These 24 patterns represent deadlocks, crashes, order-of-magnitude regressions, and security vulnerabilities (ReDoS). Flag every match unconditionally.
+Always load `references/critical-patterns.md`. These 17 patterns represent deadlocks, order-of-magnitude regressions, and excessive allocations. Flag every match unconditionally.
 
 ### Step 2: Detect Code Signals and Load Topic References
 
@@ -41,9 +48,9 @@ Scan the code for signals that indicate which topic-specific reference files to 
 | `Span<`, `Memory<`, `stackalloc`, `ArrayPool`, `string.Substring`, `.Replace(`, `.ToLower()`, `+=` in loops, `params ` | [memory-and-strings.md](references/memory-and-strings.md) |
 | `Regex`, `[GeneratedRegex]`, `Regex.Match`, `RegexOptions.Compiled` | [regex-patterns.md](references/regex-patterns.md) |
 | `Dictionary<`, `List<`, `.ToList()`, `.Where(`, `.Select(`, LINQ methods, `static readonly Dictionary<` | [collections-and-linq.md](references/collections-and-linq.md) |
-| `JsonSerializer`, `HttpClient`, `Stream`, `FileStream`, `Utf8JsonWriter` | [io-and-serialization.md](references/io-and-serialization.md) |
+| `JsonSerializer`, `HttpClient`, `Stream`, `FileStream` | [io-and-serialization.md](references/io-and-serialization.md) |
 
-Always load [structural-patterns.md](references/structural-patterns.md) for absence-based detection (unsealed classes, structs missing `IEquatable<T>`).
+Always load [structural-patterns.md](references/structural-patterns.md) for absence-based detection (unsealed classes).
 
 **Scan depth controls loading:**
 - `critical-only`: Only Step 1 (critical patterns)
@@ -148,9 +155,10 @@ Before delivering results, verify:
 |---------|-----------------|
 | Flagging every `Dictionary` as needing `FrozenDictionary` | Only flag if the dictionary is never mutated after construction |
 | Suggesting `Span<T>` in async methods | Use `Memory<T>` in async code; `Span<T>` only in sync hot paths |
-| Reporting LINQ outside hot paths | Only flag LINQ in identified hot paths or tight loops |
-| Suggesting `ConfigureAwait(false)` in app code | Only needed in library code |
+| Reporting LINQ outside hot paths | Only flag LINQ in identified hot paths or tight loops; LINQ is fine in startup, config, and one-time code. Since .NET 7, LINQ Min/Max/Sum/Average are vectorized — blanket bans on LINQ are misguided |
+| Suggesting `ConfigureAwait(false)` in app code | Only applicable in library code; not primarily a performance concern |
 | Recommending `ValueTask` everywhere | Only for hot paths with frequent synchronous completion |
 | Flagging `new HttpClient()` in DI services | Check if `IHttpClientFactory` is already in use |
 | Suggesting `[GeneratedRegex]` for dynamic patterns | Only flag when the pattern string is a compile-time literal |
-| Merging `IsMatch` + `Replace` into one call | Keep `IsMatch` as a fast-path guard when most inputs don't match |
+| Suggesting `CollectionsMarshal.AsSpan` broadly | Only for ultra-hot paths with benchmarked evidence; adds complexity and fragility |
+| Suggesting `unsafe` code for micro-optimizations | Avoid `unsafe` except where absolutely necessary — do not recommend it for micro-optimizations that don't matter. Safe alternatives like `Span<T>`, `stackalloc` in safe context, and `ArrayPool` cover the vast majority of performance needs |

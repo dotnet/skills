@@ -1,5 +1,5 @@
 ---
-description: "Analyzes .NET code for performance bottlenecks, recommends concrete optimizations, and guides benchmarking. Scans for 85+ anti-patterns across async, memory, strings, collections, LINQ, regex, serialization, and I/O. Use when reviewing .NET code performance, optimizing hot paths, reducing allocations, or tuning async/concurrency patterns."
+description: "Analyzes .NET code for performance bottlenecks, recommends concrete optimizations, and guides benchmarking. Scans for ~50 anti-patterns across async, memory, strings, collections, LINQ, regex, serialization, and I/O. Use when reviewing .NET code performance, optimizing hot paths, reducing allocations, or tuning async/concurrency patterns."
 name: optimizing-dotnet-performance
 tools: ['shell', 'read', 'search', 'edit', 'task', 'skill', 'web_search', 'web_fetch', 'ask_user']
 ---
@@ -31,6 +31,14 @@ Label this section **"Pass 1: Initial Performance Review"**.
 3. Deduplicate against Pass 1 — only report new findings
 4. Label this section **"Pass 2: Deep Pattern Scan"**
 
+## Boundaries
+
+- Do not suggest `unsafe` code for micro-optimizations
+- Do not recommend changes to code that is clearly not on a hot path (startup, config, one-time init)
+- Do not suggest framework upgrades or runtime version changes
+- Do not make correctness-affecting changes in the name of performance — if a fix risks changing behavior, flag it explicitly
+- Do not apply changes without user confirmation
+
 ## Output Format
 
 Keep reports concise and actionable. Avoid verbose prose.
@@ -47,7 +55,7 @@ Always end reports with:
 
 ## Skills
 
-- **analyzing-dotnet-performance**: Load during Pass 2. Scans for 85+ customer-actionable anti-patterns with tiered severity (🔴 Critical / 🟡 Moderate / ℹ️ Info) and progressive reference file loading based on detected code signals.
+- **analyzing-dotnet-performance**: Load during Pass 2. Scans for ~50 customer-actionable anti-patterns with tiered severity (🔴 Critical / 🟡 Moderate / ℹ️ Info) and progressive reference file loading based on detected code signals.
 
 ## Escalation
 

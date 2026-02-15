@@ -1,41 +1,5 @@
 # I/O, Serialization & General Patterns
 
-### Use JsonSerializerContext for Trimming/AOT
-🟡 **DO** use source-generated `JsonSerializerContext` for trim and AOT support | .NET 6+
-
-❌
-```csharp
-var json = JsonSerializer.Serialize(blogPost);
-```
-✅
-```csharp
-[JsonSerializable(typeof(BlogPost))]
-internal partial class AppJsonContext : JsonSerializerContext { }
-
-var json = JsonSerializer.Serialize(blogPost, AppJsonContext.Default.BlogPost);
-```
-
-**Impact: Enables trimming (reduces app size), eliminates startup reflection cost, required for Native AOT.**
-
-### Use Utf8JsonWriter for Maximum Serialization Performance
-🟡 **DO** use `Utf8JsonWriter` directly when maximum throughput is needed | .NET Core 3.0+
-
-❌
-```csharp
-var json = JsonSerializer.Serialize(blogPost);
-```
-✅
-```csharp
-using var writer = new Utf8JsonWriter(stream);
-writer.WriteStartObject();
-writer.WriteString("Title", blogPost.Title);
-writer.WriteNumber("PublicationYear", blogPost.PublicationYear);
-writer.WriteEndObject();
-writer.Flush();
-```
-
-**Impact: ~44% faster than reflection-based JsonSerializer.**
-
 ### Use HttpCompletionOption.ResponseHeadersRead for Streaming
 🟡 **DO** use `ResponseHeadersRead` when downloading large responses | .NET Core 3.0+
 

@@ -33,29 +33,6 @@ bool found = Regex.IsMatch(input, pattern);
 
 **Impact: Avoids Match object allocation; with NonBacktracking, ~3x faster by skipping capture computation.**
 
-### Keep IsMatch as a Guard Before Replace When Most Inputs Don't Match
-🟡 **DO NOT** remove an `IsMatch` guard before `Replace` to "reduce passes" | All versions
-
-❌
-```csharp
-public string? Apply(string word)
-{
-    var result = regex.Replace(word, replacement, 1);
-    return result == word ? null : result;
-}
-```
-✅
-```csharp
-public string? Apply(string word)
-{
-    if (!regex.IsMatch(word))
-        return null;
-    return regex.Replace(word, replacement);
-}
-```
-
-
-
 ### Use Regex.Count/EnumerateMatches Instead of Matches
 🟡 **DO** use `Count()` and `EnumerateMatches()` for allocation-free match processing | .NET 7+
 
@@ -95,37 +72,6 @@ foreach (ValueMatch m in Regex.EnumerateMatches(text, @"\b\w+\b"))
 ```
 
 **Impact: Eliminates string allocations when working with spans — particularly valuable in high-throughput parsing pipelines.**
-
-### Budget Compiled Regex Instances at Startup
-🟡 **CONSIDER** the cumulative startup cost when using many `RegexOptions.Compiled` instances | .NET Core+
-
-❌
-```csharp
-class Rule(string pattern, string replacement)
-{
-    readonly Regex regex = new(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
-}
-```
-✅
-```csharp
-// Option A: Use interpreter for dynamic patterns with short inputs
-class Rule(string pattern, string replacement)
-{
-    readonly Regex regex = new(pattern, RegexOptions.IgnoreCase);
-}
-
-// Option B: Fast-path with exact matching before regex
-static readonly FrozenDictionary<string, string> s_exactRules = /* ... */;
-
-public string? Apply(string word)
-{
-    if (s_exactRules.TryGetValue(word, out var result))
-        return result;
-    return regex.IsMatch(word) ? regex.Replace(word, replacement) : null;
-}
-```
-
-**Impact: Startup cost scales linearly with compiled regex count. For 100 rules: ~100-500ms saved at startup.**
 
 ## Detection
 

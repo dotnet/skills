@@ -31,22 +31,6 @@ guid.TryFormat(buffer, out int written);
 
 **Impact: Zero heap allocation, no GC pressure, instant alloc/dealloc.**
 
-### Use C# 10+ String Interpolation Handlers
-🟡 **DO** recompile on C# 10+ to get `DefaultInterpolatedStringHandler` | .NET 6+
-
-❌
-```csharp
-string result = $"{major}.{minor}.{build}";
-// C# 9: compiled as string.Format
-```
-✅
-```csharp
-string result = $"{major}.{minor}.{build}";
-// C# 10+: compiled as DefaultInterpolatedStringHandler
-```
-
-**Impact: ~45% faster, ~75% less allocation. Automatic on .NET 6 / C# 10.**
-
 ### Use Span.TryWrite for Allocation-Free Interpolation
 🟡 **DO** use `MemoryExtensions.TryWrite` to format into `Span<char>` buffers | .NET 6+
 
@@ -62,20 +46,6 @@ buffer.TryWrite($"Date: {dt:R}", out int charsWritten);
 ```
 
 **Impact: Zero heap allocation for formatting operations.**
-
-### Use Span-Based Comparison Instead of Substring Equality
-🟡 **DO** use `AsSpan().SequenceEqual()` instead of `Substring` for comparisons | .NET Core+
-
-❌
-```csharp
-if (s.Substring(i) == "INF")
-```
-✅
-```csharp
-if (s.AsSpan(i).SequenceEqual("INF"))
-```
-
-**Impact: Eliminates string allocation per comparison — adds up in parsing loops.**
 
 ### Use Span.Split() for Zero-Allocation Splitting
 🟡 **DO** use `MemoryExtensions.Split` for allocation-free string splitting | .NET 9+
@@ -145,24 +115,40 @@ Log("Starting", "Processing", "Done");
 ### Avoid Chained String-Returning Operations
 🟡 **AVOID** chains of 3+ string-returning method calls that each allocate intermediates | .NET Core+
 
+**Pattern 1: Chained .Replace() calls**
+
 ❌
 ```csharp
 string result = input.Replace("a", "b").Replace("c", "d").Replace("e", "f");
+```
+✅
+```csharp
+var sb = new StringBuilder(input.Length);
+// single pass replacing all patterns
+```
 
+**Pattern 2: Chained Regex.Replace() calls**
+
+❌
+```csharp
 public static string Underscore(this string input) =>
     Regex3.Replace(Regex2.Replace(Regex1.Replace(input, "$1_$2"), "$1_$2"), "_").ToLower();
+```
+✅
+```csharp
+return string.Create(totalLength, state, (span, s) => { /* write directly */ });
+```
 
+**Pattern 3: += string concatenation in loops**
+
+❌
+```csharp
 string result = "";
 foreach (var part in parts)
     result += separator + part;
 ```
 ✅
 ```csharp
-var sb = new StringBuilder(input.Length);
-// single pass replacing all patterns
-
-return string.Create(totalLength, state, (span, s) => { /* write directly */ });
-
 var sb = new StringBuilder();
 foreach (var part in parts)
     sb.Append(separator).Append(part);

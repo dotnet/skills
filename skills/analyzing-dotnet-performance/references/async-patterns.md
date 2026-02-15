@@ -1,27 +1,5 @@
 # Async & Concurrency Patterns
 
-### ConfigureAwait(false) in Library Code
-🟡 **DO** use `ConfigureAwait(false)` on every `await` in library code | .NET Core+
-
-❌
-```csharp
-public async Task<string> GetDataAsync(string url)
-{
-    var response = await _httpClient.GetAsync(url);
-    return await response.Content.ReadAsStringAsync();
-}
-```
-✅
-```csharp
-public async Task<string> GetDataAsync(string url)
-{
-    var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
-    return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-}
-```
-
-**Impact: Avoids SynchronizationContext.Post overhead and prevents deadlocks when consumers call .Result or .Wait().**
-
 ### Don't Expose Async Wrappers for Sync Methods
 🟡 **AVOID** wrapping sync methods with `Task.Run` in libraries | .NET Core+
 
@@ -76,23 +54,6 @@ public ValueTask<int> ReadAsync(Memory<byte> buffer)
 
 **Impact: Eliminates Task\<T\> allocation on synchronous completion — the struct stores results inline.**
 
-### Use Parallel.ForEachAsync for Async Parallel Processing
-🟡 **DO** use `Parallel.ForEachAsync` for controlled async parallelism | .NET 6+
-
-❌
-```csharp
-var tasks = items.Select(async item => await ProcessAsync(item));
-await Task.WhenAll(tasks);
-```
-✅
-```csharp
-await Parallel.ForEachAsync(items,
-    new ParallelOptions { MaxDegreeOfParallelism = 10 },
-    async (item, ct) => await ProcessAsync(item));
-```
-
-**Impact: Safer, more controllable parallel execution with configurable throttling.**
-
 ### Use Channels for Producer/Consumer
 🟡 **DO** use `System.Threading.Channels` for producer-consumer patterns | .NET Core 3.0+
 
@@ -114,21 +75,6 @@ await foreach (var item in channel.Reader.ReadAllAsync())
 ```
 
 **Impact: ~25% faster, ~95% fewer GC collections vs manual approaches.**
-
-### Avoid Async Lambda with Action-Accepting Methods
-🟡 **AVOID** passing async lambdas to methods expecting `Action` | .NET Core+
-
-❌
-```csharp
-Time(async () => await Task.Delay(10_000));
-```
-✅
-```csharp
-static async Task TimeAsync(Func<Task> action) { await action(); }
-await TimeAsync(async () => await Task.Delay(10_000));
-```
-
-**Impact: Correctness issue — unobserved exceptions in async void crash the process.**
 
 ### Avoid False Sharing with Thread-Local State
 🟡 **AVOID** adjacent mutable fields written by different threads | .NET 7+
@@ -157,7 +103,7 @@ struct PaddedCounter
 Scan recipes for async anti-patterns. Run these and report exact counts.
 
 ```bash
-# async void methods (crashes on exception) — critical-patterns.md #1
+# async void methods (correctness issue — crashes on exception)
 grep -rn --include='*.cs' 'async void' --exclude-dir=bin --exclude-dir=obj . | grep -v 'event' | wc -l
 ```
 

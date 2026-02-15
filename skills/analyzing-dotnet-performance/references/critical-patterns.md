@@ -1,25 +1,10 @@
 # Critical .NET Performance Anti-Patterns
 
-24 patterns that cause deadlocks, crashes, order-of-magnitude regressions, or security vulnerabilities.
+17 patterns that cause deadlocks, order-of-magnitude regressions, or excessive allocations.
 
 ## Async / Tasks
 
-### 1. Avoid async void
-🔴 **AVOID** | .NET Core+
-
-❌
-```csharp
-public async void ProcessAsync()
-{ await FetchAsync(); throw new Exception(); }
-```
-✅
-```csharp
-public async Task ProcessAsync()
-{ await FetchAsync(); }
-```
-**Impact: Unhandled exceptions crash the process; callers cannot observe completion.**
-
-### 2. Never Block on Async (Sync-over-Async)
+### Never Block on Async (Sync-over-Async)
 🔴 **AVOID** | .NET Core+
 
 ❌
@@ -34,7 +19,7 @@ public async Task<string> GetDataAsync()
 ```
 **Impact: Deadlocks or thread pool starvation; wastes threads, destroys scalability.**
 
-### 3. Never Await a ValueTask Multiple Times
+### Never Await a ValueTask Multiple Times
 🔴 **AVOID** | .NET Core 2.1+
 
 ❌
@@ -49,39 +34,9 @@ int result = await SomeMethodAsync();
 ```
 **Impact: Undefined behavior — silent data corruption or exceptions.**
 
-### 4. Don't Use lock with Async Code
-🔴 **AVOID** | .NET Core+
-
-❌
-```csharp
-lock (_sync) { await DoWorkAsync(); }
-```
-✅
-```csharp
-private readonly SemaphoreSlim _sem = new(1, 1);
-await _sem.WaitAsync();
-try { await DoWorkAsync(); } finally { _sem.Release(); }
-```
-**Impact: Compile error, or if bypassed, deadlocks and thread corruption.**
-
-### 5. Async All the Way Down
-🔴 **DO** | .NET Core+
-
-❌
-```csharp
-public IActionResult Index()
-{ var d = _svc.GetDataAsync().Result; return View(d); }
-```
-✅
-```csharp
-public async Task<IActionResult> Index()
-{ var d = await _svc.GetDataAsync(); return View(d); }
-```
-**Impact: A single blocking call can cause cascading thread pool starvation.**
-
 ## Memory / Allocation
 
-### 6. Use Span\<T\> Instead of Arrays for Slicing
+### Use Span\<T\> / AsSpan Instead of Substring for Slicing
 🔴 **DO** | .NET Core 2.1+
 
 ❌
@@ -94,7 +49,7 @@ ReadOnlySpan<char> sub = input.AsSpan(5, 10);
 ```
 **Impact: Eliminates per-slice allocations; 2-4x faster via vectorization.**
 
-### 7. Use ArrayPool\<T\> for Temporary Buffers
+### Use ArrayPool\<T\> for Temporary Buffers
 🔴 **DO** | .NET Core+
 
 ❌
@@ -104,11 +59,12 @@ byte[] buf = new byte[4096];
 ✅
 ```csharp
 byte[] buf = ArrayPool<byte>.Shared.Rent(4096);
-try { Process(buf); } finally { ArrayPool<byte>.Shared.Return(buf); }
+Process(buf);
+ArrayPool<byte>.Shared.Return(buf);
 ```
 **Impact: Dramatically reduces GC pressure for buffer-heavy workloads.**
 
-### 8. Avoid stackalloc in Loops
+### Avoid stackalloc in Loops
 🔴 **AVOID** | .NET 5+
 
 ❌
@@ -123,7 +79,7 @@ for (int i = 0; i < 10_000; i++) { Process(buf); }
 ```
 **Impact: StackOverflowException — unrecoverable, no catch possible.**
 
-### 9. Avoid Boxing Value Types
+### Avoid Boxing Value Types
 🔴 **AVOID** | .NET Core+
 
 ❌
@@ -134,11 +90,11 @@ string s = string.Format("{0}.{1}", major, minor);
 ```csharp
 string s = $"{major}.{minor}";
 ```
-**Impact: C# 10 interpolation ~40% faster, ~5x less allocation.**
+**Impact: When replacing `string.Format` with C# 10+ interpolation, typical improvements are ~40% faster with significantly less allocation. Actual gains vary by call site.**
 
 ## Strings
 
-### 10. Use StringComparison.Ordinal for Non-Linguistic Comparisons
+### Use StringComparison.Ordinal for Non-Linguistic Comparisons
 🔴 **DO** | .NET Core+
 
 ❌
@@ -151,7 +107,7 @@ bool found = text.Contains("Content-Type", StringComparison.Ordinal);
 ```
 **Impact: 2-3x faster; OrdinalIgnoreCase hash codes ~3.3x faster.**
 
-### 11. Use AsSpan Instead of Substring
+### Use AsSpan Instead of Substring
 🔴 **DO** | .NET Core 2.1+
 
 ❌
@@ -166,7 +122,7 @@ int val = int.Parse(str.AsSpan(5, 3));
 
 ## Regular Expressions
 
-### 12. Use Source-Generated Regex [GeneratedRegex]
+### Use Source-Generated Regex [GeneratedRegex]
 🔴 **DO** | .NET 7+
 
 ❌
@@ -181,20 +137,7 @@ private static partial Regex EmailRegex();
 ```
 **Impact: Near-zero startup; required for AOT/trimming scenarios.**
 
-### 13. Use NonBacktracking for Untrusted Input
-🔴 **DO** | .NET 7+
-
-❌
-```csharp
-var r = new Regex(userPattern);
-```
-✅
-```csharp
-var r = new Regex(userPattern, RegexOptions.NonBacktracking);
-```
-**Impact: Backtracking at N=25: 17+s. NonBacktracking: ~0.15ms.**
-
-### 14. Avoid Nested Quantifiers (Catastrophic Backtracking)
+### Avoid Nested Quantifiers (Catastrophic Backtracking)
 🔴 **AVOID** | .NET Core+
 
 ❌
@@ -207,34 +150,7 @@ var r = new Regex(@"^\w+$", RegexOptions.NonBacktracking);
 ```
 **Impact: Can hang process indefinitely on crafted input.**
 
-### 15. Cache and Reuse Regex Instances
-🔴 **DO** | .NET Core+
-
-❌
-```csharp
-bool ok = new Regex(@"\d{3}-\d{4}").IsMatch(s);
-```
-✅
-```csharp
-private static readonly Regex s_re = new(@"\d{3}-\d{4}", RegexOptions.Compiled);
-bool ok = s_re.IsMatch(s);
-```
-**Impact: Construction cost is orders of magnitude higher than matching.**
-
-### 16. Set Timeouts on Regex with Untrusted Input
-🔴 **DO** | .NET Core+
-
-❌
-```csharp
-var r = new Regex(userPattern);
-```
-✅
-```csharp
-var r = new Regex(userPattern, RegexOptions.None, TimeSpan.FromSeconds(2));
-```
-**Impact: Prevents unbounded CPU consumption; no cost on normal matches.**
-
-### 17. Use TryGetValue Instead of ContainsKey + Indexer
+### Use TryGetValue Instead of ContainsKey + Indexer
 🔴 **DO** | .NET Core+
 
 ❌
@@ -249,7 +165,7 @@ if (dict.TryGetValue(key, out var value))
 ```
 **Impact: ~2x faster (50% reduction in lookup time).**
 
-### 18. Avoid LINQ in Hot Paths
+### Avoid LINQ in Hot Paths
 🔴 **AVOID** | .NET Core+
 
 ❌
@@ -264,7 +180,7 @@ foreach (var item in items)
 ```
 **Impact: Eliminates 1-3 allocations per call; measurable in tight loops.**
 
-### 19. Don't Iterate IEnumerable Multiple Times
+### Don't Iterate IEnumerable Multiple Times
 🔴 **AVOID** | .NET Core+
 
 ❌
@@ -282,7 +198,7 @@ _types = arr;
 
 ## JSON Serialization
 
-### 20. Use System.Text.Json Source Generator
+### Use System.Text.Json Source Generator
 🔴 **DO** | .NET 6+
 
 ❌
@@ -297,7 +213,7 @@ string json = JsonSerializer.Serialize(post, AppJsonCtx.Default.BlogPost);
 ```
 **Impact: 37-44% faster; enables trimming and Native AOT.**
 
-### 21. Cache JsonSerializerOptions
+### Cache JsonSerializerOptions
 🔴 **DO** | .NET 5+
 
 ❌
@@ -313,7 +229,7 @@ JsonSerializer.Serialize(obj, s_opts);
 
 ## Networking
 
-### 22. Reuse HttpClient Instances
+### Reuse HttpClient Instances
 🔴 **DO** | .NET Core 2.1+
 
 ❌
@@ -331,14 +247,7 @@ await s_http.GetStringAsync(url);
 
 ## General
 
-### 23. Seal Classes for Devirtualization
-🔴 **DO** | .NET Core 3.0+
-
-→ **Moved to [structural-patterns.md](structural-patterns.md)**
-
-**Impact: Virtual calls up to 500x faster; type checks ~25x faster.**
-
-### 24. Use SearchValues\<T\> for Repeated Set Searches
+### Use SearchValues\<T\> for Repeated Set Searches
 🔴 **DO** | .NET 8+
 
 ❌

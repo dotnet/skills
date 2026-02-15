@@ -55,7 +55,9 @@ count++;
 **Impact: ~48% faster for lookup-and-update patterns (95µs → 49µs).**
 
 ### Use CollectionsMarshal.AsSpan for Direct List\<T\> Access
-🟡 **DO** use `CollectionsMarshal.AsSpan` for direct span access over list internals | .NET 5+
+🟡 **CONSIDER** using `CollectionsMarshal.AsSpan` for direct span access over list internals in ultra-hot paths with benchmarked evidence | .NET 5+
+
+This is an advanced technique for specialized hot paths only. Do not apply broadly — it adds complexity and fragility (the span is invalidated by any mutation to the list). Only use when profiling confirms the enumerator or element-by-element access is a bottleneck.
 
 ❌
 ```csharp
@@ -106,24 +108,6 @@ for (int i = 0; i < 10000; i++)
 ```
 
 **Impact: Reduces reallocations and array copies during bulk operations.**
-
-### LINQ Is Fine Outside Hot Paths — Don't Over-Optimize
-🟡 **AVOID** blanket bans on LINQ in codebases | .NET 7+
-
-❌
-```csharp
-bool found = false;
-foreach (var item in items)
-    if (item.Name == target) { found = true; break; }
-```
-✅
-```csharp
-int min = data.Min();
-int max = data.Max();
-bool found = items.Any(x => x.Name == target);
-```
-
-**Impact: LINQ Min/Max/Sum/Average are now vectorized — up to 40x faster for arrays of numeric types.**
 
 ### Use TryGetNonEnumeratedCount for Pre-Sizing
 🟡 **DO** use `TryGetNonEnumeratedCount` to pre-size destination collections | .NET 6+
@@ -179,7 +163,7 @@ public string Convert(long number)
 **Impact: Eliminates collection + internal storage + closure allocations per call. For a Dictionary with N entries, saves ~N+3 allocations per invocation.**
 
 ### Add Overloads to Avoid params Array Allocation
-🟡 **DO** add 1- and 2-argument overloads for methods that accept `params T[]` | .NET Core+
+🟡 **DO** add 1- and 2-argument overloads for methods that accept `params T[]`, or use `params ReadOnlySpan<T>` on .NET 9+ | .NET Core+
 
 ❌
 ```csharp
@@ -190,6 +174,7 @@ public static string Transform(this string input, params IStringTransformer[] tr
 ```
 ✅
 ```csharp
+// Option A: Explicit overloads for common arities
 public static string Transform(this string input, IStringTransformer transformer) =>
     transformer.Transform(input);
 
@@ -198,9 +183,17 @@ public static string Transform(this string input, IStringTransformer t1, IString
 
 public static string Transform(this string input, params IStringTransformer[] transformers) =>
     transformers.Aggregate(input, (current, t) => t.Transform(current));
+
+// Option B (.NET 9+ / C# 13): params ReadOnlySpan<T> — zero heap allocation
+public static string Transform(this string input, params ReadOnlySpan<IStringTransformer> transformers)
+{
+    foreach (var t in transformers)
+        input = t.Transform(input);
+    return input;
+}
 ```
 
-**Impact: Eliminates one array allocation per call for the common 1- and 2-argument cases.**
+**Impact: Eliminates one array allocation per call for the common 1- and 2-argument cases. `params ReadOnlySpan<T>` eliminates it for all arities.**
 
 ## Detection
 
