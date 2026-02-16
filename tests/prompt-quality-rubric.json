@@ -1,0 +1,49 @@
+{
+  "rubric": [
+    {
+      "criterion": "purpose_and_scope",
+      "weight": 1.0,
+      "description": "The skill clearly states its purpose and has explicit 'When to Use' and 'When Not to Use' sections that are specific, not vague"
+    },
+    {
+      "criterion": "inputs_and_prerequisites",
+      "weight": 1.0,
+      "description": "The skill documents its inputs (required vs optional) and any prerequisites (tools, SDK versions, etc.)"
+    },
+    {
+      "criterion": "step_by_step_workflow",
+      "weight": 2.0,
+      "description": "The skill provides a numbered, sequential workflow with concrete steps and commands, not generic guidance"
+    },
+    {
+      "criterion": "checkpoints_and_validation",
+      "weight": 2.0,
+      "description": "The skill includes validation steps, success criteria, or checklists that let the agent verify progress and completion"
+    },
+    {
+      "criterion": "failure_modes_and_recovery",
+      "weight": 1.5,
+      "description": "The skill documents common failure modes, pitfalls, or edge cases with specific recovery guidance"
+    },
+    {
+      "criterion": "concrete_examples",
+      "weight": 1.5,
+      "description": "The skill includes concrete code snippets, commands, or examples rather than abstract descriptions"
+    },
+    {
+      "criterion": "writing_clarity",
+      "weight": 1.0,
+      "description": "The writing is concise, specific, and unambiguous with no clever wording that could be misread by an agent"
+    },
+    {
+      "criterion": "tool_consciousness",
+      "weight": 1.0,
+      "description": "The skill is explicit about which tools and commands to use and does not assume unavailable or proprietary tooling"
+    }
+  ],
+  "scoring": {
+    "per_criterion": "0 (not met), 0.5 (partially met), 1.0 (fully met)",
+    "pass_threshold": 0.75,
+    "formula": "sum(score_i * weight_i) / sum(weight_i)"
+  }
+}

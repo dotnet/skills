@@ -1,0 +1,39 @@
+{
+  "rubric": [
+    {
+      "criterion": "skill_activation",
+      "weight": 1.0,
+      "description": "The agent loaded the correct skill immediately without asking clarifying questions"
+    },
+    {
+      "criterion": "tool_usage",
+      "weight": 2.0,
+      "description": "The agent used the appropriate tools and commands systematically rather than giving generic advice"
+    },
+    {
+      "criterion": "structured_workflow",
+      "weight": 2.0,
+      "description": "The agent followed a clear, sequential workflow with identifiable steps rather than ad-hoc actions"
+    },
+    {
+      "criterion": "actionable_output",
+      "weight": 2.0,
+      "description": "The agent produced specific, concrete, directly usable results (not generic suggestions or TODO placeholders)"
+    },
+    {
+      "criterion": "completeness",
+      "weight": 1.0,
+      "description": "The agent finished the entire task including cleanup and verification without leaving loose ends"
+    },
+    {
+      "criterion": "no_unnecessary_questions",
+      "weight": 1.0,
+      "description": "The agent proceeded autonomously without asking the user to choose between tools, frameworks, or approaches"
+    }
+  ],
+  "scoring": {
+    "per_criterion": "0 (not met), 0.5 (partially met), 1.0 (fully met)",
+    "pass_threshold": 0.75,
+    "formula": "sum(score_i * weight_i) / sum(weight_i)"
+  }
+}
