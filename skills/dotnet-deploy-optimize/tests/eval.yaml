@@ -1,0 +1,132 @@
+scenarios:
+  - name: "Basic Web API publish optimization"
+    prompt: "Analyze this .NET 8 Web API project and recommend deployment optimizations. Focus on publish mode, trimming, and AOT compatibility."
+    setup:
+      files:
+        - path: "MyApi/MyApi.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+            </Project>
+        - path: "MyApi/Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddControllers();
+            builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddSwaggerGen();
+            var app = builder.Build();
+            app.UseSwagger();
+            app.MapControllers();
+            app.Run();
+        - path: "MyApi/appsettings.json"
+          content: |
+            {
+              "Logging": {
+                "LogLevel": {
+                  "Default": "Information"
+                }
+              },
+              "AllowedHosts": "*"
+            }
+    assertions:
+      - type: "output_contains"
+        value: "publish"
+      - type: "output_contains"
+        value: "trimm"
+      - type: "exit_success"
+    rubric:
+      - "Correctly identifies the project as a Web API application"
+      - "Recommends an appropriate publish mode with a dotnet publish command or project file properties"
+      - "Evaluates trimming compatibility and provides a recommendation"
+      - "Discusses Native AOT feasibility for this project type"
+      - "Provides a clear summary table of recommendations"
+    timeout: 180
+
+  - name: "Detect conflicting publish settings"
+    prompt: "Review this .NET 8 project file for deployment issues. It has publish settings configured — check if they are compatible and recommend fixes."
+    setup:
+      files:
+        - path: "ConflictApp/ConflictApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <PublishAot>true</PublishAot>
+                <PublishSingleFile>true</PublishSingleFile>
+                <ReadyToRun>true</ReadyToRun>
+                <SelfContained>false</SelfContained>
+              </PropertyGroup>
+            </Project>
+        - path: "ConflictApp/Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            var app = builder.Build();
+            app.MapGet("/", () => "Hello");
+            app.Run();
+    assertions:
+      - type: "output_contains"
+        value: "conflict"
+      - type: "exit_success"
+    rubric:
+      - "Identifies the conflict between PublishAot and PublishSingleFile"
+      - "Identifies the conflict between PublishAot and ReadyToRun"
+      - "Identifies the conflict between PublishAot and SelfContained=false"
+      - "Provides specific fix recommendations for each conflict"
+    timeout: 180
+
+  - name: "Worker service health check recommendations"
+    prompt: "This is a .NET 8 Worker Service. Analyze it for deployment optimization, focusing on health checks and publish configuration."
+    setup:
+      files:
+        - path: "MyWorker/MyWorker.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Worker">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+              </ItemGroup>
+            </Project>
+        - path: "MyWorker/Program.cs"
+          content: |
+            using MyWorker;
+            var builder = Host.CreateDefaultBuilder(args);
+            builder.ConfigureServices(services =>
+            {
+                services.AddHostedService<Worker>();
+            });
+            var host = builder.Build();
+            host.Run();
+        - path: "MyWorker/Worker.cs"
+          content: |
+            namespace MyWorker;
+            public class Worker : BackgroundService
+            {
+                protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+                {
+                    while (!stoppingToken.IsCancellationRequested)
+                    {
+                        await Task.Delay(1000, stoppingToken);
+                    }
+                }
+            }
+    assertions:
+      - type: "output_contains"
+        value: "health"
+      - type: "output_contains"
+        value: "worker"
+      - type: "exit_success"
+    rubric:
+      - "Correctly identifies the project as a Worker Service"
+      - "Recommends health check options appropriate for a Worker Service (file-based, TCP, or minimal Kestrel)"
+      - "Recommends an appropriate publish mode considering long-running workload characteristics"
+      - "Discusses AOT trade-offs for long-running services (loss of JIT tiered compilation)"
+    timeout: 180
