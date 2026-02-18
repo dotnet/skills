@@ -89,6 +89,7 @@ A console app distributed as a global or local tool via `dotnet tool install`.
 | `OutputType` | `Exe` | Must be an executable |
 | `PackAsTool` | `true` | Marks this as a tool package |
 | `PackageId` | `contoso-cli` | Tool package identifier |
+| `Version` | `0.1.0` | Package version (or set in Directory.Build.props) |
 
 ### Recommended Properties
 
