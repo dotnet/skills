@@ -443,15 +443,15 @@ dotnet test --filter "Category=Integration"
 
 ---
 
-**Load [📋 Testing Guide](./reference/testing_guide.md) for detailed patterns and examples.**
+**Load [📋 Testing Guide](./references/testing_guide.md) for detailed patterns and examples.**
 
 ---
 
 ## Related Skills
 
-- **[mcp-csharp-create](../mcp-csharp-create/SKILL.md)** - Creating your MCP server
-- **[mcp-csharp-debug](../mcp-csharp-debug/SKILL.md)** - Running and debugging
-- **[mcp-csharp-publish](../mcp-csharp-publish/SKILL.md)** - Publishing and deployment
+- **mcp-csharp-create** - Creating your MCP server
+- **mcp-csharp-debug** - Running and debugging
+- **mcp-csharp-publish** - Publishing and deployment
 
 ---
 
@@ -459,7 +459,7 @@ dotnet test --filter "Category=Integration"
 
 ## 📚 Documentation Library
 
-- [📋 Testing Guide](./reference/testing_guide.md) - Complete testing patterns and examples
+- [📋 Testing Guide](./references/testing_guide.md) - Complete testing patterns and examples
 - **xUnit Documentation**: https://xunit.net/docs/getting-started/netcore/cmdline
 - **FluentAssertions**: https://fluentassertions.com/
 - **Moq**: https://github.com/moq/moq

@@ -126,7 +126,7 @@ public static class MyTools
 }
 ```
 
-**Load [📋 C# MCP Server Guide](./reference/csharp_mcp_server.md) for complete implementation patterns.**
+**Load [📋 C# MCP Server Guide](./references/csharp_mcp_server.md) for complete implementation patterns.**
 
 #### 2.3 Implement Prompts (Optional)
 
@@ -190,7 +190,7 @@ app.Run("http://localhost:3001");
 
 ### Phase 3: Best Practices
 
-**Load [📋 C# Best Practices](./reference/csharp_best_practices.md) for naming conventions, response formats, and security guidelines.**
+**Load [📋 C# Best Practices](./references/csharp_best_practices.md) for naming conventions, response formats, and security guidelines.**
 
 Key principles:
 - Use `[Description]` attributes on all tools and parameters
@@ -203,9 +203,9 @@ Key principles:
 
 ## Related Skills
 
-- **[mcp-csharp-debug](../mcp-csharp-debug/SKILL.md)** - Running and debugging your MCP server
-- **[mcp-csharp-test](../mcp-csharp-test/SKILL.md)** - Testing and evaluation creation
-- **[mcp-csharp-publish](../mcp-csharp-publish/SKILL.md)** - Publishing to NuGet, Docker, and Azure
+- **mcp-csharp-debug** - Running and debugging your MCP server
+- **mcp-csharp-test** - Testing and evaluation creation
+- **mcp-csharp-publish** - Publishing to NuGet, Docker, and Azure
 
 ---
 
@@ -214,8 +214,8 @@ Key principles:
 ## 📚 Documentation Library
 
 ### Core Documentation
-- [📋 C# MCP Server Implementation Guide](./reference/csharp_mcp_server.md) - Complete patterns for tools, prompts, resources, and transports
-- [📋 C# Best Practices](./reference/csharp_best_practices.md) - Naming conventions, response formats, security
+- [📋 C# MCP Server Implementation Guide](./references/csharp_mcp_server.md) - Complete patterns for tools, prompts, resources, and transports
+- [📋 C# Best Practices](./references/csharp_best_practices.md) - Naming conventions, response formats, security
 
 ### SDK Documentation
 - **C# SDK**: Fetch from `https://raw.githubusercontent.com/modelcontextprotocol/csharp-sdk/main/README.md`

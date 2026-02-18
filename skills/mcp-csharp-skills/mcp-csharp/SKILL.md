@@ -18,10 +18,10 @@ Build Model Context Protocol (MCP) servers using C# and .NET. This skill orchest
 
 | If you want to... | Phase | Action |
 |-------------------|-------|--------|
-| **Create a new MCP server** | Create | Load [mcp-csharp-create](./mcp-csharp-create/SKILL.md) |
-| **Run or debug your server** | Debug | Load [mcp-csharp-debug](./mcp-csharp-debug/SKILL.md) |
-| **Write tests or evaluations** | Test | Load [mcp-csharp-test](./mcp-csharp-test/SKILL.md) |
-| **Publish to NuGet, Docker, or Azure** | Publish | Load [mcp-csharp-publish](./mcp-csharp-publish/SKILL.md) |
+| **Create a new MCP server** | Create | Load **mcp-csharp-create** skill |
+| **Run or debug your server** | Debug | Load **mcp-csharp-debug** skill |
+| **Write tests or evaluations** | Test | Load **mcp-csharp-test** skill |
+| **Publish to NuGet, Docker, or Azure** | Publish | Load **mcp-csharp-publish** skill |
 
 ---
 
@@ -44,7 +44,7 @@ dotnet new mcpserver -n MyMcpServer --transport http
 
 **Then**: Add your tools using `[McpServerToolType]` and `[McpServerTool]` attributes.
 
-**📖 Full guide**: Load [mcp-csharp-create](./mcp-csharp-create/SKILL.md)
+**📖 Full guide**: Load **mcp-csharp-create** skill
 
 ---
 
@@ -58,7 +58,7 @@ dotnet new mcpserver -n MyMcpServer --transport http
 3. Test with MCP Inspector or GitHub Copilot Agent Mode
 4. Set breakpoints and debug
 
-**📖 Full guide**: Load [mcp-csharp-debug](./mcp-csharp-debug/SKILL.md)
+**📖 Full guide**: Load **mcp-csharp-debug** skill
 
 ---
 
@@ -72,7 +72,7 @@ dotnet new mcpserver -n MyMcpServer --transport http
 3. Write integration tests with MCP client
 4. Create evaluations to measure LLM effectiveness
 
-**📖 Full guide**: Load [mcp-csharp-test](./mcp-csharp-test/SKILL.md)
+**📖 Full guide**: Load **mcp-csharp-test** skill
 
 ---
 
@@ -85,7 +85,7 @@ dotnet new mcpserver -n MyMcpServer --transport http
 | **stdio** | NuGet.org | `dnx YourPackage@1.0.0` |
 | **HTTP** | Docker/Azure | Container URL |
 
-**📖 Full guide**: Load [mcp-csharp-publish](./mcp-csharp-publish/SKILL.md)
+**📖 Full guide**: Load **mcp-csharp-publish** skill
 
 ---
 
@@ -121,7 +121,7 @@ dotnet new mcpserver -n MyMcpServer --transport http
 
 ## Scenario: "I want to build an MCP server for [Service X]"
 
-1. **Load**: [mcp-csharp-create](./mcp-csharp-create/SKILL.md)
+1. **Load**: **mcp-csharp-create** skill
 2. Create project with `dotnet new mcpserver -n ServiceXMcpServer`
 3. Study the Service X API documentation
 4. Implement tools for key API operations
@@ -129,7 +129,7 @@ dotnet new mcpserver -n MyMcpServer --transport http
 
 ## Scenario: "My MCP server isn't working"
 
-1. **Load**: [mcp-csharp-debug](./mcp-csharp-debug/SKILL.md)
+1. **Load**: **mcp-csharp-debug** skill
 2. Check common issues:
    - stdio servers logging to stdout (should be stderr)
    - Missing `[McpServerToolType]` attribute
@@ -142,55 +142,14 @@ dotnet new mcpserver -n MyMcpServer --transport http
 1. **Determine transport**:
    - stdio → NuGet publishing
    - HTTP → Docker + Azure
-2. **Load**: [mcp-csharp-publish](./mcp-csharp-publish/SKILL.md)
+2. **Load**: **mcp-csharp-publish** skill
 3. Follow the publishing guide for your transport
 
 ---
 
 # 📚 Reference
 
-## SDK Packages
-
-| Package | Use Case |
-|---------|----------|
-| `ModelContextProtocol` | stdio servers with hosting/DI |
-| `ModelContextProtocol.AspNetCore` | HTTP servers with ASP.NET Core |
-| `ModelContextProtocol.Core` | Low-level client/server APIs |
-
-## Key Patterns
-
-### Tool Registration
-```csharp
-[McpServerToolType]
-public static class MyTools
-{
-    [McpServerTool, Description("Does something useful")]
-    public static string DoSomething(
-        [Description("Input parameter")] string input) =>
-        $"Result: {input}";
-}
-```
-
-### Program.cs (stdio)
-```csharp
-var builder = Host.CreateApplicationBuilder(args);
-builder.Logging.AddConsole(o => o.LogToStandardErrorThreshold = LogLevel.Trace);
-builder.Services.AddMcpServer()
-    .WithStdioServerTransport()
-    .WithToolsFromAssembly();
-await builder.Build().RunAsync();
-```
-
-### Program.cs (HTTP)
-```csharp
-var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddMcpServer()
-    .WithHttpTransport()
-    .WithToolsFromAssembly();
-var app = builder.Build();
-app.MapMcp();
-app.Run();
-```
+For SDK packages, key patterns, and code examples, see [SDK Overview](./references/sdk-overview.md).
 
 ---
 
@@ -200,10 +159,10 @@ Load these for detailed guidance on each phase:
 
 | Skill | Description |
 |-------|-------------|
-| [mcp-csharp-create](./mcp-csharp-create/SKILL.md) | Project scaffolding, tool/prompt/resource implementation |
-| [mcp-csharp-debug](./mcp-csharp-debug/SKILL.md) | Running, debugging, MCP Inspector, Copilot testing |
-| [mcp-csharp-test](./mcp-csharp-test/SKILL.md) | Unit tests, integration tests, evaluations |
-| [mcp-csharp-publish](./mcp-csharp-publish/SKILL.md) | NuGet, Docker, Azure deployment |
+| **mcp-csharp-create** | Project scaffolding, tool/prompt/resource implementation |
+| **mcp-csharp-debug** | Running, debugging, MCP Inspector, Copilot testing |
+| **mcp-csharp-test** | Unit tests, integration tests, evaluations |
+| **mcp-csharp-publish** | NuGet, Docker, Azure deployment |
 
 ---
 

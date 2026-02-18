@@ -481,15 +481,15 @@ builder.Logging.AddConsole(options =>
 
 ---
 
-**Load [📋 Debugging Guide](./reference/debugging_guide.md) for detailed troubleshooting steps.**
+**Load [📋 Debugging Guide](./references/debugging_guide.md) for detailed troubleshooting steps.**
 
 ---
 
 ## Related Skills
 
-- **[mcp-csharp-create](../mcp-csharp-create/SKILL.md)** - Creating your MCP server
-- **[mcp-csharp-test](../mcp-csharp-test/SKILL.md)** - Testing and evaluation
-- **[mcp-csharp-publish](../mcp-csharp-publish/SKILL.md)** - Publishing and deployment
+- **mcp-csharp-create** - Creating your MCP server
+- **mcp-csharp-test** - Testing and evaluation
+- **mcp-csharp-publish** - Publishing and deployment
 
 ---
 
@@ -497,6 +497,6 @@ builder.Logging.AddConsole(options =>
 
 ## 📚 Documentation Library
 
-- [📋 Debugging Guide](./reference/debugging_guide.md) - Detailed troubleshooting and advanced debugging
+- [📋 Debugging Guide](./references/debugging_guide.md) - Detailed troubleshooting and advanced debugging
 - **MCP Inspector**: `npx @modelcontextprotocol/inspector`
 - **VS Code Debugging**: https://code.visualstudio.com/docs/csharp/debugging

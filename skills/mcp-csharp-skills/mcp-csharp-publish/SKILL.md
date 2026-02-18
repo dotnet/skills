@@ -150,7 +150,7 @@ After publishing, users configure their MCP client:
 }
 ```
 
-**Load [📋 NuGet Publishing Guide](./reference/nuget_publishing.md) for detailed instructions.**
+**Load [📋 NuGet Publishing Guide](./references/nuget_publishing.md) for detailed instructions.**
 
 ---
 
@@ -219,7 +219,7 @@ docker tag mymcpserver:latest yourregistry.azurecr.io/mymcpserver:1.0.0
 docker push yourregistry.azurecr.io/mymcpserver:1.0.0
 ```
 
-**Load [📋 Docker Deployment Guide](./reference/docker_deployment.md) for production configurations.**
+**Load [📋 Docker Deployment Guide](./references/docker_deployment.md) for production configurations.**
 
 ---
 
@@ -263,7 +263,7 @@ az webapp config appsettings set \
   --settings API_KEY=@Microsoft.KeyVault(VaultName=myvault;SecretName=api-key)
 ```
 
-**Load [📋 Azure Deployment Guide](./reference/azure_deployment.md) for complete instructions.**
+**Load [📋 Azure Deployment Guide](./references/azure_deployment.md) for complete instructions.**
 
 ---
 
@@ -336,7 +336,7 @@ Before publishing to the MCP Registry, ensure:
    - With GitHub auth: `io.github.{your-github-username}/{server-name}`
    - With DNS auth: `{your-domain}/{server-name}` (e.g., `com.mycompany/myserver`)
 
-**Load [📋 MCP Registry Guide](./reference/mcp_registry.md) for detailed instructions and CI/CD automation.**
+**Load [📋 MCP Registry Guide](./references/mcp_registry.md) for detailed instructions and CI/CD automation.**
 
 ---
 
@@ -410,9 +410,9 @@ curl https://mymcpserver.azurecontainerapps.io/health
 
 ## Related Skills
 
-- **[mcp-csharp-create](../mcp-csharp-create/SKILL.md)** - Creating your MCP server
-- **[mcp-csharp-debug](../mcp-csharp-debug/SKILL.md)** - Running and debugging
-- **[mcp-csharp-test](../mcp-csharp-test/SKILL.md)** - Testing and evaluation
+- **mcp-csharp-create** - Creating your MCP server
+- **mcp-csharp-debug** - Running and debugging
+- **mcp-csharp-test** - Testing and evaluation
 
 ---
 
@@ -420,10 +420,10 @@ curl https://mymcpserver.azurecontainerapps.io/health
 
 ## 📚 Documentation Library
 
-- [📋 NuGet Publishing Guide](./reference/nuget_publishing.md) - Complete NuGet packaging and publishing
-- [📋 Docker Deployment Guide](./reference/docker_deployment.md) - Docker containerization best practices
-- [📋 Azure Deployment Guide](./reference/azure_deployment.md) - Azure Container Apps and App Service
-- [📋 MCP Registry Guide](./reference/mcp_registry.md) - Publishing to the official MCP Registry
+- [📋 NuGet Publishing Guide](./references/nuget_publishing.md) - Complete NuGet packaging and publishing
+- [📋 Docker Deployment Guide](./references/docker_deployment.md) - Docker containerization best practices
+- [📋 Azure Deployment Guide](./references/azure_deployment.md) - Azure Container Apps and App Service
+- [📋 MCP Registry Guide](./references/mcp_registry.md) - Publishing to the official MCP Registry
 
 ### External Documentation
 - **NuGet Publishing**: https://learn.microsoft.com/nuget/nuget-org/publish-a-package
