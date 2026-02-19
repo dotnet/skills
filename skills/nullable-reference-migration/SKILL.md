@@ -148,6 +148,16 @@ For each type, decide: **should this member ever be null?**
 
 Focus annotation effort on public and protected APIs first — these define the contract that consumers depend on. Internal and private code can tolerate `!` more liberally since it does not affect external callers.
 
+> **Public libraries: track breaking changes.** If the project is a library consumed by others, create a `nullable-breaking-changes.md` file (or equivalent) and record every public API change that could affect consumers. While adding `?` to a reference type is metadata-only and not binary-breaking, it IS source-breaking for consumers who have NRTs enabled — they will get new warnings or errors. Key changes to document:
+> - Return types changed from `T` to `T?` (consumers must now handle null)
+> - Parameters changed from `T?` to `T` (consumers can no longer pass null)
+> - Parameters changed from `T` to `T?` (existing null checks in callers become unnecessary — low impact but worth noting)
+> - `?` added to a value type parameter or return (changes `T` to `Nullable<T>` — binary-breaking)
+> - New `ArgumentNullException` guards added where none existed
+> - Any behavioral changes discovered and fixed during annotation (e.g., a method that silently accepted null now throws)
+>
+> Present this file to the user for review. It may also serve as the basis for release notes.
+
 Pay special attention to:
 
 - **DTOs and serialization models**: Deserialized properties may be null even if the type says otherwise. Mark them nullable or use `required` / `[JsonRequired]`.
@@ -210,6 +220,7 @@ Add `using System.Diagnostics.CodeAnalysis;` where needed.
 - [ ] No `#nullable disable` directives remain unless justified with a comment
 - [ ] Null-forgiving operators (`!`) are rare, each with a justifying comment
 - [ ] Public API signatures accurately reflect null contracts
+- [ ] For public libraries: breaking changes documented in `nullable-breaking-changes.md` and reviewed by the user
 
 ### Code review checklist
 
