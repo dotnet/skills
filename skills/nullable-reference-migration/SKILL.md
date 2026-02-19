@@ -65,6 +65,8 @@ Best for large legacy codebases where enabling project-wide would produce an unm
 2. Add `#nullable enable` at the top of each file as it is migrated.
 3. Prioritize files in dependency order: shared utilities and models first, then higher-level consumers.
 
+> **Build checkpoint:** After enabling `<Nullable>` (or adding `#nullable enable` to the first batch of files), run `dotnet build` immediately. Record the initial warning count — this is the baseline to work down from. Do not proceed to fixing warnings without first confirming the project still compiles.
+
 ### Step 3: Fix dereference warnings
 
 Build the project and work through dereference warnings. These are the most common:
@@ -85,6 +87,8 @@ Guidance:
 - If you find yourself adding `!` at every call site of an internal method, consider making that parameter nullable instead. Reserve `!` for cases where the compiler genuinely cannot prove non-nullness.
 - For generic methods returning `default` on an unconstrained type parameter (e.g., `FirstOrDefault<T>`), use `[return: MaybeNull] T` rather than `T?`. Writing `T?` on an unconstrained generic changes value-type signatures to `Nullable<T>`, altering the method signature and binary layout. `[return: MaybeNull]` preserves the original signature while communicating that the return may be null for reference types.
 - LINQ's `Where(x => x != null)` does not narrow `T?` to `T` — the compiler cannot track nullability through lambdas passed to generic methods. Use a `WhereNotNull()` extension method (see [Helper Extension Methods](#helper-extension-methods) below) or `source.OfType<T>()` to filter nulls with correct type narrowing.
+
+> **Build checkpoint:** After fixing dereference warnings, run `dotnet build` and confirm zero CS8602/CS8600/CS8603/CS8604 warnings remain before moving to annotation warnings.
 
 ### Step 4: Annotate declarations
 
@@ -116,6 +120,8 @@ Pay special attention to:
 - **`IEquatable<T>` and `IComparable<T>`**: Reference types should implement `IEquatable<T?>` and `IComparable<T?>` (with nullable `T`), because callers commonly pass null to `Equals` and `CompareTo`.
 - **`Equals(object?)` overrides**: Add `[NotNullWhen(true)]` to the parameter of `Equals(object? obj)` overrides — if `Equals` returns `true`, the argument is guaranteed non-null. This lets callers skip redundant null checks after an equality test.
 
+> **Build checkpoint:** After annotating declarations, run `dotnet build` and confirm zero CS8618/CS8625/CS8601 warnings remain before moving to nullable attributes.
+
 ### Step 5: Apply nullable attributes for advanced scenarios
 
 When a simple `?` annotation cannot express the null contract, use attributes from `System.Diagnostics.CodeAnalysis`:
@@ -136,12 +142,16 @@ Add `using System.Diagnostics.CodeAnalysis;` where needed.
 
 > **Caution:** The compiler does not warn when nullable attributes are misapplied — for example, `[DisallowNull]` on an already non-nullable parameter or `[MaybeNull]` on a by-value input parameter (not `ref`/`out`) are silently ignored. Verify each attribute is placed where it has an effect.
 
+> **Build checkpoint:** After applying nullable attributes, run `dotnet build` to verify the attributes resolved the targeted warnings and did not introduce new ones.
+
 ### Step 6: Clean up suppressions
 
 1. Search for any `#nullable disable` directives or `!` operators that were added as temporary workarounds.
 2. For each one, determine whether the suppression is still needed.
 3. Remove suppressions that are no longer necessary. For any that remain, add a comment explaining why.
 4. Search for `#pragma warning disable CS86` to find suppressed nullable warnings and evaluate whether the underlying issue can be fixed instead.
+
+> **Build checkpoint:** After removing suppressions, run `dotnet build` again — removing a `#nullable disable` or `!` may surface new warnings that need fixing.
 
 ### Step 7: Validate
 
