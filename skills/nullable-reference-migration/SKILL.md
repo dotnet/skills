@@ -96,6 +96,8 @@ Guidance:
 
 Start by deciding the **intended nullability** of each member based on its design purpose — should this parameter accept null? Can this return value ever be null? Annotate accordingly, then address any resulting warnings. Do not let warnings drive your annotations; that leads to over-annotating with `?` or scattering `!` to silence the compiler.
 
+> **When to ask the user:** Do not guess API contracts. Ask the user before: (1) changing a public method's return type to nullable or adding `?` to a public parameter — this changes the API contract consumers depend on; (2) deciding whether a property should be nullable vs. required when the design intent is unclear; (3) choosing between a null check and `!` when you cannot determine from context whether null is a valid state. For internal/private members where the answer is obvious from usage, proceed without asking.
+
 After dereference warnings are resolved, address annotation warnings:
 
 | Warning | Meaning | Typical fix |
