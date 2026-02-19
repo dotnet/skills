@@ -1,0 +1,339 @@
+<#
+.SYNOPSIS
+    Scans a C# project or solution for nullable reference type (NRT) readiness.
+
+.DESCRIPTION
+    Reports project-level NRT settings (<Nullable>, <LangVersion>, <TargetFramework>,
+    <WarningsAsErrors>) and source-level counts (#nullable directives, null-forgiving
+    operators, #pragma warning disable CS86xx) to help assess migration status.
+
+    Automates the manual checks in Steps 1 and 6 of the nullable-reference-migration skill.
+
+.PARAMETER Path
+    Path to a .csproj, .sln, or directory. Defaults to the current directory.
+
+.PARAMETER Json
+    Output as JSON instead of a human-readable summary.
+
+.PARAMETER Recurse
+    When Path is a directory (not a .sln), scan recursively for all .csproj files.
+
+.EXAMPLE
+    ./Scan-NullableReadiness.ps1
+    Scans the current directory for a .sln or .csproj and reports NRT readiness.
+
+.EXAMPLE
+    ./Scan-NullableReadiness.ps1 -Path ./src/MyLib/MyLib.csproj
+    Scans a single project.
+
+.EXAMPLE
+    ./Scan-NullableReadiness.ps1 -Path ./src -Recurse -Json
+    Scans all projects under ./src and outputs JSON.
+#>
+
+[CmdletBinding()]
+param(
+    [string]$Path = ".",
+    [switch]$Json,
+    [switch]$Recurse
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+#region Helpers
+
+function Get-ProjectFiles {
+    param([string]$InputPath, [switch]$Recurse)
+
+    $resolved = Resolve-Path $InputPath -ErrorAction Stop
+
+    if (Test-Path $resolved -PathType Leaf) {
+        $ext = [System.IO.Path]::GetExtension($resolved)
+        if ($ext -eq ".csproj") {
+            return @($resolved.Path)
+        }
+        if ($ext -eq ".sln") {
+            return Get-ProjectsFromSolution $resolved.Path
+        }
+        Write-Error "Unsupported file type: $ext. Provide a .csproj, .sln, or directory."
+    }
+
+    # Directory
+    if ($Recurse) {
+        $projects = Get-ChildItem -Path $resolved -Filter "*.csproj" -Recurse | Select-Object -ExpandProperty FullName
+    } else {
+        # Look for .sln first, then .csproj in the directory
+        $sln = Get-ChildItem -Path $resolved -Filter "*.sln" -File | Select-Object -First 1
+        if ($sln) {
+            return Get-ProjectsFromSolution $sln.FullName
+        }
+        $projects = Get-ChildItem -Path $resolved -Filter "*.csproj" -File | Select-Object -ExpandProperty FullName
+    }
+
+    if (-not $projects -or $projects.Count -eq 0) {
+        Write-Error "No .csproj files found in '$resolved'."
+    }
+    return $projects
+}
+
+function Get-ProjectsFromSolution {
+    param([string]$SlnPath)
+
+    $slnDir = Split-Path $SlnPath -Parent
+    $projects = @()
+    foreach ($line in Get-Content $SlnPath) {
+        if ($line -match 'Project\("[^"]*"\)\s*=\s*"[^"]*"\s*,\s*"([^"]*\.csproj)"') {
+            $relPath = $Matches[1] -replace '\\', [System.IO.Path]::DirectorySeparatorChar
+            $fullPath = Join-Path $slnDir $relPath
+            if (Test-Path $fullPath) {
+                $projects += (Resolve-Path $fullPath).Path
+            }
+        }
+    }
+    return $projects
+}
+
+function Read-ProjectSettings {
+    param([string]$CsprojPath)
+
+    $xml = [xml](Get-Content $CsprojPath -Raw)
+    $ns = $xml.DocumentElement.NamespaceURI
+
+    # Check for Directory.Build.props in parent directories
+    $propsSettings = Find-DirectoryBuildProps (Split-Path $CsprojPath -Parent)
+
+    $nullable = Select-XmlValue $xml "//Nullable" $ns
+    $langVersion = Select-XmlValue $xml "//LangVersion" $ns
+    $tfm = Select-XmlValue $xml "//TargetFramework" $ns
+    $tfms = Select-XmlValue $xml "//TargetFrameworks" $ns
+    $warningsAsErrors = Select-XmlValue $xml "//WarningsAsErrors" $ns
+    $treatWarningsAsErrors = Select-XmlValue $xml "//TreatWarningsAsErrors" $ns
+
+    # Fall back to Directory.Build.props values
+    if (-not $nullable -and $propsSettings.Nullable) { $nullable = $propsSettings.Nullable + " (inherited)" }
+    if (-not $langVersion -and $propsSettings.LangVersion) { $langVersion = $propsSettings.LangVersion + " (inherited)" }
+    if (-not $warningsAsErrors -and $propsSettings.WarningsAsErrors) { $warningsAsErrors = $propsSettings.WarningsAsErrors + " (inherited)" }
+    if (-not $treatWarningsAsErrors -and $propsSettings.TreatWarningsAsErrors) { $treatWarningsAsErrors = $propsSettings.TreatWarningsAsErrors + " (inherited)" }
+
+    $framework = if ($tfms) { $tfms } elseif ($tfm) { $tfm } else { "(not set)" }
+
+    $warningEnforcement = "none"
+    if ($treatWarningsAsErrors -and $treatWarningsAsErrors -match "true") {
+        $warningEnforcement = "all warnings as errors"
+    } elseif ($warningsAsErrors -and $warningsAsErrors -match "nullable") {
+        $warningEnforcement = "nullable warnings as errors"
+    }
+
+    return [PSCustomObject]@{
+        Nullable           = if ($nullable) { $nullable } else { "(not set)" }
+        LangVersion        = if ($langVersion) { $langVersion } else { "(not set)" }
+        TargetFramework    = $framework
+        WarningEnforcement = $warningEnforcement
+    }
+}
+
+function Select-XmlValue {
+    param($Xml, [string]$XPath, [string]$Namespace)
+
+    if ($Namespace) {
+        $nsmgr = New-Object System.Xml.XmlNamespaceManager($Xml.NameTable)
+        $nsmgr.AddNamespace("ns", $Namespace)
+        $nsXPath = $XPath -replace '//', '//ns:' -replace '/ns:ns:', '/ns:'
+        $node = $Xml.SelectSingleNode($nsXPath, $nsmgr)
+    } else {
+        $node = $Xml.SelectSingleNode($XPath)
+    }
+
+    if ($node) { return $node.InnerText.Trim() }
+    return $null
+}
+
+function Find-DirectoryBuildProps {
+    param([string]$StartDir)
+
+    $result = [PSCustomObject]@{
+        Nullable            = $null
+        LangVersion         = $null
+        WarningsAsErrors    = $null
+        TreatWarningsAsErrors = $null
+    }
+
+    $dir = $StartDir
+    while ($dir) {
+        $propsPath = Join-Path $dir "Directory.Build.props"
+        if (Test-Path $propsPath) {
+            $xml = [xml](Get-Content $propsPath -Raw)
+            $ns = $xml.DocumentElement.NamespaceURI
+            if (-not $result.Nullable) { $result.Nullable = Select-XmlValue $xml "//Nullable" $ns }
+            if (-not $result.LangVersion) { $result.LangVersion = Select-XmlValue $xml "//LangVersion" $ns }
+            if (-not $result.WarningsAsErrors) { $result.WarningsAsErrors = Select-XmlValue $xml "//WarningsAsErrors" $ns }
+            if (-not $result.TreatWarningsAsErrors) { $result.TreatWarningsAsErrors = Select-XmlValue $xml "//TreatWarningsAsErrors" $ns }
+        }
+        $parent = Split-Path $dir -Parent
+        if ($parent -eq $dir) { break }
+        $dir = $parent
+    }
+
+    return $result
+}
+
+function Scan-SourceFiles {
+    param([string]$CsprojPath)
+
+    $projectDir = Split-Path $CsprojPath -Parent
+    $csFiles = Get-ChildItem -Path $projectDir -Filter "*.cs" -Recurse -File |
+        Where-Object { $_.FullName -notmatch '[\\/](obj|bin)[\\/]' }
+
+    $totalFiles = $csFiles.Count
+    $filesWithNullableEnable = 0
+    $totalNullableDisable = 0
+    $totalNullableEnable = 0
+    $totalPragmaDisable = 0
+    $totalBangOperator = 0
+    $fileDetails = @()
+
+    foreach ($file in $csFiles) {
+        $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+        if (-not $content) { continue }
+
+        $lines = $content -split '\r?\n'
+
+        $nullableDisable = ($lines | Where-Object { $_ -match '^\s*#nullable\s+disable' }).Count
+        $nullableEnable = ($lines | Where-Object { $_ -match '^\s*#nullable\s+enable' }).Count
+        $pragmaDisable = ($lines | Where-Object { $_ -match '#pragma\s+warning\s+disable\s+CS86' }).Count
+
+        # Count null-forgiving operators (approximate).
+        # Matches ! preceded by ), ], >, or a word character, not followed by =.
+        # This is a heuristic — it may count ! in strings or comments.
+        $bangMatches = [regex]::Matches($content, '(?<=[)\]>\w])!(?!=)')
+        $bangCount = $bangMatches.Count
+
+        if ($nullableEnable -gt 0) { $filesWithNullableEnable++ }
+        $totalNullableDisable += $nullableDisable
+        $totalNullableEnable += $nullableEnable
+        $totalPragmaDisable += $pragmaDisable
+        $totalBangOperator += $bangCount
+
+        $relativePath = $file.FullName.Substring($projectDir.Length).TrimStart([System.IO.Path]::DirectorySeparatorChar)
+
+        if ($nullableDisable -gt 0 -or $pragmaDisable -gt 0 -or $bangCount -gt 5) {
+            $fileDetails += [PSCustomObject]@{
+                File            = $relativePath
+                NullableDisable = $nullableDisable
+                PragmaDisable   = $pragmaDisable
+                BangOperators   = $bangCount
+            }
+        }
+    }
+
+    return [PSCustomObject]@{
+        TotalFiles           = $totalFiles
+        FilesWithEnable      = $filesWithNullableEnable
+        NullableDisableCount = $totalNullableDisable
+        NullableEnableCount  = $totalNullableEnable
+        PragmaDisableCount   = $totalPragmaDisable
+        BangOperatorCount    = $totalBangOperator
+        FilesOfInterest      = $fileDetails
+    }
+}
+
+#endregion
+
+#region Main
+
+$projectFiles = Get-ProjectFiles -InputPath $Path -Recurse:$Recurse
+
+$results = @()
+
+foreach ($proj in $projectFiles) {
+    $projName = [System.IO.Path]::GetFileNameWithoutExtension($proj)
+
+    Write-Verbose "Scanning $projName..."
+
+    $settings = Read-ProjectSettings $proj
+    $sourceStats = Scan-SourceFiles $proj
+
+    $results += [PSCustomObject]@{
+        Project            = $projName
+        Path               = $proj
+        Nullable           = $settings.Nullable
+        LangVersion        = $settings.LangVersion
+        TargetFramework    = $settings.TargetFramework
+        WarningEnforcement = $settings.WarningEnforcement
+        TotalCsFiles       = $sourceStats.TotalFiles
+        FilesWithEnable    = $sourceStats.FilesWithEnable
+        NullableDisable    = $sourceStats.NullableDisableCount
+        NullableEnable     = $sourceStats.NullableEnableCount
+        PragmaDisableCS86  = $sourceStats.PragmaDisableCount
+        BangOperators      = $sourceStats.BangOperatorCount
+        FilesOfInterest    = $sourceStats.FilesOfInterest
+    }
+}
+
+if ($Json) {
+    $results | ConvertTo-Json -Depth 4
+    return
+}
+
+# Human-readable output
+Write-Host ""
+Write-Host "=== NRT Readiness Report ===" -ForegroundColor Cyan
+Write-Host ""
+
+foreach ($r in $results) {
+    Write-Host "Project: $($r.Project)" -ForegroundColor Yellow
+    Write-Host "  Path:               $($r.Path)"
+    Write-Host "  <Nullable>:         $($r.Nullable)"
+    Write-Host "  <LangVersion>:      $($r.LangVersion)"
+    Write-Host "  <TargetFramework>:  $($r.TargetFramework)"
+    Write-Host "  Warning enforcement: $($r.WarningEnforcement)"
+    Write-Host ""
+    Write-Host "  Source files:       $($r.TotalCsFiles)"
+    Write-Host "  #nullable enable:   $($r.NullableEnable)"
+    Write-Host "  #nullable disable:  $($r.NullableDisable)"
+    Write-Host "  #pragma CS86xx:     $($r.PragmaDisableCS86)"
+    Write-Host "  ! operators (approx): $($r.BangOperators)"
+
+    if ($r.FilesWithEnable -gt 0 -and $r.Nullable -notmatch "enable") {
+        $pct = [math]::Round(($r.FilesWithEnable / $r.TotalCsFiles) * 100, 1)
+        Write-Host "  Migration progress: $($r.FilesWithEnable)/$($r.TotalCsFiles) files ($pct%)" -ForegroundColor Green
+    }
+
+    if ($r.FilesOfInterest.Count -gt 0) {
+        Write-Host ""
+        Write-Host "  Files needing attention:" -ForegroundColor Magenta
+        foreach ($f in $r.FilesOfInterest) {
+            $parts = @()
+            if ($f.NullableDisable -gt 0) { $parts += "$($f.NullableDisable) #nullable disable" }
+            if ($f.PragmaDisable -gt 0) { $parts += "$($f.PragmaDisable) #pragma" }
+            if ($f.BangOperators -gt 5) { $parts += "$($f.BangOperators) !" }
+            Write-Host "    $($f.File): $($parts -join ', ')"
+        }
+    }
+
+    Write-Host ""
+}
+
+# Summary
+if ($results.Count -gt 1) {
+    $total = [PSCustomObject]@{
+        Projects     = $results.Count
+        CsFiles      = ($results | Measure-Object -Property TotalCsFiles -Sum).Sum
+        NullDisable  = ($results | Measure-Object -Property NullableDisable -Sum).Sum
+        PragmaCS86   = ($results | Measure-Object -Property PragmaDisableCS86 -Sum).Sum
+        BangOps      = ($results | Measure-Object -Property BangOperators -Sum).Sum
+        NrtEnabled   = ($results | Where-Object { $_.Nullable -match "enable" }).Count
+    }
+
+    Write-Host "=== Summary ===" -ForegroundColor Cyan
+    Write-Host "  Projects scanned:   $($total.Projects)"
+    Write-Host "  NRT enabled:        $($total.NrtEnabled)/$($total.Projects)"
+    Write-Host "  Total .cs files:    $($total.CsFiles)"
+    Write-Host "  Total #nullable disable: $($total.NullDisable)"
+    Write-Host "  Total #pragma CS86xx:    $($total.PragmaCS86)"
+    Write-Host "  Total ! operators:       $($total.BangOps)"
+    Write-Host ""
+}
+
+#endregion
