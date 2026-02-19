@@ -47,7 +47,7 @@ Enable C# nullable reference types (NRTs) in an existing codebase and systematic
 
 Pick one of the following strategies based on codebase size and activity level. Recommend the strategy to the user and confirm before proceeding.
 
-Regardless of strategy, **start at the center and work outward**: begin with core domain models, DTOs, and shared utility types that have few dependencies but are used widely. Annotating these first eliminates cascading warnings across the codebase and gives the biggest return on effort. Then move on to higher-level services, controllers, and UI code that depend on the core types. This approach minimizes the number of warnings at each step and prevents getting overwhelmed by a flood of warnings from a large project-wide enable. Prefer to create at least one PR per project, or per layer, to keep changesets reviewable and focused.
+Regardless of strategy, **start at the center and work outward**: begin with core domain models, DTOs, and shared utility types that have few dependencies but are used widely. Annotating these first eliminates cascading warnings across the codebase and gives the biggest return on effort. Then move on to higher-level services, controllers, and UI code that depend on the core types. This approach minimizes the number of warnings at each step and prevents getting overwhelmed by a flood of warnings from a large project-wide enable. Prefer to create at least one PR per project, or per layer, to keep changesets reviewable and focused. If there are relatively few annotations needed, a single project-wide enable and single PR may be appropriate.
 
 #### Strategy A — Project-wide enable (small to medium projects)
 
@@ -251,10 +251,11 @@ ASP.NET Core reads nullable annotations at runtime to drive model validation and
 - **MVC model validation treats non-nullable properties as `[Required]`**: When NRTs are enabled, ASP.NET Core MVC and Web API implicitly add `[Required(AllowEmptyStrings = true)]` to every non-nullable reference type property in DTOs and view models. A `string Name` property that previously accepted null from JSON or form posts will now return a 400 Bad Request. Review all model classes when enabling NRTs. To disable this behavior during gradual migration, set `SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true` in `AddControllers` options.
 - **`System.Text.Json` can enforce NRT annotations (.NET 9+)**: Setting `JsonSerializerOptions.RespectNullableAnnotations = true` makes the serializer throw `JsonException` when a non-nullable property receives an explicit `null` during deserialization — or emits `null` for a non-nullable property during serialization. However, this enforcement has limitations rooted in how NRTs are represented in IL: it does **not** validate collection element types (`List<string>` and `List<string?>` are indistinguishable via reflection), top-level types, or generic properties. For these gaps, use manual validation or custom converters.
 - **Use `#nullable disable`, not `#nullable disable warnings` on model files**: Just as with EF Core, `#nullable disable warnings` only suppresses compiler diagnostics — the annotations remain active and MVC still reads them via reflection to infer `[Required]`. Use `#nullable disable` to fully opt out for files not yet migrated.
-
+
+
 ## Helper Extension Methods
 
-Add these to the project when needed during migration. The `WhereNotNull` pattern is used in the Roslyn compiler codebase itself.
+Add these to the project when needed during migration. The `WhereNotNull` pattern is used in the Roslyn compiler codebase itself. Do not use these if they would introduce Linq to the codebase for the first time.
 
 ```csharp
 using System;
