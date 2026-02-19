@@ -124,7 +124,7 @@ When a simple `?` annotation cannot express the null contract, use attributes fr
 | `[MaybeNull]` | A non-nullable generic return might be `default` (null). Rare in practice — prefer `T?` when possible. Reserve for cases like `AsyncLocal<T>.Value` where `T?` is wrong because setting to null is invalid when `T` is non-nullable |
 | `[AllowNull]` | A non-nullable property setter accepts null (e.g., falls back to a default value) |
 | `[DisallowNull]` | A nullable property should never be explicitly set to null |
-| `[MemberNotNull(nameof(...))]` | A helper method guarantees that specific members are non-null after it returns |
+| `[MemberNotNull(nameof(...))]` | A helper method guarantees that specific members are non-null after it returns. When initializing multiple fields, prefer multiple `[MemberNotNull("field1")]` `[MemberNotNull("field2")]` attributes over one `[MemberNotNull("field1", "field2")]` — the `params` overload is not CLS-compliant |
 | `[NotNullIfNotNull("paramName")]` | The return is non-null if the named parameter is non-null |
 | `[DoesNotReturn]` | The method always throws — code after the call is unreachable |
 
