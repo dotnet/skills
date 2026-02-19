@@ -71,6 +71,8 @@ Best for large legacy codebases where enabling project-wide would produce an unm
 
 ### Step 3: Fix dereference warnings
 
+> **Prioritization:** Work through files in dependency order — start with core models and shared utilities that other code depends on, then move to higher-level consumers. Within each file, fix public and protected members first (these define the contract), then internal and private members. This order minimizes cascading warnings: fixing a core type's annotations often resolves warnings in its consumers automatically.
+
 Build the project and work through dereference warnings. These are the most common:
 
 | Warning | Meaning | Typical fix |
