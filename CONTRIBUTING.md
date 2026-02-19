@@ -24,11 +24,11 @@ src/
     agents/
       <agent-name>.agent.md
     tests/
-      <scenario>/
+      <test>/
         README.md
 ```
 
-Each component under `src/` is self-contained. A plugin.json implies that the component is distributed at least as a plugin in the marketplace.
+Each component under `src/` is self-contained. A plugin.json implies that the component is distributed as a plugin in the marketplace.
 
 ## Before you start
 
