@@ -114,8 +114,8 @@ When a simple `?` annotation cannot express the null contract, use attributes fr
 
 | Attribute | Use case |
 |-----------|----------|
-| `[NotNullWhen(true/false)]` | `TryGet` or `IsNullOrEmpty` patterns — the argument is not null when the method returns the specified bool |
-| `[MaybeNullWhen(true/false)]` | A non-nullable out parameter might be null when the method returns the specified bool |
+| `[NotNullWhen(true/false)]` | `TryGet` or `IsNullOrEmpty` patterns — the argument is not null when the method returns the specified bool. For `Try` methods with a non-generic out parameter, use `[NotNullWhen(true)] out T? result`. Also add to `Equals(object? obj)` overrides to indicate the argument is non-null when returning `true` |
+| `[MaybeNullWhen(true/false)]` | For `Try` methods with a generic out parameter, use `[MaybeNullWhen(false)] out T result` — the value may be `default` (null) on failure |
 | `[NotNull]` | A nullable parameter is guaranteed non-null when the method returns (e.g., a `ThrowIfNull` helper) |
 | `[MaybeNull]` | A non-nullable generic return might be `default` (null) |
 | `[AllowNull]` | A non-nullable property setter accepts null (e.g., falls back to a default value) |
