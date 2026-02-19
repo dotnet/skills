@@ -193,6 +193,7 @@ EF Core uses nullable annotations to infer database schema. Enabling NRTs in a p
 - **Navigation properties**: Navigation properties are null until their related data is loaded. Declare them as nullable (`public Order? Order { get; set; }`), or use the `null!` pattern with a comment acknowledging that EF Core will populate the value before user code accesses it.
 - **Migrate entity classes carefully**: Consider annotating entity model classes one at a time rather than enabling NRTs project-wide, to control the scope of schema impact.
 - **Use `#nullable disable`, not `#nullable disable warnings` on entity files**: `#nullable disable warnings` only suppresses compiler warnings — the nullable annotations remain active and EF Core still reads them via reflection. This means properties without `?` are still treated as required, potentially altering schema. To fully opt entity files out of NRT effects, use `#nullable disable` which disables both warnings and the annotation context.
+- **DbSet properties**: Keep `DbSet<T>` properties non-nullable — EF Core always initializes them. EF Core 7.0+ automatically suppresses CS8618 for DbSet properties. On older versions, initialize with `= null!` or use a read-only expression body: `public DbSet<Customer> Customers => Set<Customer>();`.
 
 ## More Info
 
