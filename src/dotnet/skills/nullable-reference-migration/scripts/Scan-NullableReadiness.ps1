@@ -204,9 +204,15 @@ function Scan-SourceFiles {
         $pragmaDisable = @($lines | Where-Object { $_ -match '#pragma\s+warning\s+disable\s+CS86' }).Count
 
         # Count null-forgiving operators (approximate).
-        # Matches ! preceded by ), ], >, or a word character, not followed by =.
-        # This is a heuristic — it may count ! in strings or comments.
-        $bangMatches = [regex]::Matches($content, '(?<=[)\]>\w])!(?!=)')
+        # Strip comments and string literals first to avoid false positives,
+        # then match ! preceded by ), ], >, or a word character, not followed by =.
+        $strippedContent = $content
+        $strippedContent = [regex]::Replace($strippedContent, '/\*[\s\S]*?\*/', '')               # block comments
+        $strippedContent = [regex]::Replace($strippedContent, '//[^\n]*', '')                     # line comments
+        $strippedContent = [regex]::Replace($strippedContent, '(?<!\$)@"([^"]|"")*"', '""')       # verbatim strings
+        $strippedContent = [regex]::Replace($strippedContent, '\$"([^"\\]|\\.|\{[^}]*\})*"', '""') # interpolated strings
+        $strippedContent = [regex]::Replace($strippedContent, '"([^"\\]|\\.)*"', '""')             # regular strings
+        $bangMatches = [regex]::Matches($strippedContent, '(?<=[)\]>\w])!(?!=)')
         $bangCount = $bangMatches.Count
 
         if ($nullableEnable -gt 0) { $filesWithNullableEnable++ }
