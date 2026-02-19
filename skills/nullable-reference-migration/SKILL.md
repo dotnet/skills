@@ -80,6 +80,8 @@ Guidance:
 - When a method legitimately returns null, change the return type to `T?` — do not hide nulls behind a non-nullable signature.
 - `Debug.Assert(x != null)` acts as a null-state hint to the compiler just like an `if` check. Use it at the top of a method or block to inform the flow analyzer about invariants and eliminate subsequent `!` operators in that scope.
 - If you find yourself adding `!` at every call site of an internal method, consider making that parameter nullable instead. Reserve `!` for cases where the compiler genuinely cannot prove non-nullness.
+- For generic methods returning `default` on an unconstrained type parameter (e.g., `FirstOrDefault<T>`), use `[return: MaybeNull] T` rather than `T?`. Writing `T?` on an unconstrained generic changes value-type signatures to `Nullable<T>`, altering the method signature and binary layout. `[return: MaybeNull]` preserves the original signature while communicating that the return may be null for reference types.
+- LINQ's `Where(x => x != null)` does not narrow `T?` to `T` — the compiler cannot track nullability through lambdas passed to generic methods. Use a `WhereNotNull()` extension method (the Roslyn codebase itself uses this pattern) or `source.OfType<T>()` to filter nulls with correct type narrowing.
 
 ### Step 4: Annotate declarations
 
