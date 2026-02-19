@@ -98,6 +98,8 @@ For each type, decide: **should this member ever be null?**
 - **Yes** → add `?` to its declaration.
 - **No** → ensure it is initialized in every constructor path, or mark it `required`.
 
+Focus annotation effort on public and protected APIs first — these define the contract that consumers depend on. Internal and private code can tolerate `!` more liberally since it does not affect external callers.
+
 Pay special attention to:
 
 - **DTOs and serialization models**: Deserialized properties may be null even if the type says otherwise. Mark them nullable or use `required` / `[JsonRequired]`.
