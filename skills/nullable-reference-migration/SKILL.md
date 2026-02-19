@@ -36,6 +36,10 @@ description: Enable nullable reference types in a C# project and systematically 
 2. Open the `.csproj` and check the `<LangVersion>` and `<TargetFramework>`. If the project multi-targets, note all TFMs.
 3. Check whether `<Nullable>` is already set. If it is set to `enable`, skip to Step 5 to audit remaining warnings.
 4. Look for any `Directory.Build.props` that might set `<Nullable>` at the repo level.
+5. Determine the project type — this shapes annotation priorities throughout the migration:
+   - **Library**: Focus on public API contracts first. Every `?` on a public parameter or return type is a contract change that consumers depend on. Be precise and conservative.
+   - **Application (web, console, desktop)**: Focus on null safety at boundaries — deserialization, database queries, user input, external API responses. Internal plumbing can be annotated more liberally.
+   - **Test project**: Lower priority for annotation precision. Use `!` more freely on test setup and assertions where null is never expected. Focus on ensuring test code compiles cleanly.
 
 ### Step 2: Choose a rollout strategy
 
