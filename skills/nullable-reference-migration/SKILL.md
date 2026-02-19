@@ -282,9 +282,12 @@ internal static class NullableExtensions
 
 ## More Info
 
+- [Nullable reference types](https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references) — overview of the feature, nullable contexts, and compiler analysis
+- [Nullable reference types (C# reference)](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/nullable-reference-types) — language reference for nullable annotation and warning contexts
 - [Nullable migration strategies](https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies)
 - [Embracing Nullable Reference Types](https://devblogs.microsoft.com/dotnet/embracing-nullable-reference-types/) — Mads Torgersen's guidance on adoption timing and ecosystem considerations
 - [Resolve nullable warnings](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/compiler-messages/nullable-warnings)
 - [Attributes for nullable static analysis](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/attributes/nullable-analysis)
+- [! (null-forgiving) operator](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/null-forgiving) — language reference for the operator and when to use it
 - [EF Core and nullable reference types](https://learn.microsoft.com/en-us/ef/core/miscellaneous/nullable-reference-types)
 - [.NET Runtime nullable annotation guidelines](https://github.com/dotnet/runtime/blob/main/docs/coding-guidelines/api-guidelines/nullability.md) — the annotation principles used when annotating the .NET libraries themselves
