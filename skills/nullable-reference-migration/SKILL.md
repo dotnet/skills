@@ -183,3 +183,4 @@ Nullable migration changes require broader review than a typical diff:
 - [Resolve nullable warnings](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/compiler-messages/nullable-warnings)
 - [Attributes for nullable static analysis](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/attributes/nullable-analysis)
 - [EF Core and nullable reference types](https://learn.microsoft.com/en-us/ef/core/miscellaneous/nullable-reference-types)
+- [.NET Runtime nullable annotation guidelines](https://github.com/dotnet/runtime/blob/main/docs/coding-guidelines/api-guidelines/nullability.md) — the annotation principles used when annotating the .NET libraries themselves
