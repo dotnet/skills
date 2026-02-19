@@ -5,9 +5,11 @@ on:
     branches: [main]
     paths:
       - "src/**/skills/**"
+      - "src/**/tests/**"
   pull_request:
     paths:
       - "src/**/skills/**"
+      - "src/**/tests/**"
 
 concurrency:
   group: validate-skills-${{ github.ref }}
@@ -37,11 +39,17 @@ jobs:
             HEAD=${{ github.event.after }}
           fi
 
-          # Find added or changed SKILL.md files in skills/ directory and extract skill directories
-          SKILLS=$(git diff --name-only --diff-filter=ACMR $BASE $HEAD | \
-            grep '^src/.*/skills/.*SKILL.md$' | \
-            xargs -I {} dirname {} | \
+          # Find changed skills by looking at SKILL.md, scripts, and test files
+          CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR $BASE $HEAD)
+
+          # Extract skill directories from src/*/skills/ and src/*/tests/ changes
+          SKILLS=$(echo "$CHANGED_FILES" | \
+            grep -E '^src/[^/]+/(skills|tests)/[^/]+/' | \
+            sed -E 's#^(src/[^/]+/)tests/([^/]+)/.*#\1skills/\2#; s#^(src/[^/]+/skills/[^/]+)/.*#\1#' | \
             sort -u | \
+            while read -r dir; do
+              if [ -d "$dir" ]; then echo "$dir"; fi
+            done | \
             jq -R -s -c 'split("\n") | map(select(length > 0))')
 
           echo "skills=$SKILLS" >> $GITHUB_OUTPUT
@@ -73,6 +81,24 @@ jobs:
           path: ${{ matrix.skill }}
           fail-on-warning: "true"
           validate-references: "true"
+
+      - name: Run skill tests
+        shell: pwsh
+        run: |
+          $skillPath = "${{ matrix.skill }}"
+          $skillName = Split-Path $skillPath -Leaf
+          $parentDir = Split-Path (Split-Path $skillPath -Parent) -Parent
+          $testDir = Join-Path $parentDir "tests/$skillName"
+          if (Test-Path $testDir) {
+            $scripts = Get-ChildItem "$testDir/Test-*.ps1" -ErrorAction SilentlyContinue
+            foreach ($script in $scripts) {
+              Write-Host "Running $($script.Name)..."
+              & $script.FullName
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+          } else {
+            Write-Host "No tests found for $skillName"
+          }
 
       - name: Save result
         if: always()
