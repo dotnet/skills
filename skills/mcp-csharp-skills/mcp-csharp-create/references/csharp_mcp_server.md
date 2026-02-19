@@ -304,6 +304,75 @@ app.Run($"http://0.0.0.0:{port}");
 
 ---
 
+## HTTP Authentication (JWT Bearer)
+
+For HTTP transport servers that need authentication:
+
+```csharp
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using ModelContextProtocol.Server;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add JWT authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = "https://your-auth-server.com";
+        options.Audience = "mcp-api";
+    });
+
+builder.Services.AddAuthorization();
+
+builder.Services.AddMcpServer()
+    .WithHttpTransport()
+    .WithToolsFromAssembly();
+
+var app = builder.Build();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Require auth on the MCP endpoint
+app.MapMcp().RequireAuthorization();
+
+app.Run("http://localhost:3001");
+```
+
+---
+
+## CORS Configuration
+
+For HTTP transport servers accessed from web-based agents or cross-origin clients:
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("https://your-client-app.com", "https://another-client.com")
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
+
+builder.Services.AddMcpServer()
+    .WithHttpTransport()
+    .WithToolsFromAssembly();
+
+var app = builder.Build();
+
+app.UseCors();
+app.MapMcp();
+
+app.Run("http://localhost:3001");
+```
+
+---
+
 ## Manual Server Configuration
 
 For fine-grained control, configure handlers manually:
