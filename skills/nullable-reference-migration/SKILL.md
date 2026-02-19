@@ -36,6 +36,8 @@ Enable C# nullable reference types (NRTs) in an existing codebase and systematic
 
 ### Step 1: Evaluate readiness
 
+> **Optional:** Run `scripts/Scan-NullableReadiness.ps1 -Path <project-or-solution>` to automate the checks below. The script reports `<Nullable>`, `<LangVersion>`, `<TargetFramework>`, `<WarningsAsErrors>` settings and counts `#nullable disable` directives, `!` operators, and `#pragma warning disable CS86xx` suppressions. Use `-Json` for machine-readable output.
+
 1. Identify how the project is built and tested. Look for build scripts (e.g., `build.cmd`, `build.sh`, `Makefile`), a `.sln` file, or individual `.csproj` files. If the repo uses a custom build script, use it instead of `dotnet build` throughout this workflow.
 2. Run `dotnet --version` to confirm the SDK is installed. Nullable reference types (NRTs) require C# 8.0+ (`.NET Core 3.0` / `.NET Standard 2.1` or later).
 3. Open the `.csproj` (or `Directory.Build.props` if properties are set at the repo level) and check the `<LangVersion>` and `<TargetFramework>`. If the project multi-targets, note all TFMs.
@@ -194,6 +196,8 @@ Add `using System.Diagnostics.CodeAnalysis;` where needed.
 > **Build checkpoint:** After applying nullable attributes, build to verify the attributes resolved the targeted warnings and did not introduce new ones.
 
 ### Step 6: Clean up suppressions
+
+> **Optional:** Re-run `scripts/Scan-NullableReadiness.ps1` to get current counts of `#nullable disable` directives, `!` operators, and `#pragma warning disable CS86xx` suppressions across the project.
 
 1. Search for any `#nullable disable` directives or `!` operators that were added as temporary workarounds.
 2. For each one, determine whether the suppression is still needed.
