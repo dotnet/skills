@@ -129,6 +129,8 @@ Start by deciding the **intended nullability** of each member based on its desig
 
 > ⚠️ **Flag public API methods missing runtime null validation.** While annotating, check each `public` and `protected` method: if a parameter is non-nullable (`T`, not `T?`), there should be a runtime null check (e.g., `ArgumentNullException.ThrowIfNull(param)` or `if (param is null) throw new ArgumentNullException(...)`). Without one, a null passed at runtime causes a `NullReferenceException` deep in the method body instead of a clear `ArgumentNullException` at the entry point. Flag these to the user and offer to add the guard. This is especially important for libraries where callers may not have NRTs enabled.
 
+> **Methods with defined behavior for null should accept nullable parameters.** If a method handles null input gracefully — returning null, returning a default, or returning a failure result instead of throwing — the parameter should be `T?`, not `T`. The BCL follows this convention: `Path.GetPathRoot(string?)` returns null for null input, while `Path.GetFullPath(string)` throws. Only use a non-nullable parameter when null causes an exception. Marking a parameter as non-nullable when the method actually tolerates null forces callers to add unnecessary null checks before calling.
+
 After dereference warnings are resolved, address annotation warnings:
 
 | Warning | Meaning | Typical fix |
