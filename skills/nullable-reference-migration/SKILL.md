@@ -232,12 +232,7 @@ Nullable migration changes require broader review than a typical diff:
 
 ## Breaking Changes from NRT Annotations (Libraries)
 
-For libraries consumed by other projects, NRT annotations are part of the public API contract. Incorrect annotations are source-breaking changes for consumers:
-
-- **Making a parameter non-nullable when it should be nullable**: If consumers previously passed null to a parameter and the method handled it gracefully, marking that parameter as `T` (non-nullable) causes compile warnings or errors for those callers. For example, annotating a logging enricher's `value` parameter as `object` instead of `object?` when the method has always accepted null values would break every caller that passes null.
-- **Implicit non-nullability of unannotated types**: Enabling `<Nullable>enable</Nullable>` implicitly makes every unannotated reference-type parameter non-nullable. If the method previously accepted null without throwing, this is a silent contract change. Scan all public methods for parameters that tolerate null.
-- **Return types that can be null**: If a method can return null, the return type must be `T?`. Marking it as `T` hides a potential `NullReferenceException` from callers who trust the annotation.
-- **Ship annotations in a minor version, not a patch**: Because annotations can cause new warnings for consumers (especially those using `TreatWarningsAsErrors`), treat the NRT migration as a minor version bump, not a patch. Document the change in release notes.
+For libraries, see [references/breaking-changes.md](references/breaking-changes.md) — NRT annotations are part of the public API contract and incorrect annotations are source-breaking changes for consumers.
 
 ## Common Pitfalls
 
@@ -258,51 +253,15 @@ For libraries consumed by other projects, NRT annotations are part of the public
 
 ## Entity Framework Core Considerations
 
-EF Core uses nullable annotations to infer database schema. Enabling NRTs in a project that uses EF Core has effects beyond compiler warnings:
-
-- **Schema changes from annotations**: When NRTs are enabled, EF Core treats `string` properties as required (NOT NULL) columns and `string?` as optional (NULL) columns. If you enable NRTs on an existing model without reviewing every entity property, running `Add-Migration` can generate migrations that make previously nullable columns required — potentially causing data loss if those columns already store nulls.
-- **Always review generated migrations**: After enabling NRTs on entity classes, run `Add-Migration` and carefully inspect the output before applying it. Look for unexpected `AlterColumn` calls that change column nullability.
-- **Navigation properties**: Required navigation properties present a design choice because they are null until loaded. The official EF Core docs describe three approaches: **(a)** Non-nullable with `= null!` — appropriate when accessing an unloaded navigation is a programmer error; **(b)** Nullable (`public Order? Order { get; set; }`) — appropriate when code legitimately checks whether the navigation is loaded; **(c)** Non-nullable property wrapping a nullable backing field that throws `InvalidOperationException` on uninitialized access — the strictest pattern. Collection navigations should always be non-nullable (initialize to an empty collection, e.g., `= new List<Comment>()`; an empty collection means no related entities exist, but the list itself should never be null).
-- **Migrate entity classes carefully**: Consider annotating entity model classes one at a time rather than enabling NRTs project-wide, to control the scope of schema impact.
-- **Use `#nullable disable`, not `#nullable disable warnings` on entity files**: `#nullable disable warnings` only suppresses compiler warnings — the nullable annotations remain active and EF Core still reads them via reflection. This means properties without `?` are still treated as required, potentially altering schema. To fully opt entity files out of NRT effects, use `#nullable disable` which disables both warnings and the annotation context.
-- **DbSet properties**: Keep `DbSet<T>` properties non-nullable — EF Core always initializes them. EF Core 7.0+ automatically suppresses CS8618 for DbSet properties. On older versions, initialize with `= null!` or use a read-only expression body: `public DbSet<Customer> Customers => Set<Customer>();`.
-- **LINQ queries with optional navigations**: EF Core translates LINQ queries to SQL, so navigating through an optional relationship in `Where` or `Include` won't cause a `NullReferenceException` at runtime — EF handles the null case server-side. However, the compiler doesn't know this and will warn. Use the null-forgiving operator in these expressions: `.Where(o => o.OptionalNav!.Prop == "foo")` and `.Include(o => o.OptionalNav!).ThenInclude(n => n.Child)`.
+If the project uses EF Core, see [references/ef-core.md](references/ef-core.md) — enabling NRTs can change database schema inference and migration output.
 
 ## ASP.NET Core Considerations
 
-ASP.NET Core reads nullable annotations at runtime to drive model validation and serialization behavior. Enabling NRTs in an ASP.NET Core project can change request validation outcomes, not just compiler warnings:
-
-- **MVC model validation treats non-nullable properties as `[Required]`**: When NRTs are enabled, ASP.NET Core MVC and Web API implicitly add `[Required(AllowEmptyStrings = true)]` to every non-nullable reference type property in DTOs and view models. A `string Name` property that previously accepted null from JSON or form posts will now return a 400 Bad Request. Review all model classes when enabling NRTs. To disable this behavior during gradual migration, set `SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true` in `AddControllers` options.
-- **`System.Text.Json` can enforce NRT annotations (.NET 9+)**: Setting `JsonSerializerOptions.RespectNullableAnnotations = true` makes the serializer throw `JsonException` when a non-nullable property receives an explicit `null` during deserialization — or emits `null` for a non-nullable property during serialization. However, this enforcement has limitations rooted in how NRTs are represented in IL: it does **not** validate collection element types (`List<string>` and `List<string?>` are indistinguishable via reflection), top-level types, or generic properties. For these gaps, use manual validation or custom converters.
-- **Use `#nullable disable`, not `#nullable disable warnings` on model files**: Just as with EF Core, `#nullable disable warnings` only suppresses compiler diagnostics — the annotations remain active and MVC still reads them via reflection to infer `[Required]`. Use `#nullable disable` to fully opt out for files not yet migrated.
-
+If the project uses ASP.NET Core, see [references/aspnet-core.md](references/aspnet-core.md) — enabling NRTs can change MVC model validation and JSON serialization behavior.
 
 ## Helper Extension Methods
 
-Add these to the project when needed during migration. The `WhereNotNull` pattern is used in the Roslyn compiler codebase itself. Do not use these if they would introduce Linq to the codebase for the first time.
-
-```csharp
-using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-
-internal static class NullableExtensions
-{
-    /// <summary>
-    /// Filters null values from a sequence and narrows the type from T? to T.
-    /// Unlike .Where(x => x != null), this gives the compiler correct type information.
-    /// </summary>
-    public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T?> source) where T : class
-        => source.Where(x => x is not null)!;
-
-    /// <summary>
-    /// Filters null values from a sequence of nullable value types and unwraps to T.
-    /// </summary>
-    public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T?> source) where T : struct
-        => source.Where(x => x.HasValue).Select(x => x!.Value);
-}
-```
+See [references/helper-extensions.md](references/helper-extensions.md) for `WhereNotNull` and other helper methods to add during migration.
 
 ## More Info
 
