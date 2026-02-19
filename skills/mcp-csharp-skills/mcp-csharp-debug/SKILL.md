@@ -255,6 +255,101 @@ This creates a `.mcp.json` file in your solution or global config.
 
 ---
 
+## 🖥️ Client Configuration Examples
+
+### Claude Desktop
+
+Create or edit `claude_desktop_config.json`:
+
+**Using `dotnet run`:**
+```json
+{
+  "mcpServers": {
+    "MyMcpServer": {
+      "command": "dotnet",
+      "args": ["run", "--project", "/path/to/MyMcpServer"],
+      "env": {
+        "API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+**Using a published executable:**
+```json
+{
+  "mcpServers": {
+    "MyMcpServer": {
+      "command": "/path/to/MyMcpServer",
+      "args": [],
+      "env": {}
+    }
+  }
+}
+```
+
+**HTTP transport:**
+
+Provide the endpoint URL to the client:
+- Development: `http://localhost:3001`
+- Production: `https://your-domain.com`
+
+Document any authentication requirements (API keys, OAuth tokens, etc.)
+
+---
+
+## 🧪 Manual JSON-RPC Testing
+
+Test your server directly with raw JSON-RPC payloads without needing MCP Inspector.
+
+### stdio Server
+
+1. Build and run your server:
+   ```bash
+   dotnet run --project MyMcpServer/MyMcpServer.csproj
+   ```
+
+2. Send an `initialize` request via stdin:
+   ```json
+   {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}
+   ```
+
+3. Verify the server responds with its capabilities.
+
+4. List available tools:
+   ```json
+   {"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}
+   ```
+
+5. Call a tool:
+   ```json
+   {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"echo","arguments":{"message":"Hello"}}}
+   ```
+
+### HTTP Server
+
+Use curl or a REST client:
+
+```bash
+# Initialize
+curl -X POST http://localhost:3001 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}'
+
+# List tools
+curl -X POST http://localhost:3001 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+
+# Call a tool
+curl -X POST http://localhost:3001 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"echo","arguments":{"message":"Hello"}}}'
+```
+
+---
+
 ## 📋 Testing with GitHub Copilot
 
 ### Agent Mode Testing
