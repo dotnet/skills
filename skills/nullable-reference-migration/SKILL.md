@@ -107,6 +107,8 @@ Pay special attention to:
 - **Event handlers and delegates**: The pattern `EventHandler? handler = SomeEvent; handler?.Invoke(...)` is idiomatic.
 - **Struct reference-type fields**: Reference-type fields in structs are null when using `default(T)`. If `default` is valid usage for the struct, those fields must be nullable. If `default` is never expected (the struct is only created by specific APIs), keep them non-nullable to avoid burdening every consumer with unnecessary null checks.
 - **Post-Dispose state**: If a field or property is non-null for the entire useful lifetime of the object but may become null after `Dispose`, keep it non-nullable. Using an object after disposal is a contract violation — do not weaken annotations for that case.
+- **Overrides and interface implementations**: An override can return a stricter (non-nullable) type than the base method declares. If your implementation never returns null but the base/interface returns `T?`, you can declare the override as returning `T`. Parameter types must match the base exactly.
+- **`IEquatable<T>` and `IComparable<T>`**: Reference types should implement `IEquatable<T?>` and `IComparable<T?>` (with nullable `T`), because callers commonly pass null to `Equals` and `CompareTo`.
 
 ### Step 5: Apply nullable attributes for advanced scenarios
 
