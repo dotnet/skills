@@ -5,6 +5,8 @@ description: Enable nullable reference types in a C# project and systematically 
 
 # Nullable Reference Migration
 
+Enable C# nullable reference types (NRTs) in an existing codebase and systematically resolve all warnings. The outcome is a project (or solution) with `<Nullable>enable</Nullable>`, zero nullable warnings, and accurately annotated public API surfaces — giving both the compiler and consumers reliable nullability information.
+
 ## When to Use
 
 - Enabling nullable reference types in an existing C# project or solution
