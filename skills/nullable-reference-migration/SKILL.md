@@ -187,6 +187,8 @@ Add `using System.Diagnostics.CodeAnalysis;` where needed.
 3. Run existing tests with `dotnet test` to confirm no regressions.
 4. If the project is a library, inspect the public API surface to verify that nullable annotations match the intended contracts (parameters that accept null are `T?`, parameters that reject null are `T`).
 
+> **Verify before claiming the migration is complete.** Zero warnings alone does not mean the migration is correct. Before reporting success: (1) spot-check public API signatures — confirm `?` annotations match actual design intent, not just compiler silence; (2) verify no `?.` operators were added that change runtime behavior (search for `?.` in the diff); (3) confirm no `ArgumentNullException` checks were removed; (4) check that `!` operators are rare and each has a justifying comment.
+
 ## Validation
 
 - [ ] `.csproj` contains `<Nullable>enable</Nullable>`
