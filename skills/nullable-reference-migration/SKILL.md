@@ -152,6 +152,14 @@ Add `using System.Diagnostics.CodeAnalysis;` where needed.
 - [ ] Null-forgiving operators (`!`) are rare, each with a justifying comment
 - [ ] Public API signatures accurately reflect null contracts
 
+### Code review checklist
+
+Nullable migration changes require broader review than a typical diff:
+
+1. **Verify no behavior changes**: confirm that `?` and `!` are the only additions — no accidental `?.`, no removed null checks, no new branches. The generated IL should be unchanged except for nullable metadata.
+2. **Review explicit annotation changes**: for every `?` added to a parameter or return type, confirm it matches the intended design. Does the method really accept null? Can it really return null?
+3. **Review unchanged APIs in scope**: enabling `<Nullable>enable</Nullable>` implicitly makes every unannotated reference type in that scope non-nullable. Scan unchanged public members for parameters that actually do accept null but were not annotated.
+
 ## Common Pitfalls
 
 | Pitfall | Solution |
