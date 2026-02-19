@@ -17,7 +17,7 @@ Enable C# nullable reference types (NRTs) in an existing codebase and systematic
 
 ## When Not to Use
 
-- The project already has `<Nullable>enable</Nullable>` and zero warnings — the migration is done
+- The project already has `<Nullable>enable</Nullable>` and zero warnings — the migration is done unless the user wants to re-examine suppressions with a view to removing unnecessary ones (see Step 6)
 - The user only wants to suppress warnings without fixing them (recommend against this)
 - The code targets C# 7.3 or earlier, which does not support nullable reference types
 
@@ -25,8 +25,10 @@ Enable C# nullable reference types (NRTs) in an existing codebase and systematic
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Project or solution path | Yes | The `.csproj` or `.sln` to migrate |
+| Project or solution path | Yes | The `.csproj`, `.sln`, or build entry point to migrate |
 | Migration scope | No | `project-wide` (default) or `file-by-file` — controls the rollout strategy |
+| Build command | No | How to build the project (e.g., `dotnet build`, `msbuild`, or a repo-specific build script). Detect from the repo if not provided |
+| Test command | No | How to run tests (e.g., `dotnet test`, or a repo-specific test script). Detect from the repo if not provided |
 
 ## Workflow
 
@@ -34,10 +36,10 @@ Enable C# nullable reference types (NRTs) in an existing codebase and systematic
 
 ### Step 1: Evaluate readiness
 
-1. Run `dotnet --version` to confirm the SDK is installed. Nullable reference types (NRTs) require C# 8.0+ (`.NET Core 3.0` / `.NET Standard 2.1` or later).
-2. Open the `.csproj` and check the `<LangVersion>` and `<TargetFramework>`. If the project multi-targets, note all TFMs.
-3. Check whether `<Nullable>` is already set. If it is set to `enable`, skip to Step 5 to audit remaining warnings.
-4. Look for any `Directory.Build.props` that might set `<Nullable>` at the repo level.
+1. Identify how the project is built and tested. Look for build scripts (e.g., `build.cmd`, `build.sh`, `Makefile`, `cake`, `nuke`), a `.sln` file, or individual `.csproj` files. If the repo uses a custom build script, use it instead of `dotnet build` throughout this workflow.
+2. Run `dotnet --version` to confirm the SDK is installed. Nullable reference types (NRTs) require C# 8.0+ (`.NET Core 3.0` / `.NET Standard 2.1` or later).
+3. Open the `.csproj` (or `Directory.Build.props` if properties are set at the repo level) and check the `<LangVersion>` and `<TargetFramework>`. If the project multi-targets, note all TFMs.
+4. Check whether `<Nullable>` is already set. If it is set to `enable`, skip to Step 5 to audit remaining warnings.
 5. Determine the project type — this shapes annotation priorities throughout the migration:
    - **Library**: Focus on public API contracts first. Every `?` on a public parameter or return type is a contract change that consumers depend on. Be precise and conservative.
    - **Application (web, console, desktop)**: Focus on null safety at boundaries — deserialization, database queries, user input, external API responses. Internal plumbing can be annotated more liberally.
@@ -73,7 +75,7 @@ Best for large legacy codebases where enabling project-wide would produce an unm
 2. Add `#nullable enable` at the top of each file as it is migrated.
 3. Prioritize files in dependency order: shared utilities and models first, then higher-level consumers.
 
-> **Build checkpoint:** After enabling `<Nullable>` (or adding `#nullable enable` to the first batch of files), run `dotnet build` immediately. Record the initial warning count — this is the baseline to work down from. Do not proceed to fixing warnings without first confirming the project still compiles.
+> **Build checkpoint:** After enabling `<Nullable>` (or adding `#nullable enable` to the first batch of files), build the project immediately. Record the initial warning count — this is the baseline to work down from. Do not proceed to fixing warnings without first confirming the project still compiles.
 
 ### Step 3: Fix dereference warnings
 
@@ -115,7 +117,7 @@ Guidance:
 - For generic methods returning `default` on an unconstrained type parameter (e.g., `FirstOrDefault<T>`), use `[return: MaybeNull] T` rather than `T?`. Writing `T?` on an unconstrained generic changes value-type signatures to `Nullable<T>`, altering the method signature and binary layout. `[return: MaybeNull]` preserves the original signature while communicating that the return may be null for reference types.
 - LINQ's `Where(x => x != null)` does not narrow `T?` to `T` — the compiler cannot track nullability through lambdas passed to generic methods. Use a `WhereNotNull()` extension method (see [Helper Extension Methods](#helper-extension-methods) below) or `source.OfType<T>()` to filter nulls with correct type narrowing.
 
-> **Build checkpoint:** After fixing dereference warnings, run `dotnet build` and confirm zero CS8602/CS8600/CS8603/CS8604 warnings remain before moving to annotation warnings.
+> **Build checkpoint:** After fixing dereference warnings, build and confirm zero CS8602/CS8600/CS8603/CS8604 warnings remain before moving to annotation warnings.
 
 ### Step 4: Annotate declarations
 
@@ -157,7 +159,7 @@ Pay special attention to:
 - **`IEquatable<T>` and `IComparable<T>`**: Reference types should implement `IEquatable<T?>` and `IComparable<T?>` (with nullable `T`), because callers commonly pass null to `Equals` and `CompareTo`.
 - **`Equals(object?)` overrides**: Add `[NotNullWhen(true)]` to the parameter of `Equals(object? obj)` overrides — if `Equals` returns `true`, the argument is guaranteed non-null. This lets callers skip redundant null checks after an equality test.
 
-> **Build checkpoint:** After annotating declarations, run `dotnet build` and confirm zero CS8618/CS8625/CS8601 warnings remain before moving to nullable attributes.
+> **Build checkpoint:** After annotating declarations, build and confirm zero CS8618/CS8625/CS8601 warnings remain before moving to nullable attributes.
 
 ### Step 5: Apply nullable attributes for advanced scenarios
 
@@ -179,7 +181,7 @@ Add `using System.Diagnostics.CodeAnalysis;` where needed.
 
 > **Caution:** The compiler does not warn when nullable attributes are misapplied — for example, `[DisallowNull]` on an already non-nullable parameter or `[MaybeNull]` on a by-value input parameter (not `ref`/`out`) are silently ignored. Verify each attribute is placed where it has an effect.
 
-> **Build checkpoint:** After applying nullable attributes, run `dotnet build` to verify the attributes resolved the targeted warnings and did not introduce new ones.
+> **Build checkpoint:** After applying nullable attributes, build to verify the attributes resolved the targeted warnings and did not introduce new ones.
 
 ### Step 6: Clean up suppressions
 
@@ -188,23 +190,23 @@ Add `using System.Diagnostics.CodeAnalysis;` where needed.
 3. Remove suppressions that are no longer necessary. For any that remain, add a comment explaining why.
 4. Search for `#pragma warning disable CS86` to find suppressed nullable warnings and evaluate whether the underlying issue can be fixed instead.
 
-> **Build checkpoint:** After removing suppressions, run `dotnet build` again — removing a `#nullable disable` or `!` may surface new warnings that need fixing.
+> **Build checkpoint:** After removing suppressions, build again — removing a `#nullable disable` or `!` may surface new warnings that need fixing.
 
 ### Step 7: Validate
 
-1. Build the project with `dotnet build` and confirm zero nullable warnings.
-2. Run `dotnet build /warnaserror:nullable` to enforce that no nullable warnings remain. Consider adding this to CI.
-3. Run existing tests with `dotnet test` to confirm no regressions.
+1. Build the project and confirm zero nullable warnings.
+2. Build with warnings-as-errors for nullable diagnostics (e.g., `dotnet build /warnaserror:nullable` or the equivalent for the repo's build system). Consider adding this to CI.
+3. Run existing tests to confirm no regressions.
 4. If the project is a library, inspect the public API surface to verify that nullable annotations match the intended contracts (parameters that accept null are `T?`, parameters that reject null are `T`).
 
 > **Verify before claiming the migration is complete.** Zero warnings alone does not mean the migration is correct. Before reporting success: (1) spot-check public API signatures — confirm `?` annotations match actual design intent, not just compiler silence; (2) verify no `?.` operators were added that change runtime behavior (search for `?.` in the diff); (3) confirm no `ArgumentNullException` checks were removed; (4) check that `!` operators are rare and each has a justifying comment.
 
 ## Validation
 
-- [ ] `.csproj` contains `<Nullable>enable</Nullable>`
-- [ ] `dotnet build` produces zero CS86xx warnings
-- [ ] `dotnet build /warnaserror:nullable` succeeds
-- [ ] `dotnet test` passes with no regressions
+- [ ] Project file(s) contain `<Nullable>enable</Nullable>` (or `#nullable enable` per-file for file-by-file strategy)
+- [ ] Build produces zero CS86xx warnings
+- [ ] Build with `/warnaserror:nullable` (or equivalent) succeeds
+- [ ] Tests pass with no regressions
 - [ ] No `#nullable disable` directives remain unless justified with a comment
 - [ ] Null-forgiving operators (`!`) are rare, each with a justifying comment
 - [ ] Public API signatures accurately reflect null contracts
