@@ -195,7 +195,7 @@ Add `using System.Diagnostics.CodeAnalysis;` where needed.
 ### Step 7: Validate
 
 1. Build the project and confirm zero nullable warnings.
-2. Build with warnings-as-errors for nullable diagnostics (e.g., `dotnet build /warnaserror:nullable` or the equivalent for the repo's build system). Consider adding this to CI.
+2. Add `<WarningsAsErrors>nullable</WarningsAsErrors>` to the project file (or `Directory.Build.props` for the whole repo) to permanently prevent nullable regressions. This is the project-file equivalent of `dotnet build /warnaserror:nullable`.
 3. Run existing tests to confirm no regressions.
 4. If the project is a library, inspect the public API surface to verify that nullable annotations match the intended contracts (parameters that accept null are `T?`, parameters that reject null are `T`).
 
@@ -205,7 +205,7 @@ Add `using System.Diagnostics.CodeAnalysis;` where needed.
 
 - [ ] Project file(s) contain `<Nullable>enable</Nullable>` (or `#nullable enable` per-file for file-by-file strategy)
 - [ ] Build produces zero CS86xx warnings
-- [ ] Build with `/warnaserror:nullable` (or equivalent) succeeds
+- [ ] `<WarningsAsErrors>nullable</WarningsAsErrors>` added to project file to prevent regressions
 - [ ] Tests pass with no regressions
 - [ ] No `#nullable disable` directives remain unless justified with a comment
 - [ ] Null-forgiving operators (`!`) are rare, each with a justifying comment
