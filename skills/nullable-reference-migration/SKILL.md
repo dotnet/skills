@@ -196,6 +196,12 @@ EF Core uses nullable annotations to infer database schema. Enabling NRTs in a p
 - **DbSet properties**: Keep `DbSet<T>` properties non-nullable — EF Core always initializes them. EF Core 7.0+ automatically suppresses CS8618 for DbSet properties. On older versions, initialize with `= null!` or use a read-only expression body: `public DbSet<Customer> Customers => Set<Customer>();`.
 - **LINQ queries with optional navigations**: EF Core translates LINQ queries to SQL, so navigating through an optional relationship in `Where` or `Include` won't cause a `NullReferenceException` at runtime — EF handles the null case server-side. However, the compiler doesn't know this and will warn. Use the null-forgiving operator in these expressions: `.Where(o => o.OptionalNav!.Prop == "foo")` and `.Include(o => o.OptionalNav!).ThenInclude(n => n.Child)`.
 
+## ASP.NET Core Considerations
+
+ASP.NET Core reads nullable annotations at runtime to drive model validation and serialization behavior. Enabling NRTs in an ASP.NET Core project can change request validation outcomes, not just compiler warnings:
+
+- **MVC model validation treats non-nullable properties as `[Required]`**: When NRTs are enabled, ASP.NET Core MVC and Web API implicitly add `[Required(AllowEmptyStrings = true)]` to every non-nullable reference type property in DTOs and view models. A `string Name` property that previously accepted null from JSON or form posts will now return a 400 Bad Request. Review all model classes when enabling NRTs. To disable this behavior during gradual migration, set `SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true` in `AddControllers` options.
+
 ## More Info
 
 - [Nullable migration strategies](https://learn.microsoft.com/en-us/dotnet/csharp/nullable-migration-strategies)
