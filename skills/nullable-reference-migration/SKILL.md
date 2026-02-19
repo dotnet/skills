@@ -38,6 +38,8 @@ description: Enable nullable reference types in a C# project and systematically 
 
 Pick one of the following strategies based on codebase size and activity level. Recommend the strategy to the user and confirm before proceeding.
 
+Regardless of strategy, **start at the center and work outward**: begin with core domain models, DTOs, and shared utility types that have few dependencies but are used widely. Annotating these first eliminates cascading warnings across the codebase and gives the biggest return on effort.
+
 #### Strategy A — Project-wide enable (small to medium projects)
 
 Best when the project has fewer than roughly 50 source files or the team wants to finish in one pass.
