@@ -130,6 +130,8 @@ When a simple `?` annotation cannot express the null contract, use attributes fr
 
 Add `using System.Diagnostics.CodeAnalysis;` where needed.
 
+> **Caution:** The compiler does not warn when nullable attributes are misapplied — for example, `[DisallowNull]` on an already non-nullable parameter or `[MaybeNull]` on a by-value input parameter (not `ref`/`out`) are silently ignored. Verify each attribute is placed where it has an effect.
+
 ### Step 6: Clean up suppressions
 
 1. Search for any `#nullable disable` directives or `!` operators that were added as temporary workarounds.
