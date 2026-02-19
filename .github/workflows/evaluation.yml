@@ -1,0 +1,393 @@
+name: Evaluation
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'eng/evaluation/**'
+      - '.github/workflows/evaluation.yml'
+
+  schedule:
+    - cron: '*/45 * * * *'  # Every 45 minutes
+
+  workflow_dispatch:
+    inputs:
+      components:
+        description: 'Components to evaluate (comma-separated, empty=all with tests)'
+        required: false
+        default: ''
+      parallelism:
+        description: 'Number of tests to run in parallel'
+        required: false
+        type: number
+        default: 8
+      model:
+        description: 'Copilot model to use (e.g. claude-opus-4.5, claude-sonnet-4.5)'
+        required: false
+        default: 'claude-opus-4.5'
+      max_retries:
+        description: 'Maximum number of retries per test on failure'
+        required: false
+        type: number
+        default: 3
+
+
+concurrency:
+  # PRs: cancel previous runs on same branch. Schedule/dispatch: unique group per run (never cancel).
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+# Note: For local testing with act, secrets are loaded from .secrets file
+# For GitHub, secrets are configured in repository settings
+env:
+  GH_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+  RESULTS_BASE: artifacts/TestResults
+  DOTNET_VERSION: '10.0.x'
+  DEFAULT_MODEL: 'claude-opus-4.5'
+  DEFAULT_MAX_RETRIES: 3
+  DEFAULT_PARALLELISM: 8
+  MARKETPLACE_NAME: 'dotnet-agent-skills'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      components: ${{ steps.find.outputs.components }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find components with tests
+        id: find
+        run: |
+          $input = "${{ github.event.inputs.components }}"
+          if ($input) {
+            $components = $input -split ',' | ForEach-Object { $_.Trim() }
+          } else {
+            $components = Get-ChildItem -Path "src" -Directory |
+              Where-Object { Test-Path (Join-Path $_.FullName "tests") } |
+              Select-Object -ExpandProperty Name
+          }
+
+          $json = $components | ConvertTo-Json -Compress
+          # Ensure it's always an array
+          if ($components.Count -eq 1) { $json = "[$json]" }
+          Write-Host "Components to evaluate: $json"
+          echo "components=$json" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+  evaluate:
+    needs: discover
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        component: ${{ fromJson(needs.discover.outputs.components) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache Copilot CLI
+        id: cache-copilot
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-copilot-${{ runner.os }}-${{ hashFiles('.github/workflows/evaluation.yml') }}
+
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version
+
+      - name: Create results directory
+        run: |
+          $runId = Get-Date -Format 'yyyyMMdd-HHmmss'
+          $resultsDir = "$env:RESULTS_BASE/${{ matrix.component }}"
+          New-Item -ItemType Directory -Force -Path $resultsDir
+          echo "RUN_ID=$runId" >> $env:GITHUB_ENV
+          echo "RESULTS_DIR=$resultsDir" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Discover tests
+        run: |
+          $tests = Get-ChildItem -Path "src/${{ matrix.component }}/tests" -Directory |
+              Where-Object { Test-Path (Join-Path $_.FullName "expected-output.md") } |
+              Select-Object -ExpandProperty Name
+
+          $testList = $tests -join ","
+          Write-Host "Tests to evaluate for ${{ matrix.component }}: $testList"
+          echo "TESTS=$testList" >> $env:GITHUB_ENV
+
+          # Set parallelism level
+          $parallelism = "${{ github.event.inputs.parallelism }}"
+          if (-not $parallelism -or $parallelism -eq '') {
+            $parallelism = $env:DEFAULT_PARALLELISM
+          } else {
+            try {
+              $parallelism = [int]$parallelism
+              if ($parallelism -lt 1) {
+                Write-Warning "Parallelism must be at least 1, using default of $env:DEFAULT_PARALLELISM"
+                $parallelism = $env:DEFAULT_PARALLELISM
+              }
+            } catch {
+              Write-Warning "Invalid parallelism value, using default of $env:DEFAULT_PARALLELISM"
+              $parallelism = $env:DEFAULT_PARALLELISM
+            }
+          }
+          Write-Host "Parallelism level: $parallelism"
+          echo "PARALLELISM=$parallelism" >> $env:GITHUB_ENV
+
+          # Set model
+          $model = "${{ github.event.inputs.model }}"
+          if (-not $model -or $model -eq '') {
+            $model = "$env:DEFAULT_MODEL"
+          }
+          Write-Host "Model: $model"
+          echo "COPILOT_MODEL=$model" >> $env:GITHUB_ENV
+
+          # Set max retries
+          $maxRetries = "${{ github.event.inputs.max_retries }}"
+          if (-not $maxRetries -or $maxRetries -eq '') {
+            $maxRetries = $env:DEFAULT_MAX_RETRIES
+          } else {
+            try {
+              $maxRetries = [int]$maxRetries
+              if ($maxRetries -lt 1) {
+                Write-Warning "Max retries must be at least 1, using default of $env:DEFAULT_MAX_RETRIES"
+                $maxRetries = $env:DEFAULT_MAX_RETRIES
+              }
+            } catch {
+              Write-Warning "Invalid max retries value, using default of $env:DEFAULT_MAX_RETRIES"
+              $maxRetries = $env:DEFAULT_MAX_RETRIES
+            }
+          }
+          Write-Host "Max retries: $maxRetries"
+          echo "MAX_RETRIES=$maxRetries" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Run Vanilla Copilot (no skills)
+        run: |
+          $ErrorActionPreference = "SilentlyContinue"
+          copilot plugin uninstall "${{ matrix.component }}" 2>$null
+          $ErrorActionPreference = "Stop"
+
+          $installedList = copilot plugin list 2>&1 | Out-String
+          if ($installedList -match "\b${{ matrix.component }}\b") {
+            throw "❌ VALIDATION FAILED: ${{ matrix.component }} should NOT be installed for vanilla run"
+          }
+
+          pwsh -File ./eng/evaluation/run-tests-parallel.ps1 `
+            -Script "./eng/evaluation/run-test.ps1" `
+            -RunType "vanilla" `
+            -Tests "$env:TESTS" `
+            -Parallelism $env:PARALLELISM `
+            -Component "${{ matrix.component }}" `
+            -ResultsDir "$env:RESULTS_DIR" `
+            -RunId "$env:RUN_ID" `
+            -Model "$env:COPILOT_MODEL" `
+            -MaxRetries $env:MAX_RETRIES
+        shell: pwsh
+
+      - name: Install Component and Run Skilled Copilot
+        run: |
+          $component = "${{ matrix.component }}"
+          copilot plugin marketplace add "${{ github.workspace }}" 2>&1 | Write-Host
+          copilot plugin install "$component@$env:MARKETPLACE_NAME" 2>&1 | Write-Host
+
+          $installedList = copilot plugin list 2>&1 | Out-String
+          if ($installedList -notmatch "\b$component\b") {
+            throw "❌ VALIDATION FAILED: $component should be installed for skilled run"
+          }
+
+          pwsh -File ./eng/evaluation/run-tests-parallel.ps1 `
+            -Script "./eng/evaluation/run-test.ps1" `
+            -RunType "skilled" `
+            -Tests "$env:TESTS" `
+            -Parallelism $env:PARALLELISM `
+            -Component "$component" `
+            -ResultsDir "$env:RESULTS_DIR" `
+            -RunId "$env:RUN_ID" `
+            -Model "$env:COPILOT_MODEL" `
+            -MaxRetries $env:MAX_RETRIES
+        shell: pwsh
+
+      - name: Uninstall Component and Run Evaluation
+        run: |
+          $ErrorActionPreference = "SilentlyContinue"
+          copilot plugin uninstall "${{ matrix.component }}" 2>$null
+          $ErrorActionPreference = "Stop"
+
+          $installedList = copilot plugin list 2>&1 | Out-String
+          if ($installedList -match "\b${{ matrix.component }}\b") {
+            throw "❌ VALIDATION FAILED: ${{ matrix.component }} should NOT be installed for evaluation"
+          }
+
+          pwsh -File ./eng/evaluation/run-tests-parallel.ps1 `
+            -Script "./eng/evaluation/evaluate-response.ps1" `
+            -Tests "$env:TESTS" `
+            -Parallelism $env:PARALLELISM `
+            -Component "${{ matrix.component }}" `
+            -ResultsDir "$env:RESULTS_DIR" `
+            -RunId "$env:RUN_ID" `
+            -Model "$env:COPILOT_MODEL" `
+            -MaxRetries $env:MAX_RETRIES
+        shell: pwsh
+
+      - name: Upload Artifacts
+        id: upload-artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.component }}
+          path: ${{ env.RESULTS_BASE }}/${{ matrix.component }}/
+          retention-days: 30
+
+      - name: Generate Summary
+        if: always()
+        run: |
+          pwsh -File ./eng/evaluation/generate-summary.ps1 `
+            -ResultsDir "$env:RESULTS_DIR" `
+            -RunId "$env:RUN_ID" `
+            -ComponentName "${{ matrix.component }}" `
+            -GitHubRunUrl "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" `
+            -ArtifactsUrl "${{ steps.upload-artifacts.outputs.artifact-url }}"
+
+          # Add to job summary
+          Get-Content "$env:RESULTS_DIR/summary.md" >> $env:GITHUB_STEP_SUMMARY
+        shell: pwsh
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v4
+        continue-on-error: true
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body-path: ${{ env.RESULTS_DIR }}/summary.md
+
+  publish-benchmark:
+    needs: evaluate
+    if: github.ref == 'refs/heads/main'
+    # Serialize gh-pages pushes across concurrent workflow runs to avoid race conditions
+    concurrency:
+      group: publish-benchmark-deploy
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download evaluation artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ env.RESULTS_BASE }}/
+
+      - name: Fetch existing benchmark data
+        run: |
+          git fetch origin gh-pages:gh-pages 2>/dev/null || true
+          mkdir -p /tmp/gh-pages/data
+          git checkout gh-pages -- data/ 2>/dev/null && cp -r data/* /tmp/gh-pages/data/ && git checkout HEAD -- . || true
+
+      - name: Generate Benchmark Data
+        run: |
+          # Use git log instead of github.event.head_commit (which is null for schedule/dispatch)
+          $sha = "${{ github.sha }}"
+          $commitMsg = git log -1 --format='%s' $sha
+          $commitTimestamp = git log -1 --format='%aI' $sha
+          $commitAuthor = git log -1 --format='%an' $sha
+
+          $commitJson = @{
+            id        = $sha
+            message   = $commitMsg
+            timestamp = $commitTimestamp
+            url       = "https://github.com/${{ github.repository }}/commit/$sha"
+            author    = @{ name = $commitAuthor; username = "${{ github.actor }}" }
+          } | ConvertTo-Json -Compress
+
+          # Generate benchmark data for each component
+          # Layout: artifacts/TestResults/<component>/<test>/<runId>/
+          $componentDirs = Get-ChildItem -Path "$env:RESULTS_BASE" -Directory -ErrorAction SilentlyContinue
+          foreach ($componentDir in $componentDirs) {
+            $component = $componentDir.Name
+
+            # Detect the runId from the first test's subdirectory
+            $firstTest = Get-ChildItem -Path $componentDir.FullName -Directory | Select-Object -First 1
+            if (-not $firstTest) {
+              Write-Warning "No test results found for $component, skipping"
+              continue
+            }
+            $runIdDir = Get-ChildItem -Path $firstTest.FullName -Directory | Select-Object -First 1
+            if (-not $runIdDir) {
+              Write-Warning "No run results found for $component/$($firstTest.Name), skipping"
+              continue
+            }
+            $runId = $runIdDir.Name
+
+            Write-Host "`n=== Generating benchmark data for: $component (run: $runId) ==="
+            $existingFile = "/tmp/gh-pages/data/$component.json"
+            $params = @{
+              ResultsDir    = $componentDir.FullName
+              ComponentName = $component
+              RunId      = $runId
+              OutputDir  = "/tmp/gh-pages/data"
+              CommitJson = $commitJson
+            }
+            if ((Test-Path $existingFile) -and (Get-Content $existingFile -Raw -ErrorAction SilentlyContinue)) {
+              $params.ExistingDataFile = $existingFile
+            }
+            & ./eng/dashboard/generate-benchmark-data.ps1 @params
+          }
+
+          # Generate components.json manifest from all per-component JSON files
+          $components = Get-ChildItem -Path "/tmp/gh-pages/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -ne "components.json" } |
+            ForEach-Object { $_.BaseName }
+          @($components) | ConvertTo-Json | Out-File -FilePath "/tmp/gh-pages/data/components.json" -Encoding utf8
+          Write-Host "`n=== components.json: $($components -join ', ') ==="
+        shell: pwsh
+
+      - name: Deploy to GitHub Pages
+        run: |
+          cd /tmp
+          REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+          # Clone existing gh-pages or create new branch
+          if git ls-remote --exit-code --heads "$REPO_URL" gh-pages > /dev/null 2>&1; then
+            git clone --branch gh-pages --single-branch "$REPO_URL" deploy
+          else
+            mkdir deploy && cd deploy && git init && git checkout -b gh-pages
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            cd /tmp
+          fi
+
+          cd /tmp/deploy
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Update files
+          mkdir -p data
+          cp /tmp/gh-pages/data/*.json data/
+          cp ${{ github.workspace }}/eng/dashboard/dashboard.html index.html
+          cp ${{ github.workspace }}/eng/dashboard/dashboard.js dashboard.js
+
+          git add .
+          git diff --cached --quiet && echo "No changes to deploy" && exit 0
+          git commit -m "Update benchmark data"
+          git push origin gh-pages
