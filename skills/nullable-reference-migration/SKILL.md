@@ -81,6 +81,8 @@ Guidance:
 
 ### Step 4: Annotate declarations
 
+Start by deciding the **intended nullability** of each member based on its design purpose — should this parameter accept null? Can this return value ever be null? Annotate accordingly, then address any resulting warnings. Do not let warnings drive your annotations; that leads to over-annotating with `?` or scattering `!` to silence the compiler.
+
 After dereference warnings are resolved, address annotation warnings:
 
 | Warning | Meaning | Typical fix |
