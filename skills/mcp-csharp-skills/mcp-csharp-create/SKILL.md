@@ -12,6 +12,17 @@ Create MCP (Model Context Protocol) servers using the official C# SDK and Micros
 
 ---
 
+## Inputs
+
+| Input | Required | Description |
+|-------|----------|-------------|
+| Use case | Yes | What will consume this server? (Copilot CLI, VS Code, Claude Desktop, web app, etc.) |
+| Client model | Yes | Single local user or multiple concurrent clients? |
+| Authentication needs | No | Does the HTTP endpoint need auth? (Only relevant for HTTP transport) |
+| Deployment target | No | Local dev machine, container, cloud service, or AOT binary |
+
+---
+
 # Process
 
 ## 🚀 High-Level Workflow
@@ -73,6 +84,18 @@ dotnet new mcpserver -n MyMcpServer --transport http
 | `--transport http` | Remote HTTP transport with ASP.NET Core |
 | `--aot` | Enable Native AOT compilation |
 | `--self-contained` | Enable self-contained publishing |
+
+#### 1.5 Native AOT (Optional)
+
+For smallest binary size and fastest startup, enable Native AOT in your `.csproj`:
+
+```xml
+<PropertyGroup>
+  <PublishAot>true</PublishAot>
+</PropertyGroup>
+```
+
+> **Warning:** Native AOT requires all dependencies to be AOT-compatible. Verify that the `ModelContextProtocol` SDK version you're using supports AOT before enabling this. Reflection-heavy JSON serialization may need source-generated `JsonSerializerContext` types.
 
 ---
 
@@ -201,6 +224,24 @@ Key principles:
 
 ---
 
+## Common Pitfalls
+
+| Pitfall | Solution |
+|---------|----------|
+| Logging to stdout in stdio servers | Configure `LogToStandardErrorThreshold = LogLevel.Trace` — stdout is reserved for JSON-RPC |
+| Missing `[Description]` attributes | Always add descriptions to tools and parameters so agents know when and how to use them |
+| Forgetting async patterns | All tool methods doing I/O should return `Task` or `Task<T>` with `CancellationToken` |
+| Not handling tool errors | Wrap logic in try-catch and return actionable error messages |
+| Reflection-heavy JSON under AOT | Use source-generated `JsonSerializerContext` types when targeting Native AOT |
+| Hardcoded file paths in stdio tools | Use relative paths or accept paths as parameters to be cross-platform compatible |
+| No CORS configuration for HTTP | Add a CORS policy to allow client origins when using HTTP transport |
+| Tool names with spaces or special chars | Use lowercase, hyphenated or snake_case names like `calculate_sum` not `Calculate Sum` |
+| Large responses blocking stdio | For large data, implement pagination or truncation patterns |
+| Not testing with actual MCP clients | Always test with a real client (Copilot, Claude Desktop, MCP Inspector) before shipping |
+| Mixing stdio and HTTP hosting patterns | Choose one transport per project; use separate projects for dual hosting |
+
+---
+
 ## Related Skills
 
 - **mcp-csharp-debug** - Running and debugging your MCP server
@@ -224,3 +265,9 @@ Key principles:
 
 ### MCP Protocol
 - **MCP Specification**: Start with sitemap at `https://modelcontextprotocol.io/sitemap.xml`, then fetch specific pages with `.md` suffix
+
+### Additional Resources
+- **MCP Specification**: https://modelcontextprotocol.io/specification
+- **.NET MCP SDK**: https://github.com/modelcontextprotocol/csharp-sdk
+- **MCP Server Registry**: https://github.com/modelcontextprotocol/servers
+- **.NET Generic Host Documentation**: https://learn.microsoft.com/en-us/dotnet/core/extensions/generic-host
