@@ -182,8 +182,8 @@ function Scan-SourceFiles {
     param([string]$CsprojPath)
 
     $projectDir = Split-Path $CsprojPath -Parent
-    $csFiles = Get-ChildItem -Path $projectDir -Filter "*.cs" -Recurse -File |
-        Where-Object { $_.FullName -notmatch '[\\/](obj|bin)[\\/]' }
+    $csFiles = @(Get-ChildItem -Path $projectDir -Filter "*.cs" -Recurse -File |
+        Where-Object { $_.FullName -notmatch '[\\/](obj|bin)[\\/]' })
 
     $totalFiles = $csFiles.Count
     $filesWithNullableEnable = 0
@@ -199,9 +199,9 @@ function Scan-SourceFiles {
 
         $lines = $content -split '\r?\n'
 
-        $nullableDisable = ($lines | Where-Object { $_ -match '^\s*#nullable\s+disable' }).Count
-        $nullableEnable = ($lines | Where-Object { $_ -match '^\s*#nullable\s+enable' }).Count
-        $pragmaDisable = ($lines | Where-Object { $_ -match '#pragma\s+warning\s+disable\s+CS86' }).Count
+        $nullableDisable = @($lines | Where-Object { $_ -match '^\s*#nullable\s+disable' }).Count
+        $nullableEnable = @($lines | Where-Object { $_ -match '^\s*#nullable\s+enable' }).Count
+        $pragmaDisable = @($lines | Where-Object { $_ -match '#pragma\s+warning\s+disable\s+CS86' }).Count
 
         # Count null-forgiving operators (approximate).
         # Matches ! preceded by ), ], >, or a word character, not followed by =.
@@ -300,7 +300,7 @@ foreach ($r in $results) {
         Write-Host "  Migration progress: $($r.FilesWithEnable)/$($r.TotalCsFiles) files ($pct%)" -ForegroundColor Green
     }
 
-    if ($r.FilesOfInterest.Count -gt 0) {
+    if (@($r.FilesOfInterest).Count -gt 0) {
         Write-Host ""
         Write-Host "  Files needing attention:" -ForegroundColor Magenta
         foreach ($f in $r.FilesOfInterest) {
@@ -316,14 +316,14 @@ foreach ($r in $results) {
 }
 
 # Summary
-if ($results.Count -gt 1) {
+if (@($results).Count -gt 1) {
     $total = [PSCustomObject]@{
-        Projects     = $results.Count
+        Projects     = @($results).Count
         CsFiles      = ($results | Measure-Object -Property TotalCsFiles -Sum).Sum
         NullDisable  = ($results | Measure-Object -Property NullableDisable -Sum).Sum
         PragmaCS86   = ($results | Measure-Object -Property PragmaDisableCS86 -Sum).Sum
         BangOps      = ($results | Measure-Object -Property BangOperators -Sum).Sum
-        NrtEnabled   = ($results | Where-Object { $_.Nullable -match "enable" }).Count
+        NrtEnabled   = @($results | Where-Object { $_.Nullable -match "enable" }).Count
     }
 
     Write-Host "=== Summary ===" -ForegroundColor Cyan
