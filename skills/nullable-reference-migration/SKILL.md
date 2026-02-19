@@ -80,6 +80,12 @@ Build the project and work through dereference warnings. These are the most comm
 | CS8603 | Possible null reference return | Return a non-null value, or change the return type to nullable (`T?`) |
 | CS8604 | Possible null reference argument | Check for null before passing, or mark the parameter as nullable |
 
+> ❌ **Do not use `?.` as a quick fix for dereference warnings.** Replacing `obj.Method()` with `obj?.Method()` silently changes runtime behavior — the call is skipped instead of throwing. Only use `?.` when you intentionally want to tolerate null.
+
+> ❌ **Do not sprinkle `!` to silence warnings.** Each `!` is a claim that the value is never null. If that claim is wrong, you have hidden a `NullReferenceException`. Add a null check or make the type nullable instead.
+
+> ⚠️ **Do not add `?` to value types unless you intend to change the runtime type.** For reference types, `?` is metadata-only. For value types (`int`, enums, structs), `?` changes the type to `Nullable<T>`, altering the method signature, binary layout, and boxing behavior.
+
 Guidance:
 
 - Prefer explicit null checks (`if`, `is not null`, `??`) over the null-forgiving operator (`!`).
@@ -97,6 +103,10 @@ Guidance:
 Start by deciding the **intended nullability** of each member based on its design purpose — should this parameter accept null? Can this return value ever be null? Annotate accordingly, then address any resulting warnings. Do not let warnings drive your annotations; that leads to over-annotating with `?` or scattering `!` to silence the compiler.
 
 > **When to ask the user:** Do not guess API contracts. Ask the user before: (1) changing a public method's return type to nullable or adding `?` to a public parameter — this changes the API contract consumers depend on; (2) deciding whether a property should be nullable vs. required when the design intent is unclear; (3) choosing between a null check and `!` when you cannot determine from context whether null is a valid state. For internal/private members where the answer is obvious from usage, proceed without asking.
+
+> ❌ **Do not let warnings drive annotations.** Decide the intended nullability of each member first, then annotate. Adding `?` everywhere to make warnings disappear defeats the purpose — callers must then add unnecessary null checks. Adding `!` everywhere hides bugs.
+
+> ⚠️ **Do not remove existing `ArgumentNullException` checks.** A non-nullable parameter annotation is a compile-time hint only — it does not prevent null at runtime. Callers using older C# versions, other .NET languages, reflection, or `!` can still pass null.
 
 After dereference warnings are resolved, address annotation warnings:
 
