@@ -86,6 +86,17 @@ Build the project and work through dereference warnings. These are the most comm
 
 > ⚠️ **Do not add `?` to value types unless you intend to change the runtime type.** For reference types, `?` is metadata-only. For value types (`int`, enums, structs), `?` changes the type to `Nullable<T>`, altering the method signature, binary layout, and boxing behavior.
 
+**Decision flowchart for each warning:**
+
+1. **Is null a valid value here by design?**
+   - **Yes** → add `?` to the declaration (make it nullable).
+   - **No** → go to step 2.
+   - **Unsure** → ask the user before proceeding.
+2. **Can you prove the value is never null at this point?**
+   - **Yes, with a code path the compiler can't see** → add `!` with a comment explaining why.
+   - **Yes, by adding a guard** → add a null check (`if`, `??`, `is not null`).
+   - **No** → the type should be nullable (go back to step 1 — the answer is "Yes").
+
 Guidance:
 
 - Prefer explicit null checks (`if`, `is not null`, `??`) over the null-forgiving operator (`!`).
