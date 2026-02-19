@@ -78,6 +78,8 @@ Guidance:
 - Prefer explicit null checks (`if`, `is not null`, `??`) over the null-forgiving operator (`!`).
 - Use the null-forgiving operator only when you can prove the value is never null but the compiler cannot, and add a comment explaining why.
 - When a method legitimately returns null, change the return type to `T?` — do not hide nulls behind a non-nullable signature.
+- `Debug.Assert(x != null)` acts as a null-state hint to the compiler just like an `if` check. Use it at the top of a method or block to inform the flow analyzer about invariants and eliminate subsequent `!` operators in that scope.
+- If you find yourself adding `!` at every call site of an internal method, consider making that parameter nullable instead. Reserve `!` for cases where the compiler genuinely cannot prove non-nullness.
 
 ### Step 4: Annotate declarations
 
