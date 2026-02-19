@@ -125,6 +125,8 @@ Start by deciding the **intended nullability** of each member based on its desig
 
 > ⚠️ **Do not remove existing `ArgumentNullException` checks.** A non-nullable parameter annotation is a compile-time hint only — it does not prevent null at runtime. Callers using older C# versions, other .NET languages, reflection, or `!` can still pass null.
 
+> ⚠️ **Flag public API methods missing runtime null validation.** While annotating, check each `public` and `protected` method: if a parameter is non-nullable (`T`, not `T?`), there should be a runtime null check (e.g., `ArgumentNullException.ThrowIfNull(param)` or `if (param is null) throw new ArgumentNullException(...)`). Without one, a null passed at runtime causes a `NullReferenceException` deep in the method body instead of a clear `ArgumentNullException` at the entry point. Flag these to the user and offer to add the guard. This is especially important for libraries where callers may not have NRTs enabled.
+
 After dereference warnings are resolved, address annotation warnings:
 
 | Warning | Meaning | Typical fix |
