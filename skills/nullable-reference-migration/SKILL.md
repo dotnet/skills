@@ -11,6 +11,7 @@ description: Enable nullable reference types in a C# project and systematically 
 - Systematically resolving CS86xx nullable warnings after enabling the feature
 - Annotating a library's public API surface so consumers get accurate nullability information
 - Upgrading a dependency that has added nullable annotations and new warnings appear
+- Analyzing suppressions in a code base that has already enabled NRTs to determine whether they can be removed
 
 ## When Not to Use
 
@@ -38,7 +39,7 @@ description: Enable nullable reference types in a C# project and systematically 
 
 Pick one of the following strategies based on codebase size and activity level. Recommend the strategy to the user and confirm before proceeding.
 
-Regardless of strategy, **start at the center and work outward**: begin with core domain models, DTOs, and shared utility types that have few dependencies but are used widely. Annotating these first eliminates cascading warnings across the codebase and gives the biggest return on effort.
+Regardless of strategy, **start at the center and work outward**: begin with core domain models, DTOs, and shared utility types that have few dependencies but are used widely. Annotating these first eliminates cascading warnings across the codebase and gives the biggest return on effort. Then move on to higher-level services, controllers, and UI code that depend on the core types. This approach minimizes the number of warnings at each step and prevents getting overwhelmed by a flood of warnings from a large project-wide enable. Prefer to create at least one PR per project, or per layer, to keep changesets reviewable and focused.
 
 #### Strategy A — Project-wide enable (small to medium projects)
 
