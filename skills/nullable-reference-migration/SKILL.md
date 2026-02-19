@@ -77,7 +77,7 @@ Best for large legacy codebases where enabling project-wide would produce an unm
 2. Add `#nullable enable` at the top of each file as it is migrated.
 3. Prioritize files in dependency order: shared utilities and models first, then higher-level consumers.
 
-> **Build checkpoint:** After enabling `<Nullable>` (or adding `#nullable enable` to the first batch of files), build the project immediately. Record the initial warning count — this is the baseline to work down from. Do not proceed to fixing warnings without first confirming the project still compiles.
+> **Build checkpoint:** After enabling `<Nullable>` (or adding `#nullable enable` to the first batch of files), do a **clean build** (e.g., `dotnet build --no-incremental`, or delete `bin`/`obj` first). Incremental builds only recompile changed files and will hide warnings in untouched files. Record the initial warning count — this is the baseline to work down from. Do not proceed to fixing warnings without first confirming the project still compiles. Use clean builds for all subsequent build checkpoints in this workflow.
 
 ### Step 3: Fix dereference warnings
 
