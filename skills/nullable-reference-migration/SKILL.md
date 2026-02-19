@@ -194,6 +194,7 @@ EF Core uses nullable annotations to infer database schema. Enabling NRTs in a p
 - **Migrate entity classes carefully**: Consider annotating entity model classes one at a time rather than enabling NRTs project-wide, to control the scope of schema impact.
 - **Use `#nullable disable`, not `#nullable disable warnings` on entity files**: `#nullable disable warnings` only suppresses compiler warnings — the nullable annotations remain active and EF Core still reads them via reflection. This means properties without `?` are still treated as required, potentially altering schema. To fully opt entity files out of NRT effects, use `#nullable disable` which disables both warnings and the annotation context.
 - **DbSet properties**: Keep `DbSet<T>` properties non-nullable — EF Core always initializes them. EF Core 7.0+ automatically suppresses CS8618 for DbSet properties. On older versions, initialize with `= null!` or use a read-only expression body: `public DbSet<Customer> Customers => Set<Customer>();`.
+- **LINQ queries with optional navigations**: EF Core translates LINQ queries to SQL, so navigating through an optional relationship in `Where` or `Include` won't cause a `NullReferenceException` at runtime — EF handles the null case server-side. However, the compiler doesn't know this and will warn. Use the null-forgiving operator in these expressions: `.Where(o => o.OptionalNav!.Prop == "foo")` and `.Include(o => o.OptionalNav!).ThenInclude(n => n.Child)`.
 
 ## More Info
 
