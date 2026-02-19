@@ -41,6 +41,8 @@ Enable C# nullable reference types (NRTs) in an existing codebase and systematic
 1. Identify how the project is built and tested. Look for build scripts (e.g., `build.cmd`, `build.sh`, `Makefile`), a `.sln` file, or individual `.csproj` files. If the repo uses a custom build script, use it instead of `dotnet build` throughout this workflow.
 2. Run `dotnet --version` to confirm the SDK is installed. Nullable reference types (NRTs) require C# 8.0+ (`.NET Core 3.0` / `.NET Standard 2.1` or later).
 3. Open the `.csproj` (or `Directory.Build.props` if properties are set at the repo level) and check the `<LangVersion>` and `<TargetFramework>`. If the project multi-targets, note all TFMs.
+
+> **Stop if the language version or target framework is insufficient.** If `<LangVersion>` is below 8.0, or the project targets a framework that defaults to C# 7.x (e.g., `.NET Framework 4.x` without an explicit `<LangVersion>`), NRTs cannot be enabled as-is. Inform the user explicitly: explain what needs to change (set `<LangVersion>8.0</LangVersion>` or higher, or retarget to `.NET Core 3.0+` / `.NET 5+`), and ask whether they want to make that update and continue, or abort the migration. Do not silently proceed or assume the update is acceptable.
 4. Check whether `<Nullable>` is already set. If it is set to `enable`, skip to Step 5 to audit remaining warnings.
 5. Determine the project type — this shapes annotation priorities throughout the migration:
    - **Library**: Focus on public API contracts first. Every `?` on a public parameter or return type is a contract change that consumers depend on. Be precise and conservative.
