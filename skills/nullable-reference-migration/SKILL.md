@@ -89,7 +89,7 @@ After dereference warnings are resolved, address annotation warnings:
 
 | Warning | Meaning | Typical fix |
 |---------|---------|-------------|
-| CS8618 | Non-nullable field/property not initialized in constructor | Initialize the member, make it nullable (`?`), or use `required` (C# 11+) |
+| CS8618 | Non-nullable field/property not initialized in constructor | Initialize the member, make it nullable (`?`), or use `required` (C# 11+). If a helper method initializes fields, decorate it with `[MemberNotNull(nameof(field))]` so the compiler knows the field is non-null after the call |
 | CS8625 | Cannot convert null literal to non-nullable type | Make the target nullable or provide a non-null value |
 | CS8601 | Possible null reference assignment | Same techniques as CS8600 |
 
