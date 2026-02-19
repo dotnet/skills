@@ -84,7 +84,7 @@ Guidance:
 - `Debug.Assert(x != null)` acts as a null-state hint to the compiler just like an `if` check. Use it at the top of a method or block to inform the flow analyzer about invariants and eliminate subsequent `!` operators in that scope.
 - If you find yourself adding `!` at every call site of an internal method, consider making that parameter nullable instead. Reserve `!` for cases where the compiler genuinely cannot prove non-nullness.
 - For generic methods returning `default` on an unconstrained type parameter (e.g., `FirstOrDefault<T>`), use `[return: MaybeNull] T` rather than `T?`. Writing `T?` on an unconstrained generic changes value-type signatures to `Nullable<T>`, altering the method signature and binary layout. `[return: MaybeNull]` preserves the original signature while communicating that the return may be null for reference types.
-- LINQ's `Where(x => x != null)` does not narrow `T?` to `T` — the compiler cannot track nullability through lambdas passed to generic methods. Use a `WhereNotNull()` extension method (the Roslyn codebase itself uses this pattern) or `source.OfType<T>()` to filter nulls with correct type narrowing.
+- LINQ's `Where(x => x != null)` does not narrow `T?` to `T` — the compiler cannot track nullability through lambdas passed to generic methods. Use a `WhereNotNull()` extension method (see [Helper Extension Methods](#helper-extension-methods) below) or `source.OfType<T>()` to filter nulls with correct type narrowing.
 
 ### Step 4: Annotate declarations
 
@@ -204,6 +204,33 @@ ASP.NET Core reads nullable annotations at runtime to drive model validation and
 - **MVC model validation treats non-nullable properties as `[Required]`**: When NRTs are enabled, ASP.NET Core MVC and Web API implicitly add `[Required(AllowEmptyStrings = true)]` to every non-nullable reference type property in DTOs and view models. A `string Name` property that previously accepted null from JSON or form posts will now return a 400 Bad Request. Review all model classes when enabling NRTs. To disable this behavior during gradual migration, set `SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true` in `AddControllers` options.
 - **`System.Text.Json` can enforce NRT annotations (.NET 9+)**: Setting `JsonSerializerOptions.RespectNullableAnnotations = true` makes the serializer throw `JsonException` when a non-nullable property receives an explicit `null` during deserialization — or emits `null` for a non-nullable property during serialization. However, this enforcement has limitations rooted in how NRTs are represented in IL: it does **not** validate collection element types (`List<string>` and `List<string?>` are indistinguishable via reflection), top-level types, or generic properties. For these gaps, use manual validation or custom converters.
 - **Use `#nullable disable`, not `#nullable disable warnings` on model files**: Just as with EF Core, `#nullable disable warnings` only suppresses compiler diagnostics — the annotations remain active and MVC still reads them via reflection to infer `[Required]`. Use `#nullable disable` to fully opt out for files not yet migrated.
+
+## Helper Extension Methods
+
+Add these to the project when needed during migration. The `WhereNotNull` pattern is used in the Roslyn compiler codebase itself.
+
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+
+internal static class NullableExtensions
+{
+    /// <summary>
+    /// Filters null values from a sequence and narrows the type from T? to T.
+    /// Unlike .Where(x => x != null), this gives the compiler correct type information.
+    /// </summary>
+    public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T?> source) where T : class
+        => source.Where(x => x is not null)!;
+
+    /// <summary>
+    /// Filters null values from a sequence of nullable value types and unwraps to T.
+    /// </summary>
+    public static IEnumerable<T> WhereNotNull<T>(this IEnumerable<T?> source) where T : struct
+        => source.Where(x => x.HasValue).Select(x => x!.Value);
+}
+```
 
 ## More Info
 
