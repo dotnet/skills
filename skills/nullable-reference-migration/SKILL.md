@@ -28,6 +28,8 @@ description: Enable nullable reference types in a C# project and systematically 
 
 ## Workflow
 
+> **Commit strategy:** Commit at each logical boundary — after enabling `<Nullable>` (Step 2), after fixing dereference warnings (Step 3), after annotating declarations (Step 4), after applying nullable attributes (Step 5), and after cleaning up suppressions (Step 6). This keeps each commit focused and reviewable, and prevents losing work if a later step reveals a design issue that requires rethinking. For file-by-file migrations, commit each file or batch of related files individually.
+
 ### Step 1: Evaluate readiness
 
 1. Run `dotnet --version` to confirm the SDK is installed. Nullable reference types (NRTs) require C# 8.0+ (`.NET Core 3.0` / `.NET Standard 2.1` or later).
