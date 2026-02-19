@@ -157,6 +157,7 @@ Add `using System.Diagnostics.CodeAnalysis;` where needed.
 | Multi-target projects and older TFMs | NRT annotations compile on older TFMs (e.g., .NET Standard 2.0) with C# 8.0+, but nullable attributes like `[NotNullWhen]` may not exist. Use a polyfill package such as `Nullable` from NuGet, or define the attributes internally |
 | Warnings reappear after upgrading a dependency | The dependency added nullable annotations. This is expected and beneficial — fix the new warnings as in Steps 3–5 |
 | Accidentally changing behavior while annotating | Adding `?` to a type or `!` to an expression is metadata-only and does not change generated IL. But replacing `obj.Method()` with `obj?.Method()` (null-conditional) changes runtime behavior — the call is silently skipped instead of throwing. Only use `?.` when you intentionally want to tolerate null, not as a quick fix for a warning |
+| Adding `?` to a value type (enum, struct) | For reference types, `?` is a metadata annotation with no runtime effect. For value types like `int` or an enum, `?` changes the type to `Nullable<T>`, altering the method signature, binary layout, and boxing behavior. Double-check that you are only adding `?` to reference types unless you truly intend to make a value type nullable |
 
 ## More Info
 
