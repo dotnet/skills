@@ -103,6 +103,8 @@ Pay special attention to:
 - **DTOs and serialization models**: Deserialized properties may be null even if the type says otherwise. Mark them nullable or use `required` / `[JsonRequired]`.
 - **Entity Framework entities**: Navigation properties are often null before loading. Follow the EF Core guidance: declare them as nullable, or use a non-null default with `null!` only if the entity lifecycle guarantees population.
 - **Event handlers and delegates**: The pattern `EventHandler? handler = SomeEvent; handler?.Invoke(...)` is idiomatic.
+- **Struct reference-type fields**: Reference-type fields in structs are null when using `default(T)`. If `default` is valid usage for the struct, those fields must be nullable. If `default` is never expected (the struct is only created by specific APIs), keep them non-nullable to avoid burdening every consumer with unnecessary null checks.
+- **Post-Dispose state**: If a field or property is non-null for the entire useful lifetime of the object but may become null after `Dispose`, keep it non-nullable. Using an object after disposal is a contract violation — do not weaken annotations for that case.
 
 ### Step 5: Apply nullable attributes for advanced scenarios
 
