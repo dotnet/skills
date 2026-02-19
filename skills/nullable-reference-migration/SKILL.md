@@ -29,7 +29,7 @@ description: Enable nullable reference types in a C# project and systematically 
 
 ### Step 1: Evaluate readiness
 
-1. Run `dotnet --version` to confirm the SDK is installed. NRTs require C# 8.0+ (`.NET Core 3.0` / `.NET Standard 2.1` or later).
+1. Run `dotnet --version` to confirm the SDK is installed. Nullable reference types (NRTs) require C# 8.0+ (`.NET Core 3.0` / `.NET Standard 2.1` or later).
 2. Open the `.csproj` and check the `<LangVersion>` and `<TargetFramework>`. If the project multi-targets, note all TFMs.
 3. Check whether `<Nullable>` is already set. If it is set to `enable`, skip to Step 5 to audit remaining warnings.
 4. Look for any `Directory.Build.props` that might set `<Nullable>` at the repo level.
