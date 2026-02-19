@@ -9,6 +9,27 @@ This repository contains shared building blocks for coding agents:
 
 Because these artifacts can affect many users and workflows, we prioritize correctness, clarity, and long term maintainability over speed.
 
+## Repository layout
+
+```text
+src/
+  <component>/
+    plugin.json
+    skills/
+      <skill-name>/
+        SKILL.md
+        scripts/
+        references/
+        assets/
+    agents/
+      <agent-name>.agent.md
+    tests/
+      <scenario>/
+        README.md
+```
+
+Each component under `src/` is self-contained. A plugin.json implies that the component is distributed at least as a plugin in the marketplace.
+
 ## Before you start
 
 - Search existing issues and pull requests to avoid duplicates.
@@ -35,11 +56,32 @@ We are less likely to accept contributions that:
 
 ## Proposing a new skill
 
+A skill should be self-contained and:
+
+- Clearly state **what it does** and **when to use it**.
+- Specify required inputs (repo context, environment, access needs).
+- Prefer concrete checklists and verification steps over vague guidance.
+
+Create a new folder under a component's `skills/` directory:
+
+```text
+src/<component>/skills/<skill-name>/SKILL.md
+```
+
 A skill should answer three questions up front:
 
 1. What outcome does the skill produce
 2. When should an agent use it
 3. How does the agent validate success
+
+### Recommended `SKILL.md` sections
+
+- **Purpose**: one paragraph describing the outcome.
+- **When to use** / **When not to use**
+- **Inputs**: what the agent needs (files, commands, permissions).
+- **Workflow**: numbered steps with checkpoints.
+- **Validation**: how to confirm the result (tests, linters, manual checks).
+- **Common pitfalls**: known traps and how to avoid them.
 
 ### Skill checklist
 
@@ -59,7 +101,17 @@ Also:
 
 ## Proposing a new agent
 
-An agent definition should be opinionated but bounded.
+An agent definition should be opinionated but bounded:
+
+- Describe the **role** (e.g., "WinForms Expert", "Security Reviewer", "Docs Maintainer").
+- Define boundaries (what the agent should not do).
+- List the skills it expects to use and how it chooses among them.
+
+Add an agent file under a component's `agents/` directory:
+
+```text
+src/<component>/agents/<agent-name>.agent.md
+```
 
 ### Agent checklist
 
@@ -118,3 +170,17 @@ If you are unsure where a change belongs or how to structure a skill or agent, o
 - The user problem
 - The proposed outcome
 - A small example of the desired behavior
+
+If you're not sure whether something belongs under `skills/` or `agents/`, a good rule of thumb is:
+
+- Put **reusable task playbooks** in `skills/`.
+- Put **role + operating model** in `agents/`.
+
+## Quality bar
+
+Skills and agents in this repo should be:
+
+- **Actionable**: the agent can follow them without guesswork.
+- **Minimal**: no extra features or scope creep; focus on the task.
+- **Verifiable**: always include a way to validate success.
+- **Tool-conscious**: don't assume capabilities that might not exist in every runtime.

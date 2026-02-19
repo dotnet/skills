@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - "skills/**"
+      - "src/**/skills/**"
   pull_request:
     paths:
-      - "skills/**"
+      - "src/**/skills/**"
 
 concurrency:
   group: validate-skills-${{ github.ref }}
@@ -39,7 +39,7 @@ jobs:
 
           # Find added or changed SKILL.md files in skills/ directory and extract skill directories
           SKILLS=$(git diff --name-only --diff-filter=ACMR $BASE $HEAD | \
-            grep '^skills/.*SKILL.md$' | \
+            grep '^src/.*/skills/.*SKILL.md$' | \
             xargs -I {} dirname {} | \
             sort -u | \
             jq -R -s -c 'split("\n") | map(select(length > 0))')
