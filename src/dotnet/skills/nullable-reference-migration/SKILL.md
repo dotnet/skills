@@ -146,7 +146,7 @@ After dereference warnings are resolved, address annotation warnings:
 For each type, decide: **should this member ever be null?**
 
 - **Yes** → add `?` to its declaration.
-- **No** → ensure it is initialized in every constructor path, or mark it `required`.
+- **No** → ensure it is initialized in every constructor path, or mark it `required` (C# 11+).
 
 Focus annotation effort on public and protected APIs first — these define the contract that consumers depend on. Internal and private code can tolerate `!` more liberally since it does not affect external callers.
 
@@ -162,7 +162,7 @@ Focus annotation effort on public and protected APIs first — these define the 
 
 Pay special attention to:
 
-- **DTOs and serialization models**: Deserialized properties may be null even if the type says otherwise. Mark them nullable or use `required` / `[JsonRequired]`.
+- **DTOs and serialization models**: Deserialized properties may be null even if the type says otherwise. Mark them nullable or use `required` (C# 11+) / `[JsonRequired]` (.NET 7+).
 - **Event handlers and delegates**: The pattern `EventHandler? handler = SomeEvent; handler?.Invoke(...)` is idiomatic.
 - **Struct reference-type fields**: Reference-type fields in structs are null when using `default(T)`. If `default` is valid usage for the struct, those fields must be nullable. If `default` is never expected (the struct is only created by specific APIs), keep them non-nullable to avoid burdening every consumer with unnecessary null checks.
 - **Post-Dispose state**: If a field or property is non-null for the entire useful lifetime of the object but may become null after `Dispose`, keep it non-nullable. Using an object after disposal is a contract violation — do not weaken annotations for that case.
