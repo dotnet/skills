@@ -10,7 +10,7 @@ description: "MANDATORY: Always generate binary logs when running dotnet build, 
 **ALWAYS pass the `/bl` switch when running any MSBuild-based command.** This is a non-negotiable requirement for all .NET builds.
 
 ## Commands That Require /bl
-
+test
 You MUST add the `/bl:N.binlog` flag to:
 - `dotnet build`
 - `dotnet test`

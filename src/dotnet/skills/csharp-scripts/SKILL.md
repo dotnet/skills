@@ -9,7 +9,7 @@ description: Run single-file C# programs as scripts for quick experimentation, p
 
 - Testing a C# concept, API, or language feature with a quick one-file program
 - Prototyping logic before integrating it into a larger project
-
+test
 ## When Not to Use
 
 - The user needs a full project with multiple files or project references
