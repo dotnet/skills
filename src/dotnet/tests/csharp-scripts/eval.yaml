@@ -1,0 +1,19 @@
+scenarios:
+  - name: "Test a C# language feature with a script"
+    prompt: "Does C# support creating a stackalloc'd Span of native-sized integers? Can you test it and see?"
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(nint|nuint|native)"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "stackalloc"
+      - type: "file_not_exists"
+        path: "**/*.csproj"
+      - type: "file_not_exists"
+        path: "**/*.csx"
+    expect_tools: ["bash"]
+    rubric:
+      - "Runs the test using 'dotnet <file>.cs' (file-based app) rather than creating a full project with 'dotnet new console'"
+      - "The code compiles and runs, demonstrating that stackalloc with Span<nint> works"
+    timeout: 120

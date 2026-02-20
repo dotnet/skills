@@ -1,15 +1,15 @@
 <#
 .SYNOPSIS
-    Converts evaluation results into benchmark dashboard data.
+    Converts skill-validator results into benchmark dashboard data.
 
 .DESCRIPTION
-    Reads evaluation results from the results directory and produces a per-component
-    JSON file (<ComponentName>.json) compatible with the benchmark dashboard.
-    If an existing JSON file is provided, the new data point is appended to the
-    existing history.
+    Reads skill-validator verdict.json and results.json files and produces a
+    per-component JSON file (<ComponentName>.json) compatible with the benchmark
+    dashboard. If an existing JSON file is provided, the new data point is
+    appended to the existing history.
 
 .PARAMETER ResultsDir
-    Path to the results directory for this run.
+    Path to the skill-validator run results directory (e.g. .skill-validator-results/run-<timestamp>).
 
 .PARAMETER ComponentName
     Name of the component these results belong to. Used as the output filename.
@@ -37,9 +37,6 @@ param(
     [Parameter()]
     [string]$ExistingDataFile,
 
-    [Parameter(Mandatory)]
-    [string]$RunId,
-
     [Parameter()]
     [string]$CommitJson
 )
@@ -50,9 +47,20 @@ if (-not $OutputDir) {
     $OutputDir = $ResultsDir
 }
 
-$testDirs = Get-ChildItem -Path $ResultsDir -Directory -ErrorAction SilentlyContinue
-if (-not $testDirs) {
-    Write-Warning "No test results found in $ResultsDir"
+# Read skill-validator results
+$resultsFile = Join-Path $ResultsDir "results.json"
+if (-not (Test-Path $resultsFile)) {
+    Write-Warning "No results.json found in $ResultsDir"
+    exit 0
+}
+
+$results = Get-Content $resultsFile -Raw | ConvertFrom-Json
+$model = $results.model
+
+# Find verdict files for skills in this component
+$skillDirs = Get-ChildItem -Path $ResultsDir -Directory -ErrorAction SilentlyContinue
+if (-not $skillDirs) {
+    Write-Warning "No skill results found in $ResultsDir"
     exit 0
 }
 
@@ -60,32 +68,46 @@ if (-not $testDirs) {
 $qualityBenches = [System.Collections.Generic.List[object]]::new()
 $efficiencyBenches = [System.Collections.Generic.List[object]]::new()
 
-foreach ($testDir in $testDirs) {
-    $testName = $testDir.Name
-    $evalFile = Join-Path $testDir.FullName $RunId "evaluation.json"
-    $skilledStatsFile = Join-Path $testDir.FullName $RunId "skilled-stats.json"
+foreach ($skillDir in $skillDirs) {
+    $verdictFile = Join-Path $skillDir.FullName "verdict.json"
+    if (-not (Test-Path $verdictFile)) { continue }
 
-    if (Test-Path $evalFile) {
-        $evalData = Get-Content $evalFile -Raw | ConvertFrom-Json
-        $vanillaEval = $evalData.evaluations.vanilla
-        $skilledEval = $evalData.evaluations.skilled
+    $verdict = Get-Content $verdictFile -Raw | ConvertFrom-Json
+    $skillName = $verdict.skillName
 
-        if ($skilledEval -and $skilledEval.score) {
-            $qualityBenches.Add(@{ name = "$testName - Skilled Quality"; unit = "Score (0-10)"; value = [float]$skilledEval.score })
+    foreach ($scenario in $verdict.scenarios) {
+        $testName = "$skillName/$($scenario.scenarioName)"
+
+        # Quality scores (from judge results, scale 0-5 mapped to 0-10 for dashboard)
+        if ($scenario.withSkill.judgeResult.overallScore) {
+            $qualityBenches.Add(@{
+                name  = "$testName - Skilled Quality"
+                unit  = "Score (0-10)"
+                value = [float]$scenario.withSkill.judgeResult.overallScore * 2
+            })
+        }
+        if ($scenario.baseline.judgeResult.overallScore) {
+            $qualityBenches.Add(@{
+                name  = "$testName - Vanilla Quality"
+                unit  = "Score (0-10)"
+                value = [float]$scenario.baseline.judgeResult.overallScore * 2
+            })
         }
 
-        if ($vanillaEval -and $vanillaEval.score) {
-            $qualityBenches.Add(@{ name = "$testName - Vanilla Quality"; unit = "Score (0-10)"; value = [float]$vanillaEval.score })
+        # Efficiency metrics (from with-skill run)
+        if ($scenario.withSkill.metrics.wallTimeMs) {
+            $efficiencyBenches.Add(@{
+                name  = "$testName - Skilled Time"
+                unit  = "seconds"
+                value = [math]::Round([float]$scenario.withSkill.metrics.wallTimeMs / 1000, 1)
+            })
         }
-    }
-
-    if (Test-Path $skilledStatsFile) {
-        $skilledStats = Get-Content $skilledStatsFile -Raw | ConvertFrom-Json
-        if ($skilledStats.TotalTimeSeconds) {
-            $efficiencyBenches.Add(@{ name = "$testName - Skilled Time"; unit = "seconds"; value = [float]$skilledStats.TotalTimeSeconds })
-        }
-        if ($skilledStats.TokensIn) {
-            $efficiencyBenches.Add(@{ name = "$testName - Skilled Tokens In"; unit = "tokens"; value = [float]$skilledStats.TokensIn })
+        if ($scenario.withSkill.metrics.tokenEstimate) {
+            $efficiencyBenches.Add(@{
+                name  = "$testName - Skilled Tokens In"
+                unit  = "tokens"
+                value = [float]$scenario.withSkill.metrics.tokenEstimate
+            })
         }
     }
 }
@@ -99,19 +121,6 @@ if ($CommitJson) {
 }
 
 $now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
-
-# Detect model from skilled-stats.json files
-$model = $null
-foreach ($testDir in $testDirs) {
-    $skilledStatsFile = Join-Path $testDir.FullName $RunId "skilled-stats.json"
-    if (Test-Path $skilledStatsFile) {
-        $skilledStats = Get-Content $skilledStatsFile -Raw | ConvertFrom-Json
-        if ($skilledStats.Model) {
-            $model = $skilledStats.Model
-            break
-        }
-    }
-}
 
 $qualityEntry = @{
     commit = $commit
@@ -167,6 +176,7 @@ $benchmarkData['entries'][$qualityKey] += @($qualityEntry)
 $benchmarkData['entries'][$efficiencyKey] += @($efficiencyEntry)
 
 # Write <ComponentName>.json
+New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 $dataJson = $benchmarkData | ConvertTo-Json -Depth 10
 $dataJsonFile = Join-Path $OutputDir "$ComponentName.json"
 $dataJson | Out-File -FilePath $dataJsonFile -Encoding utf8
