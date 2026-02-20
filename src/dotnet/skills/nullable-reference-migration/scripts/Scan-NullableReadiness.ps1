@@ -350,24 +350,40 @@ foreach ($r in $results) {
         Write-Host "  Migration progress: $($r.FilesWithEnable)/$($r.TotalCsFiles) files ($pct%)" -ForegroundColor Green
     }
 
-    if (@($r.FilesOfInterest).Count -gt 0) {
+    # Per-file details — context-dependent heading and content
+    $nrtEnabled = $r.Nullable -match "enable"
+    $interestFiles = @($r.FilesOfInterest)
+
+    # Filter to files with displayable parts
+    $displayFiles = @()
+    foreach ($f in $interestFiles) {
+        $parts = @()
+        if ($f.NullableDisable -gt 0) { $parts += "$($f.NullableDisable) #nullable disable" }
+        if ($f.PragmaDisable -gt 0) { $parts += "$($f.PragmaDisable) #pragma" }
+        if ($f.BangOperators -gt 5) {
+            $bangDetail = "$($f.BangOperators) !"
+            if ($f.BangNullInit -gt 0) {
+                $bangDetail += " ($($f.BangNullInit) null!/default!, $($f.BangAssertions) assertions)"
+            }
+            $parts += $bangDetail
+        }
+        if (-not $nrtEnabled -and $f.UninitFields -gt 5) { $parts += "~$($f.UninitFields) uninit fields" }
+        if ($parts.Count -gt 0) {
+            $displayFiles += [PSCustomObject]@{ File = $f.File; Detail = ($parts -join ', ') }
+        }
+    }
+
+    if ($displayFiles.Count -gt 0) {
         Write-Host ""
-        Write-Host "  Files needing attention:" -ForegroundColor Magenta
-        foreach ($f in $r.FilesOfInterest) {
-            $parts = @()
-            if ($f.NullableDisable -gt 0) { $parts += "$($f.NullableDisable) #nullable disable" }
-            if ($f.PragmaDisable -gt 0) { $parts += "$($f.PragmaDisable) #pragma" }
-            if ($f.BangOperators -gt 5) {
-                $bangDetail = "$($f.BangOperators) !"
-                if ($f.BangNullInit -gt 0) {
-                    $bangDetail += " ($($f.BangNullInit) null!/default!, $($f.BangAssertions) assertions)"
-                }
-                $parts += $bangDetail
-            }
-            if ($f.UninitFields -gt 5 -and $r.Nullable -notmatch "enable") { $parts += "~$($f.UninitFields) uninit fields" }
-            if ($parts.Count -gt 0) {
-                Write-Host "    $($f.File): $($parts -join ', ')"
-            }
+        if (-not $nrtEnabled) {
+            Write-Host "  Migration work needed:" -ForegroundColor Magenta
+        } elseif ($r.NullableDisable -gt 0 -or $r.PragmaDisableCS86 -gt 0) {
+            Write-Host "  Remaining cleanup:" -ForegroundColor Magenta
+        } else {
+            Write-Host "  Suppression audit (Step 6 — review ! operators for possible removal):" -ForegroundColor DarkYellow
+        }
+        foreach ($df in $displayFiles) {
+            Write-Host "    $($df.File): $($df.Detail)"
         }
     }
 
