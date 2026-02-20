@@ -345,6 +345,58 @@ var apiKey = Environment.GetEnvironmentVariable("API_KEY")
 var apiKey = "sk-abc123..."; // NEVER DO THIS
 ```
 
+### .NET User Secrets (Local Development)
+
+Use the Secret Manager for local dev instead of putting secrets in source-controlled files:
+
+```bash
+# Initialize user secrets for the project
+dotnet user-secrets init
+
+# Set a secret
+dotnet user-secrets set "Api:Key" "sk-your-dev-key"
+dotnet user-secrets set "Api:BaseUrl" "https://api.example.com"
+```
+
+Access secrets via configuration (they're automatically loaded in Development):
+
+```csharp
+var builder = Host.CreateApplicationBuilder(args);
+
+// User secrets are loaded automatically when DOTNET_ENVIRONMENT=Development
+var apiKey = builder.Configuration["Api:Key"]
+    ?? throw new InvalidOperationException("Api:Key is not configured");
+```
+
+### appsettings.Development.json
+
+Use for **non-secret** development overrides only. Never put actual secrets here since this file is typically source-controlled:
+
+```json
+// appsettings.Development.json - OK for non-sensitive config
+{
+  "Api": {
+    "BaseUrl": "https://api-staging.example.com",
+    "TimeoutSeconds": 30
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Debug"
+    }
+  }
+}
+```
+
+```csharp
+// Program.cs - configuration is layered automatically
+var builder = Host.CreateApplicationBuilder(args);
+
+// Priority (highest wins): User Secrets > env vars > appsettings.{Environment}.json > appsettings.json
+builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("Api"));
+```
+
+> **Rule of thumb**: Use `appsettings.Development.json` for URLs, timeouts, and feature flags. Use `dotnet user-secrets` or environment variables for API keys, tokens, and connection strings.
+
 ### Input Validation
 
 Validate and sanitize all inputs:
