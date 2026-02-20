@@ -28,6 +28,11 @@ on:
         required: false
         type: number
         default: 3
+      parallel-runs:
+        description: 'Max concurrent runs'
+        required: false
+        type: number
+        default: 3
       verbose:
         description: 'Enable verbose output'
         required: false
@@ -43,6 +48,7 @@ env:
   DOTNET_VERSION: '10.0.x'
   DEFAULT_MODEL: 'claude-opus-4.5'
   DEFAULT_JUDGE_MODEL: 'claude-opus-4.5'
+  DEFAULT_PARALLEL_RUNS: '3'
 
 permissions:
   contents: write
@@ -146,6 +152,10 @@ jobs:
           fi
           if [ -n "${{ github.event.inputs.runs }}" ]; then
             ARGS="$ARGS --runs ${{ github.event.inputs.runs }}"
+          fi
+          PARALLEL_RUNS="${{ github.event.inputs.parallel-runs || env.DEFAULT_PARALLEL_RUNS }}"
+          if [ -n "$PARALLEL_RUNS" ]; then
+            ARGS="$ARGS --parallel-runs $PARALLEL_RUNS"
           fi
           if [ "${{ github.event.inputs.verbose }}" = "true" ]; then
             ARGS="$ARGS --verbose"

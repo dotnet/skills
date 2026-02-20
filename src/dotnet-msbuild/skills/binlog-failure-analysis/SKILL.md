@@ -4,7 +4,7 @@ description: "MANDATORY skill for .NET/MSBuild build failures. Only activate in 
 ---
 
 # Analyzing MSBuild Failures with Binary Logs
-
+test
 ## CRITICAL: Mandatory Invocation Rules
 
 **This skill is a BLOCKING REQUIREMENT when any .NET build fails.** You MUST invoke this skill when:
