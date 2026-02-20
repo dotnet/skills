@@ -227,9 +227,9 @@ scenarios:
         path: "TaskManager/Services/TaskService.cs"
         value: "string?"
     rubric:
-      - "The agent enabled NRT in the project file with <Nullable>enable</Nullable>"
-      - "Methods that can return null (GetById, FindByTitle, FindTaskByTitle) have nullable return types (TaskItem?, not TaskItem)"
-      - "The optional assignedTo parameter in CreateTask is annotated as string?"
-      - "Description and AssignedTo properties are correctly annotated for nullability"
-      - "The project builds with zero CS86xx warnings after the agent's changes"
+      - "Did the agent avoid adding `?` to value types? `int Id`, `bool IsCompleted`, `int id` parameters, and `int _nextId` must NOT get `?`. `DateTime? DueDate` already has `?` and must not become `DateTime??`. Check edits carefully for this mistake."
+      - "Did the agent correctly annotate methods that return null? `GetById`, `FindByTitle`, and `FindTaskByTitle` all use `FirstOrDefault` which returns null — their return types must be `TaskItem?`, not `TaskItem`. Both the interface `ITaskRepository` and implementation `InMemoryTaskRepository` must match."
+      - "Did the agent correctly handle the `_header` field in CsvExporter? It is set inside `Export()`, not the constructor — it should be `string? _header` or `string _header = null!`, not left as `string _header` which would produce CS8618."
+      - "Did the agent keep interface and implementation return types consistent? If `ITaskRepository.GetById` returns `TaskItem?`, then `InMemoryTaskRepository.GetById` must also return `TaskItem?`. Same for `FindByTitle`. Check both files."
+      - "Does the project build with zero CS86xx warnings after the agent's changes? The agent should have resolved all nullable warnings introduced by enabling NRT."
     timeout: 300
