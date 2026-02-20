@@ -118,6 +118,7 @@ Guidance:
 - When a method legitimately returns null, change the return type to `T?` — do not hide nulls behind a non-nullable signature.
 - `Debug.Assert(x != null)` acts as a null-state hint to the compiler just like an `if` check. Use it at the top of a method or block to inform the flow analyzer about invariants and eliminate subsequent `!` operators in that scope. Note: `Debug.Assert` informs the compiler but is stripped from Release builds — it does not protect against null at runtime. For public API boundaries, prefer an explicit null check or `ArgumentNullException`.
 - If you find yourself adding `!` at every call site of an internal method, consider making that parameter nullable instead. Reserve `!` for cases where the compiler genuinely cannot prove non-nullness.
+- For fields that are always set after construction (e.g., by a framework, an `Init()` method, or a builder pattern), prefer `= null!` on the field declaration over adding `!` at every use site. A field accessed 50 times should have one `= null!`, not fifty `field!` assertions. This keeps the field non-nullable in the type system while acknowledging the late initialization. Pair with `[MemberNotNull]` on the initializing method when possible.
 - For generic methods returning `default` on an unconstrained type parameter (e.g., `FirstOrDefault<T>`), use `[return: MaybeNull] T` rather than `T?`. Writing `T?` on an unconstrained generic changes value-type signatures to `Nullable<T>`, altering the method signature and binary layout. `[return: MaybeNull]` preserves the original signature while communicating that the return may be null for reference types.
 - LINQ's `Where(x => x != null)` does not narrow `T?` to `T` — the compiler cannot track nullability through lambdas passed to generic methods. Use a `WhereNotNull()` extension method (see [Helper Extension Methods](#helper-extension-methods) below) or `source.OfType<T>()` to filter nulls with correct type narrowing.
 
@@ -143,7 +144,7 @@ After dereference warnings are resolved, address annotation warnings:
 
 | Warning | Meaning | Typical fix |
 |---------|---------|-------------|
-| CS8618 | Non-nullable field/property not initialized in constructor | Initialize the member, make it nullable (`?`), or use `required` (C# 11+). If a helper method initializes fields, decorate it with `[MemberNotNull(nameof(field))]` so the compiler knows the field is non-null after the call |
+| CS8618 | Non-nullable field/property not initialized in constructor | Initialize the member, make it nullable (`?`), or use `required` (C# 11+). For fields that are always set after construction but outside the constructor (e.g., by a framework lifecycle method, an `Init()` call, or a builder pattern), use `= null!` to declare intent while keeping the field non-nullable at every use site. If a helper method initializes fields, decorate it with `[MemberNotNull(nameof(field))]` so the compiler knows the field is non-null after the call |
 | CS8625 | Cannot convert null literal to non-nullable type | Make the target nullable or provide a non-null value |
 | CS8601 | Possible null reference assignment | Same techniques as CS8600 |
 
@@ -151,6 +152,7 @@ For each type, decide: **should this member ever be null?**
 
 - **Yes** → add `?` to its declaration.
 - **No** → ensure it is initialized in every constructor path, or mark it `required` (C# 11+).
+- **No, but it is set after the constructor** (e.g., by a framework method, a builder, or a two-phase init pattern) → use `= null!` on the field declaration. This keeps the field's type non-nullable everywhere it is used, while telling the compiler "I guarantee this will be set before access." This is far preferable to adding `!` at every use site — a field accessed 50 times would need 50 `!` operators instead of one `= null!`. If the initialization is done by a specific method, also consider `[MemberNotNull(nameof(field))]` on that method.
 
 Focus annotation effort on public and protected APIs first — these define the contract that consumers depend on. Internal and private code can tolerate `!` more liberally since it does not affect external callers.
 
