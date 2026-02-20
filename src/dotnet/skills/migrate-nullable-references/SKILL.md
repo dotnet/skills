@@ -1,5 +1,5 @@
 ---
-name: nullable-reference-migration
+name: migrate-nullable-references
 description: Enable nullable reference types in a C# project and systematically resolve all warnings. Use when the user wants to adopt NRTs in an existing codebase, migrate file-by-file or project-wide, fix nullable warnings after upgrading a dependency, or resolve CS8602/CS8618 and other CS86xx warnings. Also use when adding #nullable enable, annotating APIs for nullability, or cleaning up null-forgiving operators.
 ---
 

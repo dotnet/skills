@@ -233,3 +233,26 @@ scenarios:
       - "Description and AssignedTo properties are correctly annotated for nullability"
       - "The project builds with zero CS86xx warnings after the agent's changes"
     timeout: 300
+
+  - name: "Scanner script correctly reports NRT readiness of a project"
+    prompt: |
+      Run the scanner script at scripts/Scan-NullableReadiness.ps1 against the project at
+      fixtures/nrt-disabled/NrtDisabled.csproj using the -Json flag. Then run it against
+      fixtures/nrt-enabled/NrtEnabled.csproj with -Json. Report the JSON output for both.
+    setup:
+      copy_test_files: true
+      files:
+        - path: "scripts/Scan-NullableReadiness.ps1"
+          source: "scripts/Scan-NullableReadiness.ps1"
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: "NrtDisabled"
+      - type: "output_contains"
+        value: "NrtEnabled"
+    rubric:
+      - "The scanner reports that NrtDisabled does not have NRT enabled (Nullable is '(not set)')"
+      - "The scanner correctly counts null-forgiving operators in the NRT-disabled project (BangOperators: 5)"
+      - "The scanner reports that NrtEnabled has NRT enabled (Nullable is 'enable')"
+      - "The scanner reports zero null-forgiving operators in the NRT-enabled project (BangOperators: 0)"
+    timeout: 120
