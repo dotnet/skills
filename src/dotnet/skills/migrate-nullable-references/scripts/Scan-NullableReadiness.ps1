@@ -7,7 +7,7 @@
     <WarningsAsErrors>) and source-level counts (#nullable directives, null-forgiving
     operators, #pragma warning disable CS86xx) to help assess migration status.
 
-    Automates the manual checks in Steps 1 and 6 of the nullable-reference-migration skill.
+    Automates the manual checks in Steps 1 and 6 of the migrate-nullable-references skill.
 
 .PARAMETER Path
     Path to a .csproj, .sln, or directory. Defaults to the current directory.
