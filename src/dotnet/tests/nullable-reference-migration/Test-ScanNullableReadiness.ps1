@@ -11,7 +11,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$scannerPath = Join-Path $scriptDir "..\..\skills\nullable-reference-migration\scripts\Scan-NullableReadiness.ps1"
+$scannerPath = Join-Path $scriptDir ".." ".." "skills" "nullable-reference-migration" "scripts" "Scan-NullableReadiness.ps1"
 $fixturesDir = Join-Path $scriptDir "fixtures"
 
 $passed = 0
@@ -46,7 +46,7 @@ function Assert-GreaterOrEqual {
 # The scanner must NOT count ! inside strings ("Formatted!", "Value required!"),
 # comments (// Important! ... null!), XML docs (input! ... failure!), or block comments (non-null!).
 Write-Host "`nTest: nrt-disabled" -ForegroundColor Cyan
-$json = & $scannerPath -Path (Join-Path $fixturesDir "nrt-disabled\NrtDisabled.csproj") -Json | ConvertFrom-Json
+$json = & $scannerPath -Path (Join-Path $fixturesDir "nrt-disabled" "NrtDisabled.csproj") -Json | ConvertFrom-Json
 
 Assert-Equal "Nullable is not set" "(not set)" $json.Nullable
 Assert-Equal "Project name" "NrtDisabled" $json.Project
@@ -64,7 +64,7 @@ Assert-Equal "Uninit ref fields (CS8618 estimate)" 3 $json.UninitFields
 # interpolated string ($"Log: {message}!"), and regular string ("Done!").
 # The scanner must report exactly 0.
 Write-Host "`nTest: nrt-enabled" -ForegroundColor Cyan
-$json = & $scannerPath -Path (Join-Path $fixturesDir "nrt-enabled\NrtEnabled.csproj") -Json | ConvertFrom-Json
+$json = & $scannerPath -Path (Join-Path $fixturesDir "nrt-enabled" "NrtEnabled.csproj") -Json | ConvertFrom-Json
 
 Assert-Equal "Nullable is enable" "enable" $json.Nullable
 Assert-Equal "Project name" "NrtEnabled" $json.Project
@@ -81,7 +81,7 @@ Assert-Equal "Uninit ref fields (required excluded)" 1 $json.UninitFields
 # CleanFile.cs has 0 ! operators.
 # The scanner must NOT count the comment/block-comment bangs.
 Write-Host "`nTest: nrt-partial" -ForegroundColor Cyan
-$json = & $scannerPath -Path (Join-Path $fixturesDir "nrt-partial\NrtPartial.csproj") -Json | ConvertFrom-Json
+$json = & $scannerPath -Path (Join-Path $fixturesDir "nrt-partial" "NrtPartial.csproj") -Json | ConvertFrom-Json
 
 Assert-Equal "Nullable is enable" "enable" $json.Nullable
 Assert-Equal "Project name" "NrtPartial" $json.Project
