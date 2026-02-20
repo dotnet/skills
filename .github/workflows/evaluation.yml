@@ -4,288 +4,148 @@ on:
   pull_request:
     paths:
       - 'src/**'
-      - 'eng/evaluation/**'
       - '.github/workflows/evaluation.yml'
 
   schedule:
-    - cron: '*/45 * * * *'  # Every 45 minutes
+    - cron: '*/45 * * * *'
 
   workflow_dispatch:
     inputs:
-      components:
-        description: 'Components to evaluate (comma-separated, empty=all with tests)'
+      model:
+        description: 'Copilot model to use (e.g. claude-sonnet-4.5)'
         required: false
         default: ''
-      parallelism:
-        description: 'Number of tests to run in parallel'
+      runs:
+        description: 'Number of runs per scenario'
         required: false
         type: number
-        default: 8
-      model:
-        description: 'Copilot model to use (e.g. claude-opus-4.5, claude-sonnet-4.5)'
+        default: 5
+      verbose:
+        description: 'Enable verbose output'
         required: false
-        default: 'claude-opus-4.5'
-      max_retries:
-        description: 'Maximum number of retries per test on failure'
-        required: false
-        type: number
-        default: 3
-
+        type: boolean
+        default: false
 
 concurrency:
-  # PRs: cancel previous runs on same branch. Schedule/dispatch: unique group per run (never cancel).
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
-# Note: For local testing with act, secrets are loaded from .secrets file
-# For GitHub, secrets are configured in repository settings
 env:
-  GH_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-  RESULTS_BASE: artifacts/TestResults
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   DOTNET_VERSION: '10.0.x'
-  DEFAULT_MODEL: 'claude-opus-4.5'
-  DEFAULT_MAX_RETRIES: 3
-  DEFAULT_PARALLELISM: 8
-  MARKETPLACE_NAME: 'dotnet-agent-skills'
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  discover:
-    runs-on: ubuntu-latest
-    outputs:
-      components: ${{ steps.find.outputs.components }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Find components with tests
-        id: find
-        run: |
-          $input = "${{ github.event.inputs.components }}"
-          if ($input) {
-            $components = $input -split ',' | ForEach-Object { $_.Trim() }
-          } else {
-            $components = Get-ChildItem -Path "src" -Directory |
-              Where-Object { Test-Path (Join-Path $_.FullName "tests") } |
-              Select-Object -ExpandProperty Name
-          }
-
-          $json = $components | ConvertTo-Json -Compress
-          # Ensure it's always an array
-          if ($components.Count -eq 1) { $json = "[$json]" }
-          Write-Host "Components to evaluate: $json"
-          echo "components=$json" >> $env:GITHUB_OUTPUT
-        shell: pwsh
-
   evaluate:
-    needs: discover
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        component: ${{ fromJson(needs.discover.outputs.components) }}
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout repository
+      - name: Checkout skills repo
         uses: actions/checkout@v4
+
+      - name: Checkout skill-validator
+        uses: actions/checkout@v4
+        with:
+          repository: adityamandaleeka/skill-validator
+          ref: c0fa5ad93acb67940a457bde5b5c6837e132a278
+          path: .skill-validator
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-
-      - name: Cache Copilot CLI
-        id: cache-copilot
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: npm-copilot-${{ runner.os }}-${{ hashFiles('.github/workflows/evaluation.yml') }}
-
-      - name: Install Copilot CLI
-        run: |
-          npm install -g @github/copilot
-          copilot --version
-
-      - name: Create results directory
-        run: |
-          $runId = Get-Date -Format 'yyyyMMdd-HHmmss'
-          $resultsDir = "$env:RESULTS_BASE/${{ matrix.component }}"
-          New-Item -ItemType Directory -Force -Path $resultsDir
-          echo "RUN_ID=$runId" >> $env:GITHUB_ENV
-          echo "RESULTS_DIR=$resultsDir" >> $env:GITHUB_ENV
-        shell: pwsh
-
-      - name: Discover tests
-        run: |
-          $tests = Get-ChildItem -Path "src/${{ matrix.component }}/tests" -Directory |
-              Where-Object { Test-Path (Join-Path $_.FullName "expected-output.md") } |
-              Select-Object -ExpandProperty Name
-
-          $testList = $tests -join ","
-          Write-Host "Tests to evaluate for ${{ matrix.component }}: $testList"
-          echo "TESTS=$testList" >> $env:GITHUB_ENV
-
-          # Set parallelism level
-          $parallelism = "${{ github.event.inputs.parallelism }}"
-          if (-not $parallelism -or $parallelism -eq '') {
-            $parallelism = $env:DEFAULT_PARALLELISM
-          } else {
-            try {
-              $parallelism = [int]$parallelism
-              if ($parallelism -lt 1) {
-                Write-Warning "Parallelism must be at least 1, using default of $env:DEFAULT_PARALLELISM"
-                $parallelism = $env:DEFAULT_PARALLELISM
-              }
-            } catch {
-              Write-Warning "Invalid parallelism value, using default of $env:DEFAULT_PARALLELISM"
-              $parallelism = $env:DEFAULT_PARALLELISM
-            }
-          }
-          Write-Host "Parallelism level: $parallelism"
-          echo "PARALLELISM=$parallelism" >> $env:GITHUB_ENV
-
-          # Set model
-          $model = "${{ github.event.inputs.model }}"
-          if (-not $model -or $model -eq '') {
-            $model = "$env:DEFAULT_MODEL"
-          }
-          Write-Host "Model: $model"
-          echo "COPILOT_MODEL=$model" >> $env:GITHUB_ENV
-
-          # Set max retries
-          $maxRetries = "${{ github.event.inputs.max_retries }}"
-          if (-not $maxRetries -or $maxRetries -eq '') {
-            $maxRetries = $env:DEFAULT_MAX_RETRIES
-          } else {
-            try {
-              $maxRetries = [int]$maxRetries
-              if ($maxRetries -lt 1) {
-                Write-Warning "Max retries must be at least 1, using default of $env:DEFAULT_MAX_RETRIES"
-                $maxRetries = $env:DEFAULT_MAX_RETRIES
-              }
-            } catch {
-              Write-Warning "Invalid max retries value, using default of $env:DEFAULT_MAX_RETRIES"
-              $maxRetries = $env:DEFAULT_MAX_RETRIES
-            }
-          }
-          Write-Host "Max retries: $maxRetries"
-          echo "MAX_RETRIES=$maxRetries" >> $env:GITHUB_ENV
-        shell: pwsh
+          node-version: '22'
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Run Vanilla Copilot (no skills)
+      - name: Build skill-validator
+        run: cd .skill-validator && npm ci && npm run build
+
+      - name: Run skill-validator
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
         run: |
-          $ErrorActionPreference = "SilentlyContinue"
-          copilot plugin uninstall "${{ matrix.component }}" 2>$null
-          $ErrorActionPreference = "Stop"
+          ARGS="--strict --require-evals"
+          ARGS="$ARGS --reporter console --reporter json:.skill-validator-results/results.json"
 
-          $installedList = copilot plugin list 2>&1 | Out-String
-          if ($installedList -match "\b${{ matrix.component }}\b") {
-            throw "❌ VALIDATION FAILED: ${{ matrix.component }} should NOT be installed for vanilla run"
-          }
+          if [ -n "${{ github.event.inputs.model }}" ]; then
+            ARGS="$ARGS --model ${{ github.event.inputs.model }}"
+          fi
+          if [ -n "${{ github.event.inputs.runs }}" ]; then
+            ARGS="$ARGS --runs ${{ github.event.inputs.runs }}"
+          fi
+          if [ "${{ github.event.inputs.verbose }}" = "true" ]; then
+            ARGS="$ARGS --verbose"
+          fi
 
-          pwsh -File ./eng/evaluation/run-tests-parallel.ps1 `
-            -Script "./eng/evaluation/run-test.ps1" `
-            -RunType "vanilla" `
-            -Tests "$env:TESTS" `
-            -Parallelism $env:PARALLELISM `
-            -Component "${{ matrix.component }}" `
-            -ResultsDir "$env:RESULTS_DIR" `
-            -RunId "$env:RUN_ID" `
-            -Model "$env:COPILOT_MODEL" `
-            -MaxRetries $env:MAX_RETRIES
-        shell: pwsh
+          node .skill-validator/dist/index.js $ARGS --tests-dir ./src/dotnet/tests ./src/dotnet/skills
 
-      - name: Install Component and Run Skilled Copilot
-        run: |
-          $component = "${{ matrix.component }}"
-          copilot plugin marketplace add "${{ github.workspace }}" 2>&1 | Write-Host
-          copilot plugin install "$component@$env:MARKETPLACE_NAME" 2>&1 | Write-Host
-
-          $installedList = copilot plugin list 2>&1 | Out-String
-          if ($installedList -notmatch "\b$component\b") {
-            throw "❌ VALIDATION FAILED: $component should be installed for skilled run"
-          }
-
-          pwsh -File ./eng/evaluation/run-tests-parallel.ps1 `
-            -Script "./eng/evaluation/run-test.ps1" `
-            -RunType "skilled" `
-            -Tests "$env:TESTS" `
-            -Parallelism $env:PARALLELISM `
-            -Component "$component" `
-            -ResultsDir "$env:RESULTS_DIR" `
-            -RunId "$env:RUN_ID" `
-            -Model "$env:COPILOT_MODEL" `
-            -MaxRetries $env:MAX_RETRIES
-        shell: pwsh
-
-      - name: Uninstall Component and Run Evaluation
-        run: |
-          $ErrorActionPreference = "SilentlyContinue"
-          copilot plugin uninstall "${{ matrix.component }}" 2>$null
-          $ErrorActionPreference = "Stop"
-
-          $installedList = copilot plugin list 2>&1 | Out-String
-          if ($installedList -match "\b${{ matrix.component }}\b") {
-            throw "❌ VALIDATION FAILED: ${{ matrix.component }} should NOT be installed for evaluation"
-          }
-
-          pwsh -File ./eng/evaluation/run-tests-parallel.ps1 `
-            -Script "./eng/evaluation/evaluate-response.ps1" `
-            -Tests "$env:TESTS" `
-            -Parallelism $env:PARALLELISM `
-            -Component "${{ matrix.component }}" `
-            -ResultsDir "$env:RESULTS_DIR" `
-            -RunId "$env:RUN_ID" `
-            -Model "$env:COPILOT_MODEL" `
-            -MaxRetries $env:MAX_RETRIES
-        shell: pwsh
-
-      - name: Upload Artifacts
-        id: upload-artifacts
+      - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.component }}
-          path: ${{ env.RESULTS_BASE }}/${{ matrix.component }}/
+          name: skill-validator-results
+          path: .skill-validator-results/
+          include-hidden-files: true
           retention-days: 30
 
       - name: Generate Summary
         if: always()
         run: |
-          pwsh -File ./eng/evaluation/generate-summary.ps1 `
-            -ResultsDir "$env:RESULTS_DIR" `
-            -RunId "$env:RUN_ID" `
-            -ComponentName "${{ matrix.component }}" `
-            -GitHubRunUrl "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" `
-            -ArtifactsUrl "${{ steps.upload-artifacts.outputs.artifact-url }}"
+          RESULTS_DIR=$(ls -d .skill-validator-results/run-* 2>/dev/null | head -1)
+          if [ -z "$RESULTS_DIR" ]; then
+            echo "## Skill Validation Results" >> $GITHUB_STEP_SUMMARY
+            echo "No results found." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
 
-          # Add to job summary
-          Get-Content "$env:RESULTS_DIR/summary.md" >> $env:GITHUB_STEP_SUMMARY
-        shell: pwsh
+          RESULTS_FILE="$RESULTS_DIR/results.json"
+          if [ ! -f "$RESULTS_FILE" ]; then
+            echo "## Skill Validation Results" >> $GITHUB_STEP_SUMMARY
+            echo "No results.json found." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          # Generate markdown summary from results
+          node -e "
+          const fs = require('fs');
+          const results = JSON.parse(fs.readFileSync('$RESULTS_FILE', 'utf8'));
+          let md = '## Skill Validation Results\n\n';
+          md += '| Skill | Scenario | Baseline | With Skill | Δ | Verdict |\n';
+          md += '|-------|----------|----------|------------|---|--------|\n';
+          for (const v of results.verdicts) {
+            for (const s of v.scenarios) {
+              const base = s.baseline?.judgeResult?.overallScore?.toFixed(1) ?? '—';
+              const skill = s.withSkill?.judgeResult?.overallScore?.toFixed(1) ?? '—';
+              const delta = (s.withSkill?.judgeResult?.overallScore - s.baseline?.judgeResult?.overallScore)?.toFixed(1);
+              const deltaStr = delta > 0 ? '+' + delta : delta;
+              const icon = v.passed ? '✅' : '❌';
+              md += '| ' + v.skillName + ' | ' + s.scenarioName + ' | ' + base + '/5 | ' + skill + '/5 | ' + deltaStr + ' | ' + icon + ' |\n';
+            }
+          }
+          md += '\nModel: ' + results.model + ' | Judge: ' + results.judgeModel + '\n';
+          md += '\n[Full results](' + '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}' + ')\n';
+          fs.writeFileSync('.skill-validator-results/summary.md', md);
+          process.stdout.write(md);
+          " >> $GITHUB_STEP_SUMMARY
 
       - name: Comment on PR
-        if: github.event_name == 'pull_request'
+        if: always() && github.event_name == 'pull_request'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --repo "${{ github.repository }}" \
-            --body-file "${{ env.RESULTS_DIR }}/summary.md"
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file .skill-validator-results/summary.md
 
   publish-benchmark:
     needs: evaluate
     if: github.ref == 'refs/heads/main'
-    # Serialize gh-pages pushes across concurrent workflow runs to avoid race conditions
     concurrency:
       group: publish-benchmark-deploy
       cancel-in-progress: false
@@ -298,7 +158,8 @@ jobs:
       - name: Download evaluation artifacts
         uses: actions/download-artifact@v4
         with:
-          path: ${{ env.RESULTS_BASE }}/
+          name: skill-validator-results
+          path: .skill-validator-results/
 
       - name: Fetch existing benchmark data
         run: |
@@ -308,7 +169,6 @@ jobs:
 
       - name: Generate Benchmark Data
         run: |
-          # Use git log instead of github.event.head_commit (which is null for schedule/dispatch)
           $sha = "${{ github.sha }}"
           $commitMsg = git log -1 --format='%s' $sha
           $commitTimestamp = git log -1 --format='%aI' $sha
@@ -322,46 +182,30 @@ jobs:
             author    = @{ name = $commitAuthor; username = "${{ github.actor }}" }
           } | ConvertTo-Json -Compress
 
-          # Generate benchmark data for each component
-          # Layout: artifacts/TestResults/<component>/<test>/<runId>/
-          $componentDirs = Get-ChildItem -Path "$env:RESULTS_BASE" -Directory -ErrorAction SilentlyContinue
-          foreach ($componentDir in $componentDirs) {
-            $component = $componentDir.Name
-
-            # Detect the runId from the first test's subdirectory
-            $firstTest = Get-ChildItem -Path $componentDir.FullName -Directory | Select-Object -First 1
-            if (-not $firstTest) {
-              Write-Warning "No test results found for $component, skipping"
-              continue
-            }
-            $runIdDir = Get-ChildItem -Path $firstTest.FullName -Directory | Select-Object -First 1
-            if (-not $runIdDir) {
-              Write-Warning "No run results found for $component/$($firstTest.Name), skipping"
-              continue
-            }
-            $runId = $runIdDir.Name
-
-            Write-Host "`n=== Generating benchmark data for: $component (run: $runId) ==="
-            $existingFile = "/tmp/gh-pages/data/$component.json"
-            $params = @{
-              ResultsDir    = $componentDir.FullName
-              ComponentName = $component
-              RunId      = $runId
-              OutputDir  = "/tmp/gh-pages/data"
-              CommitJson = $commitJson
-            }
-            if ((Test-Path $existingFile) -and (Get-Content $existingFile -Raw -ErrorAction SilentlyContinue)) {
-              $params.ExistingDataFile = $existingFile
-            }
-            & ./eng/dashboard/generate-benchmark-data.ps1 @params
+          # Find the run results directory
+          $runDir = Get-ChildItem -Path ".skill-validator-results" -Directory -Filter "run-*" | Select-Object -First 1
+          if (-not $runDir) {
+            Write-Warning "No run results found, skipping benchmark generation"
+            exit 0
           }
 
-          # Generate components.json manifest from all per-component JSON files
+          $existingFile = "/tmp/gh-pages/data/dotnet.json"
+          $params = @{
+            ResultsDir    = $runDir.FullName
+            ComponentName = "dotnet"
+            OutputDir     = "/tmp/gh-pages/data"
+            CommitJson    = $commitJson
+          }
+          if ((Test-Path $existingFile) -and (Get-Content $existingFile -Raw -ErrorAction SilentlyContinue)) {
+            $params.ExistingDataFile = $existingFile
+          }
+          & ./eng/dashboard/generate-benchmark-data.ps1 @params
+
+          # Generate components.json manifest
           $components = Get-ChildItem -Path "/tmp/gh-pages/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -ne "components.json" } |
             ForEach-Object { $_.BaseName }
-          @($components) | ConvertTo-Json | Out-File -FilePath "/tmp/gh-pages/data/components.json" -Encoding utf8
-          Write-Host "`n=== components.json: $($components -join ', ') ==="
+          @($components) | ConvertTo-Json -AsArray | Out-File -FilePath "/tmp/gh-pages/data/components.json" -Encoding utf8
         shell: pwsh
 
       - name: Deploy to GitHub Pages
@@ -369,11 +213,11 @@ jobs:
           cd /tmp
           REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
 
-          # Clone existing gh-pages or create new branch
           if git ls-remote --exit-code --heads "$REPO_URL" gh-pages > /dev/null 2>&1; then
             git clone --branch gh-pages --single-branch "$REPO_URL" deploy
           else
             mkdir deploy && cd deploy && git init && git checkout -b gh-pages
+            git remote add origin "$REPO_URL"
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             cd /tmp
@@ -383,7 +227,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Update files
           mkdir -p data
           cp /tmp/gh-pages/data/*.json data/
           cp ${{ github.workspace }}/eng/dashboard/dashboard.html index.html

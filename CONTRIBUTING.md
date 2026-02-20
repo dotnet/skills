@@ -74,6 +74,23 @@ A skill should answer three questions up front:
 2. When should an agent use it
 3. How does the agent validate success
 
+### Skill naming
+
+Use short, kebab-case names that mirror how developers naturally phrase the task, prioritizing keyword overlap over grammar — e.g., add-aspnet-auth, configure-jwt-auth, setup-identity-server. Optionally using gerund style (verb-ing) is acceptable as well - e.g., configuring-caching.
+
+Optimize for intent matching: lead with the action verb users actually say (add, configure, setup, deploy) followed the outcome the skill is aiming to assist.
+
+The `SKILL.md` is required to have front-matter at a minimum:
+
+Create the file with required YAML frontmatter:
+
+```yaml
+---
+name: <skill-name>
+description: <description of what the skill does and when to use it>
+---
+```
+
 ### Recommended `SKILL.md` sections
 
 - **Purpose**: one paragraph describing the outcome.
