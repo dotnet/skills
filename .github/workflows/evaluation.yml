@@ -148,7 +148,7 @@ jobs:
       - name: Run skill-validator
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         env:
-          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
         run: |
           ARGS="--strict --require-evals"
           ARGS="$ARGS --reporter console --reporter json:.skill-validator-results/results.json"
