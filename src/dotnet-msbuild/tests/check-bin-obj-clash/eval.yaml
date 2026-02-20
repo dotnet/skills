@@ -1,0 +1,19 @@
+scenarios:
+  - name: "Diagnose bin/obj output path clashes"
+    prompt: "Build this solution and diagnose any build failures related to output path conflicts."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "AppendTargetFrameworkToOutputPath"
+      - type: "output_contains"
+        value: "OutputPath"
+      - type: "output_contains"
+        value: "IntermediateOutputPath"
+    rubric:
+      - "Identified MultiTargetLib has AppendTargetFrameworkToOutputPath=false causing net8.0 and net9.0 to write to the same output directory"
+      - "Identified LibraryA and LibraryB share ../SharedOutput/ as OutputPath causing build artifacts to overwrite each other"
+      - "Identified LibraryA and LibraryB share ../SharedObj/ as IntermediateOutputPath causing project.assets.json conflicts"
+      - "Suggested giving each project unique output and intermediate output paths"
+      - "Referenced BaseIntermediateOutputPath vs IntermediateOutputPath concepts"
+    timeout: 120

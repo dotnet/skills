@@ -24,8 +24,9 @@ src/
     agents/
       <agent-name>.agent.md
     tests/
-      <test>/
-        README.md
+      <skill-name>/
+        eval.yaml
+        <fixture files>
 ```
 
 Each component under `src/` is self-contained. A plugin.json implies that the component is distributed as a plugin in the marketplace.
@@ -147,6 +148,91 @@ Skills and agents are documentation driven, but we still treat them as productio
 - Every change should include a validation section that a reviewer can follow.
 - If your change references commands, keep them cross platform when practical. If not, state the supported environment.
 - If your change depends on external services, document how a reviewer can validate without privileged access, or explain why validation is not possible.
+
+### Writing skill tests
+
+Each skill should have an `eval.yaml` file that defines test scenarios. Tests live under a component's `tests/` directory, matching the skill name:
+
+```text
+src/<component>/tests/<skill-name>/eval.yaml
+```
+
+A minimal eval file:
+
+```yaml
+scenarios:
+  - name: "Describe what the agent should do"
+    prompt: "The prompt sent to the agent"
+    assertions:
+      - type: "output_contains"
+        value: "expected text in agent output"
+    rubric:
+      - "The agent correctly identified the issue"
+      - "The agent suggested a concrete fix"
+    timeout: 120
+```
+
+#### Test fixture files
+
+If a scenario requires files in the agent's working directory (e.g. `.csproj`, `.sln`, `.cs` files), place them alongside `eval.yaml` and opt into auto-copy:
+
+```text
+src/<component>/tests/<skill-name>/
+  eval.yaml
+  MyProject.csproj
+  Program.cs
+```
+
+```yaml
+scenarios:
+  - name: "Diagnose build failure"
+    prompt: "Why does this project fail to build?"
+    setup:
+      copy_test_files: true    # copies MyProject.csproj, Program.cs into work dir
+    assertions:
+      - type: "output_matches"
+        pattern: "CS\\d{4}"
+```
+
+You can also create files inline or reference files from the skill directory:
+
+```yaml
+setup:
+  files:
+    - path: "input.txt"
+      content: "inline file content"
+    - path: "data.csv"
+      source: "fixtures/sample-data.csv"  # relative to skill directory
+```
+
+See the [skill-validator README](eng/skill-validator/README.md) for the full list of assertion types, constraints, and rubric options.
+
+### Running tests locally
+
+Prerequisites: Node.js >= 20 and `gh auth login`.
+
+```bash
+# Build the validator
+cd eng/skill-validator
+npm ci
+npm run build
+
+# Run tests for a single component
+node dist/index.js --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
+
+# Run tests for a single skill (pass the skill directory directly)
+node dist/index.js --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills/common-build-errors
+
+# Fewer runs for faster iteration (default is 5)
+node dist/index.js --runs 1 --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
+
+# Use a specific model
+node dist/index.js --model claude-sonnet-4.5 --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
+```
+
+### CI evaluation
+
+Tests run automatically on pull requests that modify files under `src/`. The evaluation workflow discovers changed components and runs the skill-validator for each one. Results are posted as a PR comment and uploaded as build artifacts.
 
 ## Writing style
 

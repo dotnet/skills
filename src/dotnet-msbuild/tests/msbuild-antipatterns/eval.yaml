@@ -1,0 +1,17 @@
+scenarios:
+  - name: "Review MSBuild files for anti-patterns and style issues"
+    prompt: "Review all MSBuild project files and build infrastructure (Directory.Build.props, Directory.Build.targets) in this solution for correctness, best practices, and anti-patterns. Identify any issues that could cause subtle bugs or unexpected behavior."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(Directory\\.Build\\.props|Directory\\.Build\\.targets)"
+      - type: "output_matches"
+        pattern: "(anti-pattern|anti pattern|issue|problem)"
+    rubric:
+      - "Identified hardcoded absolute paths for OutputPath"
+      - "Identified property defaults in Directory.Build.targets that should be in .props, causing LibB's TreatWarningsAsErrors override to be silently ignored"
+      - "Identified TargetFramework condition in .props that silently fails because TFM is empty during .props evaluation"
+      - "Identified DefineConstants overwrites existing constants instead of appending"
+      - "Identified analyzer PackageReference missing PrivateAssets, unquoted MSBuild condition, mixed Include/Update in same ItemGroup, or Exec instead of Message task"
+    timeout: 120
