@@ -1,0 +1,178 @@
+name: component-validator
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**/skills/**"
+      - "src/**/agents/**"
+  pull_request:
+    paths:
+      - "src/**/skills/**"
+      - "src/**/agents/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.draft != true
+    outputs:
+      components: ${{ steps.detect.outputs.components }}
+      has_changes: ${{ steps.detect.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed components
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE=${{ github.event.pull_request.base.sha }}
+            HEAD=${{ github.event.pull_request.head.sha }}
+          else
+            BASE=${{ github.event.before }}
+            HEAD=${{ github.event.after }}
+          fi
+
+          COMPONENTS=$(git diff --name-only --diff-filter=ACMR $BASE $HEAD | \
+            grep -E '^src/.*/skills/.*SKILL\.md$|^src/.*/agents/.*\.agent\.md$' | \
+            sed 's|^\(src/[^/]*\)/.*|\1|' | \
+            sort -u | \
+            jq -R -s -c 'split("\n") | map(select(length > 0))')
+
+          echo "components=$COMPONENTS" >> $GITHUB_OUTPUT
+          if [ "$COMPONENTS" = "[]" ] || [ -z "$COMPONENTS" ]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Found components: $COMPONENTS"
+          fi
+
+  validate:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        component: ${{ fromJson(needs.detect-changes.outputs.components) }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate
+        id: validate
+        env:
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          mkdir -p results
+
+          # Validate ALL skills in the component
+          for skill_md in $(find "${COMPONENT}/skills" -name "SKILL.md" 2>/dev/null); do
+            path=$(dirname "$skill_md")
+            NAME=$(basename "$path")
+            echo "::group::Skill: $path"
+            set +e
+            OUTPUT=$(npx --yes @agentskills/validate-skill --path "$path" --fail-on-warning false --validate-references true --ignore-rules reference-exists --json 2>&1)
+            set -e
+            if echo "$OUTPUT" | jq -e . >/dev/null 2>&1; then
+              echo "$OUTPUT" | jq --arg name "$NAME" --arg path "$path" '. + {skill: $name, path: $path}' > "results/skill-${NAME}.json"
+            else
+              echo "{\"skill\":\"$NAME\",\"path\":\"$path\",\"valid\":false,\"errors\":[\"Validation failed\"],\"warnings\":[]}" > "results/skill-${NAME}.json"
+            fi
+            echo "::endgroup::"
+          done
+
+          # Validate ALL agents in the component
+          for agent_md in $(find "${COMPONENT}/agents" -name "*.agent.md" 2>/dev/null); do
+            path=$(dirname "$agent_md")
+            NAME=$(basename "$path")
+            echo "::group::Agent: $path"
+            set +e
+            OUTPUT=$(npx --yes @timheuer/vscode-agent-validation --path "$path" --fail-on-warning true --validate-references true --json 2>&1)
+            set -e
+            if echo "$OUTPUT" | jq -e . >/dev/null 2>&1; then
+              echo "$OUTPUT" | jq --arg name "$NAME" --arg path "$path" '. + {agent: $name, path: $path}' > "results/agent-${NAME}.json"
+            else
+              echo "{\"agent\":\"$NAME\",\"path\":\"$path\",\"valid\":false,\"errors\":[\"Validation failed\"],\"warnings\":[]}" > "results/agent-${NAME}.json"
+            fi
+            echo "::endgroup::"
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results-${{ strategy.job-index }}
+          path: results/
+          retention-days: 1
+
+  summary:
+    needs: [detect-changes, validate]
+    if: always() && needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: results-*
+          path: results
+          merge-multiple: true
+
+      - name: Generate summary
+        run: |
+          echo "## Validation Results" >> $GITHUB_STEP_SUMMARY
+          has_errors=false
+
+          # Skills
+          if ls results/skill-*.json 1>/dev/null 2>&1; then
+            echo "### Skills" >> $GITHUB_STEP_SUMMARY
+            echo "| Skill | Status | Details |" >> $GITHUB_STEP_SUMMARY
+            echo "|-------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+            for f in results/skill-*.json; do
+              name=$(jq -r '.skill' "$f")
+              valid=$(jq -r '.valid' "$f")
+              if [ "$valid" = "false" ]; then
+                has_errors=true
+                details=$(jq -r '.errors | map(.message // .) | join("; ")' "$f")
+                echo "| \`$name\` | ❌ | $details |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| \`$name\` | ✅ | Passed |" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          fi
+
+          # Agents
+          if ls results/agent-*.json 1>/dev/null 2>&1; then
+            echo "### Agents" >> $GITHUB_STEP_SUMMARY
+            echo "| Agent | Status | Details |" >> $GITHUB_STEP_SUMMARY
+            echo "|-------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+            for f in results/agent-*.json; do
+              name=$(jq -r '.agent' "$f")
+              valid=$(jq -r '.valid' "$f")
+              if [ "$valid" = "false" ]; then
+                has_errors=true
+                details=$(jq -r '.errors | map(.message // .) | join("; ")' "$f")
+                echo "| \`$name\` | ❌ | $details |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| \`$name\` | ✅ | Passed |" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          fi
+
+          if [ "$has_errors" = true ]; then
+            echo "### ❌ Validation failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+  no-changes:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No skills or agents were modified." >> $GITHUB_STEP_SUMMARY
