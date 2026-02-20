@@ -68,6 +68,8 @@ jobs:
         run: cd .skill-validator && npm ci && npm run build
 
       - name: Run skill-validator
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
         run: |
           ARGS="--strict --require-evals"
           ARGS="$ARGS --reporter console --reporter json:.skill-validator-results/results.json"
