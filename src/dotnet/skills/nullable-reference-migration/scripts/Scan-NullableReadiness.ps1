@@ -380,7 +380,7 @@ foreach ($r in $results) {
         } elseif ($r.NullableDisable -gt 0 -or $r.PragmaDisableCS86 -gt 0) {
             Write-Host "  Remaining cleanup:" -ForegroundColor Magenta
         } else {
-            Write-Host "  Suppression audit (Step 6 — review ! operators for possible removal):" -ForegroundColor DarkYellow
+            Write-Host "  Suppression audit (review ! operators for possible removal):" -ForegroundColor DarkYellow
         }
         foreach ($df in $displayFiles) {
             Write-Host "    $($df.File): $($df.Detail)"
