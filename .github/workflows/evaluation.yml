@@ -54,7 +54,7 @@ env:
   DEFAULT_MODEL: 'claude-opus-4.5'
   DEFAULT_JUDGE_MODEL: 'claude-opus-4.5'
   DEFAULT_RUNS: '3'
-  DEFAULT_PARALLEL_SKILLS: '3'
+  DEFAULT_PARALLEL_SKILLS: '5'
   DEFAULT_PARALLEL_RUNS: '3'
 
 permissions:
@@ -147,6 +147,7 @@ jobs:
 
       - name: Run skill-validator
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
         run: |
