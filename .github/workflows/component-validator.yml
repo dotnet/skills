@@ -83,11 +83,16 @@ jobs:
             echo "::group::Skill: $path"
             set +e
             OUTPUT=$(npx --yes @agentskills/validate-skill --path "$path" --fail-on-warning false --validate-references true --ignore-rules reference-exists --json 2>&1)
+            EXIT_CODE=$?
             set -e
+            echo "Validator output:"
+            echo "$OUTPUT"
             if echo "$OUTPUT" | jq -e . >/dev/null 2>&1; then
               echo "$OUTPUT" | jq --arg name "$NAME" --arg path "$path" '. + {skill: $name, path: $path}' > "results/skill-${NAME}.json"
             else
-              echo "{\"skill\":\"$NAME\",\"path\":\"$path\",\"valid\":false,\"errors\":[\"Validation failed\"],\"warnings\":[]}" > "results/skill-${NAME}.json"
+              # Capture actual error output, escape for JSON
+              ERROR_MSG=$(echo "$OUTPUT" | head -20 | tr '\n' ' ' | sed 's/"/\\"/g')
+              echo "{\"skill\":\"$NAME\",\"path\":\"$path\",\"valid\":false,\"errors\":[\"$ERROR_MSG\"],\"warnings\":[]}" > "results/skill-${NAME}.json"
             fi
             echo "::endgroup::"
           done
@@ -99,11 +104,16 @@ jobs:
             echo "::group::Agent: $path"
             set +e
             OUTPUT=$(npx --yes @timheuer/vscode-agent-validation --path "$path" --fail-on-warning true --validate-references true --json 2>&1)
+            EXIT_CODE=$?
             set -e
+            echo "Validator output:"
+            echo "$OUTPUT"
             if echo "$OUTPUT" | jq -e . >/dev/null 2>&1; then
               echo "$OUTPUT" | jq --arg name "$NAME" --arg path "$path" '. + {agent: $name, path: $path}' > "results/agent-${NAME}.json"
             else
-              echo "{\"agent\":\"$NAME\",\"path\":\"$path\",\"valid\":false,\"errors\":[\"Validation failed\"],\"warnings\":[]}" > "results/agent-${NAME}.json"
+              # Capture actual error output, escape for JSON
+              ERROR_MSG=$(echo "$OUTPUT" | head -20 | tr '\n' ' ' | sed 's/"/\\"/g')
+              echo "{\"agent\":\"$NAME\",\"path\":\"$path\",\"valid\":false,\"errors\":[\"$ERROR_MSG\"],\"warnings\":[]}" > "results/agent-${NAME}.json"
             fi
             echo "::endgroup::"
           done
@@ -141,7 +151,7 @@ jobs:
               valid=$(jq -r '.valid' "$f")
               if [ "$valid" = "false" ]; then
                 has_errors=true
-                details=$(jq -r '.errors | map(.message // .) | join("; ")' "$f")
+                details=$(jq -r '.errors | map(if type == "string" then . else (.message // .) end) | join("; ")' "$f")
                 echo "| \`$name\` | ❌ | $details |" >> $GITHUB_STEP_SUMMARY
               else
                 echo "| \`$name\` | ✅ | Passed |" >> $GITHUB_STEP_SUMMARY
@@ -159,7 +169,7 @@ jobs:
               valid=$(jq -r '.valid' "$f")
               if [ "$valid" = "false" ]; then
                 has_errors=true
-                details=$(jq -r '.errors | map(.message // .) | join("; ")' "$f")
+                details=$(jq -r '.errors | map(if type == "string" then . else (.message // .) end) | join("; ")' "$f")
                 echo "| \`$name\` | ❌ | $details |" >> $GITHUB_STEP_SUMMARY
               else
                 echo "| \`$name\` | ✅ | Passed |" >> $GITHUB_STEP_SUMMARY
