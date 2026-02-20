@@ -87,19 +87,13 @@ jobs:
 
           node .skill-validator/dist/index.js $ARGS --tests-dir ./src/dotnet/tests ./src/dotnet/skills
 
-      - name: Debug results dir
-        if: always()
-        run: |
-          echo "cwd: $(pwd)"
-          find . -path './.git' -prune -o -name 'results.json' -print
-          ls -la .skill-validator-results/ 2>&1 || echo "dir not found"
-
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: skill-validator-results
           path: .skill-validator-results/
+          include-hidden-files: true
           retention-days: 30
 
       - name: Generate Summary
