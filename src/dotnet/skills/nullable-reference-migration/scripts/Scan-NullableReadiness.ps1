@@ -193,6 +193,7 @@ function Scan-SourceFiles {
     $totalBangOperator = 0
     $totalBangNullInit = 0
     $totalBangAssertions = 0
+    $totalUninitFields = 0
     $fileDetails = @()
 
     foreach ($file in $csFiles) {
@@ -221,6 +222,23 @@ function Scan-SourceFiles {
         $nullInitCount = ([regex]::Matches($strippedContent, '(?:=\s*null!|=>\s*null!|default!)')).Count
         $bangAssertionCount = $bangCount - $nullInitCount
 
+        # Estimate uninitialised reference-type fields and auto-properties (approximate CS8618 predictor).
+        # Matches field declarations ending in ; without an = initializer, and auto-properties
+        # without initializers, excluding value types and events.
+        $valueTypes = 'bool|byte|sbyte|char|decimal|double|float|int|uint|long|ulong|short|ushort|nint|nuint|void|IntPtr|UIntPtr|Guid|DateTime|DateTimeOffset|TimeSpan|CancellationToken'
+        $uninitFields = @($lines | Where-Object {
+            (
+                # Field declarations: type name;
+                ($_ -match '^\s*(private|protected|internal|public|static|readonly|\s)+\s+\w[\w<>\[\],\?\.]*\s+\w+\s*;') -or
+                # Auto-properties: type Name { get; set; } or { get; }
+                ($_ -match '^\s*(private|protected|internal|public|static|virtual|override|abstract|\s)+\s+\w[\w<>\[\],\?\.]*\s+\w+\s*\{\s*get;')
+            ) -and
+            $_ -notmatch '=' -and
+            $_ -notmatch '\brequired\b' -and
+            $_ -notmatch "^\s*(private|protected|internal|public|static|readonly|virtual|override|abstract|\s)+\s+($valueTypes)\b" -and
+            $_ -notmatch '^\s*(private|protected|internal|public|static|readonly|\s)+\s*(const|event)\b'
+        }).Count
+
         if ($nullableEnable -gt 0) { $filesWithNullableEnable++ }
         $totalNullableDisable += $nullableDisable
         $totalNullableEnable += $nullableEnable
@@ -228,6 +246,7 @@ function Scan-SourceFiles {
         $totalBangOperator += $bangCount
         $totalBangNullInit += $nullInitCount
         $totalBangAssertions += $bangAssertionCount
+        $totalUninitFields += $uninitFields
 
         $relativePath = $file.FullName.Substring($projectDir.Length).TrimStart([System.IO.Path]::DirectorySeparatorChar)
 
@@ -250,6 +269,7 @@ function Scan-SourceFiles {
         BangOperatorCount    = $totalBangOperator
         BangNullInitCount    = $totalBangNullInit
         BangAssertionCount   = $totalBangAssertions
+        UninitFieldCount     = $totalUninitFields
         FilesOfInterest      = $fileDetails
     }
 }
@@ -285,6 +305,7 @@ foreach ($proj in $projectFiles) {
         BangOperators      = $sourceStats.BangOperatorCount
         BangNullInit       = $sourceStats.BangNullInitCount
         BangAssertions     = $sourceStats.BangAssertionCount
+        UninitFields       = $sourceStats.UninitFieldCount
         FilesOfInterest    = $sourceStats.FilesOfInterest
     }
 }
@@ -317,6 +338,10 @@ foreach ($r in $results) {
         Write-Host "    assertions:         $($r.BangAssertions)"
     }
 
+    if ($r.UninitFields -gt 0 -and $r.Nullable -notmatch "enable") {
+        Write-Host "  Uninit ref fields:  ~$($r.UninitFields) (estimated CS8618 warnings)" -ForegroundColor DarkYellow
+    }
+
     if ($r.FilesWithEnable -gt 0 -and $r.Nullable -notmatch "enable") {
         $pct = [math]::Round(($r.FilesWithEnable / $r.TotalCsFiles) * 100, 1)
         Write-Host "  Migration progress: $($r.FilesWithEnable)/$($r.TotalCsFiles) files ($pct%)" -ForegroundColor Green
@@ -347,6 +372,7 @@ if (@($results).Count -gt 1) {
         BangOps      = ($results | Measure-Object -Property BangOperators -Sum).Sum
         BangNullInit = ($results | Measure-Object -Property BangNullInit -Sum).Sum
         BangAssert   = ($results | Measure-Object -Property BangAssertions -Sum).Sum
+        UninitFields = ($results | Measure-Object -Property UninitFields -Sum).Sum
         NrtEnabled   = @($results | Where-Object { $_.Nullable -match "enable" }).Count
     }
 
@@ -360,6 +386,9 @@ if (@($results).Count -gt 1) {
     if ($total.BangOps -gt 0) {
         Write-Host "    null!/default!:        $($total.BangNullInit)"
         Write-Host "    assertions:            $($total.BangAssert)"
+    }
+    if ($total.UninitFields -gt 0) {
+        Write-Host "  Total uninit ref fields: ~$($total.UninitFields) (estimated CS8618 warnings)"
     }
     Write-Host ""
 }

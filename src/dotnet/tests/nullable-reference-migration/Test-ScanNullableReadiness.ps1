@@ -57,6 +57,7 @@ Assert-Equal "! operators (excludes strings/comments)" 5 $json.BangOperators
 Assert-Equal "null!/default! initializers" 2 $json.BangNullInit
 Assert-Equal "! assertions" 3 $json.BangAssertions
 Assert-Equal "#pragma CS86xx count" 1 $json.PragmaDisableCS86
+Assert-Equal "Uninit ref fields (CS8618 estimate)" 3 $json.UninitFields
 
 # --- Test 2: nrt-enabled ---
 # UserService.cs has 0 real ! operators but has ! in a comment, XML doc,
@@ -73,6 +74,7 @@ Assert-Equal "No ! operators (strings/comments ignored)" 0 $json.BangOperators
 Assert-Equal "No null!/default! initializers" 0 $json.BangNullInit
 Assert-Equal "No ! assertions" 0 $json.BangAssertions
 Assert-Equal "No #pragma CS86xx" 0 $json.PragmaDisableCS86
+Assert-Equal "Uninit ref fields (required excluded)" 1 $json.UninitFields
 
 # --- Test 3: nrt-partial ---
 # LegacyHelper.cs has 1 real ! operator (ToString()!) plus ! in a comment and a block comment.
@@ -89,6 +91,7 @@ Assert-Equal "! operators (excludes comments)" 1 $json.BangOperators
 Assert-Equal "null!/default! initializers" 0 $json.BangNullInit
 Assert-Equal "! assertions" 1 $json.BangAssertions
 Assert-Equal "#pragma CS86xx count" 1 $json.PragmaDisableCS86
+Assert-Equal "Uninit ref fields" 1 $json.UninitFields
 
 # --- Summary ---
 Write-Host "`n=== Results: $passed passed, $failed failed ===" -ForegroundColor $(if ($failed -gt 0) { "Red" } else { "Green" })
