@@ -205,7 +205,7 @@ jobs:
           $components = Get-ChildItem -Path "/tmp/gh-pages/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -ne "components.json" } |
             ForEach-Object { $_.BaseName }
-          @($components) | ConvertTo-Json | Out-File -FilePath "/tmp/gh-pages/data/components.json" -Encoding utf8
+          @($components) | ConvertTo-Json -AsArray | Out-File -FilePath "/tmp/gh-pages/data/components.json" -Encoding utf8
         shell: pwsh
 
       - name: Deploy to GitHub Pages
