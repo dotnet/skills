@@ -1,6 +1,8 @@
 # .NET Agent Skills
 
-This repository contains the .NET team's curated set of core skills and custom agents for coding agents. For information about the Agent Skills standard, see [agentskills.io](http://agentskills.io).
+[![Dashboard](https://github.com/dotnet/skills/actions/workflows/pages/pages-build-deployment/badge.svg)](https://refactored-sniffle-qm9o678.pages.github.io/)
+
+This repositorycontains the .NET team's curated set of core skills and custom agents for coding agents. For information about the Agent Skills standard, see [agentskills.io](http://agentskills.io).
 
 ## What's Included
 
