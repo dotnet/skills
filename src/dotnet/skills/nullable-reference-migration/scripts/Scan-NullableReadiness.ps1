@@ -191,6 +191,8 @@ function Scan-SourceFiles {
     $totalNullableEnable = 0
     $totalPragmaDisable = 0
     $totalBangOperator = 0
+    $totalBangNullInit = 0
+    $totalBangAssertions = 0
     $fileDetails = @()
 
     foreach ($file in $csFiles) {
@@ -215,11 +217,17 @@ function Scan-SourceFiles {
         $bangMatches = [regex]::Matches($strippedContent, '(?<=[)\]>\w])!(?!=)')
         $bangCount = $bangMatches.Count
 
+        # Categorize: null! initializers (= null!, => null!, default!) vs other assertions
+        $nullInitCount = ([regex]::Matches($strippedContent, '(?:=\s*null!|=>\s*null!|default!)')).Count
+        $bangAssertionCount = $bangCount - $nullInitCount
+
         if ($nullableEnable -gt 0) { $filesWithNullableEnable++ }
         $totalNullableDisable += $nullableDisable
         $totalNullableEnable += $nullableEnable
         $totalPragmaDisable += $pragmaDisable
         $totalBangOperator += $bangCount
+        $totalBangNullInit += $nullInitCount
+        $totalBangAssertions += $bangAssertionCount
 
         $relativePath = $file.FullName.Substring($projectDir.Length).TrimStart([System.IO.Path]::DirectorySeparatorChar)
 
@@ -240,6 +248,8 @@ function Scan-SourceFiles {
         NullableEnableCount  = $totalNullableEnable
         PragmaDisableCount   = $totalPragmaDisable
         BangOperatorCount    = $totalBangOperator
+        BangNullInitCount    = $totalBangNullInit
+        BangAssertionCount   = $totalBangAssertions
         FilesOfInterest      = $fileDetails
     }
 }
@@ -273,6 +283,8 @@ foreach ($proj in $projectFiles) {
         NullableEnable     = $sourceStats.NullableEnableCount
         PragmaDisableCS86  = $sourceStats.PragmaDisableCount
         BangOperators      = $sourceStats.BangOperatorCount
+        BangNullInit       = $sourceStats.BangNullInitCount
+        BangAssertions     = $sourceStats.BangAssertionCount
         FilesOfInterest    = $sourceStats.FilesOfInterest
     }
 }
@@ -300,6 +312,10 @@ foreach ($r in $results) {
     Write-Host "  #nullable disable:  $($r.NullableDisable)"
     Write-Host "  #pragma CS86xx:     $($r.PragmaDisableCS86)"
     Write-Host "  ! operators (approx): $($r.BangOperators)"
+    if ($r.BangOperators -gt 0) {
+        Write-Host "    null!/default!:     $($r.BangNullInit)"
+        Write-Host "    assertions:         $($r.BangAssertions)"
+    }
 
     if ($r.FilesWithEnable -gt 0 -and $r.Nullable -notmatch "enable") {
         $pct = [math]::Round(($r.FilesWithEnable / $r.TotalCsFiles) * 100, 1)
@@ -329,6 +345,8 @@ if (@($results).Count -gt 1) {
         NullDisable  = ($results | Measure-Object -Property NullableDisable -Sum).Sum
         PragmaCS86   = ($results | Measure-Object -Property PragmaDisableCS86 -Sum).Sum
         BangOps      = ($results | Measure-Object -Property BangOperators -Sum).Sum
+        BangNullInit = ($results | Measure-Object -Property BangNullInit -Sum).Sum
+        BangAssert   = ($results | Measure-Object -Property BangAssertions -Sum).Sum
         NrtEnabled   = @($results | Where-Object { $_.Nullable -match "enable" }).Count
     }
 
@@ -339,6 +357,10 @@ if (@($results).Count -gt 1) {
     Write-Host "  Total #nullable disable: $($total.NullDisable)"
     Write-Host "  Total #pragma CS86xx:    $($total.PragmaCS86)"
     Write-Host "  Total ! operators:       $($total.BangOps)"
+    if ($total.BangOps -gt 0) {
+        Write-Host "    null!/default!:        $($total.BangNullInit)"
+        Write-Host "    assertions:            $($total.BangAssert)"
+    }
     Write-Host ""
 }
 

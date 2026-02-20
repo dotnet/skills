@@ -2,6 +2,9 @@ namespace NrtDisabled;
 
 public class Formatter
 {
+    private string _cachedFormat = null!;
+    private object _context = default!;
+
     // Important! This method must not return null!
     public string Format(object input)
     {

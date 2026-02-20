@@ -40,7 +40,8 @@ function Assert-GreaterOrEqual {
 }
 
 # --- Test 1: nrt-disabled ---
-# Formatter.cs has 2 real ! operators (result! and ToString()!) plus ! in strings, comments, and XML docs.
+# Formatter.cs has 4 real ! operators: result! and ToString()! (assertions) plus
+# null! and default! (initializers). Also has ! in strings, comments, and XML docs.
 # UserService.cs has 1 real ! operator (LastName!) plus #nullable disable and #pragma.
 # The scanner must NOT count ! inside strings ("Formatted!", "Value required!"),
 # comments (// Important! ... null!), XML docs (input! ... failure!), or block comments (non-null!).
@@ -52,7 +53,9 @@ Assert-Equal "Project name" "NrtDisabled" $json.Project
 Assert-Equal "Total .cs files" 2 $json.TotalCsFiles
 Assert-Equal "Files with #nullable enable" 0 $json.FilesWithEnable
 Assert-Equal "#nullable disable count" 1 $json.NullableDisable
-Assert-Equal "! operators (excludes strings/comments)" 3 $json.BangOperators
+Assert-Equal "! operators (excludes strings/comments)" 5 $json.BangOperators
+Assert-Equal "null!/default! initializers" 2 $json.BangNullInit
+Assert-Equal "! assertions" 3 $json.BangAssertions
 Assert-Equal "#pragma CS86xx count" 1 $json.PragmaDisableCS86
 
 # --- Test 2: nrt-enabled ---
@@ -67,6 +70,8 @@ Assert-Equal "Project name" "NrtEnabled" $json.Project
 Assert-Equal "Total .cs files" 1 $json.TotalCsFiles
 Assert-Equal "No #nullable disable" 0 $json.NullableDisable
 Assert-Equal "No ! operators (strings/comments ignored)" 0 $json.BangOperators
+Assert-Equal "No null!/default! initializers" 0 $json.BangNullInit
+Assert-Equal "No ! assertions" 0 $json.BangAssertions
 Assert-Equal "No #pragma CS86xx" 0 $json.PragmaDisableCS86
 
 # --- Test 3: nrt-partial ---
@@ -81,6 +86,8 @@ Assert-Equal "Project name" "NrtPartial" $json.Project
 Assert-Equal "Total .cs files" 2 $json.TotalCsFiles
 Assert-Equal "#nullable disable count" 1 $json.NullableDisable
 Assert-Equal "! operators (excludes comments)" 1 $json.BangOperators
+Assert-Equal "null!/default! initializers" 0 $json.BangNullInit
+Assert-Equal "! assertions" 1 $json.BangAssertions
 Assert-Equal "#pragma CS86xx count" 1 $json.PragmaDisableCS86
 
 # --- Summary ---
