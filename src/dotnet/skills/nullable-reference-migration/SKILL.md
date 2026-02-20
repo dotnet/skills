@@ -93,7 +93,7 @@ Build the project and work through dereference warnings. These are the most comm
 |---------|---------|-------------|
 | CS8602 | Dereference of a possibly null reference | Add a null check, use `?.`, or use a pattern like `if (x is not null)` |
 | CS8600 | Converting possible null to non-nullable type | Add `?` to the target type if null is valid, or add a null guard |
-| CS8603 | Possible null reference return | Return a non-null value, or change the return type to nullable (`T?`) |
+| CS8603 | Possible null reference return | Return a non-null value, or change the return type to nullable (`T?`). **Do not suppress with `!` if the method can genuinely return null** — fix the return type instead |
 | CS8604 | Possible null reference argument | Check for null before passing, or mark the parameter as nullable |
 
 > ❌ **Do not use `?.` as a quick fix for dereference warnings.** Replacing `obj.Method()` with `obj?.Method()` silently changes runtime behavior — the call is skipped instead of throwing. Only use `?.` when you intentionally want to tolerate null.
@@ -133,6 +133,14 @@ Start by deciding the **intended nullability** of each member based on its desig
 > **When to ask the user:** Do not guess API contracts. Never infer nullability intent from usage frequency or naming conventions alone — if intent is not explicit in code or documentation, ask the user. Specifically, ask before: (1) changing a public method's return type to nullable or adding `?` to a public parameter — this changes the API contract consumers depend on; (2) deciding whether a property should be nullable vs. required when the design intent is unclear; (3) choosing between a null check and `!` when you cannot determine from context whether null is a valid state. For internal/private members where the answer is obvious from usage, proceed without asking.
 
 > ❌ **Do not let warnings drive annotations.** Decide the intended nullability of each member first, then annotate. Adding `?` everywhere to make warnings disappear defeats the purpose — callers must then add unnecessary null checks. Adding `!` everywhere hides bugs.
+
+> ⚠️ **Return types must reflect semantic nullability, not just compiler satisfaction.** A common mistake is removing `?` from a return type because the implementation uses `default!` or a cast that satisfies the compiler. If the method can return null by design, its return type must be nullable — regardless of whether the compiler warns. Key patterns:
+> - Methods named `*OrDefault` (`FirstOrDefault`, `SingleOrDefault`, `FindOrDefault`) → return type must be nullable (`T?`, `object?`, `dynamic?`) because "or default" means "or null" for reference types.
+> - `ExecuteScalar` and similar database methods → return type must be `object?` because the result can be `DBNull.Value` or null when no rows match.
+> - `Find`, `TryGet*` (out parameter), and lookup methods → return type should be nullable when the item may not exist.
+> - Any method documented or designed to return null on failure, not-found, or empty-input → nullable return type.
+>
+> The compiler cannot catch a *missing* `?` on a return type when the implementation hides null behind `!` or `default!`. This makes the annotation wrong for consumers — they trust the non-nullable signature and skip null checks, leading to `NullReferenceException` at runtime.
 
 > ⚠️ **Do not remove existing `ArgumentNullException` checks.** A non-nullable parameter annotation is a compile-time hint only — it does not prevent null at runtime. Callers using older C# versions, other .NET languages, reflection, or `!` can still pass null.
 
