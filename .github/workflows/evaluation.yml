@@ -134,11 +134,10 @@ jobs:
 
       - name: Comment on PR
         if: always() && github.event_name == 'pull_request'
-        uses: peter-evans/create-or-update-comment@v4
         continue-on-error: true
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          body-path: .skill-validator-results/summary.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file .skill-validator-results/summary.md
 
   publish-benchmark:
     needs: evaluate
