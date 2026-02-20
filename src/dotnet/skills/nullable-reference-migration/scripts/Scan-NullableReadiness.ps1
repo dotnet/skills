@@ -250,7 +250,7 @@ function Scan-SourceFiles {
 
         $relativePath = $file.FullName.Substring($projectDir.Length).TrimStart([System.IO.Path]::DirectorySeparatorChar)
 
-        if ($nullableDisable -gt 0 -or $pragmaDisable -gt 0 -or $bangCount -gt 5) {
+        if ($nullableDisable -gt 0 -or $pragmaDisable -gt 0 -or $bangCount -gt 5 -or $uninitFields -gt 5) {
             $fileDetails += [PSCustomObject]@{
                 File            = $relativePath
                 NullableDisable = $nullableDisable
@@ -258,6 +258,7 @@ function Scan-SourceFiles {
                 BangOperators   = $bangCount
                 BangNullInit    = $nullInitCount
                 BangAssertions  = $bangAssertionCount
+                UninitFields    = $uninitFields
             }
         }
     }
@@ -363,7 +364,10 @@ foreach ($r in $results) {
                 }
                 $parts += $bangDetail
             }
-            Write-Host "    $($f.File): $($parts -join ', ')"
+            if ($f.UninitFields -gt 5 -and $r.Nullable -notmatch "enable") { $parts += "~$($f.UninitFields) uninit fields" }
+            if ($parts.Count -gt 0) {
+                Write-Host "    $($f.File): $($parts -join ', ')"
+            }
         }
     }
 
