@@ -117,6 +117,7 @@ Guidance:
 
 - Prefer explicit null checks (`if`, `is not null`, `??`) over the null-forgiving operator (`!`).
 - Use the null-forgiving operator only when you can prove the value is never null but the compiler cannot, and add a comment explaining why.
+- Guard clause libraries (e.g., Ardalis.GuardClauses, Dawn.Guard) often decorate parameters with `[NotNull]`, which narrows null state after the guard call. After `Guard.Against.NullOrEmpty(value, nameof(value))`, the compiler already narrows `string?` to `string` — do not add a redundant `!` at the subsequent assignment. Check whether the guard method uses `[NotNull]` before assuming the compiler needs help.
 - When a method legitimately returns null, change the return type to `T?` — do not hide nulls behind a non-nullable signature.
 - `Debug.Assert(x != null)` acts as a null-state hint to the compiler just like an `if` check. Use it at the top of a method or block to inform the flow analyzer about invariants and eliminate subsequent `!` operators in that scope. Note: `Debug.Assert` informs the compiler but is stripped from Release builds — it does not protect against null at runtime. For public API boundaries, prefer an explicit null check or `ArgumentNullException`.
 - If you find yourself adding `!` at every call site of an internal method, consider making that parameter nullable instead. Reserve `!` for cases where the compiler genuinely cannot prove non-nullness.
