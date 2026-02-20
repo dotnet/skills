@@ -1,0 +1,212 @@
+# Comparing benchmark results
+
+BenchmarkDotNet can compare multiple implementations or versions in a single run, producing a side-by-side table with ratio columns and statistical analysis. This is generally preferable to separate runs because it controls for environmental variance.
+
+**Contents:** [Side-by-side methods](#strategy-1-side-by-side-methods-preferred) · [Comparing runtimes](#strategy-2-comparing-runtimes) · [Comparing NuGet versions](#strategy-3-comparing-nuget-package-versions) · [Comparing a saved build (DLL)](#strategy-4-comparing-a-saved-build-against-current-source-dll-reference) · [Runtime configurations](#strategy-5-comparing-runtime-configurations) · [Input scale](#strategy-6-comparing-across-input-scale) · [How it works](#how-it-works) · [Apples-to-apples comparison](#apples-to-apples-comparison) · [Mann-Whitney equivalence test](#mann-whitney-equivalence-test)
+
+## Strategy 1: Side-by-side methods (preferred)
+
+When both the old and new implementations can coexist in the same compilation, define separate benchmark methods:
+
+```csharp
+public class SortBenchmark
+{
+    private int[] _data;
+
+    [GlobalSetup]
+    public void Setup() => _data = Enumerable.Range(0, 1000).Reverse().ToArray();
+
+    [Benchmark(Baseline = true)]
+    public void BubbleSort() => Sorting.BubbleSort((int[])_data.Clone());
+
+    [Benchmark]
+    public void QuickSort() => Sorting.QuickSort((int[])_data.Clone());
+}
+```
+
+BDN displays a Ratio column showing each method's mean relative to the baseline. This is the simplest approach and should be preferred whenever both implementations are available at compile time.
+
+## Strategy 2: Comparing runtimes
+
+To compare the same benchmark across different .NET runtime versions, use `--runtimes` on the command line or configure jobs. The `.csproj` must use `<TargetFrameworks>net8.0;net9.0</TargetFrameworks>` (plural) listing all targets:
+
+```
+dotnet run -c Release --framework net9.0 -- --runtimes net8.0 net9.0
+```
+
+```csharp
+var config = DefaultConfig.Instance
+    .AddJob(Job.Default.WithRuntime(CoreRuntime.Core80).AsBaseline())
+    .AddJob(Job.Default.WithRuntime(CoreRuntime.Core90));
+```
+
+Each runtime becomes a separate job. BDN builds separate executables per runtime and shows them side-by-side with ratio columns.
+
+## Strategy 3: Comparing NuGet package versions
+
+To compare different versions of a NuGet dependency, use MSBuild properties to control the package version per job. Each job gets a separate build with the specified version.
+
+**.csproj** — use an MSBuild property for the version:
+```xml
+<PropertyGroup>
+  <MyLibVersion Condition="'$(MyLibVersion)' == ''">2.0.0</MyLibVersion>
+</PropertyGroup>
+<ItemGroup>
+  <PackageReference Include="MyLibrary" Version="$(MyLibVersion)" />
+</ItemGroup>
+```
+
+**Config** — create a job per version:
+```csharp
+var config = DefaultConfig.Instance
+    .AddJob(Job.Default
+        .WithMsBuildArguments("/p:MyLibVersion=1.0.0")
+        .WithId("v1.0.0")
+        .AsBaseline())
+    .AddJob(Job.Default
+        .WithMsBuildArguments("/p:MyLibVersion=2.0.0")
+        .WithId("v2.0.0"));
+```
+
+All versions must be source-compatible with the benchmark code (same namespace, same method signatures). BDN builds a separate exe per job because `WithArguments` changes the build partition.
+
+This works with packages from any NuGet source — public registries, private feeds, or local folders created with `dotnet pack`.
+
+## Strategy 4: Comparing a saved build against current source (DLL reference)
+
+When the code is not published as a NuGet package but you want to compare before/after a code change, you can save the build output of the baseline version and reference it directly.
+
+**Step 1** — build and save the baseline:
+```
+dotnet build ../MyLib -c Release -o ./saved-baseline
+```
+
+**Step 2** — make your changes to MyLib.
+
+**Step 3** — set up the benchmark .csproj with conditional references:
+```xml
+<ItemGroup>
+  <ProjectReference Condition="'$(BaselineDll)' == ''" Include="..\MyLib\MyLib.csproj" />
+  <Reference Condition="'$(BaselineDll)' != ''" Include="MyLib">
+    <HintPath>$(BaselineDll)</HintPath>
+  </Reference>
+</ItemGroup>
+```
+
+**Step 4** — configure two jobs:
+```csharp
+var config = DefaultConfig.Instance
+    .AddJob(Job.Default
+        .WithMsBuildArguments("/p:BaselineDll=../saved-baseline/MyLib.dll")
+        .WithId("baseline")
+        .AsBaseline())
+    .AddJob(Job.Default
+        .WithId("current"));
+```
+
+The `baseline` job builds with a direct DLL reference to the saved output. The `current` job builds with the `ProjectReference` to the current source. BDN produces a side-by-side table with ratio columns.
+
+This approach works for any class library. The namespace and public API must be the same between the two versions.
+
+## Strategy 5: Comparing runtime configurations
+
+To compare how different runtime settings (GC mode, JIT options, PGO) affect performance, define multiple jobs with different environment settings:
+
+```csharp
+var config = DefaultConfig.Instance
+    .AddJob(Job.Default
+        .WithGcServer(false)
+        .WithId("Workstation GC")
+        .AsBaseline())
+    .AddJob(Job.Default
+        .WithGcServer(true)
+        .WithId("Server GC"));
+```
+
+This works with any `Job` setting — GC mode, environment variables, platform, JIT settings. Each configuration becomes a separate job with side-by-side results.
+
+```csharp
+// Example: comparing with and without tiered compilation
+var config = DefaultConfig.Instance
+    .AddJob(Job.Default
+        .WithId("Default")
+        .AsBaseline())
+    .AddJob(Job.Default
+        .WithEnvironmentVariable("DOTNET_TieredCompilation", "0")
+        .WithId("No Tiered"));
+```
+
+## Strategy 6: Comparing across input scale
+
+To understand how performance changes with input size, use `[Params]` on a size property:
+
+```csharp
+public class ScaleBenchmark
+{
+    [Params(100, 1_000, 10_000)]
+    public int N;
+
+    private int[] _data;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        var rng = new Random(42);
+        _data = Enumerable.Range(0, N).OrderBy(_ => rng.Next()).ToArray();
+    }
+
+    [Benchmark]
+    public void Sort() => Array.Sort((int[])_data.Clone());
+}
+```
+
+BDN runs each parameter value as a separate case. Geometrically spaced values (e.g., 10×, 100×) can help reveal scaling behavior.
+
+## How it works
+
+All multi-version strategies rely on the same BDN mechanism:
+
+1. **Build partitioning** — `BenchmarkPartitioner` groups cases by runtime, toolchain, platform, and `Infrastructure.Arguments`. Different MSBuild arguments → different partitions → separate compiled executables.
+2. **Per-case execution** — each case runs in its own process, so the two versions never share a process.
+3. **Ratio calculation** — when a baseline is marked, BDN adds `Ratio` and `RatioSD` columns. `Ratio` is computed by forming the Cartesian product of all per-operation times from the current benchmark and the baseline (N×M pairs), dividing each current value by each baseline value, and reporting the mean of that distribution. `RatioSD` is the standard deviation. A `Ratio` of `0.85` means the current version is ~15% faster.
+
+### Marking a baseline
+
+For side-by-side methods (Strategy 1), mark one method with `[Benchmark(Baseline = true)]`. This compares methods within each job.
+
+For multi-job strategies (Strategies 2–5), mark one job with `.AsBaseline()` in the config. This compares jobs against each other. For `--runtimes`, the first runtime listed is the baseline.
+
+These are separate mechanisms — using the wrong one produces no ratio columns.
+
+Without a baseline, BDN shows absolute numbers only — no ratio columns.
+
+## Apples-to-apples comparison
+
+When comparing across jobs (Strategies 2–5), the default behavior runs each job independently — the pilot stage may choose different invocation counts for each job, creating asymmetric measurement conditions (different iteration durations and overhead ratios) that can bias the comparison.
+
+The `--apples` flag (short for "apples-to-apples") forces a fairer comparison:
+
+1. BDN first runs a pilot calibration pass for each benchmark case (method × parameter combination) using the baseline job to determine the invocation count
+2. Then runs ALL jobs with that same invocation count, so each iteration covers the same number of operations
+3. Outlier removal is disabled (since the controlled setup makes outliers more meaningful)
+
+```
+dotnet run -c Release --framework net9.0 -- --runtimes net8.0 net9.0 --apples --iterationCount 15
+```
+
+Requirements:
+- At least two jobs, with exactly one marked as baseline (via `.AsBaseline()` on the job, not `[Benchmark(Baseline = true)]` on the method). When using `--runtimes`, the first runtime listed is automatically treated as the baseline.
+- Explicit `--iterationCount` (adaptive iteration count is disabled in this mode)
+
+This does not apply to Strategy 1 (side-by-side methods) or Strategy 6 (input scale) because those use a single job — `--apples` requires multiple job objects.
+
+## Mann-Whitney equivalence test
+
+BDN can add a column that reports `Faster`, `Same`, or `Slower` based on a Mann-Whitney equivalence test:
+
+```csharp
+var config = DefaultConfig.Instance
+    .AddColumn(StatisticalTestColumn.Create(threshold: "5%"));
+```
+
+The `threshold` parameter is the equivalence margin — results within the specified percentage of each other are reported as `Same`.
