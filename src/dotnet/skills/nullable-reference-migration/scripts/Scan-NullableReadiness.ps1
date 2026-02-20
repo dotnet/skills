@@ -269,14 +269,15 @@ function Scan-SourceFiles {
         $pragmaDisable = @($lines | Where-Object { $_ -match '#pragma\s+warning\s+disable\s+CS86' }).Count
 
         # Count null-forgiving operators (approximate).
-        # Strip comments and string literals first to avoid false positives,
-        # then match ! preceded by ), ], >, or a word character, not followed by =.
+        # Strip string literals before comments to avoid false positives — a string
+        # like "http://..." contains // that would otherwise be mis-parsed as a comment.
+        # Then match ! preceded by ), ], >, or a word character, not followed by =.
         $strippedContent = $content
-        $strippedContent = [regex]::Replace($strippedContent, '/\*[\s\S]*?\*/', '')               # block comments
-        $strippedContent = [regex]::Replace($strippedContent, '//[^\n]*', '')                     # line comments
         $strippedContent = [regex]::Replace($strippedContent, '(?<!\$)@"([^"]|"")*"', '""')       # verbatim strings
         $strippedContent = [regex]::Replace($strippedContent, '\$"([^"\\]|\\.|\{[^}]*\})*"', '""') # interpolated strings
         $strippedContent = [regex]::Replace($strippedContent, '"([^"\\]|\\.)*"', '""')             # regular strings
+        $strippedContent = [regex]::Replace($strippedContent, '/\*[\s\S]*?\*/', '')               # block comments
+        $strippedContent = [regex]::Replace($strippedContent, '//[^\n]*', '')                     # line comments
         $bangMatches = [regex]::Matches($strippedContent, '(?<=[)\]>\w])!(?!=)')
         $bangCount = $bangMatches.Count
 

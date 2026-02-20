@@ -25,6 +25,7 @@ public class UserService
     {
         Console.WriteLine($"Log: {message}!");
         Console.WriteLine("Done!");
+        var url = "http://example.com/api?q=1";  // URL in string has // that must not start a comment
     }
 }
 
