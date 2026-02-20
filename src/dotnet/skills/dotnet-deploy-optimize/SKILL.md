@@ -99,13 +99,18 @@ Or equivalently, set the properties in the project file:
 
 ### Step 4: Evaluate Native AOT
 
+> **Critical: AOT is not always the right choice.** For long-running services (Worker Services, daemons, background processors), **do not default to AOT**. These services run for days or weeks, so startup time is a one-time cost that is amortized. The JIT with tiered compilation and dynamic PGO progressively optimizes hot code paths during execution, often delivering **better steady-state throughput** than statically-compiled AOT code. For long-running workloads, recommend **ReadyToRun (R2R)** instead — it provides faster startup than plain IL while preserving JIT tiered compilation for long-term performance. Reserve AOT for short-lived processes (console tools, serverless functions, cold-start-sensitive APIs).
+
 1. Check if the application is AOT-compatible:
    - No `dynamic` keyword usage
    - No unbounded reflection
    - All serialization uses source generators
    - No runtime code generation (e.g., `System.Reflection.Emit`)
    - Check AOT-compatibility of dependencies, including from nuget
-2. If compatible, recommend enabling AOT and offer to fix any errors:
+2. **Before recommending AOT, consider workload lifetime:**
+   - **Short-lived processes** (CLI tools, serverless, APIs with cold-start requirements): AOT is a good fit.
+   - **Long-running services** (Worker Services, daemons, background jobs): Recommend ReadyToRun instead. Explain that AOT eliminates JIT tiered compilation and dynamic PGO, which optimize hot paths over time and typically deliver better performance for services that run continuously.
+3. If AOT is appropriate and compatible, recommend enabling it:
 
 ```xml
 <PropertyGroup>
@@ -113,8 +118,8 @@ Or equivalently, set the properties in the project file:
 </PropertyGroup>
 ```
 
-3. Note trade-offs: longer build time, platform-specific output, no JIT. For long-running services (Worker Services, daemons), the JIT with tiered compilation can optimize hot paths over time — AOT eliminates this benefit. Consider ReadyToRun as a middle ground for long-running workloads.
-4. If not compatible, document the blockers and suggest alternatives (trimming, ReadyToRun).
+4. Always explicitly discuss the trade-offs: longer build time, platform-specific output, no JIT tiered compilation, no dynamic PGO. Present these as concrete considerations, not footnotes.
+5. If not compatible or not appropriate, document the reasons and recommend alternatives (ReadyToRun, trimming).
 
 ### Step 5: Optimize Docker images
 
@@ -205,7 +210,13 @@ builder.Services.AddHealthChecks()
 
 **For Worker Services** (no HTTP endpoints by default):
 
-1. Option A — Add a minimal Kestrel endpoint for health checks:
+> **Important:** Adding a web server (Kestrel) to a worker service is an architectural change that adds dependencies, memory overhead, and attack surface. Always discuss the trade-offs of each option and prefer the lightest-weight approach that meets the orchestrator's requirements. Present all three options to the user.
+
+1. Option A — **File-based health check** (lightest weight, recommended for simple liveness): Write a timestamp to a file periodically; configure K8s `exec` liveness probe to check file freshness. No additional dependencies or ports needed.
+
+2. Option B — **TCP health check listener**: Open a TCP socket on a port; K8s uses `tcpSocket` probe. Lighter than HTTP but requires a port.
+
+3. Option C — **Minimal Kestrel HTTP endpoint** (heaviest, but most flexible): Add a minimal web host for `/healthz`. This requires changing the SDK to `Microsoft.NET.Sdk.Web` and adds Kestrel overhead. Only recommend this when the orchestrator requires HTTP probes or when dependency health checks (database, cache) are needed:
 
 ```csharp
 builder.Services.AddHealthChecks()
@@ -215,20 +226,6 @@ builder.WebHost.UseKestrel(o => o.ListenAnyIP(8080));
 var app = builder.Build();
 app.MapHealthChecks("/healthz");
 ```
-
-2. Option B — Use a health check publisher to write status to a file or external system that orchestrators can monitor:
-
-```csharp
-builder.Services.AddHealthChecks()
-    .AddCheck("self", () => HealthCheckResult.Healthy());
-builder.Services.Configure<HealthCheckPublisherOptions>(options =>
-{
-    options.Period = TimeSpan.FromSeconds(30);
-});
-builder.Services.AddSingleton<IHealthCheckPublisher, FileHealthCheckPublisher>();
-```
-
-3. Option C — Use a TCP health check listener for simple liveness probes without adding HTTP overhead.
 
 ### Step 9: Summarize recommendations
 
