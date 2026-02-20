@@ -1,0 +1,23 @@
+name: skill-validator
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'eng/skill-validator/**'
+  pull_request:
+    paths:
+      - 'eng/skill-validator/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: cd eng/skill-validator && npm ci
+      - run: cd eng/skill-validator && npm run lint
+      - run: cd eng/skill-validator && npm test
+      - run: cd eng/skill-validator && npm run build
