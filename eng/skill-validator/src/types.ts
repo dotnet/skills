@@ -182,6 +182,7 @@ export interface ValidatorConfig {
   judgeModel: string;
   judgeMode: JudgeMode;
   runs: number;
+  parallelRuns: number;
   judgeTimeout: number;
   confidenceLevel: number;
   reporters: ReporterSpec[];

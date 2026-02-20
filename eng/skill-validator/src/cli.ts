@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import chalk from "chalk";
+import pLimit from "p-limit";
 import { discoverSkills } from "./discovery.js";
 import { runAgent, stopSharedClient, getSharedClient } from "./runner.js";
 import { evaluateAssertions, evaluateConstraints } from "./assertions.js";
@@ -16,6 +17,9 @@ import type {
   ScenarioComparison,
   PairwiseJudgeResult,
   JudgeMode,
+  EvalScenario,
+  SkillInfo,
+  RunMetrics,
 } from "./types.js";
 import type { ModelInfo } from "@github/copilot-sdk";
 
@@ -114,6 +118,7 @@ export function createProgram(): Command {
     .option("--judge-model <name>", "Model to use for judging (defaults to --model)")
     .option("--judge-mode <mode>", "Judge mode: pairwise, independent, or both", "pairwise")
     .option("--runs <number>", "Number of runs per scenario for averaging", "5")
+    .option("--parallel-runs <number>", "Max concurrent runs (0 = sequential)", "8")
     .option("--judge-timeout <number>", "Judge timeout in seconds", "300")
     .option("--confidence-level <number>", "Confidence level for statistical intervals (0-1)", "0.95")
     .option(
@@ -142,6 +147,7 @@ export function createProgram(): Command {
         judgeModel: opts.judgeModel || opts.model,
         judgeMode: opts.judgeMode || "pairwise",
         runs: parseInt(opts.runs, 10),
+        parallelRuns: parseInt(opts.parallelRuns, 10),
         judgeTimeout: parseInt(opts.judgeTimeout, 10) * 1000,
         confidenceLevel: parseFloat(opts.confidenceLevel || "0.95"),
         reporters:
@@ -242,18 +248,22 @@ export async function run(config: ValidatorConfig): Promise<number> {
     const spinner = new Spinner();
     const log = (msg: string) => spinner.log(msg);
 
+    // Set up concurrency limiter for parallel runs
+    const runLimit = config.parallelRuns > 0 ? pLimit(config.parallelRuns) : pLimit(1);
+
     for (const scenario of skill.evalConfig.scenarios) {
       console.log(`   📋 Scenario: ${scenario.name}`);
 
-      // Run N times, collecting per-run comparisons for CI
-      const baselineRuns: RunResult[] = [];
-      const withSkillRuns: RunResult[] = [];
-      const perRunPairwise: (PairwiseJudgeResult | undefined)[] = [];
-      const pendingJudges: Promise<void>[] = [];
-
-      for (let i = 0; i < config.runs; i++) {
-        const runLabel = `Run ${i + 1}/${config.runs}`;
-        spinner.start(`      ${runLabel}: running agents...`);
+      // Execute a single run (agent + assertions + judge)
+      const executeRun = async (runIndex: number): Promise<{
+        baseline: RunResult;
+        withSkill: RunResult;
+        pairwise: PairwiseJudgeResult | undefined;
+      }> => {
+        const runLabel = `Run ${runIndex + 1}/${config.runs}`;
+        if (config.verbose) {
+          log(`      ${runLabel}: running agents...`);
+        }
 
         // Run baseline and with-skill in parallel
         const [baselineMetrics, withSkillMetrics] = await Promise.all([
@@ -311,81 +321,84 @@ export async function run(config: ValidatorConfig): Promise<number> {
           withSkillMetrics.taskCompleted = withSkillMetrics.errorCount === 0;
         }
 
-        const runIndex = i;
+        // Judge the run
+        const judgeOpts = {
+          model: config.judgeModel,
+          verbose: config.verbose,
+          timeout: config.judgeTimeout,
+          workDir: baselineMetrics.workDir,
+          skillPath: skill.path,
+        };
 
-        // Fire off judge calls concurrently with next iteration's agent runs
-        const judgePromise = (async () => {
-          const judgeOpts = {
-            model: config.judgeModel,
-            verbose: config.verbose,
-            timeout: config.judgeTimeout,
-            workDir: baselineMetrics.workDir,
-            skillPath: skill.path,
-          };
+        const [baselineJudge, withSkillJudge] = await Promise.all([
+          judgeRun(scenario, baselineMetrics, judgeOpts),
+          judgeRun(scenario, withSkillMetrics, {
+            ...judgeOpts,
+            workDir: withSkillMetrics.workDir,
+          }),
+        ]);
 
-          // Independent judging (always needed for metrics display)
-          const [baselineJudge, withSkillJudge] = useIndependent || config.judgeMode === "pairwise"
-            ? await Promise.all([
-                judgeRun(scenario, baselineMetrics, judgeOpts),
-                judgeRun(scenario, withSkillMetrics, {
-                  ...judgeOpts,
-                  workDir: withSkillMetrics.workDir,
-                }),
-              ])
-            : await Promise.all([
-                judgeRun(scenario, baselineMetrics, judgeOpts),
-                judgeRun(scenario, withSkillMetrics, {
-                  ...judgeOpts,
-                  workDir: withSkillMetrics.workDir,
-                }),
-              ]);
+        const baseline: RunResult = {
+          metrics: baselineMetrics,
+          judgeResult: baselineJudge,
+        };
+        const withSkillResult: RunResult = {
+          metrics: withSkillMetrics,
+          judgeResult: withSkillJudge,
+        };
 
-          baselineRuns.push({
-            metrics: baselineMetrics,
-            judgeResult: baselineJudge,
-          });
-          withSkillRuns.push({
-            metrics: withSkillMetrics,
-            judgeResult: withSkillJudge,
-          });
-
-          // Pairwise judging
-          if (usePairwise) {
-            try {
-              const pw = await pairwiseJudge(
-                scenario,
-                baselineMetrics,
-                withSkillMetrics,
-                judgeOpts
-              );
-              perRunPairwise[runIndex] = pw;
-            } catch (error) {
-              process.stderr.write(
-                `      ⚠️  Pairwise judge failed for run ${runIndex + 1}: ${error}\n`
-              );
-              perRunPairwise[runIndex] = undefined;
-            }
+        // Pairwise judging
+        let pairwise: PairwiseJudgeResult | undefined;
+        if (usePairwise) {
+          try {
+            pairwise = await pairwiseJudge(
+              scenario,
+              baselineMetrics,
+              withSkillMetrics,
+              judgeOpts
+            );
+          } catch (error) {
+            log(`      ⚠️  Pairwise judge failed for run ${runIndex + 1}: ${error}`);
+            pairwise = undefined;
           }
-        })();
+        }
 
-        pendingJudges.push(judgePromise);
-        spinner.stop(`      ✓ ${runLabel} agents complete, judging in background...`);
+        if (config.verbose) {
+          log(`      ✓ ${runLabel} complete`);
+        }
+
+        return { baseline, withSkill: withSkillResult, pairwise };
+      };
+
+      // Run all iterations in parallel (limited by parallelRuns)
+      const parallelMode = config.parallelRuns > 1;
+      if (parallelMode) {
+        spinner.start(`      Running ${config.runs} iterations (max ${config.parallelRuns} concurrent)...`);
       }
 
-      // Wait for all judge calls to finish - abort on any judge failure
-      spinner.start(`      Waiting for judges to complete...`);
+      let runResults: Awaited<ReturnType<typeof executeRun>>[];
       try {
-        await Promise.all(pendingJudges);
+        const runPromises = Array.from({ length: config.runs }, (_, i) =>
+          runLimit(() => executeRun(i))
+        );
+        runResults = await Promise.all(runPromises);
       } catch (error) {
         spinner.stop();
         const errMsg = error instanceof Error ? error.message : String(error);
-        console.error(chalk.red(`\n❌ FATAL: Judge unavailable - aborting evaluation`));
+        console.error(chalk.red(`\n❌ FATAL: Run failed - aborting evaluation`));
         console.error(chalk.red(`   ${errMsg}`));
-        console.error(chalk.dim(`   Judge failures are catastrophic. Check your model and judge-timeout settings.`));
         await stopSharedClient();
         return 1;
       }
-      spinner.stop(`      ✓ All ${config.runs} run(s) judged`);
+
+      if (parallelMode) {
+        spinner.stop(`      ✓ All ${config.runs} run(s) complete`);
+      }
+
+      // Collect results
+      const baselineRuns = runResults.map((r) => r.baseline);
+      const withSkillRuns = runResults.map((r) => r.withSkill);
+      const perRunPairwise = runResults.map((r) => r.pairwise);
 
       // Compute per-run comparisons for CI, then average for display
       const perRunScores: number[] = [];
