@@ -19,6 +19,10 @@ on:
         description: 'Copilot model to use'
         required: false
         default: 'claude-opus-4.5'
+      judge-model:
+        description: 'Judge model to use for evaluation'
+        required: false
+        default: 'claude-opus-4.5'
       runs:
         description: 'Number of runs per test'
         required: false
@@ -38,6 +42,7 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   DOTNET_VERSION: '10.0.x'
   DEFAULT_MODEL: 'claude-opus-4.5'
+  DEFAULT_JUDGE_MODEL: 'claude-opus-4.5'
 
 permissions:
   contents: write
@@ -144,6 +149,10 @@ jobs:
           fi
           if [ "${{ github.event.inputs.verbose }}" = "true" ]; then
             ARGS="$ARGS --verbose"
+          fi
+          JUDGE_MODEL="${{ github.event.inputs.judge-model || env.DEFAULT_JUDGE_MODEL }}"
+          if [ -n "$JUDGE_MODEL" ]; then
+            ARGS="$ARGS --judge-model $JUDGE_MODEL"
           fi
 
           node eng/skill-validator/dist/index.js $ARGS --tests-dir ./src/${{ matrix.component }}/tests ./src/${{ matrix.component }}/skills
