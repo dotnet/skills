@@ -16,14 +16,14 @@ on:
         required: false
         default: ''
       model:
-        description: 'Copilot model to use (e.g. claude-sonnet-4.5)'
+        description: 'Copilot model to use'
         required: false
-        default: 'claude-opus-4.6'
+        default: 'claude-opus-4.5'
       runs:
         description: 'Number of runs per test'
         required: false
         type: number
-        default: 5
+        default: 3
       verbose:
         description: 'Enable verbose output'
         required: false
@@ -37,7 +37,7 @@ concurrency:
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   DOTNET_VERSION: '10.0.x'
-  DEFAULT_MODEL: 'claude-opus-4.6'
+  DEFAULT_MODEL: 'claude-opus-4.5'
 
 permissions:
   contents: write
