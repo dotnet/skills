@@ -256,6 +256,8 @@ function Scan-SourceFiles {
                 NullableDisable = $nullableDisable
                 PragmaDisable   = $pragmaDisable
                 BangOperators   = $bangCount
+                BangNullInit    = $nullInitCount
+                BangAssertions  = $bangAssertionCount
             }
         }
     }
@@ -354,7 +356,13 @@ foreach ($r in $results) {
             $parts = @()
             if ($f.NullableDisable -gt 0) { $parts += "$($f.NullableDisable) #nullable disable" }
             if ($f.PragmaDisable -gt 0) { $parts += "$($f.PragmaDisable) #pragma" }
-            if ($f.BangOperators -gt 5) { $parts += "$($f.BangOperators) !" }
+            if ($f.BangOperators -gt 5) {
+                $bangDetail = "$($f.BangOperators) !"
+                if ($f.BangNullInit -gt 0) {
+                    $bangDetail += " ($($f.BangNullInit) null!/default!, $($f.BangAssertions) assertions)"
+                }
+                $parts += $bangDetail
+            }
             Write-Host "    $($f.File): $($parts -join ', ')"
         }
     }
