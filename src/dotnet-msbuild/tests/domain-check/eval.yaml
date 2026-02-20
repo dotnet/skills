@@ -1,6 +1,8 @@
 scenarios:
   - name: "MSBuild skills should not activate for non-.NET projects"
     prompt: "The npm install is failing in this directory. Can you help me fix the package.json issue?"
+    setup:
+      copy_test_files: true
     assertions:
       - type: "output_not_contains"
         value: "dotnet build"

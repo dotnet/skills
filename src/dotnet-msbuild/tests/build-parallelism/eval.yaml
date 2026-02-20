@@ -1,6 +1,8 @@
 scenarios:
   - name: "Analyze build parallelism bottlenecks"
     prompt: "Build this solution with parallel build enabled and analyze the build parallelism. Are there any bottlenecks in the dependency graph?"
+    setup:
+      copy_test_files: true
     assertions:
       - type: "output_matches"
         pattern: "(serial|sequential|chain)"

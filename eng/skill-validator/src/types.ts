@@ -26,6 +26,7 @@ export interface EvalScenario {
 }
 
 export interface SetupConfig {
+  copy_test_files?: boolean;
   files?: SetupFile[];
 }
 
@@ -182,6 +183,8 @@ export interface ValidatorConfig {
   judgeModel: string;
   judgeMode: JudgeMode;
   runs: number;
+  parallelSkills: number;
+  parallelRuns: number;
   judgeTimeout: number;
   confidenceLevel: number;
   reporters: ReporterSpec[];

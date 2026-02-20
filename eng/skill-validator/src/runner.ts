@@ -1,4 +1,4 @@
-import { mkdtemp, cp, writeFile, mkdir } from "node:fs/promises";
+import { mkdtemp, cp, writeFile, mkdir, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname, resolve, sep } from "node:path";
 import type {
@@ -20,6 +20,7 @@ import { collectMetrics } from "./metrics.js";
 export interface RunOptions {
   scenario: EvalScenario;
   skill: SkillInfo | null;
+  evalPath: string | null;
   model: string;
   verbose: boolean;
   log?: (message: string) => void;
@@ -28,14 +29,28 @@ export interface RunOptions {
 
 async function setupWorkDir(
   scenario: EvalScenario,
-  skillPath: string | null
+  skillPath: string | null,
+  evalPath: string | null
 ): Promise<string> {
   const workDir = await mkdtemp(join(tmpdir(), "skill-validator-"));
 
+  // Copy all sibling files from the eval directory when opted in
+  if (evalPath && scenario.setup?.copy_test_files) {
+    const evalDir = dirname(evalPath);
+    const entries = await readdir(evalDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === "eval.yaml") continue;
+      const src = join(evalDir, entry.name);
+      const dest = join(workDir, entry.name);
+      await cp(src, dest, { recursive: entry.isDirectory() });
+    }
+  }
+
+  // Explicit setup files override/supplement auto-copied files
   if (scenario.setup?.files) {
     for (const file of scenario.setup.files) {
       const targetPath = join(workDir, file.path);
-      await mkdir(join(targetPath, ".."), { recursive: true });
+      await mkdir(dirname(targetPath), { recursive: true });
 
       if (file.content) {
         await writeFile(targetPath, file.content, "utf-8");
@@ -108,8 +123,8 @@ export function buildSessionConfig(
 }
 
 export async function runAgent(options: RunOptions): Promise<RunMetrics> {
-  const { scenario, skill, model, verbose } = options;
-  const workDir = await setupWorkDir(scenario, skill?.path ?? null);
+  const { scenario, skill, evalPath, model, verbose } = options;
+  const workDir = await setupWorkDir(scenario, skill?.path ?? null, evalPath);
   const events: AgentEvent[] = [];
   let agentOutput = "";
 

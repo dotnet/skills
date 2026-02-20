@@ -1,6 +1,8 @@
 scenarios:
   - name: "Analyze MSBuild evaluation performance issues"
     prompt: "Analyze this project for MSBuild evaluation performance issues. What patterns are causing slow project evaluation?"
+    setup:
+      copy_test_files: true
     assertions:
       - type: "output_contains"
         value: "import"

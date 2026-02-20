@@ -1,6 +1,8 @@
 scenarios:
   - name: "Review MSBuild files for anti-patterns and style issues"
     prompt: "Review all MSBuild project files and build infrastructure (Directory.Build.props, Directory.Build.targets) in this solution for correctness, best practices, and anti-patterns. Identify any issues that could cause subtle bugs or unexpected behavior."
+    setup:
+      copy_test_files: true
     assertions:
       - type: "output_matches"
         pattern: "(Directory\\.Build\\.props|Directory\\.Build\\.targets)"

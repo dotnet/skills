@@ -5,9 +5,11 @@ on:
     branches: [main]
     paths:
       - 'eng/skill-validator/**'
+      - '.github/workflows/skill-validator.yml'
   pull_request:
     paths:
       - 'eng/skill-validator/**'
+      - '.github/workflows/skill-validator.yml'
 
 jobs:
   test:

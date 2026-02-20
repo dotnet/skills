@@ -1,4 +1,4 @@
-name: Evaluation
+name: evaluation
 
 on:
   pull_request:
@@ -6,24 +6,38 @@ on:
       - 'src/**'
       - '.github/workflows/evaluation.yml'
 
-#  schedule:
-#    - cron: '*/45 * * * *'
+  schedule:
+    - cron: '0 */2 * * *'
 
   workflow_dispatch:
     inputs:
       components:
-        description: 'Components to evaluate (comma-separated, empty=all with tests)'
+        description: 'Components to evaluate (comma-separated, empty=all tests)'
         required: false
         default: ''
       model:
-        description: 'Copilot model to use (e.g. claude-sonnet-4.5)'
+        description: 'Copilot model to use'
         required: false
-        default: 'claude-opus-4.6'
+        default: 'claude-opus-4.5'
+      judge-model:
+        description: 'Judge model to use for evaluation'
+        required: false
+        default: 'claude-opus-4.5'
       runs:
         description: 'Number of runs per test'
         required: false
         type: number
-        default: 5
+        default: 3
+      parallel-skills:
+        description: 'Max concurrent skills to evaluate'
+        required: false
+        type: number
+        default: 3
+      parallel-runs:
+        description: 'Max concurrent runs per scenario'
+        required: false
+        type: number
+        default: 3
       verbose:
         description: 'Enable verbose output'
         required: false
@@ -37,7 +51,11 @@ concurrency:
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   DOTNET_VERSION: '10.0.x'
-  DEFAULT_MODEL: 'claude-opus-4.6'
+  DEFAULT_MODEL: 'claude-opus-4.5'
+  DEFAULT_JUDGE_MODEL: 'claude-opus-4.5'
+  DEFAULT_RUNS: '3'
+  DEFAULT_PARALLEL_SKILLS: '3'
+  DEFAULT_PARALLEL_RUNS: '3'
 
 permissions:
   contents: write
@@ -48,30 +66,61 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       components: ${{ steps.find.outputs.components }}
+      has_components: ${{ steps.find.outputs.has_components }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Find components with skills and tests
         id: find
         run: |
           $input = "${{ github.event.inputs.components }}"
           if ($input) {
+            # Manual input: use specified components
             $components = $input -split ',' | ForEach-Object { $_.Trim() }
+          } elseif ("${{ github.event_name }}" -eq "pull_request") {
+            # PR: detect changed components
+            $base = "${{ github.event.pull_request.base.sha }}"
+            $head = "${{ github.event.pull_request.head.sha }}"
+            $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
+
+            # Extract component names from changed files under src/*/
+            $changedComponents = $changedFiles | 
+              Where-Object { $_ -match '^src/([^/]+)/' } |
+              ForEach-Object { $Matches[1] } |
+              Sort-Object -Unique
+
+            # Filter to only components that have both skills and tests directories
+            $components = $changedComponents | Where-Object {
+              $skillsPath = Join-Path "src" $_ "skills"
+              $testsPath = Join-Path "src" $_ "tests"
+              (Test-Path $skillsPath) -and (Test-Path $testsPath)
+            }
           } else {
+            # Push/schedule: evaluate all components with skills and tests
             $components = Get-ChildItem -Path "src" -Directory |
               Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path $_.FullName "tests")) } |
               Select-Object -ExpandProperty Name
           }
 
-          $json = $components | ConvertTo-Json -Compress
-          if ($components.Count -eq 1) { $json = "[$json]" }
-          Write-Host "Components to evaluate: $json"
-          echo "components=$json" >> $env:GITHUB_OUTPUT
+          if (-not $components -or $components.Count -eq 0) {
+            Write-Host "No components to evaluate"
+            echo "components=[]" >> $env:GITHUB_OUTPUT
+            echo "has_components=false" >> $env:GITHUB_OUTPUT
+          } else {
+            $json = $components | ConvertTo-Json -Compress
+            if ($components.Count -eq 1) { $json = "[$json]" }
+            Write-Host "Components to evaluate: $json"
+            echo "components=$json" >> $env:GITHUB_OUTPUT
+            echo "has_components=true" >> $env:GITHUB_OUTPUT
+          }
         shell: pwsh
 
   evaluate:
     needs: discover
+    if: needs.discover.outputs.has_components == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -98,8 +147,9 @@ jobs:
 
       - name: Run skill-validator
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
         env:
-          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
         run: |
           ARGS="--strict --require-evals"
           ARGS="$ARGS --reporter console --reporter json:.skill-validator-results/results.json"
@@ -108,11 +158,24 @@ jobs:
           if [ -n "$MODEL" ]; then
             ARGS="$ARGS --model $MODEL"
           fi
-          if [ -n "${{ github.event.inputs.runs }}" ]; then
-            ARGS="$ARGS --runs ${{ github.event.inputs.runs }}"
+          RUNS="${{ github.event.inputs.runs || env.DEFAULT_RUNS }}"
+          if [ -n "$RUNS" ]; then
+            ARGS="$ARGS --runs $RUNS"
+          fi
+          PARALLEL_SKILLS="${{ github.event.inputs.parallel-skills || env.DEFAULT_PARALLEL_SKILLS }}"
+          if [ -n "$PARALLEL_SKILLS" ]; then
+            ARGS="$ARGS --parallel-skills $PARALLEL_SKILLS"
+          fi
+          PARALLEL_RUNS="${{ github.event.inputs.parallel-runs || env.DEFAULT_PARALLEL_RUNS }}"
+          if [ -n "$PARALLEL_RUNS" ]; then
+            ARGS="$ARGS --parallel-runs $PARALLEL_RUNS"
           fi
           if [ "${{ github.event.inputs.verbose }}" = "true" ]; then
             ARGS="$ARGS --verbose"
+          fi
+          JUDGE_MODEL="${{ github.event.inputs.judge-model || env.DEFAULT_JUDGE_MODEL }}"
+          if [ -n "$JUDGE_MODEL" ]; then
+            ARGS="$ARGS --judge-model $JUDGE_MODEL"
           fi
 
           node eng/skill-validator/dist/index.js $ARGS --tests-dir ./src/${{ matrix.component }}/tests ./src/${{ matrix.component }}/skills
@@ -175,7 +238,7 @@ jobs:
 
   publish-benchmark:
     needs: [discover, evaluate]
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && needs.discover.outputs.has_components == 'true'
     concurrency:
       group: publish-benchmark-deploy
       cancel-in-progress: false
@@ -272,3 +335,14 @@ jobs:
           git diff --cached --quiet && echo "No changes to deploy" && exit 0
           git commit -m "Update benchmark data"
           git push origin gh-pages
+
+  no-changes:
+    needs: discover
+    if: github.event_name == 'pull_request' && needs.discover.outputs.has_components != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report no components changed
+        run: |
+          echo "## Skill Evaluation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No components with skills and tests were modified in this PR." >> $GITHUB_STEP_SUMMARY

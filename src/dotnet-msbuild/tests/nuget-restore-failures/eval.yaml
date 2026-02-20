@@ -1,6 +1,8 @@
 scenarios:
   - name: "Diagnose NuGet restore failures"
     prompt: "Build these projects and diagnose the NuGet restore failures. Suggest fixes for each error."
+    setup:
+      copy_test_files: true
     assertions:
       - type: "output_contains"
         value: "NU1101"

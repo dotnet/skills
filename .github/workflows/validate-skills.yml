@@ -5,9 +5,11 @@ on:
     branches: [main]
     paths:
       - "src/**/skills/**"
+      - ".github/workflows/validate-skills.yml"
   pull_request:
     paths:
       - "src/**/skills/**"
+      - ".github/workflows/validate-skills.yml"
 
 concurrency:
   group: validate-skills-${{ github.ref }}
