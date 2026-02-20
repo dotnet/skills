@@ -37,10 +37,13 @@ async function setupWorkDir(
   // Copy all sibling files from the eval directory when opted in
   if (evalPath && scenario.setup?.copy_test_files) {
     const evalDir = dirname(evalPath);
-    await cp(evalDir, workDir, {
-      recursive: true,
-      filter: (src) => !src.endsWith("eval.yaml"),
-    });
+    const entries = await readdir(evalDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === "eval.yaml") continue;
+      const src = join(evalDir, entry.name);
+      const dest = join(workDir, entry.name);
+      await cp(src, dest, { recursive: entry.isDirectory() });
+    }
   }
 
   // Explicit setup files override/supplement auto-copied files
