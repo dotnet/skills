@@ -1,6 +1,6 @@
 scenarios:
   - name: "Basic Web API publish optimization"
-    prompt: "Analyze this .NET 8 Web API project and recommend deployment optimizations. Focus on publish mode, trimming, and AOT compatibility."
+    prompt: "I'm getting ready to deploy this .NET 8 Web API to production. How can I make the published output as small as possible and get the fastest startup time?"
     setup:
       files:
         - path: "MyApi/MyApi.csproj"
@@ -47,7 +47,7 @@ scenarios:
     timeout: 180
 
   - name: "Detect conflicting publish settings"
-    prompt: "Review this .NET 8 project file for deployment issues. It has publish settings configured — check if they are compatible and recommend fixes."
+    prompt: "I'm trying to publish this .NET 8 app but the build output seems wrong and I'm not sure my project settings make sense together. Can you check what's going on?"
     setup:
       files:
         - path: "ConflictApp/ConflictApp.csproj"
@@ -79,8 +79,8 @@ scenarios:
       - "Provides specific fix recommendations for each conflict"
     timeout: 180
 
-  - name: "Worker service health check recommendations"
-    prompt: "This is a .NET 8 Worker Service. Analyze it for deployment optimization, focusing on health checks and publish configuration."
+  - name: "Worker service deployment readiness"
+    prompt: "I need to deploy this .NET 8 background worker to Kubernetes. I want it to start up fast, use as little memory as possible, and I need a way for K8s to know if it's healthy. What should I do?"
     setup:
       files:
         - path: "MyWorker/MyWorker.csproj"
