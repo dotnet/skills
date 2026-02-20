@@ -71,6 +71,7 @@ scenarios:
   - name: "Descriptive name of the scenario"
     prompt: "The prompt to send to the agent"
     setup:
+      copy_test_files: true  # auto-copy all sibling files into agent work dir
       files:
         - path: "input.txt"
           content: "file content to create before the run"
@@ -114,6 +115,13 @@ scenarios:
 | `file_not_exists` | No file matching `path` glob exists in work dir |
 | `file_contains` | File matching `path` glob contains `value` |
 | `exit_success` | Agent produced non-empty output |
+
+### Setup options
+
+| Option | Description |
+|--------|-------------|
+| `copy_test_files` | When `true`, copies all files from the eval directory (except `eval.yaml`) into the agent working directory before each run. Useful when test fixtures live alongside the eval file. |
+| `files` | Explicit list of files to create in the working directory. Each entry has a `path` and either inline `content` or a `source` path (relative to the skill directory). Applied after `copy_test_files`. |
 
 ### Scenario constraints
 

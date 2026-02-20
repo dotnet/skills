@@ -26,6 +26,7 @@ export interface EvalScenario {
 }
 
 export interface SetupConfig {
+  copy_test_files?: boolean;
   files?: SetupFile[];
 }
 

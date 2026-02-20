@@ -18,6 +18,7 @@ const setupFileSchema = z.object({
 });
 
 const setupSchema = z.object({
+  copy_test_files: z.boolean().optional(),
   files: z.array(setupFileSchema).optional(),
 });
 

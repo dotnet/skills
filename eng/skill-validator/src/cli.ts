@@ -280,6 +280,7 @@ export async function run(config: ValidatorConfig): Promise<number> {
           runAgent({
             scenario,
             skill: null,
+            evalPath: skill.evalPath,
             model: config.model,
             verbose: config.verbose,
             log: runLog,
@@ -287,6 +288,7 @@ export async function run(config: ValidatorConfig): Promise<number> {
           runAgent({
             scenario,
             skill,
+            evalPath: skill.evalPath,
             model: config.model,
             verbose: config.verbose,
             log: runLog,

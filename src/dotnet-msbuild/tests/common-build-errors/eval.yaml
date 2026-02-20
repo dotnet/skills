@@ -1,6 +1,8 @@
 scenarios:
   - name: "Diagnose C# compiler errors"
     prompt: "Build these projects and diagnose the build failures. Suggest fixes for each error."
+    setup:
+      copy_test_files: true
     assertions:
       - type: "output_contains"
         value: "CS0246"

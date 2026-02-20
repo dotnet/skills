@@ -1,1 +1,0 @@
-Review all MSBuild project files and build infrastructure (Directory.Build.props, Directory.Build.targets) in this solution for correctness, best practices, and anti-patterns. Identify any issues that could cause subtle bugs or unexpected behavior.
