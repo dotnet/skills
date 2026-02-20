@@ -76,23 +76,6 @@ Or equivalently, set the properties in the project file:
 </PropertyGroup>
 ```
 
-### Step 2b: Check publish setting compatibility
-
-Before combining publish properties, verify the combination is valid. The following table lists settings that conflict or are redundant when used together:
-
-| Setting A | Setting B | Outcome | Explanation |
-|-----------|-----------|---------|-------------|
-| `PublishAot` | `PublishSingleFile` | **Conflict** | AOT produces a single native binary by default; `PublishSingleFile` is for IL-based apps and is ignored with AOT |
-| `PublishAot` | `ReadyToRun` | **Conflict** | ReadyToRun pre-compiles IL to native via crossgen; AOT replaces the IL pipeline entirely, making R2R meaningless |
-| `PublishAot` | `SelfContained=false` | **Conflict** | AOT output is always self-contained; setting `SelfContained` to false is contradictory and will cause a build error |
-| `PublishAot` | `PublishTrimmed` | **Redundant** | AOT implies trimming; setting `PublishTrimmed` explicitly is unnecessary (but not harmful) |
-| `PublishSingleFile` | `SelfContained=false` | **Not recommended** | Framework-dependent single-file bundles are supported but rarely useful; the host still requires the shared runtime |
-| `ReadyToRun` | `PublishTrimmed` | **Caution** | Supported but may increase size because R2R adds native code on top of IL; trimming savings can be offset by R2R overhead |
-| `ReadyToRun` | `SelfContained=false` | **Conflict** | ReadyToRun pre-compiles app IL to native code and requires the runtime to be bundled; framework-dependent apps cannot use R2R |
-| `PublishTrimmed` | `SelfContained=false` | **Conflict** | Trimming requires self-contained deployment; framework-dependent apps cannot be trimmed |
-
-When reviewing a project file, flag any of these combinations and recommend removing the conflicting or redundant property.
-
 ### Step 3: Apply trimming and tree-shaking
 
 > **Skip this step** if Native AOT was chosen in Step 2 — AOT applies trimming automatically.
@@ -254,7 +237,6 @@ Produce a summary table of all recommendations:
 | Area | Current state | Recommendation | Impact |
 |------|--------------|----------------|--------|
 | Publish mode | (detected) | (recommended) | (size/startup) |
-| Publish compatibility | (conflicts found / none) | (resolution) | (correctness) |
 | Trimming | (enabled/disabled) | (recommendation) | (size reduction) |
 | AOT | (enabled/disabled) | (recommendation) | (startup/size) |
 | Docker | (exists/missing) | (recommendation) | (image size) |
@@ -283,5 +265,4 @@ Produce a summary table of all recommendations:
 | Hardcoded secrets in appsettings | Move secrets to environment variables, user secrets (dev), or a vault (production) |
 | Missing `.dockerignore` | Add one to prevent `bin/`, `obj/`, and `.git/` from bloating the Docker build context |
 | Health checks without dependency checks | Add checks for databases, caches, and external APIs to get meaningful readiness signals |
-| Combining incompatible publish settings | Check the compatibility matrix in Step 2b; remove conflicting or redundant properties before publishing |
 | Single-file publish without `IncludeNativeLibrariesForSelfExtract` | Native libraries may not bundle correctly; add the property if needed |
