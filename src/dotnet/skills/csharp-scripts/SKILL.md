@@ -4,7 +4,7 @@ description: Run single-file C# programs as scripts for quick experimentation, p
 ---
 
 # C# Scripts
-test
+
 ## When to Use
 
 - Testing a C# concept, API, or language feature with a quick one-file program
