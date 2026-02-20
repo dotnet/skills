@@ -28,8 +28,13 @@ on:
         required: false
         type: number
         default: 3
+      parallel-skills:
+        description: 'Max concurrent skills to evaluate'
+        required: false
+        type: number
+        default: 3
       parallel-runs:
-        description: 'Max concurrent runs'
+        description: 'Max concurrent runs per scenario'
         required: false
         type: number
         default: 3
@@ -49,6 +54,7 @@ env:
   DEFAULT_MODEL: 'claude-opus-4.5'
   DEFAULT_JUDGE_MODEL: 'claude-opus-4.5'
   DEFAULT_RUNS: '3'
+  DEFAULT_PARALLEL_SKILLS: '3'
   DEFAULT_PARALLEL_RUNS: '3'
 
 permissions:
@@ -154,6 +160,10 @@ jobs:
           RUNS="${{ github.event.inputs.runs || env.DEFAULT_RUNS }}"
           if [ -n "$RUNS" ]; then
             ARGS="$ARGS --runs $RUNS"
+          fi
+          PARALLEL_SKILLS="${{ github.event.inputs.parallel-skills || env.DEFAULT_PARALLEL_SKILLS }}"
+          if [ -n "$PARALLEL_SKILLS" ]; then
+            ARGS="$ARGS --parallel-skills $PARALLEL_SKILLS"
           fi
           PARALLEL_RUNS="${{ github.event.inputs.parallel-runs || env.DEFAULT_PARALLEL_RUNS }}"
           if [ -n "$PARALLEL_RUNS" ]; then

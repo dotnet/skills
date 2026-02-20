@@ -13,6 +13,7 @@ import type {
   ValidatorConfig,
   ReporterSpec,
   SkillVerdict,
+  SkillInfo,
   RunResult,
   ScenarioComparison,
   PairwiseJudgeResult,
@@ -114,7 +115,8 @@ export function createProgram(): Command {
     .option("--judge-model <name>", "Model to use for judging (defaults to --model)")
     .option("--judge-mode <mode>", "Judge mode: pairwise, independent, or both", "pairwise")
     .option("--runs <number>", "Number of runs per scenario for averaging", "5")
-    .option("--parallel-runs <number>", "Max concurrent runs (each may use multiple LLM calls)", "1")
+    .option("--parallel-skills <number>", "Max concurrent skills to evaluate", "1")
+    .option("--parallel-runs <number>", "Max concurrent runs per scenario", "1")
     .option("--judge-timeout <number>", "Judge timeout in seconds", "300")
     .option("--confidence-level <number>", "Confidence level for statistical intervals (0-1)", "0.95")
     .option(
@@ -143,6 +145,7 @@ export function createProgram(): Command {
         judgeModel: opts.judgeModel || opts.model,
         judgeMode: opts.judgeMode || "pairwise",
         runs: Math.max(1, parseInt(opts.runs, 10) || 5),
+        parallelSkills: Math.max(1, parseInt(opts.parallelSkills, 10) || 1),
         parallelRuns: Math.max(1, parseInt(opts.parallelRuns, 10) || 1),
         judgeTimeout: parseInt(opts.judgeTimeout, 10) * 1000,
         confidenceLevel: parseFloat(opts.confidenceLevel || "0.95"),
@@ -204,50 +207,60 @@ export async function run(config: ValidatorConfig): Promise<number> {
     console.log(chalk.yellow(`⚠  Running with ${config.runs} run(s). For statistically significant results, use --runs 5 or higher.`));
   }
 
-  const verdicts: SkillVerdict[] = [];
-
   const usePairwise = config.judgeMode === "pairwise" || config.judgeMode === "both";
 
-  for (const skill of allSkills) {
+  // Coordinated spinner shared across all parallel skills
+  const spinner = new Spinner();
+
+  // Set up concurrency limiter for parallel skills
+  const skillLimit = pLimit(Math.max(1, config.parallelSkills));
+
+  // Evaluate a single skill
+  const evaluateSkill = async (skill: SkillInfo): Promise<SkillVerdict | null> => {
+    const prefix = `[${skill.name}]`;
+    const log = (msg: string) => spinner.log(`${prefix} ${msg}`);
+
     if (!skill.evalConfig) {
       if (config.requireEvals) {
-        verdicts.push({
+        return {
           skillName: skill.name,
           skillPath: skill.path,
           passed: false,
           scenarios: [],
           overallImprovementScore: 0,
           reason: "No tests/eval.yaml found (required by --require-evals or --strict)",
-        });
+        };
       } else {
-        console.log(`⏭  Skipping ${skill.name} (no tests/eval.yaml)`);
+        log(`⏭  Skipping (no tests/eval.yaml)`);
       }
-      continue;
+      return null;
     }
 
     if (skill.evalConfig.scenarios.length === 0) {
-      console.log(`⏭  Skipping ${skill.name} (eval.yaml has no scenarios)`);
-      continue;
+      log(`⏭  Skipping (eval.yaml has no scenarios)`);
+      return null;
     }
 
-    console.log(`🔍 Evaluating ${skill.name}...`);
+    log(`🔍 Evaluating...`);
 
     // Static skill profile analysis
     const profile = analyzeSkill(skill);
-    console.log(`   ${formatProfileLine(profile)}`);
+    log(`📊 ${formatProfileLine(profile)}`);
     for (const warning of formatProfileWarnings(profile)) {
-      console.log(warning);
+      log(warning);
     }
 
     const comparisons: ScenarioComparison[] = [];
-    const spinner = new Spinner();
-    const log = (msg: string) => spinner.log(msg);
-
-    // Set up concurrency limiter for parallel runs
-    const runLimit = pLimit(Math.max(1, config.parallelRuns));
+    const singleScenario = skill.evalConfig.scenarios.length === 1;
 
     for (const scenario of skill.evalConfig.scenarios) {
-      console.log(`   📋 Scenario: ${scenario.name}`);
+      const tag = singleScenario ? `[${skill.name}]` : `[${skill.name}/${scenario.name}]`;
+      const scenarioLog = (msg: string) => spinner.log(`${tag} ${msg}`);
+      const runLimit = pLimit(Math.max(1, config.parallelRuns));
+
+      if (!singleScenario) {
+        scenarioLog(`📋 Starting scenario`);
+      }
 
       // Execute a single run (agent + assertions + judge)
       const executeRun = async (runIndex: number): Promise<{
@@ -255,13 +268,11 @@ export async function run(config: ValidatorConfig): Promise<number> {
         withSkill: RunResult;
         pairwise: PairwiseJudgeResult | undefined;
       }> => {
-        const runLabel = `Run ${runIndex + 1}/${config.runs}`;
-        
-        // Update spinner for sequential mode, log for verbose parallel mode
-        if (config.parallelRuns <= 1) {
-          spinner.update(`      ${runLabel}: running agents...`);
-        } else if (config.verbose) {
-          log(`      ${runLabel}: running agents...`);
+        const runLabel = `run ${runIndex + 1}/${config.runs}`;
+        const runLog = (msg: string) => spinner.log(`${tag} ${msg}`);
+
+        if (config.verbose) {
+          runLog(`${runLabel}: running agents...`);
         }
 
         // Run baseline and with-skill in parallel
@@ -271,14 +282,14 @@ export async function run(config: ValidatorConfig): Promise<number> {
             skill: null,
             model: config.model,
             verbose: config.verbose,
-            log,
+            log: runLog,
           }),
           runAgent({
             scenario,
             skill,
             model: config.model,
             verbose: config.verbose,
-            log,
+            log: runLog,
           }),
         ]);
 
@@ -357,24 +368,19 @@ export async function run(config: ValidatorConfig): Promise<number> {
               judgeOpts
             );
           } catch (error) {
-            log(`      ⚠️  Pairwise judge failed for run ${runIndex + 1}: ${error}`);
+            runLog(`⚠️  Pairwise judge failed for ${runLabel}: ${error}`);
             pairwise = undefined;
           }
         }
 
         if (config.verbose) {
-          log(`      ✓ ${runLabel} complete`);
+          runLog(`✓ ${runLabel} complete`);
         }
 
         return { baseline, withSkill: withSkillResult, pairwise };
       };
 
-      // Run all iterations (parallel if parallelRuns > 1, sequential otherwise)
-      const parallelMode = config.parallelRuns > 1;
-      spinner.start(parallelMode
-        ? `      Running ${config.runs} iterations (max ${config.parallelRuns} concurrent)...`
-        : `      Running ${config.runs} iteration(s)...`);
-
+      // Run all iterations (parallel if parallelRuns > 1)
       let runResults: Awaited<ReturnType<typeof executeRun>>[];
       try {
         const runPromises = Array.from({ length: config.runs }, (_, i) =>
@@ -382,15 +388,12 @@ export async function run(config: ValidatorConfig): Promise<number> {
         );
         runResults = await Promise.all(runPromises);
       } catch (error) {
-        spinner.stop();
         const errMsg = error instanceof Error ? error.message : String(error);
-        console.error(chalk.red(`\n❌ FATAL: Run failed - aborting evaluation`));
-        console.error(chalk.red(`   ${errMsg}`));
-        await stopSharedClient();
-        return 1;
+        scenarioLog(chalk.red(`❌ Run failed: ${errMsg}`));
+        throw error;
       }
 
-      spinner.stop(`      ✓ All ${config.runs} run(s) complete`);
+      scenarioLog(`✓ All ${config.runs} run(s) complete`);
 
       // Collect results
       const baselineRuns = runResults.map((r) => r.baseline);
@@ -435,7 +438,24 @@ export async function run(config: ValidatorConfig): Promise<number> {
       config.confidenceLevel
     );
     verdict.profileWarnings = profile.warnings;
-    verdicts.push(verdict);
+    log(`${verdict.passed ? "✅" : "❌"} Done (score: ${(verdict.overallImprovementScore * 100).toFixed(1)}%)`);
+    return verdict;
+  };
+
+  // Run skill evaluations in parallel (limited by parallelSkills)
+  spinner.start(`Evaluating ${allSkills.length} skill(s)...`);
+  const skillPromises = allSkills.map((skill) => skillLimit(() => evaluateSkill(skill)));
+  const settled = await Promise.allSettled(skillPromises);
+  spinner.stop();
+
+  const verdicts: SkillVerdict[] = [];
+  for (const result of settled) {
+    if (result.status === "fulfilled" && result.value !== null) {
+      verdicts.push(result.value);
+    } else if (result.status === "rejected") {
+      const errMsg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      console.error(chalk.red(`❌ Skill evaluation failed: ${errMsg}`));
+    }
   }
 
   await reportResults(verdicts, config.reporters, config.verbose);
