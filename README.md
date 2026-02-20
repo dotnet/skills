@@ -40,7 +40,7 @@ This repositorycontains the .NET team's curated set of core skills and custom ag
 
 ### 📦 Distribution Templates
 
-Some components include ready-to-use templates (agent instructions, prompt files) that can be copied directly into your repository without installing a component:
+Some components include ready-to-use templates (agent instructions, prompt files) that can be copied directly into your repository without installing a plugin or extension:
 
 1. Browse the component's **Distribution Templates** section in its README
 2. Copy agent instructions to your repo root as `AGENTS.md`
