@@ -29,6 +29,68 @@
 .EXAMPLE
     ./Scan-NullableReadiness.ps1 -Path ./src -Recurse -Json
     Scans all projects under ./src and outputs JSON.
+
+.NOTES
+    Example output BEFORE NRT migration:
+
+    === NRT Readiness Report ===
+    Project: System.Text.RegularExpressions
+      Path:               src\System.Text.RegularExpressions.csproj
+      <Nullable>:         (not set)
+      <LangVersion>:      latest (inherited)
+      <TargetFramework>:  (not set)
+      Warning enforcement: all warnings as errors
+      Source files:       39
+      #nullable enable:   1
+      #nullable disable:  0
+      #pragma CS86xx:     0
+      ! operators (approx): 0
+      Uninit ref fields:  ~322 (estimated CS8618 warnings)
+      Migration progress: 1/39 files (2.6%)
+      Migration work needed:
+        CaptureCollection.cs: ~6 uninit fields
+        GroupCollection.cs: ~9 uninit fields
+        ....
+    === Summary ===
+      Projects scanned:   1
+      NRT enabled:        0/1
+      Total .cs files:    39
+      Total #nullable disable: 0
+      Total #pragma CS86xx:    0
+      Total ! operators:       0
+      Total uninit ref fields: ~322 (estimated CS8618 warnings)
+
+    Example output AFTER NRT migration (same project, all 502 CS86xx warnings resolved):
+
+    === NRT Readiness Report ===
+    Project: System.Text.RegularExpressions
+      Path:               src\System.Text.RegularExpressions.csproj
+      <Nullable>:         enable
+      <LangVersion>:      latest (inherited)
+      <TargetFramework>:  (not set)
+      Warning enforcement: all warnings as errors
+      Source files:       39
+      #nullable enable:   1
+      #nullable disable:  0
+      #pragma CS86xx:     0
+      ! operators (approx): 192
+        null!/default!:     47
+        assertions:         145
+      Suppression audit (review ! operators for possible removal):
+        Match.cs: 7 !
+        Regex.Cache.cs: 22 !
+        Regex.cs: 11 !
+        RegexCompiler.cs: 31 ! (24 null!/default!, 7 assertions)
+        ...
+    === Summary ===
+      Projects scanned:   1
+      NRT enabled:        1/1
+      Total .cs files:    39
+      Total #nullable disable: 0
+      Total #pragma CS86xx:    0
+      Total ! operators:       192
+        null!/default!:        47
+        assertions:            145
 #>
 
 [CmdletBinding()]
