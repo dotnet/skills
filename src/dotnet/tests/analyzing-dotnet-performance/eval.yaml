@@ -4,7 +4,7 @@ scenarios:
     setup:
       files:
         - path: "TextProcessor.cs"
-          source: "tests/fixtures/critical-antipatterns.cs"
+          source: "fixtures/critical-antipatterns.cs"
     assertions:
       - type: "output_contains"
         value: "Result"
@@ -24,7 +24,7 @@ scenarios:
     setup:
       files:
         - path: "ReportGenerator.cs"
-          source: "tests/fixtures/collections-and-allocations.cs"
+          source: "fixtures/collections-and-allocations.cs"
     assertions:
       - type: "output_contains"
         value: "StringBuilder"
@@ -44,7 +44,7 @@ scenarios:
     setup:
       files:
         - path: "DataService.cs"
-          source: "tests/fixtures/io-and-async-issues.cs"
+          source: "fixtures/io-and-async-issues.cs"
     assertions:
       - type: "output_contains"
         value: "HttpClient"
@@ -61,7 +61,7 @@ scenarios:
     setup:
       files:
         - path: "Models.cs"
-          source: "tests/fixtures/struct-missing-iequatable.cs"
+          source: "fixtures/struct-missing-iequatable.cs"
     assertions:
       - type: "output_contains"
         value: "IEquatable"
