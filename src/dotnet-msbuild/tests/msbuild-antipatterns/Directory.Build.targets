@@ -1,0 +1,12 @@
+<Project>
+  <!-- BUG: Property DEFAULTS belong in Directory.Build.props, NOT .targets.
+       Because .targets is imported AFTER the project file, these values override
+       any project-level settings. For example, LibB tries to set
+       TreatWarningsAsErrors=false but this .targets file silently overrides it back to true. -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Company>Contoso</Company>
+    <Authors>Build Team</Authors>
+    <Copyright>Copyright 2024 Contoso</Copyright>
+  </PropertyGroup>
+</Project>

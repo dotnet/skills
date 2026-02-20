@@ -9,6 +9,28 @@ This repository contains shared building blocks for coding agents:
 
 Because these artifacts can affect many users and workflows, we prioritize correctness, clarity, and long term maintainability over speed.
 
+## Repository layout
+
+```text
+src/
+  <component>/
+    plugin.json
+    skills/
+      <skill-name>/
+        SKILL.md
+        scripts/
+        references/
+        assets/
+    agents/
+      <agent-name>.agent.md
+    tests/
+      <skill-name>/
+        eval.yaml
+        <fixture files>
+```
+
+Each component under `src/` is self-contained. A plugin.json implies that the component is distributed as a plugin in the marketplace.
+
 ## Before you start
 
 - Search existing issues and pull requests to avoid duplicates.
@@ -35,11 +57,49 @@ We are less likely to accept contributions that:
 
 ## Proposing a new skill
 
+A skill should be self-contained and:
+
+- Clearly state **what it does** and **when to use it**.
+- Specify required inputs (repo context, environment, access needs).
+- Prefer concrete checklists and verification steps over vague guidance.
+
+Create a new folder under a component's `skills/` directory:
+
+```text
+src/<component>/skills/<skill-name>/SKILL.md
+```
+
 A skill should answer three questions up front:
 
 1. What outcome does the skill produce
 2. When should an agent use it
 3. How does the agent validate success
+
+### Skill naming
+
+Use short, kebab-case names that mirror how developers naturally phrase the task, prioritizing keyword overlap over grammar — e.g., add-aspnet-auth, configure-jwt-auth, setup-identity-server. Optionally using gerund style (verb-ing) is acceptable as well - e.g., configuring-caching.
+
+Optimize for intent matching: lead with the action verb users actually say (add, configure, setup, deploy) followed the outcome the skill is aiming to assist.
+
+The `SKILL.md` is required to have front-matter at a minimum:
+
+Create the file with required YAML frontmatter:
+
+```yaml
+---
+name: <skill-name>
+description: <description of what the skill does and when to use it>
+---
+```
+
+### Recommended `SKILL.md` sections
+
+- **Purpose**: one paragraph describing the outcome.
+- **When to use** / **When not to use**
+- **Inputs**: what the agent needs (files, commands, permissions).
+- **Workflow**: numbered steps with checkpoints.
+- **Validation**: how to confirm the result (tests, linters, manual checks).
+- **Common pitfalls**: known traps and how to avoid them.
 
 ### Skill checklist
 
@@ -59,7 +119,17 @@ Also:
 
 ## Proposing a new agent
 
-An agent definition should be opinionated but bounded.
+An agent definition should be opinionated but bounded:
+
+- Describe the **role** (e.g., "WinForms Expert", "Security Reviewer", "Docs Maintainer").
+- Define boundaries (what the agent should not do).
+- List the skills it expects to use and how it chooses among them.
+
+Add an agent file under a component's `agents/` directory:
+
+```text
+src/<component>/agents/<agent-name>.agent.md
+```
 
 ### Agent checklist
 
@@ -78,6 +148,91 @@ Skills and agents are documentation driven, but we still treat them as productio
 - Every change should include a validation section that a reviewer can follow.
 - If your change references commands, keep them cross platform when practical. If not, state the supported environment.
 - If your change depends on external services, document how a reviewer can validate without privileged access, or explain why validation is not possible.
+
+### Writing skill tests
+
+Each skill should have an `eval.yaml` file that defines test scenarios. Tests live under a component's `tests/` directory, matching the skill name:
+
+```text
+src/<component>/tests/<skill-name>/eval.yaml
+```
+
+A minimal eval file:
+
+```yaml
+scenarios:
+  - name: "Describe what the agent should do"
+    prompt: "The prompt sent to the agent"
+    assertions:
+      - type: "output_contains"
+        value: "expected text in agent output"
+    rubric:
+      - "The agent correctly identified the issue"
+      - "The agent suggested a concrete fix"
+    timeout: 120
+```
+
+#### Test fixture files
+
+If a scenario requires files in the agent's working directory (e.g. `.csproj`, `.sln`, `.cs` files), place them alongside `eval.yaml` and opt into auto-copy:
+
+```text
+src/<component>/tests/<skill-name>/
+  eval.yaml
+  MyProject.csproj
+  Program.cs
+```
+
+```yaml
+scenarios:
+  - name: "Diagnose build failure"
+    prompt: "Why does this project fail to build?"
+    setup:
+      copy_test_files: true    # copies MyProject.csproj, Program.cs into work dir
+    assertions:
+      - type: "output_matches"
+        pattern: "CS\\d{4}"
+```
+
+You can also create files inline or reference files from the skill directory:
+
+```yaml
+setup:
+  files:
+    - path: "input.txt"
+      content: "inline file content"
+    - path: "data.csv"
+      source: "fixtures/sample-data.csv"  # relative to skill directory
+```
+
+See the [skill-validator README](eng/skill-validator/README.md) for the full list of assertion types, constraints, and rubric options.
+
+### Running tests locally
+
+Prerequisites: Node.js >= 20 and `gh auth login`.
+
+```bash
+# Build the validator
+cd eng/skill-validator
+npm ci
+npm run build
+
+# Run tests for a single component
+node dist/index.js --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
+
+# Run tests for a single skill (pass the skill directory directly)
+node dist/index.js --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills/common-build-errors
+
+# Fewer runs for faster iteration (default is 5)
+node dist/index.js --runs 1 --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
+
+# Use a specific model
+node dist/index.js --model claude-sonnet-4.5 --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
+```
+
+### CI evaluation
+
+Tests run automatically on pull requests that modify files under `src/`. The evaluation workflow discovers changed components and runs the skill-validator for each one. Results are posted as a PR comment and uploaded as build artifacts.
 
 ## Writing style
 
@@ -118,3 +273,17 @@ If you are unsure where a change belongs or how to structure a skill or agent, o
 - The user problem
 - The proposed outcome
 - A small example of the desired behavior
+
+If you're not sure whether something belongs under `skills/` or `agents/`, a good rule of thumb is:
+
+- Put **reusable task playbooks** in `skills/`.
+- Put **role + operating model** in `agents/`.
+
+## Quality bar
+
+Skills and agents in this repo should be:
+
+- **Actionable**: the agent can follow them without guesswork.
+- **Minimal**: no extra features or scope creep; focus on the task.
+- **Verifiable**: always include a way to validate success.
+- **Tool-conscious**: don't assume capabilities that might not exist in every runtime.

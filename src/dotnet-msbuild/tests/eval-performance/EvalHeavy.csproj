@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
+  <Import Project="imports\level1.props" />
+
+  <ItemGroup>
+    <AdditionalFiles Include="**\*.*" Exclude="**\bin\**;**\obj\**" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <BuildNotes Condition="Exists('build-notes.txt')">$([System.IO.File]::ReadAllText('build-notes.txt'))</BuildNotes>
+  </PropertyGroup>
+</Project>

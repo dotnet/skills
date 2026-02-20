@@ -1,0 +1,19 @@
+scenarios:
+  - name: "Analyze MSBuild evaluation performance issues"
+    prompt: "Analyze this project for MSBuild evaluation performance issues. What patterns are causing slow project evaluation?"
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "import"
+      - type: "output_matches"
+        pattern: "(glob|\\*\\*/\\*)"
+      - type: "output_matches"
+        pattern: "(evaluation|evaluate)"
+    rubric:
+      - "Identified deep import chain (level1→level2→level3) and explained evaluation overhead from nested imports"
+      - "Identified overly broad glob pattern and explained it scans large directories like node_modules and .git"
+      - "Suggested restricting globs or using DefaultItemExcludes"
+      - "Identified property function performing file I/O during evaluation phase"
+      - "Explained difference between MSBuild evaluation phase and execution phase"
+    timeout: 120

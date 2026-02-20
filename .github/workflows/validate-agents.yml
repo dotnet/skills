@@ -4,10 +4,12 @@ on:
   push:
     branches: [main]
     paths:
-      - "agents/**"
+      - "src/**/agents/**"
+      - ".github/workflows/validate-agents.yml"
   pull_request:
     paths:
-      - "agents/**"
+      - "src/**/agents/**"
+      - ".github/workflows/validate-agents.yml"
 
 concurrency:
   group: validate-custom-agents-${{ github.ref }}
@@ -39,7 +41,7 @@ jobs:
 
           # Find added or changed .agent.md files in agents/ directory and extract agent directories
           AGENTS=$(git diff --name-only --diff-filter=ACMR $BASE $HEAD | \
-            grep '^agents/.*\.agent\.md$' | \
+            grep '^src/.*/agents/.*\.agent\.md$' | \
             xargs -I {} dirname {} | \
             sort -u | \
             jq -R -s -c 'split("\n") | map(select(length > 0))')

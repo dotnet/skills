@@ -1,21 +1,18 @@
 {
-    "name": "dotnet-agent-skills",
-    "owner": {
-        "name": ".NET Team at Microsoft"
+  "name": "dotnet-agent-skills",
+  "owner": {
+    "name": ".NET Team at Microsoft"
+  },
+  "plugins": [
+    {
+      "name": "dotnet",
+      "source": "./src/dotnet",
+      "description": "Collection of core .NET skills for handling common .NET coding tasks."
     },
-    "metadata": {
-        "description": ".NET core skills",
-        "version": "1.0.0"
-    },
-    "plugins": [
-        {
-            "name": "core-skills",
-            "description": "Collection of core .NET skills for handling common .NET coding tasks.",
-            "source": "./",
-            "strict": false,
-            "skills": [
-                "./skills/dotnet-profile"
-            ]
-        }
-    ]
+    {
+      "name": "dotnet-msbuild",
+      "source": "./src/dotnet-msbuild",
+      "description": "Comprehensive MSBuild and .NET build skills: failure diagnosis, performance optimization, code quality, and modernization."
+    }
+  ]
 }

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <OutputPath>C:\builds\output\LibB</OutputPath>
+  </PropertyGroup>
+
+  <!-- This attempts to disable warnings-as-errors for LibB, but it has no effect
+       because Directory.Build.targets sets TreatWarningsAsErrors=true AFTER this file. -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LibA\LibA.csproj" />
+  </ItemGroup>
+</Project>

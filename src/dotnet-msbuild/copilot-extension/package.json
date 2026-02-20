@@ -1,0 +1,25 @@
+{
+  "name": "msbuild-copilot-extension",
+  "version": "0.1.0",
+  "description": "GitHub Copilot Extension for MSBuild and .NET build expertise",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "compile-knowledge": "node ../build.js",
+    "test": "node --test src/**/*.test.js"
+  },
+  "keywords": [
+    "msbuild",
+    "dotnet",
+    "copilot",
+    "copilot-extension",
+    "build"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@octokit/webhooks": "^13.0.0"
+  }
+}

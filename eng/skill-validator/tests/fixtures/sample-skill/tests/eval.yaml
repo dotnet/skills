@@ -1,0 +1,22 @@
+scenarios:
+  - name: "Generate a greeting"
+    prompt: "Generate a greeting for Alice"
+    assertions:
+      - type: "output_contains"
+        value: "Alice"
+    rubric:
+      - "The greeting includes the person's name"
+      - "The greeting is friendly and appropriate"
+    timeout: 30
+
+  - name: "Generate a formal greeting"
+    prompt: "Generate a formal greeting for a business email to Bob"
+    assertions:
+      - type: "output_contains"
+        value: "Bob"
+      - type: "output_matches"
+        pattern: "(Dear|Hello|Greetings|Good\\s+(morning|afternoon|evening))"
+    rubric:
+      - "The greeting is formal and professional"
+      - "The greeting includes the recipient's name"
+    timeout: 30

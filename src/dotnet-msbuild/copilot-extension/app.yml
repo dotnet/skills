@@ -1,0 +1,43 @@
+# GitHub App manifest for the MSBuild Copilot Extension.
+# Use this as a reference when registering the GitHub App.
+# See: https://docs.github.com/apps/creating-github-apps
+
+name: MSBuild Expert
+description: >
+  MSBuild and .NET build expertise for Copilot Chat. Get help with build errors,
+  performance optimization, project file best practices, and modernization.
+  Invoke with @msbuild in any Copilot Chat.
+
+# Copilot Extension configuration
+copilot_extension:
+  # The @mention handle users type in Copilot Chat
+  handle: msbuild
+  # Type: "agent" handles full conversations; "skillset" provides discrete tools
+  type: agent
+  # Description shown in the Copilot Extension marketplace
+  inference_description: >
+    Expert in MSBuild, .NET SDK builds, and project file best practices.
+    Helps diagnose build failures (CS, MSB, NU, NETSDK errors), optimize
+    build performance, review project files for anti-patterns, and modernize
+    legacy projects. Invoke with @msbuild.
+
+# Permissions needed (minimal — read-only for context)
+permissions:
+  contents: read
+  metadata: read
+
+# Events to subscribe to (webhook delivery)
+events: []
+
+# Webhook configuration
+webhook:
+  # Set this to your deployed function URL
+  url: https://your-deployment-url.example.com/api/copilot
+  # Set this in your environment variables
+  secret: $GITHUB_WEBHOOK_SECRET
+
+# Visibility
+public: true
+
+# Post-installation setup URL (optional)
+# setup_url: https://your-docs-url.example.com/setup
