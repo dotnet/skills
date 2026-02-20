@@ -48,6 +48,7 @@ env:
   DOTNET_VERSION: '10.0.x'
   DEFAULT_MODEL: 'claude-opus-4.5'
   DEFAULT_JUDGE_MODEL: 'claude-opus-4.5'
+  DEFAULT_RUNS: '3'
   DEFAULT_PARALLEL_RUNS: '3'
 
 permissions:
@@ -150,8 +151,9 @@ jobs:
           if [ -n "$MODEL" ]; then
             ARGS="$ARGS --model $MODEL"
           fi
-          if [ -n "${{ github.event.inputs.runs }}" ]; then
-            ARGS="$ARGS --runs ${{ github.event.inputs.runs }}"
+          RUNS="${{ github.event.inputs.runs || env.DEFAULT_RUNS }}"
+          if [ -n "$RUNS" ]; then
+            ARGS="$ARGS --runs $RUNS"
           fi
           PARALLEL_RUNS="${{ github.event.inputs.parallel-runs || env.DEFAULT_PARALLEL_RUNS }}"
           if [ -n "$PARALLEL_RUNS" ]; then
