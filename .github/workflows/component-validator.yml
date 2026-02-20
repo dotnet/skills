@@ -6,10 +6,12 @@ on:
     paths:
       - "src/**/skills/**"
       - "src/**/agents/**"
+      - '.github/workflows/component-validator.yml'
   pull_request:
     paths:
       - "src/**/skills/**"
       - "src/**/agents/**"
+      - '.github/workflows/component-validator.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
