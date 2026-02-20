@@ -84,7 +84,7 @@ Create at `.mcp/server.json` in your project root.
 
 ```json
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "description": "MCP server for MyService API integration. Provides tools for user management, data retrieval, and workflow automation.",
   "name": "io.github.yourusername/mymcpserver",
   "version": "1.0.0",
