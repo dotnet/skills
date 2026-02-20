@@ -217,6 +217,7 @@ jobs:
             git clone --branch gh-pages --single-branch "$REPO_URL" deploy
           else
             mkdir deploy && cd deploy && git init && git checkout -b gh-pages
+            git remote add origin "$REPO_URL"
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             cd /tmp
