@@ -114,7 +114,7 @@ export function createProgram(): Command {
     .option("--judge-model <name>", "Model to use for judging (defaults to --model)")
     .option("--judge-mode <mode>", "Judge mode: pairwise, independent, or both", "pairwise")
     .option("--runs <number>", "Number of runs per scenario for averaging", "5")
-    .option("--parallel-runs <number>", "Max concurrent runs", "1")
+    .option("--parallel-runs <number>", "Max concurrent runs (each may use multiple LLM calls)", "1")
     .option("--judge-timeout <number>", "Judge timeout in seconds", "300")
     .option("--confidence-level <number>", "Confidence level for statistical intervals (0-1)", "0.95")
     .option(
