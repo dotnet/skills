@@ -136,6 +136,33 @@
         "tool": "customBiggerIsBetter",
         "date": 1771567481291,
         "model": "claude-opus-4.6"
+      },
+      {
+        "date": 1771567884118,
+        "model": "claude-opus-4.6",
+        "tool": "customBiggerIsBetter",
+        "commit": {
+          "id": "527d2d5b132c3e5f1537c638e572778d70518f06",
+          "author": {
+            "username": "ViktorHofer",
+            "name": "Aditya Mandaleeka"
+          },
+          "message": "fix: force array output in components.json for dashboard (#59)",
+          "timestamp": "2026-02-20T05:40:49+00:00",
+          "url": "https://github.com/dotnet/skills/commit/527d2d5b132c3e5f1537c638e572778d70518f06"
+        },
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "value": 9.600000381469727,
+            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.599999904632568,
+            "name": "csharp-scripts/Test a C# language feature with a script - Vanilla Quality"
+          }
+        ]
       }
     ],
     "Efficiency": [
@@ -273,8 +300,35 @@
         "tool": "customSmallerIsBetter",
         "date": 1771567481291,
         "model": "claude-opus-4.6"
+      },
+      {
+        "date": 1771567884118,
+        "model": "claude-opus-4.6",
+        "tool": "customSmallerIsBetter",
+        "commit": {
+          "id": "527d2d5b132c3e5f1537c638e572778d70518f06",
+          "author": {
+            "username": "ViktorHofer",
+            "name": "Aditya Mandaleeka"
+          },
+          "message": "fix: force array output in components.json for dashboard (#59)",
+          "timestamp": "2026-02-20T05:40:49+00:00",
+          "url": "https://github.com/dotnet/skills/commit/527d2d5b132c3e5f1537c638e572778d70518f06"
+        },
+        "benches": [
+          {
+            "unit": "seconds",
+            "value": 31.1,
+            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 103599.0,
+            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Tokens In"
+          }
+        ]
       }
     ]
   },
-  "lastUpdate": 1771567481291
+  "lastUpdate": 1771567884118
 }
