@@ -99,7 +99,13 @@ Or equivalently, set the properties in the project file:
 
 ### Step 4: Evaluate Native AOT
 
-> **Critical: AOT is not always the right choice.** For long-running services (Worker Services, daemons, background processors), **do not default to AOT**. These services run for days or weeks, so startup time is a one-time cost that is amortized. The JIT with tiered compilation and dynamic PGO progressively optimizes hot code paths during execution, often delivering **better steady-state throughput** than statically-compiled AOT code. For long-running workloads, recommend **ReadyToRun (R2R)** instead — it provides faster startup than plain IL while preserving JIT tiered compilation for long-term performance. Reserve AOT for short-lived processes (console tools, serverless functions, cold-start-sensitive APIs).
+Native AOT, ReadyToRun (R2R), and JIT with tiered compilation each offer different trade-offs. **Always present these options with their trade-offs** so the user can make an informed choice based on what they value most:
+
+| Strategy | Startup | Binary size | Runtime dependencies | Steady-state throughput |
+|----------|---------|-------------|---------------------|------------------------|
+| **Native AOT** | Fastest (no JIT needed) | Smallest (single native binary) | Fewest (no .NET runtime required) | Static — what you compile is what you get |
+| **ReadyToRun (R2R)** | Fast (pre-compiled, JIT only for cold paths) | Larger (IL + native code) | Requires .NET runtime | Improves over time via tiered compilation and dynamic PGO |
+| **JIT only (default)** | Slowest (all code JIT-compiled at startup) | Smallest IL output | Requires .NET runtime | Best long-term — tiered compilation and dynamic PGO optimize hot paths progressively |
 
 1. Check if the application is AOT-compatible:
    - No `dynamic` keyword usage
@@ -107,10 +113,7 @@ Or equivalently, set the properties in the project file:
    - All serialization uses source generators
    - No runtime code generation (e.g., `System.Reflection.Emit`)
    - Check AOT-compatibility of dependencies, including from nuget
-2. **Before recommending AOT, consider workload lifetime:**
-   - **Short-lived processes** (CLI tools, serverless, APIs with cold-start requirements): AOT is a good fit.
-   - **Long-running services** (Worker Services, daemons, background jobs): Recommend ReadyToRun instead. Explain that AOT eliminates JIT tiered compilation and dynamic PGO, which optimize hot paths over time and typically deliver better performance for services that run continuously.
-3. If AOT is appropriate and compatible, recommend enabling it:
+2. If compatible, recommend enabling AOT and offer to fix any errors:
 
 ```xml
 <PropertyGroup>
@@ -118,8 +121,8 @@ Or equivalently, set the properties in the project file:
 </PropertyGroup>
 ```
 
-4. Always explicitly discuss the trade-offs: longer build time, platform-specific output, no JIT tiered compilation, no dynamic PGO. Present these as concrete considerations, not footnotes.
-5. If not compatible or not appropriate, document the reasons and recommend alternatives (ReadyToRun, trimming).
+3. **Explicitly discuss the trade-offs** for each strategy. AOT eliminates JIT tiered compilation and dynamic PGO — which progressively optimize hot code paths at runtime. R2R preserves tiered compilation while still improving startup. These are orthogonal to whether the service is long-running or short-lived; present the trade-offs and let the user decide.
+4. If not compatible, document the blockers and suggest alternatives (trimming, ReadyToRun).
 
 ### Step 5: Optimize Docker images
 
