@@ -68,7 +68,7 @@ Create `.mcp/server.json` for MCP Registry metadata:
 
 ```json
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "description": "MCP server for interacting with MyService API",
   "name": "io.github.yourusername/mymcpserver",
   "version": "1.0.0",
