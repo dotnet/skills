@@ -93,10 +93,10 @@ Build the project and work through dereference warnings. These are the most comm
 
 | Warning | Meaning | Typical fix |
 |---------|---------|-------------|
-| CS8602 | Dereference of a possibly null reference | Add a null check, use `?.`, or use a pattern like `if (x is not null)` |
-| CS8600 | Converting possible null to non-nullable type | Add `?` to the target type if null is valid, or add a null guard |
-| CS8603 | Possible null reference return | Return a non-null value, or change the return type to nullable (`T?`). **Do not suppress with `!` if the method can genuinely return null** — fix the return type instead |
-| CS8604 | Possible null reference argument | Check for null before passing, or mark the parameter as nullable |
+| CS8602 | Dereference of a possibly null reference | Prefer annotation-only fixes: make the upstream type nullable (`T?`) if null is valid, or use `!` if you can verify the value is never null at this point. Adding a null check or `?.` changes runtime behavior — reserve those for a separate commit (see zero-behavior-change rule above) |
+| CS8600 | Converting possible null to non-nullable type | Add `?` to the target type if null is valid, or use `!` if you can verify the value is never null. Adding a null guard changes runtime behavior |
+| CS8603 | Possible null reference return | Change the return type to nullable (`T?`) if the method can genuinely return null. **Do not suppress with `!` if the method can genuinely return null** — fix the return type instead |
+| CS8604 | Possible null reference argument | Mark the parameter as nullable if null is valid, or use `!` if the argument is verifiably non-null. Adding a null check before passing changes runtime behavior |
 
 > ❌ **Do not use `?.` as a quick fix for dereference warnings.** Replacing `obj.Method()` with `obj?.Method()` silently changes runtime behavior — the call is skipped instead of throwing. Only use `?.` when you intentionally want to tolerate null.
 
