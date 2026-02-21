@@ -1,0 +1,23 @@
+scenarios:
+  - name: "Convert solution with version conflicts to CPM"
+    prompt: "Convert Inventory.slnx to Central Package Management."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "Directory.Packages.props"
+      - type: "output_matches"
+        pattern: "(conflict|mismatch|different version)"
+      - type: "output_matches"
+        pattern: "System\\.Text\\.Json"
+      - type: "output_matches"
+        pattern: "Azure\\.Identity"
+    rubric:
+      - "Audited all 4 projects and identified both version conflicts (System.Text.Json and Azure.Identity)"
+      - "Presented the System.Text.Json conflict clearly: 10.0.1 in Api/Shared/Tests vs 8.0.4 in Worker"
+      - "Presented the Azure.Identity conflict: 1.13.2 in Api vs 1.10.0 in Shared"
+      - "Asked the user how to resolve each conflict rather than silently picking a version"
+      - "Offered options such as aligning to the highest version or using VersionOverride"
+      - "Created Directory.Packages.props reflecting the user's chosen resolution strategy"
+      - "Ran dotnet restore and dotnet build to validate the conversion"
+    timeout: 180

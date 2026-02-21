@@ -1,0 +1,28 @@
+scenarios:
+  - name: "Convert complex repository with multiple CPM challenges"
+    prompt: "I need to convert this entire repository to Central Package Management. The solution is at Enterprise.slnx. There are some complications: package versions defined as MSBuild properties, conditional package references for multi-targeting, and a shared Common.props that adds a package to all projects."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "Directory.Packages.props"
+      - type: "output_matches"
+        pattern: "System\\.Text\\.Json"
+      - type: "output_matches"
+        pattern: "(BlobsVersion|HostingVersion)"
+      - type: "output_matches"
+        pattern: "(condition|conditional|TargetFramework)"
+      - type: "output_matches"
+        pattern: "Common\\.props"
+    rubric:
+      - "Performed a thorough audit across all 5 projects plus Common.props and Directory.Build.props"
+      - "Identified the three-way System.Text.Json version conflict (10.0.1, 9.0.0, 8.0.4) including the security advisory on 8.0.4"
+      - "Identified the Azure.Storage.Blobs version mismatch between the BlobsVersion property and the literal in Legacy"
+      - "Traced MSBuild properties (BlobsVersion, HostingVersion) to their definitions in Directory.Build.props"
+      - "Identified the conditional PackageReference for Microsoft.AspNetCore.Mvc.NewtonsoftJson with different versions per TFM"
+      - "Identified the PackageReference in Common.props that applies to all projects"
+      - "Asked the user about each decision point separately rather than making silent choices"
+      - "Created Directory.Packages.props reflecting all user decisions"
+      - "Preserved non-version properties (LangVersion, ImplicitUsings) in Directory.Build.props"
+      - "Ran dotnet restore and dotnet build to validate the conversion"
+    timeout: 180

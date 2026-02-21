@@ -1,0 +1,18 @@
+scenarios:
+  - name: "Decline CPM conversion for packages.config project"
+    prompt: "Convert my LegacyApp project to Central Package Management."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "packages.config"
+      - type: "output_contains"
+        value: "PackageReference"
+      - type: "file_not_exists"
+        path: "Directory.Packages.props"
+    rubric:
+      - "Detected the project uses packages.config instead of PackageReference format"
+      - "Informed the user that CPM requires PackageReference and cannot be applied to packages.config projects"
+      - "Suggested migrating from packages.config to PackageReference first"
+      - "Did not attempt to create Directory.Packages.props or modify any project files"
+    timeout: 120

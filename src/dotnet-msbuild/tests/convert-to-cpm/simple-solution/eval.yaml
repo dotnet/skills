@@ -1,0 +1,20 @@
+scenarios:
+  - name: "Convert multi-project solution to CPM"
+    prompt: "I'd like to convert MyApp.sln to Central Package Management."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "Directory.Packages.props"
+      - type: "output_contains"
+        value: "ManagePackageVersionsCentrally"
+      - type: "output_matches"
+        pattern: "PrivateAssets"
+    rubric:
+      - "Enumerated projects in the solution (Web, Core, Tests)"
+      - "Created Directory.Packages.props at the solution root with ManagePackageVersionsCentrally set to true"
+      - "Listed all 6 unique packages as PackageVersion items"
+      - "Removed Version attributes from all three project files"
+      - "Preserved PrivateAssets attribute on xunit.runner.visualstudio"
+      - "Ran dotnet restore and dotnet build to validate the conversion"
+    timeout: 120

@@ -1,0 +1,21 @@
+scenarios:
+  - name: "Convert solution with MSBuild property versions to CPM"
+    prompt: "Convert Platform.sln to Central Package Management. The package versions are currently defined as MSBuild properties in Directory.Build.props."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "Directory.Packages.props"
+      - type: "output_matches"
+        pattern: "(OTelVersion|DIVersion)"
+      - type: "output_matches"
+        pattern: "OutputPath"
+    rubric:
+      - "Traced each MSBuild property (OTelVersion, DIVersion) to its definition in Directory.Build.props"
+      - "Clearly showed which packages use properties vs literal versions"
+      - "Asked the user whether to inline the resolved values or keep the property references"
+      - "Created Directory.Packages.props with the user's chosen approach"
+      - "Removed only the version-related properties from Directory.Build.props, preserving the OutputPath property"
+      - "Verified no remaining references to removed properties exist"
+      - "Ran dotnet restore and dotnet build to validate the conversion"
+    timeout: 180

@@ -1,0 +1,18 @@
+scenarios:
+  - name: "Convert single project to CPM"
+    prompt: "Convert my project at MyApp/MyApp.csproj to use Central Package Management."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "Directory.Packages.props"
+      - type: "output_contains"
+        value: "ManagePackageVersionsCentrally"
+      - type: "output_contains"
+        value: "PackageVersion"
+    rubric:
+      - "Created a Directory.Packages.props file with ManagePackageVersionsCentrally set to true"
+      - "Listed all three packages (Microsoft.Extensions.Logging, Polly, System.Text.Json) as PackageVersion items"
+      - "Removed Version attributes from PackageReference items in the .csproj"
+      - "Ran dotnet restore and dotnet build to validate the conversion"
+    timeout: 120
