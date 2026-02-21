@@ -65,6 +65,8 @@ jobs:
   discover:
     runs-on: ubuntu-latest
     outputs:
+      entries: ${{ steps.find.outputs.entries }}
+      has_entries: ${{ steps.find.outputs.has_entries }}
       components: ${{ steps.find.outputs.components }}
       has_components: ${{ steps.find.outputs.has_components }}
     steps:
@@ -73,60 +75,93 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Find components with skills and tests
+      - name: Find skills to evaluate
         id: find
         run: |
           $input = "${{ github.event.inputs.components }}"
+          $entries = @()
+          $components = @()
+
           if ($input) {
-            # Manual input: use specified components
-            $components = $input -split ',' | ForEach-Object { $_.Trim() }
+            # Manual input: use specified components (evaluate all skills)
+            $components = @($input -split ',' | ForEach-Object { $_.Trim() })
+            $entries = @($components | ForEach-Object {
+              @{ name = $_; component = $_; skills_path = "src/$_/skills" }
+            })
           } elseif ("${{ github.event_name }}" -eq "pull_request") {
-            # PR: detect changed components
+            # PR: detect individual changed skills
             $base = "${{ github.event.pull_request.base.sha }}"
             $head = "${{ github.event.pull_request.head.sha }}"
             $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
 
-            # Extract component names from changed files under src/*/
-            $changedComponents = $changedFiles | 
-              Where-Object { $_ -match '^src/([^/]+)/' } |
-              ForEach-Object { $Matches[1] } |
-              Sort-Object -Unique
+            # Extract unique component/skill pairs from changed files under src/*/skills/*/ or src/*/tests/*/
+            $changedPairs = @($changedFiles |
+              Where-Object { $_ -match '^src/([^/]+)/(skills|tests)/([^/]+)/' } |
+              ForEach-Object { "$($Matches[1])/$($Matches[3])" } |
+              Sort-Object -Unique)
 
-            # Filter to only components that have both skills and tests directories
-            $components = $changedComponents | Where-Object {
-              $skillsPath = Join-Path "src" $_ "skills"
-              $testsPath = Join-Path "src" $_ "tests"
-              (Test-Path $skillsPath) -and (Test-Path $testsPath)
-            }
+            # Filter to skills that have a SKILL.md and a component tests directory
+            $entries = @($changedPairs | ForEach-Object {
+              $parts = $_ -split '/'
+              $component = $parts[0]
+              $skill = $parts[1]
+              $skillMd = Join-Path "src" $component "skills" $skill "SKILL.md"
+              $testsDir = Join-Path "src" $component "tests"
+              if ((Test-Path $skillMd) -and (Test-Path $testsDir)) {
+                @{
+                  name = "$component--$skill"
+                  component = $component
+                  skills_path = "src/$component/skills/$skill"
+                }
+              }
+            } | Where-Object { $_ })
+
+            $components = @($entries | ForEach-Object { $_.component } | Sort-Object -Unique)
           } else {
-            # Push/schedule: evaluate all components with skills and tests
-            $components = Get-ChildItem -Path "src" -Directory |
+            # Schedule/dispatch: evaluate all components with skills and tests
+            $components = @(Get-ChildItem -Path "src" -Directory |
               Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path $_.FullName "tests")) } |
-              Select-Object -ExpandProperty Name
+              Select-Object -ExpandProperty Name)
+            $entries = @($components | ForEach-Object {
+              @{ name = $_; component = $_; skills_path = "src/$_/skills" }
+            })
           }
 
+          # Output entries for evaluate matrix
+          if (-not $entries -or $entries.Count -eq 0) {
+            Write-Host "No entries to evaluate"
+            echo "entries=[]" >> $env:GITHUB_OUTPUT
+            echo "has_entries=false" >> $env:GITHUB_OUTPUT
+          } else {
+            $json = $entries | ConvertTo-Json -Compress
+            if ($entries.Count -eq 1) { $json = "[$json]" }
+            Write-Host "Entries to evaluate: $json"
+            echo "entries=$json" >> $env:GITHUB_OUTPUT
+            echo "has_entries=true" >> $env:GITHUB_OUTPUT
+          }
+
+          # Output components for publish-benchmark
           if (-not $components -or $components.Count -eq 0) {
-            Write-Host "No components to evaluate"
             echo "components=[]" >> $env:GITHUB_OUTPUT
             echo "has_components=false" >> $env:GITHUB_OUTPUT
           } else {
-            $json = $components | ConvertTo-Json -Compress
-            if ($components.Count -eq 1) { $json = "[$json]" }
-            Write-Host "Components to evaluate: $json"
-            echo "components=$json" >> $env:GITHUB_OUTPUT
+            $cjson = $components | ConvertTo-Json -Compress
+            if ($components.Count -eq 1) { $cjson = "[$cjson]" }
+            echo "components=$cjson" >> $env:GITHUB_OUTPUT
             echo "has_components=true" >> $env:GITHUB_OUTPUT
           }
         shell: pwsh
 
   evaluate:
     needs: discover
-    if: needs.discover.outputs.has_components == 'true'
+    if: needs.discover.outputs.has_entries == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    name: evaluate (${{ matrix.entry.name }})
     strategy:
       fail-fast: false
       matrix:
-        component: ${{ fromJson(needs.discover.outputs.components) }}
+        entry: ${{ fromJson(needs.discover.outputs.entries) }}
 
     steps:
       - name: Checkout skills repo
@@ -178,13 +213,13 @@ jobs:
             ARGS="$ARGS --judge-model $JUDGE_MODEL"
           fi
 
-          node eng/skill-validator/dist/index.js $ARGS --tests-dir ./src/${{ matrix.component }}/tests ./src/${{ matrix.component }}/skills
+          node eng/skill-validator/dist/index.js $ARGS --tests-dir ./src/${{ matrix.entry.component }}/tests ./${{ matrix.entry.skills_path }}
 
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: skill-validator-results-${{ matrix.component }}
+          name: skill-validator-results-${{ matrix.entry.name }}
           path: .skill-validator-results/
           include-hidden-files: true
           retention-days: 30
@@ -194,14 +229,14 @@ jobs:
         run: |
           RESULTS_DIR=$(ls -d .skill-validator-results/run-* 2>/dev/null | head -1)
           if [ -z "$RESULTS_DIR" ]; then
-            echo "## Skill Validation Results — ${{ matrix.component }}" >> $GITHUB_STEP_SUMMARY
+            echo "## Skill Validation Results — ${{ matrix.entry.name }}" >> $GITHUB_STEP_SUMMARY
             echo "No results found." >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
 
           RESULTS_FILE="$RESULTS_DIR/results.json"
           if [ ! -f "$RESULTS_FILE" ]; then
-            echo "## Skill Validation Results — ${{ matrix.component }}" >> $GITHUB_STEP_SUMMARY
+            echo "## Skill Validation Results — ${{ matrix.entry.name }}" >> $GITHUB_STEP_SUMMARY
             echo "No results.json found." >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
@@ -210,7 +245,7 @@ jobs:
           node -e "
           const fs = require('fs');
           const results = JSON.parse(fs.readFileSync('$RESULTS_FILE', 'utf8'));
-          let md = '## Skill Validation Results — ${{ matrix.component }}\n\n';
+          let md = '## Skill Validation Results — ${{ matrix.entry.name }}\n\n';
           md += '| Skill | Test | Baseline | With Skill | Δ | Verdict |\n';
           md += '|-------|----------|----------|------------|---|--------|\n';
           for (const v of results.verdicts) {
@@ -338,7 +373,7 @@ jobs:
 
   no-changes:
     needs: discover
-    if: github.event_name == 'pull_request' && needs.discover.outputs.has_components != 'true'
+    if: github.event_name == 'pull_request' && needs.discover.outputs.has_entries != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Report no components changed
