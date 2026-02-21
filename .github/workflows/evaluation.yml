@@ -95,6 +95,9 @@ jobs:
             $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
 
             # Extract unique component/skill pairs from changed files under src/*/skills/*/ or src/*/tests/*/
+            # NOTE: Changes under src/*/skills/shared/ won't match here since shared directories
+            # don't have SKILL.md files. Use workflow_dispatch to manually evaluate affected
+            # components when shared resources change.
             $changedPairs = @($changedFiles |
               Where-Object { $_ -match '^src/([^/]+)/(skills|tests)/([^/]+)/' } |
               ForEach-Object { "$($Matches[1])/$($Matches[3])" } |
@@ -133,8 +136,7 @@ jobs:
             echo "entries=[]" >> $env:GITHUB_OUTPUT
             echo "has_entries=false" >> $env:GITHUB_OUTPUT
           } else {
-            $json = $entries | ConvertTo-Json -Compress
-            if ($entries.Count -eq 1) { $json = "[$json]" }
+            $json = $entries | ConvertTo-Json -Compress -AsArray
             Write-Host "Entries to evaluate: $json"
             echo "entries=$json" >> $env:GITHUB_OUTPUT
             echo "has_entries=true" >> $env:GITHUB_OUTPUT
@@ -145,8 +147,7 @@ jobs:
             echo "components=[]" >> $env:GITHUB_OUTPUT
             echo "has_components=false" >> $env:GITHUB_OUTPUT
           } else {
-            $cjson = $components | ConvertTo-Json -Compress
-            if ($components.Count -eq 1) { $cjson = "[$cjson]" }
+            $cjson = $components | ConvertTo-Json -Compress -AsArray
             echo "components=$cjson" >> $env:GITHUB_OUTPUT
             echo "has_components=true" >> $env:GITHUB_OUTPUT
           }
@@ -376,8 +377,8 @@ jobs:
     if: github.event_name == 'pull_request' && needs.discover.outputs.has_entries != 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Report no components changed
+      - name: Report no entries changed
         run: |
           echo "## Skill Evaluation" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "No components with skills and tests were modified in this PR." >> $GITHUB_STEP_SUMMARY
+          echo "No skills with tests were modified in this PR." >> $GITHUB_STEP_SUMMARY
