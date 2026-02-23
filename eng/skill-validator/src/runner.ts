@@ -115,6 +115,9 @@ export function buildSessionConfig(
     streaming: true,
     workingDirectory: workDir,
     skillDirectories: skill ? [skillPath!] : [],
+    // Point configDir at workDir so the SDK won't discover user-installed
+    // skills from ~/.github/skills/, ~/.copilot/config/skills/, etc.
+    configDir: workDir,
     infiniteSessions: { enabled: false },
     onPermissionRequest: async (req: PermissionRequest) => {
       return checkPermission(req, workDir, skillPath);

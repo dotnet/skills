@@ -23,6 +23,16 @@ describe("buildSessionConfig", () => {
     expect(config.workingDirectory).toBe("/tmp/work");
   });
 
+  it("sets configDir to workDir for skill isolation", () => {
+    const config = buildSessionConfig(mockSkill, "gpt-4.1", "/tmp/work");
+    expect(config.configDir).toBe("/tmp/work");
+  });
+
+  it("sets configDir to workDir even without a skill", () => {
+    const config = buildSessionConfig(null, "gpt-4.1", "/tmp/work");
+    expect(config.configDir).toBe("/tmp/work");
+  });
+
   it("sets empty skillDirectories when no skill", () => {
     const config = buildSessionConfig(null, "gpt-4.1", "/tmp/work");
     expect(config.skillDirectories).toEqual([]);
