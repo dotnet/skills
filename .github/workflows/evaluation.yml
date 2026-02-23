@@ -134,6 +134,9 @@ jobs:
       - name: Build skill-validator
         run: cd eng/skill-validator && npm ci && npm run build
 
+      - name: Prune dev dependencies
+        run: cd eng/skill-validator && npm prune --omit=dev
+
       - name: Upload built validator
         uses: actions/upload-artifact@v4
         with:
