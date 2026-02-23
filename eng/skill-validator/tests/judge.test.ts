@@ -39,17 +39,17 @@ describe("parseJudgeResponse", () => {
     expect(result.rubricScores[0].reasoning).toContain("excellent");
   });
 
-  it("throws with context for non-escape JSON errors", () => {
+  it("throws when content has only malformed JSON", () => {
     const malformed = '{"overall_score": 4, broken}';
     expect(() => parseJudgeResponse(malformed, [])).toThrow(
-      /Failed to parse judge response JSON/
+      /contained no JSON/
     );
   });
 
-  it("throws with context when sanitized JSON is still invalid", () => {
+  it("throws when content has malformed JSON with invalid escapes", () => {
     const malformed = '{"overall_score": "4\\x", broken}';
     expect(() => parseJudgeResponse(malformed, [])).toThrow(
-      /even after sanitizing invalid escapes/
+      /contained no JSON/
     );
   });
 

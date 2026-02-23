@@ -174,18 +174,17 @@ describe("parsePairwiseResponse", () => {
     expect(result.rubricResults[0].reasoning).toContain("much better");
   });
 
-  it("throws with context for non-escape JSON errors", () => {
+  it("throws when content has only malformed JSON", () => {
     const malformed = '{"overall_winner": "A", broken}';
     expect(() => parsePairwiseResponse(malformed, [], "forward")).toThrow(
-      /Failed to parse pairwise judge \(forward\) JSON/
+      /contained no JSON/
     );
   });
 
-  it("throws with context when sanitized JSON is still invalid", () => {
-    // Has invalid escapes AND structural problems
+  it("throws when content has malformed JSON with invalid escapes", () => {
     const malformed = '{"overall_winner": "A\\x", broken}';
     expect(() => parsePairwiseResponse(malformed, [], "forward")).toThrow(
-      /even after sanitizing invalid escapes/
+      /contained no JSON/
     );
   });
 

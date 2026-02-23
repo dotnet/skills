@@ -8,10 +8,35 @@
 /**
  * Extract a JSON string from LLM response text.
  * Tries markdown code block first, then falls back to brace-matching.
+ * When brace-matching, validates candidates with JSON.parse and skips
+ * non-JSON brace groups (e.g., C# code snippets).
  */
 export function extractJson(content: string): string | null {
   const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-  return codeBlockMatch?.[1] ?? extractOutermostJson(content);
+  if (codeBlockMatch) return codeBlockMatch[1];
+
+  // Try each top-level brace group until we find valid JSON
+  let searchFrom = 0;
+  while (searchFrom < content.length) {
+    const candidate = extractOutermostJson(content, searchFrom);
+    if (!candidate) return null;
+
+    try {
+      JSON.parse(candidate.text);
+      return candidate.text;
+    } catch {
+      // Not valid JSON (e.g., C# code block) — skip past it
+      try {
+        // Also try with escape sanitization before giving up on this candidate
+        JSON.parse(candidate.text.replace(/\\(?!["\\/bfnrtu])/g, ""));
+        return candidate.text;
+      } catch {
+        searchFrom = candidate.endIndex + 1;
+      }
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -53,8 +78,11 @@ export function parseLlmJson(jsonStr: string, context: string): any {
   }
 }
 
-function extractOutermostJson(text: string): string | null {
-  const start = text.indexOf("{");
+function extractOutermostJson(
+  text: string,
+  fromIndex: number = 0
+): { text: string; endIndex: number } | null {
+  const start = text.indexOf("{", fromIndex);
   if (start === -1) return null;
 
   let depth = 0;
@@ -68,7 +96,10 @@ function extractOutermostJson(text: string): string | null {
     if (ch === '"') { inString = !inString; continue; }
     if (inString) continue;
     if (ch === "{") depth++;
-    if (ch === "}") { depth--; if (depth === 0) return text.slice(start, i + 1); }
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) return { text: text.slice(start, i + 1), endIndex: i };
+    }
   }
 
   return null;
