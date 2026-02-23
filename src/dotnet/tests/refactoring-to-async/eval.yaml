@@ -1,0 +1,33 @@
+scenarios:
+  - name: "Refactor synchronous service to async"
+    prompt: "I have a service class with several synchronous database and HTTP calls. It's causing thread pool starvation under load. Can you convert it to async/await?"
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(async|await|Task<)"
+      - type: "output_matches"
+        pattern: "(CancellationToken|cancellation)"
+      - type: "output_not_matches"
+        pattern: "\\.Result\\b|\\.Wait\\(\\)"
+    rubric:
+      - "Identified all synchronous blocking I/O patterns (.Result, .Wait(), synchronous Read/Write calls)"
+      - "Converted methods bottom-up starting from the lowest-level I/O calls"
+      - "Changed method signatures to return Task or Task<T> with Async suffix"
+      - "Added CancellationToken parameter propagation throughout the call chain"
+      - "Updated interfaces to match the async method signatures"
+      - "Did not introduce async void methods (except event handlers)"
+      - "Verified the code compiles after conversion with dotnet build"
+    expect_tools: ["bash"]
+    timeout: 120
+
+  - name: "Async refactoring should not apply to CPU-bound code"
+    prompt: "I have a method that does heavy matrix multiplication using nested for loops. Can you make it faster?"
+    assertions:
+      - type: "output_not_matches"
+        pattern: "(async Task|await.*ReadAsync|await.*WriteAsync)"
+    rubric:
+      - "Did NOT suggest converting CPU-bound computation to async/await"
+      - "Suggested parallelism approaches (Parallel.For, Task.Run, SIMD, or algorithmic optimization)"
+      - "Correctly identified that async is for I/O-bound work, not CPU-bound work"
+    timeout: 60
