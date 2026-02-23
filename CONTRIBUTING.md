@@ -213,21 +213,19 @@ Prerequisites: Node.js >= 20 and `gh auth login`.
 
 ```bash
 # Build the validator
-cd eng/skill-validator
-npm ci
-npm run build
+cd eng/skill-validator && npm ci && npm run build && cd ../..
 
 # Run tests for a single component
-node dist/index.js --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
+node eng/skill-validator/dist/index.js --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills
 
 # Run tests for a single skill (pass the skill directory directly)
-node dist/index.js --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills/common-build-errors
+node eng/skill-validator/dist/index.js --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills/common-build-errors
 
 # Fewer runs for faster iteration (default is 5)
-node dist/index.js --runs 1 --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
+node eng/skill-validator/dist/index.js --runs 1 --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills
 
 # Use a specific model
-node dist/index.js --model claude-sonnet-4.5 --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
+node eng/skill-validator/dist/index.js --model claude-sonnet-4.5 --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills
 ```
 
 ### CI evaluation

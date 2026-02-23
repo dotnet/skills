@@ -51,11 +51,11 @@ skill-validator --model gpt-5.3-codex --judge-model claude-opus-4.6-fast ./skill
 # Multiple runs for stability
 skill-validator --runs 5 ./skills/
 
-# Output as JSON, JUnit XML, or Markdown summary. Multiple reporters can be enabled.
-# File reporters require --results-dir to specify the output directory.
-skill-validator --results-dir ./my-results --reporter json ./skills/
-skill-validator --results-dir ./my-results --reporter junit ./skills/
-skill-validator --results-dir ./my-results --reporter markdown ./skills/
+# Override the default results directory (.skill-validator-results)
+skill-validator --results-dir ./my-results ./skills/
+
+# File reporters can also be specified explicitly.
+skill-validator --reporter junit ./skills/
 
 # Strict mode (require all skills to have evals)
 skill-validator --strict ./skills/
@@ -228,14 +228,14 @@ The default of 5 runs provides sufficient precision for significance testing (va
 | `--require-evals` | `false` | Fail if skill has no tests/eval.yaml |
 | `--strict` | `false` | Enable --require-evals and strict checking |
 | `--verbose` | `false` | Show tool calls and agent events during runs |
-| `--reporter <spec>` | `console` | Output format: `console`, `json`, `junit`, `markdown` |
-| `--results-dir <path>` | | Directory for file reporter output |
+| `--reporter <spec>` | `console`, `json`, `markdown` | Output format: `console`, `json`, `junit`, `markdown`. |
+| `--results-dir <path>` | `.skill-validator-results` | Directory for file reporter output. |
 
 Models are validated on startup — invalid model names fail fast with a list of available models.
 
 ## Output
 
-Results are displayed in the console with color-coded scores and metric deltas. When `--results-dir` is specified, file reporters write to that directory:
+Results are displayed in the console with color-coded scores and metric deltas. By default, `json` and `markdown` reporters are enabled and write to `.skill-validator-results/` (override with `--results-dir`). File reporters write to that directory:
 
 - `json` — `results.json` with model, timestamp, and all verdicts
 - `junit` — `results.xml` with JUnit XML test results

@@ -19,12 +19,21 @@ export async function reportResults(
         reportConsole(verdicts, verbose);
         break;
       case "json":
+        if (!resultsDir) {
+          throw new Error("--results-dir is required for the json reporter");
+        }
         await reportJson(verdicts, resultsDir, config);
         break;
       case "junit":
+        if (!resultsDir) {
+          throw new Error("--results-dir is required for the junit reporter");
+        }
         await reportJunit(verdicts, resultsDir);
         break;
       case "markdown":
+        if (!resultsDir) {
+          throw new Error("--results-dir is required for the markdown reporter");
+        }
         await reportMarkdown(verdicts, resultsDir, config);
         break;
     }
@@ -273,10 +282,10 @@ function truncate(s: string, max: number): string {
 
 async function reportMarkdown(
   verdicts: SkillVerdict[],
-  resultsDir?: string,
+  resultsDir: string,
   config?: { model?: string; judgeModel?: string }
 ): Promise<void> {
-  let md = "## Skill Validation Results\n\n";
+  let md= "## Skill Validation Results\n\n";
   md += "| Skill | Scenario | Baseline | With Skill | Δ | Verdict |\n";
   md += "|-------|----------|----------|------------|---|---------|\n";
   for (const v of verdicts) {
@@ -293,11 +302,6 @@ async function reportMarkdown(
     }
   }
   md += `\nModel: ${config?.model ?? "unknown"} | Judge: ${config?.judgeModel ?? "unknown"}\n`;
-
-  if (!resultsDir) {
-    console.log(md);
-    return;
-  }
 
   await writeFile(join(resultsDir, "summary.md"), md, "utf-8");
   console.log(`Markdown summary written to ${join(resultsDir, "summary.md")}`);
@@ -353,7 +357,7 @@ async function reportMarkdown(
 
 async function reportJson(
   verdicts: SkillVerdict[],
-  resultsDir?: string,
+  resultsDir: string,
   config?: { model?: string; judgeModel?: string }
 ): Promise<void> {
   const output = {
@@ -362,18 +366,14 @@ async function reportJson(
     timestamp: new Date().toISOString(),
     verdicts,
   };
-  const json = JSON.stringify(output, null, 2);
-  if (!resultsDir) {
-    console.log(json);
-    return;
-  }
+  const json= JSON.stringify(output, null, 2);
   await writeFile(join(resultsDir, "results.json"), json, "utf-8");
   console.log(`JSON results written to ${join(resultsDir, "results.json")}`);
 }
 
 async function reportJunit(
   verdicts: SkillVerdict[],
-  resultsDir?: string
+  resultsDir: string
 ): Promise<void> {
   const testcases = verdicts.flatMap((verdict) => {
     if (verdict.scenarios.length === 0) {
@@ -398,10 +398,6 @@ ${testcases.join("\n")}
 </testsuites>
 `;
 
-  if (!resultsDir) {
-    console.log(xml);
-    return;
-  }
   await writeFile(join(resultsDir, "results.xml"), xml, "utf-8");
   console.log(`JUnit results written to ${join(resultsDir, "results.xml")}`);
 }

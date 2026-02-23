@@ -121,7 +121,8 @@ export function createProgram(): Command {
     .option("--confidence-level <number>", "Confidence level for statistical intervals (0-1)", "0.95")
     .option(
       "--results-dir <path>",
-      "Directory to save results to (used by json, junit, and markdown reporters)"
+      "Directory to save results to (default: .skill-validator-results). Used by file-based reporters (json, junit, markdown).",
+      ".skill-validator-results"
     )
     .option(
       "--tests-dir <path>",
@@ -134,6 +135,19 @@ export function createProgram(): Command {
       [] as ReporterSpec[]
     )
     .action(async (paths: string[], opts) => {
+      const reporters: ReporterSpec[] =
+        opts.reporter.length > 0
+          ? opts.reporter
+          : [{ type: "console" as const }, { type: "json" as const }, { type: "markdown" as const }];
+
+      const fileReporters = reporters.filter((r) => r.type !== "console");
+      if (fileReporters.length > 0 && !opts.resultsDir) {
+        const names = fileReporters.map((r) => r.type).join(", ");
+        throw new Error(
+          `--results-dir is required when using file-based reporters: ${names}`
+        );
+      }
+
       const config: ValidatorConfig = {
         minImprovement: parseFloat(opts.minImprovement),
         requireCompletion: opts.requireCompletion,
@@ -148,10 +162,7 @@ export function createProgram(): Command {
         parallelRuns: Math.max(1, parseInt(opts.parallelRuns, 10) || 1),
         judgeTimeout: parseInt(opts.judgeTimeout, 10) * 1000,
         confidenceLevel: parseFloat(opts.confidenceLevel || "0.95"),
-        reporters:
-          opts.reporter.length > 0
-            ? opts.reporter
-            : [{ type: "console" as const }],
+        reporters,
         skillPaths: paths,
         resultsDir: opts.resultsDir,
         testsDir: opts.testsDir,
