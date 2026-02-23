@@ -265,29 +265,35 @@ jobs:
           path: all-results/
           merge-multiple: false
 
+      - name: Download built validator
+        uses: actions/download-artifact@v4
+        with:
+          name: skill-validator-dist
+          path: artifacts/skill-validator/
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Consolidate summaries
         run: |
-          COMMENT_MARKER="<!-- skill-validator-results -->"
-          BODY="$COMMENT_MARKER"$'\n'"## Skill Validation Results"$'\n\n'
-          FOUND=false
+          JSON_FILES=$(find all-results/ -name results.json)
 
-          for COMPONENT_DIR in all-results/skill-validator-results-*/; do
-            SUMMARY=$(find "$COMPONENT_DIR" -name "summary.md" -type f | head -1)
-            if [ -n "$SUMMARY" ]; then
-              # Strip the duplicate header from each component's summary
-              CONTENT="$(sed '/^## Skill Validation Results$/d' "$SUMMARY")"
-              BODY+="$CONTENT"$'\n\n'
-              FOUND=true
-            fi
-          done
+          node artifacts/skill-validator/dist/index.js consolidate \
+            --output summary-body.md \
+            $JSON_FILES
 
-          if [ "$FOUND" = "false" ]; then
-            BODY+="## Skill Validation Results"$'\n'"No results were produced."$'\n'
-          fi
+          MARKER="<!-- skill-validator-results -->"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          BODY+=$'\n'"[Full results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"$'\n'
+          {
+            echo "$MARKER"
+            cat summary-body.md
+            echo ""
+            echo "[Full results]($RUN_URL)"
+          } > consolidated-comment.md
 
-          echo "$BODY" > consolidated-comment.md
           cat consolidated-comment.md >> $GITHUB_STEP_SUMMARY
 
       - name: Post or update PR comment

@@ -262,6 +262,22 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+### Consolidating results across matrix jobs
+
+When evaluating multiple components in parallel CI matrix jobs, use the `consolidate` subcommand to merge individual `results.json` files into a single markdown summary:
+
+```bash
+skill-validator consolidate --output summary.md results1.json results2.json
+
+# Or use find/glob to discover files
+skill-validator consolidate --output summary.md $(find ./all-results/ -name results.json)
+```
+
+| Flag | Description |
+|------|-------------|
+| `<files...>` | Paths to `results.json` files to merge |
+| `--output <path>` | Output file path for the consolidated markdown |
+
 ## Development
 
 ```bash

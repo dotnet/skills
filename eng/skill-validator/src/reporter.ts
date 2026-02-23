@@ -294,11 +294,11 @@ function formatTimestamp(date: Date): string {
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
 }
 
-async function reportMarkdown(
+/** Generate a markdown summary table from verdicts. Exported for use by the consolidate command. */
+export function generateMarkdownSummary(
   verdicts: SkillVerdict[],
-  resultsDir: string,
   config?: { model?: string; judgeModel?: string }
-): Promise<void> {
+): string {
   let md = "## Skill Validation Results\n\n";
   md += "| Skill | Scenario | Baseline | With Skill | Δ | Verdict |\n";
   md += "|-------|----------|----------|------------|---|---------|\n";
@@ -325,6 +325,15 @@ async function reportMarkdown(
     }
   }
   md += `\nModel: ${config?.model ?? "unknown"} | Judge: ${config?.judgeModel ?? "unknown"}\n`;
+  return md;
+}
+
+async function reportMarkdown(
+  verdicts: SkillVerdict[],
+  resultsDir: string,
+  config?: { model?: string; judgeModel?: string }
+): Promise<void> {
+  const md = generateMarkdownSummary(verdicts, config);
 
   await writeFile(join(resultsDir, "summary.md"), md, "utf-8");
   console.log(`Markdown summary written to ${join(resultsDir, "summary.md")}`);

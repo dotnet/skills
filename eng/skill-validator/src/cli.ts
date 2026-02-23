@@ -1,13 +1,14 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import pLimit from "p-limit";
+import { readFile, writeFile } from "node:fs/promises";
 import { discoverSkills } from "./discovery.js";
 import { runAgent, stopSharedClient, getSharedClient, cleanupWorkDirs } from "./runner.js";
 import { evaluateAssertions, evaluateConstraints } from "./assertions.js";
 import { judgeRun } from "./judge.js";
 import { pairwiseJudge } from "./pairwise-judge.js";
 import { compareScenario, computeVerdict } from "./comparator.js";
-import { reportResults } from "./reporter.js";
+import { reportResults, generateMarkdownSummary } from "./reporter.js";
 import { analyzeSkill, formatProfileLine, formatProfileWarnings } from "./skill-profile.js";
 import type {
   ValidatorConfig,
@@ -164,6 +165,16 @@ export function createProgram(): Command {
       };
 
       const exitCode = await run(config);
+      process.exit(exitCode);
+    });
+
+  program
+    .command("consolidate")
+    .description("Consolidate multiple results.json files into a single markdown summary")
+    .argument("<files...>", "Paths to results.json files to merge")
+    .requiredOption("--output <path>", "Output file path for the consolidated markdown")
+    .action(async (files: string[], opts) => {
+      const exitCode = await consolidate(files, opts.output);
       process.exit(exitCode);
     });
 
@@ -483,6 +494,40 @@ export async function run(config: ValidatorConfig): Promise<number> {
 
   const allPassed = verdicts.every((v) => v.passed);
   return allPassed ? 0 : 1;
+}
+
+async function consolidate(
+  files: string[],
+  outputPath: string,
+): Promise<number> {
+  if (files.length === 0) {
+    await writeFile(outputPath, "## Skill Validation Results\n\nNo results were produced.\n", "utf-8");
+    console.log(`No input files provided. Wrote fallback to ${outputPath}`);
+    return 0;
+  }
+
+  const allVerdicts: SkillVerdict[] = [];
+  let model: string | undefined;
+  let judgeModel: string | undefined;
+
+  for (const file of files) {
+    try {
+      const content = await readFile(file, "utf-8");
+      const data = JSON.parse(content);
+      if (Array.isArray(data.verdicts)) {
+        allVerdicts.push(...data.verdicts);
+      }
+      if (data.model && !model) model = data.model;
+      if (data.judgeModel && !judgeModel) judgeModel = data.judgeModel;
+    } catch (error) {
+      console.error(`Failed to parse ${file}: ${error}`);
+    }
+  }
+
+  const output = generateMarkdownSummary(allVerdicts, { model, judgeModel });
+  await writeFile(outputPath, output, "utf-8");
+  console.log(`Consolidated ${files.length} result file(s) into ${outputPath}`);
+  return 0;
 }
 
 function averageResults(runs: RunResult[]): RunResult {
