@@ -109,7 +109,7 @@ export function buildSessionConfig(
   model: string,
   workDir: string
 ): SessionConfig {
-  const skillPath = skill ? dirname(skill.path) : undefined;
+  const skillPath = skill ? skill.path : undefined;
   return {
     model,
     streaming: true,

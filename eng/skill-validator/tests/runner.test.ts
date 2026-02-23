@@ -13,9 +13,9 @@ describe("buildSessionConfig", () => {
     evalConfig: null,
   };
 
-  it("sets skillDirectories to parent of skill path", () => {
+  it("sets skillDirectories to the skill path itself", () => {
     const config = buildSessionConfig(mockSkill, "gpt-4.1", "/tmp/work");
-    expect(config.skillDirectories).toEqual(["/home/user/skills"]);
+    expect(config.skillDirectories).toEqual(["/home/user/skills/test-skill"]);
   });
 
   it("sets workingDirectory to the workDir", () => {
