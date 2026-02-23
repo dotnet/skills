@@ -1,6 +1,7 @@
 import type { JudgeResult, RubricScore, RunMetrics, EvalScenario } from "./types.js";
 import type { PermissionRequest } from "@github/copilot-sdk";
 import { getSharedClient, checkPermission } from "./runner.js";
+import { sanitizeJsonEscapes } from "./json-utils.js";
 
 export interface JudgeOptions {
   model: string;
@@ -218,8 +219,10 @@ function parseJudgeResponse(
     throw new Error(`Judge response contained no JSON. Raw response:\n${content.slice(0, 500)}`);
   }
 
+  const sanitized = sanitizeJsonEscapes(jsonStr);
+
   try {
-    const parsed = JSON.parse(jsonStr);
+    const parsed = JSON.parse(sanitized);
     const rubricScores: RubricScore[] = (parsed.rubric_scores || []).map(
       (s: { criterion: string; score: number; reasoning: string }) => ({
         criterion: s.criterion,
@@ -236,7 +239,7 @@ function parseJudgeResponse(
       overallReasoning: parsed.overall_reasoning || "",
     };
   } catch (error) {
-    throw new Error(`Judge response parsing failed: ${error}\nExtracted JSON:\n${jsonStr.slice(0, 500)}`);
+    throw new Error(`Judge response parsing failed: ${error}\nExtracted JSON:\n${sanitized.slice(0, 500)}`);
   }
 }
 

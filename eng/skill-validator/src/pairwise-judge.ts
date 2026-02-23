@@ -8,6 +8,7 @@ import type {
 import { PAIRWISE_MAGNITUDE_SCORES } from "./types.js";
 import type { PermissionRequest } from "@github/copilot-sdk";
 import { getSharedClient, checkPermission } from "./runner.js";
+import { sanitizeJsonEscapes } from "./json-utils.js";
 
 export interface PairwiseJudgeOptions {
   model: string;
@@ -270,7 +271,8 @@ function parsePairwiseResponse(
     throw new Error(`Pairwise judge response contained no JSON (${direction})`);
   }
 
-  const parsed = JSON.parse(jsonStr);
+  const sanitized = sanitizeJsonEscapes(jsonStr);
+  const parsed = JSON.parse(sanitized);
 
   const rubricResults: PairwiseRubricResult[] = (parsed.rubric_results || []).map(
     (r: any) => {
