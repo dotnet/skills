@@ -193,14 +193,14 @@ jobs:
 
   evaluate:
     needs: [discover, build-validator]
-    if: needs.discover.outputs.has_entries == 'true'
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     name: evaluate (${{ matrix.entry.name }})
     strategy:
       fail-fast: false
       matrix:
-        entry: ${{ fromJson(needs.discover.outputs.entries) }}
+        entry: ${{ fromJson(needs.discover.outputs.entries || '[]') }}
 
     steps:
       - name: Checkout skills repo
