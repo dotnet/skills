@@ -268,7 +268,6 @@ export async function run(config: ValidatorConfig): Promise<number> {
         withSkill: RunResult;
         pairwise: PairwiseJudgeResult | undefined;
       }> => {
-        const runLabel = `run ${runIndex + 1}/${config.runs}`;
         const runTag = config.runs > 1
           ? (singleScenario ? `[${skill.name}/${runIndex + 1}]` : `[${skill.name}/${scenario.name}/${runIndex + 1}]`)
           : tag;
@@ -373,7 +372,7 @@ export async function run(config: ValidatorConfig): Promise<number> {
               judgeOpts
             );
           } catch (error) {
-            runLog(`⚠️  Pairwise judge failed for ${runLabel}: ${error}`);
+            runLog(`⚠️  Pairwise judge failed: ${error}`);
             pairwise = undefined;
           }
         }
