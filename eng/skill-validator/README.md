@@ -19,7 +19,7 @@ Plugging into your CI, it ensures every new skill adds real value, and existing 
 
 ## Prerequisites
 
-- Node.js >= 20
+- Node.js >= 22
 - Authenticated with GitHub via `gh auth login` (the SDK picks up your credentials automatically)
 
 ## Install

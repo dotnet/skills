@@ -118,8 +118,34 @@ jobs:
           }
         shell: pwsh
 
+  build-validator:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: eng/skill-validator/package-lock.json
+
+      - name: Build skill-validator
+        run: cd eng/skill-validator && npm ci && npm run build
+
+      - name: Upload built validator
+        uses: actions/upload-artifact@v4
+        with:
+          name: skill-validator-dist
+          path: |
+            eng/skill-validator/dist/
+            eng/skill-validator/node_modules/
+            eng/skill-validator/package.json
+          retention-days: 1
+
   evaluate:
-    needs: discover
+    needs: [discover, build-validator]
     if: needs.discover.outputs.has_components == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -142,8 +168,11 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Build skill-validator
-        run: cd eng/skill-validator && npm ci && npm run build
+      - name: Download built validator
+        uses: actions/download-artifact@v4
+        with:
+          name: skill-validator-dist
+          path: artifacts/skill-validator/
 
       - name: Run skill-validator
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -153,32 +182,17 @@ jobs:
         run: |
           ARGS="--strict --require-evals"
           ARGS="$ARGS --reporter console --reporter json:.skill-validator-results/results.json"
+          ARGS="$ARGS --model ${{ github.event.inputs.model || env.DEFAULT_MODEL }}"
+          ARGS="$ARGS --judge-model ${{ github.event.inputs.judge-model || env.DEFAULT_JUDGE_MODEL }}"
+          ARGS="$ARGS --runs ${{ github.event.inputs.runs || env.DEFAULT_RUNS }}"
+          ARGS="$ARGS --parallel-skills ${{ github.event.inputs.parallel-skills || env.DEFAULT_PARALLEL_SKILLS }}"
+          ARGS="$ARGS --parallel-runs ${{ github.event.inputs.parallel-runs || env.DEFAULT_PARALLEL_RUNS }}"
 
-          MODEL="${{ github.event.inputs.model || env.DEFAULT_MODEL }}"
-          if [ -n "$MODEL" ]; then
-            ARGS="$ARGS --model $MODEL"
-          fi
-          RUNS="${{ github.event.inputs.runs || env.DEFAULT_RUNS }}"
-          if [ -n "$RUNS" ]; then
-            ARGS="$ARGS --runs $RUNS"
-          fi
-          PARALLEL_SKILLS="${{ github.event.inputs.parallel-skills || env.DEFAULT_PARALLEL_SKILLS }}"
-          if [ -n "$PARALLEL_SKILLS" ]; then
-            ARGS="$ARGS --parallel-skills $PARALLEL_SKILLS"
-          fi
-          PARALLEL_RUNS="${{ github.event.inputs.parallel-runs || env.DEFAULT_PARALLEL_RUNS }}"
-          if [ -n "$PARALLEL_RUNS" ]; then
-            ARGS="$ARGS --parallel-runs $PARALLEL_RUNS"
-          fi
           if [ "${{ github.event.inputs.verbose }}" = "true" ]; then
             ARGS="$ARGS --verbose"
           fi
-          JUDGE_MODEL="${{ github.event.inputs.judge-model || env.DEFAULT_JUDGE_MODEL }}"
-          if [ -n "$JUDGE_MODEL" ]; then
-            ARGS="$ARGS --judge-model $JUDGE_MODEL"
-          fi
 
-          node eng/skill-validator/dist/index.js $ARGS --tests-dir ./src/${{ matrix.component }}/tests ./src/${{ matrix.component }}/skills
+          node artifacts/skill-validator/dist/index.js $ARGS --tests-dir ./src/${{ matrix.component }}/tests ./src/${{ matrix.component }}/skills
 
       - name: Upload results
         if: always()
@@ -229,12 +243,56 @@ jobs:
           process.stdout.write(md);
           " >> $GITHUB_STEP_SUMMARY
 
-      - name: Comment on PR
-        if: always() && github.event_name == 'pull_request'
+  comment-on-pr:
+    needs: [discover, evaluate]
+    if: always() && github.event_name == 'pull_request' && needs.discover.outputs.has_components == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all result artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: skill-validator-results-*
+          path: all-results/
+          merge-multiple: false
+
+      - name: Consolidate summaries
+        run: |
+          COMMENT_MARKER="<!-- skill-validator-results -->"
+          BODY="$COMMENT_MARKER"$'\n'
+          FOUND=false
+
+          for COMPONENT_DIR in all-results/skill-validator-results-*/; do
+            SUMMARY="$COMPONENT_DIR/summary.md"
+            if [ -f "$SUMMARY" ]; then
+              BODY+=$(cat "$SUMMARY")$'\n\n'
+              FOUND=true
+            fi
+          done
+
+          if [ "$FOUND" = "false" ]; then
+            BODY+="## Skill Validation Results"$'\n'"No results were produced."$'\n'
+          fi
+
+          echo "$BODY" > consolidated-comment.md
+
+      - name: Post or update PR comment
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr comment ${{ github.event.pull_request.number }} --body-file .skill-validator-results/summary.md
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          MARKER="<!-- skill-validator-results -->"
+
+          # Find existing comment with our marker
+          COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --paginate --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" | head -1)
+
+          if [ -n "$COMMENT_ID" ]; then
+            gh api "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" \
+              -X PATCH -F "body=@consolidated-comment.md"
+          else
+            gh pr comment "$PR_NUMBER" --body-file consolidated-comment.md
+          fi
 
   publish-benchmark:
     needs: [discover, evaluate]
