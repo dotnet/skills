@@ -272,7 +272,15 @@ function parsePairwiseResponse(
   }
 
   const sanitized = sanitizeJsonEscapes(jsonStr);
-  const parsed = JSON.parse(sanitized);
+  let parsed: any;
+  try {
+    parsed = JSON.parse(sanitized);
+  } catch (err: any) {
+    throw new Error(
+      `Failed to parse pairwise judge JSON (${direction}): ${err?.message ?? err}\n` +
+        `Sanitized JSON (truncated): ${trunc(sanitized, 1000)}`
+    );
+  }
 
   const rubricResults: PairwiseRubricResult[] = (parsed.rubric_results || []).map(
     (r: any) => {

@@ -18,6 +18,20 @@ describe("sanitizeJsonEscapes", () => {
     expect(sanitizeJsonEscapes(input)).toBe(input);
   });
 
+  it("fixes truncated \\u escape with fewer than 4 hex digits", () => {
+    const input = '{"a": "bad\\u1"}';
+    const result = sanitizeJsonEscapes(input);
+    const parsed = JSON.parse(result);
+    expect(parsed.a).toBe("bad\\u1");
+  });
+
+  it("fixes \\u escape with non-hex characters", () => {
+    const input = '{"a": "bad\\u12G4"}';
+    const result = sanitizeJsonEscapes(input);
+    const parsed = JSON.parse(result);
+    expect(parsed.a).toBe("bad\\u12G4");
+  });
+
   it("fixes a single invalid escape inside a string", () => {
     // \M is not a valid JSON escape
     const input = '{"criterion": "Identified MultiTargetLib\\MultiTargetLib correctly"}';
@@ -115,7 +129,7 @@ describe("sanitizeJsonEscapes", () => {
     expect(sanitizeJsonEscapes("")).toBe("");
   });
 
-  it("handles a real-world LLM pairwise judge response with invalid escapes", () => {
+  it("passes through valid LLM pairwise judge JSON unchanged", () => {
     const input = JSON.stringify({
       rubric_results: [
         {
@@ -131,6 +145,29 @@ describe("sanitizeJsonEscapes", () => {
     });
     // Valid JSON should pass through unchanged
     expect(sanitizeJsonEscapes(input)).toBe(input);
+  });
+
+  it("fixes invalid escapes in a pairwise judge response", () => {
+    const input = [
+      '{',
+      '  "rubric_results": [{',
+      '    "criterion": "Quality",',
+      '    "winner": "A",',
+      '    "magnitude": "slightly-better",',
+      '    "reasoning": "Response A handled C:\\Projects\\MyApp better"',
+      '  }],',
+      '  "overall_winner": "A",',
+      '  "overall_magnitude": "slightly-better",',
+      '  "overall_reasoning": "A analyzed the bin\\obj clash correctly"',
+      '}',
+    ].join('\n');
+    const parsed = JSON.parse(sanitizeJsonEscapes(input));
+    expect(parsed.rubric_results[0].reasoning).toBe(
+      "Response A handled C:\\Projects\\MyApp better"
+    );
+    expect(parsed.overall_reasoning).toBe(
+      "A analyzed the bin\\obj clash correctly"
+    );
   });
 
   it("handles Windows-style paths that LLMs commonly include", () => {
