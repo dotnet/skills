@@ -222,6 +222,7 @@ The default of 5 runs provides sufficient precision for significance testing (va
 | `--min-improvement <n>` | `0.1` | Minimum improvement score (0–1) |
 | `--runs <n>` | `5` | Runs per scenario (averaged for stability) |
 | `--parallel-skills <n>` | `1` | Max concurrent skills to evaluate |
+| `--parallel-scenarios <n>` | `1` | Max concurrent scenarios per skill |
 | `--parallel-runs <n>` | `1` | Max concurrent runs per scenario |
 | `--confidence-level <n>` | `0.95` | Confidence level for statistical intervals (0–1) |
 | `--judge-timeout <n>` | `300` | Judge LLM timeout in seconds |
