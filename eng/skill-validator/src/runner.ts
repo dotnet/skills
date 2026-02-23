@@ -125,6 +125,11 @@ export function buildSessionConfig(
 export async function runAgent(options: RunOptions): Promise<RunMetrics> {
   const { scenario, skill, evalPath, model, verbose } = options;
   const workDir = await setupWorkDir(scenario, skill?.path ?? null, evalPath);
+  if (verbose) {
+    const write = options.log ?? ((msg: string) => process.stderr.write(`${msg}\n`));
+    write(`      📂 Work dir: ${workDir} (${skill ? 'skilled' : 'baseline'})`);
+  }
+  
   const events: AgentEvent[] = [];
   let agentOutput = "";
 
