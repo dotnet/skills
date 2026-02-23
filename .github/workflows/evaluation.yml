@@ -181,11 +181,52 @@ jobs:
       - name: Build skill-validator
         run: cd eng/skill-validator && npm ci && npm run build
 
+      - name: Select random Copilot token
+        id: select-token
+        env:
+          TOKEN_1: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+          TOKEN_3: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+          TOKEN_4: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
+          TOKEN_5: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
+          TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
+          TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
+          TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
+        run: |
+          # Collect all non-empty token secrets
+          TOKENS=()
+          NAMES=()
+          for i in 1 2 3 4 5 6 7 8; do
+            var="TOKEN_$i"
+            val="${!var}"
+            if [ -n "$val" ]; then
+              TOKENS+=("$val")
+              if [ "$i" -eq 1 ]; then
+                NAMES+=("COPILOT_GITHUB_TOKEN")
+              else
+                NAMES+=("COPILOT_GITHUB_TOKEN_$i")
+              fi
+            fi
+          done
+
+          if [ ${#TOKENS[@]} -eq 0 ]; then
+            echo "::error::No COPILOT_GITHUB_TOKEN secrets are configured"
+            exit 1
+          fi
+
+          # Pick a random token
+          IDX=$((RANDOM % ${#TOKENS[@]}))
+          echo "Selected ${NAMES[$IDX]} (1 of ${#TOKENS[@]} available tokens)"
+
+          # Mask the value so it won't appear in logs, then export
+          echo "::add-mask::${TOKENS[$IDX]}"
+          echo "token=${TOKENS[$IDX]}" >> $GITHUB_OUTPUT
+
       - name: Run skill-validator
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         continue-on-error: true
         env:
-          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+          GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
         run: |
           ARGS="--strict --require-evals"
           ARGS="$ARGS --reporter console --reporter json:.skill-validator-results/results.json"
