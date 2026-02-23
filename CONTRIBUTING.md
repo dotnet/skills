@@ -209,7 +209,7 @@ See the [skill-validator README](eng/skill-validator/README.md) for the full lis
 
 ### Running tests locally
 
-Prerequisites: Node.js >= 20 and `gh auth login`.
+Prerequisites: Node.js >= 22 and `gh auth login`.
 
 ```bash
 # Build the validator
