@@ -193,7 +193,7 @@ jobs:
 
   evaluate:
     needs: [discover, build-validator]
-    if: ${{ !cancelled() && !failure() }}
+    if: ${{ needs.build-validator.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     name: evaluate (${{ matrix.entry.name }})
@@ -268,13 +268,15 @@ jobs:
       - name: Consolidate summaries
         run: |
           COMMENT_MARKER="<!-- skill-validator-results -->"
-          BODY="$COMMENT_MARKER"$'\n'
+          BODY="$COMMENT_MARKER"$'\n'"## Skill Validation Results"$'\n\n'
           FOUND=false
 
           for COMPONENT_DIR in all-results/skill-validator-results-*/; do
             SUMMARY=$(find "$COMPONENT_DIR" -name "summary.md" -type f | head -1)
             if [ -n "$SUMMARY" ]; then
-              BODY+=$(cat "$SUMMARY")$'\n\n'
+              # Strip the duplicate header from each component's summary
+              CONTENT="$(sed '/^## Skill Validation Results$/d' "$SUMMARY")"
+              BODY+="$CONTENT"$'\n\n'
               FOUND=true
             fi
           done

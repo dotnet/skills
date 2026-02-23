@@ -142,14 +142,6 @@ export function createProgram(): Command {
           ? opts.reporter
           : [{ type: "console" as const }, { type: "json" as const }, { type: "markdown" as const }];
 
-      const fileReporters = reporters.filter((r) => r.type !== "console");
-      if (fileReporters.length > 0 && !opts.resultsDir) {
-        const names = fileReporters.map((r) => r.type).join(", ");
-        throw new Error(
-          `--results-dir is required when using file-based reporters: ${names}`
-        );
-      }
-
       const config: ValidatorConfig = {
         minImprovement: parseFloat(opts.minImprovement),
         requireCompletion: opts.requireCompletion,

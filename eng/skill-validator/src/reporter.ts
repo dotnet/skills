@@ -299,7 +299,7 @@ async function reportMarkdown(
   resultsDir: string,
   config?: { model?: string; judgeModel?: string }
 ): Promise<void> {
-  let md= "## Skill Validation Results\n\n";
+  let md = "## Skill Validation Results\n\n";
   md += "| Skill | Scenario | Baseline | With Skill | Δ | Verdict |\n";
   md += "|-------|----------|----------|------------|---|---------|\n";
   for (const v of verdicts) {
@@ -389,7 +389,7 @@ async function reportJson(
     timestamp: new Date().toISOString(),
     verdicts,
   };
-  const json= JSON.stringify(output, null, 2);
+  const json = JSON.stringify(output, null, 2);
   await writeFile(join(resultsDir, "results.json"), json, "utf-8");
   console.log(`JSON results written to ${join(resultsDir, "results.json")}`);
 }
