@@ -228,6 +228,9 @@ node eng/skill-validator/dist/index.js --runs 1 --tests-dir src/dotnet-msbuild/t
 node eng/skill-validator/dist/index.js --model claude-sonnet-4.5 --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills
 ```
 
+> [!WARNING]  
+> If you share the results in a Pull Request, make sure to have `--runs` configured to at least 3 but better 5 for reliable results.
+
 ### CI evaluation
 
 Tests run automatically on pull requests that modify files under `src/`. The evaluation workflow discovers changed components and runs the skill-validator for each one. Results are posted as a PR comment and uploaded as build artifacts.

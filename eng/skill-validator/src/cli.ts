@@ -17,6 +17,7 @@ import type {
   RunResult,
   ScenarioComparison,
   PairwiseJudgeResult,
+  EvalScenario,
 } from "./types.js";
 import type { ModelInfo } from "@github/copilot-sdk";
 
@@ -116,6 +117,7 @@ export function createProgram(): Command {
     .option("--judge-mode <mode>", "Judge mode: pairwise, independent, or both", "pairwise")
     .option("--runs <number>", "Number of runs per scenario for averaging", "5")
     .option("--parallel-skills <number>", "Max concurrent skills to evaluate", "1")
+    .option("--parallel-scenarios <number>", "Max concurrent scenarios per skill", "1")
     .option("--parallel-runs <number>", "Max concurrent runs per scenario", "1")
     .option("--judge-timeout <number>", "Judge timeout in seconds", "300")
     .option("--confidence-level <number>", "Confidence level for statistical intervals (0-1)", "0.95")
@@ -159,6 +161,7 @@ export function createProgram(): Command {
         judgeMode: opts.judgeMode || "pairwise",
         runs: Math.max(1, parseInt(opts.runs, 10) || 5),
         parallelSkills: Math.max(1, parseInt(opts.parallelSkills, 10) || 1),
+        parallelScenarios: Math.max(1, parseInt(opts.parallelScenarios, 10) || 1),
         parallelRuns: Math.max(1, parseInt(opts.parallelRuns, 10) || 1),
         judgeTimeout: parseInt(opts.judgeTimeout, 10) * 1000,
         confidenceLevel: parseFloat(opts.confidenceLevel || "0.95"),
@@ -259,10 +262,11 @@ export async function run(config: ValidatorConfig): Promise<number> {
       log(warning);
     }
 
-    const comparisons: ScenarioComparison[] = [];
     const singleScenario = skill.evalConfig.scenarios.length === 1;
+    const scenarioLimit = pLimit(Math.max(1, config.parallelScenarios));
 
-    for (const scenario of skill.evalConfig.scenarios) {
+    // Execute all scenarios for this skill (parallel if parallelScenarios > 1)
+    const executeScenario = async (scenario: EvalScenario): Promise<ScenarioComparison> => {
       const tag = singleScenario ? `[${skill.name}]` : `[${skill.name}/${scenario.name}]`;
       const scenarioLog = (msg: string) => spinner.log(`${tag} ${msg}`);
       const runLimit = pLimit(Math.max(1, config.parallelRuns));
@@ -277,11 +281,13 @@ export async function run(config: ValidatorConfig): Promise<number> {
         withSkill: RunResult;
         pairwise: PairwiseJudgeResult | undefined;
       }> => {
-        const runLabel = `run ${runIndex + 1}/${config.runs}`;
-        const runLog = (msg: string) => spinner.log(`${tag} ${msg}`);
+        const runTag = config.runs > 1
+          ? (singleScenario ? `[${skill.name}/${runIndex + 1}]` : `[${skill.name}/${scenario.name}/${runIndex + 1}]`)
+          : tag;
+        const runLog = (msg: string) => spinner.log(`${runTag} ${msg}`);
 
         if (config.verbose) {
-          runLog(`${runLabel}: running agents...`);
+          runLog(`running agents...`);
         }
 
         // Run baseline and with-skill in parallel
@@ -379,13 +385,13 @@ export async function run(config: ValidatorConfig): Promise<number> {
               judgeOpts
             );
           } catch (error) {
-            runLog(`⚠️  Pairwise judge failed for ${runLabel}: ${error}`);
+            runLog(`⚠️  Pairwise judge failed: ${error}`);
             pairwise = undefined;
           }
         }
 
         if (config.verbose) {
-          runLog(`✓ ${runLabel} complete`);
+          runLog(`✓ complete`);
         }
 
         return { baseline, withSkill: withSkillResult, pairwise };
@@ -438,8 +444,13 @@ export async function run(config: ValidatorConfig): Promise<number> {
       );
       comparison.perRunScores = perRunScores;
 
-      comparisons.push(comparison);
-    }
+      return comparison;
+    };
+
+    const scenarioPromises = skill.evalConfig.scenarios.map((scenario) =>
+      scenarioLimit(() => executeScenario(scenario))
+    );
+    const comparisons = await Promise.all(scenarioPromises);
 
     const verdict = computeVerdict(
       skill,

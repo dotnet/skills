@@ -184,6 +184,7 @@ export interface ValidatorConfig {
   judgeMode: JudgeMode;
   runs: number;
   parallelSkills: number;
+  parallelScenarios: number;
   parallelRuns: number;
   judgeTimeout: number;
   confidenceLevel: number;
