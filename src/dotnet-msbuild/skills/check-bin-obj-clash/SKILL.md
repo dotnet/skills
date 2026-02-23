@@ -1,6 +1,6 @@
 ---
 name: check-bin-obj-clash
-description: "Detects MSBuild projects with conflicting OutputPath or IntermediateOutputPath. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when builds fail with file access errors, missing outputs, or intermittent failures. Identifies when multiple projects or multi-targeting builds write to the same bin/obj directories."
+description: "Detects MSBuild projects with conflicting OutputPath or IntermediateOutputPath. Only activate in MSBuild/.NET build contexts (see 'MSBuild Domain Relevance Check' for details). Use when builds fail with file access errors, missing outputs, or intermittent failures. Identifies when multiple projects or multi-targeting builds write to the same bin/obj directories."
 ---
 
 # Detecting OutputPath and IntermediateOutputPath Clashes
@@ -22,14 +22,6 @@ Clashes can occur between:
 
 **Note:** Project instances with `BuildProjectReferences=false` should be **ignored** when analyzing clashes - these are P2P reference resolution builds that only query metadata (via `GetTargetPath`) and do not actually write to output directories.
 
-## Samples
-
-The [bin-obj-clash sample](../../samples/bin-obj-clash/) contains a test solution demonstrating both types of clashes:
-- **LibraryA & LibraryB** - Cross-project clash with shared `BaseIntermediateOutputPath`
-- **MultiTargetLib** - Multi-targeting clash with `AppendTargetFrameworkToOutputPath=false`
-
-See [samples/bin-obj-clash/README.md](../../samples/bin-obj-clash/README.md) for details.
-
 ## When to Use This Skill
 
 **Invoke this skill immediately when you see:**
@@ -40,7 +32,7 @@ See [samples/bin-obj-clash/README.md](../../samples/bin-obj-clash/README.md) for
 
 ## Step 1: Generate a Binary Log
 
-Follow the instructions in the [binlog-generation skill](../binlog-generation/SKILL.md) to generate a binary log with the correct naming convention.
+Use the `binlog-generation` skill to generate a binary log with the correct naming convention.
 
 ## Step 2: Load the Binary Log
 
@@ -346,4 +338,4 @@ When multiple evaluations share an output path, compare these global properties 
 
 ## Testing Fixes
 
-After making changes to fix path clashes, clean and rebuild to verify. See the [binlog-generation skill](../binlog-generation/SKILL.md#cleaning-the-repository) for how to clean the repository while preserving binlog files.
+After making changes to fix path clashes, clean and rebuild to verify. See the `binlog-generation` skill's "Cleaning the Repository" section on how to clean the repository while preserving binlog files.
