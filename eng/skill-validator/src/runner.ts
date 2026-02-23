@@ -154,9 +154,10 @@ export async function runAgent(options: RunOptions): Promise<RunMetrics> {
 
     try {
       const idlePromise = new Promise<void>((resolve, reject) => {
+        const effectiveTimeoutSeconds = scenario.timeout ?? 120;
         const timer = setTimeout(() => {
-          reject(new Error(`Scenario timed out after ${scenario.timeout}s`));
-        }, (scenario.timeout ?? 120) * 1000);
+          reject(new Error(`Scenario timed out after ${effectiveTimeoutSeconds}s`));
+        }, effectiveTimeoutSeconds * 1000);
 
         session.on((event: SessionEvent) => {
           const agentEvent: AgentEvent = {

@@ -272,8 +272,8 @@ jobs:
           FOUND=false
 
           for COMPONENT_DIR in all-results/skill-validator-results-*/; do
-            SUMMARY="$COMPONENT_DIR/summary.md"
-            if [ -f "$SUMMARY" ]; then
+            SUMMARY=$(find "$COMPONENT_DIR" -name "summary.md" -type f | head -1)
+            if [ -n "$SUMMARY" ]; then
               BODY+=$(cat "$SUMMARY")$'\n\n'
               FOUND=true
             fi

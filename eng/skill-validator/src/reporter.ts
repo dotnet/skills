@@ -10,8 +10,17 @@ export async function reportResults(
   config?: { model?: string; judgeModel?: string; resultsDir?: string }
 ): Promise<void> {
   const resultsDir = config?.resultsDir;
-  if (resultsDir) {
-    await mkdir(resultsDir, { recursive: true });
+  const needsResultsDir = reporters.some(
+    (reporter) =>
+      reporter.type === "json" ||
+      reporter.type === "junit" ||
+      reporter.type === "markdown"
+  );
+  const effectiveResultsDir = resultsDir && needsResultsDir
+    ? join(resultsDir, formatTimestamp(new Date()))
+    : undefined;
+  if (effectiveResultsDir) {
+    await mkdir(effectiveResultsDir, { recursive: true });
   }
   for (const reporter of reporters) {
     switch (reporter.type) {
@@ -19,22 +28,22 @@ export async function reportResults(
         reportConsole(verdicts, verbose);
         break;
       case "json":
-        if (!resultsDir) {
+        if (!effectiveResultsDir) {
           throw new Error("--results-dir is required for the json reporter");
         }
-        await reportJson(verdicts, resultsDir, config);
+        await reportJson(verdicts, effectiveResultsDir, config);
         break;
       case "junit":
-        if (!resultsDir) {
+        if (!effectiveResultsDir) {
           throw new Error("--results-dir is required for the junit reporter");
         }
-        await reportJunit(verdicts, resultsDir);
+        await reportJunit(verdicts, effectiveResultsDir);
         break;
       case "markdown":
-        if (!resultsDir) {
+        if (!effectiveResultsDir) {
           throw new Error("--results-dir is required for the markdown reporter");
         }
-        await reportMarkdown(verdicts, resultsDir, config);
+        await reportMarkdown(verdicts, effectiveResultsDir, config);
         break;
     }
   }
@@ -280,6 +289,11 @@ function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 3) + "..." : s;
 }
 
+function formatTimestamp(date: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+}
+
 async function reportMarkdown(
   verdicts: SkillVerdict[],
   resultsDir: string,
@@ -297,7 +311,16 @@ async function reportMarkdown(
         (s.baseline?.judgeResult?.overallScore ?? 0)
       ).toFixed(1);
       const deltaStr = Number(delta) > 0 ? `+${delta}` : delta;
-      const icon = v.passed ? "✅" : "❌";
+      const icon =
+        s.improvementScore != null
+          ? s.improvementScore > 0
+            ? "✅"
+            : s.improvementScore < 0
+            ? "❌"
+            : "🟡"
+          : v.passed
+          ? "✅"
+          : "❌";
       md += `| ${v.skillName} | ${s.scenarioName} | ${base}/5 | ${skill}/5 | ${deltaStr} | ${icon} |\n`;
     }
   }
