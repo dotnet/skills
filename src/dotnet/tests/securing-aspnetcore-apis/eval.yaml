@@ -1,0 +1,47 @@
+scenarios:
+  - name: "Secure an ASP.NET Core API with JWT auth and CORS"
+    prompt: |
+      I'm building a public ASP.NET Core 8 Web API that will be consumed by a React SPA running on a different domain. I need to:
+      1. Add JWT bearer authentication
+      2. Configure CORS properly for the SPA
+      3. Add rate limiting to prevent abuse
+
+      My Program.cs currently has no auth:
+
+      ```csharp
+      var builder = WebApplication.CreateBuilder(args);
+      builder.Services.AddControllers();
+      var app = builder.Build();
+      app.MapControllers();
+      app.Run();
+      ```
+
+      Show me the correct and secure way to set this up.
+    assertions:
+      - type: "output_matches"
+        pattern: "(AddAuthentication|JwtBearer|JwtBearerDefaults)"
+      - type: "output_matches"
+        pattern: "(AddCors|CORS|WithOrigins)"
+      - type: "output_matches"
+        pattern: "(UseAuthentication.*UseAuthorization|middleware.order|order.matters)"
+    rubric:
+      - "Added JWT bearer auth with proper TokenValidationParameters (ValidateIssuer, ValidateAudience, ValidateLifetime all true)"
+      - "Configured CORS with specific origins (NOT AllowAnyOrigin with credentials)"
+      - "Added rate limiting using AddRateLimiter with a fixed or sliding window policy"
+      - "Placed middleware in correct order: UseCors → UseAuthentication → UseAuthorization → UseRateLimiter"
+      - "Explicitly stated that middleware order matters and incorrect order silently bypasses security"
+      - "Did NOT disable token validation parameters or use AllowAnyOrigin in production config"
+    expect_tools: ["bash"]
+    timeout: 120
+
+  - name: "Security skill should not activate for internal service question"
+    prompt: "I have an internal gRPC service running in Kubernetes behind a service mesh. How do I set up communication between my two microservices?"
+    assertions:
+      - type: "output_not_contains"
+        value: "JwtBearer"
+      - type: "output_not_matches"
+        pattern: "(AddAuthentication|JWT|CORS|rate.limit)"
+    rubric:
+      - "Did NOT suggest JWT/CORS/rate limiting for an internal service mesh question"
+      - "Provided gRPC or service mesh relevant guidance"
+    timeout: 60
