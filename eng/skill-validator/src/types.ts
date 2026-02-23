@@ -134,6 +134,17 @@ export const PAIRWISE_MAGNITUDE_SCORES: Record<PairwiseMagnitude, number> = {
 
 export type JudgeMode = "pairwise" | "independent" | "both";
 
+export interface SkillActivationInfo {
+  /** Whether the skill appears to have been activated */
+  activated: boolean;
+  /** Skill names detected from session events */
+  detectedSkills: string[];
+  /** Tools used in the skilled run but not in the baseline run */
+  extraTools: string[];
+  /** Count of skill/instruction-related session events */
+  skillEventCount: number;
+}
+
 export interface ScenarioComparison {
   scenarioName: string;
   baseline: RunResult;
@@ -142,6 +153,7 @@ export interface ScenarioComparison {
   breakdown: MetricBreakdown;
   pairwiseResult?: PairwiseJudgeResult;
   perRunScores?: number[];
+  skillActivation?: SkillActivationInfo;
 }
 
 export interface MetricBreakdown {
@@ -171,6 +183,7 @@ export interface SkillVerdict {
   isSignificant?: boolean;
   reason: string;
   profileWarnings?: string[];
+  skillNotActivated?: boolean;
 }
 
 export interface ValidatorConfig {

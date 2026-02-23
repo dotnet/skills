@@ -258,16 +258,35 @@ jobs:
           const fs = require('fs');
           const results = JSON.parse(fs.readFileSync('$RESULTS_FILE', 'utf8'));
           let md = '## Skill Validation Results — ${{ matrix.entry.name }}\n\n';
-          md += '| Skill | Test | Baseline | With Skill | Δ | Verdict |\n';
-          md += '|-------|----------|----------|------------|---|--------|\n';
+          md += '| Skill | Test | Baseline | With Skill | Δ | Skills Loaded | Verdict |\n';
+          md += '|-------|----------|----------|------------|---|---------------|--------|\n';
           for (const v of results.verdicts) {
+            const skillNotActivated = v.skillNotActivated ? true : false;
             for (const s of v.scenarios) {
               const base = s.baseline?.judgeResult?.overallScore?.toFixed(1) ?? '—';
               const skill = s.withSkill?.judgeResult?.overallScore?.toFixed(1) ?? '—';
               const delta = (s.withSkill?.judgeResult?.overallScore - s.baseline?.judgeResult?.overallScore)?.toFixed(1);
               const deltaStr = delta > 0 ? '+' + delta : delta;
               const icon = v.passed ? '✅' : '❌';
-              md += '| ' + v.skillName + ' | ' + s.scenarioName + ' | ' + base + '/5 | ' + skill + '/5 | ' + deltaStr + ' | ' + icon + ' |\n';
+              // Skill activation info
+              let skillsCol = '—';
+              if (s.skillActivation) {
+                if (s.skillActivation.activated) {
+                  const parts = [];
+                  if (s.skillActivation.detectedSkills && s.skillActivation.detectedSkills.length > 0) {
+                    parts.push(...s.skillActivation.detectedSkills);
+                  }
+                  if (s.skillActivation.extraTools && s.skillActivation.extraTools.length > 0) {
+                    parts.push('tools: ' + s.skillActivation.extraTools.join(', '));
+                  }
+                  skillsCol = parts.length > 0 ? '✅ ' + parts.join('; ') : '✅';
+                } else {
+                  skillsCol = '⚠️ NOT ACTIVATED';
+                }
+              } else if (skillNotActivated) {
+                skillsCol = '⚠️ NOT ACTIVATED';
+              }
+              md += '| ' + v.skillName + ' | ' + s.scenarioName + ' | ' + base + '/5 | ' + skill + '/5 | ' + deltaStr + ' | ' + skillsCol + ' | ' + icon + ' |\n';
             }
           }
           md += '\nModel: ' + results.model + ' | Judge: ' + results.judgeModel + '\n';

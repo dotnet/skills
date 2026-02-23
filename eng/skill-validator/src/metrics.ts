@@ -1,4 +1,57 @@
-import type { RunMetrics, AgentEvent, AssertionResult } from "./types.js";
+import type { RunMetrics, AgentEvent, AssertionResult, SkillActivationInfo } from "./types.js";
+
+/**
+ * Analyse events from a "with-skill" run (and optionally compare against
+ * the baseline's tool breakdown) to determine whether the skill was
+ * actually loaded / activated by the agent.
+ *
+ * Detection heuristics:
+ *  1. Session events whose type contains "skill" or "instruction" — emitted
+ *     by the Copilot SDK when skill instructions are attached.
+ *  2. "Extra tools" — tools that appeared in the skilled run but were absent
+ *     from the baseline, which strongly suggests the skill introduced them.
+ */
+export function extractSkillActivation(
+  skilledEvents: AgentEvent[],
+  baselineToolBreakdown: Record<string, number>
+): SkillActivationInfo {
+  const detectedSkills: string[] = [];
+  let skillEventCount = 0;
+
+  for (const event of skilledEvents) {
+    const t = event.type.toLowerCase();
+    if (t.includes("skill") || t.includes("instruction")) {
+      skillEventCount++;
+      const name = String(event.data.skillName ?? event.data.name ?? "");
+      if (name && !detectedSkills.includes(name)) {
+        detectedSkills.push(name);
+      }
+    }
+  }
+
+  // Build tool breakdown for the skilled run
+  const skilledTools: Record<string, number> = {};
+  for (const event of skilledEvents) {
+    if (event.type === "tool.execution_start") {
+      const name = String(event.data.toolName ?? "unknown");
+      skilledTools[name] = (skilledTools[name] || 0) + 1;
+    }
+  }
+
+  const extraTools: string[] = [];
+  for (const tool of Object.keys(skilledTools)) {
+    if (!(tool in baselineToolBreakdown)) {
+      extraTools.push(tool);
+    }
+  }
+
+  return {
+    activated: skillEventCount > 0 || extraTools.length > 0,
+    detectedSkills,
+    extraTools,
+    skillEventCount,
+  };
+}
 
 export function collectMetrics(
   events: AgentEvent[],
