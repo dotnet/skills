@@ -1,12 +1,13 @@
 import chalk from "chalk";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
-import type { SkillVerdict, ReporterSpec, ScenarioComparison } from "./types.js";
+import type { SkillVerdict, ReporterSpec, ScenarioComparison, ValidatorConfig } from "./types.js";
 
 export async function reportResults(
   verdicts: SkillVerdict[],
   reporters: ReporterSpec[],
-  verbose: boolean
+  verbose: boolean,
+  config?: { model?: string; judgeModel?: string }
 ): Promise<void> {
   for (const reporter of reporters) {
     switch (reporter.type) {
@@ -14,10 +15,13 @@ export async function reportResults(
         reportConsole(verdicts, verbose);
         break;
       case "json":
-        await reportJson(verdicts, reporter.outputPath);
+        await reportJson(verdicts, reporter.outputPath, config);
         break;
       case "junit":
         await reportJunit(verdicts, reporter.outputPath);
+        break;
+      case "markdown":
+        await reportMarkdown(verdicts, reporter.outputPath, config);
         break;
     }
   }
@@ -344,11 +348,50 @@ function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 3) + "..." : s;
 }
 
+async function reportMarkdown(
+  verdicts: SkillVerdict[],
+  outputPath?: string,
+  config?: { model?: string; judgeModel?: string }
+): Promise<void> {
+  let md = "## Skill Validation Results\n\n";
+  md += "| Skill | Scenario | Baseline | With Skill | Δ | Verdict |\n";
+  md += "|-------|----------|----------|------------|---|---------|\n";
+  for (const v of verdicts) {
+    for (const s of v.scenarios) {
+      const base = s.baseline?.judgeResult?.overallScore?.toFixed(1) ?? "—";
+      const skill = s.withSkill?.judgeResult?.overallScore?.toFixed(1) ?? "—";
+      const delta = (
+        (s.withSkill?.judgeResult?.overallScore ?? 0) -
+        (s.baseline?.judgeResult?.overallScore ?? 0)
+      ).toFixed(1);
+      const deltaStr = Number(delta) > 0 ? `+${delta}` : delta;
+      const icon = v.passed ? "✅" : "❌";
+      md += `| ${v.skillName} | ${s.scenarioName} | ${base}/5 | ${skill}/5 | ${deltaStr} | ${icon} |\n`;
+    }
+  }
+  md += `\nModel: ${config?.model ?? "unknown"} | Judge: ${config?.judgeModel ?? "unknown"}\n`;
+
+  if (outputPath) {
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, md, "utf-8");
+    console.log(`Markdown summary written to ${outputPath}`);
+  } else {
+    console.log(md);
+  }
+}
+
 async function reportJson(
   verdicts: SkillVerdict[],
-  outputPath?: string
+  outputPath?: string,
+  config?: { model?: string; judgeModel?: string }
 ): Promise<void> {
-  const json = JSON.stringify(verdicts, null, 2);
+  const output = {
+    model: config?.model ?? "unknown",
+    judgeModel: config?.judgeModel ?? config?.model ?? "unknown",
+    timestamp: new Date().toISOString(),
+    verdicts,
+  };
+  const json = JSON.stringify(output, null, 2);
   if (outputPath) {
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, json, "utf-8");

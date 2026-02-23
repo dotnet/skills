@@ -195,7 +195,7 @@ export interface ValidatorConfig {
 }
 
 export interface ReporterSpec {
-  type: "console" | "json" | "junit";
+  type: "console" | "json" | "junit" | "markdown";
   outputPath?: string;
 }
 

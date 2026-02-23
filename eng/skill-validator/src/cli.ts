@@ -2,7 +2,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import pLimit from "p-limit";
 import { discoverSkills } from "./discovery.js";
-import { runAgent, stopSharedClient, getSharedClient } from "./runner.js";
+import { runAgent, stopSharedClient, getSharedClient, cleanupWorkDirs } from "./runner.js";
 import { evaluateAssertions, evaluateConstraints } from "./assertions.js";
 import { judgeRun } from "./judge.js";
 import { pairwiseJudge } from "./pairwise-judge.js";
@@ -86,7 +86,7 @@ class Spinner {
 
 function parseReporter(value: string): ReporterSpec {
   const [type, outputPath] = value.split(":");
-  if (type !== "console" && type !== "json" && type !== "junit") {
+  if (type !== "console" && type !== "json" && type !== "junit" && type !== "markdown") {
     throw new Error(`Unknown reporter type: ${type}`);
   }
   return { type, outputPath };
@@ -119,6 +119,7 @@ export function createProgram(): Command {
     .option("--parallel-runs <number>", "Max concurrent runs per scenario", "1")
     .option("--judge-timeout <number>", "Judge timeout in seconds", "300")
     .option("--confidence-level <number>", "Confidence level for statistical intervals (0-1)", "0.95")
+    .option("--no-save-results", "Disable saving run results to disk")
     .option(
       "--results-dir <path>",
       "Directory to save run results",
@@ -460,7 +461,10 @@ export async function run(config: ValidatorConfig): Promise<number> {
     }
   }
 
-  await reportResults(verdicts, config.reporters, config.verbose);
+  await reportResults(verdicts, config.reporters, config.verbose, {
+    model: config.model,
+    judgeModel: config.judgeModel,
+  });
 
   if (config.saveResults) {
     const runDir = await saveRunResults(verdicts, config.resultsDir, config.model, config.judgeModel);
@@ -468,6 +472,7 @@ export async function run(config: ValidatorConfig): Promise<number> {
   }
 
   await stopSharedClient();
+  await cleanupWorkDirs();
 
   const allPassed = verdicts.every((v) => v.passed);
   return allPassed ? 0 : 1;

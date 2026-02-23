@@ -184,9 +184,11 @@ jobs:
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+          RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.component }}
         run: |
           ARGS="--strict --require-evals"
-          ARGS="$ARGS --reporter console --reporter json:.skill-validator-results/results.json"
+          ARGS="$ARGS --results-dir $RESULTS_PATH"
+          ARGS="$ARGS --reporter console --reporter json:$RESULTS_PATH/results.json --reporter markdown:$RESULTS_PATH/summary.md"
           ARGS="$ARGS --model ${{ github.event.inputs.model || env.DEFAULT_MODEL }}"
           ARGS="$ARGS --judge-model ${{ github.event.inputs.judge-model || env.DEFAULT_JUDGE_MODEL }}"
           ARGS="$ARGS --runs ${{ github.event.inputs.runs || env.DEFAULT_RUNS }}"
@@ -204,49 +206,19 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: skill-validator-results-${{ matrix.component }}
-          path: .skill-validator-results/
-          include-hidden-files: true
+          path: artifacts/TestResults/skill-validator/${{ matrix.component }}/
           retention-days: 30
 
       - name: Generate Summary
         if: always()
         run: |
-          RESULTS_DIR=$(ls -d .skill-validator-results/run-* 2>/dev/null | head -1)
-          if [ -z "$RESULTS_DIR" ]; then
+          SUMMARY="artifacts/TestResults/skill-validator/${{ matrix.component }}/summary.md"
+          if [ -f "$SUMMARY" ]; then
+            cat "$SUMMARY" >> $GITHUB_STEP_SUMMARY
+          else
             echo "## Skill Validation Results — ${{ matrix.component }}" >> $GITHUB_STEP_SUMMARY
             echo "No results found." >> $GITHUB_STEP_SUMMARY
-            exit 0
           fi
-
-          RESULTS_FILE="$RESULTS_DIR/results.json"
-          if [ ! -f "$RESULTS_FILE" ]; then
-            echo "## Skill Validation Results — ${{ matrix.component }}" >> $GITHUB_STEP_SUMMARY
-            echo "No results.json found." >> $GITHUB_STEP_SUMMARY
-            exit 0
-          fi
-
-          # Generate markdown summary from results
-          node -e "
-          const fs = require('fs');
-          const results = JSON.parse(fs.readFileSync('$RESULTS_FILE', 'utf8'));
-          let md = '## Skill Validation Results — ${{ matrix.component }}\n\n';
-          md += '| Skill | Test | Baseline | With Skill | Δ | Verdict |\n';
-          md += '|-------|----------|----------|------------|---|--------|\n';
-          for (const v of results.verdicts) {
-            for (const s of v.scenarios) {
-              const base = s.baseline?.judgeResult?.overallScore?.toFixed(1) ?? '—';
-              const skill = s.withSkill?.judgeResult?.overallScore?.toFixed(1) ?? '—';
-              const delta = (s.withSkill?.judgeResult?.overallScore - s.baseline?.judgeResult?.overallScore)?.toFixed(1);
-              const deltaStr = delta > 0 ? '+' + delta : delta;
-              const icon = v.passed ? '✅' : '❌';
-              md += '| ' + v.skillName + ' | ' + s.scenarioName + ' | ' + base + '/5 | ' + skill + '/5 | ' + deltaStr + ' | ' + icon + ' |\n';
-            }
-          }
-          md += '\nModel: ' + results.model + ' | Judge: ' + results.judgeModel + '\n';
-          md += '\n[Full results](' + '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}' + ')\n';
-          fs.writeFileSync('.skill-validator-results/summary.md', md);
-          process.stdout.write(md);
-          " >> $GITHUB_STEP_SUMMARY
 
   comment-on-pr:
     needs: [discover, evaluate]
@@ -277,6 +249,8 @@ jobs:
           if [ "$FOUND" = "false" ]; then
             BODY+="## Skill Validation Results"$'\n'"No results were produced."$'\n'
           fi
+
+          BODY+=$'\n'"[Full results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"$'\n'
 
           echo "$BODY" > consolidated-comment.md
 

@@ -51,9 +51,10 @@ skill-validator --model gpt-5.3-codex --judge-model claude-opus-4.6-fast ./skill
 # Multiple runs for stability
 skill-validator --runs 5 ./skills/
 
-# Output as JSON or JUnit XML
+# Output as JSON, JUnit XML, or Markdown summary. It's possible to enable multiple reporter.
 skill-validator --reporter json:results.json ./skills/
 skill-validator --reporter junit:results.xml ./skills/
+skill-validator --reporter markdown:summary.md ./skills/
 
 # Strict mode (require all skills to have evals)
 skill-validator --strict ./skills/
@@ -229,7 +230,7 @@ The default of 5 runs provides sufficient precision for significance testing (va
 | `--require-evals` | `false` | Fail if skill has no tests/eval.yaml |
 | `--strict` | `false` | Enable --require-evals and strict checking |
 | `--verbose` | `false` | Show tool calls and agent events during runs |
-| `--reporter <spec>` | `console` | Output format: `console`, `json:path`, `junit:path` |
+| `--reporter <spec>` | `console` | Output format: `console`, `json:path`, `junit:path`, `markdown:path` |
 | `--results-dir <path>` | `.skill-validator-results` | Directory for saved run results |
 | `--no-save-results` | | Disable saving run results to disk |
 
