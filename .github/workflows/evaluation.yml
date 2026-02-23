@@ -120,6 +120,8 @@ jobs:
 
   build-validator:
     runs-on: ubuntu-latest
+    needs: discover
+    if: github.event_name != 'pull_request' || needs.discover.outputs.has_components == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
