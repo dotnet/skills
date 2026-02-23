@@ -52,6 +52,14 @@ And here is my evaluation:
     expect(result).toBe('{"valid": true}');
   });
 
+  it("skips brace group with invalid escapes and finds valid JSON after it", () => {
+    // First group is brace-balanced but has invalid escapes AND structural issues
+    // that can't be fixed by sanitization (missing comma between properties)
+    const content = '{"a\\x": 1 "b": 2} then {"valid": true}';
+    const result = extractJson(content);
+    expect(result).toBe('{"valid": true}');
+  });
+
   it("returns null when all brace groups are non-JSON", () => {
     const content = "{not json} and {also not json}";
     expect(extractJson(content)).toBeNull();
