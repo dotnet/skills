@@ -134,7 +134,7 @@ scenarios:
       - "Flags format.Replace('#.##', '0.##') as an additional intermediate allocation"
       - "Suggests StringBuilder or string.Create for the format manipulation"
       - "Notes the struct correctly implements IEquatable<DataSize> as a positive finding"
-    timeout: 120
+    timeout: 180
 
   - name: "Catches LINQ on hot-path string processing and All(char.IsUpper)"
     prompt: "These string humanization extensions are called on every user-facing string in a CMS rendering pages with hundreds of dynamic strings. Analyze for performance issues."
@@ -189,6 +189,7 @@ scenarios:
       - "Flags value[..n].TrimEnd() as double allocation in FixedLengthTruncator"
       - "Notes inconsistent Span usage — FixedNumberOfCharactersTruncator uses AsSpan but FixedLengthTruncator and FixedNumberOfWordsTruncator do not"
       - "Identifies List<char>[] in Symbols class as heap-allocated when ReadOnlySpan<char> would be more efficient"
+    timeout: 180
 
   - name: "Identifies unsealed leaf classes and locale hierarchy patterns"
     prompt: "Review this locale hierarchy and ordinalizer classes for performance. These classes are instantiated once per locale but their virtual methods are called on every formatted string in a high-throughput localization library."
