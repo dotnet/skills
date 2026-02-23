@@ -269,10 +269,13 @@ export async function run(config: ValidatorConfig): Promise<number> {
         pairwise: PairwiseJudgeResult | undefined;
       }> => {
         const runLabel = `run ${runIndex + 1}/${config.runs}`;
-        const runLog = (msg: string) => spinner.log(`${tag} ${msg}`);
+        const runTag = config.runs > 1
+          ? (singleScenario ? `[${skill.name}/${runIndex + 1}]` : `[${skill.name}/${scenario.name}/${runIndex + 1}]`)
+          : tag;
+        const runLog = (msg: string) => spinner.log(`${runTag} ${msg}`);
 
         if (config.verbose) {
-          runLog(`${runLabel}: running agents...`);
+          runLog(`running agents...`);
         }
 
         // Run baseline and with-skill in parallel
@@ -376,7 +379,7 @@ export async function run(config: ValidatorConfig): Promise<number> {
         }
 
         if (config.verbose) {
-          runLog(`✓ ${runLabel} complete`);
+          runLog(`✓ complete`);
         }
 
         return { baseline, withSkill: withSkillResult, pairwise };
