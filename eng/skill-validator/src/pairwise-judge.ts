@@ -258,7 +258,8 @@ function trunc(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 3) + "..." : s;
 }
 
-function parsePairwiseResponse(
+/** @internal Exported for testing only. */
+export function parsePairwiseResponse(
   content: string,
   rubric: string[],
   direction: "forward" | "reverse"
@@ -273,10 +274,32 @@ function parsePairwiseResponse(
   let parsed: any;
   try {
     parsed = JSON.parse(jsonStr);
-  } catch {
+  } catch (err) {
+    const originalError = err;
+    const hasInvalidEscapes = /\\(?!["\\/bfnrtu])/.test(jsonStr);
+
+    if (!hasInvalidEscapes) {
+      const snippet = jsonStr.slice(0, 200);
+      throw new Error(
+        `Failed to parse pairwise judge JSON (${direction}). Original error: ${String(
+          originalError
+        )}. JSON snippet: ${snippet}`
+      );
+    }
+
     // LLMs sometimes produce invalid JSON escape sequences (e.g., \' or \a).
     // Retry after removing backslashes before non-JSON-escape characters.
-    parsed = JSON.parse(jsonStr.replace(/\\(?!["\\/bfnrtu])/g, ""));
+    try {
+      parsed = JSON.parse(jsonStr.replace(/\\(?!["\\/bfnrtu])/g, ""));
+    } catch (retryErr) {
+      const snippet = jsonStr.slice(0, 200);
+      throw new Error(
+        `Failed to parse pairwise judge JSON even after sanitizing invalid escapes (${direction}). ` +
+          `Original error: ${String(originalError)}. Retry error: ${String(
+            retryErr
+          )}. JSON snippet: ${snippet}`
+      );
+    }
   }
 
   const rubricResults: PairwiseRubricResult[] = (parsed.rubric_results || []).map(

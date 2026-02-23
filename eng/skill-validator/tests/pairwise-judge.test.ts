@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pairwiseToQualityScore } from "../src/pairwise-judge.js";
+import { pairwiseToQualityScore, parsePairwiseResponse } from "../src/pairwise-judge.js";
 import type { PairwiseJudgeResult, PairwiseMagnitude } from "../src/types.js";
 
 function makePairwiseResult(
@@ -130,5 +130,76 @@ describe("pairwise position-swap consistency", () => {
     });
     expect(result.positionSwapConsistent).toBe(false);
     expect(result.overallWinner).toBe("tie");
+  });
+});
+
+describe("parsePairwiseResponse", () => {
+  const validJson = JSON.stringify({
+    rubric_results: [
+      { criterion: "Quality", winner: "A", magnitude: "slightly-better", reasoning: "Good" },
+    ],
+    overall_winner: "A",
+    overall_magnitude: "slightly-better",
+    overall_reasoning: "A is better",
+  });
+
+  it("parses valid JSON in a code block", () => {
+    const content = "```json\n" + validJson + "\n```";
+    const result = parsePairwiseResponse(content, ["Quality"], "forward");
+    expect(result.overallWinner).toBe("baseline");
+    expect(result.rubricResults).toHaveLength(1);
+  });
+
+  it("parses valid JSON without a code block", () => {
+    const content = "Here is my evaluation:\n" + validJson;
+    const result = parsePairwiseResponse(content, ["Quality"], "forward");
+    expect(result.overallWinner).toBe("baseline");
+  });
+
+  it("handles invalid escape sequences like \\' and \\a", () => {
+    // Inject invalid escapes into a reasoning field
+    const raw = `{
+      "rubric_results": [
+        {"criterion": "Quality", "winner": "B", "magnitude": "slightly-better", "reasoning": "It\\'s much better and has \\a good structure"}
+      ],
+      "overall_winner": "B",
+      "overall_magnitude": "slightly-better",
+      "overall_reasoning": "Response B\\'s approach is cleaner"
+    }`;
+    // Verify this is genuinely invalid JSON
+    expect(() => JSON.parse(raw)).toThrow();
+
+    const result = parsePairwiseResponse(raw, ["Quality"], "forward");
+    expect(result.overallWinner).toBe("skill");
+    expect(result.rubricResults[0].reasoning).toContain("much better");
+  });
+
+  it("throws with context for non-escape JSON errors", () => {
+    const malformed = '{"overall_winner": "A", broken}';
+    expect(() => parsePairwiseResponse(malformed, [], "forward")).toThrow(
+      /Failed to parse pairwise judge JSON \(forward\)/
+    );
+  });
+
+  it("throws with context when sanitized JSON is still invalid", () => {
+    // Has invalid escapes AND structural problems
+    const malformed = '{"overall_winner": "A\\x", broken}';
+    expect(() => parsePairwiseResponse(malformed, [], "forward")).toThrow(
+      /even after sanitizing invalid escapes \(forward\)/
+    );
+  });
+
+  it("throws when content has no JSON", () => {
+    expect(() => parsePairwiseResponse("no json here", [], "forward")).toThrow(
+      /contained no JSON/
+    );
+  });
+
+  it("reverses winners in reverse direction", () => {
+    const content = validJson; // winner is "A"
+    const result = parsePairwiseResponse(content, ["Quality"], "reverse");
+    // In reverse: A=skill, B=baseline, so A winning means skill wins
+    expect(result.overallWinner).toBe("skill");
+    expect(result.rubricResults[0].winner).toBe("skill");
   });
 });
