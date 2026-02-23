@@ -1,111 +1,34 @@
 import chalk from "chalk";
 import { writeFile, mkdir } from "node:fs/promises";
-import { join, dirname } from "node:path";
-import type { SkillVerdict, ReporterSpec, ScenarioComparison, ValidatorConfig } from "./types.js";
+import { join } from "node:path";
+import type { SkillVerdict, ReporterSpec, ScenarioComparison } from "./types.js";
 
 export async function reportResults(
   verdicts: SkillVerdict[],
   reporters: ReporterSpec[],
   verbose: boolean,
-  config?: { model?: string; judgeModel?: string }
+  config?: { model?: string; judgeModel?: string; resultsDir?: string }
 ): Promise<void> {
+  const resultsDir = config?.resultsDir;
+  if (resultsDir) {
+    await mkdir(resultsDir, { recursive: true });
+  }
   for (const reporter of reporters) {
     switch (reporter.type) {
       case "console":
         reportConsole(verdicts, verbose);
         break;
       case "json":
-        await reportJson(verdicts, reporter.outputPath, config);
+        await reportJson(verdicts, resultsDir, config);
         break;
       case "junit":
-        await reportJunit(verdicts, reporter.outputPath);
+        await reportJunit(verdicts, resultsDir);
         break;
       case "markdown":
-        await reportMarkdown(verdicts, reporter.outputPath, config);
+        await reportMarkdown(verdicts, resultsDir, config);
         break;
     }
   }
-}
-
-export async function saveRunResults(
-  verdicts: SkillVerdict[],
-  resultsDir: string,
-  model?: string,
-  judgeModel?: string
-): Promise<string> {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const runDir = join(resultsDir, `run-${timestamp}`);
-  await mkdir(runDir, { recursive: true });
-
-  // Save full results JSON with metadata
-  const output = {
-    model: model ?? "unknown",
-    judgeModel: judgeModel ?? model ?? "unknown",
-    timestamp: new Date().toISOString(),
-    verdicts,
-  };
-  await writeFile(
-    join(runDir, "results.json"),
-    JSON.stringify(output, null, 2),
-    "utf-8"
-  );
-
-  // Save per-skill detail files
-  for (const verdict of verdicts) {
-    const skillDir = join(runDir, verdict.skillName);
-    await mkdir(skillDir, { recursive: true });
-
-    await writeFile(
-      join(skillDir, "verdict.json"),
-      JSON.stringify(verdict, null, 2),
-      "utf-8"
-    );
-
-    for (const scenario of verdict.scenarios) {
-      const scenarioSlug = scenario.scenarioName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-");
-
-      // Save full judge output for both runs
-      const judgeReport = [
-        `# Judge Report: ${scenario.scenarioName}`,
-        "",
-        `## Baseline Judge`,
-        `Overall Score: ${scenario.baseline.judgeResult.overallScore}/5`,
-        `Reasoning: ${scenario.baseline.judgeResult.overallReasoning}`,
-        "",
-        ...scenario.baseline.judgeResult.rubricScores.map(
-          (s) => `- **${s.criterion}**: ${s.score}/5 — ${s.reasoning}`
-        ),
-        "",
-        `## With-Skill Judge`,
-        `Overall Score: ${scenario.withSkill.judgeResult.overallScore}/5`,
-        `Reasoning: ${scenario.withSkill.judgeResult.overallReasoning}`,
-        "",
-        ...scenario.withSkill.judgeResult.rubricScores.map(
-          (s) => `- **${s.criterion}**: ${s.score}/5 — ${s.reasoning}`
-        ),
-        "",
-        `## Baseline Agent Output`,
-        "```",
-        scenario.baseline.metrics.agentOutput || "(no output)",
-        "```",
-        "",
-        `## With-Skill Agent Output`,
-        "```",
-        scenario.withSkill.metrics.agentOutput || "(no output)",
-        "```",
-      ].join("\n");
-
-      await writeFile(
-        join(skillDir, `${scenarioSlug}.md`),
-        judgeReport,
-        "utf-8"
-      );
-    }
-  }
-
-  return runDir;
 }
 
 function reportConsole(verdicts: SkillVerdict[], verbose: boolean): void {
@@ -350,7 +273,7 @@ function truncate(s: string, max: number): string {
 
 async function reportMarkdown(
   verdicts: SkillVerdict[],
-  outputPath?: string,
+  resultsDir?: string,
   config?: { model?: string; judgeModel?: string }
 ): Promise<void> {
   let md = "## Skill Validation Results\n\n";
@@ -371,18 +294,66 @@ async function reportMarkdown(
   }
   md += `\nModel: ${config?.model ?? "unknown"} | Judge: ${config?.judgeModel ?? "unknown"}\n`;
 
-  if (outputPath) {
-    await mkdir(dirname(outputPath), { recursive: true });
-    await writeFile(outputPath, md, "utf-8");
-    console.log(`Markdown summary written to ${outputPath}`);
-  } else {
+  if (!resultsDir) {
     console.log(md);
+    return;
+  }
+
+  await writeFile(join(resultsDir, "summary.md"), md, "utf-8");
+  console.log(`Markdown summary written to ${join(resultsDir, "summary.md")}`);
+
+  // Write per-scenario judge reports
+  for (const verdict of verdicts) {
+    const skillDir = join(resultsDir, verdict.skillName);
+    await mkdir(skillDir, { recursive: true });
+
+    for (const scenario of verdict.scenarios) {
+      const scenarioSlug = scenario.scenarioName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-");
+
+      const judgeReport = [
+        `# Judge Report: ${scenario.scenarioName}`,
+        "",
+        `## Baseline Judge`,
+        `Overall Score: ${scenario.baseline.judgeResult.overallScore}/5`,
+        `Reasoning: ${scenario.baseline.judgeResult.overallReasoning}`,
+        "",
+        ...scenario.baseline.judgeResult.rubricScores.map(
+          (s) => `- **${s.criterion}**: ${s.score}/5 — ${s.reasoning}`
+        ),
+        "",
+        `## With-Skill Judge`,
+        `Overall Score: ${scenario.withSkill.judgeResult.overallScore}/5`,
+        `Reasoning: ${scenario.withSkill.judgeResult.overallReasoning}`,
+        "",
+        ...scenario.withSkill.judgeResult.rubricScores.map(
+          (s) => `- **${s.criterion}**: ${s.score}/5 — ${s.reasoning}`
+        ),
+        "",
+        `## Baseline Agent Output`,
+        "```",
+        scenario.baseline.metrics.agentOutput || "(no output)",
+        "```",
+        "",
+        `## With-Skill Agent Output`,
+        "```",
+        scenario.withSkill.metrics.agentOutput || "(no output)",
+        "```",
+      ].join("\n");
+
+      await writeFile(
+        join(skillDir, `${scenarioSlug}.md`),
+        judgeReport,
+        "utf-8"
+      );
+    }
   }
 }
 
 async function reportJson(
   verdicts: SkillVerdict[],
-  outputPath?: string,
+  resultsDir?: string,
   config?: { model?: string; judgeModel?: string }
 ): Promise<void> {
   const output = {
@@ -392,18 +363,17 @@ async function reportJson(
     verdicts,
   };
   const json = JSON.stringify(output, null, 2);
-  if (outputPath) {
-    await mkdir(dirname(outputPath), { recursive: true });
-    await writeFile(outputPath, json, "utf-8");
-    console.log(`JSON results written to ${outputPath}`);
-  } else {
+  if (!resultsDir) {
     console.log(json);
+    return;
   }
+  await writeFile(join(resultsDir, "results.json"), json, "utf-8");
+  console.log(`JSON results written to ${join(resultsDir, "results.json")}`);
 }
 
 async function reportJunit(
   verdicts: SkillVerdict[],
-  outputPath?: string
+  resultsDir?: string
 ): Promise<void> {
   const testcases = verdicts.flatMap((verdict) => {
     if (verdict.scenarios.length === 0) {
@@ -428,12 +398,12 @@ ${testcases.join("\n")}
 </testsuites>
 `;
 
-  if (outputPath) {
-    await writeFile(outputPath, xml, "utf-8");
-    console.log(`JUnit results written to ${outputPath}`);
-  } else {
+  if (!resultsDir) {
     console.log(xml);
+    return;
   }
+  await writeFile(join(resultsDir, "results.xml"), xml, "utf-8");
+  console.log(`JUnit results written to ${join(resultsDir, "results.xml")}`);
 }
 
 function escapeXml(s: string): string {

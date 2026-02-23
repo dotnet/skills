@@ -218,16 +218,16 @@ npm ci
 npm run build
 
 # Run tests for a single component
-node dist/index.js --results-dir artifacts/TestResults/skill-validator --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
+node dist/index.js --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
 
 # Run tests for a single skill (pass the skill directory directly)
-node dist/index.js --results-dir artifacts/TestResults/skill-validator --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills/common-build-errors
+node dist/index.js --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills/common-build-errors
 
 # Fewer runs for faster iteration (default is 5)
-node dist/index.js --runs 1 --results-dir artifacts/TestResults/skill-validator --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
+node dist/index.js --runs 1 --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
 
 # Use a specific model
-node dist/index.js --model claude-sonnet-4.5 --results-dir artifacts/TestResults/skill-validator --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
+node dist/index.js --model claude-sonnet-4.5 --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
 ```
 
 ### CI evaluation

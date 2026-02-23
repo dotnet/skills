@@ -187,8 +187,7 @@ jobs:
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.component }}
         run: |
           ARGS="--strict --require-evals"
-          ARGS="$ARGS --results-dir $RESULTS_PATH"
-          ARGS="$ARGS --reporter console --reporter json:$RESULTS_PATH/results.json --reporter markdown:$RESULTS_PATH/summary.md"
+          ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
           ARGS="$ARGS --model ${{ github.event.inputs.model || env.DEFAULT_MODEL }}"
           ARGS="$ARGS --judge-model ${{ github.event.inputs.judge-model || env.DEFAULT_JUDGE_MODEL }}"
           ARGS="$ARGS --runs ${{ github.event.inputs.runs || env.DEFAULT_RUNS }}"

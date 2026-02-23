@@ -7,7 +7,7 @@ import { evaluateAssertions, evaluateConstraints } from "./assertions.js";
 import { judgeRun } from "./judge.js";
 import { pairwiseJudge } from "./pairwise-judge.js";
 import { compareScenario, computeVerdict } from "./comparator.js";
-import { reportResults, saveRunResults } from "./reporter.js";
+import { reportResults } from "./reporter.js";
 import { analyzeSkill, formatProfileLine, formatProfileWarnings } from "./skill-profile.js";
 import type {
   ValidatorConfig,
@@ -85,11 +85,11 @@ class Spinner {
 }
 
 function parseReporter(value: string): ReporterSpec {
-  const [type, outputPath] = value.split(":");
+  const type = value;
   if (type !== "console" && type !== "json" && type !== "junit" && type !== "markdown") {
     throw new Error(`Unknown reporter type: ${type}`);
   }
-  return { type, outputPath };
+  return { type };
 }
 
 export function createProgram(): Command {
@@ -119,11 +119,9 @@ export function createProgram(): Command {
     .option("--parallel-runs <number>", "Max concurrent runs per scenario", "1")
     .option("--judge-timeout <number>", "Judge timeout in seconds", "300")
     .option("--confidence-level <number>", "Confidence level for statistical intervals (0-1)", "0.95")
-    .option("--no-save-results", "Disable saving run results to disk")
     .option(
       "--results-dir <path>",
-      "Directory to save run results",
-      ".skill-validator-results"
+      "Directory to save results to (used by json, junit, and markdown reporters)"
     )
     .option(
       "--tests-dir <path>",
@@ -131,7 +129,7 @@ export function createProgram(): Command {
     )
     .option(
       "--reporter <spec>",
-      "Reporter (console, json:path, junit:path). Can be repeated.",
+      "Reporter (console, json, junit, markdown). Can be repeated.",
       (val: string, prev: ReporterSpec[]) => [...prev, parseReporter(val)],
       [] as ReporterSpec[]
     )
@@ -155,7 +153,6 @@ export function createProgram(): Command {
             ? opts.reporter
             : [{ type: "console" as const }],
         skillPaths: paths,
-        saveResults: opts.saveResults !== false,
         resultsDir: opts.resultsDir,
         testsDir: opts.testsDir,
       };
@@ -464,12 +461,8 @@ export async function run(config: ValidatorConfig): Promise<number> {
   await reportResults(verdicts, config.reporters, config.verbose, {
     model: config.model,
     judgeModel: config.judgeModel,
+    resultsDir: config.resultsDir,
   });
-
-  if (config.saveResults) {
-    const runDir = await saveRunResults(verdicts, config.resultsDir, config.model, config.judgeModel);
-    console.log(chalk.dim(`Run results saved to ${runDir}`));
-  }
 
   await stopSharedClient();
   await cleanupWorkDirs();

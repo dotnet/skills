@@ -189,14 +189,12 @@ export interface ValidatorConfig {
   confidenceLevel: number;
   reporters: ReporterSpec[];
   skillPaths: string[];
-  saveResults: boolean;
-  resultsDir: string;
+  resultsDir?: string;
   testsDir?: string;
 }
 
 export interface ReporterSpec {
   type: "console" | "json" | "junit" | "markdown";
-  outputPath?: string;
 }
 
 export const DEFAULT_WEIGHTS: Record<keyof MetricBreakdown, number> = {
