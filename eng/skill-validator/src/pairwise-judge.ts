@@ -270,7 +270,14 @@ function parsePairwiseResponse(
     throw new Error(`Pairwise judge response contained no JSON (${direction})`);
   }
 
-  const parsed = JSON.parse(jsonStr);
+  let parsed: any;
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch {
+    // LLMs sometimes produce invalid JSON escape sequences (e.g., \' or \a).
+    // Retry after removing backslashes before non-JSON-escape characters.
+    parsed = JSON.parse(jsonStr.replace(/\\(?!["\\/bfnrtu])/g, ""));
+  }
 
   const rubricResults: PairwiseRubricResult[] = (parsed.rubric_results || []).map(
     (r: any) => {
