@@ -209,20 +209,9 @@ jobs:
           path: artifacts/TestResults/skill-validator/${{ matrix.component }}/
           retention-days: 30
 
-      - name: Generate Summary
-        if: always()
-        run: |
-          SUMMARY="artifacts/TestResults/skill-validator/${{ matrix.component }}/summary.md"
-          if [ -f "$SUMMARY" ]; then
-            cat "$SUMMARY" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## Skill Validation Results — ${{ matrix.component }}" >> $GITHUB_STEP_SUMMARY
-            echo "No results found." >> $GITHUB_STEP_SUMMARY
-          fi
-
   comment-on-pr:
     needs: [discover, evaluate]
-    if: always() && github.event_name == 'pull_request' && needs.discover.outputs.has_components == 'true'
+    if: always() && needs.discover.outputs.has_components == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Download all result artifacts
@@ -253,8 +242,10 @@ jobs:
           BODY+=$'\n'"[Full results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"$'\n'
 
           echo "$BODY" > consolidated-comment.md
+          cat consolidated-comment.md >> $GITHUB_STEP_SUMMARY
 
       - name: Post or update PR comment
+        if: github.event_name == 'pull_request'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
