@@ -1,0 +1,53 @@
+scenarios:
+  - name: "Fix N+1 query and optimize EF Core data access"
+    prompt: |
+      I have an ASP.NET Core API using EF Core 8. This endpoint is extremely slow — it takes 12 seconds to load 200 orders. Here's the code:
+
+      ```csharp
+      public async Task<List<OrderDto>> GetOrders()
+      {
+          var orders = await _db.Orders.ToListAsync();
+          var result = new List<OrderDto>();
+          foreach (var order in orders)
+          {
+              result.Add(new OrderDto
+              {
+                  Id = order.Id,
+                  Total = order.Items.Sum(i => i.Price),
+                  ItemCount = order.Items.Count,
+                  CustomerName = order.Customer.Name
+              });
+          }
+          return result;
+      }
+      ```
+
+      How do I fix the performance? I see hundreds of SQL queries in the logs.
+    assertions:
+      - type: "output_matches"
+        pattern: "(N\\+1|N\\+1|eager.load|Include|Select|projection)"
+      - type: "output_matches"
+        pattern: "(AsNoTracking|NoTracking)"
+      - type: "output_matches"
+        pattern: "(Include|Select\\()"
+    rubric:
+      - "Identified the N+1 query pattern as the root cause (lazy loading triggering per-row queries)"
+      - "Suggested using Include() for eager loading OR Select() projection to fix N+1"
+      - "Recommended AsNoTracking() since this is a read-only query"
+      - "Mentioned AsSplitQuery() as an option for multiple Includes to avoid cartesian explosion"
+      - "Showed the optimized query using projection (Select) which only fetches needed columns"
+      - "Explained why ToListAsync() before accessing navigation properties causes the problem"
+    expect_tools: ["bash"]
+    timeout: 120
+
+  - name: "EF Core skill should not activate for Dapper or raw SQL question"
+    prompt: "I'm using Dapper to query my SQL Server database. How do I write a multi-mapping query to join Orders with Customers?"
+    assertions:
+      - type: "output_not_contains"
+        value: "DbContext"
+      - type: "output_not_matches"
+        pattern: "(AsNoTracking|Include\\(|AsSplitQuery)"
+    rubric:
+      - "Did NOT suggest EF Core patterns for a Dapper question"
+      - "Provided Dapper-specific guidance using splitOn or multi-mapping"
+    timeout: 60
