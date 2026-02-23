@@ -402,7 +402,10 @@ jobs:
           $components = '${{ needs.discover.outputs.components }}' | ConvertFrom-Json
           foreach ($component in $components) {
             $artifactDir = "all-results/skill-validator-results-$component"
-            $runDir = Get-ChildItem -Path $artifactDir -Directory -Filter "run-*" -ErrorAction SilentlyContinue | Select-Object -First 1
+            $runDir = Get-ChildItem -Path $artifactDir -Directory -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
+              Sort-Object Name -Descending |
+              Select-Object -First 1
             if (-not $runDir) {
               Write-Warning "No run results found for $component, skipping benchmark generation"
               continue
