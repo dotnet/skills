@@ -1,0 +1,32 @@
+scenarios:
+  - name: "Profile slow API response times"
+    prompt: "My API response times jumped from 50ms to 2 seconds after deploying yesterday. Can you help me profile what's happening?"
+    assertions:
+      - type: "output_matches"
+        pattern: "(dotnet-counters|dotnet-trace|dotnet-dump)"
+      - type: "output_matches"
+        pattern: "(cpu|latency|thread|request)"
+    rubric:
+      - "Verified or installed .NET diagnostic tools (dotnet-counters, dotnet-trace, dotnet-dump)"
+      - "Used dotnet-counters to monitor live runtime metrics as a starting point"
+      - "Chose appropriate profiling approach based on symptoms (CPU sampling, request tracing, or memory)"
+      - "Collected a trace or counters data for analysis"
+      - "Interpreted results and identified potential hot paths or bottlenecks"
+      - "Provided concrete optimization suggestions (caching, pooling, async fixes, etc.)"
+    expect_tools: ["bash"]
+    timeout: 120
+
+  - name: "Profiling skill should not activate for build errors"
+    prompt: "My dotnet build is failing with CS0246 errors. Can you help me fix them?"
+    assertions:
+      - type: "output_not_contains"
+        value: "dotnet-trace"
+      - type: "output_not_contains"
+        value: "dotnet-counters"
+      - type: "output_not_matches"
+        pattern: "(profil|perf.*trac)"
+    rubric:
+      - "Did NOT suggest profiling or tracing tools for a build error"
+      - "Focused on fixing the CS0246 compilation error (missing type or namespace)"
+      - "Suggested adding the missing using directive or NuGet package reference"
+    timeout: 60
