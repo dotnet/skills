@@ -1,13 +1,14 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import pLimit from "p-limit";
+import { readFile, writeFile } from "node:fs/promises";
 import { discoverSkills } from "./discovery.js";
-import { runAgent, stopSharedClient, getSharedClient } from "./runner.js";
+import { runAgent, stopSharedClient, getSharedClient, cleanupWorkDirs } from "./runner.js";
 import { evaluateAssertions, evaluateConstraints } from "./assertions.js";
 import { judgeRun } from "./judge.js";
 import { pairwiseJudge } from "./pairwise-judge.js";
 import { compareScenario, computeVerdict } from "./comparator.js";
-import { reportResults, saveRunResults } from "./reporter.js";
+import { reportResults, generateMarkdownSummary } from "./reporter.js";
 import { analyzeSkill, formatProfileLine, formatProfileWarnings } from "./skill-profile.js";
 import type {
   ValidatorConfig,
@@ -17,6 +18,7 @@ import type {
   RunResult,
   ScenarioComparison,
   PairwiseJudgeResult,
+  EvalScenario,
 } from "./types.js";
 import type { ModelInfo } from "@github/copilot-sdk";
 
@@ -85,11 +87,11 @@ class Spinner {
 }
 
 function parseReporter(value: string): ReporterSpec {
-  const [type, outputPath] = value.split(":");
-  if (type !== "console" && type !== "json" && type !== "junit") {
+  const type = value;
+  if (type !== "console" && type !== "json" && type !== "junit" && type !== "markdown") {
     throw new Error(`Unknown reporter type: ${type}`);
   }
-  return { type, outputPath };
+  return { type };
 }
 
 export function createProgram(): Command {
@@ -116,12 +118,13 @@ export function createProgram(): Command {
     .option("--judge-mode <mode>", "Judge mode: pairwise, independent, or both", "pairwise")
     .option("--runs <number>", "Number of runs per scenario for averaging", "5")
     .option("--parallel-skills <number>", "Max concurrent skills to evaluate", "1")
+    .option("--parallel-scenarios <number>", "Max concurrent scenarios per skill", "1")
     .option("--parallel-runs <number>", "Max concurrent runs per scenario", "1")
     .option("--judge-timeout <number>", "Judge timeout in seconds", "300")
     .option("--confidence-level <number>", "Confidence level for statistical intervals (0-1)", "0.95")
     .option(
       "--results-dir <path>",
-      "Directory to save run results",
+      "Directory to save results to (default: .skill-validator-results). Used by file-based reporters (json, junit, markdown).",
       ".skill-validator-results"
     )
     .option(
@@ -130,11 +133,16 @@ export function createProgram(): Command {
     )
     .option(
       "--reporter <spec>",
-      "Reporter (console, json:path, junit:path). Can be repeated.",
+      "Reporter (console, json, junit, markdown). Can be repeated.",
       (val: string, prev: ReporterSpec[]) => [...prev, parseReporter(val)],
       [] as ReporterSpec[]
     )
     .action(async (paths: string[], opts) => {
+      const reporters: ReporterSpec[] =
+        opts.reporter.length > 0
+          ? opts.reporter
+          : [{ type: "console" as const }, { type: "json" as const }, { type: "markdown" as const }];
+
       const config: ValidatorConfig = {
         minImprovement: parseFloat(opts.minImprovement),
         requireCompletion: opts.requireCompletion,
@@ -146,20 +154,27 @@ export function createProgram(): Command {
         judgeMode: opts.judgeMode || "pairwise",
         runs: Math.max(1, parseInt(opts.runs, 10) || 5),
         parallelSkills: Math.max(1, parseInt(opts.parallelSkills, 10) || 1),
+        parallelScenarios: Math.max(1, parseInt(opts.parallelScenarios, 10) || 1),
         parallelRuns: Math.max(1, parseInt(opts.parallelRuns, 10) || 1),
         judgeTimeout: parseInt(opts.judgeTimeout, 10) * 1000,
         confidenceLevel: parseFloat(opts.confidenceLevel || "0.95"),
-        reporters:
-          opts.reporter.length > 0
-            ? opts.reporter
-            : [{ type: "console" as const }],
+        reporters,
         skillPaths: paths,
-        saveResults: opts.saveResults !== false,
         resultsDir: opts.resultsDir,
         testsDir: opts.testsDir,
       };
 
       const exitCode = await run(config);
+      process.exit(exitCode);
+    });
+
+  program
+    .command("consolidate")
+    .description("Consolidate multiple results.json files into a single markdown summary")
+    .argument("<files...>", "Paths to results.json files to merge")
+    .requiredOption("--output <path>", "Output file path for the consolidated markdown")
+    .action(async (files: string[], opts) => {
+      const exitCode = await consolidate(files, opts.output);
       process.exit(exitCode);
     });
 
@@ -250,10 +265,11 @@ export async function run(config: ValidatorConfig): Promise<number> {
       log(warning);
     }
 
-    const comparisons: ScenarioComparison[] = [];
     const singleScenario = skill.evalConfig.scenarios.length === 1;
+    const scenarioLimit = pLimit(Math.max(1, config.parallelScenarios));
 
-    for (const scenario of skill.evalConfig.scenarios) {
+    // Execute all scenarios for this skill (parallel if parallelScenarios > 1)
+    const executeScenario = async (scenario: EvalScenario): Promise<ScenarioComparison> => {
       const tag = singleScenario ? `[${skill.name}]` : `[${skill.name}/${scenario.name}]`;
       const scenarioLog = (msg: string) => spinner.log(`${tag} ${msg}`);
       const runLimit = pLimit(Math.max(1, config.parallelRuns));
@@ -268,11 +284,13 @@ export async function run(config: ValidatorConfig): Promise<number> {
         withSkill: RunResult;
         pairwise: PairwiseJudgeResult | undefined;
       }> => {
-        const runLabel = `run ${runIndex + 1}/${config.runs}`;
-        const runLog = (msg: string) => spinner.log(`${tag} ${msg}`);
+        const runTag = config.runs > 1
+          ? (singleScenario ? `[${skill.name}/${runIndex + 1}]` : `[${skill.name}/${scenario.name}/${runIndex + 1}]`)
+          : tag;
+        const runLog = (msg: string) => spinner.log(`${runTag} ${msg}`);
 
         if (config.verbose) {
-          runLog(`${runLabel}: running agents...`);
+          runLog(`running agents...`);
         }
 
         // Run baseline and with-skill in parallel
@@ -370,13 +388,13 @@ export async function run(config: ValidatorConfig): Promise<number> {
               judgeOpts
             );
           } catch (error) {
-            runLog(`⚠️  Pairwise judge failed for ${runLabel}: ${error}`);
+            runLog(`⚠️  Pairwise judge failed: ${error}`);
             pairwise = undefined;
           }
         }
 
         if (config.verbose) {
-          runLog(`✓ ${runLabel} complete`);
+          runLog(`✓ complete`);
         }
 
         return { baseline, withSkill: withSkillResult, pairwise };
@@ -429,8 +447,13 @@ export async function run(config: ValidatorConfig): Promise<number> {
       );
       comparison.perRunScores = perRunScores;
 
-      comparisons.push(comparison);
-    }
+      return comparison;
+    };
+
+    const scenarioPromises = skill.evalConfig.scenarios.map((scenario) =>
+      scenarioLimit(() => executeScenario(scenario))
+    );
+    const comparisons = await Promise.all(scenarioPromises);
 
     const verdict = computeVerdict(
       skill,
@@ -460,17 +483,51 @@ export async function run(config: ValidatorConfig): Promise<number> {
     }
   }
 
-  await reportResults(verdicts, config.reporters, config.verbose);
-
-  if (config.saveResults) {
-    const runDir = await saveRunResults(verdicts, config.resultsDir, config.model, config.judgeModel);
-    console.log(chalk.dim(`Run results saved to ${runDir}`));
-  }
+  await reportResults(verdicts, config.reporters, config.verbose, {
+    model: config.model,
+    judgeModel: config.judgeModel,
+    resultsDir: config.resultsDir,
+  });
 
   await stopSharedClient();
+  await cleanupWorkDirs();
 
   const allPassed = verdicts.every((v) => v.passed);
   return allPassed ? 0 : 1;
+}
+
+async function consolidate(
+  files: string[],
+  outputPath: string,
+): Promise<number> {
+  if (files.length === 0) {
+    await writeFile(outputPath, "## Skill Validation Results\n\nNo results were produced.\n", "utf-8");
+    console.log(`No input files provided. Wrote fallback to ${outputPath}`);
+    return 0;
+  }
+
+  const allVerdicts: SkillVerdict[] = [];
+  let model: string | undefined;
+  let judgeModel: string | undefined;
+
+  for (const file of files) {
+    try {
+      const content = await readFile(file, "utf-8");
+      const data = JSON.parse(content);
+      if (Array.isArray(data.verdicts)) {
+        allVerdicts.push(...data.verdicts);
+      }
+      if (data.model && !model) model = data.model;
+      if (data.judgeModel && !judgeModel) judgeModel = data.judgeModel;
+    } catch (error) {
+      console.error(`Failed to parse ${file}: ${error}`);
+    }
+  }
+
+  const output = generateMarkdownSummary(allVerdicts, { model, judgeModel });
+  await writeFile(outputPath, output, "utf-8");
+  console.log(`Consolidated ${files.length} result file(s) into ${outputPath}`);
+  return 0;
 }
 
 function averageResults(runs: RunResult[]): RunResult {
