@@ -18,11 +18,11 @@ on:
       model:
         description: 'Copilot model to use'
         required: false
-        default: 'claude-opus-4.5'
+        default: 'claude-opus-4.6'
       judge-model:
         description: 'Judge model to use for evaluation'
         required: false
-        default: 'claude-opus-4.5'
+        default: 'claude-opus-4.6'
       runs:
         description: 'Number of runs per test'
         required: false
@@ -56,9 +56,10 @@ concurrency:
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   DOTNET_VERSION: '10.0.x'
-  DEFAULT_MODEL: 'claude-opus-4.5'
-  DEFAULT_JUDGE_MODEL: 'claude-opus-4.5'
-  DEFAULT_RUNS: '3'
+  DEFAULT_MODEL: 'claude-opus-4.6'
+  DEFAULT_JUDGE_MODEL: 'claude-opus-4.6'
+  # Use more runs for main branch to get more stable benchmark data, but fewer runs for PRs to reduce quota pressure.
+  DEFAULT_RUNS: ${{ github.ref == 'refs/heads/main' && '5' || '3' }}
   DEFAULT_PARALLEL_SKILLS: '3'
   DEFAULT_PARALLEL_SCENARIOS: '3'
   DEFAULT_PARALLEL_RUNS: '3'

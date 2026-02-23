@@ -224,11 +224,14 @@ node dist/index.js --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/s
 node dist/index.js --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills/common-build-errors
 
 # Fewer runs for faster iteration (default is 5)
-node dist/index.js --runs 1 --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
+node dist/index.js --runs 3 --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
 
 # Use a specific model
-node dist/index.js --model claude-sonnet-4.5 --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
+node dist/index.js --model claude-opus-4.6 --tests-dir ./src/dotnet-msbuild/tests ./src/dotnet-msbuild/skills
 ```
+
+> [!WARNING]  
+> If you share the results in a Pull Request, make sure to have `--runs` configured to at least 3 but better 5 for reliable results.
 
 ### CI evaluation
 
