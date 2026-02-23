@@ -175,12 +175,25 @@ scenarios:
       - "Flags double .Select() wrapping in the object-formatter overload as unnecessary allocation"
     timeout: 120
 
-  - name: "Identifies Span inconsistencies, compound method chains, and unsealed classes"
-    prompt: "Review this text truncation library and locale hierarchy for performance. The truncation methods are called on every displayed string in a content delivery system. The locale classes are part of a library used across many applications."
+  - name: "Flags Span inconsistencies and compound method chains in truncation library"
+    prompt: "Review this text truncation library for performance. The truncation methods are called on every displayed string in a content delivery system serving thousands of concurrent users."
     setup:
       files:
         - path: "Truncation.cs"
           source: "../../tests/analyzing-dotnet-performance/fixtures/truncation-and-span.cs"
+    assertions:
+      - type: "output_contains"
+        value: "TrimEnd"
+      - type: "exit_success"
+    rubric:
+      - "Flags value[..n].TrimEnd() as double allocation in FixedLengthTruncator"
+      - "Notes inconsistent Span usage — FixedNumberOfCharactersTruncator uses AsSpan but FixedLengthTruncator and FixedNumberOfWordsTruncator do not"
+      - "Identifies List<char>[] in Symbols class as heap-allocated when ReadOnlySpan<char> would be more efficient"
+
+  - name: "Identifies unsealed leaf classes and locale hierarchy patterns"
+    prompt: "Review this locale hierarchy and ordinalizer classes for performance. These classes are instantiated once per locale but their virtual methods are called on every formatted string in a high-throughput localization library."
+    setup:
+      files:
         - path: "Locales.cs"
           source: "../../tests/analyzing-dotnet-performance/fixtures/unsealed-classes.cs"
     assertions:
@@ -190,7 +203,4 @@ scenarios:
     rubric:
       - "Identifies multiple unsealed leaf classes that should be sealed for JIT devirtualization"
       - "Notes that DefaultOrdinalizer is a base class and should remain unsealed, but its derived classes should be sealed"
-      - "Flags value[..n].TrimEnd() as double allocation in FixedLengthTruncator"
-      - "Notes inconsistent Span usage — FixedNumberOfCharactersTruncator uses AsSpan but FixedLengthTruncator and FixedNumberOfWordsTruncator do not"
-      - "Identifies List<char>[] in Symbols class as heap-allocated when ReadOnlySpan<char> would be more efficient"
       - "Notes the LocaleRegistry uses correct StringComparer.OrdinalIgnoreCase as a positive finding"
