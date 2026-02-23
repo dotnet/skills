@@ -1,74 +1,196 @@
 scenarios:
-  - name: "Detects critical patterns: sync-over-async, ReDoS, string concat in loop"
-    prompt: "Analyze this C# code for performance issues. Treat all code paths as potentially hot."
+  - name: "Detects compiled regex startup budget and regex chain allocations"
+    prompt: "Analyze this string transformation library for .NET performance issues. The Underscore/Pascalize/Camelize methods are called millions of times in a text processing pipeline."
     setup:
       files:
-        - path: "TextProcessor.cs"
-          source: "../../tests/analyzing-dotnet-performance/fixtures/critical-antipatterns.cs"
+        - path: "CaseTransformExtensions.cs"
+          source: "../../tests/analyzing-dotnet-performance/fixtures/inflector-and-regex.cs"
     assertions:
       - type: "output_contains"
-        value: "Result"
+        value: "Compiled"
       - type: "output_contains"
-        value: "ReDoS"
+        value: "ToLower"
       - type: "exit_success"
     rubric:
-      - "Identifies .Result on async call as sync-over-async that risks deadlock"
-      - "Flags the regex pattern as vulnerable to catastrophic backtracking (ReDoS)"
-      - "Catches string concatenation with += in a loop and recommends StringBuilder"
-      - "Flags .ToLower() without StringComparison as allocating unnecessarily"
-      - "Classifies sync-over-async and ReDoS as Critical severity"
+      - "Identifies the compiled regex budget — 40+ Regex with RegexOptions.Compiled is excessive for short-string matching"
+      - "Flags the triple regex .Replace() chain in Underscore as 4 allocations per call"
+      - "Notes .ToLower() without culture risks Turkish I problem and allocates unnecessarily"
+      - "Catches Pascalize() per-match .Value.ToUpper() allocation"
+      - "Recognizes [GeneratedRegex] pattern as a positive finding or correct practice"
+      - "Suggests removing RegexOptions.Compiled from the InflectionRule class or using source-generated regex"
     timeout: 120
 
-  - name: "Finds collection, LINQ, and allocation issues"
-    prompt: "Scan this report generator for .NET performance anti-patterns. The GenerateReport method is called thousands of times per second."
+  - name: "Detects CurrentCulture comparer and compiled regex budget in inflection rules"
+    prompt: "Review this inflection rule engine for performance. Rules are loaded at startup and pattern-matched on every API request."
     setup:
       files:
-        - path: "ReportGenerator.cs"
-          source: "../../tests/analyzing-dotnet-performance/fixtures/collections-and-allocations.cs"
+        - path: "WordVocabulary.cs"
+          source: "../../tests/analyzing-dotnet-performance/fixtures/vocabulary-and-inflections.cs"
     assertions:
       - type: "output_contains"
-        value: "StringBuilder"
+        value: "Ordinal"
       - type: "output_contains"
-        value: "ContainsKey"
+        value: "Compiled"
       - type: "exit_success"
     rubric:
-      - "Flags string concatenation with += in the report-building loop"
-      - "Identifies ContainsKey + indexer as a double-lookup and recommends TryGetValue"
-      - "Notes that the LINQ chain with .ToList() allocates intermediate collections on a hot path"
-      - "Flags the O(n²) duplicate-finding loop with nested LINQ .Any() inside"
-      - "Suggests the read-only dictionary could be a FrozenDictionary since it's never mutated"
+      - "Flags StringComparer.CurrentCultureIgnoreCase as ~3x slower than OrdinalIgnoreCase for the uncountables HashSet"
+      - "Identifies total compiled regex budget across all AddPlural/AddSingular calls creating InflectionEntry instances"
+      - "Suggests OrdinalIgnoreCase since the uncountable words are ASCII English words"
+      - "Notes that each InflectionEntry creates a new compiled Regex — with 40+ rules this is expensive at startup"
     timeout: 120
 
-  - name: "Catches I/O and async performance issues"
-    prompt: "Review this data service for performance problems. It handles high-throughput data ingestion."
+  - name: "Finds per-call Dictionary allocation not hoisted to static"
+    prompt: "This number-to-words converter is used in a financial report generator processing 100K transactions. Review for performance issues."
     setup:
       files:
-        - path: "DataService.cs"
-          source: "../../tests/analyzing-dotnet-performance/fixtures/io-and-async-issues.cs"
+        - path: "NumberConverters.cs"
+          source: "../../tests/analyzing-dotnet-performance/fixtures/number-converter-farsi-kurdish.cs"
     assertions:
       - type: "output_contains"
-        value: "HttpClient"
+        value: "Dictionary"
+      - type: "output_contains"
+        value: "static"
       - type: "exit_success"
     rubric:
-      - "Flags new HttpClient() in constructor instead of IHttpClientFactory"
-      - "Identifies sequential awaits in a loop that should use Task.WhenAll for concurrent fetching"
-      - "Catches File.ReadAllTextAsync loading entire file into memory instead of streaming with ReadLinesAsync"
-      - "Flags .ToLower() on both line and searchTerm every iteration instead of using StringComparison.OrdinalIgnoreCase"
+      - "Identifies the per-call new Dictionary<long, Func<>> in FarsiNumberToWordsConverter as wasteful — should be static"
+      - "Notes each Convert() call creates ~10 allocations (dictionary + buckets + entries + closures)"
+      - "Identifies the same per-call Dictionary pattern in CentralKurdishNumberToWordsConverter"
+      - "Flags new List<string>() without initial capacity hint"
+      - "Catches string.Format with int boxing in FormatWithUnit — interpolation avoids the box"
     timeout: 120
 
-  - name: "Detects struct missing IEquatable<T>"
-    prompt: "Analyze the Money struct and its usage for performance concerns."
+  - name: "Catches compound allocations in recursive number converter with ToLower"
+    prompt: "Analyze this localized number-to-words converter for performance. It is used for invoice generation in a billing system processing thousands of invoices."
     setup:
       files:
-        - path: "Models.cs"
-          source: "../../tests/analyzing-dotnet-performance/fixtures/struct-missing-iequatable.cs"
+        - path: "GreekConverter.cs"
+          source: "../../tests/analyzing-dotnet-performance/fixtures/number-converter-greek.cs"
     assertions:
+      - type: "output_contains"
+        value: "ToLower"
+      - type: "output_contains"
+        value: "allocation"
+      - type: "exit_success"
+    rubric:
+      - "Identifies .ToLower() inside string interpolation as compound allocation — 3 allocations per branch"
+      - "Flags result += with embedded .ToLower() in interpolation as compound allocation"
+      - "Counts the 8+ .ToLower() sites in the recursive converter methods"
+      - "Recommends StringBuilder or deferring .ToLowerInvariant() to final output"
+      - "Notes .ToLower() should be .ToLowerInvariant() for correctness"
+    timeout: 120
+
+  - name: "Finds StringComparison.Ordinal missing and FrozenDictionary opportunities"
+    prompt: "Review these number-to-words converters for performance. They handle multiple locales and are called in tight loops during batch report generation."
+    setup:
+      files:
+        - path: "MultiLocaleConverters.cs"
+          source: "../../tests/analyzing-dotnet-performance/fixtures/number-converter-multi-locale.cs"
+    assertions:
+      - type: "output_contains"
+        value: "Ordinal"
+      - type: "output_contains"
+        value: "Dictionary"
+      - type: "exit_success"
+    rubric:
+      - "Flags .StartsWith/.EndsWith without StringComparison.Ordinal in SwedishNumberToWordsConverter"
+      - "Notes static readonly Dictionary<> should be FrozenDictionary (.NET 8+) since it is never mutated"
+      - "Catches string += concatenation in converter branches as allocation-heavy"
+      - "Identifies new List<string>() without capacity hint in FrenchNumberToWordsConverterBase"
+      - "Does NOT flag the HungarianNumberToWordsConverter._runtimeCache Dictionary as FrozenDictionary candidate since it IS mutated"
+    timeout: 120
+
+  - name: "Detects Aggregate+Replace chain and struct missing IEquatable"
+    prompt: "This metric numeral formatting utility is used in a real-time monitoring dashboard rendering thousands of data points per second. Analyze for performance bottlenecks."
+    setup:
+      files:
+        - path: "MetricNumerals.cs"
+          source: "../../tests/analyzing-dotnet-performance/fixtures/metric-numeral-extensions.cs"
+    assertions:
+      - type: "output_contains"
+        value: "Aggregate"
       - type: "output_contains"
         value: "IEquatable"
       - type: "exit_success"
     rubric:
-      - "Identifies the struct implements Equals(object) but not IEquatable<Money>, causing boxing"
-      - "Recommends implementing IEquatable<Money> with a strongly-typed Equals(Money other) method"
-      - "Notes the struct is mutable and should be a readonly struct for performance and correctness"
-      - "Explains that boxing occurs when Money is used as a Dictionary key or in LINQ comparisons without IEquatable<T>"
+      - "Flags .Aggregate() calling .Replace() over 16 unit prefixes as creating 16 intermediate string allocations"
+      - "Identifies char.ToString() allocation per unit prefix lookup iteration"
+      - "Notes UnitPrefix struct lacks IEquatable<UnitPrefix> causing boxing on equality checks"
+      - "Suggests short-circuiting with .Contains() check before .Replace()"
+      - "Recognizes FrozenDictionary usage as a positive finding"
     timeout: 120
+
+  - name: "Finds branched Replace chain in format string manipulation"
+    prompt: "This data size formatting struct is used in a file transfer dashboard showing real-time throughput for thousands of concurrent transfers. Review for performance."
+    setup:
+      files:
+        - path: "DataSize.cs"
+          source: "../../tests/analyzing-dotnet-performance/fixtures/byte-size-formatting.cs"
+    assertions:
+      - type: "output_contains"
+        value: "Replace"
+      - type: "exit_success"
+    rubric:
+      - "Identifies the cascading if/Replace branches as allocating a new string per branch"
+      - "Flags format.Replace('#.##', '0.##') as an additional intermediate allocation"
+      - "Suggests StringBuilder or string.Create for the format manipulation"
+      - "Notes the struct correctly implements IEquatable<DataSize> as a positive finding"
+    timeout: 120
+
+  - name: "Catches LINQ on hot-path string processing and All(char.IsUpper)"
+    prompt: "These string humanization extensions are called on every user-facing string in a CMS rendering pages with hundreds of dynamic strings. Analyze for performance issues."
+    setup:
+      files:
+        - path: "StringReadability.cs"
+          source: "../../tests/analyzing-dotnet-performance/fixtures/string-humanize-and-dehumanize.cs"
+    assertions:
+      - type: "output_contains"
+        value: "LINQ"
+      - type: "output_contains"
+        value: "All"
+      - type: "exit_success"
+    rubric:
+      - "Flags .Cast<Match>().Select() LINQ chain in FromPascalCase as allocating enumerator + delegate"
+      - "Catches value.All(char.IsUpper) as LINQ on string that allocates an enumerator"
+      - "Identifies .ToLower() inside LINQ lambda as per-match allocation"
+      - "Flags string.Concat(words.Select(...)) in Dehumanize as LINQ allocation"
+      - "Notes the params overload in To.Transform without 1-arg fast path"
+      - "Recognizes Span-based Concat helper methods as positive findings"
+    timeout: 120
+
+  - name: "Detects LINQ pipeline in TimeSpan formatting and collection processing"
+    prompt: "This time formatting and collection display library is used in a logging framework processing millions of log entries per minute. Review for performance."
+    setup:
+      files:
+        - path: "TimeSpanFormatting.cs"
+          source: "../../tests/analyzing-dotnet-performance/fixtures/timespan-and-collection-formatters.cs"
+    assertions:
+      - type: "output_contains"
+        value: "Where"
+      - type: "exit_success"
+    rubric:
+      - "Flags .Where().Take().Where() + collection expression as 3+ enumerator allocations per call"
+      - "Identifies .Select().Where().ToArray() chain in DefaultCollectionFormatter as allocating"
+      - "Catches params overload without 1-arg fast path in TransformExtensions"
+      - "Notes Enumerable.Reverse at static init could be a reversed array literal"
+      - "Flags double .Select() wrapping in the object-formatter overload as unnecessary allocation"
+    timeout: 120
+
+  - name: "Identifies Span inconsistencies, compound method chains, and unsealed classes"
+    prompt: "Review this text truncation library and locale hierarchy for performance. The truncation methods are called on every displayed string in a content delivery system. The locale classes are part of a library used across many applications."
+    setup:
+      files:
+        - path: "Truncation.cs"
+          source: "../../tests/analyzing-dotnet-performance/fixtures/truncation-and-span.cs"
+        - path: "Locales.cs"
+          source: "../../tests/analyzing-dotnet-performance/fixtures/unsealed-classes.cs"
+    assertions:
+      - type: "output_contains"
+        value: "sealed"
+      - type: "exit_success"
+    rubric:
+      - "Identifies multiple unsealed leaf classes that should be sealed for JIT devirtualization"
+      - "Notes that DefaultOrdinalizer is a base class and should remain unsealed, but its derived classes should be sealed"
+      - "Flags value[..n].TrimEnd() as double allocation in FixedLengthTruncator"
+      - "Notes inconsistent Span usage — FixedNumberOfCharactersTruncator uses AsSpan but FixedLengthTruncator and FixedNumberOfWordsTruncator do not"
+      - "Identifies List<char>[] in Symbols class as heap-allocated when ReadOnlySpan<char> would be more efficient"
+      - "Notes the LocaleRegistry uses correct StringComparer.OrdinalIgnoreCase as a positive finding"
