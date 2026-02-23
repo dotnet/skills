@@ -261,12 +261,20 @@ jobs:
           md += '| Skill | Test | Baseline | With Skill | Δ | Skills Loaded | Verdict |\n';
           md += '|-------|----------|----------|------------|---|---------------|--------|\n';
           for (const v of results.verdicts) {
-            const skillNotActivated = v.skillNotActivated ? true : false;
+            const skillNotActivated = !!v.skillNotActivated;
             for (const s of v.scenarios) {
-              const base = s.baseline?.judgeResult?.overallScore?.toFixed(1) ?? '—';
-              const skill = s.withSkill?.judgeResult?.overallScore?.toFixed(1) ?? '—';
-              const delta = (s.withSkill?.judgeResult?.overallScore - s.baseline?.judgeResult?.overallScore)?.toFixed(1);
-              const deltaStr = delta > 0 ? '+' + delta : delta;
+              const baseScore = s.baseline?.judgeResult?.overallScore;
+              const skillScore = s.withSkill?.judgeResult?.overallScore;
+              const base = (typeof baseScore === 'number' && !Number.isNaN(baseScore)) ? baseScore.toFixed(1) : '—';
+              const skill = (typeof skillScore === 'number' && !Number.isNaN(skillScore)) ? skillScore.toFixed(1) : '—';
+              let deltaStr = '—';
+              if (typeof baseScore === 'number' && !Number.isNaN(baseScore) && typeof skillScore === 'number' && !Number.isNaN(skillScore)) {
+                const delta = skillScore - baseScore;
+                if (!Number.isNaN(delta)) {
+                  const deltaFixed = delta.toFixed(1);
+                  deltaStr = delta > 0 ? '+' + deltaFixed : deltaFixed;
+                }
+              }
               const icon = v.passed ? '✅' : '❌';
               // Skill activation info
               let skillsCol = '—';
