@@ -8,6 +8,7 @@ import type {
 import { PAIRWISE_MAGNITUDE_SCORES } from "./types.js";
 import type { PermissionRequest } from "@github/copilot-sdk";
 import { getSharedClient, checkPermission } from "./runner.js";
+import { extractJson, parseLlmJson } from "./llm-json.js";
 
 export interface PairwiseJudgeOptions {
   model: string;
@@ -264,43 +265,13 @@ export function parsePairwiseResponse(
   rubric: string[],
   direction: "forward" | "reverse"
 ): PairwiseJudgeResult {
-  const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-  const jsonStr = codeBlockMatch?.[1] ?? extractOutermostJson(content);
+  const jsonStr = extractJson(content);
 
   if (!jsonStr) {
     throw new Error(`Pairwise judge response contained no JSON (${direction})`);
   }
 
-  let parsed: any;
-  try {
-    parsed = JSON.parse(jsonStr);
-  } catch (err) {
-    const originalError = err;
-    const hasInvalidEscapes = /\\(?!["\\/bfnrtu])/.test(jsonStr);
-
-    if (!hasInvalidEscapes) {
-      const snippet = jsonStr.slice(0, 200);
-      throw new Error(
-        `Failed to parse pairwise judge JSON (${direction}). Original error: ${String(
-          originalError
-        )}. JSON snippet: ${snippet}`
-      );
-    }
-
-    // LLMs sometimes produce invalid JSON escape sequences (e.g., \' or \a).
-    // Retry after removing backslashes before non-JSON-escape characters.
-    try {
-      parsed = JSON.parse(jsonStr.replace(/\\(?!["\\/bfnrtu])/g, ""));
-    } catch (retryErr) {
-      const snippet = jsonStr.slice(0, 200);
-      throw new Error(
-        `Failed to parse pairwise judge JSON even after sanitizing invalid escapes (${direction}). ` +
-          `Original error: ${String(originalError)}. Retry error: ${String(
-            retryErr
-          )}. JSON snippet: ${snippet}`
-      );
-    }
-  }
+  const parsed = parseLlmJson(jsonStr, `pairwise judge (${direction})`);
 
   const rubricResults: PairwiseRubricResult[] = (parsed.rubric_results || []).map(
     (r: any) => {
@@ -383,27 +354,6 @@ function mergeInconsistentResults(
     overallReasoning: `Position-swap inconsistent (forward: ${forward.overallWinner}, reverse: ${reverse.overallWinner}). Defaulting to tie.`,
     positionSwapConsistent: false,
   };
-}
-
-function extractOutermostJson(text: string): string | null {
-  const start = text.indexOf("{");
-  if (start === -1) return null;
-
-  let depth = 0;
-  let inString = false;
-  let escape = false;
-
-  for (let i = start; i < text.length; i++) {
-    const ch = text[i];
-    if (escape) { escape = false; continue; }
-    if (ch === "\\") { escape = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === "{") depth++;
-    if (ch === "}") { depth--; if (depth === 0) return text.slice(start, i + 1); }
-  }
-
-  return null;
 }
 
 /**

@@ -177,7 +177,7 @@ describe("parsePairwiseResponse", () => {
   it("throws with context for non-escape JSON errors", () => {
     const malformed = '{"overall_winner": "A", broken}';
     expect(() => parsePairwiseResponse(malformed, [], "forward")).toThrow(
-      /Failed to parse pairwise judge JSON \(forward\)/
+      /Failed to parse pairwise judge \(forward\) JSON/
     );
   });
 
@@ -185,7 +185,7 @@ describe("parsePairwiseResponse", () => {
     // Has invalid escapes AND structural problems
     const malformed = '{"overall_winner": "A\\x", broken}';
     expect(() => parsePairwiseResponse(malformed, [], "forward")).toThrow(
-      /even after sanitizing invalid escapes \(forward\)/
+      /even after sanitizing invalid escapes/
     );
   });
 
