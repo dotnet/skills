@@ -272,7 +272,9 @@ jobs:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
         run: |
+          # Restore execute permissions lost during artifact upload/download
           chmod +x artifacts/publish/SkillValidator/release/skill-validator
+          chmod +x artifacts/publish/SkillValidator/release/runtimes/*/native/copilot
 
           ARGS="--strict --require-evals"
           ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
