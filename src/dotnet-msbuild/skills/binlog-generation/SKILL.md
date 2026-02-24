@@ -20,6 +20,8 @@ You MUST add the `/bl:{}` flag to:
 
 ## Preferred: Use `{}` for Automatic Unique Names
 
+> **Note:** The `{}` placeholder requires MSBuild 17.8+ / .NET 8 SDK or later.
+
 The `{}` placeholder in the binlog filename is replaced by MSBuild with a unique identifier, guaranteeing no two builds ever overwrite each other — without needing to track or check existing files.
 
 ```bash
