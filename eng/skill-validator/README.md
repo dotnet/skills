@@ -285,6 +285,6 @@ dotnet run --project src/SkillValidator -- consolidate --output summary.md $(fin
 ## Development
 
 ```bash
-dotnet build                              # Build the solution
-dotnet test --solution SkillValidator.sln  # Run unit tests
+dotnet build                               # Build the solution
+dotnet test --solution SkillValidator.slnx # Run unit tests
 ```
