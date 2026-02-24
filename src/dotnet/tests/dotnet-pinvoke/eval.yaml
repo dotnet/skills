@@ -1,0 +1,55 @@
+scenarios:
+  - name: "Generate LibraryImport declaration from C header (.NET 8+)"
+    prompt: |
+      I have the following C header for a cross-platform library targeting .NET 8:
+
+      ```c
+      int32_t compress_buffer(const uint8_t* input, size_t input_len,
+                              uint8_t* output, size_t output_len,
+                              size_t* bytes_written);
+      ```
+
+      Write a C# class named NativeCompression that exposes a P/Invoke
+      to call this function from a shared library called "compresslib".
+    assertions:
+      - type: "output_contains"
+        value: "LibraryImport"
+      - type: "output_contains"
+        value: "compresslib"
+      - type: "output_contains"
+        value: "nuint"
+      - type: "output_contains"
+        value: "static partial"
+    rubric:
+      - "Uses LibraryImport instead of DllImport since the target is .NET 8"
+      - "Maps size_t to nuint, not ulong"
+      - "The method signature is declared as static partial"
+      - "Parameter types correctly map from the C header to .NET types"
+    timeout: 60
+  - name: "Generate LibraryImport declaration from C header (.NET Framework)"
+    prompt: |
+      I have the following C header for a Windows library targeting .NET Framework (x86):
+
+      ```c
+      int32_t compress_buffer(const uint8_t* input, size_t input_len,
+                              uint8_t* output, size_t output_len,
+                              size_t* bytes_written);
+      ```
+
+      Write a C# class named NativeCompression that exposes a P/Invoke
+      to call this function from a shared library called "compresslib".
+    assertions:
+      - type: "output_contains"
+        value: "DllImport"
+      - type: "output_contains"
+        value: "compresslib"
+      - type: "output_contains"
+        value: "UIntPtr"
+      - type: "output_contains"
+        value: "static extern"
+    rubric:
+      - "Uses DllImport instead of LibraryImport since the target is .NET Framework"
+      - "Maps size_t to UIntPtr, not ulong (nuint is not available on .NET Framework)"
+      - "The method signature is declared as static extern"
+      - "Parameter types correctly map from the C header to .NET types"
+    timeout: 60

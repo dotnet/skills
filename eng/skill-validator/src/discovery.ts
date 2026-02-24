@@ -81,9 +81,12 @@ export async function discoverSkills(targetPath: string, testsDir?: string): Pro
   if (!(await isDirectory(targetPath))) return skills;
 
   const entries = await readdir(targetPath, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
-    const skill = await discoverSkillAt(join(targetPath, entry.name), testsDir);
+  const promises = entries
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+    .map((entry) => discoverSkillAt(join(targetPath, entry.name), testsDir));
+
+  const results = await Promise.all(promises);
+  for (const skill of results) {
     if (skill) skills.push(skill);
   }
 

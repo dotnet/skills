@@ -8,6 +8,7 @@ import type {
 import { PAIRWISE_MAGNITUDE_SCORES } from "./types.js";
 import type { PermissionRequest } from "@github/copilot-sdk";
 import { getSharedClient, checkPermission } from "./runner.js";
+import { extractJson, parseLlmJson } from "./llm-json.js";
 
 export interface PairwiseJudgeOptions {
   model: string;
@@ -258,19 +259,19 @@ function trunc(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 3) + "..." : s;
 }
 
-function parsePairwiseResponse(
+/** @internal Exported for testing only. */
+export function parsePairwiseResponse(
   content: string,
   rubric: string[],
   direction: "forward" | "reverse"
 ): PairwiseJudgeResult {
-  const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-  const jsonStr = codeBlockMatch?.[1] ?? extractOutermostJson(content);
+  const jsonStr = extractJson(content);
 
   if (!jsonStr) {
     throw new Error(`Pairwise judge response contained no JSON (${direction})`);
   }
 
-  const parsed = JSON.parse(jsonStr);
+  const parsed = parseLlmJson(jsonStr, `pairwise judge (${direction})`);
 
   const rubricResults: PairwiseRubricResult[] = (parsed.rubric_results || []).map(
     (r: any) => {
@@ -353,27 +354,6 @@ function mergeInconsistentResults(
     overallReasoning: `Position-swap inconsistent (forward: ${forward.overallWinner}, reverse: ${reverse.overallWinner}). Defaulting to tie.`,
     positionSwapConsistent: false,
   };
-}
-
-function extractOutermostJson(text: string): string | null {
-  const start = text.indexOf("{");
-  if (start === -1) return null;
-
-  let depth = 0;
-  let inString = false;
-  let escape = false;
-
-  for (let i = start; i < text.length; i++) {
-    const ch = text[i];
-    if (escape) { escape = false; continue; }
-    if (ch === "\\") { escape = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === "{") depth++;
-    if (ch === "}") { depth--; if (depth === 0) return text.slice(start, i + 1); }
-  }
-
-  return null;
 }
 
 /**

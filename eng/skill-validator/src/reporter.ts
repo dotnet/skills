@@ -1,107 +1,52 @@
 import chalk from "chalk";
 import { writeFile, mkdir } from "node:fs/promises";
-import { join, dirname } from "node:path";
+import { join } from "node:path";
 import type { SkillVerdict, ReporterSpec, ScenarioComparison } from "./types.js";
 
 export async function reportResults(
   verdicts: SkillVerdict[],
   reporters: ReporterSpec[],
-  verbose: boolean
+  verbose: boolean,
+  config?: { model?: string; judgeModel?: string; resultsDir?: string }
 ): Promise<void> {
+  const resultsDir = config?.resultsDir;
+  const needsResultsDir = reporters.some(
+    (reporter) =>
+      reporter.type === "json" ||
+      reporter.type === "junit" ||
+      reporter.type === "markdown"
+  );
+  const effectiveResultsDir = resultsDir && needsResultsDir
+    ? join(resultsDir, formatTimestamp(new Date()))
+    : undefined;
+  if (effectiveResultsDir) {
+    await mkdir(effectiveResultsDir, { recursive: true });
+  }
   for (const reporter of reporters) {
     switch (reporter.type) {
       case "console":
         reportConsole(verdicts, verbose);
         break;
       case "json":
-        await reportJson(verdicts, reporter.outputPath);
+        if (!effectiveResultsDir) {
+          throw new Error("--results-dir is required for the json reporter");
+        }
+        await reportJson(verdicts, effectiveResultsDir, config);
         break;
       case "junit":
-        await reportJunit(verdicts, reporter.outputPath);
+        if (!effectiveResultsDir) {
+          throw new Error("--results-dir is required for the junit reporter");
+        }
+        await reportJunit(verdicts, effectiveResultsDir);
+        break;
+      case "markdown":
+        if (!effectiveResultsDir) {
+          throw new Error("--results-dir is required for the markdown reporter");
+        }
+        await reportMarkdown(verdicts, effectiveResultsDir, config);
         break;
     }
   }
-}
-
-export async function saveRunResults(
-  verdicts: SkillVerdict[],
-  resultsDir: string,
-  model?: string,
-  judgeModel?: string
-): Promise<string> {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const runDir = join(resultsDir, `run-${timestamp}`);
-  await mkdir(runDir, { recursive: true });
-
-  // Save full results JSON with metadata
-  const output = {
-    model: model ?? "unknown",
-    judgeModel: judgeModel ?? model ?? "unknown",
-    timestamp: new Date().toISOString(),
-    verdicts,
-  };
-  await writeFile(
-    join(runDir, "results.json"),
-    JSON.stringify(output, null, 2),
-    "utf-8"
-  );
-
-  // Save per-skill detail files
-  for (const verdict of verdicts) {
-    const skillDir = join(runDir, verdict.skillName);
-    await mkdir(skillDir, { recursive: true });
-
-    await writeFile(
-      join(skillDir, "verdict.json"),
-      JSON.stringify(verdict, null, 2),
-      "utf-8"
-    );
-
-    for (const scenario of verdict.scenarios) {
-      const scenarioSlug = scenario.scenarioName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-");
-
-      // Save full judge output for both runs
-      const judgeReport = [
-        `# Judge Report: ${scenario.scenarioName}`,
-        "",
-        `## Baseline Judge`,
-        `Overall Score: ${scenario.baseline.judgeResult.overallScore}/5`,
-        `Reasoning: ${scenario.baseline.judgeResult.overallReasoning}`,
-        "",
-        ...scenario.baseline.judgeResult.rubricScores.map(
-          (s) => `- **${s.criterion}**: ${s.score}/5 — ${s.reasoning}`
-        ),
-        "",
-        `## With-Skill Judge`,
-        `Overall Score: ${scenario.withSkill.judgeResult.overallScore}/5`,
-        `Reasoning: ${scenario.withSkill.judgeResult.overallReasoning}`,
-        "",
-        ...scenario.withSkill.judgeResult.rubricScores.map(
-          (s) => `- **${s.criterion}**: ${s.score}/5 — ${s.reasoning}`
-        ),
-        "",
-        `## Baseline Agent Output`,
-        "```",
-        scenario.baseline.metrics.agentOutput || "(no output)",
-        "```",
-        "",
-        `## With-Skill Agent Output`,
-        "```",
-        scenario.withSkill.metrics.agentOutput || "(no output)",
-        "```",
-      ].join("\n");
-
-      await writeFile(
-        join(skillDir, `${scenarioSlug}.md`),
-        judgeReport,
-        "utf-8"
-      );
-    }
-  }
-
-  return runDir;
 }
 
 function reportConsole(verdicts: SkillVerdict[], verbose: boolean): void {
@@ -344,23 +289,123 @@ function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 3) + "..." : s;
 }
 
+function formatTimestamp(date: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+}
+
+/** Generate a markdown summary table from verdicts. Exported for use by the consolidate command. */
+export function generateMarkdownSummary(
+  verdicts: SkillVerdict[],
+  config?: { model?: string; judgeModel?: string }
+): string {
+  let md = "## Skill Validation Results\n\n";
+  md += "| Skill | Scenario | Baseline | With Skill | Δ | Verdict |\n";
+  md += "|-------|----------|----------|------------|---|---------|\n";
+  for (const v of verdicts) {
+    for (const s of v.scenarios) {
+      const base = s.baseline?.judgeResult?.overallScore?.toFixed(1) ?? "—";
+      const skill = s.withSkill?.judgeResult?.overallScore?.toFixed(1) ?? "—";
+      const delta = (
+        (s.withSkill?.judgeResult?.overallScore ?? 0) -
+        (s.baseline?.judgeResult?.overallScore ?? 0)
+      ).toFixed(1);
+      const deltaStr = Number(delta) > 0 ? `+${delta}` : delta;
+      const icon =
+        s.improvementScore != null
+          ? s.improvementScore > 0
+            ? "✅"
+            : s.improvementScore < 0
+            ? "❌"
+            : "🟡"
+          : v.passed
+          ? "✅"
+          : "❌";
+      md += `| ${v.skillName} | ${s.scenarioName} | ${base}/5 | ${skill}/5 | ${deltaStr} | ${icon} |\n`;
+    }
+  }
+  md += `\nModel: ${config?.model ?? "unknown"} | Judge: ${config?.judgeModel ?? "unknown"}\n`;
+  return md;
+}
+
+async function reportMarkdown(
+  verdicts: SkillVerdict[],
+  resultsDir: string,
+  config?: { model?: string; judgeModel?: string }
+): Promise<void> {
+  const md = generateMarkdownSummary(verdicts, config);
+
+  await writeFile(join(resultsDir, "summary.md"), md, "utf-8");
+  console.log(`Markdown summary written to ${join(resultsDir, "summary.md")}`);
+
+  // Write per-scenario judge reports
+  for (const verdict of verdicts) {
+    const skillDir = join(resultsDir, verdict.skillName);
+    await mkdir(skillDir, { recursive: true });
+
+    for (const scenario of verdict.scenarios) {
+      const scenarioSlug = scenario.scenarioName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-");
+
+      const judgeReport = [
+        `# Judge Report: ${scenario.scenarioName}`,
+        "",
+        `## Baseline Judge`,
+        `Overall Score: ${scenario.baseline.judgeResult.overallScore}/5`,
+        `Reasoning: ${scenario.baseline.judgeResult.overallReasoning}`,
+        "",
+        ...scenario.baseline.judgeResult.rubricScores.map(
+          (s) => `- **${s.criterion}**: ${s.score}/5 — ${s.reasoning}`
+        ),
+        "",
+        `## With-Skill Judge`,
+        `Overall Score: ${scenario.withSkill.judgeResult.overallScore}/5`,
+        `Reasoning: ${scenario.withSkill.judgeResult.overallReasoning}`,
+        "",
+        ...scenario.withSkill.judgeResult.rubricScores.map(
+          (s) => `- **${s.criterion}**: ${s.score}/5 — ${s.reasoning}`
+        ),
+        "",
+        `## Baseline Agent Output`,
+        "```",
+        scenario.baseline.metrics.agentOutput || "(no output)",
+        "```",
+        "",
+        `## With-Skill Agent Output`,
+        "```",
+        scenario.withSkill.metrics.agentOutput || "(no output)",
+        "```",
+      ].join("\n");
+
+      await writeFile(
+        join(skillDir, `${scenarioSlug}.md`),
+        judgeReport,
+        "utf-8"
+      );
+    }
+  }
+}
+
 async function reportJson(
   verdicts: SkillVerdict[],
-  outputPath?: string
+  resultsDir: string,
+  config?: { model?: string; judgeModel?: string }
 ): Promise<void> {
-  const json = JSON.stringify(verdicts, null, 2);
-  if (outputPath) {
-    await mkdir(dirname(outputPath), { recursive: true });
-    await writeFile(outputPath, json, "utf-8");
-    console.log(`JSON results written to ${outputPath}`);
-  } else {
-    console.log(json);
-  }
+  const output = {
+    model: config?.model ?? "unknown",
+    judgeModel: config?.judgeModel ?? config?.model ?? "unknown",
+    timestamp: new Date().toISOString(),
+    verdicts,
+  };
+  const json = JSON.stringify(output, null, 2);
+  await writeFile(join(resultsDir, "results.json"), json, "utf-8");
+  console.log(`JSON results written to ${join(resultsDir, "results.json")}`);
 }
 
 async function reportJunit(
   verdicts: SkillVerdict[],
-  outputPath?: string
+  resultsDir: string
 ): Promise<void> {
   const testcases = verdicts.flatMap((verdict) => {
     if (verdict.scenarios.length === 0) {
@@ -385,12 +430,8 @@ ${testcases.join("\n")}
 </testsuites>
 `;
 
-  if (outputPath) {
-    await writeFile(outputPath, xml, "utf-8");
-    console.log(`JUnit results written to ${outputPath}`);
-  } else {
-    console.log(xml);
-  }
+  await writeFile(join(resultsDir, "results.xml"), xml, "utf-8");
+  console.log(`JUnit results written to ${join(resultsDir, "results.xml")}`);
 }
 
 function escapeXml(s: string): string {

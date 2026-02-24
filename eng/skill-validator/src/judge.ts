@@ -1,6 +1,7 @@
 import type { JudgeResult, RubricScore, RunMetrics, EvalScenario } from "./types.js";
 import type { PermissionRequest } from "@github/copilot-sdk";
 import { getSharedClient, checkPermission } from "./runner.js";
+import { extractJson, parseLlmJson } from "./llm-json.js";
 
 export interface JudgeOptions {
   model: string;
@@ -206,59 +207,34 @@ function truncateForJudge(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 3) + "..." : s;
 }
 
-function parseJudgeResponse(
+/** @internal Exported for testing only. */
+export function parseJudgeResponse(
   content: string,
   rubric: string[]
 ): JudgeResult {
-  // Try extracting JSON from markdown code block first, then fall back to brace matching
-  const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-  const jsonStr = codeBlockMatch?.[1] ?? extractOutermostJson(content);
+  const jsonStr = extractJson(content);
 
   if (!jsonStr) {
     throw new Error(`Judge response contained no JSON. Raw response:\n${content.slice(0, 500)}`);
   }
 
-  try {
-    const parsed = JSON.parse(jsonStr);
-    const rubricScores: RubricScore[] = (parsed.rubric_scores || []).map(
-      (s: { criterion: string; score: number; reasoning: string }) => ({
-        criterion: s.criterion,
-        score: Math.round(Math.max(1, Math.min(5, Number(s.score) || 3)) * 10) / 10,
-        reasoning: s.reasoning || "",
-      })
-    );
+  const parsed = parseLlmJson(jsonStr, "judge response");
 
-    return {
-      rubricScores,
-      overallScore: Math.round(
-        Math.max(1, Math.min(5, Number(parsed.overall_score) || 3)) * 10
-      ) / 10,
-      overallReasoning: parsed.overall_reasoning || "",
-    };
-  } catch (error) {
-    throw new Error(`Judge response parsing failed: ${error}\nExtracted JSON:\n${jsonStr.slice(0, 500)}`);
-  }
-}
+  const rubricScores: RubricScore[] = (parsed.rubric_scores || []).map(
+    (s: { criterion: string; score: number; reasoning: string }) => ({
+      criterion: s.criterion,
+      score: Math.round(Math.max(1, Math.min(5, Number(s.score) || 3)) * 10) / 10,
+      reasoning: s.reasoning || "",
+    })
+  );
 
-function extractOutermostJson(text: string): string | null {
-  const start = text.indexOf("{");
-  if (start === -1) return null;
-
-  let depth = 0;
-  let inString = false;
-  let escape = false;
-
-  for (let i = start; i < text.length; i++) {
-    const ch = text[i];
-    if (escape) { escape = false; continue; }
-    if (ch === "\\") { escape = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === "{") depth++;
-    if (ch === "}") { depth--; if (depth === 0) return text.slice(start, i + 1); }
-  }
-
-  return null;
+  return {
+    rubricScores,
+    overallScore: Math.round(
+      Math.max(1, Math.min(5, Number(parsed.overall_score) || 3)) * 10
+    ) / 10,
+    overallReasoning: parsed.overall_reasoning || "",
+  };
 }
 
 
