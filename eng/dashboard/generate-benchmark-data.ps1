@@ -9,9 +9,7 @@
     is appended to the existing history.
 
 .PARAMETER ResultsFile
-    Path to the skill-validator results.json file (for example:
-    .skill-validator-results/20250130-142355/results.json, where the directory
-    name follows the YYYYMMDD-HHMMSS timestamp format).
+    Path to the skill-validator results.json file.
 
 .PARAMETER ComponentName
     Name of the component these results belong to. Used as the output filename.

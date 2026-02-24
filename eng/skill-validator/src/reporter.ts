@@ -306,6 +306,14 @@ function formatDelta(value: number): string {
   return "0.0%";
 }
 
+/** Sanitize a skill name for use as a single directory segment — rejects path separators and traversal. */
+function safeDirName(name: string): string {
+  if (!name || name.includes("/") || name.includes("\\") || name.includes("..")) {
+    throw new Error(`Invalid skill name for directory use: '${name}'`);
+  }
+  return name;
+}
+
 function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 3) + "..." : s;
 }
@@ -385,7 +393,7 @@ async function reportMarkdown(
 
   // Write per-scenario judge reports
   for (const verdict of verdicts) {
-    const skillDir = join(resultsDir, verdict.skillName);
+    const skillDir = join(resultsDir, safeDirName(verdict.skillName));
     await mkdir(skillDir, { recursive: true });
 
     for (const scenario of verdict.scenarios) {
@@ -449,7 +457,7 @@ async function reportJson(
 
   // Write per-skill verdict.json files for downstream consumers (e.g. dashboard)
   for (const verdict of verdicts) {
-    const skillDir = join(resultsDir, verdict.skillName);
+    const skillDir = join(resultsDir, safeDirName(verdict.skillName));
     await mkdir(skillDir, { recursive: true });
     const verdictJson = JSON.stringify(verdict, null, 2);
     await writeFile(join(skillDir, "verdict.json"), verdictJson, "utf-8");
