@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
 using SkillValidator.Models;
@@ -16,24 +17,35 @@ public sealed record RunOptions(
 public static class AgentRunner
 {
     private static CopilotClient? _sharedClient;
-    private static readonly List<string> _workDirs = [];
+    private static readonly SemaphoreSlim _clientLock = new(1, 1);
+    private static readonly ConcurrentBag<string> _workDirs = [];
 
     public static async Task<CopilotClient> GetSharedClient(bool verbose)
     {
         if (_sharedClient is not null) return _sharedClient;
 
-        var options = new CopilotClientOptions
+        await _clientLock.WaitAsync();
+        try
         {
-            LogLevel = verbose ? "info" : "none",
-        };
+            if (_sharedClient is not null) return _sharedClient;
 
-        var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
-        if (!string.IsNullOrEmpty(githubToken))
-            options.GitHubToken = githubToken;
+            var options = new CopilotClientOptions
+            {
+                LogLevel = verbose ? "info" : "none",
+            };
 
-        _sharedClient = new CopilotClient(options);
-        await _sharedClient.StartAsync();
-        return _sharedClient;
+            var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+            if (!string.IsNullOrEmpty(githubToken))
+                options.GitHubToken = githubToken;
+
+            _sharedClient = new CopilotClient(options);
+            await _sharedClient.StartAsync();
+            return _sharedClient;
+        }
+        finally
+        {
+            _clientLock.Release();
+        }
     }
 
     public static async Task StopSharedClient()
@@ -48,7 +60,7 @@ public static class AgentRunner
     /// <summary>Remove all temporary working directories created during runs.</summary>
     public static Task CleanupWorkDirs()
     {
-        var dirs = _workDirs.ToList();
+        var dirs = _workDirs.ToArray();
         _workDirs.Clear();
         return Task.WhenAll(dirs.Select(dir =>
         {

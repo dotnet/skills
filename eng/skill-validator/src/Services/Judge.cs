@@ -74,7 +74,7 @@ public static class Judge
         var userPrompt = BuildJudgeUserPrompt(scenario, metrics, rubric);
 
         using var cts = new CancellationTokenSource(options.Timeout);
-        var timer = new Timer(_ =>
+        using var timer = new Timer(_ =>
         {
             Console.Error.WriteLine(
                 $"      ⏰ Judge timed out after {options.Timeout / 1000}s. " +
@@ -103,7 +103,6 @@ public static class Judge
         await session.SendAsync(new MessageOptions { Prompt = userPrompt });
 
         var content = await done.Task.WaitAsync(cts.Token);
-        timer.Dispose();
 
         if (!string.IsNullOrEmpty(content))
             return ParseJudgeResponse(content, rubric);

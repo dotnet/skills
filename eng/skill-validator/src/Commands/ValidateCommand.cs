@@ -163,7 +163,7 @@ public static class ValidateCommand
 
         bool usePairwise = config.JudgeMode is JudgeMode.Pairwise or JudgeMode.Both;
 
-        var spinner = new Spinner();
+        using var spinner = new Spinner();
         using var skillLimit = new ConcurrencyLimiter(config.ParallelSkills);
 
         // Evaluate skills
@@ -314,7 +314,8 @@ public static class ValidateCommand
 
         var avgBaseline = AverageResults(baselineRuns);
         var avgWithSkill = AverageResults(withSkillRuns);
-        var bestPairwise = perRunPairwise.FirstOrDefault(pw => pw?.PositionSwapConsistent == true) ?? perRunPairwise[0];
+        var bestPairwise = perRunPairwise.FirstOrDefault(pw => pw?.PositionSwapConsistent == true)
+            ?? perRunPairwise.FirstOrDefault();
 
         var comparison = Comparator.CompareScenario(scenario.Name, avgBaseline, avgWithSkill, bestPairwise);
         comparison.PerRunScores = perRunScores;

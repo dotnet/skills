@@ -3,7 +3,7 @@ namespace SkillValidator.Utilities;
 /// <summary>
 /// Simple interactive spinner for terminal output.
 /// </summary>
-public sealed class Spinner
+public sealed class Spinner : IDisposable
 {
     private static readonly bool IsInteractive =
         Console.IsOutputRedirected is false &&
@@ -11,6 +11,7 @@ public sealed class Spinner
 
     private static readonly string[] Frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
+    private readonly Lock _lock = new();
     private Timer? _timer;
     private int _frame;
     private string _message = "";
@@ -18,8 +19,11 @@ public sealed class Spinner
 
     public void Start(string message)
     {
-        _message = message;
-        _active = true;
+        lock (_lock)
+        {
+            _message = message;
+            _active = true;
+        }
         if (!IsInteractive)
         {
             Console.Error.WriteLine(message);
@@ -29,14 +33,14 @@ public sealed class Spinner
         Render();
         _timer = new Timer(_ =>
         {
-            _frame++;
+            Interlocked.Increment(ref _frame);
             Render();
         }, null, 80, 80);
     }
 
     public void Update(string message)
     {
-        _message = message;
+        lock (_lock) { _message = message; }
         if (!IsInteractive)
             Console.Error.WriteLine(message);
     }
@@ -44,20 +48,23 @@ public sealed class Spinner
     /// <summary>Write a log line without clobbering the spinner.</summary>
     public void Log(string text)
     {
-        if (_active && IsInteractive)
+        lock (_lock)
         {
-            Console.Error.Write($"\r\x1b[K{text}\n");
-            Render();
-        }
-        else
-        {
-            Console.Error.WriteLine(text);
+            if (_active && IsInteractive)
+            {
+                Console.Error.Write($"\r\x1b[K{text}\n");
+                Render();
+            }
+            else
+            {
+                Console.Error.WriteLine(text);
+            }
         }
     }
 
     public void Stop(string? finalMessage = null)
     {
-        _active = false;
+        lock (_lock) { _active = false; }
         _timer?.Dispose();
         _timer = null;
         if (IsInteractive)
@@ -66,10 +73,14 @@ public sealed class Spinner
             Console.Error.WriteLine(finalMessage);
     }
 
+    public void Dispose() => Stop();
+
     private void Render()
     {
         if (!IsInteractive) return;
-        var f = Frames[_frame % Frames.Length];
-        Console.Error.Write($"\r\x1b[K\x1b[36m{f}\x1b[0m {_message}");
+        string msg;
+        lock (_lock) { msg = _message; }
+        var f = Frames[Interlocked.CompareExchange(ref _frame, 0, 0) % Frames.Length];
+        Console.Error.Write($"\r\x1b[K\x1b[36m{f}\x1b[0m {msg}");
     }
 }

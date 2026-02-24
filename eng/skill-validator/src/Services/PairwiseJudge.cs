@@ -110,7 +110,7 @@ public static class PairwiseJudge
         var userPrompt = BuildPairwiseUserPrompt(scenario, metricsA, metricsB, rubric);
 
         using var cts = new CancellationTokenSource(options.Timeout);
-        var timer = new Timer(_ =>
+        using var timer = new Timer(_ =>
         {
             Console.Error.WriteLine($"      ⏰ Pairwise judge timed out after {options.Timeout / 1000}s ({direction}).");
         }, null, options.Timeout, Timeout.Infinite);
@@ -136,7 +136,6 @@ public static class PairwiseJudge
 
         await session.SendAsync(new MessageOptions { Prompt = userPrompt });
         var content = await done.Task.WaitAsync(cts.Token);
-        timer.Dispose();
 
         if (!string.IsNullOrEmpty(content))
             return ParsePairwiseResponse(content, rubric, direction);
