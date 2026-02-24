@@ -56,7 +56,6 @@ concurrency:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  DOTNET_VERSION: '10.0.x'
   DEFAULT_MODEL: 'claude-opus-4.6'
   DEFAULT_JUDGE_MODEL: 'claude-opus-4.6'
   # Use more runs for main branch to get more stable benchmark data, but fewer runs for PRs to reduce quota pressure.
@@ -184,27 +183,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
         with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: eng/skill-validator/package-lock.json
+          global-json-file: global.json
 
       - name: Build skill-validator
-        run: cd eng/skill-validator && npm ci && npm run build
-
-      - name: Prune dev dependencies
-        run: cd eng/skill-validator && npm prune --omit=dev
+        run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
 
       - name: Upload built validator
         uses: actions/upload-artifact@v4
         with:
           name: skill-validator-dist
-          path: |
-            eng/skill-validator/dist/
-            eng/skill-validator/node_modules/
-            eng/skill-validator/package.json
+          path: artifacts/publish/SkillValidator/release/
           retention-days: 1
 
   evaluate:
@@ -222,21 +213,16 @@ jobs:
       - name: Checkout skills repo
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          global-json-file: global.json
 
       - name: Download built validator
         uses: actions/download-artifact@v4
         with:
           name: skill-validator-dist
-          path: artifacts/skill-validator/
+          path: artifacts/publish/SkillValidator/release/
 
       - name: Select random Copilot token
         id: select-token
@@ -286,6 +272,8 @@ jobs:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
         run: |
+          chmod +x artifacts/publish/SkillValidator/release/skill-validator
+
           ARGS="--strict --require-evals"
           ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
           ARGS="$ARGS --model ${{ github.event.inputs.model || env.DEFAULT_MODEL }}"
@@ -300,7 +288,7 @@ jobs:
             ARGS="$ARGS --verbose"
           fi
 
-          node artifacts/skill-validator/dist/index.js $ARGS --tests-dir ./src/${{ matrix.entry.component }}/tests ./${{ matrix.entry.skills_path }}
+          artifacts/publish/SkillValidator/release/skill-validator $ARGS --tests-dir ./src/${{ matrix.entry.component }}/tests ./${{ matrix.entry.skills_path }}
 
       - name: Upload results
         if: always()
@@ -327,18 +315,16 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: skill-validator-dist
-          path: artifacts/skill-validator/
+          path: artifacts/publish/SkillValidator/release/
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
+      - name: Make validator executable
+        run: chmod +x artifacts/publish/SkillValidator/release/skill-validator
 
       - name: Consolidate summaries
         run: |
           JSON_FILES=$(find all-results/ -name results.json)
 
-          node artifacts/skill-validator/dist/index.js consolidate \
+          artifacts/publish/SkillValidator/release/skill-validator consolidate \
             --output summary-body.md \
             $JSON_FILES
 
