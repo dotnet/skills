@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SkillValidator.Models;
 using GitHub.Copilot.SDK;
 
@@ -55,8 +56,17 @@ public static class AgentRunner
         }));
     }
 
-    public static bool CheckPermission(string? reqPath, string workDir, string? skillPath)
+    public static bool CheckPermission(PermissionRequest request, string workDir, string? skillPath)
     {
+        string? reqPath = null;
+        if (request.ExtensionData is { } data)
+        {
+            if (data.TryGetValue("path", out var pathVal) && pathVal is JsonElement pathEl && pathEl.ValueKind == JsonValueKind.String)
+                reqPath = pathEl.GetString() ?? "";
+            else if (data.TryGetValue("command", out var cmdVal) && cmdVal is JsonElement cmdEl && cmdEl.ValueKind == JsonValueKind.String)
+                reqPath = cmdEl.GetString() ?? "";
+        }
+
         if (string.IsNullOrEmpty(reqPath)) return true;
 
         var resolved = Path.GetFullPath(reqPath);
@@ -71,24 +81,27 @@ public static class AgentRunner
     internal static SessionConfig BuildSessionConfig(SkillInfo? skill, string model, string workDir)
     {
         var skillPath = skill is not null ? Path.GetDirectoryName(skill.Path) : null;
+
+        // Create a unique temporary config directory for this session to not share any data
+        var configDir = Path.Combine(Path.GetTempPath(), $"skill-validator-cfg-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(configDir);
+        _workDirs.Add(configDir);
+
         return new SessionConfig
         {
             Model = model,
             Streaming = true,
             WorkingDirectory = workDir,
             SkillDirectories = skill is not null ? [skillPath!] : [],
-            ConfigDir = workDir,
+            ConfigDir = configDir,
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
-            Hooks = new SessionHooks
+            OnPermissionRequest = (request, _) =>
             {
-                OnPreToolUse = async (input, _) =>
+                var result = CheckPermission(request, workDir, skillPath);
+                return Task.FromResult(new PermissionRequestResult
                 {
-                    var result = CheckPermission(input.ToolArgs?.ToString(), workDir, skillPath);
-                    return new PreToolUseHookOutput
-                    {
-                        PermissionDecision = result ? "allow" : "deny",
-                    };
-                },
+                    Kind = result ? "approved" : "denied-by-rules",
+                });
             },
         };
     }
@@ -124,7 +137,7 @@ public static class AgentRunner
                 var agentEvent = new AgentEvent(
                     evt.Type,
                     DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    new Dictionary<string, object?>());
+                    []);
 
                 // Copy known event data
                 switch (evt)
@@ -140,11 +153,16 @@ public static class AgentRunner
                         break;
                     case ToolExecutionStartEvent toolStart:
                         agentEvent.Data["toolName"] = toolStart.Data.ToolName;
+                        agentEvent.Data["arguments"] = toolStart.Data.Arguments?.ToString();
                         if (options.Verbose)
                         {
                             var write = options.Log ?? (m => Console.Error.WriteLine(m));
                             write($"      🔧 {toolStart.Data.ToolName}");
                         }
+                        break;
+                    case ToolExecutionCompleteEvent toolComplete:
+                        agentEvent.Data["success"] = toolComplete.Data.Success.ToString();
+                        agentEvent.Data["result"] = toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "";
                         break;
                     case SessionIdleEvent:
                         done.TrySetResult();

@@ -61,16 +61,13 @@ public static class Judge
                 Content = BuildJudgeSystemPrompt(),
             },
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
-            Hooks = new SessionHooks
+            OnPermissionRequest = (request, _) =>
             {
-                OnPreToolUse = async (input, _) =>
+                var result = AgentRunner.CheckPermission(request, options.WorkDir, options.SkillPath);
+                return Task.FromResult(new PermissionRequestResult
                 {
-                    var result = AgentRunner.CheckPermission(input.ToolArgs?.ToString(), options.WorkDir, options.SkillPath);
-                    return new PreToolUseHookOutput
-                    {
-                        PermissionDecision = result ? "allow" : "deny",
-                    };
-                },
+                    Kind = result ? "approved" : "denied-by-rules",
+                });
             },
         });
 
