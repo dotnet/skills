@@ -113,7 +113,6 @@ export function createProgram(): Command {
     )
     .option("--require-completion", "Fail if skill regresses task completion", true)
     .option("--require-evals", "Fail if skill has no tests/eval.yaml", false)
-    .option("--strict", "Strict mode: require evals and fail on any issue", false)
     .option("--verbose", "Show detailed per-scenario breakdowns", false)
     .option("--model <name>", "Model to use for agent runs", "claude-opus-4.6")
     .option("--judge-model <name>", "Model to use for judging (defaults to --model)")
@@ -133,6 +132,7 @@ export function createProgram(): Command {
       "--tests-dir <path>",
       "Directory containing test subdirectories (resolved as <tests-dir>/<skill-name>/eval.yaml)"
     )
+    .option("--verdict-warn-only", "Treat verdict failures as warnings (exit 0). Execution errors and --require-evals still fail.", false)
     .option(
       "--reporter <spec>",
       "Reporter (console, json, junit, markdown). Can be repeated.",
@@ -148,8 +148,7 @@ export function createProgram(): Command {
       const config: ValidatorConfig = {
         minImprovement: parseFloat(opts.minImprovement),
         requireCompletion: opts.requireCompletion,
-        requireEvals: opts.strict || opts.requireEvals,
-        strict: opts.strict,
+        requireEvals: opts.requireEvals,
         verbose: opts.verbose,
         model: opts.model,
         judgeModel: opts.judgeModel || opts.model,
@@ -160,6 +159,7 @@ export function createProgram(): Command {
         parallelRuns: Math.max(1, parseInt(opts.parallelRuns, 10) || 1),
         judgeTimeout: parseInt(opts.judgeTimeout, 10) * 1000,
         confidenceLevel: parseFloat(opts.confidenceLevel || "0.95"),
+        verdictWarnOnly: opts.verdictWarnOnly,
         reporters,
         skillPaths: paths,
         resultsDir: opts.resultsDir,
@@ -245,7 +245,8 @@ export async function run(config: ValidatorConfig): Promise<number> {
           passed: false,
           scenarios: [],
           overallImprovementScore: 0,
-          reason: "No tests/eval.yaml found (required by --require-evals or --strict)",
+          reason: "No tests/eval.yaml found (required by --require-evals)",
+          failureKind: "missing_eval",
         };
       } else {
         log(`⏭  Skipping (no tests/eval.yaml)`);
@@ -506,6 +507,7 @@ export async function run(config: ValidatorConfig): Promise<number> {
       log(chalk.yellow(`\u26a0\ufe0f  Skill was NOT activated in scenario(s): ${names}`));
       verdict.skillNotActivated = true;
       verdict.passed = false;
+      verdict.failureKind = "skill_not_activated";
       verdict.reason += ` [SKILL NOT ACTIVATED in ${notActivatedScenarios.length} scenario(s): ${names}]`;
     }
     log(`${verdict.passed ? "✅" : "❌"} Done (score: ${(verdict.overallImprovementScore * 100).toFixed(1)}%)`);
@@ -519,10 +521,12 @@ export async function run(config: ValidatorConfig): Promise<number> {
   spinner.stop();
 
   const verdicts: SkillVerdict[] = [];
+  let hasRejections = false;
   for (const result of settled) {
     if (result.status === "fulfilled" && result.value !== null) {
       verdicts.push(result.value);
     } else if (result.status === "rejected") {
+      hasRejections = true;
       const errMsg = result.reason instanceof Error ? result.reason.message : String(result.reason);
       console.error(chalk.red(`❌ Skill evaluation failed: ${errMsg}`));
     }
@@ -537,7 +541,18 @@ export async function run(config: ValidatorConfig): Promise<number> {
   await stopSharedClient();
   await cleanupWorkDirs();
 
+  // Always fail on execution errors, even in --verdict-warn-only mode
+  if (hasRejections) return 1;
+
   const allPassed = verdicts.every((v) => v.passed);
+  if (config.verdictWarnOnly && !allPassed) {
+    // In --verdict-warn-only mode, suppress verdict failures except missing_eval
+    // (which is controlled by --require-evals and should remain fatal).
+    const onlyWarnableFailures = verdicts.every(
+      (v) => v.passed || v.failureKind !== "missing_eval"
+    );
+    if (onlyWarnableFailures) return 0;
+  }
   return allPassed ? 0 : 1;
 }
 

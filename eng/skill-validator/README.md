@@ -57,8 +57,11 @@ skill-validator --results-dir ./my-results ./skills/
 # File reporters can also be specified explicitly.
 skill-validator --reporter junit ./skills/
 
-# Strict mode (require all skills to have evals)
-skill-validator --strict ./skills/
+# Require all skills to have evals
+skill-validator --require-evals ./skills/
+
+# Verdict-warn-only mode (verdict failures return exit 0, execution errors still fail)
+skill-validator --verdict-warn-only --require-evals ./skills/
 ```
 
 ## Writing eval files
@@ -227,7 +230,7 @@ The default of 5 runs provides sufficient precision for significance testing (va
 | `--judge-timeout <n>` | `300` | Judge LLM timeout in seconds |
 | `--require-completion` | `true` | Fail if skill regresses task completion |
 | `--require-evals` | `false` | Fail if skill has no tests/eval.yaml |
-| `--strict` | `false` | Enable --require-evals and strict checking |
+| `--verdict-warn-only` | `false` | Treat verdict failures as warnings (exit 0). Execution errors and `--require-evals` still fail. |
 | `--verbose` | `false` | Show tool calls and agent events during runs |
 | `--reporter <spec>` | `console`, `json`, `markdown` | Output format: `console`, `json`, `junit`, `markdown`. |
 | `--results-dir <path>` | `.skill-validator-results` | Directory for file reporter output. |
@@ -244,7 +247,7 @@ Results are displayed in the console with color-coded scores and metric deltas. 
 
 ## CI integration
 
-The same CLI works in CI — `--strict` makes it fail on any issue:
+The same CLI works in CI — use `--require-evals` to enforce eval coverage and `--verdict-warn-only` to treat verdict failures as warnings while still failing on execution errors:
 
 ```yaml
 name: Validate Skill Value
@@ -257,7 +260,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-      - run: npx skill-validator --strict --require-evals .
+      - run: npx skill-validator --require-evals --verdict-warn-only .
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
