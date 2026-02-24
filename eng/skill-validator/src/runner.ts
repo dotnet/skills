@@ -53,7 +53,7 @@ async function setupWorkDir(
       const targetPath = join(workDir, file.path);
       await mkdir(dirname(targetPath), { recursive: true });
 
-      if (file.content) {
+      if (file.content != null) {
         await writeFile(targetPath, file.content, "utf-8");
       } else if (file.source && skillPath) {
         const sourcePath = join(skillPath, file.source);
