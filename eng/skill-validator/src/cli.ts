@@ -133,6 +133,7 @@ export function createProgram(): Command {
       "--tests-dir <path>",
       "Directory containing test subdirectories (resolved as <tests-dir>/<skill-name>/eval.yaml)"
     )
+    .option("--warn-only", "Return exit code 0 even if skills fail thresholds", false)
     .option(
       "--reporter <spec>",
       "Reporter (console, json, junit, markdown). Can be repeated.",
@@ -160,6 +161,7 @@ export function createProgram(): Command {
         parallelRuns: Math.max(1, parseInt(opts.parallelRuns, 10) || 1),
         judgeTimeout: parseInt(opts.judgeTimeout, 10) * 1000,
         confidenceLevel: parseFloat(opts.confidenceLevel || "0.95"),
+        warnOnly: opts.warnOnly,
         reporters,
         skillPaths: paths,
         resultsDir: opts.resultsDir,
@@ -538,6 +540,7 @@ export async function run(config: ValidatorConfig): Promise<number> {
   await cleanupWorkDirs();
 
   const allPassed = verdicts.every((v) => v.passed);
+  if (config.warnOnly) return 0;
   return allPassed ? 0 : 1;
 }
 
