@@ -285,7 +285,7 @@ jobs:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
         run: |
-          ARGS="--strict --require-evals --threshold-warn-only"
+          ARGS="--require-evals --threshold-warn-only"
           ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
           ARGS="$ARGS --model ${{ github.event.inputs.model || env.DEFAULT_MODEL }}"
           ARGS="$ARGS --judge-model ${{ github.event.inputs.judge-model || env.DEFAULT_JUDGE_MODEL }}"

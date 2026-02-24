@@ -190,7 +190,6 @@ export interface ValidatorConfig {
   minImprovement: number;
   requireCompletion: boolean;
   requireEvals: boolean;
-  strict: boolean;
   verbose: boolean;
   model: string;
   judgeModel: string;

@@ -113,7 +113,6 @@ export function createProgram(): Command {
     )
     .option("--require-completion", "Fail if skill regresses task completion", true)
     .option("--require-evals", "Fail if skill has no tests/eval.yaml", false)
-    .option("--strict", "Strict mode: require evals and fail on any issue", false)
     .option("--verbose", "Show detailed per-scenario breakdowns", false)
     .option("--model <name>", "Model to use for agent runs", "claude-opus-4.6")
     .option("--judge-model <name>", "Model to use for judging (defaults to --model)")
@@ -133,7 +132,7 @@ export function createProgram(): Command {
       "--tests-dir <path>",
       "Directory containing test subdirectories (resolved as <tests-dir>/<skill-name>/eval.yaml)"
     )
-    .option("--threshold-warn-only", "Return exit code 0 even if skills fail thresholds", false)
+    .option("--threshold-warn-only", "Return exit code 0 for threshold failures (does not suppress runtime/config errors)", false)
     .option(
       "--reporter <spec>",
       "Reporter (console, json, junit, markdown). Can be repeated.",
@@ -149,8 +148,7 @@ export function createProgram(): Command {
       const config: ValidatorConfig = {
         minImprovement: parseFloat(opts.minImprovement),
         requireCompletion: opts.requireCompletion,
-        requireEvals: opts.strict || opts.requireEvals,
-        strict: opts.strict,
+        requireEvals: opts.requireEvals,
         verbose: opts.verbose,
         model: opts.model,
         judgeModel: opts.judgeModel || opts.model,
@@ -247,7 +245,7 @@ export async function run(config: ValidatorConfig): Promise<number> {
           passed: false,
           scenarios: [],
           overallImprovementScore: 0,
-          reason: "No tests/eval.yaml found (required by --require-evals or --strict)",
+          reason: "No tests/eval.yaml found (required by --require-evals)",
         };
       } else {
         log(`⏭  Skipping (no tests/eval.yaml)`);
