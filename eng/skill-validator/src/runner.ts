@@ -249,10 +249,11 @@ export async function runAgent(options: RunOptions): Promise<RunMetrics> {
       await session.destroy();
     }
   } catch (error) {
+    const msg = String(error);
     events.push({
-      type: "runner.error",
+      type: msg.includes("timed out") ? "runner.timeout" : "runner.error",
       timestamp: Date.now(),
-      data: { message: String(error) },
+      data: { message: msg },
     });
   }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractSkillActivation } from "../src/metrics.js";
+import { extractSkillActivation, collectMetrics } from "../src/metrics.js";
 import type { AgentEvent } from "../src/types.js";
 
 function makeEvent(type: string, data: Record<string, unknown> = {}): AgentEvent {
@@ -137,5 +137,54 @@ describe("extractSkillActivation", () => {
 
     expect(result.activated).toBe(false);
     expect(result.skillEventCount).toBe(0);
+  });
+});
+
+describe("collectMetrics", () => {
+  it("sets timedOut to true when runner.timeout event is present", () => {
+    const events: AgentEvent[] = [
+      makeEvent("assistant.message", { content: "working..." }),
+      makeEvent("runner.timeout", { message: "Scenario timed out after 120s" }),
+    ];
+
+    const result = collectMetrics(events, 120000, "", "/tmp/work");
+
+    expect(result.timedOut).toBe(true);
+    expect(result.errorCount).toBe(1);
+  });
+
+  it("sets timedOut to false when no timeout event is present", () => {
+    const events: AgentEvent[] = [
+      makeEvent("assistant.message", { content: "done" }),
+      makeEvent("tool.execution_start", { toolName: "bash" }),
+    ];
+
+    const result = collectMetrics(events, 5000, "", "/tmp/work");
+
+    expect(result.timedOut).toBe(false);
+    expect(result.errorCount).toBe(0);
+  });
+
+  it("sets timedOut to false when only runner.error events are present", () => {
+    const events: AgentEvent[] = [
+      makeEvent("runner.error", { message: "Something went wrong" }),
+    ];
+
+    const result = collectMetrics(events, 3000, "", "/tmp/work");
+
+    expect(result.timedOut).toBe(false);
+    expect(result.errorCount).toBe(1);
+  });
+
+  it("counts both runner.timeout and runner.error in errorCount", () => {
+    const events: AgentEvent[] = [
+      makeEvent("runner.error", { message: "file not found" }),
+      makeEvent("runner.timeout", { message: "Scenario timed out after 120s" }),
+    ];
+
+    const result = collectMetrics(events, 120000, "", "/tmp/work");
+
+    expect(result.timedOut).toBe(true);
+    expect(result.errorCount).toBe(2);
   });
 });

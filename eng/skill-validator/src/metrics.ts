@@ -91,6 +91,7 @@ export function collectMetrics(
         break;
       }
 
+      case "runner.timeout":
       case "session.error":
       case "runner.error": {
         errorCount++;
@@ -119,6 +120,7 @@ export function collectMetrics(
     turnCount,
     wallTimeMs,
     errorCount,
+    timedOut: events.some((e) => e.type === "runner.timeout"),
     assertionResults: [] as AssertionResult[],
     taskCompleted: false,
     agentOutput,

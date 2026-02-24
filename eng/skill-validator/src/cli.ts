@@ -585,6 +585,7 @@ function averageResults(runs: RunResult[]): RunResult {
     turnCount: Math.round(avg(runs.map((r) => r.metrics.turnCount))),
     wallTimeMs: Math.round(avg(runs.map((r) => r.metrics.wallTimeMs))),
     errorCount: Math.round(avg(runs.map((r) => r.metrics.errorCount))),
+    timedOut: runs.some((r) => r.metrics.timedOut),
     assertionResults: runs[runs.length - 1].metrics.assertionResults,
     taskCompleted: runs.some((r) => r.metrics.taskCompleted),
     agentOutput: runs[runs.length - 1].metrics.agentOutput,

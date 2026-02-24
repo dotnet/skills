@@ -86,6 +86,7 @@ export interface RunMetrics {
   turnCount: number;
   wallTimeMs: number;
   errorCount: number;
+  timedOut: boolean;
   assertionResults: AssertionResult[];
   taskCompleted: boolean;
   agentOutput: string;

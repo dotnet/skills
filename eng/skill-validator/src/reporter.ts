@@ -127,11 +127,21 @@ function reportScenarioDetail(
     ["Tokens", bd.tokenReduction, `${b.tokenEstimate} → ${s.tokenEstimate}`, true],
     ["Tool calls", bd.toolCallReduction, `${b.toolCallCount} → ${s.toolCallCount}`, true],
     ["Task completion", bd.taskCompletionImprovement, `${fmtBool(b.taskCompleted)} → ${fmtBool(s.taskCompleted)}`, false],
-    ["Time", bd.timeReduction, `${fmtMs(b.wallTimeMs)} → ${fmtMs(s.wallTimeMs)}`, true],
+    ["Time", bd.timeReduction, `${fmtMs(b.wallTimeMs)}${b.timedOut ? " ⏰" : ""} → ${fmtMs(s.wallTimeMs)}${s.timedOut ? " ⏰" : ""}`, true],
     ["Quality (rubric)", bd.qualityImprovement, `${bRubric.toFixed(1)}/5 → ${sRubric.toFixed(1)}/5`, false],
     ["Quality (overall)", bd.overallJudgmentImprovement, `${scenario.baseline.judgeResult.overallScore.toFixed(1)}/5 → ${scenario.withSkill.judgeResult.overallScore.toFixed(1)}/5`, false],
     ["Errors", bd.errorReduction, `${b.errorCount} → ${s.errorCount}`, true],
   ];
+
+  // Show timeout warnings prominently before the metrics table
+  if (b.timedOut || s.timedOut) {
+    const parts: string[] = [];
+    if (b.timedOut) parts.push("baseline");
+    if (s.timedOut) parts.push("with-skill");
+    console.log(
+      `      ${chalk.red.bold("⏰ TIMEOUT")} — ${parts.join(" and ")} run(s) hit the scenario timeout limit`
+    );
+  }
 
   for (const [label, value, absolute, lowerIsBetter] of metrics) {
     // Green = good, Red = bad (based on improvement direction)
@@ -328,8 +338,10 @@ export function generateMarkdownSummary(
     for (const s of v.scenarios) {
       const baseScore = s.baseline?.judgeResult?.overallScore;
       const skillScore = s.withSkill?.judgeResult?.overallScore;
-      const base = (typeof baseScore === "number" && !Number.isNaN(baseScore)) ? baseScore.toFixed(1) : "—";
-      const skill = (typeof skillScore === "number" && !Number.isNaN(skillScore)) ? skillScore.toFixed(1) : "—";
+      const bTimedOut = s.baseline?.metrics?.timedOut;
+      const sTimedOut = s.withSkill?.metrics?.timedOut;
+      const base = ((typeof baseScore === "number" && !Number.isNaN(baseScore)) ? baseScore.toFixed(1) : "—") + (bTimedOut ? " ⏰ timeout" : "");
+      const skill = ((typeof skillScore === "number" && !Number.isNaN(skillScore)) ? skillScore.toFixed(1) : "—") + (sTimedOut ? " ⏰ timeout" : "");
       let deltaStr = "—";
       if (typeof baseScore === "number" && !Number.isNaN(baseScore) && typeof skillScore === "number" && !Number.isNaN(skillScore)) {
         const delta = skillScore - baseScore;
