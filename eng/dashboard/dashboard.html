@@ -16,6 +16,8 @@
       --vanilla: #8b949e;
       --green: #3fb950;
       --red: #f85149;
+      --warning: #d29922;
+      --not-activated: #d29922;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -82,6 +84,11 @@
     }
     .chart-container h3 { font-size: 14px; margin-bottom: 12px; color: var(--text-muted); }
     .chart-container canvas { width: 100% !important; }
+    .not-activated-legend {
+      color: var(--not-activated);
+      font-size: 11px;
+      margin-top: 4px;
+    }
     .footer {
       margin-top: 48px;
       padding-top: 16px;

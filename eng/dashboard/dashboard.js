@@ -126,6 +126,21 @@
           </div>
         `;
       }
+
+      // Count not-activated entries
+      let notActivatedCount = 0;
+      recentEntries.forEach(entry => {
+        if (entry.benches.some(b => b.notActivated)) notActivatedCount++;
+      });
+      if (notActivatedCount > 0) {
+        summaryDiv.innerHTML += `
+          <div class="card">
+            <div class="card-label">Not Activated</div>
+            <div class="card-value" style="color: var(--warning)">${notActivatedCount}</div>
+            <div class="card-delta">runs where skill was not loaded</div>
+          </div>
+        `;
+      }
     }
 
     // Quality charts
@@ -162,6 +177,7 @@
       });
 
       effTests.forEach(test => {
+        const NOT_ACTIVATED_COLOR = '#d29922';
         const div = document.createElement('div');
         div.className = 'chart-container';
         div.innerHTML = `<h3>${test}</h3><canvas></canvas>`;
@@ -183,6 +199,38 @@
           return b ? b.value / 1000 : null;
         });
 
+        // Per-point styling for not-activated data in efficiency charts
+        const timePointBg = efficiencyEntries.map(e => {
+          const b = e.benches.find(b => b.name === `${test} - Skilled Time`);
+          return (b && b.notActivated) ? NOT_ACTIVATED_COLOR : '#f0883e';
+        });
+        const timePointStyle = efficiencyEntries.map(e => {
+          const b = e.benches.find(b => b.name === `${test} - Skilled Time`);
+          return (b && b.notActivated) ? 'triangle' : 'circle';
+        });
+        const timePointRadius = efficiencyEntries.map(e => {
+          const b = e.benches.find(b => b.name === `${test} - Skilled Time`);
+          return (b && b.notActivated) ? 6 : 4;
+        });
+        const tokenPointBg = efficiencyEntries.map(e => {
+          const b = e.benches.find(b => b.name === `${test} - Skilled Tokens In`);
+          return (b && b.notActivated) ? NOT_ACTIVATED_COLOR : '#a371f7';
+        });
+        const tokenPointStyle = efficiencyEntries.map(e => {
+          const b = e.benches.find(b => b.name === `${test} - Skilled Tokens In`);
+          return (b && b.notActivated) ? 'triangle' : 'circle';
+        });
+        const tokenPointRadius = efficiencyEntries.map(e => {
+          const b = e.benches.find(b => b.name === `${test} - Skilled Tokens In`);
+          return (b && b.notActivated) ? 6 : 4;
+        });
+
+        const hasAnyNotActivated = efficiencyEntries.some(e =>
+          e.benches && e.benches.some(b =>
+            (b.name === `${test} - Skilled Time` || b.name === `${test} - Skilled Tokens In`) && b.notActivated
+          )
+        );
+
         new Chart(canvas, {
           type: 'line',
           data: {
@@ -193,7 +241,10 @@
                 data: timeData,
                 borderColor: '#f0883e',
                 borderWidth: 2,
-                pointRadius: 4,
+                pointBackgroundColor: timePointBg,
+                pointBorderColor: timePointBg,
+                pointRadius: timePointRadius,
+                pointStyle: timePointStyle,
                 tension: 0.3,
                 fill: false,
                 yAxisID: 'y'
@@ -203,7 +254,10 @@
                 data: tokenData,
                 borderColor: '#a371f7',
                 borderWidth: 2,
-                pointRadius: 4,
+                pointBackgroundColor: tokenPointBg,
+                pointBorderColor: tokenPointBg,
+                pointRadius: tokenPointRadius,
+                pointStyle: tokenPointStyle,
                 tension: 0.3,
                 borderDash: [5, 5],
                 fill: false,
@@ -214,7 +268,29 @@
           options: {
             responsive: true,
             interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },
+            plugins: {
+              legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true } },
+              tooltip: {
+                callbacks: {
+                  afterTitle: (items) => {
+                    const idx = items[0].dataIndex;
+                    const entry = efficiencyEntries[idx];
+                    const parts = [];
+                    if (entry && entry.model) parts.push(`Model: ${entry.model}`);
+                    if (entry && entry.commit) {
+                      const msg = entry.commit.message.split('\n')[0];
+                      parts.push(msg.length > 60 ? msg.substring(0, 60) + '...' : msg);
+                    }
+                    const hasNotActivated = entry && entry.benches &&
+                      entry.benches.some(b => b.notActivated);
+                    if (hasNotActivated) {
+                      parts.push('⚠️ SKILL NOT ACTIVATED');
+                    }
+                    return parts.join('\n');
+                  }
+                }
+              }
+            },
             scales: {
               x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
               y: {
@@ -234,12 +310,22 @@
             }
           }
         });
+
+        // Add legend note below chart if it contains not-activated points
+        if (hasAnyNotActivated) {
+          const note = document.createElement('div');
+          note.className = 'not-activated-legend';
+          note.innerHTML = '⚠️ <span style="color:#d29922">▲</span> = Skill was not activated';
+          div.appendChild(note);
+        }
       });
     }
   }
 
   // Helper: create a paired line chart
   function createPairedChart(container, title, entries, nameA, nameB, labelA, labelB, colorA, colorB) {
+    const NOT_ACTIVATED_COLOR = '#d29922';
+
     const div = document.createElement('div');
     div.className = 'chart-container';
     div.innerHTML = `<h3>${title}</h3><canvas></canvas>`;
@@ -261,6 +347,29 @@
       return b ? b.value : null;
     });
 
+    // Build per-point styling for dataset A (Skilled) based on notActivated flag
+    const pointBgA = entries.map(e => {
+      const b = e.benches.find(b => b.name === nameA);
+      return (b && b.notActivated) ? NOT_ACTIVATED_COLOR : colorA;
+    });
+    const pointBorderA = entries.map(e => {
+      const b = e.benches.find(b => b.name === nameA);
+      return (b && b.notActivated) ? NOT_ACTIVATED_COLOR : colorA;
+    });
+    const pointRadiusA = entries.map(e => {
+      const b = e.benches.find(b => b.name === nameA);
+      return (b && b.notActivated) ? 6 : 4;
+    });
+    const pointStyleA = entries.map(e => {
+      const b = e.benches.find(b => b.name === nameA);
+      return (b && b.notActivated) ? 'triangle' : 'circle';
+    });
+
+    // Check if any data point in this chart is not-activated
+    const hasAnyNotActivated = entries.some(e =>
+      e.benches && e.benches.some(b => (b.name === nameA || b.name === nameB) && b.notActivated)
+    );
+
     new Chart(canvas, {
       type: 'line',
       data: {
@@ -272,8 +381,11 @@
             borderColor: colorA,
             backgroundColor: colorA + '20',
             borderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            pointBackgroundColor: pointBgA,
+            pointBorderColor: pointBorderA,
+            pointRadius: pointRadiusA,
+            pointStyle: pointStyleA,
+            pointHoverRadius: 8,
             tension: 0.3,
             fill: false
           },
@@ -295,7 +407,7 @@
         responsive: true,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { labels: { color: '#8b949e', font: { size: 11 } } },
+          legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true } },
           tooltip: {
             callbacks: {
               afterTitle: (items) => {
@@ -306,6 +418,12 @@
                 if (entry && entry.commit) {
                   const msg = entry.commit.message.split('\n')[0];
                   parts.push(msg.length > 60 ? msg.substring(0, 60) + '...' : msg);
+                }
+                // Show activation warning when any bench in this entry is not-activated
+                const hasNotActivated = entry && entry.benches &&
+                  entry.benches.some(b => b.notActivated);
+                if (hasNotActivated) {
+                  parts.push('⚠️ SKILL NOT ACTIVATED');
                 }
                 return parts.join('\n');
               }
@@ -323,6 +441,14 @@
         }
       }
     });
+
+    // Add legend note below chart if it contains not-activated points
+    if (hasAnyNotActivated) {
+      const note = document.createElement('div');
+      note.className = 'not-activated-legend';
+      note.innerHTML = '⚠️ <span style="color:#d29922">▲</span> = Skill was not activated';
+      div.appendChild(note);
+    }
   }
 
   // Load first component immediately
