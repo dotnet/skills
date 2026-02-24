@@ -446,6 +446,14 @@ async function reportJson(
   const json = JSON.stringify(output, null, 2);
   await writeFile(join(resultsDir, "results.json"), json, "utf-8");
   console.log(`JSON results written to ${join(resultsDir, "results.json")}`);
+
+  // Write per-skill verdict.json files for downstream consumers (e.g. dashboard)
+  for (const verdict of verdicts) {
+    const skillDir = join(resultsDir, verdict.skillName);
+    await mkdir(skillDir, { recursive: true });
+    const verdictJson = JSON.stringify(verdict, null, 2);
+    await writeFile(join(skillDir, "verdict.json"), verdictJson, "utf-8");
+  }
 }
 
 async function reportJunit(
