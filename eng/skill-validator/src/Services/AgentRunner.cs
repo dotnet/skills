@@ -164,6 +164,25 @@ public static class AgentRunner
                         agentEvent.Data["success"] = toolComplete.Data.Success.ToString();
                         agentEvent.Data["result"] = toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "";
                         break;
+                    case SkillInvokedEvent skillInvoked:
+                        agentEvent.Data["name"] = skillInvoked.Data.Name;
+                        agentEvent.Data["path"] = skillInvoked.Data.Path;
+                        if (skillInvoked.Data.AllowedTools is { } allowedTools)
+                            agentEvent.Data["allowedTools"] = allowedTools;
+                        if (options.Verbose)
+                        {
+                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                            write($"      📘 Skill invoked: {skillInvoked.Data.Name}");
+                        }
+                        break;
+                    case AssistantUsageEvent usage:
+                        agentEvent.Data["inputTokens"] = usage.Data.InputTokens;
+                        agentEvent.Data["outputTokens"] = usage.Data.OutputTokens;
+                        agentEvent.Data["model"] = usage.Data.Model;
+                        break;
+                    case UserMessageEvent userMsg:
+                        agentEvent.Data["content"] = userMsg.Data.Content;
+                        break;
                     case SessionIdleEvent:
                         done.TrySetResult();
                         break;
