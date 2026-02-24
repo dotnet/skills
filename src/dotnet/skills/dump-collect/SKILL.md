@@ -27,7 +27,7 @@ Ask or determine:
 
 ### Detecting CoreCLR vs NativeAOT
 
-**From a binary file:**
+**From a binary file (Linux/macOS):**
 ```bash
 # CoreCLR — has IL metadata / managed entry point
 strings <binary> | grep -q "CorExeMain" && echo "CoreCLR"
@@ -37,6 +37,15 @@ strings <binary> | grep -q "Rhp" && echo "NativeAOT"
 
 # On macOS/Linux, also try:
 nm <binary> 2>/dev/null | grep -qi "Rhp" && echo "NativeAOT"
+```
+
+**From a binary file (Windows):**
+```powershell
+# CoreCLR — has a CLI header (IL entry point)
+dumpbin /clrheader <binary.exe> | Select-String "CLI Header" -Quiet
+
+# NativeAOT — no CLI header, has Redhawk symbols
+dumpbin /symbols <binary.exe> | Select-String "Rhp" -Quiet
 ```
 
 **From a running process (Linux):**
@@ -49,6 +58,12 @@ grep -q "libcoreclr" /proc/<pid>/maps && echo "CoreCLR" || echo "Likely NativeAO
 ```bash
 # CoreCLR — loads libcoreclr.dylib
 vmmap <pid> 2>/dev/null | grep -q "libcoreclr" && echo "CoreCLR" || echo "Likely NativeAOT"
+```
+
+**From a running process (Windows PowerShell):**
+```powershell
+# CoreCLR — loads coreclr.dll
+(Get-Process -Id <pid>).Modules.ModuleName -contains "coreclr.dll"
 ```
 
 ## Step 2 — Load the Appropriate Reference
