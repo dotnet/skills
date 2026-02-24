@@ -78,6 +78,7 @@ public static class Comparator
                 Scenarios = [],
                 OverallImprovementScore = 0,
                 Reason = "No scenarios to evaluate",
+                FailureKind = "no_scenarios",
             };
         }
 
@@ -108,6 +109,7 @@ public static class Comparator
                     ConfidenceInterval = ci,
                     IsSignificant = significant,
                     Reason = "Skill regressed on task completion in one or more scenarios",
+                    FailureKind = "completion_regression",
                 };
             }
         }
@@ -132,6 +134,7 @@ public static class Comparator
             ConfidenceInterval = ci,
             IsSignificant = significant,
             Reason = reason,
+            FailureKind = passed ? null : "threshold",
         };
     }
 

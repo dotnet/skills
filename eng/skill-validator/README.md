@@ -56,8 +56,11 @@ dotnet run --project src/SkillValidator -- --results-dir ./my-results ./skills/
 # File reporters can also be specified explicitly.
 dotnet run --project src/SkillValidator -- --reporter junit ./skills/
 
-# Strict mode (require all skills to have evals)
-dotnet run --project src/SkillValidator -- --strict ./skills/
+# Require all skills to have evals
+dotnet run --project src/SkillValidator -- --require-evals ./skills/
+
+# Verdict-warn-only mode (verdict failures return exit 0, execution errors still fail)
+dotnet run --project src/SkillValidator -- --verdict-warn-only --require-evals ./skills/
 ```
 
 ## Writing eval files
@@ -226,7 +229,7 @@ The default of 5 runs provides sufficient precision for significance testing (va
 | `--judge-timeout <n>` | `300` | Judge LLM timeout in seconds |
 | `--require-completion` | `true` | Fail if skill regresses task completion |
 | `--require-evals` | `false` | Fail if skill has no tests/eval.yaml |
-| `--strict` | `false` | Enable --require-evals and strict checking |
+| `--verdict-warn-only` | `false` | Treat verdict failures as warnings (exit 0). Execution errors and `--require-evals` still fail. |
 | `--verbose` | `false` | Show tool calls and agent events during runs |
 | `--reporter <spec>` | `console`, `json`, `markdown` | Output format: `console`, `json`, `junit`, `markdown`. |
 | `--results-dir <path>` | `.skill-validator-results` | Directory for file reporter output. |
@@ -243,7 +246,7 @@ Results are displayed in the console with color-coded scores and metric deltas. 
 
 ## CI integration
 
-The same CLI works in CI — `--strict` makes it fail on any issue:
+The same CLI works in CI — use `--require-evals` to enforce eval coverage and `--verdict-warn-only` to treat verdict failures as warnings while still failing on execution errors:
 
 ```yaml
 name: Validate Skill Value
@@ -258,7 +261,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet run --project eng/skill-validator/src/SkillValidator -- --strict --require-evals .
+      - run: dotnet run --project eng/skill-validator/src/SkillValidator -- --require-evals --verdict-warn-only .
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```

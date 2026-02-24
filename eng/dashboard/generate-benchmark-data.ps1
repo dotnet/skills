@@ -3,19 +3,19 @@
     Converts skill-validator results into benchmark dashboard data.
 
 .DESCRIPTION
-    Reads skill-validator verdict.json and results.json files and produces a
-    per-component JSON file (<ComponentName>.json) compatible with the benchmark
-    dashboard. If an existing JSON file is provided, the new data point is
-    appended to the existing history.
+    Reads the skill-validator results.json file (which contains all verdicts) and
+    produces a per-component JSON file (<ComponentName>.json) compatible with the
+    benchmark dashboard. If an existing JSON file is provided, the new data point
+    is appended to the existing history.
 
-.PARAMETER ResultsDir
-    Path to the skill-validator run results directory (e.g. .skill-validator-results/run-<timestamp>).
+.PARAMETER ResultsFile
+    Path to the skill-validator results.json file.
 
 .PARAMETER ComponentName
     Name of the component these results belong to. Used as the output filename.
 
 .PARAMETER OutputDir
-    Path to write the output files. Defaults to ResultsDir.
+    Path to write the output files. Defaults to the directory containing ResultsFile.
 
 .PARAMETER ExistingDataFile
     Optional path to an existing <ComponentName>.json file from gh-pages to append to.
@@ -26,7 +26,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [string]$ResultsDir,
+    [string]$ResultsFile,
 
     [Parameter(Mandatory)]
     [string]$ComponentName,
@@ -44,23 +44,20 @@ param(
 $ErrorActionPreference = "Stop"
 
 if (-not $OutputDir) {
-    $OutputDir = $ResultsDir
+    $OutputDir = Split-Path $ResultsFile -Parent
 }
 
 # Read skill-validator results
-$resultsFile = Join-Path $ResultsDir "results.json"
-if (-not (Test-Path $resultsFile)) {
-    Write-Warning "No results.json found in $ResultsDir"
+if (-not (Test-Path $ResultsFile)) {
+    Write-Warning "Results file not found: $ResultsFile"
     exit 0
 }
 
-$results = Get-Content $resultsFile -Raw | ConvertFrom-Json
+$results = Get-Content $ResultsFile -Raw | ConvertFrom-Json
 $model = $results.model
 
-# Find verdict files for skills in this component
-$skillDirs = Get-ChildItem -Path $ResultsDir -Directory -ErrorAction SilentlyContinue
-if (-not $skillDirs) {
-    Write-Warning "No skill results found in $ResultsDir"
+if (-not $results.verdicts -or $results.verdicts.Count -eq 0) {
+    Write-Warning "No verdicts found in $ResultsFile"
     exit 0
 }
 
@@ -68,11 +65,7 @@ if (-not $skillDirs) {
 $qualityBenches = [System.Collections.Generic.List[object]]::new()
 $efficiencyBenches = [System.Collections.Generic.List[object]]::new()
 
-foreach ($skillDir in $skillDirs) {
-    $verdictFile = Join-Path $skillDir.FullName "verdict.json"
-    if (-not (Test-Path $verdictFile)) { continue }
-
-    $verdict = Get-Content $verdictFile -Raw | ConvertFrom-Json
+foreach ($verdict in $results.verdicts) {
     $skillName = $verdict.skillName
 
     foreach ($scenario in $verdict.scenarios) {

@@ -14,7 +14,7 @@ public static class ValidateCommand
         var minImprovementOpt = new Option<double>("--min-improvement") { Description = "Minimum improvement score to pass (0-1)", DefaultValueFactory = _ => 0.1 };
         var requireCompletionOpt = new Option<bool>("--require-completion") { Description = "Fail if skill regresses task completion", DefaultValueFactory = _ => true };
         var requireEvalsOpt = new Option<bool>("--require-evals") { Description = "Fail if skill has no tests/eval.yaml" };
-        var strictOpt = new Option<bool>("--strict") { Description = "Strict mode: require evals and fail on any issue" };
+        var verdictWarnOnlyOpt = new Option<bool>("--verdict-warn-only") { Description = "Treat verdict failures as warnings (exit 0). Execution errors and --require-evals still fail." };
         var verboseOpt = new Option<bool>("--verbose") { Description = "Show detailed per-scenario breakdowns" };
         var modelOpt = new Option<string>("--model") { Description = "Model to use for agent runs", DefaultValueFactory = _ => "claude-opus-4.6" };
         var judgeModelOpt = new Option<string?>("--judge-model") { Description = "Model to use for judging (defaults to --model)" };
@@ -35,7 +35,7 @@ public static class ValidateCommand
             minImprovementOpt,
             requireCompletionOpt,
             requireEvalsOpt,
-            strictOpt,
+            verdictWarnOnlyOpt,
             verboseOpt,
             modelOpt,
             judgeModelOpt,
@@ -76,8 +76,7 @@ public static class ValidateCommand
             {
                 MinImprovement = parseResult.GetValue(minImprovementOpt),
                 RequireCompletion = parseResult.GetValue(requireCompletionOpt),
-                RequireEvals = parseResult.GetValue(strictOpt) || parseResult.GetValue(requireEvalsOpt),
-                Strict = parseResult.GetValue(strictOpt),
+                RequireEvals = parseResult.GetValue(requireEvalsOpt),
                 Verbose = parseResult.GetValue(verboseOpt),
                 Model = parseResult.GetValue(modelOpt) ?? "claude-opus-4.6",
                 JudgeModel = parseResult.GetValue(judgeModelOpt) ?? parseResult.GetValue(modelOpt) ?? "claude-opus-4.6",
@@ -88,6 +87,7 @@ public static class ValidateCommand
                 ParallelRuns = Math.Max(1, parseResult.GetValue(parallelRunsOpt)),
                 JudgeTimeout = parseResult.GetValue(judgeTimeoutOpt) * 1000,
                 ConfidenceLevel = parseResult.GetValue(confidenceLevelOpt),
+                VerdictWarnOnly = parseResult.GetValue(verdictWarnOnlyOpt),
                 Reporters = reporters,
                 SkillPaths = paths,
                 ResultsDir = parseResult.GetValue(resultsDirOpt),
@@ -167,10 +167,27 @@ public static class ValidateCommand
         spinner.Start($"Evaluating {allSkills.Count} skill(s)...");
         var skillTasks = allSkills.Select(skill =>
             skillLimit.RunAsync(() => EvaluateSkill(skill, config, usePairwise, spinner)));
-        var results = await Task.WhenAll(skillTasks);
+        var settled = await Task.WhenAll(skillTasks.Select(async t =>
+        {
+            try { return (Result: await t, Error: (Exception?)null); }
+            catch (Exception ex) { return (Result: (SkillVerdict?)null, Error: ex); }
+        }));
         spinner.Stop();
 
-        var verdicts = results.Where(v => v is not null).Cast<SkillVerdict>().ToList();
+        var verdicts = new List<SkillVerdict>();
+        bool hasRejections = false;
+        foreach (var (result, error) in settled)
+        {
+            if (result is not null)
+            {
+                verdicts.Add(result);
+            }
+            else if (error is not null)
+            {
+                hasRejections = true;
+                Console.Error.WriteLine($"\x1b[31m❌ Skill evaluation failed: {error.Message}\x1b[0m");
+            }
+        }
 
         await Reporter.ReportResults(verdicts, config.Reporters, config.Verbose,
             config.Model, config.JudgeModel, config.ResultsDir);
@@ -178,7 +195,20 @@ public static class ValidateCommand
         await AgentRunner.StopSharedClient();
         await AgentRunner.CleanupWorkDirs();
 
-        return verdicts.All(v => v.Passed) ? 0 : 1;
+        // Always fail on execution errors, even in --verdict-warn-only mode
+        if (hasRejections) return 1;
+
+        var allPassed = verdicts.All(v => v.Passed);
+        if (config.VerdictWarnOnly && !allPassed)
+        {
+            // In --verdict-warn-only mode, suppress verdict failures except missing_eval
+            // (which is controlled by --require-evals and should remain fatal).
+            var onlyWarnableFailures = verdicts.All(
+                v => v.Passed || v.FailureKind != "missing_eval");
+            if (onlyWarnableFailures) return 0;
+        }
+
+        return allPassed ? 0 : 1;
     }
 
     private static async Task<SkillVerdict?> EvaluateSkill(
@@ -201,7 +231,8 @@ public static class ValidateCommand
                     Passed = false,
                     Scenarios = [],
                     OverallImprovementScore = 0,
-                    Reason = "No tests/eval.yaml found (required by --require-evals or --strict)",
+                    Reason = "No tests/eval.yaml found (required by --require-evals)",
+                    FailureKind = "missing_eval",
                 };
             }
             log("⏭  Skipping (no tests/eval.yaml)");
@@ -238,6 +269,7 @@ public static class ValidateCommand
             log($"\x1b[33m\u26a0\ufe0f  Skill was NOT activated in scenario(s): {names}\x1b[0m");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
+            verdict.FailureKind = "skill_not_activated";
             verdict.Reason += $" [SKILL NOT ACTIVATED in {notActivated.Count} scenario(s): {names}]";
         }
 

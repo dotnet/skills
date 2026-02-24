@@ -308,7 +308,7 @@ public static class Reporter
 
         foreach (var verdict in verdicts)
         {
-            var skillDir = Path.Combine(resultsDir, verdict.SkillName);
+            var skillDir = Path.Combine(resultsDir, SafeDirName(verdict.SkillName));
             Directory.CreateDirectory(skillDir);
 
             foreach (var scenario in verdict.Scenarios)
@@ -372,8 +372,21 @@ public static class Reporter
 
         await File.WriteAllTextAsync(Path.Combine(resultsDir, "results.json"), json);
         Console.WriteLine($"JSON results written to {Path.Combine(resultsDir, "results.json")}");
-    }
 
+        // Write per-skill verdict.json files for downstream consumers (e.g. dashboard)
+        var jsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        };
+        foreach (var verdict in verdicts)
+        {
+            var skillDir = Path.Combine(resultsDir, SafeDirName(verdict.SkillName));
+            Directory.CreateDirectory(skillDir);
+            var verdictJson = JsonSerializer.Serialize(verdict, jsonOptions);
+            await File.WriteAllTextAsync(Path.Combine(skillDir, "verdict.json"), verdictJson);
+        }
+    }
     // --- JUnit reporter ---
 
     private static async Task ReportJunit(IReadOnlyList<SkillVerdict> verdicts, string resultsDir)
@@ -413,6 +426,21 @@ public static class Reporter
     }
 
     // --- Helpers ---
+
+    /// <summary>Sanitize a skill name into a safe single directory segment by slugifying.</summary>
+    internal static string SafeDirName(string name)
+    {
+        var seg = Path.GetFileName(name ?? "");
+        if (string.IsNullOrEmpty(seg) || seg == "." || seg == "..")
+            throw new ArgumentException($"Invalid skill name for directory use: '{name}'");
+        // Replace characters that are unsafe in directory names with hyphens and collapse runs.
+        var slugified = System.Text.RegularExpressions.Regex.Replace(seg, "[^a-zA-Z0-9._-]", "-");
+        slugified = System.Text.RegularExpressions.Regex.Replace(slugified, "-{2,}", "-");
+        slugified = slugified.Trim('-');
+        if (string.IsNullOrEmpty(slugified))
+            throw new ArgumentException($"Invalid skill name for directory use: '{name}'");
+        return slugified;
+    }
 
     private static double AvgRubricScore(IReadOnlyList<RubricScore> scores) =>
         scores.Count == 0 ? 0 : scores.Average(s => s.Score);

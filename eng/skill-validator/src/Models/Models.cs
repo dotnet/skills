@@ -200,6 +200,8 @@ public sealed class SkillVerdict
     public ConfidenceInterval? ConfidenceInterval { get; init; }
     public bool? IsSignificant { get; init; }
     public required string Reason { get; set; }
+    /// <summary>Categorizes why the verdict failed, if it did.</summary>
+    public string? FailureKind { get; set; }
     public IReadOnlyList<string>? ProfileWarnings { get; set; }
     public bool SkillNotActivated { get; set; }
 }
@@ -221,7 +223,6 @@ public sealed record ValidatorConfig
     public double MinImprovement { get; init; } = 0.1;
     public bool RequireCompletion { get; init; } = true;
     public bool RequireEvals { get; init; }
-    public bool Strict { get; init; }
     public bool Verbose { get; init; }
     public string Model { get; init; } = "claude-opus-4.6";
     public string JudgeModel { get; init; } = "claude-opus-4.6";
@@ -234,6 +235,7 @@ public sealed record ValidatorConfig
     public double ConfidenceLevel { get; init; } = 0.95;
     public IReadOnlyList<ReporterSpec> Reporters { get; init; } = [];
     public IReadOnlyList<string> SkillPaths { get; init; } = [];
+    public bool VerdictWarnOnly { get; init; }
     public string? ResultsDir { get; init; }
     public string? TestsDir { get; init; }
 }

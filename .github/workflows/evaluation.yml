@@ -267,7 +267,6 @@ jobs:
 
       - name: Run skill-validator
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
@@ -276,11 +275,15 @@ jobs:
           chmod +x artifacts/publish/SkillValidator/release/skill-validator
           chmod +x artifacts/publish/SkillValidator/release/runtimes/*/native/copilot
 
-          ARGS="--strict --require-evals"
+          # --require-evals: fail if a skill has no tests/eval.yaml
+          # --verdict-warn-only: treat verdict failures (threshold, completion, activation) as warnings (exit 0);
+          #              execution errors and missing evals still fail.
+          ARGS="--require-evals --verdict-warn-only"
           ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
           ARGS="$ARGS --model ${{ github.event.inputs.model || env.DEFAULT_MODEL }}"
           ARGS="$ARGS --judge-model ${{ github.event.inputs.judge-model || env.DEFAULT_JUDGE_MODEL }}"
-          RUNS="${{ github.event.inputs.runs || (needs.discover.outputs.is_infra == 'true' && '1' || env.DEFAULT_RUNS) }}"
+          # Use 2 runs as a balance between not spending excessive quota but still testing that multiple runs work.
+          RUNS="${{ github.event.inputs.runs || (needs.discover.outputs.is_infra == 'true' && '2' || env.DEFAULT_RUNS) }}"
           ARGS="$ARGS --runs $RUNS"
           ARGS="$ARGS --parallel-skills ${{ github.event.inputs.parallel-skills || env.DEFAULT_PARALLEL_SKILLS }}"
           ARGS="$ARGS --parallel-scenarios ${{ github.event.inputs.parallel-scenarios || env.DEFAULT_PARALLEL_SCENARIOS }}"
@@ -303,7 +306,7 @@ jobs:
 
   comment-on-pr:
     needs: [discover, evaluate]
-    if: always() && needs.discover.outputs.has_entries == 'true'
+    if: always() && needs.evaluate.result != 'cancelled' && needs.discover.outputs.has_entries == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Download all result artifacts
@@ -416,10 +419,11 @@ jobs:
               continue
             }
 
+            $resultsFile = Join-Path $runDir.FullName "results.json"
             Write-Host "`n=== Generating benchmark data for: $component ==="
             $existingFile = "/tmp/gh-pages/data/$component.json"
             $params = @{
-              ResultsDir    = $runDir.FullName
+              ResultsFile   = $resultsFile
               ComponentName = $component
               OutputDir     = "/tmp/gh-pages/data"
               CommitJson    = $commitJson
