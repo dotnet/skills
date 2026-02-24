@@ -293,25 +293,34 @@ export async function run(config: ValidatorConfig): Promise<number> {
           runLog(`running agents...`);
         }
 
-        // Run baseline and with-skill in parallel
-        const [baselineMetrics, withSkillMetrics] = await Promise.all([
-          runAgent({
-            scenario,
-            skill: null,
-            evalPath: skill.evalPath,
-            model: config.model,
-            verbose: config.verbose,
-            log: runLog,
-          }),
-          runAgent({
-            scenario,
-            skill,
-            evalPath: skill.evalPath,
-            model: config.model,
-            verbose: config.verbose,
-            log: runLog,
-          }),
-        ]);
+        // Run baseline and with-skill agents
+        let baselineMetrics: Awaited<ReturnType<typeof runAgent>>;
+        let withSkillMetrics: Awaited<ReturnType<typeof runAgent>>;
+        const baselineOpts = {
+          scenario,
+          skill: null,
+          evalPath: skill.evalPath,
+          model: config.model,
+          verbose: config.verbose,
+          log: runLog,
+        };
+        const withSkillOpts = {
+          scenario,
+          skill,
+          evalPath: skill.evalPath,
+          model: config.model,
+          verbose: config.verbose,
+          log: runLog,
+        };
+        if (scenario.sequential_agents) {
+          baselineMetrics = await runAgent(baselineOpts);
+          withSkillMetrics = await runAgent(withSkillOpts);
+        } else {
+          [baselineMetrics, withSkillMetrics] = await Promise.all([
+            runAgent(baselineOpts),
+            runAgent(withSkillOpts),
+          ]);
+        }
 
         // Evaluate assertions for both
         if (scenario.assertions) {

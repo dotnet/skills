@@ -33,6 +33,7 @@ const scenarioSchema = z.object({
   reject_tools: z.array(z.string()).optional(),
   max_turns: z.number().positive().int().optional(),
   max_tokens: z.number().positive().int().optional(),
+  sequential_agents: z.boolean().optional(),
 });
 
 export const evalConfigSchema = z.object({

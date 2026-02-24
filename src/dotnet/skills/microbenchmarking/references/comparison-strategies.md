@@ -182,21 +182,24 @@ Without a baseline, BDN shows absolute numbers only — no ratio columns.
 
 ## Apples-to-apples comparison
 
-When comparing across jobs (Strategies 2–5), the default behavior runs each job independently — the pilot stage may choose different invocation counts for each job, creating asymmetric measurement conditions (different iteration durations and overhead ratios) that can bias the comparison.
+When comparing across jobs (Strategies 2–5), the default behavior runs each job's pilot stage independently, which may choose different invocation counts per job for the same benchmark case. This creates asymmetric measurement conditions that can bias the comparison.
 
-The `--apples` flag (short for "apples-to-apples") forces a fairer comparison:
+The `--apples` flag forces symmetric measurement by running in two phases:
 
-1. BDN first runs a pilot calibration pass for each benchmark case (method × parameter combination) using the baseline job to determine the invocation count
-2. Then runs ALL jobs with that same invocation count, so each iteration covers the same number of operations
-3. Outlier removal is disabled (since the controlled setup makes outliers more meaningful)
+1. **Pilot phase** — BDN runs the baseline job once per benchmark case (method × parameter combination) to determine the invocation count for that case. Different cases get different invocation counts based on their speed. This produces a first results table in the log showing only the baseline with `Ratio = 1.00`.
+2. **Measurement phase** — for each benchmark case, ALL jobs run with that case's fixed invocation count, ensuring every job measures the same number of operations per iteration. The final comparison table includes `Ratio` and `InvocationCount` columns and is written to `BenchmarkDotNet.Artifacts/`.
+
+Outlier removal is disabled in this mode since the controlled setup makes outliers more meaningful.
 
 ```
-dotnet run -c Release --framework net9.0 -- --runtimes net8.0 net9.0 --apples --iterationCount 15
+dotnet run -c Release --framework net9.0 -- --runtimes net8.0 net9.0 --apples --job short
 ```
+
+Because the pilot runs only once per benchmark case instead of once per job, `--apples` is faster than the default when there are many benchmark cases. The savings grow with the number of methods and parameter combinations.
 
 Requirements:
 - At least two jobs, with exactly one marked as baseline (via `.AsBaseline()` on the job, not `[Benchmark(Baseline = true)]` on the method). When using `--runtimes`, the first runtime listed is automatically treated as the baseline.
-- Explicit `--iterationCount` (adaptive iteration count is disabled in this mode)
+- An explicit iteration count, such as by using `--job short` (which sets `IterationCount=3`) or `--iterationCount N`. Adaptive iteration count is disabled in this mode.
 
 This does not apply to Strategy 1 (side-by-side methods) or Strategy 6 (input scale) because those use a single job — `--apples` requires multiple job objects.
 

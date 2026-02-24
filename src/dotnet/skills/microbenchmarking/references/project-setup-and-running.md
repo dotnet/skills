@@ -34,7 +34,7 @@ dotnet run -c Release -- --filter "*Sort*"      # glob pattern matching
 
 `--filter "*"` matches everything and is the standard way to run all benchmarks non-interactively.
 
-When creating a new benchmark project, prefer `BenchmarkSwitcher` with `args` forwarding — it supports all CLI flags and also gives human users an interactive selection experience when `--filter` is omitted. Always pass `--filter` when running programmatically.
+Both entry points support CLI flags when `args` is forwarded. The difference is that `BenchmarkSwitcher` also provides an interactive selection prompt for human users when `--filter` is omitted — `BenchmarkRunner` does not. Whichever you choose, ensure `args` is passed through or CLI flags will be silently ignored.
 
 ## Config objects
 
@@ -72,17 +72,7 @@ Configs can be applied in several ways:
 
 ## Creating a new benchmark project
 
-For **coverage suite** benchmarks (use case 1), add to the existing benchmark project and follow its conventions.
-
-For **temporary benchmarks** (use cases 2–4), create a standalone project. Place it in a `.bench/` directory at the repository root so it is clearly not part of the permanent codebase and easy to delete later.
-
-```
-mkdir .bench
-cd .bench
-dotnet new console
-dotnet add package BenchmarkDotNet
-dotnet add reference ../src/MyLibrary/MyLibrary.csproj
-```
+If there is no existing benchmark project to add to, create a new console project with `dotnet new console` and add the BenchmarkDotNet package. Choose a temporary or permanent location based on the scope of the work.
 
 Use `dotnet add package BenchmarkDotNet` without specifying a version — `dotnet` resolves the latest compatible version automatically. Pinning to a specific version risks missing support for newer runtimes and CLI features.
 

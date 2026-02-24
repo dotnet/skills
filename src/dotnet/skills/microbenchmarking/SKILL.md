@@ -1,5 +1,5 @@
 ---
-name: benchmark-authoring
+name: microbenchmarking
 description: >
   Activate this skill when BenchmarkDotNet is involved in the task — creating,
   running, configuring, or reviewing BDN benchmarks. Also activate when
@@ -78,7 +78,7 @@ Each benchmark case (one method × one parameter combination × one job) takes *
 
 ## Entry points and configuration
 
-BDN programs use either **`BenchmarkSwitcher`** (parses CLI arguments, supports `--filter`) or **`BenchmarkRunner`** (simpler, but CLI flags are silently ignored unless `args` is explicitly passed). When using `BenchmarkSwitcher`, always pass `--filter` to avoid hanging on an interactive prompt.
+BDN programs use either **`BenchmarkSwitcher`** (provides interactive benchmark selection for humans, parses CLI arguments) or **`BenchmarkRunner`** (runs specified benchmarks directly). Both support CLI flags like `--filter` and `--runtimes`, but only when `args` is passed through — without it, CLI flags are silently ignored. When using `BenchmarkSwitcher`, always pass `--filter` to avoid hanging on an interactive prompt.
 
 BDN behavior is customized through **attributes**, **config objects**, and **CLI flags**.
 

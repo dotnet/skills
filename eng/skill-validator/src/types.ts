@@ -23,6 +23,7 @@ export interface EvalScenario {
   reject_tools?: string[];
   max_turns?: number;
   max_tokens?: number;
+  sequential_agents?: boolean;
 }
 
 export interface SetupConfig {
