@@ -4,7 +4,8 @@ on:
   pull_request:
     paths:
       - 'src/**'
-      - '.github/workflows/evaluation.yml'
+      - '.github/workflows/**'
+      - 'eng/skill-validator/**'
 
   schedule:
     - cron: '0 */2 * * *'
@@ -74,6 +75,7 @@ jobs:
     outputs:
       entries: ${{ steps.find.outputs.entries }}
       has_entries: ${{ steps.find.outputs.has_entries }}
+      is_infra: ${{ steps.find.outputs.is_infra }}
       components: ${{ steps.find.outputs.components }}
       has_components: ${{ steps.find.outputs.has_components }}
     steps:
@@ -101,32 +103,46 @@ jobs:
             $head = "${{ github.event.pull_request.head.sha }}"
             $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
 
-            # Extract unique component/skill pairs from changed files under src/*/skills/*/ or src/*/tests/*/
-            # NOTE: Changes under src/*/skills/shared/ won't match here since shared directories
-            # don't have SKILL.md files. Use workflow_dispatch to manually evaluate affected
-            # components when shared resources change.
-            $changedPairs = @($changedFiles |
-              Where-Object { $_ -match '^src/([^/]+)/(skills|tests)/([^/]+)/' } |
-              ForEach-Object { "$($Matches[1])/$($Matches[3])" } |
-              Sort-Object -Unique)
+            # Check if any changed files are in infrastructure paths (.github/workflows/ or eng/skill-validator/)
+            $hasInfraChanges = $changedFiles |
+              Where-Object { $_ -match '^(\.github/workflows/|eng/skill-validator/)' } |
+              Select-Object -First 1
 
-            # Filter to skills that have a SKILL.md and a component tests directory
-            $entries = @($changedPairs | ForEach-Object {
-              $parts = $_ -split '/'
-              $component = $parts[0]
-              $skill = $parts[1]
-              $skillMd = Join-Path "src" $component "skills" $skill "SKILL.md"
-              $testsDir = Join-Path "src" $component "tests"
-              if ((Test-Path $skillMd) -and (Test-Path $testsDir)) {
-                @{
-                  name = "$component--$skill"
-                  component = $component
-                  skills_path = "src/$component/skills/$skill"
+            if ($hasInfraChanges) {
+              # Infra changes can affect any evaluation — evaluate all components
+              Write-Host "Infrastructure changes detected, evaluating all components"
+              echo "is_infra=true" >> $env:GITHUB_OUTPUT
+              $components = @(Get-ChildItem -Path "src" -Directory |
+                Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path $_.FullName "tests")) } |
+                Select-Object -ExpandProperty Name)
+              $entries = @($components | ForEach-Object {
+                @{ name = $_; component = $_; skills_path = "src/$_/skills" }
+              })
+            } else {
+              # Extract unique component/skill pairs from changed files under src/*/skills/*/ or src/*/tests/*/
+              $changedPairs = @($changedFiles |
+                Where-Object { $_ -match '^src/([^/]+)/(skills|tests)/([^/]+)/' } |
+                ForEach-Object { "$($Matches[1])/$($Matches[3])" } |
+                Sort-Object -Unique)
+
+              # Filter to skills that have a SKILL.md and a component tests directory
+              $entries = @($changedPairs | ForEach-Object {
+                $parts = $_ -split '/'
+                $component = $parts[0]
+                $skill = $parts[1]
+                $skillMd = Join-Path "src" $component "skills" $skill "SKILL.md"
+                $testsDir = Join-Path "src" $component "tests"
+                if ((Test-Path $skillMd) -and (Test-Path $testsDir)) {
+                  @{
+                    name = "$component--$skill"
+                    component = $component
+                    skills_path = "src/$component/skills/$skill"
+                  }
                 }
-              }
-            } | Where-Object { $_ })
+              } | Where-Object { $_ })
 
-            $components = @($entries | ForEach-Object { $_.component } | Sort-Object -Unique)
+              $components = @($entries | ForEach-Object { $_.component } | Sort-Object -Unique)
+            }
           } else {
             # Schedule/dispatch: evaluate all components with skills and tests
             $components = @(Get-ChildItem -Path "src" -Directory |
@@ -274,7 +290,8 @@ jobs:
           ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
           ARGS="$ARGS --model ${{ github.event.inputs.model || env.DEFAULT_MODEL }}"
           ARGS="$ARGS --judge-model ${{ github.event.inputs.judge-model || env.DEFAULT_JUDGE_MODEL }}"
-          ARGS="$ARGS --runs ${{ github.event.inputs.runs || env.DEFAULT_RUNS }}"
+          RUNS="${{ github.event.inputs.runs || (needs.discover.outputs.is_infra == 'true' && '1' || env.DEFAULT_RUNS) }}"
+          ARGS="$ARGS --runs $RUNS"
           ARGS="$ARGS --parallel-skills ${{ github.event.inputs.parallel-skills || env.DEFAULT_PARALLEL_SKILLS }}"
           ARGS="$ARGS --parallel-scenarios ${{ github.event.inputs.parallel-scenarios || env.DEFAULT_PARALLEL_SCENARIOS }}"
           ARGS="$ARGS --parallel-runs ${{ github.event.inputs.parallel-runs || env.DEFAULT_PARALLEL_RUNS }}"
