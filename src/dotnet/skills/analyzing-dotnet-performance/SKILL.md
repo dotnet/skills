@@ -34,38 +34,69 @@ Scan C#/.NET code for performance anti-patterns and produce prioritized findings
 
 ## Workflow
 
-### Step 1: Load Critical Patterns
+### Step 1: Load Reference Files (if available)
 
-Always load `references/critical-patterns.md`. These 17 patterns represent deadlocks, order-of-magnitude regressions, and excessive allocations. Flag every match unconditionally.
+Try to load `references/critical-patterns.md` and the topic-specific reference files listed below. These contain detailed detection recipes and grep commands.
 
-### Step 2: Detect Code Signals and Load Topic References
+**If reference files are not found** (e.g., in a sandboxed environment or when the skill is embedded as instructions only), **skip file loading and proceed directly to Step 3** using the scan recipes listed inline below. Do not spend time searching the filesystem for reference files — if they aren't at the expected relative path, they aren't available.
 
-Scan the code for signals that indicate which topic-specific reference files to load. Only load files relevant to the code under review.
+### Step 2: Detect Code Signals and Select Topic Recipes
 
-| Signal in Code | Load Reference |
-|----------------|----------------|
-| `async`, `await`, `Task`, `ValueTask` | [async-patterns.md](references/async-patterns.md) |
-| `Span<`, `Memory<`, `stackalloc`, `ArrayPool`, `string.Substring`, `.Replace(`, `.ToLower()`, `+=` in loops, `params ` | [memory-and-strings.md](references/memory-and-strings.md) |
-| `Regex`, `[GeneratedRegex]`, `Regex.Match`, `RegexOptions.Compiled` | [regex-patterns.md](references/regex-patterns.md) |
-| `Dictionary<`, `List<`, `.ToList()`, `.Where(`, `.Select(`, LINQ methods, `static readonly Dictionary<` | [collections-and-linq.md](references/collections-and-linq.md) |
-| `JsonSerializer`, `HttpClient`, `Stream`, `FileStream` | [io-and-serialization.md](references/io-and-serialization.md) |
+Scan the code for signals that indicate which pattern categories to check. If reference files were loaded, use their `## Detection` sections. Otherwise, use the inline recipes in Step 3.
 
-Always load [structural-patterns.md](references/structural-patterns.md) for absence-based detection (unsealed classes).
+| Signal in Code | Topic |
+|----------------|-------|
+| `async`, `await`, `Task`, `ValueTask` | Async patterns |
+| `Span<`, `Memory<`, `stackalloc`, `ArrayPool`, `string.Substring`, `.Replace(`, `.ToLower()`, `+=` in loops, `params ` | Memory & strings |
+| `Regex`, `[GeneratedRegex]`, `Regex.Match`, `RegexOptions.Compiled` | Regex patterns |
+| `Dictionary<`, `List<`, `.ToList()`, `.Where(`, `.Select(`, LINQ methods, `static readonly Dictionary<` | Collections & LINQ |
+| `JsonSerializer`, `HttpClient`, `Stream`, `FileStream` | I/O & serialization |
 
-**Scan depth controls loading:**
-- `critical-only`: Only Step 1 (critical patterns)
-- `standard` (default): Steps 1 + 2 (critical + detected topics)
-- `comprehensive`: Load all reference files
+Always check structural patterns (unsealed classes) regardless of signals.
+
+**Scan depth controls scope:**
+- `critical-only`: Only critical patterns (deadlocks, >10x regressions)
+- `standard` (default): Critical + detected topic patterns
+- `comprehensive`: All pattern categories
 
 ### Step 3: Scan and Report
 
-For each loaded reference file, run every grep/scan recipe from its `## Detection` section. Report exact counts, not estimates.
+**For files under 500 lines, read the entire file first** — you'll spot most patterns faster than running individual grep recipes. Use grep to confirm counts and catch patterns you might miss visually.
+
+For each relevant pattern category, run the detection recipes below. Report exact counts, not estimates.
+
+**Core scan recipes** (run these when reference files aren't available):
+```
+# Strings & memory
+grep -n '\.IndexOf(\"' FILE                    # Missing StringComparison
+grep -n '\.Substring(' FILE                    # Substring allocations
+grep -n '\.StartsWith\|\.EndsWith\|\.Contains' FILE  # Missing StringComparison
+grep -n '\.ToLower()\|\.ToUpper()' FILE        # Culture-sensitive + allocation
+grep -n '\.Replace(' FILE                      # Chained Replace allocations
+grep -n 'params ' FILE                         # params array allocation
+
+# Collections & LINQ
+grep -n '\.Select\|\.Where\|\.OrderBy\|\.GroupBy' FILE  # LINQ on hot path
+grep -n '\.All\|\.Any' FILE                    # LINQ on string/char
+grep -n 'new Dictionary<\|new List<' FILE      # Per-call allocation
+grep -n 'static readonly Dictionary<' FILE     # FrozenDictionary candidate
+
+# Regex
+grep -n 'RegexOptions.Compiled' FILE           # Compiled regex budget
+grep -n 'new Regex(' FILE                      # Per-call regex
+grep -n 'GeneratedRegex' FILE                  # Positive: source-gen regex
+
+# Structural
+grep -n 'public class \|internal class ' FILE  # Unsealed classes
+grep -n 'sealed class' FILE                    # Already sealed
+grep -n ': IEquatable' FILE                    # Positive: struct equality
+```
 
 **Rules:**
-- Run every recipe in every loaded reference file
-- **Emit a scan execution checklist** before classifying findings — list each recipe, the command run, and the hit count
+- Run every relevant recipe for the detected pattern categories
+- **Emit a scan execution checklist** before classifying findings — list each recipe and the hit count
 - A result of **0 hits** is valid and valuable (confirms good practice)
-- If any recipe was not executed, go back and run it before proceeding
+- If reference files were loaded, also run their `## Detection` recipes
 
 **Verify-the-Inverse Rule:** For absence patterns, always count both sides and report the ratio (e.g., "N of M classes are sealed"). The ratio determines severity — 0/185 is systematic, 12/15 is a consistency fix.
 
@@ -143,8 +174,8 @@ End with a summary table and disclaimer:
 
 Before delivering results, verify:
 
-- [ ] All critical patterns from `critical-patterns.md` were checked
-- [ ] Topic reference files loaded only when matching signals detected
+- [ ] All critical patterns were checked (from reference files or inline recipes)
+- [ ] Topic-specific recipes run only when matching signals detected
 - [ ] Each finding includes a concrete code fix
 - [ ] Scan execution checklist is complete (all recipes run)
 - [ ] Summary table included at end
