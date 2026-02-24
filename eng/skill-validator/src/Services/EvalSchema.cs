@@ -80,6 +80,29 @@ public static class EvalSchema
             _ => throw new InvalidOperationException($"Unknown assertion type: {raw.Type}"),
         };
 
+        // Validate required fields per assertion type
+        switch (type)
+        {
+            case AssertionType.FileExists or AssertionType.FileNotExists:
+                if (string.IsNullOrWhiteSpace(raw.Path))
+                    throw new InvalidOperationException($"Assertion '{raw.Type}' requires 'path'");
+                break;
+            case AssertionType.FileContains:
+                if (string.IsNullOrWhiteSpace(raw.Path))
+                    throw new InvalidOperationException($"Assertion '{raw.Type}' requires 'path'");
+                if (string.IsNullOrWhiteSpace(raw.Value))
+                    throw new InvalidOperationException($"Assertion '{raw.Type}' requires 'value'");
+                break;
+            case AssertionType.OutputContains or AssertionType.OutputNotContains:
+                if (string.IsNullOrWhiteSpace(raw.Value))
+                    throw new InvalidOperationException($"Assertion '{raw.Type}' requires 'value'");
+                break;
+            case AssertionType.OutputMatches or AssertionType.OutputNotMatches:
+                if (string.IsNullOrWhiteSpace(raw.Pattern))
+                    throw new InvalidOperationException($"Assertion '{raw.Type}' requires 'pattern'");
+                break;
+        }
+
         return new Assertion(type, raw.Path, raw.Value, raw.Pattern);
     }
 

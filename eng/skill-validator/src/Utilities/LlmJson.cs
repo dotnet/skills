@@ -51,7 +51,8 @@ public static partial class LlmJson
     {
         try
         {
-            return JsonDocument.Parse(jsonStr).RootElement;
+            using var doc = JsonDocument.Parse(jsonStr);
+            return doc.RootElement.Clone();
         }
         catch (JsonException originalError)
         {
@@ -69,7 +70,8 @@ public static partial class LlmJson
             try
             {
                 var sanitized = InvalidEscapeRegex().Replace(jsonStr, "");
-                return JsonDocument.Parse(sanitized).RootElement;
+                using var doc = JsonDocument.Parse(sanitized);
+                return doc.RootElement.Clone();
             }
             catch (JsonException retryErr)
             {
@@ -85,7 +87,7 @@ public static partial class LlmJson
     {
         try
         {
-            JsonDocument.Parse(text);
+            using var doc = JsonDocument.Parse(text);
             return true;
         }
         catch

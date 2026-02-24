@@ -281,10 +281,3 @@ dotnet run --project src/SkillValidator -- consolidate --output summary.md $(fin
 |------|-------------|
 | `<files...>` | Paths to `results.json` files to merge |
 | `--output <path>` | Output file path for the consolidated markdown |
-
-## Development
-
-```bash
-dotnet build                               # Build the solution
-dotnet test --solution SkillValidator.slnx # Run unit tests
-```
