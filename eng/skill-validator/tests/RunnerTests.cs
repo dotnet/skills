@@ -88,32 +88,42 @@ public class BuildSessionConfigTests
 
 public class CheckPermissionTests
 {
+    // Use platform-appropriate paths for cross-platform test compatibility
+    private static readonly string WorkDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+    private static readonly string SkillDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "skills", "test-skill"));
+
     private static PermissionRequest MakeRequest(string json)
     {
         return JsonSerializer.Deserialize<PermissionRequest>(json)!;
     }
 
+    private static PermissionRequest MakePathRequest(string path)
+    {
+        var escaped = path.Replace("\\", "\\\\");
+        return MakeRequest($"{{\"kind\":\"read\",\"path\":\"{escaped}\"}}");
+    }
+
     [Fact]
     public void ApprovesPathsInsideWorkDir()
     {
-        var req = MakeRequest("{\"kind\":\"read\",\"path\":\"C:\\\\tmp\\\\work\\\\file.txt\"}");
-        var result = AgentRunner.CheckPermission(req, "C:\\tmp\\work", null);
+        var filePath = Path.Combine(WorkDir, "file.txt");
+        var result = AgentRunner.CheckPermission(MakePathRequest(filePath), WorkDir, null);
         Assert.True(result);
     }
 
     [Fact]
     public void ApprovesPathsInsideSkillPath()
     {
-        var req = MakeRequest("{\"kind\":\"read\",\"path\":\"C:\\\\home\\\\user\\\\skills\\\\test-skill\\\\SKILL.md\"}");
-        var result = AgentRunner.CheckPermission(req, "C:\\tmp\\work", "C:\\home\\user\\skills\\test-skill");
+        var filePath = Path.Combine(SkillDir, "SKILL.md");
+        var result = AgentRunner.CheckPermission(MakePathRequest(filePath), WorkDir, SkillDir);
         Assert.True(result);
     }
 
     [Fact]
     public void DeniesPathsOutsideAllowedDirectories()
     {
-        var req = MakeRequest("{\"kind\":\"read\",\"path\":\"C:\\\\Windows\\\\System32\\\\config\"}");
-        var result = AgentRunner.CheckPermission(req, "C:\\tmp\\work", null);
+        var outsidePath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "secret", "config"));
+        var result = AgentRunner.CheckPermission(MakePathRequest(outsidePath), WorkDir, null);
         Assert.False(result);
     }
 
@@ -121,23 +131,23 @@ public class CheckPermissionTests
     public void ApprovesRequestsWithNoPath()
     {
         var req = new PermissionRequest { Kind = "read" };
-        var result = AgentRunner.CheckPermission(req, "C:\\tmp\\work", null);
+        var result = AgentRunner.CheckPermission(req, WorkDir, null);
         Assert.True(result);
     }
 
     [Fact]
     public void DeniesPathsOutsideWorkDirWhenNoSkillPath()
     {
-        var req = MakeRequest("{\"kind\":\"read\",\"path\":\"C:\\\\home\\\\user\\\\other\"}");
-        var result = AgentRunner.CheckPermission(req, "C:\\tmp\\work", null);
+        var outsidePath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "other"));
+        var result = AgentRunner.CheckPermission(MakePathRequest(outsidePath), WorkDir, null);
         Assert.False(result);
     }
 
     [Fact]
     public void DeniesPathsWithSharedPrefixButDifferentDirectory()
     {
-        var req = MakeRequest("{\"kind\":\"read\",\"path\":\"C:\\\\tmp\\\\work-attacker\\\\evil.sh\"}");
-        var result = AgentRunner.CheckPermission(req, "C:\\tmp\\work", null);
+        var attackerPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work-attacker", "evil.sh"));
+        var result = AgentRunner.CheckPermission(MakePathRequest(attackerPath), WorkDir, null);
         Assert.False(result);
     }
 
@@ -145,23 +155,29 @@ public class CheckPermissionTests
     public void ApprovesEmptyStringPath()
     {
         var req = MakeRequest("{\"kind\":\"read\",\"path\":\"\"}");
-        var result = AgentRunner.CheckPermission(req, "C:\\tmp\\work", null);
+        var result = AgentRunner.CheckPermission(req, WorkDir, null);
         Assert.True(result);
     }
 
     [Fact]
     public void ExtractsCommandProperty()
     {
-        var req = MakeRequest("{\"kind\":\"exec\",\"command\":\"/usr/bin/bash\"}");
-        var result = AgentRunner.CheckPermission(req, "/usr", null);
+        var cmdPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bin", "tool"));
+        var escaped = cmdPath.Replace("\\", "\\\\");
+        var req = MakeRequest($"{{\"kind\":\"exec\",\"command\":\"{escaped}\"}}");
+        var result = AgentRunner.CheckPermission(req, Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar), null);
         Assert.True(result);
     }
 
     [Fact]
     public void PrefersPathOverCommand()
     {
-        var req = MakeRequest("{\"kind\":\"read\",\"path\":\"C:\\\\tmp\\\\work\\\\file.txt\",\"command\":\"C:\\\\other\\\\cmd\"}");
-        var result = AgentRunner.CheckPermission(req, "C:\\tmp\\work", null);
+        var filePath = Path.Combine(WorkDir, "file.txt");
+        var otherPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "other", "cmd"));
+        var escapedFile = filePath.Replace("\\", "\\\\");
+        var escapedOther = otherPath.Replace("\\", "\\\\");
+        var req = MakeRequest($"{{\"kind\":\"read\",\"path\":\"{escapedFile}\",\"command\":\"{escapedOther}\"}}");
+        var result = AgentRunner.CheckPermission(req, WorkDir, null);
         Assert.True(result);
     }
 
@@ -169,7 +185,7 @@ public class CheckPermissionTests
     public void ApprovesRequestWithNoExtensionData()
     {
         var req = new PermissionRequest { Kind = "other" };
-        var result = AgentRunner.CheckPermission(req, "C:\\tmp\\work", null);
+        var result = AgentRunner.CheckPermission(req, WorkDir, null);
         Assert.True(result);
     }
 
@@ -177,7 +193,7 @@ public class CheckPermissionTests
     public void ApprovesRequestWithUnrelatedExtensionData()
     {
         var req = MakeRequest("{\"kind\":\"other\",\"skill\":\"binlog-failure-analysis\"}");
-        var result = AgentRunner.CheckPermission(req, "C:\\tmp\\work", null);
+        var result = AgentRunner.CheckPermission(req, WorkDir, null);
         Assert.True(result);
     }
 }
