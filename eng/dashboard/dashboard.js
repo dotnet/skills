@@ -189,46 +189,51 @@
           return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         });
 
-        const timeData = efficiencyEntries.map(e => {
-          const b = e.benches.find(b => b.name === `${test} - Skilled Time`);
-          return b ? b.value : null;
+        // Precompute per-entry data in a single pass over e.benches
+        const timeName = `${test} - Skilled Time`;
+        const tokenName = `${test} - Skilled Tokens In`;
+        let hasAnyNotActivated = false;
+
+        const perEntryData = efficiencyEntries.map(e => {
+          let timeBench = undefined;
+          let tokenBench = undefined;
+          for (const b of e.benches) {
+            if (!timeBench && b.name === timeName) timeBench = b;
+            else if (!tokenBench && b.name === tokenName) tokenBench = b;
+            if (timeBench && tokenBench) break;
+          }
+          const timeNA = !!(timeBench && timeBench.notActivated);
+          const tokenNA = !!(tokenBench && tokenBench.notActivated);
+          if (timeNA || tokenNA) hasAnyNotActivated = true;
+          return {
+            timeValue: timeBench ? timeBench.value : null,
+            timeNotActivated: timeNA,
+            tokenValue: tokenBench ? tokenBench.value / 1000 : null,
+            tokenNotActivated: tokenNA,
+          };
         });
 
-        const tokenData = efficiencyEntries.map(e => {
-          const b = e.benches.find(b => b.name === `${test} - Skilled Tokens In`);
-          return b ? b.value / 1000 : null;
-        });
+        const timeData = perEntryData.map(d => d.timeValue);
+        const tokenData = perEntryData.map(d => d.tokenValue);
 
         // Per-point styling for not-activated data in efficiency charts
-        const timePointBg = efficiencyEntries.map(e => {
-          const b = e.benches.find(b => b.name === `${test} - Skilled Time`);
-          return (b && b.notActivated) ? NOT_ACTIVATED_COLOR : '#f0883e';
-        });
-        const timePointStyle = efficiencyEntries.map(e => {
-          const b = e.benches.find(b => b.name === `${test} - Skilled Time`);
-          return (b && b.notActivated) ? 'triangle' : 'circle';
-        });
-        const timePointRadius = efficiencyEntries.map(e => {
-          const b = e.benches.find(b => b.name === `${test} - Skilled Time`);
-          return (b && b.notActivated) ? 6 : 4;
-        });
-        const tokenPointBg = efficiencyEntries.map(e => {
-          const b = e.benches.find(b => b.name === `${test} - Skilled Tokens In`);
-          return (b && b.notActivated) ? NOT_ACTIVATED_COLOR : '#a371f7';
-        });
-        const tokenPointStyle = efficiencyEntries.map(e => {
-          const b = e.benches.find(b => b.name === `${test} - Skilled Tokens In`);
-          return (b && b.notActivated) ? 'triangle' : 'circle';
-        });
-        const tokenPointRadius = efficiencyEntries.map(e => {
-          const b = e.benches.find(b => b.name === `${test} - Skilled Tokens In`);
-          return (b && b.notActivated) ? 6 : 4;
-        });
-
-        const hasAnyNotActivated = efficiencyEntries.some(e =>
-          e.benches && e.benches.some(b =>
-            (b.name === `${test} - Skilled Time` || b.name === `${test} - Skilled Tokens In`) && b.notActivated
-          )
+        const timePointBg = perEntryData.map(d =>
+          d.timeNotActivated ? NOT_ACTIVATED_COLOR : '#f0883e'
+        );
+        const timePointStyle = perEntryData.map(d =>
+          d.timeNotActivated ? 'triangle' : 'circle'
+        );
+        const timePointRadius = perEntryData.map(d =>
+          d.timeNotActivated ? 6 : 4
+        );
+        const tokenPointBg = perEntryData.map(d =>
+          d.tokenNotActivated ? NOT_ACTIVATED_COLOR : '#a371f7'
+        );
+        const tokenPointStyle = perEntryData.map(d =>
+          d.tokenNotActivated ? 'triangle' : 'circle'
+        );
+        const tokenPointRadius = perEntryData.map(d =>
+          d.tokenNotActivated ? 6 : 4
         );
 
         new Chart(canvas, {
@@ -315,7 +320,7 @@
         if (hasAnyNotActivated) {
           const note = document.createElement('div');
           note.className = 'not-activated-legend';
-          note.innerHTML = '⚠️ <span style="color:#d29922">▲</span> = Skill was not activated';
+          note.innerHTML = `⚠️ <span style="color:${NOT_ACTIVATED_COLOR}">▲</span> = Skill was not activated`;
           div.appendChild(note);
         }
       });
@@ -337,37 +342,40 @@
       return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     });
 
-    const dataA = entries.map(e => {
-      const b = e.benches.find(b => b.name === nameA);
-      return b ? b.value : null;
+    // Precompute per-entry data in a single pass
+    let hasAnyNotActivated = false;
+    const perEntryData = entries.map(e => {
+      let benchA = undefined;
+      let benchB = undefined;
+      for (const b of e.benches) {
+        if (!benchA && b.name === nameA) benchA = b;
+        else if (!benchB && b.name === nameB) benchB = b;
+        if (benchA && benchB) break;
+      }
+      const aNotActivated = !!(benchA && benchA.notActivated);
+      if (aNotActivated) hasAnyNotActivated = true;
+      return {
+        valueA: benchA ? benchA.value : null,
+        valueB: benchB ? benchB.value : null,
+        aNotActivated,
+      };
     });
 
-    const dataB = entries.map(e => {
-      const b = e.benches.find(b => b.name === nameB);
-      return b ? b.value : null;
-    });
+    const dataA = perEntryData.map(d => d.valueA);
+    const dataB = perEntryData.map(d => d.valueB);
 
     // Build per-point styling for dataset A (Skilled) based on notActivated flag
-    const pointBgA = entries.map(e => {
-      const b = e.benches.find(b => b.name === nameA);
-      return (b && b.notActivated) ? NOT_ACTIVATED_COLOR : colorA;
-    });
-    const pointBorderA = entries.map(e => {
-      const b = e.benches.find(b => b.name === nameA);
-      return (b && b.notActivated) ? NOT_ACTIVATED_COLOR : colorA;
-    });
-    const pointRadiusA = entries.map(e => {
-      const b = e.benches.find(b => b.name === nameA);
-      return (b && b.notActivated) ? 6 : 4;
-    });
-    const pointStyleA = entries.map(e => {
-      const b = e.benches.find(b => b.name === nameA);
-      return (b && b.notActivated) ? 'triangle' : 'circle';
-    });
-
-    // Check if any data point in this chart is not-activated
-    const hasAnyNotActivated = entries.some(e =>
-      e.benches && e.benches.some(b => (b.name === nameA || b.name === nameB) && b.notActivated)
+    const pointBgA = perEntryData.map(d =>
+      d.aNotActivated ? NOT_ACTIVATED_COLOR : colorA
+    );
+    const pointBorderA = perEntryData.map(d =>
+      d.aNotActivated ? NOT_ACTIVATED_COLOR : colorA
+    );
+    const pointRadiusA = perEntryData.map(d =>
+      d.aNotActivated ? 6 : 4
+    );
+    const pointStyleA = perEntryData.map(d =>
+      d.aNotActivated ? 'triangle' : 'circle'
     );
 
     new Chart(canvas, {
@@ -446,7 +454,7 @@
     if (hasAnyNotActivated) {
       const note = document.createElement('div');
       note.className = 'not-activated-legend';
-      note.innerHTML = '⚠️ <span style="color:#d29922">▲</span> = Skill was not activated';
+      note.innerHTML = `⚠️ <span style="color:${NOT_ACTIVATED_COLOR}">▲</span> = Skill was not activated`;
       div.appendChild(note);
     }
   }

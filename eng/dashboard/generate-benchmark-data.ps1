@@ -92,7 +92,7 @@ foreach ($skillDir in $skillDirs) {
         $notActivated = $verdictNotActivated -or $scenarioNotActivated
 
         # Quality scores (from judge results, scale 0-5 mapped to 0-10 for dashboard)
-        if ($scenario.withSkill.judgeResult.overallScore) {
+        if ($null -ne $scenario.withSkill.judgeResult.overallScore) {
             $benchEntry = @{
                 name  = "$testName - Skilled Quality"
                 unit  = "Score (0-10)"
@@ -103,7 +103,7 @@ foreach ($skillDir in $skillDirs) {
             }
             $qualityBenches.Add($benchEntry)
         }
-        if ($scenario.baseline.judgeResult.overallScore) {
+        if ($null -ne $scenario.baseline.judgeResult.overallScore) {
             $qualityBenches.Add(@{
                 name  = "$testName - Vanilla Quality"
                 unit  = "Score (0-10)"
@@ -112,7 +112,7 @@ foreach ($skillDir in $skillDirs) {
         }
 
         # Efficiency metrics (from with-skill run)
-        if ($scenario.withSkill.metrics.wallTimeMs) {
+        if ($null -ne $scenario.withSkill.metrics.wallTimeMs) {
             $effBenchEntry = @{
                 name  = "$testName - Skilled Time"
                 unit  = "seconds"
@@ -123,7 +123,7 @@ foreach ($skillDir in $skillDirs) {
             }
             $efficiencyBenches.Add($effBenchEntry)
         }
-        if ($scenario.withSkill.metrics.tokenEstimate) {
+        if ($null -ne $scenario.withSkill.metrics.tokenEstimate) {
             $tokenBenchEntry = @{
                 name  = "$testName - Skilled Tokens In"
                 unit  = "tokens"
