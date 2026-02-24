@@ -58,7 +58,6 @@ Load these skills for detailed guidance on specific optimization areas:
 - `build-perf-diagnostics` — Performance metrics and common bottlenecks
 - `incremental-build` — Incremental build optimization
 - `build-parallelism` — Parallelism and graph build
-- `build-caching` — Caching strategies
 - `eval-performance` — Evaluation performance
 - `check-bin-obj-clash` — Output path conflicts
 

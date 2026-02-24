@@ -44,9 +44,9 @@ copilot-extension/
 │   ├── index.js             # Entry point — handles Copilot webhook
 │   ├── intent-classifier.js # Routes to the right knowledge area
 │   └── knowledge/           # Compiled skill content (generated, gitignored)
-│       ├── build-errors.md      # From common-build-errors + sourcegen-analyzer-failures
-│       ├── performance.md       # From build-perf-baseline + build-perf-diagnostics
-│       ├── style-guide.md       # From msbuild-style-guide + msbuild-antipatterns
+│       ├── build-errors.md      # From binlog-failure-analysis
+│       ├── performance.md       # From build-perf-baseline + build-perf-diagnostics + incremental-build + build-parallelism + eval-performance
+│       ├── style-guide.md       # From msbuild-antipatterns + directory-build-organization + check-bin-obj-clash
 │       └── modernization.md     # From msbuild-modernization + directory-build-organization
 └── app.yml                  # GitHub App manifest for registration
 ```

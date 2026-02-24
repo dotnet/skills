@@ -45,7 +45,7 @@ description: "Guide for optimizing MSBuild build parallelism and multi-project s
 ## Multi-threaded MSBuild Tasks
 
 - Individual tasks can run multi-threaded within a single project build
-- See `multithreaded-task-migration` skill for migration guide
+- Tasks implementing `IMultiThreadableTask` can run on multiple threads
 - Tasks must declare thread-safety via `[MSBuildMultiThreadableTask]`
 
 ## Analyzing Parallelism with Binlog
@@ -62,5 +62,5 @@ Step-by-step:
 
 - Use `-m` in CI (many CI runners have multiple cores)
 - Consider splitting solution into build stages for extreme parallelism
-- Use build caching (see `build-caching` skill) to avoid rebuilding unchanged projects
+- Use build caching (NuGet lock files, deterministic builds) to avoid rebuilding unchanged projects
 - `dotnet build /graph` works well with structured CI pipelines

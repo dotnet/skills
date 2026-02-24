@@ -1,6 +1,6 @@
 ---
 name: msbuild-antipatterns
-description: "Catalog of MSBuild anti-patterns with detection rules and fix recipes. Only activate in MSBuild/.NET build context. Use when reviewing, auditing, or cleaning up .csproj, .vbproj, .fsproj, .props, .targets, or .proj files. Each anti-pattern has a symptom, explanation, and concrete BAD→GOOD transformation. Complements the msbuild-style-guide skill (which teaches how to write good MSBuild) with a smell-detection approach. DO NOT use for non-MSBuild build systems (npm, Maven, CMake, etc.)."
+description: "Catalog of MSBuild anti-patterns with detection rules and fix recipes. Only activate in MSBuild/.NET build context. Use when reviewing, auditing, or cleaning up .csproj, .vbproj, .fsproj, .props, .targets, or .proj files. Each anti-pattern has a symptom, explanation, and concrete BAD→GOOD transformation. DO NOT use for non-MSBuild build systems (npm, Maven, CMake, etc.)."
 ---
 
 # MSBuild Anti-Pattern Catalog
@@ -11,7 +11,7 @@ A numbered catalog of common MSBuild anti-patterns. Each entry follows the forma
 - **Why it's bad**: Impact on builds, maintainability, or correctness
 - **Fix**: Concrete transformation
 
-Use this catalog when scanning project files for improvements. Cross-reference with `msbuild-style-guide` for the positive guidance.
+Use this catalog when scanning project files for improvements.
 
 ---
 

@@ -63,6 +63,9 @@ const KNOWLEDGE_TARGETS = {
     outputDir: path.resolve(__dirname, "copilot-extension/src/knowledge"),
     maxChars: 50000,
     knowledgeMap: {
+      "build-errors": [
+        "binlog-failure-analysis",
+      ],
       performance: [
         "build-perf-baseline",
         "build-perf-diagnostics",

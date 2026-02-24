@@ -45,6 +45,8 @@ You are a specialized reviewer for MSBuild project file changes. When a PR modif
 - Explicit file includes that SDK handles automatically
 - `<Reference>` tags with HintPath that should be `<PackageReference>` (note: `<Reference>` is valid for .NET Framework GAC assemblies)
 - Missing `Condition` quotes: must be `'$(Prop)' == 'value'`
+- Properties conditioned on `$(TargetFramework)` in `.props` files (silently fails for single-targeting projects — move to `.targets`)
+- Missing `PrivateAssets="all"` on analyzer/tool packages
 - Properties that belong in Directory.Build.props (if duplicated)
 
 ### Check for Correctness
@@ -52,6 +54,8 @@ You are a specialized reviewer for MSBuild project file changes. When a PR modif
 - Potential bin/obj path clashes in multi-targeting
 - Package version conflicts
 - Incorrect TFM syntax
+- Side effects during property evaluation (file writes, network calls)
+- Platform-specific `<Exec>` without OS condition guard
 
 ### Check for Modernization Opportunities
 - Legacy project format that could be SDK-style

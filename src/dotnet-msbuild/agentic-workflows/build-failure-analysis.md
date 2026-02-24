@@ -35,7 +35,7 @@ You are an MSBuild build failure analysis agent. When a CI build workflow comple
 2. **Get failure details**: 
    - Get the failed workflow run details and job logs
    - Identify which jobs and steps failed
-   - Look for .NET build error patterns (CS, MSB, NU, NETSDK error codes)
+   - Look for .NET build error patterns (CS, MSB, NU, NETSDK, FS, BC error codes)
 
 3. **Analyze the failure**:
    - If binlog files are available as artifacts, download and analyze them with binlog-mcp tools

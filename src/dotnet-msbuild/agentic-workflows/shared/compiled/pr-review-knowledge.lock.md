@@ -2,7 +2,7 @@
 
 ---
 name: msbuild-antipatterns
-description: "Catalog of MSBuild anti-patterns with detection rules and fix recipes. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when reviewing, auditing, or cleaning up .csproj, .vbproj, .fsproj, .props, .targets, or .proj files. Each anti-pattern has a symptom, explanation, and concrete BAD→GOOD transformation. Complements the msbuild-style-guide skill (which teaches how to write good MSBuild) with a smell-detection approach. DO NOT use for non-MSBuild build systems (npm, Maven, CMake, etc.)."
+description: "Catalog of MSBuild anti-patterns with detection rules and fix recipes. Only activate in MSBuild/.NET build context. Use when reviewing, auditing, or cleaning up .csproj, .vbproj, .fsproj, .props, .targets, or .proj files. Each anti-pattern has a symptom, explanation, and concrete BAD→GOOD transformation. DO NOT use for non-MSBuild build systems (npm, Maven, CMake, etc.)."
 ---
 
 # MSBuild Anti-Pattern Catalog
@@ -13,7 +13,7 @@ A numbered catalog of common MSBuild anti-patterns. Each entry follows the forma
 - **Why it's bad**: Impact on builds, maintainability, or correctness
 - **Fix**: Concrete transformation
 
-Use this catalog when scanning project files for improvements. Cross-reference with `msbuild-style-guide` for the positive guidance.
+Use this catalog when scanning project files for improvements.
 
 ---
 
@@ -186,7 +186,7 @@ Use this catalog when scanning project files for improvements. Cross-reference w
 
 **Why it's bad**: Without `PrivateAssets="all"`, analyzer and build-tool packages flow as transitive dependencies to consumers of your library. Consumers get unwanted analyzers or build-time tools they didn't ask for.
 
-See [`shared/private-assets.md`](../shared/private-assets.md) for BAD/GOOD examples and the full list of packages that need this.
+See [`references/private-assets.md`](references/private-assets.md) for BAD/GOOD examples and the full list of packages that need this.
 
 ---
 
@@ -236,7 +236,7 @@ See `directory-build-organization` skill for full guidance on structuring `Direc
 <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 ```
 
-**Fix:** Use Central Package Management. See [`shared/central-package-management.md`](../shared/central-package-management.md) for the setup pattern.
+**Fix:** Use Central Package Management. See [https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management) for details.
 
 ---
 
@@ -281,7 +281,7 @@ See `directory-build-organization` skill for full guidance on structuring `Direc
 
 **Why it's bad**: The target runs on every build, even when nothing changed. This defeats incremental build and slows down no-op builds.
 
-See [`shared/incremental-build-inputs-outputs.md`](../shared/incremental-build-inputs-outputs.md) for BAD/GOOD examples and the full pattern including FileWrites registration.
+See [`references/incremental-build-inputs-outputs.md`](references/incremental-build-inputs-outputs.md) for BAD/GOOD examples and the full pattern including FileWrites registration.
 
 See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, and up-to-date checks.
 
@@ -506,11 +506,56 @@ See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, a
 
 **Smell**: `<PropertyGroup Condition="'$(TargetFramework)' == '...'">` or `<Property Condition="'$(TargetFramework)' == '...'">` in `Directory.Build.props` or any `.props` file imported before the project body.
 
-**Why it's bad**: `$(TargetFramework)` is only available during `.props` evaluation for multi-targeting projects. For single-targeting projects, the condition silently fails. This applies to both `<PropertyGroup Condition="...">` and individual `<Property Condition="...">` elements.
+**Why it's bad**: `$(TargetFramework)` is NOT reliably available in `Directory.Build.props` or any `.props` file imported before the project body. It is only set that early for multi-targeting projects, which receive `TargetFramework` as a global property from the outer build. Single-targeting projects (using singular `<TargetFramework>`) set it in the project body, which is evaluated *after* `.props`. This means property conditions on `$(TargetFramework)` in `.props` files silently fail for single-targeting projects — the condition never matches because the property is empty. This applies to both `<PropertyGroup Condition="...">` and individual `<Property Condition="...">` elements.
 
-**⚠️ Item and Target conditions are NOT affected.** `<ItemGroup Condition="'$(TargetFramework)' == '...'">` and individual item conditions in `.props` files are safe — do NOT flag them. This includes `PackageVersion` items in `Directory.Packages.props`.
+For a detailed explanation of MSBuild's evaluation and execution phases, see [Build process overview](https://learn.microsoft.com/en-us/visualstudio/msbuild/build-process-overview).
 
-See [`shared/targetframework-props-evaluation.md`](../shared/targetframework-props-evaluation.md) for the full explanation, BAD/GOOD examples, and the item/target exception.
+```xml
+<!-- BAD: In Directory.Build.props — TargetFramework may be empty here -->
+<PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+  <DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants>
+</PropertyGroup>
+
+<!-- ALSO BAD: Condition on the property itself has the same problem -->
+<PropertyGroup>
+  <DefineConstants Condition="'$(TargetFramework)' == 'net8.0'">$(DefineConstants);MY_FEATURE</DefineConstants>
+</PropertyGroup>
+
+<!-- GOOD: In Directory.Build.targets — TargetFramework is always available -->
+<PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+  <DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants>
+</PropertyGroup>
+
+<!-- ALSO GOOD: In the project file itself -->
+<!-- MyProject.csproj -->
+<PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+  <DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants>
+</PropertyGroup>
+```
+
+**⚠️ Item and Target conditions are NOT affected.** This restriction applies ONLY to property conditions (`<PropertyGroup Condition="...">` and `<Property Condition="...">`). Item conditions (`<ItemGroup Condition="...">`) and Target conditions in `.props` files are SAFE because items and targets evaluate after all properties (including those set in the project body) have been evaluated. This includes `PackageVersion` items in `Directory.Packages.props`, `PackageReference` items in `Directory.Build.props`, and any other item types.
+
+**Do NOT flag the following patterns — they are correct:**
+
+```xml
+<!-- OK in Directory.Build.props — ItemGroup conditions evaluate late -->
+<ItemGroup Condition="'$(TargetFramework)' == 'net472'">
+  <PackageReference Include="System.Memory" />
+</ItemGroup>
+
+<!-- OK in Directory.Packages.props — PackageVersion items evaluate late -->
+<ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+  <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
+</ItemGroup>
+<ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+  <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
+</ItemGroup>
+
+<!-- OK — Individual item conditions also evaluate late -->
+<ItemGroup>
+  <PackageReference Include="System.Memory" Condition="'$(TargetFramework)' == 'net472'" />
+</ItemGroup>
+```
 
 ---
 
@@ -544,591 +589,488 @@ When reviewing an MSBuild file, scan for these in order:
 
 ---
 
-## msbuild-style-guide
+## msbuild-modernization
 
 ---
-name: msbuild-style-guide
-description: "MSBuild best practices and style guide for writing clean, idiomatic project files. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when reviewing, creating, or refactoring .csproj, .vbproj, .fsproj, .props, .targets, or other MSBuild files. Covers property naming, conditions, target ordering, property functions, and modern SDK-style patterns. Invoke when asked to review, clean up, or improve MSBuild project files."
+name: msbuild-modernization
+description: "Guide for modernizing and migrating MSBuild project files to SDK-style format. Only activate in MSBuild/.NET build context. Use when encountering legacy .csproj/.vbproj files with verbose XML, packages.config, or AssemblyInfo.cs patterns. Covers legacy-to-SDK migration, removing boilerplate, PackageReference migration, and Directory.Build consolidation. Invoke when asked to modernize, migrate, or clean up project files."
 ---
 
-# MSBuild Style Guide & Best Practices
+# MSBuild Modernization: Legacy to SDK-style Migration
 
-A reference for writing clean, idiomatic MSBuild project files. Every section shows concrete **BAD → GOOD** transformations.
+## Identifying Legacy vs SDK-style Projects
 
----
+**Legacy indicators:**
 
-## SDK-style Project Fundamentals
+- `<Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />`
+- Explicit file lists (`<Compile Include="..." />` for every `.cs` file)
+- `ToolsVersion` attribute on `<Project>` element
+- `packages.config` file present
+- `Properties\AssemblyInfo.cs` with assembly-level attributes
 
-Always use SDK-style projects for new code.
+**SDK-style indicators:**
 
-### Minimal viable .csproj
+- `<Project Sdk="Microsoft.NET.Sdk">` attribute on root element
+- Minimal content — a simple project may be 10–15 lines
+- No explicit file includes (implicit globbing)
+- `<PackageReference>` items instead of `packages.config`
+
+**Quick check:** if a `.csproj` is more than 50 lines for a simple class library or console app, it is likely legacy format.
 
 ```xml
-<!-- GOOD: Minimal SDK-style project — this is all you need -->
-<Project Sdk="Microsoft.NET.Sdk">
+<!-- Legacy: ~80+ lines for a simple library -->
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <OutputType>Library</OutputType>
+    <RootNamespace>MyLibrary</RootNamespace>
+    <AssemblyName>MyLibrary</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
   </PropertyGroup>
+  <!-- ... 60+ more lines ... -->
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
 ```
 
 ```xml
-<!-- BAD: Legacy verbose project file -->
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+<!-- SDK-style: ~8 lines for the same library -->
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+  </PropertyGroup>
+</Project>
+```
+
+## Migration Checklist: Legacy → SDK-style
+
+### Step 1: Replace Project Root Element
+
+**BEFORE:**
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props"
+          Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <!-- ... project content ... -->
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
+```
+
+**AFTER:**
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- ... project content ... -->
+</Project>
+```
+
+Remove the XML declaration, `ToolsVersion`, `xmlns`, and both `<Import>` lines. The `Sdk` attribute replaces all of them.
+
+### Step 2: Set TargetFramework
+
+**BEFORE:**
+
+```xml
+<PropertyGroup>
+  <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+</PropertyGroup>
+```
+
+**AFTER:**
+
+```xml
+<PropertyGroup>
+  <TargetFramework>net472</TargetFramework>
+</PropertyGroup>
+```
+
+**TFM mapping table:**
+
+| Legacy `TargetFrameworkVersion` | SDK-style `TargetFramework` |
+|---------------------------------|-----------------------------|
+| `v4.6.1`                        | `net461`                    |
+| `v4.7.2`                        | `net472`                    |
+| `v4.8`                          | `net48`                     |
+| (migrating to .NET 6)           | `net6.0`                    |
+| (migrating to .NET 8)           | `net8.0`                    |
+
+### Step 3: Remove Explicit File Includes
+
+**BEFORE:**
+
+```xml
+<ItemGroup>
+  <Compile Include="Controllers\HomeController.cs" />
+  <Compile Include="Models\User.cs" />
+  <Compile Include="Models\Order.cs" />
+  <Compile Include="Services\AuthService.cs" />
+  <Compile Include="Services\OrderService.cs" />
+  <Compile Include="Properties\AssemblyInfo.cs" />
+  <!-- ... 50+ more lines ... -->
+</ItemGroup>
+<ItemGroup>
+  <Content Include="Views\Home\Index.cshtml" />
+  <Content Include="Views\Shared\_Layout.cshtml" />
+  <!-- ... more content files ... -->
+</ItemGroup>
+```
+
+**AFTER:**
+
+Delete all of these `<Compile>` and `<Content>` item groups entirely. SDK-style projects include them automatically via implicit globbing.
+
+**Exception:** keep explicit entries only for files that need special metadata or reside outside the project directory:
+
+```xml
+<ItemGroup>
+  <Content Include="..\shared\config.json" Link="config.json" CopyToOutputDirectory="PreserveNewest" />
+</ItemGroup>
+```
+
+### Step 4: Remove AssemblyInfo.cs
+
+**BEFORE** (`Properties\AssemblyInfo.cs`):
+
+```csharp
+using System.Reflection;
+using System.Runtime.InteropServices;
+
+[assembly: AssemblyTitle("MyLibrary")]
+[assembly: AssemblyDescription("A useful library")]
+[assembly: AssemblyCompany("Contoso")]
+[assembly: AssemblyProduct("MyLibrary")]
+[assembly: AssemblyCopyright("Copyright © Contoso 2024")]
+[assembly: ComVisible(false)]
+[assembly: Guid("...")]
+[assembly: AssemblyVersion("1.2.0.0")]
+[assembly: AssemblyFileVersion("1.2.0.0")]
+```
+
+**AFTER** (in `.csproj`):
+
+```xml
+<PropertyGroup>
+  <AssemblyTitle>MyLibrary</AssemblyTitle>
+  <Description>A useful library</Description>
+  <Company>Contoso</Company>
+  <Product>MyLibrary</Product>
+  <Copyright>Copyright © Contoso 2024</Copyright>
+  <Version>1.2.0</Version>
+</PropertyGroup>
+```
+
+Delete `Properties\AssemblyInfo.cs` — the SDK auto-generates assembly attributes from these properties.
+
+**Alternative:** if you prefer to keep `AssemblyInfo.cs`, disable auto-generation:
+
+```xml
+<PropertyGroup>
+  <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+</PropertyGroup>
+```
+
+### Step 5: Migrate packages.config → PackageReference
+
+**BEFORE** (`packages.config`):
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<packages>
+  <package id="Newtonsoft.Json" version="13.0.3" targetFramework="net472" />
+  <package id="Serilog" version="3.1.1" targetFramework="net472" />
+  <package id="Microsoft.Extensions.DependencyInjection" version="8.0.0" targetFramework="net472" />
+</packages>
+```
+
+**AFTER** (in `.csproj`):
+
+```xml
+<ItemGroup>
+  <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  <PackageReference Include="Serilog" Version="3.1.1" />
+  <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+</ItemGroup>
+```
+
+Delete `packages.config` after migration.
+
+**Migration options:**
+
+- **Visual Studio:** right-click `packages.config` → *Migrate packages.config to PackageReference*
+- **CLI:** `dotnet migrate-packages-config` or manual conversion
+- **Binding redirects:** SDK-style projects auto-generate binding redirects — remove the `<runtime>` section from `app.config` if present
+
+### Step 6: Remove Unnecessary Boilerplate
+
+Delete all of the following — the SDK provides sensible defaults:
+
+```xml
+<!-- DELETE: SDK imports (replaced by Sdk attribute) -->
+<Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" ... />
+<Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+
+<!-- DELETE: default Configuration/Platform (SDK provides these) -->
+<PropertyGroup>
+  <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+  <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+  <ProjectGuid>{...}</ProjectGuid>
+  <OutputType>Library</OutputType>  <!-- keep only if not Library -->
+  <AppDesignerFolder>Properties</AppDesignerFolder>
+  <FileAlignment>512</FileAlignment>
+  <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  <Deterministic>true</Deterministic>
+</PropertyGroup>
+
+<!-- DELETE: standard Debug/Release configurations (SDK defaults match) -->
+<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+  <DebugSymbols>true</DebugSymbols>
+  <DebugType>full</DebugType>
+  <Optimize>false</Optimize>
+  <OutputPath>bin\Debug\</OutputPath>
+  <DefineConstants>DEBUG;TRACE</DefineConstants>
+  <ErrorReport>prompt</ErrorReport>
+  <WarningLevel>4</WarningLevel>
+</PropertyGroup>
+<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+  <DebugType>pdbonly</DebugType>
+  <Optimize>true</Optimize>
+  <OutputPath>bin\Release\</OutputPath>
+  <DefineConstants>TRACE</DefineConstants>
+  <ErrorReport>prompt</ErrorReport>
+  <WarningLevel>4</WarningLevel>
+</PropertyGroup>
+
+<!-- DELETE: framework assembly references (implicit in SDK) -->
+<ItemGroup>
+  <Reference Include="System" />
+  <Reference Include="System.Core" />
+  <Reference Include="System.Data" />
+  <Reference Include="System.Xml" />
+  <Reference Include="System.Xml.Linq" />
+  <Reference Include="Microsoft.CSharp" />
+</ItemGroup>
+
+<!-- DELETE: packages.config reference -->
+<None Include="packages.config" />
+
+<!-- DELETE: designer service entries -->
+<Service Include="{508349B6-6B84-11D3-8410-00C04F8EF8E0}" />
+```
+
+**Keep** only properties that differ from SDK defaults (e.g., `<OutputType>Exe</OutputType>`, `<RootNamespace>` if it differs from the assembly name, custom `<DefineConstants>`).
+
+### Step 7: Enable Modern Features
+
+After migration, consider enabling modern C# features:
+
+```xml
+<PropertyGroup>
+  <TargetFramework>net8.0</TargetFramework>
+  <Nullable>enable</Nullable>
+  <ImplicitUsings>enable</ImplicitUsings>
+  <LangVersion>latest</LangVersion>
+</PropertyGroup>
+```
+
+- `<Nullable>enable</Nullable>` — enables nullable reference type analysis
+- `<ImplicitUsings>enable</ImplicitUsings>` — auto-imports common namespaces (.NET 6+)
+- `<LangVersion>latest</LangVersion>` — uses the latest C# language version (or specify e.g. `12.0`)
+
+## Complete Before/After Example
+
+**BEFORE** (legacy — 65 lines):
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props"
+          Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{12345678-1234-1234-1234-123456789ABC}</ProjectGuid>
     <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>MyLibrary</RootNamespace>
+    <AssemblyName>MyLibrary</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
-    <AssemblyName>MyLib</AssemblyName>
-    <RootNamespace>MyLib</RootNamespace>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Class1.cs" />
-    <Compile Include="Class2.cs" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Models\User.cs" />
+    <Compile Include="Models\Order.cs" />
+    <Compile Include="Services\UserService.cs" />
+    <Compile Include="Services\OrderService.cs" />
+    <Compile Include="Helpers\StringExtensions.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
 ```
 
-### Implicit defaults
-
-SDK-style projects provide sensible defaults. Don't restate them unless you need to override:
-
-| Default                  | SDK Behavior                    | Override when…                          |
-|--------------------------|---------------------------------|-----------------------------------------|
-| `DefaultItemExcludes`    | Globs include `**/*.cs` etc.    | You need to exclude specific patterns   |
-| `ImplicitUsings`         | `enable` in .NET 6+             | You need to disable or customize usings |
-| `Nullable`               | Not enabled by default          | You want nullable reference types       |
-| `OutputType`             | `Library`                       | You're building an exe or test project  |
+**AFTER** (SDK-style — 11 lines):
 
 ```xml
-<!-- GOOD: Only specify what differs from defaults -->
-<PropertyGroup>
-  <TargetFramework>net8.0</TargetFramework>
-  <Nullable>enable</Nullable>
-  <OutputType>Exe</OutputType>
-</PropertyGroup>
-```
-
-```xml
-<!-- BAD: Restating defaults that SDK already provides -->
-<PropertyGroup>
-  <TargetFramework>net8.0</TargetFramework>
-  <Nullable>enable</Nullable>
-  <OutputType>Library</OutputType>          <!-- default, remove -->
-  <RootNamespace>MyLib</RootNamespace>      <!-- matches assembly name, remove -->
-  <AssemblyName>MyLib</AssemblyName>        <!-- matches project filename, remove -->
-  <EnableDefaultItems>true</EnableDefaultItems> <!-- default, remove -->
-</PropertyGroup>
-```
-
----
-
-## Property Organization
-
-Group related properties logically. Use a consistent ordering convention.
-
-**Recommended order:** output settings → language settings → package settings → build behavior.
-
-```xml
-<!-- GOOD: Organized with labeled groups -->
-<PropertyGroup Label="Output">
-  <TargetFramework>net8.0</TargetFramework>
-  <OutputType>Exe</OutputType>
-</PropertyGroup>
-
-<PropertyGroup Label="Language">
-  <Nullable>enable</Nullable>
-  <ImplicitUsings>enable</ImplicitUsings>
-  <LangVersion>latest</LangVersion>
-</PropertyGroup>
-
-<PropertyGroup Label="Package">
-  <PackageId>MyCompany.MyLib</PackageId>
-  <Version>1.2.0</Version>
-  <Authors>My Company</Authors>
-</PropertyGroup>
-
-<PropertyGroup Label="Build">
-  <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-  <WarningLevel>9999</WarningLevel>
-</PropertyGroup>
-```
-
-```xml
-<!-- BAD: Properties scattered with no logical grouping -->
-<PropertyGroup>
-  <Authors>My Company</Authors>
-  <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-  <TargetFramework>net8.0</TargetFramework>
-  <PackageId>MyCompany.MyLib</PackageId>
-  <Nullable>enable</Nullable>
-  <OutputType>Exe</OutputType>
-  <Version>1.2.0</Version>
-  <LangVersion>latest</LangVersion>
-  <WarningLevel>9999</WarningLevel>
-  <ImplicitUsings>enable</ImplicitUsings>
-</PropertyGroup>
-```
-
----
-
-## Property Naming
-
-- **PascalCase** for all custom properties.
-- Use meaningful, descriptive names.
-- Avoid abbreviations unless universally understood (`TFM`, `OS`, `CI`).
-- Prefix custom properties to avoid conflicts with built-in MSBuild properties.
-
-```xml
-<!-- GOOD -->
-<MyCompany_EnableTelemetry>true</MyCompany_EnableTelemetry>
-<MyProject_GeneratedCodeOutputPath>$(IntermediateOutputPath)Generated/</MyProject_GeneratedCodeOutputPath>
-
-<!-- BAD -->
-<enabletel>true</enabletel>            <!-- not PascalCase, unclear abbreviation -->
-<GenOut>$(IntermediateOutputPath)Generated/</GenOut> <!-- too short, no prefix -->
-```
-
----
-
-## Conditions
-
-### Attribute-level vs group-level conditions
-
-```xml
-<!-- GOOD: Attribute-level condition when only one property differs -->
-<PropertyGroup>
-  <DebugSymbols Condition="'$(Configuration)' == 'Debug'">true</DebugSymbols>
-</PropertyGroup>
-
-<!-- BAD: Entire group for a single property -->
-<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-  <DebugSymbols>true</DebugSymbols>
-</PropertyGroup>
-```
-
-```xml
-<!-- GOOD: Group-level condition when multiple properties share the same condition -->
-<PropertyGroup Condition="'$(Configuration)' == 'Release'">
-  <Optimize>true</Optimize>
-  <DebugType>none</DebugType>
-  <DebugSymbols>false</DebugSymbols>
-</PropertyGroup>
-```
-
-### Condition syntax rules
-
-```xml
-<!-- String comparison: always quote BOTH sides -->
-<PropertyGroup Condition="'$(Configuration)' == 'Release'">
-
-<!-- Boolean check: use lowercase 'true' -->
-<RunAnalyzers Condition="'$(RunAnalyzers)' == 'true'">true</RunAnalyzers>
-
-<!-- Existence check: compare against empty string -->
-<MyProp Condition="'$(MyProp)' != ''">$(MyProp)</MyProp>
-
-<!-- File/directory existence: use Exists() -->
-<Import Project="local.props" Condition="Exists('local.props')" />
-
-<!-- TFM condition -->
-<DefineConstants Condition="'$(TargetFramework)' == 'net8.0'">$(DefineConstants);NET8_FEATURE</DefineConstants>
-
-<!-- TFM compatibility (preferred for >= comparisons) -->
-<DefineConstants Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">$(DefineConstants);NET6_OR_GREATER</DefineConstants>
-```
-
-```xml
-<!-- BAD: Unquoted sides -->
-<PropertyGroup Condition="$(Configuration) == Release">
-
-<!-- BAD: Double negative -->
-<RunTests Condition="'$(SkipTests)' != 'true'">false</RunTests>
-
-<!-- GOOD: Positive condition instead of double negative -->
-<RunTests Condition="'$(SkipTests)' == 'true'">false</RunTests>
-```
-
----
-
-## Item Groups
-
-### Prefer implicit includes
-
-```xml
-<!-- GOOD: Let the SDK glob handle it. Only exclude what you must. -->
-<ItemGroup>
-  <Compile Remove="LegacyCode\**" />
-</ItemGroup>
-
-<!-- BAD: Manually listing every file -->
-<ItemGroup>
-  <Compile Include="Class1.cs" />
-  <Compile Include="Class2.cs" />
-  <Compile Include="Services\MyService.cs" />
-</ItemGroup>
-```
-
-### Include vs Update vs Remove
-
-| Operation | Use When |
-|-----------|----------|
-| `Include` | Adding new items not covered by default globs |
-| `Update` | Modifying metadata on items already included (e.g., by default globs) |
-| `Remove` | Excluding items from default globs |
-
-```xml
-<!-- GOOD: Update metadata on an already-included file -->
-<ItemGroup>
-  <EmbeddedResource Update="Strings.resx">
-    <Generator>ResXFileCodeGenerator</Generator>
-  </EmbeddedResource>
-</ItemGroup>
-
-<!-- BAD: Using Include on a file already picked up by globs (creates duplicates) -->
-<ItemGroup>
-  <EmbeddedResource Include="Strings.resx">
-    <Generator>ResXFileCodeGenerator</Generator>
-  </EmbeddedResource>
-</ItemGroup>
-```
-
-### ItemDefinitionGroup for default metadata
-
-```xml
-<!-- GOOD: Set default metadata for all items of a type -->
-<ItemDefinitionGroup>
-  <EmbeddedResource>
-    <Generator>ResXFileCodeGenerator</Generator>
-  </EmbeddedResource>
-</ItemDefinitionGroup>
-```
-
-### Don't mix Include and Update for the same type in one ItemGroup
-
-```xml
-<!-- BAD -->
-<ItemGroup>
-  <Compile Include="Extra.cs" />
-  <Compile Update="Extra.cs" CopyToOutputDirectory="Always" />
-</ItemGroup>
-
-<!-- GOOD: Separate the operations -->
-<ItemGroup>
-  <Compile Include="Extra.cs" />
-</ItemGroup>
-<ItemGroup>
-  <Compile Update="Extra.cs" CopyToOutputDirectory="Always" />
-</ItemGroup>
-```
-
----
-
-## PackageReference Best Practices
-
-### Always use PackageReference
-
-```xml
-<!-- GOOD -->
-<ItemGroup>
-  <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-</ItemGroup>
-
-<!-- BAD: Legacy packages.config style or raw assembly reference -->
-<ItemGroup>
-  <Reference Include="..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll" />
-</ItemGroup>
-```
-
-### Central Package Management
-
-For multi-project repos, use `Directory.Packages.props` to centralize versions. See [`shared/central-package-management.md`](../shared/central-package-management.md) for the full setup pattern.
-
-```xml
-<!-- Individual .csproj — no Version attribute needed -->
-<ItemGroup>
-  <PackageReference Include="Newtonsoft.Json" />
-</ItemGroup>
-```
-
-### Analyzers and build-only packages
-
-Mark analyzers and build tools with `PrivateAssets="all"` so they don't flow to consumers. See [`shared/private-assets.md`](../shared/private-assets.md) for the full list of packages that need this.
-
-### Fine-grained asset control
-
-```xml
-<!-- Only use compile and runtime assets (no build/analyzers) -->
-<PackageReference Include="SomePackage" Version="1.0.0"
-                  IncludeAssets="compile;runtime"
-                  ExcludeAssets="build;analyzers" />
-```
-
-### Version ranges
-
-```xml
-<!-- Pin exact version for apps / deployables -->
-<PackageReference Include="MyDep" Version="2.1.0" />
-
-<!-- Allow patch updates for libraries -->
-<PackageReference Include="MyDep" Version="[2.1.0, 2.2.0)" />
-
-<!-- Prefer pinned versions in most cases; use ranges only when you have a clear need -->
-```
-
----
-
-## ProjectReference Best Practices
-
-```xml
-<!-- GOOD: In-repo dependency -->
-<ItemGroup>
-  <ProjectReference Include="..\MyLib\MyLib.csproj" />
-</ItemGroup>
-
-<!-- BAD: Referencing a built DLL from another project in the same repo -->
-<ItemGroup>
-  <Reference Include="..\MyLib\bin\Release\MyLib.dll" />
-</ItemGroup>
-```
-
-### Build-only dependencies
-
-```xml
-<!-- Dependency for build ordering only — don't reference the output assembly -->
-<ProjectReference Include="..\CodeGen\CodeGen.csproj"
-                  ReferenceOutputAssembly="false" />
-
-<!-- Don't flow transitive dependency to consumers -->
-<ProjectReference Include="..\Internal\Internal.csproj"
-                  PrivateAssets="all" />
-```
-
-### Keep the dependency graph slim
-
-```xml
-<!-- BAD: Every project references everything -->
-<ItemGroup>
-  <ProjectReference Include="..\Core\Core.csproj" />
-  <ProjectReference Include="..\Data\Data.csproj" />
-  <ProjectReference Include="..\Utils\Utils.csproj" />      <!-- only Data uses Utils -->
-  <ProjectReference Include="..\Logging\Logging.csproj" />   <!-- already transitive via Core -->
-</ItemGroup>
-
-<!-- GOOD: Only direct dependencies; let transitive references flow -->
-<ItemGroup>
-  <ProjectReference Include="..\Core\Core.csproj" />
-  <ProjectReference Include="..\Data\Data.csproj" />
-</ItemGroup>
-```
-
----
-
-## Target Authoring
-
-### BeforeTargets/AfterTargets vs DependsOnTargets
-
-| Mechanism | Use When |
-|-----------|----------|
-| `BeforeTargets` / `AfterTargets` | Hooking into targets you don't own (SDK/NuGet targets) |
-| `DependsOnTargets` | Declaring dependencies between your own targets |
-
-```xml
-<!-- GOOD: Hook into the build pipeline -->
-<Target Name="GenerateVersionInfo" BeforeTargets="CoreCompile">
-  <WriteLinesToFile File="$(IntermediateOutputPath)Version.g.cs"
-                    Lines="[assembly: System.Reflection.AssemblyVersion(&quot;$(Version)&quot;)]"
-                    Overwrite="true" />
-  <ItemGroup>
-    <Compile Include="$(IntermediateOutputPath)Version.g.cs" />
-  </ItemGroup>
-</Target>
-
-<!-- GOOD: Chain your own targets with DependsOnTargets -->
-<Target Name="PackageApp" DependsOnTargets="BuildApp;RunTests">
-  <!-- packaging logic -->
-</Target>
-```
-
-### Naming targets
-
-Use **Verb + Noun** format:
-
-```xml
-<!-- GOOD -->
-<Target Name="GenerateVersionInfo" />
-<Target Name="CopyLicenseFile" />
-<Target Name="ValidatePackageMetadata" />
-
-<!-- BAD -->
-<Target Name="DoStuff" />
-<Target Name="Step2" />
-<Target Name="MyTarget" />
-```
-
-### Incremental build support
-
-Always specify `Inputs` and `Outputs` so the target is skipped when up-to-date. See [`shared/incremental-build-inputs-outputs.md`](../shared/incremental-build-inputs-outputs.md) for the full pattern with FileWrites.
-
-```xml
-<!-- GOOD: Incremental target -->
-<Target Name="TransformTemplates"
-        BeforeTargets="CoreCompile"
-        Inputs="@(TemplateFile)"
-        Outputs="@(TemplateFile->'$(IntermediateOutputPath)%(Filename).g.cs')">
-  <!-- transform logic -->
-</Target>
-
-<!-- BAD: Runs every build even if nothing changed -->
-<Target Name="TransformTemplates" BeforeTargets="CoreCompile">
-  <!-- transform logic -->
-</Target>
-```
-
-### Use Returns for inter-target communication
-
-```xml
-<Target Name="CollectDeployFiles" Returns="@(DeployFile)">
-  <ItemGroup>
-    <DeployFile Include="$(OutputPath)**\*.dll" />
-    <DeployFile Include="$(OutputPath)**\*.json" />
-  </ItemGroup>
-</Target>
-```
-
-### Keep targets small and focused
-
-```xml
-<!-- BAD: Monolithic target doing everything -->
-<Target Name="PrepareRelease" BeforeTargets="Build">
-  <!-- generate version, copy license, sign assembly, validate metadata... 50 lines -->
-</Target>
-
-<!-- GOOD: Separate single-responsibility targets -->
-<Target Name="GenerateVersionInfo" BeforeTargets="CoreCompile" />
-<Target Name="CopyLicenseFile" AfterTargets="Build" />
-<Target Name="SignAssembly" AfterTargets="Build" DependsOnTargets="CopyLicenseFile" />
-```
-
----
-
-## Property Functions
-
-Use property functions for simple operations instead of shelling out.
-
-```xml
-<!-- GOOD: String operations via property functions -->
-<PropertyGroup>
-  <CleanVersion>$(Version.Replace('-preview', ''))</CleanVersion>
-  <HasPrerelease>$(Version.Contains('-'))</HasPrerelease>
-  <LowerName>$(AssemblyName.ToLowerInvariant())</LowerName>
-</PropertyGroup>
-
-<!-- GOOD: Path operations -->
-<PropertyGroup>
-  <ToolPath>$([System.IO.Path]::Combine($(MSBuildThisFileDirectory), 'tools', 'mytool.exe'))</ToolPath>
-  <NormalizedOutput>$([MSBuild]::NormalizeDirectory($(OutputPath)))</NormalizedOutput>
-</PropertyGroup>
-
-<!-- GOOD: Common MSBuild intrinsic functions -->
-<PropertyGroup>
-  <RepoRoot>$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), '.gitignore'))</RepoRoot>
-  <SafePath>$([MSBuild]::NormalizePath($(RepoRoot), 'src', 'MyLib'))</SafePath>
-</PropertyGroup>
-
-<!-- BAD: Shelling out for a simple string operation -->
-<Target Name="GetCleanVersion">
-  <Exec Command="echo $(Version) | sed 's/-preview//'" ConsoleToMsBuildProperty="CleanVersion" />
-</Target>
-```
-
-### Don't call side-effecting functions during evaluation
-
-```xml
-<!-- BAD: Side effects during property evaluation -->
-<PropertyGroup>
-  <Timestamp>$([System.IO.File]::WriteAllText('stamp.txt', 'built'))</Timestamp>
-</PropertyGroup>
-
-<!-- GOOD: Side effects belong in targets -->
-<Target Name="WriteTimestamp" BeforeTargets="Build">
-  <WriteLinesToFile File="stamp.txt" Lines="built" Overwrite="true" />
-</Target>
-```
-
-### Don't condition properties on TargetFramework in .props files
-
-`$(TargetFramework)` is only available during `.props` evaluation for multi-targeting projects. For single-targeting projects, property conditions on it silently fail. See [`shared/targetframework-props-evaluation.md`](../shared/targetframework-props-evaluation.md) for the full explanation.
-
-```xml
-<!-- BAD: In Directory.Build.props — TargetFramework may be empty -->
-<PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
-  <DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants>
-</PropertyGroup>
-
-<!-- GOOD: In Directory.Build.targets — TargetFramework is always available -->
-<PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
-  <DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants>
-</PropertyGroup>
-```
-
----
-
-## Paths
-
-```xml
-<!-- GOOD: Relative to current file (works in .props/.targets imported from anywhere) -->
-<Import Project="$(MSBuildThisFileDirectory)shared\common.props" />
-
-<!-- GOOD: Relative to project directory -->
-<Content Include="$(MSBuildProjectDirectory)\assets\**" />
-
-<!-- GOOD: Normalize paths to avoid mixed slashes -->
-<PropertyGroup>
-  <ToolDir>$([MSBuild]::NormalizePath($(MSBuildThisFileDirectory), 'tools'))</ToolDir>
-</PropertyGroup>
-
-<!-- GOOD: Forward slashes work cross-platform in MSBuild -->
-<Import Project="$(RepoRoot)/eng/common.props" />
-
-<!-- BAD: Hardcoded absolute paths -->
-<Import Project="C:\repos\myrepo\eng\common.props" />
-
-<!-- BAD: Backslashes break on non-Windows -->
-<Import Project="$(RepoRoot)\eng\common.props" />
-```
-
----
-
-## Imports
-
-```xml
-<!-- GOOD: Use SDK import when an SDK exists -->
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- SDK provides implicit top and bottom imports -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Serilog" Version="3.1.1" />
+  </ItemGroup>
 </Project>
-
-<!-- GOOD: Optional import with Exists guard -->
-<Import Project="local.overrides.props" Condition="Exists('local.overrides.props')" />
-
-<!-- GOOD: Custom imports after SDK defaults so you can override -->
-<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="$(RepoRoot)/eng/custom.targets" />
-</Project>
-
-<!-- BAD: Import without Exists guard — breaks build if file is missing -->
-<Import Project="local.overrides.props" />
-
-<!-- NOTE: Import order matters. Later imports override earlier ones.
-     .props files = set defaults (imported early)
-     .targets files = define build logic (imported late) -->
 ```
 
----
+## Common Migration Issues
 
-## Anti-patterns to Avoid
+**Embedded resources:** files not in a standard location may need explicit includes:
 
-### 1. Hardcoded paths → use MSBuild properties
+```xml
+<ItemGroup>
+  <EmbeddedResource Include="..\shared\Schemas\*.xsd" LinkBase="Schemas" />
+</ItemGroup>
+```
+
+**Content files with CopyToOutputDirectory:** these still need explicit entries:
+
+```xml
+<ItemGroup>
+  <Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+  <None Include="scripts\*.sql" CopyToOutputDirectory="PreserveNewest" />
+</ItemGroup>
+```
+
+**Multi-targeting:** change the element name from singular to plural:
+
+```xml
+<!-- Single target -->
+<TargetFramework>net8.0</TargetFramework>
+
+<!-- Multiple targets -->
+<TargetFrameworks>net472;net8.0</TargetFrameworks>
+```
+
+**WPF/WinForms projects:** use the appropriate SDK or properties:
+
+```xml
+<!-- Option A: WindowsDesktop SDK -->
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+<!-- Option B: properties in standard SDK (preferred for .NET 5+) -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <UseWPF>true</UseWPF>
+    <!-- or -->
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+</Project>
+```
+
+**Test projects:** use the standard SDK with test framework packages:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageReference Include="xunit" Version="2.7.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7" />
+  </ItemGroup>
+</Project>
+```
+
+## Central Package Management Migration
+
+Centralizes NuGet version management across a multi-project solution. See [https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management) for details.
+
+**Step 1:** Create `Directory.Packages.props` at the repository root with `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>` and `<PackageVersion>` items for all packages.
+
+**Step 2:** Remove `Version` from each project's `PackageReference`:
+
+```xml
+<!-- BEFORE -->
+<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+
+<!-- AFTER -->
+<PackageReference Include="Newtonsoft.Json" />
+```
+
+## Directory.Build Consolidation
+
+Identify properties repeated across multiple `.csproj` files and move them to shared files.
+
+**`Directory.Build.props`** (for properties — placed at repo or src root):
+
+```xml
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Company>Contoso</Company>
+    <Copyright>Copyright © Contoso 2024</Copyright>
+  </PropertyGroup>
+</Project>
+```
+
+**`Directory.Build.targets`** (for targets/tasks — placed at repo or src root):
+
+```xml
+<Project>
+  <Target Name="PrintBuildInfo" AfterTargets="Build">
+    <Message Importance="High" Text="Built $(AssemblyName) → $(TargetPath)" />
+  </Target>
+</Project>
+```
+
+**Keep in individual `.csproj` files** only what is project-specific:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>MyApp</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Serilog" />
+    <ProjectReferen
 
 [truncated]

@@ -399,7 +399,7 @@ Is your no-op build slow (> 10s per project)?
     Is your cold build slow?
     ├── YES
     │   Is restore slow?
-    │   ├── YES → See `build-caching` skill (NuGet cache, lock files)
+    │   ├── YES → Optimize NuGet restore (use lock files, configure local cache)
     │   └── NO
     │       Is compilation slow?
     │       ├── YES

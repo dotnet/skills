@@ -2,7 +2,7 @@
 
 ---
 name: build-perf-baseline
-description: "Establish build performance baselines and apply systematic optimization techniques. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when diagnosing slow builds, establishing before/after measurements, or applying advanced optimization strategies like MSBuild Server, static graph builds, artifacts output, and dependency graph trimming. Start here before diving into specific optimizations from build-perf-diagnostics, incremental-build, or build-parallelism skills. DO NOT use for non-MSBuild build systems."
+description: "Establish build performance baselines and apply systematic optimization techniques. Only activate in MSBuild/.NET build context. Use when diagnosing slow builds, establishing before/after measurements, or applying advanced optimization strategies like MSBuild Server, static graph builds, artifacts output, and dependency graph trimming. Start here before diving into specific optimizations from build-perf-diagnostics, incremental-build, or build-parallelism skills. DO NOT use for non-MSBuild build systems."
 ---
 
 # Build Performance Baseline & Optimization
@@ -15,7 +15,6 @@ Before optimizing a build, you need a **baseline**. Without measurements, optimi
 - `build-perf-diagnostics` — binlog-based bottleneck identification
 - `incremental-build` — Inputs/Outputs and up-to-date checks
 - `build-parallelism` — parallel and graph build tuning
-- `build-caching` — NuGet cache, VBCSCompiler, CI strategies
 - `eval-performance` — glob and import chain optimization
 
 ---
@@ -76,7 +75,7 @@ dotnet build /bl:noop-build.binlog -m
 **Red flags:**
 - No-op build > 30 seconds → incremental build is broken (see `incremental-build` skill)
 - Warm build recompiles everything → project dependency chain forces full rebuild
-- Cold build has long restore → NuGet cache issues (see `build-caching` skill)
+- Cold build has long restore → NuGet cache issues
 
 ### Recording Baselines
 
@@ -402,7 +401,7 @@ Is your no-op build slow (> 10s per project)?
     Is your cold build slow?
     ├── YES
     │   Is restore slow?
-    │   ├── YES → See `build-caching` skill (NuGet cache, lock files)
+    │   ├── YES → Optimize NuGet restore (use lock files, configure local cache)
     │   └── NO
     │       Is compilation slow?
     │       ├── YES
@@ -420,7 +419,7 @@ Is your no-op build slow (> 10s per project)?
 
 ---
 name: build-perf-diagnostics
-description: "Reference knowledge for diagnosing MSBuild build performance issues. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when builds are slow, to identify bottlenecks using binary log analysis. Covers timeline analysis, node utilization, expensive targets/tasks, Roslyn analyzer impact, RAR performance, and critical path identification. Works with the binlog MCP tools for data-driven analysis."
+description: "Reference knowledge for diagnosing MSBuild build performance issues. Only activate in MSBuild/.NET build context. Use when builds are slow, to identify bottlenecks using binary log analysis. Covers timeline analysis, node utilization, expensive targets/tasks, Roslyn analyzer impact, RAR performance, and critical path identification. Works with the binlog MCP tools for data-driven analysis."
 ---
 
 ## Performance Analysis Methodology
@@ -517,7 +516,7 @@ Step-by-step workflow with the actual MCP tool calls:
 
 ---
 name: incremental-build
-description: "Guide for optimizing MSBuild incremental builds. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when builds are slower than expected on subsequent runs, when 'nothing changed but it rebuilds anyway', or when diagnosing why incremental builds are broken. Covers Inputs/Outputs on targets, FileWrites tracking, up-to-date checks, and diagnosing unnecessary rebuilds via binlog analysis."
+description: "Guide for optimizing MSBuild incremental builds. Only activate in MSBuild/.NET build context. Use when builds are slower than expected on subsequent runs, when 'nothing changed but it rebuilds anyway', or when diagnosing why incremental builds are broken. Covers Inputs/Outputs on targets, FileWrites tracking, up-to-date checks, and diagnosing unnecessary rebuilds via binlog analysis."
 ---
 
 ## How MSBuild Incremental Build Works
@@ -731,7 +730,7 @@ MSBuild provides built-in tools to understand what's running and why.
 
 ---
 name: build-parallelism
-description: "Guide for optimizing MSBuild build parallelism and multi-project scheduling. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when builds are not utilizing all CPU cores, when looking to speed up multi-project builds, or when evaluating graph build mode. Covers /maxcpucount, project dependency graphs, graph build (/graph), BuildInParallel, and reducing unnecessary project references."
+description: "Guide for optimizing MSBuild build parallelism and multi-project scheduling. Only activate in MSBuild/.NET build context. Use when builds are not utilizing all CPU cores, when looking to speed up multi-project builds, or when evaluating graph build mode. Covers /maxcpucount, project dependency graphs, graph build (/graph), BuildInParallel, and reducing unnecessary project references."
 ---
 
 ## MSBuild Parallelism Model
@@ -776,7 +775,7 @@ description: "Guide for optimizing MSBuild build parallelism and multi-project s
 ## Multi-threaded MSBuild Tasks
 
 - Individual tasks can run multi-threaded within a single project build
-- See `multithreaded-task-migration` skill for migration guide
+- Tasks implementing `IMultiThreadableTask` can run on multiple threads
 - Tasks must declare thread-safety via `[MSBuildMultiThreadableTask]`
 
 ## Analyzing Parallelism with Binlog
@@ -793,150 +792,94 @@ Step-by-step:
 
 - Use `-m` in CI (many CI runners have multiple cores)
 - Consider splitting solution into build stages for extreme parallelism
-- Use build caching (see `build-caching` skill) to avoid rebuilding unchanged projects
+- Use build caching (NuGet lock files, deterministic builds) to avoid rebuilding unchanged projects
 - `dotnet build /graph` works well with structured CI pipelines
 
 ---
 
-## build-caching
-
 ---
-name: build-caching
-description: "Guide for MSBuild build caching and avoiding redundant work across builds. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when optimizing CI/CD build times, implementing NuGet restore caching, or leveraging compiler server and deterministic builds. Covers restore caching, VBCSCompiler, CI/CD cache strategies, and deterministic build configuration."
+name: eval-performance
+description: "Guide for diagnosing and improving MSBuild project evaluation performance. Only activate in MSBuild/.NET build context. Use when builds are slow before any compilation starts, when evaluation time is high in binlog analysis, or when dealing with expensive glob patterns and deep import chains. Covers evaluation phases, glob optimization, import chain analysis, and /pp preprocessing."
 ---
 
-## Separating Restore from Build
+## MSBuild Evaluation Phases
 
-Run `dotnet restore` separately, then `dotnet build --no-restore` to split network I/O (restore) from CPU-bound work (build). This separation enables better caching because the restore step only needs to re-run when dependencies change.
+For a comprehensive overview of MSBuild's evaluation and execution model, see [Build process overview](https://learn.microsoft.com/en-us/visualstudio/msbuild/build-process-overview).
 
-The `--no-restore` flag is available on `build`, `test`, `pack`, and `publish` commands and skips the implicit restore that normally runs first.
+1. **Initial properties**: environment variables, global properties, reserved properties
+2. **Imports and property evaluation**: process `<Import>`, evaluate `<PropertyGroup>` top-to-bottom
+3. **Item definition evaluation**: `<ItemDefinitionGroup>` metadata defaults
+4. **Item evaluation**: `<ItemGroup>` with `Include`, `Remove`, `Update`, glob expansion
+5. **UsingTask evaluation**: register custom tasks
 
-**CI pattern:** restore once at the start of your pipeline, then run build/test/pack without re-restoring:
+Key insight: evaluation happens BEFORE any targets run. Slow evaluation = slow build start even when nothing needs compiling.
 
-```yaml
-- run: dotnet restore
-- run: dotnet build --no-restore
-- run: dotnet test --no-restore
-- run: dotnet pack --no-restore
-```
+## Diagnosing Evaluation Performance
 
-Use `RestoreLockedMode=true` with a `packages.lock.json` lock file for reproducible restores:
+### Using binlog
 
-```xml
-<PropertyGroup>
-  <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-</PropertyGroup>
-```
+1. `list_evaluations` for a project → see how many times it was evaluated (multiple = overbuilding)
+2. Check evaluation duration in binlog: `search_binlog` with `$evaluation`
+3. Look for "Project evaluation started/finished" messages and their timestamps
 
-Then in CI:
+### Using /pp (preprocess)
 
-```shell
-dotnet restore --locked-mode
-```
+- `dotnet msbuild -pp:full.xml MyProject.csproj`
+- Shows the fully expanded project with ALL imports inlined
+- Use to understand: what's imported, import depth, total content volume
+- Large preprocessed output (>10K lines) = heavy evaluation
 
-This ensures the restore exactly matches what was committed, failing if the lock file is out of date.
+### Using /clp:PerformanceSummary
 
-## NuGet Cache Locations and Caching
+- Add to build command for timing breakdown
+- Shows evaluation time separately from target/task execution
 
-NuGet uses several cache locations:
+## Expensive Glob Patterns
 
-| Cache | Location | Purpose |
-|-------|----------|---------|
-| Global packages folder | `~/.nuget/packages` (`%USERPROFILE%\.nuget\packages` on Windows) | Extracted package contents |
-| HTTP cache | `~/.local/share/NuGet/http-cache` | Raw HTTP responses from feeds |
-| Temp folder | System temp directory | Temporary extraction during restore |
+- Globs like `**/*.cs` walk the entire directory tree
+- Default SDK globs are optimized, but custom globs may not be
+- Problem: globbing over `node_modules/`, `.git/`, `bin/`, `obj/` — millions of files
+- Fix: use `<DefaultItemExcludes>` to exclude large directories
+- Fix: be specific with glob paths: `src/**/*.cs` instead of `**/*.cs`
+- Fix: use `<EnableDefaultItems>false</EnableDefaultItems>` only as last resort (lose SDK defaults)
+- Check: `get_evaluation_items_by_name` in binlog → if Compile items include unexpected files, globs are too broad
 
-List all cache locations with:
+## Import Chain Analysis
 
-```shell
-dotnet nuget locals all --list
-```
+- Deep import chains (>20 levels) slow evaluation
+- Each import: file I/O + parse + evaluate
+- Common causes: NuGet packages adding .props/.targets, framework SDK imports, Directory.Build chains
+- Diagnosis: `/pp` output → search for `<!-- Importing` comments to see import tree
+- Fix: reduce transitive package imports where possible, consolidate imports
 
-### CI Caching Strategy
+## Multiple Evaluations
 
-Cache `~/.nuget/packages` between CI runs, keyed on the lock file or project file hash.
+- A project evaluated multiple times = wasted work
+- Common causes: referenced from multiple other projects with different global properties
+- Each unique set of global properties = separate evaluation
+- Diagnosis: `list_evaluations` for a project → if count > 1, check `get_evaluation_global_properties` for each
+- Fix: normalize global properties, use graph build (`/graph`)
 
-**GitHub Actions:**
+## TreatAsLocalProperty
 
-```yaml
-- uses: actions/cache@v4
-  with:
-    path: ~/.nuget/packages
-    key: nuget-${{ hashFiles('**/packages.lock.json') }}
-    restore-keys: |
-      nuget-
-```
+- Prevents property values from flowing to child projects via MSBuild task
+- Overuse: declaring many TreatAsLocalProperty entries adds evaluation overhead
+- Correct use: only when you genuinely need to override an inherited property
 
-Or if not using lock files, key on project files:
+## Property Function Cost
 
-```yaml
-    key: nuget-${{ hashFiles('**/*.csproj') }}
-```
+- Property functions execute during evaluation
+- Most are cheap (string operations)
+- Expensive: `$([System.IO.File]::ReadAllText(...))` during evaluation — reads file on every evaluation
+- Expensive: network calls, heavy computation
+- Rule: property functions should be fast and side-effect-free
 
-**Azure DevOps:**
+## Optimization Checklist
 
-```yaml
-- task: Cache@2
-  inputs:
-    key: 'nuget | "$(Agent.OS)" | **/packages.lock.json'
-    restoreKeys: |
-      nuget | "$(Agent.OS)"
-    path: $(NUGET_PACKAGES)
-```
-
-## Compiler Server (VBCSCompiler)
-
-VBCSCompiler is a long-running background process that keeps the Roslyn compiler warm between compilations. The first compilation pays a cold-start cost (JIT, loading assemblies), but subsequent compilations reuse the warm compiler process for significantly faster builds.
-
-Benefits:
-- Avoids repeated JIT compilation of the Roslyn compiler
-- Keeps compiler assemblies loaded in memory
-- Noticeably faster for multi-project solutions built sequentially
-
-Shared compilation is enabled by default in most scenarios:
-
-```xml
-<PropertyGroup>
-  <UseSharedCompilation>true</UseSharedCompilation>
-</PropertyGroup>
-```
-
-### Troubleshooting
-
-If builds hang or files remain locked after a build, VBCSCompiler may be holding file locks. Shut down the compiler server with:
-
-```shell
-dotnet build-server shutdown
-```
-
-### CI Considerations
-
-In CI environments with ephemeral (short-lived) build agents, the compiler server may not help because each build starts fresh. Consider disabling it to avoid process leaks:
-
-```xml
-<PropertyGroup Condition="'$(CI)' == 'true'">
-  <UseSharedCompilation>false</UseSharedCompilation>
-</PropertyGroup>
-```
-
-Related but different: `/nodeReuse:false` prevents MSBuild worker nodes from persisting between builds. This is also recommended in CI:
-
-```shell
-dotnet build /nodeReuse:false
-```
-
-## Deterministic Builds
-
-Deterministic builds ensure that the same source code compiled with the same compiler produces identical binary output, byte for byte.
-
-```xml
-<PropertyGroup>
-  <Deterministic>true</Deterministic>
-</PropertyGroup>
-```
-
-This is the default in SDK-style projects.
-
-### Why
-
-[truncated]
+- [ ] Check preprocessed output size: `dotnet msbuild -pp:full.xml`
+- [ ] Verify evaluation count: should be 1 per project per TFM
+- [ ] Exclude large directories from globs
+- [ ] Avoid file I/O in property functions during evaluation
+- [ ] Minimize import depth
+- [ ] Use graph build to reduce redundant evaluations
+- [ ] Check for unnecessary UsingTask declarations
