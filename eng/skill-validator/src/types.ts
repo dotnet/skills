@@ -203,7 +203,7 @@ export interface ValidatorConfig {
   confidenceLevel: number;
   reporters: ReporterSpec[];
   skillPaths: string[];
-  warnOnly: boolean;
+  thresholdWarnOnly: boolean;
   resultsDir?: string;
   testsDir?: string;
 }
