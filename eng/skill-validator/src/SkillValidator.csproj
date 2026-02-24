@@ -7,6 +7,9 @@
     <PublishRelease>true</PublishRelease>
     <Version>1.0.0</Version>
     <Description>Validate that agent skills meaningfully improve agent performance</Description>
+
+    <!-- dotnet run args for local invocation -->
+    <RunArguments>--results-dir "$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', 'TestResults', '$(AssemblyName)'))"</RunArguments>
   </PropertyGroup>
 
   <ItemGroup>

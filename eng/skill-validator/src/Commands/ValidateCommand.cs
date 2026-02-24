@@ -139,6 +139,9 @@ public static class ValidateCommand
             return 1;
         }
 
+        if (config.Verbose)
+            Console.WriteLine($"Results dir: {config.ResultsDir}");
+
         // Discover skills
         var allSkills = new List<SkillInfo>();
         foreach (var path in config.SkillPaths)
