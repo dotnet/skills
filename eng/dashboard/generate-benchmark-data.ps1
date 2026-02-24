@@ -68,18 +68,35 @@ $efficiencyBenches = [System.Collections.Generic.List[object]]::new()
 foreach ($verdict in $results.verdicts) {
     $skillName = $verdict.skillName
 
+    # Check verdict-level activation state
+    $verdictNotActivated = $false
+    if ($verdict.skillNotActivated -eq $true) {
+        $verdictNotActivated = $true
+    }
+
     foreach ($scenario in $verdict.scenarios) {
         $testName = "$skillName/$($scenario.scenarioName)"
 
+        # Check per-scenario activation state
+        $scenarioNotActivated = $false
+        if ($scenario.skillActivation -and -not $scenario.skillActivation.activated) {
+            $scenarioNotActivated = $true
+        }
+        $notActivated = $verdictNotActivated -or $scenarioNotActivated
+
         # Quality scores (from judge results, scale 0-5 mapped to 0-10 for dashboard)
-        if ($scenario.withSkill.judgeResult.overallScore) {
-            $qualityBenches.Add(@{
+        if ($null -ne $scenario.withSkill.judgeResult.overallScore) {
+            $benchEntry = @{
                 name  = "$testName - Skilled Quality"
                 unit  = "Score (0-10)"
                 value = [float]$scenario.withSkill.judgeResult.overallScore * 2
-            })
+            }
+            if ($notActivated) {
+                $benchEntry.notActivated = $true
+            }
+            $qualityBenches.Add($benchEntry)
         }
-        if ($scenario.baseline.judgeResult.overallScore) {
+        if ($null -ne $scenario.baseline.judgeResult.overallScore) {
             $qualityBenches.Add(@{
                 name  = "$testName - Vanilla Quality"
                 unit  = "Score (0-10)"
@@ -88,19 +105,27 @@ foreach ($verdict in $results.verdicts) {
         }
 
         # Efficiency metrics (from with-skill run)
-        if ($scenario.withSkill.metrics.wallTimeMs) {
-            $efficiencyBenches.Add(@{
+        if ($null -ne $scenario.withSkill.metrics.wallTimeMs) {
+            $effBenchEntry = @{
                 name  = "$testName - Skilled Time"
                 unit  = "seconds"
                 value = [math]::Round([float]$scenario.withSkill.metrics.wallTimeMs / 1000, 1)
-            })
+            }
+            if ($notActivated) {
+                $effBenchEntry.notActivated = $true
+            }
+            $efficiencyBenches.Add($effBenchEntry)
         }
-        if ($scenario.withSkill.metrics.tokenEstimate) {
-            $efficiencyBenches.Add(@{
+        if ($null -ne $scenario.withSkill.metrics.tokenEstimate) {
+            $tokenBenchEntry = @{
                 name  = "$testName - Skilled Tokens In"
                 unit  = "tokens"
                 value = [float]$scenario.withSkill.metrics.tokenEstimate
-            })
+            }
+            if ($notActivated) {
+                $tokenBenchEntry.notActivated = $true
+            }
+            $efficiencyBenches.Add($tokenBenchEntry)
         }
     }
 }

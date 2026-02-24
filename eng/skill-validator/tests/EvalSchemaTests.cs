@@ -107,6 +107,28 @@ public class ParseEvalConfigTests
         Assert.Equal(10, s.MaxTurns);
         Assert.Equal(5000, s.MaxTokens);
     }
+
+    [Fact]
+    public void ParsesSetupCommands()
+    {
+        var yaml = """
+            scenarios:
+              - name: "Build first"
+                prompt: "Fix the build"
+                setup:
+                  copy_test_files: true
+                  commands:
+                    - "dotnet build /bl:build.binlog"
+                    - "rm -rf src/"
+            """;
+        var config = EvalSchema.ParseEvalConfig(yaml);
+        var setup = config.Scenarios[0].Setup;
+        Assert.NotNull(setup);
+        Assert.True(setup!.CopyTestFiles);
+        Assert.NotNull(setup.Commands);
+        Assert.Equal(2, setup.Commands!.Count);
+        Assert.Equal("dotnet build /bl:build.binlog", setup.Commands[0]);
+    }
 }
 
 public class ValidateEvalConfigTests

@@ -1,6 +1,6 @@
 ---
 name: binlog-generation
-description: "Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Pass /bl:N.binlog with an incrementing counter (1.binlog, 2.binlog, etc.) to ensure unique filenames."
+description: "Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Pass /bl:{} to generate a unique binlog filename automatically on every build."
 ---
 
 # Generate Binary Logs
@@ -9,7 +9,7 @@ description: "Only activate in MSBuild/.NET build contexts (see shared/domain-ch
 
 ## Commands That Require /bl
 
-You MUST add the `/bl:N.binlog` flag to:
+You MUST add the `/bl:{}` flag to:
 - `dotnet build`
 - `dotnet test`
 - `dotnet pack`
@@ -18,27 +18,26 @@ You MUST add the `/bl:N.binlog` flag to:
 - `msbuild` or `msbuild.exe`
 - Any other command that invokes MSBuild
 
-## Naming Convention
+## Preferred: Use `{}` for Automatic Unique Names
 
-Use an incrementing counter for the binlog filename, **continuing from existing binlogs in the directory**:
+> **Note:** The `{}` placeholder requires MSBuild 17.8+ / .NET 8 SDK or later.
 
-1. Before the first build, check for existing `*.binlog` files with numeric names (e.g., `1.binlog`, `5.binlog`, `12.binlog`)
-2. Find the highest number and start from that number + 1
-3. If no numeric binlogs exist, start at 1
+The `{}` placeholder in the binlog filename is replaced by MSBuild with a unique identifier, guaranteeing no two builds ever overwrite each other — without needing to track or check existing files.
 
 ```bash
-# Example: Directory already contains 5.binlog, 6.binlog, 7.binlog
-# First build in this session starts at 8
-dotnet build /bl:8.binlog
-
-# Second build
-dotnet test /bl:9.binlog
-
-# Third build
-dotnet pack /bl:10.binlog
+# Every invocation produces a distinct file automatically
+dotnet build /bl:{}
+dotnet test /bl:{}
+dotnet build --configuration Release /bl:{}
 ```
 
-**The counter increments across ALL MSBuild invocations**, preserving history across sessions.
+**PowerShell requires escaping the braces:**
+
+```powershell
+# PowerShell: escape { } as {{ }}
+dotnet build -bl:{{}}
+dotnet test -bl:{{}}
+```
 
 ## Why This Matters
 
@@ -50,30 +49,34 @@ dotnet pack /bl:10.binlog
 ## Examples
 
 ```bash
-# ✅ CORRECT - Check existing binlogs first, then use next number
-# (Assuming 3.binlog is the highest existing)
-dotnet build /bl:4.binlog
-dotnet test /bl:5.binlog
-dotnet build --configuration Release /bl:6.binlog
+# ✅ CORRECT - {} generates a unique name automatically (bash/cmd)
+dotnet build /bl:{}
+dotnet test /bl:{}
 
-# ❌ WRONG - Missing /bl flag
+# ✅ CORRECT - PowerShell escaping
+dotnet build -bl:{{}}
+dotnet test -bl:{{}}
+
+# ❌ WRONG - Missing /bl flag entirely
 dotnet build
 dotnet test
 
-# ❌ WRONG - No filename (will overwrite previous)
+# ❌ WRONG - No filename (overwrites the same msbuild.binlog every time)
 dotnet build /bl
 dotnet build /bl
-
-# ❌ WRONG - Starting at 1 when higher numbers exist
-dotnet build /bl:1.binlog  # if 7.binlog already exists
 ```
 
-## Remember
+## When a Specific Filename Is Required
 
-- Check for existing `N.binlog` files before the first build
-- Start at the highest existing number + 1 (or 1 if none exist)
-- Increment the counter for EVERY MSBuild invocation
-- The binlog file will be created in the current working directory
+If the binlog filename needs to be known upfront (e.g., for CI artifact upload), or if `{}` is not available in the installed MSBuild version, pick a name that won't collide with existing files:
+
+1. Check for existing `*.binlog` files in the directory
+2. Choose a name not already taken (e.g., by incrementing a counter from the highest existing number)
+
+```bash
+# Example: directory contains 3.binlog — use 4.binlog
+dotnet build /bl:4.binlog
+```
 
 ## Cleaning the Repository
 

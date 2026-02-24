@@ -49,7 +49,7 @@ public static class EvalSchema
         {
             var files = raw.Setup.Files?.Select(f =>
                 new SetupFile(f.Path, f.Source, f.Content)).ToList();
-            setup = new SetupConfig(raw.Setup.CopyTestFiles, files);
+            setup = new SetupConfig(raw.Setup.CopyTestFiles, files, raw.Setup.Commands);
         }
 
         return new EvalScenario(
@@ -108,6 +108,7 @@ public static class EvalSchema
     {
         public bool CopyTestFiles { get; set; }
         public List<RawSetupFile>? Files { get; set; }
+        public List<string>? Commands { get; set; }
     }
 
     private sealed class RawSetupFile

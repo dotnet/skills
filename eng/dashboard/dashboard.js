@@ -126,6 +126,21 @@
           </div>
         `;
       }
+
+      // Count not-activated entries
+      let notActivatedCount = 0;
+      recentEntries.forEach(entry => {
+        if (entry.benches.some(b => b.notActivated)) notActivatedCount++;
+      });
+      if (notActivatedCount > 0) {
+        summaryDiv.innerHTML += `
+          <div class="card">
+            <div class="card-label">Not Activated</div>
+            <div class="card-value" style="color: var(--warning)">${notActivatedCount}</div>
+            <div class="card-delta">runs where skill was not loaded</div>
+          </div>
+        `;
+      }
     }
 
     // Quality charts
@@ -162,6 +177,7 @@
       });
 
       effTests.forEach(test => {
+        const NOT_ACTIVATED_COLOR = '#d29922';
         const div = document.createElement('div');
         div.className = 'chart-container';
         div.innerHTML = `<h3>${test}</h3><canvas></canvas>`;
@@ -173,15 +189,52 @@
           return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         });
 
-        const timeData = efficiencyEntries.map(e => {
-          const b = e.benches.find(b => b.name === `${test} - Skilled Time`);
-          return b ? b.value : null;
+        // Precompute per-entry data in a single pass over e.benches
+        const timeName = `${test} - Skilled Time`;
+        const tokenName = `${test} - Skilled Tokens In`;
+        let hasAnyNotActivated = false;
+
+        const perEntryData = efficiencyEntries.map(e => {
+          let timeBench = undefined;
+          let tokenBench = undefined;
+          for (const b of e.benches) {
+            if (!timeBench && b.name === timeName) timeBench = b;
+            else if (!tokenBench && b.name === tokenName) tokenBench = b;
+            if (timeBench && tokenBench) break;
+          }
+          const timeNA = !!(timeBench && timeBench.notActivated);
+          const tokenNA = !!(tokenBench && tokenBench.notActivated);
+          if (timeNA || tokenNA) hasAnyNotActivated = true;
+          return {
+            timeValue: timeBench ? timeBench.value : null,
+            timeNotActivated: timeNA,
+            tokenValue: tokenBench ? tokenBench.value / 1000 : null,
+            tokenNotActivated: tokenNA,
+          };
         });
 
-        const tokenData = efficiencyEntries.map(e => {
-          const b = e.benches.find(b => b.name === `${test} - Skilled Tokens In`);
-          return b ? b.value / 1000 : null;
-        });
+        const timeData = perEntryData.map(d => d.timeValue);
+        const tokenData = perEntryData.map(d => d.tokenValue);
+
+        // Per-point styling for not-activated data in efficiency charts
+        const timePointBg = perEntryData.map(d =>
+          d.timeNotActivated ? NOT_ACTIVATED_COLOR : '#f0883e'
+        );
+        const timePointStyle = perEntryData.map(d =>
+          d.timeNotActivated ? 'triangle' : 'circle'
+        );
+        const timePointRadius = perEntryData.map(d =>
+          d.timeNotActivated ? 6 : 4
+        );
+        const tokenPointBg = perEntryData.map(d =>
+          d.tokenNotActivated ? NOT_ACTIVATED_COLOR : '#a371f7'
+        );
+        const tokenPointStyle = perEntryData.map(d =>
+          d.tokenNotActivated ? 'triangle' : 'circle'
+        );
+        const tokenPointRadius = perEntryData.map(d =>
+          d.tokenNotActivated ? 6 : 4
+        );
 
         new Chart(canvas, {
           type: 'line',
@@ -193,7 +246,10 @@
                 data: timeData,
                 borderColor: '#f0883e',
                 borderWidth: 2,
-                pointRadius: 4,
+                pointBackgroundColor: timePointBg,
+                pointBorderColor: timePointBg,
+                pointRadius: timePointRadius,
+                pointStyle: timePointStyle,
                 tension: 0.3,
                 fill: false,
                 yAxisID: 'y'
@@ -203,7 +259,10 @@
                 data: tokenData,
                 borderColor: '#a371f7',
                 borderWidth: 2,
-                pointRadius: 4,
+                pointBackgroundColor: tokenPointBg,
+                pointBorderColor: tokenPointBg,
+                pointRadius: tokenPointRadius,
+                pointStyle: tokenPointStyle,
                 tension: 0.3,
                 borderDash: [5, 5],
                 fill: false,
@@ -214,7 +273,29 @@
           options: {
             responsive: true,
             interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },
+            plugins: {
+              legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true } },
+              tooltip: {
+                callbacks: {
+                  afterTitle: (items) => {
+                    const idx = items[0].dataIndex;
+                    const entry = efficiencyEntries[idx];
+                    const parts = [];
+                    if (entry && entry.model) parts.push(`Model: ${entry.model}`);
+                    if (entry && entry.commit) {
+                      const msg = entry.commit.message.split('\n')[0];
+                      parts.push(msg.length > 60 ? msg.substring(0, 60) + '...' : msg);
+                    }
+                    const hasNotActivated = entry && entry.benches &&
+                      entry.benches.some(b => b.notActivated);
+                    if (hasNotActivated) {
+                      parts.push('⚠️ SKILL NOT ACTIVATED');
+                    }
+                    return parts.join('\n');
+                  }
+                }
+              }
+            },
             scales: {
               x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
               y: {
@@ -234,12 +315,22 @@
             }
           }
         });
+
+        // Add legend note below chart if it contains not-activated points
+        if (hasAnyNotActivated) {
+          const note = document.createElement('div');
+          note.className = 'not-activated-legend';
+          note.innerHTML = `⚠️ <span style="color:${NOT_ACTIVATED_COLOR}">▲</span> = Skill was not activated`;
+          div.appendChild(note);
+        }
       });
     }
   }
 
   // Helper: create a paired line chart
   function createPairedChart(container, title, entries, nameA, nameB, labelA, labelB, colorA, colorB) {
+    const NOT_ACTIVATED_COLOR = '#d29922';
+
     const div = document.createElement('div');
     div.className = 'chart-container';
     div.innerHTML = `<h3>${title}</h3><canvas></canvas>`;
@@ -251,15 +342,41 @@
       return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     });
 
-    const dataA = entries.map(e => {
-      const b = e.benches.find(b => b.name === nameA);
-      return b ? b.value : null;
+    // Precompute per-entry data in a single pass
+    let hasAnyNotActivated = false;
+    const perEntryData = entries.map(e => {
+      let benchA = undefined;
+      let benchB = undefined;
+      for (const b of e.benches) {
+        if (!benchA && b.name === nameA) benchA = b;
+        else if (!benchB && b.name === nameB) benchB = b;
+        if (benchA && benchB) break;
+      }
+      const aNotActivated = !!(benchA && benchA.notActivated);
+      if (aNotActivated) hasAnyNotActivated = true;
+      return {
+        valueA: benchA ? benchA.value : null,
+        valueB: benchB ? benchB.value : null,
+        aNotActivated,
+      };
     });
 
-    const dataB = entries.map(e => {
-      const b = e.benches.find(b => b.name === nameB);
-      return b ? b.value : null;
-    });
+    const dataA = perEntryData.map(d => d.valueA);
+    const dataB = perEntryData.map(d => d.valueB);
+
+    // Build per-point styling for dataset A (Skilled) based on notActivated flag
+    const pointBgA = perEntryData.map(d =>
+      d.aNotActivated ? NOT_ACTIVATED_COLOR : colorA
+    );
+    const pointBorderA = perEntryData.map(d =>
+      d.aNotActivated ? NOT_ACTIVATED_COLOR : colorA
+    );
+    const pointRadiusA = perEntryData.map(d =>
+      d.aNotActivated ? 6 : 4
+    );
+    const pointStyleA = perEntryData.map(d =>
+      d.aNotActivated ? 'triangle' : 'circle'
+    );
 
     new Chart(canvas, {
       type: 'line',
@@ -272,8 +389,11 @@
             borderColor: colorA,
             backgroundColor: colorA + '20',
             borderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            pointBackgroundColor: pointBgA,
+            pointBorderColor: pointBorderA,
+            pointRadius: pointRadiusA,
+            pointStyle: pointStyleA,
+            pointHoverRadius: 8,
             tension: 0.3,
             fill: false
           },
@@ -295,7 +415,7 @@
         responsive: true,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { labels: { color: '#8b949e', font: { size: 11 } } },
+          legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true } },
           tooltip: {
             callbacks: {
               afterTitle: (items) => {
@@ -306,6 +426,12 @@
                 if (entry && entry.commit) {
                   const msg = entry.commit.message.split('\n')[0];
                   parts.push(msg.length > 60 ? msg.substring(0, 60) + '...' : msg);
+                }
+                // Show activation warning when any bench in this entry is not-activated
+                const hasNotActivated = entry && entry.benches &&
+                  entry.benches.some(b => b.notActivated);
+                if (hasNotActivated) {
+                  parts.push('⚠️ SKILL NOT ACTIVATED');
                 }
                 return parts.join('\n');
               }
@@ -323,6 +449,14 @@
         }
       }
     });
+
+    // Add legend note below chart if it contains not-activated points
+    if (hasAnyNotActivated) {
+      const note = document.createElement('div');
+      note.className = 'not-activated-legend';
+      note.innerHTML = `⚠️ <span style="color:${NOT_ACTIVATED_COLOR}">▲</span> = Skill was not activated`;
+      div.appendChild(note);
+    }
   }
 
   // Load first component immediately

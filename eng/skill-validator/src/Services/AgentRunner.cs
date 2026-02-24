@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using SkillValidator.Models;
 using GitHub.Copilot.SDK;
@@ -78,7 +79,9 @@ public static class AgentRunner
             resolved.StartsWith(dir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
     }
 
-    internal static SessionConfig BuildSessionConfig(SkillInfo? skill, string model, string workDir)
+    internal static SessionConfig BuildSessionConfig(
+        SkillInfo? skill, string model, string workDir,
+        IReadOnlyDictionary<string, MCPServerDef>? mcpServers = null)
     {
         var skillPath = skill is not null ? Path.GetDirectoryName(skill.Path) : null;
 
@@ -87,6 +90,26 @@ public static class AgentRunner
         Directory.CreateDirectory(configDir);
         _workDirs.Add(configDir);
 
+        // Convert MCPServerDef records to the SDK's Dictionary<string, object> shape
+        Dictionary<string, object>? sdkMcp = null;
+        if (mcpServers is { Count: > 0 })
+        {
+            sdkMcp = new Dictionary<string, object>();
+            foreach (var (name, def) in mcpServers)
+            {
+                var entry = new Dictionary<string, object>
+                {
+                    ["type"] = def.Type ?? "stdio",
+                    ["command"] = def.Command,
+                    ["args"] = def.Args,
+                    ["tools"] = def.Tools ?? ["*"],
+                };
+                if (def.Env is not null) entry["env"] = def.Env;
+                if (def.Cwd is not null) entry["cwd"] = def.Cwd;
+                sdkMcp[name] = entry;
+            }
+        }
+
         return new SessionConfig
         {
             Model = model,
@@ -94,6 +117,7 @@ public static class AgentRunner
             WorkingDirectory = workDir,
             SkillDirectories = skill is not null ? [skillPath!] : [],
             ConfigDir = configDir,
+            McpServers = sdkMcp,
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
             OnPermissionRequest = (request, _) =>
             {
@@ -124,7 +148,7 @@ public static class AgentRunner
             var client = await GetSharedClient(options.Verbose);
 
             await using var session = await client.CreateSessionAsync(
-                BuildSessionConfig(options.Skill, options.Model, workDir));
+                BuildSessionConfig(options.Skill, options.Model, workDir, options.Skill?.McpServers));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
@@ -228,6 +252,37 @@ public static class AgentRunner
                 {
                     var sourcePath = Path.Combine(skillPath, file.Source);
                     File.Copy(sourcePath, targetPath, true);
+                }
+            }
+        }
+
+        // Run setup commands (e.g. build to produce a binlog, then strip sources)
+        if (scenario.Setup?.Commands is { } commands)
+        {
+            foreach (var cmd in commands)
+            {
+                try
+                {
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh",
+                        Arguments = OperatingSystem.IsWindows() ? $"/c {cmd}" : $"-c \"{cmd.Replace("\"", "\\\"")}\"",
+                        WorkingDirectory = workDir,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                    };
+                    using var proc = Process.Start(psi);
+                    if (proc is not null)
+                    {
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+                        await proc.WaitForExitAsync(cts.Token);
+                    }
+                }
+                catch
+                {
+                    // Setup commands may return non-zero exit codes
+                    // (e.g. building a broken project to produce a binlog)
                 }
             }
         }

@@ -1,27 +1,12 @@
 ---
 name: binlog-failure-analysis
-description: "MANDATORY skill for .NET/MSBuild build failures. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). BLOCKING REQUIREMENT: When you see 'Build failed', 'error CS', 'error MSB', or non-zero exit code from dotnet build/msbuild/dotnet test commands, you MUST invoke this skill IMMEDIATELY as your first action - before reporting errors to the user or attempting fixes. Do NOT analyze console output directly. Uses binary logs for comprehensive build failure analysis."
+description: "Skill for .NET/MSBuild *.binlog files and complicated build failures. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). This skill uses binary logs for comprehensive build failure analysis."
 ---
 
 # Analyzing MSBuild Failures with Binary Logs
 
-## CRITICAL: Mandatory Invocation Rules
-
-**This skill is a BLOCKING REQUIREMENT when any .NET build fails.** You MUST invoke this skill when:
-- `dotnet build`, `dotnet test`, `msbuild`, or any MSBuild-based command exits with non-zero code
-- Console output contains "Build failed", "error CS", "error MSB", or similar build errors
-- Any .NET compilation or restore operation fails
-
-**What you MUST NOT do:**
-- Do NOT report build errors directly from console output to the user
-- Do NOT attempt to fix errors based on console output alone
-- Do NOT skip this skill because "the errors look simple"
-
-**Correct behavior:** Invoke this skill → analyze with binlog-mcp tools → then report findings and suggest fixes.
-
-**Fallback:** Only if the binlog-mcp tools fail to provide useful information (e.g., binlog not generated, tools return errors, or analysis is inconclusive), you may fall back to analyzing console output directly. Always attempt binlog analysis first.
-
 When an MSBuild build fails, use the binlog-mcp tool to deeply analyze the failure. This skill guides you through generating a binary log and using the MCP tools to diagnose issues.
+Requires 'binlog-mcp' MCP server tools to perform the binlog analysis.
 
 ## Step 1: Generate a Binary Log
 
@@ -38,7 +23,7 @@ msbuild /bl
 dotnet build /bl:build.binlog
 ```
 
-The `/bl` flag tells MSBuild to generate a `msbuild.binlog` file (or the specified filename) in the current directory.
+The `/bl` flag tells MSBuild to generate a `msbuild.binlog` file (or the specified filename) in the current directory. Use `/bl:{}` (or `/bl:{{}}` in powershell for escaping) to generate unique binlog filename on each run.
 
 ## Step 2: Load the Binary Log
 

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using SkillValidator.Models;
 using YamlDotNet.Serialization;
@@ -65,7 +66,54 @@ public static partial class SkillDiscovery
             SkillMdPath: skillMdPath,
             SkillMdContent: skillMdContent,
             EvalPath: evalPath,
-            EvalConfig: evalConfig);
+            EvalConfig: evalConfig,
+            McpServers: await FindPluginMcpServers(dirPath));
+    }
+
+    /// <summary>
+    /// Walk up from a skill directory to find the nearest plugin.json and
+    /// extract its mcpServers map (if any).
+    /// </summary>
+    internal static async Task<IReadOnlyDictionary<string, MCPServerDef>?> FindPluginMcpServers(
+        string skillDir, int maxLevels = 2)
+    {
+        var dir = Path.GetFullPath(skillDir);
+        for (var i = 0; i < maxLevels; i++)
+        {
+            var candidate = Path.Combine(dir, "plugin.json");
+            if (File.Exists(candidate))
+            {
+                try
+                {
+                    var raw = JsonSerializer.Deserialize<JsonElement>(
+                        await File.ReadAllTextAsync(candidate));
+                    if (raw.TryGetProperty("mcpServers", out var serversEl)
+                        && serversEl.ValueKind == JsonValueKind.Object)
+                    {
+                        var result = new Dictionary<string, MCPServerDef>();
+                        foreach (var prop in serversEl.EnumerateObject())
+                        {
+                            var def = JsonSerializer.Deserialize<MCPServerDef>(
+                                prop.Value.GetRawText(),
+                                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                            if (def is not null)
+                                result[prop.Name] = def;
+                        }
+                        return result.Count > 0 ? result : null;
+                    }
+                }
+                catch
+                {
+                    // malformed plugin.json — skip
+                }
+                return null;
+            }
+
+            var parent = Directory.GetParent(dir)?.FullName;
+            if (parent is null || parent == dir) break;
+            dir = parent;
+        }
+        return null;
     }
 
     internal static (Dictionary<string, string> Metadata, string Body) ParseFrontmatter(string content)

@@ -3,5 +3,13 @@
   "version": "1.0.0",
   "description": "Comprehensive MSBuild and .NET build skills: failure diagnosis, performance optimization, code quality, and modernization.",
   "skills": "./skills/",
-  "agents": "./agents/"
+  "agents": "./agents/",
+  "mcpServers": {
+    "binlog-mcp": {
+      "type": "stdio",
+      "command": "dnx",
+      "args": ["-y", "baronfel.binlog.mcp@0.0.13"],
+      "tools": ["*"]
+    }
+  }
 }

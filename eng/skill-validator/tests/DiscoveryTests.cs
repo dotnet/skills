@@ -42,4 +42,52 @@ public class DiscoverSkillsTests
         var skills = await SkillDiscovery.DiscoverSkills(Path.GetTempPath());
         Assert.Empty(skills);
     }
+
+    [Fact]
+    public async Task FindsPluginMcpServersInParentDirectory()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"skill-test-{Guid.NewGuid():N}");
+        var skillDir = Path.Combine(tmpDir, "my-skill");
+        Directory.CreateDirectory(skillDir);
+        try
+        {
+            var pluginJson = """
+                {
+                    "mcpServers": {
+                        "binlog-mcp": {
+                            "command": "dotnet",
+                            "args": ["run"],
+                            "tools": ["load_binlog"]
+                        }
+                    }
+                }
+                """;
+            await File.WriteAllTextAsync(Path.Combine(tmpDir, "plugin.json"), pluginJson);
+
+            var result = await SkillDiscovery.FindPluginMcpServers(skillDir);
+            Assert.NotNull(result);
+            Assert.True(result!.ContainsKey("binlog-mcp"));
+            Assert.Equal("dotnet", result["binlog-mcp"].Command);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
+
+    [Fact]
+    public async Task ReturnsNullWhenNoPluginJson()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"skill-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tmpDir);
+        try
+        {
+            var result = await SkillDiscovery.FindPluginMcpServers(tmpDir);
+            Assert.Null(result);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
 }

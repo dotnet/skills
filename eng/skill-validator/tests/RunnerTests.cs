@@ -14,7 +14,8 @@ public class BuildSessionConfigTests
         SkillMdPath: Path.Combine("C:", "home", "user", "skills", "test-skill", "SKILL.md"),
         SkillMdContent: "# Test",
         EvalPath: null,
-        EvalConfig: null);
+        EvalConfig: null,
+        McpServers: null);
 
     [Fact]
     public void SetsSkillDirectoriesToParentOfSkillPath()
@@ -83,6 +84,28 @@ public class BuildSessionConfigTests
         var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work");
         Assert.NotNull(config.OnPermissionRequest);
         Assert.Null(config.Hooks);
+    }
+
+    [Fact]
+    public void SetsMcpServersWhenProvided()
+    {
+        var mcpServers = new Dictionary<string, MCPServerDef>
+        {
+            ["binlog-mcp"] = new MCPServerDef(
+                Command: "dotnet",
+                Args: ["run", "--project", "server"],
+                Tools: ["load_binlog", "get_diagnostics"])
+        };
+        var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        Assert.NotNull(config.McpServers);
+        Assert.True(config.McpServers.ContainsKey("binlog-mcp"));
+    }
+
+    [Fact]
+    public void OmitsMcpServersWhenNull()
+    {
+        var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work");
+        Assert.Null(config.McpServers);
     }
 }
 

@@ -29,6 +29,16 @@ public sealed record AssertionResult(
     bool Passed,
     string Message);
 
+// --- MCP server definition (from plugin.json) ---
+
+public sealed record MCPServerDef(
+    string Command,
+    string[] Args,
+    string? Type = null,
+    string[]? Tools = null,
+    Dictionary<string, string>? Env = null,
+    string? Cwd = null);
+
 // --- Setup ---
 
 public sealed record SetupFile(
@@ -38,7 +48,8 @@ public sealed record SetupFile(
 
 public sealed record SetupConfig(
     bool CopyTestFiles = false,
-    IReadOnlyList<SetupFile>? Files = null);
+    IReadOnlyList<SetupFile>? Files = null,
+    IReadOnlyList<string>? Commands = null);
 
 // --- Scenario ---
 
@@ -65,7 +76,8 @@ public sealed record SkillInfo(
     string SkillMdPath,
     string SkillMdContent,
     string? EvalPath,
-    EvalConfig? EvalConfig);
+    EvalConfig? EvalConfig,
+    IReadOnlyDictionary<string, MCPServerDef>? McpServers = null);
 
 // --- Agent events ---
 
