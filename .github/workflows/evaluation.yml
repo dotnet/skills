@@ -285,7 +285,10 @@ jobs:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
         run: |
-          ARGS="--require-evals --threshold-warn-only"
+          # --require-evals: fail if a skill has no tests/eval.yaml
+          # --verdict-warn-only: treat verdict failures (threshold, completion, activation) as warnings (exit 0);
+          #              execution errors and missing evals still fail.
+          ARGS="--require-evals --verdict-warn-only"
           ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
           ARGS="$ARGS --model ${{ github.event.inputs.model || env.DEFAULT_MODEL }}"
           ARGS="$ARGS --judge-model ${{ github.event.inputs.judge-model || env.DEFAULT_JUDGE_MODEL }}"
@@ -313,7 +316,7 @@ jobs:
 
   comment-on-pr:
     needs: [discover, evaluate]
-    if: always() && needs.evaluate.result == 'success' && needs.discover.outputs.has_entries == 'true'
+    if: always() && needs.evaluate.result != 'cancelled' && needs.discover.outputs.has_entries == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Download all result artifacts

@@ -113,6 +113,7 @@ export function computeVerdict(
       scenarios: [],
       overallImprovementScore: 0,
       reason: "No scenarios to evaluate",
+      failureKind: "no_scenarios",
     };
   }
 
@@ -147,6 +148,7 @@ export function computeVerdict(
         confidenceInterval: ci,
         isSignificant: significant,
         reason: "Skill regressed on task completion in one or more scenarios",
+        failureKind: "completion_regression",
       };
     }
   }
@@ -171,6 +173,7 @@ export function computeVerdict(
     confidenceInterval: ci,
     isSignificant: significant,
     reason,
+    failureKind: passed ? undefined : "threshold",
   };
 }
 
