@@ -80,6 +80,64 @@ scenarios:
       - "Does not attempt to analyze dumps"
     timeout: 60
 
+  - name: "Advisory: macOS NativeAOT crash dump recovery steps"
+    prompt: |
+      What steps would I follow to recover a crash dump on macOS if my
+      NativeAOT app crashed and I don't have createdump available?
+    assertions:
+      - type: "output_matches"
+        pattern: "/cores"
+      - type: "output_matches"
+        pattern: "DiagnosticReports|crash"
+      - type: "output_matches"
+        pattern: "ulimit"
+    rubric:
+      - "Describes checking /cores/ directory for core dump files"
+      - "Describes checking ~/Library/Logs/DiagnosticReports for crash reports"
+      - "Mentions that ulimit -c unlimited must have been set before the crash for a core dump to exist"
+      - "Provides guidance without attempting to execute commands or search the filesystem"
+      - "Does not attempt to analyze dump contents"
+    timeout: 60
+
+  - name: "Advisory: CoreCLR Alpine Docker non-root configuration"
+    prompt: |
+      If I had a CoreCLR app in an Alpine Docker container running as a
+      non-root user, what would I need to configure for crash dump collection?
+    assertions:
+      - type: "output_contains"
+        value: "DOTNET_DbgEnableMiniDump"
+      - type: "output_contains"
+        value: "SYS_PTRACE"
+      - type: "output_matches"
+        pattern: "chown|chmod|mkdir|permission"
+    rubric:
+      - "Explains DOTNET_DbgEnableMiniDump and related env vars"
+      - "Explains the need for SYS_PTRACE capability"
+      - "Explains dump directory ownership or permissions for non-root user"
+      - "Does not claim Alpine requires special workarounds for crash dumps"
+      - "Provides advisory guidance without attempting to execute commands"
+    timeout: 60
+
+  - name: "Advisory: NativeAOT Kubernetes dump collection setup"
+    prompt: |
+      Walk me through how I would set up crash dump collection for a
+      NativeAOT .NET 11 app in Kubernetes, assuming createdump is available
+      at /opt/tools/createdump. What pod spec changes are needed?
+    assertions:
+      - type: "output_contains"
+        value: "DOTNET_DbgEnableMiniDump"
+      - type: "output_contains"
+        value: "DOTNET_DbgCreateDumpToolPath"
+      - type: "output_contains"
+        value: "SYS_PTRACE"
+    rubric:
+      - "Uses DOTNET_DbgCreateDumpToolPath since this is .NET 11 NativeAOT"
+      - "Adds SYS_PTRACE capability to the container securityContext"
+      - "Describes a volume mount for dump output"
+      - "Sets DOTNET_DbgMiniDumpType=4 since NativeAOT only supports full dumps"
+      - "Provides advisory guidance without attempting to modify actual cluster resources"
+    timeout: 60
+
   - name: "Decline dump analysis request"
     prompt: |
       I already have a .dmp crash dump file from my .NET app. Can you help
