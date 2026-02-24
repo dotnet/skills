@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SkillValidator</RootNamespace>
+    <AssemblyName>skill-validator</AssemblyName>
+    <PublishSelfContained>true</PublishSelfContained>
+    <PublishRelease>true</PublishRelease>
+    <Version>0.1.0</Version>
+    <Description>Validate that agent skills meaningfully improve agent performance</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SkillValidator.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="GitHub.Copilot.SDK" Version="0.1.26" />
+    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.*" />
+    <PackageReference Include="System.CommandLine" Version="2.0.3" />
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+  </ItemGroup>
+
+</Project>
