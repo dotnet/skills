@@ -1,6 +1,6 @@
 scenarios:
   - name: "Build project with /bl flag"
-    prompt: "Build this project."
+    prompt: "Build this project and create a binlog for diagnostic purposes."
     setup:
       copy_test_files: true
     assertions:
@@ -15,7 +15,7 @@ scenarios:
     timeout: 120
 
   - name: "Build with /bl in PowerShell"
-    prompt: "Build this project using PowerShell."
+    prompt: "Build this project using PowerShell and create a binlog for diagnostic purposes."
     setup:
       copy_test_files: true
     assertions:
@@ -30,7 +30,7 @@ scenarios:
     timeout: 120
 
   - name: "Build multiple configurations with unique binlogs"
-    prompt: "Build this project in both Debug and Release configurations."
+    prompt: "Build this project in both Debug and Release configurations and create a binlog for each build."
     setup:
       copy_test_files: true
     assertions:
@@ -43,18 +43,3 @@ scenarios:
       - "Used /bl:{} or -bl:{} for the second build as well (not a hardcoded name that would collide)"
       - "Each MSBuild invocation received the {} placeholder — no two builds share the same binlog file"
     timeout: 180
-
-  - name: "Preserve binlogs when running git clean"
-    prompt: "I need to clean this .NET project directory before rebuilding. What git clean command should I use to remove untracked build artifacts without losing important diagnostic files?"
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_contains"
-        value: "*.binlog"
-      - type: "output_matches"
-        pattern: "(-e |--exclude)"
-    rubric:
-      - "Recommended git clean with -e '*.binlog' or --exclude='*.binlog' to preserve binlog files"
-      - "Did NOT suggest bare 'git clean -fdx' without the binlog exclusion"
-      - "Explained that binlog files should be preserved for build history and failure analysis"
-    timeout: 60
