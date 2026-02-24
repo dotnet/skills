@@ -1,0 +1,20 @@
+scenarios:
+  - name: "Make Azure.ResourceManager AOT-compatible"
+    prompt: "Make the project in the before/ directory AOT-compatible. Do not consult the after/ directory."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "file_contains"
+        path: "before/Azure.ResourceManager.csproj"
+        value: "IsAotCompatible"
+    expect_tools: ["bash", "dotnet"]
+    rubric:
+      - "Added IsAotCompatible to the .csproj"
+      - "Built with AOT/trim analyzers enabled and identified IL warnings"
+      - "Used DynamicallyAccessedMembers annotations to preserve annotation flow where possible"
+      - "Used RequiresUnreferencedCode only as a last resort for fundamentally reflection-dependent code"
+      - "Did NOT use #pragma warning disable or UnconditionalSuppressMessage for any IL warning"
+      - "Iteratively rebuilt to verify warnings were resolved, working from innermost call sites outward"
+      - "Used source-generated System.Text.Json instead of reflection-based JSON serialization"
+      - "Final build produces 0 IL warnings"
+    timeout: 600
