@@ -8,7 +8,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const SKILLS_DIR = path.resolve(__dirname, "skills");
-const DOMAIN_GATE_PATTERN = /Only activate in MSBuild\/\.NET build contexts/;
+const DOMAIN_GATE_PATTERN = /Only activate in MSBuild\/\.NET build context/;
 
 // ── Step 1: Validate skills ─────────────────────────────────────────
 
@@ -42,7 +42,7 @@ for (const dir of skillDirs) {
 
   const description = descMatch[1];
   if (!DOMAIN_GATE_PATTERN.test(description)) {
-    console.error(`❌ ${dir.name}: Description missing domain gate. Must include 'Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals).'`);
+    console.error(`❌ ${dir.name}: Description missing domain gate. Must include 'Only activate in MSBuild/.NET build context.'`);
     errors++;
   }
 }
@@ -63,23 +63,14 @@ const KNOWLEDGE_TARGETS = {
     outputDir: path.resolve(__dirname, "copilot-extension/src/knowledge"),
     maxChars: 50000,
     knowledgeMap: {
-      "build-errors": [
-        "common-build-errors",
-        "sourcegen-analyzer-failures",
-        "nuget-restore-failures",
-        "sdk-workload-resolution",
-        "multitarget-tfm-issues",
-      ],
       performance: [
         "build-perf-baseline",
         "build-perf-diagnostics",
         "incremental-build",
         "build-parallelism",
-        "build-caching",
         "eval-performance",
       ],
       "style-guide": [
-        "msbuild-style-guide",
         "msbuild-antipatterns",
         "directory-build-organization",
         "check-bin-obj-clash",
@@ -96,15 +87,10 @@ const KNOWLEDGE_TARGETS = {
     maxChars: 40000,
     knowledgeMap: {
       "build-failure-knowledge": [
-        "common-build-errors",
-        "sourcegen-analyzer-failures",
-        "nuget-restore-failures",
-        "sdk-workload-resolution",
         "binlog-failure-analysis",
       ],
       "pr-review-knowledge": [
         "msbuild-antipatterns",
-        "msbuild-style-guide",
         "msbuild-modernization",
         "directory-build-organization",
         "check-bin-obj-clash",
@@ -115,7 +101,6 @@ const KNOWLEDGE_TARGETS = {
         "build-perf-diagnostics",
         "incremental-build",
         "build-parallelism",
-        "build-caching",
         "eval-performance",
       ],
     },

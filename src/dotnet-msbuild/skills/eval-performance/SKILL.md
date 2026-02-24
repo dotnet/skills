@@ -1,6 +1,6 @@
 ---
 name: eval-performance
-description: "Guide for diagnosing and improving MSBuild project evaluation performance. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when builds are slow before any compilation starts, when evaluation time is high in binlog analysis, or when dealing with expensive glob patterns and deep import chains. Covers evaluation phases, glob optimization, import chain analysis, and /pp preprocessing."
+description: "Guide for diagnosing and improving MSBuild project evaluation performance. Only activate in MSBuild/.NET build context. Use when builds are slow before any compilation starts, when evaluation time is high in binlog analysis, or when dealing with expensive glob patterns and deep import chains. Covers evaluation phases, glob optimization, import chain analysis, and /pp preprocessing."
 ---
 
 ## MSBuild Evaluation Phases

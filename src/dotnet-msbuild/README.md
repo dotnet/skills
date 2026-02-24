@@ -8,11 +8,6 @@ Comprehensive MSBuild and .NET build skills: failure diagnosis, performance opti
 
 | Skill | Description |
 |-------|-------------|
-| [`common-build-errors`](skills/common-build-errors/) | Catalog of CS, MSB, NU, NETSDK errors with root causes and step-by-step fixes |
-| [`nuget-restore-failures`](skills/nuget-restore-failures/) | NuGet restore diagnosis: feed auth, version conflicts, source mapping, lock files |
-| [`sdk-workload-resolution`](skills/sdk-workload-resolution/) | SDK and workload resolution: global.json, roll-forward policies, workload management |
-| [`multitarget-tfm-issues`](skills/multitarget-tfm-issues/) | TFM compatibility, multi-targeting setup, conditional compilation, RID issues |
-| [`sourcegen-analyzer-failures`](skills/sourcegen-analyzer-failures/) | Source generator crashes (CS8785), analyzer exceptions (AD0001), debugging techniques |
 | [`binlog-failure-analysis`](skills/binlog-failure-analysis/) | Binary log analysis for deep build failure diagnosis |
 | [`binlog-generation`](skills/binlog-generation/) | Binary log generation conventions |
 
@@ -24,25 +19,17 @@ Comprehensive MSBuild and .NET build skills: failure diagnosis, performance opti
 | [`build-perf-diagnostics`](skills/build-perf-diagnostics/) | Performance bottleneck identification using binlog analysis |
 | [`incremental-build`](skills/incremental-build/) | Incremental build optimization: Inputs/Outputs, FileWrites, up-to-date checks |
 | [`build-parallelism`](skills/build-parallelism/) | Parallelism tuning: /maxcpucount, graph build, project dependency optimization |
-| [`build-caching`](skills/build-caching/) | Build caching: NuGet cache, VBCSCompiler, deterministic builds, CI/CD strategies |
 | [`eval-performance`](skills/eval-performance/) | Evaluation performance: glob optimization, import chain analysis |
 
 ### Code Quality & Modernization
 
 | Skill | Description |
 |-------|-------------|
-| [`msbuild-style-guide`](skills/msbuild-style-guide/) | Best practices for idiomatic MSBuild: naming, conditions, targets, property functions |
 | [`msbuild-antipatterns`](skills/msbuild-antipatterns/) | Anti-pattern catalog with detection rules, severity, and BAD→GOOD fixes |
 | [`msbuild-modernization`](skills/msbuild-modernization/) | Legacy to SDK-style project migration with before/after examples |
 | [`directory-build-organization`](skills/directory-build-organization/) | Directory.Build.props/targets/rsp organization and central package management |
 | [`check-bin-obj-clash`](skills/check-bin-obj-clash/) | Output path conflict detection for multi-targeting and multi-project builds |
 | [`including-generated-files`](skills/including-generated-files/) | Including build-generated files in MSBuild's build process |
-
-### Other
-
-| Skill | Description |
-|-------|-------------|
-| [`multithreaded-task-migration`](skills/multithreaded-task-migration/) | Thread-safe MSBuild task migration guide |
 
 ## 🤖 Agents
 

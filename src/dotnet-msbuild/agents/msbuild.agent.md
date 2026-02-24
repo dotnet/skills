@@ -26,8 +26,6 @@ Before deep-diving into MSBuild troubleshooting, verify the context is MSBuild-r
 3. **If unclear**: Briefly scan the workspace (`glob **/*.csproj`, `glob **/*.sln`) before committing
 4. **If no**: Politely explain that this agent specializes in MSBuild/.NET builds and suggest the user use general-purpose assistance instead
 
-Refer to [`shared/domain-check.md`](../skills/shared/domain-check.md) for detailed relevance signals.
-
 ## Triage and Routing
 
 Classify the user's request and route to the appropriate specialist:

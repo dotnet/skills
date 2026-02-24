@@ -1,6 +1,6 @@
 ---
 name: build-perf-diagnostics
-description: "Reference knowledge for diagnosing MSBuild build performance issues. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when builds are slow, to identify bottlenecks using binary log analysis. Covers timeline analysis, node utilization, expensive targets/tasks, Roslyn analyzer impact, RAR performance, and critical path identification. Works with the binlog MCP tools for data-driven analysis."
+description: "Reference knowledge for diagnosing MSBuild build performance issues. Only activate in MSBuild/.NET build context. Use when builds are slow, to identify bottlenecks using binary log analysis. Covers timeline analysis, node utilization, expensive targets/tasks, Roslyn analyzer impact, RAR performance, and critical path identification. Works with the binlog MCP tools for data-driven analysis."
 ---
 
 ## Performance Analysis Methodology

@@ -42,7 +42,6 @@ copilot-extension/
 ├── package.json             # Node.js project
 ├── src/
 │   ├── index.js             # Entry point — handles Copilot webhook
-│   ├── domain-check.js      # MSBuild domain relevance detection
 │   ├── intent-classifier.js # Routes to the right knowledge area
 │   └── knowledge/           # Compiled skill content (generated, gitignored)
 │       ├── build-errors.md      # From common-build-errors + sourcegen-analyzer-failures

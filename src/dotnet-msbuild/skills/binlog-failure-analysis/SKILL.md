@@ -1,6 +1,6 @@
 ---
 name: binlog-failure-analysis
-description: "Skill for .NET/MSBuild *.binlog files and complicated build failures. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). This skill uses binary logs for comprehensive build failure analysis."
+description: "Skill for .NET/MSBuild *.binlog files and complicated build failures. Only activate in MSBuild/.NET build context. This skill uses binary logs for comprehensive build failure analysis."
 ---
 
 # Analyzing MSBuild Failures with Binary Logs

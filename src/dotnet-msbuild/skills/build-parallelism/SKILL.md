@@ -1,6 +1,6 @@
 ---
 name: build-parallelism
-description: "Guide for optimizing MSBuild build parallelism and multi-project scheduling. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when builds are not utilizing all CPU cores, when looking to speed up multi-project builds, or when evaluating graph build mode. Covers /maxcpucount, project dependency graphs, graph build (/graph), BuildInParallel, and reducing unnecessary project references."
+description: "Guide for optimizing MSBuild build parallelism and multi-project scheduling. Only activate in MSBuild/.NET build context. Use when builds are not utilizing all CPU cores, when looking to speed up multi-project builds, or when evaluating graph build mode. Covers /maxcpucount, project dependency graphs, graph build (/graph), BuildInParallel, and reducing unnecessary project references."
 ---
 
 ## MSBuild Parallelism Model

@@ -1,6 +1,6 @@
 ---
 name: directory-build-organization
-description: "Guide for organizing MSBuild infrastructure with Directory.Build.props, Directory.Build.targets, Directory.Packages.props, and Directory.Build.rsp. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when structuring multi-project repos, centralizing build settings, or implementing central package management. Invoke when asked about Directory.Build files, centralizing project properties, or organizing build infrastructure."
+description: "Guide for organizing MSBuild infrastructure with Directory.Build.props, Directory.Build.targets, Directory.Packages.props, and Directory.Build.rsp. Only activate in MSBuild/.NET build context. Use when structuring multi-project repos, centralizing build settings, or implementing central package management. Invoke when asked about Directory.Build files, centralizing project properties, or organizing build infrastructure."
 ---
 
 # Organizing Build Infrastructure with Directory.Build Files
@@ -31,7 +31,7 @@ Because `.props` is imported before the project file, the project can override a
 
 **Property conditions on `$(TargetFramework)` in `.props` files silently fail for single-targeting projects** — the property is empty during `.props` evaluation. Move TFM-conditional properties to `.targets` instead. ItemGroup and Target conditions are not affected.
 
-See [`shared/targetframework-props-evaluation.md`](../shared/targetframework-props-evaluation.md) for the full explanation, BAD/GOOD examples, and the item/target exception.
+See the AP-21 section in the [msbuild-antipatterns skill](../msbuild-antipatterns/SKILL.md) for the full explanation.
 
 ## Directory.Build.props
 
@@ -157,7 +157,7 @@ See [`shared/targetframework-props-evaluation.md`](../shared/targetframework-pro
 
 ## Directory.Packages.props (Central Package Management)
 
-Central Package Management (CPM) provides a single source of truth for all NuGet package versions. See [`shared/central-package-management.md`](../shared/central-package-management.md) for the full setup pattern, including `GlobalPackageReference` and `VersionOverride`.
+Central Package Management (CPM) provides a single source of truth for all NuGet package versions. See [https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management) for details.
 
 **Enable CPM in `Directory.Packages.props` at the repo root:**
 

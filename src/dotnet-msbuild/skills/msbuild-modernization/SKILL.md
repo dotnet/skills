@@ -1,6 +1,6 @@
 ---
 name: msbuild-modernization
-description: "Guide for modernizing and migrating MSBuild project files to SDK-style format. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when encountering legacy .csproj/.vbproj files with verbose XML, packages.config, or AssemblyInfo.cs patterns. Covers legacy-to-SDK migration, removing boilerplate, PackageReference migration, and Directory.Build consolidation. Invoke when asked to modernize, migrate, or clean up project files."
+description: "Guide for modernizing and migrating MSBuild project files to SDK-style format. Only activate in MSBuild/.NET build context. Use when encountering legacy .csproj/.vbproj files with verbose XML, packages.config, or AssemblyInfo.cs patterns. Covers legacy-to-SDK migration, removing boilerplate, PackageReference migration, and Directory.Build consolidation. Invoke when asked to modernize, migrate, or clean up project files."
 ---
 
 # MSBuild Modernization: Legacy to SDK-style Migration
@@ -425,7 +425,7 @@ After migration, consider enabling modern C# features:
 
 ## Central Package Management Migration
 
-Centralizes NuGet version management across a multi-project solution. See [`shared/central-package-management.md`](../shared/central-package-management.md) for the full CPM setup pattern.
+Centralizes NuGet version management across a multi-project solution. See [https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management) for details.
 
 **Step 1:** Create `Directory.Packages.props` at the repository root with `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>` and `<PackageVersion>` items for all packages.
 

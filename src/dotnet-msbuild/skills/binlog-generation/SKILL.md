@@ -1,6 +1,6 @@
 ---
 name: binlog-generation
-description: "Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Pass /bl:{} to generate a unique binlog filename automatically on every build."
+description: "Only activate in MSBuild/.NET build context. Pass /bl:{} to generate a unique binlog filename automatically on every build."
 ---
 
 # Generate Binary Logs
