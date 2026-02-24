@@ -39,7 +39,7 @@ async function fileExists(path: string): Promise<boolean> {
  */
 async function findPluginMcpServers(
   skillDir: string,
-  maxLevels = 4
+  maxLevels = 2
 ): Promise<Record<string, MCPServerDef> | undefined> {
   let dir = resolve(skillDir);
   for (let i = 0; i < maxLevels; i++) {
