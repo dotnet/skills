@@ -313,7 +313,7 @@ jobs:
 
   comment-on-pr:
     needs: [discover, evaluate]
-    if: always() && needs.discover.outputs.has_entries == 'true'
+    if: always() && needs.evaluate.result == 'success' && needs.discover.outputs.has_entries == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Download all result artifacts
