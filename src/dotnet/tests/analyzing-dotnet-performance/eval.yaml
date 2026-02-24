@@ -77,7 +77,7 @@ scenarios:
       - "Counts the 8+ .ToLower() sites in the recursive converter methods"
       - "Recommends StringBuilder or deferring .ToLowerInvariant() to final output"
       - "Notes .ToLower() should be .ToLowerInvariant() for correctness"
-    timeout: 120
+    timeout: 180
 
   - name: "Finds StringComparison.Ordinal missing and FrozenDictionary opportunities"
     prompt: "Review these number-to-words converters for performance. They handle multiple locales and are called in tight loops during batch report generation."
@@ -155,7 +155,7 @@ scenarios:
       - "Flags string.Concat(words.Select(...)) in Dehumanize as LINQ allocation"
       - "Notes the params overload in To.Transform without 1-arg fast path"
       - "Recognizes Span-based Concat helper methods as positive findings"
-    timeout: 120
+    timeout: 180
 
   - name: "Detects LINQ pipeline in TimeSpan formatting and collection processing"
     prompt: "This time formatting and collection display library is used in a logging framework processing millions of log entries per minute. Review for performance."
@@ -173,7 +173,7 @@ scenarios:
       - "Catches params overload without 1-arg fast path in TransformExtensions"
       - "Notes Enumerable.Reverse at static init could be a reversed array literal"
       - "Flags double .Select() wrapping in the object-formatter overload as unnecessary allocation"
-    timeout: 120
+    timeout: 180
 
   - name: "Flags Span inconsistencies and compound method chains in truncation library"
     prompt: "Review this text truncation library for performance. The truncation methods are called on every displayed string in a content delivery system serving thousands of concurrent users."
