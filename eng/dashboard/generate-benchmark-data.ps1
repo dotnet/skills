@@ -8,14 +8,14 @@
     benchmark dashboard. If an existing JSON file is provided, the new data point
     is appended to the existing history.
 
-.PARAMETER ResultsDir
-    Path to the skill-validator run results directory (e.g. .skill-validator-results/run-<timestamp>).
+.PARAMETER ResultsFile
+    Path to the skill-validator results.json file.
 
 .PARAMETER ComponentName
     Name of the component these results belong to. Used as the output filename.
 
 .PARAMETER OutputDir
-    Path to write the output files. Defaults to ResultsDir.
+    Path to write the output files. Defaults to the directory containing ResultsFile.
 
 .PARAMETER ExistingDataFile
     Optional path to an existing <ComponentName>.json file from gh-pages to append to.
@@ -26,7 +26,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [string]$ResultsDir,
+    [string]$ResultsFile,
 
     [Parameter(Mandatory)]
     [string]$ComponentName,
@@ -44,21 +44,20 @@ param(
 $ErrorActionPreference = "Stop"
 
 if (-not $OutputDir) {
-    $OutputDir = $ResultsDir
+    $OutputDir = Split-Path $ResultsFile -Parent
 }
 
 # Read skill-validator results
-$resultsFile = Join-Path $ResultsDir "results.json"
-if (-not (Test-Path $resultsFile)) {
-    Write-Warning "No results.json found in $ResultsDir"
+if (-not (Test-Path $ResultsFile)) {
+    Write-Warning "Results file not found: $ResultsFile"
     exit 0
 }
 
-$results = Get-Content $resultsFile -Raw | ConvertFrom-Json
+$results = Get-Content $ResultsFile -Raw | ConvertFrom-Json
 $model = $results.model
 
 if (-not $results.verdicts -or $results.verdicts.Count -eq 0) {
-    Write-Warning "No verdicts found in $resultsFile"
+    Write-Warning "No verdicts found in $ResultsFile"
     exit 0
 }
 

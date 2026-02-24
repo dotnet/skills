@@ -428,10 +428,11 @@ jobs:
               continue
             }
 
+            $resultsFile = Join-Path $runDir.FullName "results.json"
             Write-Host "`n=== Generating benchmark data for: $component ==="
             $existingFile = "/tmp/gh-pages/data/$component.json"
             $params = @{
-              ResultsDir    = $runDir.FullName
+              ResultsFile   = $resultsFile
               ComponentName = $component
               OutputDir     = "/tmp/gh-pages/data"
               CommitJson    = $commitJson
