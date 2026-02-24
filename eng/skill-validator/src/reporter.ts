@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import { writeFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, basename } from "node:path";
 import type { SkillVerdict, ReporterSpec, ScenarioComparison } from "./types.js";
 
 export async function reportResults(
@@ -306,12 +306,15 @@ function formatDelta(value: number): string {
   return "0.0%";
 }
 
-/** Sanitize a skill name for use as a single directory segment — rejects path separators and traversal. */
+/** Sanitize a skill name into a safe single directory segment by slugifying. */
 function safeDirName(name: string): string {
-  if (!name || name.includes("/") || name.includes("\\") || name.includes("..")) {
-    throw new Error(`Invalid skill name for directory use: '${name}'`);
-  }
-  return name;
+  // Strip to a single path segment and reject the traversal aliases ".", "..", and empty strings.
+  const seg = basename(name || "");
+  if (seg === "." || seg === "..") throw new Error(`Invalid skill name for directory use: '${name}'`);
+  // Replace characters that are unsafe in directory names with hyphens and collapse runs.
+  const slugified = seg.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-{2,}/g, "-").replace(/^-|-$/g, "");
+  if (!slugified) throw new Error(`Invalid skill name for directory use: '${name}'`);
+  return slugified;
 }
 
 function truncate(s: string, max: number): string {
