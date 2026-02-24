@@ -7,7 +7,7 @@ scenarios:
       - type: "file_exists"
         path: "*.binlog"
       - type: "output_matches"
-        pattern: "/bl:|\\-bl:"
+        pattern: "/bl:|-bl:"
     rubric:
       - "Used /bl:{} or -bl:{} (with the {} placeholder) to generate a unique binlog filename automatically"
       - "Did NOT use bare /bl or -bl without a filename (which always writes to msbuild.binlog and overwrites on every build)"
@@ -37,7 +37,7 @@ scenarios:
       - type: "file_exists"
         path: "*.binlog"
       - type: "output_matches"
-        pattern: "/bl:|\\-bl:"
+        pattern: "/bl:|-bl:"
     rubric:
       - "Used /bl:{} or -bl:{} for the first build so each invocation gets a unique filename automatically"
       - "Used /bl:{} or -bl:{} for the second build as well (not a hardcoded name that would collide)"
