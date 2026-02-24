@@ -19,7 +19,7 @@ Plugging into your CI, it ensures every new skill adds real value, and existing 
 
 ## Prerequisites
 
-- Node.js >= 20
+- Node.js >= 22
 - Authenticated with GitHub via `gh auth login` (the SDK picks up your credentials automatically)
 
 ## Install
@@ -51,15 +51,14 @@ skill-validator --model gpt-5.3-codex --judge-model claude-opus-4.6-fast ./skill
 # Multiple runs for stability
 skill-validator --runs 5 ./skills/
 
-# Output as JSON or JUnit XML
-skill-validator --reporter json:results.json ./skills/
-skill-validator --reporter junit:results.xml ./skills/
+# Override the default results directory (.skill-validator-results)
+skill-validator --results-dir ./my-results ./skills/
+
+# File reporters can also be specified explicitly.
+skill-validator --reporter junit ./skills/
 
 # Strict mode (require all skills to have evals)
 skill-validator --strict ./skills/
-
-# Custom results directory
-skill-validator --results-dir ./my-results ./skills/
 ```
 
 ## Writing eval files
@@ -230,18 +229,18 @@ The default of 5 runs provides sufficient precision for significance testing (va
 | `--require-evals` | `false` | Fail if skill has no tests/eval.yaml |
 | `--strict` | `false` | Enable --require-evals and strict checking |
 | `--verbose` | `false` | Show tool calls and agent events during runs |
-| `--reporter <spec>` | `console` | Output format: `console`, `json:path`, `junit:path` |
-| `--results-dir <path>` | `.skill-validator-results` | Directory for saved run results |
-| `--no-save-results` | | Disable saving run results to disk |
+| `--reporter <spec>` | `console`, `json`, `markdown` | Output format: `console`, `json`, `junit`, `markdown`. |
+| `--results-dir <path>` | `.skill-validator-results` | Directory for file reporter output. |
 
 Models are validated on startup — invalid model names fail fast with a list of available models.
 
 ## Output
 
-Results are displayed in the console with color-coded scores and metric deltas. Run results are also auto-saved to `.skill-validator-results/run-{timestamp}/` containing:
+Results are displayed in the console with color-coded scores and metric deltas. By default, `json` and `markdown` reporters are enabled and write to `.skill-validator-results/` (override with `--results-dir`). File reporters write to that directory:
 
-- `results.json` — full results with model, timestamp, and all verdicts
-- Per-skill directories with `verdict.json` and per-scenario markdown files
+- `json` — `results.json` with model, timestamp, and all verdicts
+- `junit` — `results.xml` with JUnit XML test results
+- `markdown` — `summary.md` with a results table, plus per-skill directories with per-scenario judge reports
 
 ## CI integration
 
@@ -262,6 +261,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+### Consolidating results across matrix jobs
+
+When evaluating multiple components in parallel CI matrix jobs, use the `consolidate` subcommand to merge individual `results.json` files into a single markdown summary:
+
+```bash
+skill-validator consolidate --output summary.md results1.json results2.json
+
+# Or use find/glob to discover files
+skill-validator consolidate --output summary.md $(find ./all-results/ -name results.json)
+```
+
+| Flag | Description |
+|------|-------------|
+| `<files...>` | Paths to `results.json` files to merge |
+| `--output <path>` | Output file path for the consolidated markdown |
 
 ## Development
 

@@ -76,6 +76,7 @@ For generated files that need to be copied to output (config files, data files, 
 
     <!-- Register generated files for proper cleanup -->
     <FileWrites Include="$(IntermediateOutputPath)my-generated-file.xyz" />
+    <FileWrites Include="$(IntermediateOutputPath)generated\*.xyz" />
   </ItemGroup>
 </Target>
 ```
