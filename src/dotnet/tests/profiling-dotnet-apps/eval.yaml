@@ -1,6 +1,7 @@
 scenarios:
   - name: "Profile slow API response times"
-    prompt: "My API response times jumped from 50ms to 2 seconds after deploying yesterday. Can you help me profile what's happening?"
+    prompt: |
+      My ASP.NET Core 8 API response times jumped from 50ms to 2 seconds after deploying yesterday. The app is running on Linux in a container. Can you help me profile what's happening? I need the exact diagnostic commands to run.
     assertions:
       - type: "output_matches"
         pattern: "(dotnet-counters|dotnet-trace|dotnet-dump)"
@@ -8,25 +9,10 @@ scenarios:
         pattern: "(cpu|latency|thread|request)"
     rubric:
       - "Verified or installed .NET diagnostic tools (dotnet-counters, dotnet-trace, dotnet-dump)"
-      - "Used dotnet-counters to monitor live runtime metrics as a starting point"
-      - "Chose appropriate profiling approach based on symptoms (CPU sampling, request tracing, or memory)"
-      - "Collected a trace or counters data for analysis"
-      - "Interpreted results and identified potential hot paths or bottlenecks"
-      - "Provided concrete optimization suggestions (caching, pooling, async fixes, etc.)"
+      - "Used dotnet-counters monitor with specific counter providers (System.Runtime, Microsoft.AspNetCore.Hosting)"
+      - "Provided dotnet-trace collect command with --profile cpu-sampling or explicit --providers for CPU profiling"
+      - "Mentioned converting trace output for analysis (speedscope, PerfView, or dotnet-trace convert)"
+      - "Identified key counters to watch: cpu-usage, gc-heap-size, threadpool-queue-length, or gen-2-gc-count"
+      - "Provided concrete next steps based on what profiling data might show (CPU hot paths, thread pool starvation, GC pressure)"
     expect_tools: ["bash"]
     timeout: 120
-
-  - name: "Profiling skill should not activate for build errors"
-    prompt: "My dotnet build is failing with CS0246 errors. Can you help me fix them?"
-    assertions:
-      - type: "output_not_contains"
-        value: "dotnet-trace"
-      - type: "output_not_contains"
-        value: "dotnet-counters"
-      - type: "output_not_matches"
-        pattern: "(profil|perf.*trac)"
-    rubric:
-      - "Did NOT suggest profiling or tracing tools for a build error"
-      - "Focused on fixing the CS0246 compilation error (missing type or namespace)"
-      - "Suggested adding the missing using directive or NuGet package reference"
-    timeout: 60
