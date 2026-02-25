@@ -75,7 +75,7 @@ public static partial class SkillDiscovery
     /// extract its mcpServers map (if any).
     /// </summary>
     internal static async Task<IReadOnlyDictionary<string, MCPServerDef>?> FindPluginMcpServers(
-        string skillDir, int maxLevels = 2)
+        string skillDir, int maxLevels = 3)
     {
         var dir = Path.GetFullPath(skillDir);
         for (var i = 0; i < maxLevels; i++)
