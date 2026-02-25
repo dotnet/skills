@@ -35,7 +35,7 @@ description: Migrate from Newtonsoft.Json to System.Text.Json, handling behavior
 |----------|----------------|-------------------|--------|
 | **Property naming** | camelCase by default | **PascalCase by default** | APIs will return different JSON |
 | **Missing properties** | Ignored silently | Ignored silently | Same ✓ |
-| **Extra JSON properties** | Ignored by default | **Throws by default (.NET 8+)** | Deserialization breaks! |
+| **Extra JSON properties** | Ignored by default | Ignored by default (can opt-in to throw in .NET 8+) | Same ✓ (stricter behavior available via options) |
 | **Trailing commas** | Allowed | **Rejected by default** | Parse errors on valid-looking JSON |
 | **Comments in JSON** | Allowed | **Rejected by default** | Config files break |
 | **Number in string** (`"123"`) | Coerced automatically | **Throws by default** | Deserialization breaks! |
