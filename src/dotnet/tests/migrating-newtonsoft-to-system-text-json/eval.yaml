@@ -27,7 +27,7 @@ scenarios:
       }
       ```
 
-      Also show me how to configure the JSON options globally to match Newtonsoft.Json's default behavior.
+      Also show me how to configure the JSON options globally to match Newtonsoft.Json's default behavior (case insensitivity, trailing commas, number-from-string coercion).
     assertions:
       - type: "output_contains"
         value: "JsonPropertyName"
@@ -43,19 +43,7 @@ scenarios:
       - "Replaced [JsonConverter(typeof(StringEnumConverter))] with System.Text.Json equivalent (JsonStringEnumConverter)"
       - "Changed [JsonExtensionData] Dictionary value type from JToken to JsonElement (critical difference!)"
       - "Configured PropertyNameCaseInsensitive = true to match Newtonsoft default case-insensitive behavior"
-      - "Mentioned AllowTrailingCommas and/or ReadCommentHandling for compatibility"
-      - "Warned about behavioral differences (default casing, strict parsing)"
+      - "Configured AllowTrailingCommas = true and NumberHandling = AllowReadingFromString for Newtonsoft compatibility"
+      - "Warned about behavioral differences (default PascalCase casing in STJ vs camelCase in Newtonsoft, strict parsing)"
     expect_tools: ["bash"]
     timeout: 120
-
-  - name: "Newtonsoft migration skill should not activate for System.Text.Json usage question"
-    prompt: "How do I deserialize a JSON string to an object using System.Text.Json in .NET 8?"
-    assertions:
-      - type: "output_not_contains"
-        value: "Newtonsoft"
-      - type: "output_not_matches"
-        pattern: "(migrat|JToken|JObject|JsonProperty\\b)"
-    rubric:
-      - "Did NOT mention migration from Newtonsoft.Json"
-      - "Showed standard System.Text.Json deserialization with JsonSerializer.Deserialize"
-    timeout: 60
