@@ -1,53 +1,41 @@
 scenarios:
-  - name: "Fix N+1 query and optimize EF Core data access"
+  - name: "Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete"
     prompt: |
-      I have an ASP.NET Core API using EF Core 8. This endpoint is extremely slow — it takes 12 seconds to load 200 orders. Here's the code:
+      I have an EF Core 8 app. These two operations are extremely slow because they load all entities into memory:
 
       ```csharp
-      public async Task<List<OrderDto>> GetOrders()
+      // Operation 1: Deactivate all products not sold in 6 months
+      var staleProducts = await _db.Products
+          .Where(p => p.LastSoldDate < DateTime.UtcNow.AddMonths(-6))
+          .ToListAsync();
+      foreach (var p in staleProducts)
       {
-          var orders = await _db.Orders.ToListAsync();
-          var result = new List<OrderDto>();
-          foreach (var order in orders)
-          {
-              result.Add(new OrderDto
-              {
-                  Id = order.Id,
-                  Total = order.Items.Sum(i => i.Price),
-                  ItemCount = order.Items.Count,
-                  CustomerName = order.Customer.Name
-              });
-          }
-          return result;
+          p.IsActive = false;
       }
+      await _db.SaveChangesAsync();
+
+      // Operation 2: Delete all audit logs older than 1 year
+      var oldLogs = await _db.AuditLogs
+          .Where(l => l.CreatedAt < DateTime.UtcNow.AddYears(-1))
+          .ToListAsync();
+      _db.AuditLogs.RemoveRange(oldLogs);
+      await _db.SaveChangesAsync();
       ```
 
-      How do I fix the performance? I see hundreds of SQL queries in the logs.
+      There are 500K products and 2M audit logs. How do I make these efficient?
     assertions:
       - type: "output_matches"
-        pattern: "(N\\+1|N\\+1|eager.load|Include|Select|projection)"
+        pattern: "(ExecuteUpdateAsync|ExecuteUpdate)"
       - type: "output_matches"
-        pattern: "(AsNoTracking|NoTracking)"
+        pattern: "(ExecuteDeleteAsync|ExecuteDelete)"
       - type: "output_matches"
-        pattern: "(Include|Select\\()"
+        pattern: "(SetProperty|set.*property)"
     rubric:
-      - "Identified the N+1 query pattern as the root cause (lazy loading triggering per-row queries)"
-      - "Suggested using Include() for eager loading OR Select() projection to fix N+1"
-      - "Recommended AsNoTracking() since this is a read-only query"
-      - "Mentioned AsSplitQuery() as an option for multiple Includes to avoid cartesian explosion"
-      - "Showed the optimized query using projection (Select) which only fetches needed columns"
-      - "Explained why ToListAsync() before accessing navigation properties causes the problem"
+      - "Recommended ExecuteUpdateAsync for the bulk update instead of loading entities (EF Core 7+ feature)"
+      - "Used the correct SetProperty lambda syntax: SetProperty(p => p.IsActive, false)"
+      - "Recommended ExecuteDeleteAsync for the bulk delete instead of loading and RemoveRange"
+      - "Explained that ExecuteUpdate/ExecuteDelete bypass change tracking and execute as single SQL statements"
+      - "Warned about limitations: no cascade deletes triggered, no change tracker notification, bypasses interceptors/events"
+      - "Showed the correct LINQ-to-SQL translation (WHERE + UPDATE/DELETE without SELECT)"
     expect_tools: ["bash"]
     timeout: 120
-
-  - name: "EF Core skill should not activate for Dapper or raw SQL question"
-    prompt: "I'm using Dapper to query my SQL Server database. How do I write a multi-mapping query to join Orders with Customers?"
-    assertions:
-      - type: "output_not_contains"
-        value: "DbContext"
-      - type: "output_not_matches"
-        pattern: "(AsNoTracking|Include\\(|AsSplitQuery)"
-    rubric:
-      - "Did NOT suggest EF Core patterns for a Dapper question"
-      - "Provided Dapper-specific guidance using splitOn or multi-mapping"
-    timeout: 60
