@@ -15,7 +15,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+  pull-requests: read
 
 imports:
   - shared/compiled/pr-review-knowledge.lock.md

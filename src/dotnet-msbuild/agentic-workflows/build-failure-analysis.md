@@ -7,8 +7,8 @@ on:
 permissions:
   contents: read
   actions: read
-  issues: write
-  pull-requests: write
+  issues: read
+  pull-requests: read
 
 imports:
   - shared/binlog-mcp.md

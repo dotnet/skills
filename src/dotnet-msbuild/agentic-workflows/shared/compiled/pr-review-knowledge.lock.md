@@ -1,10 +1,5 @@
 <!-- AUTO-GENERATED — DO NOT EDIT. Regenerate with: node src/dotnet-msbuild/build.js -->
 
----
-name: msbuild-antipatterns
-description: "Catalog of MSBuild anti-patterns with detection rules and fix recipes. Only activate in MSBuild/.NET build context. Use when reviewing, auditing, or cleaning up .csproj, .vbproj, .fsproj, .props, .targets, or .proj files. Each anti-pattern has a symptom, explanation, and concrete BAD→GOOD transformation. DO NOT use for non-MSBuild build systems (npm, Maven, CMake, etc.)."
----
-
 # MSBuild Anti-Pattern Catalog
 
 A numbered catalog of common MSBuild anti-patterns. Each entry follows the format:
@@ -589,13 +584,6 @@ When reviewing an MSBuild file, scan for these in order:
 
 ---
 
-## msbuild-modernization
-
----
-name: msbuild-modernization
-description: "Guide for modernizing and migrating MSBuild project files to SDK-style format. Only activate in MSBuild/.NET build context. Use when encountering legacy .csproj/.vbproj files with verbose XML, packages.config, or AssemblyInfo.cs patterns. Covers legacy-to-SDK migration, removing boilerplate, PackageReference migration, and Directory.Build consolidation. Invoke when asked to modernize, migrate, or clean up project files."
----
-
 # MSBuild Modernization: Legacy to SDK-style Migration
 
 ## Identifying Legacy vs SDK-style Projects
@@ -1071,6 +1059,24 @@ Identify properties repeated across multiple `.csproj` files and move them to sh
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Serilog" />
-    <ProjectReferen
+    <ProjectReference Include="..\MyLibrary\MyLibrary.csproj" />
+  </ItemGroup>
+</Project>
+```
 
-[truncated]
+## Tools and Automation
+
+| Tool | Usage |
+|------|-------|
+| `dotnet try-convert` | Automated legacy-to-SDK conversion. Install: `dotnet tool install -g try-convert` |
+| .NET Upgrade Assistant | Full migration including API changes. Install: `dotnet tool install -g upgrade-assistant` |
+| Visual Studio | Right-click `packages.config` → *Migrate packages.config to PackageReference* |
+| Manual migration | Often cleanest for simple projects — follow the checklist above |
+
+**Recommended approach:**
+
+1. Run `try-convert` for a first pass
+2. Review and clean up the output manually
+3. Build and fix any issues
+4. Enable modern features (nullable, implicit usings)
+5. Consolidate shared settings into `Directory.Build.props`

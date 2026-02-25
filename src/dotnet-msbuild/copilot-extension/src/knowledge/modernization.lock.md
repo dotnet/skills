@@ -1,10 +1,5 @@
 <!-- AUTO-GENERATED — DO NOT EDIT. Regenerate with: node src/dotnet-msbuild/build.js -->
 
----
-name: msbuild-modernization
-description: "Guide for modernizing and migrating MSBuild project files to SDK-style format. Only activate in MSBuild/.NET build context. Use when encountering legacy .csproj/.vbproj files with verbose XML, packages.config, or AssemblyInfo.cs patterns. Covers legacy-to-SDK migration, removing boilerplate, PackageReference migration, and Directory.Build consolidation. Invoke when asked to modernize, migrate, or clean up project files."
----
-
 # MSBuild Modernization: Legacy to SDK-style Migration
 
 ## Identifying Legacy vs SDK-style Projects
@@ -502,11 +497,6 @@ Identify properties repeated across multiple `.csproj` files and move them to sh
 4. Enable modern features (nullable, implicit usings)
 5. Consolidate shared settings into `Directory.Build.props`
 
----
-
----
-name: directory-build-organization
-description: "Guide for organizing MSBuild infrastructure with Directory.Build.props, Directory.Build.targets, Directory.Packages.props, and Directory.Build.rsp. Only activate in MSBuild/.NET build context. Use when structuring multi-project repos, centralizing build settings, or implementing central package management. Invoke when asked about Directory.Build files, centralizing project properties, or organizing build infrastructure."
 ---
 
 # Organizing Build Infrastructure with Directory.Build Files

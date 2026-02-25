@@ -1,10 +1,5 @@
 <!-- AUTO-GENERATED — DO NOT EDIT. Regenerate with: node src/dotnet-msbuild/build.js -->
 
----
-name: build-perf-baseline
-description: "Establish build performance baselines and apply systematic optimization techniques. Only activate in MSBuild/.NET build context. Use when diagnosing slow builds, establishing before/after measurements, or applying advanced optimization strategies like MSBuild Server, static graph builds, artifacts output, and dependency graph trimming. Start here before diving into specific optimizations from build-perf-diagnostics, incremental-build, or build-parallelism skills. DO NOT use for non-MSBuild build systems."
----
-
 # Build Performance Baseline & Optimization
 
 ## Overview
@@ -417,11 +412,6 @@ Is your no-op build slow (> 10s per project)?
 
 ---
 
----
-name: build-perf-diagnostics
-description: "Reference knowledge for diagnosing MSBuild build performance issues. Only activate in MSBuild/.NET build context. Use when builds are slow, to identify bottlenecks using binary log analysis. Covers timeline analysis, node utilization, expensive targets/tasks, Roslyn analyzer impact, RAR performance, and critical path identification. Works with the binlog MCP tools for data-driven analysis."
----
-
 ## Performance Analysis Methodology
 
 1. **Generate a binlog**: `dotnet build /bl`
@@ -512,11 +502,6 @@ Step-by-step workflow with the actual MCP tool calls:
 - [ ] Check for bin/obj clashes (see `check-bin-obj-clash` skill)
 - [ ] Use graph build (`/graph`) for multi-project solutions
 
----
-
----
-name: incremental-build
-description: "Guide for optimizing MSBuild incremental builds. Only activate in MSBuild/.NET build context. Use when builds are slower than expected on subsequent runs, when 'nothing changed but it rebuilds anyway', or when diagnosing why incremental builds are broken. Covers Inputs/Outputs on targets, FileWrites tracking, up-to-date checks, and diagnosing unnecessary rebuilds via binlog analysis."
 ---
 
 ## How MSBuild Incremental Build Works
@@ -728,11 +713,6 @@ MSBuild provides built-in tools to understand what's running and why.
 
 ---
 
----
-name: build-parallelism
-description: "Guide for optimizing MSBuild build parallelism and multi-project scheduling. Only activate in MSBuild/.NET build context. Use when builds are not utilizing all CPU cores, when looking to speed up multi-project builds, or when evaluating graph build mode. Covers /maxcpucount, project dependency graphs, graph build (/graph), BuildInParallel, and reducing unnecessary project references."
----
-
 ## MSBuild Parallelism Model
 
 - `/maxcpucount` (or `-m`): number of worker nodes (processes)
@@ -795,11 +775,6 @@ Step-by-step:
 - Use build caching (NuGet lock files, deterministic builds) to avoid rebuilding unchanged projects
 - `dotnet build /graph` works well with structured CI pipelines
 
----
-
----
-name: eval-performance
-description: "Guide for diagnosing and improving MSBuild project evaluation performance. Only activate in MSBuild/.NET build context. Use when builds are slow before any compilation starts, when evaluation time is high in binlog analysis, or when dealing with expensive glob patterns and deep import chains. Covers evaluation phases, glob optimization, import chain analysis, and /pp preprocessing."
 ---
 
 ## MSBuild Evaluation Phases

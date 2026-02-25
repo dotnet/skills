@@ -5,7 +5,7 @@ on:
 permissions:
   contents: read
   actions: read
-  issues: write
+  issues: read
 
 imports:
   - shared/binlog-mcp.md

@@ -1,10 +1,5 @@
 <!-- AUTO-GENERATED — DO NOT EDIT. Regenerate with: node src/dotnet-msbuild/build.js -->
 
----
-name: msbuild-antipatterns
-description: "Catalog of MSBuild anti-patterns with detection rules and fix recipes. Only activate in MSBuild/.NET build context. Use when reviewing, auditing, or cleaning up .csproj, .vbproj, .fsproj, .props, .targets, or .proj files. Each anti-pattern has a symptom, explanation, and concrete BAD→GOOD transformation. DO NOT use for non-MSBuild build systems (npm, Maven, CMake, etc.)."
----
-
 # MSBuild Anti-Pattern Catalog
 
 A numbered catalog of common MSBuild anti-patterns. Each entry follows the format:
@@ -589,11 +584,6 @@ When reviewing an MSBuild file, scan for these in order:
 
 ---
 
----
-name: directory-build-organization
-description: "Guide for organizing MSBuild infrastructure with Directory.Build.props, Directory.Build.targets, Directory.Packages.props, and Directory.Build.rsp. Only activate in MSBuild/.NET build context. Use when structuring multi-project repos, centralizing build settings, or implementing central package management. Invoke when asked about Directory.Build files, centralizing project properties, or organizing build infrastructure."
----
-
 # Organizing Build Infrastructure with Directory.Build Files
 
 ## Directory.Build.props vs Directory.Build.targets
@@ -1054,11 +1044,6 @@ This expands all imports inline so you can see exactly where each property is se
 
 ## check-bin-obj-clash
 
----
-name: check-bin-obj-clash
-description: "Detects MSBuild projects with conflicting OutputPath or IntermediateOutputPath. Only activate in MSBuild/.NET build context. Use when builds fail with file access errors, missing outputs, or intermittent failures. Identifies when multiple projects or multi-targeting builds write to the same bin/obj directories."
----
-
 # Detecting OutputPath and IntermediateOutputPath Clashes
 
 ## Overview
@@ -1292,6 +1277,26 @@ Or simply use the SDK defaults which place `obj` inside each project's directory
 
 ### RuntimeIdentifier builds clashing
 
-**Problem:** Building for multiple RIDs without RID
+**Problem:** Building for multiple RIDs without RID in path.
+
+**Fix:** Ensure RuntimeIdentifier is in the path:
+
+```xml
+<AppendRuntimeIdentifierToOutputPath>true</AppendRuntimeIdentifierToOutputPath>
+```
+
+### Multiple solutions building the same project
+
+**Problem:** A single build invokes multiple solutions (e.g., via MSBuild task or command line) that include the same project. Each solution build evaluates and builds the project independently, with different `Solution*` global properties that don't affect the output path.
+
+**How to detect:** Compare `SolutionFileName` and `CurrentSolutionConfigurationContents` across evaluations for the same project. Different values indicate multi-solution builds. For example:
+
+| Property | Eval from Solution A | Eval from Solution B |
+|---|---|---|
+| `SolutionFileName` | `BuildAnalyzers.sln` | `Main.slnx` |
+| `CurrentSolutionConfigurationContents` | 1 project entry | ~49 project entries |
+| `OutputPath` | `bin\Release\netstandard2.0\` | `bin\Release\netstandard2.0\` ← **clash** |
+
+**Example:** A repo build script builds `BuildAnalyzers.sln` then `Main.slnx`, and both solutions include `SharedAnalyzers.csproj`. Both builds write to `bin\Release\netstandard2.0\`. The first build compiles; the second skips compilation but still runs `CopyFilesToOutputDirectory`.
 
 [truncated]

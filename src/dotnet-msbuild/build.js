@@ -65,6 +65,7 @@ const KNOWLEDGE_TARGETS = {
     knowledgeMap: {
       "build-errors": [
         "binlog-failure-analysis",
+        "check-bin-obj-clash",
       ],
       performance: [
         "build-perf-baseline",
@@ -91,6 +92,7 @@ const KNOWLEDGE_TARGETS = {
     knowledgeMap: {
       "build-failure-knowledge": [
         "binlog-failure-analysis",
+        "check-bin-obj-clash",
       ],
       "pr-review-knowledge": [
         "msbuild-antipatterns",
@@ -119,8 +121,8 @@ function readSkill(skillName) {
 
   let content = fs.readFileSync(skillPath, "utf-8");
 
-  // Strip YAML frontmatter
-  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n/);
+  // Strip YAML frontmatter (tolerate both LF and CRLF)
+  const frontmatterMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
   if (frontmatterMatch) {
     content = content.slice(frontmatterMatch[0].length);
   }
