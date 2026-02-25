@@ -277,8 +277,8 @@ public static class Reporter
                 var skillScore = s.WithSkill?.JudgeResult?.OverallScore;
                 var bTimedOut = s.Baseline?.Metrics?.TimedOut == true;
                 var sTimedOut = s.WithSkill?.Metrics?.TimedOut == true;
-                var baseStr = (baseScore is { } bs && !double.IsNaN(bs) ? $"{bs:F1}" : "—") + (bTimedOut ? " ⏰ timeout" : "");
-                var skillStr = (skillScore is { } ss && !double.IsNaN(ss) ? $"{ss:F1}" : "—") + (sTimedOut ? " ⏰ timeout" : "");
+                var baseStr = (baseScore is { } bs && !double.IsNaN(bs) ? $"{bs:F1}/5" : "—") + (bTimedOut ? " ⏰ timeout" : "");
+                var skillStr = (skillScore is { } ss && !double.IsNaN(ss) ? $"{ss:F1}/5" : "—") + (sTimedOut ? " ⏰ timeout" : "");
 
                 string deltaStr = "—";
                 if (baseScore is { } b && skillScore is { } sk && !double.IsNaN(b) && !double.IsNaN(sk))
@@ -310,7 +310,7 @@ public static class Reporter
                     skillsCol = "⚠️ NOT ACTIVATED";
                 }
 
-                sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {baseStr}/5 | {skillStr}/5 | {deltaStr} | {skillsCol} | {icon} |");
+                sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {baseStr} | {skillStr} | {deltaStr} | {skillsCol} | {icon} |");
             }
         }
 
