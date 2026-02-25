@@ -91,6 +91,11 @@ public static class Reporter
                 Console.WriteLine();
                 Console.WriteLine("  \x1b[31;1m⚠️  SKILL NOT ACTIVATED\x1b[0m — the tested skill was not loaded or invoked by the agent");
             }
+            if (verdict.Scenarios.Any(s => s.TimedOut))
+            {
+                Console.WriteLine();
+                Console.WriteLine("  \x1b[31;1m⏰ EXECUTION TIMED OUT\x1b[0m — one or more scenarios exceeded the configured timeout");
+            }
             if (verdict.Scenarios.Count > 0)
             {
                 Console.WriteLine();
@@ -110,7 +115,8 @@ public static class Reporter
     private static void ReportScenarioDetail(ScenarioComparison scenario, bool verbose)
     {
         var icon = scenario.ImprovementScore >= 0 ? "\x1b[32m↑\x1b[0m" : "\x1b[31m↓\x1b[0m";
-        Console.WriteLine($"    {icon} {scenario.ScenarioName}  {FormatScore(scenario.ImprovementScore)}");
+        var timedOutTag = scenario.TimedOut ? " \x1b[33m⏰ timed out\x1b[0m" : "";
+        Console.WriteLine($"    {icon} {scenario.ScenarioName}  {FormatScore(scenario.ImprovementScore)}{timedOutTag}");
 
         var b = scenario.Baseline.Metrics;
         var s = scenario.WithSkill.Metrics;
@@ -267,6 +273,7 @@ public static class Reporter
                 }
 
                 var icon = s.ImprovementScore > 0 ? "✅" : s.ImprovementScore < 0 ? "❌" : "🟡";
+                if (s.TimedOut) icon = "⏰";
 
                 string skillsCol = "—";
                 if (s.SkillActivation is { } sa)

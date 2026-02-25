@@ -154,6 +154,7 @@ public static class AgentRunner
         var events = new List<AgentEvent>();
         string agentOutput = "";
         var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        bool timedOut = false;
 
         try
         {
@@ -234,6 +235,14 @@ public static class AgentRunner
             await session.SendAsync(new MessageOptions { Prompt = options.Scenario.Prompt });
             await done.Task;
         }
+        catch (TimeoutException te)
+        {
+            timedOut = true;
+            events.Add(new AgentEvent(
+                "runner.error",
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                new Dictionary<string, object?> { ["message"] = te.ToString() }));
+        }
         catch (Exception error)
         {
             events.Add(new AgentEvent(
@@ -243,7 +252,9 @@ public static class AgentRunner
         }
 
         var wallTimeMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime;
-        return MetricsCollector.CollectMetrics(events, agentOutput, wallTimeMs, workDir);
+        var metrics = MetricsCollector.CollectMetrics(events, agentOutput, wallTimeMs, workDir);
+        metrics.TimedOut = timedOut;
+        return metrics;
     }
 
     private static async Task<string> SetupWorkDir(EvalScenario scenario, string? skillPath, string? evalPath)

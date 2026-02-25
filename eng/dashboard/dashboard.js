@@ -141,6 +141,21 @@
           </div>
         `;
       }
+
+      // Count timed-out entries
+      let timedOutCount = 0;
+      recentEntries.forEach(entry => {
+        if (entry.benches.some(b => b.timedOut)) timedOutCount++;
+      });
+      if (timedOutCount > 0) {
+        summaryDiv.innerHTML += `
+          <div class="card">
+            <div class="card-label">Timed Out</div>
+            <div class="card-value" style="color: var(--timeout)">${timedOutCount}</div>
+            <div class="card-delta">runs where execution timed out</div>
+          </div>
+        `;
+      }
     }
 
     // Quality charts
@@ -178,6 +193,7 @@
 
       effTests.forEach(test => {
         const NOT_ACTIVATED_COLOR = '#d29922';
+        const TIMED_OUT_COLOR = '#f85149';
         const div = document.createElement('div');
         div.className = 'chart-container';
         div.innerHTML = `<h3>${test}</h3><canvas></canvas>`;
@@ -193,6 +209,7 @@
         const timeName = `${test} - Skilled Time`;
         const tokenName = `${test} - Skilled Tokens In`;
         let hasAnyNotActivated = false;
+        let hasAnyTimedOut = false;
 
         const perEntryData = efficiencyEntries.map(e => {
           let timeBench = undefined;
@@ -204,36 +221,41 @@
           }
           const timeNA = !!(timeBench && timeBench.notActivated);
           const tokenNA = !!(tokenBench && tokenBench.notActivated);
+          const timeTO = !!(timeBench && timeBench.timedOut);
+          const tokenTO = !!(tokenBench && tokenBench.timedOut);
           if (timeNA || tokenNA) hasAnyNotActivated = true;
+          if (timeTO || tokenTO) hasAnyTimedOut = true;
           return {
             timeValue: timeBench ? timeBench.value : null,
             timeNotActivated: timeNA,
+            timeTimedOut: timeTO,
             tokenValue: tokenBench ? tokenBench.value / 1000 : null,
             tokenNotActivated: tokenNA,
+            tokenTimedOut: tokenTO,
           };
         });
 
         const timeData = perEntryData.map(d => d.timeValue);
         const tokenData = perEntryData.map(d => d.tokenValue);
 
-        // Per-point styling for not-activated data in efficiency charts
+        // Per-point styling: timedOut takes precedence over notActivated
         const timePointBg = perEntryData.map(d =>
-          d.timeNotActivated ? NOT_ACTIVATED_COLOR : '#f0883e'
+          d.timeTimedOut ? TIMED_OUT_COLOR : d.timeNotActivated ? NOT_ACTIVATED_COLOR : '#f0883e'
         );
         const timePointStyle = perEntryData.map(d =>
-          d.timeNotActivated ? 'triangle' : 'circle'
+          d.timeTimedOut ? 'rectRot' : d.timeNotActivated ? 'triangle' : 'circle'
         );
         const timePointRadius = perEntryData.map(d =>
-          d.timeNotActivated ? 6 : 4
+          (d.timeTimedOut || d.timeNotActivated) ? 6 : 4
         );
         const tokenPointBg = perEntryData.map(d =>
-          d.tokenNotActivated ? NOT_ACTIVATED_COLOR : '#a371f7'
+          d.tokenTimedOut ? TIMED_OUT_COLOR : d.tokenNotActivated ? NOT_ACTIVATED_COLOR : '#a371f7'
         );
         const tokenPointStyle = perEntryData.map(d =>
-          d.tokenNotActivated ? 'triangle' : 'circle'
+          d.tokenTimedOut ? 'rectRot' : d.tokenNotActivated ? 'triangle' : 'circle'
         );
         const tokenPointRadius = perEntryData.map(d =>
-          d.tokenNotActivated ? 6 : 4
+          (d.tokenTimedOut || d.tokenNotActivated) ? 6 : 4
         );
 
         new Chart(canvas, {
@@ -291,6 +313,11 @@
                     if (hasNotActivated) {
                       parts.push('⚠️ SKILL NOT ACTIVATED');
                     }
+                    const hasTimedOut = entry && entry.benches &&
+                      entry.benches.some(b => b.timedOut);
+                    if (hasTimedOut) {
+                      parts.push('⏰ EXECUTION TIMED OUT');
+                    }
                     return parts.join('\n');
                   }
                 }
@@ -316,11 +343,17 @@
           }
         });
 
-        // Add legend note below chart if it contains not-activated points
+        // Add legend note below chart if it contains not-activated or timed-out points
         if (hasAnyNotActivated) {
           const note = document.createElement('div');
           note.className = 'not-activated-legend';
           note.innerHTML = `⚠️ <span style="color:${NOT_ACTIVATED_COLOR}">▲</span> = Skill was not activated`;
+          div.appendChild(note);
+        }
+        if (hasAnyTimedOut) {
+          const note = document.createElement('div');
+          note.className = 'not-activated-legend';
+          note.innerHTML = `⏰ <span style="color:${TIMED_OUT_COLOR}">◆</span> = Execution timed out`;
           div.appendChild(note);
         }
       });
@@ -330,6 +363,7 @@
   // Helper: create a paired line chart
   function createPairedChart(container, title, entries, nameA, nameB, labelA, labelB, colorA, colorB) {
     const NOT_ACTIVATED_COLOR = '#d29922';
+    const TIMED_OUT_COLOR = '#f85149';
 
     const div = document.createElement('div');
     div.className = 'chart-container';
@@ -344,6 +378,7 @@
 
     // Precompute per-entry data in a single pass
     let hasAnyNotActivated = false;
+    let hasAnyTimedOut = false;
     const perEntryData = entries.map(e => {
       let benchA = undefined;
       let benchB = undefined;
@@ -353,29 +388,32 @@
         if (benchA && benchB) break;
       }
       const aNotActivated = !!(benchA && benchA.notActivated);
+      const aTimedOut = !!(benchA && benchA.timedOut);
       if (aNotActivated) hasAnyNotActivated = true;
+      if (aTimedOut) hasAnyTimedOut = true;
       return {
         valueA: benchA ? benchA.value : null,
         valueB: benchB ? benchB.value : null,
         aNotActivated,
+        aTimedOut,
       };
     });
 
     const dataA = perEntryData.map(d => d.valueA);
     const dataB = perEntryData.map(d => d.valueB);
 
-    // Build per-point styling for dataset A (Skilled) based on notActivated flag
+    // Build per-point styling for dataset A (Skilled): timedOut takes precedence over notActivated
     const pointBgA = perEntryData.map(d =>
-      d.aNotActivated ? NOT_ACTIVATED_COLOR : colorA
+      d.aTimedOut ? TIMED_OUT_COLOR : d.aNotActivated ? NOT_ACTIVATED_COLOR : colorA
     );
     const pointBorderA = perEntryData.map(d =>
-      d.aNotActivated ? NOT_ACTIVATED_COLOR : colorA
+      d.aTimedOut ? TIMED_OUT_COLOR : d.aNotActivated ? NOT_ACTIVATED_COLOR : colorA
     );
     const pointRadiusA = perEntryData.map(d =>
-      d.aNotActivated ? 6 : 4
+      (d.aTimedOut || d.aNotActivated) ? 6 : 4
     );
     const pointStyleA = perEntryData.map(d =>
-      d.aNotActivated ? 'triangle' : 'circle'
+      d.aTimedOut ? 'rectRot' : d.aNotActivated ? 'triangle' : 'circle'
     );
 
     new Chart(canvas, {
@@ -433,6 +471,11 @@
                 if (hasNotActivated) {
                   parts.push('⚠️ SKILL NOT ACTIVATED');
                 }
+                const hasTimedOut = entry && entry.benches &&
+                  entry.benches.some(b => b.timedOut);
+                if (hasTimedOut) {
+                  parts.push('⏰ EXECUTION TIMED OUT');
+                }
                 return parts.join('\n');
               }
             }
@@ -450,11 +493,17 @@
       }
     });
 
-    // Add legend note below chart if it contains not-activated points
+    // Add legend note below chart if it contains not-activated or timed-out points
     if (hasAnyNotActivated) {
       const note = document.createElement('div');
       note.className = 'not-activated-legend';
       note.innerHTML = `⚠️ <span style="color:${NOT_ACTIVATED_COLOR}">▲</span> = Skill was not activated`;
+      div.appendChild(note);
+    }
+    if (hasAnyTimedOut) {
+      const note = document.createElement('div');
+      note.className = 'not-activated-legend';
+      note.innerHTML = `⏰ <span style="color:${TIMED_OUT_COLOR}">◆</span> = Execution timed out`;
       div.appendChild(note);
     }
   }

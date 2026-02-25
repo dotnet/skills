@@ -84,6 +84,12 @@ foreach ($verdict in $results.verdicts) {
         }
         $notActivated = $verdictNotActivated -or $scenarioNotActivated
 
+        # Check per-scenario timeout state
+        $scenarioTimedOut = $false
+        if ($scenario.timedOut -eq $true) {
+            $scenarioTimedOut = $true
+        }
+
         # Quality scores (from judge results, scale 0-5 mapped to 0-10 for dashboard)
         if ($null -ne $scenario.withSkill.judgeResult.overallScore) {
             $benchEntry = @{
@@ -93,6 +99,9 @@ foreach ($verdict in $results.verdicts) {
             }
             if ($notActivated) {
                 $benchEntry.notActivated = $true
+            }
+            if ($scenarioTimedOut) {
+                $benchEntry.timedOut = $true
             }
             $qualityBenches.Add($benchEntry)
         }
@@ -114,6 +123,9 @@ foreach ($verdict in $results.verdicts) {
             if ($notActivated) {
                 $effBenchEntry.notActivated = $true
             }
+            if ($scenarioTimedOut) {
+                $effBenchEntry.timedOut = $true
+            }
             $efficiencyBenches.Add($effBenchEntry)
         }
         if ($null -ne $scenario.withSkill.metrics.tokenEstimate) {
@@ -124,6 +136,9 @@ foreach ($verdict in $results.verdicts) {
             }
             if ($notActivated) {
                 $tokenBenchEntry.notActivated = $true
+            }
+            if ($scenarioTimedOut) {
+                $tokenBenchEntry.timedOut = $true
             }
             $efficiencyBenches.Add($tokenBenchEntry)
         }

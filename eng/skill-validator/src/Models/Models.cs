@@ -113,6 +113,7 @@ public sealed class RunMetrics
     public string AgentOutput { get; set; } = "";
     public List<AgentEvent> Events { get; set; } = [];
     public string WorkDir { get; set; } = "";
+    public bool TimedOut { get; set; }
 }
 
 public sealed record RunResult(
@@ -197,6 +198,7 @@ public sealed class ScenarioComparison
     public PairwiseJudgeResult? PairwiseResult { get; init; }
     public IReadOnlyList<double>? PerRunScores { get; set; }
     public SkillActivationInfo? SkillActivation { get; set; }
+    public bool TimedOut { get; set; }
 }
 
 // --- Verdict ---

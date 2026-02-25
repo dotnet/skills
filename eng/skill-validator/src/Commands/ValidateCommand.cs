@@ -276,6 +276,13 @@ public static class ValidateCommand
             verdict.Reason += $" [SKILL NOT ACTIVATED in {notActivated.Count} scenario(s): {names}]";
         }
 
+        var timedOutScenarios = comparisons.Where(c => c.TimedOut).ToList();
+        if (timedOutScenarios.Count > 0)
+        {
+            var names = string.Join(", ", timedOutScenarios.Select(c => c.ScenarioName));
+            log($"\x1b[33m⏰ Execution timed out in scenario(s): {names}\x1b[0m");
+        }
+
         log($"{(verdict.Passed ? "✅" : "❌")} Done (score: {verdict.OverallImprovementScore * 100:F1}%)");
         return verdict;
     }
@@ -327,6 +334,9 @@ public static class ValidateCommand
             DetectedSkills: allActivations.SelectMany(a => a.DetectedSkills).Distinct().ToList(),
             ExtraTools: allActivations.SelectMany(a => a.ExtraTools).Distinct().ToList(),
             SkillEventCount: allActivations.Sum(a => a.SkillEventCount));
+
+        // Propagate timeout info from any run
+        comparison.TimedOut = runResults.Any(r => r.WithSkill.Metrics.TimedOut || r.Baseline.Metrics.TimedOut);
 
         return comparison;
     }
@@ -454,6 +464,7 @@ public static class ValidateCommand
             AgentOutput = runs[^1].Metrics.AgentOutput,
             Events = runs[^1].Metrics.Events,
             WorkDir = runs[^1].Metrics.WorkDir,
+            TimedOut = runs.Any(r => r.Metrics.TimedOut),
         };
 
         var avgJudge = new JudgeResult(
