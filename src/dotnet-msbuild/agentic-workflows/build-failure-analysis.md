@@ -1,8 +1,6 @@
 ---
 on:
-  issue_comment:
-    types: [created]
-    body: "/analyze-build-failure"
+  slash_command: analyze-build-failure
 
 permissions:
   contents: read

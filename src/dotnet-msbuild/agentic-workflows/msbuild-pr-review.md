@@ -1,8 +1,6 @@
 ---
 on:
-  issue_comment:
-    types: [created]
-    body: "/review-msbuild"
+  slash_command: review-msbuild
 
 permissions:
   contents: read

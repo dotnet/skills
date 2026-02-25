@@ -1,8 +1,6 @@
 ---
 on:
-  issue_comment:
-    types: [created]
-    body: "/audit-build-perf"
+  slash_command: audit-build-perf
 
 permissions:
   contents: read

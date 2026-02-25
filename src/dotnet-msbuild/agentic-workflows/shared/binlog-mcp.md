@@ -1,8 +1,8 @@
 ---
 mcp-servers:
   binlog-mcp:
-    command: "dnx"
-    args: ["-y", "baronfel.binlog.mcp@0.0.13"]
+    container: "ghcr.io/viktorhofer/binlog-mcp:0.0.13"
+    allowed: ["*"]
 tools:
   bash: ["dotnet", "cat", "grep", "head", "tail", "find", "ls"]
 ---
