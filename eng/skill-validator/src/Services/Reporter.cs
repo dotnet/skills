@@ -91,11 +91,6 @@ public static class Reporter
                 Console.WriteLine();
                 Console.WriteLine("  \x1b[31;1m⚠️  SKILL NOT ACTIVATED\x1b[0m — the tested skill was not loaded or invoked by the agent");
             }
-            if (verdict.Scenarios.Any(s => s.TimedOut))
-            {
-                Console.WriteLine();
-                Console.WriteLine("  \x1b[31;1m⏰ EXECUTION TIMED OUT\x1b[0m — one or more scenarios exceeded the configured timeout");
-            }
             if (verdict.Scenarios.Count > 0)
             {
                 Console.WriteLine();
@@ -109,14 +104,22 @@ public static class Reporter
         int total = verdicts.Count;
         var summaryColor = passed == total ? "\x1b[32m" : "\x1b[31m";
         Console.WriteLine($"{summaryColor}{passed}/{total} skills passed validation\x1b[0m");
+
+        bool anyTimeout = verdicts.Any(v => v.Scenarios.Any(s =>
+            s.Baseline.Metrics.TimedOut || s.WithSkill.Metrics.TimedOut));
+        if (anyTimeout)
+        {
+            Console.WriteLine();
+            Console.WriteLine("\x1b[33m⏰ timeout — run hit the scenario timeout limit; scoring may be impacted by aborting model execution before it could produce its full output\x1b[0m");
+        }
+
         Console.WriteLine();
     }
 
     private static void ReportScenarioDetail(ScenarioComparison scenario, bool verbose)
     {
         var icon = scenario.ImprovementScore >= 0 ? "\x1b[32m↑\x1b[0m" : "\x1b[31m↓\x1b[0m";
-        var timedOutTag = scenario.TimedOut ? " \x1b[33m⏰ timed out\x1b[0m" : "";
-        Console.WriteLine($"    {icon} {scenario.ScenarioName}  {FormatScore(scenario.ImprovementScore)}{timedOutTag}");
+        Console.WriteLine($"    {icon} {scenario.ScenarioName}  {FormatScore(scenario.ImprovementScore)}");
 
         var b = scenario.Baseline.Metrics;
         var s = scenario.WithSkill.Metrics;
@@ -130,11 +133,20 @@ public static class Reporter
             ("Tokens", bd.TokenReduction, $"{b.TokenEstimate} → {s.TokenEstimate}", true),
             ("Tool calls", bd.ToolCallReduction, $"{b.ToolCallCount} → {s.ToolCallCount}", true),
             ("Task completion", bd.TaskCompletionImprovement, $"{FmtBool(b.TaskCompleted)} → {FmtBool(s.TaskCompleted)}", false),
-            ("Time", bd.TimeReduction, $"{FmtMs(b.WallTimeMs)} → {FmtMs(s.WallTimeMs)}", true),
+            ("Time", bd.TimeReduction, $"{FmtMs(b.WallTimeMs)}{(b.TimedOut ? " ⏰" : "")} → {FmtMs(s.WallTimeMs)}{(s.TimedOut ? " ⏰" : "")}", true),
             ("Quality (rubric)", bd.QualityImprovement, $"{bRubric:F1}/5 → {sRubric:F1}/5", false),
             ("Quality (overall)", bd.OverallJudgmentImprovement, $"{scenario.Baseline.JudgeResult.OverallScore:F1}/5 → {scenario.WithSkill.JudgeResult.OverallScore:F1}/5", false),
             ("Errors", bd.ErrorReduction, $"{b.ErrorCount} → {s.ErrorCount}", true),
         };
+
+        // Show timeout warnings prominently before the metrics table
+        if (b.TimedOut || s.TimedOut)
+        {
+            var parts = new List<string>();
+            if (b.TimedOut) parts.Add("baseline");
+            if (s.TimedOut) parts.Add("with-skill");
+            Console.WriteLine($"      \x1b[31;1m⏰ TIMEOUT\x1b[0m — {string.Join(" and ", parts)} run(s) hit the scenario timeout limit");
+        }
 
         foreach (var (label, value, absolute, lowerIsBetter) in metrics)
         {
@@ -168,11 +180,13 @@ public static class Reporter
         var deltaStr = scoreDelta > 0 ? $"\x1b[32m+{scoreDelta:F1}\x1b[0m" :
             scoreDelta < 0 ? $"\x1b[31m{scoreDelta:F1}\x1b[0m" : "\x1b[2m±0\x1b[0m";
 
-        Console.WriteLine($"      \x1b[1mOverall:\x1b[0m {bj.OverallScore:F1} → {sj.OverallScore:F1} ({deltaStr})");
+        var bTimeout = b.TimedOut ? " \x1b[31m⏰ timeout\x1b[0m" : "";
+        var sTimeout = s.TimedOut ? " \x1b[31m⏰ timeout\x1b[0m" : "";
+        Console.WriteLine($"      \x1b[1mOverall:\x1b[0m {bj.OverallScore:F1}{bTimeout} → {sj.OverallScore:F1}{sTimeout} ({deltaStr})");
         Console.WriteLine();
 
         // Baseline judge
-        Console.WriteLine($"      \x1b[36m─── Baseline Judge\x1b[0m \x1b[36;1m{bj.OverallScore:F1}/5\x1b[0m \x1b[36m───\x1b[0m");
+        Console.WriteLine($"      \x1b[36m─── Baseline Judge\x1b[0m \x1b[36;1m{bj.OverallScore:F1}/5\x1b[0m{bTimeout} \x1b[36m───\x1b[0m");
         Console.WriteLine($"      \x1b[2m{bj.OverallReasoning}\x1b[0m");
         if (bj.RubricScores.Count > 0)
         {
@@ -189,7 +203,7 @@ public static class Reporter
         Console.WriteLine();
 
         // With-skill judge
-        Console.WriteLine($"      \x1b[35m─── With-Skill Judge\x1b[0m \x1b[35;1m{sj.OverallScore:F1}/5\x1b[0m \x1b[35m───\x1b[0m");
+        Console.WriteLine($"      \x1b[35m─── With-Skill Judge\x1b[0m \x1b[35;1m{sj.OverallScore:F1}/5\x1b[0m{sTimeout} \x1b[35m───\x1b[0m");
         Console.WriteLine($"      \x1b[2m{sj.OverallReasoning}\x1b[0m");
         if (sj.RubricScores.Count > 0)
         {
@@ -261,8 +275,10 @@ public static class Reporter
             {
                 var baseScore = s.Baseline?.JudgeResult?.OverallScore;
                 var skillScore = s.WithSkill?.JudgeResult?.OverallScore;
-                var baseStr = baseScore is { } bs && !double.IsNaN(bs) ? $"{bs:F1}" : "—";
-                var skillStr = skillScore is { } ss && !double.IsNaN(ss) ? $"{ss:F1}" : "—";
+                var bTimedOut = s.Baseline?.Metrics?.TimedOut == true;
+                var sTimedOut = s.WithSkill?.Metrics?.TimedOut == true;
+                var baseStr = (baseScore is { } bs && !double.IsNaN(bs) ? $"{bs:F1}/5" : "—") + (bTimedOut ? " ⏰ timeout" : "");
+                var skillStr = (skillScore is { } ss && !double.IsNaN(ss) ? $"{ss:F1}/5" : "—") + (sTimedOut ? " ⏰ timeout" : "");
 
                 string deltaStr = "—";
                 if (baseScore is { } b && skillScore is { } sk && !double.IsNaN(b) && !double.IsNaN(sk))
@@ -273,7 +289,6 @@ public static class Reporter
                 }
 
                 var icon = s.ImprovementScore > 0 ? "✅" : s.ImprovementScore < 0 ? "❌" : "🟡";
-                if (s.TimedOut) icon = "⏰";
 
                 string skillsCol = "—";
                 if (s.SkillActivation is { } sa)
@@ -295,9 +310,14 @@ public static class Reporter
                     skillsCol = "⚠️ NOT ACTIVATED";
                 }
 
-                sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {baseStr}/5 | {skillStr}/5 | {deltaStr} | {skillsCol} | {icon} |");
+                sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {baseStr} | {skillStr} | {deltaStr} | {skillsCol} | {icon} |");
             }
         }
+
+        bool anyTimeout = verdicts.Any(v => v.Scenarios.Any(s =>
+            (s.Baseline?.Metrics?.TimedOut == true) || (s.WithSkill?.Metrics?.TimedOut == true)));
+        if (anyTimeout)
+            sb.AppendLine("\n> ⏰ **timeout** — run hit the scenario timeout limit; scoring may be impacted by aborting model execution before it could produce its full output");
 
         sb.AppendLine($"\nModel: {model ?? "unknown"} | Judge: {judgeModel ?? "unknown"}");
         return sb.ToString();

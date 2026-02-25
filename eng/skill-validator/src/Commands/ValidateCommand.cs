@@ -459,12 +459,12 @@ public static class ValidateCommand
             TurnCount = AvgRound(runs.Select(r => r.Metrics.TurnCount)),
             WallTimeMs = (long)Math.Round(runs.Average(r => r.Metrics.WallTimeMs)),
             ErrorCount = AvgRound(runs.Select(r => r.Metrics.ErrorCount)),
+            TimedOut = runs.Any(r => r.Metrics.TimedOut),
             AssertionResults = runs[^1].Metrics.AssertionResults,
             TaskCompleted = runs.Any(r => r.Metrics.TaskCompleted),
             AgentOutput = runs[^1].Metrics.AgentOutput,
             Events = runs[^1].Metrics.Events,
             WorkDir = runs[^1].Metrics.WorkDir,
-            TimedOut = runs.Any(r => r.Metrics.TimedOut),
         };
 
         var avgJudge = new JudgeResult(

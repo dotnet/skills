@@ -245,10 +245,24 @@ public static class AgentRunner
         }
         catch (Exception error)
         {
-            events.Add(new AgentEvent(
-                "runner.error",
-                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                new Dictionary<string, object?> { ["message"] = error.ToString() }));
+            var msg = error.ToString();
+            if (error is TimeoutException || error.InnerException is TimeoutException
+                || msg.Contains("timed out", StringComparison.OrdinalIgnoreCase))
+            {
+                // Timeout: record a dedicated event (the timer fired, no session.error exists)
+                events.Add(new AgentEvent(
+                    "runner.timeout",
+                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    new Dictionary<string, object?> { ["message"] = msg }));
+            }
+            else if (!events.Any(e => e.Type == "session.error"))
+            {
+                // Only add runner.error when there isn't already a session.error event
+                events.Add(new AgentEvent(
+                    "runner.error",
+                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    new Dictionary<string, object?> { ["message"] = msg }));
+            }
         }
 
         var wallTimeMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime;

@@ -295,4 +295,63 @@ public class CollectMetricsTests
         // Fallback estimation: ceil(4/4) + ceil(8/4) = 1 + 2 = 3
         Assert.Equal(3, result.TokenEstimate);
     }
+
+    [Fact]
+    public void SetsTimedOutToTrueWhenRunnerTimeoutEventIsPresent()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("assistant.message", new() { ["content"] = "working..." }),
+            MakeEvent("runner.timeout", new() { ["message"] = "Scenario timed out after 120s" }),
+        };
+
+        var result = MetricsCollector.CollectMetrics(events, "", 120000, "/tmp/work");
+
+        Assert.True(result.TimedOut);
+        Assert.Equal(1, result.ErrorCount);
+    }
+
+    [Fact]
+    public void SetsTimedOutToFalseWhenNoTimeoutEventIsPresent()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("assistant.message", new() { ["content"] = "done" }),
+            MakeEvent("tool.execution_start", new() { ["toolName"] = "bash" }),
+        };
+
+        var result = MetricsCollector.CollectMetrics(events, "", 5000, "/tmp/work");
+
+        Assert.False(result.TimedOut);
+        Assert.Equal(0, result.ErrorCount);
+    }
+
+    [Fact]
+    public void SetsTimedOutToFalseWhenOnlyRunnerErrorEventsArePresent()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("runner.error", new() { ["message"] = "Something went wrong" }),
+        };
+
+        var result = MetricsCollector.CollectMetrics(events, "", 3000, "/tmp/work");
+
+        Assert.False(result.TimedOut);
+        Assert.Equal(1, result.ErrorCount);
+    }
+
+    [Fact]
+    public void CountsBothRunnerTimeoutAndRunnerErrorInErrorCount()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("runner.error", new() { ["message"] = "file not found" }),
+            MakeEvent("runner.timeout", new() { ["message"] = "Scenario timed out after 120s" }),
+        };
+
+        var result = MetricsCollector.CollectMetrics(events, "", 120000, "/tmp/work");
+
+        Assert.True(result.TimedOut);
+        Assert.Equal(2, result.ErrorCount);
+    }
 }

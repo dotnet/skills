@@ -108,12 +108,12 @@ public sealed class RunMetrics
     public int TurnCount { get; set; }
     public long WallTimeMs { get; set; }
     public int ErrorCount { get; set; }
+    public bool TimedOut { get; set; }
     public List<AssertionResult> AssertionResults { get; set; } = [];
     public bool TaskCompleted { get; set; }
     public string AgentOutput { get; set; } = "";
     public List<AgentEvent> Events { get; set; } = [];
     public string WorkDir { get; set; } = "";
-    public bool TimedOut { get; set; }
 }
 
 public sealed record RunResult(
