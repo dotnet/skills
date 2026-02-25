@@ -93,7 +93,7 @@ var orderSummaries = await db.Orders
 | Scenario | Use |
 |----------|-----|
 | 1 level of Include | Single query (default) |
-| Multiple Includes (cartesian risk) | `AsSplitQuery()` |
+| Multiple Includes (Cartesian risk) | `AsSplitQuery()` |
 | Include with large child collections | `AsSplitQuery()` |
 | Need transaction consistency | Single query |
 
