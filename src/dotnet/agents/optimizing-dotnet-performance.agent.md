@@ -1,7 +1,7 @@
 ---
 description: "Analyzes .NET code for performance bottlenecks, recommends concrete optimizations, and guides benchmarking. Scans for ~50 anti-patterns across async, memory, strings, collections, LINQ, regex, serialization, and I/O. Use when reviewing .NET code performance, optimizing hot paths, reducing allocations, or tuning async/concurrency patterns."
 name: optimizing-dotnet-performance
-tools: ['shell', 'read', 'search', 'edit', 'task', 'skill', 'web_search', 'web_fetch', 'ask_user']
+tools: ['read', 'search', 'edit', 'task', 'skill', 'web_search', 'web_fetch', 'ask_user']
 ---
 
 # optimizing-dotnet-performance
@@ -47,7 +47,7 @@ Keep reports concise and actionable. Avoid verbose prose.
 2. **Root Cause**: Why the code is slow (one paragraph max)
 3. **Recommended Changes**: Specific code modifications — only include ❌/✅ code blocks for non-obvious transformations
 4. **Expected Impact**: Realistic estimates (e.g., "2-3x faster in this scenario")
-5. **Trade-offs**: One-line per trade-off, only when relevant
+5. **Trade-offs**: One-line per trade-off, only when relevant - consider maintainability as one such trade-off
 
 Always end reports with:
 
