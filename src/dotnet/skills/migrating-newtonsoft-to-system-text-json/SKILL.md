@@ -33,7 +33,7 @@ description: Migrate from Newtonsoft.Json to System.Text.Json, handling behavior
 
 | Behavior | Newtonsoft.Json | System.Text.Json | Impact |
 |----------|----------------|-------------------|--------|
-| **Property naming** | camelCase by default | **PascalCase by default** | APIs will return different JSON |
+| **Property naming** | PascalCase by default (as declared) | **PascalCase by default** | Same ✓ (unless you used a custom ContractResolver) |
 | **Missing properties** | Ignored silently | Ignored silently | Same ✓ |
 | **Extra JSON properties** | Ignored by default | Ignored by default (can opt-in to throw in .NET 8+) | Same ✓ (stricter behavior available via options) |
 | **Trailing commas** | Allowed | **Rejected by default** | Parse errors on valid-looking JSON |
