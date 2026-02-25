@@ -1,2 +1,21 @@
-# TODO: Add evaluation scenarios for directory-build-organization
-scenarios: []
+scenarios:
+  - name: "Organize build infrastructure for a multi-project repo"
+    prompt: >-
+      This .NET solution has grown organically and the build infrastructure needs
+      attention. Review all project files and suggest how to improve the build
+      organization. Focus on reducing duplication, improving maintainability, and
+      applying MSBuild best practices.
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "Directory.Build.props"
+      - type: "output_matches"
+        pattern: "(Directory\\.Build\\.targets|\\btargets\\b)"
+    rubric:
+      - "Identified duplicated properties across projects and recommended centralizing them in a root Directory.Build.props"
+      - "Identified package version inconsistencies and recommended Central Package Management with Directory.Packages.props (ManagePackageVersionsCentrally)"
+      - "Proposed a multi-level Directory.Build.props hierarchy (e.g., separate files for src/ and test/ folders) with GetPathOfFileAbove import chaining"
+      - "Identified the DocumentationFile property as depending on $(OutputPath) — an SDK-defined value — and correctly recommended placing it in Directory.Build.targets rather than .props, explaining the MSBuild evaluation order"
+      - "Identified the duplicated PrintBuildInfo custom Target across src projects and recommended centralizing it in Directory.Build.targets"
+    timeout: 300

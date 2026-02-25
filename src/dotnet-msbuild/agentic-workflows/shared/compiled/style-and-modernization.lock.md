@@ -1060,6 +1060,41 @@ After migration, consider enabling modern C# features:
 
 Centralizes NuGet version management across a multi-project solution. See [https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management) for details.
 
-**Step 1:** Create `Directory.Pa
+**Step 1:** Create `Directory.Packages.props` at the repository root with `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>` and `<PackageVersion>` items for all packages.
+
+**Step 2:** Remove `Version` from each project's `PackageReference`:
+
+```xml
+<!-- BEFORE -->
+<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+
+<!-- AFTER -->
+<PackageReference Include="Newtonsoft.Json" />
+```
+
+## Directory.Build Consolidation
+
+Identify properties repeated across multiple `.csproj` files and move them to shared files.
+
+**`Directory.Build.props`** (for properties — placed at repo or src root):
+
+```xml
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Company>Contoso</Company>
+    <Copyright>Copyright © Contoso 2024</Copyright>
+  </PropertyGroup>
+</Project>
+```
+
+**`Directory.Build.targets`** (for targets/tasks — placed at repo or src root):
+
+```xml
+<Project>
+  <Target Name="PrintBuildInfo" Aft
 
 [truncated]
