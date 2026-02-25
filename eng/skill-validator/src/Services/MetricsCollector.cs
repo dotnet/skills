@@ -93,6 +93,7 @@ public static class MetricsCollector
                     break;
                 }
 
+                case "runner.timeout":
                 case "session.error":
                 case "runner.error":
                 {
@@ -123,6 +124,7 @@ public static class MetricsCollector
             TurnCount = turnCount,
             WallTimeMs = wallTimeMs,
             ErrorCount = errorCount,
+            TimedOut = events.Any(e => e.Type == "runner.timeout"),
             AgentOutput = agentOutput,
             Events = events,
             WorkDir = workDir,

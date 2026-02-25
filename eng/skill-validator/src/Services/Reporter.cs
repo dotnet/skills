@@ -124,11 +124,20 @@ public static class Reporter
             ("Tokens", bd.TokenReduction, $"{b.TokenEstimate} → {s.TokenEstimate}", true),
             ("Tool calls", bd.ToolCallReduction, $"{b.ToolCallCount} → {s.ToolCallCount}", true),
             ("Task completion", bd.TaskCompletionImprovement, $"{FmtBool(b.TaskCompleted)} → {FmtBool(s.TaskCompleted)}", false),
-            ("Time", bd.TimeReduction, $"{FmtMs(b.WallTimeMs)} → {FmtMs(s.WallTimeMs)}", true),
+            ("Time", bd.TimeReduction, $"{FmtMs(b.WallTimeMs)}{(b.TimedOut ? " ⏰" : "")} → {FmtMs(s.WallTimeMs)}{(s.TimedOut ? " ⏰" : "")}", true),
             ("Quality (rubric)", bd.QualityImprovement, $"{bRubric:F1}/5 → {sRubric:F1}/5", false),
             ("Quality (overall)", bd.OverallJudgmentImprovement, $"{scenario.Baseline.JudgeResult.OverallScore:F1}/5 → {scenario.WithSkill.JudgeResult.OverallScore:F1}/5", false),
             ("Errors", bd.ErrorReduction, $"{b.ErrorCount} → {s.ErrorCount}", true),
         };
+
+        // Show timeout warnings prominently before the metrics table
+        if (b.TimedOut || s.TimedOut)
+        {
+            var parts = new List<string>();
+            if (b.TimedOut) parts.Add("baseline");
+            if (s.TimedOut) parts.Add("with-skill");
+            Console.WriteLine($"      \x1b[31;1m⏰ TIMEOUT\x1b[0m — {string.Join(" and ", parts)} run(s) hit the scenario timeout limit");
+        }
 
         foreach (var (label, value, absolute, lowerIsBetter) in metrics)
         {
@@ -255,8 +264,10 @@ public static class Reporter
             {
                 var baseScore = s.Baseline?.JudgeResult?.OverallScore;
                 var skillScore = s.WithSkill?.JudgeResult?.OverallScore;
-                var baseStr = baseScore is { } bs && !double.IsNaN(bs) ? $"{bs:F1}" : "—";
-                var skillStr = skillScore is { } ss && !double.IsNaN(ss) ? $"{ss:F1}" : "—";
+                var bTimedOut = s.Baseline?.Metrics?.TimedOut == true;
+                var sTimedOut = s.WithSkill?.Metrics?.TimedOut == true;
+                var baseStr = (baseScore is { } bs && !double.IsNaN(bs) ? $"{bs:F1}" : "—") + (bTimedOut ? " ⏰ timeout" : "");
+                var skillStr = (skillScore is { } ss && !double.IsNaN(ss) ? $"{ss:F1}" : "—") + (sTimedOut ? " ⏰ timeout" : "");
 
                 string deltaStr = "—";
                 if (baseScore is { } b && skillScore is { } sk && !double.IsNaN(b) && !double.IsNaN(sk))

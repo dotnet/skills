@@ -29,4 +29,4 @@ scenarios:
       - "Correctly determined that the root cause is a missing PackageReference for Newtonsoft.Json in the Services project"
       - "Recognized the cascading failure chain: Services failed → Api could not build because it depends on Services"
       - "Suggested adding a PackageReference for Newtonsoft.Json to the Services project as the primary fix"
-    timeout: 180
+    timeout: 240
