@@ -5,41 +5,50 @@ description: "Skill for .NET/MSBuild *.binlog files and complicated build failur
 
 # Analyzing MSBuild Failures with Binary Logs
 
-When an MSBuild build fails, use the binlog-mcp tool to deeply analyze the failure. This skill guides you through generating a binary log and using the MCP tools to diagnose issues.
-Requires 'binlog-mcp' MCP server tools to perform the binlog analysis.
+**Use the binlog MCP tools for all binlog analysis.** The MCP server provides structured, efficient access to everything inside a binlog. Do not attempt to parse binlogs manually.
 
-## Step 1: Generate a Binary Log
+## ❌ DO NOT
 
-Re-run the failed build command with the `/bl` flag to generate a binary log file:
+- **Do NOT install CLI tools** (`binlogtool`, `dotnet-script`, `msbuild-log`, etc.) — the MCP tools already provide full access
+- **Do NOT write C# scripts or programs** to parse binlogs with `MSBuild.StructuredLogger` — this wastes time on compilation errors and produces inferior results
+- **Do NOT use `binlogtool savefiles`/`binlogtool reconstruct`** — use `get_file_from_binlog` instead
+- **Do NOT use `dotnet msbuild -flp`** to replay binlogs into text logs — use `get_diagnostics` and `search_binlog` instead
+
+## Build Error Investigation (Primary Workflow)
+
+Follow these steps in order. Every step uses an MCP tool — no bash needed for analysis.
+
+1. **Load**: `load_binlog` with the absolute path to the `.binlog` file
+2. **Get errors**: `get_diagnostics` with `includeErrors: true, includeDetails: true` — returns all errors with file paths, line numbers, and context
+3. **List projects**: `list_projects` — see all projects and their build status to identify which failed
+4. **Get source files**: `get_file_from_binlog` — binlogs embed source files; retrieve `.csproj`, `.cs`, or any file directly without needing the original source tree
+5. **Check dependencies**: `get_evaluation_items_by_name` with item type `ProjectReference` or `PackageReference` — inspect what each project references
+6. **Search for context**: `search_binlog` with the error code (e.g., `"error CS0246"`) — find where errors appear in the build tree
+7. **Identify cascading failures**: Compare which projects had `CoreCompile` errors vs which failed at `ResolveProjectReferences` because a dependency failed. Use `search_binlog` with `under($project ProjectName) $target CoreCompile` to check if a project reached compilation.
+
+**After completing analysis, write the diagnosis immediately.** Do not start additional investigation loops — synthesize what you have.
+
+## Additional Workflows
+
+### Performance Investigation
+1. `load_binlog` → `get_expensive_targets` → `get_expensive_tasks` → `get_expensive_analyzers` → `search_targets_by_name` → `get_node_timeline`
+
+### Dependency/Evaluation Issues
+1. `load_binlog` → `list_projects` → `list_evaluations` → `get_evaluation_global_properties` → `get_evaluation_items_by_name`
+
+## Generating a Binary Log (only if no binlog exists)
+
+If no `.binlog` file is available, re-run the failed build with the `/bl` flag:
 
 ```bash
-# For dotnet builds
-dotnet build /bl
-
-# For msbuild directly
-msbuild /bl
-
-# Custom binlog filename
 dotnet build /bl:build.binlog
 ```
 
-The `/bl` flag tells MSBuild to generate a `msbuild.binlog` file (or the specified filename) in the current directory. Use `/bl:{}` (or `/bl:{{}}` in powershell for escaping) to generate unique binlog filename on each run.
+Use `/bl:{}` (or `/bl:{{}}` in PowerShell) to generate a unique filename automatically. Then return to the workflow above.
 
-## Step 2: Load the Binary Log
-
-Use the `load_binlog` tool to load the generated binlog file:
-
-```
-load_binlog with path: "<absolute-path-to-binlog>"
-```
-
-This must be called before using any other binlog analysis tools. Returns `InterestingBuildData` containing total duration in milliseconds and node count.
-
-## Step 3: Analyze the Failure
+## Detailed Tool Usage
 
 ### Get Diagnostics (Errors and Warnings)
-
-Use `get_diagnostics` to extract all errors and warnings:
 
 ```
 get_diagnostics with:
@@ -53,11 +62,9 @@ get_diagnostics with:
   - maxResults: [optional max number of diagnostics]
 ```
 
-Returns `DiagnosticAnalysisResult` with severity classification (Error, Warning, Info), source locations, file paths, line numbers, and context information.
+Returns severity classification, source locations, file paths, line numbers, and context.
 
 ### Search for Specific Issues
-
-Use `search_binlog` with the powerful query language to find specific issues:
 
 ```
 search_binlog with:
@@ -70,6 +77,26 @@ search_binlog with:
   - includeContext: true         # Include project/target/task IDs
 ```
 
+### Get Embedded Files
+
+Binlogs embed all source files from the build. Use this instead of trying to extract files manually:
+
+```
+list_files_from_binlog — list all embedded files
+get_file_from_binlog with path — retrieve the content of any embedded file
+```
+
+This gives you `.csproj` files, `.cs` source, `project.assets.json`, `Directory.Build.props`, and everything else — no need for external tools.
+
+### Check Project References and Packages
+
+```
+get_evaluation_items_by_name with:
+  - item type "PackageReference" — see all NuGet packages a project references
+  - item type "ProjectReference" — see project-to-project dependencies
+  - item type "Reference" — see direct assembly references
+```
+
 ### Investigate Expensive Operations
 
 If the build is slow or timing out:
@@ -80,22 +107,10 @@ get_expensive_tasks with binlog_file and top_number: 10
 get_expensive_projects with binlog_file, top_number: 10, sortByExclusive: true
 ```
 
-The `get_expensive_projects` tool supports:
-- `excludeTargets`: Array of target names to exclude (e.g., ['Copy', 'CopyFilesToOutputDirectory'])
-- `sortByExclusive`: Sort by exclusive time (true) or inclusive time (false)
-
 ### Analyze Roslyn Analyzers
-
-If compilation is slow, check analyzer performance:
 
 ```
 get_expensive_analyzers with binlog_file and top_number: 10
-```
-
-Returns aggregated analyzer data with execution count, total/average/min/max durations.
-
-For specific Csc task analyzer details:
-```
 get_task_analyzers with binlog_file, projectId, targetId, taskId
 ```
 
@@ -104,17 +119,17 @@ get_task_analyzers with binlog_file, projectId, targetId, taskId
 ### Binlog Loading
 | Tool | Description |
 |------|-------------|
-| `load_binlog` | Load a binlog file (required before other tools) |
+| `load_binlog` | Load a binlog file (**required first, before any other tool**) |
 
 ### Diagnostic Analysis
 | Tool | Description |
 |------|-------------|
 | `get_diagnostics` | Extract errors/warnings with optional filtering |
 
-### Search Analysis
+### Search
 | Tool | Description |
 |------|-------------|
-| `search_binlog` | Powerful freetext search with MSBuild Log Viewer syntax |
+| `search_binlog` | Powerful freetext search with MSBuild Log Viewer query syntax |
 
 ### Project Analysis
 | Tool | Description |
@@ -158,37 +173,13 @@ get_task_analyzers with binlog_file, projectId, targetId, taskId
 ### File Analysis
 | Tool | Description |
 |------|-------------|
-| `list_files_from_binlog` | List embedded source files |
-| `get_file_from_binlog` | Get content of an embedded file |
+| `list_files_from_binlog` | List all embedded source files |
+| `get_file_from_binlog` | **Get content of any embedded file** (source, csproj, props, etc.) |
 
 ### Timeline Analysis
 | Tool | Description |
 |------|-------------|
 | `get_node_timeline` | Get active/inactive time for build nodes |
-
-## Common Analysis Workflows
-
-### Build Error Investigation
-1. `load_binlog` - Load the binlog
-2. `get_diagnostics` with `includeErrors: true` - Get all errors
-3. `search_binlog` with the error code - Find context around the error
-4. `list_projects` - Identify which projects are involved
-5. `get_file_from_binlog` - View source files embedded in the binlog
-
-### Performance Investigation
-1. `load_binlog` - Load the binlog
-2. `get_expensive_targets` - Find slow targets
-3. `get_expensive_tasks` - Find slow tasks
-4. `get_expensive_analyzers` - Check if analyzers are slow
-5. `search_targets_by_name` - Find all executions of a specific target
-6. `get_node_timeline` - Analyze parallelism and node utilization
-
-### Dependency/Evaluation Issues
-1. `load_binlog` - Load the binlog
-2. `list_projects` - See all projects in the build
-3. `list_evaluations` - Check for multiple evaluations (indicates overbuilding)
-4. `get_evaluation_global_properties` - Compare properties between evaluations
-5. `get_evaluation_items_by_name` - Inspect PackageReference, Compile items
 
 ## Query Language Reference
 
