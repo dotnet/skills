@@ -1,8 +1,8 @@
 ---
 on:
-  workflow_run:
-    workflows: ["CI", "Build", "CI Build"]
-    types: [completed]
+  issue_comment:
+    types: [created]
+    body: "/analyze-build-failure"
 
 permissions:
   contents: read

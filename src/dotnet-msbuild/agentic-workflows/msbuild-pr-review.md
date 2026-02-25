@@ -1,17 +1,8 @@
 ---
 on:
-  pull_request:
-    types: [opened, synchronize]
-    paths:
-      - "**/*.csproj"
-      - "**/*.vbproj"
-      - "**/*.fsproj"
-      - "**/*.props"
-      - "**/*.targets"
-      - "**/Directory.Build.*"
-      - "**/Directory.Packages.props"
-      - "**/nuget.config"
-      - "**/global.json"
+  issue_comment:
+    types: [created]
+    body: "/review-msbuild"
 
 permissions:
   contents: read

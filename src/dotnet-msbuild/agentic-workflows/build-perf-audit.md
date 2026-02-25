@@ -1,6 +1,8 @@
 ---
 on:
-  schedule: weekly
+  issue_comment:
+    types: [created]
+    body: "/audit-build-perf"
 
 permissions:
   contents: read
