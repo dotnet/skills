@@ -1,36 +1,44 @@
 scenarios:
-  - name: "Secure an ASP.NET Core API with JWT auth and CORS"
+  - name: "Fix CORS preflight 401 with JWT auth middleware ordering"
     prompt: |
-      I'm building a public ASP.NET Core 8 Web API that will be consumed by a React SPA running on a different domain. I need to:
-      1. Add JWT bearer authentication
-      2. Configure CORS properly for the SPA
-      3. Add rate limiting to prevent abuse
-
-      My Program.cs currently has no auth:
+      I set up JWT authentication and CORS on my ASP.NET Core 8 API but the React SPA on https://myapp.example.com keeps getting 401 errors on preflight OPTIONS requests. Here is my middleware pipeline:
 
       ```csharp
-      var builder = WebApplication.CreateBuilder(args);
-      builder.Services.AddControllers();
       var app = builder.Build();
+      app.UseHttpsRedirection();
+      app.UseAuthentication();
+      app.UseAuthorization();
+      app.UseCors("AllowSPA");
+      app.UseRateLimiter();
       app.MapControllers();
       app.Run();
       ```
 
-      Show me the correct and secure way to set this up.
+      And CORS is configured as:
+      ```csharp
+      builder.Services.AddCors(options =>
+      {
+          options.AddPolicy("AllowSPA", b => b
+              .AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials());
+      });
+      ```
+
+      The JWT auth works fine when I test directly from Postman. What's wrong?
     assertions:
       - type: "output_matches"
-        pattern: "(AddAuthentication|JwtBearer|JwtBearerDefaults)"
+        pattern: "(UseCors.*before.*UseAuthentication|middleware.*order|order.*middleware|UseCors.*UseAuth)"
       - type: "output_matches"
-        pattern: "(AddCors|CORS|WithOrigins)"
-      - type: "output_matches"
-        pattern: "(UseAuthentication.*UseAuthorization|middleware.order|order.matters)"
+        pattern: "(WithOrigins|specific.*origin|AllowAnyOrigin.*AllowCredentials.*conflict|cannot.*AllowAnyOrigin.*AllowCredentials)"
     rubric:
-      - "Added JWT bearer auth with proper TokenValidationParameters (ValidateIssuer, ValidateAudience, ValidateLifetime all true)"
-      - "Configured CORS with specific origins (NOT AllowAnyOrigin with credentials)"
-      - "Added rate limiting using AddRateLimiter with a fixed or sliding window policy"
-      - "Placed middleware in correct order: UseCors → UseAuthentication → UseAuthorization → UseRateLimiter"
-      - "Explicitly stated that middleware order matters and incorrect order silently bypasses security"
-      - "Did NOT disable token validation parameters or use AllowAnyOrigin in production config"
+      - "Identified that UseCors must come BEFORE UseAuthentication so OPTIONS preflight requests are handled before auth rejects them"
+      - "Showed the correct middleware order: UseCors → UseAuthentication → UseAuthorization → UseRateLimiter"
+      - "Identified the AllowAnyOrigin + AllowCredentials conflict (CORS spec forbids this combination)"
+      - "Fixed CORS to use WithOrigins(\"https://myapp.example.com\") instead of AllowAnyOrigin when using AllowCredentials"
+      - "Explained why OPTIONS requests fail: browsers send preflight with no auth token, so auth middleware returns 401 before CORS handles it"
+      - "Provided the corrected full middleware pipeline code"
     expect_tools: ["bash"]
     timeout: 120
 
