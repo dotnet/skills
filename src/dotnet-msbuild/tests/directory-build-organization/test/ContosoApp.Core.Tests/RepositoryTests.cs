@@ -1,3 +1,5 @@
+using Xunit;
+
 namespace ContosoApp.Core.Tests;
 
 public class RepositoryTests

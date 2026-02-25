@@ -1,3 +1,5 @@
+using Xunit;
+
 namespace ContosoApp.Api.Tests;
 
 public class ApiTests
