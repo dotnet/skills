@@ -104,6 +104,15 @@ public static class Reporter
         int total = verdicts.Count;
         var summaryColor = passed == total ? "\x1b[32m" : "\x1b[31m";
         Console.WriteLine($"{summaryColor}{passed}/{total} skills passed validation\x1b[0m");
+
+        bool anyTimeout = verdicts.Any(v => v.Scenarios.Any(s =>
+            s.Baseline.Metrics.TimedOut || s.WithSkill.Metrics.TimedOut));
+        if (anyTimeout)
+        {
+            Console.WriteLine();
+            Console.WriteLine("\x1b[33m⏰ timeout — run hit the scenario timeout limit; scoring may be impacted by aborting model execution before it could produce its full output\x1b[0m");
+        }
+
         Console.WriteLine();
     }
 
@@ -171,11 +180,13 @@ public static class Reporter
         var deltaStr = scoreDelta > 0 ? $"\x1b[32m+{scoreDelta:F1}\x1b[0m" :
             scoreDelta < 0 ? $"\x1b[31m{scoreDelta:F1}\x1b[0m" : "\x1b[2m±0\x1b[0m";
 
-        Console.WriteLine($"      \x1b[1mOverall:\x1b[0m {bj.OverallScore:F1} → {sj.OverallScore:F1} ({deltaStr})");
+        var bTimeout = b.TimedOut ? " \x1b[31m⏰ timeout\x1b[0m" : "";
+        var sTimeout = s.TimedOut ? " \x1b[31m⏰ timeout\x1b[0m" : "";
+        Console.WriteLine($"      \x1b[1mOverall:\x1b[0m {bj.OverallScore:F1}{bTimeout} → {sj.OverallScore:F1}{sTimeout} ({deltaStr})");
         Console.WriteLine();
 
         // Baseline judge
-        Console.WriteLine($"      \x1b[36m─── Baseline Judge\x1b[0m \x1b[36;1m{bj.OverallScore:F1}/5\x1b[0m \x1b[36m───\x1b[0m");
+        Console.WriteLine($"      \x1b[36m─── Baseline Judge\x1b[0m \x1b[36;1m{bj.OverallScore:F1}/5\x1b[0m{bTimeout} \x1b[36m───\x1b[0m");
         Console.WriteLine($"      \x1b[2m{bj.OverallReasoning}\x1b[0m");
         if (bj.RubricScores.Count > 0)
         {
@@ -192,7 +203,7 @@ public static class Reporter
         Console.WriteLine();
 
         // With-skill judge
-        Console.WriteLine($"      \x1b[35m─── With-Skill Judge\x1b[0m \x1b[35;1m{sj.OverallScore:F1}/5\x1b[0m \x1b[35m───\x1b[0m");
+        Console.WriteLine($"      \x1b[35m─── With-Skill Judge\x1b[0m \x1b[35;1m{sj.OverallScore:F1}/5\x1b[0m{sTimeout} \x1b[35m───\x1b[0m");
         Console.WriteLine($"      \x1b[2m{sj.OverallReasoning}\x1b[0m");
         if (sj.RubricScores.Count > 0)
         {
@@ -302,6 +313,11 @@ public static class Reporter
                 sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {baseStr}/5 | {skillStr}/5 | {deltaStr} | {skillsCol} | {icon} |");
             }
         }
+
+        bool anyTimeout = verdicts.Any(v => v.Scenarios.Any(s =>
+            (s.Baseline?.Metrics?.TimedOut == true) || (s.WithSkill?.Metrics?.TimedOut == true)));
+        if (anyTimeout)
+            sb.AppendLine("\n> ⏰ **timeout** — run hit the scenario timeout limit; scoring may be impacted by aborting model execution before it could produce its full output");
 
         sb.AppendLine($"\nModel: {model ?? "unknown"} | Judge: {judgeModel ?? "unknown"}");
         return sb.ToString();
