@@ -80,7 +80,7 @@ for (int i = 0; i < 10_000; i++) { Process(buf); }
 **Impact: StackOverflowException — unrecoverable, no catch possible.**
 
 ### Avoid Boxing Value Types
-🔴 **AVOID** | .NET Core+
+🔴 **AVOID** | .NET 6+
 
 ❌
 ```csharp
