@@ -10,6 +10,8 @@ Comprehensive MSBuild and .NET build skills: failure diagnosis, performance opti
 |-------|-------------|
 | [`binlog-failure-analysis`](skills/binlog-failure-analysis/) | Binary log analysis for deep build failure diagnosis |
 | [`binlog-generation`](skills/binlog-generation/) | Binary log generation conventions |
+| [`check-bin-obj-clash`](skills/check-bin-obj-clash/) | Output path conflict detection for multi-targeting and multi-project builds |
+| [`including-generated-files`](skills/including-generated-files/) | Including build-generated files in MSBuild's build process |
 
 ### Build Performance Optimization
 
@@ -28,8 +30,6 @@ Comprehensive MSBuild and .NET build skills: failure diagnosis, performance opti
 | [`msbuild-antipatterns`](skills/msbuild-antipatterns/) | Anti-pattern catalog with detection rules, severity, and BAD→GOOD fixes |
 | [`msbuild-modernization`](skills/msbuild-modernization/) | Legacy to SDK-style project migration with before/after examples |
 | [`directory-build-organization`](skills/directory-build-organization/) | Directory.Build.props/targets/rsp organization and central package management |
-| [`check-bin-obj-clash`](skills/check-bin-obj-clash/) | Output path conflict detection for multi-targeting and multi-project builds |
-| [`including-generated-files`](skills/including-generated-files/) | Including build-generated files in MSBuild's build process |
 
 ## 🤖 Agents
 

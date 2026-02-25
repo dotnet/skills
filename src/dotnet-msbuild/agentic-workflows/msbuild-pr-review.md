@@ -18,7 +18,7 @@ permissions:
   pull-requests: read
 
 imports:
-  - shared/compiled/pr-review-knowledge.lock.md
+  - shared/compiled/style-and-modernization.lock.md
 
 tools:
   github:

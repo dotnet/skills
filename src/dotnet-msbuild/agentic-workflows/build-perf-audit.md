@@ -9,7 +9,7 @@ permissions:
 
 imports:
   - shared/binlog-mcp.md
-  - shared/compiled/perf-audit-knowledge.lock.md
+  - shared/compiled/performance.lock.md
 
 tools:
   github:

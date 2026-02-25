@@ -1,4 +1,4 @@
-<!-- AUTO-GENERATED — DO NOT EDIT. Regenerate with: node src/dotnet-msbuild/build.js -->
+<!-- AUTO-GENERATED — DO NOT EDIT -->
 
 # Build Performance Baseline & Optimization
 
