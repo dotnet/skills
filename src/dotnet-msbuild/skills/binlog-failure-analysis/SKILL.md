@@ -14,6 +14,8 @@ You have binlog MCP tool calls available — call them directly like any other t
 3. Call `list_projects` — shows all projects and their build status
 4. Call `get_file_from_binlog` to retrieve `.csproj` files for projects that had errors — binlogs embed all source files
 5. Call `get_evaluation_items_by_name` with `PackageReference` or `ProjectReference` to check dependencies
+6. If needed, call `search_binlog` with the error code (e.g., `"error CS0246"`) for additional context
+7. To detect cascading failures: call `search_binlog` with `under($project ProjectName) $target CoreCompile` — projects that never reached CoreCompile failed due to a dependency, not their own code
 
 **Write your diagnosis as soon as you have enough information.** Do not over-investigate.
 
