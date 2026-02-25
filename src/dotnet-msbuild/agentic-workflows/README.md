@@ -1,14 +1,14 @@
 # MSBuild Agentic Workflow Templates
 
-These are [GitHub Agentic Workflow](https://github.com/github/gh-aw) templates for MSBuild and .NET build automation. All workflows are triggered by posting a comment on an issue or pull request.
+These are [GitHub Agentic Workflow](https://github.com/github/gh-aw) templates for MSBuild and .NET build automation.
 
 ## Available Workflows
 
-| Command | Workflow | Description |
-|---------|----------|-------------|
-| `/analyze-build-failure` | [build-failure-analysis](build-failure-analysis.md) | Analyzes CI build failures via binlog and posts diagnostic comments with root cause and suggested fixes |
-| `/audit-build-perf` | [build-perf-audit](build-perf-audit.md) | Runs a build, analyzes performance bottlenecks, and creates an issue with findings and optimization recommendations |
-| `/review-msbuild` | [msbuild-pr-review](msbuild-pr-review.md) | Reviews MSBuild project file changes for anti-patterns, correctness issues, and modernization opportunities |
+| Workflow | Description | Trigger |
+|----------|-------------|---------|
+| [build-failure-analysis](build-failure-analysis.md) | Analyzes CI build failures via binlog and posts diagnostic comments with root cause and suggested fixes | `/analyze-build-failure` slash command, `workflow_dispatch` |
+| [build-perf-audit](build-perf-audit.md) | Runs a build, analyzes performance bottlenecks, and creates an issue with findings and optimization recommendations | `schedule: weekly`, `workflow_dispatch` |
+| [msbuild-pr-review](msbuild-pr-review.md) | Reviews MSBuild project file changes for anti-patterns, correctness issues, and modernization opportunities | `/review-msbuild` slash command |
 
 ## Setup
 
@@ -17,8 +17,8 @@ These are [GitHub Agentic Workflow](https://github.com/github/gh-aw) templates f
 3. Copy the `shared/` directory as well (workflows import from it)
 4. Compile: `gh aw compile`
 5. Commit both the `.md` and generated `.lock.yml` files
-6. Post a trigger command as a comment on any issue or PR to invoke the workflow
+6. Slash-command workflows are invoked by posting the command as a comment on an issue or PR; scheduled workflows run automatically
 
 ## Customization
 
-- Adjust `safe-outputs` limits as needed
+- Adjust `safe-outputs` limits and triggers as needed
