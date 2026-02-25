@@ -1349,6 +1349,18 @@ Full file examples for a typical multi-level repo layout.
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
   </ItemGroup>
 
-</Project
+</Project>
+```
+
+**After — centralized with Directory.Build files:**
+
+```xml
+<!-- Directory.Build.props -->
+<Project>
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsin
 
 [truncated]
