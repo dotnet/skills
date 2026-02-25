@@ -181,7 +181,28 @@ Use this catalog when scanning project files for improvements.
 
 **Why it's bad**: Without `PrivateAssets="all"`, analyzer and build-tool packages flow as transitive dependencies to consumers of your library. Consumers get unwanted analyzers or build-time tools they didn't ask for.
 
-See [`references/private-assets.md`](references/private-assets.md) for BAD/GOOD examples and the full list of packages that need this.
+See # PrivateAssets for Analyzers and Build Tools
+
+Analyzer and build-tool packages should always use `PrivateAssets="all"` to prevent them from flowing as transitive dependencies to consumers of your library.
+
+```xml
+<!-- BAD: Flows to consumers -->
+<PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
+<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
+<PackageReference Include="MinVer" Version="5.0.0" />
+
+<!-- GOOD: Stays private -->
+<PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" PrivateAssets="all" />
+<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="all" />
+<PackageReference Include="MinVer" Version="5.0.0" PrivateAssets="all" />
+```
+
+**Packages that almost always need `PrivateAssets="all"`:**
+- Roslyn analyzers (`*.Analyzers`, `*.CodeFixes`)
+- Source generators
+- SourceLink packages (`Microsoft.SourceLink.*`)
+- Versioning tools (`MinVer`, `Nerdbank.GitVersioning`)
+- Build-only tools (`Microsoft.DotNet.ApiCompat`, etc.) for BAD/GOOD examples and the full list of packages that need this.
 
 ---
 
@@ -276,7 +297,36 @@ See `directory-build-organization` skill for full guidance on structuring `Direc
 
 **Why it's bad**: The target runs on every build, even when nothing changed. This defeats incremental build and slows down no-op builds.
 
-See [`references/incremental-build-inputs-outputs.md`](references/incremental-build-inputs-outputs.md) for BAD/GOOD examples and the full pattern including FileWrites registration.
+See # Incremental Build: Inputs and Outputs on Custom Targets
+
+Custom targets **must** specify `Inputs` and `Outputs` attributes so MSBuild can skip them when up-to-date. Without both attributes, the target runs on every build.
+
+```xml
+<!-- BAD: Runs every time -->
+<Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile">
+  <WriteLinesToFile File="$(IntermediateOutputPath)BuildInfo.g.cs"
+                    Lines="// Generated at $(Version)" Overwrite="true" />
+</Target>
+
+<!-- GOOD: Skipped when up-to-date -->
+<Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile"
+        Inputs="$(MSBuildProjectFile)" Outputs="$(IntermediateOutputPath)BuildInfo.g.cs">
+  <WriteLinesToFile File="$(IntermediateOutputPath)BuildInfo.g.cs"
+                    Lines="// Generated at $(Version)" Overwrite="true" />
+  <ItemGroup>
+    <FileWrites Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
+    <Compile Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
+  </ItemGroup>
+</Target>
+```
+
+**Key points:**
+- **`Inputs`** should include `$(MSBuildProjectFile)` plus any source files that drive generation
+- **`Outputs`** should use `$(IntermediateOutputPath)` so generated files go in `obj/` and are managed by MSBuild
+- **`FileWrites`** registration ensures `dotnet clean` removes the generated file
+- **`Compile` inclusion** adds the generated file to compilation without requiring it at evaluation time
+
+See the `incremental-build` skill for deep guidance on diagnosing broken incremental builds, FileWrites tracking, and Visual Studio's Fast Up-to-Date Check. for BAD/GOOD examples and the full pattern including FileWrites registration.
 
 See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, and up-to-date checks.
 
@@ -583,6 +633,8 @@ When reviewing an MSBuild file, scan for these in order:
 | AP-20 | Platform-specific Exec without guard | 🔵 Cross-platform |
 
 ---
+
+## msbuild-modernization
 
 # MSBuild Modernization: Legacy to SDK-style Migration
 
@@ -1008,75 +1060,6 @@ After migration, consider enabling modern C# features:
 
 Centralizes NuGet version management across a multi-project solution. See [https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management) for details.
 
-**Step 1:** Create `Directory.Packages.props` at the repository root with `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>` and `<PackageVersion>` items for all packages.
+**Step 1:** Create `Directory.Pa
 
-**Step 2:** Remove `Version` from each project's `PackageReference`:
-
-```xml
-<!-- BEFORE -->
-<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-
-<!-- AFTER -->
-<PackageReference Include="Newtonsoft.Json" />
-```
-
-## Directory.Build Consolidation
-
-Identify properties repeated across multiple `.csproj` files and move them to shared files.
-
-**`Directory.Build.props`** (for properties — placed at repo or src root):
-
-```xml
-<Project>
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Company>Contoso</Company>
-    <Copyright>Copyright © Contoso 2024</Copyright>
-  </PropertyGroup>
-</Project>
-```
-
-**`Directory.Build.targets`** (for targets/tasks — placed at repo or src root):
-
-```xml
-<Project>
-  <Target Name="PrintBuildInfo" AfterTargets="Build">
-    <Message Importance="High" Text="Built $(AssemblyName) → $(TargetPath)" />
-  </Target>
-</Project>
-```
-
-**Keep in individual `.csproj` files** only what is project-specific:
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <AssemblyName>MyApp</AssemblyName>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Serilog" />
-    <ProjectReference Include="..\MyLibrary\MyLibrary.csproj" />
-  </ItemGroup>
-</Project>
-```
-
-## Tools and Automation
-
-| Tool | Usage |
-|------|-------|
-| `dotnet try-convert` | Automated legacy-to-SDK conversion. Install: `dotnet tool install -g try-convert` |
-| .NET Upgrade Assistant | Full migration including API changes. Install: `dotnet tool install -g upgrade-assistant` |
-| Visual Studio | Right-click `packages.config` → *Migrate packages.config to PackageReference* |
-| Manual migration | Often cleanest for simple projects — follow the checklist above |
-
-**Recommended approach:**
-
-1. Run `try-convert` for a first pass
-2. Review and clean up the output manually
-3. Build and fix any issues
-4. Enable modern features (nullable, implicit usings)
-5. Consolidate shared settings into `Directory.Build.props`
+[truncated]

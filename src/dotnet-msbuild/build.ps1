@@ -89,7 +89,8 @@ $KnowledgeTargets = @{
 }
 
 function Read-Skill([string]$SkillName) {
-    $skillPath = Join-Path $SkillsDir $SkillName 'SKILL.md'
+    $skillDir = Join-Path $SkillsDir $SkillName
+    $skillPath = Join-Path $skillDir 'SKILL.md'
     if (-not (Test-Path $skillPath)) {
         Write-Host "  ⚠ Skill not found: $SkillName ($skillPath)" -ForegroundColor Yellow
         return $null
@@ -101,6 +102,17 @@ function Read-Skill([string]$SkillName) {
     if ($content -match '(?s)^---\r?\n.*?\r?\n---\r?\n(.*)$') {
         $content = $Matches[1]
     }
+
+    # Inline linked references: replace [text](references/file.md) with file content
+    $content = [regex]::Replace($content, '\[([^\]]*)\]\((references/[^\)]+\.md)\)', {
+        param($m)
+        $refPath = Join-Path $skillDir $m.Groups[2].Value
+        if (Test-Path $refPath) {
+            $refContent = (Get-Content $refPath -Raw).Trim()
+            return $refContent
+        }
+        return $m.Value
+    })
 
     return $content.Trim()
 }

@@ -181,7 +181,28 @@ Use this catalog when scanning project files for improvements.
 
 **Why it's bad**: Without `PrivateAssets="all"`, analyzer and build-tool packages flow as transitive dependencies to consumers of your library. Consumers get unwanted analyzers or build-time tools they didn't ask for.
 
-See [`references/private-assets.md`](references/private-assets.md) for BAD/GOOD examples and the full list of packages that need this.
+See # PrivateAssets for Analyzers and Build Tools
+
+Analyzer and build-tool packages should always use `PrivateAssets="all"` to prevent them from flowing as transitive dependencies to consumers of your library.
+
+```xml
+<!-- BAD: Flows to consumers -->
+<PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
+<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
+<PackageReference Include="MinVer" Version="5.0.0" />
+
+<!-- GOOD: Stays private -->
+<PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" PrivateAssets="all" />
+<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="all" />
+<PackageReference Include="MinVer" Version="5.0.0" PrivateAssets="all" />
+```
+
+**Packages that almost always need `PrivateAssets="all"`:**
+- Roslyn analyzers (`*.Analyzers`, `*.CodeFixes`)
+- Source generators
+- SourceLink packages (`Microsoft.SourceLink.*`)
+- Versioning tools (`MinVer`, `Nerdbank.GitVersioning`)
+- Build-only tools (`Microsoft.DotNet.ApiCompat`, etc.) for BAD/GOOD examples and the full list of packages that need this.
 
 ---
 
@@ -276,7 +297,36 @@ See `directory-build-organization` skill for full guidance on structuring `Direc
 
 **Why it's bad**: The target runs on every build, even when nothing changed. This defeats incremental build and slows down no-op builds.
 
-See [`references/incremental-build-inputs-outputs.md`](references/incremental-build-inputs-outputs.md) for BAD/GOOD examples and the full pattern including FileWrites registration.
+See # Incremental Build: Inputs and Outputs on Custom Targets
+
+Custom targets **must** specify `Inputs` and `Outputs` attributes so MSBuild can skip them when up-to-date. Without both attributes, the target runs on every build.
+
+```xml
+<!-- BAD: Runs every time -->
+<Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile">
+  <WriteLinesToFile File="$(IntermediateOutputPath)BuildInfo.g.cs"
+                    Lines="// Generated at $(Version)" Overwrite="true" />
+</Target>
+
+<!-- GOOD: Skipped when up-to-date -->
+<Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile"
+        Inputs="$(MSBuildProjectFile)" Outputs="$(IntermediateOutputPath)BuildInfo.g.cs">
+  <WriteLinesToFile File="$(IntermediateOutputPath)BuildInfo.g.cs"
+                    Lines="// Generated at $(Version)" Overwrite="true" />
+  <ItemGroup>
+    <FileWrites Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
+    <Compile Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
+  </ItemGroup>
+</Target>
+```
+
+**Key points:**
+- **`Inputs`** should include `$(MSBuildProjectFile)` plus any source files that drive generation
+- **`Outputs`** should use `$(IntermediateOutputPath)` so generated files go in `obj/` and are managed by MSBuild
+- **`FileWrites`** registration ensures `dotnet clean` removes the generated file
+- **`Compile` inclusion** adds the generated file to compilation without requiring it at evaluation time
+
+See the `incremental-build` skill for deep guidance on diagnosing broken incremental builds, FileWrites tracking, and Visual Studio's Fast Up-to-Date Check. for BAD/GOOD examples and the full pattern including FileWrites registration.
 
 See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, and up-to-date checks.
 
@@ -1083,6 +1133,8 @@ Identify properties repeated across multiple `.csproj` files and move them to sh
 
 ---
 
+## directory-build-organization
+
 # Organizing Build Infrastructure with Directory.Build Files
 
 ## Directory.Build.props vs Directory.Build.targets
@@ -1197,49 +1249,106 @@ Contains default MSBuild CLI arguments applied to all builds under the directory
 
 ## Multi-level Directory.Build Files
 
-MSBuild only auto-imports the **first** `Directory.Build.props` (or `.targets`) it finds walking up from the project directory. To chain multiple levels, explicitly import the parent at the **top** of the inner file. See [multi-level-examples](references/multi-level-examples.md) for full file examples.
+MSBuild only auto-imports the **first** `Directory.Build.props` (or `.targets`) it finds walking up from the project directory. To chain multiple levels, explicitly import the parent at the **top** of the inner file. See # Multi-level Directory.Build Examples
+
+Full file examples for a typical multi-level repo layout.
+
+## Repo-level `Directory.Build.props`
 
 ```xml
 <Project>
-  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))"
-         Condition="Exists('$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))')" />
 
-  <!-- Inner-level overrides go here -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
 </Project>
 ```
 
-**Example layout:**
+## `src/Directory.Build.props`
 
-```
-repo/
-  Directory.Build.props          ← repo-wide (lang version, company info, analyzers)
-  Directory.Build.targets        ← repo-wide targets
-  Directory.Packages.props       ← central package versions
-  src/
-    Directory.Build.props        ← src-specific (imports repo-level, sets IsPackable=true)
-  test/
-    Directory.Build.props        ← test-specific (imports repo-level, sets IsPackable=false, adds test packages)
-```
+```xml
+<Project>
 
-## Artifact Output Layout (.NET 8+)
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))"
+         Condition="Exists('$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))')" />
 
-Set `<ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>` in `Directory.Build.props` to automatically produce project-name-separated `bin/`, `obj/`, and `publish/` directories under a single `artifacts/` folder, avoiding bin/obj clashes by default. See [common-patterns](references/common-patterns.md) for the directory layout and additional patterns (conditional settings by project type, post-pack validation).
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
 
-## Troubleshooting
-
-| Problem | Cause | Fix |
-|---|---|---|
-| `Directory.Build.props` isn't picked up | File name casing wrong (exact match required on Linux/macOS) | Verify exact casing: `Directory.Build.props` (capital D, B) |
-| Properties from `.props` are ignored by projects | Project sets the same property after the import | Move the property to `Directory.Build.targets` to set it after the project |
-| Multi-level import doesn't work | Missing `GetPathOfFileAbove` import in inner file | Add the `<Import>` element at the top of the inner file (see Multi-level section) |
-| Properties using SDK values are empty in `.props` | SDK properties aren't defined yet during `.props` evaluation | Move to `.targets` which is imported after the SDK |
-| `Directory.Packages.props` not found | File not at repo root or not named exactly | Must be named `Directory.Packages.props` and at or above the project directory |
-| Property condition on `$(TargetFramework)` doesn't match in `.props` | `TargetFramework` isn't set yet for single-targeting projects during `.props` evaluation | Move property to `.targets`, or use ItemGroup/Target conditions instead (which evaluate late) |
-
-**Diagnosis:** Use the preprocessed project output to see all imports and final property values:
-
-```bash
-dotnet msbuild -pp:output.xml MyProject.csproj
+</Project>
 ```
 
-This expands all imports inline so you can see exactly where each property is set and what the final evaluated value is.
+## `test/Directory.Build.props`
+
+```xml
+<Project>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))"
+         Condition="Exists('$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))')" />
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NSubstitute" />
+  </ItemGroup>
+
+</Project>
+```
+
+## Before/After: Centralizing Duplicated Settings
+
+**Before — duplicated settings in every .csproj:**
+
+```xml
+<!-- src/LibA/LibA.csproj -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Company>Contoso</Company>
+    <Authors>Contoso Engineering</Authors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+</Project>
+
+<!-- src/LibB/LibB.csproj — same boilerplate repeated -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Company>Contoso</Company>
+    <Authors>Contoso Engineering</Authors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+  </ItemGroup>
+
+</Project
+
+[truncated]
