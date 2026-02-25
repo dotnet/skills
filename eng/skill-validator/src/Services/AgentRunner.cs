@@ -237,7 +237,8 @@ public static class AgentRunner
         catch (Exception error)
         {
             var msg = error.ToString();
-            if (msg.Contains("timed out", StringComparison.OrdinalIgnoreCase))
+            if (error is TimeoutException || error.InnerException is TimeoutException
+                || msg.Contains("timed out", StringComparison.OrdinalIgnoreCase))
             {
                 // Timeout: record a dedicated event (the timer fired, no session.error exists)
                 events.Add(new AgentEvent(
