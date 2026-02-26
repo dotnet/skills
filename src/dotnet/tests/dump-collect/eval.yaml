@@ -138,6 +138,22 @@ scenarios:
       - "Provides advisory guidance without attempting to modify actual cluster resources"
     timeout: 60
 
+  - name: "Detect runtime and configure crash dumps for unknown .NET app on Linux"
+    prompt: |
+      I have a .NET 10 app running on Linux (PID 12345) and I need to set up
+      automatic crash dump collection. I'm not sure if it's CoreCLR or NativeAOT.
+      Help me figure out which runtime it's using and configure dumps accordingly.
+    assertions:
+      - type: "output_matches"
+        pattern: "CorExeMain|Rhp|strings|readlink"
+    rubric:
+      - "Attempts to detect the runtime before configuring dumps"
+      - "Uses binary inspection (strings, nm) or process inspection to distinguish CoreCLR from NativeAOT"
+      - "Provides appropriate configuration based on the detected runtime"
+      - "Does not assume one runtime or the other without checking"
+      - "Does not attempt to analyze dumps"
+    timeout: 60
+
   - name: "Decline dump analysis request"
     prompt: |
       I already have a .dmp crash dump file from my .NET app. Can you help

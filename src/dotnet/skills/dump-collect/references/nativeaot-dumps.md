@@ -2,64 +2,15 @@
 
 | Need | Tool | Platforms |
 |------|------|-----------|
-| Automatic dump on crash (preferred) | `createdump` + `DOTNET_DbgEnableMiniDump` env vars | All |
-| Automatic dump on crash (fallback) | OS-level core dumps (`ulimit`, `core_pattern`, WER) | All |
+| Automatic dump on crash (preferred) | OS-level core dumps (`ulimit`, `core_pattern`, WER) | All |
+| Automatic dump on crash (alternative) | `createdump` + `DOTNET_DbgEnableMiniDump` env vars | All |
 | On-demand from running process | `gcore` (Linux), `lldb` (macOS), `procdump` (Windows) | Per-platform |
 
-NativeAOT applications are native executables, but they still support the `DOTNET_DbgEnableMiniDump` environment variables — as long as `createdump` is available.
+NativeAOT applications are native executables. Since NativeAOT only supports full dumps, OS-level core dump mechanisms are the simplest approach — no extra tooling to copy or configure.
 
-## Using createdump with NativeAOT (Preferred — All Platforms)
+> **Note:** NativeAOT only supports full dumps. `DOTNET_DbgMiniDumpType` must be set to `4` (Full).
 
-If `createdump` is placed **next to the application binary**, the same environment variables used for CoreCLR work for NativeAOT:
-
-> **Note:** NativeAOT only supports full dumps. `DOTNET_DbgMiniDumpType` must be set to `4` (Full). The same applies to CoreCLR single-file apps.
-
-```bash
-export DOTNET_DbgEnableMiniDump=1
-export DOTNET_DbgMiniDumpType=4
-export DOTNET_DbgMiniDumpName="/tmp/dumps/%e_%p_%t.dmp"
-export DOTNET_EnableCrashReport=1
-```
-
-> **Note:** The `%e`, `%p`, `%h`, `%t` format specifiers in `DOTNET_DbgMiniDumpName` require .NET 7+. On .NET 6, use a literal path instead.
-
-**Setup:** Copy `createdump` from the .NET runtime into the same directory as your published NativeAOT binary:
-
-```bash
-# Linux
-cp /usr/share/dotnet/shared/Microsoft.NETCore.App/<version>/createdump ./publish/
-
-# macOS
-cp /usr/local/share/dotnet/shared/Microsoft.NETCore.App/<version>/createdump ./publish/
-
-# Windows (PowerShell)
-Copy-Item "C:\Program Files\dotnet\shared\Microsoft.NETCore.App\<version>\createdump.exe" .\publish\
-```
-
-**If the .NET runtime is not installed** (fully self-contained deployment), extract `createdump` from the runtime Docker image or NuGet package:
-
-```bash
-# Extract from Docker runtime image
-docker run --rm -v "$(pwd)/publish:/out" mcr.microsoft.com/dotnet/runtime:10.0 \
-  sh -c 'cp /usr/share/dotnet/shared/Microsoft.NETCore.App/*/createdump /out/'
-```
-
-### .NET 11+: DOTNET_DbgCreateDumpToolPath
-
-Starting with .NET 11, you can point to `createdump` at any location instead of requiring it next to the binary:
-
-```bash
-export DOTNET_DbgCreateDumpToolPath=/opt/tools/createdump
-export DOTNET_DbgEnableMiniDump=1
-export DOTNET_DbgMiniDumpType=4
-export DOTNET_DbgMiniDumpName="/tmp/dumps/%e_%p_%t.dmp"
-```
-
-This is especially useful in containers where you can install `createdump` once in a shared location.
-
-## OS-Level Fallback (When createdump Is Not Available)
-
-If `createdump` is not available, fall back to OS-level core dump mechanisms.
+## OS-Level Core Dumps (Preferred)
 
 ### Linux
 
@@ -230,24 +181,58 @@ Expand-Archive "$env:TEMP\Procdump.zip" -DestinationPath "$env:TEMP\Procdump" -F
 2. Right-click the process → "Create dump file"
 3. Note the output path shown in the dialog
 
-## Verification
+## Alternative: Using createdump with DOTNET_DbgEnableMiniDump
 
-### When using createdump + DOTNET_DbgEnableMiniDump
+NativeAOT apps also support the `DOTNET_DbgEnableMiniDump` environment variables if `createdump` is available. This gives you the same env-var-based workflow as CoreCLR, but requires copying `createdump` to the right location.
+
+If `createdump` is placed **next to the application binary**:
 
 ```bash
-# Verify env vars are set
-env | grep DOTNET_Dbg
-env | grep DOTNET_EnableCrashReport
-
-# Verify createdump is next to the binary (or at DOTNET_DbgCreateDumpToolPath)
-ls -la ./createdump        # co-located
-# or: ls -la $DOTNET_DbgCreateDumpToolPath   # .NET 11+
-
-# Verify dump directory exists
-ls -la /tmp/dumps/
+export DOTNET_DbgEnableMiniDump=1
+export DOTNET_DbgMiniDumpType=4
+export DOTNET_DbgMiniDumpName="/tmp/dumps/%e_%p_%t.dmp"
+export DOTNET_EnableCrashReport=1
 ```
 
-### When using OS-level fallback
+> **Note:** The `%e`, `%p`, `%h`, `%t` format specifiers in `DOTNET_DbgMiniDumpName` require .NET 7+. On .NET 6, use a literal path instead.
+
+**Setup:** Copy `createdump` from the .NET runtime into the same directory as your published NativeAOT binary:
+
+```bash
+# Linux
+cp /usr/share/dotnet/shared/Microsoft.NETCore.App/<version>/createdump ./publish/
+
+# macOS
+cp /usr/local/share/dotnet/shared/Microsoft.NETCore.App/<version>/createdump ./publish/
+
+# Windows (PowerShell)
+Copy-Item "C:\Program Files\dotnet\shared\Microsoft.NETCore.App\<version>\createdump.exe" .\publish\
+```
+
+**If the .NET runtime is not installed** (fully self-contained deployment), extract `createdump` from the runtime Docker image or NuGet package:
+
+```bash
+# Extract from Docker runtime image
+docker run --rm -v "$(pwd)/publish:/out" mcr.microsoft.com/dotnet/runtime:10.0 \
+  sh -c 'cp /usr/share/dotnet/shared/Microsoft.NETCore.App/*/createdump /out/'
+```
+
+### .NET 11+: DOTNET_DbgCreateDumpToolPath
+
+Starting with .NET 11, you can point to `createdump` at any location instead of requiring it next to the binary:
+
+```bash
+export DOTNET_DbgCreateDumpToolPath=/opt/tools/createdump
+export DOTNET_DbgEnableMiniDump=1
+export DOTNET_DbgMiniDumpType=4
+export DOTNET_DbgMiniDumpName="/tmp/dumps/%e_%p_%t.dmp"
+```
+
+This is especially useful in containers where you can install `createdump` once in a shared location.
+
+## Verification
+
+### When using OS-level core dumps
 
 ```bash
 # Linux — check core_pattern and ulimit
@@ -266,4 +251,19 @@ coredumpctl list --no-pager | tail -5
 # Windows — check WER registry
 Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps" -ErrorAction SilentlyContinue
 Get-ChildItem "C:\dumps" -ErrorAction SilentlyContinue
+```
+
+### When using createdump + DOTNET_DbgEnableMiniDump
+
+```bash
+# Verify env vars are set
+env | grep DOTNET_Dbg
+env | grep DOTNET_EnableCrashReport
+
+# Verify createdump is next to the binary (or at DOTNET_DbgCreateDumpToolPath)
+ls -la ./createdump        # co-located
+# or: ls -la $DOTNET_DbgCreateDumpToolPath   # .NET 11+
+
+# Verify dump directory exists
+ls -la /tmp/dumps/
 ```

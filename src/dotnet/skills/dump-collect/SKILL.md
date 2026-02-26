@@ -50,14 +50,16 @@ dumpbin /symbols <binary.exe> | Select-String "Rhp" -Quiet
 
 **From a running process (Linux):**
 ```bash
-# CoreCLR — loads libcoreclr
-grep -q "libcoreclr" /proc/<pid>/maps && echo "CoreCLR" || echo "Likely NativeAOT"
+# Resolve the binary, then use the same file checks
+BINARY=$(readlink /proc/<pid>/exe)
+strings "$BINARY" | grep -q "CorExeMain" && echo "CoreCLR" || echo "NativeAOT"
 ```
 
 **From a running process (macOS):**
 ```bash
-# CoreCLR — loads libcoreclr.dylib
-vmmap <pid> 2>/dev/null | grep -q "libcoreclr" && echo "CoreCLR" || echo "Likely NativeAOT"
+# Resolve the binary path from the running process
+BINARY=$(ps -o comm= -p <pid>)
+strings "$BINARY" | grep -q "CorExeMain" && echo "CoreCLR" || echo "NativeAOT"
 ```
 
 **From a running process (Windows PowerShell):**
@@ -65,6 +67,8 @@ vmmap <pid> 2>/dev/null | grep -q "libcoreclr" && echo "CoreCLR" || echo "Likely
 # CoreCLR — loads coreclr.dll
 (Get-Process -Id <pid>).Modules.ModuleName -contains "coreclr.dll"
 ```
+
+> **If neither CoreCLR nor NativeAOT is detected, stop.** This skill only applies to .NET applications — do not proceed.
 
 ## Step 2 — Load the Appropriate Reference
 
