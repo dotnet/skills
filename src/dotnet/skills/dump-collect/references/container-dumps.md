@@ -2,10 +2,11 @@
 
 | Need | Tool | Runtime | Requires |
 |------|------|---------|----------|
-| Automatic dump on crash | `DOTNET_DbgEnableMiniDump` env vars + `createdump` | Both | `SYS_PTRACE`, volume mount |
+| Automatic dump on crash (CoreCLR) | `DOTNET_DbgEnableMiniDump` env vars + `createdump` | CoreCLR | `SYS_PTRACE`, volume mount |
+| Automatic dump on crash (NativeAOT, preferred) | `--ulimit core=-1` + `core_pattern` | NativeAOT | `SYS_PTRACE`, volume mount |
+| Automatic dump on crash (NativeAOT, alternative) | `createdump` + `DOTNET_DbgEnableMiniDump` env vars | NativeAOT | `SYS_PTRACE`, volume mount |
 | On-demand from running container | `dotnet-dump collect` (CoreCLR), `gcore` (NativeAOT) | Per-runtime | `SYS_PTRACE` |
 | Copy dump out of container | `docker cp` / `kubectl cp` | Both | — |
-| Automatic via OS core dumps (fallback) | `--ulimit core=-1` + `core_pattern` | NativeAOT only | `SYS_PTRACE`, volume mount |
 
 Collecting crash dumps from .NET applications running in Docker or Kubernetes containers requires additional configuration for capabilities, storage, and environment variables.
 
@@ -77,7 +78,30 @@ ENTRYPOINT ["dotnet", "myapp.dll"]
 
 ### NativeAOT in Docker
 
-**Preferred: Use createdump with DOTNET_DbgEnableMiniDump** (same env vars as CoreCLR). Copy `createdump` next to the app binary in the image:
+Since NativeAOT only supports full dumps, OS-level core dump mechanisms are the simplest approach — no extra tooling to copy or configure.
+
+**Preferred: OS-level core dumps:**
+
+```bash
+docker run --cap-add=SYS_PTRACE \
+  --ulimit core=-1 \
+  -v /tmp/dumps:/dumps \
+  myapp
+```
+
+**Note:** You may also need to set the core pattern inside the container. If the host's `core_pattern` pipes to `systemd-coredump`, container core dumps may not be written where expected. Override at runtime:
+
+```bash
+docker run --cap-add=SYS_PTRACE \
+  --ulimit core=-1 \
+  --privileged \
+  -v /tmp/dumps:/dumps \
+  myapp sh -c 'echo "/dumps/core.%e.%p" > /proc/sys/kernel/core_pattern && exec ./myapp'
+```
+
+⚠️ `--privileged` is needed to write to `/proc/sys/kernel/core_pattern`. For production, prefer configuring the core pattern on the host instead.
+
+**Alternative: Use createdump with DOTNET_DbgEnableMiniDump** (same env vars as CoreCLR). Copy `createdump` next to the app binary in the image:
 
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/runtime-deps:10.0
@@ -112,27 +136,6 @@ docker run --cap-add=SYS_PTRACE \
   -v /tmp/dumps:/dumps \
   myapp
 ```
-
-**Fallback: OS-level core dumps** (when createdump is not available):
-
-```bash
-docker run --cap-add=SYS_PTRACE \
-  --ulimit core=-1 \
-  -v /tmp/dumps:/dumps \
-  myapp
-```
-
-**Note:** You may also need to set the core pattern inside the container. If the host's `core_pattern` pipes to `systemd-coredump`, container core dumps may not be written where expected. Override at runtime:
-
-```bash
-docker run --cap-add=SYS_PTRACE \
-  --ulimit core=-1 \
-  --privileged \
-  -v /tmp/dumps:/dumps \
-  myapp sh -c 'echo "/dumps/core.%e.%p" > /proc/sys/kernel/core_pattern && exec ./myapp'
-```
-
-⚠️ `--privileged` is needed to write to `/proc/sys/kernel/core_pattern`. For production, prefer configuring the core pattern on the host instead.
 
 ### On-Demand Collection in Docker
 
@@ -187,7 +190,32 @@ spec:
 
 ### Pod Spec for NativeAOT
 
-**Preferred: Use createdump** (bundled in the image next to the app, or via `DOTNET_DbgCreateDumpToolPath` on .NET 11+):
+**Preferred: OS-level core dumps** (simplest — no extra tooling needed):
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-nativeaot
+spec:
+  containers:
+    - name: myapp
+      image: myapp:latest
+      securityContext:
+        capabilities:
+          add: ["SYS_PTRACE"]
+      command: ["/bin/sh", "-c"]
+      args: ["ulimit -c unlimited && exec ./myapp"]
+      volumeMounts:
+        - name: dumps
+          mountPath: /dumps
+  volumes:
+    - name: dumps
+      emptyDir:
+        sizeLimit: 10Gi
+```
+
+**Alternative: Use createdump** (bundled in the image next to the app, or via `DOTNET_DbgCreateDumpToolPath` on .NET 11+):
 
 ```yaml
 apiVersion: v1
@@ -218,31 +246,6 @@ spec:
     - name: dumps
       emptyDir:
         sizeLimit: 5Gi
-```
-
-**Fallback (no createdump):** Use OS-level core dumps:
-
-```yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: myapp-nativeaot
-spec:
-  containers:
-    - name: myapp
-      image: myapp:latest
-      securityContext:
-        capabilities:
-          add: ["SYS_PTRACE"]
-      command: ["/bin/sh", "-c"]
-      args: ["ulimit -c unlimited && exec ./myapp"]
-      volumeMounts:
-        - name: dumps
-          mountPath: /dumps
-  volumes:
-    - name: dumps
-      emptyDir:
-        sizeLimit: 10Gi
 ```
 
 ### Using a Persistent Volume for Dumps
