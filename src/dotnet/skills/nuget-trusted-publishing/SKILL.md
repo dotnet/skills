@@ -5,7 +5,7 @@ description: >
   with short-lived tokens. USE FOR: trusted publishing, NuGet OIDC, keyless NuGet publish,
   migrate from NuGet API key, NuGet/login, secure NuGet publishing.
   DO NOT USE FOR: publishing to private feeds or Azure Artifacts (OIDC is nuget.org only).
-  INVOKES: powershell, edit, create, ask_user for guided repo setup.
+  INVOKES: bash, edit, create, ask_user for guided repo setup.
 ---
 
 # NuGet Trusted Publishing Setup
@@ -54,7 +54,7 @@ Inspect the repo and report findings before making any changes.
    | Type | Required |
    |------|----------|
    | All | `PackageId`, `Version` (in .csproj or Directory.Build.props) |
-   | Dotnet tool | `PackAsTool`, `ToolCommandName` |
+   | Dotnet tool | `PackAsTool` (required); `ToolCommandName` (optional but recommended — defaults to assembly name) |
    | MCP server | `PackageType=McpServer`, `.mcp/server.json` included in package |
    | Template | `PackageType=Template`, `.template.config/template.json` under content dir |
 
