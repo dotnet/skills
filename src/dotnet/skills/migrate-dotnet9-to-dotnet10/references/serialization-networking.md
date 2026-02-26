@@ -1,0 +1,48 @@
+# Serialization and Networking Breaking Changes (.NET 10)
+
+These changes affect projects using System.Text.Json, XmlSerializer, HttpClient, and networking APIs.
+
+## Serialization
+
+### System.Text.Json checks for property name conflicts
+
+**Impact: Medium.** Polymorphic types with properties that conflict with metadata names (`$type`, `$id`, `$ref`, or custom `TypeDiscriminatorPropertyName`) now throw `InvalidOperationException` during serialization instead of producing invalid JSON.
+
+```csharp
+// This now throws InvalidOperationException at serialization time:
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "Type")]
+[JsonDerivedType(typeof(Dog), "dog")]
+public abstract class Animal
+{
+    public abstract string Type { get; }  // Conflicts with "Type" discriminator
+}
+
+// Fix: Rename the property, or add [JsonIgnore]:
+public abstract class Animal
+{
+    [JsonIgnore]
+    public abstract string Type { get; }
+}
+```
+
+### XmlSerializer no longer ignores properties marked with ObsoleteAttribute
+
+Properties marked `[Obsolete]` are now included in XML serialization. Previously they were silently skipped. If you have obsolete properties that should not be serialized, mark them with `[XmlIgnore]`.
+
+## Networking
+
+### HTTP/3 support disabled by default with PublishTrimmed
+
+When publishing with trimming enabled, HTTP/3 support is disabled by default. Add `<Http3Support>true</Http3Support>` to your `.csproj` if needed.
+
+### MailAddress enforces validation for consecutive dots
+
+`MailAddress` now rejects email addresses with consecutive dots (e.g., `user..name@example.com`). Previously these were accepted.
+
+### Streaming HTTP responses enabled by default in browser HTTP clients
+
+In Blazor WebAssembly and other browser-based HTTP clients, streaming responses are now enabled by default. This may change how response content is buffered and consumed.
+
+### Uri length limits removed
+
+The `Uri` class no longer enforces length limits. Previously, very long URIs could throw exceptions. This is generally a relaxation but may affect validation logic that relied on `Uri` rejecting long strings.
