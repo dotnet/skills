@@ -66,8 +66,13 @@ strings "$BINARY" | grep -q "CorExeMain" && echo "CoreCLR" || echo "NativeAOT"
 ```powershell
 # CoreCLR — loads coreclr.dll
 (Get-Process -Id <pid>).Modules.ModuleName -contains "coreclr.dll"
+
+# .NET Framework — loads clr.dll (this skill does not apply)
+(Get-Process -Id <pid>).Modules.ModuleName -contains "clr.dll"
 ```
 
+> **If the app is .NET Framework (`clr.dll`), stop.** This skill covers modern .NET (CoreCLR and NativeAOT) only.
+>
 > **If neither CoreCLR nor NativeAOT is detected, stop.** This skill only applies to .NET applications — do not proceed.
 
 ## Step 2 — Load the Appropriate Reference
