@@ -63,16 +63,19 @@ The `Microsoft.Extensions.ApiDescription.Client` package is deprecated. Use the 
 
 ### Microsoft.OpenApi 2.x breaking API changes
 
-`Microsoft.AspNetCore.OpenApi 10.0` depends on `Microsoft.OpenApi` v2.x (from `microsoft/OpenAPI.NET` repo), which has significant breaking API changes from v1.x. Projects that customize OpenAPI document generation using transformers or directly manipulate OpenAPI models will need code changes. Note: the `microsoft/OpenAPI.NET` repo has an upgrade guide for v3 (`docs/upgrade-guide-3.md`) but none for v1→v2. These changes are also not listed on the ASP.NET Core 10 breaking changes page.
+`Microsoft.AspNetCore.OpenApi 10.0` depends on `Microsoft.OpenApi` v2.x (from [`microsoft/OpenAPI.NET`](https://github.com/microsoft/OpenAPI.NET) repo), which has significant breaking API changes from v1.x. Projects that customize OpenAPI document generation using transformers or directly manipulate OpenAPI models will need code changes. Note: no official v1→v2 migration guide exists; the repo has a [v3 upgrade guide](https://github.com/microsoft/OpenAPI.NET/blob/main/docs/upgrade-guide-3.md) only. These changes are also not listed on the ASP.NET Core 10 breaking changes page.
 
-**Namespace changes:**
+**Namespace changes — `Microsoft.OpenApi.Models` and `Microsoft.OpenApi.Any` are completely removed:**
+
+All types previously in these namespaces (`OpenApiSchema`, `OpenApiParameter`, `OpenApiResponse`, `OpenApiSecurityScheme`, etc.) have moved to the root `Microsoft.OpenApi` namespace. Replace all `using Microsoft.OpenApi.Models;` and `using Microsoft.OpenApi.Any;` with `using Microsoft.OpenApi;`.
+
 ```csharp
 // Before (.NET 9 — Microsoft.OpenApi v1.x)
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
 
 // After (.NET 10 — Microsoft.OpenApi v2.x)
-using Microsoft.OpenApi;          // models moved here
+using Microsoft.OpenApi;          // ALL model types are here now
 using System.Text.Json.Nodes;     // replaces OpenApiAny types
 ```
 

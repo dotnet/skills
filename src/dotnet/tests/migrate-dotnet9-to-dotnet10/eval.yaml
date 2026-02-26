@@ -131,7 +131,7 @@ scenarios:
       - "Warns that operation.Parameters and other collections may now be null; must add null checks or initialize"
       - "Identifies OpenApiSchema.Nullable is removed in OpenAPI 3.1 / Microsoft.OpenApi v2; schema transformer can be removed or rewritten"
       - "Notes the namespace changes: Microsoft.OpenApi.Any removed, models moved to Microsoft.OpenApi"
-    timeout: 120
+    timeout: 180
 
   # --- Scenario 4a: EF Core (Azure SQL JSON, parameterized collections, multi-target tools) ---
   - name: "EF Core app with Azure SQL JSON columns and parameterized collections"

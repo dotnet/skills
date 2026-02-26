@@ -2,13 +2,16 @@
 name: migrate-dotnet9-to-dotnet10
 description: >
   Migrate a .NET 9 project or solution to .NET 10 and resolve all breaking changes.
-  USE FOR: upgrading TargetFramework from net9.0 to net10.0, fixing build errors and
+  USE FOR: upgrading TargetFramework from net9.0 to net10.0, fixing build errors,
+  compilation errors, and new warnings after updating the .NET 10 SDK, resolving
   behavioral changes introduced in .NET 10 / C# 14 / ASP.NET Core 10 / EF Core 10,
   updating Dockerfiles for the Debian-to-Ubuntu container image change, resolving
   new obsoletion warnings (SYSLIB0058–SYSLIB0062), adapting to SDK and NuGet tooling
-  changes, and migrating from System.Linq.Async to the built-in AsyncEnumerable.
-  Resolves C# 14 compiler breaking changes (field keyword, extension keyword, span
-  overload resolution).
+  changes (NU1510, PrunePackageReference), migrating from System.Linq.Async to the
+  built-in AsyncEnumerable, fixing Microsoft.OpenApi v2 namespace and API changes,
+  and resolving cryptography API renames (MLDsa/SlhDsa SecretKey→PrivateKey,
+  Rfc2898DeriveBytes SYSLIB0060). Resolves C# 14 compiler breaking changes
+  (field keyword, extension keyword, span overload resolution).
   DO NOT USE FOR: major framework migrations (e.g., .NET Framework to .NET 10),
   upgrading from .NET 8 or earlier (address intermediate breaking changes first),
   greenfield projects that start on .NET 10, or purely cosmetic code modernization

@@ -6,14 +6,34 @@ These changes affect projects using `System.Security.Cryptography`, X.509 certif
 
 ### MLDsa and SlhDsa 'SecretKey' members renamed to 'PrivateKey'
 
-All members named `SecretKey` on `MLDsa` and `SlhDsa` types have been renamed to `PrivateKey`. Update all references:
+All members containing `SecretKey` on `MLDsa` and `SlhDsa` types have been renamed to use `PrivateKey`. This affects methods and properties:
 
 ```csharp
 // Before
-var key = mlDsa.SecretKey;
+int size = key.Algorithm.SecretKeySizeInBytes;
+byte[] output = new byte[size];
+key.ExportMLDsaSecretKey(output);
+key.ImportMLDsaSecretKey(data);
 
 // After
-var key = mlDsa.PrivateKey;
+int size = key.Algorithm.PrivateKeySizeInBytes;
+byte[] output = new byte[size];
+key.ExportMLDsaPrivateKey(output);
+key.ImportMLDsaPrivateKey(data);
+// Same pattern for SlhDsa: ExportSlhDsaSecretKey → ExportSlhDsaPrivateKey, etc.
+```
+
+### Rfc2898DeriveBytes constructors are obsolete (SYSLIB0060)
+
+All `Rfc2898DeriveBytes` constructors are now obsolete. Use the static `Rfc2898DeriveBytes.Pbkdf2` method instead:
+
+```csharp
+// Before
+using var deriveBytes = new Rfc2898DeriveBytes(password, salt, iterations, HashAlgorithmName.SHA256);
+byte[] key = deriveBytes.GetBytes(32);
+
+// After
+byte[] key = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, 32);
 ```
 
 ### CoseSigner.Key can be null
@@ -54,6 +74,6 @@ Using OpenSSL-specific cryptographic primitives on macOS is no longer supported.
 
 The Composite ML-DSA implementation has been updated to align with draft-08. Key and signature formats from earlier drafts are incompatible.
 
-### Environment variable renamed to DOTNET_OPENSSL_VERSION_OVERRIDE
+### Environment variable renamed from CLR_OPENSSL_VERSION_OVERRIDE to DOTNET_OPENSSL_VERSION_OVERRIDE
 
-If you use the OpenSSL version override environment variable, update from the old name to `DOTNET_OPENSSL_VERSION_OVERRIDE`.
+If you use `CLR_OPENSSL_VERSION_OVERRIDE` to specify the preferred OpenSSL library version on Linux, rename it to `DOTNET_OPENSSL_VERSION_OVERRIDE`.

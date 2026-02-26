@@ -65,17 +65,36 @@ var blogs = await context.Blogs
 `ExecuteUpdateAsync` now takes `Action<...>` instead of `Expression<Func<...>>` for column setters. Code that manually builds expression trees for dynamic setters will no longer compile but can be dramatically simplified:
 
 ```csharp
-// Before (.NET 9) — complex expression tree construction
+// Before (.NET 9) — complex expression tree construction for dynamic setters
 Expression<Func<SetPropertyCalls<Blog>, SetPropertyCalls<Blog>>> setters =
     s => s.SetProperty(b => b.Views, 8);
-// ... manual Expression.Lambda, Expression.Call, etc.
+
+if (nameChanged)
+{
+    var blogParameter = Expression.Parameter(typeof(Blog), "b");
+    setters = Expression.Lambda<Func<SetPropertyCalls<Blog>, SetPropertyCalls<Blog>>>(
+        Expression.Call(
+            instance: setters.Body,
+            methodName: nameof(SetPropertyCalls<Blog>.SetProperty),
+            typeArguments: [typeof(string)],
+            arguments:
+            [
+                Expression.Lambda<Func<Blog, string>>(
+                    Expression.Property(blogParameter, nameof(Blog.Name)), blogParameter),
+                Expression.Constant("foo")
+            ]),
+        setters.Parameters);
+}
+await context.Blogs.ExecuteUpdateAsync(setters);
 
 // After (.NET 10) — simple lambda with conditionals
 await context.Blogs.ExecuteUpdateAsync(s =>
 {
     s.SetProperty(b => b.Views, 8);
     if (nameChanged)
+    {
         s.SetProperty(b => b.Name, "foo");
+    }
 });
 ```
 
@@ -97,7 +116,22 @@ The method parameter changed from `IConventionEntityTypeBuilder` to `IConvention
 
 ### IRelationalCommandDiagnosticsLogger methods add logCommandText parameter
 
-Methods like `CommandReaderExecuting`, `CommandReaderExecuted`, etc. now have an additional `string logCommandText` parameter containing redacted SQL for logging. Update custom implementations.
+Methods like `CommandReaderExecuting`, `CommandReaderExecuted`, `CommandScalarExecuting`, etc. now have an additional `string logCommandText` parameter containing redacted SQL for logging. Update custom implementations:
+
+```csharp
+public InterceptionResult<DbDataReader> CommandReaderExecuting(
+    IRelationalConnection connection,
+    DbCommand command,
+    DbContext context,
+    Guid commandId,
+    Guid connectionId,
+    DateTimeOffset startTime,
+    string logCommandText) // New parameter — redacted SQL for logging
+{
+    // Use logCommandText for logging (may have constants redacted)
+    // Use command.CommandText for actual SQL execution
+}
+```
 
 ## Microsoft.Data.Sqlite Breaking Changes (All High Impact)
 
