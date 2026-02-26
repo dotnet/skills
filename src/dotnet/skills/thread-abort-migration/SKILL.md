@@ -26,7 +26,7 @@ This skill helps an agent migrate .NET Framework code that uses `Thread.Abort` t
 - Removing `Thread.ResetAbort` calls that cancel pending aborts
 - Replacing `Thread.Interrupt` for waking blocked threads
 - Migrating ASP.NET code that uses `Response.End` or `Response.Redirect(url, true)`, which internally call `Thread.Abort`
-- Resolving `PlatformNotSupportedException` or SYSLIB0006 warnings after a target framework change
+- Resolving `PlatformNotSupportedException` or `SYSLIB0006` warnings after a target framework change
 
 ## When Not to Use
 
