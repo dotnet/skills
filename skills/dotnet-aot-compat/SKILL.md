@@ -31,19 +31,24 @@ Native AOT and the IL trimmer perform static analysis to determine what code is 
 
 ## Critical Rules
 
-### Never suppress warnings incorrectly
+### Never suppress warnings
+
+Every IL warning represents a real code path that WILL break at runtime under trimming or AOT. There are no "false positives" — if the analyzer warns, the trimmer will fail or produce broken code. Suppressions just move the failure from build time to runtime.
 
 - **NEVER** use `#pragma warning disable` for IL warnings. It hides warnings from the Roslyn analyzer at build time, but the IL linker and AOT compiler still see the issue. The code will fail at trim/publish time.
 - **NEVER** use `[UnconditionalSuppressMessage]`. It tells both the analyzer AND the linker to ignore the warning, meaning the trimmer cannot verify safety. Raising an error at build time is always preferable to hiding the issue and having it silently break at runtime.
+- If your first instinct for a warning is to suppress it, **stop and look at the "Fix recipes" section below** — there is almost always a real fix.
 - **Prefer** `[DynamicallyAccessedMembers]` annotations to flow type information through the call chain.
 - **Prefer** refactoring to eliminate patterns that break annotation flow (e.g., boxing `Type` through `object[]`).
-- **Use** `[RequiresUnreferencedCode]` to mark methods as fundamentally incompatible with trimming, propagating the requirement to callers. This surfaces the issue clearly rather than hiding it — callers must explicitly acknowledge the incompatibility.
+- **Use** `[RequiresUnreferencedCode]` / `[RequiresDynamicCode]` / `[RequiresAssemblyFiles]` to mark methods as fundamentally incompatible with trimming, propagating the requirement to callers. This surfaces the issue clearly rather than hiding it — callers must explicitly acknowledge the incompatibility.
 
 ### Annotation flow is key
 
 The trimmer tracks `[DynamicallyAccessedMembers]` annotations through assignments, parameter passing, and return values. If this flow is broken (e.g., by boxing a `Type` into `object`, storing in an untyped collection, or casting through interfaces), the trimmer loses track and warns. The fix is to preserve the flow, not suppress the warning.
 
 ## Step-by-Step Procedure
+
+> **Do not explore the codebase up-front.** The build warnings tell you exactly which files and lines need changes. Follow a tight loop: **build → pick a warning → open that file at that line → apply the fix recipe → rebuild**. Reading or analyzing source files beyond what a specific warning points you to is wasted effort and leads to timeouts. Let the compiler guide you.
 
 ### Step 1: Enable AOT analysis in the .csproj
 
@@ -69,11 +74,19 @@ Sort and deduplicate. Common warning codes:
 - **IL2072**: Return value or extracted value missing annotation (often from unboxing)
 - **IL2057**: `Type.GetType(string)` with a non-constant argument
 - **IL2026**: Calling a method marked `[RequiresUnreferencedCode]`
+- **IL2050**: P/invoke method with COM marshalling parameters
+- **IL2075**: Return value flows into reflection without annotation
+- **IL2091**: Generic argument missing `[DynamicallyAccessedMembers]` required by constraint
+- **IL3000**: `Assembly.Location` returns empty string in single-file/AOT apps
 - **IL3050**: Calling a method marked `[RequiresDynamicCode]`
 
 ### Step 3: Fix warnings iteratively (innermost first)
 
 Work from the **innermost** reflection call outward. Each fix may cascade new warnings to callers.
+
+**Stay warning-driven.** For each warning, open only the file and line the compiler reported, identify the pattern, apply the matching fix recipe below, and move on. Do not scan the codebase for similar patterns or try to understand the full architecture — fix what the compiler tells you, rebuild, and let new warnings guide the next change. Fix a small batch of warnings (5-10), then rebuild immediately to check progress.
+
+**Use sub-agents when available.** If you have the ability to launch sub-agents (e.g., via a `task` tool), use them to fix individual warnings or small batches of warnings in the same file. Keep the main loop focused on building, parsing warnings, and dispatching — delegate the actual file edits and fix reasoning to sub-agents. This prevents context from filling up with file contents and fix logic, which leads to timeouts on large projects. A good sub-agent prompt includes: the exact warning text (code, file, line), the relevant fix recipe from this skill, and an instruction to make the minimal edit.
 
 #### Strategy A: Add `[DynamicallyAccessedMembers]` (preferred)
 
@@ -135,9 +148,61 @@ public void LoadPlugin(string assemblyName) {
 
 This propagates to callers — they must also be annotated with `[RequiresUnreferencedCode]`. Use sparingly; it marks the entire call chain as trim-incompatible.
 
+### Fix recipes for commonly-mishandled warnings
+
+These warning types are frequently "fixed" via suppression. Here are the actual fixes:
+
+#### IL2050: P/invoke with COM marshalling
+
+**Wrong**: Suppress with `#pragma` or `[UnconditionalSuppressMessage]`.
+
+**Right**: Migrate from `[DllImport]` to `[LibraryImport]` with a source generator. The `LibraryImport` source generator produces AOT-compatible marshalling code at compile time. For COM-typed `out` parameters, use `[MarshalAs(UnmanagedType.Interface)]` or a custom marshaller. See the `dotnet-pinvoke` skill for detailed guidance. If the P/Invoke is Windows-only, conditionally gate it and mark the containing method `[RequiresDynamicCode]` so callers know.
+
+#### IL3000: `Assembly.Location`
+
+**Wrong**: Suppress because "the code already handles empty string".
+
+**Right**: `Assembly.Location` returns empty in AOT/single-file — this is a real behavioral difference. Replace with one of:
+- `AppContext.BaseDirectory` if you need the app's directory
+- `typeof(T).Assembly.GetName().Name` if you need the assembly name for logging
+- `[RequiresAssemblyFiles("Uses Assembly.Location")]` to propagate the requirement to callers
+
+If the location is used purely for diagnostic/logging purposes and the empty string is acceptable, mark the method with `[RequiresAssemblyFiles]`.
+
+#### IL3050: `Enum.GetValues(Type)`
+
+**Wrong**: Suppress the warning.
+
+**Right**: Use `Enum.GetValues<TEnum>()` (available since net5.0). If the method's generic constraint is `where T : struct` and cannot be changed to `where T : struct, Enum`, change the constraint — the `Enum` constraint has been available since C# 7.3.
+
+#### IL2091: Generic argument missing annotation
+
+**Wrong**: Suppress because "we never actually construct T via reflection".
+
+**Right**: Propagate `[DynamicallyAccessedMembers]` to the generic type parameter:
+
+```csharp
+// Before (warns IL2091):
+public static T EnsureInitialized<T>(ref T? target) where T : class
+    => LazyInitializer.EnsureInitialized<T>(ref target!);
+
+// After (clean):
+public static T EnsureInitialized<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
+    ref T? target) where T : class
+    => LazyInitializer.EnsureInitialized<T>(ref target!);
+```
+
+This may require a polyfill of `DynamicallyAccessedMembersAttribute` for older TFMs (see Polyfills section).
+
+#### IL2026: Calling `[RequiresUnreferencedCode]` methods
+
+**Wrong**: Suppress the warning at the call site.
+
+**Right**: Mark your method with `[RequiresUnreferencedCode]` too, propagating the requirement. If your method is an entry point or API boundary, this is the correct signal — it tells consumers that this code path is not trim-safe. For assembly loading (`AssemblyLoadContext.LoadFromAssemblyPath`, `Assembly.Load`, etc.), the entire call chain should propagate `[RequiresUnreferencedCode]` because loading arbitrary assemblies is fundamentally trim-incompatible.
+
 ### Step 4: Rebuild and repeat
 
-After each round of fixes, rebuild with `--no-incremental` and check for new warnings. Fixes cascade — annotating an inner method may surface warnings in its callers. Repeat until `0 Warning(s)`.
+After each small batch of fixes (5-10 warnings), rebuild with `--no-incremental` and check for new warnings. **Do not attempt to fix all warnings before rebuilding** — frequent rebuilds catch mistakes early and reveal cascading warnings. Fixes cascade — annotating an inner method may surface warnings in its callers. Repeat until `0 Warning(s)`.
 
 ### Step 5: Validate all TFMs
 
