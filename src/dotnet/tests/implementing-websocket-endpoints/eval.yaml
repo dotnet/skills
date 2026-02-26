@@ -1,0 +1,30 @@
+scenarios:
+  - name: "Implement WebSocket chat endpoint in ASP.NET Core 8"
+    prompt: |
+      I need to add a WebSocket endpoint to my ASP.NET Core 8 API for a real-time chat feature. Requirements:
+
+      1. WebSocket endpoint at /ws/chat
+      2. Track connected clients and broadcast messages to all when one client sends
+      3. Handle proper connect/disconnect lifecycle
+      4. Authenticate users via a token in the query string (browser WebSocket API doesn't support custom headers)
+      5. Only allow connections from our frontend at https://myapp.com
+
+      I've been looking for something like `app.MapWebSocket("/ws/chat", handler)` but can't find it. How does WebSocket work in ASP.NET Core 8?
+    assertions:
+      - type: "output_matches"
+        pattern: "(UseWebSockets|WebSocketOptions)"
+      - type: "output_matches"
+        pattern: "(AcceptWebSocketAsync)"
+      - type: "output_matches"
+        pattern: "(ReceiveAsync|SendAsync)"
+      - type: "output_matches"
+        pattern: "(AllowedOrigins|Origin)"
+    rubric:
+      - "Explained that MapWebSocket does not exist in ASP.NET Core — WebSockets use UseWebSockets() middleware with manual upgrade via AcceptWebSocketAsync"
+      - "Configured WebSocketOptions with KeepAliveInterval and AllowedOrigins restricted to https://myapp.com for cross-origin protection"
+      - "Implemented a proper receive loop checking EndOfMessage for fragmented messages and CloseStatus for disconnect"
+      - "Used CloseOutputAsync (not CloseAsync) when responding to client-initiated close to avoid deadlock"
+      - "Implemented a thread-safe connection manager using ConcurrentDictionary for tracking and broadcasting to connected clients"
+      - "Handled authentication via query string token since browser WebSocket API cannot send custom headers after handshake"
+    expect_tools: ["bash"]
+    timeout: 120
