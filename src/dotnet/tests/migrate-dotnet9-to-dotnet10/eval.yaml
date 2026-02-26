@@ -96,24 +96,62 @@ scenarios:
   # --- Scenario 4b: EF Core (ExecuteUpdate, complex types, diagnostics logger) ---
   - name: "EF Core app with dynamic ExecuteUpdate and complex types"
     prompt: |
-      I'm migrating a .NET 9 app using EF Core. The codebase:
-      - Builds expression trees dynamically for ExecuteUpdateAsync to conditionally set columns (using Expression.Lambda and Expression.Call to build SetProperty chains)
-      - Has complex types with nested properties where Customer.ShippingAddress.Street and Customer.BillingAddress.Street both map to a column called "Street"
-      - Has nested complex types like Order.Payment.BillingAddress.City where the column was previously named "BillingAddress_City"
-      - Has a custom implementation of IRelationalCommandDiagnosticsLogger that overrides CommandReaderExecuting
-      What breaks in EF Core 10?
+      I'm migrating a .NET 9 app using EF Core. Here's the code that builds dynamic ExecuteUpdateAsync calls:
+      ```csharp
+      Expression<Func<SetPropertyCalls<Blog>, SetPropertyCalls<Blog>>> setters =
+          s => s.SetProperty(b => b.Views, 8);
+      if (nameChanged)
+      {
+          var blogParameter = Expression.Parameter(typeof(Blog), "b");
+          setters = Expression.Lambda<Func<SetPropertyCalls<Blog>, SetPropertyCalls<Blog>>>(
+              Expression.Call(
+                  instance: setters.Body,
+                  methodName: nameof(SetPropertyCalls<Blog>.SetProperty),
+                  typeArguments: new[] { typeof(string) },
+                  arguments: new Expression[]
+                  {
+                      Expression.Lambda<Func<Blog, string>>(
+                          Expression.Property(blogParameter, nameof(Blog.Name)), blogParameter),
+                      Expression.Constant("foo")
+                  }),
+              setters.Parameters);
+      }
+      await context.Blogs.ExecuteUpdateAsync(setters);
+      ```
+
+      We also have complex types:
+      ```csharp
+      modelBuilder.Entity<Customer>(b => {
+          b.ComplexProperty(c => c.ShippingAddress);  // has Street property
+          b.ComplexProperty(c => c.BillingAddress);   // also has Street property
+      });
+      // Nested: Order.Payment.BillingAddress.City was column "BillingAddress_City"
+      ```
+
+      And a custom diagnostics logger:
+      ```csharp
+      public class MyLogger : IRelationalCommandDiagnosticsLogger
+      {
+          public InterceptionResult<DbDataReader> CommandReaderExecuting(
+              IRelationalConnection connection, DbCommand command,
+              DbContext context, Guid commandId, Guid connectionId,
+              DateTimeOffset startTime)
+          { /* logging */ }
+      }
+      ```
+      What breaks in EF Core 10 and how do I fix each piece of code?
     assertions:
       - type: "output_matches"
         pattern: "(ExecuteUpdate|expression|lambda|Func)"
       - type: "output_matches"
         pattern: "(complex type|column name|uniquif|full path)"
       - type: "output_matches"
-        pattern: "(logCommandText|diagnostics|logger)"
+        pattern: "(logCommandText|diagnostics|logger|parameter)"
     rubric:
-      - "Identifies that ExecuteUpdateAsync now takes Func instead of Expression — dynamic expression tree code needs rewriting (but is now much simpler with regular if/else in lambdas)"
+      - "Identifies that ExecuteUpdateAsync now takes Func instead of Expression; shows the simplified replacement using a regular lambda with if/else"
       - "Warns about complex type column name uniquification — Street columns will get a number suffix"
       - "Warns about nested complex type full-path column naming — BillingAddress_City becomes Payment_BillingAddress_City"
-      - "Mentions IRelationalCommandDiagnosticsLogger now requires a logCommandText parameter"
+      - "Identifies the missing logCommandText string parameter in CommandReaderExecuting"
     timeout: 240
 
   # --- Scenario 5: Microsoft.Data.Sqlite DateTimeOffset (all 3 high-impact changes) ---
@@ -221,85 +259,152 @@ scenarios:
   # --- Scenario 9: Serialization (STJ property name conflict, XmlSerializer, LDAP) ---
   - name: "JSON polymorphism with conflicting property names and XmlSerializer"
     prompt: |
-      I'm migrating a .NET 9 app to .NET 10. It has:
-      - A System.Text.Json polymorphic type hierarchy with [JsonPolymorphic(TypeDiscriminatorPropertyName = "Type")] and a derived class that has a property also named "Type"
-      - Uses XmlSerializer to serialize objects that have some properties marked [Obsolete]
-      - Parses LDAP DirectoryControl responses from an Active Directory server that sometimes returns slightly malformed control data
-      - Uses MailAddress to validate email addresses, and some addresses in the database have consecutive dots (e.g., user..name@example.com)
-      - Uses Uri for very long URLs (10,000+ characters) and previously got exceptions
+      I'm migrating a .NET 9 app to .NET 10. Here's code that worked before:
+
+      ```csharp
+      [JsonPolymorphic(TypeDiscriminatorPropertyName = "Type")]
+      [JsonDerivedType(typeof(Dog), "dog")]
+      public abstract class Animal
+      {
+          public abstract string Type { get; }
+      }
+
+      public class Dog : Animal
+      {
+          public override string Type => "Dog";
+      }
+
+      // This produced {"Type":"dog","Type":"Dog"} in .NET 9 — broken JSON but it serialized
+      string json = JsonSerializer.Serialize<Animal>(new Dog());
+      ```
+
+      ```csharp
+      // Legacy DTO with obsolete properties
+      public class OrderDto
+      {
+          public int Id { get; set; }
+          [Obsolete("Use ShippingAddress instead")]
+          public string Address { get; set; }
+          public string ShippingAddress { get; set; }
+      }
+      var xml = new XmlSerializer(typeof(OrderDto));
+      // In .NET 9, Address was silently skipped during serialization
+      ```
+
+      The app also validates email addresses like `user..name@example.com` with MailAddress, and uses Uri for 10K+ character URLs.
       What breaks?
     assertions:
       - type: "output_matches"
-        pattern: "(property name|conflict|\\$type|discriminator|JsonIgnore)"
+        pattern: "(property name|conflict|\\$type|discriminator|JsonIgnore|InvalidOperation)"
       - type: "output_matches"
         pattern: "(XmlSerializer|Obsolete|XmlIgnore)"
       - type: "output_matches"
         pattern: "(MailAddress|consecutive dots)"
     rubric:
-      - "Identifies System.Text.Json now validates property names against metadata names and the 'Type' property will cause InvalidOperationException; recommends [JsonIgnore] or renaming"
-      - "Notes XmlSerializer no longer ignores [Obsolete] properties; recommends [XmlIgnore] if they shouldn't be serialized"
-      - "Warns about stricter LDAP DirectoryControl parsing"
-      - "Notes MailAddress now rejects consecutive dots in email addresses"
-      - "Mentions Uri length limits have been removed (this is actually a fix, not a break)"
+      - "Identifies the Animal/Dog Type property now throws InvalidOperationException because it conflicts with the discriminator; recommends [JsonIgnore] or renaming"
+      - "Notes the [Obsolete] Address property will now be included in XML serialization; add [XmlIgnore] to exclude it"
+      - "Notes MailAddress now rejects consecutive dots"
+      - "Mentions Uri length limits have been removed"
     timeout: 120
 
   # --- Scenario 10: WinForms + WPF combined desktop app ---
   - name: "WinForms and WPF desktop app with System.Drawing and DynamicResource"
     prompt: |
-      I'm upgrading a .NET 9 Windows desktop app to .NET 10. It:
-      - References both Windows Forms and WPF (UseWindowsForms and UseWPF both true)
-      - Uses MenuItem and ContextMenu types without namespace qualification
-      - Catches OutOfMemoryException from System.Drawing GDI+ operations
-      - Has WPF XAML with empty <Grid.ColumnDefinitions/> and <Grid.RowDefinitions/> elements
-      - Uses DynamicResource in some places where the resource key doesn't exist at runtime
-      - Has a StatusStrip that relies on the default renderer appearance
-      - Uses TreeView with checkboxes
-      - Calls HtmlElement.InsertAdjacentElement with named parameter `orientation:`
-      What do I need to fix?
+      I'm upgrading a .NET 9 Windows desktop app to .NET 10. Here's code that needs migration:
+
+      ```csharp
+      // Form1.cs — uses unqualified MenuItem
+      var menu = new ContextMenu();
+      menu.MenuItems.Add(new MenuItem("Open", OnOpen));
+      ```
+
+      ```csharp
+      // ImageProcessor.cs — catches GDI+ errors
+      try
+      {
+          using var bmp = new Bitmap(path);
+          bmp.SetResolution(300, 300);
+      }
+      catch (OutOfMemoryException ex)
+      {
+          logger.LogError(ex, "Invalid image format");
+      }
+      ```
+
+      ```xml
+      <!-- MainWindow.xaml -->
+      <Grid>
+          <Grid.ColumnDefinitions/>
+          <Grid.RowDefinitions/>
+          <TextBlock Text="{DynamicResource MissingKey}" />
+      </Grid>
+      ```
+
+      The project has both `<UseWindowsForms>true</UseWindowsForms>` and `<UseWPF>true</UseWPF>`.
+      The StatusStrip uses default rendering. TreeView has checkboxes.
+      What do I need to fix in each code snippet?
     assertions:
       - type: "output_matches"
         pattern: "(MenuItem|ContextMenu|disambiguate|ambiguous|fully qualified)"
       - type: "output_matches"
         pattern: "(OutOfMemoryException|ExternalException)"
       - type: "output_matches"
-        pattern: "(ColumnDefinitions|RowDefinitions|empty|disallowed)"
+        pattern: "(ColumnDefinitions|RowDefinitions|empty|disallowed|remove)"
       - type: "output_matches"
         pattern: "(DynamicResource|crash)"
     rubric:
-      - "Identifies MenuItem/ContextMenu ambiguity and recommends fully qualified type names"
-      - "Warns System.Drawing now throws ExternalException instead of OutOfMemoryException; update catch blocks"
-      - "Notes empty ColumnDefinitions/RowDefinitions are disallowed in XAML and must be removed"
-      - "Warns incorrect DynamicResource usage now causes crashes instead of being silently ignored"
+      - "Identifies MenuItem/ContextMenu ambiguity and shows fix with fully qualified System.Windows.Forms.MenuItem"
+      - "Identifies the catch block must change to catch ExternalException (not ArgumentException, not IOException — specifically ExternalException from System.Runtime.InteropServices)"
+      - "Identifies the empty ColumnDefinitions/RowDefinitions must be removed from XAML"
+      - "Warns the DynamicResource with MissingKey will now crash instead of being silently ignored"
       - "Mentions StatusStrip default RenderMode change"
       - "Mentions TreeView checkbox image truncation change"
-      - "Notes HtmlElement.InsertAdjacentElement parameter rename"
     timeout: 120
 
   # --- Scenario 11: Containers, single-file, and native interop ---
   - name: "Containerized single-file app with P/Invoke and IDispatchEx"
     prompt: |
-      I'm migrating a .NET 9 app to .NET 10. It:
-      - Has a Dockerfile using mcr.microsoft.com/dotnet/aspnet:9.0 (Debian-based) with apt-get install for some Debian-specific packages
-      - Is published as a single-file app that loads native libraries from the app directory
-      - Has P/Invokes with [DefaultDllImportSearchPaths(DllImportSearchPath.System32)] that expect to also find libs in the app directory
-      - Has a Windows COM interop component that casts IDispatchEx to IReflect
-      - Uses NativeAOT on Linux and relies on rpath being set to the app directory
-      - The global.json pins SDK version to 9.0.x
-      What changes?
+      I'm migrating a .NET 9 app to .NET 10. Here's what we have:
+
+      ```dockerfile
+      FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+      RUN apt-get update && apt-get install -y libgdiplus libc6-dev
+      FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+      ```
+
+      ```csharp
+      // NativeInterop.cs — P/Invoke in a single-file published app
+      [DllImport("mylib")]
+      [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+      static extern int ProcessData(byte* input, int length);
+      ```
+
+      ```csharp
+      // ComHelper.cs
+      var dispatchEx = (IDispatchEx)comObject;
+      var reflect = (IReflect)dispatchEx;  // cast to IReflect
+      ```
+
+      ```json
+      // global.json
+      { "sdk": { "version": "9.0.200" } }
+      ```
+
+      The app is published with `dotnet publish -r linux-x64 --self-contained /p:PublishSingleFile=true` and also has a NativeAOT Linux build that relies on rpath.
+      What needs to change for .NET 10?
     assertions:
       - type: "output_matches"
-        pattern: "(Ubuntu|Debian|container)"
+        pattern: "(Ubuntu|Debian|container|aspnet:10)"
       - type: "output_matches"
-        pattern: "(single-file|native|DllImport|AssemblyDirectory)"
+        pattern: "(DllImport|AssemblyDirectory|single-file|System32)"
       - type: "output_matches"
-        pattern: "(IDispatchEx|IReflect|COM)"
+        pattern: "(IDispatchEx|IReflect|cast|COM)"
     rubric:
-      - "Warns default images switched to Ubuntu; Debian images no longer shipped; apt-get commands may need adjustment"
-      - "Explains single-file apps no longer search app directory unless AssemblyDirectory is in search paths"
-      - "Notes the P/Invoke with only System32 flag will no longer find libraries in app directory; add AssemblyDirectory"
-      - "Warns IDispatchEx to IReflect cast now fails"
+      - "Updates the Dockerfile base images to 10.0 and warns that default images are now Ubuntu, not Debian; apt-get commands may need adjustment"
+      - "Identifies the P/Invoke will fail to find mylib in the app directory because DllImportSearchPath.System32 excludes it; recommends adding DllImportSearchPath.AssemblyDirectory"
+      - "Warns the IDispatchEx to IReflect cast now fails in .NET 10"
       - "Mentions NativeAOT rpath is no longer set automatically"
-      - "Reminds to update global.json to .NET 10 SDK"
+      - "Notes global.json should be updated to 10.0.x SDK"
     timeout: 120
 
   # --- Scenario 12: SslStream obsoletions + SYSLIB warnings ---
@@ -349,22 +454,49 @@ scenarios:
   # --- Scenario 15: HTTP streaming, GenericMath shifts, tar entries ---
   - name: "Blazor WASM app with generic math shift masking and tar operations"
     prompt: |
-      I'm upgrading a .NET 9 Blazor WebAssembly app to .NET 10. It also has a shared library that:
-      - Implements IShiftOperators<byte, int, byte> for a custom type and shifts byte values by 8 or more bits (e.g., `myByte << 8`). In .NET 9 this returned non-zero for some types but we noticed inconsistency between byte and int. What changed in .NET 10 generic math shift behavior?
-      - Makes HTTP requests via HttpClient in the browser and reads responses by calling ReadAsStreamAsync() followed by synchronous stream.Read(). This worked in .NET 9 but now throws.
-      - Creates PaxTarEntry objects and archives them, expecting the access time (atime) and change time (ctime) to be set automatically from the current time on construction.
-      - Publishes with `<PublishTrimmed>true</PublishTrimmed>` and the app uses HTTP/3 connections to our backend. After upgrading, HTTP/3 silently stopped working.
-      What broke in each case?
+      I'm upgrading a .NET 9 Blazor WebAssembly app to .NET 10. Here's the code:
+
+      ```csharp
+      // GenericShift.cs
+      static T ShiftLeft<T>(T value, int amount) where T : IShiftOperators<T, int, T>
+          => value << amount;
+
+      // Usage: ShiftLeft<byte>(0xFF, 8) returned 0 for byte but we got
+      // inconsistent results with other small types in .NET 9
+      ```
+
+      ```csharp
+      // ApiClient.cs — browser HTTP client
+      var response = await httpClient.GetAsync(url);
+      var stream = await response.Content.ReadAsStreamAsync();
+      var buffer = new byte[4096];
+      int bytesRead = stream.Read(buffer, 0, buffer.Length);  // synchronous read
+      ```
+
+      ```csharp
+      // Archiver.cs
+      var entry = new PaxTarEntry(TarEntryType.RegularFile, "data.txt");
+      // We expect entry.AccessTime and entry.ChangeTime to be set to now
+      archive.WriteEntry(entry);
+      ```
+
+      ```xml
+      <!-- App.csproj -->
+      <PublishTrimmed>true</PublishTrimmed>
+      <!-- App uses HTTP/3 to connect to our backend -->
+      ```
+
+      What breaks in each case and how do I fix it?
     assertions:
       - type: "output_matches"
         pattern: "(shift|mask|generic math|IShiftOperators|byte|sizeof)"
       - type: "output_matches"
-        pattern: "(streaming|synchronous|Read|browser|HttpClient)"
+        pattern: "(streaming|synchronous|Read|browser|HttpClient|async)"
       - type: "output_matches"
         pattern: "(HTTP/3|trim|PublishTrimmed|Http3Support)"
     rubric:
-      - "Explains that shift operations now consistently mask the shift amount by sizeof(T)*8-1 for all types; byte shifts by 8+ now always return 0 due to masking (8 & 7 = 0)"
-      - "Notes streaming HTTP responses are enabled by default in browser clients; synchronous stream.Read() on the response stream now throws; use ReadAsStreamAsync with async reads or disable streaming"
-      - "Mentions PaxTarEntry/GnuTarEntry no longer include atime/ctime by default; set them explicitly"
-      - "Notes HTTP/3 is disabled by default when PublishTrimmed is used; add <Http3Support>true</Http3Support> to the project"
+      - "Explains that shift operations now consistently mask the shift amount; for byte, 8 & 7 = 0, so shifting by 8 always returns 0"
+      - "Identifies the synchronous stream.Read() now throws because browser streaming is enabled by default; must use ReadAsync or disable streaming"
+      - "Notes PaxTarEntry no longer auto-populates atime/ctime; set them explicitly"
+      - "Notes HTTP/3 is disabled when PublishTrimmed is set; fix by adding <Http3Support>true</Http3Support> — this is NOT a native library issue, it's the trimmer removing HTTP/3 code"
     timeout: 240
