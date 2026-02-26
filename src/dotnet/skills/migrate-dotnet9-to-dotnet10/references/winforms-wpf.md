@@ -29,8 +29,8 @@ var item = new System.Windows.Controls.MenuItem();
 The parameter name in `HtmlElement.InsertAdjacentElement` has changed from `orientation` to a new name. Update named argument usage:
 
 ```csharp
-// Before
-element.InsertAdjacentElement(orientation: HtmlElementInsertionOrientation.BeforeBegin, newElement);
+// Before — named arguments with old parameter name
+element.InsertAdjacentElement(orientation: HtmlElementInsertionOrientation.BeforeBegin, newElement: newElement);
 
 // After — use positional arguments or the new parameter name
 element.InsertAdjacentElement(HtmlElementInsertionOrientation.BeforeBegin, newElement);
