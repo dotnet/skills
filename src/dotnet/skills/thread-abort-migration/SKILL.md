@@ -17,7 +17,7 @@ description: >
 
 # Thread.Abort Migration
 
-This skill helps an agent migrate .NET Framework code that uses `Thread.Abort` to the cooperative cancellation model required by modern .NET (6+/8+). `Thread.Abort` throws `PlatformNotSupportedException` in modern .NET — there is no way to forcibly terminate a managed thread. The skill identifies the usage pattern first, then applies the correct replacement strategy.
+This skill helps an agent migrate .NET Framework code that uses `Thread.Abort` to the cooperative cancellation model required by modern .NET (6+). `Thread.Abort` throws `PlatformNotSupportedException` in modern .NET — there is no way to forcibly terminate a managed thread. The skill identifies the usage pattern first, then applies the correct replacement strategy.
 
 ## When to Use
 
