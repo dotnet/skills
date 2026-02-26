@@ -101,7 +101,9 @@ scenarios:
       - type: "output_matches"
         pattern: "(dotnet-trace|dotnet trace)"
       - type: "output_matches"
-        pattern: "(gc-verbose|gc verbose|GCCollectOnly)"
+        pattern: "(gc-verbose|gc verbose)"
+      - type: "output_matches"
+        pattern: "--profile\\s+gc-verbose"
     rubric:
       - "Recommends dotnet-trace with the gc-verbose profile for capturing GC events on Linux"
       - "Explains that a trace is required to analyze GC events, pause times, and allocation patterns — a dump is not sufficient"
@@ -187,8 +189,8 @@ scenarios:
     assertions:
       - type: "output_contains"
         value: "PerfView"
-      - type: "output_matches"
-        pattern: "(collect|run)"
+      - type: "output_contains"
+        value: "PerfView collect"
     rubric:
       - "Recommends PerfView as the preferred tool for Windows with admin access"
       - "Provides the specific PerfView collect command to run"

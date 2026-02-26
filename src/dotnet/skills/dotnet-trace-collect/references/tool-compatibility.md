@@ -86,7 +86,7 @@ dotnet-trace collect -p <PID> --profile gc-verbose
 # Collect with specific providers
 dotnet-trace collect -p <PID> --providers Microsoft-DotNETCore-SampleProfiler,Microsoft-Windows-DotNETRuntime
 
-# Collect for a fixed duration (seconds)
+# Collect for a fixed duration (time span in hh:mm:ss format)
 dotnet-trace collect -p <PID> --duration 00:00:30
 
 # Output in Speedscope format for web-based viewing
