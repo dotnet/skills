@@ -40,7 +40,7 @@ description: Migrate from Newtonsoft.Json to System.Text.Json, handling behavior
 | **Comments in JSON** | Allowed | **Rejected by default** | Config files break |
 | **Number in string** (`"123"`) | Coerced automatically | **Throws by default** | Deserialization breaks! |
 | **Enum serialization** | Numeric by default | Numeric by default | Same ✓, but converter syntax differs |
-| **null → non-nullable value type** | Sets to default(T) | **Throws exception** | Breaks on dirty data |
+| **null → non-nullable value type** | Sets to default(T) | Sets to default(T) | Same ✓ (null becomes default(T)) |
 | **Case sensitivity** | Case-insensitive | **Case-sensitive by default** | Property matching breaks |
 | **Max depth** | 64 | 64 | Same ✓ |
 | **Circular references** | `$ref/$id` with PreserveReferencesHandling | `ReferenceHandler.Preserve` (.NET 5+) | API differs |
