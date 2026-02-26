@@ -55,24 +55,9 @@ For NativeAOT on non-Windows, the `rpath` is no longer set to the application di
 
 Casting a COM object that implements `IDispatchEx` to `IReflect` now fails. Use `dynamic` or explicit COM interop interfaces instead.
 
-## Globalization
+## Other Changes
 
-### Environment variable renamed to DOTNET_ICU_VERSION_OVERRIDE
-
-If you use the ICU version override environment variable, update to the new name `DOTNET_ICU_VERSION_OVERRIDE`.
-
-## Reflection
-
-### More restricted annotations on InvokeMember/FindMembers/DeclaredMembers
-
-The `[DynamicallyAccessedMembers]` annotations on `IReflect.InvokeMember`, `Type.FindMembers`, and related APIs are now more restrictive. Code using these APIs with trimming may get new trim warnings.
-
-### Type.MakeGenericSignatureType argument validation
-
-Arguments passed to `Type.MakeGenericSignatureType` are now validated. Invalid arguments that were silently accepted before now throw exceptions.
-
-## Install Tool
-
-### dotnet.acquire API for VS Code no longer always downloads latest
-
-The VS Code .NET install extension no longer always downloads the latest version. Pin specific versions in your VS Code settings if needed.
+- **Globalization**: Environment variable renamed to `DOTNET_ICU_VERSION_OVERRIDE`
+- **Reflection**: `[DynamicallyAccessedMembers]` annotations on `IReflect.InvokeMember`, `Type.FindMembers` are more restrictive (new trim warnings possible)
+- **Reflection**: `Type.MakeGenericSignatureType` arguments validated more strictly
+- **VS Code**: `dotnet.acquire` API no longer always downloads latest — pin specific versions

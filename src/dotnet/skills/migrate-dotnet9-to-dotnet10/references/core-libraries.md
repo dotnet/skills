@@ -34,13 +34,10 @@ These use custom diagnostic IDs — suppressing `CS0618` does not suppress them.
 
 `FilePatternMatch.Stem` is now `string` instead of `string?`. Code checking for null may get warnings.
 
-### DynamicallyAccessedMembers annotation removed from DefaultValueAttribute ctor
+### Other source-incompatible changes (low impact)
 
-The `[DynamicallyAccessedMembers]` attribute was removed from the `DefaultValueAttribute` constructor. This is a binary and source incompatible change for code that relied on the annotation for trimming.
-
-### Arm64 SVE nonfaulting loads require mask parameter
-
-SVE nonfaulting load intrinsics now require a mask parameter. Binary and source incompatible for ARM64 SVE intrinsic users.
+- `[DynamicallyAccessedMembers]` annotation removed from `DefaultValueAttribute` constructor (affects trimming annotations)
+- ARM64 SVE nonfaulting load intrinsics now require a mask parameter
 
 ## Behavioral Changes
 
@@ -85,30 +82,12 @@ Shift operations in generic math now behave consistently. If custom types relied
 
 The default `DistributedContextPropagator` now uses W3C Trace Context format. If your system relies on legacy propagation formats, configure the propagator explicitly.
 
-### DriveInfo.DriveFormat returns Linux filesystem types
+### Other behavioral changes (lower impact)
 
-On Linux, `DriveInfo.DriveFormat` now returns the actual filesystem type (e.g., `ext4`, `btrfs`) instead of a generic value.
-
-### GnuTarEntry and PaxTarEntry no longer include atime and ctime by default
-
-Access time and change time are no longer written by default. Set them explicitly if needed.
-
-### LDAP DirectoryControl parsing is now more stringent
-
-Invalid LDAP directory control data that was previously accepted now throws exceptions.
-
-### MacCatalyst version normalization
-
-MacCatalyst versions are now normalized differently. Affects cross-platform .NET MAUI apps targeting Mac Catalyst.
-
-### ActivitySource.CreateActivity and ActivitySource.StartActivity behavior change
-
-Sampling behavior for activities has changed. Review if you use custom activity sampling.
-
-### Explicit struct Size disallowed with InlineArray
-
-Structs marked with `[InlineArray]` can no longer have an explicit `[StructLayout(Size = ...)]`. Binary incompatible — the assembly will fail to load.
-
-### Type.MakeGenericSignatureType argument validation
-
-Arguments to `Type.MakeGenericSignatureType` are now validated more strictly.
+- `DriveInfo.DriveFormat` returns actual Linux filesystem type names (e.g., `ext4`) instead of generic values
+- `GnuTarEntry`/`PaxTarEntry` no longer include atime/ctime by default — set explicitly if needed
+- LDAP `DirectoryControl` parsing is more stringent — invalid data now throws
+- MacCatalyst versions normalized differently (affects .NET MAUI)
+- `ActivitySource.CreateActivity`/`StartActivity` sampling behavior changed
+- `[InlineArray]` structs can no longer have explicit `[StructLayout(Size = ...)]` — assembly fails to load
+- `Type.MakeGenericSignatureType` arguments validated more strictly

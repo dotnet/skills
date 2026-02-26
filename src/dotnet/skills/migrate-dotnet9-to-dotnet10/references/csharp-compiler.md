@@ -86,28 +86,10 @@ C.R(o.AsEnumerable()); // fix
 
 > **Note:** The span overload resolution change is also listed in the runtime breaking changes (`core-libraries.md`). This entry provides the full Roslyn-side detail.
 
-### `scoped` always treated as modifier in lambda parameters
+### Other low-impact source changes
 
-**Impact: Low.** In C# 14, `scoped` is always a modifier in lambda parameter lists, even where it might have been a type name.
-
-```csharp
-// BREAKS if you have a ref struct named 'scoped'
-var v = (scoped scoped s) => { ... };  // both tokens treated as modifiers
-var v = (scoped @scoped s) => { ... }; // fix: escape the type name
-```
-
-### `partial` cannot be a return type of methods
-
-**Impact: Low.** The `partial` modifier is now used in more places (partial events, constructors). Code with a type named `partial` used as a return type will break.
-
-```csharp
-class partial { }
-class C
-{
-    partial F() => new partial();    // BREAKS
-    @partial F() => new partial();   // fix
-}
-```
+- **`scoped` in lambda parameters**: Always treated as a modifier. If you have a ref struct type named `scoped`, escape as `@scoped`.
+- **`partial` as return type**: Cannot use a type named `partial` as a return type. Escape as `@partial`.
 
 ## Behavioral Changes
 

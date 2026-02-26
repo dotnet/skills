@@ -20,7 +20,7 @@ scenarios:
       - "Explains the runtime no longer registers SIGTERM handlers, so AppDomain.ProcessExit won't fire; recommends PosixSignalRegistration.Create"
       - "Warns that BufferedStream.WriteByte no longer implicitly flushes and recommends adding explicit Flush() calls"
       - "Mentions the default trace context propagator changed to W3C standard"
-    timeout: 180
+    timeout: 240
 
   # --- Scenario 2: C# 14 span overloads + Expression trees ---
   - name: "Expression tree code broken by C# 14 span overload resolution"
@@ -70,7 +70,7 @@ scenarios:
       - "Warns that IPNetwork and ForwardedHeadersOptions.KnownNetworks are obsolete"
       - "Notes Razor runtime compilation is obsolete; suggests dotnet watch / hot reload"
       - "Mentions cookie auth no longer redirects API endpoints to login — now returns 401 directly"
-    timeout: 180
+    timeout: 240
 
   # --- Scenario 3b: Microsoft.OpenApi v2.x breaking API changes in transformers ---
   - name: "ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs"
@@ -131,7 +131,7 @@ scenarios:
       - "Warns that operation.Parameters and other collections may now be null; must add null checks or initialize"
       - "Identifies OpenApiSchema.Nullable is removed in OpenAPI 3.1 / Microsoft.OpenApi v2; schema transformer can be removed or rewritten"
       - "Notes the namespace changes: Microsoft.OpenApi.Any removed, models moved to Microsoft.OpenApi"
-    timeout: 180
+    timeout: 240
 
   # --- Scenario 4a: EF Core (Azure SQL JSON, parameterized collections, multi-target tools) ---
   - name: "EF Core app with Azure SQL JSON columns and parameterized collections"

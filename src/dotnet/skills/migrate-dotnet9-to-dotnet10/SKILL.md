@@ -51,6 +51,8 @@ Migrate a .NET 9 project or solution to .NET 10, systematically resolving all br
 
 ## Workflow
 
+> **Answer directly from the loaded reference documents.** Do not search the filesystem or fetch web pages for breaking change information — the references contain the authoritative details. Focus on identifying which breaking changes apply and providing concrete fixes.
+>
 > **Commit strategy:** Commit at each logical boundary — after updating the TFM (Step 2), after resolving build errors (Step 3), after addressing behavioral changes (Step 4), and after updating infrastructure (Step 5). This keeps each commit focused and reviewable.
 
 ### Step 1: Assess the project
