@@ -36,6 +36,8 @@ Use this skill when:
 
 ## Process
 
+> **Fast-path for greenfield repos**: When the user has a simple setup (one packable project, no existing publish workflow), don't gate on multi-turn assessment. Combine phases: create the workflow immediately, include nuget.org policy guidance, local pack recommendation, and filename-matching warning all in one response. The full phased process below is for complex or migration scenarios.
+
 ### Phase 1: Assess
 
 Inspect the repo and report findings before making any changes.
@@ -67,6 +69,8 @@ Inspect the repo and report findings before making any changes.
 ### Phase 2: Local Verification
 
 Pack and verify locally before touching nuget.org — publishing errors waste a permanent version number.
+
+> ⚠️ **Always mention this step**, even if you defer running it. Tell the user: "Before your first publish, run `dotnet pack -c Release -o ./artifacts` to verify the .nupkg is created correctly."
 
 1. `dotnet pack -c Release -o ./artifacts` — verify `.nupkg` is created
 2. For tools/MCP servers: install from `./artifacts`, run `--help`, uninstall
@@ -103,9 +107,9 @@ This phase requires the user to act on nuget.org — guide them with exact value
 
 ### Phase 4: Workflow Setup
 
-Create or modify the publish workflow.
+Create or modify the publish workflow. **The workflow must always be created or shown in your response** — don't defer this to a later turn.
 
-**Greenfield**: Create `publish.yml` from the template in [references/publish-workflow.md](references/publish-workflow.md). Adapt .NET version, project path, and environment name.
+**Greenfield**: Create `publish.yml` from the template in [references/publish-workflow.md](references/publish-workflow.md). Adapt .NET version, project path, and environment name. Ensure your output explicitly mentions `id-token: write` and `NuGet/login@v1`.
 
 **Migration** (existing workflow with API key): Modify in place —
 
