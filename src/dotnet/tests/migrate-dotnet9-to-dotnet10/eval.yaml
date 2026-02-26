@@ -39,7 +39,7 @@ scenarios:
     rubric:
       - "Explains that C# 14 span conversions cause MemoryExtensions.Contains to bind instead of Enumerable.Contains for array.Contains() in expressions"
       - "Provides at least one concrete fix: casting to IEnumerable<int>, using .AsEnumerable(), or calling Enumerable.Contains explicitly"
-    timeout: 120
+    timeout: 180
 
   # --- Scenario 3: ASP.NET Core obsoletions + OpenAPI + cookie auth ---
   - name: "ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers"

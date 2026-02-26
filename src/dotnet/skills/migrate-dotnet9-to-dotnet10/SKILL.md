@@ -149,8 +149,11 @@ Work through compilation errors and new warnings systematically. Load the approp
    - Empty `ColumnDefinitions` and `RowDefinitions` are disallowed in WPF
 
 10. **Cryptography source changes** (if applicable):
-   - `MLDsa` and `SlhDsa` members renamed from `SecretKey` to `PrivateKey`
+   - `MLDsa` and `SlhDsa` members renamed from `SecretKey` to `PrivateKey` (e.g., `ExportMLDsaSecretKey` → `ExportMLDsaPrivateKey`, `SecretKeySizeInBytes` → `PrivateKeySizeInBytes`)
+   - `Rfc2898DeriveBytes` constructors are obsolete (SYSLIB0060) — replace with static `Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, hashAlgorithm, outputLength)`
    - `CoseSigner.Key` can now be null — check for null before use
+   - `X509Certificate.GetKeyAlgorithmParameters()` and `PublicKey.EncodedParameters` can return null
+   - Environment variable renamed from `CLR_OPENSSL_VERSION_OVERRIDE` to `DOTNET_OPENSSL_VERSION_OVERRIDE`
 
 Build again after each batch of fixes. Repeat until the build is clean.
 
