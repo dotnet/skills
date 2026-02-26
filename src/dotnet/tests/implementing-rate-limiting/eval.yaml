@@ -1,0 +1,29 @@
+scenarios:
+  - name: "Add per-client rate limiting to an ASP.NET Core API"
+    prompt: |
+      I need to add rate limiting to my ASP.NET Core 8 API. Requirements:
+      1. Global limit: 100 requests per minute per IP address
+      2. Stricter limit on POST /api/orders: 10 requests per minute per authenticated user
+      3. No limit on GET /healthz
+      4. Return a proper 429 response with Retry-After header when rate limited
+
+      Show me the full Program.cs configuration and how to apply it to the endpoints.
+    assertions:
+      - type: "output_matches"
+        pattern: "(AddRateLimiter|UseRateLimiter)"
+      - type: "output_matches"
+        pattern: "(429|TooManyRequests)"
+      - type: "output_matches"
+        pattern: "(RequireRateLimiting|EnableRateLimiting)"
+      - type: "output_matches"
+        pattern: "(DisableRateLimiting|healthz)"
+    rubric:
+      - "Set RejectionStatusCode to 429 (NOT the default 503) — this is critical"
+      - "Placed UseRateLimiter() AFTER UseRouting() in the middleware pipeline"
+      - "Used partitioned rate limiter for per-IP global limiting"
+      - "Applied a named policy to the POST /api/orders endpoint with per-user partitioning"
+      - "Disabled rate limiting on the healthz endpoint"
+      - "Configured OnRejected callback that sets Retry-After header"
+      - "Chose an appropriate algorithm (sliding window or token bucket preferred over fixed window to avoid burst problem)"
+    expect_tools: ["bash"]
+    timeout: 120
