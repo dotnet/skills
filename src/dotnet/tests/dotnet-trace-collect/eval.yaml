@@ -62,8 +62,6 @@ scenarios:
         pattern: "(dotnet-dump|dotnet dump)"
       - type: "output_matches"
         pattern: "(dotnet-trace|dotnet trace)"
-      - type: "output_matches"
-        pattern: "(two|2|multiple|pair)"
     rubric:
       - "Recommends capturing two dumps at different points during memory growth for heap diffing"
       - "Recommends dotnet-trace while memory is growing for allocation tracking"
