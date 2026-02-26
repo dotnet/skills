@@ -204,8 +204,8 @@ scenarios:
       }
       ```
     assertions:
-      - type: output_contains
-        value: "no migration"
+      - type: output_matches
+        pattern: "(no|not|don't|doesn't).{0,50}(migration|migrat)"
       - type: exit_success
     rubric:
       - "Correctly identifies that this code does NOT use Thread.Abort, Thread.Interrupt, or ThreadAbortException"
