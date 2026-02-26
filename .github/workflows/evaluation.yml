@@ -202,7 +202,7 @@ jobs:
     needs: [discover, build-validator]
     if: ${{ needs.build-validator.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     name: evaluate (${{ matrix.entry.name }})
     strategy:
       fail-fast: false
