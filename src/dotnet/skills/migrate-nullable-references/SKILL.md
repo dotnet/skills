@@ -1,6 +1,6 @@
 ---
 name: migrate-nullable-references
-description: Enable nullable reference types in a C# project and systematically resolve all warnings. USE FOR: adopting NRTs in existing codebases, file-by-file or project-wide migration, fixing CS8602/CS8618/CS86xx warnings, annotating APIs for nullability, cleaning up null-forgiving operators, upgrading dependencies with new nullable annotations. DO NOT USE FOR: projects already fully migrated with zero warnings (unless auditing suppressions), suppressing warnings without fixing them, C# 7.3 or earlier projects. INVOKES: Scan-NullableReadiness.ps1 scanner script.
+description: Enable nullable reference types in a C# project and systematically resolve all warnings. USE FOR: adopting NRTs in existing codebases, file-by-file or project-wide migration, fixing CS8602/CS8618/CS86xx warnings, annotating APIs for nullability, cleaning up null-forgiving operators, upgrading dependencies with new nullable annotations. DO NOT USE FOR: projects already fully migrated with zero warnings (unless auditing suppressions), fixing a handful of nullable warnings in code that already has NRTs enabled, suppressing warnings without fixing them, C# 7.3 or earlier projects. INVOKES: Scan-NullableReadiness.ps1 scanner script.
 ---
 
 # Nullable Reference Migration
@@ -126,7 +126,7 @@ Guidance:
 - When a boolean-returning helper method's result guarantees a nullable parameter is non-null (e.g., `if (IsValid(x))` implies `x != null`), prefer adding `[NotNullWhen(true)]` to the helper's parameter over using `!` at every call site. This is a metadata-only change (no behavior change) that eliminates `!` operators downstream while giving the compiler real flow information.
 - For fields that are always set after construction (e.g., by a framework, an `Init()` method, or a builder pattern), prefer `= null!` on the field declaration over adding `!` at every use site. A field accessed 50 times should have one `= null!`, not fifty `field!` assertions. This keeps the field non-nullable in the type system while acknowledging the late initialization. Pair with `[MemberNotNull]` on the initializing method when possible.
 - For generic methods returning `default` on an unconstrained type parameter (e.g., `FirstOrDefault<T>`), use `[return: MaybeNull] T` rather than `T?`. Writing `T?` on an unconstrained generic changes value-type signatures to `Nullable<T>`, altering the method signature and binary layout. `[return: MaybeNull]` preserves the original signature while communicating that the return may be null for reference types.
-- LINQ's `Where(x => x != null)` does not narrow `T?` to `T` — the compiler cannot track nullability through lambdas passed to generic methods. Use a `WhereNotNull()` extension method (see [Helper Extension Methods](#helper-extension-methods) below) or `source.OfType<T>()` to filter nulls with correct type narrowing.
+- LINQ's `Where(x => x != null)` does not narrow `T?` to `T` — the compiler cannot track nullability through lambdas passed to generic methods. Use `source.OfType<T>()` to filter nulls with correct type narrowing.
 
 > **Build checkpoint:** After fixing dereference warnings, build and confirm zero CS8602/CS8600/CS8603/CS8604 warnings remain before moving to annotation warnings.
 
@@ -282,10 +282,6 @@ If the project uses EF Core, see [references/ef-core.md](references/ef-core.md) 
 ## ASP.NET Core Considerations
 
 If the project uses ASP.NET Core, see [references/aspnet-core.md](references/aspnet-core.md) — enabling NRTs can change MVC model validation and JSON serialization behavior.
-
-## Helper Extension Methods
-
-See [references/helper-extensions.md](references/helper-extensions.md) for `WhereNotNull` and other helper methods to add during migration.
 
 ## More Info
 
