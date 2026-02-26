@@ -13,9 +13,9 @@ description: >
   upgrading from .NET 8 or earlier (address intermediate breaking changes first),
   greenfield projects that start on .NET 10, or purely cosmetic code modernization
   unrelated to the version upgrade.
-  LOADS REFERENCES: csharp-compiler, core-libraries, sdk-msbuild, aspnet-core, efcore,
-  cryptography, extensions-hosting, serialization-networking, winforms-wpf,
-  containers-interop (loaded selectively based on project type).
+  LOADS REFERENCES: csharp-compiler, core-libraries, sdk-msbuild (always loaded),
+  aspnet-core, efcore, cryptography, extensions-hosting, serialization-networking,
+  winforms-wpf, containers-interop (loaded selectively based on project type).
 ---
 
 # .NET 9 → .NET 10 Migration
