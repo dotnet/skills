@@ -173,6 +173,62 @@ scenarios:
       - "Warns that Thread.Interrupt only works on threads in WaitSleepJoin state and is not a reliable cancellation mechanism"
     timeout: 120
 
+  - name: "ASP.NET Response.End and Response.Redirect with Thread.Abort"
+    prompt: |
+      Migrate this .NET Framework ASP.NET code to ASP.NET Core (.NET 8). Provide complete migration guidance with code and pitfalls.
+
+      ```csharp
+      public class ReportController : Controller
+      {
+          protected void btnExport_Click(object sender, EventArgs e)
+          {
+              var data = GenerateReport();
+              Response.Clear();
+              Response.ContentType = "text/csv";
+              Response.AddHeader("Content-Disposition", "attachment; filename=report.csv");
+              Response.Write(data);
+              Response.End(); // throws ThreadAbortException internally
+          }
+
+          protected void btnRedirect_Click(object sender, EventArgs e)
+          {
+              if (!User.Identity.IsAuthenticated)
+              {
+                  Response.Redirect("/login", true); // true = endResponse, calls Thread.Abort
+                  return;
+              }
+
+              try
+              {
+                  ProcessRequest();
+                  Response.Redirect("/success", true);
+              }
+              catch (ThreadAbortException)
+              {
+                  // Expected from Response.Redirect — swallow it
+              }
+              catch (Exception ex)
+              {
+                  LogError(ex);
+                  Response.Redirect("/error", true);
+              }
+          }
+      }
+      ```
+    assertions:
+      - type: output_contains
+        value: "Response.Redirect"
+      - type: output_not_contains
+        value: "Thread.Abort"
+      - type: exit_success
+    rubric:
+      - "Explains that Response.End and Response.Redirect(url, true) internally call Thread.Abort in ASP.NET Framework"
+      - "Replaces Response.End with returning a FileResult or writing to the response body and returning"
+      - "Replaces Response.Redirect(url, true) with a redirect result or Response.Redirect(url) without the endResponse parameter"
+      - "Removes the catch (ThreadAbortException) block and explains it is no longer needed"
+      - "Mentions HttpContext.RequestAborted as the cancellation mechanism in ASP.NET Core for long-running request work"
+    timeout: 120
+
   - name: "Thread.Join and Thread.Sleep only — should not migrate"
     prompt: |
       Migrate this .NET Framework code to .NET 8. Provide your migration guidance.
