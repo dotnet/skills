@@ -44,6 +44,8 @@ This skill helps an agent migrate .NET Framework code that uses `Thread.Abort` t
 
 ## Workflow
 
+> **Commit strategy:** Commit after each pattern replacement so the migration is reviewable and bisectable. Group related call sites (e.g., all cancellable work loops) into one commit.
+
 ### Step 1: Inventory all thread termination usage
 
 Search the codebase for all thread-termination-related APIs:
