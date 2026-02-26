@@ -12,11 +12,9 @@ Generate ASP.NET Core scaffolded code — controllers, views, Razor Pages, Blazo
 - Adding CRUD pages, views, or components for a model in an ASP.NET project
 - Scaffolding API controllers or Minimal API endpoints with Entity Framework
 - Generating Razor Pages, MVC views, or Blazor components backed by a DbContext
-- The project uses a CSS framework (Bootstrap, Tailwind, etc.) and generated code must match
 
 ## When Not to Use
 
-- You want fast template-based generation and plan to customize later — use the `scaffold-aspnet-with-dotnet-scaffold` skill instead
 - The project is not an ASP.NET project
 - You need to scaffold non-web artifacts (class libraries, console apps, etc.)
 
