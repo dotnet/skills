@@ -17,6 +17,24 @@ scenarios:
       - "Includes id-token: write in the workflow permissions"
       - "Recommends local pack verification before publishing"
     timeout: 120
+  - name: "Set up NuGet publishing without mentioning trusted publishing"
+    prompt: |
+      I have a .NET library at src/MyLib/MyLib.csproj and I want to publish it
+      to nuget.org securely from GitHub Actions without storing API keys.
+      The repo is at myorg/mylib. How do I set this up?
+    assertions:
+      - type: "output_contains"
+        value: "NuGet/login"
+      - type: "output_contains"
+        value: "id-token"
+      - type: "output_matches"
+        pattern: "(trusted.?publishing|OIDC)"
+    rubric:
+      - "Identifies that OIDC/trusted publishing is the right approach for keyless publishing"
+      - "Creates or shows a workflow with NuGet/login and id-token: write"
+      - "Guides the user to configure a trusted publishing policy on nuget.org"
+      - "Recommends local pack verification before publishing"
+    timeout: 120
   - name: "Migrate existing workflow from API key to trusted publishing"
     prompt: |
       My current publish workflow uses secrets.NUGET_API_KEY to push packages.
