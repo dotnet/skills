@@ -72,36 +72,49 @@ scenarios:
       - "Mentions cookie auth no longer redirects API endpoints to login — now returns 401 directly"
     timeout: 120
 
-  # --- Scenario 4: EF Core (Azure SQL JSON, parameterized collections, ExecuteUpdate, complex types, multi-target tools) ---
-  - name: "EF Core app with Azure SQL, dynamic ExecuteUpdate, and complex types"
+  # --- Scenario 4a: EF Core (Azure SQL JSON, parameterized collections, multi-target tools) ---
+  - name: "EF Core app with Azure SQL JSON columns and parameterized collections"
     prompt: |
       I'm migrating a .NET 9 app using EF Core with UseAzureSql. The codebase:
-      - Has primitive collections (string[] Tags) and owned types mapped to JSON columns
-      - Uses .Contains() on List<int> in LINQ queries with OPENJSON
-      - Builds expression trees dynamically for ExecuteUpdateAsync column setters
-      - Has complex types with nested properties (Customer.ShippingAddress.Street and Customer.BillingAddress.Street)
+      - Has primitive collections (string[] Tags) and owned types mapped to JSON columns (currently nvarchar(max))
+      - Uses .Contains() on List<int> in LINQ queries that currently use OPENJSON
       - The project multi-targets net9.0 and net10.0, and we run `dotnet ef migrations add` without --framework
-      - Has a custom implementation of IRelationalCommandDiagnosticsLogger
-      What breaking changes affect us in EF Core 10?
+      What EF Core 10 breaking changes affect us?
     assertions:
       - type: "output_matches"
         pattern: "(json|nvarchar|data type)"
       - type: "output_matches"
         pattern: "(parameterized|multiple parameters|OPENJSON|Contains)"
       - type: "output_matches"
-        pattern: "(ExecuteUpdate|expression|lambda)"
-      - type: "output_matches"
-        pattern: "(complex type|column name|uniquif)"
-      - type: "output_matches"
         pattern: "(--framework|multi-target)"
     rubric:
       - "Warns about json data type replacing nvarchar(max) on Azure SQL and how to mitigate with UseCompatibilityLevel(160)"
       - "Explains parameterized collections changed from OPENJSON to multiple scalar parameters; provides UseParameterizedCollectionMode mitigation"
-      - "Identifies that ExecuteUpdateAsync now takes Func instead of Expression — dynamic expression tree code needs rewriting (but is simpler now)"
-      - "Warns about complex type column name uniquification and nested complex type full-path column naming"
       - "Notes EF tools require --framework for multi-targeted projects"
+    timeout: 240
+
+  # --- Scenario 4b: EF Core (ExecuteUpdate, complex types, diagnostics logger) ---
+  - name: "EF Core app with dynamic ExecuteUpdate and complex types"
+    prompt: |
+      I'm migrating a .NET 9 app using EF Core. The codebase:
+      - Builds expression trees dynamically for ExecuteUpdateAsync to conditionally set columns (using Expression.Lambda and Expression.Call to build SetProperty chains)
+      - Has complex types with nested properties where Customer.ShippingAddress.Street and Customer.BillingAddress.Street both map to a column called "Street"
+      - Has nested complex types like Order.Payment.BillingAddress.City where the column was previously named "BillingAddress_City"
+      - Has a custom implementation of IRelationalCommandDiagnosticsLogger that overrides CommandReaderExecuting
+      What breaks in EF Core 10?
+    assertions:
+      - type: "output_matches"
+        pattern: "(ExecuteUpdate|expression|lambda|Func)"
+      - type: "output_matches"
+        pattern: "(complex type|column name|uniquif|full path)"
+      - type: "output_matches"
+        pattern: "(logCommandText|diagnostics|logger)"
+    rubric:
+      - "Identifies that ExecuteUpdateAsync now takes Func instead of Expression — dynamic expression tree code needs rewriting (but is now much simpler with regular if/else in lambdas)"
+      - "Warns about complex type column name uniquification — Street columns will get a number suffix"
+      - "Warns about nested complex type full-path column naming — BillingAddress_City becomes Payment_BillingAddress_City"
       - "Mentions IRelationalCommandDiagnosticsLogger now requires a logCommandText parameter"
-    timeout: 120
+    timeout: 240
 
   # --- Scenario 5: Microsoft.Data.Sqlite DateTimeOffset (all 3 high-impact changes) ---
   - name: "SQLite app with DateTimeOffset timezone handling"
@@ -120,31 +133,30 @@ scenarios:
       - "Warns that all three changes are high-impact and recommends reviewing all date/time handling code"
     timeout: 120
 
-  # --- Scenario 6: BackgroundService + configuration null + keyed services + console logging ---
-  - name: "Generic Host app with BackgroundService, config binding, and keyed services"
+  # --- Scenario 6: Extensions obscure details (config null arrays, ProviderAlias assembly, keyed services AnyKey) ---
+  - name: "Worker service with config null array binding and ProviderAlias assembly change"
     prompt: |
-      I'm upgrading a .NET 9 worker service that:
-      - Has BackgroundService implementations where synchronous initialization runs before the first await in ExecuteAsync, and the order matters because Service B depends on Service A finishing init
-      - Binds JSON config where some values are explicitly null (e.g., "ConnectionString": null) and we rely on the binder keeping the constructor default when null is in config
-      - Uses GetKeyedServices() with AnyKey to discover all registered implementations
-      - Has a custom logging provider registered with [ProviderAlias("custom")]
-      - Uses the JSON console formatter and we parse logs that include the message
-      What breaks in .NET 10?
+      I'm upgrading a .NET 9 worker service to .NET 10. I have specific concerns:
+      - My appsettings.json has `"AllowedOrigins": [null, null]` and `"EmptyList": []`. In .NET 9, AllowedOrigins binds as `["", ""]` and EmptyList binds as null. What happens in .NET 10?
+      - I have `"ConnectionString": null` in my JSON config and my class has `public string ConnectionString { get; set; } = "default";` — in .NET 9 the constructor default "default" was preserved. Does this change?
+      - My logging provider uses `[ProviderAlias("custom")]` and I reference it by assembly-qualified name `Microsoft.Extensions.Logging.ProviderAliasAttribute, Microsoft.Extensions.Logging`. Will that still resolve?
+      - I register services with `services.AddKeyedSingleton<ICache, RedisCache>("redis")` and discover them with `provider.GetKeyedServices<ICache>(KeyedService.AnyKey)`. There was a bug in .NET 9 where this didn't work correctly. Is it fixed?
+      - My BackgroundService does database seeding synchronously at the start of ExecuteAsync before the first await, and other services depend on the database being seeded. Will this still work?
     assertions:
       - type: "output_matches"
+        pattern: "(null|empty|array|\\[\\]|binding)"
+      - type: "output_matches"
+        pattern: "(ProviderAlias|Abstractions|assembly)"
+      - type: "output_matches"
         pattern: "(BackgroundService|ExecuteAsync|background thread|StartAsync)"
-      - type: "output_matches"
-        pattern: "(null|configuration|config|binding)"
-      - type: "output_matches"
-        pattern: "(ProviderAlias|assembly|Abstractions)"
     rubric:
-      - "Explains BackgroundService.ExecuteAsync now runs entirely on a background thread; synchronous code no longer blocks other services"
-      - "Recommends moving ordering-sensitive init to StartAsync or using IHostedLifecycleService"
-      - "Warns that JSON null values are now properly bound instead of being treated as empty string/missing — constructor defaults will be overwritten with null"
-      - "Mentions GetKeyedService/GetKeyedServices with AnyKey behavior fix"
-      - "Notes ProviderAliasAttribute moved to Microsoft.Extensions.Logging.Abstractions assembly"
-      - "Mentions console log message duplication fix"
-    timeout: 120
+      - "Correctly states AllowedOrigins will bind as [null, null] instead of ['', ''] in .NET 10"
+      - "Correctly states EmptyList will bind as an empty array [] instead of null"
+      - "Correctly states ConnectionString will be overwritten with null, losing the 'default' constructor value"
+      - "Notes ProviderAliasAttribute moved from Microsoft.Extensions.Logging to Microsoft.Extensions.Logging.Abstractions — assembly-qualified name will fail"
+      - "Confirms GetKeyedServices with AnyKey is fixed in .NET 10"
+      - "Warns BackgroundService.ExecuteAsync now runs on a background thread; database seeding will not block startup; recommends StartAsync or IHostedLifecycleService"
+    timeout: 240
 
   # --- Scenario 7: Cryptography (OpenSSL, certificate validation, ML-DSA, Rfc2898DeriveBytes) ---
   - name: "Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes"
@@ -175,36 +187,36 @@ scenarios:
       - "Mentions DOTNET_OPENSSL_VERSION_OVERRIDE environment variable rename"
     timeout: 120
 
-  # --- Scenario 8: SDK/NuGet tooling changes ---
-  - name: "SDK and NuGet tooling changes in CI pipeline"
+  # --- Scenario 8: SDK/NuGet obscure changes (NU1510, PrunePackageReference, deps.json, custom culture) ---
+  - name: "SDK and NuGet obscure tooling changes"
     prompt: |
-      Our .NET 9 CI pipeline does the following:
-      - `dotnet new sln` to create a solution (scripts parse the .sln format)
-      - Has PackageReferences without explicit versions (relying on implicit resolution)
-      - Uses `dotnet package list` to check for outdated packages (with HTTP NuGet sources)
-      - Uses `dotnet nuget sign` with a SHA-1 fingerprint
-      - Parses stdout from `dotnet watch` and `dotnet` CLI commands
-      - Has a .NET tool with a manifest and uses `dotnet tool install --local`
-      - Uses `dotnet restore` with a project that still has a project.json file for one legacy component
-      - Sets NUGET_ENABLE_ENHANCED_HTTP_RETRY=true in CI
-      What changes in .NET 10 SDK?
+      I'm upgrading a .NET 9 project to .NET 10 and seeing unexpected behavior:
+      - After `dotnet restore`, I get NU1510 warnings saying some of my direct PackageReferences have been "pruned". What does this mean and how do I fix it?
+      - I have a PackageReference to a package that only provides analyzers (no runtime assets). In .NET 9 it appeared in deps.json but now it doesn't. Our deployment script reads deps.json to verify all expected packages are present.
+      - My project uses PrunePackageReference — how does this interact with direct references in .NET 10?
+      - My CI script runs `dotnet new sln --name MySolution` and then parses the resulting .sln file to extract project GUIDs. This broke.
+      - My project has satellite resource assemblies for a custom culture (e.g., "x-custom"). The build behavior seems different.
+      - I have a PackageReference without a Version attribute because we were relying on implicit resolution from a parent. Now restore fails.
+      - Our CI sets NUGET_ENABLE_ENHANCED_HTTP_RETRY=true and uses HTTP (not HTTPS) NuGet sources with `dotnet package list`.
+      What changed?
     assertions:
+      - type: "output_matches"
+        pattern: "(NU1510|pruned|prune)"
+      - type: "output_matches"
+        pattern: "(deps\\.json|runtime assets)"
       - type: "output_matches"
         pattern: "(SLNX|slnx|\\.slnx|sln.*format)"
       - type: "output_matches"
-        pattern: "(PackageReference|version|error)"
-      - type: "output_matches"
-        pattern: "(stderr|stdout)"
+        pattern: "(PackageReference|[Vv]ersion|error)"
     rubric:
-      - "Warns dotnet new sln now creates SLNX format; scripts parsing .sln will break; use --format sln"
-      - "Notes PackageReference without a version now raises an error"
-      - "Warns HTTP NuGet sources now cause errors in dotnet package list (promoted from warnings)"
-      - "Mentions SHA-1 fingerprint is deprecated in dotnet nuget sign"
-      - "Notes dotnet watch and dotnet CLI now log to stderr instead of stdout"
-      - "Mentions dotnet tool install --local creates manifest by default"
-      - "Notes project.json is no longer supported in dotnet restore"
-      - "Notes NUGET_ENABLE_ENHANCED_HTTP_RETRY env var has been removed"
-    timeout: 120
+      - "Explains NU1510 means the package is provided by the shared framework and the direct reference was pruned; recommends removing the explicit PackageReference"
+      - "Notes packages with no runtime assets are no longer in deps.json; deployment script must be updated"
+      - "Explains PrunePackageReference now privatizes direct prunable references (PrivateAssets=All)"
+      - "Warns dotnet new sln creates SLNX format; recommends --format sln for CI scripts"
+      - "Notes MSBuild custom culture resource handling has changed"
+      - "Notes PackageReference without a version now raises an error instead of implicitly resolving"
+      - "Notes NUGET_ENABLE_ENHANCED_HTTP_RETRY env var was removed and HTTP sources now cause errors in dotnet package list"
+    timeout: 240
 
   # --- Scenario 9: Serialization (STJ property name conflict, XmlSerializer, LDAP) ---
   - name: "JSON polymorphism with conflicting property names and XmlSerializer"
@@ -288,7 +300,7 @@ scenarios:
       - "Warns IDispatchEx to IReflect cast now fails"
       - "Mentions NativeAOT rpath is no longer set automatically"
       - "Reminds to update global.json to .NET 10 SDK"
-    timeout: 120
+    timeout: 180
 
   # --- Scenario 12: SslStream obsoletions + SYSLIB warnings ---
   - name: "App using SslStream properties and SystemEvents"
@@ -334,25 +346,25 @@ scenarios:
       - "Mentions FilePatternMatch.Stem is now non-nullable"
     timeout: 120
 
-  # --- Scenario 14: HTTP streaming, GenericMath shifts, tar entries ---
-  - name: "Blazor WASM app with generic math and tar operations"
+  # --- Scenario 15: HTTP streaming, GenericMath shifts, tar entries ---
+  - name: "Blazor WASM app with generic math shift masking and tar operations"
     prompt: |
       I'm upgrading a .NET 9 Blazor WebAssembly app to .NET 10. It also has a shared library that:
-      - Uses generic math with IShiftOperators for custom numeric types
-      - Makes HTTP requests via HttpClient in the browser and manually buffers responses
-      - Creates PaxTarEntry objects and expects atime/ctime to be set automatically
-      - Publishes with trimming enabled and uses HTTP/3
-      What breaks?
+      - Implements IShiftOperators<byte, int, byte> for a custom type and shifts byte values by 8 or more bits (e.g., `myByte << 8`). In .NET 9 this returned non-zero for some types but we noticed inconsistency between byte and int. What changed in .NET 10 generic math shift behavior?
+      - Makes HTTP requests via HttpClient in the browser and reads responses by calling ReadAsStreamAsync() followed by synchronous stream.Read(). This worked in .NET 9 but now throws.
+      - Creates PaxTarEntry objects and archives them, expecting the access time (atime) and change time (ctime) to be set automatically from the current time on construction.
+      - Publishes with `<PublishTrimmed>true</PublishTrimmed>` and the app uses HTTP/3 connections to our backend. After upgrading, HTTP/3 silently stopped working.
+      What broke in each case?
     assertions:
       - type: "output_matches"
-        pattern: "(shift|generic math|IShiftOperators)"
+        pattern: "(shift|mask|generic math|IShiftOperators|byte|sizeof)"
       - type: "output_matches"
-        pattern: "(streaming|HTTP|browser|response)"
+        pattern: "(streaming|synchronous|Read|browser|HttpClient)"
       - type: "output_matches"
-        pattern: "(HTTP/3|trim|PublishTrimmed)"
+        pattern: "(HTTP/3|trim|PublishTrimmed|Http3Support)"
     rubric:
-      - "Warns about consistent shift behavior change in generic math"
-      - "Notes streaming HTTP responses are now enabled by default in browser clients — manual buffering code may need adjustment"
-      - "Mentions PaxTarEntry/GnuTarEntry no longer include atime/ctime by default"
-      - "Notes HTTP/3 is disabled by default when PublishTrimmed is used"
-    timeout: 120
+      - "Explains that shift operations now consistently mask the shift amount by sizeof(T)*8-1 for all types; byte shifts by 8+ now always return 0 due to masking (8 & 7 = 0)"
+      - "Notes streaming HTTP responses are enabled by default in browser clients; synchronous stream.Read() on the response stream now throws; use ReadAsStreamAsync with async reads or disable streaming"
+      - "Mentions PaxTarEntry/GnuTarEntry no longer include atime/ctime by default; set them explicitly"
+      - "Notes HTTP/3 is disabled by default when PublishTrimmed is used; add <Http3Support>true</Http3Support> to the project"
+    timeout: 240
