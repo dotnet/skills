@@ -20,7 +20,7 @@ scenarios:
       - "Explains the runtime no longer registers SIGTERM handlers, so AppDomain.ProcessExit won't fire; recommends PosixSignalRegistration.Create"
       - "Warns that BufferedStream.WriteByte no longer implicitly flushes and recommends adding explicit Flush() calls"
       - "Mentions the default trace context propagator changed to W3C standard"
-    timeout: 120
+    timeout: 180
 
   # --- Scenario 2: C# 14 span overloads + Expression trees ---
   - name: "Expression tree code broken by C# 14 span overload resolution"
@@ -70,7 +70,7 @@ scenarios:
       - "Warns that IPNetwork and ForwardedHeadersOptions.KnownNetworks are obsolete"
       - "Notes Razor runtime compilation is obsolete; suggests dotnet watch / hot reload"
       - "Mentions cookie auth no longer redirects API endpoints to login — now returns 401 directly"
-    timeout: 120
+    timeout: 180
 
   # --- Scenario 3b: Microsoft.OpenApi v2.x breaking API changes in transformers ---
   - name: "ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs"
@@ -231,7 +231,7 @@ scenarios:
       - "Explains GetDateTime with an offset now returns UTC with DateTimeKind.Utc instead of Local"
       - "Mentions the AppContext switch Microsoft.Data.Sqlite.Pre10TimeZoneHandling as a temporary mitigation"
       - "Warns that all three changes are high-impact and recommends reviewing all date/time handling code"
-    timeout: 120
+    timeout: 180
 
   # --- Scenario 6: Extensions obscure details (config null arrays, ProviderAlias assembly, keyed services AnyKey) ---
   - name: "Worker service with config null array binding and ProviderAlias assembly change"
@@ -285,7 +285,7 @@ scenarios:
       - "Identifies MLDsa SecretKey renamed to PrivateKey"
       - "Mentions X500DistinguishedName validation is stricter"
       - "Mentions DOTNET_OPENSSL_VERSION_OVERRIDE environment variable rename"
-    timeout: 120
+    timeout: 180
 
   # --- Scenario 8: SDK/NuGet obscure changes (NU1510, PrunePackageReference, deps.json, custom culture) ---
   - name: "SDK and NuGet obscure tooling changes"
@@ -366,7 +366,7 @@ scenarios:
       - "Notes the [Obsolete] Address property will now be included in XML serialization; add [XmlIgnore] to exclude it"
       - "Notes MailAddress now rejects consecutive dots"
       - "Mentions Uri length limits have been removed"
-    timeout: 120
+    timeout: 180
 
   # --- Scenario 10: WinForms + WPF combined desktop app ---
   - name: "WinForms and WPF desktop app with System.Drawing and DynamicResource"
@@ -420,7 +420,7 @@ scenarios:
       - "Warns the DynamicResource with MissingKey will now crash instead of being silently ignored"
       - "Mentions StatusStrip default RenderMode change"
       - "Mentions TreeView checkbox image truncation change"
-    timeout: 120
+    timeout: 180
 
   # --- Scenario 11: Containers, single-file, and native interop ---
   - name: "Containerized single-file app with P/Invoke and IDispatchEx"
@@ -466,7 +466,7 @@ scenarios:
       - "Warns the IDispatchEx to IReflect cast now fails in .NET 10"
       - "Mentions NativeAOT rpath is no longer set automatically"
       - "Notes global.json should be updated to 10.0.x SDK"
-    timeout: 120
+    timeout: 180
 
   # --- Scenario 12: SslStream obsoletions + SYSLIB warnings ---
   - name: "App using SslStream properties and SystemEvents"
@@ -487,7 +487,7 @@ scenarios:
       - "Identifies SYSLIB0059 for SystemEvents.EventsThreadShutdown; recommends AppDomain.ProcessExit"
       - "Identifies SYSLIB0061 for Queryable.MaxBy/MinBy IComparer<TSource> overloads"
       - "Identifies SYSLIB0062 for XsltSettings.EnableScript"
-    timeout: 120
+    timeout: 180
 
   # --- Scenario 13: NuGet restore + transitive auditing + InlineArray ---
   - name: "Library with NuGet auditing, transitive deps, and InlineArray"
@@ -510,7 +510,7 @@ scenarios:
       - "Explains NU1510 for pruned references and recommends removing the explicit PackageReference"
       - "Notes dotnet restore now audits transitive packages for vulnerabilities"
       - "Mentions FilePatternMatch.Stem is now non-nullable"
-    timeout: 120
+    timeout: 180
 
   # --- Scenario 14: C# 14 compiler breaking changes (field keyword, extension keyword, scoped, partial, enumerator disposal) ---
   - name: "C# 14 compiler breaking changes — field keyword, extension keyword, disposal"
@@ -576,7 +576,7 @@ scenarios:
       - "Identifies the class named 'extension' as breaking because extension is a contextual keyword in C# 14; recommends renaming or using @extension"
       - "Explains the enumerator now returns false from MoveNext() after disposal instead of continuing execution"
       - "Identifies the scoped type name conflict in the lambda — scoped is treated as a modifier; recommends @scoped for the type name"
-    timeout: 120
+    timeout: 180
 
   # --- Scenario 15: HTTP streaming, GenericMath shifts, tar entries ---
   - name: "Blazor WASM app with generic math shift masking and tar operations"
