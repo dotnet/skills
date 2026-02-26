@@ -133,11 +133,19 @@ The script parses the tombstone, downloads symbols for all unique .NET BuildIds,
 
 ## Finding llvm-symbolizer
 
-`llvm-symbolizer` is included with:
+Check the **Android NDK** first — most .NET Android developers already have it. The `ANDROID_NDK_ROOT` or `ANDROID_HOME` environment variables point to the NDK:
 
-- **Android NDK**: `<ndk>/toolchains/llvm/prebuilt/<host>/bin/llvm-symbolizer`
-- **LLVM/Clang**: Installed with any LLVM distribution (`brew install llvm`, `apt install llvm`)
-- **macOS**: `xcrun --find llvm-symbolizer` (if Xcode or Command Line Tools are installed), or Homebrew LLVM at `/opt/homebrew/opt/llvm/bin/llvm-symbolizer`
+```bash
+# Check NDK directly
+$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/*/bin/llvm-symbolizer
+
+# Or find it via ANDROID_HOME (SDK contains NDK)
+$ANDROID_HOME/ndk/*/toolchains/llvm/prebuilt/*/bin/llvm-symbolizer
+```
+
+Other sources:
+- **LLVM/Clang**: Any LLVM distribution (`brew install llvm`, `apt install llvm`)
+- **macOS**: `xcrun --find llvm-symbolizer`, or Homebrew LLVM at `/opt/homebrew/opt/llvm/bin/llvm-symbolizer`
 
 If none are available, `addr2line` from GNU binutils also works but may produce less detailed output.
 

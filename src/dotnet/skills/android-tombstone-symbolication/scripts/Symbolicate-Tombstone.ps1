@@ -339,8 +339,28 @@ if ($uniqueBuildIds.Count -eq 0) {
 else {
     # Verify llvm-symbolizer is available (only needed when we have symbols to resolve)
     $symbolizerCmd = Get-Command $LlvmSymbolizer -ErrorAction SilentlyContinue
+
+    # If not on PATH, try common NDK locations
     if (-not $symbolizerCmd) {
-        Write-Error "llvm-symbolizer not found at '$LlvmSymbolizer'. Install the Android NDK or LLVM toolchain."
+        $ndkPaths = @()
+        if ($env:ANDROID_NDK_ROOT) {
+            $ndkPaths += Join-Path $env:ANDROID_NDK_ROOT 'toolchains/llvm/prebuilt/*/bin/llvm-symbolizer'
+        }
+        if ($env:ANDROID_HOME) {
+            $ndkPaths += Join-Path $env:ANDROID_HOME 'ndk/*/toolchains/llvm/prebuilt/*/bin/llvm-symbolizer'
+        }
+        foreach ($pattern in $ndkPaths) {
+            $found = Get-Item $pattern -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) {
+                $LlvmSymbolizer = $found.FullName
+                $symbolizerCmd = Get-Command $LlvmSymbolizer -ErrorAction SilentlyContinue
+                break
+            }
+        }
+    }
+
+    if (-not $symbolizerCmd) {
+        Write-Error "llvm-symbolizer not found. Set ANDROID_NDK_ROOT, add it to PATH, or pass -LlvmSymbolizer."
         exit 1
     }
     Write-Verbose "Using llvm-symbolizer: $($symbolizerCmd.Source)"
