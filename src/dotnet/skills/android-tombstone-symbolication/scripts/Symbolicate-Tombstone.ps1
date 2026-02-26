@@ -51,11 +51,17 @@ param(
     [switch]$CrashingThreadOnly,
 
     [Parameter()]
-    [switch]$ParseOnly
+    [switch]$ParseOnly,
+
+    [Parameter()]
+    [switch]$SkipVersionLookup
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+# Required for NuGet package inspection in Find-RuntimeVersionOnline
+Add-Type -AssemblyName System.IO.Compression -ErrorAction SilentlyContinue
 
 # .NET runtime libraries we know how to symbolicate
 $dotnetLibraries = @(
@@ -75,6 +81,28 @@ function Test-DotNetLibrary([string]$libraryName) {
     return $false
 }
 
+# Strip logcat prefixes from a line.
+# Supports common logcat formats:
+#   threadtime (default): "05-06 11:27:48.795  2931  2931 F DEBUG   : text"
+#   time:                 "05-06 11:27:48.795 F/DEBUG( 2931): text"
+#   brief:                "F/DEBUG( 2931): text"
+# Returns the content after the prefix, or the original line if no prefix found.
+function Remove-LogcatPrefix([string]$line) {
+    # threadtime: MM-DD HH:MM:SS.mmm  PID  TID PRIO TAG  : content
+    if ($line -match '^\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+\s+\d+\s+\d+\s+[A-Z]\s+.*?:\s*(.*)$') {
+        return $Matches[1]
+    }
+    # time: MM-DD HH:MM:SS.mmm PRIO/TAG(PID): content
+    if ($line -match '^\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+\s+[A-Z]/[^\(]+\(\s*\d+\):\s*(.*)$') {
+        return $Matches[1]
+    }
+    # brief: PRIO/TAG(PID): content
+    if ($line -match '^[A-Z]/[^\(]+\(\s*\d+\):\s*(.*)$') {
+        return $Matches[1]
+    }
+    return $line
+}
+
 # Parse tombstone backtrace frames, grouped by thread
 # Returns an array of thread objects, each with Header and Frames properties
 function Get-BacktraceFrames([string[]]$lines, [bool]$firstThreadOnly) {
@@ -83,7 +111,9 @@ function Get-BacktraceFrames([string[]]$lines, [bool]$firstThreadOnly) {
     $currentHeader = 'Crashing thread'
     $inBacktrace = $false
 
-    foreach ($line in $lines) {
+    foreach ($rawLine in $lines) {
+        # Strip logcat prefix if present (CI systems often capture tombstones via logcat)
+        $line = Remove-LogcatPrefix $rawLine
         # Thread separator — save current thread and start a new one
         if ($line -match '^---\s+---\s+---') {
             if ($currentFrames.Count -gt 0) {
@@ -97,16 +127,26 @@ function Get-BacktraceFrames([string[]]$lines, [bool]$firstThreadOnly) {
         }
 
         # Thread header line — flush any accumulated frames as a new thread
-        if ($line -match '^\s*pid:\s*\d+,\s*tid:\s*(\d+),\s*name:\s*(.+)') {
+        # Standard tombstone format: "pid: NNN, tid: NNN, name: ..."
+        # Debuggerd short-form: "name (native):tid=NNN systid=NNN"
+        if ($line -match '^\s*pid:\s*\d+,\s*tid:\s*(\d+),\s*name:\s*(.+)' -or
+            $line -match '^\s*(\S.*?)\s*\(native\)\s*:\s*tid=(\d+)') {
             if ($currentFrames.Count -gt 0) {
                 $threads += [PSCustomObject]@{ Header = $currentHeader; Frames = @($currentFrames) }
                 if ($firstThreadOnly) { return @($threads) }
                 $currentFrames = @()
                 $inBacktrace = $false
             }
+            # Extract thread id and name (capture groups are in different order for the two patterns)
+            if ($line -match '^\s*pid:\s*\d+,\s*tid:\s*(\d+),\s*name:\s*(.+)') {
+                $threadId = $Matches[1]; $threadName = $Matches[2].Trim()
+            } else {
+                $line -match '^\s*(\S.*?)\s*\(native\)\s*:\s*tid=(\d+)' | Out-Null
+                $threadId = $Matches[2]; $threadName = $Matches[1].Trim()
+            }
             # Keep 'Crashing thread' label for the first thread (before any separator)
             if ($threads.Count -gt 0 -or $currentHeader -ne 'Crashing thread') {
-                $currentHeader = "Thread $($Matches[1]) ($($Matches[2].Trim()))"
+                $currentHeader = "Thread $threadId ($threadName)"
             }
             continue
         }
@@ -116,7 +156,8 @@ function Get-BacktraceFrames([string[]]$lines, [bool]$firstThreadOnly) {
             continue
         }
 
-        if ($inBacktrace -and $line -match '^\s*#(\d+)\s+pc\s+(0x)?([0-9a-fA-F]+)\s+(\S+)(.*)$') {
+        if ($line -match '^\s*#(\d+)\s+pc\s+(0x)?([0-9a-fA-F]+)\s+(\S+)(.*)$') {
+            $inBacktrace = $true
             $frameNum = $Matches[1]
             $pcOffset = '0x' + $Matches[3]
             $libraryPath = $Matches[4]
@@ -147,6 +188,10 @@ function Get-BacktraceFrames([string[]]$lines, [bool]$firstThreadOnly) {
                 IsDotNet       = (Test-DotNetLibrary $libraryName)
                 OriginalLine   = $line.Trim()
             }
+        }
+        elseif ($inBacktrace -and $line -match '^\s*#\d+\s+pc\s+') {
+            # Looks like a frame but didn't fully parse — warn about truncation/malformation
+            Write-Warning "Skipping malformed frame line: $($line.Trim())"
         }
         elseif ($inBacktrace -and $line -notmatch '^\s*#\d+' -and $line.Trim() -ne '') {
             # End of this backtrace section
@@ -209,7 +254,221 @@ function Get-DebugSymbols([string]$buildId, [string]$cacheDir, [string]$serverUr
     }
 }
 
-# Symbolicate a single PC offset using llvm-symbolizer
+# Try to identify the .NET runtime version and commit hash by matching a BuildId against
+# locally-installed runtime packs (SDK workloads) and the NuGet package cache.
+function Find-RuntimeVersion([string]$buildId, [string]$libraryName, [string]$llvmReadelf) {
+    # Map library name to candidate runtime pack names
+    $packNames = @()
+    if ($libraryName -like '*monosgen*') {
+        $packNames += 'Microsoft.NETCore.App.Runtime.Mono.android-{0}'
+    }
+    elseif ($libraryName -like '*coreclr*') {
+        $packNames += 'Microsoft.NETCore.App.Runtime.android-{0}'
+    }
+    else {
+        # libSystem.*.so can be in either pack
+        $packNames += 'Microsoft.NETCore.App.Runtime.Mono.android-{0}'
+        $packNames += 'Microsoft.NETCore.App.Runtime.android-{0}'
+    }
+
+    $rids = @('arm64', 'arm', 'x64', 'x86')
+    $expandedPackNames = foreach ($tmpl in $packNames) { foreach ($rid in $rids) { $tmpl -f $rid } }
+
+    # Build list of directories to search
+    $searchRoots = @()
+
+    # 1. SDK packs folder (workload installs — most likely for MAUI apps)
+    $dotnetRoot = if ($env:DOTNET_ROOT) { $env:DOTNET_ROOT }
+                  elseif (Test-Path (Join-Path $HOME '.dotnet')) { Join-Path $HOME '.dotnet' }
+                  else { $null }
+    if ($dotnetRoot) {
+        foreach ($pn in $expandedPackNames) {
+            $p = Join-Path $dotnetRoot "packs/$pn"
+            if (Test-Path $p) { $searchRoots += $p }
+        }
+    }
+
+    # 2. NuGet packages cache
+    $nugetDir = if ($env:NUGET_PACKAGES) { $env:NUGET_PACKAGES }
+                else { Join-Path $HOME '.nuget/packages' }
+    foreach ($pn in $expandedPackNames) {
+        $p = Join-Path $nugetDir $pn.ToLowerInvariant()
+        if (Test-Path $p) { $searchRoots += $p }
+    }
+
+    foreach ($root in $searchRoots) {
+        foreach ($versionDir in (Get-ChildItem $root -Directory -ErrorAction SilentlyContinue)) {
+            # Find the native library under this version directory
+            $soFile = Get-ChildItem $versionDir.FullName -Recurse -Filter $libraryName -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $soFile) { continue }
+
+            # Read BuildId from the local binary
+            $localBuildId = $null
+            if ($llvmReadelf) {
+                $readelfOut = (& $llvmReadelf --notes $soFile.FullName 2>$null) -join "`n"
+                if ($readelfOut -match 'Build ID:\s*([0-9a-fA-F]+)') {
+                    $localBuildId = $Matches[1].ToLowerInvariant()
+                }
+            }
+            if (-not $localBuildId) { continue }
+            if ($localBuildId -ne $buildId) { continue }
+
+            # Match found — extract commit hash from .nuspec
+            $version = $versionDir.Name
+            $commit = $null
+            $nuspec = Get-ChildItem $versionDir.FullName -Filter '*.nuspec' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($nuspec) {
+                try {
+                    $xml = [xml](Get-Content $nuspec.FullName -Raw)
+                    $repoNode = $xml.package.metadata.repository
+                    if ($repoNode -and $repoNode.commit) {
+                        $commit = $repoNode.commit
+                    }
+                }
+                catch {
+                    Write-Verbose "Could not parse nuspec for version $version`: $_"
+                }
+            }
+
+            return [PSCustomObject]@{
+                Version  = $version
+                Commit   = $commit
+                PackPath = $versionDir.FullName
+            }
+        }
+    }
+
+    return $null
+}
+
+# Fallback: query NuGet.org to identify the .NET version when the runtime pack is not installed locally.
+# Downloads candidate nupkg files and checks the BuildId of the contained native library.
+function Find-RuntimeVersionOnline([string]$buildId, [string]$libraryName, [string]$llvmReadelf, [string]$cacheDir) {
+    # Determine which NuGet package IDs and RIDs to try
+    $packNames = @()
+    if ($libraryName -like '*monosgen*') {
+        $packNames += 'Microsoft.NETCore.App.Runtime.Mono.android-{0}'
+    }
+    elseif ($libraryName -like '*coreclr*') {
+        $packNames += 'Microsoft.NETCore.App.Runtime.android-{0}'
+    }
+    else {
+        $packNames += 'Microsoft.NETCore.App.Runtime.Mono.android-{0}'
+        $packNames += 'Microsoft.NETCore.App.Runtime.android-{0}'
+    }
+
+    # Try arm64 first (most common), then others
+    $rids = @('arm64', 'arm', 'x64', 'x86')
+    $packageIds = foreach ($tmpl in $packNames) { foreach ($rid in $rids) { ($tmpl -f $rid).ToLowerInvariant() } }
+
+    $nugetBase = 'https://api.nuget.org/v3-flatcontainer'
+    $savedProgressPreference = $ProgressPreference
+
+    try {
+        $ProgressPreference = 'SilentlyContinue'
+
+        foreach ($pkgId in $packageIds) {
+            # List available versions
+            $indexUrl = "$nugetBase/$pkgId/index.json"
+            try {
+                $indexJson = Invoke-RestMethod -Uri $indexUrl -TimeoutSec 15 -UseBasicParsing
+            }
+            catch {
+                Write-Verbose "Could not fetch version index for $pkgId`: $_"
+                continue
+            }
+
+            # Only check stable release versions (no previews/RCs), newest first
+            $versions = @($indexJson.versions | Where-Object { $_ -notmatch '-' }) | Sort-Object { [version]($_ -replace '[^0-9.]', '') } -Descending
+
+            if ($versions.Count -eq 0) { continue }
+            Write-Host "  Checking $($versions.Count) release versions of $pkgId on NuGet.org..." -ForegroundColor DarkGray
+
+            foreach ($ver in $versions) {
+                $nupkgUrl = "$nugetBase/$pkgId/$ver/$pkgId.$ver.nupkg"
+                $nupkgFile = Join-Path $cacheDir "$pkgId.$ver.nupkg"
+                $extractDir = Join-Path $cacheDir "$pkgId.$ver"
+
+                try {
+                    # Download the nupkg (zip file)
+                    if (-not (Test-Path $nupkgFile)) {
+                        Invoke-WebRequest -Uri $nupkgUrl -OutFile $nupkgFile -UseBasicParsing -TimeoutSec 120
+                    }
+
+                    # Extract only the native library
+                    if (-not (Test-Path $extractDir)) {
+                        New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
+                    }
+                    $zip = [System.IO.Compression.ZipFile]::OpenRead($nupkgFile)
+                    try {
+                        $entry = $zip.Entries | Where-Object { $_.Name -eq $libraryName } | Select-Object -First 1
+                        if (-not $entry) {
+                            Remove-Item $nupkgFile -ErrorAction SilentlyContinue
+                            continue
+                        }
+                        $soPath = Join-Path $extractDir $libraryName
+                        if (-not (Test-Path $soPath)) {
+                            [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $soPath, $true)
+                        }
+                    }
+                    finally {
+                        $zip.Dispose()
+                    }
+
+                    # Check BuildId
+                    $readelfOut = (& $llvmReadelf --notes $soPath 2>$null) -join "`n"
+                    if ($readelfOut -match 'Build ID:\s*([0-9a-fA-F]+)') {
+                        $localBuildId = $Matches[1].ToLowerInvariant()
+                        if ($localBuildId -eq $buildId) {
+                            # Match — extract commit from .nuspec inside the nupkg
+                            $commit = $null
+                            $zip2 = [System.IO.Compression.ZipFile]::OpenRead($nupkgFile)
+                            try {
+                                $nuspecEntry = $zip2.Entries | Where-Object { $_.FullName -like '*.nuspec' } | Select-Object -First 1
+                                if ($nuspecEntry) {
+                                    $reader = [System.IO.StreamReader]::new($nuspecEntry.Open())
+                                    try {
+                                        $xml = [xml]$reader.ReadToEnd()
+                                        $repoNode = $xml.package.metadata.repository
+                                        if ($repoNode -and $repoNode.commit) {
+                                            $commit = $repoNode.commit
+                                        }
+                                    }
+                                    finally { $reader.Dispose() }
+                                }
+                            }
+                            finally { $zip2.Dispose() }
+
+                            # Clean up downloaded packages (keep only the match)
+                            Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
+                            Remove-Item $nupkgFile -ErrorAction SilentlyContinue
+
+                            return [PSCustomObject]@{
+                                Version  = $ver
+                                Commit   = $commit
+                                PackPath = $null
+                            }
+                        }
+                    }
+
+                    # No match — clean up this version
+                    Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
+                    Remove-Item $nupkgFile -ErrorAction SilentlyContinue
+                }
+                catch {
+                    Write-Verbose "Failed to check version $ver`: $_"
+                    Remove-Item $nupkgFile -ErrorAction SilentlyContinue
+                    Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+    }
+    finally {
+        $ProgressPreference = $savedProgressPreference
+    }
+
+    return $null
+}
 function Resolve-Frame([string]$debugFile, [string]$pcOffset, [string]$symbolizerPath) {
     try {
         $output = & $symbolizerPath "--obj=$debugFile" -f -C $pcOffset 2>$null
@@ -382,6 +641,30 @@ else {
     else {
         Write-Host "Successfully downloaded symbols for $downloadedCount/$($uniqueBuildIds.Count) BuildId(s)" -ForegroundColor Green
     }
+
+    # Try to identify .NET runtime version from locally-installed packs
+    $llvmReadelf = Join-Path (Split-Path $symbolizerCmd.Source) 'llvm-readelf'
+    if (-not (Test-Path $llvmReadelf)) {
+        $llvmReadelf = (Get-Command 'llvm-readelf' -ErrorAction SilentlyContinue)?.Source
+    }
+    $versionMap = @{} # BuildId -> version info
+    if (-not $SkipVersionLookup -and $llvmReadelf) {
+        Write-Host "Identifying .NET runtime version..." -ForegroundColor Cyan
+        foreach ($bid in $uniqueBuildIds) {
+            $lib = ($dotnetFrames | Where-Object { $_.BuildId -eq $bid } | Select-Object -First 1).LibraryName
+            $versionInfo = Find-RuntimeVersion $bid $lib $llvmReadelf
+            if (-not $versionInfo) {
+                # Fallback: search NuGet.org
+                Write-Host "  Not found locally — searching NuGet.org..." -ForegroundColor DarkGray
+                $versionInfo = Find-RuntimeVersionOnline $bid $lib $llvmReadelf $SymbolCacheDir
+            }
+            if ($versionInfo) {
+                $versionMap[$bid] = $versionInfo
+                $commitShort = if ($versionInfo.Commit) { " (commit $($versionInfo.Commit.Substring(0, [Math]::Min(12, $versionInfo.Commit.Length))))" } else { '' }
+                Write-Host "  $lib → .NET $($versionInfo.Version)$commitShort" -ForegroundColor Green
+            }
+        }
+    }
 }
 
 # Symbolicate each frame, grouped by thread
@@ -440,6 +723,19 @@ $footer = @(
     ""
     "--- $resolvedCount of $($dotnetFrames.Count) .NET frame(s) symbolicated ---"
 )
+
+# Append runtime version info if identified
+if ($versionMap.Count -gt 0) {
+    $footer += ""
+    $footer += "--- .NET Runtime Version ---"
+    foreach ($bid in $versionMap.Keys) {
+        $vi = $versionMap[$bid]
+        $lib = ($dotnetFrames | Where-Object { $_.BuildId -eq $bid } | Select-Object -First 1).LibraryName
+        $commitInfo = if ($vi.Commit) { "  Commit: https://github.com/dotnet/runtime/commit/$($vi.Commit)" } else { '' }
+        $footer += "$lib → .NET $($vi.Version)"
+        if ($commitInfo) { $footer += $commitInfo }
+    }
+}
 
 $result = ($header + $output + $footer) -join "`n"
 

@@ -1,6 +1,6 @@
 ---
 name: android-tombstone-symbolication
-description: Symbolicate the .NET runtime frames in an Android tombstone file. Extracts BuildIds and PC offsets from the native backtrace, downloads debug symbols from the Microsoft symbol server, and runs llvm-symbolizer to produce function names with source file and line numbers. Use when (1) triaging a .NET MAUI or Mono Android app crash from a tombstone, (2) resolving native backtrace frames in libmonosgen-2.0.so or libcoreclr.so to .NET runtime source code, or (3) investigating SIGABRT, SIGSEGV, or other native signals originating from the .NET runtime on Android. Do not use for pure Java/Kotlin crashes, managed .NET exceptions that are already captured in logcat, or iOS crash logs.
+description: Symbolicate the .NET runtime frames in an Android tombstone file. Extracts BuildIds and PC offsets from the native backtrace, downloads debug symbols from the Microsoft symbol server, and runs llvm-symbolizer to produce function names with source file and line numbers. USE FOR triaging a .NET MAUI or Mono Android app crash from a tombstone, resolving native backtrace frames in libmonosgen-2.0.so or libcoreclr.so to .NET runtime source code, or investigating SIGABRT, SIGSEGV, or other native signals originating from the .NET runtime on Android. DO NOT USE FOR pure Java/Kotlin crashes, managed .NET exceptions that are already captured in logcat, or iOS crash logs. INVOKES Symbolicate-Tombstone.ps1 script, llvm-symbolizer, Microsoft symbol server.
 ---
 
 # Android Tombstone .NET Symbolication
@@ -11,7 +11,7 @@ When a .NET Android app (MAUI, Xamarin, or bare Mono) crashes with a native sign
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Tombstone file | Yes | The raw Android tombstone text file (from `/data/tombstones/tombstone_XX` on device) |
+| Tombstone file | Yes | A raw tombstone file (from `/data/tombstones/tombstone_XX`) or logcat output containing the crash (from `adb logcat` or CI logs). Both formats are supported — logcat prefixes are stripped automatically. |
 | `llvm-symbolizer` | Yes | From the Android NDK or any LLVM toolchain (LLVM 14+ recommended) |
 | Internet access | Yes | To download debug symbols from Microsoft's symbol server |
 
@@ -39,7 +39,15 @@ Extract from each frame:
 - **Library path and name** (e.g., `.../libmonosgen-2.0.so`)
 - **BuildId** (hex string, typically 32 or 40 characters)
 
+> ⚠️ **Missing BuildIds**: Logcat-captured tombstones often omit BuildId metadata. If frames lack BuildIds, try recovering them from the device (`adb shell readelf -n`), CI build artifacts, or the .NET runtime NuGet package. See Common Pitfalls for details.
+
 **Agent behavior:** Look for the `backtrace:` section in the tombstone. The crashing thread's backtrace is listed first. Additional thread backtraces appear later, separated by `--- --- ---` markers. Symbolicate all threads by default — background threads (GC workers, finalizers) often contain useful .NET runtime frames. Focus on the crashing thread only if the user specifically asks.
+
+**Non-standard formats:** Not all tombstone sources include a `backtrace:` header. Bug reports, partial pastes, and some `debuggerd` output may present frames directly after a thread header like `app.name (native):tid=NNN systid=NNN`. The automation script handles these — it auto-detects `#NN pc` frame lines regardless of whether a `backtrace:` header is present. If the script still fails to parse a given format, fall back to manual symbolication: extract `#NN pc OFFSET library.so (BuildId: HEX)` tuples from the text, download symbols per Step 3, and run `llvm-symbolizer` per Step 4.
+
+**Logcat format:** CI systems often capture crash output via `adb logcat` rather than pulling raw tombstone files. Logcat lines are prefixed with timestamps and tags (e.g., `05-06 11:27:48.795  2931  2931 F DEBUG   :`). The automation script strips these prefixes automatically. However, logcat-captured tombstones often lack BuildId metadata — see the "Missing BuildIds" pitfall below for recovery options.
+
+**GitHub issue mangling:** When tombstones are pasted into GitHub issues, frame lines like `#1 pc 0x...` get auto-linked as issue references (e.g., `dotnet/android#1 pc 0x...`). Before saving tombstone text to a file, replace any autolinked frame references (e.g., `org/repo#N pc`) with `#N pc`.
 
 ### Step 2: Identify .NET Runtime Libraries
 
@@ -80,6 +88,8 @@ file libmonosgen-2.0.so.debug
 ```
 
 If the download returns a 404 or an HTML error page, the symbols are not published for that build. This can happen with pre-release or internal builds.
+
+> ⚠️ **Confusing absolute and relative offsets**: Android tombstones always provide library-relative offsets (since Android 5.0). Do not add or subtract the library base address.
 
 ### Step 4: Symbolicate Each Frame
 
@@ -127,7 +137,7 @@ A PowerShell script is provided at [scripts/Symbolicate-Tombstone.ps1](scripts/S
 pwsh scripts/Symbolicate-Tombstone.ps1 -TombstoneFile tombstone_01.txt -LlvmSymbolizer llvm-symbolizer
 ```
 
-The script parses the tombstone, downloads symbols for all unique .NET BuildIds, symbolicates every frame across all threads, and outputs the result. Pass `-CrashingThreadOnly` to limit output to the crashing thread, `-OutputFile` to write to a file instead of stdout, or `-ParseOnly` to report detected libraries, BuildIds, and symbol URLs without downloading or symbolicating.
+The script parses the tombstone, downloads symbols for all unique .NET BuildIds, symbolicates every frame across all threads, and outputs the result. Pass `-CrashingThreadOnly` to limit output to the crashing thread, `-OutputFile` to write to a file instead of stdout, `-ParseOnly` to report detected libraries, BuildIds, and symbol URLs without downloading or symbolicating, or `-SkipVersionLookup` to skip .NET runtime version identification.
 
 ---
 
@@ -165,6 +175,28 @@ The source paths in symbolicated output follow CI build agent conventions:
 
 To find the exact source commit, look for `Microsoft.NETCore.App.versions.txt` inside the corresponding runtime NuGet package, or use the runtime version from logcat to identify the VMR commit.
 
+### Runtime Version Identification
+
+The automation script attempts to identify the exact .NET runtime version and source commit by matching the BuildId from the tombstone against locally-installed runtime packs. It searches (in order):
+
+1. **SDK packs folder** (`$DOTNET_ROOT/packs/` or `~/.dotnet/packs/`) — this is where .NET workload installs place the Android runtime pack, and is the most common location for MAUI developers.
+2. **NuGet packages cache** (`~/.nuget/packages/` or `$NUGET_PACKAGES`) — packages restored via `dotnet restore` or NuGet.
+3. **NuGet.org** (online fallback) — if the runtime pack is not installed locally, the script downloads candidate packages from NuGet.org and checks their BuildIds. This can take a moment but finds the exact version automatically.
+
+Pass `-SkipVersionLookup` to skip all version identification (both local and online).
+
+When a matching pack is found, the script extracts the version number from the directory name and the source commit hash from the `.nuspec` file's `<repository commit="..." />` element. This information appears in the output footer:
+
+```
+--- .NET Runtime Version ---
+libmonosgen-2.0.so → .NET 8.0.12
+  Commit: https://github.com/dotnet/runtime/commit/89ef51c5d8f5239345127a1e282e11036e590c8b
+```
+
+The commit link points directly to the dotnet/runtime source tree that produced the binary, making it easy to browse the exact source files referenced in the symbolicated backtrace.
+
+This lookup requires `llvm-readelf` (found automatically in the same NDK directory as `llvm-symbolizer`) and is best-effort — if the matching runtime pack is not installed locally, the version section is simply omitted.
+
 ---
 
 ## Validation
@@ -173,8 +205,20 @@ To find the exact source commit, look for `Microsoft.NETCore.App.versions.txt` i
 2. **At least one frame resolved** — `llvm-symbolizer` returns a function name (not `??`) for at least one .NET frame
 3. **Source paths are plausible** — resolved paths contain recognizable .NET runtime source structure (e.g., `mono/metadata/`, `mono/mini/`)
 
+## Stop Signals
+
+- **No .NET frames found**: If the backtrace contains no .NET runtime libraries, report the parsed frames and stop — there is nothing to symbolicate.
+- **All symbols downloaded, all frames resolved**: Present the symbolicated backtrace and analysis. Do not trace deeper into source code or attempt to build/debug the runtime.
+- **Symbols not available (404)**: After one download attempt per BuildId, stop retrying. Report the unsymbolicated frames with their BuildIds and PC offsets so the user can investigate manually.
+- **llvm-symbolizer not available**: Run the script with `-ParseOnly` to report libraries, BuildIds, and download URLs. Present the manual `llvm-symbolizer` commands the user should run. Do not attempt to install LLVM toolchains.
+
 ## Common Pitfalls
 
+- **Missing BuildIds (common with logcat)**: Logcat-captured tombstones often omit BuildId metadata, making it impossible to download symbols automatically. To recover the BuildId:
+  1. **From the device/emulator** (if still running): `adb shell readelf -n /data/app/.../lib/<abi>/libcoreclr.so | grep "Build ID"`.
+  2. **From CI build artifacts**: If the `.so` file is archived, run `readelf -n libcoreclr.so` locally.
+  3. **From the .NET runtime NuGet package**: The runtime pack (e.g., `~/.dotnet/packs/Microsoft.NETCore.App.Runtime.Mono.android-arm64/<version>/`) contains the binary; run `readelf -n` on it.
+  4. **Prefer raw tombstone files**: If CI can pull `/data/tombstones/tombstone_XX` from the device (e.g., `adb shell cat /data/tombstones/tombstone_00`), those always include BuildIds. This is the best option for future CI setups.
 - **Symbols not found (404)**: Pre-release, daily, or internal .NET builds may not publish symbols to the public server. When this happens:
   1. Check if the build is from an official release (preview or GA).
   2. Look for a local unstripped `.so` or `.so.dbg` file in the app's build artifacts or CI output.
