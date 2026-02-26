@@ -62,7 +62,7 @@ var blogs = await context.Blogs
 
 ### ExecuteUpdateAsync now accepts a regular lambda
 
-`ExecuteUpdateAsync` now takes `Func<...>` instead of `Expression<Func<...>>` for column setters. Code that manually builds expression trees for dynamic setters will no longer compile but can be dramatically simplified:
+`ExecuteUpdateAsync` now takes `Action<...>` instead of `Expression<Func<...>>` for column setters. Code that manually builds expression trees for dynamic setters will no longer compile but can be dramatically simplified:
 
 ```csharp
 // Before (.NET 9) — complex expression tree construction
