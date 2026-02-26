@@ -95,7 +95,7 @@ After migrating all patterns, remove or replace any remaining references:
 | `Thread.Abort()` | `CancellationTokenSource.Cancel()` |
 | `ThreadAbortException` catch blocks | `OperationCanceledException` catch blocks |
 | `Thread.ResetAbort()` | Check `token.IsCancellationRequested` and decide whether to continue |
-| `Thread.Interrupt()` | Signal via `CancellationToken` or set a `ManualResetEventSlim` |
+| `Thread.Interrupt()` | Signal via `CancellationToken` or set a `ManualResetEventSlim` (also obsolete: `SYSLIB0046` in .NET 9) |
 | `Response.End()` | Remove the call; return from the method |
 | `Response.Redirect(url, true)` | `Response.Redirect(url)` without endResponse, or return a redirect result |
 | `#pragma warning disable SYSLIB0006` | Remove after replacing the Thread.Abort call |
