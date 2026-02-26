@@ -340,10 +340,11 @@ scenarios:
 
   - name: "Enable NRT in ASP.NET Core Web API with EF Core"
     prompt: |
-      Enable nullable reference types in this ASP.NET Core Web API project and resolve all warnings.
-      The project is at BookStore/BookStore.csproj. The project uses Entity Framework Core with an
-      in-memory database and has a Web API controller. Make sure annotations are correct for both
-      EF Core entities and API models. Build with: dotnet build BookStore/BookStore.csproj
+      This small project (6 files) needs `<Nullable>enable</Nullable>` added and all resulting
+      warnings fixed. It's a straightforward task. The project is at BookStore/BookStore.csproj.
+      It uses Entity Framework Core with an in-memory database and has a Web API controller.
+      Make sure annotations are correct for both EF Core entities and API models.
+      Build with: dotnet build BookStore/BookStore.csproj
     setup:
       files:
         - path: "BookStore/BookStore.csproj"
