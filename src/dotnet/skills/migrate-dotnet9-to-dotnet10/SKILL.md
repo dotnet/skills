@@ -7,13 +7,15 @@ description: >
   updating Dockerfiles for the Debian-to-Ubuntu container image change, resolving
   new obsoletion warnings (SYSLIB0058–SYSLIB0062), adapting to SDK and NuGet tooling
   changes, and migrating from System.Linq.Async to the built-in AsyncEnumerable.
+  Resolves C# 14 compiler breaking changes (field keyword, extension keyword, span
+  overload resolution).
   DO NOT USE FOR: major framework migrations (e.g., .NET Framework to .NET 10),
   upgrading from .NET 8 or earlier (address intermediate breaking changes first),
   greenfield projects that start on .NET 10, or purely cosmetic code modernization
   unrelated to the version upgrade.
-  LOADS REFERENCES: core-libraries, sdk-msbuild, aspnet-core, efcore, cryptography,
-  extensions-hosting, serialization-networking, winforms-wpf, containers-interop
-  (loaded selectively based on project type).
+  LOADS REFERENCES: csharp-compiler, core-libraries, sdk-msbuild, aspnet-core, efcore,
+  cryptography, extensions-hosting, serialization-networking, winforms-wpf,
+  containers-interop (loaded selectively based on project type).
 ---
 
 # .NET 9 → .NET 10 Migration
@@ -89,6 +91,7 @@ Work through compilation errors and new warnings systematically. Load the approp
 
 | If the project uses… | Load reference |
 |-----------------------|----------------|
+| Any .NET 10 project | `references/csharp-compiler.md` |
 | Any .NET 10 project | `references/core-libraries.md` |
 | Any .NET 10 project | `references/sdk-msbuild.md` |
 | ASP.NET Core | `references/aspnet-core.md` |
@@ -110,9 +113,13 @@ Work through compilation errors and new warnings systematically. Load the approp
    - `SYSLIB0061`: Replace `Queryable.MaxBy`/`MinBy` overloads taking `IComparer<TSource>` with ones taking `IComparer<TKey>`
    - `SYSLIB0062`: Replace `XsltSettings.EnableScript` usage
 
-3. **C# 14 overload resolution with span parameters** — Expression trees containing `.Contains()` on arrays may now bind to `MemoryExtensions.Contains` instead of `Enumerable.Contains`. Fix by casting to `IEnumerable<T>` or using explicit static invocations.
+3. **C# 14 `field` keyword in property accessors** — The identifier `field` is now a contextual keyword inside property `get`/`set`/`init` accessors. Local variables named `field` cause CS9272 (error). Class members named `field` referenced without `this.` cause CS9258 (warning). Fix by renaming (e.g., `fieldValue`) or escaping with `@field`. See `references/csharp-compiler.md`.
 
-4. **ASP.NET Core obsoletions** (if applicable):
+4. **C# 14 `extension` contextual keyword** — Types, aliases, or type parameters named `extension` are disallowed. Rename or escape with `@extension`.
+
+5. **C# 14 overload resolution with span parameters** — Expression trees containing `.Contains()` on arrays may now bind to `MemoryExtensions.Contains` instead of `Enumerable.Contains`. `Enumerable.Reverse` on arrays may resolve to the in-place `Span` extension. Fix by casting to `IEnumerable<T>`, using `.AsEnumerable()`, or explicit static invocations. See `references/csharp-compiler.md` for full details.
+
+6. **ASP.NET Core obsoletions** (if applicable):
    - `WebHostBuilder`, `IWebHost`, `WebHost` are obsolete — migrate to `Host.CreateDefaultBuilder` or `WebApplication.CreateBuilder`
    - `IActionContextAccessor` / `ActionContextAccessor` obsolete
    - `WithOpenApi` extension method deprecated
@@ -121,23 +128,23 @@ Work through compilation errors and new warnings systematically. Load the approp
    - Razor runtime compilation is obsolete
    - `Microsoft.Extensions.ApiDescription.Client` package deprecated
 
-5. **SDK changes**:
+7. **SDK changes**:
    - `dotnet new sln` now defaults to SLNX format — use `--format sln` if the old format is needed
    - Double quotes in file-level directives are disallowed
    - `dnx.ps1` removed from .NET SDK
    - `project.json` no longer supported in `dotnet restore`
 
-6. **EF Core source changes** (if applicable) — See `references/efcore.md` for:
+8. **EF Core source changes** (if applicable) — See `references/efcore.md` for:
    - `ExecuteUpdateAsync` now accepts a regular lambda (expression tree construction code must be rewritten)
    - `IDiscriminatorPropertySetConvention` signature changed
    - `IRelationalCommandDiagnosticsLogger` methods add `logCommandText` parameter
 
-7. **WinForms/WPF source changes** (if applicable):
+9. **WinForms/WPF source changes** (if applicable):
    - Applications referencing both WPF and WinForms must disambiguate `MenuItem` and `ContextMenu` types
    - Renamed parameter in `HtmlElement.InsertAdjacentElement`
    - Empty `ColumnDefinitions` and `RowDefinitions` are disallowed in WPF
 
-8. **Cryptography source changes** (if applicable):
+10. **Cryptography source changes** (if applicable):
    - `MLDsa` and `SlhDsa` members renamed from `SecretKey` to `PrivateKey`
    - `CoseSigner.Key` can now be null — check for null before use
 
@@ -241,6 +248,7 @@ The `references/` folder contains detailed breaking change information organized
 
 | Reference file | When to load |
 |----------------|-------------|
+| `references/csharp-compiler.md` | Always (C# 14 compiler breaking changes — field keyword, extension keyword, span overloads) |
 | `references/core-libraries.md` | Always (applies to all .NET 10 projects) |
 | `references/sdk-msbuild.md` | Always (SDK and build tooling changes) |
 | `references/aspnet-core.md` | Project uses ASP.NET Core |
