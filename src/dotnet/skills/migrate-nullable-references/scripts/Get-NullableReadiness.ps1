@@ -19,15 +19,15 @@
     When Path is a directory (not a .sln), scan recursively for all .csproj files.
 
 .EXAMPLE
-    ./Scan-NullableReadiness.ps1
+    ./Get-NullableReadiness.ps1
     Scans the current directory for a .sln or .csproj and reports NRT readiness.
 
 .EXAMPLE
-    ./Scan-NullableReadiness.ps1 -Path ./src/MyLib/MyLib.csproj
+    ./Get-NullableReadiness.ps1 -Path ./src/MyLib/MyLib.csproj
     Scans a single project.
 
 .EXAMPLE
-    ./Scan-NullableReadiness.ps1 -Path ./src -Recurse -Json
+    ./Get-NullableReadiness.ps1 -Path ./src -Recurse -Json
     Scans all projects under ./src and outputs JSON.
 
 .NOTES

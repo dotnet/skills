@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Automated tests for Scan-NullableReadiness.ps1.
+    Automated tests for Get-NullableReadiness.ps1.
 
 .DESCRIPTION
     Runs the scanner against fixture projects with known NRT states
@@ -11,7 +11,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$scannerPath = Join-Path $scriptDir ".." ".." "skills" "migrate-nullable-references" "scripts" "Scan-NullableReadiness.ps1"
+$scannerPath = Join-Path $scriptDir ".." ".." "skills" "migrate-nullable-references" "scripts" "Get-NullableReadiness.ps1"
 $fixturesDir = Join-Path $scriptDir "fixtures"
 
 $passed = 0

@@ -1,6 +1,6 @@
 ---
 name: migrate-nullable-references
-description: Enable nullable reference types in a C# project and systematically resolve all warnings. USE FOR: adopting NRTs in existing codebases, file-by-file or project-wide migration, fixing CS8602/CS8618/CS86xx warnings, annotating APIs for nullability, cleaning up null-forgiving operators, upgrading dependencies with new nullable annotations. DO NOT USE FOR: projects already fully migrated with zero warnings (unless auditing suppressions), fixing a handful of nullable warnings in code that already has NRTs enabled, suppressing warnings without fixing them, C# 7.3 or earlier projects. INVOKES: Scan-NullableReadiness.ps1 scanner script.
+description: Enable nullable reference types in a C# project and systematically resolve all warnings. USE FOR: adopting NRTs in existing codebases, file-by-file or project-wide migration, fixing CS8602/CS8618/CS86xx warnings, annotating APIs for nullability, cleaning up null-forgiving operators, upgrading dependencies with new nullable annotations. DO NOT USE FOR: projects already fully migrated with zero warnings (unless auditing suppressions), fixing a handful of nullable warnings in code that already has NRTs enabled, suppressing warnings without fixing them, C# 7.3 or earlier projects. INVOKES: Get-NullableReadiness.ps1 scanner script.
 ---
 
 # Nullable Reference Migration
@@ -38,7 +38,7 @@ Enable C# nullable reference types (NRTs) in an existing codebase and systematic
 
 ### Step 1: Evaluate readiness
 
-> **Optional:** Run `scripts/Scan-NullableReadiness.ps1 -Path <project-or-solution>` to automate the checks below. The script reports `<Nullable>`, `<LangVersion>`, `<TargetFramework>`, `<WarningsAsErrors>` settings and counts `#nullable disable` directives, `!` operators, and `#pragma warning disable CS86xx` suppressions. Use `-Json` for machine-readable output.
+> **Optional:** Run `scripts/Get-NullableReadiness.ps1 -Path <project-or-solution>` to automate the checks below. The script reports `<Nullable>`, `<LangVersion>`, `<TargetFramework>`, `<WarningsAsErrors>` settings and counts `#nullable disable` directives, `!` operators, and `#pragma warning disable CS86xx` suppressions. Use `-Json` for machine-readable output.
 
 1. Identify how the project is built and tested. Look for build scripts (e.g., `build.cmd`, `build.sh`, `Makefile`), a `.sln` file, or individual `.csproj` files. If the repo uses a custom build script, use it instead of `dotnet build` throughout this workflow.
 2. Run `dotnet --version` to confirm the SDK is installed. Nullable reference types (NRTs) require C# 8.0+ (`.NET Core 3.0` / `.NET Standard 2.1` or later).
@@ -217,7 +217,7 @@ Add `using System.Diagnostics.CodeAnalysis;` where needed.
 
 ### Step 6: Clean up suppressions
 
-> **Optional:** Re-run `scripts/Scan-NullableReadiness.ps1` to get current counts of `#nullable disable` directives, `!` operators, and `#pragma warning disable CS86xx` suppressions across the project.
+> **Optional:** Re-run `scripts/Get-NullableReadiness.ps1` to get current counts of `#nullable disable` directives, `!` operators, and `#pragma warning disable CS86xx` suppressions across the project.
 
 1. Search for any `#nullable disable` directives or `!` operators that were added as temporary workarounds.
 2. For each one, determine whether the suppression is still needed.
