@@ -218,8 +218,8 @@ scenarios:
     assertions:
       - type: output_contains
         value: "Response.Redirect"
-      - type: output_not_contains
-        value: "Thread.Abort"
+      - type: output_not_matches
+        pattern: "Thread\\.Abort\\s*\\("
       - type: exit_success
     rubric:
       - "Explains that Response.End and Response.Redirect(url, true) internally call Thread.Abort in ASP.NET Framework"
