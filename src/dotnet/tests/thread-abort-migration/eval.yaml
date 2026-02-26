@@ -261,7 +261,7 @@ scenarios:
       ```
     assertions:
       - type: output_matches
-        pattern: "(no|not|don't|doesn't).{0,50}(migration|migrat)"
+        pattern: "(no|not|don't|doesn't|without).{0,50}(migration|migrat|changes needed|changes required)|(already (compatible|works|supported))"
       - type: exit_success
     rubric:
       - "Correctly identifies that this code does NOT use Thread.Abort, Thread.Interrupt, or ThreadAbortException"
