@@ -183,10 +183,11 @@ scenarios:
       We also have complex types:
       ```csharp
       modelBuilder.Entity<Customer>(b => {
-          b.ComplexProperty(c => c.ShippingAddress);  // has Street property
-          b.ComplexProperty(c => c.BillingAddress);   // also has Street property
+          b.ComplexProperty(c => c.ShippingAddress);
+          b.ComplexProperty(c => c.BillingAddress);
       });
-      // Nested: Order.Payment.BillingAddress.City was column "BillingAddress_City"
+      // Both ShippingAddress and BillingAddress have a Street property
+      // Nested: Order.Payment.BillingAddress.City
       ```
 
       And a custom diagnostics logger:
@@ -340,7 +341,6 @@ scenarios:
       ```
 
       ```csharp
-      // Legacy DTO with obsolete properties
       public class OrderDto
       {
           public int Id { get; set; }
@@ -349,7 +349,7 @@ scenarios:
           public string ShippingAddress { get; set; }
       }
       var xml = new XmlSerializer(typeof(OrderDto));
-      // In .NET 9, Address was silently skipped during serialization
+      // In .NET 9, Address was not included in the serialized output
       ```
 
       The app also validates email addresses like `user..name@example.com` with MailAddress, and uses Uri for 10K+ character URLs.
@@ -374,13 +374,13 @@ scenarios:
       I'm upgrading a .NET 9 Windows desktop app to .NET 10. Here's code that needs migration:
 
       ```csharp
-      // Form1.cs — uses unqualified MenuItem
+      // Form1.cs
       var menu = new ContextMenu();
       menu.MenuItems.Add(new MenuItem("Open", OnOpen));
       ```
 
       ```csharp
-      // ImageProcessor.cs — catches GDI+ errors
+      // ImageProcessor.cs
       try
       {
           using var bmp = new Bitmap(path);
@@ -434,7 +434,7 @@ scenarios:
       ```
 
       ```csharp
-      // NativeInterop.cs — P/Invoke in a single-file published app
+      // NativeInterop.cs
       [DllImport("mylib")]
       [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
       static extern int ProcessData(byte* input, int length);
@@ -518,7 +518,7 @@ scenarios:
       I'm migrating a .NET 9 library to .NET 10 / C# 14 and getting new compiler errors. Here's the code:
 
       ```csharp
-      // FieldParser.cs — uses 'field' as a local variable name inside a property
+      // FieldParser.cs
       public class FieldParser
       {
           private readonly JsonElement _payload;
@@ -535,7 +535,7 @@ scenarios:
       ```
 
       ```csharp
-      // extension.cs — type named 'extension'
+      // Extension.cs
       namespace MyLib.Plugins;
       public class extension
       {
@@ -548,7 +548,7 @@ scenarios:
       ```
 
       ```csharp
-      // Iteration.cs — enumerator used after disposal
+      // Iteration.cs
       var enumerator = GetItems().GetEnumerator();
       enumerator.MoveNext();   // True
       var first = enumerator.Current;
@@ -558,7 +558,7 @@ scenarios:
       ```
 
       ```csharp
-      // LambdaHelper.cs — uses scoped as a type name in lambdas
+      // LambdaHelper.cs
       ref struct scoped { public int Value; }
       var fn = (scoped scoped s) => s.Value;
       ```
@@ -593,7 +593,7 @@ scenarios:
       ```
 
       ```csharp
-      // ApiClient.cs — browser HTTP client
+      // ApiClient.cs
       var response = await httpClient.GetAsync(url);
       var stream = await response.Content.ReadAsStreamAsync();
       var buffer = new byte[4096];
@@ -610,10 +610,9 @@ scenarios:
       ```xml
       <!-- App.csproj -->
       <PublishTrimmed>true</PublishTrimmed>
-      <!-- App uses HTTP/3 to connect to our backend -->
       ```
 
-      What breaks in each case and how do I fix it?
+      What breaks in each case and how do I fix it? Note: the app also uses HTTP/3 to connect to our backend.
     assertions:
       - type: "output_matches"
         pattern: "(shift|mask|generic math|IShiftOperators|byte|sizeof)"
