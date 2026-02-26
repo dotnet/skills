@@ -48,14 +48,14 @@ The checkbox rendering in `TreeView` controls has been adjusted, which changes t
 
 #### System.Drawing OutOfMemoryException changed to ExternalException
 
-Some `System.Drawing` operations that previously threw `OutOfMemoryException` now throw `ExternalException` (the actual GDI+ error). Update catch blocks:
+**Important:** Some `System.Drawing` operations that previously threw `OutOfMemoryException` now throw `ExternalException` (from `System.Runtime.InteropServices` — NOT `ArgumentException`). This reflects the actual GDI+ error code. Update catch blocks:
 
 ```csharp
-// Before
+// Before — only catching OutOfMemoryException
 try { /* drawing operation */ }
 catch (OutOfMemoryException) { /* handle */ }
 
-// After — catch both for backward compatibility
+// After — catch ExternalException (the new exception type in .NET 10)
 try { /* drawing operation */ }
 catch (ExternalException) { /* handle */ }
 catch (OutOfMemoryException) { /* handle — for older runtimes */ }

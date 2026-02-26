@@ -33,7 +33,15 @@ Properties marked `[Obsolete]` are now included in XML serialization. Previously
 
 ### HTTP/3 support disabled by default with PublishTrimmed
 
-When publishing with trimming enabled, HTTP/3 support is disabled by default. Add `<Http3Support>true</Http3Support>` to your `.csproj` if needed.
+**When `<PublishTrimmed>true</PublishTrimmed>` or `<PublishAot>true</PublishAot>` is set, HTTP/3 support is completely disabled by default.** The HTTP/3 code is stripped by the trimmer. This is NOT a native library search issue — the HTTP/3 implementation code itself is removed.
+
+**Fix:** Add `<Http3Support>true</Http3Support>` to your `.csproj` to preserve HTTP/3 support when trimming:
+```xml
+<PropertyGroup>
+  <PublishTrimmed>true</PublishTrimmed>
+  <Http3Support>true</Http3Support>
+</PropertyGroup>
+```
 
 ### MailAddress enforces validation for consecutive dots
 

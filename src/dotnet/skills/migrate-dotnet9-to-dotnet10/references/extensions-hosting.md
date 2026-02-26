@@ -36,14 +36,14 @@ public MyService(ILogger<MyService> logger)
 
 ### Null values preserved in configuration
 
-**Impact: Medium.** JSON `null` values are now properly bound instead of being converted to empty strings or ignored.
+**Impact: Medium.** JSON `null` values are now properly bound instead of being converted to empty strings or ignored. **Empty arrays (`[]`) are also now correctly bound as empty arrays instead of being ignored.**
 
 | Scenario | .NET 9 behavior | .NET 10 behavior |
 |----------|----------------|-----------------|
 | `"StringProperty": null` | Bound as `""` (empty string) | Bound as `null` |
 | `"IntProperty": null` | Ignored (kept constructor default) | Bound as `null` |
 | `"Array": [null, null]` | Bound as `["", ""]` | Bound as `[null, null]` |
-| `"Array": []` | Ignored (`null`) | Bound as empty array `[]` |
+| **`"Array": []`** | **Ignored (`null`)** | **Bound as empty array `[]`** |
 
 **If you need the old behavior:**
 - Replace `null` with `""` in JSON config files
