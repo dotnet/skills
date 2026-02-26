@@ -30,6 +30,8 @@ echo '/tmp/dumps/core.%e.%p.%t' | sudo tee /proc/sys/kernel/core_pattern
 mkdir -p /tmp/dumps
 ```
 
+> **Note:** `ulimit` only applies to processes started in the current shell session. For an already-running process, use on-demand collection with `gcore` (see On-Demand Dump Collection below).
+
 **Format specifiers for `core_pattern`:**
 | Spec | Meaning |
 |------|---------|
@@ -178,7 +180,7 @@ Expand-Archive "$env:TEMP\Procdump.zip" -DestinationPath "$env:TEMP\Procdump" -F
 
 **Using Task Manager:**
 1. Open Task Manager → Details tab
-2. Right-click the process → "Create dump file"
+2. Right-click the process → "Create memory dump file"
 3. Note the output path shown in the dialog
 
 ## Alternative: Using createdump with DOTNET_DbgEnableMiniDump

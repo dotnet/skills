@@ -1,6 +1,6 @@
 ---
 name: dump-collect
-description: "Configure and collect crash dumps for modern .NET applications. USE FOR: enabling automatic crash dumps for CoreCLR or NativeAOT, capturing dumps from running .NET processes, setting up dump collection in Docker or Kubernetes, using dotnet-dump collect or createdump. DO NOT USE FOR: analyzing or debugging dumps, post-mortem investigation with lldb/windbg/dotnet-dump analyze, profiling or tracing."
+description: "Configure and collect crash dumps for modern .NET applications. USE FOR: enabling automatic crash dumps for CoreCLR or NativeAOT, capturing dumps from running .NET processes, setting up dump collection in Docker or Kubernetes, using dotnet-dump collect or createdump. DO NOT USE FOR: analyzing or debugging dumps, post-mortem investigation with lldb/windbg/dotnet-dump analyze, profiling or tracing, or for .NET Framework processes."
 ---
 
 # .NET Crash Dump Collection
@@ -92,3 +92,4 @@ Follow the instructions in the loaded reference to configure or collect dumps. A
 1. **Confirm the dump output directory exists** and has write permissions before enabling collection.
 2. **Report the dump file path** back to the user after collection succeeds.
 3. **Verify configuration took effect** — for env vars, echo them; for OS settings, read them back.
+4. **Remind the user to disable automatic dumps if they were enabled temporarily** — remove or unset `DOTNET_DbgEnableMiniDump` and related env vars to avoid accumulating dump files.
