@@ -103,12 +103,14 @@ Build the project and work through dereference warnings. These are the most comm
 |---------|---------|-------------|
 | CS8602 | Dereference of a possibly null reference | Prefer annotation-only fixes: make the upstream type nullable (`T?`) if null is valid, or use `!` if you can verify the value is never null at this point. Adding a null check or `?.` changes runtime behavior — reserve those for a separate commit (see zero-behavior-change rule above) |
 | CS8600 | Converting possible null to non-nullable type | Add `?` to the target type if null is valid, or use `!` if you can verify the value is never null. Adding a null guard changes runtime behavior |
-| CS8603 | Possible null reference return | Change the return type to nullable (`T?`) if the method can genuinely return null. **Do not suppress with `!` if the method can genuinely return null** — fix the return type instead |
+| CS8603 | Possible null reference return | Change the return type to nullable (`T?`) if the method can genuinely return null. **Do not suppress with `!` if the method can genuinely return null** — fix the return type instead. This is the single most important rule in NRT migration: a non-nullable return type is a promise to every caller that null will never be returned |
 | CS8604 | Possible null reference argument | Mark the parameter as nullable if null is valid, or use `!` if the argument is verifiably non-null. Adding a null check before passing changes runtime behavior |
 
 > ❌ **Do not use `?.` as a quick fix for dereference warnings.** Replacing `obj.Method()` with `obj?.Method()` silently changes runtime behavior — the call is skipped instead of throwing. Only use `?.` when you intentionally want to tolerate null.
 
 > ❌ **Do not sprinkle `!` to silence warnings.** Each `!` is a claim that the value is never null. If that claim is wrong, you have hidden a `NullReferenceException`. Add a null check or make the type nullable instead.
+
+> ❌ **Never use `return null!` to keep a return type non-nullable.** If a method returns `null`, the return type must be `T?`. Writing `return null!` hides a null behind a non-nullable signature — callers trust the signature, skip null checks, and get `NullReferenceException` at runtime. This applies to `null!`, `default!`, and any cast that makes the compiler accept null in a non-nullable position. The only acceptable use of `!` on a return value is when the value is **provably never null** but the compiler cannot see why.
 
 > ⚠️ **Do not add `?` to value types unless you intend to change the runtime type.** For reference types, `?` is metadata-only. For value types (`int`, enums, structs), `?` changes the type to `Nullable<T>`, altering the method signature, binary layout, and boxing behavior.
 
