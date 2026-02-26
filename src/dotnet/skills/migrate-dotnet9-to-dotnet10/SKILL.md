@@ -127,6 +127,7 @@ Work through compilation errors and new warnings systematically. Load the approp
    - `IPNetwork` and `ForwardedHeadersOptions.KnownNetworks` obsolete
    - Razor runtime compilation is obsolete
    - `Microsoft.Extensions.ApiDescription.Client` package deprecated
+   - **`Microsoft.OpenApi` v2.x breaking changes** — `Microsoft.AspNetCore.OpenApi 10.0` pulls in `Microsoft.OpenApi` v2.x which restructures namespaces and models. `OpenApiString`/`OpenApiAny` types are removed (use `JsonNode`), `OpenApiSecurityScheme.Reference` replaced by `OpenApiSecuritySchemeReference`, collections on OpenAPI model objects may be null, and `OpenApiSchema.Nullable` is removed. See `references/aspnet-core.md` for migration patterns.
 
 7. **SDK changes**:
    - `dotnet new sln` now defaults to SLNX format — use `--format sln` if the old format is needed

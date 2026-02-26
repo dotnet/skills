@@ -72,6 +72,67 @@ scenarios:
       - "Mentions cookie auth no longer redirects API endpoints to login — now returns 401 directly"
     timeout: 120
 
+  # --- Scenario 3b: Microsoft.OpenApi v2.x breaking API changes in transformers ---
+  - name: "ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs"
+    prompt: |
+      I'm migrating a .NET 9 ASP.NET Core web API to .NET 10. We have custom OpenAPI transformers that manipulate the document. After upgrading Microsoft.AspNetCore.OpenApi to 10.0, we get compilation errors. Here's our code:
+
+      ```csharp
+      using Microsoft.OpenApi.Any;
+      using Microsoft.OpenApi.Models;
+
+      options.AddOperationTransformer((operation, context, ct) =>
+      {
+          var param = operation.Parameters.FirstOrDefault(p => p.Name == "api-version");
+          if (param is not null)
+          {
+              param.Schema.Example = new OpenApiString("1.0");
+          }
+
+          operation.Responses.TryAdd("401", new OpenApiResponse { Description = "Unauthorized" });
+
+          var oAuthScheme = new OpenApiSecurityScheme
+          {
+              Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "oauth2" }
+          };
+          operation.Security = new List<OpenApiSecurityRequirement>
+          {
+              new() { [oAuthScheme] = scopes }
+          };
+
+          return Task.CompletedTask;
+      });
+
+      options.AddSchemaTransformer((schema, context, ct) =>
+      {
+          if (schema.Properties is not null)
+          {
+              foreach (var property in schema.Properties)
+              {
+                  if (schema.Required?.Contains(property.Key) != true)
+                      property.Value.Nullable = false;
+              }
+          }
+          return Task.CompletedTask;
+      });
+      ```
+
+      What changed and how do I fix each piece?
+    assertions:
+      - type: "output_matches"
+        pattern: "(OpenApiString|OpenApiAny|JsonNode|System\\.Text\\.Json)"
+      - type: "output_matches"
+        pattern: "(OpenApiSecurityScheme|Reference|OpenApiSecuritySchemeReference)"
+      - type: "output_matches"
+        pattern: "(Nullable|nullable|removed|schema)"
+    rubric:
+      - "Identifies OpenApiString/OpenApiAny types are removed; recommends using System.Text.Json.Nodes.JsonNode (e.g., JsonNode.Parse)"
+      - "Identifies OpenApiSecurityScheme.Reference pattern is replaced by OpenApiSecuritySchemeReference"
+      - "Warns that operation.Parameters and other collections may now be null; must add null checks or initialize"
+      - "Identifies OpenApiSchema.Nullable is removed in OpenAPI 3.1 / Microsoft.OpenApi v2; schema transformer can be removed or rewritten"
+      - "Notes the namespace changes: Microsoft.OpenApi.Any removed, models moved to Microsoft.OpenApi"
+    timeout: 120
+
   # --- Scenario 4a: EF Core (Azure SQL JSON, parameterized collections, multi-target tools) ---
   - name: "EF Core app with Azure SQL JSON columns and parameterized collections"
     prompt: |

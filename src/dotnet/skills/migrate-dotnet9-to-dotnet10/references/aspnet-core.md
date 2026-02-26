@@ -61,6 +61,62 @@ options.KnownNetworks.Add(new IPNetwork(IPAddress.Parse("10.0.0.0"), 8));
 
 The `Microsoft.Extensions.ApiDescription.Client` package is deprecated. Use the built-in OpenAPI client generation tooling instead.
 
+### Microsoft.OpenApi 2.x breaking API changes
+
+`Microsoft.AspNetCore.OpenApi 10.0` depends on `Microsoft.OpenApi` v2.x, which has significant breaking API changes from v1.x. Projects that customize OpenAPI document generation using transformers or directly manipulate OpenAPI models will need code changes.
+
+**Namespace changes:**
+```csharp
+// Before (.NET 9 — Microsoft.OpenApi v1.x)
+using Microsoft.OpenApi.Any;
+using Microsoft.OpenApi.Models;
+
+// After (.NET 10 — Microsoft.OpenApi v2.x)
+using Microsoft.OpenApi;          // models moved here
+using System.Text.Json.Nodes;     // replaces OpenApiAny types
+```
+
+**Key API changes:**
+
+1. **`OpenApiString` / `OpenApiAny` types removed** — Use `System.Text.Json.Nodes.JsonNode` instead:
+   ```csharp
+   // Before
+   parameter.Schema.Example = new OpenApiString("1.0");
+   // After
+   parameter.Schema.Example = JsonNode.Parse("\"1.0\"");
+   ```
+
+2. **`OpenApiSecurityScheme.Reference` replaced** — Use `OpenApiSecuritySchemeReference` directly:
+   ```csharp
+   // Before
+   var scheme = new OpenApiSecurityScheme
+   {
+       Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "oauth2" }
+   };
+   // After
+   var scheme = new OpenApiSecuritySchemeReference("oauth2", null);
+   ```
+
+3. **Collections now nullable** — `operation.Parameters`, `operation.Responses`, `document.Components.SecuritySchemes`, and other collection properties may be null and must be checked or initialized:
+   ```csharp
+   operation.Responses ??= new OpenApiResponses();
+   operation.Parameters?.FirstOrDefault(p => p.Name == "api-version");
+   document.Components ??= new();
+   document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+   ```
+
+4. **`OpenApiSchema.Nullable` removed** — OpenAPI 3.1 uses JSON Schema `type: ["string", "null"]` instead of `nullable: true`. Schema transformers that set `.Nullable = false` can be removed.
+
+5. **Security requirement values require `List<string>`** — Implicit conversion from `string[]` may not work:
+   ```csharp
+   // Before
+   [oAuthScheme] = scopes
+   // After
+   [oAuthScheme] = scopes.ToList()
+   ```
+
+6. **Interface types in some positions** — Some properties now use interfaces (e.g., `IOpenApiSecurityScheme` instead of `OpenApiSecurityScheme`). Check for compilation errors in transformer code.
+
 ## Behavioral Changes
 
 ### Cookie login redirects disabled for known API endpoints
