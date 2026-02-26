@@ -63,7 +63,7 @@ The `Microsoft.Extensions.ApiDescription.Client` package is deprecated. Use the 
 
 ### Microsoft.OpenApi 2.x breaking API changes
 
-`Microsoft.AspNetCore.OpenApi 10.0` depends on `Microsoft.OpenApi` v2.x, which has significant breaking API changes from v1.x. Projects that customize OpenAPI document generation using transformers or directly manipulate OpenAPI models will need code changes. Note: these changes are not listed on the official ASP.NET Core 10 breaking changes page because they originate from the `Microsoft.OpenApi` dependency, not ASP.NET Core itself.
+`Microsoft.AspNetCore.OpenApi 10.0` depends on `Microsoft.OpenApi` v2.x (from `microsoft/OpenAPI.NET` repo), which has significant breaking API changes from v1.x. Projects that customize OpenAPI document generation using transformers or directly manipulate OpenAPI models will need code changes. Note: the `microsoft/OpenAPI.NET` repo has an upgrade guide for v3 (`docs/upgrade-guide-3.md`) but none for v1→v2. These changes are also not listed on the ASP.NET Core 10 breaking changes page.
 
 **Namespace changes:**
 ```csharp
