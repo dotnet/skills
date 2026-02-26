@@ -451,6 +451,72 @@ scenarios:
       - "Mentions FilePatternMatch.Stem is now non-nullable"
     timeout: 120
 
+  # --- Scenario 14: C# 14 compiler breaking changes (field keyword, extension keyword, scoped, partial, enumerator disposal) ---
+  - name: "C# 14 compiler breaking changes — field keyword, extension keyword, disposal"
+    prompt: |
+      I'm migrating a .NET 9 library to .NET 10 / C# 14 and getting new compiler errors. Here's the code:
+
+      ```csharp
+      // FieldParser.cs — uses 'field' as a local variable name inside a property
+      public class FieldParser
+      {
+          private readonly JsonElement _payload;
+
+          public string ParsedValue
+          {
+              get
+              {
+                  _payload.TryGetProperty("field", out var field);
+                  return field.GetString() ?? string.Empty;
+              }
+          }
+      }
+      ```
+
+      ```csharp
+      // extension.cs — type named 'extension'
+      namespace MyLib.Plugins;
+      public class extension
+      {
+          public string Name { get; set; }
+          public void Load() { }
+      }
+
+      // Used elsewhere:
+      using alias = MyLib.Plugins.extension;
+      ```
+
+      ```csharp
+      // Iteration.cs — enumerator used after disposal
+      var enumerator = GetItems().GetEnumerator();
+      enumerator.MoveNext();   // True
+      var first = enumerator.Current;
+      enumerator.Dispose();
+      enumerator.MoveNext();   // returned True in .NET 9, is this still the case?
+      var second = enumerator.Current;
+      ```
+
+      ```csharp
+      // LambdaHelper.cs — uses scoped as a type name in lambdas
+      ref struct scoped { public int Value; }
+      var fn = (scoped scoped s) => s.Value;
+      ```
+
+      What breaks in each case and how do I fix it?
+    assertions:
+      - type: "output_matches"
+        pattern: "(field|CS9272|CS9258|keyword|property accessor)"
+      - type: "output_matches"
+        pattern: "(extension|keyword|contextual|rename|@extension)"
+      - type: "output_matches"
+        pattern: "(enumerator|[Dd]ispos|MoveNext|false)"
+    rubric:
+      - "Identifies 'var field' inside the property accessor as a CS9272 error because 'field' is now a keyword in property accessors; recommends renaming to fieldValue/@field"
+      - "Identifies the class named 'extension' as breaking because extension is a contextual keyword in C# 14; recommends renaming or using @extension"
+      - "Explains the enumerator now returns false from MoveNext() after disposal instead of continuing execution"
+      - "Identifies the scoped type name conflict in the lambda — scoped is treated as a modifier; recommends @scoped for the type name"
+    timeout: 120
+
   # --- Scenario 15: HTTP streaming, GenericMath shifts, tar entries ---
   - name: "Blazor WASM app with generic math shift masking and tar operations"
     prompt: |
