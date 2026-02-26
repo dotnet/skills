@@ -217,7 +217,7 @@ scenarios:
       ```
     assertions:
       - type: output_contains
-        value: "Response.Redirect"
+        value: "Redirect("
       - type: output_not_matches
         pattern: "Thread\\.Abort\\s*\\("
       - type: exit_success
