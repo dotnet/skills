@@ -130,3 +130,12 @@ After migrating all patterns, remove or replace any remaining references:
 | Assuming cancellation is immediate | Cooperative cancellation only takes effect at the next checkpoint. If work items are large or the code has long gaps between checks, cancellation may be delayed. Design checkpoint frequency based on acceptable latency. |
 | Using `Thread.Interrupt` as a substitute for `Thread.Abort` | `Thread.Interrupt` is also not recommended in modern .NET. It only works on threads in `WaitSleepJoin` state and throws `ThreadInterruptedException`, which is a different exception type. Replace with `CancellationToken` signaling. |
 | Removing `ThreadAbortException` catch blocks without migrating the cleanup logic | `ThreadAbortException` catch blocks often contained critical cleanup (releasing locks, rolling back transactions). Move this logic to `finally` blocks or `CancellationToken.Register` callbacks before removing the catch. |
+
+## More Info
+
+- [Thread.Abort breaking change in .NET 6+](https://learn.microsoft.com/dotnet/core/compatibility/core-libraries/6.0/thread-abort) — why `Thread.Abort` throws `PlatformNotSupportedException`
+- [Cancellation in managed threads](https://learn.microsoft.com/dotnet/standard/threading/cancellation-in-managed-threads) — the cooperative cancellation model with `CancellationToken`
+- [CancellationTokenSource class](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtokensource) — API reference for creating and managing cancellation tokens
+- [SYSLIB0006 warning](https://learn.microsoft.com/dotnet/fundamentals/syslib-diagnostics/syslib0006) — `Thread.Abort` is obsolete
+- [SYSLIB0046 warning](https://learn.microsoft.com/dotnet/fundamentals/syslib-diagnostics/syslib0046) — `Thread.Interrupt` is obsolete (added in .NET 9)
+- [`Task.WaitAsync(CancellationToken)`](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task.waitasync) — cancellable waiting for task-based code (.NET 6+)
