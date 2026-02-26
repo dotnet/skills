@@ -231,7 +231,8 @@ scenarios:
 
   - name: "Thread.Join and Thread.Sleep only — should not migrate"
     prompt: |
-      Migrate this .NET Framework code to .NET 8. Provide your migration guidance.
+      I'm migrating this .NET Framework code to .NET 8 and need to ensure all Thread.Abort
+      usage is addressed. Check this code and provide your Thread.Abort migration guidance.
 
       ```csharp
       public class SimpleWorker
