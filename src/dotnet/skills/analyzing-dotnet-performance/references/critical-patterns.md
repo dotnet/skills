@@ -123,7 +123,7 @@ int val = int.Parse(str.AsSpan(5, 3));
 ## Regular Expressions
 
 ### Use Source-Generated Regex [GeneratedRegex]
-🔴 **DO** | .NET 7+
+🔴 **ALWAYS** use `[GeneratedRegex]` for all static regex patterns | .NET 7+
 
 ❌
 ```csharp
@@ -135,7 +135,7 @@ private static readonly Regex s_re =
 [GeneratedRegex(@"\w+@\w+\.\w+")]
 private static partial Regex EmailRegex();
 ```
-**Impact: Near-zero startup; required for AOT/trimming scenarios.**
+**Impact: Always beneficial or neutral for static patterns — near-zero startup, better throughput, and required for AOT/trimming scenarios.**
 
 ### Avoid Nested Quantifiers (Catastrophic Backtracking)
 🔴 **AVOID** | .NET Core+
@@ -263,7 +263,7 @@ int pos = text.AsSpan().IndexOfAny(s_hex);
 
 ## Detection
 
-Scan recipes for critical anti-patterns. Run these and report exact counts.
+Scan recipes for critical anti-patterns. Run these and report exact counts of issues found in each case.
 
 ```bash
 # .IndexOf(string) without StringComparison (culture-aware, 2-3x slower)
@@ -272,6 +272,9 @@ grep -rn --include='*.cs' -E '\.IndexOf\("[^"]+"\)' --exclude-dir=bin --exclude-
 # .Substring( calls (allocates new string — consider AsSpan)
 grep -rn --include='*.cs' '\.Substring(' --exclude-dir=bin --exclude-dir=obj . | wc -l
 
-# .StartsWith/.EndsWith/.Contains without StringComparison (culture-aware, 2-3x slower)
-grep -rn --include='*.cs' -E '\.(StartsWith|EndsWith|Contains)\("[^"]+"\)' --exclude-dir=bin --exclude-dir=obj . | wc -l
+# .StartsWith/.EndsWith without StringComparison (culture-aware, 2-3x slower)
+grep -rn --include='*.cs' -E '\.(StartsWith|EndsWith)\("[^"]+"\)' --exclude-dir=bin --exclude-dir=obj . | wc -l
+
+# .Contains(string) without StringComparison — NOTE: will also match collection .Contains() calls; filter to string receivers
+grep -rn --include='*.cs' -E '\.Contains\("[^"]+"\)' --exclude-dir=bin --exclude-dir=obj . | wc -l
 ```

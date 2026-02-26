@@ -16,7 +16,7 @@ public static partial class CaseTransformExtensions
     [GeneratedRegex(@"(?<=[a-z])(?=[A-Z])")]
     private static partial Regex CamelCaseBoundaryGenerated();
 
-    [GeneratedRegex(@"[\p{Lu}]+(?=\p{Lu}[\p{Ll}}])|[\p{Lu}]?[\p{Ll}]+|\d+")]
+    [GeneratedRegex(@"[\p{Lu}]+(?=\p{Lu}[\p{Ll}])|[\p{Lu}]?[\p{Ll}]+|\d+")]
     private static partial Regex WordPartsRegexGenerated();
 
     private static Regex SeparatorRegex() => SeparatorRegexGenerated();
@@ -25,7 +25,7 @@ public static partial class CaseTransformExtensions
 #else
     private static readonly Regex SeparatorRegexField = new(@"[-\s]", RegexOptions.Compiled);
     private static readonly Regex CamelCaseBoundaryField = new(@"(?<=[a-z])(?=[A-Z])", RegexOptions.Compiled);
-    private static readonly Regex WordPartsRegexField = new(@"[\p{Lu}]+(?=\p{Lu}[\p{Ll}}])|[\p{Lu}]?[\p{Ll}]+|\d+", RegexOptions.Compiled);
+    private static readonly Regex WordPartsRegexField = new(@"[\p{Lu}]+(?=\p{Lu}[\p{Ll}])|[\p{Lu}]?[\p{Ll}]+|\d+", RegexOptions.Compiled);
 
     private static Regex SeparatorRegex() => SeparatorRegexField;
     private static Regex CamelCaseBoundary() => CamelCaseBoundaryField;

@@ -121,7 +121,8 @@ public static class MetricNumeralExtensions
         var symbol = GetSymbolForExponent(metricExponent);
         if (symbol == null)
         {
-            return input.ToString("G");
+            var fallback = input.ToString("G");
+            return isNegative ? $"-{fallback}" : fallback;
         }
 
         var scaledValue = input / Math.Pow(10, metricExponent);
@@ -129,7 +130,7 @@ public static class MetricNumeralExtensions
 
         var suffix = formats.HasFlag(MetricFormat.UseSymbol)
             ? symbol.Value.ToString()
-            : $" {GetPrefixName(symbol.Value, formats)}";;
+            : $" {GetPrefixName(symbol.Value, formats)}";
 
         return isNegative ? $"-{valueStr}{suffix}" : $"{valueStr}{suffix}";
     }

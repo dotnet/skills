@@ -11,7 +11,7 @@ Sealing lets the JIT devirtualize/inline virtual calls and use pointer compariso
 
 ```bash
 # Count unsealed (non-abstract, non-static) classes
-grep -rn --include='*.cs' -E '^\s*(public |internal |private )?(partial )?class ' --exclude-dir=bin --exclude-dir=obj . | grep -v 'sealed' | grep -v 'abstract' | grep -v 'static' | wc -l
+grep -rn --include='*.cs' -E '^\s*((public|internal|private|protected|file)\s+)?(partial\s+)?class ' --exclude-dir=bin --exclude-dir=obj . | grep -v 'sealed' | grep -v 'abstract' | grep -v 'static' | wc -l
 
 # Count already-sealed classes (verify the inverse)
 grep -rn --include='*.cs' 'sealed class' --exclude-dir=bin --exclude-dir=obj . | wc -l

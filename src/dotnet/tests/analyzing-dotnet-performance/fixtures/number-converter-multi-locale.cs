@@ -320,6 +320,7 @@ public class HungarianNumberToWordsConverter : INumberToWordsConverter
             return cached;
         }
 
+        var originalNumber = number;
         var word = "";
 
         if (number / 1_000_000 > 0)
@@ -361,7 +362,7 @@ public class HungarianNumberToWordsConverter : INumberToWordsConverter
         }
 
         var result = word.Trim();
-        _runtimeCache[number] = result;
+        _runtimeCache[originalNumber] = result;
         return result;
     }
 

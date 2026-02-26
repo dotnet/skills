@@ -54,27 +54,6 @@ count++;
 
 **Impact: ~48% faster for lookup-and-update patterns (95µs → 49µs).**
 
-### Use CollectionsMarshal.AsSpan for Direct List\<T\> Access
-🟡 **CONSIDER** using `CollectionsMarshal.AsSpan` for direct span access over list internals in ultra-hot paths with benchmarked evidence | .NET 5+
-
-This is an advanced technique for specialized hot paths only. Do not apply broadly — it adds complexity and fragility (the span is invalidated by any mutation to the list). Only use when profiling confirms the enumerator or element-by-element access is a bottleneck.
-
-❌
-```csharp
-List<int> list = new(count);
-for (int i = 0; i < count; i++)
-    list.Add(source[i]);
-```
-✅
-```csharp
-List<int> list = new();
-CollectionsMarshal.SetCount(list, count);
-Span<int> span = CollectionsMarshal.AsSpan(list);
-source.AsSpan(0, count).CopyTo(span);
-```
-
-**Impact: Avoids per-element overhead and enumerator allocation. Enables vectorized operations on list contents.**
-
 ### Use Collection Expressions [] for Zero-Allocation Span Creation
 🟡 **DO** use collection expressions for `Span<T>` targets | C# 12 / .NET 8+
 

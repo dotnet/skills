@@ -52,6 +52,13 @@ public class FixedLengthTruncator : ITruncator
 
         truncationString ??= string.Empty;
 
+        if (truncationString.Length >= length)
+        {
+            return truncateFrom == TruncateFrom.Left
+                ? truncationString[^length..]
+                : truncationString[..length];
+        }
+
         if (truncateFrom == TruncateFrom.Left)
         {
             // Correct: uses AsSpan for efficient concatenation

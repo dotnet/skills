@@ -70,7 +70,7 @@ For each relevant pattern category, run the detection recipes below. Report exac
 # Strings & memory
 grep -n '\.IndexOf(\"' FILE                    # Missing StringComparison
 grep -n '\.Substring(' FILE                    # Substring allocations
-grep -n '\.StartsWith\|\.EndsWith\|\.Contains' FILE  # Missing StringComparison
+grep -En '\.(StartsWith|EndsWith|Contains)\s*\(' FILE  # Missing StringComparison
 grep -n '\.ToLower()\|\.ToUpper()' FILE        # Culture-sensitive + allocation
 grep -n '\.Replace(' FILE                      # Chained Replace allocations
 grep -n 'params ' FILE                         # params array allocation
@@ -126,7 +126,7 @@ Assign each finding a severity:
 **Prioritization rules:**
 1. If the user identified hot-path code, elevate all findings in that code to their maximum severity
 2. If hot-path context is unknown, report 🔴 Critical findings unconditionally; report 🟡 Moderate findings with a note: _"Impactful if this code is on a hot path"_
-3. Never suggest micro-optimizations on code that is clearly not performance-sensitive (startup, configuration, one-time initialization)
+3. Never suggest micro-optimizations on code that is clearly not performance-sensitive
 
 **Scale-based severity escalation:**
 When the same pattern appears across many instances, escalate severity:
@@ -186,7 +186,7 @@ Before delivering results, verify:
 |---------|-----------------|
 | Flagging every `Dictionary` as needing `FrozenDictionary` | Only flag if the dictionary is never mutated after construction |
 | Suggesting `Span<T>` in async methods | Use `Memory<T>` in async code; `Span<T>` only in sync hot paths |
-| Reporting LINQ outside hot paths | Only flag LINQ in identified hot paths or tight loops; LINQ is fine in startup, config, and one-time code. Since .NET 7, LINQ Min/Max/Sum/Average are vectorized — blanket bans on LINQ are misguided |
+| Reporting LINQ outside hot paths | Only flag LINQ in identified hot paths or tight loops; LINQ is acceptable in code that runs infrequently. Since .NET 7, LINQ Min/Max/Sum/Average are vectorized — blanket bans on LINQ are misguided |
 | Suggesting `ConfigureAwait(false)` in app code | Only applicable in library code; not primarily a performance concern |
 | Recommending `ValueTask` everywhere | Only for hot paths with frequent synchronous completion |
 | Flagging `new HttpClient()` in DI services | Check if `IHttpClientFactory` is already in use |

@@ -62,9 +62,12 @@ public class FarsiNumberToWordsConverter : INumberToWordsConverter
             { (long)Math.Pow(10, 2), n => FarsiHundredsMap[n] }
         };
 
+        // Use descending order explicitly — dictionary enumeration order is not guaranteed
+        var groupKeys = new long[] { (long)Math.Pow(10, 15), (long)Math.Pow(10, 12), (long)Math.Pow(10, 9), (long)Math.Pow(10, 6), (long)Math.Pow(10, 3), (long)Math.Pow(10, 2) };
+
         // Anti-pattern: new List<string>() without initial capacity
         var parts = new List<string>();
-        foreach (var group in farsiGroupsMap.Keys)
+        foreach (var group in groupKeys)
         {
             if (number / group > 0)
             {
@@ -140,8 +143,11 @@ public class CentralKurdishNumberToWordsConverter : INumberToWordsConverter
             { (long)Math.Pow(10, 2), n => KurdishHundredsMap[n] }
         };
 
+        // Use descending order explicitly — dictionary enumeration order is not guaranteed
+        var groupKeys = new long[] { (long)Math.Pow(10, 15), (long)Math.Pow(10, 12), (long)Math.Pow(10, 9), (long)Math.Pow(10, 6), (long)Math.Pow(10, 3), (long)Math.Pow(10, 2) };
+
         var parts = new List<string>();
-        foreach (var group in kurdishGroupsMap.Keys)
+        foreach (var group in groupKeys)
         {
             if (number / group > 0)
             {

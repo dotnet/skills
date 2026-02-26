@@ -1,7 +1,7 @@
 # Regex Patterns
 
 ### Choose the Right Regex Engine Mode
-🟡 **DO** select the regex engine based on your scenario's trade-offs | .NET 7+
+🟡 **DO** use `[GeneratedRegex]` for all static regex patterns, but never remove `NonBacktracking` if present | .NET 7+
 
 ❌
 ```csharp
@@ -17,7 +17,7 @@ var safe = new Regex(untrustedPattern, RegexOptions.NonBacktracking);
 var oneOff = new Regex("pattern");
 ```
 
-**Impact: Source generator gives best throughput with near-zero startup. NonBacktracking prevents O(2^N) worst case at the cost of ~128x slower best case.**
+**Impact: Source generator is always beneficial for static patterns. NonBacktracking prevents O(2^N) worst case — never remove it if present.**
 
 ### Use IsMatch When You Only Need a Boolean Result
 🟡 **DO** use `IsMatch` instead of `Match(...).Success` | .NET 7+
