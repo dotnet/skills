@@ -1,6 +1,6 @@
-# Build entry point for the dotnet-msbuild component.
+# Build entry point for the dotnet-msbuild plugin.
 # Validates skills and compiles knowledge bundles.
-# Run: pwsh src/dotnet-msbuild/build.ps1
+# Run: pwsh plugins/dotnet-msbuild/build.ps1
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'

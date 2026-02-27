@@ -6,10 +6,10 @@ This repository contains the .NET team's curated set of core skills and custom a
 
 ## What's Included
 
-| Component | Description |
-|-----------|-------------|
-| [dotnet](src/dotnet/) | Collection of core .NET skills for handling common .NET coding tasks. |
-| [dotnet-msbuild](src/dotnet-msbuild/) | Comprehensive MSBuild and .NET build skills: failure diagnosis, performance optimization, code quality, and modernization. |
+| Plugin | Description |
+|--------|-------------|
+| [dotnet](plugins/dotnet/) | Collection of core .NET skills for handling common .NET coding tasks. |
+| [dotnet-msbuild](plugins/dotnet-msbuild/) | Comprehensive MSBuild and .NET build skills: failure diagnosis, performance optimization, code quality, and modernization. |
 
 ## Installation
 
@@ -40,15 +40,15 @@ This repository contains the .NET team's curated set of core skills and custom a
 
 ### 📦 Distribution Templates
 
-Some components include ready-to-use templates (agent instructions, prompt files) that can be copied directly into your repository without installing a plugin or extension:
+Some plugins include ready-to-use templates (agent instructions, prompt files) that can be copied directly into your repository without installing a plugin or extension:
 
-1. Browse the component's **Distribution Templates** section in its README
+1. Browse the plugin's **Distribution Templates** section in its README
 2. Copy agent instructions to your repo root as `AGENTS.md`
 3. Copy prompt files to `.github/prompts/`
 
 ### ⚡ Agentic Workflows
 
-Some components include [GitHub Agentic Workflow](https://github.com/github/gh-aw) templates for CI/CD automation:
+Some plugins include [GitHub Agentic Workflow](https://github.com/github/gh-aw) templates for CI/CD automation:
 
 1. Install the `gh aw` CLI extension
 2. Copy the desired workflow `.md` files and the `shared/` directory to your repository's `.github/workflows/`
@@ -60,7 +60,7 @@ Some components include [GitHub Agentic Workflow](https://github.com/github/gh-a
 
 ### 🧩 Copilot Extension
 
-Some components include a deployable [Copilot Extension](https://docs.github.com/copilot/building-copilot-extensions) for GitHub.com, VS Code, and Visual Studio:
+Some plugins include a deployable [Copilot Extension](https://docs.github.com/copilot/building-copilot-extensions) for GitHub.com, VS Code, and Visual Studio:
 
 1. Find the extension in the [GitHub Marketplace](https://github.com/marketplace) or your organization's Copilot Extensions
 2. Install the GitHub App on your organization or personal account
@@ -68,7 +68,7 @@ Some components include a deployable [Copilot Extension](https://docs.github.com
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and how to add a new component.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and how to add a new plugin.
 
 ## License
 

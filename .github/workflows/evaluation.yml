@@ -3,7 +3,7 @@ name: evaluation
 on:
   pull_request:
     paths:
-      - 'src/**'
+      - 'plugins/**'
       - '.github/workflows/**'
       - 'eng/skill-validator/**'
 
@@ -12,8 +12,8 @@ on:
 
   workflow_dispatch:
     inputs:
-      components:
-        description: 'Components to evaluate (comma-separated, empty=all tests)'
+      plugins:
+        description: 'Plugins to evaluate (comma-separated, empty=all tests)'
         required: false
         default: ''
       model:
@@ -75,8 +75,8 @@ jobs:
       entries: ${{ steps.find.outputs.entries }}
       has_entries: ${{ steps.find.outputs.has_entries }}
       is_infra: ${{ steps.find.outputs.is_infra }}
-      components: ${{ steps.find.outputs.components }}
-      has_components: ${{ steps.find.outputs.has_components }}
+      plugins: ${{ steps.find.outputs.plugins }}
+      has_plugins: ${{ steps.find.outputs.has_plugins }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -86,15 +86,15 @@ jobs:
       - name: Find skills to evaluate
         id: find
         run: |
-          $input = "${{ github.event.inputs.components }}"
+          $input = "${{ github.event.inputs.plugins }}"
           $entries = @()
-          $components = @()
+          $plugins = @()
 
           if ($input) {
-            # Manual input: use specified components (evaluate all skills)
-            $components = @($input -split ',' | ForEach-Object { $_.Trim() })
-            $entries = @($components | ForEach-Object {
-              @{ name = $_; component = $_; skills_path = "src/$_/skills" }
+            # Manual input: use specified plugins (evaluate all skills)
+            $plugins = @($input -split ',' | ForEach-Object { $_.Trim() })
+            $entries = @($plugins | ForEach-Object {
+              @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
             })
           } elseif ("${{ github.event_name }}" -eq "pull_request") {
             # PR: detect individual changed skills
@@ -108,47 +108,47 @@ jobs:
               Select-Object -First 1
 
             if ($hasInfraChanges) {
-              # Infra changes can affect any evaluation — evaluate all components
-              Write-Host "Infrastructure changes detected, evaluating all components"
+              # Infra changes can affect any evaluation — evaluate all plugins
+              Write-Host "Infrastructure changes detected, evaluating all plugins"
               echo "is_infra=true" >> $env:GITHUB_OUTPUT
-              $components = @(Get-ChildItem -Path "src" -Directory |
+              $plugins = @(Get-ChildItem -Path "plugins" -Directory |
                 Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path $_.FullName "tests")) } |
                 Select-Object -ExpandProperty Name)
-              $entries = @($components | ForEach-Object {
-                @{ name = $_; component = $_; skills_path = "src/$_/skills" }
+              $entries = @($plugins | ForEach-Object {
+                @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
               })
             } else {
-              # Extract unique component/skill pairs from changed files under src/*/skills/*/ or src/*/tests/*/
+              # Extract unique plugin/skill pairs from changed files under plugins/*/skills/*/ or plugins/*/tests/*/
               $changedPairs = @($changedFiles |
-                Where-Object { $_ -match '^src/([^/]+)/(skills|tests)/([^/]+)/' } |
+                Where-Object { $_ -match '^plugins/([^/]+)/(skills|tests)/([^/]+)/' } |
                 ForEach-Object { "$($Matches[1])/$($Matches[3])" } |
                 Sort-Object -Unique)
 
-              # Filter to skills that have a SKILL.md and a component tests directory
+              # Filter to skills that have a SKILL.md and a plugin tests directory
               $entries = @($changedPairs | ForEach-Object {
                 $parts = $_ -split '/'
-                $component = $parts[0]
+                $plugin = $parts[0]
                 $skill = $parts[1]
-                $skillMd = Join-Path "src" $component "skills" $skill "SKILL.md"
-                $testsDir = Join-Path "src" $component "tests"
+                $skillMd = Join-Path "plugins" $plugin "skills" $skill "SKILL.md"
+                $testsDir = Join-Path "plugins" $plugin "tests"
                 if ((Test-Path $skillMd) -and (Test-Path $testsDir)) {
                   @{
-                    name = "$component--$skill"
-                    component = $component
-                    skills_path = "src/$component/skills/$skill"
+                    name = "$plugin--$skill"
+                    plugin = $plugin
+                    skills_path = "plugins/$plugin/skills/$skill"
                   }
                 }
               } | Where-Object { $_ })
 
-              $components = @($entries | ForEach-Object { $_.component } | Sort-Object -Unique)
+              $plugins = @($entries | ForEach-Object { $_.plugin } | Sort-Object -Unique)
             }
           } else {
-            # Schedule/dispatch: evaluate all components with skills and tests
-            $components = @(Get-ChildItem -Path "src" -Directory |
+            # Schedule/dispatch: evaluate all plugins with skills and tests
+            $plugins = @(Get-ChildItem -Path "plugins" -Directory |
               Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path $_.FullName "tests")) } |
               Select-Object -ExpandProperty Name)
-            $entries = @($components | ForEach-Object {
-              @{ name = $_; component = $_; skills_path = "src/$_/skills" }
+            $entries = @($plugins | ForEach-Object {
+              @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
             })
           }
 
@@ -164,14 +164,14 @@ jobs:
             echo "has_entries=true" >> $env:GITHUB_OUTPUT
           }
 
-          # Output components for publish-benchmark
-          if (-not $components -or $components.Count -eq 0) {
-            echo "components=[]" >> $env:GITHUB_OUTPUT
-            echo "has_components=false" >> $env:GITHUB_OUTPUT
+          # Output plugins for publish-benchmark
+          if (-not $plugins -or $plugins.Count -eq 0) {
+            echo "plugins=[]" >> $env:GITHUB_OUTPUT
+            echo "has_plugins=false" >> $env:GITHUB_OUTPUT
           } else {
-            $cjson = $components | ConvertTo-Json -Compress -AsArray
-            echo "components=$cjson" >> $env:GITHUB_OUTPUT
-            echo "has_components=true" >> $env:GITHUB_OUTPUT
+            $cjson = $plugins | ConvertTo-Json -Compress -AsArray
+            echo "plugins=$cjson" >> $env:GITHUB_OUTPUT
+            echo "has_plugins=true" >> $env:GITHUB_OUTPUT
           }
         shell: pwsh
 
@@ -293,7 +293,7 @@ jobs:
             ARGS="$ARGS --verbose"
           fi
 
-          artifacts/publish/SkillValidator/release/skill-validator $ARGS --tests-dir ./src/${{ matrix.entry.component }}/tests ./${{ matrix.entry.skills_path }}
+          artifacts/publish/SkillValidator/release/skill-validator $ARGS --tests-dir ./plugins/${{ matrix.entry.plugin }}/tests ./${{ matrix.entry.skills_path }}
 
       - name: Upload results
         if: always()
@@ -368,7 +368,7 @@ jobs:
 
   publish-benchmark:
     needs: [discover, evaluate]
-    if: github.ref == 'refs/heads/main' && needs.discover.outputs.has_components == 'true'
+    if: github.ref == 'refs/heads/main' && needs.discover.outputs.has_plugins == 'true'
     concurrency:
       group: publish-benchmark-deploy
       cancel-in-progress: false
@@ -406,25 +406,25 @@ jobs:
             author    = @{ name = $commitAuthor; username = "${{ github.actor }}" }
           } | ConvertTo-Json -Compress
 
-          # Process each component's results
-          $components = '${{ needs.discover.outputs.components }}' | ConvertFrom-Json
-          foreach ($component in $components) {
-            $artifactDir = "all-results/skill-validator-results-$component"
+          # Process each plugin's results
+          $plugins = '${{ needs.discover.outputs.plugins }}' | ConvertFrom-Json
+          foreach ($plugin in $plugins) {
+            $artifactDir = "all-results/skill-validator-results-$plugin"
             $runDir = Get-ChildItem -Path $artifactDir -Directory -ErrorAction SilentlyContinue |
               Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
               Sort-Object Name -Descending |
               Select-Object -First 1
             if (-not $runDir) {
-              Write-Warning "No run results found for $component, skipping benchmark generation"
+              Write-Warning "No run results found for $plugin, skipping benchmark generation"
               continue
             }
 
             $resultsFile = Join-Path $runDir.FullName "results.json"
-            Write-Host "`n=== Generating benchmark data for: $component ==="
-            $existingFile = "/tmp/gh-pages/data/$component.json"
+            Write-Host "`n=== Generating benchmark data for: $plugin ==="
+            $existingFile = "/tmp/gh-pages/data/$plugin.json"
             $params = @{
               ResultsFile   = $resultsFile
-              ComponentName = $component
+              PluginName = $plugin
               OutputDir     = "/tmp/gh-pages/data"
               CommitJson    = $commitJson
             }
@@ -435,10 +435,10 @@ jobs:
           }
 
           # Generate components.json manifest
-          $components = Get-ChildItem -Path "/tmp/gh-pages/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |
+          $plugins = Get-ChildItem -Path "/tmp/gh-pages/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -ne "components.json" } |
             ForEach-Object { $_.BaseName }
-          @($components) | ConvertTo-Json -AsArray | Out-File -FilePath "/tmp/gh-pages/data/components.json" -Encoding utf8
+          @($plugins) | ConvertTo-Json -AsArray | Out-File -FilePath "/tmp/gh-pages/data/components.json" -Encoding utf8
         shell: pwsh
 
       - name: Deploy to GitHub Pages

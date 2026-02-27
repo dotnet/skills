@@ -58,6 +58,6 @@ Ready-to-use templates that can be copied directly into your repository without 
 
 ## 🧩 Copilot Extension
 
-| Component | Description |
-|-----------|-------------|
+| Plugin | Description |
+|--------|-------------|
 | [Copilot Extension](copilot-extension/) | Deployable `@msbuild` Copilot Extension for GitHub.com, VS Code, and Visual Studio |

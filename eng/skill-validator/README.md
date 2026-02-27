@@ -284,7 +284,7 @@ jobs:
 
 ### Consolidating results across matrix jobs
 
-When evaluating multiple components in parallel CI matrix jobs, use the `consolidate` subcommand to merge individual `results.json` files into a single markdown summary:
+When evaluating multiple plugins in parallel CI matrix jobs, use the `consolidate` subcommand to merge individual `results.json` files into a single markdown summary:
 
 ```bash
 dotnet run --project src/SkillValidator -- consolidate --output summary.md results1.json results2.json

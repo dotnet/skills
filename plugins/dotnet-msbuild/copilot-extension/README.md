@@ -66,7 +66,7 @@ Extract and compile skill content into optimized knowledge files:
 
 ```bash
 # From repo root
-pwsh src/dotnet-msbuild/build.ps1
+pwsh plugins/dotnet-msbuild/build.ps1
 
 # Or from copilot-extension/
 npm run compile-knowledge
@@ -117,7 +117,7 @@ npm start
 npm test
 
 # Recompile knowledge after skill changes
-pwsh src/dotnet-msbuild/build.ps1
+pwsh plugins/dotnet-msbuild/build.ps1
 ```
 
 ## How It Works
@@ -133,7 +133,7 @@ pwsh src/dotnet-msbuild/build.ps1
 
 ## Extending
 
-- **Add knowledge**: Update skills in `src/dotnet-msbuild/skills/`, then run `pwsh src/dotnet-msbuild/build.ps1`
+- **Add knowledge**: Update skills in `plugins/dotnet-msbuild/skills/`, then run `pwsh plugins/dotnet-msbuild/build.ps1`
 - **Add intents**: Edit `src/intent-classifier.js` to recognize new categories
 - **Add tools**: For v2, add MCP server integration for binlog analysis
 
