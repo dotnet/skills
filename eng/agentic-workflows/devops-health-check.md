@@ -138,7 +138,7 @@ Compute the standard deviation of `"Skilled Quality"` scores across all entries 
 
 **Q5 — Skills without eval tests:**
 ```
-find src/*/skills/*/ -mindepth 0 -maxdepth 0 -type d
+find src/*/skills/ -mindepth 1 -maxdepth 1 -type d
 ```
 For each skill directory, check if a corresponding test directory exists under `src/{component}/tests/{skill-name}/`.
 - 🟡 Warning if no test directory found

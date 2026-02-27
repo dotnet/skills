@@ -68,4 +68,3 @@ eng/agentic-workflows/
 
 - [src/dotnet-msbuild/agentic-workflows/](../../src/dotnet-msbuild/agentic-workflows/) — MSBuild-specific agentic workflows
 - [eng/dashboard/](../dashboard/) — Benchmark dashboard (data source for quality checks)
-- [Design document](../../docs/devops-health-check-implementation-plan.md) — Full implementation plan

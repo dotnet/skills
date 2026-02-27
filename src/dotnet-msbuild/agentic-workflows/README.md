@@ -22,7 +22,3 @@ These are [GitHub Agentic Workflow](https://github.com/github/gh-aw) templates f
 ## Customization
 
 - Adjust `safe-outputs` limits and triggers as needed
-
-## Related
-
-- [eng/agentic-workflows/](../../../eng/agentic-workflows/) — Cross-cutting DevOps workflows (daily health check, investigation agents)
