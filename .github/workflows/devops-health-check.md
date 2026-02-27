@@ -14,11 +14,11 @@ on:
 permissions:
   contents: read
   actions: read
-  issues: write
+  issues: read
   pull-requests: read
 
 imports:
-  - shared/compiled/devops-health.lock.md
+  - ../aw/shared/devops-health.lock.md
 
 tools:
   github:

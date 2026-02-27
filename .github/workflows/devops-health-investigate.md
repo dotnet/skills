@@ -32,11 +32,11 @@ on:
 permissions:
   contents: read
   actions: read
-  issues: write
+  issues: read
   pull-requests: read
 
 imports:
-  - shared/compiled/devops-investigate.lock.md
+  - ../aw/shared/devops-investigate.lock.md
 
 tools:
   github:
