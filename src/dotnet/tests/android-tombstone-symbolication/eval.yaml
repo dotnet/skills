@@ -160,6 +160,9 @@ scenarios:
     prompt: "Run the automation script at scripts/Symbolicate-Tombstone.ps1 with -ParseOnly against the tombstone file tombstone_multi_buildid.txt to see which .NET libraries and BuildIds it detects. Use pwsh to run it."
     setup:
       copy_test_files: true
+      files:
+        - path: "scripts/Symbolicate-Tombstone.ps1"
+          source: "scripts/Symbolicate-Tombstone.ps1"
     assertions:
       - type: "output_matches"
         pattern: "=== Tombstone Parse Report ==="
@@ -192,6 +195,9 @@ scenarios:
     prompt: "Run the automation script at scripts/Symbolicate-Tombstone.ps1 with -ParseOnly against tombstone_multithread.txt to analyze the multi-thread tombstone. Use pwsh to run it."
     setup:
       copy_test_files: true
+      files:
+        - path: "scripts/Symbolicate-Tombstone.ps1"
+          source: "scripts/Symbolicate-Tombstone.ps1"
     assertions:
       - type: "output_matches"
         pattern: "=== Tombstone Parse Report ==="
@@ -214,6 +220,9 @@ scenarios:
     prompt: "Run the automation script at scripts/Symbolicate-Tombstone.ps1 with -ParseOnly and -CrashingThreadOnly against tombstone_multithread.txt. Use pwsh to run it. Does it only show the crashing thread?"
     setup:
       copy_test_files: true
+      files:
+        - path: "scripts/Symbolicate-Tombstone.ps1"
+          source: "scripts/Symbolicate-Tombstone.ps1"
     assertions:
       - type: "output_matches"
         pattern: "=== Tombstone Parse Report ==="
