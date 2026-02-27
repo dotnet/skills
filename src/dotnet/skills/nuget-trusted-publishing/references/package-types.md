@@ -11,7 +11,8 @@ Inspect `.csproj` files (and `Directory.Build.props` if present) for these MSBui
 2. Has <PackageType>McpServer</PackageType>?           → MCP server (also a dotnet tool)
 3. Has <PackAsTool>true</PackAsTool>?                  → Dotnet tool
 4. Has <IsPackable>true</IsPackable> or no OutputType? → NuGet library
-5. Has <OutputType>Exe</OutputType> without PackAsTool? → Not a NuGet package (skip)
+5. Has <OutputType>Exe</OutputType> + <IsPackable>true</IsPackable>? → Application package
+6. Has <OutputType>Exe</OutputType> without PackAsTool or IsPackable? → Not packable by default (ask user)
 ```
 
 Check in order — MCP servers have `PackAsTool` too, so `PackageType` must be checked first.
@@ -249,7 +250,7 @@ The `template.json` must include at minimum: `identity`, `name`, `shortName`, `t
 
 ## Common Gotchas
 
-- **`IsPackable` defaults**: Class libraries default to `true`, console apps to `false`. If a console app should be a tool, set `PackAsTool` (which implies packable).
+- **`IsPackable` defaults**: Class libraries default to `true`, console apps to `false`. Console apps can still be published as NuGet packages by setting `<IsPackable>true</IsPackable>` — they just won't be installable via `dotnet tool install` unless `PackAsTool` is also set.
 - **`Directory.Build.props`**: Package metadata may be set at the repo root — always check there too.
 - **Multi-project repos**: A repo may contain multiple packable projects of different types. Each needs its own trusted publishing workflow or a matrix build.
 - **`GeneratePackageOnBuild`**: If `true`, `dotnet build` also produces the `.nupkg`. The workflow should use `dotnet pack` explicitly for clarity.

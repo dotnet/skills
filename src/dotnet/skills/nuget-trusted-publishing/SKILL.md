@@ -5,7 +5,7 @@ description: >
   with short-lived tokens. USE FOR: trusted publishing, NuGet OIDC, keyless NuGet publish,
   migrate from NuGet API key, NuGet/login, secure NuGet publishing.
   DO NOT USE FOR: publishing to private feeds or Azure Artifacts (OIDC is nuget.org only).
-  INVOKES: bash, edit, create, ask_user for guided repo setup.
+  INVOKES: shell (powershell or bash), edit, create, ask_user for guided repo setup.
 ---
 
 # NuGet Trusted Publishing Setup
@@ -47,7 +47,8 @@ Inspect the repo and report findings before making any changes.
    - `<PackageType>McpServer</PackageType>` → **MCP server** (also a dotnet tool)
    - `<PackAsTool>true</PackAsTool>` → **Dotnet tool**
    - Class library (`IsPackable=true` or no `OutputType`) → **Library**
-   - `<OutputType>Exe</OutputType>` without `PackAsTool` → Skip, not a NuGet package
+   - `<OutputType>Exe</OutputType>` with `<IsPackable>true</IsPackable>` → **Application package** (not a tool, but still publishable)
+   - `<OutputType>Exe</OutputType>` without `PackAsTool` or `IsPackable` → Not packable by default (ask user if they intend to publish it)
 
 2. **Validate structure** for each project's type:
 
