@@ -17,7 +17,7 @@ description: >
 
 BenchmarkDotNet (BDN) is a .NET library for writing and running microbenchmarks. Throughout this skill, "BDN" refers to BenchmarkDotNet.
 
-> **Note:** Evaluations of LLMs writing BenchmarkDotNet benchmarks have revealed common failure patterns caused by outdated assumptions about BDN's behavior — particularly around runtime comparison, job configuration, and execution defaults that have changed in recent versions. The reference files in this skill contain verified, current information. Read any reference that is relevant to the task, even if you feel confident in the topic.
+> **Note:** Evaluations of LLMs writing BenchmarkDotNet benchmarks have revealed common failure patterns caused by outdated assumptions about BDN's behavior — particularly around runtime comparison, job configuration, and execution defaults that have changed in recent versions. The reference files in this skill contain verified, current information. **You MUST read the reference files relevant to the task before writing any code** — your training data likely contains outdated or incorrect BDN patterns.
 
 ## Key concepts
 
@@ -40,7 +40,7 @@ A single benchmark number has limited value — it can confirm the order of magn
 - **Hardware/OS**: comparing across different machines or operating systems — requires separate runs on each environment.
 - **Historical measurements**: comparing against measurements recorded at a previous point in time.
 
-BDN can compare the first six axes side-by-side in a single run, but each requires specific CLI flags or configuration that differ from what you might expect — see [references/comparison-strategies.md](references/comparison-strategies.md) for the correct approach for each strategy.
+BDN can compare the first six axes side-by-side in a single run, but each requires specific CLI flags or configuration that differ from what you might expect — read [references/comparison-strategies.md](references/comparison-strategies.md) for the correct approach for each strategy before configuring a comparison.
 
 ## Use cases and benchmark lifecycle
 
@@ -56,7 +56,7 @@ There are four distinct reasons a developer writes a benchmark, and each one cha
 
 For use case 1, add to the existing benchmark project following its conventions. For use cases 2–4, create a standalone project in a working directory that persists for the task but is clearly not part of the permanent codebase.
 
-For **coverage suite** benchmarks, design from the perspective of real callers — what code patterns use this API, what inputs they pass, and what performance characteristics matter to them. Each permanent benchmark should justify its maintenance cost through real-world relevance. For **temporary benchmarks**, keep the case count intentional — each additional test case costs wall-clock time (see [Cost awareness](#cost-awareness)).
+For **coverage suite** benchmarks, design from the perspective of real callers — what code patterns use this API, what inputs they pass, and what performance characteristics matter to them. Each permanent benchmark should justify its maintenance cost through real-world relevance. For **temporary benchmarks**, keep the case count intentional — each additional test case costs wall-clock time (read [Cost awareness](#cost-awareness)).
 
 ## Cost awareness
 
@@ -78,7 +78,7 @@ BDN programs use either **`BenchmarkSwitcher`** (provides interactive benchmark 
 
 BDN behavior is customized through **attributes**, **config objects**, and **CLI flags**.
 
-See [references/project-setup-and-running.md](references/project-setup-and-running.md) for entry point setup, config object patterns, and CLI flags. If you need to collect data beyond wall-clock time — such as memory allocations, hardware counters, or profiling traces — see [references/diagnosers-and-exporters.md](references/diagnosers-and-exporters.md).
+Read [references/project-setup-and-running.md](references/project-setup-and-running.md) for entry point setup, config object patterns, and CLI flags. If you need to collect data beyond wall-clock time — such as memory allocations, hardware counters, or profiling traces — read [references/diagnosers-and-exporters.md](references/diagnosers-and-exporters.md).
 
 ## Running benchmarks
 
@@ -88,7 +88,7 @@ BenchmarkDotNet console output is extremely verbose — hundreds of lines per ca
 dotnet run -c Release -- --filter "*MethodName" --noOverwrite > benchmark.log 2>&1
 ```
 
-Each benchmark method can take several minutes. Rather than running all benchmarks at once, use `--filter` to run a subset at a time (e.g. one or two methods per invocation), read the results, then run the next subset. This keeps each invocation short — avoiding session or terminal timeouts — and lets you verify results incrementally. See [references/project-setup-and-running.md](references/project-setup-and-running.md) for filter syntax, CLI flags, and project setup.
+Each benchmark method can take several minutes. Rather than running all benchmarks at once, use `--filter` to run a subset at a time (e.g. one or two methods per invocation), read the results, then run the next subset. This keeps each invocation short — avoiding session or terminal timeouts — and lets you verify results incrementally. Read [references/project-setup-and-running.md](references/project-setup-and-running.md) for filter syntax, CLI flags, and project setup.
 
 After each run, read the Markdown report (`*-report-github.md`) from the results directory for the summary table. Only read `benchmark.log` if you need to investigate errors or unexpected results.
 
@@ -105,7 +105,7 @@ Each benchmark case should justify its cost. An uncovered scenario is usually mo
 
 Decide on the list of test cases. For each test case, think through:
 
-- **How to express variation**: BenchmarkDotNet provides several mechanisms for parameterizing benchmarks — `[Params]` and `[ParamsSource]` for property-level parameters, `[Arguments]` and `[ArgumentsSource]` for method-level arguments, `[ParamsAllValues]` to enumerate all values of a `bool` or enum, and `[GenericTypeArguments]` for varying type parameters on generic benchmark classes. Choose the mechanism that best fits the dimension being varied. See [references/writing-benchmarks.md](references/writing-benchmarks.md) for the full set of options and correctness patterns.
+- **How to express variation**: BenchmarkDotNet provides several mechanisms for parameterizing benchmarks — `[Params]` and `[ParamsSource]` for property-level parameters, `[Arguments]` and `[ArgumentsSource]` for method-level arguments, `[ParamsAllValues]` to enumerate all values of a `bool` or enum, and `[GenericTypeArguments]` for varying type parameters on generic benchmark classes. Choose the mechanism that best fits the dimension being varied. Read [references/writing-benchmarks.md](references/writing-benchmarks.md) for the full set of options and correctness patterns.
 - **Where input data comes from** — consider which sources are appropriate (these can be combined):
   - Hard-coded values — small, fixed values where the exact input matters (e.g., specific strings, known edge-case sizes). Store in fields or `[Params]` to avoid constant folding.
   - Asset files — static data that is too large or impractical to embed in source code such as binary blobs.
@@ -114,7 +114,7 @@ Decide on the list of test cases. For each test case, think through:
 
 ### Step 2: Implement the benchmarks
 
-For **coverage suite** benchmarks, add to the existing benchmark project and follow its conventions. For **temporary benchmarks** (investigation, change validation, development feedback), create a standalone project — see [references/project-setup-and-running.md](references/project-setup-and-running.md) for project setup and entry point configuration.
+For **coverage suite** benchmarks, add to the existing benchmark project and follow its conventions. For **temporary benchmarks** (investigation, change validation, development feedback), create a standalone project — read [references/project-setup-and-running.md](references/project-setup-and-running.md) for project setup and entry point configuration.
 
 **Adding the BenchmarkDotNet package**: Always use `dotnet add package BenchmarkDotNet` (no version) — this lets NuGet resolve the latest compatible version. Do NOT manually write a `<PackageReference>` with a version number into the `.csproj`; BDN versions in training data are outdated and may lack support for current .NET runtimes.
 
