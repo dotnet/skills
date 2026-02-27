@@ -4,7 +4,7 @@ scenarios:
     setup:
       files:
         - path: "CaseTransformExtensions.cs"
-          source: "../../tests/analyzing-dotnet-performance/fixtures/inflector-and-regex.cs"
+          source: "../../../../tests/analyzing-dotnet-performance/fixtures/inflector-and-regex.cs"
     assertions:
       - type: "output_contains"
         value: "Compiled"
