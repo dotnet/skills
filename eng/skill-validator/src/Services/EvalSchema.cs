@@ -63,8 +63,7 @@ public static class EvalSchema
             RejectTools: raw.RejectTools,
             MaxTurns: raw.MaxTurns,
             MaxTokens: raw.MaxTokens,
-            ExpectActivation: raw.ExpectActivation ?? true,
-            DoNotParallelize: raw.DoNotParallelize ?? false);
+            ExpectActivation: raw.ExpectActivation ?? true);
     }
 
     private static Assertion ParseAssertion(RawAssertion raw)
@@ -128,7 +127,6 @@ public static class EvalSchema
         public int? MaxTurns { get; set; }
         public int? MaxTokens { get; set; }
         public bool? ExpectActivation { get; set; }
-        public bool? DoNotParallelize { get; set; }
     }
 
     private sealed class RawSetup

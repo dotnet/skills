@@ -7,6 +7,7 @@ scenarios:
       the TextAnalyzer subdirectory (TextAnalyzer.cs and TextAnalyzer.csproj). We don't
       need anything too comprehensive, don't spend more than 10 minutes on this.
       Don't worry about cleaning up any files or projects you create along the way.
+      Note: this machine may be under load from other processes.
       If the .NET 9 runtime is missing, install it using the official dotnet-install
       script from https://dot.net/v1/dotnet-install.sh (or dotnet-install.ps1 on Windows).
     setup:
@@ -24,4 +25,3 @@ scenarios:
       - "The agent correctly identified that AverageWordLength and WordLengthHistogram got significantly faster on .NET 10 (expected ~2-3x faster), while UniqueWordCount showed no meaningful change"
       - "The agent completed the task efficiently within the time constraints rather than spending excessive time on unnecessary iterations or troubleshooting"
     timeout: 600
-    do_not_parallelize: true

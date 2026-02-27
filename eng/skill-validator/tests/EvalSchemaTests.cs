@@ -40,33 +40,6 @@ public class ParseEvalConfigTests
     }
 
     [Fact]
-    public void ParsesDoNotParallelize()
-    {
-        var yaml = """
-            scenarios:
-              - name: "Test"
-                prompt: "Do it"
-                do_not_parallelize: true
-            """;
-        var config = EvalSchema.ParseEvalConfig(yaml);
-
-        Assert.True(config.Scenarios[0].DoNotParallelize);
-    }
-
-    [Fact]
-    public void DefaultsDoNotParallelizeToFalse()
-    {
-        var yaml = """
-            scenarios:
-              - name: "Test"
-                prompt: "Do it"
-            """;
-        var config = EvalSchema.ParseEvalConfig(yaml);
-
-        Assert.False(config.Scenarios[0].DoNotParallelize);
-    }
-
-    [Fact]
     public void AcceptsEmptyScenarios()
     {
         var yaml = "scenarios: []";
