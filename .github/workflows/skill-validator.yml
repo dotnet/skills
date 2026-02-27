@@ -16,10 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-dotnet@v4
         with:
-          node-version: '22'
-      - run: cd eng/skill-validator && npm ci
-      - run: cd eng/skill-validator && npm run lint
-      - run: cd eng/skill-validator && npm test
-      - run: cd eng/skill-validator && npm run build
+          global-json-file: global.json
+      - run: dotnet build eng/skill-validator/SkillValidator.slnx
+      - run: dotnet test --solution eng/skill-validator/SkillValidator.slnx --no-build

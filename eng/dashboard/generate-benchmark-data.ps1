@@ -3,19 +3,19 @@
     Converts skill-validator results into benchmark dashboard data.
 
 .DESCRIPTION
-    Reads skill-validator verdict.json and results.json files and produces a
-    per-component JSON file (<ComponentName>.json) compatible with the benchmark
-    dashboard. If an existing JSON file is provided, the new data point is
-    appended to the existing history.
+    Reads the skill-validator results.json file (which contains all verdicts) and
+    produces a per-component JSON file (<ComponentName>.json) compatible with the
+    benchmark dashboard. If an existing JSON file is provided, the new data point
+    is appended to the existing history.
 
-.PARAMETER ResultsDir
-    Path to the skill-validator run results directory (e.g. .skill-validator-results/run-<timestamp>).
+.PARAMETER ResultsFile
+    Path to the skill-validator results.json file.
 
 .PARAMETER ComponentName
     Name of the component these results belong to. Used as the output filename.
 
 .PARAMETER OutputDir
-    Path to write the output files. Defaults to ResultsDir.
+    Path to write the output files. Defaults to the directory containing ResultsFile.
 
 .PARAMETER ExistingDataFile
     Optional path to an existing <ComponentName>.json file from gh-pages to append to.
@@ -26,7 +26,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [string]$ResultsDir,
+    [string]$ResultsFile,
 
     [Parameter(Mandatory)]
     [string]$ComponentName,
@@ -44,23 +44,20 @@ param(
 $ErrorActionPreference = "Stop"
 
 if (-not $OutputDir) {
-    $OutputDir = $ResultsDir
+    $OutputDir = Split-Path $ResultsFile -Parent
 }
 
 # Read skill-validator results
-$resultsFile = Join-Path $ResultsDir "results.json"
-if (-not (Test-Path $resultsFile)) {
-    Write-Warning "No results.json found in $ResultsDir"
+if (-not (Test-Path $ResultsFile)) {
+    Write-Warning "Results file not found: $ResultsFile"
     exit 0
 }
 
-$results = Get-Content $resultsFile -Raw | ConvertFrom-Json
+$results = Get-Content $ResultsFile -Raw | ConvertFrom-Json
 $model = $results.model
 
-# Find verdict files for skills in this component
-$skillDirs = Get-ChildItem -Path $ResultsDir -Directory -ErrorAction SilentlyContinue
-if (-not $skillDirs) {
-    Write-Warning "No skill results found in $ResultsDir"
+if (-not $results.verdicts -or $results.verdicts.Count -eq 0) {
+    Write-Warning "No verdicts found in $ResultsFile"
     exit 0
 }
 
@@ -68,25 +65,47 @@ if (-not $skillDirs) {
 $qualityBenches = [System.Collections.Generic.List[object]]::new()
 $efficiencyBenches = [System.Collections.Generic.List[object]]::new()
 
-foreach ($skillDir in $skillDirs) {
-    $verdictFile = Join-Path $skillDir.FullName "verdict.json"
-    if (-not (Test-Path $verdictFile)) { continue }
-
-    $verdict = Get-Content $verdictFile -Raw | ConvertFrom-Json
+foreach ($verdict in $results.verdicts) {
     $skillName = $verdict.skillName
+
+    # Check verdict-level activation state
+    $verdictNotActivated = $false
+    if ($verdict.skillNotActivated -eq $true) {
+        $verdictNotActivated = $true
+    }
 
     foreach ($scenario in $verdict.scenarios) {
         $testName = "$skillName/$($scenario.scenarioName)"
 
+        # Check per-scenario activation state
+        $scenarioNotActivated = $false
+        if ($scenario.skillActivation -and -not $scenario.skillActivation.activated) {
+            $scenarioNotActivated = $true
+        }
+        $notActivated = $verdictNotActivated -or $scenarioNotActivated
+
+        # Check per-scenario timeout state
+        $scenarioTimedOut = $false
+        if ($scenario.timedOut -eq $true) {
+            $scenarioTimedOut = $true
+        }
+
         # Quality scores (from judge results, scale 0-5 mapped to 0-10 for dashboard)
-        if ($scenario.withSkill.judgeResult.overallScore) {
-            $qualityBenches.Add(@{
+        if ($null -ne $scenario.withSkill.judgeResult.overallScore) {
+            $benchEntry = @{
                 name  = "$testName - Skilled Quality"
                 unit  = "Score (0-10)"
                 value = [float]$scenario.withSkill.judgeResult.overallScore * 2
-            })
+            }
+            if ($notActivated) {
+                $benchEntry.notActivated = $true
+            }
+            if ($scenarioTimedOut) {
+                $benchEntry.timedOut = $true
+            }
+            $qualityBenches.Add($benchEntry)
         }
-        if ($scenario.baseline.judgeResult.overallScore) {
+        if ($null -ne $scenario.baseline.judgeResult.overallScore) {
             $qualityBenches.Add(@{
                 name  = "$testName - Vanilla Quality"
                 unit  = "Score (0-10)"
@@ -95,19 +114,33 @@ foreach ($skillDir in $skillDirs) {
         }
 
         # Efficiency metrics (from with-skill run)
-        if ($scenario.withSkill.metrics.wallTimeMs) {
-            $efficiencyBenches.Add(@{
+        if ($null -ne $scenario.withSkill.metrics.wallTimeMs) {
+            $effBenchEntry = @{
                 name  = "$testName - Skilled Time"
                 unit  = "seconds"
                 value = [math]::Round([float]$scenario.withSkill.metrics.wallTimeMs / 1000, 1)
-            })
+            }
+            if ($notActivated) {
+                $effBenchEntry.notActivated = $true
+            }
+            if ($scenarioTimedOut) {
+                $effBenchEntry.timedOut = $true
+            }
+            $efficiencyBenches.Add($effBenchEntry)
         }
-        if ($scenario.withSkill.metrics.tokenEstimate) {
-            $efficiencyBenches.Add(@{
+        if ($null -ne $scenario.withSkill.metrics.tokenEstimate) {
+            $tokenBenchEntry = @{
                 name  = "$testName - Skilled Tokens In"
                 unit  = "tokens"
                 value = [float]$scenario.withSkill.metrics.tokenEstimate
-            })
+            }
+            if ($notActivated) {
+                $tokenBenchEntry.notActivated = $true
+            }
+            if ($scenarioTimedOut) {
+                $tokenBenchEntry.timedOut = $true
+            }
+            $efficiencyBenches.Add($tokenBenchEntry)
         }
     }
 }

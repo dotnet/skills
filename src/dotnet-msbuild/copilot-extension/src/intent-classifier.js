@@ -11,11 +11,11 @@ const INTENTS = {
     description: "Build performance optimization",
   },
   STYLE_REVIEW: {
-    knowledgeKey: "style-guide",
+    knowledgeKey: "style-and-modernization",
     description: "Project file quality and anti-patterns",
   },
   MODERNIZATION: {
-    knowledgeKey: "modernization",
+    knowledgeKey: "style-and-modernization",
     description: "Legacy project modernization",
   },
   GENERAL: {

@@ -1,6 +1,6 @@
 ---
 name: directory-build-organization
-description: "Guide for organizing MSBuild infrastructure with Directory.Build.props, Directory.Build.targets, Directory.Packages.props, and Directory.Build.rsp. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when structuring multi-project repos, centralizing build settings, or implementing central package management. Invoke when asked about Directory.Build files, centralizing project properties, or organizing build infrastructure."
+description: "Guide for organizing MSBuild infrastructure with Directory.Build.props, Directory.Build.targets, Directory.Packages.props, and Directory.Build.rsp. Only activate in MSBuild/.NET build context. Use when structuring multi-project repos, centralizing build settings, or implementing central package management. Invoke when asked about Directory.Build files, centralizing project properties, or organizing build infrastructure."
 ---
 
 # Organizing Build Infrastructure with Directory.Build Files
@@ -31,133 +31,49 @@ Because `.props` is imported before the project file, the project can override a
 
 **Property conditions on `$(TargetFramework)` in `.props` files silently fail for single-targeting projects** — the property is empty during `.props` evaluation. Move TFM-conditional properties to `.targets` instead. ItemGroup and Target conditions are not affected.
 
-See [`shared/targetframework-props-evaluation.md`](../shared/targetframework-props-evaluation.md) for the full explanation, BAD/GOOD examples, and the item/target exception.
+See the AP-21 section in the [msbuild-antipatterns skill](../msbuild-antipatterns/SKILL.md) for the full explanation.
 
 ## Directory.Build.props
 
-### What to Put Here
-
-**Output settings:**
+Good candidates: language settings, assembly/package metadata, build warnings, code analysis, common analyzers.
 
 ```xml
-<PropertyGroup>
-  <!-- Use with caution — see bin/obj clash skill for risks -->
-  <BaseOutputPath>$(MSBuildThisFileDirectory)artifacts\bin\</BaseOutputPath>
-  <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)artifacts\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
-</PropertyGroup>
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Company>Contoso</Company>
+    <Authors>Contoso Engineering</Authors>
+  </PropertyGroup>
+</Project>
 ```
 
-**Language settings:**
-
-```xml
-<PropertyGroup>
-  <LangVersion>latest</LangVersion>
-  <Nullable>enable</Nullable>
-  <ImplicitUsings>enable</ImplicitUsings>
-  <AnalysisLevel>latest-recommended</AnalysisLevel>
-</PropertyGroup>
-```
-
-**Assembly and package metadata:**
-
-```xml
-<PropertyGroup>
-  <Company>Contoso</Company>
-  <Authors>Contoso Engineering</Authors>
-  <Copyright>Copyright © Contoso $(CurrentYear)</Copyright>
-  <Product>Contoso Platform</Product>
-  <PackageLicenseExpression>MIT</PackageLicenseExpression>
-  <RepositoryUrl>https://github.com/contoso/platform</RepositoryUrl>
-  <PackageProjectUrl>https://github.com/contoso/platform</PackageProjectUrl>
-</PropertyGroup>
-```
-
-**Build behavior and warnings:**
-
-```xml
-<PropertyGroup>
-  <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-  <WarningsAsErrors />
-  <NoWarn>$(NoWarn);CS1591</NoWarn>
-</PropertyGroup>
-```
-
-**Code analysis:**
-
-```xml
-<PropertyGroup>
-  <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-  <EnableNETAnalyzers>true</EnableNETAnalyzers>
-</PropertyGroup>
-```
-
-**Common analyzer PackageReferences (apply to all projects):**
-
-```xml
-<ItemGroup>
-  <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4">
-    <PrivateAssets>all</PrivateAssets>
-    <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-  </PackageReference>
-</ItemGroup>
-```
-
-### What NOT to Put Here
-
-- **Project-specific TFMs** — each project should declare its own `<TargetFramework>` or `<TargetFrameworks>`
-- **Project-specific PackageReferences** — unless truly universal (e.g., analyzers for all projects)
-- **Targets or complex build logic** — use `Directory.Build.targets` instead
-- **Properties that depend on SDK-defined values** — those won't be available yet during `.props` evaluation
+**Do NOT put here:** project-specific TFMs, project-specific PackageReferences, targets/build logic, or properties depending on SDK-defined values (not available during `.props` evaluation).
 
 ## Directory.Build.targets
 
-### What to Put Here
-
-**Custom build targets:**
+Good candidates: custom build targets, late-bound property overrides (values depending on SDK properties), post-build validation.
 
 ```xml
-<Target Name="ValidateProjectSettings" BeforeTargets="Build">
-  <Error Text="All libraries must target netstandard2.0 or higher"
-         Condition="'$(OutputType)' == 'Library' AND '$(TargetFramework)' == 'net472'" />
-</Target>
-```
+<Project>
+  <Target Name="ValidateProjectSettings" BeforeTargets="Build">
+    <Error Text="All libraries must target netstandard2.0 or higher"
+           Condition="'$(OutputType)' == 'Library' AND '$(TargetFramework)' == 'net472'" />
+  </Target>
 
-**Conditional targets based on project type:**
-
-```xml
-<Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile"
-        Condition="'$(GenerateBuildInfo)' == 'true'">
-  <WriteLinesToFile File="$(IntermediateOutputPath)BuildInfo.g.cs"
-                    Lines="[assembly: System.Reflection.AssemblyMetadata(&quot;BuildDate&quot;, &quot;$(Today)&quot;)]"
-                    Overwrite="true" />
-  <ItemGroup>
-    <Compile Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
-  </ItemGroup>
-</Target>
-```
-
-**Late-bound property overrides (values that depend on SDK properties):**
-
-```xml
-<PropertyGroup>
-  <!-- DocumentationFile depends on OutputPath, which is set by the SDK -->
-  <DocumentationFile Condition="'$(IsPackable)' == 'true'">$(OutputPath)$(AssemblyName).xml</DocumentationFile>
-</PropertyGroup>
-```
-
-**Post-build validation:**
-
-```xml
-<Target Name="ValidatePackageOutput" AfterTargets="Pack"
-        Condition="'$(IsPackable)' == 'true'">
-  <Error Text="Package was not created at $(PackageOutputPath)$(PackageId).$(PackageVersion).nupkg"
-         Condition="!Exists('$(PackageOutputPath)$(PackageId).$(PackageVersion).nupkg')" />
-</Target>
+  <PropertyGroup>
+    <!-- DocumentationFile depends on OutputPath, which is set by the SDK -->
+    <DocumentationFile Condition="'$(IsPackable)' == 'true'">$(OutputPath)$(AssemblyName).xml</DocumentationFile>
+  </PropertyGroup>
+</Project>
 ```
 
 ## Directory.Packages.props (Central Package Management)
 
-Central Package Management (CPM) provides a single source of truth for all NuGet package versions. See [`shared/central-package-management.md`](../shared/central-package-management.md) for the full setup pattern, including `GlobalPackageReference` and `VersionOverride`.
+Central Package Management (CPM) provides a single source of truth for all NuGet package versions. See [https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management) for details.
 
 **Enable CPM in `Directory.Packages.props` at the repo root:**
 
@@ -201,9 +117,7 @@ Contains default MSBuild CLI arguments applied to all builds under the directory
 
 ## Multi-level Directory.Build Files
 
-MSBuild only auto-imports the **first** `Directory.Build.props` (or `.targets`) it finds walking up from the project directory. To chain multiple levels, you must explicitly import the parent.
-
-**Add this at the TOP of inner `Directory.Build.props` files:**
+MSBuild only auto-imports the **first** `Directory.Build.props` (or `.targets`) it finds walking up from the project directory. To chain multiple levels, explicitly import the parent at the **top** of the inner file. See [multi-level-examples](references/multi-level-examples.md) for full file examples.
 
 ```xml
 <Project>
@@ -218,227 +132,28 @@ MSBuild only auto-imports the **first** `Directory.Build.props` (or `.targets`) 
 
 ```
 repo/
-  Directory.Build.props          ← repo-wide settings (lang version, company info, analyzers)
+  Directory.Build.props          ← repo-wide (lang version, company info, analyzers)
   Directory.Build.targets        ← repo-wide targets
   Directory.Packages.props       ← central package versions
   src/
     Directory.Build.props        ← src-specific (imports repo-level, sets IsPackable=true)
-    MyLib/
-      MyLib.csproj
-    MyApp/
-      MyApp.csproj
   test/
-    Directory.Build.props        ← test-specific (imports repo-level, sets IsPackable=false)
-    MyLib.Tests/
-      MyLib.Tests.csproj
+    Directory.Build.props        ← test-specific (imports repo-level, sets IsPackable=false, adds test packages)
 ```
 
-**Repo-level `Directory.Build.props`:**
+## Artifact Output Layout (.NET 8+)
 
-```xml
-<Project>
-  <PropertyGroup>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-  </PropertyGroup>
-</Project>
-```
+Set `<ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>` in `Directory.Build.props` to automatically produce project-name-separated `bin/`, `obj/`, and `publish/` directories under a single `artifacts/` folder, avoiding bin/obj clashes by default. See [common-patterns](references/common-patterns.md) for the directory layout and additional patterns (conditional settings by project type, post-pack validation).
 
-**`src/Directory.Build.props`:**
+## Workflow: Organizing Build Infrastructure
 
-```xml
-<Project>
-  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))"
-         Condition="Exists('$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))')" />
-
-  <PropertyGroup>
-    <IsPackable>true</IsPackable>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-  </PropertyGroup>
-</Project>
-```
-
-**`test/Directory.Build.props`:**
-
-```xml
-<Project>
-  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))"
-         Condition="Exists('$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))')" />
-
-  <PropertyGroup>
-    <IsPackable>false</IsPackable>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="NSubstitute" />
-  </ItemGroup>
-</Project>
-```
-
-## Common Patterns
-
-### Pattern: Shared Analyzers via GlobalPackageReference
-
-In `Directory.Packages.props`:
-
-```xml
-<ItemGroup>
-  <GlobalPackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
-  <GlobalPackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4" />
-</ItemGroup>
-```
-
-This ensures every project in the repo gets these analyzers without any per-project configuration.
-
-### Pattern: Conditional Settings by Project Type
-
-In `Directory.Build.props`:
-
-```xml
-<!-- Detect test projects by naming convention -->
-<PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests')) OR $(MSBuildProjectName.EndsWith('.UnitTests'))">
-  <IsPackable>false</IsPackable>
-  <IsTestProject>true</IsTestProject>
-</PropertyGroup>
-```
-
-In `Directory.Build.targets`:
-
-```xml
-<!-- Detect project output type after SDK has set defaults -->
-<PropertyGroup Condition="'$(OutputType)' == 'Exe'">
-  <SelfContained>false</SelfContained>
-</PropertyGroup>
-
-<PropertyGroup Condition="'$(OutputType)' == 'Library' AND '$(IsTestProject)' != 'true'">
-  <GenerateDocumentationFile>true</GenerateDocumentationFile>
-</PropertyGroup>
-```
-
-### Pattern: Before/After Repository Cleanup
-
-**Before — duplicated settings in every .csproj:**
-
-```xml
-<!-- src/LibA/LibA.csproj -->
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Company>Contoso</Company>
-    <Authors>Contoso Engineering</Authors>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-  </ItemGroup>
-</Project>
-
-<!-- src/LibB/LibB.csproj — same boilerplate repeated -->
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Company>Contoso</Company>
-    <Authors>Contoso Engineering</Authors>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-  </ItemGroup>
-</Project>
-```
-
-**After — centralized with Directory.Build files:**
-
-```xml
-<!-- Directory.Build.props -->
-<Project>
-  <PropertyGroup>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Company>Contoso</Company>
-    <Authors>Contoso Engineering</Authors>
-  </PropertyGroup>
-</Project>
-
-<!-- Directory.Packages.props -->
-<Project>
-  <PropertyGroup>
-    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-  </ItemGroup>
-  <ItemGroup>
-    <GlobalPackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
-  </ItemGroup>
-</Project>
-
-<!-- src/LibA/LibA.csproj — clean and minimal -->
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" />
-  </ItemGroup>
-</Project>
-
-<!-- src/LibB/LibB.csproj — clean and minimal -->
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging" />
-  </ItemGroup>
-</Project>
-```
-
-### Pattern: Artifact Output Layout (.NET 8+)
-
-In `Directory.Build.props`:
-
-```xml
-<PropertyGroup>
-  <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
-</PropertyGroup>
-```
-
-This produces a structured output layout:
-
-```
-artifacts/
-  bin/
-    MyLib/
-      debug/
-      release/
-    MyApp/
-      debug/
-      release/
-  obj/
-    MyLib/
-    MyApp/
-  publish/
-    MyApp/
-```
-
-The `ArtifactsPath` property (.NET 8+) automatically sets `BaseOutputPath`, `BaseIntermediateOutputPath`, and `PackageOutputPath` with project-name-separated directories, avoiding bin/obj clashes by default.
+1. **Audit all `.csproj` files** — Catalog every `<PropertyGroup>`, `<ItemGroup>`, and custom `<Target>` across the solution. Note which settings repeat and which are project-specific.
+2. **Create root `Directory.Build.props`** — Move shared property defaults (LangVersion, Nullable, TreatWarningsAsErrors, metadata) here. These are imported before the project file so projects can override them.
+3. **Create root `Directory.Build.targets`** — Move custom build targets, post-build validation, and any properties that depend on SDK-defined values (e.g., `OutputPath`, `TargetFramework` for single-targeting projects) here. These are imported after the SDK so all properties are available.
+4. **Create `Directory.Packages.props`** — Enable Central Package Management (`ManagePackageVersionsCentrally`), list all `PackageVersion` entries, and remove `Version=` from `PackageReference` items in `.csproj` files.
+5. **Set up multi-level hierarchy** — Create inner `Directory.Build.props` files for `src/` and `test/` folders with distinct settings. Use `GetPathOfFileAbove` to chain to the parent.
+6. **Simplify `.csproj` files** — Remove all centralized properties, version attributes, and duplicated targets. Each project should only contain what is unique to it.
+7. **Validate** — Run `dotnet restore && dotnet build` and verify no regressions. Use `dotnet msbuild -pp:output.xml` to inspect the final merged view if needed.
 
 ## Troubleshooting
 

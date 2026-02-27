@@ -1,6 +1,6 @@
 ---
 name: build-perf-baseline
-description: "Establish build performance baselines and apply systematic optimization techniques. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when diagnosing slow builds, establishing before/after measurements, or applying advanced optimization strategies like MSBuild Server, static graph builds, artifacts output, and dependency graph trimming. Start here before diving into specific optimizations from build-perf-diagnostics, incremental-build, or build-parallelism skills. DO NOT use for non-MSBuild build systems."
+description: "Establish build performance baselines and apply systematic optimization techniques. Only activate in MSBuild/.NET build context. Use when diagnosing slow builds, establishing before/after measurements, or applying advanced optimization strategies like MSBuild Server, static graph builds, artifacts output, and dependency graph trimming. Start here before diving into specific optimizations from build-perf-diagnostics, incremental-build, or build-parallelism skills. DO NOT use for non-MSBuild build systems."
 ---
 
 # Build Performance Baseline & Optimization
@@ -13,7 +13,6 @@ Before optimizing a build, you need a **baseline**. Without measurements, optimi
 - `build-perf-diagnostics` — binlog-based bottleneck identification
 - `incremental-build` — Inputs/Outputs and up-to-date checks
 - `build-parallelism` — parallel and graph build tuning
-- `build-caching` — NuGet cache, VBCSCompiler, CI strategies
 - `eval-performance` — glob and import chain optimization
 
 ---
@@ -74,7 +73,7 @@ dotnet build /bl:noop-build.binlog -m
 **Red flags:**
 - No-op build > 30 seconds → incremental build is broken (see `incremental-build` skill)
 - Warm build recompiles everything → project dependency chain forces full rebuild
-- Cold build has long restore → NuGet cache issues (see `build-caching` skill)
+- Cold build has long restore → NuGet cache issues
 
 ### Recording Baselines
 
@@ -400,7 +399,7 @@ Is your no-op build slow (> 10s per project)?
     Is your cold build slow?
     ├── YES
     │   Is restore slow?
-    │   ├── YES → See `build-caching` skill (NuGet cache, lock files)
+    │   ├── YES → Optimize NuGet restore (use lock files, configure local cache)
     │   └── NO
     │       Is compilation slow?
     │       ├── YES

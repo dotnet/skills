@@ -209,23 +209,23 @@ See the [skill-validator README](eng/skill-validator/README.md) for the full lis
 
 ### Running tests locally
 
-Prerequisites: Node.js >= 22 and `gh auth login`.
+Prerequisites: .NET 10 SDK or later and `gh auth login`.
 
 ```bash
-# Build the validator
-cd eng/skill-validator && npm ci && npm run build && cd ../..
-
 # Run tests for a single component
-node eng/skill-validator/dist/index.js --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills
 
 # Run tests for a single skill (pass the skill directory directly)
-node eng/skill-validator/dist/index.js --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills/common-build-errors
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills/common-build-errors
 
 # Fewer runs for faster iteration (default is 5)
-node eng/skill-validator/dist/index.js --runs 1 --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --runs 3 --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills
 
 # Use a specific model
-node eng/skill-validator/dist/index.js --model claude-sonnet-4.5 --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --model claude-opus-4.6 --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills
+
+# Run with verbose logging
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills --verbose
 ```
 
 > [!WARNING]  

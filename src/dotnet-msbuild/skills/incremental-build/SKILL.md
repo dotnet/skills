@@ -1,6 +1,6 @@
 ---
 name: incremental-build
-description: "Guide for optimizing MSBuild incremental builds. Only activate in MSBuild/.NET build contexts (see shared/domain-check.md for signals). Use when builds are slower than expected on subsequent runs, when 'nothing changed but it rebuilds anyway', or when diagnosing why incremental builds are broken. Covers Inputs/Outputs on targets, FileWrites tracking, up-to-date checks, and diagnosing unnecessary rebuilds via binlog analysis."
+description: "Guide for optimizing MSBuild incremental builds. Only activate in MSBuild/.NET build context. Use when builds are slower than expected on subsequent runs, when 'nothing changed but it rebuilds anyway', or when diagnosing why incremental builds are broken. Covers Inputs/Outputs on targets, FileWrites tracking, up-to-date checks, and diagnosing unnecessary rebuilds via binlog analysis."
 ---
 
 ## How MSBuild Incremental Build Works

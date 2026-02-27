@@ -1,2 +1,45 @@
-# TODO: Add evaluation scenarios for binlog-generation
-scenarios: []
+scenarios:
+  - name: "Build project with /bl flag"
+    prompt: "Build this project and create a binlog for diagnostic purposes."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "file_exists"
+        path: "*.binlog"
+      - type: "output_matches"
+        pattern: "/bl:|-bl:"
+    rubric:
+      - "Used /bl:{} or -bl:{} (with the {} placeholder) to generate a unique binlog filename automatically"
+      - "Did NOT use bare /bl or -bl without a filename (which always writes to msbuild.binlog and overwrites on every build)"
+      - "Did NOT use a hardcoded specific filename like /bl:build.binlog when {} is available"
+    timeout: 120
+
+  - name: "Build with /bl in PowerShell"
+    prompt: "Build this project using PowerShell and create a binlog for diagnostic purposes."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "file_exists"
+        path: "*.binlog"
+      - type: "output_matches"
+        pattern: "(-bl:\\{\\{\\}\\}|/bl:\\{\\{\\}\\})"
+    rubric:
+      - "Used the properly PowerShell-escaped form -bl:{{}} or /bl:{{}} when running dotnet build in PowerShell"
+      - "Produced at least one *.binlog file in the working directory"
+      - "Did NOT use bare /bl or -bl without a filename"
+    timeout: 120
+
+  - name: "Build multiple configurations with unique binlogs"
+    prompt: "Build this project in both Debug and Release configurations and create a binlog for each build."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "file_exists"
+        path: "*.binlog"
+      - type: "output_matches"
+        pattern: "/bl:|-bl:"
+    rubric:
+      - "Used /bl:{} or -bl:{} for the first build so each invocation gets a unique filename automatically"
+      - "Used /bl:{} or -bl:{} for the second build as well (not a hardcoded name that would collide)"
+      - "Each MSBuild invocation received the {} placeholder — no two builds share the same binlog file"
+    timeout: 180

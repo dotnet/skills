@@ -4,7 +4,8 @@ on:
   pull_request:
     paths:
       - 'src/**'
-      - '.github/workflows/evaluation.yml'
+      - '.github/workflows/**'
+      - 'eng/skill-validator/**'
 
   schedule:
     - cron: '0 */2 * * *'
@@ -55,7 +56,6 @@ concurrency:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  DOTNET_VERSION: '10.0.x'
   DEFAULT_MODEL: 'claude-opus-4.6'
   DEFAULT_JUDGE_MODEL: 'claude-opus-4.6'
   # Use more runs for main branch to get more stable benchmark data, but fewer runs for PRs to reduce quota pressure.
@@ -74,6 +74,7 @@ jobs:
     outputs:
       entries: ${{ steps.find.outputs.entries }}
       has_entries: ${{ steps.find.outputs.has_entries }}
+      is_infra: ${{ steps.find.outputs.is_infra }}
       components: ${{ steps.find.outputs.components }}
       has_components: ${{ steps.find.outputs.has_components }}
     steps:
@@ -101,32 +102,46 @@ jobs:
             $head = "${{ github.event.pull_request.head.sha }}"
             $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
 
-            # Extract unique component/skill pairs from changed files under src/*/skills/*/ or src/*/tests/*/
-            # NOTE: Changes under src/*/skills/shared/ won't match here since shared directories
-            # don't have SKILL.md files. Use workflow_dispatch to manually evaluate affected
-            # components when shared resources change.
-            $changedPairs = @($changedFiles |
-              Where-Object { $_ -match '^src/([^/]+)/(skills|tests)/([^/]+)/' } |
-              ForEach-Object { "$($Matches[1])/$($Matches[3])" } |
-              Sort-Object -Unique)
+            # Check if any changed files are in infrastructure paths (.github/workflows/ or eng/skill-validator/)
+            $hasInfraChanges = $changedFiles |
+              Where-Object { $_ -match '^(\.github/workflows/|eng/skill-validator/)' } |
+              Select-Object -First 1
 
-            # Filter to skills that have a SKILL.md and a component tests directory
-            $entries = @($changedPairs | ForEach-Object {
-              $parts = $_ -split '/'
-              $component = $parts[0]
-              $skill = $parts[1]
-              $skillMd = Join-Path "src" $component "skills" $skill "SKILL.md"
-              $testsDir = Join-Path "src" $component "tests"
-              if ((Test-Path $skillMd) -and (Test-Path $testsDir)) {
-                @{
-                  name = "$component--$skill"
-                  component = $component
-                  skills_path = "src/$component/skills/$skill"
+            if ($hasInfraChanges) {
+              # Infra changes can affect any evaluation — evaluate all components
+              Write-Host "Infrastructure changes detected, evaluating all components"
+              echo "is_infra=true" >> $env:GITHUB_OUTPUT
+              $components = @(Get-ChildItem -Path "src" -Directory |
+                Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path $_.FullName "tests")) } |
+                Select-Object -ExpandProperty Name)
+              $entries = @($components | ForEach-Object {
+                @{ name = $_; component = $_; skills_path = "src/$_/skills" }
+              })
+            } else {
+              # Extract unique component/skill pairs from changed files under src/*/skills/*/ or src/*/tests/*/
+              $changedPairs = @($changedFiles |
+                Where-Object { $_ -match '^src/([^/]+)/(skills|tests)/([^/]+)/' } |
+                ForEach-Object { "$($Matches[1])/$($Matches[3])" } |
+                Sort-Object -Unique)
+
+              # Filter to skills that have a SKILL.md and a component tests directory
+              $entries = @($changedPairs | ForEach-Object {
+                $parts = $_ -split '/'
+                $component = $parts[0]
+                $skill = $parts[1]
+                $skillMd = Join-Path "src" $component "skills" $skill "SKILL.md"
+                $testsDir = Join-Path "src" $component "tests"
+                if ((Test-Path $skillMd) -and (Test-Path $testsDir)) {
+                  @{
+                    name = "$component--$skill"
+                    component = $component
+                    skills_path = "src/$component/skills/$skill"
+                  }
                 }
-              }
-            } | Where-Object { $_ })
+              } | Where-Object { $_ })
 
-            $components = @($entries | ForEach-Object { $_.component } | Sort-Object -Unique)
+              $components = @($entries | ForEach-Object { $_.component } | Sort-Object -Unique)
+            }
           } else {
             # Schedule/dispatch: evaluate all components with skills and tests
             $components = @(Get-ChildItem -Path "src" -Directory |
@@ -168,34 +183,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
         with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: eng/skill-validator/package-lock.json
+          global-json-file: global.json
 
       - name: Build skill-validator
-        run: cd eng/skill-validator && npm ci && npm run build
-
-      - name: Prune dev dependencies
-        run: cd eng/skill-validator && npm prune --omit=dev
+        run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
 
       - name: Upload built validator
         uses: actions/upload-artifact@v4
         with:
           name: skill-validator-dist
-          path: |
-            eng/skill-validator/dist/
-            eng/skill-validator/node_modules/
-            eng/skill-validator/package.json
+          path: artifacts/publish/SkillValidator/release/
           retention-days: 1
 
   evaluate:
     needs: [discover, build-validator]
     if: ${{ needs.build-validator.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     name: evaluate (${{ matrix.entry.name }})
     strategy:
       fail-fast: false
@@ -206,21 +213,16 @@ jobs:
       - name: Checkout skills repo
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          global-json-file: global.json
 
       - name: Download built validator
         uses: actions/download-artifact@v4
         with:
           name: skill-validator-dist
-          path: artifacts/skill-validator/
+          path: artifacts/publish/SkillValidator/release/
 
       - name: Select random Copilot token
         id: select-token
@@ -265,16 +267,24 @@ jobs:
 
       - name: Run skill-validator
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
         run: |
-          ARGS="--strict --require-evals"
+          # Restore execute permissions lost during artifact upload/download
+          chmod +x artifacts/publish/SkillValidator/release/skill-validator
+          chmod +x artifacts/publish/SkillValidator/release/runtimes/*/native/copilot
+
+          # --require-evals: fail if a skill has no tests/eval.yaml
+          # --verdict-warn-only: treat verdict failures (threshold, completion, activation) as warnings (exit 0);
+          #              execution errors and missing evals still fail.
+          ARGS="--require-evals --verdict-warn-only"
           ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
           ARGS="$ARGS --model ${{ github.event.inputs.model || env.DEFAULT_MODEL }}"
           ARGS="$ARGS --judge-model ${{ github.event.inputs.judge-model || env.DEFAULT_JUDGE_MODEL }}"
-          ARGS="$ARGS --runs ${{ github.event.inputs.runs || env.DEFAULT_RUNS }}"
+          # Use 2 runs as a balance between not spending excessive quota but still testing that multiple runs work.
+          RUNS="${{ github.event.inputs.runs || (needs.discover.outputs.is_infra == 'true' && '2' || env.DEFAULT_RUNS) }}"
+          ARGS="$ARGS --runs $RUNS"
           ARGS="$ARGS --parallel-skills ${{ github.event.inputs.parallel-skills || env.DEFAULT_PARALLEL_SKILLS }}"
           ARGS="$ARGS --parallel-scenarios ${{ github.event.inputs.parallel-scenarios || env.DEFAULT_PARALLEL_SCENARIOS }}"
           ARGS="$ARGS --parallel-runs ${{ github.event.inputs.parallel-runs || env.DEFAULT_PARALLEL_RUNS }}"
@@ -283,7 +293,7 @@ jobs:
             ARGS="$ARGS --verbose"
           fi
 
-          node artifacts/skill-validator/dist/index.js $ARGS --tests-dir ./src/${{ matrix.entry.component }}/tests ./${{ matrix.entry.skills_path }}
+          artifacts/publish/SkillValidator/release/skill-validator $ARGS --tests-dir ./src/${{ matrix.entry.component }}/tests ./${{ matrix.entry.skills_path }}
 
       - name: Upload results
         if: always()
@@ -296,7 +306,7 @@ jobs:
 
   comment-on-pr:
     needs: [discover, evaluate]
-    if: always() && needs.discover.outputs.has_entries == 'true'
+    if: always() && needs.evaluate.result != 'cancelled' && needs.discover.outputs.has_entries == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Download all result artifacts
@@ -310,18 +320,16 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: skill-validator-dist
-          path: artifacts/skill-validator/
+          path: artifacts/publish/SkillValidator/release/
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
+      - name: Make validator executable
+        run: chmod +x artifacts/publish/SkillValidator/release/skill-validator
 
       - name: Consolidate summaries
         run: |
           JSON_FILES=$(find all-results/ -name results.json)
 
-          node artifacts/skill-validator/dist/index.js consolidate \
+          artifacts/publish/SkillValidator/release/skill-validator consolidate \
             --output summary-body.md \
             $JSON_FILES
 
@@ -402,16 +410,20 @@ jobs:
           $components = '${{ needs.discover.outputs.components }}' | ConvertFrom-Json
           foreach ($component in $components) {
             $artifactDir = "all-results/skill-validator-results-$component"
-            $runDir = Get-ChildItem -Path $artifactDir -Directory -Filter "run-*" -ErrorAction SilentlyContinue | Select-Object -First 1
+            $runDir = Get-ChildItem -Path $artifactDir -Directory -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
+              Sort-Object Name -Descending |
+              Select-Object -First 1
             if (-not $runDir) {
               Write-Warning "No run results found for $component, skipping benchmark generation"
               continue
             }
 
+            $resultsFile = Join-Path $runDir.FullName "results.json"
             Write-Host "`n=== Generating benchmark data for: $component ==="
             $existingFile = "/tmp/gh-pages/data/$component.json"
             $params = @{
-              ResultsDir    = $runDir.FullName
+              ResultsFile   = $resultsFile
               ComponentName = $component
               OutputDir     = "/tmp/gh-pages/data"
               CommitJson    = $commitJson

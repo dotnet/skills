@@ -26,21 +26,15 @@ Before deep-diving into MSBuild troubleshooting, verify the context is MSBuild-r
 3. **If unclear**: Briefly scan the workspace (`glob **/*.csproj`, `glob **/*.sln`) before committing
 4. **If no**: Politely explain that this agent specializes in MSBuild/.NET builds and suggest the user use general-purpose assistance instead
 
-Refer to [`shared/domain-check.md`](../skills/shared/domain-check.md) for detailed relevance signals.
-
 ## Triage and Routing
 
 Classify the user's request and route to the appropriate specialist:
 
 | User Intent | Route To |
 |------------|----------|
-| Build failed, errors to diagnose | This agent + `binlog-failure-analysis` skill + `common-build-errors` skill |
-| Source generator / analyzer errors | This agent + `sourcegen-analyzer-failures` skill |
+| Build failed, errors to diagnose | This agent + `binlog-failure-analysis` skill |
 | Build is slow, optimize performance | `build-perf` agent + `build-perf-baseline` skill (start with baseline) |
 | Review/clean up project files | `msbuild-code-review` agent (specialized code review) |
-| NuGet restore issues | This agent + `nuget-restore-failures` skill |
-| SDK or workload problems | This agent + `sdk-workload-resolution` skill |
-| Multi-targeting / TFM issues | This agent + `multitarget-tfm-issues` skill |
 | Modernize legacy projects | `msbuild-code-review` agent + `msbuild-modernization` skill |
 | Organize build infrastructure | This agent + `directory-build-organization` skill |
 | Incremental build broken | This agent + `incremental-build` skill |
@@ -71,11 +65,6 @@ When answering questions about MSBuild syntax, properties, or behavior, use `#to
 This agent has access to a comprehensive set of troubleshooting and optimization skills:
 
 ### Build Failure Skills
-- `common-build-errors` — Catalog of CS, MSB, NU, NETSDK errors with solutions
-- `nuget-restore-failures` — NuGet restore diagnosis and fixes
-- `sdk-workload-resolution` — SDK and workload resolution failures
-- `multitarget-tfm-issues` — Target framework and multi-targeting issues
-- `sourcegen-analyzer-failures` — Source generator crashes (CS8785) and analyzer exceptions (AD0001)
 - `binlog-failure-analysis` — Binary log analysis for failure diagnosis
 - `binlog-generation` — Binary log generation conventions
 
@@ -84,19 +73,14 @@ This agent has access to a comprehensive set of troubleshooting and optimization
 - `build-perf-diagnostics` — Performance bottleneck identification
 - `incremental-build` — Incremental build optimization
 - `build-parallelism` — Parallelism and graph build
-- `build-caching` — Build caching strategies
 - `eval-performance` — Evaluation performance
 
 ### Code Quality Skills
-- `msbuild-style-guide` — MSBuild best practices and style guide
 - `msbuild-antipatterns` — Anti-pattern catalog with detection rules and fix recipes
 - `msbuild-modernization` — Legacy to modern project migration
 - `directory-build-organization` — Directory.Build infrastructure
 - `check-bin-obj-clash` — Output path conflict detection
 - `including-generated-files` — Build-generated file inclusion
-
-### Other Skills
-- `multithreaded-task-migration` — Thread-safe task migration
 
 ## Common Troubleshooting Patterns
 
