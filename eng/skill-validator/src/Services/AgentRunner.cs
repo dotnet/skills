@@ -16,13 +16,16 @@ public sealed record RunOptions(
     bool Verbose,
     string? PluginRoot = null,
     Action<string>? Log = null,
-    IReadOnlyList<SkillInfo>? AdditionalSkills = null);
+    IReadOnlyList<SkillInfo>? AdditionalSkills = null,
+    string? SessionsDir = null,
+    string? SessionId = null);
 
 public static class AgentRunner
 {
     private static readonly ConcurrentDictionary<string, CopilotClient> _pluginClients = new(StringComparer.OrdinalIgnoreCase);
     private static readonly SemaphoreSlim _clientLock = new(1, 1);
     private static readonly ConcurrentBag<string> _workDirs = [];
+    private static readonly ConcurrentBag<string> _configDirs = [];
     private static string? _capturedGitHubToken;
     private static bool _tokenCaptured;
 
@@ -102,11 +105,16 @@ public static class AgentRunner
     public static Task StopSharedClient() => StopAllClients();
 
     /// <summary>Remove all temporary working directories created during runs.</summary>
-    public static Task CleanupWorkDirs()
+    public static Task CleanupWorkDirs(bool keepSessions = false)
     {
         var dirs = _workDirs.ToArray();
         _workDirs.Clear();
-        return Task.WhenAll(dirs.Select(dir =>
+
+        var configDirsToClean = keepSessions ? [] : _configDirs.ToArray();
+        _configDirs.Clear();
+
+        var allDirs = dirs.Concat(configDirsToClean);
+        return Task.WhenAll(allDirs.Select(dir =>
         {
             try { Directory.Delete(dir, true); } catch { }
             return Task.CompletedTask;
@@ -206,16 +214,28 @@ public static class AgentRunner
         IReadOnlyDictionary<string, MCPServerDef>? mcpServers = null,
         IReadOnlyList<SkillInfo>? additionalSkills = null,
         Action<string>? log = null,
-        bool verbose = false)
+        bool verbose = false,
+        string? sessionsDir = null,
+        string? sessionId = null)
     {
         // The SDK expects SkillDirectories entries to be parent directories that
         // it scans for child folders containing SKILL.md.
         var skillPath = skill is not null ? Path.GetDirectoryName(skill.Path) : null;
 
-        // Create a unique temporary config directory for this session to not share any data
-        var configDir = Path.Combine(Path.GetTempPath(), $"sv-cfg-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(configDir);
-        _workDirs.Add(configDir);
+        string configDir;
+        if (sessionsDir is not null)
+        {
+            var dirName = sessionId ?? Guid.NewGuid().ToString("N");
+            configDir = Path.Combine(sessionsDir, dirName);
+            Directory.CreateDirectory(configDir);
+            _configDirs.Add(configDir);
+        }
+        else
+        {
+            configDir = Path.Combine(Path.GetTempPath(), $"sv-cfg-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(configDir);
+            _configDirs.Add(configDir);
+        }
         if (verbose)
             log?.Invoke($"      📂 Config dir: {configDir} ({(skill is not null ? "skilled" : "baseline")})");
 
@@ -406,7 +426,7 @@ public static class AgentRunner
             var client = await GetPluginClient(options.PluginRoot, options.Verbose);
 
             await using var session = await client.CreateSessionAsync(
-                BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.Skill?.McpServers, options.AdditionalSkills, options.Log, options.Verbose));
+                BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.Skill?.McpServers, options.AdditionalSkills, options.Log, options.Verbose, options.SessionsDir, options.SessionId));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
