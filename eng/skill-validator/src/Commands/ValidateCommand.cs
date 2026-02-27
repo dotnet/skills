@@ -266,14 +266,25 @@ public static class ValidateCommand
         verdict.ProfileWarnings = profile.Warnings;
 
         var notActivated = comparisons.Where(c => c.SkillActivation is { Activated: false }).ToList();
-        if (notActivated.Count > 0)
+        // Separate unexpected non-activations (expect_activation defaulting to true)
+        // from expected ones (negative tests with expect_activation: false).
+        var unexpectedNotActivated = notActivated.Where(c => c.ExpectActivation).ToList();
+        var expectedNotActivated = notActivated.Where(c => !c.ExpectActivation).ToList();
+
+        if (expectedNotActivated.Count > 0)
         {
-            var names = string.Join(", ", notActivated.Select(c => c.ScenarioName));
+            var names = string.Join(", ", expectedNotActivated.Select(c => c.ScenarioName));
+            log($"\x1b[36mℹ️  Skill correctly NOT activated in negative-test scenario(s): {names}\x1b[0m");
+        }
+
+        if (unexpectedNotActivated.Count > 0)
+        {
+            var names = string.Join(", ", unexpectedNotActivated.Select(c => c.ScenarioName));
             log($"\x1b[33m\u26a0\ufe0f  Skill was NOT activated in scenario(s): {names}\x1b[0m");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
             verdict.FailureKind = "skill_not_activated";
-            verdict.Reason += $" [SKILL NOT ACTIVATED in {notActivated.Count} scenario(s): {names}]";
+            verdict.Reason += $" [SKILL NOT ACTIVATED in {unexpectedNotActivated.Count} scenario(s): {names}]";
         }
 
         var timedOutScenarios = comparisons.Where(c => c.TimedOut).ToList();
@@ -337,6 +348,9 @@ public static class ValidateCommand
 
         // Propagate timeout info from any run
         comparison.TimedOut = runResults.Any(r => r.WithSkill.Metrics.TimedOut || r.Baseline.Metrics.TimedOut);
+
+        // Propagate expect_activation from scenario config
+        comparison.ExpectActivation = scenario.ExpectActivation;
 
         return comparison;
     }

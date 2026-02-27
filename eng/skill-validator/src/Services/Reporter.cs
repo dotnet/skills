@@ -168,7 +168,10 @@ public static class Reporter
             }
             else
             {
-                Console.WriteLine("      \x1b[33m⚠️  Skill was NOT activated\x1b[0m");
+                if (!scenario.ExpectActivation)
+                    Console.WriteLine("      \x1b[36mℹ️  Skill correctly NOT activated (negative test)\x1b[0m");
+                else
+                    Console.WriteLine("      \x1b[33m⚠️  Skill was NOT activated\x1b[0m");
             }
         }
 
@@ -302,7 +305,7 @@ public static class Reporter
                     }
                     else
                     {
-                        skillsCol = "⚠️ NOT ACTIVATED";
+                        skillsCol = s.ExpectActivation ? "⚠️ NOT ACTIVATED" : "ℹ️ not activated (expected)";
                     }
                 }
                 else if (skillNotActivated)

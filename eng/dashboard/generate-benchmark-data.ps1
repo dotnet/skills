@@ -80,7 +80,14 @@ foreach ($verdict in $results.verdicts) {
         # Check per-scenario activation state
         $scenarioNotActivated = $false
         if ($scenario.skillActivation -and -not $scenario.skillActivation.activated) {
-            $scenarioNotActivated = $true
+            # Only flag as not-activated if activation was expected (expect_activation defaults to true)
+            $scenarioExpectActivation = $true
+            if ($scenario.PSObject.Properties['expectActivation'] -and $scenario.expectActivation -eq $false) {
+                $scenarioExpectActivation = $false
+            }
+            if ($scenarioExpectActivation) {
+                $scenarioNotActivated = $true
+            }
         }
         $notActivated = $verdictNotActivated -or $scenarioNotActivated
 

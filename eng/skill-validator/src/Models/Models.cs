@@ -63,7 +63,8 @@ public sealed record EvalScenario(
     IReadOnlyList<string>? ExpectTools = null,
     IReadOnlyList<string>? RejectTools = null,
     int? MaxTurns = null,
-    int? MaxTokens = null);
+    int? MaxTokens = null,
+    bool ExpectActivation = true);
 
 public sealed record EvalConfig(IReadOnlyList<EvalScenario> Scenarios);
 
@@ -199,6 +200,8 @@ public sealed class ScenarioComparison
     public IReadOnlyList<double>? PerRunScores { get; set; }
     public SkillActivationInfo? SkillActivation { get; set; }
     public bool TimedOut { get; set; }
+    /// <summary>When false, non-activation is expected (negative test) and should not flag the verdict.</summary>
+    public bool ExpectActivation { get; set; } = true;
 }
 
 // --- Verdict ---
