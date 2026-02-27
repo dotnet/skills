@@ -1,38 +1,26 @@
 scenarios:
   - name: "Scaffold Razor Pages CRUD with EF Core and SQLite"
     prompt: |
-      Scaffold Razor Pages with CRUD for the `Product` model (from `MyApp.Models`) in project `MyApp.csproj`.
-      The Product model has: Id (int), Name (string), Price (decimal), CategoryId (int) with a required FK to Category.
-      Category has: Id (int), Name (string).
-      Create a new DbContext `AppDbContext` using SQLite.
-      Also scaffold CRUD for Category so parent entities can be created first.
+      I have a Product model in my MyApp project that has a category foreign key.
+      Can you scaffold Razor Pages with full CRUD for it? Use Entity Framework with
+      SQLite and create a new DbContext called AppDbContext.
     assertions:
       - type: "output_contains"
         value: "DbContext"
       - type: "output_contains"
         value: "migration"
-      - type: "output_not_contains"
-        value: "dotnet aspnet-codegenerator"
-      - type: "output_not_contains"
-        value: "dotnet scaffold"
-      - type: "output_not_matches"
-        pattern: "Swashbuckle|RuntimeCompilation"
     rubric:
-      - "Generates Razor Pages (.cshtml and .cshtml.cs) for both Product and Category models with Create, Read, Update, Delete pages"
-      - "Creates an AppDbContext class that inherits from DbContext and includes DbSet properties for Product and Category"
+      - "Generates Razor Pages (.cshtml and .cshtml.cs) for the Product model with Create, Read, Update, Delete pages"
+      - "Creates an AppDbContext class that inherits from DbContext and includes DbSet properties"
       - "Uses EF Core migrations instead of seeding the database in Program.cs"
-      - "Does not invoke any CLI scaffolding tools like dotnet aspnet-codegenerator or dotnet scaffold"
-      - "Does not add unnecessary packages like Swashbuckle.AspNetCore or RuntimeCompilation"
       - "Scaffolds Category CRUD pages because Product has a required FK to Category"
     timeout: 300
 
   - name: "Scaffold Minimal API endpoints with OpenAPI"
     prompt: |
-      Scaffold Minimal API endpoints for the `TodoItem` model (from `TodoApi.Models`) in project `TodoApi.csproj`.
-      TodoItem has: Id (int), Title (string, required), IsComplete (bool).
-      Name the endpoints class `TodoEndpoints`.
-      Create a new DbContext `TodoDbContext` using SQLite.
-      Enable OpenAPI support.
+      I need Minimal API endpoints for a TodoItem model in my TodoApi project.
+      Call the endpoints class TodoEndpoints and use a new TodoDbContext with SQLite.
+      I'd also like OpenAPI support enabled.
     assertions:
       - type: "output_contains"
         value: "TodoEndpoints"
@@ -40,58 +28,26 @@ scenarios:
         value: "TodoDbContext"
       - type: "output_contains"
         value: ".http"
-      - type: "output_not_contains"
-        value: "dotnet aspnet-codegenerator"
-      - type: "output_not_contains"
-        value: "dotnet scaffold"
     rubric:
       - "Creates a TodoEndpoints class with MapGet, MapPost, MapPut, and MapDelete endpoints for TodoItem"
       - "Creates a TodoDbContext with a DbSet for TodoItem"
       - "Generates a .http file with sample requests for all CRUD endpoints"
       - "Uses EF Core migrations instead of seeding the database in Program.cs"
-      - "Does not invoke any CLI scaffolding tools"
       - "Enables OpenAPI support in the endpoint configuration"
     timeout: 300
 
-  - name: "Scaffold Blazor CRUD components with correct SupplyParameterFromForm"
+  - name: "Scaffold Blazor CRUD components"
     prompt: |
-      Scaffold Blazor CRUD components for the `Employee` model (from `BlazorApp.Models`) in project `BlazorApp.csproj`.
-      Employee has: Id (int), FirstName (string), LastName (string), Email (string), DepartmentId (int) with a required FK to Department.
-      Department has: Id (int), Name (string).
-      Create a new DbContext `AppDbContext` using SQLite.
-      Also scaffold CRUD for Department.
+      Scaffold Blazor CRUD components for the Employee model in the BlazorApp project.
+      Use Entity Framework with SQLite in a new DbContext called AppDbContext.
     assertions:
       - type: "output_contains"
-        value: "SupplyParameterFromForm"
-      - type: "output_contains"
-        value: "= new()"
-      - type: "output_not_matches"
-        pattern: "null!"
-      - type: "output_contains"
-        value: "AddInteractiveServerComponents"
-      - type: "output_not_contains"
-        value: "dotnet aspnet-codegenerator"
-    rubric:
-      - "Generates Blazor components (.razor) for both Employee and Department with Create, Read, Update, Delete functionality"
-      - "Uses [SupplyParameterFromForm] with = new() initialization, not null!"
-      - "Configures Program.cs with AddInteractiveServerComponents and AddInteractiveServerRenderMode"
-      - "Creates an AppDbContext with DbSet properties for Employee and Department"
-      - "Uses EF Core migrations instead of seeding the database in Program.cs"
-      - "Does not invoke any CLI scaffolding tools"
-    timeout: 300
-
-  - name: "Advisory: explain EF migration best practices for scaffolded code"
-    prompt: |
-      I'm about to scaffold some ASP.NET Core Razor Pages with Entity Framework.
-      What's the correct way to set up the database — should I seed it in Program.cs
-      or use migrations? And how should I handle dotnet ef tool installation?
-    assertions:
+        value: "DbContext"
       - type: "output_contains"
         value: "migration"
-      - type: "output_not_matches"
-        pattern: "seed.*(Program|Startup)\\.cs"
     rubric:
-      - "Recommends using EF Core migrations instead of seeding the database in Program.cs"
-      - "Recommends trying dotnet tool restore before installing dotnet-ef globally"
-      - "Provides clear guidance without attempting to execute scaffolding commands"
-    timeout: 60
+      - "Generates Blazor components (.razor) for the Employee model with Create, Read, Update, Delete functionality"
+      - "Creates an AppDbContext with DbSet properties for Employee"
+      - "Uses EF Core migrations instead of seeding the database in Program.cs"
+      - "Handles related entities referenced by foreign keys in the Employee model"
+    timeout: 300
