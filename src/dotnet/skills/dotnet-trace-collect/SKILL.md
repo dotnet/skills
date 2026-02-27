@@ -57,7 +57,7 @@ Select tools based on the environment using the priority rules below. Refer to t
 | Environment | Preferred tool | Fallback / Notes |
 |-------------|----------------|------------------|
 | Windows + modern .NET + admin | PerfView | If admin is unavailable, use `dotnet-trace` |
-| Windows + .NET Framework + admin | PerfView | Without admin, there is no trace fallback; use dumps for hangs/memory leaks only |
+| Windows + .NET Framework + admin | PerfView | Without admin, there is no trace fallback; delegate to `dump-collect` skill for hangs/memory leaks |
 | Linux + .NET 10+ + root | `dotnet-trace collect-linux` | Use `dotnet-trace` if root or kernel prerequisites are not met |
 | Linux + pre-.NET 10 | `dotnet-trace` | Add `perfcollect` when native stacks are needed (requires root) |
 | Linux container/Kubernetes | Console tools if in workload context; `dotnet-monitor` if no console access | See Linux Container / Kubernetes section for details |
@@ -75,13 +75,13 @@ Select tools based on the environment using the priority rules below. Refer to t
    - **Analyze off-machine** — before the container shuts down, copy the `.etl.zip` into the container and run `PerfViewCollect merge /ImageIDsOnly` inside it to embed symbol information. Then copy the merged trace out. Without this merge step, symbols for binaries inside the container will be unresolvable on other machines.
    
    For the less common Hyper-V containers, collect inside the container directly. See the [tool compatibility reference](references/tool-compatibility.md) for detailed commands.
-2. **`dotnet-monitor`**, **`dotnet-trace`**, **`dotnet-dump`** — inside the container if the tools are installed in the image.
+2. **`dotnet-monitor`**, **`dotnet-trace`** — inside the container if the tools are installed in the image. For dumps, delegate to the **`dump-collect`** skill.
 
 #### Windows (.NET Framework)
 
 1. **PerfView** — the primary diagnostic tool for .NET Framework on Windows. Requires admin.
 2. Same trigger guidance for long repros: use `/StopOn` triggers that fire on the symptom (e.g., `/StopOnPerfCounter`, `/StopOnGCEvent`, `/StopOnException`) with `/CircularMB` + `/BufferSizeMB`.
-3. **Without admin**: PerfView requires admin, and there are no alternative trace tools for .NET Framework. Process dumps can still be captured without admin using `procdump` or Task Manager — dumps can help diagnose hangs and memory leaks. However, for **high CPU**, **slow requests**, and **excessive GC**, there is no way to investigate on .NET Framework without admin access. Advise the user to obtain admin privileges.
+3. **Without admin**: PerfView requires admin, and there are no alternative trace tools for .NET Framework. Process dumps can still be captured without admin (delegate to the **`dump-collect`** skill) — dumps can help diagnose hangs and memory leaks. However, for **high CPU**, **slow requests**, and **excessive GC**, there is no way to investigate on .NET Framework without admin access. Advise the user to obtain admin privileges.
 
 #### Linux (non-container, .NET 10+)
 
@@ -98,7 +98,7 @@ Select tools based on the environment using the priority rules below. Refer to t
 **If running in the context of the workload** (i.e., you have console access to the container), prefer console-based tools to avoid `dotnet-monitor` authentication setup:
 
 1. **`dotnet-trace collect-linux`** (.NET 10+ with root) — produces the richest traces including native call stacks and kernel events.
-2. **`dotnet-trace`**, **`dotnet-dump`**, **`dotnet-counters`** — inside the container if the tools are installed in the image. No admin required for `dotnet-trace` and `dotnet-dump`.
+2. **`dotnet-trace`**, **`dotnet-counters`** — inside the container if the tools are installed in the image. For dumps, delegate to the **`dump-collect`** skill.
 3. **`perfcollect`** — inside the container when native stacks are needed on pre-.NET 10 (requires `SYS_ADMIN` / `--privileged`).
 
 **If not running in the workload context** (no console access), or if `dotnet-monitor` is already deployed:
@@ -107,19 +107,19 @@ Select tools based on the environment using the priority rules below. Refer to t
 
 #### Live monitoring (any environment, modern .NET)
 
-- **`dotnet-counters`** — lightweight live metrics; useful as a first step to narrow down the symptom before collecting a trace or dump.
+- **`dotnet-counters`** — lightweight live metrics; useful as a first step to narrow down the symptom before collecting a trace.
 
-#### Memory dumps (any environment, modern .NET)
+#### Memory dumps
 
-- **`dotnet-dump`** — collect and perform basic analysis of memory dumps.
+When dumps are needed (memory leaks, hangs), delegate to the **`dump-collect`** skill for dump collection guidance or execution. This skill focuses on trace collection.
 
 #### Memory leaks
 
-- **Capture two dumps** as memory is increasing (e.g., one early, one after significant growth). Diff them in PerfView to see which objects have increased — this is the most effective way to identify what is leaking.
-- **Without admin privileges**: Two process dumps (`dotnet-dump`) can give a sense of what's growing on the heap, but may not be enough to identify the root cause. If dumps aren't sufficient, reproduce the issue in an environment where admin privileges are available to collect richer data (traces).
-- **Modern .NET on Linux (pre-.NET 10)**: Recommend two `dotnet-dump` captures (for heap diff) plus `dotnet-trace` while memory is growing (for allocation tracking). No trigger needed — capture during the growth period. Both together give the best picture.
-- **Modern .NET 10+ on Linux with admin**: Recommend two `dotnet-dump` captures (for heap diff) plus `dotnet-trace collect-linux` while memory is growing (richer data including native stacks). No trigger needed.
-- **.NET Framework**: Recommend two dumps plus a PerfView trace while memory is growing to see what is being allocated. No trigger is needed — just capture the trace during the growth period. Do not wait for an `OutOfMemoryException`.
+- **Capture two dumps** as memory is increasing (e.g., one early, one after significant growth). Delegate dump collection to the **`dump-collect`** skill. Diff the dumps in PerfView to see which objects have increased — this is the most effective way to identify what is leaking.
+- **Without admin privileges**: Two process dumps can give a sense of what's growing on the heap, but may not be enough to identify the root cause. If dumps aren't sufficient, reproduce the issue in an environment where admin privileges are available to collect richer data (traces).
+- **Modern .NET on Linux (pre-.NET 10)**: Recommend two dump captures (via `dump-collect` skill) for heap diff, plus `dotnet-trace` while memory is growing (for allocation tracking). No trigger needed — capture during the growth period. Both together give the best picture.
+- **Modern .NET 10+ on Linux with admin**: Recommend two dump captures (via `dump-collect` skill) for heap diff, plus `dotnet-trace collect-linux` while memory is growing (richer data including native stacks). No trigger needed.
+- **.NET Framework**: Recommend two dumps (via `dump-collect` skill) plus a PerfView trace while memory is growing to see what is being allocated. No trigger is needed — just capture the trace during the growth period. Do not wait for an `OutOfMemoryException`.
 
 #### Excessive GC
 
@@ -141,13 +141,12 @@ Slow requests require a **thread time trace** to see where threads are spending 
 
 #### Hangs
 
-1. **Collect a process dump** using `dotnet-dump collect`, `procdump`, Task Manager (Windows), or `createdump` / `gcore` (Linux). Dump collection does not require admin privileges.
+1. **Collect a process dump** — delegate to the **`dump-collect`** skill for dump collection.
 2. **Analyze with a debugger** to inspect thread stacks and identify where threads are blocked:
    - **Windows**: Visual Studio or WinDbg with the SOS debugger extension.
    - **Linux**: `lldb` with the SOS debugger extension.
 3. **Deadlocks** (threads waiting on each other): A dump alone is usually sufficient — inspect thread stacks to find the lock cycle.
 4. **Livelocks** (threads spinning without progress): A trace is also helpful to see what threads are doing over time. Use the appropriate trace tool for the environment (PerfView on Windows, `dotnet-trace` on Linux).
-5. Linux dumps can also be copied to a Windows machine and opened in Visual Studio or WinDbg for analysis.
 
 Explain the trade-offs when recommending a tool. For example:
 - PerfView gives richer data but needs admin; runs on Windows including Windows containers.
@@ -162,7 +161,7 @@ Provide the specific commands for the recommended tool. Refer to the [tool compa
 Key guidance to include:
 
 1. **Installation**: How to install the tool if it is not already available (e.g. `dotnet tool install -g dotnet-trace`). **When recommending multiple tools, provide installation and usage instructions for each one** — do not mention a tool without showing how to install and use it.
-2. **PID discovery (required before any `-p <PID>` command)**: Verify the target process first (for example: `dotnet-trace ps`, `dotnet-dump ps`, `curl <monitor-endpoint>/processes`, or `ps` inside a container). If the app is expected to be PID 1 in a container, still verify before collecting.
+2. **PID discovery (required before any `-p <PID>` command)**: Verify the target process first (for example: `dotnet-trace ps`, `curl <monitor-endpoint>/processes`, or `ps` inside a container). If the app is expected to be PID 1 in a container, still verify before collecting.
 3. **Collection command**: The exact command to run, including relevant providers, output format, and duration.
 4. **Container considerations**:
    - Collecting from **inside** the container: ensure the tool is installed in the image or use `kubectl cp` to copy it in.
@@ -170,7 +169,7 @@ Key guidance to include:
    - Kubernetes: `dotnet-monitor` as a sidecar container, or `kubectl debug` for ephemeral debug containers.
 5. **Long-running repros** (Windows/PerfView): show how to use trigger arguments and circular buffer settings.
 6. **Output location**: Where the collected file will be saved and how to copy it off the target for analysis.
-7. **Artifact handoff checklist**: Include runtime version, OS/kernel, container image tag or build SHA, PID/process name, UTC collection start/end timestamps, exact command used, and final artifact path when handing traces/dumps to someone else for analysis.
+7. **Artifact handoff checklist**: Include runtime version, OS/kernel, container image tag or build SHA, PID/process name, UTC collection start/end timestamps, exact command used, and final artifact path when handing traces to someone else for analysis.
 
 ### Step 4: Recommend analysis approach
 
@@ -180,8 +179,6 @@ After data is collected, recommend the appropriate tool for analysis. Do **not**
 |----------------|---------------|-------|
 | `.nettrace` file | PerfView (Windows), `dotnet-trace report` (cross-platform), Speedscope (web) | PerfView gives the richest view on Windows |
 | `.etl` / `.etl.zip` file | PerfView | ETW traces from PerfView or perfcollect |
-| `.dmp` file (modern .NET) | `dotnet-dump analyze` (cross-platform), Visual Studio (Windows), PerfView (Windows), WinDbg + SOS | Linux dumps can be copied to Windows for analysis with Visual Studio, PerfView, or WinDbg |
-| `.dmp` file (.NET Framework on Windows) | Visual Studio (Windows), PerfView (Windows), WinDbg + SOS | `dotnet-dump analyze` does not support .NET Framework dumps |
 | `dotnet-counters` output | Direct reading (CSV/JSON) | Live metrics; no separate analysis tool needed |
 | `perf.data.nl` from perfcollect | PerfView (Windows) | Copy the file to a Windows machine and open with PerfView |
 
