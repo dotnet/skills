@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 
 namespace SkillValidator.Services;
@@ -37,7 +38,7 @@ public sealed class SessionDatabase : IDisposable
                 config_dir TEXT,
                 work_dir TEXT,
                 prompt TEXT,
-                skill_content TEXT,
+                skill_sha TEXT,
                 status TEXT NOT NULL DEFAULT 'running',
                 started_at TEXT NOT NULL,
                 completed_at TEXT
@@ -53,17 +54,39 @@ public sealed class SessionDatabase : IDisposable
         cmd.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// Computes a SHA-256 hash over all files in a directory, sorted by relative path.
+    /// Returns the first 12 hex characters for a short, collision-resistant identifier.
+    /// </summary>
+    public static string ComputeDirectorySha(string dirPath)
+    {
+        using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var files = Directory.GetFiles(dirPath, "*", SearchOption.AllDirectories)
+            .Select(f => Path.GetRelativePath(dirPath, f).Replace('\\', '/'))
+            .OrderBy(f => f, StringComparer.Ordinal)
+            .ToList();
+
+        foreach (var relPath in files)
+        {
+            sha.AppendData(System.Text.Encoding.UTF8.GetBytes(relPath));
+            sha.AppendData(File.ReadAllBytes(Path.Combine(dirPath, relPath)));
+        }
+
+        var hash = sha.GetHashAndReset();
+        return Convert.ToHexString(hash)[..12].ToLowerInvariant();
+    }
+
     public void RegisterSession(string sessionId, string skillName, string skillPath,
         string scenarioName, int runIndex, string role, string model,
-        string? configDir, string? workDir, string? prompt = null, string? skillContent = null)
+        string? configDir, string? workDir, string? prompt = null, string? skillSha = null)
     {
         _writeLock.Wait();
         try
         {
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
-                INSERT INTO sessions (id, skill_name, skill_path, scenario_name, run_index, role, model, config_dir, work_dir, prompt, skill_content, status, started_at)
-                VALUES ($id, $skill_name, $skill_path, $scenario_name, $run_index, $role, $model, $config_dir, $work_dir, $prompt, $skill_content, 'running', $started_at)
+                INSERT INTO sessions (id, skill_name, skill_path, scenario_name, run_index, role, model, config_dir, work_dir, prompt, skill_sha, status, started_at)
+                VALUES ($id, $skill_name, $skill_path, $scenario_name, $run_index, $role, $model, $config_dir, $work_dir, $prompt, $skill_sha, 'running', $started_at)
                 """;
             cmd.Parameters.AddWithValue("$id", sessionId);
             cmd.Parameters.AddWithValue("$skill_name", skillName);
@@ -75,7 +98,7 @@ public sealed class SessionDatabase : IDisposable
             cmd.Parameters.AddWithValue("$config_dir", (object?)configDir ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$work_dir", (object?)workDir ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$prompt", (object?)prompt ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$skill_content", (object?)skillContent ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$skill_sha", (object?)skillSha ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$started_at", DateTimeOffset.UtcNow.ToString("o"));
             cmd.ExecuteNonQuery();
         }
@@ -153,7 +176,7 @@ public sealed class SessionDatabase : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT s.id, s.skill_name, s.skill_path, s.scenario_name, s.run_index, s.role, s.model,
-                   s.config_dir, s.work_dir, s.prompt, s.skill_content, s.status,
+                   s.config_dir, s.work_dir, s.prompt, s.skill_sha, s.status,
                    r.metrics_json, r.judge_json, r.pairwise_json
             FROM sessions s
             LEFT JOIN run_results r ON s.id = r.session_id
@@ -174,7 +197,7 @@ public sealed class SessionDatabase : IDisposable
                 ConfigDir: reader.IsDBNull(7) ? null : reader.GetString(7),
                 WorkDir: reader.IsDBNull(8) ? null : reader.GetString(8),
                 Prompt: reader.IsDBNull(9) ? null : reader.GetString(9),
-                SkillContent: reader.IsDBNull(10) ? null : reader.GetString(10),
+                SkillSha: reader.IsDBNull(10) ? null : reader.GetString(10),
                 Status: reader.GetString(11),
                 MetricsJson: reader.IsDBNull(12) ? null : reader.GetString(12),
                 JudgeJson: reader.IsDBNull(13) ? null : reader.GetString(13),
@@ -201,7 +224,7 @@ public sealed record SessionRecord(
     string? ConfigDir,
     string? WorkDir,
     string? Prompt,
-    string? SkillContent,
+    string? SkillSha,
     string Status,
     string? MetricsJson,
     string? JudgeJson,
