@@ -1,9 +1,11 @@
 scenarios:
   - name: "Scaffold Razor Pages CRUD with EF Core and SQLite"
     prompt: |
-      I have a Product model in my MyApp project that has a category foreign key.
-      Can you scaffold Razor Pages with full CRUD for it? Use Entity Framework with
-      SQLite and create a new DbContext called AppDbContext.
+      I have a Product model in the MyApp project at fixtures/razor-pages-crud/MyApp.csproj
+      that has a category foreign key. Can you scaffold Razor Pages with full CRUD for it?
+      Use Entity Framework with SQLite and create a new DbContext called AppDbContext.
+    setup:
+      copy_test_files: true
     assertions:
       - type: "output_contains"
         value: "DbContext"
@@ -18,9 +20,11 @@ scenarios:
 
   - name: "Scaffold Minimal API endpoints with OpenAPI"
     prompt: |
-      I need Minimal API endpoints for a TodoItem model in my TodoApi project.
-      Call the endpoints class TodoEndpoints and use a new TodoDbContext with SQLite.
-      I'd also like OpenAPI support enabled.
+      I need Minimal API endpoints for the TodoItem model in my TodoApi project at
+      fixtures/minimal-api/TodoApi.csproj. Call the endpoints class TodoEndpoints and
+      use a new TodoDbContext with SQLite. I'd also like OpenAPI support enabled.
+    setup:
+      copy_test_files: true
     assertions:
       - type: "output_contains"
         value: "TodoEndpoints"
@@ -38,8 +42,11 @@ scenarios:
 
   - name: "Scaffold Blazor CRUD components"
     prompt: |
-      Scaffold Blazor CRUD components for the Employee model in the BlazorApp project.
-      Use Entity Framework with SQLite in a new DbContext called AppDbContext.
+      Scaffold Blazor CRUD components for the Employee model in the BlazorApp project at
+      fixtures/blazor-crud/BlazorApp.csproj. Use Entity Framework with SQLite in a new
+      DbContext called AppDbContext.
+    setup:
+      copy_test_files: true
     assertions:
       - type: "output_contains"
         value: "DbContext"
