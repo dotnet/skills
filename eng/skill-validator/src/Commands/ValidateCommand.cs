@@ -453,8 +453,10 @@ public static class ValidateCommand
         var skillSessionId = Guid.NewGuid().ToString("N");
 
         // Register sessions before running
-        sessionDb?.RegisterSession(baselineSessionId, skill.Name, skill.Path, scenario.Name, runIndex, "baseline", config.Model, null, null, scenario.Prompt, skill.SkillMdContent);
-        sessionDb?.RegisterSession(skillSessionId, skill.Name, skill.Path, scenario.Name, runIndex, "with-skill", config.Model, null, null, scenario.Prompt, skill.SkillMdContent);
+        var skillDir = Path.GetDirectoryName(skill.Path);
+        var skillSha = skillDir is not null ? SessionDatabase.ComputeDirectorySha(skillDir) : null;
+        sessionDb?.RegisterSession(baselineSessionId, skill.Name, skill.Path, scenario.Name, runIndex, "baseline", config.Model, null, null, scenario.Prompt, skillSha);
+        sessionDb?.RegisterSession(skillSessionId, skill.Name, skill.Path, scenario.Name, runIndex, "with-skill", config.Model, null, null, scenario.Prompt, skillSha);
 
         var agentTasks = await Task.WhenAll(
             AgentRunner.RunAgent(new RunOptions(scenario, null, skill.EvalPath, config.Model, config.Verbose, runLog,

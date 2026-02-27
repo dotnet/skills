@@ -31,7 +31,7 @@ public class SessionDatabaseTests : IDisposable
     [Fact]
     public void RegisterAndComplete_RoundTrips()
     {
-        _db.RegisterSession("s1", "my-skill", "/path/to/skill", "scenario-a", 0, "baseline", "gpt-4.1", "/cfg", "/work", "Fix the bug", "# My Skill\nInstructions here");
+        _db.RegisterSession("s1", "my-skill", "/path/to/skill", "scenario-a", 0, "baseline", "gpt-4.1", "/cfg", "/work", "Fix the bug", "abcdef012345");
         _db.CompleteSession("s1", "completed", """{"TokenEstimate":100}""");
 
         var sessions = _db.GetCompletedSessions();
@@ -45,7 +45,7 @@ public class SessionDatabaseTests : IDisposable
         Assert.Equal("gpt-4.1", s.Model);
         Assert.Equal("completed", s.Status);
         Assert.Equal("Fix the bug", s.Prompt);
-        Assert.Equal("# My Skill\nInstructions here", s.SkillContent);
+        Assert.Equal("abcdef012345", s.SkillSha);
         Assert.Equal("""{"TokenEstimate":100}""", s.MetricsJson);
         Assert.Null(s.JudgeJson);
         Assert.Null(s.PairwiseJson);
@@ -74,14 +74,14 @@ public class SessionDatabaseTests : IDisposable
     }
 
     [Fact]
-    public void RegisterWithoutPromptOrSkillContent_StoresNulls()
+    public void RegisterWithoutPromptOrSkillSha_StoresNulls()
     {
         _db.RegisterSession("s1", "skill", "/p", "scn", 0, "baseline", "model", null, null);
         _db.CompleteSession("s1", "completed", "{}");
 
         var s = Assert.Single(_db.GetCompletedSessions());
         Assert.Null(s.Prompt);
-        Assert.Null(s.SkillContent);
+        Assert.Null(s.SkillSha);
     }
 
     [Fact]
@@ -150,6 +150,32 @@ public class SessionDatabaseTests : IDisposable
             Assert.NotNull(s.MetricsJson);
             Assert.NotNull(s.JudgeJson);
         });
+    }
+
+    [Fact]
+    public void ComputeDirectorySha_IsDeterministic()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"sha-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "SKILL.md"), "# Test Skill");
+            File.WriteAllText(Path.Combine(dir, "plugin.json"), "{}");
+
+            var sha1 = SessionDatabase.ComputeDirectorySha(dir);
+            var sha2 = SessionDatabase.ComputeDirectorySha(dir);
+            Assert.Equal(sha1, sha2);
+            Assert.Equal(12, sha1.Length);
+
+            // Changing content produces a different SHA
+            File.WriteAllText(Path.Combine(dir, "SKILL.md"), "# Modified");
+            var sha3 = SessionDatabase.ComputeDirectorySha(dir);
+            Assert.NotEqual(sha1, sha3);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
     }
 
     [Fact]
