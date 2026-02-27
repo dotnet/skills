@@ -38,14 +38,6 @@ This repository contains the .NET team's curated set of core skills and custom a
    /plugin update <plugin>@dotnet-agent-skills
    ```
 
-### 📦 Distribution Templates
-
-Some plugins include ready-to-use templates (agent instructions, prompt files) that can be copied directly into your repository without installing a plugin or extension:
-
-1. Browse the plugin's **Distribution Templates** section in its README
-2. Copy agent instructions to your repo root as `AGENTS.md`
-3. Copy prompt files to `.github/prompts/`
-
 ### ⚡ Agentic Workflows
 
 Some plugins include [GitHub Agentic Workflow](https://github.com/github/gh-aw) templates for CI/CD automation:

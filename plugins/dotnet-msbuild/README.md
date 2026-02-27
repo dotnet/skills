@@ -46,7 +46,6 @@ Ready-to-use templates that can be copied directly into your repository without 
 | Template | Description |
 |----------|-------------|
 | [Agent Instructions](AGENTS.md) | Copy to repo root as `AGENTS.md` for cross-agent MSBuild guidance |
-| [Prompt Files](prompts/) | Copy to `.github/prompts/` for VS Code Copilot Chat workflows |
 
 ## ⚡ Agentic Workflows
 
