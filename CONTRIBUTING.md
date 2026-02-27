@@ -28,9 +28,11 @@ tests/
     <skill-name>/
       eval.yaml
       <fixture files>
+agentic-workflows/
+  <plugin>/
 ```
 
-Every plugin must have a plugin.json file in the plugin root that is linked to from the marketplace.json.
+Every plugin must have a plugin.json file in the plugin root that is linked to from the marketplace.json file.
 
 ## Before you start
 
