@@ -60,7 +60,7 @@ Select tools based on the environment using the priority rules below. Refer to t
 | Windows + .NET Framework + admin | PerfView | Without admin, there is no trace fallback; use dumps for hangs/memory leaks only |
 | Linux + .NET 10+ + root | `dotnet-trace collect-linux` | Use `dotnet-trace` if root or kernel prerequisites are not met |
 | Linux + pre-.NET 10 | `dotnet-trace` | Add `perfcollect` when native stacks are needed (requires root) |
-| Linux container/Kubernetes | `dotnet-monitor` sidecar | Inside-container fallback: `dotnet-trace` / `dotnet-dump`; use `collect-linux` only on .NET 10+ with root |
+| Linux container/Kubernetes | Console tools if in workload context; `dotnet-monitor` if no console access | See Linux Container / Kubernetes section for details |
 
 #### Windows (non-container, modern .NET)
 
@@ -95,10 +95,15 @@ Select tools based on the environment using the priority rules below. Refer to t
 
 #### Linux Container / Kubernetes
 
-1. **`dotnet-monitor`** (preferred for ease of deployment) — designed for containers; runs as a sidecar. No tools needed in the app container.
-2. **`dotnet-trace collect-linux`** (.NET 10+ with root) — produces richer traces than `dotnet-monitor` including native call stacks and kernel events, but must be run inside the container with root privileges.
-3. **`dotnet-counters`**, **`dotnet-trace`**, **`dotnet-dump`** — inside the container if the tools are installed in the image.
-4. **`perfcollect`** — inside the container when native stacks are needed on pre-.NET 10 (requires `SYS_ADMIN` / `--privileged`).
+**If running in the context of the workload** (i.e., you have console access to the container), prefer console-based tools to avoid `dotnet-monitor` authentication setup:
+
+1. **`dotnet-trace collect-linux`** (.NET 10+ with root) — produces the richest traces including native call stacks and kernel events.
+2. **`dotnet-trace`**, **`dotnet-dump`**, **`dotnet-counters`** — inside the container if the tools are installed in the image. No admin required for `dotnet-trace` and `dotnet-dump`.
+3. **`perfcollect`** — inside the container when native stacks are needed on pre-.NET 10 (requires `SYS_ADMIN` / `--privileged`).
+
+**If not running in the workload context** (no console access), or if `dotnet-monitor` is already deployed:
+
+1. **`dotnet-monitor`** — designed for containers; runs as a sidecar. No tools needed in the app container. Easiest option when console access is not available.
 
 #### Live monitoring (any environment, modern .NET)
 
