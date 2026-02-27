@@ -36,6 +36,8 @@ public sealed class SessionDatabase : IDisposable
                 model TEXT NOT NULL,
                 config_dir TEXT,
                 work_dir TEXT,
+                prompt TEXT,
+                skill_content TEXT,
                 status TEXT NOT NULL DEFAULT 'running',
                 started_at TEXT NOT NULL,
                 completed_at TEXT
@@ -53,15 +55,15 @@ public sealed class SessionDatabase : IDisposable
 
     public void RegisterSession(string sessionId, string skillName, string skillPath,
         string scenarioName, int runIndex, string role, string model,
-        string? configDir, string? workDir)
+        string? configDir, string? workDir, string? prompt = null, string? skillContent = null)
     {
         _writeLock.Wait();
         try
         {
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
-                INSERT INTO sessions (id, skill_name, skill_path, scenario_name, run_index, role, model, config_dir, work_dir, status, started_at)
-                VALUES ($id, $skill_name, $skill_path, $scenario_name, $run_index, $role, $model, $config_dir, $work_dir, 'running', $started_at)
+                INSERT INTO sessions (id, skill_name, skill_path, scenario_name, run_index, role, model, config_dir, work_dir, prompt, skill_content, status, started_at)
+                VALUES ($id, $skill_name, $skill_path, $scenario_name, $run_index, $role, $model, $config_dir, $work_dir, $prompt, $skill_content, 'running', $started_at)
                 """;
             cmd.Parameters.AddWithValue("$id", sessionId);
             cmd.Parameters.AddWithValue("$skill_name", skillName);
@@ -72,6 +74,8 @@ public sealed class SessionDatabase : IDisposable
             cmd.Parameters.AddWithValue("$model", model);
             cmd.Parameters.AddWithValue("$config_dir", (object?)configDir ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$work_dir", (object?)workDir ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$prompt", (object?)prompt ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$skill_content", (object?)skillContent ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$started_at", DateTimeOffset.UtcNow.ToString("o"));
             cmd.ExecuteNonQuery();
         }
@@ -149,7 +153,7 @@ public sealed class SessionDatabase : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT s.id, s.skill_name, s.skill_path, s.scenario_name, s.run_index, s.role, s.model,
-                   s.config_dir, s.work_dir, s.status,
+                   s.config_dir, s.work_dir, s.prompt, s.skill_content, s.status,
                    r.metrics_json, r.judge_json, r.pairwise_json
             FROM sessions s
             LEFT JOIN run_results r ON s.id = r.session_id
@@ -169,10 +173,12 @@ public sealed class SessionDatabase : IDisposable
                 Model: reader.GetString(6),
                 ConfigDir: reader.IsDBNull(7) ? null : reader.GetString(7),
                 WorkDir: reader.IsDBNull(8) ? null : reader.GetString(8),
-                Status: reader.GetString(9),
-                MetricsJson: reader.IsDBNull(10) ? null : reader.GetString(10),
-                JudgeJson: reader.IsDBNull(11) ? null : reader.GetString(11),
-                PairwiseJson: reader.IsDBNull(12) ? null : reader.GetString(12)));
+                Prompt: reader.IsDBNull(9) ? null : reader.GetString(9),
+                SkillContent: reader.IsDBNull(10) ? null : reader.GetString(10),
+                Status: reader.GetString(11),
+                MetricsJson: reader.IsDBNull(12) ? null : reader.GetString(12),
+                JudgeJson: reader.IsDBNull(13) ? null : reader.GetString(13),
+                PairwiseJson: reader.IsDBNull(14) ? null : reader.GetString(14)));
         }
         return results;
     }
@@ -194,6 +200,8 @@ public sealed record SessionRecord(
     string Model,
     string? ConfigDir,
     string? WorkDir,
+    string? Prompt,
+    string? SkillContent,
     string Status,
     string? MetricsJson,
     string? JudgeJson,

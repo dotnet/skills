@@ -31,7 +31,7 @@ public class SessionDatabaseTests : IDisposable
     [Fact]
     public void RegisterAndComplete_RoundTrips()
     {
-        _db.RegisterSession("s1", "my-skill", "/path/to/skill", "scenario-a", 0, "baseline", "gpt-4.1", "/cfg", "/work");
+        _db.RegisterSession("s1", "my-skill", "/path/to/skill", "scenario-a", 0, "baseline", "gpt-4.1", "/cfg", "/work", "Fix the bug", "# My Skill\nInstructions here");
         _db.CompleteSession("s1", "completed", """{"TokenEstimate":100}""");
 
         var sessions = _db.GetCompletedSessions();
@@ -44,6 +44,8 @@ public class SessionDatabaseTests : IDisposable
         Assert.Equal("baseline", s.Role);
         Assert.Equal("gpt-4.1", s.Model);
         Assert.Equal("completed", s.Status);
+        Assert.Equal("Fix the bug", s.Prompt);
+        Assert.Equal("# My Skill\nInstructions here", s.SkillContent);
         Assert.Equal("""{"TokenEstimate":100}""", s.MetricsJson);
         Assert.Null(s.JudgeJson);
         Assert.Null(s.PairwiseJson);
@@ -69,6 +71,17 @@ public class SessionDatabaseTests : IDisposable
 
         var s = Assert.Single(_db.GetCompletedSessions());
         Assert.Equal("""{"Winner":"with-skill"}""", s.PairwiseJson);
+    }
+
+    [Fact]
+    public void RegisterWithoutPromptOrSkillContent_StoresNulls()
+    {
+        _db.RegisterSession("s1", "skill", "/p", "scn", 0, "baseline", "model", null, null);
+        _db.CompleteSession("s1", "completed", "{}");
+
+        var s = Assert.Single(_db.GetCompletedSessions());
+        Assert.Null(s.Prompt);
+        Assert.Null(s.SkillContent);
     }
 
     [Fact]
