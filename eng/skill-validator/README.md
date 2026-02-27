@@ -198,6 +198,20 @@ By default (`--judge-mode pairwise`), the LLM judge sees both baseline and skill
 
 **Position-swap bias mitigation**: Each comparison is run twice — once with baseline first, once with skill first. If the judge picks the same winner in both orderings, the result is trusted. If it flips, the comparison defaults to a tie (flagged as inconsistent).
 
+### Overfitting detection
+
+An eval can be "overfitted" — rewarding the agent for parroting the skill's specific phrasing rather than producing a genuinely better result. The overfitting judge runs **in parallel** with scenario execution (one LLM call per skill) and classifies each rubric item and assertion:
+
+- **outcome** / **broad** — tests a correct result; not overfitted
+- **technique** / **narrow** — tests a skill-specific method; moderately overfitted
+- **vocabulary** — tests the skill's exact wording; highly overfitted
+
+The per-element classifications are combined into a 0–1 score (✅ low ≤ 0.20, 🟡 moderate ≤ 0.50, 🔴 high). The score is **informational only** — it does not affect the pass/fail verdict. It appears in console output, the markdown results table, and the dashboard.
+
+Use `--overfitting-fix` to generate an `eval.fixed.yaml` with suggested outcome-focused replacements for flagged items. Disable the check entirely with `--no-overfitting-check`.
+
+See [OverfittingDetection.md](OverfittingDetection.md) for the full design.
+
 ### Statistical confidence
 
 Results include bootstrap confidence intervals computed across individual runs. The output shows:
@@ -230,6 +244,8 @@ The default of 5 runs provides sufficient precision for significance testing (va
 | `--require-completion` | `true` | Fail if skill regresses task completion |
 | `--require-evals` | `false` | Fail if skill has no tests/eval.yaml |
 | `--verdict-warn-only` | `false` | Treat verdict failures as warnings (exit 0). Execution errors and `--require-evals` still fail. |
+| `--no-overfitting-check` | `false` | Disable the LLM-based overfitting analysis (on by default) |
+| `--overfitting-fix` | `false` | Generate `eval.fixed.yaml` with improved rubric items/assertions |
 | `--verbose` | `false` | Show tool calls and agent events during runs |
 | `--reporter <spec>` | `console`, `json`, `markdown` | Output format: `console`, `json`, `junit`, `markdown`. |
 | `--results-dir <path>` | `.skill-validator-results` | Directory for file reporter output. |

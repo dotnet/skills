@@ -58,6 +58,77 @@
     }
   }
 
+  // --- Shared constants and helpers for issue markers ---
+  const ISSUE_COLORS = {
+    notActivated: '#d29922',
+    timedOut: '#f85149',
+    overfittingModerate: '#d29922',
+    overfittingHigh: '#f85149',
+    multiIssue: '#f85149',
+  };
+
+  function getPointAppearance(flags, defaultColor) {
+    const count = (flags.timedOut ? 1 : 0) + (flags.notActivated ? 1 : 0) + (flags.overfitting ? 1 : 0);
+    if (count > 1) return { color: ISSUE_COLORS.multiIssue, style: 'circle', radius: 4, borderWidth: 2 };
+    if (flags.timedOut) return { color: ISSUE_COLORS.timedOut, style: 'rectRot', radius: 6, borderWidth: 2 };
+    if (flags.notActivated) return { color: ISSUE_COLORS.notActivated, style: 'triangle', radius: 6, borderWidth: 2 };
+    if (flags.overfitting === 'high') return { color: ISSUE_COLORS.overfittingHigh, style: 'star', radius: 7, borderWidth: 2 };
+    if (flags.overfitting) return { color: ISSUE_COLORS.overfittingModerate, style: 'star', radius: 6, borderWidth: 2 };
+    return { color: defaultColor, style: 'circle', radius: 4, borderWidth: 2 };
+  }
+
+  function buildIssueTooltipLines(entry, benchFilter) {
+    if (!entry || !entry.benches) return [];
+    const benches = benchFilter ? entry.benches.filter(benchFilter) : entry.benches;
+    const lines = [];
+    if (benches.some(b => b.notActivated)) lines.push('⚠️ SKILL NOT ACTIVATED');
+    if (benches.some(b => b.timedOut)) lines.push('⏰ EXECUTION TIMED OUT');
+    const ofBench = benches.find(b => b.overfitting);
+    if (ofBench) {
+      const sev = ofBench.overfitting;
+      const score = ofBench.overfittingScore;
+      const icon = sev === 'high' ? '🔴' : '🟡';
+      lines.push(`${icon} ${sev.toUpperCase()} EVAL OVERFITTING (score: ${score != null ? score.toFixed(2) : 'N/A'})`);
+    }
+    if (lines.length > 1) {
+      return ['⛔ MULTIPLE ISSUES:', ...lines.map(l => '  ' + l)];
+    }
+    return lines;
+  }
+
+  function appendLegendNotes(div, flags) {
+    if (flags.notActivated) {
+      const note = document.createElement('div');
+      note.className = 'not-activated-legend';
+      note.innerHTML = `⚠️ <span style="color:${ISSUE_COLORS.notActivated}">▲</span> = Skill was not activated`;
+      div.appendChild(note);
+    }
+    if (flags.timedOut) {
+      const note = document.createElement('div');
+      note.className = 'not-activated-legend';
+      note.innerHTML = `⏰ <span style="color:${ISSUE_COLORS.timedOut}">◆</span> = Execution timed out`;
+      div.appendChild(note);
+    }
+    if (flags.overfittingHigh) {
+      const note = document.createElement('div');
+      note.className = 'not-activated-legend';
+      note.innerHTML = `🔴 <span style="color:${ISSUE_COLORS.overfittingHigh}">★</span> = High eval overfitting`;
+      div.appendChild(note);
+    }
+    if (flags.overfittingModerate) {
+      const note = document.createElement('div');
+      note.className = 'not-activated-legend';
+      note.innerHTML = `🟡 <span style="color:${ISSUE_COLORS.overfittingModerate}">★</span> = Moderate eval overfitting`;
+      div.appendChild(note);
+    }
+    if (flags.multiIssue) {
+      const note = document.createElement('div');
+      note.className = 'not-activated-legend';
+      note.innerHTML = `⛔ <span style="color:${ISSUE_COLORS.multiIssue}">●</span> = Multiple issues (see tooltip)`;
+      div.appendChild(note);
+    }
+  }
+
   function renderComponent(component, data, panel) {
     if (!data || !data.entries) {
       panel.innerHTML = '<p style="color:#8b949e;text-align:center;padding:2rem;">No data available.</p>';
@@ -156,6 +227,31 @@
           </div>
         `;
       }
+
+      // Count overfitting entries by severity
+      let overfittingHighCount = 0;
+      let overfittingModerateCount = 0;
+      recentEntries.forEach(entry => {
+        const ofBench = entry.benches.find(b => b.overfitting);
+        if (ofBench) {
+          if (ofBench.overfitting === 'high') overfittingHighCount++;
+          else overfittingModerateCount++;
+        }
+      });
+      const overfittingTotal = overfittingHighCount + overfittingModerateCount;
+      if (overfittingTotal > 0) {
+        const cardColor = overfittingHighCount > 0 ? ISSUE_COLORS.overfittingHigh : ISSUE_COLORS.overfittingModerate;
+        const breakdown = [];
+        if (overfittingHighCount > 0) breakdown.push(`${overfittingHighCount} high`);
+        if (overfittingModerateCount > 0) breakdown.push(`${overfittingModerateCount} moderate`);
+        summaryDiv.innerHTML += `
+          <div class="card">
+            <div class="card-label">Overfitting</div>
+            <div class="card-value" style="color: ${cardColor}">${overfittingTotal}</div>
+            <div class="card-delta">${breakdown.join(', ')} overfitting</div>
+          </div>
+        `;
+      }
     }
 
     // Quality charts
@@ -192,8 +288,6 @@
       });
 
       effTests.forEach(test => {
-        const NOT_ACTIVATED_COLOR = '#d29922';
-        const TIMED_OUT_COLOR = '#f85149';
         const div = document.createElement('div');
         div.className = 'chart-container';
         div.innerHTML = `<h3>${test}</h3><canvas></canvas>`;
@@ -208,8 +302,7 @@
         // Precompute per-entry data in a single pass over e.benches
         const timeName = `${test} - Skilled Time`;
         const tokenName = `${test} - Skilled Tokens In`;
-        let hasAnyNotActivated = false;
-        let hasAnyTimedOut = false;
+        const legendFlags = { notActivated: false, timedOut: false, overfittingModerate: false, overfittingHigh: false, multiIssue: false };
 
         const perEntryData = efficiencyEntries.map(e => {
           let timeBench = undefined;
@@ -223,40 +316,43 @@
           const tokenNA = !!(tokenBench && tokenBench.notActivated);
           const timeTO = !!(timeBench && timeBench.timedOut);
           const tokenTO = !!(tokenBench && tokenBench.timedOut);
-          if (timeNA || tokenNA) hasAnyNotActivated = true;
-          if (timeTO || tokenTO) hasAnyTimedOut = true;
+          const timeOF = timeBench && timeBench.overfitting ? timeBench.overfitting : null;
+          const tokenOF = tokenBench && tokenBench.overfitting ? tokenBench.overfitting : null;
+          if (timeNA || tokenNA) legendFlags.notActivated = true;
+          if (timeTO || tokenTO) legendFlags.timedOut = true;
+          if (timeOF || tokenOF) {
+            if (timeOF === 'high' || tokenOF === 'high') legendFlags.overfittingHigh = true;
+            else legendFlags.overfittingModerate = true;
+          }
+          const timeIssues = (timeNA ? 1 : 0) + (timeTO ? 1 : 0) + (timeOF ? 1 : 0);
+          const tokenIssues = (tokenNA ? 1 : 0) + (tokenTO ? 1 : 0) + (tokenOF ? 1 : 0);
+          if (timeIssues > 1 || tokenIssues > 1) legendFlags.multiIssue = true;
           return {
             timeValue: timeBench ? timeBench.value : null,
             timeNotActivated: timeNA,
             timeTimedOut: timeTO,
+            timeOverfitting: timeOF,
             tokenValue: tokenBench ? tokenBench.value / 1000 : null,
             tokenNotActivated: tokenNA,
             tokenTimedOut: tokenTO,
+            tokenOverfitting: tokenOF,
           };
         });
 
         const timeData = perEntryData.map(d => d.timeValue);
         const tokenData = perEntryData.map(d => d.tokenValue);
 
-        // Per-point styling: timedOut takes precedence over notActivated
-        const timePointBg = perEntryData.map(d =>
-          d.timeTimedOut ? TIMED_OUT_COLOR : d.timeNotActivated ? NOT_ACTIVATED_COLOR : '#f0883e'
-        );
-        const timePointStyle = perEntryData.map(d =>
-          d.timeTimedOut ? 'rectRot' : d.timeNotActivated ? 'triangle' : 'circle'
-        );
-        const timePointRadius = perEntryData.map(d =>
-          (d.timeTimedOut || d.timeNotActivated) ? 6 : 4
-        );
-        const tokenPointBg = perEntryData.map(d =>
-          d.tokenTimedOut ? TIMED_OUT_COLOR : d.tokenNotActivated ? NOT_ACTIVATED_COLOR : '#a371f7'
-        );
-        const tokenPointStyle = perEntryData.map(d =>
-          d.tokenTimedOut ? 'rectRot' : d.tokenNotActivated ? 'triangle' : 'circle'
-        );
-        const tokenPointRadius = perEntryData.map(d =>
-          (d.tokenTimedOut || d.tokenNotActivated) ? 6 : 4
-        );
+        // Per-point styling using shared helper
+        const timeAp = perEntryData.map(d => getPointAppearance({ timedOut: d.timeTimedOut, notActivated: d.timeNotActivated, overfitting: d.timeOverfitting }, '#f0883e'));
+        const timePointBg = timeAp.map(a => a.color);
+        const timePointStyle = timeAp.map(a => a.style);
+        const timePointRadius = timeAp.map(a => a.radius);
+        const timePointBorderWidth = timeAp.map(a => a.borderWidth);
+        const tokenAp = perEntryData.map(d => getPointAppearance({ timedOut: d.tokenTimedOut, notActivated: d.tokenNotActivated, overfitting: d.tokenOverfitting }, '#a371f7'));
+        const tokenPointBg = tokenAp.map(a => a.color);
+        const tokenPointStyle = tokenAp.map(a => a.style);
+        const tokenPointRadius = tokenAp.map(a => a.radius);
+        const tokenPointBorderWidth = tokenAp.map(a => a.borderWidth);
 
         new Chart(canvas, {
           type: 'line',
@@ -271,6 +367,7 @@
                 pointBackgroundColor: timePointBg,
                 pointBorderColor: timePointBg,
                 pointRadius: timePointRadius,
+                pointBorderWidth: timePointBorderWidth,
                 pointStyle: timePointStyle,
                 tension: 0.3,
                 fill: false,
@@ -284,6 +381,7 @@
                 pointBackgroundColor: tokenPointBg,
                 pointBorderColor: tokenPointBg,
                 pointRadius: tokenPointRadius,
+                pointBorderWidth: tokenPointBorderWidth,
                 pointStyle: tokenPointStyle,
                 tension: 0.3,
                 borderDash: [5, 5],
@@ -308,16 +406,7 @@
                       const msg = entry.commit.message.split('\n')[0];
                       parts.push(msg.length > 60 ? msg.substring(0, 60) + '...' : msg);
                     }
-                    const hasNotActivated = entry && entry.benches &&
-                      entry.benches.some(b => b.notActivated);
-                    if (hasNotActivated) {
-                      parts.push('⚠️ SKILL NOT ACTIVATED');
-                    }
-                    const hasTimedOut = entry && entry.benches &&
-                      entry.benches.some(b => b.timedOut);
-                    if (hasTimedOut) {
-                      parts.push('⏰ EXECUTION TIMED OUT');
-                    }
+                    parts.push(...buildIssueTooltipLines(entry, b => b.name === timeName || b.name === tokenName));
                     return parts.join('\n');
                   }
                 }
@@ -343,28 +432,13 @@
           }
         });
 
-        // Add legend note below chart if it contains not-activated or timed-out points
-        if (hasAnyNotActivated) {
-          const note = document.createElement('div');
-          note.className = 'not-activated-legend';
-          note.innerHTML = `⚠️ <span style="color:${NOT_ACTIVATED_COLOR}">▲</span> = Skill was not activated`;
-          div.appendChild(note);
-        }
-        if (hasAnyTimedOut) {
-          const note = document.createElement('div');
-          note.className = 'not-activated-legend';
-          note.innerHTML = `⏰ <span style="color:${TIMED_OUT_COLOR}">◆</span> = Execution timed out`;
-          div.appendChild(note);
-        }
+        appendLegendNotes(div, legendFlags);
       });
     }
   }
 
   // Helper: create a paired line chart
   function createPairedChart(container, title, entries, nameA, nameB, labelA, labelB, colorA, colorB) {
-    const NOT_ACTIVATED_COLOR = '#d29922';
-    const TIMED_OUT_COLOR = '#f85149';
-
     const div = document.createElement('div');
     div.className = 'chart-container';
     div.innerHTML = `<h3>${title}</h3><canvas></canvas>`;
@@ -377,8 +451,7 @@
     });
 
     // Precompute per-entry data in a single pass
-    let hasAnyNotActivated = false;
-    let hasAnyTimedOut = false;
+    const legendFlags = { notActivated: false, timedOut: false, overfittingModerate: false, overfittingHigh: false, multiIssue: false };
     const perEntryData = entries.map(e => {
       let benchA = undefined;
       let benchB = undefined;
@@ -389,32 +462,34 @@
       }
       const aNotActivated = !!(benchA && benchA.notActivated);
       const aTimedOut = !!(benchA && benchA.timedOut);
-      if (aNotActivated) hasAnyNotActivated = true;
-      if (aTimedOut) hasAnyTimedOut = true;
+      const aOverfitting = benchA && benchA.overfitting ? benchA.overfitting : null;
+      if (aNotActivated) legendFlags.notActivated = true;
+      if (aTimedOut) legendFlags.timedOut = true;
+      if (aOverfitting) {
+        if (aOverfitting === 'high') legendFlags.overfittingHigh = true;
+        else legendFlags.overfittingModerate = true;
+      }
+      const issueCount = (aNotActivated ? 1 : 0) + (aTimedOut ? 1 : 0) + (aOverfitting ? 1 : 0);
+      if (issueCount > 1) legendFlags.multiIssue = true;
       return {
         valueA: benchA ? benchA.value : null,
         valueB: benchB ? benchB.value : null,
         aNotActivated,
         aTimedOut,
+        aOverfitting,
       };
     });
 
     const dataA = perEntryData.map(d => d.valueA);
     const dataB = perEntryData.map(d => d.valueB);
 
-    // Build per-point styling for dataset A (Skilled): timedOut takes precedence over notActivated
-    const pointBgA = perEntryData.map(d =>
-      d.aTimedOut ? TIMED_OUT_COLOR : d.aNotActivated ? NOT_ACTIVATED_COLOR : colorA
-    );
-    const pointBorderA = perEntryData.map(d =>
-      d.aTimedOut ? TIMED_OUT_COLOR : d.aNotActivated ? NOT_ACTIVATED_COLOR : colorA
-    );
-    const pointRadiusA = perEntryData.map(d =>
-      (d.aTimedOut || d.aNotActivated) ? 6 : 4
-    );
-    const pointStyleA = perEntryData.map(d =>
-      d.aTimedOut ? 'rectRot' : d.aNotActivated ? 'triangle' : 'circle'
-    );
+    // Build per-point styling for dataset A (Skilled) using shared helper
+    const pointApA = perEntryData.map(d => getPointAppearance({ timedOut: d.aTimedOut, notActivated: d.aNotActivated, overfitting: d.aOverfitting }, colorA));
+    const pointBgA = pointApA.map(a => a.color);
+    const pointBorderA = pointApA.map(a => a.color);
+    const pointRadiusA = pointApA.map(a => a.radius);
+    const pointStyleA = pointApA.map(a => a.style);
+    const pointBorderWidthA = pointApA.map(a => a.borderWidth);
 
     new Chart(canvas, {
       type: 'line',
@@ -430,6 +505,7 @@
             pointBackgroundColor: pointBgA,
             pointBorderColor: pointBorderA,
             pointRadius: pointRadiusA,
+            pointBorderWidth: pointBorderWidthA,
             pointStyle: pointStyleA,
             pointHoverRadius: 8,
             tension: 0.3,
@@ -465,47 +541,25 @@
                   const msg = entry.commit.message.split('\n')[0];
                   parts.push(msg.length > 60 ? msg.substring(0, 60) + '...' : msg);
                 }
-                // Show activation warning when any bench in this entry is not-activated
-                const hasNotActivated = entry && entry.benches &&
-                  entry.benches.some(b => b.notActivated);
-                if (hasNotActivated) {
-                  parts.push('⚠️ SKILL NOT ACTIVATED');
+                    parts.push(...buildIssueTooltipLines(entry, b => b.name === nameA || b.name === nameB));
+                    return parts.join('\n');
+                  }
                 }
-                const hasTimedOut = entry && entry.benches &&
-                  entry.benches.some(b => b.timedOut);
-                if (hasTimedOut) {
-                  parts.push('⏰ EXECUTION TIMED OUT');
-                }
-                return parts.join('\n');
+              }
+            },
+            scales: {
+              x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
+              y: {
+                ticks: { color: '#8b949e' },
+                grid: { color: '#30363d' },
+                suggestedMin: 0,
+                suggestedMax: 10
               }
             }
           }
-        },
-        scales: {
-          x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
-          y: {
-            ticks: { color: '#8b949e' },
-            grid: { color: '#30363d' },
-            suggestedMin: 0,
-            suggestedMax: 10
-          }
-        }
-      }
-    });
+        });
 
-    // Add legend note below chart if it contains not-activated or timed-out points
-    if (hasAnyNotActivated) {
-      const note = document.createElement('div');
-      note.className = 'not-activated-legend';
-      note.innerHTML = `⚠️ <span style="color:${NOT_ACTIVATED_COLOR}">▲</span> = Skill was not activated`;
-      div.appendChild(note);
-    }
-    if (hasAnyTimedOut) {
-      const note = document.createElement('div');
-      note.className = 'not-activated-legend';
-      note.innerHTML = `⏰ <span style="color:${TIMED_OUT_COLOR}">◆</span> = Execution timed out`;
-      div.appendChild(note);
-    }
+    appendLegendNotes(div, legendFlags);
   }
 
   // Load first component immediately

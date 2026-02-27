@@ -28,6 +28,8 @@ public static class ValidateCommand
         var resultsDirOpt = new Option<string>("--results-dir") { Description = "Directory to save results to", DefaultValueFactory = _ => ".skill-validator-results" };
         var testsDirOpt = new Option<string?>("--tests-dir") { Description = "Directory containing test subdirectories" };
         var reporterOpt = new Option<string[]>("--reporter") { Description = "Reporter (console, json, junit, markdown). Can be repeated.", AllowMultipleArgumentsPerToken = true };
+        var noOverfittingCheckOpt = new Option<bool>("--no-overfitting-check") { Description = "Disable LLM-based overfitting analysis (on by default)" };
+        var overfittingFixOpt = new Option<bool>("--overfitting-fix") { Description = "Generate a fixed eval.yaml with improved rubric items/assertions" };
 
         var command = new RootCommand("Validate that agent skills meaningfully improve agent performance")
         {
@@ -49,6 +51,8 @@ public static class ValidateCommand
             resultsDirOpt,
             testsDirOpt,
             reporterOpt,
+            noOverfittingCheckOpt,
+            overfittingFixOpt,
         };
 
         command.SetAction(async (parseResult, _) =>
@@ -92,6 +96,8 @@ public static class ValidateCommand
                 SkillPaths = paths,
                 ResultsDir = parseResult.GetValue(resultsDirOpt),
                 TestsDir = parseResult.GetValue(testsDirOpt),
+                OverfittingCheck = !parseResult.GetValue(noOverfittingCheckOpt),
+                OverfittingFix = parseResult.GetValue(overfittingFixOpt),
             };
 
             return await Run(config);
@@ -255,6 +261,16 @@ public static class ValidateCommand
         foreach (var warning in SkillProfiler.FormatProfileWarnings(profile))
             log(warning);
 
+        // Launch overfitting check in parallel with scenario execution
+        var workDir = Path.GetTempPath();
+        Task<OverfittingResult?> overfittingTask = Task.FromResult<OverfittingResult?>(null);
+        if (config.OverfittingCheck && skill.EvalConfig is not null)
+        {
+            log("🔍 Running overfitting check (parallel)...");
+            overfittingTask = Services.OverfittingJudge.Analyze(skill, new OverfittingJudgeOptions(
+                config.JudgeModel, config.Verbose, config.JudgeTimeout, workDir));
+        }
+
         bool singleScenario = skill.EvalConfig.Scenarios.Count == 1;
         using var scenarioLimit = new ConcurrencyLimiter(config.ParallelScenarios);
 
@@ -262,18 +278,58 @@ public static class ValidateCommand
             scenarioLimit.RunAsync(() => ExecuteScenario(scenario, skill, config, usePairwise, singleScenario, spinner)));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
 
+        // Await overfitting result (non-fatal — never blocks an otherwise-successful evaluation)
+        OverfittingResult? overfittingResult = null;
+        try
+        {
+            overfittingResult = await overfittingTask;
+            if (overfittingResult is not null)
+                log($"🔍 Overfitting: {overfittingResult.Score:F2} ({overfittingResult.Severity})");
+        }
+        catch (Exception ex)
+        {
+            log($"⚠️ Overfitting check failed: {ex.Message}");
+        }
+
         var verdict = Comparator.ComputeVerdict(skill, comparisons, config.MinImprovement, config.RequireCompletion, config.ConfidenceLevel);
         verdict.ProfileWarnings = profile.Warnings;
+        verdict.OverfittingResult = overfittingResult;
+
+        // Optional: generate fixed eval.yaml
+        if (config.OverfittingFix && overfittingResult is { Severity: not OverfittingSeverity.Low })
+        {
+            try
+            {
+                await Services.OverfittingJudge.GenerateFix(skill, overfittingResult, new OverfittingJudgeOptions(
+                    config.JudgeModel, config.Verbose, config.JudgeTimeout, workDir));
+                log("📝 Generated eval.fixed.yaml with suggested improvements");
+            }
+            catch (Exception ex)
+            {
+                log($"⚠️ Failed to generate overfitting fix: {ex.Message}");
+            }
+        }
 
         var notActivated = comparisons.Where(c => c.SkillActivation is { Activated: false }).ToList();
-        if (notActivated.Count > 0)
+        // Separate unexpected non-activations (expect_activation defaulting to true)
+        // from expected ones (negative tests with expect_activation: false).
+        var unexpectedNotActivated = notActivated.Where(c => c.ExpectActivation).ToList();
+        var expectedNotActivated = notActivated.Where(c => !c.ExpectActivation).ToList();
+
+        if (expectedNotActivated.Count > 0)
         {
-            var names = string.Join(", ", notActivated.Select(c => c.ScenarioName));
+            var names = string.Join(", ", expectedNotActivated.Select(c => c.ScenarioName));
+            log($"\x1b[36mℹ️  Skill correctly NOT activated in negative-test scenario(s): {names}\x1b[0m");
+        }
+
+        if (unexpectedNotActivated.Count > 0)
+        {
+            var names = string.Join(", ", unexpectedNotActivated.Select(c => c.ScenarioName));
             log($"\x1b[33m\u26a0\ufe0f  Skill was NOT activated in scenario(s): {names}\x1b[0m");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
             verdict.FailureKind = "skill_not_activated";
-            verdict.Reason += $" [SKILL NOT ACTIVATED in {notActivated.Count} scenario(s): {names}]";
+            verdict.Reason += $" [SKILL NOT ACTIVATED in {unexpectedNotActivated.Count} scenario(s): {names}]";
         }
 
         var timedOutScenarios = comparisons.Where(c => c.TimedOut).ToList();
@@ -337,6 +393,9 @@ public static class ValidateCommand
 
         // Propagate timeout info from any run
         comparison.TimedOut = runResults.Any(r => r.WithSkill.Metrics.TimedOut || r.Baseline.Metrics.TimedOut);
+
+        // Propagate expect_activation from scenario config
+        comparison.ExpectActivation = scenario.ExpectActivation;
 
         return comparison;
     }

@@ -1,0 +1,41 @@
+scenarios:
+  - name: "Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete"
+    prompt: |
+      I have an EF Core 8 app. These two operations are extremely slow because they load all entities into memory:
+
+      ```csharp
+      // Operation 1: Deactivate all products not sold in 6 months
+      var staleProducts = await _db.Products
+          .Where(p => p.LastSoldDate < DateTime.UtcNow.AddMonths(-6))
+          .ToListAsync();
+      foreach (var p in staleProducts)
+      {
+          p.IsActive = false;
+      }
+      await _db.SaveChangesAsync();
+
+      // Operation 2: Delete all audit logs older than 1 year
+      var oldLogs = await _db.AuditLogs
+          .Where(l => l.CreatedAt < DateTime.UtcNow.AddYears(-1))
+          .ToListAsync();
+      _db.AuditLogs.RemoveRange(oldLogs);
+      await _db.SaveChangesAsync();
+      ```
+
+      There are 500K products and 2M audit logs. How do I make these efficient?
+    assertions:
+      - type: "output_matches"
+        pattern: "(ExecuteUpdateAsync|ExecuteUpdate)"
+      - type: "output_matches"
+        pattern: "(ExecuteDeleteAsync|ExecuteDelete)"
+      - type: "output_matches"
+        pattern: "(SetProperty|set.*property)"
+    rubric:
+      - "Recommended ExecuteUpdateAsync for the bulk update instead of loading entities (EF Core 7+ feature)"
+      - "Used the correct SetProperty lambda syntax: SetProperty(p => p.IsActive, false)"
+      - "Recommended ExecuteDeleteAsync for the bulk delete instead of loading and RemoveRange"
+      - "Explained that ExecuteUpdate/ExecuteDelete bypass change tracking and execute as single SQL statements"
+      - "Warned about limitations: no cascade deletes triggered, no change tracker notification, bypasses interceptors/events"
+      - "Showed the correct LINQ-to-SQL translation (WHERE + UPDATE/DELETE without SELECT)"
+    expect_tools: ["bash"]
+    timeout: 120

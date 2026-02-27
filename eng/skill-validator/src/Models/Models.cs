@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SkillValidator.Models;
 
 // --- Assertion types ---
@@ -64,6 +66,7 @@ public sealed record EvalScenario(
     IReadOnlyList<string>? RejectTools = null,
     int? MaxTurns = null,
     int? MaxTokens = null,
+    bool ExpectActivation = true,
     bool DoNotParallelize = false);
 
 public sealed record EvalConfig(IReadOnlyList<EvalScenario> Scenarios);
@@ -200,6 +203,8 @@ public sealed class ScenarioComparison
     public IReadOnlyList<double>? PerRunScores { get; set; }
     public SkillActivationInfo? SkillActivation { get; set; }
     public bool TimedOut { get; set; }
+    /// <summary>When false, non-activation is expected (negative test) and should not flag the verdict.</summary>
+    public bool ExpectActivation { get; set; } = true;
 }
 
 // --- Verdict ---
@@ -219,7 +224,46 @@ public sealed class SkillVerdict
     public string? FailureKind { get; set; }
     public IReadOnlyList<string>? ProfileWarnings { get; set; }
     public bool SkillNotActivated { get; set; }
+    public OverfittingResult? OverfittingResult { get; set; }
 }
+
+// --- Overfitting assessment ---
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum OverfittingSeverity
+{
+    Low,
+    Moderate,
+    High,
+}
+
+public sealed record RubricOverfitAssessment(
+    string Scenario,
+    string Criterion,
+    string Classification,      // "outcome" | "technique" | "vocabulary"
+    double Confidence,
+    string Reasoning);
+
+public sealed record AssertionOverfitAssessment(
+    string Scenario,
+    string AssertionSummary,
+    string Classification,      // "broad" | "narrow"
+    double Confidence,
+    string Reasoning);
+
+public sealed record OverfittingResult(
+    double Score,               // [0, 1]
+    OverfittingSeverity Severity,
+    IReadOnlyList<RubricOverfitAssessment> RubricAssessments,
+    IReadOnlyList<AssertionOverfitAssessment> AssertionAssessments,
+    IReadOnlyList<string> CrossScenarioIssues,
+    string OverallReasoning);
+
+public sealed record OverfittingJudgeOptions(
+    string Model,
+    bool Verbose,
+    int Timeout,
+    string WorkDir);
 
 // --- Config ---
 
@@ -253,6 +297,8 @@ public sealed record ValidatorConfig
     public bool VerdictWarnOnly { get; init; }
     public string? ResultsDir { get; init; }
     public string? TestsDir { get; init; }
+    public bool OverfittingCheck { get; init; } = true;
+    public bool OverfittingFix { get; init; }
 }
 
 public static class DefaultWeights

@@ -158,6 +158,7 @@ scenarios:
     prompt: |
       I already have a .dmp crash dump file from my .NET app. Can you help
       me analyze it to find the root cause of the crash?
+    expect_activation: false
     assertions:
       - type: "output_matches"
         pattern: "out of scope|not cover|does not|cannot|only.*collect"

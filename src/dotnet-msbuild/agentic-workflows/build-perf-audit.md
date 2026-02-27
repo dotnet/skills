@@ -38,7 +38,7 @@ You are a build performance auditing agent. Each week, you analyze the repositor
 
 ## Workflow
 
-1. **Build with binlog**: Run `dotnet build /bl:perf-audit.binlog -m` to generate a performance baseline. If `dotnet` is denied by the sandbox, use `env dotnet build /bl:perf-audit.binlog -m` instead. Do NOT use compound commands (`cd ... &&`), `for` loops, or full paths — the working directory is already the repository root.
+1. **Build with binlog**: Run `dotnet build /bl:perf-audit.binlog -m` to generate a performance baseline.
 
 2. **Analyze performance** using binlog-mcp tools:
    - Load the binlog with `load_binlog`

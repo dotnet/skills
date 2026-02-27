@@ -80,7 +80,14 @@ foreach ($verdict in $results.verdicts) {
         # Check per-scenario activation state
         $scenarioNotActivated = $false
         if ($scenario.skillActivation -and -not $scenario.skillActivation.activated) {
-            $scenarioNotActivated = $true
+            # Only flag as not-activated if activation was expected (expect_activation defaults to true)
+            $scenarioExpectActivation = $true
+            if ($scenario.PSObject.Properties['expectActivation'] -and $scenario.expectActivation -eq $false) {
+                $scenarioExpectActivation = $false
+            }
+            if ($scenarioExpectActivation) {
+                $scenarioNotActivated = $true
+            }
         }
         $notActivated = $verdictNotActivated -or $scenarioNotActivated
 
@@ -88,6 +95,14 @@ foreach ($verdict in $results.verdicts) {
         $scenarioTimedOut = $false
         if ($scenario.timedOut -eq $true) {
             $scenarioTimedOut = $true
+        }
+
+        # Check overfitting state (from verdict-level overfittingResult)
+        $overfittingSeverity = $null
+        $overfittingScore = $null
+        if ($verdict.overfittingResult -and $verdict.overfittingResult.severity -in @("Moderate", "High")) {
+            $overfittingSeverity = $verdict.overfittingResult.severity.ToLower()
+            $overfittingScore = $verdict.overfittingResult.score
         }
 
         # Quality scores (from judge results, scale 0-5 mapped to 0-10 for dashboard)
@@ -102,6 +117,10 @@ foreach ($verdict in $results.verdicts) {
             }
             if ($scenarioTimedOut) {
                 $benchEntry.timedOut = $true
+            }
+            if ($overfittingSeverity) {
+                $benchEntry.overfitting = $overfittingSeverity
+                $benchEntry.overfittingScore = $overfittingScore
             }
             $qualityBenches.Add($benchEntry)
         }
@@ -126,6 +145,10 @@ foreach ($verdict in $results.verdicts) {
             if ($scenarioTimedOut) {
                 $effBenchEntry.timedOut = $true
             }
+            if ($overfittingSeverity) {
+                $effBenchEntry.overfitting = $overfittingSeverity
+                $effBenchEntry.overfittingScore = $overfittingScore
+            }
             $efficiencyBenches.Add($effBenchEntry)
         }
         if ($null -ne $scenario.withSkill.metrics.tokenEstimate) {
@@ -139,6 +162,10 @@ foreach ($verdict in $results.verdicts) {
             }
             if ($scenarioTimedOut) {
                 $tokenBenchEntry.timedOut = $true
+            }
+            if ($overfittingSeverity) {
+                $tokenBenchEntry.overfitting = $overfittingSeverity
+                $tokenBenchEntry.overfittingScore = $overfittingScore
             }
             $efficiencyBenches.Add($tokenBenchEntry)
         }
