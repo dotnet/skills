@@ -37,7 +37,7 @@ scenarios:
       - "Creates a TodoDbContext with a DbSet for TodoItem"
       - "Generates a .http file with sample requests for all CRUD endpoints"
       - "Uses EF Core migrations instead of seeding the database in Program.cs"
-      - "Enables OpenAPI support in the endpoint configuration"
+      - "Enables OpenAPI support with rich endpoint metadata such as WithName, WithTags, WithDescription, or Produces annotations"
     timeout: 300
 
   - name: "Scaffold Blazor CRUD components"

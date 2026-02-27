@@ -102,6 +102,28 @@ Generate all code files manually. Follow these constraints:
 - **DO NOT** add packages beyond those required for the scaffolded functionality (e.g., do not add `RuntimeCompilation`, `Swashbuckle.AspNetCore`, or other convenience packages)
 - Match the coding style of existing files in the project (naming conventions, indentation, namespace patterns)
 
+#### Enrich API Endpoints with OpenAPI Metadata (API scaffolders only)
+
+When generating Minimal API or MVC API endpoints with OpenAPI support enabled, add rich metadata to every endpoint so the OpenAPI document is descriptive and useful:
+
+- `.WithName("GetTodoItems")` — unique operation ID for each endpoint
+- `.WithTags("TodoItems")` — group endpoints by resource
+- `.WithDescription("Returns all todo items")` — human-readable summary
+- `.Produces<List<TodoItem>>(StatusCodes.Status200OK)` — document success response type
+- `.Produces(StatusCodes.Status404NotFound)` — document error responses
+- `.ProducesValidationProblem()` — for endpoints that validate input
+- `.WithOpenApi()` — opt the endpoint into OpenAPI generation (if not already globally enabled)
+
+Example for a Minimal API GET endpoint:
+```csharp
+group.MapGet("/", async (TodoDbContext db) =>
+        await db.TodoItems.ToListAsync())
+    .WithName("GetAllTodoItems")
+    .WithTags("TodoItems")
+    .WithDescription("Returns all todo items")
+    .Produces<List<TodoItem>>(StatusCodes.Status200OK);
+```
+
 ### Step 5: Set Up Entity Framework (if applicable)
 
 Skip this step if the scaffolding request does not involve Entity Framework.
