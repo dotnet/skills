@@ -47,7 +47,7 @@ Inside a container, `dotnet-counters` works normally if installed in the image. 
 # Inside container
 dotnet-counters monitor -p 1
 
-# Outside via dotnet-monitor (preferred — see dotnet-monitor section)
+# Outside via dotnet-monitor (when console access is not available — see dotnet-monitor section)
 ```
 
 ---
@@ -381,6 +381,8 @@ Keep auth enabled (default), and access the API via `kubectl port-forward` rathe
 - ✅ REST API is easy to automate and integrate
 - ❌ Requires sidecar setup and shared volume
 - ❌ Additional resource overhead from sidecar container
+- ❌ Requires authentication setup (API key or `--no-auth` flag)
+- ⚠️ **When running in the workload context** (console access to the container), prefer console-based tools (`dotnet-trace`, `dotnet-trace collect-linux`, `dotnet-dump`) to avoid authentication setup. Use `dotnet-monitor` when console access is not available or when it is already deployed.
 
 ---
 
