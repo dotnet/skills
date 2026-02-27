@@ -261,9 +261,17 @@ Similarly for `RequiresUnreferencedCodeAttribute` and `UnconditionalSuppressMess
 
 ## Common Gotchas
 
-4. **Serialization libraries**: Most reflection-based serializers (e.g., `Newtonsoft.Json`, `XmlSerializer`) are not AOT-compatible. Migrate to a source-generation-based serializer such as `System.Text.Json` with a `JsonSerializerContext`. If migration is not feasible, mark the serialization call site with `[RequiresUnreferencedCode]`.
+1. **Serialization libraries**: Most reflection-based serializers (e.g., `Newtonsoft.Json`, `XmlSerializer`) are not AOT-compatible. Migrate to a source-generation-based serializer such as `System.Text.Json` with a `JsonSerializerContext`. If migration is not feasible, mark the serialization call site with `[RequiresUnreferencedCode]`.
 
-5. **Shared projects / projitems**: When source is shared between multiple projects via `<Import>`, annotations added to shared code affect ALL consuming projects. Verify that all consumers still build cleanly.
+2. **Shared projects / projitems**: When source is shared between multiple projects via `<Import>`, annotations added to shared code affect ALL consuming projects. Verify that all consumers still build cleanly.
+
+## References
+
+[Limitations](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/?tabs=windows%2Cnet8#limitations-of-native-aot-deployment)
+[Conceptual: Understanding
+trimming](https://learn.microsoft.com/en-us/dotnet/core/deploying/trimming/trimming-concepts)
+[How-to: trim
+compat](https://learn.microsoft.com/en-us/dotnet/core/deploying/trimming/fixing-warnings)
 
 ## Checklist
 
