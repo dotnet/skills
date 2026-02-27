@@ -1,6 +1,6 @@
 # Build entry point for the agentic-workflows knowledge bundles.
 # Validates skills and compiles knowledge lock files.
-# Run: pwsh agentic-workflows/build.ps1
+# Run: pwsh agentic-workflows/dotnet-msbuild/build.ps1
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
