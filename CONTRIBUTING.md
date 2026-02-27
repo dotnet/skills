@@ -23,10 +23,11 @@ plugins/
         assets/
     agents/
       <agent-name>.agent.md
-    tests/
-      <skill-name>/
-        eval.yaml
-        <fixture files>
+tests/
+  <plugin>/
+    <skill-name>/
+      eval.yaml
+      <fixture files>
 ```
 
 Every plugin must have a plugin.json file in the plugin root that is linked to from the marketplace.json.
@@ -151,10 +152,10 @@ Skills and agents are documentation driven, but we still treat them as productio
 
 ### Writing skill tests
 
-Each skill should have an `eval.yaml` file that defines test scenarios. Tests live under a plugin's `tests/` directory, matching the skill name:
+Each skill should have an `eval.yaml` file that defines test scenarios. Tests live under the repo root `tests/` directory, matching the plugin and skill name:
 
 ```text
-plugins/<plugin>/tests/<skill-name>/eval.yaml
+tests/<plugin>/<skill-name>/eval.yaml
 ```
 
 A minimal eval file:
@@ -177,7 +178,7 @@ scenarios:
 If a scenario requires files in the agent's working directory (e.g. `.csproj`, `.sln`, `.cs` files), place them alongside `eval.yaml` and opt into auto-copy:
 
 ```text
-plugins/<plugin>/tests/<skill-name>/
+tests/<plugin>/<skill-name>/
   eval.yaml
   MyProject.csproj
   Program.cs
@@ -213,19 +214,19 @@ Prerequisites: .NET 10 SDK or later and `gh auth login`.
 
 ```bash
 # Run tests for a single plugin
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir plugins/dotnet-msbuild/tests plugins/dotnet-msbuild/skills
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
 
 # Run tests for a single skill (pass the skill directory directly)
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir plugins/dotnet-msbuild/tests plugins/dotnet-msbuild/skills/common-build-errors
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills/common-build-errors
 
 # Fewer runs for faster iteration (default is 5)
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --runs 3 --tests-dir plugins/dotnet-msbuild/tests plugins/dotnet-msbuild/skills
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --runs 3 --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
 
 # Use a specific model
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --model claude-opus-4.6 --tests-dir plugins/dotnet-msbuild/tests plugins/dotnet-msbuild/skills
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --model claude-opus-4.6 --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
 
 # Run with verbose logging
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir plugins/dotnet-msbuild/tests plugins/dotnet-msbuild/skills --verbose
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills --verbose
 ```
 
 > [!WARNING]  

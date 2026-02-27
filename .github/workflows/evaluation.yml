@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'plugins/**'
+      - 'tests/**'
       - '.github/workflows/**'
       - 'eng/skill-validator/**'
 
@@ -112,25 +113,28 @@ jobs:
               Write-Host "Infrastructure changes detected, evaluating all plugins"
               echo "is_infra=true" >> $env:GITHUB_OUTPUT
               $plugins = @(Get-ChildItem -Path "plugins" -Directory |
-                Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path $_.FullName "tests")) } |
+                Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) } |
                 Select-Object -ExpandProperty Name)
               $entries = @($plugins | ForEach-Object {
                 @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
               })
             } else {
-              # Extract unique plugin/skill pairs from changed files under plugins/*/skills/*/ or plugins/*/tests/*/
+              # Extract unique plugin/skill pairs from changed files under plugins/*/skills/*/ or tests/*/*/
               $changedPairs = @($changedFiles |
-                Where-Object { $_ -match '^plugins/([^/]+)/(skills|tests)/([^/]+)/' } |
-                ForEach-Object { "$($Matches[1])/$($Matches[3])" } |
+                Where-Object { $_ -match '^(?:plugins/([^/]+)/skills|tests/([^/]+))/([^/]+)/' } |
+                ForEach-Object {
+                  $p = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
+                  "$p/$($Matches[3])"
+                } |
                 Sort-Object -Unique)
 
-              # Filter to skills that have a SKILL.md and a plugin tests directory
+              # Filter to skills that have a SKILL.md and a tests directory
               $entries = @($changedPairs | ForEach-Object {
                 $parts = $_ -split '/'
                 $plugin = $parts[0]
                 $skill = $parts[1]
                 $skillMd = Join-Path "plugins" $plugin "skills" $skill "SKILL.md"
-                $testsDir = Join-Path "plugins" $plugin "tests"
+                $testsDir = Join-Path "tests" $plugin
                 if ((Test-Path $skillMd) -and (Test-Path $testsDir)) {
                   @{
                     name = "$plugin--$skill"
@@ -145,7 +149,7 @@ jobs:
           } else {
             # Schedule/dispatch: evaluate all plugins with skills and tests
             $plugins = @(Get-ChildItem -Path "plugins" -Directory |
-              Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path $_.FullName "tests")) } |
+              Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) } |
               Select-Object -ExpandProperty Name)
             $entries = @($plugins | ForEach-Object {
               @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
@@ -293,7 +297,7 @@ jobs:
             ARGS="$ARGS --verbose"
           fi
 
-          artifacts/publish/SkillValidator/release/skill-validator $ARGS --tests-dir ./plugins/${{ matrix.entry.plugin }}/tests ./${{ matrix.entry.skills_path }}
+          artifacts/publish/SkillValidator/release/skill-validator $ARGS --tests-dir ./tests/${{ matrix.entry.plugin }} ./${{ matrix.entry.skills_path }}
 
       - name: Upload results
         if: always()
