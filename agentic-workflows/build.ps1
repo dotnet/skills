@@ -1,11 +1,12 @@
-# Build entry point for the dotnet-msbuild plugin.
-# Validates skills and compiles knowledge bundles.
-# Run: pwsh plugins/dotnet-msbuild/build.ps1
+# Build entry point for the agentic-workflows knowledge bundles.
+# Validates skills and compiles knowledge lock files.
+# Run: pwsh agentic-workflows/build.ps1
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$SkillsDir = Join-Path $PSScriptRoot 'skills'
+$RepoRoot = Split-Path $PSScriptRoot -Parent
+$SkillsDir = Join-Path $RepoRoot 'plugins' 'dotnet-msbuild' 'skills'
 $DomainGatePattern = 'Only activate in MSBuild/\.NET build context'
 
 # ── Step 1: Validate skills ─────────────────────────────────────────
@@ -79,7 +80,7 @@ $KnowledgeGroups = [ordered]@{
 
 $KnowledgeTargets = @{
     'agentic-workflows' = @{
-        OutputDir = Join-Path $PSScriptRoot 'agentic-workflows' 'shared' 'compiled'
+        OutputDir = Join-Path $PSScriptRoot 'shared' 'compiled'
         MaxChars  = 40000
     }
 }
