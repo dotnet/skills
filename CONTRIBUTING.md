@@ -9,6 +9,15 @@ This repository contains shared building blocks for coding agents:
 
 Because these artifacts can affect many users and workflows, we prioritize correctness, clarity, and long term maintainability over speed.
 
+## Code ownership
+
+Every plugin, skill, agent, and agentic workflow must have designated owners in the `.github/CODEOWNERS` file. When you add a new skill, agent, or workflow, add a matching CODEOWNERS entry. Ownership must be either:
+
+- **Two or more FTE GitHub aliases** (e.g., `@user1 @user2`), or
+- **A GitHub team alias** (e.g., `@dotnet/my-team`)
+
+This ensures that every contribution area has accountable reviewers and that PRs are automatically routed to the right people.
+
 ## Repository layout
 
 ```text
@@ -250,15 +259,6 @@ Tests run automatically on pull requests that modify files under `plugins/`. The
 
 - Do not include secrets, tokens, or internal URLs.
 - If you discover a security issue, do not open a public issue with sensitive details. Use the repository or organization security reporting process instead.
-
-## Code ownership
-
-Every plugin, skill, agent, and agentic workflow must have designated owners in the `.github/CODEOWNERS` file. When you add a new skill, agent, or workflow, add a matching CODEOWNERS entry. Ownership must be either:
-
-- **Two or more FTE GitHub aliases** (e.g., `@user1 @user2`), or
-- **A GitHub team alias** (e.g., `@dotnet/my-team`)
-
-This ensures that every contribution area has accountable reviewers and that PRs are automatically routed to the right people.
 
 ## Review process
 
