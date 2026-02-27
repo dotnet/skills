@@ -36,7 +36,7 @@ This skill helps developers diagnose production performance issues by recommendi
 
 ### Step 1: Understand the environment
 
-Ask the developer to clarify:
+Determine or ask the developer to clarify:
 
 1. **Symptom**: What they are observing (high CPU, memory leak, slow requests, hangs, excessive GC, etc.)
 2. **Runtime**: .NET Framework or modern .NET? If modern .NET, which version? (Especially whether .NET 10 or later.)
@@ -44,6 +44,7 @@ Ask the developer to clarify:
 4. **Deployment**: Running directly on the host, in a container, or in Kubernetes?
 5. **Admin privileges**: Do they have admin/root access on the target machine or container?
 6. **Repro characteristics**: Does the issue reproduce quickly, or does it take a long time to manifest?
+7. **Workload context**: Determine or ask the user if you are running in the context of the workload (i.e., on the same machine or connected to the same environment where the issue is occurring). If so, you can run diagnostic commands directly on their behalf. If not, provide the commands as guidance for the user to run themselves.
 
 Use this information to select the right tool in Step 2.
 
