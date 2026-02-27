@@ -364,11 +364,24 @@ public static class ValidateCommand
         if (config.Verbose)
             runLog("running agents...");
 
-        var agentTasks = await Task.WhenAll(
-            AgentRunner.RunAgent(new RunOptions(scenario, null, skill.EvalPath, config.Model, config.Verbose, runLog)),
-            AgentRunner.RunAgent(new RunOptions(scenario, skill, skill.EvalPath, config.Model, config.Verbose, runLog)));
-        var baselineMetrics = agentTasks[0];
-        var withSkillMetrics = agentTasks[1];
+        // Run agents — sequentially if scenario requires it (e.g. benchmarks that interfere)
+        var baselineOptions = new RunOptions(scenario, null, skill.EvalPath, config.Model, config.Verbose, runLog);
+        var withSkillOptions = new RunOptions(scenario, skill, skill.EvalPath, config.Model, config.Verbose, runLog);
+
+        RunMetrics baselineMetrics, withSkillMetrics;
+        if (scenario.DoNotParallelize)
+        {
+            baselineMetrics = await AgentRunner.RunAgent(baselineOptions);
+            withSkillMetrics = await AgentRunner.RunAgent(withSkillOptions);
+        }
+        else
+        {
+            var agentTasks = await Task.WhenAll(
+                AgentRunner.RunAgent(baselineOptions),
+                AgentRunner.RunAgent(withSkillOptions));
+            baselineMetrics = agentTasks[0];
+            withSkillMetrics = agentTasks[1];
+        }
 
         // Evaluate assertions
         if (scenario.Assertions is { Count: > 0 })

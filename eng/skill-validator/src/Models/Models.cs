@@ -63,7 +63,8 @@ public sealed record EvalScenario(
     IReadOnlyList<string>? ExpectTools = null,
     IReadOnlyList<string>? RejectTools = null,
     int? MaxTurns = null,
-    int? MaxTokens = null);
+    int? MaxTokens = null,
+    bool DoNotParallelize = false);
 
 public sealed record EvalConfig(IReadOnlyList<EvalScenario> Scenarios);
 

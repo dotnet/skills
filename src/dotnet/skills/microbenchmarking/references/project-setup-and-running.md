@@ -2,8 +2,6 @@
 
 This reference covers how to build, run, and read BenchmarkDotNet results. It also covers common CLI flags for controlling output and debugging.
 
-**Contents:** [Entry points](#entry-points-benchmarkswitcher-vs-benchmarkrunner) · [Config objects](#config-objects) · [Creating a new project](#creating-a-new-benchmark-project) · [Build and run strategy](#build-and-run-strategy) · [Artifacts directory](#artifacts-directory) · [CLI flags](#useful-cli-flags-for-agents) · [Dry run validation](#dry-run-validation) · [Response files](#response-files)
-
 ## Entry points: BenchmarkSwitcher vs BenchmarkRunner
 
 BenchmarkDotNet programs use one of two entry points. This determines whether CLI arguments work:
@@ -24,17 +22,7 @@ BenchmarkRunner.Run<MyBenchmark>(config, args);          // both config and CLI
 
 Before passing CLI flags like `--filter` or `--job`, check which entry point the program uses. If it uses `BenchmarkRunner.Run<T>()` without args, CLI flags will be silently ignored — configuration must be done through attributes and `ManualConfig` instead.
 
-**Critical**: when `BenchmarkSwitcher` is used, it prompts the user interactively to select which benchmarks to run unless `--filter` is provided. For AI agents, always pass `--filter` to avoid hanging on an interactive prompt:
-
-```
-dotnet run -c Release -- --filter "*"          # run all benchmarks
-dotnet run -c Release -- --filter "*.MyMethod"  # run specific methods
-dotnet run -c Release -- --filter "*Sort*"      # glob pattern matching
-```
-
-`--filter "*"` matches everything and is the standard way to run all benchmarks non-interactively.
-
-Both entry points support CLI flags when `args` is forwarded. The difference is that `BenchmarkSwitcher` also provides an interactive selection prompt for human users when `--filter` is omitted — `BenchmarkRunner` does not. Whichever you choose, ensure `args` is passed through or CLI flags will be silently ignored.
+**Critical**: when `BenchmarkSwitcher` is used, it prompts the user interactively to select which benchmarks to run unless `--filter` is provided. For AI agents, always pass `--filter` to avoid hanging on an interactive prompt. `--filter "*"` matches everything and is the standard way to run all benchmarks non-interactively.
 
 ## Config objects
 
@@ -108,8 +96,6 @@ dotnet run -c Release --no-build -- --filter "*MethodName" --noOverwrite > bench
 
 After each run, read the Markdown report (`*-report-github.md`) for the summary table. Only read `benchmark.log` if you need to investigate errors or unexpected results.
 
-The `--no-build` flag skips the outer `dotnet build` that would otherwise rebuild the benchmark project. BDN still performs its own internal build of the generated benchmark executable — `--no-build` only skips the redundant initial build.
-
 ## Artifacts directory
 
 By default, BDN writes to `BenchmarkDotNet.Artifacts/` relative to the working directory. Override with:
@@ -124,8 +110,7 @@ BenchmarkDotNet.Artifacts/
 ├── MyBenchmark-20240101-120000.log    # full console log
 └── results/
     ├── MyBenchmark-report-github.md   # markdown summary table
-    ├── MyBenchmark-report.csv         # CSV data
-    └── MyBenchmark-report.html        # HTML report
+    └── MyBenchmark-report.csv         # CSV data
 ```
 
 Use `--noOverwrite` to prevent overwriting previous results (writes to `BenchmarkDotNet.Artifacts/<timestamp>/` instead of `BenchmarkDotNet.Artifacts/results/`). Use `--artifacts` with different paths when comparing results from separate runs.
@@ -170,23 +155,7 @@ Patterns use glob wildcards (`*` = any characters, `?` = single character), are 
 | `--anyCategories Parsing Sorting` | Run benchmarks that have **at least one** of the listed categories |
 | `--allCategories Strings Parsing` | Run benchmarks that have **all** of the listed categories |
 
-When `--filter` and `--allCategories`/`--anyCategories` are used together, a benchmark must satisfy **both** — the glob filter AND the category filter are AND'd together. This lets you narrow a glob match to a specific category (e.g., `--filter "*MyClass*" --anyCategories Parsing`).
-
-For coverage suites with many benchmarks, define category constants in a central static class to prevent typos and enable discovery:
-
-```csharp
-public static class Categories
-{
-    public const string Serialization = "Serialization";
-    public const string Parsing = "Parsing";
-    public const string Collections = "Collections";
-}
-
-[BenchmarkCategory(Categories.Serialization)]
-public class JsonBenchmarks { ... }
-```
-
-Categories can serve multiple purposes in a large suite: **run-level partitioning** (daily CI vs. periodic), **feature-area filtering** (run only serialization benchmarks), and **platform exclusion** (skip benchmarks incompatible with a target like AOT or WASM).
+When `--filter` and `--allCategories`/`--anyCategories` are used together, a benchmark must satisfy **both** — the glob filter AND the category filter are AND'd together.
 
 ### Output control
 
@@ -199,12 +168,6 @@ Categories can serve multiple purposes in a large suite: **run-level partitionin
 | `--hide "Error" "StdDev"` | Hide specific columns from the results table |
 | `--keepFiles` | Keep the generated benchmark project files — useful for debugging build failures |
 
-### Execution control
-
-| Flag | Purpose |
-|------|---------|
-| `--stopOnFirstError` | Stop the run if any benchmark fails rather than continuing to the next case (default: continue and report failures at the end) |
-
 ## Dry run validation
 
 Always run `--job Dry` first to catch compilation and runtime errors before committing to a full run:
@@ -214,16 +177,3 @@ dotnet run -c Release --no-build -- --filter "*" --job Dry --noOverwrite
 ```
 
 A dry run executes each case once (<1 second per case) without meaningful measurement. It validates that setup methods work, parameters are valid, and the benchmark compiles and executes. Only after dry validation passes should you run with default or other job presets.
-
-## Response files
-
-CLI flags can be stored in a text file and expanded via `@filename` syntax:
-
-**custom-args.rsp:**
-```
---job Short --memory --exporters json --outliers DontRemove
-```
-
-```
-dotnet run -c Release --no-build -- @custom-args.rsp --filter "*"
-```

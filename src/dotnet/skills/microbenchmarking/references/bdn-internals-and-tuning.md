@@ -1,7 +1,5 @@
 # BenchmarkDotNet Execution and Configuration
 
-**Contents:** [Build and execution](#build-and-execution) · [Execution stages](#execution-stages-per-case-default-job-settings) · [Per-case wall-clock time](#per-case-wall-clock-time-by-job-preset) · [Job preset configurations](#job-preset-configurations) · [Run strategies](#run-strategies) · [Jobs and mutators](#jobs-and-mutators) · [Execution-related attributes](#execution-related-attributes) · [Unroll factor](#unroll-factor) · [Execution environment](#execution-environment)
-
 ## Build and execution
 
 BDN generates a standalone project containing the measurement harness, builds it **once per unique build configuration**, and runs each case in its **own process**. Cases are partitioned into separate builds when they differ in factors including runtime, toolchain, platform, JIT, GC settings, build configuration, or MSBuild arguments. All cases sharing the same build configuration share a single build (~5s).
@@ -23,27 +21,15 @@ Each case runs through these stages sequentially. Some stage defaults have chang
 
 **Note (versions before 0.16.0):** prior to BDN 0.16.0, an additional **Overhead** stage ran between Pilot and Warmup by default. It measured the internal invocation loop's own cost and subtracted it from results. Starting in 0.16.0 this stage is off by default and the API to re-enable it (`[EvaluateOverhead]` / `.WithEvaluateOverhead()`) is marked obsolete.
 
-## Per-case wall-clock time by job preset
-
-Under default settings (no MemoryDiagnoser, single runtime target):
-
-| Preset | Per-case time | 6-case total | Relative to Default |
-|--------|--------------|-------------|-------------------|
-| `Dry` | <1s | 7s | ~17× faster |
-| `Short` | 5–8s | 43s | ~3× faster |
-| Default | 15–25s | 125s (~2 min) | baseline |
-| `Medium` | 33–52s | 254s (~4 min) | ~2× slower |
-| `Long` | 3–12 min | 2076s (~35 min) | ~17× slower |
-
 ## Job preset configurations
 
-| Preset | Warmup iterations | Target iterations | Launch count | Strategy |
-|--------|------------------|-------------------|-------------|----------|
-| `Dry` | 0 | 1 | 1 | ColdStart |
-| `Short` | 3 | 3 | 1 | Throughput |
-| Default | 6–50 (adaptive) | 15–100 (adaptive) | 1 | Throughput |
-| `Medium` | 10 | 15 | 2 | Throughput |
-| `Long` | 15 | 100 | 3 | Throughput |
+| Preset | Per-case time | Warmup | Target iterations | Launch count | Strategy |
+|--------|--------------|--------|-------------------|-------------|----------|
+| `Dry` | <1s | 0 | 1 | 1 | ColdStart |
+| `Short` | 5–8s | 3 | 3 | 1 | Throughput |
+| Default | 15–25s | 6–50 (adaptive) | 15–100 (adaptive) | 1 | Throughput |
+| `Medium` | 33–52s | 10 | 15 | 2 | Throughput |
+| `Long` | 3–12 min | 15 | 100 | 3 | Throughput |
 
 The `Dry` preset reuses the ColdStart strategy for minimal execution; its purpose is validation (confirming the benchmark compiles and runs), not first-call measurement.
 
@@ -70,12 +56,7 @@ public class MyBenchmarks { ... }
 
 Without the mutator distinction, `[WarmupCount(3)]` would be a third job with just a warmup count override and default everything else — probably not what was intended.
 
-The resolution logic works as follows:
-1. Collect all **standard jobs** (from job attributes like `[SimpleJob]`, `[ShortRunJob]`, etc.). If none are defined, use `Job.Default`.
-2. Collect all **mutators** (from mutator attributes like `[WarmupCount]`, `[IterationCount]`, etc.).
-3. Apply each mutator to every standard job, overriding only the settings the mutator specifies.
-
-**CLI flags** follow the same pattern. If you pass just `--job Short`, it adds a standard job. If you pass `--warmupCount 3` (with or without `--job`), the CLI-constructed settings become a mutator applied to all jobs. This means `--warmupCount 3` will override the warmup count of any jobs defined in source code.
+Jobs are resolved by collecting all standard jobs (from `[SimpleJob]`, etc.; `Job.Default` if none), then applying all mutators to every job. CLI flags like `--warmupCount 3` act as mutators — they override that setting on all jobs defined in source code. `--job Short` adds a standard job.
 
 ## Execution-related attributes
 
@@ -106,9 +87,9 @@ The `[RunOncePerIteration]` attribute (also available as `.RunOncePerIteration()
 
 ## Unroll factor
 
-BDN generates a measurement method that contains the benchmark code repeated multiple times. With `UnrollFactor=16` (the default), each call to the measurement method counts as 16 invocations. So if `InvocationCount=16000` and `UnrollFactor=16`, the measurement method is called 1000 times per iteration. This reduces measurement loop overhead relative to the actual work.
+BDN generates a measurement method that contains the benchmark code repeated `UnrollFactor` times (default 16). This reduces measurement loop overhead relative to the actual work.
 
-UnrollFactor is distinct from `OperationsPerInvoke`: UnrollFactor is an engine optimization that repeats the benchmark call within the measurement method, while `OperationsPerInvoke` is a user declaration that each invocation performs multiple logical operations. They are independent — total operations per iteration = InvocationCount × OperationsPerInvoke.
+UnrollFactor is distinct from `OperationsPerInvoke`: UnrollFactor is an engine optimization, while `OperationsPerInvoke` is a user declaration that each invocation performs multiple logical operations.
 
 When `[IterationSetup]` or `[IterationCleanup]` is used, BDN defaults to `UnrollFactor=1` and `InvocationCount=1` so that setup/cleanup runs before and after each single invocation of the benchmark method. Explicitly setting `InvocationCount` or `UnrollFactor` overrides this behavior.
 
@@ -124,18 +105,15 @@ The settings below configure the runtime environment the benchmark process runs 
 |---------|-----------|------------|----------|
 | Target runtimes | `[SimpleJob(RuntimeMoniker.Net80)]` | `Job.Default.WithRuntime(CoreRuntime.Core80)` | `--runtimes net8.0 net9.0` (first is baseline) |
 | Environment variables | — | `job.WithEnvironmentVariable("key", "value")` | `--envVars KEY:VALUE` |
-| Platform | — | `Job.Default.WithPlatform(Platform.X64)` | `--platform X64` |
-| CPU affinity | — | `Job.Default.WithAffinity(affinityMask)` | `--affinity <mask>` |
 
 Multiple runtimes multiply the total case count and each requires a separate build.
 
 ### GC configuration
 
-| Setting | Attribute | Config API | CLI flag |
-|---------|-----------|------------|----------|
-| Server GC | `[GcServer(true)]` | `.WithGcServer(true)` | — |
-| Concurrent GC | `[GcConcurrent(bool)]` | `.WithGcConcurrent(bool)` | — |
-| Force GC between iterations | `[GcForce(bool)]` | `.WithGcForce(bool)` | `--noForcedGCs` (disables) |
+| Setting | Attribute | Config API |
+|---------|-----------|------------|
+| Server GC | `[GcServer(true)]` | `.WithGcServer(true)` |
+| Concurrent GC | `[GcConcurrent(bool)]` | `.WithGcConcurrent(bool)` |
 
 ### MemoryRandomization
 

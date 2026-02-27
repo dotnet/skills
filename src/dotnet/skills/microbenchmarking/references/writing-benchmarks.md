@@ -2,8 +2,6 @@
 
 This reference covers BenchmarkDotNet features and practices for writing correct benchmark methods. Incorrect benchmarks silently produce misleading results — the techniques here prevent common measurement errors.
 
-**Contents:** [Dead code elimination](#dead-code-elimination) · [Setup and cleanup](#setup-and-cleanup) · [OperationsPerInvoke](#operationsperinvoke) · [Avoiding loops](#avoiding-loops) · [No side effects](#no-side-effects) · [Async benchmarks](#async-benchmarks) · [Deferred execution](#deferred-execution) · [Constant folding](#constant-folding) · [Randomness and reproducibility](#randomness-and-reproducibility) · [Benchmark class constraints](#benchmark-class-constraints) · [Parameterization summary](#parameterization-summary)
-
 ## Dead code elimination
 
 The JIT compiler can eliminate code whose result is never used. If a benchmark method returns `void` and doesn't store its result anywhere observable, the JIT may partially or fully optimize away the computation.
@@ -19,8 +17,6 @@ public int Parse() => int.Parse("12345");
 [Benchmark]
 public void Parse() => int.Parse("12345");
 ```
-
-This applies to all return types: primitives, reference types, and structs.
 
 For benchmarks that must return `void` (e.g., methods with side effects like `Array.Sort`), DCE is not a concern because the operation itself has observable effects.
 
@@ -126,8 +122,6 @@ public int ParseLoop()
 public int Parse() => int.Parse("12345");
 ```
 
-Letting BDN control invocation also avoids loop alignment issues that can cause inconsistent results.
-
 The exception is `OperationsPerInvoke` — when per-invocation setup cannot be avoided, repeating the operation inside the method and declaring the count lets BDN divide the result correctly.
 
 ## No side effects
@@ -157,9 +151,6 @@ public async Task<int> ReadAsync()
     return await stream.ReadAsync(buffer);
 }
 ```
-
-**What is measured**: the total time from invocation to completion, including the async state machine overhead and any actual asynchronous waiting. This is correct — it's what callers experience.
-
 
 **Async setup/cleanup**: `[GlobalSetup]` and `[GlobalCleanup]` methods can also return `Task` or `ValueTask` — BDN awaits them automatically. `[IterationSetup]` and `[IterationCleanup]` do **not** support async return types; they must be synchronous.
 
@@ -198,8 +189,6 @@ private Consumer _consumer = new();
 public void WhereQuery() => _numbers.Where(n => n > 50).Consume(_consumer);
 ```
 
-The `Consumer` class writes each element to a `volatile` field, forcing enumeration without allocating a collection to hold the results.
-
 ## Constant folding
 
 The JIT can evaluate expressions at compile time when all inputs are constants or literals. If a benchmark operates on constant inputs, the JIT may fold the computation into a precomputed result, and the benchmark measures nothing:
@@ -231,8 +220,6 @@ public void Setup()
     rng.NextBytes(_data);
 }
 ```
-
-Unseeded `Random` produces different data each run, making it impossible to determine whether performance changes are from the code or from different input.
 
 ## Benchmark class constraints
 

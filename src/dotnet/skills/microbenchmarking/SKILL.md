@@ -1,7 +1,7 @@
 ---
 name: microbenchmarking
 description: >
-  Activate this skill when BenchmarkDotNet is involved in the task — creating,
+  Activate this skill when BenchmarkDotNet (BDN) is involved in the task — creating,
   running, configuring, or reviewing BDN benchmarks. Also activate when
   microbenchmarking .NET code would be useful and BenchmarkDotNet is the likely
   tool. Consider activating when answering a .NET performance question requires
@@ -9,7 +9,7 @@ description: >
   Covers microbenchmark design, BDN configuration and project setup, how to run
   BDN microbenchmarks efficiently and effectively, and using BDN for side-by-side
   performance comparisons.
-  Do NOT use for standalone profiling (dotnet-trace, PerfView), production
+  Do NOT use for profiling/tracing .NET code (dotnet-trace, PerfView), production
   telemetry, or load/stress testing (Crank, k6).
 ---
 
@@ -17,15 +17,11 @@ description: >
 
 BenchmarkDotNet (BDN) is a .NET library for writing and running microbenchmarks. Throughout this skill, "BDN" refers to BenchmarkDotNet.
 
-**Contents:** [Key concepts](#key-concepts) · [Benchmarks are comparative instruments](#benchmarks-are-comparative-instruments) · [Use cases and benchmark lifecycle](#use-cases-and-benchmark-lifecycle) · [Cost awareness](#cost-awareness) · [Entry points and configuration](#entry-points-and-configuration) · [Running benchmarks](#running-benchmarks) · [Writing new benchmarks](#writing-new-benchmarks)
-
 > **Note:** Evaluations of LLMs writing BenchmarkDotNet benchmarks have revealed common failure patterns caused by outdated assumptions about BDN's behavior — particularly around runtime comparison, job configuration, and execution defaults that have changed in recent versions. The reference files in this skill contain verified, current information. Read any reference that is relevant to the task, even if you feel confident in the topic.
 
 ## Key concepts
 
 - **Job** — describes how to run a benchmark: runtime, iteration counts, launch count, run strategy, and environment settings. Multiple jobs can be configured to run the same benchmarks under different conditions.
-- **Diagnoser** — a data collector attached to a run (e.g., `MemoryDiagnoser` for allocations, `DisassemblyDiagnoser` for JIT output).
-- **Exporter** — an output format writer (Markdown, CSV, JSON, HTML).
 - **Benchmark case** — one method × one parameter combination × one job. The atomic unit BDN measures.
 - **Operation** — the logical unit of work being measured. All BDN output columns (Mean, Error, etc.) report time per operation.
 - **Invocation** — a single call to the benchmark method. By default, 1 invocation = 1 operation. With `OperationsPerInvoke=N`, each invocation counts as N operations.
@@ -58,9 +54,9 @@ There are four distinct reasons a developer writes a benchmark, and each one cha
 
 4. **Development feedback**: A developer is actively working on a task and wants to use benchmarks to evaluate approaches and get information early. These benchmarks are task-scoped and throwaway — they persist across the development session but are deleted when the decision is made.
 
-For use case 1, benchmarks should be added to the existing benchmark project. For use cases 2–4, benchmarks should be created in a working directory that persists for the task but is clearly not part of the permanent codebase.
+For use case 1, add to the existing benchmark project following its conventions. For use cases 2–4, create a standalone project in a working directory that persists for the task but is clearly not part of the permanent codebase.
 
-For **coverage suite** benchmarks, design from the perspective of real callers — what code patterns use this API, what inputs they pass, and what performance characteristics matter to them. Each permanent benchmark should justify its maintenance cost through real-world relevance. For **temporary benchmarks** (investigation, change validation, development feedback), this constraint relaxes — the scope is already naturally focused. However, each additional test case still costs wall-clock time (see [Cost awareness](#cost-awareness)), so keep the case count intentional.
+For **coverage suite** benchmarks, design from the perspective of real callers — what code patterns use this API, what inputs they pass, and what performance characteristics matter to them. Each permanent benchmark should justify its maintenance cost through real-world relevance. For **temporary benchmarks**, keep the case count intentional — each additional test case costs wall-clock time (see [Cost awareness](#cost-awareness)).
 
 ## Cost awareness
 
@@ -74,7 +70,7 @@ Each benchmark case (one method × one parameter combination × one job) takes *
 | `--job Medium` | 33–52s | Higher confidence when results matter |
 | `--job Long` | 3–12 min | High statistical confidence |
 
-**Read [references/bdn-internals-and-tuning.md](references/bdn-internals-and-tuning.md) before writing benchmarks, even if you think you know the internals well.** BenchmarkDotNet is actively developed and your knowledge of its behavior is very likely outdated — this reference contains verified, up-to-date information.
+If benchmark runs take longer than expected, results seem unstable, or you need to tune iteration counts or execution settings, read [references/bdn-internals-and-tuning.md](references/bdn-internals-and-tuning.md) for detailed information about BDN's execution pipeline and configuration options.
 
 ## Entry points and configuration
 
@@ -120,6 +116,8 @@ Decide on the list of test cases. For each test case, think through:
 
 For **coverage suite** benchmarks, add to the existing benchmark project and follow its conventions. For **temporary benchmarks** (investigation, change validation, development feedback), create a standalone project — see [references/project-setup-and-running.md](references/project-setup-and-running.md) for project setup and entry point configuration.
 
+**Adding the BenchmarkDotNet package**: Always use `dotnet add package BenchmarkDotNet` (no version) — this lets NuGet resolve the latest compatible version. Do NOT manually write a `<PackageReference>` with a version number into the `.csproj`; BDN versions in training data are outdated and may lack support for current .NET runtimes.
+
 Write the benchmark code. Follow the patterns in [references/writing-benchmarks.md](references/writing-benchmarks.md) to avoid common measurement errors — in particular:
 - **Return results** from benchmark methods to prevent dead code elimination
 - **Move initialization to `[GlobalSetup]`** — setup inside the benchmark method is measured; use `[IterationSetup]` only when the benchmark mutates state that must be reset between iterations
@@ -135,4 +133,4 @@ Validate before committing to a long run:
 2. Run a single representative case with default settings to verify the output looks correct and the numbers are in the expected range.
 3. Only run the full suite after validation passes.
 
-When iterating on benchmark design, use `--job Short` until confident, then switch to default for final numbers. See [references/project-setup-and-running.md](references/project-setup-and-running.md) for CLI flags, filtering, and other run options.
+When iterating on benchmark design, use `--job Short` until confident, then switch to default for final numbers.

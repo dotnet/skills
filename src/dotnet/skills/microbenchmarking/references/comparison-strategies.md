@@ -2,8 +2,6 @@
 
 BenchmarkDotNet can compare multiple implementations or versions in a single run, producing a side-by-side table with ratio columns and statistical analysis. This is generally preferable to separate runs because it controls for environmental variance.
 
-**Contents:** [Side-by-side methods](#strategy-1-side-by-side-methods-preferred) · [Comparing runtimes](#strategy-2-comparing-runtimes) · [Comparing NuGet versions](#strategy-3-comparing-nuget-package-versions) · [Comparing a saved build (DLL)](#strategy-4-comparing-a-saved-build-against-current-source-dll-reference) · [Runtime configurations](#strategy-5-comparing-runtime-configurations) · [Input scale](#strategy-6-comparing-across-input-scale) · [How it works](#how-it-works) · [Apples-to-apples comparison](#apples-to-apples-comparison) · [Mann-Whitney equivalence test](#mann-whitney-equivalence-test)
-
 ## Strategy 1: Side-by-side methods (preferred)
 
 When both the old and new implementations can coexist in the same compilation, define separate benchmark methods:
@@ -110,65 +108,47 @@ This approach works for any class library. The namespace and public API must be 
 
 ## Strategy 5: Comparing runtime configurations
 
-To compare how different runtime settings (GC mode, JIT options, PGO) affect performance, define multiple jobs with different environment settings:
+To compare how different runtime settings (GC mode, JIT options, PGO) affect performance, define multiple jobs with different environment settings. This works with any `Job` setting — GC mode, environment variables, platform, JIT settings:
 
 ```csharp
+// GC mode comparison
 var config = DefaultConfig.Instance
-    .AddJob(Job.Default
-        .WithGcServer(false)
-        .WithId("Workstation GC")
-        .AsBaseline())
-    .AddJob(Job.Default
-        .WithGcServer(true)
-        .WithId("Server GC"));
-```
+    .AddJob(Job.Default.WithGcServer(false).WithId("Workstation GC").AsBaseline())
+    .AddJob(Job.Default.WithGcServer(true).WithId("Server GC"));
 
-This works with any `Job` setting — GC mode, environment variables, platform, JIT settings. Each configuration becomes a separate job with side-by-side results.
-
-```csharp
-// Example: comparing with and without tiered compilation
+// JIT setting comparison
 var config = DefaultConfig.Instance
-    .AddJob(Job.Default
-        .WithId("Default")
-        .AsBaseline())
-    .AddJob(Job.Default
-        .WithEnvironmentVariable("DOTNET_TieredCompilation", "0")
-        .WithId("No Tiered"));
+    .AddJob(Job.Default.WithId("Default").AsBaseline())
+    .AddJob(Job.Default.WithEnvironmentVariable("DOTNET_TieredCompilation", "0").WithId("No Tiered"));
 ```
 
 ## Strategy 6: Comparing across input scale
 
-To understand how performance changes with input size, use `[Params]` on a size property:
+Use `[Params]` on a size property to understand how performance changes with input size. BDN runs each parameter value as a separate case. Geometrically spaced values (e.g., 10×, 100×) help reveal scaling behavior:
 
 ```csharp
-public class ScaleBenchmark
+[Params(100, 1_000, 10_000)]
+public int N;
+
+private int[] _data;
+
+[GlobalSetup]
+public void Setup()
 {
-    [Params(100, 1_000, 10_000)]
-    public int N;
-
-    private int[] _data;
-
-    [GlobalSetup]
-    public void Setup()
-    {
-        var rng = new Random(42);
-        _data = Enumerable.Range(0, N).OrderBy(_ => rng.Next()).ToArray();
-    }
-
-    [Benchmark]
-    public void Sort() => Array.Sort((int[])_data.Clone());
+    var rng = new Random(42);
+    _data = Enumerable.Range(0, N).OrderBy(_ => rng.Next()).ToArray();
 }
-```
 
-BDN runs each parameter value as a separate case. Geometrically spaced values (e.g., 10×, 100×) can help reveal scaling behavior.
+[Benchmark]
+public void Sort() => Array.Sort((int[])_data.Clone());
+```
 
 ## How it works
 
 All multi-version strategies rely on the same BDN mechanism:
 
-1. **Build partitioning** — `BenchmarkPartitioner` groups cases by runtime, toolchain, platform, and `Infrastructure.Arguments`. Different MSBuild arguments → different partitions → separate compiled executables.
-2. **Per-case execution** — each case runs in its own process, so the two versions never share a process.
-3. **Ratio calculation** — when a baseline is marked, BDN adds `Ratio` and `RatioSD` columns. `Ratio` is computed by forming the Cartesian product of all per-operation times from the current benchmark and the baseline (N×M pairs), dividing each current value by each baseline value, and reporting the mean of that distribution. `RatioSD` is the standard deviation. A `Ratio` of `0.85` means the current version is ~15% faster.
+1. **Build partitioning** — different MSBuild arguments, runtimes, or platform → separate compiled executables. Each case runs in its own process.
+2. **Ratio calculation** — when a baseline is marked, BDN adds `Ratio` and `RatioSD` columns. `Ratio` is the mean of current/baseline per-operation time ratios. A `Ratio` of `0.85` means ~15% faster.
 
 ### Marking a baseline
 
@@ -205,11 +185,4 @@ This does not apply to Strategy 1 (side-by-side methods) or Strategy 6 (input sc
 
 ## Mann-Whitney equivalence test
 
-BDN can add a column that reports `Faster`, `Same`, or `Slower` based on a Mann-Whitney equivalence test:
-
-```csharp
-var config = DefaultConfig.Instance
-    .AddColumn(StatisticalTestColumn.Create(threshold: "5%"));
-```
-
-The `threshold` parameter is the equivalence margin — results within the specified percentage of each other are reported as `Same`.
+BDN can add a `Faster` / `Same` / `Slower` column based on a Mann-Whitney equivalence test. Add it via config: `.AddColumn(StatisticalTestColumn.Create(threshold: "5%"))`. The `threshold` is the equivalence margin — results within that percentage are reported as `Same`.

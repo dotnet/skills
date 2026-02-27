@@ -2,8 +2,6 @@
 
 BenchmarkDotNet measures wall-clock time by default. This reference covers how to collect additional data (allocations, disassembly, hardware counters), customize statistical output, and export results.
 
-**Contents:** [Diagnosers](#diagnosers) · [Statistical output](#statistical-output) · [Outlier handling](#outlier-handling) · [Export formats](#export-formats)
-
 ## Diagnosers
 
 Diagnosers add columns or produce artifacts beyond basic timing. They are enabled via class-level attributes or CLI flags.
@@ -51,29 +49,7 @@ When using `printSource: true`, ensure the benchmark project emits PDB files so 
 
 ### ThreadingDiagnoser
 
-| Surface | Usage |
-|---------|-------|
-| Attribute | `[ThreadingDiagnoser]` |
-| Config | `.AddDiagnoser(ThreadingDiagnoser.Default)` |
-| CLI | `--threading` |
-
-Tracks thread pool and lock contention metrics.
-
-Adds columns: `Completed Work Items` (thread pool work items completed), `Lock Contentions` (number of times a lock was contended).
-
-
-### ExceptionDiagnoser
-
-| Surface | Usage |
-|---------|-------|
-| Attribute | `[ExceptionDiagnoser]` |
-| Config | `.AddDiagnoser(ExceptionDiagnoser.Default)` |
-| CLI | `--exceptions` |
-
-Counts exceptions thrown during benchmark execution.
-
-Adds column: `Exceptions` (count per operation).
-
+`[ThreadingDiagnoser]` (CLI: `--threading`, Config: `.AddDiagnoser(ThreadingDiagnoser.Default)`) — adds `Completed Work Items` and `Lock Contentions` columns.
 
 ### EventPipeProfiler
 
@@ -106,23 +82,6 @@ Available counters include: `TotalCycles`, `InstructionRetired`, `CacheMisses`, 
 
 Requires: Windows, elevated (admin) process, and ETW support. Not available on all hardware.
 
-
-### JIT diagnostics (Windows only)
-
-These require the `BenchmarkDotNet.Diagnostics.Windows` NuGet package:
-
-- **`[JitStatsDiagnoser]`** — counts methods JIT-compiled, methods tiered, and JIT memory usage
-- **`[InliningDiagnoser]`** — logs JIT inlining decisions (successes and failures). Constructor: `logFailuresOnly` (default true), `filterByNamespace` (default true)
-- **`[TailCallDiagnoser]`** — logs tail call optimization decisions
-
-
-### Profiler integrations
-
-- **`[DotTraceDiagnoser]`** — JetBrains dotTrace integration (requires separate NuGet package `BenchmarkDotNet.Diagnostics.dotTrace`)
-- **`[DotMemoryDiagnoser]`** — JetBrains dotMemory integration (requires `BenchmarkDotNet.Diagnostics.dotMemory`)
-- **`[EtwProfiler]`** — ETW-based profiling (Windows only, from `BenchmarkDotNet.Diagnostics.Windows`). For best managed code symbols, add `<DebugType>pdbonly</DebugType>` and `<DebugSymbols>true</DebugSymbols>` to the project file.
-- **`[NativeMemoryProfiler]`** — tracks native (unmanaged) memory allocations (Windows only, from `BenchmarkDotNet.Diagnostics.Windows`)
-- **`[ConcurrencyVisualizerProfiler]`** — Visual Studio Concurrency Visualizer integration (Windows only, from `BenchmarkDotNet.Diagnostics.Windows`)
 
 ## Statistical output
 
@@ -175,7 +134,7 @@ By default, BDN removes upper outliers (unusually slow iterations, typically cau
 
 ## Export formats
 
-BDN exports results in multiple formats. By default it produces Markdown, CSV, and HTML in the `BenchmarkDotNet.Artifacts/results/` directory.
+BDN exports results in multiple formats. By default it produces Markdown and CSV in the `BenchmarkDotNet.Artifacts/results/` directory.
 
 | Format | Default | Config | CLI flag |
 |--------|---------|--------|----------|
@@ -183,6 +142,5 @@ BDN exports results in multiple formats. By default it produces Markdown, CSV, a
 | JSON (compressed) | no | `.AddExporter(JsonExporter.Default)` | `--exporters json` |
 | CSV | yes | `.AddExporter(CsvExporter.Default)` | `--exporters csv` |
 | GitHub Markdown | yes | `.AddExporter(MarkdownExporter.GitHub)` | `--exporters github` |
-| HTML | yes | `.AddExporter(HtmlExporter.Default)` | `--exporters html` |
 
 Use `JsonExporter.Full` for individual measurements (needed for programmatic comparison).
