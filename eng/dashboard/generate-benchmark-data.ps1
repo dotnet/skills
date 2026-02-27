@@ -4,21 +4,21 @@
 
 .DESCRIPTION
     Reads the skill-validator results.json file (which contains all verdicts) and
-    produces a per-component JSON file (<ComponentName>.json) compatible with the
+    produces a per-plugin JSON file (<PluginName>.json) compatible with the
     benchmark dashboard. If an existing JSON file is provided, the new data point
     is appended to the existing history.
 
 .PARAMETER ResultsFile
     Path to the skill-validator results.json file.
 
-.PARAMETER ComponentName
-    Name of the component these results belong to. Used as the output filename.
+.PARAMETER PluginName
+    Name of the plugin these results belong to. Used as the output filename.
 
 .PARAMETER OutputDir
     Path to write the output files. Defaults to the directory containing ResultsFile.
 
 .PARAMETER ExistingDataFile
-    Optional path to an existing <ComponentName>.json file from gh-pages to append to.
+    Optional path to an existing <PluginName>.json file from gh-pages to append to.
 
 .PARAMETER CommitJson
     Optional JSON string with commit info (id, message, author, timestamp, url).
@@ -29,7 +29,7 @@ param(
     [string]$ResultsFile,
 
     [Parameter(Mandatory)]
-    [string]$ComponentName,
+    [string]$PluginName,
 
     [Parameter()]
     [string]$OutputDir,
@@ -235,13 +235,13 @@ if (-not $benchmarkData['entries'][$efficiencyKey]) {
 $benchmarkData['entries'][$qualityKey] += @($qualityEntry)
 $benchmarkData['entries'][$efficiencyKey] += @($efficiencyEntry)
 
-# Write <ComponentName>.json
+# Write <PluginName>.json
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 $dataJson = $benchmarkData | ConvertTo-Json -Depth 10
-$dataJsonFile = Join-Path $OutputDir "$ComponentName.json"
+$dataJsonFile = Join-Path $OutputDir "$PluginName.json"
 $dataJson | Out-File -FilePath $dataJsonFile -Encoding utf8
 
-Write-Host "[OK] Benchmark $ComponentName.json generated: $dataJsonFile"
+Write-Host "[OK] Benchmark $PluginName.json generated: $dataJsonFile"
 Write-Host "   Quality entries: $($qualityBenches.Count)"
 Write-Host "   Efficiency entries: $($efficiencyBenches.Count)"
 Write-Host "   Total data points: $($benchmarkData['entries'][$qualityKey].Count)"

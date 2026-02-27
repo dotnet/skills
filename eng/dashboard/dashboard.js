@@ -1,58 +1,58 @@
 (async function () {
-  // Fetch component manifest
-  let components;
+  // Fetch plugin manifest
+  let plugins;
   try {
     const response = await fetch('data/components.json');
     if (!response.ok) throw new Error(response.statusText);
-    components = await response.json();
+    plugins = await response.json();
   } catch {
     document.body.innerHTML = '<h1>No benchmark data available yet.</h1>';
     return;
   }
 
-  if (!Array.isArray(components) || components.length === 0) {
-    document.body.innerHTML = '<h1>No component data found.</h1>';
+  if (!Array.isArray(plugins) || plugins.length === 0) {
+    document.body.innerHTML = '<h1>No plugin data found.</h1>';
     return;
   }
 
-  components.sort();
+  plugins.sort();
 
   const tabBar = document.getElementById('tab-bar');
   const tabContentContainer = document.getElementById('tab-content');
-  const loadedComponents = new Map(); // track loaded component data
+  const loadedPlugins = new Map(); // track loaded plugin data
 
   // Build tabs and placeholder panels
-  components.forEach((component, idx) => {
+  plugins.forEach((plugin, idx) => {
     const tab = document.createElement('div');
     tab.className = 'tab' + (idx === 0 ? ' active' : '');
-    tab.textContent = component;
-    tab.dataset.component = component;
-    tab.addEventListener('click', () => switchTab(component));
+    tab.textContent = plugin;
+    tab.dataset.plugin = plugin;
+    tab.addEventListener('click', () => switchTab(plugin));
     tabBar.appendChild(tab);
 
     const panel = document.createElement('div');
     panel.className = 'tab-content' + (idx === 0 ? ' active' : '');
-    panel.id = `panel-${component}`;
+    panel.id = `panel-${plugin}`;
     panel.innerHTML = '<p style="color:#8b949e;text-align:center;padding:2rem;">Loading...</p>';
     tabContentContainer.appendChild(panel);
   });
 
-  async function switchTab(component) {
-    tabBar.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.component === component));
-    tabContentContainer.querySelectorAll('.tab-content').forEach(p => p.classList.toggle('active', p.id === `panel-${component}`));
-    if (!loadedComponents.has(component)) {
-      await loadComponent(component);
+  async function switchTab(plugin) {
+    tabBar.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.plugin === plugin));
+    tabContentContainer.querySelectorAll('.tab-content').forEach(p => p.classList.toggle('active', p.id === `panel-${plugin}`));
+    if (!loadedPlugins.has(plugin)) {
+      await loadPlugin(plugin);
     }
   }
 
-  async function loadComponent(component) {
-    const panel = document.getElementById(`panel-${component}`);
+  async function loadPlugin(plugin) {
+    const panel = document.getElementById(`panel-${plugin}`);
     try {
-      const response = await fetch(`data/${component}.json`);
+      const response = await fetch(`data/${plugin}.json`);
       if (!response.ok) throw new Error(response.statusText);
       const data = await response.json();
-      loadedComponents.set(component, data);
-      renderComponent(component, data, panel);
+      loadedPlugins.set(plugin, data);
+      renderPlugin(plugin, data, panel);
     } catch {
       panel.innerHTML = '<p style="color:#f85149;text-align:center;padding:2rem;">Failed to load data.</p>';
     }
@@ -129,7 +129,7 @@
     }
   }
 
-  function renderComponent(component, data, panel) {
+  function renderPlugin(plugin, data, panel) {
     if (!data || !data.entries) {
       panel.innerHTML = '<p style="color:#8b949e;text-align:center;padding:2rem;">No data available.</p>';
       return;
@@ -139,15 +139,15 @@
     const efficiencyEntries = data.entries['Efficiency'] || [];
 
     panel.innerHTML = `
-      <div class="summary-cards" id="summary-${component}"></div>
+      <div class="summary-cards" id="summary-${plugin}"></div>
       <h2 class="section-title">Quality Over Time</h2>
-      <div class="charts-grid" id="quality-${component}"></div>
+      <div class="charts-grid" id="quality-${plugin}"></div>
       <h2 class="section-title">Efficiency Over Time</h2>
-      <div class="charts-grid" id="efficiency-${component}"></div>
+      <div class="charts-grid" id="efficiency-${plugin}"></div>
     `;
 
     // Summary cards — compute averages across the last 50 entries
-    const summaryDiv = document.getElementById(`summary-${component}`);
+    const summaryDiv = document.getElementById(`summary-${plugin}`);
     const SUMMARY_WINDOW = 50;
     if (qualityEntries.length > 0) {
       // Use only the most recent entries for summary cards
@@ -255,7 +255,7 @@
     }
 
     // Quality charts
-    const qualityChartsDiv = document.getElementById(`quality-${component}`);
+    const qualityChartsDiv = document.getElementById(`quality-${plugin}`);
     if (qualityEntries.length > 0) {
       // Discover tests from all entries (not just latest, which may have partial data)
       const tests = new Set();
@@ -276,7 +276,7 @@
     }
 
     // Efficiency charts
-    const efficiencyChartsDiv = document.getElementById(`efficiency-${component}`);
+    const efficiencyChartsDiv = document.getElementById(`efficiency-${plugin}`);
     if (efficiencyEntries.length > 0) {
       // Discover tests from all entries (not just latest, which may have partial data)
       const effTests = new Set();
@@ -562,6 +562,6 @@
     appendLegendNotes(div, legendFlags);
   }
 
-  // Load first component immediately
-  await loadComponent(components[0]);
+  // Load first plugin immediately
+  await loadPlugin(plugins[0]);
 })();
