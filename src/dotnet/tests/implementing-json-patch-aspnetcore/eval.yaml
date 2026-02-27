@@ -1,0 +1,25 @@
+scenarios:
+  - name: "Add JSON Patch PATCH endpoint to ASP.NET Core 8 minimal API"
+    prompt: |
+      I have an ASP.NET Core 8 minimal API for a product catalog. I need to add a PATCH endpoint
+      that supports JSON Patch (RFC 6902) operations for partial product updates.
+
+      The Product model has: Id (int), Name (string, required), Description (string), Price (decimal, > 0),
+      Category (string), LastModified (DateTime).
+
+      Requirements:
+      1. PATCH /api/products/{id} accepting JSON Patch operations
+      2. Support replace, add, and remove operations
+      3. Validate the model after applying the patch (Name required, Price > 0)
+      4. Only allow patching Name, Description, and Category (not Price, Id, or LastModified)
+      5. Return 400 with validation errors if patch produces invalid state
+      6. Use an in-memory list for storage
+
+      Create a complete working Program.cs with the endpoint and models.
+    rubric:
+      - "Adds Microsoft.AspNetCore.Mvc.NewtonsoftJson package and calls AddNewtonsoftJson() because JsonPatchDocument requires Newtonsoft.Json, NOT System.Text.Json"
+      - "Since this is a minimal API (not MVC controllers), manually reads request body and deserializes with Newtonsoft.Json's JsonConvert rather than trying to use [FromBody] JsonPatchDocument<T> which fails with System.Text.Json"
+      - "Uses the correct content type application/json-patch+json (not application/json) either in Consumes attribute or documentation"
+      - "Calls ApplyTo on the JsonPatchDocument with error tracking (passing ModelState or checking for exceptions) rather than silently applying"
+      - "Validates model state AFTER applying the patch, not just before, since patch operations can produce invalid state"
+      - "Restricts patchable properties to only Name, Description, and Category — does not allow patching Price, Id, or LastModified"
