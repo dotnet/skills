@@ -200,93 +200,6 @@ kubectl cp <pod>:/tmp/trace.nettrace ./trace.nettrace
 
 ---
 
-## dotnet-dump
-
-**Purpose**: Collect and perform basic analysis of process memory dumps.
-
-| Attribute | Value |
-|-----------|-------|
-| OS | Windows, Linux, macOS |
-| Runtime | Modern .NET (.NET Core 3.0+) |
-| .NET Framework | ❌ Not supported (use `procdump` or Task Manager on Windows for .NET Framework dumps) |
-| Admin required | No. Dump collection does not require admin privileges. On Linux, `ptrace` permissions may be needed in containers. |
-| Container | Works inside container |
-
-### Installation
-
-```bash
-dotnet tool install -g dotnet-dump
-```
-
-### Common Commands
-
-```bash
-# Collect a dump
-dotnet-dump collect -p <PID>
-
-# Collect a dump with specific type
-dotnet-dump collect -p <PID> --type Full
-dotnet-dump collect -p <PID> --type Heap
-dotnet-dump collect -p <PID> --type Mini
-
-# Analyze a dump (interactive)
-dotnet-dump analyze <dump-file>
-
-# Common SOS (Son of Strike) debugging extension commands.
-# These work in dotnet-dump analyze (which hosts SOS), WinDbg, and lldb.
-#   In WinDbg, prefix with '!' (e.g., !dumpheap -stat).
-#   In lldb, prefix with 'sos' (e.g., sos dumpheap -stat) or use directly after loading the SOS plugin.
-#
-#   dumpheap -stat          — heap statistics
-#   dumpheap -type <Type>   — objects of a specific type
-#   gcroot <address>        — find GC roots holding an object
-#   dso                     — dump stack objects
-#   eeheap -gc              — GC heap summary
-#   clrstack                — managed call stacks (useful for hangs)
-
-```
-
-### Container Usage
-
-```bash
-# Inside container
-dotnet-dump collect -p 1 -o /tmp/dump.dmp
-
-# Copy dump out
-kubectl cp <pod>:/tmp/dump.dmp ./dump.dmp
-```
-
-### Analyzing Dumps
-
-Dumps collected on Linux can be analyzed locally or copied to Windows for analysis:
-
-- **On Linux**: `dotnet-dump analyze <dump-file>` for interactive analysis, or `lldb` with the SOS extension for full debugger capabilities
-- **On Windows**: Open the dump in Visual Studio, PerfView, or WinDbg with the SOS extension for GC heap inspection, object graphs, and richer UI-based analysis. WinDbg can also open dumps collected on Linux.
-
-The commands listed above (`dumpheap`, `gcroot`, `dso`, `eeheap`) are **SOS extension commands** available within `dotnet-dump analyze` and within debuggers that load the SOS extension (WinDbg on Windows, `lldb` on Linux).
-
-**For hangs**: Use the `clrstack` SOS command (in `dotnet-dump analyze` or a debugger) to inspect managed call stacks of all threads and identify where threads are blocked. For **deadlocks** (threads waiting on each other), a dump alone is usually sufficient. For **livelocks** (threads spinning without progress), a trace is also helpful to see what threads are doing over time.
-
-**For memory leaks**: Capture **two dumps** as memory is increasing (e.g., one early, one after significant growth). Open both in PerfView and use its diff capabilities to see which object types have increased — this is the most effective way to identify what is leaking. Also capture a trace **while memory is growing** to see what is being allocated — no trigger is needed, just run the collection during the growth period. Do not wait for an `OutOfMemoryException`.
-
-This is especially useful for GC heap analysis — Visual Studio and PerfView provide graphical views of heap contents that are easier to navigate than the `dotnet-dump` command line.
-
-### Linux ptrace Permissions
-
-On Linux, `dotnet-dump` needs `ptrace` permissions. In containers, you may need:
-
-```bash
-# Docker
-docker run --cap-add=SYS_PTRACE ...
-
-# Kubernetes (in securityContext)
-# securityContext:
-#   capabilities:
-#     add: ["SYS_PTRACE"]
-```
-
----
-
 ## dotnet-monitor
 
 **Purpose**: REST API-based diagnostics collection, designed for container and Kubernetes environments.
@@ -337,11 +250,8 @@ curl -H "Authorization: Bearer <monitor-token>" http://localhost:52323/processes
 # Collect a trace
 curl -H "Authorization: Bearer <monitor-token>" -o trace.nettrace http://localhost:52323/trace?pid=<PID>&durationSeconds=30
 
-# Collect a dump
-curl -H "Authorization: Bearer <monitor-token>" -o dump.dmp http://localhost:52323/dump?pid=<PID>&type=Full
-
-# Collect GC dump
-curl -H "Authorization: Bearer <monitor-token>" -o gcdump.gcdump http://localhost:52323/gcdump?pid=<PID>
+# Collect GC trace
+curl -H "Authorization: Bearer <monitor-token>" -o trace.nettrace "http://localhost:52323/trace?pid=<PID>&profile=gc-verbose&durationSeconds=30"
 
 # Get live metrics
 curl -H "Authorization: Bearer <monitor-token>" http://localhost:52323/livemetrics?pid=<PID>
@@ -382,7 +292,7 @@ Keep auth enabled (default), and access the API via `kubectl port-forward` rathe
 - ❌ Requires sidecar setup and shared volume
 - ❌ Additional resource overhead from sidecar container
 - ❌ Requires authentication setup (API key or `--no-auth` flag)
-- ⚠️ **When running in the workload context** (console access to the container), prefer console-based tools (`dotnet-trace`, `dotnet-trace collect-linux`, `dotnet-dump`) to avoid authentication setup. Use `dotnet-monitor` when console access is not available or when it is already deployed.
+- ⚠️ **When running in the workload context** (console access to the container), prefer console-based tools (`dotnet-trace`, `dotnet-trace collect-linux`) to avoid authentication setup. Use `dotnet-monitor` when console access is not available or when it is already deployed.
 
 ---
 
@@ -510,7 +420,7 @@ PerfView collect /MaxCollectSec:30 /BufferSizeMB:1024 /CircularMB:2048
 - ✅ Works with Windows containers (Hyper-V and process-isolation)
 - ❌ Windows only
 - ❌ Requires admin privileges
-- ⚠️ **For .NET Framework without admin**: PerfView is the only trace tool for .NET Framework, and it requires admin. Without admin, there is **no way to investigate high CPU, slow requests, or excessive GC** on .NET Framework. Process dumps can still be captured (via `procdump` or Task Manager) for hangs and memory leaks, but trace-based investigation requires admin access.
+- ⚠️ **For .NET Framework without admin**: PerfView is the only trace tool for .NET Framework, and it requires admin. Without admin, there is **no way to investigate high CPU, slow requests, or excessive GC** on .NET Framework. Dumps can help with hangs and memory leaks (delegate to the `dump-collect` skill), but trace-based investigation requires admin access.
 
 ---
 
