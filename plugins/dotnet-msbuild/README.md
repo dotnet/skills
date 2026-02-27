@@ -55,9 +55,3 @@ Ready-to-use templates that can be copied directly into your repository without 
 | [`build-failure-analysis`](agentic-workflows/build-failure-analysis.md) | Analyzes build failures and posts diagnostic comments on PRs |
 | [`msbuild-pr-review`](agentic-workflows/msbuild-pr-review.md) | Reviews MSBuild project file changes for best practices |
 | [`build-perf-audit`](agentic-workflows/build-perf-audit.md) | Runs build performance audit and creates issues for regressions |
-
-## 🧩 Copilot Extension
-
-| Plugin | Description |
-|--------|-------------|
-| [Copilot Extension](copilot-extension/) | Deployable `@msbuild` Copilot Extension for GitHub.com, VS Code, and Visual Studio |

@@ -58,14 +58,6 @@ Some plugins include [GitHub Agentic Workflow](https://github.com/github/gh-aw) 
    ```
 4. Commit both the `.md` and generated `.lock.yml` files
 
-### 🧩 Copilot Extension
-
-Some plugins include a deployable [Copilot Extension](https://docs.github.com/copilot/building-copilot-extensions) for GitHub.com, VS Code, and Visual Studio:
-
-1. Find the extension in the [GitHub Marketplace](https://github.com/marketplace) or your organization's Copilot Extensions
-2. Install the GitHub App on your organization or personal account
-3. Use `@<extension-name>` in any Copilot Chat surface to interact with it
-
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and how to add a new plugin.

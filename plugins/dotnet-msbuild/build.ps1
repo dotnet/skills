@@ -78,10 +78,6 @@ $KnowledgeGroups = [ordered]@{
 }
 
 $KnowledgeTargets = @{
-    'copilot-extension' = @{
-        OutputDir = Join-Path $PSScriptRoot 'copilot-extension' 'src' 'knowledge'
-        MaxChars  = 50000
-    }
     'agentic-workflows' = @{
         OutputDir = Join-Path $PSScriptRoot 'agentic-workflows' 'shared' 'compiled'
         MaxChars  = 40000
