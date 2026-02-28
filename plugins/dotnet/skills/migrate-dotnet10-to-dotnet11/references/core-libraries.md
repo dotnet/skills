@@ -4,6 +4,25 @@ These breaking changes affect all .NET 11 projects regardless of application typ
 
 > **Note:** .NET 11 is in preview. Additional breaking changes are expected in later previews.
 
+## Obsoleted APIs
+
+### NamedPipeClientStream constructor with `isConnected` parameter obsoleted (SYSLIB0063)
+
+**Impact: High (for projects using `TreatWarningsAsErrors`).** The `NamedPipeClientStream` constructor overload that accepts a `bool isConnected` parameter has been obsoleted. The `isConnected` argument never had any effect — pipes created from an existing `SafePipeHandle` are always connected. A new constructor without the parameter has been added.
+
+```csharp
+// .NET 10: compiles without warning
+var pipe = new NamedPipeClientStream(PipeDirection.InOut, isAsync: true, isConnected: true, safePipeHandle);
+
+// .NET 11: SYSLIB0063 warning (error with TreatWarningsAsErrors)
+// Fix: remove the isConnected parameter
+var pipe = new NamedPipeClientStream(PipeDirection.InOut, isAsync: true, safePipeHandle);
+```
+
+**Fix:** Remove the `isConnected` argument and use the new 3-parameter constructor `NamedPipeClientStream(PipeDirection, bool isAsync, SafePipeHandle)`.
+
+Source: https://github.com/dotnet/runtime/pull/120328
+
 ## Behavioral Changes
 
 ### DeflateStream and GZipStream write headers and footers for empty payloads

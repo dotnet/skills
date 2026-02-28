@@ -8,8 +8,9 @@ description: >
   adapting to updated minimum hardware requirements (x86-64-v2, Arm64 LSE),
   fixing C# 15 compiler breaking changes (Span collection expression safe-context,
   ref readonly delegate/local function InAttribute, with() parsing, nameof(this.)
-  in attributes), resolving EF Core Cosmos DB sync I/O removal, and adapting to
-  core library behavioral changes (DeflateStream/GZipStream empty payloads,
+  in attributes), resolving EF Core Cosmos DB sync I/O removal, adapting to
+  obsoleted APIs (SYSLIB0063 NamedPipeClientStream isConnected parameter), and
+  adapting to core library behavioral changes (DeflateStream/GZipStream empty payloads,
   MemoryStream capacity, TAR checksum validation, ZipArchive.CreateAsync).
   DO NOT USE FOR: major framework migrations (e.g., .NET Framework to .NET 11),
   upgrading from .NET 9 or earlier (address intermediate breaking changes first),
@@ -68,6 +69,7 @@ Migrate a .NET 10 project or solution to .NET 11, systematically resolving all b
    - **Cryptography API usage** → DSA on macOS affected
    - **Compression API usage** → DeflateStream/GZipStream/ZipArchive changes relevant
    - **TAR API usage** → Header checksum validation change relevant
+   - **`NamedPipeClientStream` usage with `SafePipeHandle`** → SYSLIB0063 constructor obsoletion relevant
 4. Record which reference documents are relevant (see the reference loading table in Step 3).
 5. Do a **clean build** (`dotnet build --no-incremental` or delete `bin`/`obj`) on the current `net10.0` target to establish a clean baseline. Record any pre-existing warnings.
 
@@ -115,6 +117,8 @@ Work through each build error systematically. Common patterns:
 5. **Dynamic `&&`/`||` with interface operand** — Interface types as left operand of `&&`/`||` with `dynamic` right operand now errors at compile time. Cast to concrete type or `dynamic`.
 
 6. **EF Core Cosmos sync I/O removal** — `ToList()`, `SaveChanges()`, etc. on Cosmos provider always throw. Convert to async equivalents.
+
+7. **SYSLIB0063: `NamedPipeClientStream` `isConnected` parameter obsoleted** — The constructor overload taking `bool isConnected` is obsoleted. Remove the `isConnected` argument and use the new 3-parameter constructor. Projects with `TreatWarningsAsErrors` will fail to build.
 
 ### Step 4: Address behavioral changes
 
