@@ -79,8 +79,6 @@ A skill should answer three questions up front:
 2. When should an agent use it
 3. How does the agent validate success
 
-Every skill must have an associated owner in our 
-
 ### Skill naming
 
 Use short, kebab-case names that mirror how developers naturally phrase the task, prioritizing keyword overlap over grammar — e.g., add-aspnet-auth, configure-jwt-auth, setup-identity-server. Optionally using gerund style (verb-ing) is acceptable as well - e.g., configuring-caching.
