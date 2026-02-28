@@ -1,0 +1,27 @@
+scenarios:
+  - name: "Investigate runtime upgrade performance impact"
+    prompt: >
+      Your team is upgrading the codebase from .NET 9 to .NET 10. You have been
+      asked to benchmark AverageWordLength, WordLengthHistogram, and UniqueWordCount
+      to check how the upgrade will impact their performance. The source code is in
+      the TextAnalyzer subdirectory (TextAnalyzer.cs and TextAnalyzer.csproj). We don't
+      need anything too comprehensive, don't spend more than 10 minutes on this.
+      Don't worry about cleaning up any files or projects you create along the way.
+      Note: this machine may be under load from other processes.
+      If the .NET 9 runtime is missing, install it using the official dotnet-install
+      script from https://dot.net/v1/dotnet-install.sh (or dotnet-install.ps1 on Windows).
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "file_contains"
+        path: "**/*.csproj"
+        value: "BenchmarkDotNet"
+      - type: "file_exists"
+        path: "**/*-report*.md"
+    rubric:
+      - "The benchmarks follow best practices: methods return their results to prevent dead code elimination, input data is stored in fields/properties rather than const or literal values, and initialization/data setup is in a setup method not inside the benchmark methods"
+      - "The agent let NuGet resolve the BenchmarkDotNet version rather than writing one from memory"
+      - "The benchmarks were actually run and completed, producing results that compare .NET 9 vs .NET 10"
+      - "The agent correctly identified that AverageWordLength and WordLengthHistogram got significantly faster on .NET 10 (expected ~2-3x faster), while UniqueWordCount showed no meaningful change"
+      - "The agent completed the task efficiently within the time constraints rather than spending excessive time on unnecessary iterations or troubleshooting"
+    timeout: 600

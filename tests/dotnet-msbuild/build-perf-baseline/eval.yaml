@@ -1,0 +1,23 @@
+scenarios:
+  - name: "Establish build performance baseline and recommend optimizations"
+    prompt: >-
+      This .NET solution has build performance concerns. Build the solution,
+      establish a build performance baseline, then analyze the project
+      structure and build configuration for optimization opportunities. Provide 
+      specific recommendations to improve build performance.
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(baseline|cold.build|warm.build|no.op)"
+      - type: "output_matches"
+        pattern: "(redundant|transitive|unnecessary).*(reference|depend)"
+      - type: "output_matches"
+        pattern: "(GenerateDocumentationFile|RunAnalyzers|EnforceCodeStyleInBuild)"
+    rubric:
+      - "Measured or described three build scenarios: cold build, warm/incremental build, and no-op build as a structured baseline"
+      - "Identified redundant transitive ProjectReference entries (e.g., WebApi referencing Common and DataAccess when BusinessLogic already depends on them)"
+      - "Recommended trimming unnecessary project references to shorten the dependency graph"
+      - "Identified GenerateDocumentationFile and EnforceCodeStyleInBuild as dev inner loop performance drags and suggested conditionalizing them for CI only"
+      - "Suggested at least one advanced optimization such as graph build (/graph), UseArtifactsOutput, or separating restore from build (--no-restore)"
+    timeout: 360
