@@ -126,7 +126,7 @@ Work through compilation errors and new warnings systematically. Load the approp
 
 7. **`String.Trim(params ReadOnlySpan<char>)` removed** — The `Trim`/`TrimStart`/`TrimEnd` overloads accepting `ReadOnlySpan<char>` were removed in .NET 9 GA after being added in previews. Code explicitly passing `ReadOnlySpan<char>` must switch to `char[]`. See `references/core-libraries.md`.
 
-8. **`BinaryFormatter` always throws** — `BinaryFormatter.Serialize`/`Deserialize` now always throw `NotSupportedException` at runtime, with no option to re-enable. If the project uses `BinaryFormatter`, **stop and inform the user**. Migrating away from BinaryFormatter is a significant architectural decision (choice of replacement serializer, data migration strategy, backward compatibility). The user must decide the approach before proceeding. See `references/serialization-networking.md`.
+8. **`BinaryFormatter` always throws** — If the project uses `BinaryFormatter`, **stop and inform the user** — this is a major decision. See `references/serialization-networking.md`.
 
 9. **`HttpListenerRequest.UserAgent` is nullable** — The property is now `string?`. Add null checks. See `references/serialization-networking.md`.
 
@@ -142,7 +142,7 @@ Behavioral changes do not cause build errors but may change runtime behavior. Re
 
 **High-impact behavioral changes (check first):**
 
-1. **BinaryFormatter always throws at runtime** — Even with previously-working configuration settings. There is no runtime switch to re-enable it. The `EnableUnsafeBinaryFormatterSerialization` AppContext switch is removed. **If BinaryFormatter usage is detected, stop and ask the user how they want to proceed.** Present the options (System.Text.Json, MessagePack, protobuf-net, DataContractSerializer, or the unsupported compatibility NuGet package) and let the user choose. Do not pick a replacement serializer unilaterally — this is a major architectural decision that affects data format, backward compatibility, and potentially stored data migration.
+1. **BinaryFormatter always throws at runtime** — No runtime switch to re-enable. If BinaryFormatter usage is detected, **stop and ask the user** which replacement to use. See `references/serialization-networking.md` for options.
 
 2. **Floating-point to integer conversions are now saturating** — On x86/x64, conversions from `float`/`double` to integer types now saturate instead of wrapping. `NaN` converts to `0`. Values exceeding the target type range clamp to `MinValue`/`MaxValue`. If you relied on the previous wrapping behavior, use `ConvertToIntegerNative<TInteger>`.
 
