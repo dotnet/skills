@@ -1,21 +1,21 @@
 ---
 name: scaffold-generate-aspnet
-description: Generate or scaffold ASP.NET Core code — Razor Pages, Blazor components, MVC controllers, views, and Minimal API endpoints — entirely through Copilot without CLI tools. Use when (1) adding CRUD pages, views, or API endpoints backed by Entity Framework (EF Core) and a database, (2) generating code to create, read, update, and delete data using a DbContext, (3) scaffolding UI components that match the project's existing CSS framework and coding patterns, or (4) creating data-driven forms, tables, and navigation for a model class. Do not use for non-ASP.NET projects or when CLI-based scaffolding with `dotnet scaffold` is preferred.
+description: Generate or scaffold ASP.NET Core code — Razor Pages, Blazor components, MVC controllers, views, and Minimal API endpoints — without CLI tools. Use when (1) adding CRUD pages, views, or API endpoints backed by Entity Framework (EF Core) and a database, (2) generating code to create, read, update, and delete data using a DbContext, (3) scaffolding UI components that match the project's existing CSS framework and coding patterns, or (4) creating data-driven forms, tables, and navigation for a model class. Do not use for non-ASP.NET projects or when CLI-based scaffolding with `dotnet scaffold` is preferred.
 ---
 
-# Generate or Scaffold ASP.NET Core Code with Copilot
+# Generate or Scaffold ASP.NET Core Code
 
-Generate ASP.NET Core scaffolded code — controllers, views, Razor Pages, Blazor components, Minimal API endpoints — entirely through Copilot. The generated code matches the project's existing CSS framework, layout conventions, and coding patterns. No CLI scaffolding tools are used.
+Generate ASP.NET Core scaffolded code — controllers, views, Razor Pages, Blazor components, Minimal API endpoints. The generated code matches the project's existing CSS framework, layout conventions, and coding patterns. No CLI scaffolding tools are used.
 
 ## When to Use
 
-- Adding CRUD pages, views, or components for a model in an ASP.NET project
-- Scaffolding API controllers or Minimal API endpoints with Entity Framework
+- Adding CRUD pages, views, or components for a model in an ASP.NET Core project
+- Scaffolding API controllers or Minimal API endpoints with Entity Framework Core
 - Generating Razor Pages, MVC views, or Blazor components backed by a DbContext
 
 ## When Not to Use
 
-- The project is not an ASP.NET project
+- The project is not an ASP.NET Core project
 - You need to scaffold non-web artifacts (class libraries, console apps, etc.)
 
 ## Inputs
@@ -99,7 +99,7 @@ Skip this step for non-Blazor scaffolders.
 Generate all code files manually. Follow these constraints:
 
 - **DO NOT** use any scaffolding CLI tools (`dotnet aspnet-codegenerator`, `dotnet scaffold`, etc.)
-- **DO NOT** add packages beyond those required for the scaffolded functionality (e.g., do not add `RuntimeCompilation`, `Swashbuckle.AspNetCore`, or other convenience packages)
+- **DO NOT** add packages beyond those required for the scaffolded functionality (e.g., do not add `RuntimeCompilation`, or other convenience packages)
 - Match the coding style of existing files in the project (naming conventions, indentation, namespace patterns)
 
 #### Enrich API Endpoints with OpenAPI Metadata (API scaffolders only)
@@ -164,7 +164,7 @@ Skip this step for non-API scaffolders.
 - [ ] `dotnet build` succeeds with zero errors
 - [ ] EF migrations apply cleanly (if applicable)
 - [ ] All `.http` requests return 2xx status codes (if API scaffolder)
-- [ ] No forbidden packages were added (`Swashbuckle.AspNetCore`, `RuntimeCompilation`, etc.)
+- [ ] No forbidden packages were added (`RuntimeCompilation`, etc.)
 - [ ] No CLI scaffolding tools were invoked
 - [ ] Blazor `[SupplyParameterFromForm]` properties use `= new()` (if Blazor scaffolder)
 
