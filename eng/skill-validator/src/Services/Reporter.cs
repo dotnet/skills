@@ -91,6 +91,43 @@ public static class Reporter
                 Console.WriteLine();
                 Console.WriteLine("  \x1b[31;1m⚠️  SKILL NOT ACTIVATED\x1b[0m — the tested skill was not loaded or invoked by the agent");
             }
+            if (verdict.OverfittingResult is { } overfitResult)
+            {
+                Console.WriteLine();
+                var overfitIcon = overfitResult.Severity switch
+                {
+                    OverfittingSeverity.Low => "✅",
+                    OverfittingSeverity.Moderate => "🟡",
+                    OverfittingSeverity.High => "🔴",
+                    _ => "—",
+                };
+                var severityColor = overfitResult.Severity switch
+                {
+                    OverfittingSeverity.Low => "\x1b[32m",
+                    OverfittingSeverity.Moderate => "\x1b[33m",
+                    OverfittingSeverity.High => "\x1b[31m",
+                    _ => "\x1b[2m",
+                };
+                Console.WriteLine($"  🔍 Overfitting: {severityColor}{overfitResult.Score:F2} ({overfitResult.Severity.ToString().ToLowerInvariant()})\x1b[0m {overfitIcon}");
+
+                // For moderate/high, show top signals
+                if (overfitResult.Severity is OverfittingSeverity.Moderate or OverfittingSeverity.High)
+                {
+                    var topRubric = overfitResult.RubricAssessments
+                        .Where(a => a.Classification != "outcome")
+                        .OrderByDescending(a => a.Confidence)
+                        .Take(3);
+                    foreach (var item in topRubric)
+                        Console.WriteLine($"    \x1b[2m•\x1b[0m [{item.Classification}] \x1b[2m\"{item.Criterion}\"\x1b[0m\n      \x1b[2m— {item.Reasoning}\x1b[0m");
+
+                    var topAssert = overfitResult.AssertionAssessments
+                        .Where(a => a.Classification != "broad")
+                        .OrderByDescending(a => a.Confidence)
+                        .Take(2);
+                    foreach (var item in topAssert)
+                        Console.WriteLine($"    \x1b[2m•\x1b[0m [{item.Classification}] \x1b[2m{item.AssertionSummary}\x1b[0m\n      \x1b[2m— {item.Reasoning}\x1b[0m");
+                }
+            }
             if (verdict.Scenarios.Count > 0)
             {
                 Console.WriteLine();
@@ -168,7 +205,10 @@ public static class Reporter
             }
             else
             {
-                Console.WriteLine("      \x1b[33m⚠️  Skill was NOT activated\x1b[0m");
+                if (!scenario.ExpectActivation)
+                    Console.WriteLine("      \x1b[36mℹ️  Skill correctly NOT activated (negative test)\x1b[0m");
+                else
+                    Console.WriteLine("      \x1b[33m⚠️  Skill was NOT activated\x1b[0m");
             }
         }
 
@@ -265,8 +305,8 @@ public static class Reporter
         var sb = new StringBuilder();
         sb.AppendLine("## Skill Validation Results");
         sb.AppendLine();
-        sb.AppendLine("| Skill | Scenario | Baseline | With Skill | Δ | Skills Loaded | Verdict |");
-        sb.AppendLine("|-------|----------|----------|------------|---|---------------|--------|");
+        sb.AppendLine("| Skill | Scenario | Baseline | With Skill | Δ | Skills Loaded | Overfit | Verdict |");
+        sb.AppendLine("|-------|----------|----------|------------|---|---------------|---------|--------|");
 
         foreach (var v in verdicts)
         {
@@ -302,7 +342,7 @@ public static class Reporter
                     }
                     else
                     {
-                        skillsCol = "⚠️ NOT ACTIVATED";
+                        skillsCol = s.ExpectActivation ? "⚠️ NOT ACTIVATED" : "ℹ️ not activated (expected)";
                     }
                 }
                 else if (skillNotActivated)
@@ -310,7 +350,7 @@ public static class Reporter
                     skillsCol = "⚠️ NOT ACTIVATED";
                 }
 
-                sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {baseStr} | {skillStr} | {deltaStr} | {skillsCol} | {icon} |");
+                sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {baseStr} | {skillStr} | {deltaStr} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {icon} |");
             }
         }
 
@@ -471,6 +511,19 @@ public static class Reporter
 
     private static double AvgRubricScore(IReadOnlyList<RubricScore> scores) =>
         scores.Count == 0 ? 0 : scores.Average(s => s.Score);
+
+    private static string FormatOverfitCell(OverfittingResult? result)
+    {
+        if (result is null) return "—";
+        var icon = result.Severity switch
+        {
+            OverfittingSeverity.Low => "✅",
+            OverfittingSeverity.Moderate => "🟡",
+            OverfittingSeverity.High => "🔴",
+            _ => "—",
+        };
+        return $"{icon} {result.Score:F2}";
+    }
 
     private static string FmtBool(bool v) => v ? "✓" : "✗";
 

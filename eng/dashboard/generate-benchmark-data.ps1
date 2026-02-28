@@ -4,21 +4,21 @@
 
 .DESCRIPTION
     Reads the skill-validator results.json file (which contains all verdicts) and
-    produces a per-component JSON file (<ComponentName>.json) compatible with the
+    produces a per-plugin JSON file (<PluginName>.json) compatible with the
     benchmark dashboard. If an existing JSON file is provided, the new data point
     is appended to the existing history.
 
 .PARAMETER ResultsFile
     Path to the skill-validator results.json file.
 
-.PARAMETER ComponentName
-    Name of the component these results belong to. Used as the output filename.
+.PARAMETER PluginName
+    Name of the plugin these results belong to. Used as the output filename.
 
 .PARAMETER OutputDir
     Path to write the output files. Defaults to the directory containing ResultsFile.
 
 .PARAMETER ExistingDataFile
-    Optional path to an existing <ComponentName>.json file from gh-pages to append to.
+    Optional path to an existing <PluginName>.json file from gh-pages to append to.
 
 .PARAMETER CommitJson
     Optional JSON string with commit info (id, message, author, timestamp, url).
@@ -29,7 +29,7 @@ param(
     [string]$ResultsFile,
 
     [Parameter(Mandatory)]
-    [string]$ComponentName,
+    [string]$PluginName,
 
     [Parameter()]
     [string]$OutputDir,
@@ -80,7 +80,14 @@ foreach ($verdict in $results.verdicts) {
         # Check per-scenario activation state
         $scenarioNotActivated = $false
         if ($scenario.skillActivation -and -not $scenario.skillActivation.activated) {
-            $scenarioNotActivated = $true
+            # Only flag as not-activated if activation was expected (expect_activation defaults to true)
+            $scenarioExpectActivation = $true
+            if ($scenario.PSObject.Properties['expectActivation'] -and $scenario.expectActivation -eq $false) {
+                $scenarioExpectActivation = $false
+            }
+            if ($scenarioExpectActivation) {
+                $scenarioNotActivated = $true
+            }
         }
         $notActivated = $verdictNotActivated -or $scenarioNotActivated
 
@@ -88,6 +95,14 @@ foreach ($verdict in $results.verdicts) {
         $scenarioTimedOut = $false
         if ($scenario.timedOut -eq $true) {
             $scenarioTimedOut = $true
+        }
+
+        # Check overfitting state (from verdict-level overfittingResult)
+        $overfittingSeverity = $null
+        $overfittingScore = $null
+        if ($verdict.overfittingResult -and $verdict.overfittingResult.severity -in @("Moderate", "High")) {
+            $overfittingSeverity = $verdict.overfittingResult.severity.ToLower()
+            $overfittingScore = $verdict.overfittingResult.score
         }
 
         # Quality scores (from judge results, scale 0-5 mapped to 0-10 for dashboard)
@@ -102,6 +117,10 @@ foreach ($verdict in $results.verdicts) {
             }
             if ($scenarioTimedOut) {
                 $benchEntry.timedOut = $true
+            }
+            if ($overfittingSeverity) {
+                $benchEntry.overfitting = $overfittingSeverity
+                $benchEntry.overfittingScore = $overfittingScore
             }
             $qualityBenches.Add($benchEntry)
         }
@@ -126,6 +145,10 @@ foreach ($verdict in $results.verdicts) {
             if ($scenarioTimedOut) {
                 $effBenchEntry.timedOut = $true
             }
+            if ($overfittingSeverity) {
+                $effBenchEntry.overfitting = $overfittingSeverity
+                $effBenchEntry.overfittingScore = $overfittingScore
+            }
             $efficiencyBenches.Add($effBenchEntry)
         }
         if ($null -ne $scenario.withSkill.metrics.tokenEstimate) {
@@ -139,6 +162,10 @@ foreach ($verdict in $results.verdicts) {
             }
             if ($scenarioTimedOut) {
                 $tokenBenchEntry.timedOut = $true
+            }
+            if ($overfittingSeverity) {
+                $tokenBenchEntry.overfitting = $overfittingSeverity
+                $tokenBenchEntry.overfittingScore = $overfittingScore
             }
             $efficiencyBenches.Add($tokenBenchEntry)
         }
@@ -208,13 +235,13 @@ if (-not $benchmarkData['entries'][$efficiencyKey]) {
 $benchmarkData['entries'][$qualityKey] += @($qualityEntry)
 $benchmarkData['entries'][$efficiencyKey] += @($efficiencyEntry)
 
-# Write <ComponentName>.json
+# Write <PluginName>.json
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 $dataJson = $benchmarkData | ConvertTo-Json -Depth 10
-$dataJsonFile = Join-Path $OutputDir "$ComponentName.json"
+$dataJsonFile = Join-Path $OutputDir "$PluginName.json"
 $dataJson | Out-File -FilePath $dataJsonFile -Encoding utf8
 
-Write-Host "[OK] Benchmark $ComponentName.json generated: $dataJsonFile"
+Write-Host "[OK] Benchmark $PluginName.json generated: $dataJsonFile"
 Write-Host "   Quality entries: $($qualityBenches.Count)"
 Write-Host "   Efficiency entries: $($efficiencyBenches.Count)"
 Write-Host "   Total data points: $($benchmarkData['entries'][$qualityKey].Count)"
