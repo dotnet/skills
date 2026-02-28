@@ -3,7 +3,7 @@ scenarios:
     prompt: |
       Enable nullable reference types in this C# project and resolve all warnings.
       The project is at TaskManager/TaskManager.csproj. Make sure the public API
-      surface accurately reflects nullability. Build with: dotnet build TaskManager/TaskManager.csproj
+      surface accurately reflects nullability.
     setup:
       files:
         - path: "TaskManager/TaskManager.csproj"
@@ -239,7 +239,7 @@ scenarios:
       This project has nullable reference types enabled project-wide, but each file
       still has #nullable disable at the top. Remove #nullable disable from
       UserProfile.cs ONLY and fix all resulting nullable warnings in that file.
-      Do NOT modify any other files. Build with: dotnet build FileByFile/FileByFile.csproj
+      Do NOT modify any other files.
     setup:
       files:
         - path: "FileByFile/FileByFile.csproj"
@@ -333,9 +333,9 @@ scenarios:
         path: "FileByFile/NotificationService.cs"
         value: "#nullable disable"
     rubric:
-      - "Did the agent remove #nullable disable from UserProfile.cs and ONLY that file? OrderProcessor.cs and NotificationService.cs must still have #nullable disable at the top."
+      - "Did the agent follow the skill's file-by-file migration strategy, migrating UserProfile.cs completely (removing #nullable disable, annotating correctly) before moving on to other files?"
       - "Did the agent correctly annotate Bio as string? (nullable) since it is never set in the constructor and can legitimately be null, while keeping Name and Email as non-nullable string since they are set via the constructor?"
-      - "Does the project build with zero errors after the agent's changes? The agent should not need to modify any file other than UserProfile.cs."
+      - "Does the project build with zero errors after the agent's changes?"
     timeout: 300
 
   - name: "Enable NRT in ASP.NET Core Web API with EF Core"
@@ -344,7 +344,6 @@ scenarios:
       warnings fixed. It's a straightforward task. The project is at BookStore/BookStore.csproj.
       It uses Entity Framework Core with an in-memory database and has a Web API controller.
       Make sure annotations are correct for both EF Core entities and API models.
-      Build with: dotnet build BookStore/BookStore.csproj
     setup:
       files:
         - path: "BookStore/BookStore.csproj"
