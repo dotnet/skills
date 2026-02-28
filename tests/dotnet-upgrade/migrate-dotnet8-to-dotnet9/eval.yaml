@@ -1,25 +1,73 @@
 scenarios:
-  # --- Scenario 1: Core libraries (BinaryFormatter, params span, BigInteger, floating point) ---
-  - name: "Console app with BinaryFormatter, params span in expressions, and floating-point conversions"
+  # --- Scenario 1: Obscure runtime changes — empty env vars, ZipArchive UTF-8 flag, keyed services ---
+  - name: "App with empty environment variables, ZIP encoding, and keyed DI services"
     expect_activation: false
+    setup:
+      files:
+        - path: "App.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "EnvVarCheck.cs"
+          content: |
+            class EnvVarCheck
+            {
+                void CheckFlag()
+                {
+                    // On Linux, set via: export MY_FLAG=""
+                    var val = Environment.GetEnvironmentVariable("MY_FLAG");
+                    if (val == null)
+                    {
+                        Console.WriteLine("MY_FLAG not set, using default");
+                    }
+                }
+            }
+        - path: "ZipCreator.cs"
+          content: |
+            using System.IO.Compression;
+            class ZipCreator
+            {
+                void CreateArchive()
+                {
+                    using var archive = ZipFile.Open("data.zip", ZipArchiveMode.Create);
+                    archive.CreateEntry("レポート/月次.csv");  // Japanese path
+                    archive.CreateEntry("données/résumé.txt"); // French accented
+                }
+            }
+        - path: "Startup.cs"
+          content: |
+            using Microsoft.Extensions.DependencyInjection;
+            class Startup
+            {
+                void Configure(IServiceCollection services)
+                {
+                    services.AddSingleton<ICache, RedisCache>();
+                    // Controller expects [FromKeyedServices("cache")] ICache
+                }
+            }
+            interface ICache { }
+            class RedisCache : ICache { }
     prompt: |
-      I have a .NET 8 console app that:
-      - Uses BinaryFormatter to serialize/deserialize a session cache to disk
-      - Has LINQ expression trees that call string.Join with expanded params: `(x, y) => string.Join("", x, y)`
-      - Relies on `(int)float.NaN` returning `int.MinValue` for sentinel detection
-      - Uses BigInteger for large number calculations (well within normal range)
-      Migrate this app to .NET 9. Identify all breaking changes and provide the exact code fixes.
+      Migrate this .NET 8 app to .NET 9 and fix all breaking changes.
+      On our Linux servers, we set empty environment variables (export MY_FLAG="") to
+      distinguish between "not set" and "explicitly empty".
+      The ZIP archives are consumed by a legacy Java system that reads filenames in Shift-JIS.
+      A controller uses [FromKeyedServices("cache")] ICache but the service is registered as non-keyed.
+      Identify all breaking changes and provide the exact fixes.
     assertions:
       - type: "output_matches"
-        pattern: "(BinaryFormatter|NotSupportedException|SYSLIB|serializ)"
+        pattern: "(empty.*env|null.*empty|SetEnvironmentVariable|string\\.IsNullOrEmpty)"
       - type: "output_matches"
-        pattern: "(params|[Ss]pan|ReadOnlySpan|Expression|CS8640|CS9226|explicit.*array)"
+        pattern: "(ZipArchive|UTF.?8|encoding|Shift.?JIS|flag)"
       - type: "output_matches"
-        pattern: "(saturating|NaN|float.*integer|int\\.MinValue|int\\.MaxValue)"
+        pattern: "(keyed|non-keyed|FromKeyedServices|InvalidOperationException|fallback)"
     rubric:
-      - "Identifies BinaryFormatter now always throws NotSupportedException; recommends migration to System.Text.Json, MessagePack, or protobuf-net"
-      - "Identifies params span overload resolution change causing errors in Expression lambdas; recommends passing explicit array"
-      - "Explains floating-point to integer conversions are now saturating — NaN returns 0, not int.MinValue"
+      - "Correctly identifies empty environment variables on Unix now return empty string instead of null in .NET 9; recommends string.IsNullOrEmpty check"
+      - "Warns about ZipArchiveEntry names/comments now respecting UTF-8 bit flag; explains that explicit entryNameEncoding may be overridden"
+      - "Identifies FromKeyedServicesAttribute no longer falls back to non-keyed service registration; throws InvalidOperationException"
     timeout: 420
 
   # --- Scenario 2: C# 13 compiler breaking changes ---
@@ -196,43 +244,65 @@ scenarios:
       - "Mentions Microsoft.EntityFrameworkCore.Design may not be found; shows Publish=true workaround"
     timeout: 420
 
-  # --- Scenario 5: Cryptography — X509Certificate2 obsolete constructors ---
-  - name: "App loading certificates with obsolete X509Certificate2 constructors"
+  # --- Scenario 5: Cosmos DB id format change and HasIndex removal ---
+  - name: "EF Core Cosmos DB app with existing documents and composite id format"
     expect_activation: false
     setup:
       files:
-        - path: "CertApp.csproj"
+        - path: "CosmosApi.csproj"
           content: |
-            <Project Sdk="Microsoft.NET.Sdk">
+            <Project Sdk="Microsoft.NET.Sdk.Web">
               <PropertyGroup>
                 <TargetFramework>net8.0</TargetFramework>
               </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.EntityFrameworkCore.Cosmos" Version="9.0.0" />
+              </ItemGroup>
             </Project>
-        - path: "CertLoader.cs"
+        - path: "ProductContext.cs"
           content: |
-            using System.Security.Cryptography.X509Certificates;
-            class CertLoader
+            using Microsoft.EntityFrameworkCore;
+            class ProductContext : DbContext
             {
-                static long _sharedCounter;
-                void Load()
+                public DbSet<Product> Products => Set<Product>();
+                protected override void OnModelCreating(ModelBuilder modelBuilder)
                 {
-                    var cert1 = new X509Certificate2(File.ReadAllBytes("cert.pfx"), "password");
-                    var cert2 = new X509Certificate2("cert.pem");
-                    var certs = new X509Certificate2Collection();
-                    certs.Import(File.ReadAllBytes("bundle.pfx"), "password", X509KeyStorageFlags.MachineKeySet);
-                    var counter = Thread.VolatileRead(ref _sharedCounter);
+                    modelBuilder.Entity<Product>().HasIndex(p => p.Sku);
+                    modelBuilder.Entity<Product>().ToContainer("Products");
+                }
+            }
+            class Product { public int Id { get; set; } public string Sku { get; set; } }
+        - path: "CosmosQuery.cs"
+          content: |
+            class CosmosQuery
+            {
+                void FindProducts(ProductContext ctx)
+                {
+                    // Direct Cosmos SQL
+                    var sql = "SELECT * FROM c WHERE c.Discriminator = 'Product' AND c.Sku = @sku";
+                    // Also uses sync APIs
+                    var products = ctx.Products.Where(p => p.Sku == "ABC").ToList();
                 }
             }
     prompt: |
-      Migrate this .NET 8 app to .NET 9 and fix all the breaking changes and new warnings.
+      Migrate this EF Core Cosmos DB app to .NET 9.
+      Our existing Cosmos DB container has 500K documents. They were written by EF Core 8 and have
+      a "Discriminator" property and id values in format "Product|123".
+      We run direct SQL queries against the container that reference c.Discriminator.
+      Identify all breaking changes — especially around data compatibility with existing documents.
     assertions:
       - type: "output_matches"
-        pattern: "(SYSLIB0057|X509Certificate|obsolete|X509CertificateLoader)"
+        pattern: "(\\$type|Discriminator|discriminator.*renamed|HasDiscriminator)"
       - type: "output_matches"
-        pattern: "(SYSLIB0054|VolatileRead|Volatile\\.Read)"
+        pattern: "(id.*format|Product\\|123|composite|no longer contain)"
+      - type: "output_matches"
+        pattern: "(HasIndex|throws|not supported|Cosmos)"
     rubric:
-      - "Identifies SYSLIB0057 for X509Certificate2 constructors and Import; recommends X509CertificateLoader.LoadPkcs12 and LoadCertificateFromFile"
-      - "Identifies SYSLIB0054 for Thread.VolatileRead; recommends Volatile.Read"
+      - "Identifies discriminator property renamed from 'Discriminator' to '$type'; shows HasDiscriminator('Discriminator') to preserve compatibility with existing docs"
+      - "Identifies id property no longer embeds discriminator — new documents will use '123' format not 'Product|123'; explains data migration implications"
+      - "Warns that HasIndex now throws on Cosmos (was silently ignored); must remove it"
+      - "Warns that SQL queries using c.Discriminator need updating to c.$type"
+      - "Identifies sync I/O (ToList) now throws on Cosmos provider; must use ToListAsync"
     timeout: 420
 
   # --- Scenario 6: Serialization — JsonDocument null, BinaryFormatter, JSON metadata ---
@@ -568,61 +638,65 @@ scenarios:
       - "Identifies HttpListenerRequest.UserAgent is now nullable"
     timeout: 420
 
-  # --- Scenario 12: Runtime behavior — env var precedence, empty env vars, ZipArchive encoding ---
-  - name: "App with runtime config conflicts and ZipArchive encoding"
+  # --- Scenario 12: Runtime config + container changes combined ---
+  - name: "Containerized app with env var precedence reversal and zlib removal"
     expect_activation: false
     setup:
       files:
-        - path: "RuntimeApp.csproj"
+        - path: "WebApp.csproj"
           content: |
-            <Project Sdk="Microsoft.NET.Sdk">
+            <Project Sdk="Microsoft.NET.Sdk.Web">
               <PropertyGroup>
                 <TargetFramework>net8.0</TargetFramework>
               </PropertyGroup>
             </Project>
+        - path: "Dockerfile"
+          content: |
+            FROM mcr.microsoft.com/dotnet/aspnet:8.0
+            COPY publish/ .
+            ENTRYPOINT ["dotnet", "WebApp.dll"]
         - path: "runtimeconfig.template.json"
           content: |
             {
               "configProperties": {
-                "System.GC.Server": true
+                "System.GC.Server": true,
+                "System.GC.Concurrent": true,
+                "System.Threading.ThreadPool.MinThreads": 25
               }
             }
-        - path: "Program.cs"
+        - path: "ImageProcessor.cs"
           content: |
-            using System.IO.Compression;
-            using System.Text;
-            using System.Text.Json;
-            class Program
+            class ImageProcessor
             {
-                static void Main()
+                void Process()
                 {
-                    // Check empty env var
-                    if (Environment.GetEnvironmentVariable("MY_FLAG") == null)
-                        Console.WriteLine("MY_FLAG is not set");
-                    // Create ZIP with Japanese filenames
-                    using var archive = ZipFile.Open("archive.zip", ZipArchiveMode.Create);
-                    archive.CreateEntry("テスト.txt");
-                    // Deserialize JSON null
-                    var doc = JsonSerializer.Deserialize<JsonDocument>("null");
-                    if (doc == null) Console.WriteLine("null document");
+                    // Uses SkiaSharp which depends on system libz/zlib
+                    var image = LoadImage("input.png");
+                    var compressed = Compress(image);
                 }
+                object LoadImage(string path) => null;
+                byte[] Compress(object img) => null;
             }
     prompt: |
-      Migrate this .NET 8 app to .NET 9.
-      In deployment, the env var DOTNET_gcServer=0 is set by the orchestrator.
-      In .NET 8 the runtimeconfig.json value took precedence. The ZIP archive is received
-      by a system expecting Shift-JIS encoding for Japanese filenames.
-      Identify all breaking changes and provide the exact fixes.
+      Migrate this containerized .NET 8 app to .NET 9.
+      Our Kubernetes deployment sets these env vars:
+        DOTNET_gcServer=0 (save memory on small pods)
+        DOTNET_GCConcurrent=0
+        DOTNET_ThreadPool_MinThreads=4
+      In .NET 8, the runtimeconfig.json values (Server=true, Concurrent=true, MinThreads=25)
+      took precedence and our app used server GC with 25 min threads.
+      The app uses SkiaSharp for image processing which depends on system zlib.
+      Identify all breaking changes and their exact impact on this deployment.
     assertions:
       - type: "output_matches"
         pattern: "(environment variable|precedence|runtimeconfig|DOTNET_gcServer)"
       - type: "output_matches"
-        pattern: "(empty.*environment|supported|unset)"
+        pattern: "(zlib|no longer install|apt-get|zlib1g|SkiaSharp)"
       - type: "output_matches"
-        pattern: "(ZipArchive|UTF.?8|encoding|flag)"
+        pattern: "(workstation|server GC|GC.*mode|MinThreads.*4)"
     rubric:
-      - "Correctly states environment variable now takes precedence — app will use workstation GC (DOTNET_gcServer=0 wins)"
-      - "Correctly states empty environment variables are now supported and no longer treated as unset"
-      - "Warns about ZipArchiveEntry names/comments now respecting UTF-8 flag which may change encoding behavior"
-      - "Warns about JsonDocument deserialization returning non-null for JSON 'null'"
+      - "Correctly states environment variables now take precedence in .NET 9 — all three settings (GC Server, Concurrent, ThreadPool) will use env var values instead of runtimeconfig"
+      - "Explains the concrete impact: app switches from server GC to workstation GC, concurrent GC disabled, min threads drop from 25 to 4"
+      - "Identifies zlib no longer installed in .NET 9 container images; SkiaSharp/image processing will fail; recommends adding apt-get install zlib1g"
+      - "Recommends either removing conflicting env vars or updating runtimeconfig to match desired values"
     timeout: 420
