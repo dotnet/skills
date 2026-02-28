@@ -15,11 +15,13 @@ formatter.Serialize(stream, obj);      // throws
 var obj = formatter.Deserialize(stream); // throws
 ```
 
-**Migration options:**
-1. **System.Text.Json** — Recommended for most scenarios
-2. **MessagePack** or **protobuf-net** — For binary formats
-3. **XmlSerializer** or **DataContractSerializer** — For XML formats
-4. **Unsupported NuGet package** — `System.Runtime.Serialization.Formatters` NuGet package provides BinaryFormatter if you accept the security risks (unsupported)
+**This is a major architectural decision.** If the project uses BinaryFormatter, the agent should stop and ask the user which replacement to use. Options include:
+1. **System.Text.Json** — Modern, high-performance, built-in
+2. **MessagePack** or **protobuf-net** — Compact binary formats
+3. **XmlSerializer** or **DataContractSerializer** — XML-based formats
+4. **Unsupported NuGet package** — `System.Runtime.Serialization.Formatters` NuGet package provides BinaryFormatter if the user accepts the security risks (unsupported, not recommended)
+
+The choice depends on existing data format, backward compatibility requirements, and performance needs. Stored data may need a migration strategy.
 
 See the [BinaryFormatter migration guide](https://learn.microsoft.com/en-us/dotnet/standard/serialization/binaryformatter-migration-guide/) for detailed guidance.
 
