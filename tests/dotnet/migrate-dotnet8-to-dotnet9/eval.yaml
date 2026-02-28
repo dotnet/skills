@@ -1,13 +1,14 @@
 scenarios:
   # --- Scenario 1: Core libraries (BinaryFormatter, params span, BigInteger, floating point) ---
   - name: "Console app with BinaryFormatter, params span in expressions, and floating-point conversions"
+    expect_activation: false
     prompt: |
       I have a .NET 8 console app that:
       - Uses BinaryFormatter to serialize/deserialize a session cache to disk
       - Has LINQ expression trees that call string.Join with expanded params: `(x, y) => string.Join("", x, y)`
       - Relies on `(int)float.NaN` returning `int.MinValue` for sentinel detection
       - Uses BigInteger for large number calculations (well within normal range)
-      What breaks when migrating to .NET 9?
+      Migrate this app to .NET 9. Identify all breaking changes and provide the exact code fixes.
     assertions:
       - type: "output_matches"
         pattern: "(BinaryFormatter|NotSupportedException|SYSLIB|serializ)"
@@ -19,10 +20,11 @@ scenarios:
       - "Identifies BinaryFormatter now always throws NotSupportedException; recommends migration to System.Text.Json, MessagePack, or protobuf-net"
       - "Identifies params span overload resolution change causing errors in Expression lambdas; recommends passing explicit array"
       - "Explains floating-point to integer conversions are now saturating — NaN returns 0, not int.MinValue"
-    timeout: 240
+    timeout: 420
 
   # --- Scenario 2: C# 13 compiler breaking changes ---
   - name: "C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions"
+    expect_activation: false
     prompt: |
       I'm migrating a .NET 8 library to .NET 9 / C# 13 and getting compiler errors. Here's the code:
 
@@ -66,7 +68,7 @@ scenarios:
       }
       ```
 
-      What breaks in each case and how do I fix it?
+      Migrate this code to .NET 9 / C# 13. What breaks in each case and how do I fix it?
     assertions:
       - type: "output_matches"
         pattern: "(InlineArray|record struct|CS9259|struct)"
@@ -78,18 +80,43 @@ scenarios:
       - "Identifies InlineArray on record struct is disallowed (CS9259); recommends changing to a plain struct"
       - "Identifies iterator safe context breaks unsafe code in nested local functions; recommends adding unsafe modifier to local function"
       - "Identifies collection expression overload resolution change for empty [] — no longer uses span to tiebreak"
-    timeout: 180
+    timeout: 420
 
   # --- Scenario 3: ASP.NET Core — HostBuilder validation, forwarded headers, HttpClientFactory ---
   - name: "ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting"
+    expect_activation: false
+    setup:
+      files:
+        - path: "WebApi.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddSingleton<ICacheService>(sp =>
+                new CacheService(sp.GetRequiredService<IUserService>()));
+            builder.Services.AddHttpClient("api")
+                .ConfigurePrimaryHttpMessageHandler((h, _) =>
+                {
+                    ((HttpClientHandler)h).UseCookies = false;
+                });
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor;
+            });
+            var app = builder.Build();
+            app.UseForwardedHeaders();
+            app.Run();
     prompt: |
-      I'm upgrading a .NET 8 ASP.NET Core web API to .NET 9. The codebase:
-      - Runs behind a reverse proxy and uses ForwardedHeadersMiddleware with X-Forwarded-For headers
-      - Has some DI registrations where a scoped service is injected into a singleton (works in .NET 8 in development)
-      - Uses HttpClientFactory and casts the primary handler to HttpClientHandler to set UseCookies=false
-      - Has Trace-level logging enabled to debug HTTP request headers in production
-      - Uses dotnet watch for development with Hot Reload targeting net8.0
-      What needs to change for .NET 9?
+      Migrate this .NET 8 ASP.NET Core web API to .NET 9.
+      The app runs behind a reverse proxy, has Trace-level logging to debug HTTP request headers,
+      and uses dotnet watch for development.
+      Identify all breaking changes and provide the exact fixes.
     assertions:
       - type: "output_matches"
         pattern: "(ValidateOnBuild|ValidateScopes|development|DI|scope)"
@@ -102,18 +129,58 @@ scenarios:
       - "Warns about ForwardedHeadersMiddleware ignoring headers from unknown proxies; recommends adding proxy to KnownProxies"
       - "Identifies HttpClientFactory now uses SocketsHttpHandler; casting to HttpClientHandler throws InvalidCastException"
       - "Mentions header values are redacted by default in HttpClientFactory logging"
-    timeout: 240
+    timeout: 420
 
   # --- Scenario 4: EF Core — Pending migrations, explicit transactions, Cosmos discriminator ---
   - name: "EF Core app with migration patterns and Cosmos DB discriminator"
+    expect_activation: false
+    setup:
+      files:
+        - path: "EfApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.0" />
+                <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0" PrivateAssets="all" />
+              </ItemGroup>
+            </Project>
+        - path: "AppDbContext.cs"
+          content: |
+            using Microsoft.EntityFrameworkCore;
+            class AppDbContext : DbContext
+            {
+                public DbSet<Order> Orders => Set<Order>();
+                protected override void OnModelCreating(ModelBuilder modelBuilder)
+                {
+                    modelBuilder.Entity<Order>().HasData(
+                        new Order { Id = 1, CreatedAt = DateTime.UtcNow });
+                }
+            }
+            class Order { public int Id { get; set; } public DateTime CreatedAt { get; set; } }
+        - path: "MigrationRunner.cs"
+          content: |
+            using Microsoft.EntityFrameworkCore;
+            class MigrationRunner
+            {
+                void ApplyMigrations(AppDbContext db)
+                {
+                    var strategy = db.Database.CreateExecutionStrategy();
+                    strategy.Execute(() =>
+                    {
+                        using var transaction = db.Database.BeginTransaction();
+                        db.Database.Migrate();
+                        transaction.Commit();
+                    });
+                }
+            }
     prompt: |
-      I'm migrating a .NET 8 app using EF Core 9. The codebase:
-      - Applies migrations resiliently using ExecutionStrategy + BeginTransaction + MigrateAsync pattern
-      - Has HasData() seed data that includes `DateTime.UtcNow` for CreatedAt timestamps
-      - Uses the Cosmos DB provider and has existing documents with "Discriminator" property
-      - Has synchronous Cosmos DB queries like `.ToList()` and `SaveChanges()`
-      - References Microsoft.EntityFrameworkCore.Design with PrivateAssets=all
-      What breaks in EF Core 9 and how do I fix each?
+      Migrate this EF Core app to .NET 9 / EF Core 9.
+      The app also uses the Cosmos DB provider in a separate project with existing documents
+      using "Discriminator" property, and has synchronous Cosmos DB queries.
+      Identify all breaking changes and provide the exact fixes.
     assertions:
       - type: "output_matches"
         pattern: "(explicit transaction|MigrateAsync|BeginTransaction)"
@@ -127,20 +194,37 @@ scenarios:
       - "Identifies Cosmos DB discriminator renamed from 'Discriminator' to '$type'; shows HasDiscriminator mitigation"
       - "Warns that sync I/O on Cosmos DB provider now throws; must use async equivalents"
       - "Mentions Microsoft.EntityFrameworkCore.Design may not be found; shows Publish=true workaround"
-    timeout: 240
+    timeout: 420
 
   # --- Scenario 5: Cryptography — X509Certificate2 obsolete constructors ---
   - name: "App loading certificates with obsolete X509Certificate2 constructors"
+    expect_activation: false
+    setup:
+      files:
+        - path: "CertApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "CertLoader.cs"
+          content: |
+            using System.Security.Cryptography.X509Certificates;
+            class CertLoader
+            {
+                static long _sharedCounter;
+                void Load()
+                {
+                    var cert1 = new X509Certificate2(File.ReadAllBytes("cert.pfx"), "password");
+                    var cert2 = new X509Certificate2("cert.pem");
+                    var certs = new X509Certificate2Collection();
+                    certs.Import(File.ReadAllBytes("bundle.pfx"), "password", X509KeyStorageFlags.MachineKeySet);
+                    var counter = Thread.VolatileRead(ref _sharedCounter);
+                }
+            }
     prompt: |
-      I'm migrating a .NET 8 app to .NET 9. It loads certificates in several ways:
-      ```csharp
-      var cert1 = new X509Certificate2(File.ReadAllBytes("cert.pfx"), "password");
-      var cert2 = new X509Certificate2("cert.pem");
-      var certs = new X509Certificate2Collection();
-      certs.Import(pfxBytes, "password", X509KeyStorageFlags.MachineKeySet);
-      ```
-      Also, it uses Thread.VolatileRead to read a shared counter in a multithreaded scenario.
-      What warnings or errors will I get?
+      Migrate this .NET 8 app to .NET 9 and fix all the breaking changes and new warnings.
     assertions:
       - type: "output_matches"
         pattern: "(SYSLIB0057|X509Certificate|obsolete|X509CertificateLoader)"
@@ -149,39 +233,60 @@ scenarios:
     rubric:
       - "Identifies SYSLIB0057 for X509Certificate2 constructors and Import; recommends X509CertificateLoader.LoadPkcs12 and LoadCertificateFromFile"
       - "Identifies SYSLIB0054 for Thread.VolatileRead; recommends Volatile.Read"
-    timeout: 180
+    timeout: 420
 
   # --- Scenario 6: Serialization — JsonDocument null, BinaryFormatter, JSON metadata ---
   - name: "App with JsonDocument null deserialization and BinaryFormatter fallback"
+    expect_activation: false
+    setup:
+      files:
+        - path: "SerializationApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "NullDocHandler.cs"
+          content: |
+            using System.Text.Json;
+            class NullDocHandler
+            {
+                void Handle()
+                {
+                    var doc = JsonSerializer.Deserialize<JsonDocument>("null");
+                    if (doc is null)
+                    {
+                        Console.WriteLine("Got null document");
+                        return;
+                    }
+                    Console.WriteLine(doc.RootElement);
+                }
+            }
+        - path: "CacheService.cs"
+          content: |
+            using System.Runtime.Serialization.Formatters.Binary;
+            class CacheService
+            {
+                void Save(Stream stream, object sessionData)
+                {
+                    AppContext.SetSwitch("System.Runtime.Serialization.EnableUnsafeBinaryFormatterSerialization", true);
+                    var formatter = new BinaryFormatter();
+                    formatter.Serialize(stream, sessionData);
+                }
+            }
+        - path: "ApiClient.cs"
+          content: |
+            using System.Net;
+            class ApiClient
+            {
+                void LogAgent(HttpListenerRequest request)
+                {
+                    Console.WriteLine("UA length: " + request.UserAgent.Length);
+                }
+            }
     prompt: |
-      I'm upgrading a .NET 8 app to .NET 9. Here's code that might break:
-
-      ```csharp
-      // NullDocHandler.cs
-      var doc = JsonSerializer.Deserialize<JsonDocument>("null");
-      if (doc is null)
-      {
-          Console.WriteLine("Got null document");
-          return;
-      }
-      ProcessDocument(doc);
-      ```
-
-      ```csharp
-      // CacheService.cs
-      AppContext.SetSwitch("System.Runtime.Serialization.EnableUnsafeBinaryFormatterSerialization", true);
-      var formatter = new BinaryFormatter();
-      formatter.Serialize(stream, sessionData);  // was working in .NET 8 with the switch
-      ```
-
-      ```csharp
-      // ApiClient.cs
-      var request = new HttpListenerRequest();
-      var userAgent = request.UserAgent;
-      logger.LogInformation("UA length: {Length}", userAgent.Length);  // no null check
-      ```
-
-      What breaks?
+      Migrate this .NET 8 app to .NET 9 and fix all breaking changes in the code.
     assertions:
       - type: "output_matches"
         pattern: "(JsonDocument|null|JsonValueKind\\.Null|non-null)"
@@ -193,19 +298,36 @@ scenarios:
       - "Identifies JsonDocument deserialization of 'null' now returns non-null document instead of null; code path changes"
       - "Identifies BinaryFormatter always throws even with the AppContext switch; switch is removed"
       - "Identifies HttpListenerRequest.UserAgent is now nullable; .Length without null check may throw"
-    timeout: 180
+    timeout: 420
 
   # --- Scenario 7: SDK/MSBuild — Terminal Logger, version requirements, warnings ---
   - name: "CI pipeline with Terminal Logger parsing and version constraints"
+    expect_activation: false
+    setup:
+      files:
+        - path: "MultiTarget.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFrameworks>net7.0;net8.0;netstandard1.6</TargetFrameworks>
+              </PropertyGroup>
+            </Project>
+        - path: "global.json"
+          content: |
+            { "sdk": { "version": "8.0.300" } }
+        - path: "ci-build.sh"
+          content: |
+            #!/bin/bash
+            output=$(dotnet build 2>&1)
+            if echo "$output" | grep -q "warning CS"; then
+              echo "Build has warnings"
+            fi
+            dotnet workload list | grep "maui" && echo "MAUI workload installed"
     prompt: |
-      I'm upgrading our CI/CD pipeline to .NET 9 SDK. We have:
-      - A CI script that parses the output of `dotnet build` looking for specific warning patterns using regex
-      - Visual Studio 2022 17.11 on developer machines
-      - A multi-targeted library with net7.0 and net8.0 targets
-      - Some projects still targeting netstandard1.6
-      - Our CI runs `dotnet workload list` and parses the output to verify installed workloads
-      - We use `dotnet watch` for local development while targeting net8.0
-      What issues will we encounter?
+      Migrate this CI/CD pipeline and multi-targeted library to .NET 9 SDK.
+      Our developers use Visual Studio 2022 17.11.
+      We use `dotnet watch` for local development while targeting net8.0.
+      Identify all issues and provide the exact fixes.
     assertions:
       - type: "output_matches"
         pattern: "(Terminal Logger|--tl|MSBUILDTERMINALLOGGER|console.*output)"
@@ -220,18 +342,47 @@ scenarios:
       - "Notes netstandard1.x targets produce warnings"
       - "Mentions dotnet workload output format changed"
       - "Mentions dotnet watch incompatibility with Hot Reload for older frameworks"
-    timeout: 240
+    timeout: 420
 
   # --- Scenario 8: WinForms — Security analyzers, StatusStrip, PictureBox ---
   - name: "WinForms app with custom UserControls and PictureBox URL loading"
+    expect_activation: false
+    setup:
+      files:
+        - path: "WinFormsApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>WinExe</OutputType>
+                <TargetFramework>net8.0-windows</TargetFramework>
+                <UseWindowsForms>true</UseWindowsForms>
+              </PropertyGroup>
+            </Project>
+        - path: "MyControl.cs"
+          content: |
+            using System.Windows.Forms;
+            public class MyControl : UserControl
+            {
+                public string DisplayName { get; set; }
+                public int MaxItems { get; set; }
+            }
+        - path: "ImageLoader.cs"
+          content: |
+            using System.Net;
+            using System.Windows.Forms;
+            class ImageLoader
+            {
+                void LoadImage(PictureBox pictureBox, string url)
+                {
+                    try { pictureBox.Load(url); }
+                    catch (WebException ex) { Console.WriteLine("Failed: " + ex.Message); }
+                }
+            }
     prompt: |
-      I'm upgrading a .NET 8 WinForms app to .NET 9. The app has:
-      - Custom UserControls with public properties that don't have DesignerSerializationVisibilityAttribute
-      - A PictureBox that loads images from URLs with a catch block for WebException
-      - StatusStrip controls with default rendering
-      - Code that uses IWindowsFormsEditorService.DropDownControl and passes null sometimes
-      - The project also references some COM components and uses P/Invoke with native libraries
-      What breaks?
+      Migrate this .NET 8 WinForms app to .NET 9 and fix all breaking changes.
+      The app also has StatusStrip controls with default rendering,
+      code that calls IWindowsFormsEditorService.DropDownControl passing null sometimes,
+      and references COM components with P/Invoke to native libraries.
     assertions:
       - type: "output_matches"
         pattern: "(WFO1000|security analyz|serialization|DesignerSerializationVisibility)"
@@ -245,35 +396,47 @@ scenarios:
       - "Mentions StatusStrip default renderer changed"
       - "Identifies DropDownControl parameter is now non-nullable — passing null will warn"
       - "Mentions CET support may affect P/Invoke with incompatible native libraries"
-    timeout: 180
+    timeout: 420
 
   # --- Scenario 9: Containers and deployment — zlib, env var precedence, Monitor images ---
   - name: "Containerized app with zlib dependency and runtime configuration"
+    expect_activation: false
+    setup:
+      files:
+        - path: "ContainerApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "Dockerfile"
+          content: |
+            FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+            # Our image processing library depends on system zlib
+            FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+            COPY . .
+            RUN dotnet publish -c Release -o /app
+            FROM base
+            COPY --from=build /app .
+            ENTRYPOINT ["dotnet", "ContainerApp.dll"]
+        - path: "runtimeconfig.template.json"
+          content: |
+            {
+              "configProperties": {
+                "System.GC.Server": true,
+                "System.Threading.ThreadPool.MinThreads": 50
+              }
+            }
+        - path: "global.json"
+          content: |
+            { "sdk": { "version": "8.0.300" } }
     prompt: |
-      I'm migrating a .NET 8 containerized app to .NET 9. Our setup:
-
-      ```dockerfile
-      FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-      # We don't explicitly install zlib — our image processing library depends on it
-      ```
-
-      ```json
-      // runtimeconfig.template.json
-      {
-        "configProperties": {
-          "System.GC.Server": true,
-          "System.Threading.ThreadPool.MinThreads": 50
-        }
-      }
-      ```
-
-      In our Kubernetes deployment, we set:
-      - DOTNET_gcServer=0 (to reduce memory on small pods)
-      - DOTNET_ThreadPool_MinThreads=4
-
-      In .NET 8, the runtimeconfig.json values took precedence. The app uses .NET Monitor with specific image tags.
-      We also have `global.json` pinned to 8.0.300.
-      What needs to change?
+      Migrate this containerized .NET 8 app to .NET 9.
+      In our Kubernetes deployment, we set DOTNET_gcServer=0 (to reduce memory on small pods)
+      and DOTNET_ThreadPool_MinThreads=4. In .NET 8, the runtimeconfig.json values took precedence.
+      The app uses .NET Monitor with specific image tags.
+      Identify all breaking changes and provide the exact fixes.
     assertions:
       - type: "output_matches"
         pattern: "(zlib|no longer install|apt-get|zlib1g)"
@@ -286,19 +449,52 @@ scenarios:
       - "Explains environment variables now take precedence over runtimeconfig.json — GC and ThreadPool settings will use env var values"
       - "Warns about .NET Monitor image tag format changes"
       - "Notes global.json should be updated to 9.0.x SDK"
-    timeout: 180
+    timeout: 420
 
   # --- Scenario 10: EF Core Cosmos DB — comprehensive Cosmos changes ---
   - name: "EF Core Cosmos DB app with discriminator and sync I/O"
+    expect_activation: false
+    setup:
+      files:
+        - path: "CosmosApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.EntityFrameworkCore.Cosmos" Version="9.0.0" />
+              </ItemGroup>
+            </Project>
+        - path: "BlogContext.cs"
+          content: |
+            using Microsoft.EntityFrameworkCore;
+            class BlogContext : DbContext
+            {
+                public DbSet<Blog> Blogs => Set<Blog>();
+                protected override void OnModelCreating(ModelBuilder modelBuilder)
+                {
+                    modelBuilder.Entity<Blog>().HasIndex(b => b.Name);
+                }
+            }
+            class Blog { public string Id { get; set; } public string Name { get; set; } }
+        - path: "SyncJob.cs"
+          content: |
+            class SyncJob
+            {
+                void Run(BlogContext context)
+                {
+                    var blogs = context.Blogs.ToList();
+                    foreach (var b in blogs) { b.Name = b.Name.Trim(); }
+                    context.SaveChanges();
+                }
+            }
     prompt: |
-      I'm migrating a .NET 8 app that uses EF Core with the Azure Cosmos DB provider. The codebase:
-      - Has existing documents in Cosmos DB with a "Discriminator" property
-      - Uses `SaveChanges()` (sync) in a background job
-      - Has raw SQL queries like `SELECT * FROM c WHERE c.Discriminator = 'Blog'`
-      - Uses `HasIndex(b => b.Name)` on a Cosmos entity
-      - Has documents where the id is in format `"Blog|1"` (discriminator + key)
-      - Uses `context.Blogs.ToList()` in several places
-      What breaks in EF Core 9 and how do I fix each?
+      Migrate this EF Core Cosmos DB app to .NET 9.
+      The app has existing documents in Cosmos DB with a "Discriminator" property,
+      documents with id in format "Blog|1" (discriminator + key),
+      and raw SQL queries like `SELECT * FROM c WHERE c.Discriminator = 'Blog'`.
+      Identify all breaking changes and provide the exact fixes.
     assertions:
       - type: "output_matches"
         pattern: "(\\$type|Discriminator|discriminator.*renamed)"
@@ -312,17 +508,52 @@ scenarios:
       - "Identifies sync I/O throws — SaveChanges must become SaveChangesAsync, ToList must become ToListAsync"
       - "Identifies HasIndex now throws instead of being silently ignored"
       - "Warns that SQL queries using c.Discriminator need updating to c.$type or use VALUE projection"
-    timeout: 240
+    timeout: 420
 
   # --- Scenario 11: Mixed — String.Trim removal, keyed services, InlineArray size ---
   - name: "Library with String.Trim span overload, keyed services, and InlineArray"
+    expect_activation: false
+    setup:
+      files:
+        - path: "MyLib.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "StringUtils.cs"
+          content: |
+            using System.Runtime.CompilerServices;
+            using System.Runtime.InteropServices;
+            class StringUtils
+            {
+                public string CleanInput(string input)
+                {
+                    ReadOnlySpan<char> trimChars = [' ', '\t', '\n'];
+                    return input.Trim(trimChars);
+                }
+            }
+            [InlineArray(1024)]
+            [StructLayout(LayoutKind.Sequential, Size = 8192)]
+            struct LargeBuffer { private byte _element0; }
+        - path: "ApiController.cs"
+          content: |
+            using Microsoft.Extensions.DependencyInjection;
+            using System.Net;
+            class ApiController
+            {
+                public ApiController([FromKeyedServices("cache")] ICache cache) { }
+                void LogAgent(HttpListenerRequest request)
+                {
+                    Console.WriteLine(request.UserAgent.Length);
+                }
+            }
+            interface ICache { }
     prompt: |
-      I'm upgrading a .NET 8 class library and web API to .NET 9. It:
-      - Was compiled against .NET 9 RC2 and uses `str.Trim(mySpan)` where mySpan is a `ReadOnlySpan<char>`
-      - Has keyed services where `[FromKeyedServices("cache")]` decorates a parameter, but the service is only registered as a non-keyed `ICache`
-      - Has an `[InlineArray(1024)]` struct that also has `[StructLayout(LayoutKind.Sequential, Size = 8192)]`
-      - Uses `HttpListenerRequest.UserAgent.Length` without null checks
-      What issues will I encounter?
+      Migrate this .NET 8 library and web API to .NET 9. It was compiled against .NET 9 RC2.
+      The ICache service is only registered as a non-keyed service.
+      Identify all breaking changes and provide the exact fixes.
     assertions:
       - type: "output_matches"
         pattern: "(Trim|ReadOnlySpan|char\\[\\]|removed|MissingMethodException)"
@@ -335,17 +566,53 @@ scenarios:
       - "Identifies FromKeyedServicesAttribute no longer falls back to non-keyed service; throws InvalidOperationException"
       - "Warns about InlineArray struct size limit enforcement (1 MiB)"
       - "Identifies HttpListenerRequest.UserAgent is now nullable"
-    timeout: 180
+    timeout: 420
 
   # --- Scenario 12: Runtime behavior — env var precedence, empty env vars, ZipArchive encoding ---
   - name: "App with runtime config conflicts and ZipArchive encoding"
+    expect_activation: false
+    setup:
+      files:
+        - path: "RuntimeApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "runtimeconfig.template.json"
+          content: |
+            {
+              "configProperties": {
+                "System.GC.Server": true
+              }
+            }
+        - path: "Program.cs"
+          content: |
+            using System.IO.Compression;
+            using System.Text;
+            using System.Text.Json;
+            class Program
+            {
+                static void Main()
+                {
+                    // Check empty env var
+                    if (Environment.GetEnvironmentVariable("MY_FLAG") == null)
+                        Console.WriteLine("MY_FLAG is not set");
+                    // Create ZIP with Japanese filenames
+                    using var archive = ZipFile.Open("archive.zip", ZipArchiveMode.Create);
+                    archive.CreateEntry("テスト.txt");
+                    // Deserialize JSON null
+                    var doc = JsonSerializer.Deserialize<JsonDocument>("null");
+                    if (doc == null) Console.WriteLine("null document");
+                }
+            }
     prompt: |
-      I'm migrating a .NET 8 app to .NET 9. I have these concerns:
-      - My app sets `System.GC.Server=true` in runtimeconfig.json. In deployment, the env var `DOTNET_gcServer=0` is set by the orchestrator. In .NET 8 we got server GC. What happens in .NET 9?
-      - I check for an empty environment variable `MY_FLAG` — in .NET 8 it was treated as "not set". Is this still the case?
-      - I create ZIP archives with non-ASCII filenames (Japanese characters) and the receiving system expects them in Shift-JIS encoding
-      - I deserialize JSON `null` into a `JsonDocument?` property and check `if (doc == null)` to detect missing data
-      What changes?
+      Migrate this .NET 8 app to .NET 9.
+      In deployment, the env var DOTNET_gcServer=0 is set by the orchestrator.
+      In .NET 8 the runtimeconfig.json value took precedence. The ZIP archive is received
+      by a system expecting Shift-JIS encoding for Japanese filenames.
+      Identify all breaking changes and provide the exact fixes.
     assertions:
       - type: "output_matches"
         pattern: "(environment variable|precedence|runtimeconfig|DOTNET_gcServer)"
@@ -358,4 +625,4 @@ scenarios:
       - "Correctly states empty environment variables are now supported and no longer treated as unset"
       - "Warns about ZipArchiveEntry names/comments now respecting UTF-8 flag which may change encoding behavior"
       - "Warns about JsonDocument deserialization returning non-null for JSON 'null'"
-    timeout: 180
+    timeout: 420
