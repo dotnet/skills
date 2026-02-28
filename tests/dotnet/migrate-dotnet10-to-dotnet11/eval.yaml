@@ -2,7 +2,7 @@ scenarios:
   # --- Scenario 1: Core libraries (DeflateStream, MemoryStream, TAR, ZipArchive) ---
   - name: "Console app with compression and TAR operations"
     prompt: |
-      I have a .NET 10 console app that:
+      Use the migrate-dotnet10-to-dotnet11 skill to help me migrate my .NET 10 console app to .NET 11. The app:
       - Creates GZipStream to compress data, then checks if the output is empty (zero bytes) to detect "no data" scenarios
       - Reads TAR archives that were hand-crafted by a legacy tool (some may have invalid checksums)
       - Uses ZipArchive.CreateAsync for large ZIP files and relies on lazy loading behavior
@@ -25,7 +25,7 @@ scenarios:
   # --- Scenario 2: C# 15 compiler breaking changes (Span safe-context, nameof, with()) ---
   - name: "C# 15 compiler breaking changes — Span safe-context, nameof, with()"
     prompt: |
-      I'm migrating a .NET 10 library to .NET 11 / C# 15 and getting new compiler errors. Here's the code:
+      Use the migrate-dotnet10-to-dotnet11 skill to help me. I'm migrating a .NET 10 library to .NET 11 / C# 15 and getting new compiler errors. Here's the code:
 
       ```csharp
       // SpanHelper.cs
@@ -74,7 +74,7 @@ scenarios:
   # --- Scenario 3: EF Core Cosmos DB sync I/O removal ---
   - name: "EF Core app with Cosmos DB provider using sync APIs"
     prompt: |
-      I'm migrating a .NET 10 web API to .NET 11. The app uses EF Core with the Azure Cosmos DB provider.
+      Use the migrate-dotnet10-to-dotnet11 skill to help me. I'm migrating a .NET 10 web API to .NET 11. The app uses EF Core with the Azure Cosmos DB provider.
       We have a repository pattern where some methods use synchronous LINQ:
 
       ```csharp
@@ -120,7 +120,7 @@ scenarios:
   # --- Scenario 4: Minimum hardware requirements ---
   - name: "Deployment to older hardware with minimum requirement changes"
     prompt: |
-      We're upgrading our .NET 10 microservices to .NET 11. We deploy to:
+      Use the migrate-dotnet10-to-dotnet11 skill to help me. We're upgrading our .NET 10 microservices to .NET 11. We deploy to:
       - x86-64 Linux containers on a mix of hardware, some dating back to 2012
       - Windows Arm64 devices (Surface Pro X with SQ1 chip)
       - Raspberry Pi 4 running Linux for edge computing
@@ -141,7 +141,7 @@ scenarios:
   # --- Scenario 5: Cryptography — DSA on macOS ---
   - name: "Cryptography app using DSA on macOS"
     prompt: |
-      We have a .NET 10 library that verifies legacy DSA signatures. It runs on Linux, Windows,
+      Use the migrate-dotnet10-to-dotnet11 skill to help me. We have a .NET 10 library that verifies legacy DSA signatures. It runs on Linux, Windows,
       and macOS. After upgrading to .NET 11, the macOS builds fail at runtime when calling
       DSA.Create(). What happened and how do we fix it?
     assertions:
@@ -158,7 +158,7 @@ scenarios:
   # --- Scenario 6: TFM update + global.json + Docker ---
   - name: "Basic TFM update with Docker and global.json"
     prompt: |
-      I have a .NET 10 ASP.NET Core web app with:
+      Use the migrate-dotnet10-to-dotnet11 skill to help me. I have a .NET 10 ASP.NET Core web app with:
       - TargetFramework set to net10.0 in the csproj
       - global.json pinning SDK to 10.0.100
       - A Dockerfile using mcr.microsoft.com/dotnet/aspnet:10.0 and sdk:10.0
@@ -180,7 +180,7 @@ scenarios:
   # --- Scenario 7: Dynamic operator with interface and ref readonly delegate ---
   - name: "C# 15 dynamic operator and ref readonly delegate issues"
     prompt: |
-      After upgrading to .NET 11 / C# 15, I'm getting two new compiler errors:
+      Use the migrate-dotnet10-to-dotnet11 skill to help me. After upgrading to .NET 11 / C# 15, I'm getting two new compiler errors:
 
       ```csharp
       // DynamicOps.cs
