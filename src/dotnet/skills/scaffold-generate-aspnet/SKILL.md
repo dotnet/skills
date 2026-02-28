@@ -179,3 +179,8 @@ Skip this step for non-API scaffolders.
 | `dotnet ef` not found | Try `dotnet tool restore` first; only install globally as fallback |
 | Added unnecessary packages | Only add packages explicitly required for the scaffolded functionality |
 | Generated code uses different naming conventions | Inspect existing project files to match naming patterns before generating |
+
+## References
+
+- [Entity Framework Core DbContext Lifetime, Configuration, and Initialization](https://learn.microsoft.com/en-us/ef/core/dbcontext-configuration/)
+- [OpenAPI overview in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/openapi/overview?view=aspnetcore-10.0) — .NET 10 specific; similar pages exist for other versions
