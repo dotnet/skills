@@ -48,8 +48,9 @@ See also: https://github.com/dotnet/csharplang/issues/9750
 
 ```csharp
 // May cause CS0518 if InAttribute is not available
-var d = this.MethodWithRefReadonlyReturn;
-var d = ref readonly int () => ref x;
+var methodDelegate = this.MethodWithRefReadonlyReturn;
+int x = 0;
+var lambdaDelegate = ref readonly int () => ref x;
 ```
 
 **Fix:** Add a reference to an assembly defining `System.Runtime.InteropServices.InAttribute` (typically available via the default runtime references).
