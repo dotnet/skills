@@ -108,15 +108,14 @@ Work through compilation errors and new warnings systematically. Load the approp
 
 **Common source-incompatible changes to check for:**
 
-1. **`params` span overload resolution** — New `params ReadOnlySpan<T>` overloads on `String.Join`, `String.Concat`, `Path.Combine`, `Task.WhenAll`, and many more now bind preferentially over the `params T[]` overloads. Code calling these methods inside `Expression` lambdas will fail with CS8640/CS9226. Fix by passing an explicit array: `string.Join("", new string[] { x, y })`. See `references/core-libraries.md`.
+1. **`params` span overload resolution** — New `params ReadOnlySpan<T>` overloads on `String.Join`, `String.Concat`, `Path.Combine`, `Task.WhenAll`, and many more now bind preferentially. Code calling these methods inside `Expression` lambdas will fail (CS8640/CS9226). See `references/core-libraries.md`.
 
 2. **`StringValues` ambiguous overload** — The `params Span<T>` feature creates ambiguity with `StringValues` implicit operators on methods like `String.Concat`, `String.Join`, `Path.Combine`. Fix by explicitly casting arguments. See `references/core-libraries.md`.
 
-3. **New obsoletion warnings (SYSLIB0054–SYSLIB0057)**:
+3. **New obsoletion warnings (SYSLIB0054, SYSLIB0057)**:
    - `SYSLIB0054`: Replace `Thread.VolatileRead`/`VolatileWrite` with `Volatile.Read`/`Volatile.Write`
-   - `SYSLIB0055`: Replace signed `AdvSimd.ShiftRightLogicalRoundedNarrowingSaturate*` with unsigned overloads
-   - `SYSLIB0056`: Replace `Assembly.LoadFrom` with `AssemblyHashAlgorithm` parameter with overloads without it
    - `SYSLIB0057`: Replace `X509Certificate2`/`X509Certificate` binary/file constructors with `X509CertificateLoader` methods
+   - Also `SYSLIB0055` (ARM AdvSimd signed overloads) and `SYSLIB0056` (Assembly.LoadFrom with hash algorithm) — see `references/core-libraries.md`
 
 4. **C# 13 `InlineArray` on record structs** — `[InlineArray]` attribute on `record struct` types is now disallowed (CS9259). Change to a regular `struct`. See `references/csharp-compiler.md`.
 
@@ -124,7 +123,7 @@ Work through compilation errors and new warnings systematically. Load the approp
 
 6. **C# 13 collection expression overload resolution** — Empty collection expressions (`[]`) no longer use span vs non-span to tiebreak overloads. Exact element type is now preferred. See `references/csharp-compiler.md`.
 
-7. **`String.Trim(params ReadOnlySpan<char>)` removed** — The `Trim`/`TrimStart`/`TrimEnd` overloads accepting `ReadOnlySpan<char>` were removed in .NET 9 GA after being added in previews. Code explicitly passing `ReadOnlySpan<char>` must switch to `char[]`. See `references/core-libraries.md`.
+7. **`String.Trim(params ReadOnlySpan<char>)` removed** — Code compiled against .NET 9 previews that passes `ReadOnlySpan<char>` to `Trim`/`TrimStart`/`TrimEnd` must rebuild; the overload was removed in GA. See `references/core-libraries.md`.
 
 8. **`BinaryFormatter` always throws** — If the project uses `BinaryFormatter`, **stop and inform the user** — this is a major decision. See `references/serialization-networking.md`.
 
@@ -142,21 +141,19 @@ Behavioral changes do not cause build errors but may change runtime behavior. Re
 
 **High-impact behavioral changes (check first):**
 
-1. **BinaryFormatter always throws at runtime** — No runtime switch to re-enable. If BinaryFormatter usage is detected, **stop and ask the user** which replacement to use. See `references/serialization-networking.md` for options.
+1. **Floating-point to integer conversions are now saturating** — Conversions from `float`/`double` to integer types now saturate instead of wrapping on x86/x64. See `references/deployment-runtime.md`.
 
-2. **Floating-point to integer conversions are now saturating** — On x86/x64, conversions from `float`/`double` to integer types now saturate instead of wrapping. `NaN` converts to `0`. Values exceeding the target type range clamp to `MinValue`/`MaxValue`. If you relied on the previous wrapping behavior, use `ConvertToIntegerNative<TInteger>`.
+2. **EF Core: Pending model changes exception** — `Migrate()`/`MigrateAsync()` now throws if the model has pending changes. See `references/efcore.md`.
 
-3. **EF Core: Pending model changes exception** — `Migrate()`/`MigrateAsync()` now throws if the model has pending changes compared to the last migration. Add a new migration before calling `Migrate()`, or suppress with `ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning))`.
+3. **EF Core: Explicit transaction exception** — `Migrate()` inside a user transaction now throws. See `references/efcore.md`.
 
-4. **EF Core: Explicit transaction exception** — `Migrate()` inside a user transaction now throws. Remove the external transaction and `ExecutionStrategy` wrapper, or suppress with `ConfigureWarnings(w => w.Ignore(RelationalEventId.MigrationsUserTransactionWarning))`.
+4. **HttpClientFactory uses `SocketsHttpHandler` by default** — Code that casts the primary handler to `HttpClientHandler` will get `InvalidCastException`. See `references/serialization-networking.md`.
 
-5. **HttpClientFactory uses `SocketsHttpHandler` by default** — Code that casts the primary handler to `HttpClientHandler` will get `InvalidCastException`. Check for both handler types or explicitly configure a primary handler.
+5. **HttpClientFactory header redaction by default** — All header values in `Trace`-level logs are now redacted. See `references/serialization-networking.md`.
 
-6. **HttpClientFactory header redaction by default** — All header values in `Trace`-level logs are now redacted by default. Call `RedactLoggedHeaders` to explicitly specify which headers to redact.
+6. **Environment variables take precedence over runtimeconfig.json** — Runtime configuration settings from environment variables now override `runtimeconfig.json`. See `references/deployment-runtime.md`.
 
-7. **Environment variables take precedence over runtimeconfig.json** — Runtime configuration settings (e.g., `DOTNET_gcServer`) from environment variables now override `runtimeconfig.json` values instead of the reverse.
-
-8. **ASP.NET Core `ValidateOnBuild`/`ValidateScopes` in development** — `HostBuilder` now enables DI validation in the development environment by default. Fix any DI registration issues or disable with `UseDefaultServiceProvider`.
+7. **ASP.NET Core `ValidateOnBuild`/`ValidateScopes` in development** — `HostBuilder` now enables DI validation in development by default. See `references/aspnet-core.md`.
 
 **Other behavioral changes to review:**
 
