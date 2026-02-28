@@ -107,11 +107,21 @@ See also: https://github.com/dotnet/roslyn/issues/80954
 **Impact: Low.** Using `this` or `base` inside `nameof` in an attribute is now properly disallowed per the language specification. This was unintentionally permitted since C# 12.
 
 ```csharp
+// Before (.NET 10) — compiled but was unintentionally permitted
 class C
 {
     string P;
-    [System.Obsolete(nameof(this.P))] // error — now disallowed
-    [System.Obsolete(nameof(P))]      // fix: remove 'this.'
+    [System.Obsolete(nameof(this.P))]
+    void M() { }
+}
+```
+
+```csharp
+// After (.NET 11) — remove 'this.' qualifier
+class C
+{
+    string P;
+    [System.Obsolete(nameof(P))]
     void M() { }
 }
 ```
