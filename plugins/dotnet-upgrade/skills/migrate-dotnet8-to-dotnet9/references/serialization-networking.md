@@ -1,0 +1,112 @@
+# Serialization and Networking Breaking Changes (.NET 9)
+
+These changes affect projects using BinaryFormatter, System.Text.Json, HttpClient, and networking APIs.
+
+## Serialization
+
+### BinaryFormatter always throws
+
+**Impact: High.** The in-box `BinaryFormatter` implementation now always throws `NotSupportedException` on `Serialize` and `Deserialize`, even with settings that previously enabled its use. The `EnableUnsafeBinaryFormatterSerialization` AppContext switch has been removed.
+
+```csharp
+// BREAKS at runtime — NotSupportedException
+var formatter = new BinaryFormatter();
+formatter.Serialize(stream, obj);      // throws
+var obj = formatter.Deserialize(stream); // throws
+```
+
+**Migration options:**
+1. **System.Text.Json** — Recommended for most scenarios
+2. **MessagePack** or **protobuf-net** — For binary formats
+3. **XmlSerializer** or **DataContractSerializer** — For XML formats
+4. **Unsupported NuGet package** — `System.Runtime.Serialization.Formatters` NuGet package provides BinaryFormatter if you accept the security risks (unsupported)
+
+See the [BinaryFormatter migration guide](https://learn.microsoft.com/en-us/dotnet/standard/serialization/binaryformatter-migration-guide/) for detailed guidance.
+
+### Nullable JsonDocument properties deserialize to JsonValueKind.Null
+
+**Impact: Medium.** Deserializing JSON `null` into `JsonDocument` now returns a non-null `JsonDocument` with `RootElement.ValueKind == JsonValueKind.Null` instead of returning C# `null`.
+
+```csharp
+var doc = JsonSerializer.Deserialize<JsonDocument>("null");
+// .NET 8: doc is null
+// .NET 9: doc is not null, doc.RootElement.ValueKind == JsonValueKind.Null
+```
+
+**Fix:** Update code that checks `doc is null` to also check `doc.RootElement.ValueKind`:
+```csharp
+if (doc is null || doc.RootElement.ValueKind == JsonValueKind.Null)
+{
+    // handle null
+}
+```
+
+### System.Text.Json metadata reader now unescapes metadata property names
+
+**Impact: Low.** The JSON metadata reader now unescapes metadata property names (like `$type`, `$id`). This may affect custom converters or code that processes raw JSON metadata.
+
+## Networking
+
+### HttpClientFactory uses SocketsHttpHandler as primary handler
+
+**Impact: Medium.** The default primary handler for `HttpClientFactory`-created clients is now `SocketsHttpHandler` instead of `HttpClientHandler` on platforms that support it. Code that casts the handler to `HttpClientHandler` will throw `InvalidCastException`.
+
+```csharp
+// BREAKS — InvalidCastException
+services.AddHttpClient("test")
+    .ConfigurePrimaryHttpMessageHandler((h, _) =>
+    {
+        ((HttpClientHandler)h).UseCookies = false; // throws
+    });
+```
+
+**Fix options:**
+```csharp
+// Option 1: Explicitly configure a primary handler
+services.AddHttpClient("test")
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler() { UseCookies = false });
+
+// Option 2: Check for both types
+services.AddHttpClient("test")
+    .ConfigurePrimaryHttpMessageHandler((h, _) =>
+    {
+        if (h is HttpClientHandler hch) hch.UseCookies = false;
+        if (h is SocketsHttpHandler shh) shh.UseCookies = false;
+    });
+
+// Option 3: Set defaults for all clients
+services.ConfigureHttpClientDefaults(b =>
+    b.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler() { UseCookies = false }));
+```
+
+`SocketsHttpHandler` also has `PooledConnectionLifetime` preset to match `HandlerLifetime`, improving DNS rotation for captured clients.
+
+### HttpClientFactory logging redacts header values by default
+
+**Impact: Medium.** All header values in `Trace`-level `HttpClientFactory` logs are now redacted by default. Previously, unspecified headers were logged in full.
+
+**Fix:** Explicitly specify which headers to redact/allow:
+```csharp
+// Allow specific headers to be logged
+services.ConfigureHttpClientDefaults(b =>
+    b.RedactLoggedHeaders(h => h != "Cache-Control" && h != "Accept"));
+
+// Or disable redaction entirely (dangerous)
+services.ConfigureHttpClientDefaults(b => b.RedactLoggedHeaders(_ => false));
+```
+
+### HttpClient metrics report `server.port` unconditionally
+
+`HttpClient` metrics now always include the `server.port` attribute, even for default ports (80/443). This may affect metric dashboards or alerting rules.
+
+### HttpListenerRequest.UserAgent is nullable
+
+`HttpListenerRequest.UserAgent` is now `string?` instead of `string`. Add null checks.
+
+### URI query redaction in HttpClient EventSource events
+
+URI query strings are now redacted in `HttpClient` EventSource events for security.
+
+### URI query redaction in IHttpClientFactory logs
+
+URI query strings are now redacted in `IHttpClientFactory` logs for security.
