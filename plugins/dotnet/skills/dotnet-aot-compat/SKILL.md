@@ -7,6 +7,7 @@ description: >
   IL3050), adding DynamicallyAccessedMembers annotations, enabling IsAotCompatible.
   DO NOT USE FOR: publishing native AOT binaries, optimizing binary size, replacing
   reflection-heavy libraries with alternatives.
+  INVOKES: no tools — pure knowledge skill.
 ---
 
 # dotnet-aot-compat
@@ -55,6 +56,8 @@ The trimmer tracks `[DynamicallyAccessedMembers]` annotations through assignment
 ## Step-by-Step Procedure
 
 > **Do not explore the codebase up-front.** The build warnings tell you exactly which files and lines need changes. Follow a tight loop: **build → pick a warning → open that file at that line → apply the fix recipe → rebuild**. Reading or analyzing source files beyond what a specific warning points you to is wasted effort and leads to timeouts. Let the compiler guide you.
+>
+> ❌ Do NOT run `find`, `ls`, or `grep` to understand the project structure before building. Do NOT read README, docs, or architecture files. Your first action should be Step 1 (enable AOT analysis), then build.
 
 ### Step 1: Enable AOT analysis in the .csproj
 
@@ -104,7 +107,7 @@ Work from the **innermost** reflection call outward. Each fix may cascade new wa
 
 **Stay warning-driven.** For each warning, open only the file and line the compiler reported, identify the pattern, apply the matching fix recipe below, and move on. Do not scan the codebase for similar patterns or try to understand the full architecture — fix what the compiler tells you, rebuild, and let new warnings guide the next change. Fix a small batch of warnings (5-10), then rebuild immediately to check progress.
 
-**Use sub-agents when available.** If you can launch sub-agents (e.g., via a `task` tool), dispatch **multiple sub-agents in parallel** to edit different files simultaneously. Keep the main loop focused on building, parsing warnings, and dispatching — delegate actual file edits to sub-agents. For batch JSON updates, give each sub-agent 5-10 files to update in one prompt. Example:
+**Use sub-agents when available.** If you can launch sub-agents (e.g., via a `task` tool), dispatch **multiple sub-agents in parallel** to edit different files simultaneously. Keep the main loop focused on building, parsing warnings, and dispatching — delegate actual file edits to sub-agents. For batch JSON updates, give each sub-agent 5-10 files to update in one prompt. **After 2 build-fix cycles, dispatch all remaining file edits to sub-agents in parallel — do not continue fixing files sequentially.** Example:
 
 > Update these files to use source-generated JSON: `src/Models/Resource.Serialization.cs`, `src/Models/Identity.Serialization.cs`, `src/Models/Plan.Serialization.cs`. In each file, replace `JsonSerializer.Serialize(writer, value)` with `JsonSerializer.Serialize(writer, value, MyProjectJsonContext.Default.TypeName)` and `JsonSerializer.Deserialize<T>(ref reader)` with `JsonSerializer.Deserialize(ref reader, MyProjectJsonContext.Default.TypeName)`. Only edit the JsonSerializer call sites.
 
@@ -160,13 +163,14 @@ When most warnings are IL2026/IL3050 from `JsonSerializer.Serialize`/`Deserializ
 
 1. **Collect affected types** — grep for all `JsonSerializer.Serialize` and `JsonSerializer.Deserialize` call sites. Extract the type being serialized (the `<T>` in `Deserialize<T>`, or the runtime type of the object in `Serialize`).
 
-2. **Create one `JsonSerializerContext`** with `[JsonSerializable]` for every type found:
+2. **Create one `JsonSerializerContext`** with `[JsonSerializable]` for every type found. **Skip types from external packages** (e.g., `ResponseError` from `Azure.Core`) — they won't source-generate for types you don't own. Handle external types separately via Gotcha #1 below.
 
 ```csharp
 [JsonSerializerContext]
 [JsonSerializable(typeof(ManagedServiceIdentity))]
 [JsonSerializable(typeof(SystemData))]
-// ... one attribute per type
+// ... one attribute per type YOU OWN
+// Do NOT add types from external packages (e.g., ResponseError)
 internal partial class MyProjectJsonContext : JsonSerializerContext { }
 ```
 
