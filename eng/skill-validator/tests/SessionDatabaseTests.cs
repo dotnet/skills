@@ -31,7 +31,7 @@ public class SessionDatabaseTests : IDisposable
     [Fact]
     public void RegisterAndComplete_RoundTrips()
     {
-        _db.RegisterSession("s1", "my-skill", "/path/to/skill", "scenario-a", 0, "baseline", "gpt-4.1", "/cfg", "/work", "Fix the bug", "abcdef012345");
+        _db.RegisterSession("s1", "my-skill", "/path/to/skill", "scenario-a", 0, "baseline", "gpt-4.1", "sessions/s1", "/work", "Fix the bug", "abcdef012345");
         _db.CompleteSession("s1", "completed", """{"TokenEstimate":100}""");
 
         var sessions = _db.GetCompletedSessions();
@@ -43,6 +43,7 @@ public class SessionDatabaseTests : IDisposable
         Assert.Equal(0, s.RunIndex);
         Assert.Equal("baseline", s.Role);
         Assert.Equal("gpt-4.1", s.Model);
+        Assert.Equal("sessions/s1", s.ConfigDir);
         Assert.Equal("completed", s.Status);
         Assert.Equal("Fix the bug", s.Prompt);
         Assert.Equal("abcdef012345", s.SkillSha);
@@ -208,5 +209,23 @@ public class SessionDatabaseTests : IDisposable
             TryDelete(dbPath2 + "-wal");
             TryDelete(dbPath2 + "-shm");
         }
+    }
+
+    [Fact]
+    public void SchemaInfo_ContainsTypeAndVersion()
+    {
+        var info = _db.GetSchemaInfo();
+        Assert.Equal("skill-validator", info["type"]);
+        Assert.Equal("1", info["version"]);
+    }
+
+    [Fact]
+    public void ConfigDir_StoredAsRelativePath()
+    {
+        _db.RegisterSession("s1", "skill", "/p", "scn", 0, "baseline", "m", "sessions/s1", null);
+        _db.CompleteSession("s1", "completed", "{}");
+
+        var s = Assert.Single(_db.GetCompletedSessions());
+        Assert.Equal("sessions/s1", s.ConfigDir);
     }
 }

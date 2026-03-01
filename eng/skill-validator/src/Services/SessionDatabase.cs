@@ -27,6 +27,13 @@ public sealed class SessionDatabase : IDisposable
             PRAGMA journal_mode=WAL;
             PRAGMA busy_timeout=5000;
 
+            CREATE TABLE IF NOT EXISTS schema_info (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            INSERT OR IGNORE INTO schema_info (key, value) VALUES ('type', 'skill-validator');
+            INSERT OR IGNORE INTO schema_info (key, value) VALUES ('version', '1');
+
             CREATE TABLE IF NOT EXISTS sessions (
                 id TEXT PRIMARY KEY,
                 skill_name TEXT NOT NULL,
@@ -172,15 +179,34 @@ public sealed class SessionDatabase : IDisposable
     /// </summary>
     public List<SessionRecord> GetCompletedSessions()
     {
+        return GetSessions("WHERE s.status IN ('completed', 'timed_out')");
+    }
+
+    /// <summary>
+    /// Returns schema metadata (type, version) for DB detection by external tools.
+    /// </summary>
+    public Dictionary<string, string> GetSchemaInfo()
+    {
+        var result = new Dictionary<string, string>();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT key, value FROM schema_info";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+            result[reader.GetString(0)] = reader.GetString(1);
+        return result;
+    }
+
+    private List<SessionRecord> GetSessions(string whereClause)
+    {
         var results = new List<SessionRecord>();
         using var cmd = _connection.CreateCommand();
-        cmd.CommandText = """
+        cmd.CommandText = $"""
             SELECT s.id, s.skill_name, s.skill_path, s.scenario_name, s.run_index, s.role, s.model,
                    s.config_dir, s.work_dir, s.prompt, s.skill_sha, s.status,
                    r.metrics_json, r.judge_json, r.pairwise_json
             FROM sessions s
             LEFT JOIN run_results r ON s.id = r.session_id
-            WHERE s.status IN ('completed', 'timed_out')
+            {whereClause}
             ORDER BY s.skill_name, s.scenario_name, s.run_index, s.role
             """;
         using var reader = cmd.ExecuteReader();

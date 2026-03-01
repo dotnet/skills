@@ -225,6 +225,7 @@ public static class AgentRunner
         string configDir;
         if (sessionsDir is not null)
         {
+            // Persistent session dir — use sessionId as folder name for DB linkage
             var dirName = sessionId ?? Guid.NewGuid().ToString("N");
             configDir = Path.Combine(sessionsDir, dirName);
             Directory.CreateDirectory(configDir);
