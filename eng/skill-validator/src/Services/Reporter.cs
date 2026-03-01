@@ -14,13 +14,15 @@ public static class Reporter
         string? model = null,
         string? judgeModel = null,
         string? resultsDir = null,
+        string? timestampedResultsDir = null,
         int rejectedCount = 0)
     {
         bool needsResultsDir = reporters.Any(r =>
             r.Type is ReporterType.Json or ReporterType.Junit or ReporterType.Markdown);
-        string? effectiveResultsDir = resultsDir is not null && needsResultsDir
-            ? Path.Combine(resultsDir, FormatTimestamp(DateTime.Now))
-            : null;
+        string? effectiveResultsDir = timestampedResultsDir
+            ?? (resultsDir is not null && needsResultsDir
+                ? Path.Combine(resultsDir, FormatTimestamp(DateTime.Now))
+                : null);
 
         if (effectiveResultsDir is not null)
             Directory.CreateDirectory(effectiveResultsDir);
