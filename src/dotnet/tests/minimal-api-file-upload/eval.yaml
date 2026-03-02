@@ -1,0 +1,14 @@
+scenarios:
+  - name: file-upload-minimal-api
+    prompt: >
+      I need to implement a file upload endpoint in my ASP.NET Core 8 minimal API.
+      The endpoint should accept image files (JPEG and PNG only), reject files over 10MB,
+      and save them to an "uploads" folder. My app already has UseAntiforgery() in the pipeline.
+      Show me the complete implementation including size limits configuration and the endpoint.
+    rubric:
+      - "Configures BOTH Kestrel MaxRequestBodySize AND FormOptions.MultipartBodyLengthLimit — either using builder.WebHost.ConfigureKestrel or WebApplication options for the request body, AND services.Configure<FormOptions> for multipart limits. ONLY configuring one of these is INCORRECT."
+      - "Uses .DisableAntiforgery() on the file upload endpoint to prevent automatic 400 errors from the anti-forgery middleware, OR explicitly handles anti-forgery token submission. Simply ignoring the UseAntiforgery() pipeline issue is INCORRECT."
+      - "Generates a safe filename (e.g., using Guid.NewGuid() or similar) instead of using the user-provided IFormFile.FileName directly. Using file.FileName directly in file paths is a security vulnerability (path traversal). Sanitizing the user filename is acceptable but using it raw is INCORRECT."
+      - "Validates file content beyond just checking file extension — either checking ContentType against allowed MIME types, or checking magic bytes/file signatures, or both. Checking only the file extension is INSUFFICIENT because extensions can be spoofed."
+      - "Correctly uses IFormFile parameter binding in the minimal API endpoint. The parameter should be IFormFile (not manually reading Request.Body or Request.Form). Must handle the case where the file exceeds size limits."
+      - "Uses [RequestSizeLimit] attribute or equivalent per-endpoint configuration for the 10MB limit, OR configures the limits globally. The size enforcement must happen at the correct layer — not just checking file.Length after the entire file has been buffered."
