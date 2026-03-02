@@ -104,7 +104,7 @@ jobs:
               Sort-Object
           )
 
-          $missingJson = $missing | ConvertTo-Json -Compress
+          $missingJson = ConvertTo-Json -InputObject @($missing) -Compress
           if (-not $missingJson) {
             $missingJson = '[]'
           }
