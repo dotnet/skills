@@ -141,12 +141,14 @@ Slow requests require a **thread time trace** to see where threads are spending 
 
 #### Hangs
 
-1. **Collect a process dump** — delegate to the **`dump-collect`** skill for dump collection.
-2. **Analyze with a debugger** to inspect thread stacks and identify where threads are blocked:
+1. **Start with a trace** to understand what threads are doing. Use the appropriate trace tool for the environment (PerfView with `/ThreadTime` on Windows, `dotnet-trace` on Linux, `dotnet-trace collect-linux --profile thread-time` on .NET 10+ Linux with root). The trace can reveal:
+   - **Livelocks** (threads spinning without forward progress) — threads appear busy but the application makes no progress.
+   - **Thread starvation** — the ThreadPool is exhausted and queued work items are not being processed. This can look like a deadlock but has a different root cause.
+   - **Whether there is any forward progress at all** — if some threads are making progress, the issue may be a bottleneck rather than a true hang.
+2. **If the trace does not explain the hang**, the issue may be a **true deadlock** (threads waiting on each other in a cycle). In this case, collect a process dump — delegate to the **`dump-collect`** skill.
+3. **Analyze the dump with a debugger** to inspect thread stacks and identify the lock cycle:
    - **Windows**: Visual Studio or WinDbg with the SOS debugger extension.
    - **Linux**: `lldb` with the SOS debugger extension.
-3. **Deadlocks** (threads waiting on each other): A dump alone is usually sufficient — inspect thread stacks to find the lock cycle.
-4. **Livelocks** (threads spinning without progress): A trace is also helpful to see what threads are doing over time. Use the appropriate trace tool for the environment (PerfView on Windows, `dotnet-trace` on Linux).
 
 Explain the trade-offs when recommending a tool. For example:
 - PerfView gives richer data but needs admin; runs on Windows including Windows containers.
