@@ -80,7 +80,7 @@ dotnet-trace ps
 dotnet-trace collect -p <PID>
 
 # Collect with a specific profile
-dotnet-trace collect -p <PID> --profile cpu-sampling
+dotnet-trace collect -p <PID> --profile dotnet-sampled-thread-time
 dotnet-trace collect -p <PID> --profile gc-verbose
 
 # Collect with specific providers
