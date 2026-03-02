@@ -121,7 +121,7 @@ jobs:
           "missing_json=$missingJson" >> $env:GITHUB_OUTPUT
 
       - name: Create or update issue for missing entries
-        if: steps.audit.outputs.has_missing == 'true'
+        if: steps.audit.outputs.has_missing == 'true' && github.event_name != 'pull_request'
         uses: actions/github-script@v7
         env:
           MISSING_JSON: ${{ steps.audit.outputs.missing_json }}
