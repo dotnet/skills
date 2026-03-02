@@ -193,7 +193,7 @@ After data is collected, recommend the appropriate tool for analysis. Do **not**
 
 | Collected Data | Analysis Tool | Notes |
 |----------------|---------------|-------|
-| `.nettrace` file | PerfView (Windows), `dotnet-trace report` (cross-platform), Speedscope (web) | PerfView gives the richest view on Windows |
+| `.nettrace` file | PerfView (Windows), Speedscope (web) | PerfView gives the richest view on Windows |
 | `.etl` / `.etl.zip` file | PerfView | ETW traces from PerfView or perfcollect |
 | `dotnet-counters` output | Direct reading (CSV/JSON) | Live metrics; no separate analysis tool needed |
 | `perf.data.nl` from perfcollect | PerfView (Windows) | Copy the file to a Windows machine and open with PerfView |
