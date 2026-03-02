@@ -66,6 +66,7 @@ We are less likely to accept contributions that:
 - Duplicate guidance that already exists in another skill
 - Encode private environment details, credentials, or company specific secrets
 - Depend on proprietary tools or access that most contributors will not have
+- Skills that make use of third party tools will be evaluated on a case by case basis. Acceptance of such skills will depend on our evaluation of the provenance and maturity of any such tools.
 
 ## Proposing a new skill
 
