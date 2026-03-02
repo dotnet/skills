@@ -176,7 +176,10 @@ jobs:
       - name: Fail when CODEOWNERS entries are missing
         if: steps.audit.outputs.has_missing == 'true'
         shell: pwsh
+        env:
+          MISSING_JSON: ${{ steps.audit.outputs.missing_json }}
         run: |
+          Write-Host "missing_json: $env:MISSING_JSON"
           Write-Error 'Missing required CODEOWNERS folder entries. See issue for details.'
           exit 1
  
