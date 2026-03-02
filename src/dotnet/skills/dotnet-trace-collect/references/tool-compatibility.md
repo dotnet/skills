@@ -52,7 +52,7 @@ dotnet-counters monitor -p 1
 
 ---
 
-## dotnet-trace
+## dotnet-trace collect
 
 **Purpose**: Collect EventPipe traces for CPU profiling, event analysis, and runtime diagnostics.
 
