@@ -13,7 +13,24 @@
 ## Installation
 
 ```bash
+# As a .NET global tool (requires .NET SDK)
 dotnet tool install -g dotnet-trace
+
+# Direct download via aka.ms (no SDK required — useful in containers)
+# Linux x64
+curl -JL https://aka.ms/dotnet-trace/linux-x64 -o dotnet-trace
+chmod +x dotnet-trace
+
+# Linux Arm64
+curl -JL https://aka.ms/dotnet-trace/linux-arm64 -o dotnet-trace
+chmod +x dotnet-trace
+
+# Linux musl x64 (Alpine)
+curl -JL https://aka.ms/dotnet-trace/linux-musl-x64 -o dotnet-trace
+chmod +x dotnet-trace
+
+# Windows x64
+curl -JL https://aka.ms/dotnet-trace/win-x64 -o dotnet-trace.exe
 ```
 
 ## Common Commands
