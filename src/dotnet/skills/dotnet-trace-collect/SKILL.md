@@ -50,7 +50,21 @@ Use this information to select the right tool in Step 2.
 
 ### Step 2: Recommend diagnostic tools
 
-Select tools based on the environment using the priority rules below. Refer to the [tool compatibility reference](references/tool-compatibility.md) for detailed command-line usage.
+Select tools based on the environment using the priority rules below. Once a tool is selected, load the corresponding reference file for detailed command-line usage.
+
+#### Tool reference lookup
+
+| Environment | Reference file(s) |
+|-------------|-------------------|
+| Windows + modern .NET + admin | `references/perfview.md` |
+| Windows + modern .NET, no admin | `references/dotnet-trace-collect.md` |
+| Windows + .NET Framework | `references/perfview.md` |
+| Linux + .NET 10+ + root | `references/dotnet-trace-collect-linux.md` |
+| Linux + pre-.NET 10 | `references/dotnet-trace-collect.md` |
+| Linux + native stacks needed | `references/perfcollect.md` |
+| Container/K8s (console access) | `references/dotnet-trace-collect.md` (or `dotnet-trace-collect-linux.md`) |
+| Container/K8s (no console) | `references/dotnet-monitor.md` |
+| Any (live monitoring) | `references/dotnet-counters.md` |
 
 #### Quick decision matrix (first-pass triage)
 
@@ -74,7 +88,7 @@ Select tools based on the environment using the priority rules below. Refer to t
    - **Analyze locally while the container is still running** — PerfView can reach into the live container to resolve symbols, so you can open the trace immediately on the host machine.
    - **Analyze off-machine** — before the container shuts down, copy the `.etl.zip` into the container and run `PerfViewCollect merge /ImageIDsOnly` inside it to embed symbol information. Then copy the merged trace out. Without this merge step, symbols for binaries inside the container will be unresolvable on other machines.
    
-   For the less common Hyper-V containers, collect inside the container directly. See the [tool compatibility reference](references/tool-compatibility.md) for detailed commands.
+   For the less common Hyper-V containers, collect inside the container directly. See [references/perfview.md](references/perfview.md) for detailed commands.
 2. **`dotnet-monitor`**, **`dotnet-trace`** — inside the container if the tools are installed in the image. For dumps, delegate to the **`dump-collect`** skill.
 
 #### Windows (.NET Framework)
@@ -158,7 +172,7 @@ Explain the trade-offs when recommending a tool. For example:
 
 ### Step 3: Guide data collection
 
-Provide the specific commands for the recommended tool. Refer to the [tool compatibility reference](references/tool-compatibility.md) for detailed command-line examples.
+Provide the specific commands for the recommended tool. Load the appropriate reference file from the [tool reference lookup](#tool-reference-lookup) table for detailed command-line examples.
 
 Key guidance to include:
 
