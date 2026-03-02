@@ -74,3 +74,5 @@ kubectl cp <pod>:/tmp/trace.nettrace ./trace.nettrace
 - ❌ Only available on .NET 10 and later
 - ❌ Linux only (kernel >= 6.4)
 - ❌ Requires glibc >= 2.35 (not all supported Linux distros qualify)
+- ❌ Native code symbols must be present on disk next to the binary (or in a standard location) during trace capture for symbol resolution
+- ❌ Unable to trace cross-namespace processes
