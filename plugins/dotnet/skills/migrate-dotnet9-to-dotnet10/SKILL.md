@@ -13,7 +13,7 @@ description: >
   Rfc2898DeriveBytes SYSLIB0060). Resolves C# 14 compiler breaking changes
   (field keyword, extension keyword, span overload resolution).
   DO NOT USE FOR: major framework migrations (e.g., .NET Framework to .NET 10),
-  upgrading from .NET 8 or earlier (address intermediate breaking changes first),
+  upgrading from .NET 8 or earlier (use the migrate-dotnet8-to-dotnet9 skill first),
   greenfield projects that start on .NET 10, or purely cosmetic code modernization
   unrelated to the version upgrade.
   LOADS REFERENCES: csharp-compiler, core-libraries, sdk-msbuild (always loaded),
@@ -36,7 +36,7 @@ Migrate a .NET 9 project or solution to .NET 10, systematically resolving all br
 ## When Not to Use
 
 - The project already targets `net10.0` and builds cleanly — migration is done
-- Upgrading from .NET 8 or earlier — address the .NET 8→9 breaking changes first
+- Upgrading from .NET 8 or earlier — use the `migrate-dotnet8-to-dotnet9` skill first to reach `net9.0`, then return to this skill for the `net9.0` → `net10.0` migration
 - Migrating from .NET Framework — that is a separate, larger effort
 - Greenfield projects that start on .NET 10 (no migration needed)
 
