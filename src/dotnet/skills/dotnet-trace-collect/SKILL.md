@@ -79,7 +79,7 @@ Select tools based on the environment using the priority rules below. Once a too
 
 1. **PerfView** (preferred) — produces richer ETW-based data; requires admin privileges. For **slow requests**, add `/ThreadTime` to capture thread-level wait and block detail.
 2. **`dotnet-trace`** — fallback when admin privileges are not available.
-3. For **long-running repros**: use PerfView with a `/StopOn` trigger that fires on the **symptom you want to capture** (e.g., `/StopOnPerfCounter`, `/StopOnGCEvent`, `/StopOnException`) and a circular buffer (`/CircularMB` + `/BufferSizeMB`). The circular buffer keeps only the most recent data, so the stop trigger should fire on the interesting event — not the recovery. Only add `/StartOn` if the start event is known to precede the stop event. For **slow requests**, do not include a stop trigger by default — let the user design one based on their specific scenario.
+3. For **long-running repros**: use PerfView with a `/StopOn` trigger that fires on the **symptom you want to capture** (e.g., `/StopOnPerfCounter`, `/StopOnGCEvent`, `/StopOnException`) and a circular buffer (`/CircularMB` + `/BufferSizeMB`). **Critical: the stop trigger must fire on the interesting event, not the recovery.** The circular buffer continuously overwrites old data, so if you trigger on recovery, the buffer may have already overwritten the interesting behavior by the time collection stops. Only add `/StartOn` if the start event is known to precede the stop event. For **slow requests**, do not include a stop trigger by default — let the user design one based on their specific scenario.
 
 #### Windows containers
 
@@ -206,7 +206,7 @@ After data is collected, recommend the appropriate tool for analysis. Do **not**
 | Using `dotnet-trace` on .NET Framework | `dotnet-trace` only works with modern .NET (.NET Core 3.0+). Use PerfView for .NET Framework. |
 | PerfView without admin privileges | PerfView requires admin for ETW tracing. Fall back to `dotnet-trace` if admin is not available. |
 | `perfcollect` in container without `SYS_ADMIN` | Containers drop `SYS_ADMIN` by default. Run with `--privileged` or add `SYS_ADMIN` capability, or fall back to `dotnet-trace`. |
-| Huge trace files from long repros | On Windows, use PerfView `/StopOn` triggers that fire on the symptom you want to capture (e.g., `/StopOnPerfCounter`, `/StopOnGCEvent`, `/StopOnException`) with `/CircularMB` and `/BufferSizeMB`. Do not use `/StopOn` for the recovery — the circular buffer preserves data leading up to the stop trigger. |
+| Huge trace files from long repros | On Windows, use PerfView `/StopOn` triggers that fire on the symptom you want to capture (e.g., `/StopOnPerfCounter`, `/StopOnGCEvent`, `/StopOnException`) with `/CircularMB` and `/BufferSizeMB`. **Never trigger on recovery** — the circular buffer continuously overwrites old data, so the interesting behavior may be lost by the time collection stops. |
 | Diagnostic port not accessible in container | Mount `/tmp` as a shared volume between the app container and `dotnet-monitor` sidecar for the diagnostic Unix domain socket. |
 | Forgetting to install tools in container image | Add `dotnet tool install` to your Dockerfile, or use `dotnet-monitor` as a sidecar to avoid modifying the app image. |
 | Exposing `dotnet-monitor` with `--no-auth` in production | Keep auth enabled, bind to localhost, and use `kubectl port-forward` for access. Use `--no-auth` only for short-lived isolated debugging. |
