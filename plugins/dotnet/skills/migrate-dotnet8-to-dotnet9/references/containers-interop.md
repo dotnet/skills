@@ -35,4 +35,4 @@ RUN apt-get update && apt-get install -y zlib1g
 </PropertyGroup>
 ```
 
-Or use Windows Security app / group policy to opt out of hardware-supported stack enforcement for the specific application.
+> **Warning:** Disabling CET removes hardware-enforced control-flow integrity, reducing protection against ROP (return-oriented programming) and JOP (jump-oriented programming) exploits. Only disable CET after confirming the specific native library is incompatible, and re-enable it once the library is updated. Prefer per-application opt-out via Windows Security / group policy over a project-wide setting when possible.
