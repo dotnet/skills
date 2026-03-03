@@ -25,4 +25,6 @@ scenarios:
       - "The agent identified the missing identity field"
       - "The agent flagged the shortName conflict with the built-in 'build' command"
       - "The agent reported the invalid datatype"
+    expect_tools:
+      - template_validate
     timeout: 120
