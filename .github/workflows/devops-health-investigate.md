@@ -44,8 +44,6 @@ tools:
   bash: ["cat", "grep", "head", "tail", "find", "ls", "wc", "jq", "date", "sort", "diff"]
 
 safe-outputs:
-  update-issue:
-    max: 1
   add-comment:
     max: 1
 
@@ -113,28 +111,41 @@ Provide 1–3 specific, actionable remediation steps. Each step should:
 
 ### Step 5: Report Back
 
-Update the pinned health issue by replacing the investigation island:
+Post your investigation results as a comment on the pinned health issue.
+
+**IMPORTANT**: You MUST use the `add-comment` safe-output tool (NOT `update-issue`, which does not work for `workflow_dispatch` triggered workflows). Pass the `health_issue_number` as the `item_number` parameter.
 
 ```
-update-issue:
-  issue: {health_issue_number}
-  operation: replace-island
-  island: "investigation:{finding_id}"
+add-comment:
+  item_number: {health_issue_number}
   body: |
-    🔍 **Investigation Complete** — [Worker Run #{this_run_number}]({this_run_url})
+    ## 🔍 Investigation: {finding_title}
 
-    **Root cause:** {one-paragraph description with evidence}
+    **Finding ID:** `{finding_id}`
+    **Severity:** {finding_severity}
+    **Correlation:** {correlation_id}
+
+    ### Root Cause
+    {one-paragraph description with evidence}
 
     **Confidence:** {High|Medium|Low} — {justification}
 
-    **Blast radius:** {what else is affected}
+    ### Blast Radius
+    {what else is affected}
 
-    **Suggested fix:**
+    ### Suggested Fix
     1. {step 1}
     2. {step 2}
     3. {step 3} (if applicable)
 
-    **Related:** {commits, PRs, issues, or "None found"}
+    ### Evidence
+    {key log excerpts, API responses, or code references}
+
+    ### Related
+    {commits, PRs, issues, or "None found"}
+
+    ---
+    <sub>🔍 [Investigation Run #{this_run_number}]({this_run_url}) · Dispatched by health check · {correlation_id}</sub>
 ```
 
 ---
