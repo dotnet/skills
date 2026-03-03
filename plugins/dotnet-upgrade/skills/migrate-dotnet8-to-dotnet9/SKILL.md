@@ -156,22 +156,22 @@ Behavioral changes do not cause build errors but may change runtime behavior. Re
 
 7. **ASP.NET Core `ValidateOnBuild`/`ValidateScopes` in development** — `HostBuilder` now enables DI validation in development by default. See `references/aspnet-core.md`.
 
-**Other behavioral changes to review:**
+**Other behavioral changes to review (may cause runtime exceptions ⚠️ or subtle behavioral differences):**
 
+- ⚠️ `FromKeyedServicesAttribute` no longer injects non-keyed service fallback — throws `InvalidOperationException`
+- ⚠️ Container images no longer install zlib — apps depending on system zlib will fail
+- ⚠️ Intel CET is now enabled by default — non-CET-compatible native libraries may cause process termination
 - `BigInteger` now has a maximum length of `(2^31) - 1` bits
 - `JsonDocument` deserialization of JSON `null` now returns non-null `JsonDocument` with `JsonValueKind.Null` instead of C# `null`
 - `System.Text.Json` metadata reader now unescapes metadata property names
 - `ZipArchiveEntry` names/comments now respect the UTF-8 flag
-- `FromKeyedServicesAttribute` no longer injects non-keyed service fallback
 - `IncrementingPollingCounter` initial callback is now asynchronous
 - `InMemoryDirectoryInfo` prepends rootDir to files
 - `RuntimeHelpers.GetSubArray` returns a different type
-- Container images no longer install zlib
 - `PictureBox` raises `HttpRequestException` instead of `WebException`
 - `StatusStrip` uses a different default renderer
 - `IMsoComponent` support is opt-in
 - `SafeEvpPKeyHandle.DuplicateHandle` up-refs the handle
-- Intel CET is now enabled by default (may break incompatible native libraries)
 - `HttpClient` metrics report `server.port` unconditionally
 - URI query strings redacted in HttpClient EventSource events and IHttpClientFactory logs
 - `dotnet watch` is incompatible with Hot Reload for old frameworks
@@ -193,10 +193,12 @@ Behavioral changes do not cause build errors but may change runtime behavior. Re
    ```json
    {
      "sdk": {
-       "version": "9.0.100"
+       "version": "9.0.100",
+       "rollForward": "latestFeature"
      }
    }
    ```
+   Review the `rollForward` policy — if set to `"disable"` or `"latestPatch"`, the SDK may not resolve correctly after upgrading. `"latestFeature"` (recommended) allows the SDK to roll forward to the latest 9.0.x feature band.
 
 3. **Visual Studio version**: .NET 9 SDK requires VS 17.12+ to target `net9.0`. VS 17.11 can only target `net8.0` and earlier.
 
