@@ -249,7 +249,14 @@ Behavioral changes do not cause build errors but may change runtime behavior. Re
    - Date/time handling with Sqlite
    - JSON serialization with polymorphic types
    - EF Core queries using `.Contains()` on collections
-5. Review the diff and ensure no unintended behavioral changes were introduced
+5. **Security review** — verify that the migration has not weakened security controls:
+   - TLS cipher validation logic is preserved after `SslStream` API migration (SYSLIB0058)
+   - Obsolete properties containing sensitive data are excluded from serialization (`[XmlIgnore]`, `[JsonIgnore]`)
+   - Input validation still rejects oversized URIs if `Uri` was used as a length gate
+   - Exception handlers emit security-relevant telemetry (auth failures, access violations) before returning `true`
+   - Connection strings set an explicit `Application Name` that does not leak version info
+   - `dotnet restore` vulnerability audit findings are addressed, not suppressed
+6. Review the diff and ensure no unintended behavioral changes were introduced
 
 ## Reference Documents
 
