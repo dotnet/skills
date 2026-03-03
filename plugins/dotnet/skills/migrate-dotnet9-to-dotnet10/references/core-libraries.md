@@ -22,7 +22,7 @@ These breaking changes affect all .NET 10 projects regardless of application typ
 
 | Diagnostic | What's obsolete | Replacement |
 |------------|----------------|-------------|
-| SYSLIB0058 | `SslStream.KeyExchangeAlgorithm`, `CipherAlgorithm`, `HashAlgorithm` and their strength properties | `SslStream.NegotiatedCipherSuite` |
+| SYSLIB0058 | `SslStream.KeyExchangeAlgorithm`, `CipherAlgorithm`, `HashAlgorithm` and their strength properties | `SslStream.NegotiatedCipherSuite` — **Security note:** if existing code used these properties to reject weak ciphers (e.g., RC4, 3DES, NULL), ensure equivalent validation is preserved using `NegotiatedCipherSuite` |
 | SYSLIB0059 | `SystemEvents.EventsThreadShutdown` | `AppDomain.ProcessExit` |
 | SYSLIB0060 | `Rfc2898DeriveBytes` constructors | `Rfc2898DeriveBytes.Pbkdf2` static method |
 | SYSLIB0061 | `Queryable.MaxBy`/`MinBy` overloads with `IComparer<TSource>` | New overloads with `IComparer<TKey>` |

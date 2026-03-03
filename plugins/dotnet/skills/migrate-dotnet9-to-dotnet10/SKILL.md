@@ -112,7 +112,7 @@ Work through compilation errors and new warnings systematically. Load the approp
 1. **`System.Linq.Async` conflicts** — Remove the `System.Linq.Async` package reference or upgrade to v7.0.0. If consumed transitively, add `<ExcludeAssets>compile</ExcludeAssets>`. Rename `SelectAwait` calls to `Select` where needed.
 
 2. **New obsoletion warnings (SYSLIB0058–SYSLIB0062)**:
-   - `SYSLIB0058`: Replace `SslStream.KeyExchangeAlgorithm`/`CipherAlgorithm`/`HashAlgorithm` with `NegotiatedCipherSuite`
+   - `SYSLIB0058`: Replace `SslStream.KeyExchangeAlgorithm`/`CipherAlgorithm`/`HashAlgorithm` with `NegotiatedCipherSuite` — if the old properties were used to reject weak TLS ciphers, preserve equivalent validation logic using the new API
    - `SYSLIB0059`: Replace `SystemEvents.EventsThreadShutdown` with `AppDomain.ProcessExit`
    - `SYSLIB0060`: Replace `Rfc2898DeriveBytes` constructors with `Rfc2898DeriveBytes.Pbkdf2`
    - `SYSLIB0061`: Replace `Queryable.MaxBy`/`MinBy` overloads taking `IComparer<TSource>` with ones taking `IComparer<TKey>`
