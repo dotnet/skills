@@ -70,7 +70,7 @@ Select tools based on the environment using the priority rules below. Once a too
 | Environment | Preferred tool | Fallback / Notes |
 |-------------|----------------|------------------|
 | Windows + modern .NET + admin | PerfView | If admin is unavailable, use `dotnet-trace` |
-| Windows + .NET Framework + admin | PerfView | Without admin, there is no trace fallback; invoke the `dump-collect` skill for hangs/memory leaks |
+| Windows + .NET Framework + admin | PerfView | Without admin, there is no trace fallback; for hangs/memory leaks, provide dump commands directly (`procdump -ma` or Task Manager) since `dump-collect` does not support .NET Framework |
 | Linux + .NET 10+ + root | `dotnet-trace collect-linux` | Use `dotnet-trace` if root or kernel prerequisites are not met |
 | Linux + pre-.NET 10 | `dotnet-trace` | Add `perfcollect` when native stacks are needed (requires root) |
 | Linux container/Kubernetes | Console tools if in workload context; `dotnet-monitor` if no console access | See Linux Container / Kubernetes section for details |
@@ -94,7 +94,7 @@ Select tools based on the environment using the priority rules below. Once a too
 
 1. **PerfView** — the primary diagnostic tool for .NET Framework on Windows. Requires admin.
 2. Same trigger guidance for long repros: use `/StopOn` triggers that fire on the symptom (e.g., `/StopOnPerfCounter`, `/StopOnGCEvent`, `/StopOnException`) with `/CircularMB` + `/BufferSizeMB`.
-3. **Without admin**: PerfView requires admin, and there are no alternative trace tools for .NET Framework. Process dumps can still be captured without admin (invoke the **`dump-collect`** skill) — dumps can help diagnose hangs and memory leaks. However, for **high CPU**, **slow requests**, and **excessive GC**, there is no way to investigate on .NET Framework without admin access. Advise the user to obtain admin privileges.
+3. **Without admin**: PerfView requires admin, and there are no alternative trace tools for .NET Framework. Process dumps can still be captured without admin — provide dump commands directly (e.g., `procdump -ma <PID>` or Task Manager) since the `dump-collect` skill does not support .NET Framework. Dumps can help diagnose hangs and memory leaks. However, for **high CPU**, **slow requests**, and **excessive GC**, there is no way to investigate on .NET Framework without admin access. Advise the user to obtain admin privileges.
 
 #### Linux (non-container, .NET 10+)
 
@@ -120,7 +120,7 @@ Select tools based on the environment using the priority rules below. Once a too
 
 #### Memory dumps
 
-When dumps are needed (memory leaks, hangs), **do not provide dump collection commands directly**. Instead, invoke the **`dump-collect`** skill to handle dump collection. This skill focuses on trace collection only.
+When dumps are needed (memory leaks, hangs), **do not provide dump collection commands directly** for modern .NET — invoke the **`dump-collect`** skill instead. The `dump-collect` skill only supports modern .NET (.NET Core 3.0+). For **.NET Framework**, provide dump collection guidance directly (e.g., `procdump -ma <PID>` or Task Manager). This skill focuses on trace collection only.
 
 #### Memory leaks
 
@@ -128,7 +128,7 @@ When dumps are needed (memory leaks, hangs), **do not provide dump collection co
 - **Without admin privileges**: Two process dumps can give a sense of what's growing on the heap, but may not be enough to identify the root cause. If dumps aren't sufficient, reproduce the issue in an environment where admin privileges are available to collect richer data (traces).
 - **Modern .NET on Linux (pre-.NET 10)**: Recommend two dump captures (invoke `dump-collect` skill) for heap diff, plus `dotnet-trace` while memory is growing (for allocation tracking). No trigger needed — capture during the growth period. Both together give the best picture.
 - **Modern .NET 10+ on Linux with admin**: Recommend two dump captures (invoke `dump-collect` skill) for heap diff, plus `dotnet-trace collect-linux` while memory is growing (richer data including native stacks). No trigger needed.
-- **.NET Framework**: Recommend two dumps (invoke `dump-collect` skill) plus a PerfView trace while memory is growing to see what is being allocated. No trigger is needed — just capture the trace during the growth period. Do not wait for an `OutOfMemoryException`.
+- **.NET Framework**: Recommend two dumps plus a PerfView trace while memory is growing to see what is being allocated. The `dump-collect` skill does not support .NET Framework, so provide dump commands directly (e.g., `procdump -ma <PID>` or right-click → Create Dump File in Task Manager). No trigger is needed — just capture the trace during the growth period. Do not wait for an `OutOfMemoryException`.
 
 #### Excessive GC
 

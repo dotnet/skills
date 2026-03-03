@@ -207,7 +207,7 @@ scenarios:
         pattern: "(dump|dumps)"
     rubric:
       - "Recommends capturing two process dumps at different points during memory growth for diffing"
-      - "Invokes the dump-collect skill for dump collection rather than providing direct dump commands"
+      - "Provides dump collection commands directly (e.g., procdump -ma) since dump-collect does not support .NET Framework"
       - "Recommends a PerfView trace while memory is growing to see what is being allocated"
       - "Explains that diffing two dumps in PerfView identifies which objects have increased"
       - "Advises to capture during the growth period rather than waiting for the OutOfMemoryException"
