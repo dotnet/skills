@@ -27,7 +27,7 @@ public abstract class Animal
 
 ### XmlSerializer no longer ignores properties marked with ObsoleteAttribute
 
-Properties marked `[Obsolete]` are now included in XML serialization. Previously they were silently skipped. If you have obsolete properties that should not be serialized, mark them with `[XmlIgnore]`.
+**Security consideration:** Properties marked `[Obsolete]` are now included in XML serialization. Previously they were silently skipped. If obsolete properties contain sensitive data (e.g., deprecated password fields, legacy PII, or internal-only values), they will now appear in serialized output. Audit obsolete properties for sensitive data and mark them with `[XmlIgnore]` if they should not be serialized.
 
 ## Networking
 

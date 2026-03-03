@@ -198,7 +198,7 @@ Behavioral changes do not cause build errors but may change runtime behavior. Re
 - Streaming HTTP responses enabled by default in browser HTTP clients
 - `Uri` length limits removed — add explicit length validation if `Uri` was used to reject oversized input from untrusted sources
 - Cookie login redirects disabled for known API endpoints (ASP.NET Core)
-- `XmlSerializer` no longer ignores `[Obsolete]` properties
+- `XmlSerializer` no longer ignores `[Obsolete]` properties — audit obsolete properties for sensitive data and add `[XmlIgnore]` to prevent unintended data exposure
 - `dotnet restore` audits transitive packages
 - `dotnet watch` logs to stderr instead of stdout
 - `dotnet` CLI commands log non-command-relevant data to stderr
