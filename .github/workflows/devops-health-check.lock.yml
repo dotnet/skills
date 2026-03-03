@@ -1233,7 +1233,7 @@ jobs:
           if-no-files-found: ignore
 
   pre_activation:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-slim
     permissions:
       issues: write
