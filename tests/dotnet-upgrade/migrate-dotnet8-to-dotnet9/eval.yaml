@@ -604,8 +604,8 @@ scenarios:
                     return input.Trim(trimChars);
                 }
             }
-            [InlineArray(1024)]
-            [StructLayout(LayoutKind.Sequential, Size = 8192)]
+            [InlineArray(1048577)]
+            [StructLayout(LayoutKind.Sequential, Size = 1048577)]
             struct LargeBuffer { private byte _element0; }
         - path: "ApiController.cs"
           content: |
