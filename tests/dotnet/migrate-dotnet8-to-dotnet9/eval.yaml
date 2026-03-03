@@ -149,9 +149,9 @@ scenarios:
             builder.Services.AddSingleton<ICacheService>(sp =>
                 new CacheService(sp.GetRequiredService<IUserService>()));
             builder.Services.AddHttpClient("api")
-                .ConfigurePrimaryHttpMessageHandler((h, _) =>
+                .ConfigureHttpMessageHandlerBuilder(b =>
                 {
-                    ((HttpClientHandler)h).UseCookies = false;
+                    ((HttpClientHandler)b.PrimaryHandler).UseCookies = false;
                 });
             builder.Services.Configure<ForwardedHeadersOptions>(options =>
             {
