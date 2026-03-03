@@ -6,7 +6,7 @@ description: >
   Powered by the DotnetTemplateMCP MCP server.
   USE FOR: creating a reusable dotnet new template from an existing project, validating
   template.json files for schema compliance and parameter issues, bootstrapping
-  template.config/template.json with correct identity, shortName, parameters, and
+  .template.config/template.json with correct identity, shortName, parameters, and
   post-actions, packaging templates as NuGet packages for distribution.
   DO NOT USE FOR: finding or using existing templates (use template-discovery and
   template-instantiation), MSBuild project file issues unrelated to template authoring,
