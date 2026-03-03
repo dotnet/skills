@@ -1,26 +1,9 @@
 ---
 name: dotnet-ai-ml
-description: Guides technology selection and implementation of AI and ML features in .NET 8+ applications using ML.NET, Microsoft.Extensions.AI, Microsoft Agent Framework, GitHub Copilot SDK, ONNX Runtime, and LLamaSharp. Use when adding classification, regression, LLM integration, RAG, agentic workflows, Copilot extensions, or custom model inference to a .NET project.
+description: Guides technology selection and implementation of AI and ML features in .NET 8+ applications using ML.NET, Microsoft.Extensions.AI, Microsoft Agent Framework, GitHub Copilot SDK, ONNX Runtime, and LLamaSharp. Covers the full spectrum from classic ML through modern LLM orchestration to local inference. Use when adding classification, regression, clustering, anomaly detection, recommendation, LLM integration (text generation, summarization, reasoning), RAG pipelines with vector search, agentic workflows with tool calling, Copilot extensions, or custom model inference via ONNX Runtime to a .NET project. DO NOT USE FOR: projects targeting .NET Framework (requires .NET 8+), the task is pure data engineering or ETL with no ML/AI component, or the project needs a custom deep learning training loop (use Python with PyTorch/TensorFlow, then export to ONNX for .NET inference).
 ---
 
 # .NET AI and Machine Learning
-
-Help developers select the right AI/ML technology for their task and produce production-ready .NET code that follows efficiency, determinism, and cost-control guardrails. The skill covers the full spectrum from classic ML (ML.NET) through modern LLM orchestration (Microsoft Agent Framework) to local inference (ONNX Runtime, LLamaSharp).
-
-## When to Use
-
-- Adding classification, regression, clustering, anomaly detection, or recommendation to a .NET application
-- Integrating LLM capabilities (text generation, summarization, reasoning) into a .NET service
-- Building RAG (retrieval-augmented generation) pipelines with vector search
-- Deploying pre-trained or fine-tuned models via ONNX Runtime
-- Implementing agentic workflows with tool calling and orchestration
-- Choosing between ML.NET, LLM APIs, ONNX Runtime, or LLamaSharp for a given task
-
-## When Not to Use
-
-- The project targets .NET Framework (not .NET 8+)
-- The task is pure data engineering or ETL with no ML/AI component
-- The project needs a custom deep learning training loop (use Python with PyTorch/TensorFlow, then export to ONNX for .NET inference)
 
 ## Inputs
 
@@ -77,8 +60,6 @@ After identifying the task type, select the right library layer. These libraries
 
 5. **Never skip layers.** Do not use Agent Framework without MEAI underneath. Do not call `HttpClient` to OpenAI alongside MEAI in the same workflow. Each layer depends on the one below it.
 
-> **Why this matters for determinism:** Agents frequently produce non-deterministic code when the library boundaries are unclear. An agent may mix raw `OpenAI` SDK calls with MEAI `IChatClient`, or add Agent Framework for a task that only needs a single MEAI call. This skill enforces clear layering rules so the agent selects the minimal correct layer every time.
-
 ### Step 2: Select packages and set up the project
 
 Install only the packages needed for the selected technology branch. Do not mix competing abstractions.
@@ -118,6 +99,9 @@ Install only the packages needed for the selected technology branch. Do not mix 
 
 <!-- Vector store abstraction -->
 <PackageReference Include="Microsoft.Extensions.VectorData.Abstractions" Version="9.*" />
+
+<!-- Document ingestion, chunking, and vector store loading (preview) -->
+<PackageReference Include="Microsoft.Extensions.AI.DataIngestion" Version="9.*-*" />
 
 <!-- Copilot platform extensibility -->
 <PackageReference Include="GitHub.Copilot.SDK" Version="1.*" />
