@@ -6,17 +6,15 @@ scenarios:
       diagnostic data to figure out what's going on?
     assertions:
       - type: "output_matches"
-        pattern: "(dotnet-monitor|dotnet monitor)"
-      - type: "output_matches"
-        pattern: "(sidecar|side-car)"
-      - type: "output_matches"
         pattern: "(dotnet-trace|dotnet trace)"
+      - type: "output_matches"
+        pattern: "(kubectl|container|pod)"
     rubric:
-      - "Recommends dotnet-monitor as a sidecar container as the preferred approach for Kubernetes"
-      - "Provides dotnet-trace as a fallback option for collecting inside the container"
+      - "Recommends dotnet-trace as the preferred approach when the user can exec into the container"
+      - "Provides specific commands to install or download dotnet-trace inside the container (e.g., aka.ms links or dotnet tool install)"
+      - "Mentions dotnet-monitor as an alternative when console access is not available"
       - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
-      - "Includes specific commands or steps for collecting a CPU trace"
-      - "Mentions how to get the collected trace out of the container for analysis"
+      - "Mentions how to get the collected trace out of the container for analysis (e.g., kubectl cp)"
     timeout: 60
 
   - name: ".NET Framework on Windows without admin privileges"
