@@ -1,0 +1,41 @@
+Incident Identifier: 8A2B3C4D-5E6F-7890-ABCD-EF1234567890
+CrashReporter Key:   1a2b3c4d5e6f7890abcdef1234567890abcdef12
+Hardware Model:      iPhone14,5
+Process:             MyApp [1234]
+Path:                /private/var/containers/Bundle/Application/12345678-ABCD-EF01-2345-678901234567/MyApp.app/MyApp
+Identifier:          com.companyname.MyApp
+Version:             1.0 (1)
+Code Type:           ARM-64 (Native)
+Role:                Foreground
+Parent Process:      launchd [1]
+Coalition:           com.companyname.MyApp [1234]
+
+Date/Time:           2026-02-25 14:30:22.1234 -0800
+Launch Time:         2026-02-25 14:30:20.5678 -0800
+OS Version:          iPhone OS 17.2 (21C62)
+Release Type:        User
+Report Version:      104
+
+Exception Type:  EXC_CRASH (SIGABRT)
+Exception Codes: 0x0000000000000000, 0x0000000000000000
+
+Termination Reason: SIGNAL 6 Abort trap: 6
+
+Triggered by Thread:  0
+
+Thread 0 name:
+Thread 0 Crashed:
+0   libsystem_kernel.dylib        0x00000001e1234568 __pthread_kill + 8
+1   libsystem_pthread.dylib       0x00000001e2345678 pthread_kill + 288
+2   libsystem_c.dylib             0x00000001e3456789 abort + 180
+3   MyApp                         0x0000000100abcdef 0x100000000 + 11259375
+4   MyApp                         0x0000000100123456 0x100000000 + 1193046
+5   UIKitCore                     0x00000001a1234568 -[UIApplication _run] + 684
+6   UIKitCore                     0x00000001a2345679 UIApplicationMain + 340
+
+Thread 1:
+0   libsystem_kernel.dylib        0x00000001e1234560 __workq_kernreturn + 8
+
+Binary Images:
+0x100000000 - 0x100ffffff MyApp arm64  <8a2b3c4d5e6f78901234567890abcdef> /private/var/containers/Bundle/Application/12345678-ABCD-EF01-2345-678901234567/MyApp.app/MyApp
+0x1e1234000 - 0x1e1238fff libsystem_kernel.dylib arm64e  <abcdef1234567890abcdef1234567890> /usr/lib/system/libsystem_kernel.dylib

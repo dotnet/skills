@@ -17,16 +17,16 @@ Before starting any analysis, verify the context is MSBuild-related. If the work
 
 ### Step 1: Establish Baseline
 - Run the build with binlog: `dotnet build /bl:perf-baseline.binlog -m`
-- Load the binlog: `load_binlog`
-- Record total build duration and node count
+- Replay to diagnostic log: `dotnet msbuild perf-baseline.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary`
+- Record total build duration (from build output) and node count
 
 ### Step 2: Top-down Analysis
-Execute these MCP tool calls in order:
-1. `get_node_timeline` → assess parallelism utilization
-2. `get_expensive_projects(top_number=10, sortByExclusive=true)` → find time-heavy projects
-3. `get_expensive_targets(top_number=15)` → find dominant targets
-4. `get_expensive_tasks(top_number=15)` → find dominant tasks
-5. `get_expensive_analyzers(top_number=10)` → check analyzer overhead
+Analyze the replayed diagnostic log:
+1. `grep 'Target Performance Summary' -A 50 full.log` → find dominant targets and their cumulative time
+2. `grep 'Task Performance Summary' -A 50 full.log` → find dominant tasks
+3. `grep 'Project Performance Summary' -A 50 full.log` → find time-heavy projects
+4. `grep -i 'Total analyzer execution time\|analyzer.*elapsed' full.log` → check analyzer overhead
+5. `grep -i 'node.*assigned\|Building with' full.log | head -30` → assess parallelism
 
 ### Step 3: Bottleneck Classification
 Classify findings into categories:
@@ -39,10 +39,10 @@ Classify findings into categories:
 
 ### Step 4: Deep Dive
 For each identified bottleneck:
-- `get_project_target_times(projectId=X)` for the slowest project
-- `search_targets_by_name` for dominant targets across projects
-- `get_task_analyzers` for Csc tasks with high analyzer time
-- `search_binlog` for specific patterns
+- `grep 'Target "TargetName"' full.log` → find specific target execution across projects
+- `grep -i 'Csc.*elapsed\|Csc.*duration' full.log` → check compilation times
+- `grep 'specific pattern' full.log` → search for specific issues
+- Read project files directly to understand build configuration
 
 ### Step 5: Recommendations
 Produce prioritized recommendations:

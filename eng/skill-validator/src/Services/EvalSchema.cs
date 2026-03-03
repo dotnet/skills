@@ -73,6 +73,7 @@ public static class EvalSchema
             "file_exists" => AssertionType.FileExists,
             "file_not_exists" => AssertionType.FileNotExists,
             "file_contains" => AssertionType.FileContains,
+            "file_not_contains" => AssertionType.FileNotContains,
             "output_contains" => AssertionType.OutputContains,
             "output_not_contains" => AssertionType.OutputNotContains,
             "output_matches" => AssertionType.OutputMatches,
@@ -88,7 +89,7 @@ public static class EvalSchema
                 if (string.IsNullOrWhiteSpace(raw.Path))
                     throw new InvalidOperationException($"Assertion '{raw.Type}' requires 'path'");
                 break;
-            case AssertionType.FileContains:
+            case AssertionType.FileContains or AssertionType.FileNotContains:
                 if (string.IsNullOrWhiteSpace(raw.Path))
                     throw new InvalidOperationException($"Assertion '{raw.Type}' requires 'path'");
                 if (string.IsNullOrWhiteSpace(raw.Value))

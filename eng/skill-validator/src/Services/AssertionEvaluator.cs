@@ -91,6 +91,7 @@ public static class AssertionEvaluator
             AssertionType.FileExists => await EvalFileExists(assertion, workDir),
             AssertionType.FileNotExists => await EvalFileNotExists(assertion, workDir),
             AssertionType.FileContains => await EvalFileContains(assertion, workDir),
+            AssertionType.FileNotContains => await EvalFileNotContains(assertion, workDir),
             AssertionType.OutputContains => EvalOutputContains(assertion, agentOutput),
             AssertionType.OutputNotContains => EvalOutputNotContains(assertion, agentOutput),
             AssertionType.OutputMatches => EvalOutputMatches(assertion, agentOutput),
@@ -142,6 +143,30 @@ public static class AssertionEvaluator
             }
         }
         return new AssertionResult(a, false, $"No file matching '{pattern}' contains '{value}'");
+    }
+
+    private static async Task<AssertionResult> EvalFileNotContains(Assertion a, string workDir)
+    {
+        var pattern = a.Path ?? "";
+        var value = a.Value ?? "";
+        var files = FindMatchingFiles(pattern, workDir);
+        if (files.Count == 0)
+            return new AssertionResult(a, false, $"No file matching '{pattern}' found");
+
+        foreach (var file in files)
+        {
+            try
+            {
+                var content = await File.ReadAllTextAsync(Path.Combine(workDir, file));
+                if (content.Contains(value))
+                    return new AssertionResult(a, false, $"File '{file}' contains '{value}' but should not");
+            }
+            catch
+            {
+                // skip unreadable files
+            }
+        }
+        return new AssertionResult(a, true, $"No file matching '{pattern}' contains '{value}' (expected)");
     }
 
     private static AssertionResult EvalOutputContains(Assertion a, string agentOutput)

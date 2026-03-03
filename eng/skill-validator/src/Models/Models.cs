@@ -9,6 +9,7 @@ public enum AssertionType
     FileExists,
     FileNotExists,
     FileContains,
+    FileNotContains,
     OutputContains,
     OutputNotContains,
     OutputMatches,
