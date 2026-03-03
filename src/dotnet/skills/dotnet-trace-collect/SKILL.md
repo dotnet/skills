@@ -64,7 +64,6 @@ Select tools based on the environment using the priority rules below. Once a too
 | Linux + native stacks needed | `references/perfcollect.md` |
 | Container/K8s (console access) | `references/dotnet-trace-collect.md` (or `dotnet-trace-collect-linux.md`) |
 | Container/K8s (no console) | `references/dotnet-monitor.md` |
-| Any (live monitoring) | `references/dotnet-counters.md` |
 
 #### Quick decision matrix (first-pass triage)
 
@@ -112,16 +111,12 @@ Select tools based on the environment using the priority rules below. Once a too
 **If running in the context of the workload** (i.e., you have console access to the container), prefer console-based tools to avoid `dotnet-monitor` authentication setup:
 
 1. **`dotnet-trace collect-linux`** (.NET 10+ with root) — produces the richest traces including native call stacks and kernel events.
-2. **`dotnet-trace`**, **`dotnet-counters`** — inside the container if the tools are installed in the image. For dumps, delegate to the **`dump-collect`** skill.
+2. **`dotnet-trace`** — inside the container if the tool is installed in the image. For dumps, delegate to the **`dump-collect`** skill.
 3. **`perfcollect`** — inside the container when native stacks are needed on pre-.NET 10 (requires `SYS_ADMIN` / `--privileged`).
 
 **If not running in the workload context** (no console access), or if `dotnet-monitor` is already deployed:
 
 1. **`dotnet-monitor`** — designed for containers; runs as a sidecar. No tools needed in the app container. Easiest option when console access is not available.
-
-#### Live monitoring (any environment, modern .NET)
-
-- **`dotnet-counters`** — lightweight live metrics; useful as a first step to narrow down the symptom before collecting a trace.
 
 #### Memory dumps
 
@@ -195,7 +190,6 @@ After data is collected, recommend the appropriate tool for analysis. Do **not**
 |----------------|---------------|-------|
 | `.nettrace` file | PerfView (Windows), Speedscope (web) | PerfView gives the richest view on Windows |
 | `.etl` / `.etl.zip` file | PerfView | ETW traces from PerfView or perfcollect |
-| `dotnet-counters` output | Direct reading (CSV/JSON) | Live metrics; no separate analysis tool needed |
 | `perf.data.nl` from perfcollect | PerfView (Windows) | Copy the file to a Windows machine and open with PerfView |
 
 ## Validation
