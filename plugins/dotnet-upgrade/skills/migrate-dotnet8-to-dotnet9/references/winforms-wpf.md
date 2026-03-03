@@ -18,13 +18,9 @@ These changes affect projects using Windows Forms (`<UseWindowsForms>true</UseWi
 WFO1000: Property 'property' does not configure the code serialization for its property content.
 ```
 
-**Fix options:**
-1. Add appropriate serialization attributes to flagged properties
-2. Suppress in `.editorconfig`:
-```ini
-[*.cs]
-dotnet_diagnostic.WFO1000.severity = silent
-```
+**Fix:** Add appropriate serialization attributes to flagged properties — `DesignerSerializationVisibilityAttribute`, `DefaultValueAttribute`, or a `ShouldSerialize[PropertyName]` method.
+
+> **Warning:** Do not suppress WFO1000 globally. This analyzer guards against insecure deserialization of control properties in the WinForms designer. Suppressing it can leave controls vulnerable to deserialization attacks through crafted designer files. If specific properties are intentionally excluded from serialization, use `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]` on those properties rather than silencing the analyzer project-wide.
 
 ### Behavioral Changes
 
