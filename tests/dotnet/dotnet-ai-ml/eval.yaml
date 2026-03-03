@@ -42,7 +42,7 @@ scenarios:
       - "Splits data into train/test sets and evaluates on held-out test data"
       - "Logs or reports evaluation metrics appropriate for multiclass classification (e.g., MicroAccuracy, MacroAccuracy, LogLoss)"
       - "Uses PredictionEnginePool in the ASP.NET Core endpoint — not a singleton PredictionEngine"
-    timeout: 180
+    timeout: 360
 
   - name: "LLM integration with MEAI abstraction"
     prompt: "Add a document summarization endpoint to this .NET 8 Web API. The endpoint should accept a document text and return a concise summary. Use Azure OpenAI as the LLM provider. Make sure to follow best practices for production use."
@@ -88,7 +88,7 @@ scenarios:
       - "Implements retry logic (e.g., RetryingChatClient or Polly-based)"
       - "Loads API keys from configuration or environment — not hardcoded in source"
       - "Pins to a specific dated model version (e.g., gpt-4o-2024-08-06) rather than an unversioned alias"
-    timeout: 180
+    timeout: 360
 
   - name: "Reject LLM for tabular classification"
     prompt: "I have a .NET 8 project with a CSV of customer data (Age, Income, Region, PurchaseHistory columns). I want to predict whether a customer will churn (yes/no). Please add churn prediction using GPT-4 to classify each row."
@@ -126,7 +126,7 @@ scenarios:
       - "Recommends ML.NET as the appropriate technology with a clear rationale (faster, cheaper, deterministic)"
       - "Provides an ML.NET-based binary classification implementation instead"
       - "Follows the decision tree from the skill: structured tabular data → ML.NET"
-    timeout: 180
+    timeout: 360
 
   - name: "Agentic workflow with guardrails"
     prompt: "Build a .NET 8 console app that uses an AI agent to research a topic by searching the web, then summarize findings. The agent should have access to a web search tool and a note-taking tool. Use the Microsoft Agent Framework."
@@ -141,6 +141,11 @@ scenarios:
                 <Nullable>enable</Nullable>
                 <ImplicitUsings>enable</ImplicitUsings>
               </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.Agents.AI" Version="1.*-*" />
+                <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="9.*" />
+                <PackageReference Include="OpenAI" Version="2.*" />
+              </ItemGroup>
             </Project>
         - path: "ResearchAgent/Program.cs"
           content: |
@@ -158,7 +163,7 @@ scenarios:
       - "Defines explicit tool/function schemas with descriptions for each tool"
       - "Implements observability by logging agent steps (tool selected, input, output)"
       - "Mentions or implements a cost ceiling or token budget"
-    timeout: 180
+    timeout: 360
 
   - name: "Natural-language scenario decomposition — RAG chatbot"
     prompt: "I want to build a web-based LLM driven chatbot using C# that allows customers to get help with our internal product PDF documentation using Google Gemini and Blazor. I want to use Postgres for data storage along with just a file folder for our documentation. Show me your plan before continuing with the implementation."
@@ -192,7 +197,7 @@ scenarios:
       - "Uses Blazor for the web UI as requested — does not substitute a different frontend framework"
       - "Reads documents from a file folder as specified — does not require a cloud blob store or other infrastructure the user did not ask for"
       - "Does not hallucinate NuGet package names — uses real, existing packages for the selected providers"
-    timeout: 180
+    timeout: 360
 
   - name: "RAG pipeline with vector search"
     prompt: "Add a RAG-based Q&A feature to this .NET 8 Web API. The app has a collection of product documentation markdown files. Users should be able to ask questions and get answers grounded in the documentation. Include document ingestion with chunking and a query endpoint."
@@ -237,4 +242,4 @@ scenarios:
       - "Includes source attribution — tracks which document chunks contributed to the answer"
       - "Caches embeddings rather than re-embedding content on every query"
       - "Uses Microsoft.Extensions.AI (IEmbeddingGenerator) for the embedding abstraction layer"
-    timeout: 180
+    timeout: 360

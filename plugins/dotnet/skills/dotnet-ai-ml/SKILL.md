@@ -1,6 +1,6 @@
 ---
 name: dotnet-ai-ml
-description: Guides technology selection and implementation of AI and ML features in .NET 8+ applications using ML.NET, Microsoft.Extensions.AI, Microsoft Agent Framework, GitHub Copilot SDK, ONNX Runtime, and LLamaSharp. Covers the full spectrum from classic ML through modern LLM orchestration to local inference. Use when adding classification, regression, clustering, anomaly detection, recommendation, LLM integration (text generation, summarization, reasoning), RAG pipelines with vector search, agentic workflows with tool calling, Copilot extensions, or custom model inference via ONNX Runtime to a .NET project. DO NOT USE FOR: projects targeting .NET Framework (requires .NET 8+), the task is pure data engineering or ETL with no ML/AI component, or the project needs a custom deep learning training loop (use Python with PyTorch/TensorFlow, then export to ONNX for .NET inference).
+description: "Guides technology selection and implementation of AI and ML features in .NET 8+ applications using ML.NET, Microsoft.Extensions.AI, Microsoft Agent Framework, GitHub Copilot SDK, ONNX Runtime, and LLamaSharp. Covers the full spectrum from classic ML through modern LLM orchestration to local inference. Use when adding classification, regression, clustering, anomaly detection, recommendation, LLM integration (text generation, summarization, reasoning), RAG pipelines with vector search, agentic workflows with tool calling, Copilot extensions, or custom model inference via ONNX Runtime to a .NET project. DO NOT USE FOR projects targeting .NET Framework (requires .NET 8+), the task is pure data engineering or ETL with no ML/AI component, or the project needs a custom deep learning training loop (use Python with PyTorch/TensorFlow, then export to ONNX for .NET inference)."
 ---
 
 # .NET AI and Machine Learning
@@ -41,7 +41,7 @@ After identifying the task type, select the right library layer. These libraries
 |-------|---------|---------------|----------|
 | **Abstraction** | Microsoft.Extensions.AI (MEAI) | `Microsoft.Extensions.AI` | You need a provider-agnostic interface for chat, embeddings, or tool calling. This is the foundation — always include it. Use it directly for simple prompt-in/response-out scenarios with no orchestration. |
 | **Provider SDK** | OpenAI, Azure.AI.OpenAI, Azure.AI.Inference, OllamaSharp | `OpenAI`, `Azure.AI.OpenAI`, `Azure.AI.Inference`, `OllamaSharp` | You need a concrete LLM provider implementation. These wire into MEAI via `AddChatClient`. Use `OpenAI` for direct OpenAI access, `Azure.AI.OpenAI` for Azure OpenAI, `Azure.AI.Inference` for Azure AI Foundry / GitHub Models, or `OllamaSharp` for local Ollama. Use directly only if you need provider-specific features not exposed through MEAI. |
-| **Orchestration** | Microsoft Agent Framework | `Microsoft.Agents.AI` | You need multi-step agent workflows, tool execution loops, multi-agent coordination, durable context, or graph-based workflows. Builds on top of MEAI. |
+| **Orchestration** | Microsoft Agent Framework | `Microsoft.Agents.AI` (prerelease) | You need multi-step agent workflows, tool execution loops, multi-agent coordination, durable context, or graph-based workflows. Builds on top of MEAI. **Note:** This package is currently prerelease — use `dotnet add package Microsoft.Agents.AI --prerelease` to install it. |
 | **Copilot integration** | GitHub Copilot SDK | `GitHub.Copilot.SDK` | You are building extensions or tools that integrate with the GitHub Copilot runtime — custom agents, IDE extensions, or developer workflow automation that leverages the Copilot agent platform. |
 
 #### Decision rules for library selection
@@ -83,8 +83,8 @@ Install only the packages needed for the selected technology branch. Do not mix 
 <!-- Always start with the abstraction layer -->
 <PackageReference Include="Microsoft.Extensions.AI" Version="9.*" />
 
-<!-- Orchestration (agents, workflows, tools, memory) -->
-<PackageReference Include="Microsoft.Agents.AI" Version="1.*" />
+<!-- Orchestration (agents, workflows, tools, memory) — prerelease; use dotnet add package Microsoft.Agents.AI --prerelease -->
+<PackageReference Include="Microsoft.Agents.AI" Version="1.*-*" />
 
 <!-- Cloud LLM provider (pick one) -->
 <PackageReference Include="Azure.AI.OpenAI" Version="2.*" />
