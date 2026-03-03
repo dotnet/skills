@@ -303,7 +303,7 @@ The `cache-memory` key `known-noise` stores a list of fingerprint prefixes or pa
 
 When a finding's fingerprint matches any known-noise pattern (prefix match), demote its severity to 🔵 Info. The finding is still reported in the output (in the EXISTING section if recurring) — it is NOT hidden.
 
-New patterns can be added via the `/health-check suppress <pattern>` slash command, which appends to the `known-noise` list in `cache-memory`.
+New patterns can be added by manually editing the `known-noise` list in `cache-memory`.
 
 ---
 
@@ -391,7 +391,7 @@ If no previous fingerprints exist in `cache-memory`:
 |-----|----------|---------|
 | `health-check-fingerprints` | Map of fingerprint → finding (with occurrences, first_seen) | Every run |
 | `health-check-history` | Array of daily summaries (date, counts by diff type and severity) | Appended each run |
-| `known-noise` | Array of fingerprint patterns to demote to Info | Via `/health-check suppress` |
+| `known-noise` | Array of fingerprint patterns to demote to Info | Manual edit |
 
 ### 9.4 Graceful Degradation
 

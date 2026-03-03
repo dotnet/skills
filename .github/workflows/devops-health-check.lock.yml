@@ -31,10 +31,6 @@
 
 name: "DevOps Daily Health Check"
 "on":
-  pull_request:
-    paths:
-    - ".github/workflows/devops-health-check*"
-    - ".github/aw/**"
   schedule:
   - cron: "40 17 * * *"
   workflow_dispatch: null
@@ -42,7 +38,8 @@ name: "DevOps Daily Health Check"
 permissions: {}
 
 concurrency:
-  group: "gh-aw-${{ github.workflow }}-${{ github.run_id }}"
+  group: "gh-aw-${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
 
 run-name: "DevOps Daily Health Check"
 
@@ -1233,7 +1230,7 @@ jobs:
           if-no-files-found: ignore
 
   pre_activation:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-slim
     permissions:
       issues: write

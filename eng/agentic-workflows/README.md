@@ -8,7 +8,7 @@ The workflow source files live in `.github/workflows/` and are compiled with `gh
 
 | Workflow | Description | Trigger |
 |----------|-------------|---------|
-| [devops-health-check](../../.github/workflows/devops-health-check.md) | Daily orchestrator that collects repo health signals (pipelines, skill quality, PRs, infrastructure), computes a fingerprint-based diff against the previous run, and updates a pinned health dashboard issue | `schedule: daily` (fuzzy daily), `/health-check` slash command, `workflow_dispatch` |
+| [devops-health-check](../../.github/workflows/devops-health-check.md) | Daily orchestrator that collects repo health signals (pipelines, skill quality, PRs, infrastructure), computes a fingerprint-based diff against the previous run, and updates a pinned health dashboard issue | `schedule: daily` (fuzzy daily), `workflow_dispatch` |
 | [devops-health-investigate](../../.github/workflows/devops-health-investigate.md) | Worker agent dispatched by the health check orchestrator to perform deep root-cause analysis on individual findings | `workflow_dispatch` (dispatched by orchestrator via `dispatch-workflow`) |
 
 ## Architecture
@@ -35,7 +35,7 @@ devops-health-investigate (Worker × N)
 1. Install the `gh aw` CLI extension: `gh extension install github/gh-aw`
 2. Compile: `gh aw compile` (from the repo root — this compiles all `.md` files in `.github/workflows/`)
 3. Commit both the `.md` and generated `.lock.yml` files
-4. The health check runs daily, or on-demand via `/health-check`
+4. The health check runs daily, or on-demand via `workflow_dispatch`
 
 ## Local Development
 
