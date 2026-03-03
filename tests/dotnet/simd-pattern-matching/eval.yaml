@@ -1,0 +1,397 @@
+scenarios:
+  - name: "Optimize printable ASCII validation"
+    prompt: "This .NET 8 project has a method that validates whether all bytes in a buffer are printable ASCII (0x20-0x7E). It works correctly but profiling shows it's a bottleneck when validating multi-megabyte network payloads. Please optimize IsAllPrintableAscii for maximum throughput on large inputs. Keep the same public API and make sure all existing tests still pass."
+    setup:
+      files:
+        - path: "AsciiCheck/AsciiCheck.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+            </Project>
+        - path: "AsciiCheck/AsciiValidator.cs"
+          content: |
+            namespace AsciiCheck;
+
+            public static class AsciiValidator
+            {
+                /// <summary>
+                /// Returns true if every byte in <paramref name="data"/> is printable ASCII
+                /// (0x20 through 0x7E inclusive).
+                /// </summary>
+                public static bool IsAllPrintableAscii(ReadOnlySpan<byte> data)
+                {
+                    for (int i = 0; i < data.Length; i++)
+                    {
+                        byte b = data[i];
+                        if (b < 0x20 || b > 0x7E)
+                            return false;
+                    }
+                    return true;
+                }
+            }
+        - path: "AsciiCheck.Tests/AsciiCheck.Tests.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <IsPackable>false</IsPackable>
+                <IsTestProject>true</IsTestProject>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+                <PackageReference Include="xunit" Version="2.9.0" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+              </ItemGroup>
+              <ItemGroup>
+                <ProjectReference Include="..\AsciiCheck\AsciiCheck.csproj" />
+              </ItemGroup>
+            </Project>
+        - path: "AsciiCheck.Tests/AsciiValidatorTests.cs"
+          content: |
+            using AsciiCheck;
+
+            namespace AsciiCheck.Tests;
+
+            public class AsciiValidatorTests
+            {
+                [Fact]
+                public void EmptyInput_ReturnsTrue()
+                    => Assert.True(AsciiValidator.IsAllPrintableAscii(ReadOnlySpan<byte>.Empty));
+
+                [Fact]
+                public void AllPrintable_ReturnsTrue()
+                    => Assert.True(AsciiValidator.IsAllPrintableAscii("Hello, World! 123"u8));
+
+                [Fact]
+                public void ContainsNull_ReturnsFalse()
+                    => Assert.False(AsciiValidator.IsAllPrintableAscii("Hello\0World"u8));
+
+                [Fact]
+                public void ContainsNewline_ReturnsFalse()
+                    => Assert.False(AsciiValidator.IsAllPrintableAscii("Hello\nWorld"u8));
+
+                [Fact]
+                public void ContainsHighByte_ReturnsFalse()
+                {
+                    byte[] data = { 0x41, 0x42, 0xFF, 0x43 };
+                    Assert.False(AsciiValidator.IsAllPrintableAscii(data));
+                }
+
+                [Fact]
+                public void BoundaryLow_0x1F_Invalid()
+                {
+                    byte[] data = { 0x1F };
+                    Assert.False(AsciiValidator.IsAllPrintableAscii(data));
+                }
+
+                [Fact]
+                public void BoundaryLow_0x20_Valid()
+                {
+                    byte[] data = { 0x20 };
+                    Assert.True(AsciiValidator.IsAllPrintableAscii(data));
+                }
+
+                [Fact]
+                public void BoundaryHigh_0x7E_Valid()
+                {
+                    byte[] data = { 0x7E };
+                    Assert.True(AsciiValidator.IsAllPrintableAscii(data));
+                }
+
+                [Fact]
+                public void BoundaryHigh_0x7F_Invalid()
+                {
+                    byte[] data = { 0x7F };
+                    Assert.False(AsciiValidator.IsAllPrintableAscii(data));
+                }
+
+                [Fact]
+                public void LargeValidBuffer()
+                {
+                    var data = new byte[8192];
+                    data.AsSpan().Fill(0x41); // 'A'
+                    Assert.True(AsciiValidator.IsAllPrintableAscii(data));
+                }
+
+                [Fact]
+                public void LargeBuffer_InvalidAtEnd()
+                {
+                    var data = new byte[8192];
+                    data.AsSpan().Fill(0x41);
+                    data[^1] = 0x01;
+                    Assert.False(AsciiValidator.IsAllPrintableAscii(data));
+                }
+
+                [Fact]
+                public void ShortInput_BelowVectorWidth()
+                    => Assert.True(AsciiValidator.IsAllPrintableAscii("Hi"u8));
+            }
+    assertions:
+      - type: "output_contains"
+        value: "Vector"
+      - type: "exit_success"
+    rubric:
+      - "Identifies the scalar byte-by-byte range check as a SIMD vectorization candidate (Category B — byte-range validation)"
+      - "Introduces cross-platform Vector128/Vector256 SIMD intrinsics for the range comparison"
+      - "Preserves the existing public API signature (IsAllPrintableAscii with ReadOnlySpan<byte> parameter)"
+      - "Handles edge cases correctly (empty input, short input below vector width, invalid byte at buffer boundaries)"
+      - "Preserves scalar fallback path for short inputs or non-accelerated hardware"
+      - "Existing unit tests still pass after the optimization"
+    timeout: 180
+
+  - name: "Optimize scalar character class counting"
+    prompt: "This .NET 8 project has a method that counts ASCII alphanumeric bytes in a buffer. It works correctly but profiling shows it's a bottleneck when processing large log files (100MB+). Please optimize CountAlphanumeric for better throughput. All existing tests must continue to pass."
+    setup:
+      files:
+        - path: "CharCount/CharCount.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+            </Project>
+        - path: "CharCount/AlphanumericCounter.cs"
+          content: |
+            namespace CharCount;
+
+            public static class AlphanumericCounter
+            {
+                /// <summary>
+                /// Counts how many bytes in <paramref name="data"/> are ASCII alphanumeric
+                /// (a-z, A-Z, 0-9).
+                /// </summary>
+                public static int CountAlphanumeric(ReadOnlySpan<byte> data)
+                {
+                    int count = 0;
+                    for (int i = 0; i < data.Length; i++)
+                    {
+                        byte b = data[i];
+                        if ((b >= (byte)'a' && b <= (byte)'z') ||
+                            (b >= (byte)'A' && b <= (byte)'Z') ||
+                            (b >= (byte)'0' && b <= (byte)'9'))
+                        {
+                            count++;
+                        }
+                    }
+                    return count;
+                }
+            }
+        - path: "CharCount.Tests/CharCount.Tests.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <IsPackable>false</IsPackable>
+                <IsTestProject>true</IsTestProject>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+                <PackageReference Include="xunit" Version="2.9.0" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+              </ItemGroup>
+              <ItemGroup>
+                <ProjectReference Include="..\CharCount\CharCount.csproj" />
+              </ItemGroup>
+            </Project>
+        - path: "CharCount.Tests/AlphanumericCounterTests.cs"
+          content: |
+            using CharCount;
+
+            namespace CharCount.Tests;
+
+            public class AlphanumericCounterTests
+            {
+                [Fact]
+                public void EmptyInput_ReturnsZero()
+                    => Assert.Equal(0, AlphanumericCounter.CountAlphanumeric(ReadOnlySpan<byte>.Empty));
+
+                [Fact]
+                public void AllAlphanumeric()
+                    => Assert.Equal(12, AlphanumericCounter.CountAlphanumeric("Hello12World"u8));
+
+                [Fact]
+                public void NoAlphanumeric()
+                    => Assert.Equal(0, AlphanumericCounter.CountAlphanumeric("!@#$%^&*()"u8));
+
+                [Fact]
+                public void MixedContent()
+                {
+                    byte[] mixed = { (byte)'a', (byte)'.', (byte)'b', (byte)'\t',
+                                     (byte)'c', (byte)'!', (byte)'d', (byte)'9', (byte)'e' };
+                    Assert.Equal(6, AlphanumericCounter.CountAlphanumeric(mixed));
+                }
+
+                [Fact]
+                public void LargeBuffer()
+                {
+                    var data = new byte[8192];
+                    // Fill with 'A' (all alphanumeric)
+                    data.AsSpan().Fill((byte)'A');
+                    Assert.Equal(8192, AlphanumericCounter.CountAlphanumeric(data));
+                }
+
+                [Fact]
+                public void ShortInput_UnderVectorWidth()
+                    => Assert.Equal(3, AlphanumericCounter.CountAlphanumeric("a1b"u8));
+
+                [Fact]
+                public void BoundaryValues()
+                {
+                    // Test chars just outside alphanumeric ranges
+                    byte[] edge = { (byte)'/' , (byte)'0', (byte)'9', (byte)':',
+                                    (byte)'@', (byte)'A', (byte)'Z', (byte)'[',
+                                    (byte)'`', (byte)'a', (byte)'z', (byte)'{' };
+                    // '0','9','A','Z','a','z' are alphanumeric = 6
+                    Assert.Equal(6, AlphanumericCounter.CountAlphanumeric(edge));
+                }
+            }
+    assertions:
+      - type: "output_contains"
+        value: "Vector"
+      - type: "exit_success"
+    rubric:
+      - "Identifies the scalar byte-by-byte loop as a SIMD vectorization candidate (Category A — character class membership)"
+      - "Introduces cross-platform Vector128/Vector256 SIMD intrinsics for the range checks"
+      - "Does not use platform-specific intrinsics (Avx2, Sse42, AdvSimd)"
+      - "Preserves the existing public API signature"
+      - "Handles inputs shorter than one vector width correctly"
+      - "Existing unit tests still pass after the optimization"
+    timeout: 180
+
+  - name: "No optimization opportunity â€” config file parser"
+    prompt: "This .NET 8 project parses simple key=value config files. It's used at application startup to load settings. Please review the code and optimize for performance if possible. All existing tests must continue to pass."
+    setup:
+      files:
+        - path: "ConfigParser/ConfigParser.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+            </Project>
+        - path: "ConfigParser/SimpleConfig.cs"
+          content: |
+            namespace ConfigParser;
+
+            public static class SimpleConfig
+            {
+                /// <summary>
+                /// Parses lines of "key=value" text into a dictionary.
+                /// Ignores blank lines and lines starting with '#'.
+                /// </summary>
+                public static Dictionary<string, string> Parse(string content)
+                {
+                    var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+                    foreach (var rawLine in content.Split('\n'))
+                    {
+                        var line = rawLine.Trim();
+                        if (line.Length == 0 || line[0] == '#')
+                            continue;
+
+                        int eq = line.IndexOf('=');
+                        if (eq < 0) continue;
+
+                        var key = line[..eq].Trim();
+                        var value = line[(eq + 1)..].Trim();
+
+                        if (key.Length > 0)
+                            result[key] = value;
+                    }
+
+                    return result;
+                }
+            }
+        - path: "ConfigParser.Tests/ConfigParser.Tests.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <IsPackable>false</IsPackable>
+                <IsTestProject>true</IsTestProject>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+                <PackageReference Include="xunit" Version="2.9.0" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+              </ItemGroup>
+              <ItemGroup>
+                <ProjectReference Include="..\ConfigParser\ConfigParser.csproj" />
+              </ItemGroup>
+            </Project>
+        - path: "ConfigParser.Tests/SimpleConfigTests.cs"
+          content: |
+            using ConfigParser;
+
+            namespace ConfigParser.Tests;
+
+            public class SimpleConfigTests
+            {
+                [Fact]
+                public void ParsesKeyValue()
+                {
+                    var cfg = SimpleConfig.Parse("host=localhost\nport=8080");
+                    Assert.Equal("localhost", cfg["host"]);
+                    Assert.Equal("8080", cfg["port"]);
+                }
+
+                [Fact]
+                public void IgnoresComments()
+                {
+                    var cfg = SimpleConfig.Parse("# comment\nkey=value");
+                    Assert.Single(cfg);
+                    Assert.Equal("value", cfg["key"]);
+                }
+
+                [Fact]
+                public void IgnoresBlankLines()
+                {
+                    var cfg = SimpleConfig.Parse("\n\nkey=value\n\n");
+                    Assert.Single(cfg);
+                }
+
+                [Fact]
+                public void TrimsWhitespace()
+                {
+                    var cfg = SimpleConfig.Parse("  key  =  value  ");
+                    Assert.Equal("value", cfg["key"]);
+                }
+
+                [Fact]
+                public void EmptyInput()
+                {
+                    var cfg = SimpleConfig.Parse("");
+                    Assert.Empty(cfg);
+                }
+
+                [Fact]
+                public void CaseInsensitiveKeys()
+                {
+                    var cfg = SimpleConfig.Parse("Key=one\nKEY=two");
+                    Assert.Single(cfg);
+                    Assert.Equal("two", cfg["key"]);
+                }
+            }
+    assertions:
+      - type: "exit_success"
+    rubric:
+      - "Correctly identifies that this code has no meaningful SIMD optimization opportunity"
+      - "Explains why SIMD is not applicable (small string inputs, branching logic, dictionary overhead dominates)"
+      - "Does not introduce unnecessary SIMD code that adds complexity without benefit"
+      - "Existing tests still pass â€” code is not broken by unnecessary changes"
+    timeout: 180
+
