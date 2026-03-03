@@ -64,10 +64,10 @@ You are a DevOps health monitoring agent. Your job is to collect repo health sig
 Scan the repository to find all skill components:
 
 ```
-find src/*/plugin.json -maxdepth 2
+find plugins/*/plugin.json -maxdepth 2
 ```
 
-Each `src/{name}/` directory containing a `plugin.json` is a component. The corresponding dashboard data file is `data/{name}.json` on `gh-pages`.
+Each `plugins/{name}/` directory containing a `plugin.json` is a component. The corresponding dashboard data file is `data/{name}.json` on `gh-pages`.
 
 ### 1.2 Pipeline Health (P1–P4)
 
@@ -156,9 +156,9 @@ Compute the standard deviation of `"Skilled Quality"` scores across all entries 
 
 **Q6 — Skills without eval tests:**
 ```
-find src/*/skills/ -mindepth 1 -maxdepth 1 -type d
+find plugins/*/skills/ -mindepth 1 -maxdepth 1 -type d
 ```
-For each skill directory, check if a corresponding test directory exists under `src/{component}/tests/{skill-name}/`.
+For each skill directory, check if a corresponding test directory exists under `tests/{component}/{skill-name}/`.
 If the test directory exists, verify that `eval.yaml` exists and contains at least one scenario.
 - 🟡 Warning if no test directory, no eval.yaml, or eval.yaml has no scenarios
 - Fingerprint: `coverage:{skill}:no-tests`
