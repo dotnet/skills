@@ -223,7 +223,6 @@ scenarios:
         pattern: "(dotnet-trace|dotnet trace)"
     rubric:
       - "Recommends dotnet-trace (console tool) as the preferred option since the user has console access to the container"
-      - "Explains that console-based tools avoid the authentication setup required by dotnet-monitor"
       - "Provides the specific dotnet-trace collect command to run inside the container"
       - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
     timeout: 60
