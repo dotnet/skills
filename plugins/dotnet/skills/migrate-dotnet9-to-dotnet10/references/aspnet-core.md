@@ -130,4 +130,4 @@ This is generally the desired behavior for APIs, but may affect apps that relied
 
 ### Exception diagnostics suppressed when TryHandleAsync returns true
 
-When `IExceptionHandler.TryHandleAsync` returns `true`, the exception diagnostics middleware no longer emits diagnostic events for that exception. If you rely on diagnostics (e.g., logging, telemetry) for handled exceptions, emit them within your exception handler.
+**Security consideration:** When `IExceptionHandler.TryHandleAsync` returns `true`, the exception diagnostics middleware no longer emits diagnostic events for that exception. If handled exceptions include security-relevant events (authentication failures, authorization violations, injection attempts), suppressing diagnostics could create blind spots in security monitoring and audit logging. Ensure your exception handler explicitly emits security-relevant telemetry before returning `true`.
