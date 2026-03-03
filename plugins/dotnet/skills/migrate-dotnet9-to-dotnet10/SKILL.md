@@ -196,7 +196,7 @@ Behavioral changes do not cause build errors but may change runtime behavior. Re
 - `DllImportSearchPath.AssemblyDirectory` only searches the assembly directory
 - `MailAddress` enforces validation for consecutive dots
 - Streaming HTTP responses enabled by default in browser HTTP clients
-- `Uri` length limits removed
+- `Uri` length limits removed — add explicit length validation if `Uri` was used to reject oversized input from untrusted sources
 - Cookie login redirects disabled for known API endpoints (ASP.NET Core)
 - `XmlSerializer` no longer ignores `[Obsolete]` properties
 - `dotnet restore` audits transitive packages

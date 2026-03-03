@@ -53,4 +53,4 @@ In Blazor WebAssembly and other browser-based HTTP clients, streaming responses 
 
 ### Uri length limits removed
 
-The `Uri` class no longer enforces length limits. Previously, very long URIs could throw exceptions. This is generally a relaxation but may affect validation logic that relied on `Uri` rejecting long strings.
+**Security consideration:** The `Uri` class no longer enforces length limits. Previously, very long URIs could throw exceptions. If your application relied on `Uri` to reject excessively long input (as an input validation or sanitization gate), this removal may expose denial-of-service or resource exhaustion attack surface. Add explicit length validation before constructing `Uri` instances from untrusted input.
