@@ -1,56 +1,95 @@
-<!-- AUTO-GENERATED — DO NOT EDIT -->
+﻿<!-- AUTO-GENERATED -- DO NOT EDIT -->
 
 # Analyzing MSBuild Failures with Binary Logs
 
-You have binlog MCP tool calls available — call them directly like any other tool. Do not use bash to install or run binlog tools.
+Use MSBuild's built-in **binlog replay** to convert binary logs into searchable text logs, then analyze with standard tools (`grep`, `cat`, `head`, `tail`, `find`).
 
 ## Build Error Investigation (Primary Workflow)
 
-1. Call `load_binlog` with the absolute path to the `.binlog` file
-2. Call `get_diagnostics` with `includeErrors: true, includeDetails: true` — returns all errors with file paths, line numbers, and project context
-3. Call `list_projects` — shows all projects and their build status
-4. Call `get_file_from_binlog` to retrieve `.csproj` files for projects that had errors — binlogs embed all source files
-5. Call `get_evaluation_items_by_name` with `PackageReference` or `ProjectReference` to check dependencies
-6. If needed, call `search_binlog` with the error code (e.g., `"error CS0246"`) for additional context
-7. To detect cascading failures: call `search_binlog` with `under($project ProjectName) $target CoreCompile` — projects that never reached CoreCompile failed due to a dependency, not their own code
+### Step 1: Replay the binlog to text logs
+
+Replay produces multiple focused log files in one pass:
+
+```bash
+dotnet msbuild build.binlog -noconlog \
+  -fl  -flp:v=diag;logfile=full.log;performancesummary \
+  -fl1 -flp1:errorsonly;logfile=errors.log \
+  -fl2 -flp2:warningsonly;logfile=warnings.log
+```
+
+> **PowerShell note:** Use `-flp:"v=diag;logfile=full.log;performancesummary"` (quoted semicolons).
+
+### Step 2: Read the errors
+
+```bash
+cat errors.log
+```
+
+This gives all errors with file paths, line numbers, error codes, and project context.
+
+### Step 3: Search for context around specific errors
+
+```bash
+# Find all occurrences of a specific error code with surrounding context
+grep -n -B2 -A2 "CS0246" full.log
+
+# Find which projects failed to compile
+grep -i "CoreCompile.*FAILED\|Build FAILED\|error MSB" full.log
+
+# Find project build order and results
+grep "done building project\|Building with" full.log | head -50
+```
+
+### Step 4: Detect cascading failures
+
+Projects that never reached `CoreCompile` failed because a dependency failed, not their own code:
+
+```bash
+# List all projects that ran CoreCompile
+grep 'Target "CoreCompile"' full.log | grep -oP 'project "[^"]*"'
+
+# Compare against projects that had errors to identify cascading failures
+grep "project.*FAILED" full.log
+```
+
+### Step 5: Examine project files for root causes
+
+```bash
+# Read the .csproj of the failing project
+cat path/to/Services/Services.csproj
+
+# Check PackageReference and ProjectReference entries
+grep -n "PackageReference\|ProjectReference" path/to/Services/Services.csproj
+```
 
 **Write your diagnosis as soon as you have enough information.** Do not over-investigate.
 
 ## Additional Workflows
 
 ### Performance Investigation
-1. `load_binlog` → `get_expensive_targets` → `get_expensive_tasks` → `get_expensive_analyzers` → `search_targets_by_name` → `get_node_timeline`
+```bash
+# The PerformanceSummary is at the end of full.log
+tail -100 full.log   # shows target/task timing summary
+grep "Target Performance Summary\|Task Performance Summary" -A 50 full.log
+```
 
 ### Dependency/Evaluation Issues
-1. `load_binlog` → `list_projects` → `list_evaluations` → `get_evaluation_global_properties` → `get_evaluation_items_by_name`
+```bash
+# Check evaluation properties
+grep -i "OutputPath\|IntermediateOutputPath\|TargetFramework" full.log | head -30
+# Check item groups
+grep "PackageReference\|ProjectReference" full.log | head -30
+```
 
-## ❌ DO NOT use bash for binlog analysis
+## Replay reference
 
-- Do not install `binlogtool`, `dotnet-script`, or any CLI tool — you already have tool calls
-- Do not write C# scripts to parse binlogs — the tool calls are faster and more reliable
-- Do not use `dotnet msbuild -flp` — use `get_diagnostics` and `search_binlog` instead
-
-## Key tools
-
-| Tool call | Purpose |
-|-----------|---------|
-| `load_binlog` | **Call first.** Load a binlog before using any other tool |
-| `get_diagnostics` | Get all errors/warnings with source locations |
-| `list_projects` | List projects and build status |
-| `get_file_from_binlog` | Read any embedded file (source, csproj, props) |
-| `list_files_from_binlog` | List all embedded files |
-| `search_binlog` | Freetext search with query syntax |
-| `get_evaluation_items_by_name` | Get PackageReference, ProjectReference, etc. |
-| `get_project_target_list` | List targets executed for a project |
-
-## Search query syntax (for `search_binlog`)
-
-- `"error CS0246"` — find specific errors
-- `$task Csc` — find C# compilation tasks
-- `under($project MyProject)` — scope to a project
-- `under($project X) $target CoreCompile` — check if project reached compilation
-- `$target TargetName` — find target executions
-- `not($query)` — exclude matches
+| Command | Purpose |
+|---------|---------|
+| `dotnet msbuild X.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary` | Full diagnostic log with perf summary |
+| `dotnet msbuild X.binlog -noconlog -fl -flp:errorsonly;logfile=errors.log` | Errors only |
+| `dotnet msbuild X.binlog -noconlog -fl -flp:warningsonly;logfile=warnings.log` | Warnings only |
+| `grep -n "PATTERN" full.log` | Search for patterns in the replayed log |
+| `dotnet msbuild -pp:preprocessed.xml Proj.csproj` | Preprocess — inline all imports into one file |
 
 ## Generating a binlog (only if none exists)
 
@@ -190,40 +229,37 @@ Clashes can occur between:
 
 Use the `binlog-generation` skill to generate a binary log with the correct naming convention.
 
-## Step 2: Load the Binary Log
+## Step 2: Replay the Binary Log to Text
 
-```
-load_binlog with path: "<absolute-path-to-build.binlog>"
+```bash
+dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
 ```
 
 ## Step 3: List All Projects
 
-```
-list_projects with binlog_file: "<path>"
-```
-
-This returns all projects with their IDs and file paths.
-
-## Step 4: Get Evaluations for Each Project
-
-For each unique project file path, list its evaluations:
-
-```
-list_evaluations with:
-  - binlog_file: "<path>"
-  - projectFilePath: "<project-file-path>"
+```bash
+grep -i 'done building project\|Building project' full.log | grep -oP '"[^"]+\.csproj"' | sort -u
 ```
 
-Multiple evaluations for the same project indicate multi-targeting or multiple build configurations.
+This lists all project files that participated in the build.
+
+## Step 4: Check for Multiple Evaluations per Project
+
+Multiple evaluations for the same project indicate multi-targeting or multiple build configurations:
+
+```bash
+# Count how many times each project was evaluated
+grep -c 'Evaluation started' full.log
+grep 'Evaluation started.*\.csproj' full.log
+```
 
 ## Step 5: Check Global Properties for Each Evaluation
 
-For each evaluation, get the global properties to understand the build configuration:
+For each project, query the build properties to understand the build configuration:
 
-```
-get_evaluation_global_properties with:
-  - binlog_file: "<path>"
-  - evaluationId: <evaluation-id>
+```bash
+# Search the diagnostic log for evaluated property values
+grep -i 'TargetFramework\|Configuration\|Platform\|RuntimeIdentifier' full.log | head -40
 ```
 
 Look for properties like `TargetFramework`, `Configuration`, `Platform`, and `RuntimeIdentifier` that should differentiate output paths.
@@ -246,15 +282,19 @@ When analyzing clashes, filter evaluations based on the type of clash you're inv
 
 3. **Always exclude `BuildProjectReferences=false`**: These are P2P metadata queries, not actual builds that write files.
 
-## Step 6: Get Output Paths for Each Evaluation
+## Step 6: Get Output Paths for Each Project
 
-For each evaluation, retrieve the `OutputPath` and `IntermediateOutputPath`:
+Query each project's output path properties:
 
-```
-get_evaluation_properties_by_name with:
-  - binlog_file: "<path>"
-  - evaluationId: <evaluation-id>
-  - propertyNames: ["OutputPath", "IntermediateOutputPath", "BaseOutputPath", "BaseIntermediateOutputPath", "TargetFramework", "Configuration", "Platform"]
+```bash
+# From the diagnostic log - search for OutputPath assignments
+grep -i 'OutputPath\s*=\|IntermediateOutputPath\s*=\|BaseOutputPath\s*=\|BaseIntermediateOutputPath\s*=' full.log | head -40
+
+# Or query a specific project directly
+dotnet msbuild MyProject.csproj -getProperty:OutputPath
+dotnet msbuild MyProject.csproj -getProperty:IntermediateOutputPath
+dotnet msbuild MyProject.csproj -getProperty:BaseOutputPath
+dotnet msbuild MyProject.csproj -getProperty:BaseIntermediateOutputPath
 ```
 
 ## Step 7: Identify Clashes
@@ -269,19 +309,12 @@ Compare the `OutputPath` and `IntermediateOutputPath` values across all evaluati
 
 As additional evidence for OutputPath clashes, check if multiple project builds execute the `CopyFilesToOutputDirectory` target to the same path. Note that not all clashes manifest here - compilation outputs and other targets may also conflict.
 
-```
-search_binlog with:
-  - binlog_file: "<path>"
-  - query: "$target CopyFilesToOutputDirectory project(<project-name>.csproj)"
-```
+```bash
+# Search for CopyFilesToOutputDirectory target execution per project
+grep 'Target "CopyFilesToOutputDirectory"' full.log
 
-Then for each project ID that ran this target, examine the Copy task messages:
-
-```
-list_tasks_in_target with:
-  - binlog_file: "<path>"
-  - projectId: <project-id>
-  - targetId: <target-id-of-CopyFilesToOutputDirectory>
+# Look for Copy task messages showing file destinations
+grep 'Copying file from\|SkipUnchangedFiles' full.log | head -30
 ```
 
 Look for evidence of clashes in the messages:
@@ -294,10 +327,8 @@ The `SkipUnchangedFiles` skip message often masks clashes - the build succeeds b
 
 To understand which project instance did the actual compilation vs redundant work, check `CoreCompile`:
 
-```
-search_binlog with:
-  - binlog_file: "<path>"
-  - query: "$target CoreCompile project(<project-name>.csproj)"
+```bash
+grep 'Target "CoreCompile"' full.log
 ```
 
 Compare the durations:
@@ -306,11 +337,13 @@ Compare the durations:
 
 This helps distinguish the "real" build from redundant instances created by extra global properties or multi-solution builds.
 
-### Caveat: `under()` Search in Multi-Solution Builds
+### Caveat: Multi-Solution Builds
 
-When using `search_binlog` with `under($project SolutionName)` to determine which solution a project instance belongs to, be aware that `under()` matches through the **entire build hierarchy**. If both solutions share a common ancestor (e.g., Arcade SDK's `Build.proj`), all project instances will appear "under" both solutions.
+When analyzing multi-solution builds, note that the diagnostic log interleaves output from all projects. To determine which solution a project instance belongs to, search for `SolutionFileName` property assignments in the diagnostic log:
 
-Instead, use `get_evaluation_global_properties` and compare the `SolutionFileName` / `CurrentSolutionConfigurationContents` properties to reliably determine which solution an evaluation belongs to.
+```bash
+grep -i "SolutionFileName\|CurrentSolutionConfigurationContents" full.log | head -20
+```
 
 ### Expected Output Structure
 
@@ -439,30 +472,29 @@ This is particularly wasteful for projects where the extra property has no effec
 
 ## Example Workflow
 
-```
-1. load_binlog with path: "C:\repo\build.binlog"
+```bash
+# 1. Replay the binlog
+dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
 
-2. list_projects → Returns projects with IDs
+# 2. List projects
+grep 'done building project' full.log | grep -oP '"[^"]+\.csproj"' | sort -u
 
-3. For project "MyLib.csproj":
-   list_evaluations → Returns evaluation IDs 1, 2 (net8.0, net9.0)
+# 3. Check OutputPath for each evaluation
+grep -i 'OutputPath\s*=' full.log | sort -u
+# e.g.  OutputPath = bin\Debug\net8.0\
+#       OutputPath = bin\Debug\net9.0\
 
-4. get_evaluation_properties_by_name for evaluation 1:
-   - TargetFramework: "net8.0"
-   - OutputPath: "bin\Debug\net8.0\"
-   - IntermediateOutputPath: "obj\Debug\net8.0\"
+# 4. Check IntermediateOutputPath
+grep -i 'IntermediateOutputPath\s*=' full.log | sort -u
+# e.g.  IntermediateOutputPath = obj\Debug\net8.0\
+#       IntermediateOutputPath = obj\Debug\net9.0\
 
-5. get_evaluation_properties_by_name for evaluation 2:
-   - TargetFramework: "net9.0"
-   - OutputPath: "bin\Debug\net9.0\"
-   - IntermediateOutputPath: "obj\Debug\net9.0\"
-
-6. Compare paths → No clash (paths differ by TargetFramework)
+# 5. Compare paths → No clash (paths differ by TargetFramework)
 ```
 
 ## Tips
 
-- Use `search_binlog` with query `"OutputPath"` to quickly find all OutputPath property assignments
+- Use `grep -i 'OutputPath\s*=' full.log | sort -u` to quickly find all OutputPath property assignments
 - Check `BaseOutputPath` and `BaseIntermediateOutputPath` as they form the root of output paths
 - The SDK default paths include `$(TargetFramework)` - clashes often occur when projects override these defaults
 - Remember that paths may be relative - normalize to absolute paths before comparing

@@ -1,16 +1,28 @@
 ---
 name: build-perf-diagnostics
-description: "Reference knowledge for diagnosing MSBuild build performance issues. Only activate in MSBuild/.NET build context. Use when builds are slow, to identify bottlenecks using binary log analysis. Covers timeline analysis, node utilization, expensive targets/tasks, Roslyn analyzer impact, RAR performance, and critical path identification. Works with the binlog MCP tools for data-driven analysis."
+description: "Reference knowledge for diagnosing MSBuild build performance issues. Only activate in MSBuild/.NET build context. Use when builds are slow, to identify bottlenecks using binary log analysis. Covers timeline analysis, node utilization, expensive targets/tasks, Roslyn analyzer impact, RAR performance, and critical path identification. Works with binlog replay to text logs for data-driven analysis."
 ---
 
 ## Performance Analysis Methodology
 
-1. **Generate a binlog**: `dotnet build /bl`
-2. **Load with binlog MCP**: `load_binlog`
-3. **Get overall picture**: `get_expensive_projects`, `get_expensive_targets`, `get_expensive_tasks`
-4. **Analyze node utilization**: `get_node_timeline`
-5. **Drill into bottlenecks**: `get_project_target_times`, `search_targets_by_name`
-6. **Check analyzers**: `get_expensive_analyzers`
+1. **Generate a binlog**: `dotnet build /bl:{} -m`
+2. **Replay to diagnostic log with performance summary**:
+   ```bash
+   dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
+   ```
+3. **Read the performance summary** (at the end of `full.log`):
+   ```bash
+   grep "Target Performance Summary\|Task Performance Summary" -A 50 full.log
+   ```
+4. **Find expensive targets and tasks**: The PerformanceSummary section lists all targets/tasks sorted by cumulative time
+5. **Check for node utilization**: grep for scheduling and node messages
+   ```bash
+   grep -i "node.*assigned\|building with\|scheduler" full.log | head -30
+   ```
+6. **Check analyzers**: grep for analyzer timing
+   ```bash
+   grep -i "analyzer.*elapsed\|Total analyzer execution time\|CompilerAnalyzerDriver" full.log
+   ```
 
 ## Key Metrics and Thresholds
 
@@ -32,7 +44,7 @@ description: "Reference knowledge for diagnosing MSBuild build performance issue
 ### 2. Roslyn Analyzers and Source Generators
 
 - **Symptoms**: Csc task takes much longer than expected for file count (>2× clean compile time)
-- **Diagnosis**: `get_expensive_analyzers` → identify top offenders, compare Csc duration with and without analyzers
+- **Diagnosis**: Check the Task Performance Summary in the replayed log for Csc task time; grep for analyzer timing messages; compare Csc duration with and without analyzers (`/p:RunAnalyzers=false`)
 - **Fixes**:
   - Conditionally disable in dev: `<RunAnalyzers Condition="'$(ContinuousIntegrationBuild)' != 'true'">false</RunAnalyzers>`
   - Per-configuration: `<RunAnalyzers Condition="'$(Configuration)' == 'Debug'">false</RunAnalyzers>`
@@ -45,7 +57,7 @@ description: "Reference knowledge for diagnosing MSBuild build performance issue
 
 ### 3. Serialization Bottlenecks (Single-threaded targets)
 
-- **Symptoms**: `get_node_timeline` shows most nodes idle while one works
+- **Symptoms**: Performance summary shows most build time concentrated in a single project; diagnostic log shows idle nodes while one works
 - **Common culprits**: targets without proper dependency declaration, single project on critical path
 - **Fixes**: split large projects, optimize the critical path project, ensure proper `BuildInParallel`
 
@@ -70,18 +82,35 @@ description: "Reference knowledge for diagnosing MSBuild build performance issue
 - **Symptoms**: many small projects, each takes minimal time but overhead adds up
 - **Consider**: project consolidation, or use `/graph` mode for better scheduling
 
-## Using Binlog MCP Tools for Performance Analysis
+## Using Binlog Replay for Performance Analysis
 
-Step-by-step workflow with the actual MCP tool calls:
+Step-by-step workflow using text log replay:
 
-1. `load_binlog` → note total duration and node count
-2. `get_expensive_projects(top_number=5, sortByExclusive=true)` → find where time is spent
-3. `get_expensive_targets(top_number=10)` → which targets dominate
-4. `get_expensive_tasks(top_number=10)` → which tasks dominate
-5. `get_node_timeline()` → check parallelism utilization
-6. `get_expensive_analyzers(top_number=10)` → analyzer overhead
-7. For a specific slow project: `get_project_target_times(projectId=X)` → target breakdown
-8. Deep dive: `search_binlog(query="$time $target TargetName")` → timing for specific targets
+1. **Replay with performance summary**:
+   ```bash
+   dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
+   ```
+2. **Read target/task performance summaries** (at the end of `full.log`):
+   ```bash
+   grep "Target Performance Summary\|Task Performance Summary" -A 50 full.log
+   ```
+   This shows all targets and tasks sorted by cumulative time — equivalent to finding expensive targets/tasks.
+3. **Find per-project build times**:
+   ```bash
+   grep "done building project\|Project Performance Summary" full.log
+   ```
+4. **Check parallelism** (multi-node scheduling):
+   ```bash
+   grep -i "node.*assigned\|RequiresLeadingNewline\|Building with" full.log | head -30
+   ```
+5. **Check analyzer overhead**:
+   ```bash
+   grep -i "Total analyzer execution time\|analyzer.*elapsed\|CompilerAnalyzerDriver" full.log
+   ```
+6. **Drill into a specific slow target**:
+   ```bash
+   grep 'Target "CoreCompile"\|Target "ResolveAssemblyReferences"' full.log
+   ```
 
 ## Quick Wins Checklist
 

@@ -34,40 +34,37 @@ Clashes can occur between:
 
 Use the `binlog-generation` skill to generate a binary log with the correct naming convention.
 
-## Step 2: Load the Binary Log
+## Step 2: Replay the Binary Log to Text
 
-```
-load_binlog with path: "<absolute-path-to-build.binlog>"
+```bash
+dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
 ```
 
 ## Step 3: List All Projects
 
-```
-list_projects with binlog_file: "<path>"
-```
-
-This returns all projects with their IDs and file paths.
-
-## Step 4: Get Evaluations for Each Project
-
-For each unique project file path, list its evaluations:
-
-```
-list_evaluations with:
-  - binlog_file: "<path>"
-  - projectFilePath: "<project-file-path>"
+```bash
+grep -i 'done building project\|Building project' full.log | grep -oP '"[^"]+\.csproj"' | sort -u
 ```
 
-Multiple evaluations for the same project indicate multi-targeting or multiple build configurations.
+This lists all project files that participated in the build.
+
+## Step 4: Check for Multiple Evaluations per Project
+
+Multiple evaluations for the same project indicate multi-targeting or multiple build configurations:
+
+```bash
+# Count how many times each project was evaluated
+grep -c 'Evaluation started' full.log
+grep 'Evaluation started.*\.csproj' full.log
+```
 
 ## Step 5: Check Global Properties for Each Evaluation
 
-For each evaluation, get the global properties to understand the build configuration:
+For each project, query the build properties to understand the build configuration:
 
-```
-get_evaluation_global_properties with:
-  - binlog_file: "<path>"
-  - evaluationId: <evaluation-id>
+```bash
+# Search the diagnostic log for evaluated property values
+grep -i 'TargetFramework\|Configuration\|Platform\|RuntimeIdentifier' full.log | head -40
 ```
 
 Look for properties like `TargetFramework`, `Configuration`, `Platform`, and `RuntimeIdentifier` that should differentiate output paths.
@@ -90,15 +87,19 @@ When analyzing clashes, filter evaluations based on the type of clash you're inv
 
 3. **Always exclude `BuildProjectReferences=false`**: These are P2P metadata queries, not actual builds that write files.
 
-## Step 6: Get Output Paths for Each Evaluation
+## Step 6: Get Output Paths for Each Project
 
-For each evaluation, retrieve the `OutputPath` and `IntermediateOutputPath`:
+Query each project's output path properties:
 
-```
-get_evaluation_properties_by_name with:
-  - binlog_file: "<path>"
-  - evaluationId: <evaluation-id>
-  - propertyNames: ["OutputPath", "IntermediateOutputPath", "BaseOutputPath", "BaseIntermediateOutputPath", "TargetFramework", "Configuration", "Platform"]
+```bash
+# From the diagnostic log - search for OutputPath assignments
+grep -i 'OutputPath\s*=\|IntermediateOutputPath\s*=\|BaseOutputPath\s*=\|BaseIntermediateOutputPath\s*=' full.log | head -40
+
+# Or query a specific project directly
+dotnet msbuild MyProject.csproj -getProperty:OutputPath
+dotnet msbuild MyProject.csproj -getProperty:IntermediateOutputPath
+dotnet msbuild MyProject.csproj -getProperty:BaseOutputPath
+dotnet msbuild MyProject.csproj -getProperty:BaseIntermediateOutputPath
 ```
 
 ## Step 7: Identify Clashes
@@ -113,19 +114,12 @@ Compare the `OutputPath` and `IntermediateOutputPath` values across all evaluati
 
 As additional evidence for OutputPath clashes, check if multiple project builds execute the `CopyFilesToOutputDirectory` target to the same path. Note that not all clashes manifest here - compilation outputs and other targets may also conflict.
 
-```
-search_binlog with:
-  - binlog_file: "<path>"
-  - query: "$target CopyFilesToOutputDirectory project(<project-name>.csproj)"
-```
+```bash
+# Search for CopyFilesToOutputDirectory target execution per project
+grep 'Target "CopyFilesToOutputDirectory"' full.log
 
-Then for each project ID that ran this target, examine the Copy task messages:
-
-```
-list_tasks_in_target with:
-  - binlog_file: "<path>"
-  - projectId: <project-id>
-  - targetId: <target-id-of-CopyFilesToOutputDirectory>
+# Look for Copy task messages showing file destinations
+grep 'Copying file from\|SkipUnchangedFiles' full.log | head -30
 ```
 
 Look for evidence of clashes in the messages:
@@ -138,10 +132,8 @@ The `SkipUnchangedFiles` skip message often masks clashes - the build succeeds b
 
 To understand which project instance did the actual compilation vs redundant work, check `CoreCompile`:
 
-```
-search_binlog with:
-  - binlog_file: "<path>"
-  - query: "$target CoreCompile project(<project-name>.csproj)"
+```bash
+grep 'Target "CoreCompile"' full.log
 ```
 
 Compare the durations:
@@ -150,11 +142,13 @@ Compare the durations:
 
 This helps distinguish the "real" build from redundant instances created by extra global properties or multi-solution builds.
 
-### Caveat: `under()` Search in Multi-Solution Builds
+### Caveat: Multi-Solution Builds
 
-When using `search_binlog` with `under($project SolutionName)` to determine which solution a project instance belongs to, be aware that `under()` matches through the **entire build hierarchy**. If both solutions share a common ancestor (e.g., Arcade SDK's `Build.proj`), all project instances will appear "under" both solutions.
+When analyzing multi-solution builds, note that the diagnostic log interleaves output from all projects. To determine which solution a project instance belongs to, search for `SolutionFileName` property assignments in the diagnostic log:
 
-Instead, use `get_evaluation_global_properties` and compare the `SolutionFileName` / `CurrentSolutionConfigurationContents` properties to reliably determine which solution an evaluation belongs to.
+```bash
+grep -i "SolutionFileName\|CurrentSolutionConfigurationContents" full.log | head -20
+```
 
 ### Expected Output Structure
 
@@ -283,30 +277,29 @@ This is particularly wasteful for projects where the extra property has no effec
 
 ## Example Workflow
 
-```
-1. load_binlog with path: "C:\repo\build.binlog"
+```bash
+# 1. Replay the binlog
+dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
 
-2. list_projects → Returns projects with IDs
+# 2. List projects
+grep 'done building project' full.log | grep -oP '"[^"]+\.csproj"' | sort -u
 
-3. For project "MyLib.csproj":
-   list_evaluations → Returns evaluation IDs 1, 2 (net8.0, net9.0)
+# 3. Check OutputPath for each evaluation
+grep -i 'OutputPath\s*=' full.log | sort -u
+# e.g.  OutputPath = bin\Debug\net8.0\
+#       OutputPath = bin\Debug\net9.0\
 
-4. get_evaluation_properties_by_name for evaluation 1:
-   - TargetFramework: "net8.0"
-   - OutputPath: "bin\Debug\net8.0\"
-   - IntermediateOutputPath: "obj\Debug\net8.0\"
+# 4. Check IntermediateOutputPath
+grep -i 'IntermediateOutputPath\s*=' full.log | sort -u
+# e.g.  IntermediateOutputPath = obj\Debug\net8.0\
+#       IntermediateOutputPath = obj\Debug\net9.0\
 
-5. get_evaluation_properties_by_name for evaluation 2:
-   - TargetFramework: "net9.0"
-   - OutputPath: "bin\Debug\net9.0\"
-   - IntermediateOutputPath: "obj\Debug\net9.0\"
-
-6. Compare paths → No clash (paths differ by TargetFramework)
+# 5. Compare paths → No clash (paths differ by TargetFramework)
 ```
 
 ## Tips
 
-- Use `search_binlog` with query `"OutputPath"` to quickly find all OutputPath property assignments
+- Use `grep -i 'OutputPath\s*=' full.log | sort -u` to quickly find all OutputPath property assignments
 - Check `BaseOutputPath` and `BaseIntermediateOutputPath` as they form the root of output paths
 - The SDK default paths include `$(TargetFramework)` - clashes often occur when projects override these defaults
 - Remember that paths may be relative - normalize to absolute paths before comparing

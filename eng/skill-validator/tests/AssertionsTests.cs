@@ -129,6 +129,56 @@ public class FileContainsAssertionTests : IDisposable
     }
 }
 
+public class FileNotContainsAssertionTests : IDisposable
+{
+    private readonly string _tmpDir;
+
+    public FileNotContainsAssertionTests()
+    {
+        _tmpDir = Path.Combine(Path.GetTempPath(), $"assertions-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_tmpDir);
+        File.WriteAllText(Path.Combine(_tmpDir, "hello.cs"), "using System;\nstackalloc Span<nint> data;");
+        File.WriteAllText(Path.Combine(_tmpDir, "readme.md"), "# README\nThis is a test.");
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_tmpDir, true); } catch { }
+    }
+
+    [Fact]
+    public async Task PassesWhenFileDoesNotContainTheValue()
+    {
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.FileNotContains, Path: "*.cs", Value: "notfound")],
+            "",
+            _tmpDir);
+        Assert.True(results[0].Passed);
+    }
+
+    [Fact]
+    public async Task FailsWhenFileContainsTheValue()
+    {
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.FileNotContains, Path: "*.cs", Value: "stackalloc")],
+            "",
+            _tmpDir);
+        Assert.False(results[0].Passed);
+        Assert.Contains("hello.cs", results[0].Message);
+    }
+
+    [Fact]
+    public async Task FailsWhenNoFilesMatchTheGlob()
+    {
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.FileNotContains, Path: "*.py", Value: "import")],
+            "",
+            _tmpDir);
+        Assert.False(results[0].Passed);
+        Assert.Contains("No file matching", results[0].Message);
+    }
+}
+
 public class EvaluateConstraintsTests
 {
     private static RunMetrics MakeMetrics(

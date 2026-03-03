@@ -3,10 +3,10 @@ scenarios:
     prompt: >-
       A .NET solution build has failed. The binary log from the failed build is
       available at build.binlog in the current directory. You do NOT have access
-      to the original source files — only the binlog. Use binary log analysis
-      tools to load and analyze this binlog file. Diagnose all build failures,
-      identify which errors are root causes versus cascading failures from
-      dependent project failures, and suggest targeted fixes for each root cause.
+      to the original source files — only the binlog. Analyze this binlog file
+      to diagnose all build failures, identify which errors are root causes
+      versus cascading failures from dependent project failures, and suggest
+      targeted fixes for each root cause.
     setup:
       copy_test_files: true
       commands:
@@ -20,11 +20,8 @@ scenarios:
         value: "CS0246"
       - type: "output_contains"
         value: "Newtonsoft.Json"
-    expect_tools:
-      - "binlog-mcp-load_binlog"
-      - "binlog-mcp-get_diagnostics"
     rubric:
-      - "Successfully loaded the binary log file using binlog analysis tools"
+      - "Successfully replayed the binary log to text logs or otherwise extracted errors from the binlog"
       - "Identified CS0246 compiler errors in the Services project for Newtonsoft.Json types (JsonConvert, JObject, Formatting) from the binlog"
       - "Correctly determined that the root cause is a missing PackageReference for Newtonsoft.Json in the Services project"
       - "Recognized the cascading failure chain: Services failed → Api could not build because it depends on Services"
