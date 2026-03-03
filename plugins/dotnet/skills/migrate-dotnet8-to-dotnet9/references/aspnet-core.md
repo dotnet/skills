@@ -25,7 +25,7 @@ builder.Host.UseDefaultServiceProvider(options =>
 
 **Impact: Medium.** This is a change backported from .NET 8. The `ForwardedHeadersMiddleware` now ignores `X-Forwarded-*` headers from proxies not in the `KnownProxies` or `KnownNetworks` list.
 
-**Mitigation:** Add your proxy addresses to `KnownProxies` or `KnownNetworks`:
+**Mitigation:** Add your trusted proxy addresses to `KnownProxies` or `KnownNetworks`:
 ```csharp
 services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -33,11 +33,7 @@ services.Configure<ForwardedHeadersOptions>(options =>
 });
 ```
 
-Or clear the lists to accept from any proxy (less secure):
-```csharp
-options.KnownProxies.Clear();
-options.KnownNetworks.Clear();
-```
+> **Warning:** Do not clear `KnownProxies` or `KnownNetworks` to accept forwarded headers from any source. This disables ASP.NET Core's protection against spoofed `X-Forwarded-*` headers and is unsafe for production. Only register the specific proxy addresses or network ranges your infrastructure uses.
 
 ## Source-Incompatible Changes
 
