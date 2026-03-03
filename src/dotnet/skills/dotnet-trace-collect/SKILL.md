@@ -108,7 +108,7 @@ Select tools based on the environment using the priority rules below. Once a too
 
 #### Linux Container / Kubernetes
 
-**If running in the context of the workload** (i.e., you have console access to the container), prefer console-based tools to avoid `dotnet-monitor` authentication setup:
+**If running in the context of the workload** (i.e., you have console access to the container), prefer console-based tools. These are easier to set up than `dotnet-monitor`, which requires authentication configuration and sidecar deployment:
 
 1. **`dotnet-trace collect-linux`** (.NET 10+ with root) — produces the richest traces including native call stacks and kernel events.
 2. **`dotnet-trace`** — inside the container if the tool is installed in the image. For dumps, invoke the **`dump-collect`** skill.
@@ -163,7 +163,7 @@ Explain the trade-offs when recommending a tool. For example:
 - PerfView gives richer data but needs admin; runs on Windows including Windows containers.
 - `dotnet-trace` works cross-platform without admin but captures less system-level detail.
 - `perfcollect` captures native call stacks but needs admin/root.
-- `dotnet-monitor` is the best option for containers/K8s but requires sidecar setup.
+- `dotnet-monitor` is the best option for containers/K8s when console access is not available, but requires sidecar deployment and authentication configuration.
 
 ### Step 3: Guide data collection
 
