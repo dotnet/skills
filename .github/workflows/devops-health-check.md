@@ -8,7 +8,6 @@ description: >
 
 on:
   schedule: daily
-  slash_command: health-check
   workflow_dispatch:
 
 permissions:

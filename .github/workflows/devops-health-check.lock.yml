@@ -27,36 +27,14 @@
 #   Imports:
 #     - ../aw/shared/devops-health.lock.md
 #
-# frontmatter-hash: 58af52a6c82092d7371c7d8ccbecb2f0637c094063b34a2e9a3a94c14fddd988
+# frontmatter-hash: c4d77907690bea87f0ffd14b71429ec43f1675f57619bd60e1e8a630eb6914ab
 
 name: "DevOps Daily Health Check"
 "on":
-  discussion:
-    types:
-    - created
-    - edited
-  discussion_comment:
-    types:
-    - created
-    - edited
-  issue_comment:
-    types:
-    - created
-    - edited
-  issues:
-    types:
-    - opened
-    - edited
-    - reopened
   pull_request:
-    types:
-    - opened
-    - edited
-    - reopened
-  pull_request_review_comment:
-    types:
-    - created
-    - edited
+    paths:
+    - ".github/workflows/devops-health-check*"
+    - ".github/aw/**"
   schedule:
   - cron: "40 17 * * *"
   workflow_dispatch: null
@@ -64,28 +42,14 @@ name: "DevOps Daily Health Check"
 permissions: {}
 
 concurrency:
-  group: "gh-aw-${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number }}"
+  group: "gh-aw-${{ github.workflow }}-${{ github.run_id }}"
 
 run-name: "DevOps Daily Health Check"
 
 jobs:
   activation:
     needs: pre_activation
-    if: >
-      (needs.pre_activation.outputs.activated == 'true') && (((github.event_name == 'issues' || github.event_name == 'issue_comment' ||
-      github.event_name == 'pull_request' || github.event_name == 'pull_request_review_comment' || github.event_name == 'discussion' ||
-      github.event_name == 'discussion_comment') && ((github.event_name == 'issues') && ((startsWith(github.event.issue.body, '/health-check ')) ||
-      (github.event.issue.body == '/health-check')) || (github.event_name == 'issue_comment') && (((startsWith(github.event.comment.body, '/health-check ')) ||
-      (github.event.comment.body == '/health-check')) && (github.event.issue.pull_request == null)) || (github.event_name == 'issue_comment') &&
-      (((startsWith(github.event.comment.body, '/health-check ')) || (github.event.comment.body == '/health-check')) &&
-      (github.event.issue.pull_request != null)) || (github.event_name == 'pull_request_review_comment') &&
-      ((startsWith(github.event.comment.body, '/health-check ')) || (github.event.comment.body == '/health-check')) ||
-      (github.event_name == 'pull_request') && ((startsWith(github.event.pull_request.body, '/health-check ')) ||
-      (github.event.pull_request.body == '/health-check')) || (github.event_name == 'discussion') && ((startsWith(github.event.discussion.body, '/health-check ')) ||
-      (github.event.discussion.body == '/health-check')) || (github.event_name == 'discussion_comment') && ((startsWith(github.event.comment.body, '/health-check ')) ||
-      (github.event.comment.body == '/health-check')))) || (!(github.event_name == 'issues' || github.event_name == 'issue_comment' ||
-      github.event_name == 'pull_request' || github.event_name == 'pull_request_review_comment' || github.event_name == 'discussion' ||
-      github.event_name == 'discussion_comment')))
+    if: needs.pre_activation.outputs.activated == 'true'
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -95,7 +59,6 @@ jobs:
     outputs:
       comment_id: ""
       comment_repo: ""
-      slash_command: ${{ needs.pre_activation.outputs.matched_command }}
     steps:
       - name: Setup Scripts
         uses: github/gh-aw/actions/setup@ac090214a48a1938f7abafe132460b66752261af # v0.45.4
@@ -401,7 +364,7 @@ jobs:
         id: validate-secret
         run: /opt/gh-aw/actions/validate_multi_secret.sh COPILOT_GITHUB_TOKEN 'GitHub Copilot CLI' https://github.github.com/gh-aw/reference/engines/#github-copilot-default
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
       - name: Install GitHub Copilot CLI
         run: /opt/gh-aw/actions/install_copilot_cli.sh 0.0.410
       - name: Install awf binary
@@ -916,7 +879,7 @@ jobs:
             -- /bin/bash -c '/usr/local/bin/copilot --add-dir /tmp/gh-aw/ --log-level all --log-dir /tmp/gh-aw/sandbox/agent/logs/ --add-dir "${GITHUB_WORKSPACE}" --disable-builtin-mcps --allow-tool github --allow-tool safeoutputs --allow-tool '\''shell(cat)'\'' --allow-tool '\''shell(date)'\'' --allow-tool '\''shell(diff)'\'' --allow-tool '\''shell(echo)'\'' --allow-tool '\''shell(find)'\'' --allow-tool '\''shell(grep)'\'' --allow-tool '\''shell(head)'\'' --allow-tool '\''shell(jq)'\'' --allow-tool '\''shell(ls)'\'' --allow-tool '\''shell(pwd)'\'' --allow-tool '\''shell(sort)'\'' --allow-tool '\''shell(tail)'\'' --allow-tool '\''shell(uniq)'\'' --allow-tool '\''shell(wc)'\'' --allow-tool '\''shell(yq)'\'' --allow-tool write --add-dir /tmp/gh-aw/cache-memory/ --allow-all-paths --share /tmp/gh-aw/sandbox/agent/logs/conversation.md --prompt "$(cat /tmp/gh-aw/aw-prompts/prompt.txt)"${GH_AW_MODEL_AGENT_COPILOT:+ --model "$GH_AW_MODEL_AGENT_COPILOT"}' 2>&1 | tee -a /tmp/gh-aw/agent-stdio.log
         env:
           COPILOT_AGENT_RUNNER_TYPE: STANDALONE
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
           GH_AW_MCP_CONFIG: /home/runner/.copilot/mcp-config.json
           GH_AW_MODEL_AGENT_COPILOT: ${{ vars.GH_AW_MODEL_AGENT_COPILOT || '' }}
           GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
@@ -974,7 +937,7 @@ jobs:
             await main();
         env:
           GH_AW_SECRET_NAMES: 'COPILOT_GITHUB_TOKEN,GH_AW_GITHUB_MCP_SERVER_TOKEN,GH_AW_GITHUB_TOKEN,GITHUB_TOKEN'
-          SECRET_COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          SECRET_COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
           SECRET_GH_AW_GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN }}
           SECRET_GH_AW_GITHUB_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
           SECRET_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1220,7 +1183,7 @@ jobs:
         id: validate-secret
         run: /opt/gh-aw/actions/validate_multi_secret.sh COPILOT_GITHUB_TOKEN 'GitHub Copilot CLI' https://github.github.com/gh-aw/reference/engines/#github-copilot-default
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
       - name: Install GitHub Copilot CLI
         run: /opt/gh-aw/actions/install_copilot_cli.sh 0.0.410
       - name: Execute GitHub Copilot CLI
@@ -1244,7 +1207,7 @@ jobs:
           copilot --add-dir /tmp/ --add-dir /tmp/gh-aw/ --add-dir /tmp/gh-aw/agent/ --log-level all --log-dir /tmp/gh-aw/sandbox/agent/logs/ --disable-builtin-mcps --allow-tool 'shell(cat)' --allow-tool 'shell(grep)' --allow-tool 'shell(head)' --allow-tool 'shell(jq)' --allow-tool 'shell(ls)' --allow-tool 'shell(tail)' --allow-tool 'shell(wc)' --share /tmp/gh-aw/sandbox/agent/logs/conversation.md --prompt "$COPILOT_CLI_INSTRUCTION"${GH_AW_MODEL_DETECTION_COPILOT:+ --model "$GH_AW_MODEL_DETECTION_COPILOT"} 2>&1 | tee /tmp/gh-aw/threat-detection/detection.log
         env:
           COPILOT_AGENT_RUNNER_TYPE: STANDALONE
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
           GH_AW_MODEL_DETECTION_COPILOT: ${{ vars.GH_AW_MODEL_DETECTION_COPILOT || '' }}
           GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
           GITHUB_HEAD_REF: ${{ github.head_ref }}
@@ -1270,70 +1233,18 @@ jobs:
           if-no-files-found: ignore
 
   pre_activation:
-    if: >
-      ((github.event_name == 'issues' || github.event_name == 'issue_comment' || github.event_name == 'pull_request' ||
-      github.event_name == 'pull_request_review_comment' || github.event_name == 'discussion' || github.event_name == 'discussion_comment') &&
-      ((github.event_name == 'issues') && ((startsWith(github.event.issue.body, '/health-check ')) || (github.event.issue.body == '/health-check')) ||
-      (github.event_name == 'issue_comment') && (((startsWith(github.event.comment.body, '/health-check ')) ||
-      (github.event.comment.body == '/health-check')) && (github.event.issue.pull_request == null)) || (github.event_name == 'issue_comment') &&
-      (((startsWith(github.event.comment.body, '/health-check ')) || (github.event.comment.body == '/health-check')) &&
-      (github.event.issue.pull_request != null)) || (github.event_name == 'pull_request_review_comment') &&
-      ((startsWith(github.event.comment.body, '/health-check ')) || (github.event.comment.body == '/health-check')) ||
-      (github.event_name == 'pull_request') && ((startsWith(github.event.pull_request.body, '/health-check ')) ||
-      (github.event.pull_request.body == '/health-check')) || (github.event_name == 'discussion') && ((startsWith(github.event.discussion.body, '/health-check ')) ||
-      (github.event.discussion.body == '/health-check')) || (github.event_name == 'discussion_comment') && ((startsWith(github.event.comment.body, '/health-check ')) ||
-      (github.event.comment.body == '/health-check')))) || (!(github.event_name == 'issues' || github.event_name == 'issue_comment' ||
-      github.event_name == 'pull_request' || github.event_name == 'pull_request_review_comment' || github.event_name == 'discussion' ||
-      github.event_name == 'discussion_comment'))
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-slim
     permissions:
-      discussions: write
       issues: write
-      pull-requests: write
     outputs:
-      activated: ${{ (steps.check_membership.outputs.is_team_member == 'true') && (steps.check_command_position.outputs.command_position_ok == 'true') }}
-      matched_command: ${{ steps.check_command_position.outputs.matched_command }}
+      activated: "true"
+      matched_command: ""
     steps:
       - name: Setup Scripts
         uses: github/gh-aw/actions/setup@ac090214a48a1938f7abafe132460b66752261af # v0.45.4
         with:
           destination: /opt/gh-aw/actions
-      - name: Add eyes reaction for immediate feedback
-        id: react
-        if: github.event_name == 'issues' || github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment' || github.event_name == 'discussion' || github.event_name == 'discussion_comment' || (github.event_name == 'pull_request') && (github.event.pull_request.head.repo.id == github.repository_id)
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-        env:
-          GH_AW_REACTION: "eyes"
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
-            setupGlobals(core, github, context, exec, io);
-            const { main } = require('/opt/gh-aw/actions/add_reaction.cjs');
-            await main();
-      - name: Check team membership for command workflow
-        id: check_membership
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-        env:
-          GH_AW_REQUIRED_ROLES: admin,maintainer,write
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
-            setupGlobals(core, github, context, exec, io);
-            const { main } = require('/opt/gh-aw/actions/check_membership.cjs');
-            await main();
-      - name: Check command position
-        id: check_command_position
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-        env:
-          GH_AW_COMMANDS: "[\"health-check\"]"
-        with:
-          script: |
-            const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
-            setupGlobals(core, github, context, exec, io);
-            const { main } = require('/opt/gh-aw/actions/check_command_position.cjs');
-            await main();
 
   safe_outputs:
     needs:
