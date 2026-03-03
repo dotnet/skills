@@ -1,0 +1,20 @@
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+Build fingerprint: 'google/sdk_gphone64_arm64/emu64a:14/UE1A.230829.036.A2/12269489:userdebug/dev-keys'
+Revision: '0'
+ABI: 'arm64'
+Timestamp: 2026-02-25 19:12:44.102938000+0000
+Process uptime: 3s
+Cmdline: com.example.nativeapp
+pid: 8401, tid: 8401, name: ple.nativeapp  >>> com.example.nativeapp <<<
+uid: 10201
+tagged_addr_ctrl: 0000000000000001 (PR_TAGGED_ADDR_ENABLE)
+signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0000000000000000
+    x0  0000000000000000  x1  0000000000000010  x2  0000000000000001  x3  0000000000000000
+    x8  00000000000000f0  x9  000000749f42a490  x10 0000000000000000  x11 ffffff80ffffffce
+backtrace:
+      #00 pc 000000000004a1b0  /apex/com.android.runtime/lib64/bionic/libc.so (strlen+16) (BuildId: a87908b48b368e6282bcc9f34bcfc28c)
+      #01 pc 0000000000032f44  /system/lib64/libutils.so (android::String8::set+20) (BuildId: 7e3b91c4f2a8d5e1b3c7a9f0d2e4b6a8)
+      #02 pc 000000000001a8bc  /data/app/~~Def456==/com.example.nativeapp-Ghi012==/lib/arm64/libnativeapp.so (Java_com_example_NativeLib_processData+124) (BuildId: f4c2a1b8e7d3096542f1a8c3b5e7d9f2a1b4c6e8)
+      #03 pc 0000000000215a40  /apex/com.android.art/lib64/libart.so (art_quick_generic_jni_trampoline+144) (BuildId: 3a1b9f4e7c2d8056a3b1c9f4e7d2a058)
+      #04 pc 000000000020c3a8  /apex/com.android.art/lib64/libart.so (art_quick_invoke_stub+568) (BuildId: 3a1b9f4e7c2d8056a3b1c9f4e7d2a058)
+      #05 pc 00000000002a14dc  /apex/com.android.art/lib64/libart.so (art::interpreter::Execute+292) (BuildId: 3a1b9f4e7c2d8056a3b1c9f4e7d2a058)

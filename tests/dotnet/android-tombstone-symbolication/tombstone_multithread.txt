@@ -1,0 +1,46 @@
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+Build fingerprint: 'google/sdk_gphone64_arm64/emu64a:14/UE1A.230829.036.A2/12269489:userdebug/dev-keys'
+Revision: '0'
+ABI: 'arm64'
+Timestamp: 2026-02-25 23:55:20.385027290+0000
+Process uptime: 4s
+Cmdline: com.companyname.MauiTest
+pid: 7020, tid: 7020, name: uiTest.MauiTest  >>> com.companyname.MauiTest <<<
+uid: 10156
+tagged_addr_ctrl: 0000000000000001 (PR_TAGGED_ADDR_ENABLE)
+signal 6 (SIGABRT), code -1 (SI_QUEUE), fault addr --------
+    x0  0000000000000000  x1  0000000000001b6c  x2  0000000000000006  x3  0000000000000000
+    x8  00000000000000f0  x9  000000749f42a490  x10 0000000000000000  x11 ffffff80ffffffce
+backtrace:
+      #00 pc 000000000006ae1c  /apex/com.android.runtime/lib64/bionic/libc.so (abort+164) (BuildId: a87908b48b368e6282bcc9f34bcfc28c)
+      #01 pc 0000000000222098  /data/app/~~Abc123==/com.companyname.MauiTest-Xyz789==/lib/arm64/libmonosgen-2.0.so (BuildId: 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)
+      #02 pc 00000000002241ac  /data/app/~~Abc123==/com.companyname.MauiTest-Xyz789==/lib/arm64/libmonosgen-2.0.so (BuildId: 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)
+      #03 pc 00000000001abc80  /data/app/~~Abc123==/com.companyname.MauiTest-Xyz789==/lib/arm64/libmonosgen-2.0.so (BuildId: 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)
+      #04 pc 000000000016de04  /data/app/~~Abc123==/com.companyname.MauiTest-Xyz789==/lib/arm64/libmonosgen-2.0.so (BuildId: 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)
+      #05 pc 000000000000307c  <anonymous:00000074834ab000> (BuildId: 0000000000000000000000000000000000000000)
+
+--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+
+pid: 7020, tid: 7027, name: HeapTaskDaemon
+backtrace:
+      #00 pc 00000000000d1e4c  /apex/com.android.runtime/lib64/bionic/libc.so (__futex_wait_ex+140) (BuildId: a87908b48b368e6282bcc9f34bcfc28c)
+      #01 pc 00000000000d5890  /apex/com.android.runtime/lib64/bionic/libc.so (pthread_cond_wait+76) (BuildId: a87908b48b368e6282bcc9f34bcfc28c)
+      #02 pc 0000000000385a10  /apex/com.android.art/lib64/libart.so (art::ConditionVariable::TimedWait+172) (BuildId: 3a1b9f4e7c2d8056a3b1c9f4e7d2a058)
+      #03 pc 000000000048c2e8  /apex/com.android.art/lib64/libart.so (art::gc::TaskProcessor::GetTask+120) (BuildId: 3a1b9f4e7c2d8056a3b1c9f4e7d2a058)
+
+--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+
+pid: 7020, tid: 7046, name: SGen worker
+backtrace:
+      #00 pc 00000000000d1e4c  /apex/com.android.runtime/lib64/bionic/libc.so (__futex_wait_ex+140) (BuildId: a87908b48b368e6282bcc9f34bcfc28c)
+      #01 pc 00000000000d5890  /apex/com.android.runtime/lib64/bionic/libc.so (pthread_cond_wait+76) (BuildId: a87908b48b368e6282bcc9f34bcfc28c)
+      #02 pc 00000000002f4b20  /data/app/~~Abc123==/com.companyname.MauiTest-Xyz789==/lib/arm64/libmonosgen-2.0.so (BuildId: 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)
+      #03 pc 00000000002f4c84  /data/app/~~Abc123==/com.companyname.MauiTest-Xyz789==/lib/arm64/libmonosgen-2.0.so (BuildId: 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)
+
+--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+
+pid: 7020, tid: 7048, name: Finalizer
+backtrace:
+      #00 pc 00000000000d1e4c  /apex/com.android.runtime/lib64/bionic/libc.so (__futex_wait_ex+140) (BuildId: a87908b48b368e6282bcc9f34bcfc28c)
+      #01 pc 00000000000d5c14  /apex/com.android.runtime/lib64/bionic/libc.so (sem_wait+28) (BuildId: a87908b48b368e6282bcc9f34bcfc28c)
+      #02 pc 00000000002c1a40  /data/app/~~Abc123==/com.companyname.MauiTest-Xyz789==/lib/arm64/libmonosgen-2.0.so (BuildId: 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)

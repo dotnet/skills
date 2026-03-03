@@ -57,10 +57,17 @@ Use binary logs (binlogs) to understand exactly why targets ran instead of being
    ```
    The first build establishes the baseline. The second build is the one you want to be incremental. Analyze `second.binlog`.
 
-2. **Load the second binlog** and search for targets that actually executed:
-   Use `search_binlog` with query `skipped=false` to find all targets that were not skipped. In a perfectly incremental build, most targets should be skipped.
+2. **Replay the second binlog** to a diagnostic text log:
+   ```shell
+   dotnet msbuild second.binlog -noconlog -fl -flp:v=diag;logfile=second-full.log;performancesummary
+   ```
+   Then search for targets that actually executed:
+   ```bash
+   grep 'Building target\|Target.*was not skipped' second-full.log
+   ```
+   In a perfectly incremental build, most targets should be skipped.
 
-3. **Inspect non-skipped targets** using `get_target_info_by_name` to see why they ran. Check the `Reason` field — it tells you whether MSBuild determined the target was out of date and why.
+3. **Inspect non-skipped targets** by looking for their execution messages in the diagnostic log. Check for "out of date" messages that indicate why a target ran.
 
 4. **Look for key messages** in the binlog:
    - `"Building target 'X' completely"` — means MSBuild found no outputs or all outputs are missing; this is a full target execution.
@@ -68,15 +75,15 @@ Use binary logs (binlogs) to understand exactly why targets ran instead of being
    - `"Skipping target 'X' because all output files are up-to-date"` — target was correctly skipped.
 
 5. **Search for "is newer than output"** messages to find the specific input file that triggered the rebuild:
-   ```
-   search_binlog with query: "is newer than output"
+   ```bash
+   grep "is newer than output" second-full.log
    ```
    This reveals exactly which input file's timestamp caused MSBuild to consider the target out of date.
 
 ### Additional diagnostic techniques
 
 - Compare `first.binlog` and `second.binlog` side by side in the MSBuild Structured Log Viewer to see what changed.
-- Use `get_project_target_times` to see which targets consumed the most time in the second build — these are your optimization targets.
+- Use `grep 'Target Performance Summary' -A 30 second-full.log` to see which targets consumed the most time in the second build — these are your optimization targets.
 - Check for targets with zero-duration that still ran — they may have unnecessary dependencies causing them to execute.
 
 ## FileWrites and Clean Build
