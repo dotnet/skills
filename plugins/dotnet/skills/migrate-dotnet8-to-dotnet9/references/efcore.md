@@ -17,9 +17,10 @@ These changes affect projects using EF Core or Microsoft.Data.Sqlite.
 - Last migration created for a different provider
 - ASP.NET Core Identity options that affect the model aren't applied in design-time factory
 
-**Mitigation:**
+**Mitigation (temporary workaround — not recommended for production):**
 ```csharp
-// Suppress the warning if intentional
+// Suppress the warning if intentional — review before deploying to production,
+// as this risks silent schema drift between the model and the database.
 options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
 ```
 
@@ -42,8 +43,11 @@ await dbContext.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
 await dbContext.Database.MigrateAsync(ct);
 ```
 
-**Mitigation:** If you need the explicit transaction:
+**Mitigation (temporary workaround):** If you need the explicit transaction:
 ```csharp
+// Suppress if you understand the transaction safety implications.
+// EF Core manages its own transactions during migration; wrapping in a user
+// transaction can prevent proper lock acquisition.
 options.ConfigureWarnings(w => w.Ignore(RelationalEventId.MigrationsUserTransactionWarning));
 ```
 
