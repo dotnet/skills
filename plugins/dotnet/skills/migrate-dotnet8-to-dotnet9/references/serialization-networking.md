@@ -54,11 +54,11 @@ if (doc is null || doc.RootElement.ValueKind == JsonValueKind.Null)
 **Impact: Medium.** The default primary handler for `HttpClientFactory`-created clients is now `SocketsHttpHandler` instead of `HttpClientHandler` on platforms that support it. Code that casts the handler to `HttpClientHandler` will throw `InvalidCastException`.
 
 ```csharp
-// BREAKS — InvalidCastException
+// BREAKS — InvalidCastException at runtime in .NET 9
 services.AddHttpClient("test")
-    .ConfigurePrimaryHttpMessageHandler((h, _) =>
+    .ConfigureHttpMessageHandlerBuilder(b =>
     {
-        ((HttpClientHandler)h).UseCookies = false; // throws
+        ((HttpClientHandler)b.PrimaryHandler).UseCookies = false; // throws
     });
 ```
 
@@ -68,12 +68,12 @@ services.AddHttpClient("test")
 services.AddHttpClient("test")
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler() { UseCookies = false });
 
-// Option 2: Check for both types
+// Option 2: Check for both handler types
 services.AddHttpClient("test")
-    .ConfigurePrimaryHttpMessageHandler((h, _) =>
+    .ConfigureHttpMessageHandlerBuilder(b =>
     {
-        if (h is HttpClientHandler hch) hch.UseCookies = false;
-        if (h is SocketsHttpHandler shh) shh.UseCookies = false;
+        if (b.PrimaryHandler is HttpClientHandler hch) hch.UseCookies = false;
+        else if (b.PrimaryHandler is SocketsHttpHandler shh) shh.UseCookies = false;
     });
 
 // Option 3: Set defaults for all clients
