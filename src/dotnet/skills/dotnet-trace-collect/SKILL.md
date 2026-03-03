@@ -70,7 +70,7 @@ Select tools based on the environment using the priority rules below. Once a too
 | Environment | Preferred tool | Fallback / Notes |
 |-------------|----------------|------------------|
 | Windows + modern .NET + admin | PerfView | If admin is unavailable, use `dotnet-trace` |
-| Windows + .NET Framework + admin | PerfView | Without admin, there is no trace fallback; delegate to `dump-collect` skill for hangs/memory leaks |
+| Windows + .NET Framework + admin | PerfView | Without admin, there is no trace fallback; invoke the `dump-collect` skill for hangs/memory leaks |
 | Linux + .NET 10+ + root | `dotnet-trace collect-linux` | Use `dotnet-trace` if root or kernel prerequisites are not met |
 | Linux + pre-.NET 10 | `dotnet-trace` | Add `perfcollect` when native stacks are needed (requires root) |
 | Linux container/Kubernetes | Console tools if in workload context; `dotnet-monitor` if no console access | See Linux Container / Kubernetes section for details |
@@ -88,13 +88,13 @@ Select tools based on the environment using the priority rules below. Once a too
    - **Analyze off-machine** — before the container shuts down, copy the `.etl.zip` into the container and run `PerfViewCollect merge /ImageIDsOnly` inside it to embed symbol information. Then copy the merged trace out. Without this merge step, symbols for binaries inside the container will be unresolvable on other machines.
    
    For the less common Hyper-V containers, collect inside the container directly. See [references/perfview.md](references/perfview.md) for detailed commands.
-2. **`dotnet-monitor`**, **`dotnet-trace`** — inside the container if the tools are installed in the image. For dumps, delegate to the **`dump-collect`** skill.
+2. **`dotnet-monitor`**, **`dotnet-trace`** — inside the container if the tools are installed in the image. For dumps, invoke the **`dump-collect`** skill.
 
 #### Windows (.NET Framework)
 
 1. **PerfView** — the primary diagnostic tool for .NET Framework on Windows. Requires admin.
 2. Same trigger guidance for long repros: use `/StopOn` triggers that fire on the symptom (e.g., `/StopOnPerfCounter`, `/StopOnGCEvent`, `/StopOnException`) with `/CircularMB` + `/BufferSizeMB`.
-3. **Without admin**: PerfView requires admin, and there are no alternative trace tools for .NET Framework. Process dumps can still be captured without admin (delegate to the **`dump-collect`** skill) — dumps can help diagnose hangs and memory leaks. However, for **high CPU**, **slow requests**, and **excessive GC**, there is no way to investigate on .NET Framework without admin access. Advise the user to obtain admin privileges.
+3. **Without admin**: PerfView requires admin, and there are no alternative trace tools for .NET Framework. Process dumps can still be captured without admin (invoke the **`dump-collect`** skill) — dumps can help diagnose hangs and memory leaks. However, for **high CPU**, **slow requests**, and **excessive GC**, there is no way to investigate on .NET Framework without admin access. Advise the user to obtain admin privileges.
 
 #### Linux (non-container, .NET 10+)
 
@@ -111,7 +111,7 @@ Select tools based on the environment using the priority rules below. Once a too
 **If running in the context of the workload** (i.e., you have console access to the container), prefer console-based tools to avoid `dotnet-monitor` authentication setup:
 
 1. **`dotnet-trace collect-linux`** (.NET 10+ with root) — produces the richest traces including native call stacks and kernel events.
-2. **`dotnet-trace`** — inside the container if the tool is installed in the image. For dumps, delegate to the **`dump-collect`** skill.
+2. **`dotnet-trace`** — inside the container if the tool is installed in the image. For dumps, invoke the **`dump-collect`** skill.
 3. **`perfcollect`** — inside the container when native stacks are needed on pre-.NET 10 (requires `SYS_ADMIN` / `--privileged`).
 
 **If not running in the workload context** (no console access), or if `dotnet-monitor` is already deployed:
@@ -120,15 +120,15 @@ Select tools based on the environment using the priority rules below. Once a too
 
 #### Memory dumps
 
-When dumps are needed (memory leaks, hangs), delegate to the **`dump-collect`** skill for dump collection guidance or execution. This skill focuses on trace collection.
+When dumps are needed (memory leaks, hangs), **do not provide dump collection commands directly**. Instead, invoke the **`dump-collect`** skill to handle dump collection. This skill focuses on trace collection only.
 
 #### Memory leaks
 
-- **Capture two dumps** as memory is increasing (e.g., one early, one after significant growth). Delegate dump collection to the **`dump-collect`** skill. Diff the dumps in PerfView to see which objects have increased — this is the most effective way to identify what is leaking.
+- **Capture two dumps** as memory is increasing (e.g., one early, one after significant growth). Invoke the **`dump-collect`** skill for dump collection — do not provide dump commands directly. Diff the dumps in PerfView to see which objects have increased — this is the most effective way to identify what is leaking.
 - **Without admin privileges**: Two process dumps can give a sense of what's growing on the heap, but may not be enough to identify the root cause. If dumps aren't sufficient, reproduce the issue in an environment where admin privileges are available to collect richer data (traces).
-- **Modern .NET on Linux (pre-.NET 10)**: Recommend two dump captures (via `dump-collect` skill) for heap diff, plus `dotnet-trace` while memory is growing (for allocation tracking). No trigger needed — capture during the growth period. Both together give the best picture.
-- **Modern .NET 10+ on Linux with admin**: Recommend two dump captures (via `dump-collect` skill) for heap diff, plus `dotnet-trace collect-linux` while memory is growing (richer data including native stacks). No trigger needed.
-- **.NET Framework**: Recommend two dumps (via `dump-collect` skill) plus a PerfView trace while memory is growing to see what is being allocated. No trigger is needed — just capture the trace during the growth period. Do not wait for an `OutOfMemoryException`.
+- **Modern .NET on Linux (pre-.NET 10)**: Recommend two dump captures (invoke `dump-collect` skill) for heap diff, plus `dotnet-trace` while memory is growing (for allocation tracking). No trigger needed — capture during the growth period. Both together give the best picture.
+- **Modern .NET 10+ on Linux with admin**: Recommend two dump captures (invoke `dump-collect` skill) for heap diff, plus `dotnet-trace collect-linux` while memory is growing (richer data including native stacks). No trigger needed.
+- **.NET Framework**: Recommend two dumps (invoke `dump-collect` skill) plus a PerfView trace while memory is growing to see what is being allocated. No trigger is needed — just capture the trace during the growth period. Do not wait for an `OutOfMemoryException`.
 
 #### Excessive GC
 
@@ -154,7 +154,7 @@ Slow requests require a **thread time trace** to see where threads are spending 
    - **Livelocks** (threads spinning without forward progress) — threads appear busy but the application makes no progress.
    - **Thread starvation** — the ThreadPool is exhausted and queued work items are not being processed. This can look like a deadlock but has a different root cause.
    - **Whether there is any forward progress at all** — if some threads are making progress, the issue may be a bottleneck rather than a true hang.
-2. **If the trace does not explain the hang**, the issue may be a **true deadlock** (threads waiting on each other in a cycle). In this case, collect a process dump — delegate to the **`dump-collect`** skill.
+2. **If the trace does not explain the hang**, the issue may be a **true deadlock** (threads waiting on each other in a cycle). In this case, invoke the **`dump-collect`** skill to collect a process dump — do not provide dump commands directly.
 3. **Analyze the dump with a debugger** to inspect thread stacks and identify the lock cycle:
    - **Windows**: Visual Studio or WinDbg with the SOS debugger extension.
    - **Linux**: `lldb` with the SOS debugger extension.

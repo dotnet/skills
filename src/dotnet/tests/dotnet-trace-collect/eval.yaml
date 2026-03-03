@@ -64,7 +64,7 @@ scenarios:
         pattern: "(dotnet-trace|dotnet trace)"
     rubric:
       - "Recommends capturing two dumps at different points during memory growth for heap diffing"
-      - "Delegates dump collection to the dump-collect skill rather than providing direct dotnet-dump commands"
+      - "Invokes the dump-collect skill for dump collection rather than providing direct dotnet-dump commands"
       - "Recommends dotnet-trace while memory is growing for allocation tracking"
       - "Explains that diffing two dumps helps identify which objects are increasing"
       - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
@@ -122,7 +122,7 @@ scenarios:
     rubric:
       - "Recommends starting with a trace to understand what threads are doing (livelock, thread starvation, or partial forward progress)"
       - "Explains that if the trace does not explain the hang, the issue may be a true deadlock requiring a dump"
-      - "Mentions delegating dump collection to the dump-collect skill or recommends a dump as a follow-up step"
+      - "Mentions invoking the dump-collect skill or recommends a dump as a follow-up step"
       - "Mentions lldb with SOS or a debugger for analyzing thread stacks in the dump"
       - "Distinguishes between livelocks (threads spinning), thread starvation, and true deadlocks"
     timeout: 60
@@ -210,7 +210,7 @@ scenarios:
         pattern: "(dump|dumps)"
     rubric:
       - "Recommends capturing two process dumps at different points during memory growth for diffing"
-      - "Delegates dump collection to the dump-collect skill rather than providing direct dump commands"
+      - "Invokes the dump-collect skill for dump collection rather than providing direct dump commands"
       - "Recommends a PerfView trace while memory is growing to see what is being allocated"
       - "Explains that diffing two dumps in PerfView identifies which objects have increased"
       - "Advises to capture during the growth period rather than waiting for the OutOfMemoryException"
