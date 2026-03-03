@@ -87,15 +87,14 @@ services.ConfigureHttpClientDefaults(b =>
 
 **Impact: Medium.** All header values in `Trace`-level `HttpClientFactory` logs are now redacted by default. Previously, unspecified headers were logged in full.
 
-**Fix:** Explicitly specify which headers to redact/allow:
+**Fix:** Explicitly whitelist specific non-sensitive headers that need to be logged:
 ```csharp
-// Allow specific headers to be logged
+// Allow specific non-sensitive headers to be logged unredacted
 services.ConfigureHttpClientDefaults(b =>
     b.RedactLoggedHeaders(h => h != "Cache-Control" && h != "Accept"));
-
-// Or disable redaction entirely (dangerous)
-services.ConfigureHttpClientDefaults(b => b.RedactLoggedHeaders(_ => false));
 ```
+
+> **Warning:** Do not disable redaction globally with `RedactLoggedHeaders(_ => false)`. This logs all header values in cleartext, including `Authorization` tokens, cookies, and other credentials. Logs are often broadly accessible or exported to external systems, making this a credential leak risk.
 
 ### HttpClient metrics report `server.port` unconditionally
 
