@@ -400,20 +400,26 @@ Append a short summary comment for the audit trail:
 
 ---
 
-## Step 5: Triage Dispatch
+## Step 5: Triage Dispatch (MANDATORY)
 
-For each 🆕 NEW finding that qualifies for investigation, dispatch a worker:
+> ⚠️ **CRITICAL**: This step is MANDATORY. You MUST dispatch investigation workers for qualifying findings.
+> Do NOT skip this step. Do NOT end with a noop before completing dispatches.
+> After creating/updating the health issue, immediately proceed to dispatch.
+
+For each 🆕 NEW finding that qualifies for investigation, dispatch a worker using the `dispatch-workflow` safe-output tool:
 
 ### 5.1 Dispatch Rules
 
 | Condition | Action |
 |-----------|--------|
-| 🆕 NEW + 🔴 Critical | **Always dispatch** |
+| 🆕 NEW + 🔴 Critical | **Always dispatch** — no exceptions |
 | 🆕 NEW + 🟡 Warning + category `pipeline` or `quality` | **Dispatch** |
 | 🆕 NEW + 🟡 Warning + category `pr` or `infra` | **Skip** (self-explanatory) |
 | 🆕 NEW + 🔵 Info | **Never dispatch** |
 | 📌 EXISTING (any) | **Never dispatch** |
 | ✅ RESOLVED (any) | **Never dispatch** |
+
+**First run note:** On the first run all findings are 🆕 NEW. This means ALL critical findings MUST be dispatched.
 
 **Budget:** Maximum 10 dispatches per run. If more than 10 qualify, prioritize by:
 1. Severity descending (🔴 first)
@@ -422,15 +428,7 @@ For each 🆕 NEW finding that qualifies for investigation, dispatch a worker:
 
 ### 5.2 For Each Dispatched Finding
 
-1. **Insert a placeholder island** in the issue body (within the 🆕 section, right after the finding details):
-
-```markdown
-<!-- investigation:{finding_fingerprint} -->
-⏳ Investigation dispatched — results arriving shortly...
-<!-- /investigation:{finding_fingerprint} -->
-```
-
-2. **Dispatch the worker:**
+1. **Dispatch the worker** by calling the `devops_health_investigate` safe-output tool with these inputs:
 
 ```
 dispatch-workflow:
@@ -445,7 +443,14 @@ dispatch-workflow:
     correlation_id: "hc-{date}-{sequence}"
 ```
 
-3. **Wait 5 seconds** between dispatches (platform rate limit).
+2. **Wait 5 seconds** between dispatches (platform rate limit).
+
+### 5.3 Verification Checklist
+
+Before finishing, verify:
+- [ ] At least one `dispatch-workflow` call was made (if any 🔴 critical or qualifying 🟡 warning findings exist)
+- [ ] All 🔴 critical NEW findings have been dispatched (up to budget cap)
+- [ ] The noop summary message mentions how many investigations were dispatched
 
 ---
 
