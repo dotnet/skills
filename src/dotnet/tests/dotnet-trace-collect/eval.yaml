@@ -19,9 +19,9 @@ scenarios:
 
   - name: ".NET Framework on Windows without admin privileges"
     prompt: >-
-      Our .NET Framework service on Windows has high CPU, but I don't have
-      admin rights on the server. What diagnostics can I collect, and what
-      are the limitations?
+      Our .NET Framework service running directly on a Windows Server has high
+      CPU, but I don't have admin rights on the server. What diagnostics can I
+      collect, and what are the limitations?
     assertions:
       - type: "output_contains"
         value: "PerfView"
@@ -37,7 +37,8 @@ scenarios:
 
   - name: ".NET 10 on Linux with root access and native call stacks"
     prompt: >-
-      My .NET 10 service runs on Linux (kernel 6.8) and I have root access.
+      My .NET 10 service runs directly on a Linux VM (kernel 6.8) and I have
+      root access. I'm seeing high CPU and suspect native code is involved.
       What's the best way to collect a rich trace with native call stacks?
     assertions:
       - type: "output_contains"
@@ -53,8 +54,9 @@ scenarios:
 
   - name: "Memory leak on Linux (.NET 8)"
     prompt: >-
-      My Linux .NET 8 app's memory keeps growing over hours. What exact data
-      should I collect to identify a memory leak?
+      My .NET 8 app running directly on a Linux VM has memory that keeps
+      growing over hours. What exact data should I collect to identify a
+      memory leak?
     assertions:
       - type: "output_matches"
         pattern: "(dump|dump-collect)"
@@ -70,9 +72,9 @@ scenarios:
 
   - name: "Slow requests on Windows with PerfView"
     prompt: >-
-      My ASP.NET app on Windows has slow requests under load. Which trace
-      should I collect to capture waits/blocks, and what PerfView arguments
-      should I use?
+      My ASP.NET Core (.NET 8) app running on a Windows Server has slow
+      requests under load. I have admin access. Which trace should I collect
+      to capture waits/blocks, and what PerfView arguments should I use?
     assertions:
       - type: "output_contains"
         value: "PerfView"
@@ -90,9 +92,9 @@ scenarios:
 
   - name: "Excessive GC on Linux (.NET 8)"
     prompt: >-
-      My .NET 8 service on Linux is spending a lot of time in garbage collection.
-      Response times spike during GC pauses. What trace should I collect to
-      analyze GC behavior, and what commands do I run?
+      My .NET 8 service running on a Linux VM is spending a lot of time in
+      garbage collection. Response times spike during GC pauses. What trace
+      should I collect to analyze GC behavior, and what commands do I run?
     assertions:
       - type: "output_matches"
         pattern: "(dotnet-trace|dotnet trace)"
@@ -110,8 +112,8 @@ scenarios:
 
   - name: "Hang or deadlock diagnosis on Linux"
     prompt: >-
-      My .NET 8 application on Linux appears completely hung — it's not
-      responding to any requests. How do I diagnose what's going on?
+      My .NET 8 application running on a Linux VM appears completely hung —
+      it's not responding to any requests. How do I diagnose what's going on?
     assertions:
       - type: "output_matches"
         pattern: "(dotnet-trace|dotnet trace|trace)"
@@ -144,9 +146,10 @@ scenarios:
 
   - name: "Long-running intermittent issue with PerfView triggers"
     prompt: >-
-      My .NET 8 Windows service has a high CPU spike that happens roughly
-      once every 4-6 hours. I can't sit and watch it. How do I set up
-      PerfView to automatically capture the spike with a circular buffer?
+      My .NET 8 Windows service running on a Windows Server has a high CPU
+      spike that happens roughly once every 4-6 hours. I have admin access
+      but I can't sit and watch it. How do I set up PerfView to automatically
+      capture the spike with a circular buffer?
     assertions:
       - type: "output_contains"
         value: "PerfView"
@@ -161,9 +164,9 @@ scenarios:
 
   - name: "Linux pre-.NET 10 needing native call stacks"
     prompt: >-
-      I have a .NET 8 app on Linux with root access. I suspect the high CPU
-      is partly in native code (a native interop library). How do I get
-      native call stacks in my trace?
+      I have a .NET 8 app running directly on a Linux server with root access.
+      I suspect the high CPU is partly in native code (a native interop
+      library). How do I get native call stacks in my trace?
     assertions:
       - type: "output_contains"
         value: "perfcollect"
@@ -231,9 +234,10 @@ scenarios:
 
   - name: "Container installation without .NET SDK"
     prompt: >-
-      I need to collect a trace from a .NET 8 app running in a Linux container,
-      but the container image doesn't have the .NET SDK installed. How can I
-      get dotnet-trace into the container?
+      I need to collect a CPU trace from my .NET 8 app running in a Linux
+      container that is experiencing high CPU, but the container image doesn't
+      have the .NET SDK installed. How can I get dotnet-trace into the
+      container?
     assertions:
       - type: "output_matches"
         pattern: "(aka.ms|curl|wget)"
