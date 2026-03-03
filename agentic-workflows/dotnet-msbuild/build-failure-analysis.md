@@ -10,7 +10,6 @@ permissions:
   pull-requests: read
 
 imports:
-  - shared/binlog-mcp.md
   - shared/compiled/build-errors.lock.md
 
 tools:
@@ -42,13 +41,17 @@ You are an MSBuild build failure analysis agent. You build the repository locall
    - Check for build instructions in `AGENTS.md`, `.github/copilot-instructions.md`, or `README.md` in the repo root
    - If instructions specify a build command, use it but **append `/bl:{}`** to produce a binary log
    - If no instructions are found, run: `dotnet build /bl:{}` from the repo root
-   - **Binlog location**: Always write binlogs to the **repository root directory** (current working directory). Do NOT write them to `/tmp` or other paths, because the binlog-mcp server can only access files under the workspace directory.
+   - **Binlog location**: Always write binlogs to the **repository root directory** (current working directory).
    - Builds may fail — that is expected. Do not stop on build errors.
 
 2. **Analyze the binlog**:
    - List `*.binlog` files to find the generated log
-   - Load it with `load_binlog` and use `get_diagnostics` to extract errors and warnings
-   - Use `search_binlog` for specific patterns (see query language in imported knowledge)
+   - Replay it to text logs:
+     ```bash
+     dotnet msbuild <binlog> -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary -fl1 -flp1:errorsonly;logfile=errors.log -fl2 -flp2:warningsonly;logfile=warnings.log
+     ```
+   - Read `errors.log` for all errors with file paths and project context
+   - Use `grep` to search `full.log` for specific patterns and context
    - Check for common failure categories:
      - **Compile errors** (CS prefix): missing types, syntax errors, nullable violations
      - **MSBuild errors** (MSB prefix): target failures, import issues, property evaluation
@@ -67,6 +70,6 @@ You are an MSBuild build failure analysis agent. You build the repository locall
 - Only post comments for genuine build failures, not infrastructure issues
 - Be specific: reference exact error codes, file paths, and line numbers when available
 - Suggest concrete fixes, not vague advice — show corrected XML or commands
-- If binlogs are available, always prefer binlog analysis over parsing console output
+- If binlogs are available, always prefer binlog replay analysis over parsing console output
 - If you can't determine the cause, say so rather than guessing
 - Don't repeat the entire build log — summarize the key errors

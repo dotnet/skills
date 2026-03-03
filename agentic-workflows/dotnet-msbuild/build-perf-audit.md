@@ -9,7 +9,6 @@ permissions:
   issues: read
 
 imports:
-  - shared/binlog-mcp.md
   - shared/compiled/performance.lock.md
 
 tools:
@@ -40,14 +39,13 @@ You are a build performance auditing agent. Each week, you analyze the repositor
 
 1. **Build with binlog**: Run `dotnet build /bl:perf-audit.binlog -m` to generate a performance baseline.
 
-2. **Analyze performance** using binlog-mcp tools:
-   - Load the binlog with `load_binlog`
-   - Get total build duration
-   - `get_node_timeline` → assess parallelism utilization across build nodes
-   - `get_expensive_projects(top_number=10, sortByExclusive=true)` → find time-heavy projects
-   - `get_expensive_targets(top_number=15)` → find dominant targets (Csc, RAR, Copy)
-   - `get_expensive_tasks(top_number=15)` → find dominant tasks
-   - `get_expensive_analyzers(top_number=10)` → check Roslyn analyzer overhead
+2. **Analyze performance** by replaying the binlog to text logs:
+   - Replay: `dotnet msbuild perf-audit.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary -fl1 -flp1:errorsonly;logfile=errors.log`
+   - Get total build duration from build output
+   - `grep 'Target Performance Summary' -A 50 full.log` → find dominant targets (Csc, RAR, Copy)
+   - `grep 'Task Performance Summary' -A 50 full.log` → find dominant tasks
+   - `grep 'Project Performance Summary' -A 50 full.log` → find time-heavy projects
+   - `grep -i 'Total analyzer execution time\|analyzer.*elapsed' full.log` → check Roslyn analyzer overhead
 
 3. **Classify bottlenecks** into categories:
    - **Serialization**: nodes idle, one project blocking others → project graph issue

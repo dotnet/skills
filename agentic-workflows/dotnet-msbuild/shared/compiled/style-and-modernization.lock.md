@@ -1,4 +1,4 @@
-<!-- AUTO-GENERATED — DO NOT EDIT -->
+﻿<!-- AUTO-GENERATED -- DO NOT EDIT -->
 
 # MSBuild Anti-Pattern Catalog
 
@@ -1095,6 +1095,6 @@ Identify properties repeated across multiple `.csproj` files and move them to sh
 
 ```xml
 <Project>
-  <Target Name="PrintBuildInfo" Aft
+  <Target Name="PrintBuildInfo" Af
 
 [truncated]

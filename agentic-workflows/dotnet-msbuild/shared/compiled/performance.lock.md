@@ -1,4 +1,4 @@
-<!-- AUTO-GENERATED — DO NOT EDIT -->
+﻿<!-- AUTO-GENERATED -- DO NOT EDIT -->
 
 # Build Performance Baseline & Optimization
 
@@ -333,7 +333,7 @@ In a binlog, look for:
 - **Uneven load**: Some build nodes idle while others are overloaded
 - **Single-project bottleneck**: One large project on the critical path that blocks everything
 
-Use `get_node_timeline` in binlog analysis to see build node utilization.
+Use `grep 'Target Performance Summary' -A 30 full.log` in binlog analysis to see build node utilization.
 
 ### Reducing the Critical Path
 
@@ -414,12 +414,24 @@ Is your no-op build slow (> 10s per project)?
 
 ## Performance Analysis Methodology
 
-1. **Generate a binlog**: `dotnet build /bl`
-2. **Load with binlog MCP**: `load_binlog`
-3. **Get overall picture**: `get_expensive_projects`, `get_expensive_targets`, `get_expensive_tasks`
-4. **Analyze node utilization**: `get_node_timeline`
-5. **Drill into bottlenecks**: `get_project_target_times`, `search_targets_by_name`
-6. **Check analyzers**: `get_expensive_analyzers`
+1. **Generate a binlog**: `dotnet build /bl:{} -m`
+2. **Replay to diagnostic log with performance summary**:
+   ```bash
+   dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
+   ```
+3. **Read the performance summary** (at the end of `full.log`):
+   ```bash
+   grep "Target Performance Summary\|Task Performance Summary" -A 50 full.log
+   ```
+4. **Find expensive targets and tasks**: The PerformanceSummary section lists all targets/tasks sorted by cumulative time
+5. **Check for node utilization**: grep for scheduling and node messages
+   ```bash
+   grep -i "node.*assigned\|building with\|scheduler" full.log | head -30
+   ```
+6. **Check analyzers**: grep for analyzer timing
+   ```bash
+   grep -i "analyzer.*elapsed\|Total analyzer execution time\|CompilerAnalyzerDriver" full.log
+   ```
 
 ## Key Metrics and Thresholds
 
@@ -441,7 +453,7 @@ Is your no-op build slow (> 10s per project)?
 ### 2. Roslyn Analyzers and Source Generators
 
 - **Symptoms**: Csc task takes much longer than expected for file count (>2× clean compile time)
-- **Diagnosis**: `get_expensive_analyzers` → identify top offenders, compare Csc duration with and without analyzers
+- **Diagnosis**: Check the Task Performance Summary in the replayed log for Csc task time; grep for analyzer timing messages; compare Csc duration with and without analyzers (`/p:RunAnalyzers=false`)
 - **Fixes**:
   - Conditionally disable in dev: `<RunAnalyzers Condition="'$(ContinuousIntegrationBuild)' != 'true'">false</RunAnalyzers>`
   - Per-configuration: `<RunAnalyzers Condition="'$(Configuration)' == 'Debug'">false</RunAnalyzers>`
@@ -454,7 +466,7 @@ Is your no-op build slow (> 10s per project)?
 
 ### 3. Serialization Bottlenecks (Single-threaded targets)
 
-- **Symptoms**: `get_node_timeline` shows most nodes idle while one works
+- **Symptoms**: Performance summary shows most build time concentrated in a single project; diagnostic log shows idle nodes while one works
 - **Common culprits**: targets without proper dependency declaration, single project on critical path
 - **Fixes**: split large projects, optimize the critical path project, ensure proper `BuildInParallel`
 
@@ -479,18 +491,35 @@ Is your no-op build slow (> 10s per project)?
 - **Symptoms**: many small projects, each takes minimal time but overhead adds up
 - **Consider**: project consolidation, or use `/graph` mode for better scheduling
 
-## Using Binlog MCP Tools for Performance Analysis
+## Using Binlog Replay for Performance Analysis
 
-Step-by-step workflow with the actual MCP tool calls:
+Step-by-step workflow using text log replay:
 
-1. `load_binlog` → note total duration and node count
-2. `get_expensive_projects(top_number=5, sortByExclusive=true)` → find where time is spent
-3. `get_expensive_targets(top_number=10)` → which targets dominate
-4. `get_expensive_tasks(top_number=10)` → which tasks dominate
-5. `get_node_timeline()` → check parallelism utilization
-6. `get_expensive_analyzers(top_number=10)` → analyzer overhead
-7. For a specific slow project: `get_project_target_times(projectId=X)` → target breakdown
-8. Deep dive: `search_binlog(query="$time $target TargetName")` → timing for specific targets
+1. **Replay with performance summary**:
+   ```bash
+   dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
+   ```
+2. **Read target/task performance summaries** (at the end of `full.log`):
+   ```bash
+   grep "Target Performance Summary\|Task Performance Summary" -A 50 full.log
+   ```
+   This shows all targets and tasks sorted by cumulative time — equivalent to finding expensive targets/tasks.
+3. **Find per-project build times**:
+   ```bash
+   grep "done building project\|Project Performance Summary" full.log
+   ```
+4. **Check parallelism** (multi-node scheduling):
+   ```bash
+   grep -i "node.*assigned\|RequiresLeadingNewline\|Building with" full.log | head -30
+   ```
+5. **Check analyzer overhead**:
+   ```bash
+   grep -i "Total analyzer execution time\|analyzer.*elapsed\|CompilerAnalyzerDriver" full.log
+   ```
+6. **Drill into a specific slow target**:
+   ```bash
+   grep 'Target "CoreCompile"\|Target "ResolveAssemblyReferences"' full.log
+   ```
 
 ## Quick Wins Checklist
 
@@ -558,10 +587,17 @@ Use binary logs (binlogs) to understand exactly why targets ran instead of being
    ```
    The first build establishes the baseline. The second build is the one you want to be incremental. Analyze `second.binlog`.
 
-2. **Load the second binlog** and search for targets that actually executed:
-   Use `search_binlog` with query `skipped=false` to find all targets that were not skipped. In a perfectly incremental build, most targets should be skipped.
+2. **Replay the second binlog** to a diagnostic text log:
+   ```shell
+   dotnet msbuild second.binlog -noconlog -fl -flp:v=diag;logfile=second-full.log;performancesummary
+   ```
+   Then search for targets that actually executed:
+   ```bash
+   grep 'Building target\|Target.*was not skipped' second-full.log
+   ```
+   In a perfectly incremental build, most targets should be skipped.
 
-3. **Inspect non-skipped targets** using `get_target_info_by_name` to see why they ran. Check the `Reason` field — it tells you whether MSBuild determined the target was out of date and why.
+3. **Inspect non-skipped targets** by looking for their execution messages in the diagnostic log. Check for "out of date" messages that indicate why a target ran.
 
 4. **Look for key messages** in the binlog:
    - `"Building target 'X' completely"` — means MSBuild found no outputs or all outputs are missing; this is a full target execution.
@@ -569,15 +605,15 @@ Use binary logs (binlogs) to understand exactly why targets ran instead of being
    - `"Skipping target 'X' because all output files are up-to-date"` — target was correctly skipped.
 
 5. **Search for "is newer than output"** messages to find the specific input file that triggered the rebuild:
-   ```
-   search_binlog with query: "is newer than output"
+   ```bash
+   grep "is newer than output" second-full.log
    ```
    This reveals exactly which input file's timestamp caused MSBuild to consider the target out of date.
 
 ### Additional diagnostic techniques
 
 - Compare `first.binlog` and `second.binlog` side by side in the MSBuild Structured Log Viewer to see what changed.
-- Use `get_project_target_times` to see which targets consumed the most time in the second build — these are your optimization targets.
+- Use `grep 'Target Performance Summary' -A 30 second-full.log` to see which targets consumed the most time in the second build — these are your optimization targets.
 - Check for targets with zero-duration that still ran — they may have unnecessary dependencies causing them to execute.
 
 ## FileWrites and Clean Build
@@ -726,7 +762,7 @@ MSBuild provides built-in tools to understand what's running and why.
 - MSBuild builds projects in dependency order (topological sort)
 - Critical path: longest chain of dependent projects determines minimum build time
 - Bottleneck: if project A depends on B, C, D and B takes 60s while C and D take 5s, B is the bottleneck
-- Diagnosis: `get_node_timeline()` in binlog MCP → shows per-node activity/idle time
+- Diagnosis: replay binlog to diagnostic log with `performancesummary` and check Project Performance Summary — shows per-project time; grep for `node.*assigned` to check scheduling
 - Wide graphs (many independent projects) parallelize well; deep graphs (long chains) don't
 
 ## Graph Build Mode (`/graph`)
@@ -762,11 +798,12 @@ MSBuild provides built-in tools to understand what's running and why.
 
 Step-by-step:
 
-1. `get_node_timeline()` → see active vs idle time per node
-2. Ideal: all nodes busy most of the time
-3. If nodes are idle: too many serial dependencies, or one slow project blocking others
-4. `get_expensive_projects(sortByExclusive=true)` → find the bottleneck project
-5. Consider splitting large projects or optimizing the critical path
+1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary`
+2. Check Project Performance Summary at the end of `full.log`
+3. Ideal: build time should be much less than sum of project times (parallelism)
+4. If build time ≈ sum of project times: too many serial dependencies, or one slow project blocking others
+5. `grep 'Target Performance Summary' -A 30 full.log` → find the bottleneck targets
+6. Consider splitting large projects or optimizing the critical path
 
 ## CI/CD Parallelism Tips
 
@@ -793,9 +830,10 @@ Key insight: evaluation happens BEFORE any targets run. Slow evaluation = slow b
 
 ### Using binlog
 
-1. `list_evaluations` for a project → see how many times it was evaluated (multiple = overbuilding)
-2. Check evaluation duration in binlog: `search_binlog` with `$evaluation`
-3. Look for "Project evaluation started/finished" messages and their timestamps
+1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log`
+2. Search for evaluation events: `grep -i 'Evaluation started\|Evaluation finished' full.log`
+3. Multiple evaluations for the same project = overbuilding
+4. Look for "Project evaluation started/finished" messages and their timestamps
 
 ### Using /pp (preprocess)
 
@@ -817,7 +855,7 @@ Key insight: evaluation happens BEFORE any targets run. Slow evaluation = slow b
 - Fix: use `<DefaultItemExcludes>` to exclude large directories
 - Fix: be specific with glob paths: `src/**/*.cs` instead of `**/*.cs`
 - Fix: use `<EnableDefaultItems>false</EnableDefaultItems>` only as last resort (lose SDK defaults)
-- Check: `get_evaluation_items_by_name` in binlog → if Compile items include unexpected files, globs are too broad
+- Check: grep for Compile items in the diagnostic log → if Compile items include unexpected files, globs are too broad
 
 ## Import Chain Analysis
 
@@ -832,7 +870,7 @@ Key insight: evaluation happens BEFORE any targets run. Slow evaluation = slow b
 - A project evaluated multiple times = wasted work
 - Common causes: referenced from multiple other projects with different global properties
 - Each unique set of global properties = separate evaluation
-- Diagnosis: `list_evaluations` for a project → if count > 1, check `get_evaluation_global_properties` for each
+- Diagnosis: `grep 'Evaluation started.*ProjectName' full.log` → if count > 1, check for differing global properties
 - Fix: normalize global properties, use graph build (`/graph`)
 
 ## TreatAsLocalProperty

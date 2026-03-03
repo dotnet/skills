@@ -19,9 +19,10 @@ Key insight: evaluation happens BEFORE any targets run. Slow evaluation = slow b
 
 ### Using binlog
 
-1. `list_evaluations` for a project → see how many times it was evaluated (multiple = overbuilding)
-2. Check evaluation duration in binlog: `search_binlog` with `$evaluation`
-3. Look for "Project evaluation started/finished" messages and their timestamps
+1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log`
+2. Search for evaluation events: `grep -i 'Evaluation started\|Evaluation finished' full.log`
+3. Multiple evaluations for the same project = overbuilding
+4. Look for "Project evaluation started/finished" messages and their timestamps
 
 ### Using /pp (preprocess)
 
@@ -43,7 +44,7 @@ Key insight: evaluation happens BEFORE any targets run. Slow evaluation = slow b
 - Fix: use `<DefaultItemExcludes>` to exclude large directories
 - Fix: be specific with glob paths: `src/**/*.cs` instead of `**/*.cs`
 - Fix: use `<EnableDefaultItems>false</EnableDefaultItems>` only as last resort (lose SDK defaults)
-- Check: `get_evaluation_items_by_name` in binlog → if Compile items include unexpected files, globs are too broad
+- Check: grep for Compile items in the diagnostic log → if Compile items include unexpected files, globs are too broad
 
 ## Import Chain Analysis
 
@@ -58,7 +59,7 @@ Key insight: evaluation happens BEFORE any targets run. Slow evaluation = slow b
 - A project evaluated multiple times = wasted work
 - Common causes: referenced from multiple other projects with different global properties
 - Each unique set of global properties = separate evaluation
-- Diagnosis: `list_evaluations` for a project → if count > 1, check `get_evaluation_global_properties` for each
+- Diagnosis: `grep 'Evaluation started.*ProjectName' full.log` → if count > 1, check for differing global properties
 - Fix: normalize global properties, use graph build (`/graph`)
 
 ## TreatAsLocalProperty

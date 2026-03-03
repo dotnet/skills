@@ -1,0 +1,26 @@
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+Build fingerprint: 'google/sdk_gphone64_arm64/emu64a:14/UE1A.230829.036.A2/12269489:userdebug/dev-keys'
+Revision: '0'
+ABI: 'arm64'
+Timestamp: 2026-02-25 22:45:10.318274000+0000
+Process uptime: 1s
+Cmdline: com.companyname.NativeAotApp
+pid: 9503, tid: 9503, name: .NativeAotApp  >>> com.companyname.NativeAotApp <<<
+uid: 10195
+tagged_addr_ctrl: 0000000000000001 (PR_TAGGED_ADDR_ENABLE)
+signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0000000000000000
+    x0  0000000000000000  x1  0000000000000010  x2  0000000000000001  x3  0000000000000000
+    x4  0000007483200000  x5  0000000000000010  x6  0000000000000000  x7  7f7f7f7f7f7f7f7f
+    x8  00000000000000f0  x9  000000749f42a490  x10 0000000000000000  x11 ffffff80ffffffce
+    x16 000000749f477a50  x17 000000749f45be1c  x18 0000007491b84000  x19 0000000000002501
+    x20 0000000000002501  x21 00000000ffffffff  x22 000000001476f510  x23 00000074a08c9000
+    x28 0000000000000000  x29 0000007fe2c51510
+    lr  00000074831f4d48  sp  0000007fe2c514e0  pc  00000074831f6e1c  pst 0000000000001000
+backtrace:
+      #00 pc 000000000006ae1c  /apex/com.android.runtime/lib64/bionic/libc.so (abort+164) (BuildId: a87908b48b368e6282bcc9f34bcfc28c)
+      #01 pc 0000000000415a20  /data/app/~~Lmn321==/com.companyname.NativeAotApp-Opq654==/lib/arm64/libNativeAotApp.so (BuildId: 8b2d4f6a1c3e5078a9b1d3f5e7c2a4b6d8e0f213)
+      #02 pc 0000000000415b84  /data/app/~~Lmn321==/com.companyname.NativeAotApp-Opq654==/lib/arm64/libNativeAotApp.so (BuildId: 8b2d4f6a1c3e5078a9b1d3f5e7c2a4b6d8e0f213)
+      #03 pc 000000000038c1f0  /data/app/~~Lmn321==/com.companyname.NativeAotApp-Opq654==/lib/arm64/libNativeAotApp.so (BuildId: 8b2d4f6a1c3e5078a9b1d3f5e7c2a4b6d8e0f213)
+      #04 pc 000000000038c344  /data/app/~~Lmn321==/com.companyname.NativeAotApp-Opq654==/lib/arm64/libNativeAotApp.so (BuildId: 8b2d4f6a1c3e5078a9b1d3f5e7c2a4b6d8e0f213)
+      #05 pc 0000000000012a48  /data/app/~~Lmn321==/com.companyname.NativeAotApp-Opq654==/lib/arm64/libSystem.Native.so (BuildId: 5e7c2a4b6d8e0f2138b2d4f6a1c3e5079a1b3d5f)
+      #06 pc 000000000000307c  <anonymous:0000007483bab000> (BuildId: 0000000000000000000000000000000000000000)

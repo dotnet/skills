@@ -1,0 +1,158 @@
+scenarios:
+  - name: "Symbolicate .NET frames in an Android tombstone"
+    prompt: "I have an Android tombstone file at tombstone_sample.txt from a crashed .NET MAUI app. Please symbolicate the .NET runtime frames in the backtrace to show function names and source locations."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "libmonosgen-2\\.0\\.so"
+      - type: "output_matches"
+        pattern: "elf-buildid-sym-1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be"
+      - type: "output_matches"
+        pattern: "llvm-symbolizer"
+      - type: "output_matches"
+        pattern: "(0x)?0*222098"
+      - type: "output_matches"
+        pattern: "--obj="
+      - type: "output_matches"
+        pattern: "msdl\\.microsoft\\.com"
+    rubric:
+      - "Identified that the tombstone contains .NET runtime frames from libmonosgen-2.0.so"
+      - "Extracted the BuildId 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be from the backtrace"
+      - "Constructed the full symbol server URL with the BuildId in the elf-buildid-sym path"
+      - "Showed the llvm-symbolizer command with --obj pointing to the debug symbols file and a PC offset from the tombstone"
+      - "Produced or described a symbolicated backtrace with function names and source file locations"
+    timeout: 300
+
+  - name: "Recognize tombstone with no .NET frames"
+    prompt: "I have an Android tombstone file at tombstone_no_dotnet.txt from a crashed app. Please symbolicate the .NET runtime frames."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(no .NET|not a .NET|no .net|no dotnet|no managed|not .NET|does not contain .NET|doesn.t contain .NET|no mono|no CoreCLR|no libmonosgen|no libcoreclr)"
+      - type: "output_matches"
+        pattern: "(libc\\.so|libart\\.so|libutils\\.so|libnativeapp\\.so)"
+    rubric:
+      - "Correctly identified that the tombstone contains no .NET runtime libraries (no libmonosgen-2.0.so or libcoreclr.so)"
+      - "Did NOT attempt to download symbols from the Microsoft symbol server"
+      - "Did NOT fabricate or hallucinate symbolicated .NET frames"
+      - "Mentioned that the crash involves native Android/ART libraries (libc, libart, libutils) rather than .NET"
+    timeout: 300
+
+  - name: "Symbolicate CoreCLR frames in an Android tombstone"
+    prompt: "I have an Android tombstone file at tombstone_coreclr.txt from a crashed .NET Android app. Please symbolicate the .NET runtime frames in the backtrace."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "libcoreclr\\.so"
+      - type: "output_matches"
+        pattern: "elf-buildid-sym-4ca7e2f19b3d605847a1c8e3f5b7d9a2c4e6f801"
+      - type: "output_matches"
+        pattern: "llvm-symbolizer"
+      - type: "output_matches"
+        pattern: "(0x)?0*3a81f0"
+    rubric:
+      - "Identified that the tombstone contains .NET runtime frames from libcoreclr.so"
+      - "Extracted the BuildId 4ca7e2f19b3d605847a1c8e3f5b7d9a2c4e6f801 from the backtrace"
+      - "Constructed the full symbol server URL with the BuildId in the elf-buildid-sym path"
+      - "Showed the llvm-symbolizer command with --obj and a PC offset from the tombstone"
+      - "Did NOT assume the app is Mono-based — correctly identified it as CoreCLR (JIT)"
+    timeout: 300
+
+  - name: "Recognize NativeAOT tombstone with app binary and libSystem.Native.so"
+    prompt: "I have an Android tombstone file at tombstone_nativeaot.txt from a crashed .NET Android app compiled with NativeAOT. Please symbolicate the .NET runtime frames in the backtrace."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(NativeAOT|native.AOT|nativeaot|statically.link|app.binary|libNativeAotApp)"
+      - type: "output_matches"
+        pattern: "libSystem\\.Native\\.so"
+      - type: "output_matches"
+        pattern: "elf-buildid-sym-5e7c2a4b6d8e0f2138b2d4f6a1c3e5079a1b3d5f"
+    rubric:
+      - "Recognized that this is a NativeAOT app — the runtime is statically linked into the app binary (libNativeAotApp.so), not a separate libcoreclr.so or libmonosgen-2.0.so"
+      - "Identified libSystem.Native.so as a .NET BCL native component that can be symbolicated via the Microsoft symbol server"
+      - "Explained that the app binary (libNativeAotApp.so) requires the app's own debug symbols, not symbols from the Microsoft symbol server"
+      - "Did NOT confuse this with a Mono or CoreCLR JIT app"
+    timeout: 300
+
+  - name: "Symbolicate multi-thread tombstone"
+    prompt: "I have an Android tombstone file at tombstone_multithread.txt from a crashed .NET MAUI app. The tombstone includes backtraces from multiple threads. Please symbolicate all the .NET runtime frames across all threads."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "libmonosgen-2\\.0\\.so"
+      - type: "output_matches"
+        pattern: "elf-buildid-sym-1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be"
+      - type: "output_matches"
+        pattern: "(SGen.worker|Finalizer)"
+      - type: "output_matches"
+        pattern: "(HeapTaskDaemon|SGen.worker|Finalizer)"
+      - type: "output_matches"
+        pattern: "llvm-symbolizer"
+    rubric:
+      - "Identified .NET frames from the crashing thread and at least one background thread (SGen worker or Finalizer)"
+      - "Recognized that the SGen worker and Finalizer threads also contain libmonosgen-2.0.so frames"
+      - "Used the same BuildId to symbolicate frames across all threads (they share the same libmonosgen-2.0.so)"
+      - "Showed the llvm-symbolizer command or the automation script for symbolication"
+    timeout: 300
+
+  - name: "Handle .NET frames with no BuildId metadata"
+    prompt: "I have an Android tombstone file at tombstone_no_buildid.txt from a crashed .NET app. Please symbolicate the .NET runtime frames."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "libmonosgen-2\\.0\\.so"
+      - type: "output_matches"
+        pattern: "(no BuildId|no.build.?id|missing BuildId|without BuildId|BuildId.*(not|missing|absent|unavailable)|cannot.*(symbolicate|download|resolve))"
+    rubric:
+      - "Identified that the tombstone contains .NET runtime frames from libmonosgen-2.0.so"
+      - "Recognized that the .NET frames do NOT have BuildId metadata"
+      - "Explained that without a BuildId, debug symbols cannot be downloaded from the Microsoft symbol server"
+      - "Suggested alternative approaches: obtaining the unstripped binary from the build, checking NuGet runtime pack, or local build artifacts"
+      - "Did NOT hallucinate or fabricate a BuildId"
+    timeout: 300
+
+  - name: "Symbolicate tombstone with multiple .NET libraries and different BuildIds"
+    prompt: "I have an Android tombstone file at tombstone_multi_buildid.txt from a crashed .NET MAUI app. Please symbolicate the .NET runtime frames in the backtrace."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "libmonosgen-2\\.0\\.so"
+      - type: "output_matches"
+        pattern: "libSystem\\.Native\\.so"
+      - type: "output_matches"
+        pattern: "elf-buildid-sym-1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be"
+      - type: "output_matches"
+        pattern: "elf-buildid-sym-7a3b5c9d1e4f6082a3c5d7e9f1b2d4a6c8e0f213"
+      - type: "output_matches"
+        pattern: "(elf-buildid-sym-2f4a6b8c|libSystem\\.Globalization\\.Native\\.so)"
+      - type: "output_matches"
+        pattern: "msdl\\.microsoft\\.com"
+    rubric:
+      - "Identified .NET frames from multiple libraries: libmonosgen-2.0.so, libSystem.Native.so, and libSystem.Globalization.Native.so"
+      - "Extracted distinct BuildIds for each library and constructed separate symbol server download URLs"
+      - "Downloaded (or described downloading) debug symbols for each unique BuildId independently"
+      - "Showed the llvm-symbolizer command or automation script for symbolication"
+    timeout: 300
+
+  - name: "Reject iOS crash log as wrong format"
+    prompt: "I have a crash log file at crashlog_ios.txt from a crashed app. Please symbolicate the .NET runtime frames."
+    expect_activation: false
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(iOS|iPhone|Apple|not.*(Android|tombstone)|wrong.*(format|type)|different.*(format|process))"
+    rubric:
+      - "Recognized that this is an iOS crash log, not an Android tombstone"
+      - "Did NOT attempt to apply the Android tombstone symbolication workflow"
+      - "Did NOT attempt to download symbols from the Microsoft ELF symbol server"
+      - "Explained that iOS crash logs require a different symbolication process (e.g., atos, dSYMs)"
+    timeout: 300

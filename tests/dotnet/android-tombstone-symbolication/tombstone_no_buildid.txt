@@ -1,0 +1,25 @@
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+Build fingerprint: 'google/sdk_gphone64_arm64/emu64a:14/UE1A.230829.036.A2/12269489:userdebug/dev-keys'
+Revision: '0'
+ABI: 'arm64'
+Timestamp: 2026-02-25 18:30:44.112348000+0000
+Process uptime: 3s
+Cmdline: com.companyname.NoBuildIdApp
+pid: 6301, tid: 6301, name: .NoBuildIdApp  >>> com.companyname.NoBuildIdApp <<<
+uid: 10187
+tagged_addr_ctrl: 0000000000000001 (PR_TAGGED_ADDR_ENABLE)
+signal 6 (SIGABRT), code -1 (SI_QUEUE), fault addr --------
+    x0  0000000000000000  x1  00000000000018a5  x2  0000000000000006  x3  0000007fe3c50670
+    x4  0000000000000000  x5  0000000000000000  x6  0000000000000000  x7  7f7f7f7f7f7f7f7f
+    x8  00000000000000f0  x9  0000007495a06490  x10 0000000000000000  x11 ffffff80ffffffce
+    x16 0000007495a53a50  x17 0000007495a37e1c  x18 00000074937a0000  x19 00000000000018a5
+    x20 00000000000018a5  x21 00000000ffffffff  x22 000000001476f510  x23 00000074a08c9000
+    x28 0000000000000000  x29 0000007fe3c50740
+    lr  0000007495a06d48  sp  0000007fe3c50660  pc  0000007495a08e1c  pst 0000000000001000
+backtrace:
+      #00 pc 000000000006ae1c  /apex/com.android.runtime/lib64/bionic/libc.so (abort+164) (BuildId: a87908b48b368e6282bcc9f34bcfc28c)
+      #01 pc 0000000000222098  /data/app/~~Abc123==/com.companyname.NoBuildIdApp-Def456==/lib/arm64/libmonosgen-2.0.so
+      #02 pc 0000000000222234  /data/app/~~Abc123==/com.companyname.NoBuildIdApp-Def456==/lib/arm64/libmonosgen-2.0.so
+      #03 pc 000000000019bac0  /data/app/~~Abc123==/com.companyname.NoBuildIdApp-Def456==/lib/arm64/libmonosgen-2.0.so
+      #04 pc 000000000019bc14  /data/app/~~Abc123==/com.companyname.NoBuildIdApp-Def456==/lib/arm64/libmonosgen-2.0.so
+      #05 pc 0000000000012a48  /data/app/~~Abc123==/com.companyname.NoBuildIdApp-Def456==/lib/arm64/libSystem.Native.so

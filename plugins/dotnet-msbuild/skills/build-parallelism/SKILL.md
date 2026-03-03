@@ -16,7 +16,7 @@ description: "Guide for optimizing MSBuild build parallelism and multi-project s
 - MSBuild builds projects in dependency order (topological sort)
 - Critical path: longest chain of dependent projects determines minimum build time
 - Bottleneck: if project A depends on B, C, D and B takes 60s while C and D take 5s, B is the bottleneck
-- Diagnosis: `get_node_timeline()` in binlog MCP → shows per-node activity/idle time
+- Diagnosis: replay binlog to diagnostic log with `performancesummary` and check Project Performance Summary — shows per-project time; grep for `node.*assigned` to check scheduling
 - Wide graphs (many independent projects) parallelize well; deep graphs (long chains) don't
 
 ## Graph Build Mode (`/graph`)
@@ -52,11 +52,12 @@ description: "Guide for optimizing MSBuild build parallelism and multi-project s
 
 Step-by-step:
 
-1. `get_node_timeline()` → see active vs idle time per node
-2. Ideal: all nodes busy most of the time
-3. If nodes are idle: too many serial dependencies, or one slow project blocking others
-4. `get_expensive_projects(sortByExclusive=true)` → find the bottleneck project
-5. Consider splitting large projects or optimizing the critical path
+1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary`
+2. Check Project Performance Summary at the end of `full.log`
+3. Ideal: build time should be much less than sum of project times (parallelism)
+4. If build time ≈ sum of project times: too many serial dependencies, or one slow project blocking others
+5. `grep 'Target Performance Summary' -A 30 full.log` → find the bottleneck targets
+6. Consider splitting large projects or optimizing the critical path
 
 ## CI/CD Parallelism Tips
 
