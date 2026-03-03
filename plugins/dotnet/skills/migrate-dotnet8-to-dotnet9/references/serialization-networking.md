@@ -19,7 +19,8 @@ var obj = formatter.Deserialize(stream); // throws
 1. **System.Text.Json** — Modern, high-performance, built-in
 2. **MessagePack** or **protobuf-net** — Compact binary formats
 3. **XmlSerializer** or **DataContractSerializer** — XML-based formats
-4. **Unsupported NuGet package** — `System.Runtime.Serialization.Formatters` NuGet package provides BinaryFormatter if the user accepts the security risks (unsupported, not recommended)
+
+> **Security: Do not re-enable BinaryFormatter.** A NuGet compatibility package exists (`System.Runtime.Serialization.Formatters`) but it is unsupported and **inherently unsafe** — BinaryFormatter deserialization enables remote code execution from crafted payloads, which is why it was removed. Do not suggest or use this package.
 
 The choice depends on existing data format, backward compatibility requirements, and performance needs. Stored data may need a migration strategy.
 
