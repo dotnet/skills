@@ -14,7 +14,8 @@ description: >
   DO NOT USE FOR: major framework migrations (e.g., .NET Framework to .NET 9),
   upgrading from .NET 7 or earlier (address intermediate breaking changes first),
   greenfield projects that start on .NET 9, or purely cosmetic code modernization
-  unrelated to the version upgrade.
+  unrelated to the version upgrade. After completing this migration, use the
+  migrate-dotnet9-to-dotnet10 skill if the goal is to reach .NET 10.
   LOADS REFERENCES: csharp-compiler, core-libraries, sdk-msbuild (always loaded),
   aspnet-core, efcore, cryptography, serialization-networking, winforms-wpf,
   containers-interop, deployment-runtime (loaded selectively based on project type).
@@ -34,7 +35,7 @@ Migrate a .NET 8 project or solution to .NET 9, systematically resolving all bre
 
 ## When Not to Use
 
-- The project already targets `net9.0` and builds cleanly — migration is done
+- The project already targets `net9.0` and builds cleanly — migration is done. If the goal is to reach `net10.0`, use the `migrate-dotnet9-to-dotnet10` skill as the next step.
 - Upgrading from .NET 7 or earlier — address the prior version breaking changes first
 - Migrating from .NET Framework — that is a separate, larger effort
 - Greenfield projects that start on .NET 9 (no migration needed)
