@@ -22,8 +22,9 @@ Without this, you'll get: "The project targets multiple frameworks. Use the --fr
 EF now inserts an `Application Name` containing EF and SqlClient version info into connection strings that don't already have one. This changes the effective connection string, which can cause:
 - Separate connection pools when mixing EF and non-EF data access (e.g., Dapper)
 - Potential distributed transaction escalation within `TransactionScope`
+- **Information disclosure**: version strings are visible in `sys.dm_exec_sessions`, database server logs, and monitoring tools, potentially aiding attackers in fingerprinting your stack
 
-**Mitigation:** Explicitly set `Application Name` in your connection string.
+**Mitigation:** Explicitly set `Application Name` in your connection string to a value that does not reveal version information.
 
 ### SQL Server json data type used by default on Azure SQL and compatibility level 170
 
