@@ -21,11 +21,9 @@ permissions:
 
 jobs:
   discover:
-    # Scheduled runs should only happen in the upstream repo, not in forks.
-    # Without this guard, forks that have activated Actions (e.g. by pushing a
-    # branch for a PR) will run the evaluation schedule indefinitely, consuming
-    # the fork owner's Actions minutes and storage quota.
     # Skip fork PRs (handled by evaluation-fork-pr.yml) and scheduled runs on forks.
+    # Without this guard, forks that have activated Actions will run the evaluation
+    # schedule indefinitely, consuming the fork owner's Actions minutes.
     if: >-
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
       (github.event_name != 'schedule' || github.repository == 'dotnet/skills')

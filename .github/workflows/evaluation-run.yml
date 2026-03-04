@@ -14,11 +14,6 @@ on:
         required: false
         type: string
         default: ''
-      environment:
-        description: 'GitHub environment for secret gating (empty = none)'
-        required: false
-        type: string
-        default: ''
       model:
         description: 'Copilot model to use'
         required: false
@@ -111,7 +106,6 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 60
-    environment: ${{ inputs.environment || '' }}
     name: evaluate (${{ matrix.entry.name }})
     strategy:
       fail-fast: false
