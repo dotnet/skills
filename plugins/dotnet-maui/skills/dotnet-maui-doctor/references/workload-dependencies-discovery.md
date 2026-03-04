@@ -19,9 +19,16 @@ This reference describes how to discover authoritative version requirements from
 
 ### Step 1: Get Latest SDK Version
 
+**Bash:**
 ```bash
 curl -s "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json" | \
   jq '.["releases-index"][] | select(.["channel-version"]=="{MAJOR}.0")'
+```
+
+**PowerShell:**
+```powershell
+$releases = Invoke-RestMethod "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json"
+$releases.'releases-index' | Where-Object { $_.'channel-version' -eq '{MAJOR}.0' }
 ```
 
 Response fields:
@@ -38,15 +45,30 @@ Extract `latest-sdk` and derive SDK band:
 ### Step 2: Find Workload Set Package
 
 First, discover the NuGet search endpoint from the service index:
+
+**Bash:**
 ```bash
 # Get the SearchQueryService URL from the NuGet v3 service index
 NUGET_SEARCH_URL=$(curl -s "https://api.nuget.org/v3/index.json" | \
   jq -r '.resources[] | select(.["@type"]=="SearchQueryService") | .["@id"]' | head -1)
 ```
 
+**PowerShell:**
+```powershell
+$serviceIndex = Invoke-RestMethod "https://api.nuget.org/v3/index.json"
+$nugetSearchUrl = ($serviceIndex.resources | Where-Object { $_.'@type' -eq 'SearchQueryService' } | Select-Object -First 1).'@id'
+```
+
 Then search for the workload set package:
+
+**Bash:**
 ```bash
 curl -s "$NUGET_SEARCH_URL?q=Microsoft.NET.Workloads.{MAJOR}.0&prerelease=false&semVerLevel=2.0.0"
+```
+
+**PowerShell:**
+```powershell
+Invoke-RestMethod "$nugetSearchUrl`?q=Microsoft.NET.Workloads.{MAJOR}.0&prerelease=false&semVerLevel=2.0.0"
 ```
 
 Filter results:
@@ -62,9 +84,21 @@ cliVersion = parts[0] + ".0." + parts[1]
 
 ### Step 3: Download Workload Set Manifest
 
+**Bash:**
 ```bash
 curl -o workloadset.nupkg "https://api.nuget.org/v3-flatcontainer/microsoft.net.workloads.{band}/{version}/microsoft.net.workloads.{band}.{version}.nupkg"
 unzip -p workloadset.nupkg data/microsoft.net.workloads.workloadset.json
+```
+
+**PowerShell:**
+```powershell
+Invoke-WebRequest "https://api.nuget.org/v3-flatcontainer/microsoft.net.workloads.{band}/{version}/microsoft.net.workloads.{band}.{version}.nupkg" -OutFile workloadset.nupkg
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip = [System.IO.Compression.ZipFile]::OpenRead("workloadset.nupkg")
+$entry = $zip.Entries | Where-Object { $_.FullName -eq "data/microsoft.net.workloads.workloadset.json" }
+$reader = [System.IO.StreamReader]::new($entry.Open())
+$reader.ReadToEnd() | ConvertFrom-Json
+$reader.Dispose(); $zip.Dispose()
 ```
 
 Contents format: `"{workload_id}": "{manifestVersion}/{sdkBand}"`
@@ -86,9 +120,20 @@ Examples:
 - `Microsoft.NET.Sdk.iOS.Manifest-10.0.100`
 - `Microsoft.NET.Sdk.Android.Manifest-9.0.100`
 
+**Bash:**
 ```bash
 curl -o manifest.nupkg "https://api.nuget.org/v3-flatcontainer/{packageid}/{version}/{packageid}.{version}.nupkg"
 unzip -p manifest.nupkg data/WorkloadDependencies.json
+```
+
+**PowerShell:**
+```powershell
+Invoke-WebRequest "https://api.nuget.org/v3-flatcontainer/{packageid}/{version}/{packageid}.{version}.nupkg" -OutFile manifest.nupkg
+$zip = [System.IO.Compression.ZipFile]::OpenRead("manifest.nupkg")
+$entry = $zip.Entries | Where-Object { $_.FullName -eq "data/WorkloadDependencies.json" }
+$reader = [System.IO.StreamReader]::new($entry.Open())
+$reader.ReadToEnd() | ConvertFrom-Json
+$reader.Dispose(); $zip.Dispose()
 ```
 
 ### Step 5: Parse WorkloadDependencies.json
@@ -141,6 +186,8 @@ Brackets: `[` = inclusive, `(` = exclusive
 
 **Goal**: Find requirements for .NET 10
 
+### Bash
+
 ```bash
 # Step 1: Get SDK info
 curl -s "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json" | \
@@ -163,6 +210,42 @@ unzip -p workloadset.nupkg data/microsoft.net.workloads.workloadset.json | jq '.
 # Step 4: Download Android manifest
 curl -so android.nupkg "https://api.nuget.org/v3-flatcontainer/microsoft.net.sdk.android.manifest-9.0.100/35.0.50/microsoft.net.sdk.android.manifest-9.0.100.35.0.50.nupkg"
 unzip -p android.nupkg data/WorkloadDependencies.json | jq '.["microsoft.net.sdk.android"]'
+```
+
+### PowerShell
+
+```powershell
+# Step 1: Get SDK info
+$releases = Invoke-RestMethod "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/releases-index.json"
+$sdkInfo = $releases.'releases-index' | Where-Object { $_.'channel-version' -eq '10.0' }
+$latestSdk = $sdkInfo.'latest-sdk'
+# Result: "10.0.102" → band "10.0.100"
+
+# Step 2: Discover NuGet search endpoint and find workload set
+$serviceIndex = Invoke-RestMethod "https://api.nuget.org/v3/index.json"
+$searchUrl = ($serviceIndex.resources | Where-Object { $_.'@type' -eq 'SearchQueryService' } | Select-Object -First 1).'@id'
+$result = Invoke-RestMethod "$searchUrl`?q=Microsoft.NET.Workloads.10.0&prerelease=false"
+$workloadSet = $result.data | Where-Object { $_.id -eq 'Microsoft.NET.Workloads.10.0.100' }
+# Result: version "10.102.0", CLI version: 10.0.102
+
+# Step 3: Download workload set manifest and extract
+Invoke-WebRequest "https://api.nuget.org/v3-flatcontainer/microsoft.net.workloads.10.0.100/10.102.0/microsoft.net.workloads.10.0.100.10.102.0.nupkg" -OutFile workloadset.nupkg
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip = [System.IO.Compression.ZipFile]::OpenRead("workloadset.nupkg")
+$entry = $zip.Entries | Where-Object { $_.FullName -eq "data/microsoft.net.workloads.workloadset.json" }
+$reader = [System.IO.StreamReader]::new($entry.Open())
+$manifest = $reader.ReadToEnd() | ConvertFrom-Json
+$reader.Dispose(); $zip.Dispose()
+$manifest.'microsoft.net.sdk.android'
+# Result: "35.0.50/9.0.100"
+
+# Step 4: Download Android manifest and extract WorkloadDependencies
+Invoke-WebRequest "https://api.nuget.org/v3-flatcontainer/microsoft.net.sdk.android.manifest-9.0.100/35.0.50/microsoft.net.sdk.android.manifest-9.0.100.35.0.50.nupkg" -OutFile android.nupkg
+$zip = [System.IO.Compression.ZipFile]::OpenRead("android.nupkg")
+$entry = $zip.Entries | Where-Object { $_.FullName -eq "data/WorkloadDependencies.json" }
+$reader = [System.IO.StreamReader]::new($entry.Open())
+$reader.ReadToEnd() | ConvertFrom-Json
+$reader.Dispose(); $zip.Dispose()
 ```
 
 **Result**: Authoritative JDK, Android SDK, and Xcode requirements from live NuGet data.

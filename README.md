@@ -10,6 +10,7 @@ This repository contains the .NET team's curated set of core skills and custom a
 |--------|-------------|
 | [dotnet](plugins/dotnet/) | Collection of core .NET skills for handling common .NET coding tasks. |
 | [dotnet-msbuild](plugins/dotnet-msbuild/) | Comprehensive MSBuild and .NET build skills: failure diagnosis, performance optimization, code quality, and modernization. |
+| [dotnet-maui](plugins/dotnet-maui/) | Skills for .NET MAUI development: environment setup, diagnostics, and troubleshooting. |
 
 ## Installation
 

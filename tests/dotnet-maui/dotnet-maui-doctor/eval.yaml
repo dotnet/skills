@@ -1,0 +1,21 @@
+scenarios:
+  - name: "Plan MAUI Android setup on Linux"
+    prompt: "I'm on Linux and setting up .NET MAUI for Android. I can't run commands right now. Give me a step-by-step diagnostic and remediation plan that discovers exact SDK/workload/JDK/Android SDK requirements dynamically (no hardcoded versions)."
+    assertions:
+      - type: "output_contains"
+        value: "WorkloadDependencies.json"
+      - type: "output_contains"
+        value: "releases-index.json"
+      - type: "output_matches"
+        pattern: "maui-android"
+      - type: "output_contains"
+        value: "Microsoft Build of OpenJDK"
+      - type: "output_contains"
+        value: "dotnet workload"
+      - type: "output_not_matches"
+        pattern: "workload update|workload repair"
+    rubric:
+      - "Calls out Linux is Android-only and recommends maui-android (not maui)"
+      - "Uses releases-index.json and NuGet APIs to discover requirements (no hardcoded versions)"
+      - "Avoids recommending dotnet workload update/repair"
+    timeout: 120
