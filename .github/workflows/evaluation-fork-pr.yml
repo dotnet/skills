@@ -27,7 +27,6 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write
-  statuses: write
 
 jobs:
   # Validate the trigger: must be a /evaluate comment on a fork PR from a user
@@ -86,6 +85,7 @@ jobs:
             -X POST -f content='eyes' || true
 
       - name: Set pending commit status
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -196,9 +196,12 @@ jobs:
           elif [[ "${{ needs.run-evaluation.result }}" == "skipped" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
             STATE="success"
             DESC="No skills to evaluate"
-          else
+          elif [[ "${{ needs.run-evaluation.result }}" == "failure" ]]; then
             STATE="failure"
-            DESC="Evaluation failed (${{ needs.run-evaluation.result }})"
+            DESC="Evaluation failed"
+          else
+            STATE="error"
+            DESC="Evaluation did not complete (${{ needs.run-evaluation.result }})"
           fi
           gh api "repos/${{ github.repository }}/statuses/${{ needs.gate.outputs.head_sha }}" \
             -f state="$STATE" \
