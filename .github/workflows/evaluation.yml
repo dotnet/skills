@@ -87,7 +87,7 @@ jobs:
       has_plugins: ${{ steps.find.outputs.has_plugins }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -192,10 +192,10 @@ jobs:
     if: needs.discover.outputs.has_entries == 'true'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
 
@@ -203,7 +203,7 @@ jobs:
         run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
 
       - name: Upload built validator
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: skill-validator-dist
           path: artifacts/publish/SkillValidator/release/
@@ -222,15 +222,15 @@ jobs:
 
     steps:
       - name: Checkout skills repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
 
       - name: Download built validator
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: skill-validator-dist
           path: artifacts/publish/SkillValidator/release/
@@ -308,7 +308,7 @@ jobs:
 
       - name: Upload results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: skill-validator-results-${{ matrix.entry.name }}
           path: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}/
@@ -321,14 +321,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all result artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: skill-validator-results-*
           path: all-results/
           merge-multiple: false
 
       - name: Download built validator
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: skill-validator-dist
           path: artifacts/publish/SkillValidator/release/
@@ -387,10 +387,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download evaluation artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: skill-validator-results-*
           path: all-results/
