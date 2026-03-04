@@ -455,24 +455,35 @@ public static class ValidateCommand
         }
 
         // Judge — failures are non-fatal so a single timeout doesn't kill the whole evaluation.
+        // Await each judge independently so a failure in one doesn't discard the other's result.
         var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path);
 
+        var baselineJudgeTask = Services.Judge.JudgeRun(scenario, baselineMetrics, judgeOpts);
+        var withSkillJudgeTask = Services.Judge.JudgeRun(
+            scenario, withSkillMetrics, judgeOpts with { WorkDir = withSkillMetrics.WorkDir });
+
         JudgeResult baselineJudge;
-        JudgeResult withSkillJudge;
         try
         {
-            var judgeTasks = await Task.WhenAll(
-                Services.Judge.JudgeRun(scenario, baselineMetrics, judgeOpts),
-                Services.Judge.JudgeRun(scenario, withSkillMetrics, judgeOpts with { WorkDir = withSkillMetrics.WorkDir }));
-            baselineJudge = judgeTasks[0];
-            withSkillJudge = judgeTasks[1];
+            baselineJudge = await baselineJudgeTask;
         }
         catch (Exception error)
         {
-            runLog($"\x1b[33m⚠️  Judge failed, using fallback scores: {error.Message[..Math.Min(150, error.Message.Length)]}\x1b[0m");
-            // Fallback: neutral score of 3 so the run still contributes assertion/activation data.
-            baselineJudge = new JudgeResult([], 3, $"Judge failed: {error.Message}");
-            withSkillJudge = new JudgeResult([], 3, $"Judge failed: {error.Message}");
+            var shortMsg = SanitizeErrorMessage(error.Message);
+            runLog($"\x1b[33m⚠️  Judge (baseline) failed, using fallback scores: {shortMsg}\x1b[0m");
+            baselineJudge = new JudgeResult([], 3, $"Judge failed: {shortMsg}");
+        }
+
+        JudgeResult withSkillJudge;
+        try
+        {
+            withSkillJudge = await withSkillJudgeTask;
+        }
+        catch (Exception error)
+        {
+            var shortMsg = SanitizeErrorMessage(error.Message);
+            runLog($"\x1b[33m⚠️  Judge (with skill) failed, using fallback scores: {shortMsg}\x1b[0m");
+            withSkillJudge = new JudgeResult([], 3, $"Judge failed: {shortMsg}");
         }
 
         var baseline = new RunResult(baselineMetrics, baselineJudge);
@@ -547,5 +558,16 @@ public static class ValidateCommand
             runs[^1].JudgeResult.OverallReasoning);
 
         return new RunResult(avgMetrics, avgJudge);
+    }
+
+    /// <summary>
+    /// Collapses multiline error messages to single-line and truncates to a reasonable length
+    /// so they don't bloat console/markdown reports.
+    /// </summary>
+    private static string SanitizeErrorMessage(string? message)
+    {
+        var raw = message ?? "unknown error";
+        var singleLine = raw.ReplaceLineEndings(" ");
+        return singleLine.Length > 150 ? singleLine[..150] + "…" : singleLine;
     }
 }
