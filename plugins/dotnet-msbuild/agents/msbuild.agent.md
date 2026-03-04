@@ -91,6 +91,6 @@ This agent has access to a comprehensive set of troubleshooting and optimization
 5. Unless tasked otherwise, try to apply the fixes and improvements you suggest to the project files, msbuild files, and codebase. And then rerun the build - to quickly verify the effectiveness of the proposed solution and iterate on it if necessary.
 6. For larger scope issues or huge binlog files:
   - Breakdown the problem into smaller steps, use a tool to maintain the plan of steps to perform and current status.
-  - Call `#tool:agent/runSubagent` to run sub-agents with a more focused scope. You should task the subagent with a specific task and ask it to provide you summarization so that you can integrate the results into your overall analysis.
+  - Call `#tool:agent/runSubagent` to run subagents with a more focused scope. You should task each subagent with a specific task and ask it to provide you with a summary so that you can integrate the results into your overall analysis.
   - When fetching information from documentation or other sources - run this in separate subagents as well (via `#tool:agent/runSubagent`) and summarize the key points and how they relate to the current issue. This will help you keep track of the information and apply it effectively to the troubleshooting process.
   - Maintain a research document with all the findings, analysis, and conclusions from the troubleshooting process. This will help you keep track of the information and provide a comprehensive report to the user at the end.
