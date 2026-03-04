@@ -27,6 +27,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write
+  statuses: write
 
 jobs:
   # Validate the trigger: must be a /evaluate comment on a fork PR from a user
@@ -39,6 +40,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      statuses: write
     outputs:
       head_sha: ${{ steps.pr.outputs.head_sha }}
       base_sha: ${{ steps.pr.outputs.base_sha }}
@@ -82,6 +84,16 @@ jobs:
         run: |
           gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
             -X POST -f content='eyes' || true
+
+      - name: Set pending commit status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/${{ steps.pr.outputs.head_sha }}" \
+            -f state=pending \
+            -f context="evaluation (fork PRs)" \
+            -f description="Evaluation in progress..." \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   discover:
     needs: gate
@@ -166,3 +178,30 @@ jobs:
       COPILOT_GITHUB_TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
       COPILOT_GITHUB_TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
       COPILOT_GITHUB_TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
+
+  report-status:
+    needs: [gate, discover, run-evaluation]
+    if: always() && needs.gate.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Set final commit status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${{ needs.run-evaluation.result }}" == "success" ]]; then
+            STATE="success"
+            DESC="Evaluation passed"
+          elif [[ "${{ needs.run-evaluation.result }}" == "skipped" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
+            STATE="success"
+            DESC="No skills to evaluate"
+          else
+            STATE="failure"
+            DESC="Evaluation failed (${{ needs.run-evaluation.result }})"
+          fi
+          gh api "repos/${{ github.repository }}/statuses/${{ needs.gate.outputs.head_sha }}" \
+            -f state="$STATE" \
+            -f context="evaluation (fork PRs)" \
+            -f description="$DESC" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
