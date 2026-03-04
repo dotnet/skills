@@ -75,7 +75,7 @@ dotnet workload list
 
 **CRITICAL: Only Microsoft Build of OpenJDK is supported.** Other JDK vendors (Oracle, Azul, Amazon Corretto, Temurin, etc.) are NOT supported for .NET MAUI development.
 
-> **⚠️ TEMPORARY**: Recommend JDK 21 (not 17) until WorkloadDependencies.json is updated in a future Android workload release.
+> Use the JDK version recommended by WorkloadDependencies.json (`jdk.recommendedVersion`), ensuring it satisfies the `jdk.version` range. Do not hardcode JDK versions.
 
 See `microsoft-openjdk.md` for detection paths, identification, and JAVA_HOME guidance.
 

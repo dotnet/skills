@@ -100,7 +100,7 @@ Query NuGet for workload manifest → extract `WorkloadDependencies.json` → ge
 
 **Only Microsoft OpenJDK supported.** Verify `java -version` output contains "Microsoft". See `references/microsoft-openjdk.md` for detection paths and JAVA_HOME guidance.
 
-> **⚠️ TEMPORARY WORKAROUND**: Recommend JDK 21 regardless of `jdk.recommendedVersion` until WorkloadDependencies.json is updated. Rule: If WorkloadDependencies suggests ≤21, recommend 21. If >21, use that value.
+> Use the JDK version recommended by WorkloadDependencies.json (`jdk.recommendedVersion`), ensuring it satisfies the `jdk.version` range. Do not hardcode JDK versions.
 
 ### Task 6: Validate Android SDK
 
