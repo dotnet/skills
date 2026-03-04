@@ -1,0 +1,116 @@
+# Evaluation workflow for fork PRs.
+#
+# Fork PRs cannot access repository secrets via the `pull_request` trigger.
+# This workflow uses `pull_request_target` to make secrets available, gated
+# behind a protected "evaluation" environment that requires maintainer approval.
+#
+# Security model:
+#   - Workflow YAML: always from the base branch (enforced by pull_request_target)
+#   - Validator binary: built from the base branch checkout (trusted)
+#   - Skill/test content: checked out from the fork PR (untrusted data, read-only)
+#   - Secret access: gated by environment approval (maintainer must approve)
+#
+# To set up:
+#   1. Create an "evaluation" environment in repo Settings → Environments
+#   2. Add required reviewers (repo maintainers)
+#   3. Add COPILOT_GITHUB_TOKEN (and optionally _2 through _8) as environment secrets
+name: evaluation (fork PRs)
+
+on:
+  pull_request_target:
+    paths:
+      - 'plugins/**'
+      - 'tests/**'
+
+concurrency:
+  group: eval-fork-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Only run for fork PRs — same-repo PRs use the regular evaluation.yml workflow.
+  discover:
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      entries: ${{ steps.find.outputs.entries }}
+      has_entries: ${{ steps.find.outputs.has_entries }}
+    steps:
+      - name: Checkout base branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Fetch PR head
+        run: git fetch origin +refs/pull/${{ github.event.pull_request.number }}/head:refs/remotes/origin/pr-head
+
+      - name: Find skills to evaluate
+        id: find
+        run: |
+          $base = "${{ github.event.pull_request.base.sha }}"
+          $head = (git rev-parse origin/pr-head)
+          $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
+
+          # We need the PR content to check for SKILL.md files — use a worktree
+          git worktree add /tmp/pr-content origin/pr-head 2>$null
+
+          # Extract unique plugin/skill pairs from changed files
+          $changedPairs = @($changedFiles |
+            Where-Object { $_ -match '^(?:plugins/([^/]+)/skills|tests/([^/]+))/([^/]+)/' } |
+            ForEach-Object {
+              $p = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
+              "$p/$($Matches[3])"
+            } |
+            Sort-Object -Unique)
+
+          # Filter to skills that have a SKILL.md and a tests directory (check in PR content)
+          $entries = @($changedPairs | ForEach-Object {
+            $parts = $_ -split '/'
+            $plugin = $parts[0]
+            $skill = $parts[1]
+            $skillMd = Join-Path "/tmp/pr-content" "plugins" $plugin "skills" $skill "SKILL.md"
+            $testsDir = Join-Path "/tmp/pr-content" "tests" $plugin
+            if ((Test-Path $skillMd) -and (Test-Path $testsDir)) {
+              @{
+                name = "$plugin--$skill"
+                plugin = $plugin
+                skills_path = "plugins/$plugin/skills/$skill"
+              }
+            }
+          } | Where-Object { $_ })
+
+          git worktree remove /tmp/pr-content --force 2>$null
+
+          if (-not $entries -or $entries.Count -eq 0) {
+            Write-Host "No skills to evaluate"
+            echo "entries=[]" >> $env:GITHUB_OUTPUT
+            echo "has_entries=false" >> $env:GITHUB_OUTPUT
+          } else {
+            $json = $entries | ConvertTo-Json -Compress -AsArray
+            Write-Host "Entries to evaluate: $json"
+            echo "entries=$json" >> $env:GITHUB_OUTPUT
+            echo "has_entries=true" >> $env:GITHUB_OUTPUT
+          }
+        shell: pwsh
+
+  run-evaluation:
+    needs: discover
+    if: needs.discover.outputs.has_entries == 'true'
+    uses: ./.github/workflows/evaluation-run.yml
+    with:
+      entries: ${{ needs.discover.outputs.entries }}
+      checkout-ref: ${{ github.event.pull_request.head.sha }}
+      environment: evaluation
+      pr-number: ${{ github.event.pull_request.number }}
+    secrets:
+      COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+      COPILOT_GITHUB_TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+      COPILOT_GITHUB_TOKEN_3: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+      COPILOT_GITHUB_TOKEN_4: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
+      COPILOT_GITHUB_TOKEN_5: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
+      COPILOT_GITHUB_TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
+      COPILOT_GITHUB_TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
+      COPILOT_GITHUB_TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
