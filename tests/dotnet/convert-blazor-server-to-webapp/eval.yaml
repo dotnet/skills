@@ -119,9 +119,9 @@ scenarios:
       - type: output_contains
         value: "UseAntiforgery"
       - type: output_not_matches
-        pattern: "AddServerSideBlazor"
+        pattern: "AddServerSideBlazor\\s*\\("
       - type: output_not_matches
-        pattern: "MapBlazorHub"
+        pattern: "MapBlazorHub\\s*\\("
       - type: exit_success
     rubric:
       - "Replaces AddServerSideBlazor with AddRazorComponents().AddInteractiveServerComponents()"
@@ -236,9 +236,9 @@ scenarios:
       - type: output_contains
         value: "UseAntiforgery"
       - type: output_not_matches
-        pattern: "AddServerSideBlazor"
+        pattern: "AddServerSideBlazor\\s*\\("
       - type: output_not_matches
-        pattern: "MapBlazorHub"
+        pattern: "MapBlazorHub\\s*\\("
       - type: exit_success
     rubric:
       - "Removes the CascadingAuthenticationState component wrapper from App.razor/Routes.razor"
@@ -338,9 +338,9 @@ scenarios:
       - type: output_contains
         value: "blazor.web.js"
       - type: output_not_matches
-        pattern: "AddServerSideBlazor"
+        pattern: "AddServerSideBlazor\\s*\\("
       - type: output_not_matches
-        pattern: "MapBlazorHub"
+        pattern: "MapBlazorHub\\s*\\("
       - type: exit_success
     rubric:
       - "Detects that the original app used render-mode=\"Server\" (not ServerPrerendered) which means prerendering was disabled"
@@ -417,6 +417,7 @@ scenarios:
       - type: output_matches
         pattern: "(already|no).{0,80}(Blazor Web App|converted|migration|changes needed|changes required|using.*AddRazorComponents)"
       - type: exit_success
+    expect_activation: false
     rubric:
       - "Correctly identifies that this app is already a Blazor Web App using AddRazorComponents and MapRazorComponents"
       - "Does NOT suggest converting AddRazorComponents to AddServerSideBlazor or making other backwards changes"

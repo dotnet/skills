@@ -212,7 +212,7 @@ Make the following changes to `Program.cs` (or `Startup.cs` if the app uses the 
    ```
    Endpoint routing is the default and explicit `UseRouting()` is no longer needed.
 
-5. **Add antiforgery middleware** — add after `app.UseHttpsRedirection()` (and after `UseAuthentication`/`UseAuthorization` if present):
+5. **Add antiforgery middleware** — add after `UseAuthentication`/`UseAuthorization` if present:
    ```csharp
    app.UseAntiforgery();
    ```
