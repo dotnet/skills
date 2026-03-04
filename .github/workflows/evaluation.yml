@@ -1,3 +1,5 @@
+# Forked repositories must set a COPILOT_GITHUB_TOKEN secret with
+# "Copilot Requests" permissions to run evaluations.
 name: evaluation
 
 on:
@@ -234,6 +236,7 @@ jobs:
           path: artifacts/publish/SkillValidator/release/
 
       - name: Select random Copilot token
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         id: select-token
         env:
           TOKEN_1: ${{ secrets.COPILOT_GITHUB_TOKEN }}
@@ -277,7 +280,7 @@ jobs:
       - name: Run skill-validator
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         env:
-          GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.select-token.outputs.token || secrets.COPILOT_GITHUB_TOKEN }}
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
         run: |
           # Restore execute permissions lost during artifact upload/download
