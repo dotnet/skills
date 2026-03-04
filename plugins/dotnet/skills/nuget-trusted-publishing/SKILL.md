@@ -104,11 +104,11 @@ This phase requires the user to act on nuget.org — guide them with exact value
 
    Optional: add **Required reviewers** for an approval gate.
 
-> ⚠️ Wait for the user to confirm they've created the policy before proceeding.
+> ⚠️ Wait for the user to confirm they've created the policy **before asking them to remove old API keys/secrets or before attempting to run/publish with the workflow**. Drafting or showing the workflow file itself is OK before confirmation.
 
 ### Phase 4: Workflow Setup
 
-Create or modify the publish workflow. **The workflow must always be created or shown in your response** — don't defer this to a later turn.
+Create or modify the publish workflow. **The workflow must always be created or shown in your response** — you may draft/show it even if the nuget.org policy is not yet confirmed, but do not guide the user to actually run/publish or remove old secrets until after confirmation.
 
 **Greenfield**: Create `publish.yml` from the template in [references/publish-workflow.md](references/publish-workflow.md). Adapt .NET version, project path, and environment name. Ensure your output explicitly mentions `id-token: write` and `NuGet/login@v1`.
 
