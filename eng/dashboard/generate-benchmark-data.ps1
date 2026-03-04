@@ -101,28 +101,30 @@ foreach ($verdict in $results.verdicts) {
         $overfittingScore = $null
         if ($verdict.overfittingResult -and $verdict.overfittingResult.severity -in @("Moderate", "High")) {
             $scenarioName = $scenario.scenarioName
-            $hasPerScenarioData = $false
-            $scenarioHasIssues = $false
+            # Determine whether the overfittingResult carries per-scenario
+            # breakdowns (rubricAssessments / assertionAssessments arrays).
+            # When breakdowns exist we use them; when they don't (older schema)
+            # we fall back to the verdict-level flag for every scenario.
+            $hasBreakdowns = $verdict.overfittingResult.PSObject.Properties['rubricAssessments'] -or
+                             $verdict.overfittingResult.PSObject.Properties['assertionAssessments']
 
-            # Check rubric assessments for this scenario
-            $rubrics = $verdict.overfittingResult.rubricAssessments | Where-Object { $_.scenario -eq $scenarioName }
-            $assertions = $verdict.overfittingResult.assertionAssessments | Where-Object { $_.scenario -eq $scenarioName }
-            if ($rubrics -or $assertions) {
-                $hasPerScenarioData = $true
-                # Flag if any rubric is classified as narrow/technique or any assertion is narrow
-                $scenarioHasIssues = ($rubrics | Where-Object { $_.classification -in @("narrow", "technique") }) -or
+            if ($hasBreakdowns) {
+                $rubrics    = $verdict.overfittingResult.rubricAssessments    | Where-Object { $_.scenario -eq $scenarioName }
+                $assertions = $verdict.overfittingResult.assertionAssessments | Where-Object { $_.scenario -eq $scenarioName }
+                # Rubric classifications: outcome | technique | vocabulary  — flag non-outcome.
+                # Assertion classifications: broad | narrow               — flag narrow.
+                $scenarioHasIssues = ($rubrics    | Where-Object { $_.classification -ne "outcome" }) -or
                                      ($assertions | Where-Object { $_.classification -eq "narrow" })
-            }
-
-            if ($hasPerScenarioData -and $scenarioHasIssues) {
+                if ($scenarioHasIssues) {
+                    $overfittingSeverity = $verdict.overfittingResult.severity.ToLower()
+                    $overfittingScore = $verdict.overfittingResult.score
+                }
+                # else: breakdowns exist but this scenario has no issues — leave unflagged
+            } else {
+                # No per-scenario breakdown available (older schema); fall back to verdict-level
                 $overfittingSeverity = $verdict.overfittingResult.severity.ToLower()
                 $overfittingScore = $verdict.overfittingResult.score
-            } elseif (-not $hasPerScenarioData) {
-                # No per-scenario breakdown available; fall back to verdict-level
-                $overfittingSeverity = $verdict.overfittingResult.severity.ToLower()
-                $overfittingScore = $verdict.overfittingResult.score
             }
-            # else: per-scenario data exists but no issues — leave unflagged
         }
 
         # Quality scores (from judge results, scale 0-5 mapped to 0-10 for dashboard)
