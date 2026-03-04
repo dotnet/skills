@@ -26,6 +26,10 @@ concurrency:
   group: eval-fork-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# pull-requests: write is required at the workflow level because the reusable
+# workflow's comment-on-pr job needs it, and reusable workflow jobs cannot
+# escalate beyond the caller's permissions. Individual jobs restrict their own
+# permissions to contents: read.
 permissions:
   contents: read
   pull-requests: write
@@ -35,6 +39,8 @@ jobs:
   discover:
     if: github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       entries: ${{ steps.find.outputs.entries }}
       has_entries: ${{ steps.find.outputs.has_entries }}
