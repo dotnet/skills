@@ -1,21 +1,226 @@
 scenarios:
-  - name: "Plan MAUI Android setup on Linux"
-    prompt: "I'm on Linux and setting up .NET MAUI for Android. I can't run commands right now. Give me a step-by-step diagnostic and remediation plan that discovers exact SDK/workload/JDK/Android SDK requirements dynamically (no hardcoded versions)."
+  - name: "Plan macOS MAUI setup with Xcode"
+    prompt: |
+      I have a clean macOS machine and want to start developing .NET MAUI apps
+      for iOS and Android. I can't run commands right now, but I need a complete
+      setup plan. Tell me exactly what I need to install, how to discover the
+      right versions, and how to verify everything works.
     assertions:
       - type: "output_contains"
-        value: "WorkloadDependencies.json"
-      - type: "output_contains"
-        value: "releases-index.json"
+        value: "Xcode"
       - type: "output_matches"
-        pattern: "maui-android"
+        pattern: "(?i)apple developer|developer\\.apple\\.com"
+      - type: "output_not_matches"
+        pattern: "(?i)app\\s*store"
       - type: "output_contains"
-        value: "Microsoft Build of OpenJDK"
+        value: "Microsoft"
       - type: "output_contains"
-        value: "dotnet workload"
+        value: "--version"
+      - type: "output_matches"
+        pattern: "(?i)releases-index|WorkloadDependencies|NuGet"
       - type: "output_not_matches"
         pattern: "workload update|workload repair"
     rubric:
-      - "Calls out Linux is Android-only and recommends maui-android (not maui)"
-      - "Uses releases-index.json and NuGet APIs to discover requirements (no hardcoded versions)"
-      - "Avoids recommending dotnet workload update/repair"
+      - "Warns against installing Xcode from the Mac App Store and recommends Apple Developer Downloads"
+      - "Recommends the 'maui' workload (not 'maui-android') since this is macOS"
+      - "Specifies Microsoft OpenJDK as the only supported Java distribution"
+      - "Discovers versions dynamically via NuGet APIs rather than hardcoding them"
+      - "Uses --version flag when installing workloads"
+    timeout: 120
+
+  - name: "Plan Linux MAUI environment for Android"
+    prompt: |
+      I'm on a headless Linux CI server and need to build my MAUI app for Android.
+      I have the .NET SDK installed but nothing else.
+      Give me a specific plan to set up the environment, including how to find
+      the correct versions for everything.
+    assertions:
+      - type: "output_contains"
+        value: "maui-android"
+      - type: "output_contains"
+        value: "Microsoft"
+      - type: "output_contains"
+        value: "--version"
+      - type: "output_matches"
+        pattern: "sdkmanager|android command-line tools"
+      - type: "output_matches"
+        pattern: "(?i)releases-index|WorkloadDependencies|NuGet"
+      - type: "output_not_matches"
+        pattern: "workload update|workload repair"
+    rubric:
+      - "Recommends 'maui-android' workload, not the 'maui' meta-workload which fails on Linux"
+      - "Does not suggest iOS or Mac Catalyst workloads for Linux"
+      - "Specifies Microsoft OpenJDK as the only supported Java distribution"
+      - "Discovers versions dynamically from NuGet APIs rather than hardcoding them"
+    timeout: 120
+
+  - name: "Guardrail against workload update and repair"
+    prompt: |
+      My .NET MAUI project stopped building after a .NET SDK update. I think my
+      workloads are out of date. Should I run `dotnet workload update` or
+      `dotnet workload repair` to fix this?
+    assertions:
+      - type: "output_contains"
+        value: "--version"
+      - type: "output_matches"
+        pattern: "workload install"
+    rubric:
+      - "Explicitly warns against using dotnet workload update and dotnet workload repair"
+      - "Recommends reinstalling workloads with dotnet workload install and an explicit --version flag"
+      - "Explains that workload update/repair can cause version inconsistencies"
+      - "Describes how to discover the correct workload version from NuGet APIs"
+    timeout: 120
+
+  - name: "Diagnose non-Microsoft JDK causing build failure"
+    prompt: |
+      I'm on macOS and my .NET MAUI Android build fails with a Java-related error.
+      I have Adoptium Temurin JDK 17.0.12 installed and JAVA_HOME points to it.
+      `java -version` shows `OpenJDK Runtime Environment Temurin-17.0.12+7`.
+      What's wrong and how do I fix it?
+    assertions:
+      - type: "output_contains"
+        value: "Microsoft"
+      - type: "output_not_matches"
+        pattern: "(?i)Temurin.{0,20}(fine|correct|ok|good|supported)"
+      - type: "output_matches"
+        pattern: "JAVA_HOME"
+      - type: "output_not_matches"
+        pattern: "workload update|workload repair"
+    rubric:
+      - "Identifies that the JDK vendor is the problem, not the version number"
+      - "Recommends installing Microsoft Build of OpenJDK specifically"
+      - "Advises unsetting JAVA_HOME or redirecting it to the Microsoft JDK path"
+      - "Does not suggest Adoptium, Oracle, or other non-Microsoft JDKs as acceptable"
+    timeout: 120
+
+  - name: "Plan complete MAUI setup on Windows"
+    prompt: |
+      I'm setting up .NET MAUI development on Windows 11 from scratch. I need
+      to target both Android and Windows. I can't run commands right now — give
+      me a complete step-by-step plan with all the PowerShell commands I'll need,
+      including how to discover the right versions dynamically.
+    assertions:
+      - type: "output_matches"
+        pattern: "sdkmanager\\.bat"
+      - type: "output_matches"
+        pattern: "(?i)Invoke-RestMethod|Invoke-WebRequest"
+      - type: "output_contains"
+        value: "--version"
+      - type: "output_contains"
+        value: "Microsoft"
+      - type: "output_matches"
+        pattern: "(?i)releases-index|WorkloadDependencies|NuGet"
+      - type: "output_not_matches"
+        pattern: "workload update|workload repair"
+    rubric:
+      - "Uses sdkmanager.bat (not sdkmanager) for Android SDK management on Windows"
+      - "Uses PowerShell commands for API queries, not curl/jq"
+      - "Includes Windows SDK detection or installation"
+      - "Discovers all versions dynamically — does not hardcode SDK, workload, JDK, or Android versions"
+      - "Recommends the 'maui' workload (not 'maui-android') for Windows"
+    timeout: 120
+
+  - name: "Correct JAVA_HOME misconception"
+    prompt: |
+      I'm getting 'JAVA_HOME is not set' warnings when building my .NET MAUI
+      Android app on macOS. I don't have JAVA_HOME configured anywhere. Do I
+      need to set it? What should I set it to?
+    assertions:
+      - type: "output_matches"
+        pattern: "(?i)not required|not necessary|optional|auto.?detect|don't need to set"
+      - type: "output_contains"
+        value: "Microsoft"
+      - type: "output_not_matches"
+        pattern: "workload update|workload repair"
+    rubric:
+      - "Explains that JAVA_HOME is not required because .NET MAUI auto-detects JDK installations"
+      - "Clarifies that JAVA_HOME is only problematic when set to a non-Microsoft JDK"
+      - "Recommends verifying that Microsoft OpenJDK is installed via java -version output"
+      - "Does not unnecessarily instruct the user to set JAVA_HOME"
+    timeout: 120
+
+  - name: "Resist hardcoding JDK and Android SDK versions"
+    prompt: |
+      What exact JDK version and Android SDK API level do I need for .NET MAUI
+      right now? Just give me the version numbers so I can install them quickly.
+    assertions:
+      - type: "output_matches"
+        pattern: "(?i)WorkloadDependencies|NuGet|discover|dynamic"
+      - type: "output_matches"
+        pattern: "(?i)releases-index|api\\.nuget\\.org|nuget"
+      - type: "output_not_matches"
+        pattern: "workload update|workload repair"
+    rubric:
+      - "Does not present hardcoded version numbers as the definitive current answer"
+      - "Explains that requirements are discovered dynamically from WorkloadDependencies.json"
+      - "Describes or outlines the NuGet API discovery process to find current requirements"
+      - "Notes that version information may be outdated and live API queries are authoritative"
+    timeout: 120
+
+  - name: "Diagnose Android SDK missing error"
+    prompt: |
+      My MAUI build is failing with 'error XA5300: The Android SDK directory
+      could not be found'. I have set ANDROID_HOME to /opt/android-sdk.
+      How can I verify if my Android SDK installation is valid for MAUI?
+      What specific packages does MAUI require?
+    assertions:
+      - type: "output_matches"
+        pattern: "(?i)WorkloadDependencies|NuGet|manifest"
+      - type: "output_matches"
+        pattern: "build-tools"
+      - type: "output_matches"
+        pattern: "platforms"
+      - type: "output_matches"
+        pattern: "sdkmanager"
+      - type: "output_not_matches"
+        pattern: "workload update|workload repair"
+    rubric:
+      - "Identifies WorkloadDependencies.json or NuGet manifests as the source of truth for required Android SDK packages"
+      - "Suggests checking for specific packages such as platforms, build-tools, and platform-tools"
+      - "Advises using sdkmanager to list and install missing components"
+      - "Checks whether the path in ANDROID_HOME is valid and contains expected directories"
+    timeout: 120
+
+  - name: "Decline runtime bug debugging"
+    prompt: |
+      My .NET MAUI app builds and deploys fine on macOS, but it crashes with a
+      NullReferenceException right after startup. I heard about a '.NET MAUI
+      doctor' tool — can you use that to find the bug in my code and tell me
+      what line is null?
+    assertions:
+      - type: "output_matches"
+        pattern: "(?i)environment|setup|toolchain"
+      - type: "output_not_matches"
+        pattern: "(?i)the line.{0,20}(is|causing|null)|found the bug"
+    rubric:
+      - "Recognizes that a NullReferenceException in user code is outside the scope of the MAUI doctor environment skill"
+      - "Clarifies what the MAUI doctor can help with (SDKs, workloads, JDK, Android/iOS tooling) versus runtime app bugs"
+      - "Suggests appropriate debugging approaches (debugger, logs, stack traces) without conflating them with environment diagnosis"
+      - "Does not fabricate details about the user's code or pretend to locate the buggy line"
+    timeout: 120
+
+  - name: "Fix stale MAUI workloads after SDK update"
+    prompt: |
+      I updated to a newer .NET SDK on Windows 10 and now my .NET MAUI app
+      fails to build with workload and Android SDK errors. A colleague told me
+      to run 'dotnet workload update' but I'm not sure that's safe. Please lay
+      out a diagnostic and fix plan that brings my workloads and Android SDK
+      into a consistent state for the new SDK.
+    assertions:
+      - type: "output_contains"
+        value: "dotnet --info"
+      - type: "output_matches"
+        pattern: "dotnet workload (list|install)"
+      - type: "output_matches"
+        pattern: "install.*--version"
+      - type: "output_matches"
+        pattern: "(?i)manifest|NuGet|WorkloadDependencies"
+      - type: "output_not_matches"
+        pattern: "workload update|workload repair"
+    rubric:
+      - "Explains why dotnet workload update and repair are discouraged for MAUI and recommends explicit workload install with a matching --version"
+      - "Uses workload manifest and NuGet dependency data to determine which workloads and versions should be installed for the new SDK"
+      - "Includes checks for Android SDK packages and build tools consistent with the manifest"
+      - "Provides a step-by-step approach: diagnose current state, discover correct versions, reinstall, re-validate"
+      - "Emphasizes re-running validation after fixes to confirm a healthy environment"
     timeout: 120
