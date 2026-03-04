@@ -1,0 +1,60 @@
+scenarios:
+  - name: "Scaffold Razor Pages CRUD with EF Core and SQLite"
+    prompt: |
+      I have a Product model in the MyApp project at fixtures/razor-pages-crud/MyApp.csproj
+      that has a category foreign key. Can you scaffold Razor Pages with full CRUD for it?
+      Use Entity Framework with SQLite and create a new DbContext called AppDbContext.
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "DbContext"
+      - type: "output_contains"
+        value: "migration"
+    rubric:
+      - "Generates Razor Pages (.cshtml and .cshtml.cs) for the Product model with Create, Read, Update, Delete pages"
+      - "Creates an AppDbContext class that inherits from DbContext and includes DbSet properties"
+      - "Uses EF Core migrations instead of seeding the database in Program.cs"
+      - "Scaffolds Category CRUD pages because Product has a required FK to Category"
+    timeout: 300
+
+  - name: "Scaffold Minimal API endpoints with OpenAPI"
+    prompt: |
+      I need Minimal API endpoints for the TodoItem model in my TodoApi project at
+      fixtures/minimal-api/TodoApi.csproj. Call the endpoints class TodoEndpoints and
+      use a new TodoDbContext with SQLite. I'd also like OpenAPI support enabled.
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "TodoEndpoints"
+      - type: "output_contains"
+        value: "TodoDbContext"
+      - type: "output_contains"
+        value: ".http"
+    rubric:
+      - "Creates a TodoEndpoints class with MapGet, MapPost, MapPut, and MapDelete endpoints for TodoItem"
+      - "Creates a TodoDbContext with a DbSet for TodoItem"
+      - "Generates a .http file with sample requests for all CRUD endpoints"
+      - "Uses EF Core migrations instead of seeding the database in Program.cs"
+      - "Enables OpenAPI support with rich endpoint metadata such as WithName, WithTags, WithDescription, or Produces annotations"
+    timeout: 300
+
+  - name: "Scaffold Blazor CRUD components"
+    prompt: |
+      Scaffold Blazor CRUD components for the Employee model in the BlazorApp project at
+      fixtures/blazor-crud/BlazorApp.csproj. Use Entity Framework with SQLite in a new
+      DbContext called AppDbContext.
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "DbContext"
+      - type: "output_contains"
+        value: "migration"
+    rubric:
+      - "Generates Blazor components (.razor) for the Employee model with Create, Read, Update, Delete functionality"
+      - "Creates an AppDbContext with DbSet properties for Employee"
+      - "Uses EF Core migrations instead of seeding the database in Program.cs"
+      - "Handles related entities referenced by foreign keys in the Employee model"
+    timeout: 300
