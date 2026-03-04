@@ -15,6 +15,9 @@ scenarios:
       - "Listed all three packages (Microsoft.Extensions.Logging, Polly, System.Text.Json) as PackageVersion items"
       - "Removed Version attributes from PackageReference items in the .csproj"
       - "Ran dotnet restore and dotnet build to validate the conversion"
+      - "Produced a markdown report comparing baseline package references and versions against the CPM result so the user can review what changed"
+      - "Captured binlogs for both the baseline and converted builds, and guided the user on how to compare them to verify no unintended build behavior changes"
+      - "Offered reassurance that the conversion is safe when no material changes were detected, or warned about any risks"
     timeout: 120
 
   - name: "Convert multi-project solution to CPM"
@@ -35,6 +38,10 @@ scenarios:
       - "Removed Version attributes from all three project files"
       - "Preserved PrivateAssets attribute on xunit.runner.visualstudio"
       - "Ran dotnet restore and dotnet build to validate the conversion"
+      - "Produced a markdown report summarizing all package references and versions across projects, comparing baseline state against the CPM result"
+      - "When differing package versions were found across projects, guided the user through reconciliation or explicit acceptance of each version"
+      - "Captured binlogs for both the baseline and converted builds, and guided the user on how to compare them to investigate any differences"
+      - "Offered reassurance when the conversion is straightforward, or warned about potential risks from version changes that could cause unintended consequences"
     timeout: 120
 
   - name: "Decline CPM conversion for packages.config project"
@@ -74,6 +81,10 @@ scenarios:
       - "Removed only the version-related properties from Directory.Build.props, preserving the OutputPath property"
       - "Verified no remaining references to removed properties exist"
       - "Ran dotnet restore and dotnet build to validate the conversion"
+      - "Produced a markdown report summarizing all package references and versions across projects, comparing baseline state against the CPM result"
+      - "When differing package versions were found across projects, guided the user through reconciliation or explicit acceptance of each version"
+      - "Captured binlogs for both the baseline and converted builds, and guided the user on how to compare them to review the impact of property and version changes"
+      - "Offered reassurance when the conversion is straightforward, or warned about potential risks from version or property changes that could cause unintended consequences"
     timeout: 180
 
   - name: "Convert solution with version conflicts to CPM"
@@ -97,6 +108,10 @@ scenarios:
       - "Offered options such as aligning to the highest version or using VersionOverride"
       - "Created Directory.Packages.props reflecting the user's chosen resolution strategy"
       - "Ran dotnet restore and dotnet build to validate the conversion"
+      - "Produced a markdown report summarizing all package references and resolved versions across projects, comparing baseline state against the CPM result"
+      - "Guided the user through reconciliation or explicit acceptance of each differing version, surfacing the rationale and impact of each choice"
+      - "Captured binlogs for both the baseline and converted builds, and guided the user on how to compare them to verify the version conflict resolutions"
+      - "Warned about potential risks from version changes or unintended consequences, and offered reassurance where the resolution is safe"
     timeout: 180
 
   - name: "Convert complex repository with multiple CPM challenges"
@@ -125,4 +140,8 @@ scenarios:
       - "Created Directory.Packages.props reflecting all user decisions"
       - "Preserved non-version properties (LangVersion, ImplicitUsings) in Directory.Build.props"
       - "Ran dotnet restore and dotnet build to validate the conversion"
-    timeout: 180
+      - "Produced a markdown report summarizing all package references, resolved versions, and decisions across projects, comparing baseline state against the CPM result"
+      - "Guided the user through reconciliation or explicit acceptance of each differing version, including version conflicts, property-based versions, and conditional references"
+      - "Captured binlogs for both the baseline and converted builds, and guided the user on how to compare them to review the cumulative impact of version changes, property removals, and conditional adjustments"
+      - "Warned about potential risks from version changes, property removals, or conditional reference adjustments, and offered reassurance where outcomes are safe and expected"
+    timeout: 360
