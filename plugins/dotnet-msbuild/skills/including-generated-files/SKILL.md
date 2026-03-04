@@ -12,7 +12,7 @@ Files generated during the build are generally ignored by the build process. Thi
 - Generated source files not being compiled
 - Globs not capturing files created during the build
 
-This happens because of how MSBuild's build phases work.
+This happens because of how MSBuild's build phases work: https://learn.microsoft.com/en-us/visualstudio/msbuild/build-process-overview
 
 ## Quick Takeaway
 
