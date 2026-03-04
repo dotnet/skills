@@ -271,7 +271,7 @@ public static class ValidateCommand
                 config.JudgeModel, config.Verbose, config.JudgeTimeout, workDir));
         }
 
-        bool singleScenario = skill.EvalConfig.Scenarios.Count == 1;
+        bool singleScenario = skill.EvalConfig!.Scenarios.Count == 1;
         using var scenarioLimit = new ConcurrencyLimiter(config.ParallelScenarios);
 
         var scenarioTasks = skill.EvalConfig.Scenarios.Select(scenario =>

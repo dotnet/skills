@@ -20,7 +20,7 @@ public static class Judge
         JudgeOptions options)
     {
         return RetryHelper.ExecuteWithRetry(
-            () => JudgeRunOnce(scenario, metrics, scenario.Rubric ?? [], options),
+            (ct) => JudgeRunOnce(scenario, metrics, scenario.Rubric ?? [], options, ct),
             $"Judge for \"{scenario.Name}\"");
     }
 
@@ -28,7 +28,8 @@ public static class Judge
         EvalScenario scenario,
         RunMetrics metrics,
         IReadOnlyList<string> rubric,
-        JudgeOptions options)
+        JudgeOptions options,
+        CancellationToken cancellationToken)
     {
         var client = await AgentRunner.GetSharedClient(options.Verbose);
 
@@ -55,7 +56,10 @@ public static class Judge
 
         var userPrompt = BuildJudgeUserPrompt(scenario, metrics, rubric);
 
-        using var cts = new CancellationTokenSource(options.Timeout);
+        // Link per-attempt timeout with the budget token from RetryHelper so that
+        // both budget exhaustion and per-attempt timeout cancel the operation.
+        using var perAttemptCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        perAttemptCts.CancelAfter(options.Timeout);
         using var timer = new Timer(_ =>
         {
             Console.Error.WriteLine(
@@ -84,7 +88,7 @@ public static class Judge
 
         await session.SendAsync(new MessageOptions { Prompt = userPrompt });
 
-        var content = await done.Task.WaitAsync(cts.Token);
+        var content = await done.Task.WaitAsync(perAttemptCts.Token);
 
         if (!string.IsNullOrEmpty(content))
             return ParseJudgeResponse(content, rubric);

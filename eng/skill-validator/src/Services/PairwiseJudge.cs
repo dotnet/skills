@@ -53,7 +53,7 @@ public static class PairwiseJudge
         string direction)
     {
         return RetryHelper.ExecuteWithRetry(
-            () => JudgeCall(scenario, metricsA, metricsB, options, direction),
+            (ct) => JudgeCall(scenario, metricsA, metricsB, options, direction, ct),
             $"Pairwise judge ({direction}) for \"{scenario.Name}\"");
     }
 
@@ -62,7 +62,8 @@ public static class PairwiseJudge
         RunMetrics metricsA,
         RunMetrics metricsB,
         PairwiseJudgeOptions options,
-        string direction)
+        string direction,
+        CancellationToken cancellationToken)
     {
         var client = await AgentRunner.GetSharedClient(options.Verbose);
         var rubric = scenario.Rubric ?? [];
@@ -90,7 +91,9 @@ public static class PairwiseJudge
 
         var userPrompt = BuildPairwiseUserPrompt(scenario, metricsA, metricsB, rubric);
 
-        using var cts = new CancellationTokenSource(options.Timeout);
+        // Link per-attempt timeout with the budget token from RetryHelper.
+        using var perAttemptCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        perAttemptCts.CancelAfter(options.Timeout);
         using var timer = new Timer(_ =>
         {
             Console.Error.WriteLine($"      ⏰ Pairwise judge timed out after {options.Timeout / 1000}s ({direction}).");
@@ -116,7 +119,7 @@ public static class PairwiseJudge
         });
 
         await session.SendAsync(new MessageOptions { Prompt = userPrompt });
-        var content = await done.Task.WaitAsync(cts.Token);
+        var content = await done.Task.WaitAsync(perAttemptCts.Token);
 
         if (!string.IsNullOrEmpty(content))
             return ParsePairwiseResponse(content, rubric, direction);

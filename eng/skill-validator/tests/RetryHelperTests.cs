@@ -9,8 +9,9 @@ public class RetryHelperTests
     {
         var callCount = 0;
         var result = await RetryHelper.ExecuteWithRetry(
-            () => { callCount++; return Task.FromResult(42); },
-            "test");
+            (_) => { callCount++; return Task.FromResult(42); },
+            "test",
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(42, result);
         Assert.Equal(1, callCount);
@@ -21,7 +22,7 @@ public class RetryHelperTests
     {
         var callCount = 0;
         var result = await RetryHelper.ExecuteWithRetry(
-            () =>
+            (_) =>
             {
                 callCount++;
                 if (callCount < 2)
@@ -30,7 +31,8 @@ public class RetryHelperTests
             },
             "test",
             maxRetries: 2,
-            baseDelayMs: 1); // 1ms delay so test is fast
+            baseDelayMs: 1,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("ok", result);
         Assert.Equal(2, callCount);
@@ -42,14 +44,15 @@ public class RetryHelperTests
         var callCount = 0;
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             RetryHelper.ExecuteWithRetry<int>(
-                () =>
+                (_) =>
                 {
                     callCount++;
                     throw new InvalidOperationException("always fails");
                 },
                 "test",
                 maxRetries: 2,
-                baseDelayMs: 1));
+                baseDelayMs: 1,
+                cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(3, callCount); // 1 initial + 2 retries
         Assert.Contains("all attempts failed", ex.Message);
@@ -62,7 +65,7 @@ public class RetryHelperTests
         var callCount = 0;
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             RetryHelper.ExecuteWithRetry<int>(
-                async () =>
+                async (_) =>
                 {
                     callCount++;
                     // Simulate a slow operation that eats the budget
@@ -72,7 +75,8 @@ public class RetryHelperTests
                 "test",
                 maxRetries: 10, // many retries but budget is tiny
                 baseDelayMs: 1,
-                totalTimeoutMs: 100)); // 100ms total budget
+                totalTimeoutMs: 100,
+                cancellationToken: TestContext.Current.CancellationToken));
 
         // Should have stopped before exhausting all 10 retries
         Assert.True(callCount < 10, $"Expected fewer than 10 attempts but got {callCount}");
@@ -86,7 +90,7 @@ public class RetryHelperTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             RetryHelper.ExecuteWithRetry<int>(
-                () =>
+                (_) =>
                 {
                     callCount++;
                     if (callCount == 1)
@@ -109,7 +113,7 @@ public class RetryHelperTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             RetryHelper.ExecuteWithRetry<int>(
-                () =>
+                (_) =>
                 {
                     timestamps.Add(Environment.TickCount64);
                     callCount++;
@@ -117,7 +121,8 @@ public class RetryHelperTests
                 },
                 "test",
                 maxRetries: 2,
-                baseDelayMs: 50)); // 50ms base → 50ms, 100ms
+                baseDelayMs: 50,
+                cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(3, callCount);
         // Second gap should be roughly double the first (with some tolerance)
@@ -140,7 +145,7 @@ public class RetryHelperTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             RetryHelper.ExecuteWithRetry<int>(
-                () =>
+                (_) =>
                 {
                     callCount++;
                     throw new InvalidOperationException("fail");
@@ -148,11 +153,30 @@ public class RetryHelperTests
                 "test",
                 maxRetries: 1,
                 baseDelayMs: 60_000, // 60s base delay - would be huge without clamping
-                totalTimeoutMs: 200)); // 200ms total budget
+                totalTimeoutMs: 200,
+                cancellationToken: TestContext.Current.CancellationToken));
 
         sw.Stop();
         Assert.Equal(2, callCount);
         // Should complete quickly since delay was clamped to remaining budget (~200ms), not 60s
         Assert.True(sw.ElapsedMilliseconds < 5000, $"Took too long: {sw.ElapsedMilliseconds}ms");
+    }
+
+    [Fact]
+    public async Task BudgetToken_FlowsToAction()
+    {
+        // Verify that the CancellationToken passed to the action is functional.
+        CancellationToken capturedToken = default;
+        await RetryHelper.ExecuteWithRetry(
+            (ct) =>
+            {
+                capturedToken = ct;
+                return Task.FromResult(true);
+            },
+            "test",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        // The token should be a real linked token, not CancellationToken.None.
+        Assert.True(capturedToken.CanBeCanceled);
     }
 }

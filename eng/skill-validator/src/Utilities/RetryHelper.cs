@@ -24,8 +24,11 @@ public static class RetryHelper
 
     /// <summary>
     /// Executes <paramref name="action"/> with retries and exponential backoff.
+    /// A linked <see cref="CancellationToken"/> that honours both <paramref name="cancellationToken"/>
+    /// and <paramref name="totalTimeoutMs"/> is passed into the action so that in-progress async
+    /// operations (e.g. SDK / HTTP calls) are cancelled promptly when the budget expires.
     /// </summary>
-    /// <param name="action">The async operation to attempt.</param>
+    /// <param name="action">The async operation to attempt. Receives a budget-linked token.</param>
     /// <param name="label">Human-readable label for log messages (e.g. "Judge for \"scenario X\"").</param>
     /// <param name="maxRetries">Maximum retries after the first attempt.</param>
     /// <param name="baseDelayMs">Base delay in milliseconds (doubles each retry).</param>
@@ -35,24 +38,30 @@ public static class RetryHelper
     /// </param>
     /// <param name="cancellationToken">Optional token to cancel the retry loop.</param>
     public static async Task<T> ExecuteWithRetry<T>(
-        Func<Task<T>> action,
+        Func<CancellationToken, Task<T>> action,
         string label,
         int maxRetries = DefaultMaxRetries,
         int baseDelayMs = DefaultBaseDelayMs,
         int totalTimeoutMs = DefaultTotalTimeoutMs,
         CancellationToken cancellationToken = default)
     {
+        // Linked CTS fires when either the caller-supplied token is cancelled
+        // or the total retry budget expires — whichever comes first.
+        using var budgetCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budgetCts.CancelAfter(totalTimeoutMs);
+
         Exception? lastError = null;
         var overallStart = Environment.TickCount64;
 
         for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            // Distinguish external cancellation from budget exhaustion.
+            if (cancellationToken.IsCancellationRequested)
+                cancellationToken.ThrowIfCancellationRequested();
 
-            // Check total elapsed time before starting a new attempt
-            var elapsed = Environment.TickCount64 - overallStart;
-            if (attempt > 0 && elapsed >= totalTimeoutMs)
+            if (budgetCts.IsCancellationRequested)
             {
+                var elapsed = Environment.TickCount64 - overallStart;
                 Console.Error.WriteLine(
                     $"      ⏱️  {label}: total retry budget exhausted ({elapsed / 1000}s elapsed, cap {totalTimeoutMs / 1000}s). Giving up.");
                 break;
@@ -68,13 +77,21 @@ public static class RetryHelper
                     // Clamp: cap to MaxSingleDelayMs and remaining budget so we don't overshoot.
                     var delay = (int)Math.Min(rawDelay, Math.Min(MaxSingleDelayMs, Math.Max(0, remaining)));
                     Console.Error.WriteLine($"      🔄 {label}: retry {attempt}/{maxRetries} (waiting {delay / 1000}s)");
-                    await Task.Delay(delay, cancellationToken);
+                    await Task.Delay(delay, budgetCts.Token);
                 }
-                return await action();
+                return await action(budgetCts.Token);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                throw; // Don't retry on explicit cancellation.
+                throw; // External cancellation — propagate immediately.
+            }
+            catch (OperationCanceledException) when (budgetCts.IsCancellationRequested)
+            {
+                // Budget exhausted — stop retrying.
+                var elapsed = Environment.TickCount64 - overallStart;
+                Console.Error.WriteLine(
+                    $"      ⏱️  {label}: total retry budget exhausted ({elapsed / 1000}s elapsed, cap {totalTimeoutMs / 1000}s). Giving up.");
+                break;
             }
             catch (Exception error)
             {
