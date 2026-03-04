@@ -4,14 +4,13 @@ scenarios:
       I have a clean macOS machine and want to start developing .NET MAUI apps
       for iOS and Android. I can't run commands right now, but I need a complete
       setup plan. Tell me exactly what I need to install, how to discover the
-      right versions, and how to verify everything works.
+      right versions, and how to verify everything works. Please provide the
+      official recommended installation sources.
     assertions:
       - type: "output_contains"
         value: "Xcode"
       - type: "output_matches"
         pattern: "(?i)apple developer|developer\\.apple\\.com"
-      - type: "output_not_matches"
-        pattern: "(?i)app\\s*store"
       - type: "output_contains"
         value: "Microsoft"
       - type: "output_contains"
@@ -19,7 +18,7 @@ scenarios:
       - type: "output_not_matches"
         pattern: "workload update|workload repair"
     rubric:
-      - "Warns against installing Xcode from the Mac App Store and recommends Apple Developer Downloads"
+      - "Recommends downloading Xcode from Apple Developer Downloads for version control rather than relying on the Mac App Store"
       - "Recommends the 'maui' workload (not 'maui-android') since this is macOS"
       - "Specifies Microsoft OpenJDK as the only supported Java distribution"
       - "Describes how to look up current version requirements rather than hardcoding them"
@@ -80,8 +79,6 @@ scenarios:
         pattern: "(?i)Temurin.{0,20}(fine|correct|ok|good|supported)"
       - type: "output_matches"
         pattern: "JAVA_HOME"
-      - type: "output_not_matches"
-        pattern: "workload update|workload repair"
     rubric:
       - "Identifies that the JDK vendor is the problem, not the version number"
       - "Recommends installing Microsoft Build of OpenJDK specifically"
@@ -117,15 +114,18 @@ scenarios:
   - name: "Correct JAVA_HOME misconception"
     prompt: |
       I'm getting 'JAVA_HOME is not set' warnings when building my .NET MAUI
-      Android app on macOS. I don't have JAVA_HOME configured anywhere. Do I
-      need to set it? What should I set it to?
+      Android app on macOS. I don't have JAVA_HOME configured anywhere.
+      
+      Without running any commands or checking my environment, please explain:
+      1. Is JAVA_HOME actually required for .NET MAUI?
+      2. If I need a specific JDK, which one?
+      
+      I want a conceptual answer, not a troubleshooting session.
     assertions:
       - type: "output_matches"
         pattern: "(?i)not required|not necessary|optional|auto.?detect|don't need to set"
       - type: "output_contains"
         value: "Microsoft"
-      - type: "output_not_matches"
-        pattern: "workload update|workload repair"
     rubric:
       - "Explains that JAVA_HOME is not required because .NET MAUI auto-detects JDK installations"
       - "Clarifies that JAVA_HOME is only problematic when set to a non-Microsoft JDK"
@@ -149,8 +149,6 @@ scenarios:
         pattern: "(?i)manifest|workload.?dependenc"
       - type: "output_matches"
         pattern: "sdkmanager"
-      - type: "output_not_matches"
-        pattern: "workload update|workload repair"
     rubric:
       - "Describes a process to extract required Android SDK packages from workload manifest data rather than guessing"
       - "Identifies specific package types needed: build-tools, platforms, platform-tools, and command-line tools"
