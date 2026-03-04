@@ -113,7 +113,7 @@ Work through compilation errors and new warnings systematically. Load the approp
 
 2. **`StringValues` ambiguous overload** — The `params Span<T>` feature creates ambiguity with `StringValues` implicit operators on methods like `String.Concat`, `String.Join`, `Path.Combine`. Fix by explicitly casting arguments. See `references/core-libraries.md`.
 
-3. **New obsoletion warnings (SYSLIB0054, SYSLIB0057)**:
+3. **New obsoletion warnings (SYSLIB0054–SYSLIB0057)**:
    - `SYSLIB0054`: Replace `Thread.VolatileRead`/`VolatileWrite` with `Volatile.Read`/`Volatile.Write`
    - `SYSLIB0057`: Replace `X509Certificate2`/`X509Certificate` binary/file constructors with `X509CertificateLoader` methods
    - Also `SYSLIB0055` (ARM AdvSimd signed overloads) and `SYSLIB0056` (Assembly.LoadFrom with hash algorithm) — see `references/core-libraries.md`
