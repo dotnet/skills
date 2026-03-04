@@ -1,7 +1,9 @@
 version: 2
 updates:
   - package-ecosystem: nuget
-    directory: /eng/
+    directories:
+      - "/eng/skill-validator/src"
+      - "/eng/skill-validator/tests"
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
