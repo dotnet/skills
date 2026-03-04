@@ -15,6 +15,7 @@ public sealed record PairwiseJudgeOptions(
 public static class PairwiseJudge
 {
     private const int MaxRetries = 2;
+    private const int BaseRetryDelayMs = 5_000;
 
     /// <summary>
     /// Run a pairwise comparison with position-swap bias mitigation.
@@ -61,7 +62,11 @@ public static class PairwiseJudge
             try
             {
                 if (attempt > 0)
-                    Console.Error.WriteLine($"      🔄 Pairwise judge retry {attempt}/{MaxRetries} ({direction})");
+                {
+                    var delay = BaseRetryDelayMs * (1 << (attempt - 1));
+                    Console.Error.WriteLine($"      🔄 Pairwise judge retry {attempt}/{MaxRetries} ({direction}, waiting {delay / 1000}s)");
+                    await Task.Delay(delay);
+                }
                 return await JudgeCall(scenario, metricsA, metricsB, options, direction);
             }
             catch (Exception error)
@@ -224,6 +229,11 @@ public static class PairwiseJudge
             """;
     }
 
+    /// <summary>Maximum number of timeline events to include in pairwise prompts.</summary>
+    private const int MaxTimelineEvents = 80;
+    /// <summary>Maximum total characters for each formatted timeline.</summary>
+    private const int MaxTimelineChars = 30_000;
+
     private static string FormatTimelineCompact(IReadOnlyList<AgentEvent> events)
     {
         var relevantTypes = new HashSet<string>
@@ -235,15 +245,45 @@ public static class PairwiseJudge
         var relevant = events.Where(e => relevantTypes.Contains(e.Type)).ToList();
         if (relevant.Count == 0) return "(no events recorded)";
 
-        return string.Join("\n", relevant.Select(e => e.Type switch
+        // Cap the event count — keep head and tail with a summary gap.
+        if (relevant.Count > MaxTimelineEvents)
         {
-            "user.message" => $"[USER] {Trunc(GetStr(e.Data, "content"), 200)}",
-            "assistant.message" => FormatAssistantTimeline(e),
-            "tool.execution_start" => $"[TOOL START] {GetStr(e.Data, "toolName")}: {Trunc(GetStr(e.Data, "arguments"), 200)}",
-            "tool.execution_complete" => $"[TOOL {(GetStr(e.Data, "success") is "True" or "true" ? "OK" : "FAIL")}] {Trunc(GetStr(e.Data, "result"), 200)}",
-            "session.error" or "runner.error" => $"[ERROR] {GetStr(e.Data, "message")}",
-            _ => $"[{e.Type}]",
-        }));
+            var headCount = MaxTimelineEvents / 2;
+            var tailCount = MaxTimelineEvents - headCount;
+            var omitted = relevant.Count - headCount - tailCount;
+            var head = relevant.Take(headCount).ToList();
+            var tail = relevant.Skip(relevant.Count - tailCount).ToList();
+            relevant = [..head, ..tail];
+            relevant.Insert(headCount, new AgentEvent(
+                "summary", 0,
+                new Dictionary<string, object?> { ["message"] = $"... ({omitted} events omitted for brevity) ..." }));
+        }
+
+        var sb = new System.Text.StringBuilder();
+        foreach (var e in relevant)
+        {
+            if (e.Type == "summary")
+            {
+                sb.AppendLine(GetStr(e.Data, "message"));
+                continue;
+            }
+            var line = e.Type switch
+            {
+                "user.message" => $"[USER] {Trunc(GetStr(e.Data, "content"), 200)}",
+                "assistant.message" => FormatAssistantTimeline(e),
+                "tool.execution_start" => $"[TOOL START] {GetStr(e.Data, "toolName")}: {Trunc(GetStr(e.Data, "arguments"), 200)}",
+                "tool.execution_complete" => $"[TOOL {(GetStr(e.Data, "success") is "True" or "true" ? "OK" : "FAIL")}] {Trunc(GetStr(e.Data, "result"), 200)}",
+                "session.error" or "runner.error" => $"[ERROR] {GetStr(e.Data, "message")}",
+                _ => $"[{e.Type}]",
+            };
+            if (sb.Length + line.Length > MaxTimelineChars)
+            {
+                sb.AppendLine($"... (timeline truncated at {MaxTimelineChars} chars) ...");
+                break;
+            }
+            sb.AppendLine(line);
+        }
+        return sb.ToString().TrimEnd();
     }
 
     private static string FormatAssistantTimeline(AgentEvent e)

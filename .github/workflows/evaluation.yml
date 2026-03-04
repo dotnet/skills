@@ -9,7 +9,7 @@ on:
       - 'eng/skill-validator/**'
 
   schedule:
-    - cron: '0 */2 * * *'
+    - cron: '0 */3 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}

@@ -15,6 +15,7 @@ public sealed record JudgeOptions(
 public static class Judge
 {
     private const int MaxJudgeRetries = 2;
+    private const int BaseRetryDelayMs = 5_000;
 
     public static async Task<JudgeResult> JudgeRun(
         EvalScenario scenario,
@@ -28,7 +29,11 @@ public static class Judge
             try
             {
                 if (attempt > 0)
-                    Console.Error.WriteLine($"      🔄 Judge retry {attempt}/{MaxJudgeRetries} for \"{scenario.Name}\"");
+                {
+                    var delay = BaseRetryDelayMs * (1 << (attempt - 1));
+                    Console.Error.WriteLine($"      🔄 Judge retry {attempt}/{MaxJudgeRetries} for \"{scenario.Name}\" (waiting {delay / 1000}s)");
+                    await Task.Delay(delay);
+                }
                 return await JudgeRunOnce(scenario, metrics, scenario.Rubric ?? [], options);
             }
             catch (Exception error)
@@ -187,6 +192,11 @@ public static class Judge
         return string.Join("\n\n", sections);
     }
 
+    /// <summary>Maximum number of timeline events sent to the judge to avoid prompt explosion on large scenarios.</summary>
+    private const int MaxTimelineEvents = 100;
+    /// <summary>Maximum total characters for the formatted timeline string.</summary>
+    private const int MaxTimelineChars = 40_000;
+
     private static string FormatSessionTimeline(IReadOnlyList<AgentEvent> events)
     {
         var relevantTypes = new HashSet<string>
@@ -198,16 +208,52 @@ public static class Judge
         var relevant = events.Where(e => relevantTypes.Contains(e.Type)).ToList();
         if (relevant.Count == 0) return "(no events recorded)";
 
-        return string.Join("\n", relevant.Select(e => e.Type switch
+        // When the timeline is very large (e.g. hundreds of tool calls on a big
+        // project), keep the first and last events with a summary in between so
+        // the judge prompt stays within a reasonable size.
+        if (relevant.Count > MaxTimelineEvents)
         {
-            "user.message" => $"[USER] {Truncate(GetStr(e.Data, "content"), 200)}",
-            "assistant.message" => FormatAssistantEvent(e),
-            "tool.execution_start" => $"[TOOL START] {GetStr(e.Data, "toolName")}: {Truncate(GetStr(e.Data, "arguments"), 200)}",
-            "tool.execution_complete" => FormatToolComplete(e),
-            "session.error" or "runner.error" => $"[ERROR] {GetStr(e.Data, "message")}",
-            _ => $"[{e.Type}]",
-        }));
+            var headCount = MaxTimelineEvents / 2;
+            var tailCount = MaxTimelineEvents - headCount;
+            var omitted = relevant.Count - headCount - tailCount;
+            var head = relevant.Take(headCount).ToList();
+            var tail = relevant.Skip(relevant.Count - tailCount).ToList();
+            relevant = [..head, ..tail];
+            // Insert a synthetic marker so the judge knows events were trimmed
+            relevant.Insert(headCount, new AgentEvent(
+                "summary",
+                0,
+                new Dictionary<string, object?> { ["message"] = $"... ({omitted} events omitted for brevity) ..." }));
+        }
+
+        var sb = new System.Text.StringBuilder();
+        foreach (var e in relevant)
+        {
+            if (e.Type == "summary")
+            {
+                sb.AppendLine(GetStr(e.Data, "message"));
+                continue;
+            }
+            var line = FormatTimelineEntry(e);
+            if (sb.Length + line.Length > MaxTimelineChars)
+            {
+                sb.AppendLine($"... (timeline truncated at {MaxTimelineChars} chars; {relevant.Count - relevant.IndexOf(e)} events remaining) ...");
+                break;
+            }
+            sb.AppendLine(line);
+        }
+        return sb.ToString().TrimEnd();
     }
+
+    private static string FormatTimelineEntry(AgentEvent e) => e.Type switch
+    {
+        "user.message" => $"[USER] {Truncate(GetStr(e.Data, "content"), 200)}",
+        "assistant.message" => FormatAssistantEvent(e),
+        "tool.execution_start" => $"[TOOL START] {GetStr(e.Data, "toolName")}: {Truncate(GetStr(e.Data, "arguments"), 200)}",
+        "tool.execution_complete" => FormatToolComplete(e),
+        "session.error" or "runner.error" => $"[ERROR] {GetStr(e.Data, "message")}",
+        _ => $"[{e.Type}]",
+    };
 
     private static string FormatAssistantEvent(AgentEvent e)
     {
