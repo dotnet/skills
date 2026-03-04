@@ -16,6 +16,7 @@ This skill helps identify when multiple MSBuild project evaluations share the sa
 - **NuGet restore errors like `Cannot create a file when that file already exists`** - this strongly indicates multiple projects share the same `IntermediateOutputPath` where `project.assets.json` is written
 
 Clashes can occur between:
+- **Multiple targets**
 - **Different projects** sharing the same output directory
 - **Multi-targeting builds** (e.g., `TargetFrameworks=net8.0;net9.0`) where the path doesn't include the target framework
 - **Multiple solution builds** where the same project is built from different solutions in a single build
