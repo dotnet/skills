@@ -151,10 +151,10 @@ Within each category (NEW, EXISTING, RESOLVED):
 | P2 | Any cancelled/timed-out run on `main` | 🟡 Warning |
 | P3 | Eval avg duration > 55 min | 🔴 Critical |
 | P3 | Eval avg duration > 50 min | 🟡 Warning |
-| P5 | Eval failure rate > 30% (all branches) | 🔴 Critical |
-| P5 | Eval failure rate > 15% (all branches) | 🟡 Warning |
-| P6 | Eval scheduled cancellation rate > 60% | 🔴 Critical |
-| P6 | Eval scheduled cancellation rate > 30% | 🟡 Warning |
+| P5 | Eval failure rate > 30% (all branches, 24h) | 🔴 Critical |
+| P5 | Eval failure rate > 15% (all branches, 24h) | 🟡 Warning |
+| P6 | Eval scheduled cancellation rate > 60% (24h) | 🔴 Critical |
+| P6 | Eval scheduled cancellation rate > 30% (24h) | 🟡 Warning |
 
 ### Quality
 

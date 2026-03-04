@@ -106,11 +106,11 @@ GET /repos/{owner}/{repo}/actions/runs?branch=main&per_page=100
 Group by workflow name, compute success/failure ratio over the last 7 days.
 - 🔵 Info (metric only — reported in trends table, not fingerprinted)
 
-**P5 — Evaluation failure rate across all branches (7-day rolling):**
+**P5 — Evaluation failure rate across all branches (last 24h):**
 ```
 GET /repos/{owner}/{repo}/actions/workflows/evaluation.yml/runs?per_page=100
 ```
-Filter to runs from the last 7 days (all branches, all event types: schedule, pull_request, workflow_dispatch). Compute:
+Filter to runs created within the last 24 hours across all branches and event types (schedule, pull_request, workflow_dispatch). Paginate if the first page does not cover the full 24h window. Compute:
 - Total runs, failures (conclusion=failure), cancellations (conclusion=cancelled), successes
 - **Overall failure rate** = failures / (failures + successes) — exclude cancelled runs from denominator
 - **Overall non-success rate** = (failures + cancellations) / total
@@ -126,11 +126,11 @@ Also include in the finding details:
 - Sample of recent failed run URLs (up to 5) for quick investigation
 - Common failing job names across the failed runs
 
-**P6 — Evaluation scheduled run cancellation rate (7-day rolling):**
+**P6 — Evaluation scheduled run cancellation rate (last 24h):**
 ```
-GET /repos/{owner}/{repo}/actions/workflows/evaluation.yml/runs?branch=main&event=schedule&per_page=50
+GET /repos/{owner}/{repo}/actions/workflows/evaluation.yml/runs?branch=main&event=schedule&per_page=100
 ```
-Filter to scheduled runs on `main` from the last 7 days. Compute:
+Filter to scheduled runs on `main` created within the last 24 hours. Compute:
 - Total scheduled runs, cancelled count, completed count
 - Cancellation rate = cancelled / total
 
