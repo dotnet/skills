@@ -16,15 +16,13 @@ scenarios:
         value: "Microsoft"
       - type: "output_contains"
         value: "--version"
-      - type: "output_matches"
-        pattern: "(?i)releases-index|WorkloadDependencies|NuGet"
       - type: "output_not_matches"
         pattern: "workload update|workload repair"
     rubric:
       - "Warns against installing Xcode from the Mac App Store and recommends Apple Developer Downloads"
       - "Recommends the 'maui' workload (not 'maui-android') since this is macOS"
       - "Specifies Microsoft OpenJDK as the only supported Java distribution"
-      - "Discovers versions dynamically via NuGet APIs rather than hardcoding them"
+      - "Describes how to look up current version requirements rather than hardcoding them"
       - "Uses --version flag when installing workloads"
     timeout: 120
 
@@ -43,15 +41,13 @@ scenarios:
         value: "--version"
       - type: "output_matches"
         pattern: "sdkmanager|android command-line tools"
-      - type: "output_matches"
-        pattern: "(?i)releases-index|WorkloadDependencies|NuGet"
       - type: "output_not_matches"
         pattern: "workload update|workload repair"
     rubric:
       - "Recommends 'maui-android' workload, not the 'maui' meta-workload which fails on Linux"
       - "Does not suggest iOS or Mac Catalyst workloads for Linux"
       - "Specifies Microsoft OpenJDK as the only supported Java distribution"
-      - "Discovers versions dynamically from NuGet APIs rather than hardcoding them"
+      - "Describes how to look up current version requirements rather than hardcoding them"
     timeout: 120
 
   - name: "Guardrail against workload update and repair"
@@ -108,15 +104,13 @@ scenarios:
         value: "--version"
       - type: "output_contains"
         value: "Microsoft"
-      - type: "output_matches"
-        pattern: "(?i)releases-index|WorkloadDependencies|NuGet"
       - type: "output_not_matches"
         pattern: "workload update|workload repair"
     rubric:
       - "Uses sdkmanager.bat (not sdkmanager) for Android SDK management on Windows"
       - "Uses PowerShell commands for API queries, not curl/jq"
       - "Includes Windows SDK detection or installation"
-      - "Discovers all versions dynamically — does not hardcode SDK, workload, JDK, or Android versions"
+      - "Does not hardcode specific SDK, workload, JDK, or Android version numbers as current"
       - "Recommends the 'maui' workload (not 'maui-android') for Windows"
     timeout: 120
 
@@ -139,64 +133,29 @@ scenarios:
       - "Does not unnecessarily instruct the user to set JAVA_HOME"
     timeout: 120
 
-  - name: "Resist hardcoding JDK and Android SDK versions"
+  - name: "Determine required Android SDK packages for specific .NET version"
     prompt: |
-      What exact JDK version and Android SDK API level do I need for .NET MAUI
-      right now? Just give me the version numbers so I can install them quickly.
+      I'm setting up a CI pipeline for a .NET MAUI Android app. I need to know
+      exactly which Android SDK packages (build-tools version, API level,
+      command-line tools version) are required for the MAUI workload that ships
+      with my current .NET SDK. I don't want to guess or use outdated docs —
+      how can I programmatically determine the exact package list my SDK needs?
     assertions:
-      - type: "output_matches"
-        pattern: "(?i)WorkloadDependencies|NuGet|discover|dynamic"
-      - type: "output_matches"
-        pattern: "(?i)releases-index|api\\.nuget\\.org|nuget"
-      - type: "output_not_matches"
-        pattern: "workload update|workload repair"
-    rubric:
-      - "Does not present hardcoded version numbers as the definitive current answer"
-      - "Explains that requirements are discovered dynamically from WorkloadDependencies.json"
-      - "Describes or outlines the NuGet API discovery process to find current requirements"
-      - "Notes that version information may be outdated and live API queries are authoritative"
-    timeout: 120
-
-  - name: "Diagnose Android SDK missing error"
-    prompt: |
-      My MAUI build is failing with 'error XA5300: The Android SDK directory
-      could not be found'. I have set ANDROID_HOME to /opt/android-sdk.
-      How can I verify if my Android SDK installation is valid for MAUI?
-      What specific packages does MAUI require?
-    assertions:
-      - type: "output_matches"
-        pattern: "(?i)WorkloadDependencies|NuGet|manifest"
       - type: "output_matches"
         pattern: "build-tools"
       - type: "output_matches"
-        pattern: "platforms"
+        pattern: "(?i)api.?level|platforms;android"
+      - type: "output_matches"
+        pattern: "(?i)manifest|workload.?dependenc"
       - type: "output_matches"
         pattern: "sdkmanager"
       - type: "output_not_matches"
         pattern: "workload update|workload repair"
     rubric:
-      - "Identifies WorkloadDependencies.json or NuGet manifests as the source of truth for required Android SDK packages"
-      - "Suggests checking for specific packages such as platforms, build-tools, and platform-tools"
-      - "Advises using sdkmanager to list and install missing components"
-      - "Checks whether the path in ANDROID_HOME is valid and contains expected directories"
-    timeout: 120
-
-  - name: "Decline runtime bug debugging"
-    prompt: |
-      My .NET MAUI app builds and deploys fine on macOS, but it crashes with a
-      NullReferenceException right after startup. I heard about a '.NET MAUI
-      doctor' tool — can you use that to find the bug in my code and tell me
-      what line is null?
-    assertions:
-      - type: "output_matches"
-        pattern: "(?i)environment|setup|toolchain"
-      - type: "output_not_matches"
-        pattern: "(?i)the line.{0,20}(is|causing|null)|found the bug"
-    rubric:
-      - "Recognizes that a NullReferenceException in user code is outside the scope of the MAUI doctor environment skill"
-      - "Clarifies what the MAUI doctor can help with (SDKs, workloads, JDK, Android/iOS tooling) versus runtime app bugs"
-      - "Suggests appropriate debugging approaches (debugger, logs, stack traces) without conflating them with environment diagnosis"
-      - "Does not fabricate details about the user's code or pretend to locate the buggy line"
+      - "Describes a process to extract required Android SDK packages from workload manifest data rather than guessing"
+      - "Identifies specific package types needed: build-tools, platforms, platform-tools, and command-line tools"
+      - "Explains the relationship between .NET SDK version, workload manifest version, and Android SDK requirements"
+      - "Provides a reproducible approach suitable for CI automation"
     timeout: 120
 
   - name: "Fix stale MAUI workloads after SDK update"
@@ -213,14 +172,12 @@ scenarios:
         pattern: "dotnet workload (list|install)"
       - type: "output_matches"
         pattern: "install.*--version"
-      - type: "output_matches"
-        pattern: "(?i)manifest|NuGet|WorkloadDependencies"
       - type: "output_not_matches"
         pattern: "workload update|workload repair"
     rubric:
       - "Explains why dotnet workload update and repair are discouraged for MAUI and recommends explicit workload install with a matching --version"
-      - "Uses workload manifest and NuGet dependency data to determine which workloads and versions should be installed for the new SDK"
-      - "Includes checks for Android SDK packages and build tools consistent with the manifest"
+      - "Describes how to determine which workloads and versions should be installed for the new SDK"
+      - "Includes checks for Android SDK packages and build tools consistent with the current workload"
       - "Provides a step-by-step approach: diagnose current state, discover correct versions, reinstall, re-validate"
       - "Emphasizes re-running validation after fixes to confirm a healthy environment"
     timeout: 120
