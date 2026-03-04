@@ -71,7 +71,7 @@ find src/*/plugin.json -maxdepth 2
 
 Each `src/{name}/` directory containing a `plugin.json` is a component. The corresponding dashboard data file is `data/{name}.json` on `gh-pages`.
 
-### 1.2 Pipeline Health (P1–P4)
+### 1.2 Pipeline Health (P1–P6)
 
 **P1 — Failed workflow runs on `main` in last 24h:**
 ```
@@ -105,6 +105,41 @@ GET /repos/{owner}/{repo}/actions/runs?branch=main&per_page=100
 ```
 Group by workflow name, compute success/failure ratio over the last 7 days.
 - 🔵 Info (metric only — reported in trends table, not fingerprinted)
+
+**P5 — Evaluation failure rate across all branches (7-day rolling):**
+```
+GET /repos/{owner}/{repo}/actions/workflows/evaluation.yml/runs?per_page=100
+```
+Filter to runs from the last 7 days (all branches, all event types: schedule, pull_request, workflow_dispatch). Compute:
+- Total runs, failures (conclusion=failure), cancellations (conclusion=cancelled), successes
+- **Overall failure rate** = failures / (failures + successes) — exclude cancelled runs from denominator
+- **Overall non-success rate** = (failures + cancellations) / total
+- Break down failure counts by event type (schedule vs pull_request vs workflow_dispatch)
+
+Severity thresholds:
+- 🔴 Critical if overall failure rate > 30%
+- 🟡 Warning if overall failure rate > 15%
+- Fingerprint: `pipeline:evaluation:failure-rate:{bucket}` (bucket = "critical" or "warning")
+
+Also include in the finding details:
+- Failure count by event type (e.g., "10 PR failures, 4 schedule failures")
+- Sample of recent failed run URLs (up to 5) for quick investigation
+- Common failing job names across the failed runs
+
+**P6 — Evaluation scheduled run cancellation rate (7-day rolling):**
+```
+GET /repos/{owner}/{repo}/actions/workflows/evaluation.yml/runs?branch=main&event=schedule&per_page=50
+```
+Filter to scheduled runs on `main` from the last 7 days. Compute:
+- Total scheduled runs, cancelled count, completed count
+- Cancellation rate = cancelled / total
+
+Severity thresholds:
+- 🟡 Warning if cancellation rate > 30% (pipeline frequently doesn't complete within schedule interval)
+- 🔴 Critical if cancellation rate > 60% (majority of scheduled runs never complete)
+- Fingerprint: `pipeline:evaluation:schedule-cancellation:{bucket}` (bucket = "critical" or "warning")
+
+This detects when the evaluation pipeline consistently takes longer than the schedule interval (e.g., runs every 2h but takes >2h to complete), causing the concurrency group to cancel in-flight runs.
 
 ### 1.3 Skill Quality (Q1–Q7)
 
@@ -293,6 +328,8 @@ Using the classified findings, generate:
 2. **Correlation insights**: Identify connections between findings. For example:
    - A pipeline failure AND stale benchmark data → pipeline likely blocking data publication
    - Multiple quality regressions after the same date → look for a common commit
+   - High eval failure rate across all branches (P5) AND timeouts in quality checks → systemic model/infrastructure issue, not skill-specific
+   - High scheduled cancellation rate (P6) AND eval duration warning (P3) → pipeline consistently exceeds schedule interval, consider increasing interval or optimizing eval
 
 3. **Recommendations**: Prioritized list of suggested actions.
 
@@ -364,7 +401,9 @@ Replace the entire issue body with the following structure:
 | Metric | Today | 7d Avg | Δ | Trend |
 |--------|-------|--------|---|-------|
 | Eval duration (min) | {today} | {avg} | {delta} | {arrow} |
-| Eval success rate | {today} | {avg} | {delta} | {arrow} |
+| Eval success rate (main) | {today} | {avg} | {delta} | {arrow} |
+| Eval success rate (all branches) | {today} | {avg} | {delta} | {arrow} |
+| Eval scheduled cancellation rate | {today} | {avg} | {delta} | {arrow} |
 | PRs merged/day | {today} | {avg} | {delta} | {arrow} |
 | Open PRs | {today} | {avg} | {delta} | {arrow} |
 | Compute hours/day | {today} | {avg} | {delta} | {arrow} |
