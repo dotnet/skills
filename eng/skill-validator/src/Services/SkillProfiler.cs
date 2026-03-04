@@ -83,6 +83,18 @@ public static partial class SkillProfiler
         if (!hasFrontmatter)
             warnings.Add("No YAML frontmatter — agents use name/description for skill discovery.");
 
+        // Check if eval prompts explicitly reference the skill by name — this biases
+        // baseline runs (agent wastes time searching) and forces activation instead of
+        // testing organic discovery.
+        if (skill.EvalConfig is not null)
+        {
+            foreach (var scenario in skill.EvalConfig.Scenarios)
+            {
+                if (scenario.Prompt.Contains(skill.Name, StringComparison.OrdinalIgnoreCase))
+                    warnings.Add($"Eval scenario '{scenario.Name}' prompt mentions skill name '{skill.Name}' — this biases baseline runs and forces activation.");
+            }
+        }
+
         return new SkillProfile(
             Name: skill.Name,
             TokenCount: tokenCount,
