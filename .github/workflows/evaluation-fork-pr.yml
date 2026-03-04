@@ -41,6 +41,7 @@ jobs:
       pull-requests: write
     outputs:
       head_sha: ${{ steps.pr.outputs.head_sha }}
+      base_sha: ${{ steps.pr.outputs.base_sha }}
       pr_number: ${{ steps.pr.outputs.pr_number }}
     steps:
       - name: Check commenter permissions
@@ -65,12 +66,14 @@ jobs:
           HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
           HEAD_REPO=$(echo "$PR_DATA" | jq -r '.head.repo.full_name')
           BASE_REPO=$(echo "$PR_DATA" | jq -r '.base.repo.full_name')
+          BASE_SHA=$(echo "$PR_DATA" | jq -r '.base.sha')
           if [[ "$HEAD_REPO" == "$BASE_REPO" ]]; then
             echo "::error::This command is only for fork PRs. Same-repo PRs are evaluated automatically."
             exit 1
           fi
-          echo "PR #${PR_NUMBER}: head=${HEAD_SHA}"
+          echo "PR #${PR_NUMBER}: head=${HEAD_SHA} base=${BASE_SHA}"
           echo "head_sha=${HEAD_SHA}" >> $GITHUB_OUTPUT
+          echo "base_sha=${BASE_SHA}" >> $GITHUB_OUTPUT
           echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
 
       - name: Add reaction to comment
@@ -100,7 +103,7 @@ jobs:
       - name: Find skills to evaluate
         id: find
         run: |
-          $base = (git merge-base origin/main origin/pr-head)
+          $base = "${{ needs.gate.outputs.base_sha }}"
           $head = (git rev-parse origin/pr-head)
           $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
 
