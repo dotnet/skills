@@ -14,37 +14,14 @@ public sealed record JudgeOptions(
 
 public static class Judge
 {
-    private const int MaxJudgeRetries = 2;
-    private const int BaseRetryDelayMs = 5_000;
-
-    public static async Task<JudgeResult> JudgeRun(
+    public static Task<JudgeResult> JudgeRun(
         EvalScenario scenario,
         RunMetrics metrics,
         JudgeOptions options)
     {
-        Exception? lastError = null;
-
-        for (int attempt = 0; attempt <= MaxJudgeRetries; attempt++)
-        {
-            try
-            {
-                if (attempt > 0)
-                {
-                    var delay = BaseRetryDelayMs * (1 << (attempt - 1));
-                    Console.Error.WriteLine($"      🔄 Judge retry {attempt}/{MaxJudgeRetries} for \"{scenario.Name}\" (waiting {delay / 1000}s)");
-                    await Task.Delay(delay);
-                }
-                return await JudgeRunOnce(scenario, metrics, scenario.Rubric ?? [], options);
-            }
-            catch (Exception error)
-            {
-                lastError = error;
-                Console.Error.WriteLine($"      ⚠️  Judge attempt {attempt + 1} failed: {error.Message[..Math.Min(200, error.Message.Length)]}");
-            }
-        }
-
-        throw new InvalidOperationException(
-            $"Judge failed for \"{scenario.Name}\" after {MaxJudgeRetries + 1} attempts: {lastError}");
+        return RetryHelper.ExecuteWithRetry(
+            () => JudgeRunOnce(scenario, metrics, scenario.Rubric ?? [], options),
+            $"Judge for \"{scenario.Name}\"");
     }
 
     private static async Task<JudgeResult> JudgeRunOnce(

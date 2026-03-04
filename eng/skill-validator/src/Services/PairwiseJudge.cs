@@ -14,9 +14,6 @@ public sealed record PairwiseJudgeOptions(
 
 public static class PairwiseJudge
 {
-    private const int MaxRetries = 2;
-    private const int BaseRetryDelayMs = 5_000;
-
     /// <summary>
     /// Run a pairwise comparison with position-swap bias mitigation.
     /// Calls the judge twice (A-then-B and B-then-A) and checks consistency.
@@ -48,37 +45,16 @@ public static class PairwiseJudge
         return MergeInconsistentResults(forwardResult, reverseResult);
     }
 
-    private static async Task<PairwiseJudgeResult> JudgeOnce(
+    private static Task<PairwiseJudgeResult> JudgeOnce(
         EvalScenario scenario,
         RunMetrics metricsA,
         RunMetrics metricsB,
         PairwiseJudgeOptions options,
         string direction)
     {
-        Exception? lastError = null;
-
-        for (int attempt = 0; attempt <= MaxRetries; attempt++)
-        {
-            try
-            {
-                if (attempt > 0)
-                {
-                    var delay = BaseRetryDelayMs * (1 << (attempt - 1));
-                    Console.Error.WriteLine($"      🔄 Pairwise judge retry {attempt}/{MaxRetries} ({direction}, waiting {delay / 1000}s)");
-                    await Task.Delay(delay);
-                }
-                return await JudgeCall(scenario, metricsA, metricsB, options, direction);
-            }
-            catch (Exception error)
-            {
-                lastError = error;
-                Console.Error.WriteLine(
-                    $"      ⚠️  Pairwise judge attempt {attempt + 1} failed ({direction}): {error.Message[..Math.Min(200, error.Message.Length)]}");
-            }
-        }
-
-        throw new InvalidOperationException(
-            $"Pairwise judge failed ({direction}) after {MaxRetries + 1} attempts: {lastError}");
+        return RetryHelper.ExecuteWithRetry(
+            () => JudgeCall(scenario, metricsA, metricsB, options, direction),
+            $"Pairwise judge ({direction}) for \"{scenario.Name}\"");
     }
 
     private static async Task<PairwiseJudgeResult> JudgeCall(

@@ -454,14 +454,26 @@ public static class ValidateCommand
             withSkillMetrics.TaskCompleted = withSkillMetrics.ErrorCount == 0;
         }
 
-        // Judge
+        // Judge — failures are non-fatal so a single timeout doesn't kill the whole evaluation.
         var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path);
 
-        var judgeTasks = await Task.WhenAll(
-            Services.Judge.JudgeRun(scenario, baselineMetrics, judgeOpts),
-            Services.Judge.JudgeRun(scenario, withSkillMetrics, judgeOpts with { WorkDir = withSkillMetrics.WorkDir }));
-        var baselineJudge = judgeTasks[0];
-        var withSkillJudge = judgeTasks[1];
+        JudgeResult baselineJudge;
+        JudgeResult withSkillJudge;
+        try
+        {
+            var judgeTasks = await Task.WhenAll(
+                Services.Judge.JudgeRun(scenario, baselineMetrics, judgeOpts),
+                Services.Judge.JudgeRun(scenario, withSkillMetrics, judgeOpts with { WorkDir = withSkillMetrics.WorkDir }));
+            baselineJudge = judgeTasks[0];
+            withSkillJudge = judgeTasks[1];
+        }
+        catch (Exception error)
+        {
+            runLog($"\x1b[33m⚠️  Judge failed, using fallback scores: {error.Message[..Math.Min(150, error.Message.Length)]}\x1b[0m");
+            // Fallback: neutral score of 3 so the run still contributes assertion/activation data.
+            baselineJudge = new JudgeResult([], 3, $"Judge failed: {error.Message}");
+            withSkillJudge = new JudgeResult([], 3, $"Judge failed: {error.Message}");
+        }
 
         var baseline = new RunResult(baselineMetrics, baselineJudge);
         var withSkillResult = new RunResult(withSkillMetrics, withSkillJudge);
