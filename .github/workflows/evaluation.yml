@@ -136,7 +136,6 @@ jobs:
     uses: ./.github/workflows/evaluation-run.yml
     with:
       entries: ${{ needs.discover.outputs.entries }}
-      is_infra: ${{ needs.discover.outputs.is_infra || 'false' }}
       runs: ${{ needs.discover.outputs.is_infra == 'true' && '2' || (github.ref == 'refs/heads/main' && '5' || '3') }}
       pr-number: ${{ github.event.pull_request.number || 0 }}
     secrets:

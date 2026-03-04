@@ -9,11 +9,6 @@ on:
         description: 'JSON array of {name, plugin, skills_path} entries to evaluate'
         required: true
         type: string
-      is_infra:
-        description: 'Whether this is an infrastructure change (reduces runs)'
-        required: false
-        type: string
-        default: 'false'
       checkout-ref:
         description: 'Git ref to checkout for skill content (empty = default)'
         required: false
@@ -85,6 +80,8 @@ on:
 jobs:
   build-validator:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       # Always checkout the default ref (base branch) for building the validator.
       # The caller's checkout-ref input is only used for skill content, not for
@@ -111,6 +108,8 @@ jobs:
     needs: build-validator
     if: needs.build-validator.result == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 60
     environment: ${{ inputs.environment || '' }}
     name: evaluate (${{ matrix.entry.name }})
@@ -124,6 +123,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.checkout-ref || '' }}
+          persist-credentials: false
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v5
@@ -212,7 +212,7 @@ jobs:
 
   comment-on-pr:
     needs: evaluate
-    if: always() && needs.evaluate.result != 'cancelled' && inputs.pr-number != 0
+    if: always() && needs.evaluate.result != 'cancelled' && needs.evaluate.result != 'skipped' && inputs.pr-number != 0
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
