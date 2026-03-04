@@ -33,17 +33,17 @@ on:
         description: 'Max concurrent skills'
         required: false
         type: string
-        default: '3'
+        default: '5'
       parallel-scenarios:
         description: 'Max concurrent scenarios'
         required: false
         type: string
-        default: '3'
+        default: '5'
       parallel-runs:
         description: 'Max concurrent runs'
         required: false
         type: string
-        default: '3'
+        default: '5'
       verbose:
         description: 'Enable verbose output'
         required: false
@@ -105,7 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 60
+    timeout-minutes: 90
     name: evaluate (${{ matrix.entry.name }})
     strategy:
       fail-fast: false
