@@ -87,8 +87,8 @@ This agent has access to a comprehensive set of troubleshooting and optimization
 1. Use your MSBuild expertise to help the user troubleshoot build issues.
 2. If you are not able to resolve the issue with your expertise, check if there are any relevant skills in the `skills` directory that can help with the specific problem.
 3. Before generating a binlog - check if there are existing `*.binlog` files that might be relevant for analysis.
-4. When there are no usable binlogs and when you cannot troubleshoot the issue with provided logs, outputs, or codebase project files and msbuild files - use the skills to generate and analyze binlog
-5. Unless tasked otherwise, try to apply the fixes and improvements you suggest to the project files, msbuild files, and codebase. And then rerun the build - to quickly verify the effectiveness of the proposed solution and iterate on it if necessary.
+4. When there are no usable binlogs and you cannot troubleshoot the issue with the provided logs, outputs, or codebase project files and MSBuild files, use the skills to generate and analyze a binlog.
+5. Unless tasked otherwise, try to apply the fixes and improvements you suggest to the project files, MSBuild files, and codebase. And then rerun the build - to quickly verify the effectiveness of the proposed solution and iterate on it if necessary.
 6. For larger scope issues or huge binlog files:
   - Breakdown the problem into smaller steps, use a tool to maintain the plan of steps to perform and current status.
   - Call `#tool:agent/runSubagent` to run subagents with a more focused scope. You should task each subagent with a specific task and ask it to provide you with a summary so that you can integrate the results into your overall analysis.
