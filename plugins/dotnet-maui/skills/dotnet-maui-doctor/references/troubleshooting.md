@@ -83,13 +83,13 @@ See `microsoft-openjdk.md` for complete installation paths by platform.
 unset JAVA_HOME
 
 # Option 2: Point to Microsoft JDK (macOS)
-export JAVA_HOME=/Library/Java/JavaVirtualMachines/microsoft-17.jdk/Contents/Home
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/microsoft-{VERSION}.jdk/Contents/Home
 
 # Option 2: Point to Microsoft JDK (Linux)
-export JAVA_HOME=/usr/lib/jvm/msopenjdk-17
+export JAVA_HOME=/usr/lib/jvm/msopenjdk-{VERSION}
 
 # Option 2: Point to Microsoft JDK (Windows PowerShell)
-$env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-17.0.14+7"
+$env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-{VERSION}"
 # Or remove it: Remove-Item Env:JAVA_HOME
 ```
 
@@ -97,9 +97,9 @@ $env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-17.0.14+7"
 
 **Cause**: JDK version outside required range OR non-Microsoft JDK installed.
 
-> **⚠️ TEMPORARY**: Recommend JDK 21 (not 17) until WorkloadDependencies.json is updated.
+> Use the JDK version recommended by WorkloadDependencies.json (`jdk.recommendedVersion`), ensuring it satisfies the `jdk.version` range. Do not hardcode JDK versions.
 
-**Solution**: Install Microsoft OpenJDK 21 using the [official installation guide](https://learn.microsoft.com/en-us/java/openjdk/install).
+**Solution**: Install the recommended Microsoft OpenJDK version using the [official installation guide](https://learn.microsoft.com/en-us/java/openjdk/install).
 
 ### Non-Microsoft JDK detected
 
@@ -108,7 +108,7 @@ $env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-17.0.14+7"
 **How to identify**: Run `java -version` - if output does NOT contain "Microsoft", wrong JDK is selected.
 
 **Solution**:
-1. Install Microsoft OpenJDK 21 (see commands above)
+1. Install the recommended Microsoft OpenJDK version (see commands above)
 2. Set `JAVA_HOME` to Microsoft JDK path:
    - macOS: `/Library/Java/JavaVirtualMachines/microsoft-{VERSION}.jdk/Contents/Home`
    - Windows: `C:\Program Files\Microsoft\jdk-{VERSION}\`
@@ -123,7 +123,7 @@ $env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-17.0.14+7"
 /usr/libexec/java_home -V 2>&1 | grep -i microsoft
 
 # Linux - set Microsoft as default
-sudo update-java-alternatives --set msopenjdk-21-amd64
+sudo update-java-alternatives --set msopenjdk-{VERSION}-amd64
 ```
 
 ---
@@ -200,7 +200,7 @@ $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platforms;android-$API_LE
    ```bash
    # Linux - check KVM
    kvm-ok
-   
+
    # Enable KVM
    sudo modprobe kvm
    ```

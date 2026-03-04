@@ -2,7 +2,7 @@
 
 .NET MAUI requires **Microsoft Build of OpenJDK** for Android development. Other JDK distributions (Oracle, Azul, Amazon Corretto, etc.) are **not supported**.
 
-> **⚠️ TEMPORARY**: Recommend JDK 21 (not 17) until WorkloadDependencies.json is updated in a future Android workload release. If WorkloadDependencies suggests ≤21, use 21. If it suggests >21, use that value.
+> Use the JDK version recommended by WorkloadDependencies.json (`jdk.recommendedVersion`), ensuring it satisfies the `jdk.version` range. Do not hardcode JDK versions.
 
 ## Why Microsoft OpenJDK Only?
 
