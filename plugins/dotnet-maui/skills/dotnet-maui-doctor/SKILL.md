@@ -1,15 +1,47 @@
 ---
 name: dotnet-maui-doctor
-description: Diagnoses and fixes .NET MAUI development environment issues. Validates .NET SDK, workloads, Java JDK, Android SDK, Xcode, and Windows SDK. All version requirements discovered dynamically from NuGet WorkloadDependencies.json - never hardcoded. Use when: setting up MAUI development, build errors mentioning SDK/workload/JDK/Android, "Android SDK not found", "Java version" errors, "Xcode not found", environment verification after updates, or any MAUI toolchain issues. Works on macOS, Windows, and Linux.
+description: >-
+  Diagnoses and fixes .NET MAUI development environment issues. Validates .NET SDK,
+  workloads, Java JDK, Android SDK, Xcode, and Windows SDK. All version requirements
+  discovered dynamically from NuGet WorkloadDependencies.json — never hardcoded.
+  Use when: setting up MAUI development, build errors mentioning SDK/workload/JDK/Android,
+  "Android SDK not found", "Java version" errors, "Xcode not found", environment verification
+  after updates, or any MAUI toolchain issues. Do not use for: non-MAUI .NET projects,
+  Xamarin.Forms apps, runtime app crashes unrelated to environment setup, or app store
+  publishing issues. Works on macOS, Windows, and Linux.
 ---
 
 # .NET MAUI Doctor
 
 Validate and fix .NET MAUI development environments. All version requirements are discovered dynamically from NuGet APIs — never hardcode versions.
 
+## When to Use
+
+- Setting up a new .NET MAUI development environment
+- Build errors mentioning missing SDKs, workloads, JDK, or Android components
+- Errors like "Android SDK not found", "Java version", or "Xcode not found"
+- Verifying environment health after SDK or OS updates
+
+## When Not to Use
+
+- Non-MAUI .NET projects (use standard .NET SDK troubleshooting instead)
+- Xamarin.Forms apps (different toolchain and workload requirements)
+- Runtime app crashes unrelated to environment setup
+- App store publishing or signing issues
+- IDE-specific issues (Visual Studio or VS Code configuration)
+
 ## Important: .NET Version Currency
 
 Your training data may be outdated regarding .NET versions. .NET ships new major releases annually (November). Always check the releases-index.json (Task 2) to discover the **latest active major release** — do not assume your training data reflects the current version. For example, if you know about .NET 9.0 but the releases index shows .NET 10.0 as active, use .NET 10.0.
+
+## Inputs
+
+- A development machine running macOS, Windows, or Linux
+- Shell access (Bash on macOS/Linux, PowerShell on Windows)
+- Internet access for NuGet API queries and SDK downloads
+- Admin/sudo access may be required for installing SDKs and workloads
+- **Bash prerequisites**: `curl`, `jq`, and `unzip` (macOS/Linux)
+- **PowerShell prerequisites**: `Invoke-RestMethod` and `System.IO.Compression` (built-in on Windows)
 
 ## Behavior
 
@@ -141,6 +173,15 @@ dotnet build -t:Run -f net10.0-windows    # Windows only
 ```
 
 Only run the target frameworks relevant to the user's platform and intent. This step deploys to an emulator/simulator/device, so confirm with the user before proceeding.
+
+## Common Pitfalls
+
+- **`maui` vs `maui-android` workload**: On Linux, the `maui` meta-workload is not available — use `maui-android` instead. On macOS/Windows, `maui` installs all platform workloads.
+- **`workload update` / `workload repair`**: Never use these commands. Always install workloads with an explicit `--version` flag to ensure version consistency.
+- **Non-Microsoft JDK**: Only Microsoft OpenJDK is supported. Other distributions (Oracle, Adoptium, Azul) will cause build failures even if the version is correct.
+- **Hardcoded versions**: Never hardcode SDK, workload, or dependency versions. Always discover them dynamically from the NuGet APIs (see Task 4).
+- **Android SDK `sdkmanager` on Windows**: Use `sdkmanager.bat`, not `sdkmanager`, on Windows.
+- **Stale training data**: LLM training data may reference outdated .NET versions. Always check the releases-index.json to discover the current active release.
 
 ## References
 
