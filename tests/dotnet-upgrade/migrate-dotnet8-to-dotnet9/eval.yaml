@@ -237,7 +237,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(\\$type|Discriminator|discriminator)"
     rubric:
-      - "Identifies MigrateAsync inside explicit transaction now throws; recommends removing external transaction"
+      - "Identifies Migrate/MigrateAsync inside explicit transaction now throws; recommends removing external transaction"
       - "Identifies DateTime.UtcNow in HasData causes pending model changes exception; recommends static values"
       - "Identifies Cosmos DB discriminator renamed from 'Discriminator' to '$type'; shows HasDiscriminator mitigation"
       - "Warns that sync I/O on Cosmos DB provider now throws; must use async equivalents"
