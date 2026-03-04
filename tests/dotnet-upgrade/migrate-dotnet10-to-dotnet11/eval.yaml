@@ -205,8 +205,15 @@ scenarios:
 
       ```csharp
       // RefHelper.cs
-      int value = 42;
-      var fn = ref readonly int () => ref value;  // error CS0518
+      class RefHelper
+      {
+          private static int value = 42;
+
+          public static void M()
+          {
+              var fn = ref readonly int () => ref value;  // error CS0518
+          }
+      }
       ```
 
       What's happening?

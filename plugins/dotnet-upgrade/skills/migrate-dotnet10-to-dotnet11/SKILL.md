@@ -157,13 +157,19 @@ These changes compile successfully but alter runtime behavior. Review each one a
    FROM mcr.microsoft.com/dotnet/aspnet:11.0
    ```
 
-2. **CI/CD pipelines**: Update SDK version references. If using `global.json`, update:
-   ```json
-   {
-     "sdk": {
-       "version": "11.0.100-preview.1"
-     }
-   }
+2. **CI/CD pipelines**: Update SDK version references. If using `global.json`, update the `sdk.version` in your existing file while preserving other keys (such as `rollForward` and test configuration):
+   ```diff
+    {
+      "sdk": {
+   -    "version": "10.0.100",
+   -    "rollForward": "latestFeature"
+   +    "version": "11.0.100-preview.1",
+   +    "rollForward": "latestFeature"
+      },
+      "otherSettings": {
+        "...": "..."
+      }
+    }
    ```
 
 3. **Hardware deployment targets**: Verify all deployment targets meet the updated minimum hardware requirements (x86-64-v2 for x86/x64, LSE for Windows Arm64).

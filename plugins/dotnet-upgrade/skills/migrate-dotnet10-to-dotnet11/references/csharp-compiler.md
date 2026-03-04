@@ -47,10 +47,17 @@ See also: https://github.com/dotnet/csharplang/issues/9750
 **Impact: Low.** When the compiler synthesizes a delegate type for a `ref readonly`-returning method or lambda, it now properly emits metadata requiring `System.Runtime.InteropServices.InAttribute`.
 
 ```csharp
-// May cause CS0518 if InAttribute is not available
-var methodDelegate = this.MethodWithRefReadonlyReturn;
-int x = 0;
-var lambdaDelegate = ref readonly int () => ref x;
+class RefHelper
+{
+    private static int value = 42;
+
+    public void M()
+    {
+        // May cause CS0518 if InAttribute is not available
+        var methodDelegate = this.MethodWithRefReadonlyReturn;
+        var lambdaDelegate = ref readonly int () => ref value;
+    }
+}
 ```
 
 **Fix:** Add a reference to an assembly defining `System.Runtime.InteropServices.InAttribute` (typically available via the default runtime references).
@@ -62,6 +69,7 @@ var lambdaDelegate = ref readonly int () => ref x;
 ```csharp
 void Method()
 {
+    int x = 0;
     ref readonly int local() => ref x;  // CS0518 if InAttribute missing
 }
 ```
