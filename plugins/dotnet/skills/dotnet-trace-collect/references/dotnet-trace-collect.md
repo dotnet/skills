@@ -39,7 +39,7 @@ curl -JL https://aka.ms/dotnet-trace/win-x64 -o dotnet-trace.exe
 # List running .NET processes
 dotnet-trace ps
 
-# Collect a trace with the default profile (CPU sampling)
+# Collect a trace with the default profiles (dotnet-common and dotnet-sampled-thread-time)
 dotnet-trace collect -p <PID>
 
 # Collect with a specific profile
