@@ -21,8 +21,8 @@ public class BuildSessionConfigTests
     public void SetsSkillDirectoriesToParentOfSkillPath()
     {
         var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work");
-        Assert.Single(config.SkillDirectories);
-        Assert.Equal(Path.GetDirectoryName(MockSkill.Path), config.SkillDirectories[0]);
+        Assert.Single(config.SkillDirectories!);
+        Assert.Equal(Path.GetDirectoryName(MockSkill.Path), config.SkillDirectories![0]);
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class BuildSessionConfigTests
     public void SetsEmptySkillDirectoriesWhenNoSkill()
     {
         var config = AgentRunner.BuildSessionConfig(null, "gpt-4.1", "C:\\tmp\\work");
-        Assert.Empty(config.SkillDirectories);
+        Assert.Empty(config.SkillDirectories!);
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class BuildSessionConfigTests
     public void DisablesInfiniteSessions()
     {
         var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work");
-        Assert.False(config.InfiniteSessions.Enabled);
+        Assert.False(config.InfiniteSessions!.Enabled);
     }
 
     [Fact]
@@ -91,14 +91,14 @@ public class BuildSessionConfigTests
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["binlog-mcp"] = new MCPServerDef(
+            ["test-mcp"] = new MCPServerDef(
                 Command: "dotnet",
                 Args: ["run", "--project", "server"],
-                Tools: ["load_binlog", "get_diagnostics"])
+                Tools: ["load_data", "get_results"])
         };
         var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.NotNull(config.McpServers);
-        Assert.True(config.McpServers.ContainsKey("binlog-mcp"));
+        Assert.True(config.McpServers.ContainsKey("test-mcp"));
     }
 
     [Fact]

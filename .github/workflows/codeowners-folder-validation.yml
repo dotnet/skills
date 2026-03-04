@@ -1,0 +1,185 @@
+name: codeowners-folder-validation
+
+on:
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - 'tests/**'
+      - '.github/CODEOWNERS'
+      - '.github/workflows/codeowners-folder-validation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+      - 'tests/**'
+      - '.github/CODEOWNERS'
+      - '.github/workflows/codeowners-folder-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  validate-codeowners:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Find missing CODEOWNERS folder entries
+        id: audit
+        shell: pwsh
+        run: |
+          $codeownersPath = '.github/CODEOWNERS'
+          if (-not (Test-Path $codeownersPath)) {
+            Write-Error "Missing $codeownersPath"
+            exit 1
+          }
+
+          # Collect CODEOWNERS path tokens that represent concrete directory scopes.
+          # Wildcard tokens are ignored for this validation to keep checks folder-specific.
+          $ownedPaths = New-Object 'System.Collections.Generic.List[string]'
+          $lines = Get-Content -Path $codeownersPath
+          foreach ($line in $lines) {
+            $trimmed = $line.Trim()
+            if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith('#')) {
+              continue
+            }
+
+            $pathToken = ($trimmed -split '\s+')[0]
+            if ($pathToken -match '[*?\[]') {
+              continue
+            }
+            if (-not $pathToken.StartsWith('/')) {
+              $pathToken = "/$pathToken"
+            }
+            if (-not $pathToken.EndsWith('/')) {
+              $pathToken = "$pathToken/"
+            }
+
+            $ownedPaths.Add($pathToken)
+          }
+
+          $expectedPaths = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+
+          if (Test-Path 'plugins') {
+            $pluginDirs = Get-ChildItem -Path 'plugins' -Directory
+            foreach ($pluginDir in $pluginDirs) {
+              $skillsRoot = Join-Path $pluginDir.FullName 'skills'
+              if (-not (Test-Path $skillsRoot)) {
+                continue
+              }
+
+              $skillDirs = Get-ChildItem -Path $skillsRoot -Directory
+              foreach ($skillDir in $skillDirs) {
+                [void]$expectedPaths.Add("/plugins/$($pluginDir.Name)/skills/$($skillDir.Name)/")
+              }
+            }
+          }
+
+          if (Test-Path 'tests') {
+            $testPluginDirs = Get-ChildItem -Path 'tests' -Directory
+            foreach ($testPluginDir in $testPluginDirs) {
+              $testSkillDirs = Get-ChildItem -Path $testPluginDir.FullName -Directory
+              foreach ($testSkillDir in $testSkillDirs) {
+                [void]$expectedPaths.Add("/tests/$($testPluginDir.Name)/$($testSkillDir.Name)/")
+              }
+            }
+          }
+
+          function Test-IsCovered([string]$ExpectedPath, [System.Collections.Generic.List[string]]$Scopes) {
+            foreach ($scope in $Scopes) {
+              if ($ExpectedPath.StartsWith($scope, [System.StringComparison]::OrdinalIgnoreCase)) {
+                return $true
+              }
+            }
+            return $false
+          }
+
+          $missing = @(
+            $expectedPaths |
+              Where-Object { -not (Test-IsCovered $_ $ownedPaths) } |
+              Sort-Object
+          )
+
+          $missingJson = ConvertTo-Json -InputObject @($missing) -Compress
+          if (-not $missingJson) {
+            $missingJson = '[]'
+          }
+
+          if ($missing.Count -gt 0) {
+            Write-Host "Missing CODEOWNERS entries found:"
+            $missing | ForEach-Object { Write-Host "  - $_" }
+            "has_missing=true" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host 'All required CODEOWNERS folder entries are present.'
+            "has_missing=false" >> $env:GITHUB_OUTPUT
+          }
+
+          "missing_json=$missingJson" >> $env:GITHUB_OUTPUT
+
+      - name: Create or update issue for missing entries
+        if: steps.audit.outputs.has_missing == 'true' && github.event_name != 'pull_request'
+        uses: actions/github-script@v8
+        env:
+          MISSING_JSON: ${{ steps.audit.outputs.missing_json }}
+        with:
+          script: |
+            const missing = JSON.parse(process.env.MISSING_JSON || '[]');
+            if (!Array.isArray(missing) || missing.length === 0) {
+              core.info('No missing entries to report.');
+              return;
+            }
+
+            const title = 'Missing CODEOWNERS entries for skill/test folders';
+            const marker = '<!-- codeowners-folder-validation -->';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              marker,
+              'This issue tracks missing folder-level CODEOWNERS entries discovered by workflow `codeowners-folder-validation`.',
+              '',
+              'Missing paths:',
+              ...missing.map((p) => `- \`${p}\``),
+              '',
+              `Run: ${runUrl}`
+            ].join('\n');
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+
+            const existing = issues.find((i) => i.title === title);
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body
+              });
+              core.info(`Updated issue #${existing.number}`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body
+              });
+              core.info(`Created issue #${created.data.number}`);
+            }
+
+      - name: Fail when CODEOWNERS entries are missing
+        if: steps.audit.outputs.has_missing == 'true'
+        shell: pwsh
+        env:
+          MISSING_JSON: ${{ steps.audit.outputs.missing_json }}
+        run: |
+          Write-Host "missing_json: $env:MISSING_JSON"
+          Write-Error 'Missing required CODEOWNERS folder entries. See issue for details.'
+          exit 1
+ 

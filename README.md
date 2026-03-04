@@ -1,15 +1,15 @@
 # .NET Agent Skills
 
-[![Dashboard](https://github.com/dotnet/skills/actions/workflows/pages/pages-build-deployment/badge.svg)](https://refactored-sniffle-qm9o678.pages.github.io/)
+[![Dashboard](https://github.com/dotnet/skills/actions/workflows/pages/pages-build-deployment/badge.svg)](https://dotnet.github.io/skills/)
 
 This repository contains the .NET team's curated set of core skills and custom agents for coding agents. For information about the Agent Skills standard, see [agentskills.io](http://agentskills.io).
 
 ## What's Included
 
-| Component | Description |
-|-----------|-------------|
-| [dotnet](src/dotnet/) | Collection of core .NET skills for handling common .NET coding tasks. |
-| [dotnet-msbuild](src/dotnet-msbuild/) | Comprehensive MSBuild and .NET build skills: failure diagnosis, performance optimization, code quality, and modernization. |
+| Plugin | Description |
+|--------|-------------|
+| [dotnet](plugins/dotnet/) | Collection of core .NET skills for handling common .NET coding tasks. |
+| [dotnet-msbuild](plugins/dotnet-msbuild/) | Comprehensive MSBuild and .NET build skills: failure diagnosis, performance optimization, code quality, and modernization. |
 
 ## Installation
 
@@ -38,17 +38,24 @@ This repository contains the .NET team's curated set of core skills and custom a
    /plugin update <plugin>@dotnet-agent-skills
    ```
 
-### 📦 Distribution Templates
+### VS Code / VS Code Insiders (Preview)
 
-Some components include ready-to-use templates (agent instructions, prompt files) that can be copied directly into your repository without installing a plugin or extension:
+> [!IMPORTANT]  
+> VS Code plugin support is a preview feature and subject to change. You may need to enable it first.
 
-1. Browse the component's **Distribution Templates** section in its README
-2. Copy agent instructions to your repo root as `AGENTS.md`
-3. Copy prompt files to `.github/prompts/`
+```jsonc
+// settings.json
+{
+  "chat.plugins.enabled": true,
+  "chat.plugins.marketplaces": ["dotnet/skills"]
+}
+```
+
+Once configured, type `/plugins` in Copilot Chat or use the `@agentPlugins` filter in Extensions to browse and install plugins from the marketplace.
 
 ### ⚡ Agentic Workflows
 
-Some components include [GitHub Agentic Workflow](https://github.com/github/gh-aw) templates for CI/CD automation:
+Some plugins include [GitHub Agentic Workflow](https://github.com/github/gh-aw) templates for CI/CD automation:
 
 1. Install the `gh aw` CLI extension
 2. Copy the desired workflow `.md` files and the `shared/` directory to your repository's `.github/workflows/`
@@ -58,17 +65,9 @@ Some components include [GitHub Agentic Workflow](https://github.com/github/gh-a
    ```
 4. Commit both the `.md` and generated `.lock.yml` files
 
-### 🧩 Copilot Extension
-
-Some components include a deployable [Copilot Extension](https://docs.github.com/copilot/building-copilot-extensions) for GitHub.com, VS Code, and Visual Studio:
-
-1. Find the extension in the [GitHub Marketplace](https://github.com/marketplace) or your organization's Copilot Extensions
-2. Install the GitHub App on your organization or personal account
-3. Use `@<extension-name>` in any Copilot Chat surface to interact with it
-
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and how to add a new component.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and how to add a new plugin.
 
 ## License
 

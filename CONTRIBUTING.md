@@ -9,11 +9,20 @@ This repository contains shared building blocks for coding agents:
 
 Because these artifacts can affect many users and workflows, we prioritize correctness, clarity, and long term maintainability over speed.
 
+## Code ownership
+
+Every plugin, skill, agent, and agentic workflow must have designated owners in the `.github/CODEOWNERS` file. When you add a new skill, agent, or workflow, add a matching CODEOWNERS entry. Ownership must be either:
+
+- **Two or more FTE GitHub aliases** (e.g., `@user1 @user2`), or
+- **A GitHub team alias** (e.g., `@dotnet/my-team`)
+
+This ensures that every contribution area has accountable reviewers and that PRs are automatically routed to the right people.
+
 ## Repository layout
 
 ```text
-src/
-  <component>/
+plugins/
+  <plugin>/
     plugin.json
     skills/
       <skill-name>/
@@ -23,13 +32,16 @@ src/
         assets/
     agents/
       <agent-name>.agent.md
-    tests/
-      <skill-name>/
-        eval.yaml
-        <fixture files>
+tests/
+  <plugin>/
+    <skill-name>/
+      eval.yaml
+      <fixture files>
+agentic-workflows/
+  <plugin>/
 ```
 
-Each component under `src/` is self-contained. A plugin.json implies that the component is distributed as a plugin in the marketplace.
+Every plugin must have a plugin.json file in the plugin root that is linked to from the marketplace.json file.
 
 ## Before you start
 
@@ -54,6 +66,7 @@ We are less likely to accept contributions that:
 - Duplicate guidance that already exists in another skill
 - Encode private environment details, credentials, or company specific secrets
 - Depend on proprietary tools or access that most contributors will not have
+- Skills that make use of third party tools will be evaluated on a case by case basis. Acceptance of such skills will depend on our evaluation of the provenance and maturity of any such tools.
 
 ## Proposing a new skill
 
@@ -63,10 +76,10 @@ A skill should be self-contained and:
 - Specify required inputs (repo context, environment, access needs).
 - Prefer concrete checklists and verification steps over vague guidance.
 
-Create a new folder under a component's `skills/` directory:
+Create a new folder under a plugin's `skills/` directory:
 
 ```text
-src/<component>/skills/<skill-name>/SKILL.md
+plugins/<plugin>/skills/<skill-name>/SKILL.md
 ```
 
 A skill should answer three questions up front:
@@ -88,14 +101,19 @@ Create the file with required YAML frontmatter:
 ```yaml
 ---
 name: <skill-name>
-description: <description of what the skill does and when to use it>
+description: <description of what the skill does, when to use it, and when not to use it>
 ---
 ```
+
+> **Tip:** The `description` field is used by the agent runtime to decide whether to load the full skill.
+> Include **when to use** and **when not to use** guidance directly in the description so the agent can
+> select or skip skills without reading the entire `SKILL.md`. This avoids unnecessary token usage.
+> See [`thread-abort-migration/SKILL.md`](plugins/dotnet/skills/thread-abort-migration/SKILL.md) for a good example.
 
 ### Recommended `SKILL.md` sections
 
 - **Purpose**: one paragraph describing the outcome.
-- **When to use** / **When not to use**
+- **When to use** / **When not to use** (put the essentials in the frontmatter `description`; expand here only if more detail is needed).
 - **Inputs**: what the agent needs (files, commands, permissions).
 - **Workflow**: numbered steps with checkpoints.
 - **Validation**: how to confirm the result (tests, linters, manual checks).
@@ -106,7 +124,7 @@ description: <description of what the skill does and when to use it>
 Include a `SKILL.md` that covers:
 
 - Purpose and non goals
-- When to use and when not to use
+- When to use and when not to use (summarized in the frontmatter `description`; body section for extended detail)
 - Inputs and prerequisites
 - Step by step workflow with checkpoints
 - Validation steps that can be run or observed
@@ -125,10 +143,10 @@ An agent definition should be opinionated but bounded:
 - Define boundaries (what the agent should not do).
 - List the skills it expects to use and how it chooses among them.
 
-Add an agent file under a component's `agents/` directory:
+Add an agent file under a plugin's `agents/` directory:
 
 ```text
-src/<component>/agents/<agent-name>.agent.md
+plugins/<plugin>/agents/<agent-name>.agent.md
 ```
 
 ### Agent checklist
@@ -151,10 +169,10 @@ Skills and agents are documentation driven, but we still treat them as productio
 
 ### Writing skill tests
 
-Each skill should have an `eval.yaml` file that defines test scenarios. Tests live under a component's `tests/` directory, matching the skill name:
+Each skill should have an `eval.yaml` file that defines test scenarios. Tests live under the repo root `tests/` directory, matching the plugin and skill name:
 
 ```text
-src/<component>/tests/<skill-name>/eval.yaml
+tests/<plugin>/<skill-name>/eval.yaml
 ```
 
 A minimal eval file:
@@ -177,7 +195,7 @@ scenarios:
 If a scenario requires files in the agent's working directory (e.g. `.csproj`, `.sln`, `.cs` files), place them alongside `eval.yaml` and opt into auto-copy:
 
 ```text
-src/<component>/tests/<skill-name>/
+tests/<plugin>/<skill-name>/
   eval.yaml
   MyProject.csproj
   Program.cs
@@ -212,20 +230,20 @@ See the [skill-validator README](eng/skill-validator/README.md) for the full lis
 Prerequisites: .NET 10 SDK or later and `gh auth login`.
 
 ```bash
-# Run tests for a single component
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills
+# Run tests for a single plugin
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
 
 # Run tests for a single skill (pass the skill directory directly)
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills/common-build-errors
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills/common-build-errors
 
 # Fewer runs for faster iteration (default is 5)
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --runs 3 --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --runs 3 --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
 
 # Use a specific model
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --model claude-opus-4.6 --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --model claude-opus-4.6 --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
 
 # Run with verbose logging
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir src/dotnet-msbuild/tests src/dotnet-msbuild/skills --verbose
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills --verbose
 ```
 
 > [!WARNING]  
@@ -233,7 +251,7 @@ dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir s
 
 ### CI evaluation
 
-Tests run automatically on pull requests that modify files under `src/`. The evaluation workflow discovers changed components and runs the skill-validator for each one. Results are posted as a PR comment and uploaded as build artifacts.
+Tests run automatically on pull requests that modify files under `plugins/`. The evaluation workflow discovers changed plugins and runs the skill-validator for each one. Results are posted as a PR comment and uploaded as build artifacts.
 
 ## Writing style
 

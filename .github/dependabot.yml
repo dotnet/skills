@@ -1,0 +1,32 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directories:
+      - "/eng/skill-validator/src"
+      - "/eng/skill-validator/tests"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      microsoft-and-system:
+        patterns:
+          - "Microsoft.*"
+          - "System.*"
+      all-other-nuget:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "Microsoft.*"
+          - "System.*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      github-actions-dependencies:
+        patterns:
+          - "*"
+    exclude-paths:
+      - "**/*.lock.yml"

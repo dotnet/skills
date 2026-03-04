@@ -27,6 +27,11 @@ public static class AgentRunner
     private static readonly ConcurrentBag<string> _workDirs = [];
     private static readonly ConcurrentBag<string> _configDirs = [];
 
+    /// <summary>
+    /// Returns the shared <see cref="CopilotClient"/>, creating it on first call.
+    /// Must be called before executing any untrusted workloads (eval scenarios,
+    /// setup commands).
+    /// </summary>
     public static async Task<CopilotClient> GetSharedClient(bool verbose)
     {
         if (_sharedClient is not null) return _sharedClient;
@@ -43,7 +48,12 @@ public static class AgentRunner
 
             var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
             if (!string.IsNullOrEmpty(githubToken))
+            {
                 options.GitHubToken = githubToken;
+                // Clear the token from the environment so child processes
+                // (e.g. LLM-generated code, eval shell commands) cannot read it.
+                Environment.SetEnvironmentVariable("GITHUB_TOKEN", null);
+            }
 
             _sharedClient = new CopilotClient(options);
             await _sharedClient.StartAsync();

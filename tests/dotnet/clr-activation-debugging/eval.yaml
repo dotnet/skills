@@ -1,0 +1,164 @@
+scenarios:
+  - name: "Diagnose unexpected FOD dialog from native build tool"
+    prompt: |
+      I'm running a build and getting unexpected .NET 3.5 Feature-on-Demand
+      install dialogs. I've captured CLR activation logs. Can you analyze
+      them and tell me what's triggering the FOD dialogs?
+    setup:
+      files:
+        - path: "logs/mt.exe.CLRLoad00.txt"
+          source: "../../../../tests/dotnet/clr-activation-debugging/fixtures/mt-fod-launched.txt"
+        - path: "logs/link.exe.CLRLoad00.txt"
+          source: "../../../../tests/dotnet/clr-activation-debugging/fixtures/link-fod-suppressed.txt"
+        - path: "logs/csc.exe.CLRLoad00.txt"
+          source: "../../../../tests/dotnet/clr-activation-debugging/fixtures/csc-healthy.txt"
+    assertions:
+      - type: "output_contains"
+        value: "mt.exe"
+      - type: "output_contains"
+        value: "SEM_FAILCRITICALERRORS"
+      - type: "output_contains"
+        value: "DllGetClassObject"
+      - type: "output_matches"
+        pattern: "fondue|feature-on-demand|FOD"
+    rubric:
+      - "Correctly identifies mt.exe as the process launching the FOD dialog"
+      - "Explains that the COM activation (DllGetClassObject) takes the legacy codepath with IsCapped: 1"
+      - "Notes that no config file was found for mt.exe, so v4 is invisible to the capped legacy bind"
+      - "Identifies SEM_FAILCRITICALERRORS as the control for whether the FOD dialog is shown vs suppressed"
+      - "Distinguishes between link.exe (FOD suppressed) and mt.exe (FOD launched) based on error mode"
+      - "Does not blame MasterVersion for the capping behavior"
+    timeout: 120
+
+  - name: "Diagnose FOD suppressed but activation still failing"
+    prompt: |
+      My build tool is silently failing — I suspect CLR activation issues.
+      The tool is supposed to use .NET to process debug symbols but it's
+      not working. I have CLR activation logs. Can you tell me what's
+      happening?
+    setup:
+      files:
+        - path: "logs/mt.exe.CLRLoad00.txt"
+          source: "../../../../tests/dotnet/clr-activation-debugging/fixtures/mt-fod-suppressed.txt"
+    assertions:
+      - type: "output_contains"
+        value: "Could have launched"
+      - type: "output_contains"
+        value: "IsCapped"
+      - type: "output_matches"
+        pattern: "v2\\.0\\.50727|v2\\.0"
+      - type: "output_matches"
+        pattern: 'config|\.config'
+    rubric:
+      - "Identifies that COM activation failed — the shim could not find a suitable runtime"
+      - "Explains that capping restricts the legacy codepath to v2.0 and v4 is invisible"
+      - "Notes SEM_FAILCRITICALERRORS is set, so the FOD dialog was suppressed (silent failure)"
+      - "Suggests that adding an exe.config with useLegacyV2RuntimeActivationPolicy and supportedRuntime v4.0 could resolve it"
+      - "Correctly notes the missing config file as a key factor"
+    timeout: 120
+
+  - name: "Explain why same binary behaves differently under different launch methods"
+    prompt: |
+      I have two CLR activation logs for the same tool (mt.exe). When I run
+      the build from my script, it works fine. When I run MSBuild directly
+      from cmd.exe, I get FOD dialogs. Both logs show the same DllGetClassObject
+      activation for the same CLSID. Why is the behavior different?
+    setup:
+      files:
+        - path: "logs/mt-from-script.CLRLoad00.txt"
+          source: "../../../../tests/dotnet/clr-activation-debugging/fixtures/mt-fod-suppressed.txt"
+        - path: "logs/mt-from-cmdline.CLRLoad00.txt"
+          source: "../../../../tests/dotnet/clr-activation-debugging/fixtures/mt-fod-launched.txt"
+    assertions:
+      - type: "output_contains"
+        value: "SEM_FAILCRITICALERRORS"
+      - type: "output_matches"
+        pattern: "inherit|parent"
+    rubric:
+      - "Identifies that the difference is SEM_FAILCRITICALERRORS (0 in one log, nonzero in the other)"
+      - "Explains that SEM_FAILCRITICALERRORS is inherited from the parent process"
+      - "Notes that both logs have the same underlying failure — capped legacy bind on a v4-only machine"
+      - "Explains that the script's process tree sets the error mode, suppressing the dialog"
+      - "Does not claim the COM activation or capping behavior is different between the two"
+    timeout: 120
+
+  - name: "Analyze healthy managed EXE activation"
+    prompt: |
+      Can you look at this CLR activation log and tell me if everything
+      looks normal? This is from a C# compiler invocation.
+    setup:
+      files:
+        - path: "logs/csc.exe.CLRLoad00.txt"
+          source: "../../../../tests/dotnet/clr-activation-debugging/fixtures/csc-healthy.txt"
+    assertions:
+      - type: "output_contains"
+        value: "v4.0.30319"
+      - type: "output_matches"
+        pattern: "success|normal|healthy|no.*(issue|error|problem)"
+    rubric:
+      - "Identifies this as a managed EXE launch via _CorExeMain"
+      - "Notes the runtime was decided as v4.0.30319 successfully"
+      - "Confirms no errors or FOD triggers are present"
+      - "Does not raise false alarms about normal activation behavior"
+    timeout: 60
+
+  - name: "Identify multiple activation sequences in a single log"
+    prompt: |
+      I'm seeing intermittent CLR activation failures with link.exe.
+      Sometimes it works, sometimes it doesn't. Can you analyze this
+      activation log and explain what's happening?
+    setup:
+      files:
+        - path: "logs/link.exe.CLRLoad00.txt"
+          source: "../../../../tests/dotnet/clr-activation-debugging/fixtures/link-multi-activation.txt"
+    assertions:
+      - type: "output_contains"
+        value: "DllGetClassObject"
+      - type: "output_matches"
+        pattern: "two|multiple|second|separate"
+      - type: "output_contains"
+        value: "IsCapped"
+    rubric:
+      - "Identifies that the log contains multiple activation sequences"
+      - "Notes the first activation (ClrCreateInstance / GetRequestedRuntime) succeeds via config file and loads v4.0"
+      - "Notes the second activation (DllGetClassObject) is a legacy COM activation that is capped"
+      - "Explains why the second activation fails despite v4.0 already being loaded — it's a separate legacy bind"
+      - "Identifies the CLSID being activated in the COM path"
+    timeout: 120
+
+  - name: "Explain useLegacyV2RuntimeActivationPolicy in activation log"
+    prompt: |
+      I see 'UseLegacyV2RuntimeActivationPolicy is set to 1' in my CLR
+      activation log. What does this mean and how does it affect runtime
+      selection?
+    setup:
+      files:
+        - path: "logs/tool.exe.CLRLoad00.txt"
+          source: "../../../../tests/dotnet/clr-activation-debugging/fixtures/tool-with-legacy-policy.txt"
+    assertions:
+      - type: "output_contains"
+        value: "useLegacyV2RuntimeActivationPolicy"
+      - type: "output_matches"
+        pattern: "legacy|capp"
+      - type: "output_contains"
+        value: "v4.0"
+    rubric:
+      - "Explains that useLegacyV2RuntimeActivationPolicy makes legacy shim API codepaths associate with v4"
+      - "Notes it is mostly equivalent to calling CorBindToRuntimeEx with the v4 version string"
+      - "Mentions the trade-off: turns off in-proc SxS with pre-v4 runtimes"
+      - "Shows that in this log, the runtime was successfully decided as v4.0 even for capped paths"
+    timeout: 60
+
+  - name: "Decline non-CLR-activation issue"
+    prompt: |
+      My .NET app crashes with a NullReferenceException after startup.
+      Can you analyze the CLR activation logs to find the bug?
+    expect_activation: false
+    assertions:
+      - type: "output_matches"
+        pattern: "activation.*succeed|loaded.*success|not.*activation|after.*load|runtime.*error|not.*scope"
+    rubric:
+      - "Recognizes that a NullReferenceException is a runtime error, not an activation issue"
+      - "Explains that CLR activation logs cover runtime selection and loading, not runtime behavior after the CLR is loaded"
+      - "Does not attempt to diagnose the NullReferenceException from activation logs"
+    timeout: 30
