@@ -113,7 +113,7 @@ If unavailable, complete steps 1–4 and present the `atos` commands for the use
 - **No .NET frames found**: Report parsed frames and stop.
 - **All frames resolved**: Present symbolicated backtrace. Do not trace into source or debug the runtime.
 - **dSYM not available / UUID mismatch**: Report unsymbolicated frames with UUIDs and addresses. Suggest rebuilding or locating build artifacts.
-- **atos not available**: Use `-ParseOnly`, present manual commands. Do not install Xcode.
+- **atos not available**: Parse the crash log only, present manual commands for the user to run. Do not install Xcode.
 
 ## Common Pitfalls
 
