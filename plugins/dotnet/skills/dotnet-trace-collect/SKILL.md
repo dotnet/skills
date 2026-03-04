@@ -179,8 +179,8 @@ Key events from `System.Net.Http`: `RequestStart` (scheme, host, port, path), `R
 Collect a thread-time trace with networking providers enabled (modern .NET only — .NET Framework needs only `PerfView /ThreadTime`):
 
 - **Windows (PerfView)**: Use `PerfView /ThreadTime collect /BufferSizeMB:1024 /CircularMB:2048 /Providers:*System.Net.Http,*System.Net.NameResolution,*System.Net.Security,*System.Net.Sockets`. For .NET Framework, omit the `/Providers` flag — `/ThreadTime` already includes the networking events. The thread-time trace shows where threads are blocked while the networking events show what requests are failing and why.
-- **Linux (dotnet-trace)**: `dotnet-trace` captures thread time data by default. Add networking providers: `dotnet-trace collect -p <PID> --providers System.Net.Http,System.Net.NameResolution,System.Net.Security,System.Net.Sockets`.
-- **Linux .NET 10+ with root**: Use `dotnet-trace collect-linux --profile thread-time --providers System.Net.Http,System.Net.NameResolution,System.Net.Security,System.Net.Sockets`.
+- **Linux (dotnet-trace)**: `dotnet-trace` captures thread time data by default, but specifying `--providers` overrides the defaults so you must also include `--profile`: `dotnet-trace collect -p <PID> --profile dotnet-common,dotnet-sampled-thread-time --providers System.Net.Http,System.Net.NameResolution,System.Net.Security,System.Net.Sockets`.
+- **Linux .NET 10+ with root**: Use `dotnet-trace collect-linux --profile dotnet-common,cpu-sampling,thread-time --providers System.Net.Http,System.Net.NameResolution,System.Net.Security,System.Net.Sockets`.
 - **Containers**: `dotnet-monitor` can capture traces with custom providers via its REST API.
 
 Explain the trade-offs when recommending a tool. For example:
