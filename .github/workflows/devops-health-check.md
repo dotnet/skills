@@ -30,8 +30,10 @@ safe-outputs:
   create-issue:
     max: 1
   update-issue:
+    target: "*"
     max: 1
   add-comment:
+    target: "*"
     max: 1
   dispatch-workflow:
     workflows:
