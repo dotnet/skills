@@ -135,7 +135,7 @@ jobs:
     with:
       entries: ${{ needs.discover.outputs.entries }}
       runs: ${{ needs.discover.outputs.is_infra == 'true' && '2' || (github.ref == 'refs/heads/main' && '5' || '3') }}
-      pr-number: ${{ github.event.pull_request.number || 0 }}
+      pr-number: ${{ github.event.pull_request.number || '' }}
     secrets:
       COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
       COPILOT_GITHUB_TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}

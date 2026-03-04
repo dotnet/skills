@@ -50,10 +50,10 @@ on:
         type: boolean
         default: false
       pr-number:
-        description: 'PR number for commenting (0 = skip)'
+        description: 'PR number for commenting (empty = skip)'
         required: false
-        type: number
-        default: 0
+        type: string
+        default: ''
     secrets:
       COPILOT_GITHUB_TOKEN:
         required: false
@@ -206,7 +206,7 @@ jobs:
 
   comment-on-pr:
     needs: evaluate
-    if: always() && needs.evaluate.result != 'cancelled' && needs.evaluate.result != 'skipped' && inputs.pr-number != 0
+    if: always() && needs.evaluate.result != 'cancelled' && needs.evaluate.result != 'skipped' && inputs.pr-number != ''
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
