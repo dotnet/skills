@@ -38,6 +38,12 @@ sudo dotnet-trace collect-linux --duration 00:00:30
 # Trace with specific providers
 sudo dotnet-trace collect-linux --providers Microsoft-Windows-DotNETRuntime
 
+# Trace with networking providers (HTTP status codes, DNS, TLS, sockets)
+sudo dotnet-trace collect-linux --providers System.Net.Http,System.Net.NameResolution,System.Net.Security,System.Net.Sockets
+
+# Trace with networking providers and thread-time profile
+sudo dotnet-trace collect-linux --profile thread-time --providers System.Net.Http,System.Net.NameResolution,System.Net.Security,System.Net.Sockets
+
 # Trace with specific profiles
 sudo dotnet-trace collect-linux --profile gc-verbose
 sudo dotnet-trace collect-linux --profile thread-time

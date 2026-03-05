@@ -51,6 +51,9 @@ curl -H "Authorization: Bearer <monitor-token>" -o trace.nettrace http://localho
 # Collect GC trace
 curl -H "Authorization: Bearer <monitor-token>" -o trace.nettrace "http://localhost:52323/trace?pid=<PID>&profile=gc-verbose&durationSeconds=30"
 
+# Collect trace with networking providers (HTTP status codes, DNS, TLS, sockets)
+curl -H "Authorization: Bearer <monitor-token>" -o trace.nettrace "http://localhost:52323/trace?pid=<PID>&durationSeconds=30&providers=System.Net.Http,System.Net.NameResolution,System.Net.Security,System.Net.Sockets"
+
 # Get live metrics
 curl -H "Authorization: Bearer <monitor-token>" http://localhost:52323/livemetrics?pid=<PID>
 ```

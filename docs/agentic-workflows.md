@@ -2,7 +2,7 @@
 
 Cross-cutting [GitHub Agentic Workflow](https://github.com/github/gh-aw) workflows for repository-wide DevOps automation.
 
-The workflow source files live in `.github/workflows/` and are compiled with `gh aw compile` to generate `.lock.yml` files (standard GitHub Actions YAML with security hardening). These workflows monitor the _entire repo_ (all components, all pipelines, all PRs), unlike the component-specific workflows in `src/dotnet-msbuild/agentic-workflows/`.
+The workflow source files live in `.github/workflows/` and are compiled with `gh aw compile` to generate `.lock.yml` files (standard GitHub Actions YAML with security hardening). These workflows monitor the _entire repo_ (all components, all pipelines, all PRs), unlike the component-specific workflows under `/agentic-workflows`.
 
 ## Available Workflows
 
@@ -66,8 +66,3 @@ gh aw run devops-health-check --push --ref <branch>
     └── shared/
         ├── devops-health.lock.md       # Health check catalog & fingerprinting rules
         └── devops-investigate.lock.md  # Investigation playbooks & remediation templates
-
-eng/agentic-workflows/
-├── README.md                           # This file (documentation)
-└── pr-141-review-fixes.md              # PR review analysis
-```

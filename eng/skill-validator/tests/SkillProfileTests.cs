@@ -114,6 +114,57 @@ public class AnalyzeSkillTests
         Assert.Equal("detailed", profile.ComplexityTier);
         Assert.Empty(profile.Warnings);
     }
+
+    private static SkillInfo MakeSkillWithEval(string content, string name, List<EvalScenario> scenarios)
+    {
+        return new SkillInfo(
+            Name: name,
+            Description: "Test skill",
+            Path: "/tmp/test-skill",
+            SkillMdPath: "/tmp/test-skill/SKILL.md",
+            SkillMdContent: content,
+            EvalPath: "/tmp/test-skill/eval.yaml",
+            EvalConfig: new EvalConfig(scenarios));
+    }
+
+    [Fact]
+    public void WarnsWhenEvalPromptMentionsSkillName()
+    {
+        var content = "---\nname: migrate-app\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var scenarios = new List<EvalScenario>
+        {
+            new("basic", "Use the migrate-app skill to help me migrate my project")
+        };
+        var skill = MakeSkillWithEval(content, "migrate-app", scenarios);
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.Contains(profile.Warnings, w => w.Contains("mentions skill name") && w.Contains("migrate-app"));
+    }
+
+    [Fact]
+    public void NoWarningWhenEvalPromptDoesNotMentionSkillName()
+    {
+        var content = "---\nname: migrate-app\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var scenarios = new List<EvalScenario>
+        {
+            new("basic", "Help me migrate my project to the latest framework")
+        };
+        var skill = MakeSkillWithEval(content, "migrate-app", scenarios);
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("mentions skill name"));
+    }
+
+    [Fact]
+    public void NoWarningWhenSkillNameIsEmpty()
+    {
+        var content = "---\nname: \n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var scenarios = new List<EvalScenario>
+        {
+            new("basic", "Help me migrate my project")
+        };
+        var skill = MakeSkillWithEval(content, "", scenarios);
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("mentions skill name"));
+    }
 }
 
 public class FormatProfileLineTests

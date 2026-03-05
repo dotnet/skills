@@ -14,11 +14,6 @@ on:
         required: false
         type: string
         default: ''
-      environment:
-        description: 'GitHub environment for secret gating (empty = none)'
-        required: false
-        type: string
-        default: ''
       model:
         description: 'Copilot model to use'
         required: false
@@ -38,27 +33,27 @@ on:
         description: 'Max concurrent skills'
         required: false
         type: string
-        default: '3'
+        default: '5'
       parallel-scenarios:
         description: 'Max concurrent scenarios'
         required: false
         type: string
-        default: '3'
+        default: '5'
       parallel-runs:
         description: 'Max concurrent runs'
         required: false
         type: string
-        default: '3'
+        default: '5'
       verbose:
         description: 'Enable verbose output'
         required: false
         type: boolean
         default: false
       pr-number:
-        description: 'PR number for commenting (0 = skip)'
+        description: 'PR number for commenting (empty = skip)'
         required: false
-        type: number
-        default: 0
+        type: string
+        default: ''
     secrets:
       COPILOT_GITHUB_TOKEN:
         required: false
@@ -110,8 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 60
-    environment: ${{ inputs.environment || '' }}
+    timeout-minutes: 90
     name: evaluate (${{ matrix.entry.name }})
     strategy:
       fail-fast: false
@@ -212,7 +206,7 @@ jobs:
 
   comment-on-pr:
     needs: evaluate
-    if: always() && needs.evaluate.result != 'cancelled' && needs.evaluate.result != 'skipped' && inputs.pr-number != 0
+    if: always() && needs.evaluate.result != 'cancelled' && needs.evaluate.result != 'skipped' && inputs.pr-number != ''
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write

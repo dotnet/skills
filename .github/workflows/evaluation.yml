@@ -9,7 +9,7 @@ on:
       - 'eng/skill-validator/**'
 
   schedule:
-    - cron: '0 */2 * * *'
+    - cron: '0 */3 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
@@ -21,11 +21,9 @@ permissions:
 
 jobs:
   discover:
-    # Scheduled runs should only happen in the upstream repo, not in forks.
-    # Without this guard, forks that have activated Actions (e.g. by pushing a
-    # branch for a PR) will run the evaluation schedule indefinitely, consuming
-    # the fork owner's Actions minutes and storage quota.
     # Skip fork PRs (handled by evaluation-fork-pr.yml) and scheduled runs on forks.
+    # Without this guard, forks that have activated Actions will run the evaluation
+    # schedule indefinitely, consuming the fork owner's Actions minutes.
     if: >-
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
       (github.event_name != 'schedule' || github.repository == 'dotnet/skills')
@@ -137,7 +135,7 @@ jobs:
     with:
       entries: ${{ needs.discover.outputs.entries }}
       runs: ${{ needs.discover.outputs.is_infra == 'true' && '2' || (github.ref == 'refs/heads/main' && '5' || '3') }}
-      pr-number: ${{ github.event.pull_request.number || 0 }}
+      pr-number: ${{ github.event.pull_request.number || '' }}
     secrets:
       COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
       COPILOT_GITHUB_TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}

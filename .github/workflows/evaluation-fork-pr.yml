@@ -1,29 +1,23 @@
 # Evaluation workflow for fork PRs.
 #
 # Fork PRs cannot access repository secrets via the `pull_request` trigger.
-# This workflow uses `pull_request_target` to make secrets available, gated
-# behind a protected "evaluation" environment that requires maintainer approval.
+# This workflow uses `issue_comment` so that a maintainer can trigger evaluation
+# by posting "/evaluate" on a fork PR. The workflow YAML always comes from the
+# default branch (enforced by the issue_comment trigger).
 #
 # Security model:
-#   - Workflow YAML: always from the base branch (enforced by pull_request_target)
-#   - Validator binary: built from the base branch checkout (trusted)
+#   - Workflow YAML: always from the default branch (enforced by issue_comment)
+#   - Validator binary: built from the default branch checkout (trusted)
 #   - Skill/test content: checked out from the fork PR (untrusted data, read-only)
-#   - Secret access: gated by environment approval (maintainer must approve)
-#
-# To set up:
-#   1. Create an "evaluation" environment in repo Settings → Environments
-#   2. Add required reviewers (repo maintainers)
-#   3. Add COPILOT_GITHUB_TOKEN (and optionally _2 through _8) as environment secrets
+#   - Secret access: only users with write+ permission can trigger evaluation
 name: evaluation (fork PRs)
 
 on:
-  pull_request_target:
-    paths:
-      - 'plugins/**'
-      - 'tests/**'
+  issue_comment:
+    types: [created]
 
 concurrency:
-  group: eval-fork-${{ github.event.pull_request.number }}
+  group: eval-fork-${{ github.event.issue.number }}
   cancel-in-progress: true
 
 # pull-requests: write is required at the workflow level because the reusable
@@ -35,9 +29,74 @@ permissions:
   pull-requests: write
 
 jobs:
-  # Only run for fork PRs — same-repo PRs use the regular evaluation.yml workflow.
+  # Validate the trigger: must be a /evaluate comment on a fork PR from a user
+  # with write+ permissions.
+  gate:
+    if: >-
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/evaluate')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+    outputs:
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      base_sha: ${{ steps.pr.outputs.base_sha }}
+      pr_number: ${{ steps.pr.outputs.pr_number }}
+    steps:
+      - name: Check commenter permissions
+        id: perms
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PERMISSION=$(gh api "repos/${{ github.repository }}/collaborators/${{ github.event.comment.user.login }}/permission" --jq '.permission')
+          echo "Commenter ${{ github.event.comment.user.login }} has permission: $PERMISSION"
+          if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "write" && "$PERMISSION" != "maintain" ]]; then
+            echo "::error::User does not have write access"
+            exit 1
+          fi
+
+      - name: Get PR details
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER=${{ github.event.issue.number }}
+          PR_DATA=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}")
+          HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
+          HEAD_REPO=$(echo "$PR_DATA" | jq -r '.head.repo.full_name')
+          BASE_REPO=$(echo "$PR_DATA" | jq -r '.base.repo.full_name')
+          BASE_SHA=$(echo "$PR_DATA" | jq -r '.base.sha')
+          if [[ "$HEAD_REPO" == "$BASE_REPO" ]]; then
+            echo "::error::This command is only for fork PRs. Same-repo PRs are evaluated automatically."
+            exit 1
+          fi
+          echo "PR #${PR_NUMBER}: head=${HEAD_SHA} base=${BASE_SHA}"
+          echo "head_sha=${HEAD_SHA}" >> $GITHUB_OUTPUT
+          echo "base_sha=${BASE_SHA}" >> $GITHUB_OUTPUT
+          echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+
+      - name: Add reaction to comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            -X POST -f content='eyes' || true
+
+      - name: Set pending commit status
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/${{ steps.pr.outputs.head_sha }}" \
+            -f state=pending \
+            -f context="evaluation (fork PRs)" \
+            -f description="Evaluation in progress..." \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
   discover:
-    if: github.event.pull_request.head.repo.full_name != github.repository
+    needs: gate
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -51,12 +110,12 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch PR head
-        run: git fetch origin +refs/pull/${{ github.event.pull_request.number }}/head:refs/remotes/origin/pr-head
+        run: git fetch origin +refs/pull/${{ needs.gate.outputs.pr_number }}/head:refs/remotes/origin/pr-head
 
       - name: Find skills to evaluate
         id: find
         run: |
-          $base = "${{ github.event.pull_request.base.sha }}"
+          $base = "${{ needs.gate.outputs.base_sha }}"
           $head = (git rev-parse origin/pr-head)
           $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
 
@@ -103,14 +162,13 @@ jobs:
         shell: pwsh
 
   run-evaluation:
-    needs: discover
+    needs: [gate, discover]
     if: needs.discover.outputs.has_entries == 'true'
     uses: ./.github/workflows/evaluation-run.yml
     with:
       entries: ${{ needs.discover.outputs.entries }}
-      checkout-ref: ${{ github.event.pull_request.head.sha }}
-      environment: evaluation
-      pr-number: ${{ github.event.pull_request.number }}
+      checkout-ref: ${{ needs.gate.outputs.head_sha }}
+      pr-number: ${{ needs.gate.outputs.pr_number }}
     secrets:
       COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
       COPILOT_GITHUB_TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
@@ -120,3 +178,33 @@ jobs:
       COPILOT_GITHUB_TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
       COPILOT_GITHUB_TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
       COPILOT_GITHUB_TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
+
+  report-status:
+    needs: [gate, discover, run-evaluation]
+    if: always() && needs.gate.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Set final commit status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${{ needs.run-evaluation.result }}" == "success" ]]; then
+            STATE="success"
+            DESC="Evaluation passed"
+          elif [[ "${{ needs.run-evaluation.result }}" == "skipped" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
+            STATE="success"
+            DESC="No skills to evaluate"
+          elif [[ "${{ needs.run-evaluation.result }}" == "failure" ]]; then
+            STATE="failure"
+            DESC="Evaluation failed"
+          else
+            STATE="error"
+            DESC="Evaluation did not complete (${{ needs.run-evaluation.result }})"
+          fi
+          gh api "repos/${{ github.repository }}/statuses/${{ needs.gate.outputs.head_sha }}" \
+            -f state="$STATE" \
+            -f context="evaluation (fork PRs)" \
+            -f description="$DESC" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
