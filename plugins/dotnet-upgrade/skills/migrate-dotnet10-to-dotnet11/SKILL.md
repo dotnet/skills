@@ -98,12 +98,12 @@ Load reference documents based on the project's technology areas:
 
 | Reference file | When to load |
 |----------------|-------------|
-| `references/csharp-compiler.md` | Always (C# 15 compiler breaking changes) |
-| `references/core-libraries.md` | Always (applies to all .NET 11 projects) |
-| `references/sdk-msbuild.md` | Always (SDK and build tooling changes) |
-| `references/efcore.md` | Project uses Entity Framework Core (especially Cosmos DB provider) |
-| `references/cryptography.md` | Project uses cryptography APIs or targets macOS |
-| `references/runtime-jit.md` | Deploying to older hardware or embedded devices |
+| `references/csharp-compiler-dotnet10to11.md` | Always (C# 15 compiler breaking changes) |
+| `references/core-libraries-dotnet10to11.md` | Always (applies to all .NET 11 projects) |
+| `references/sdk-msbuild-dotnet10to11.md` | Always (SDK and build tooling changes) |
+| `references/efcore-dotnet10to11.md` | Project uses Entity Framework Core (especially Cosmos DB provider) |
+| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs or targets macOS |
+| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware or embedded devices |
 
 Work through each build error systematically. Common patterns:
 
@@ -194,9 +194,9 @@ The `references/` folder contains detailed breaking change information organized
 
 | Reference file | When to load |
 |----------------|-------------|
-| `references/csharp-compiler.md` | Always (C# 15 compiler breaking changes) |
-| `references/core-libraries.md` | Always (applies to all .NET 11 projects) |
-| `references/sdk-msbuild.md` | Always (SDK and build tooling changes) |
-| `references/efcore.md` | Project uses Entity Framework Core (especially Cosmos DB provider) |
-| `references/cryptography.md` | Project uses cryptography APIs or targets macOS |
-| `references/runtime-jit.md` | Deploying to older hardware or embedded devices |
+| `references/csharp-compiler-dotnet10to11.md` | Always (C# 15 compiler breaking changes) |
+| `references/core-libraries-dotnet10to11.md` | Always (applies to all .NET 11 projects) |
+| `references/sdk-msbuild-dotnet10to11.md` | Always (SDK and build tooling changes) |
+| `references/efcore-dotnet10to11.md` | Project uses Entity Framework Core (especially Cosmos DB provider) |
+| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs or targets macOS |
+| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware or embedded devices |
