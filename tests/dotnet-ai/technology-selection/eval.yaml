@@ -1,0 +1,58 @@
+scenarios:
+  - name: "Route tabular classification to ML.NET"
+    prompt: "I have a CSV file with customer data (age, income, purchase history) and I want to predict whether a customer will churn. What .NET library should I use?"
+    assertions:
+      - type: "output_contains"
+        value: "ML.NET"
+      - type: "output_not_contains"
+        value: "Microsoft.Extensions.AI"
+    rubric:
+      - "Correctly identifies this as a tabular classification task"
+      - "Routes to ML.NET, not to an LLM-based solution"
+      - "Mentions that LLMs are not appropriate for tabular classification"
+    timeout: 120
+
+  - name: "Route chat integration to MEAI"
+    prompt: "I want to add a chatbot to my ASP.NET Core API that can summarize documents and answer questions in natural language."
+    assertions:
+      - type: "output_contains"
+        value: "Microsoft.Extensions.AI"
+    rubric:
+      - "Identifies this as a natural language task requiring an LLM"
+      - "Routes to Microsoft.Extensions.AI / IChatClient"
+      - "Does not suggest ML.NET for this task"
+    timeout: 120
+
+  - name: "Route RAG to rag-pipeline"
+    prompt: "I need to build a system where users can ask questions about our internal documentation PDFs and get grounded answers."
+    assertions:
+      - type: "output_contains"
+        value: "RAG"
+    rubric:
+      - "Identifies this as an end-to-end RAG scenario"
+      - "Mentions document ingestion, vector search, and LLM grounding"
+      - "Routes to the RAG pipeline approach, not just a simple chat"
+    timeout: 120
+
+  - name: "Route zero-config prototyping to Copilot SDK"
+    prompt: "I want to quickly prototype an AI agent in .NET without managing any API keys. I have a GitHub Copilot subscription."
+    assertions:
+      - type: "output_contains"
+        value: "Copilot"
+    rubric:
+      - "Routes to Copilot SDK for zero-config prototyping"
+      - "Mentions CopilotClient as an LLM backend with gh CLI auth"
+      - "Does NOT present Copilot SDK as only for platform extensions"
+    timeout: 120
+
+  - name: "Route enterprise agent to MAF, not Copilot SDK"
+    prompt: "I need to build an AI agent for our Azure-hosted platform that uses Entra ID for authentication and scales across Kubernetes pods. Should I use the Copilot SDK?"
+    assertions:
+      - type: "output_contains"
+        value: "Microsoft.Agents.AI"
+    rubric:
+      - "Routes to MAF (agentic-workflow) for this enterprise scenario"
+      - "Explains Copilot SDK limitations: no Entra ID, per-machine sessions"
+      - "Recommends Azure.AI.OpenAI with DefaultAzureCredential"
+      - "May suggest the Bridge Pattern for initial prototyping"
+    timeout: 120
