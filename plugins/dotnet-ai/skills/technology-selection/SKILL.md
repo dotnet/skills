@@ -28,7 +28,7 @@ Evaluate the developer's task against this decision tree and select the appropri
 | Running a pre-trained or fine-tuned custom model in production | **ONNX Runtime** (`Microsoft.ML.OnnxRuntime`) | Hardware-accelerated inference, model-format agnostic |
 | Local/offline LLM inference with no cloud dependency | **LLamaSharp** with quantized GGUF models | Privacy-sensitive, air-gapped, or cost-constrained scenarios |
 | Semantic search, RAG, or embedding storage | **Microsoft.Extensions.VectorData.Abstractions** + a vector database provider (e.g., Azure AI Search, Milvus, MongoDB, pgvector, Pinecone, Qdrant, Redis, SQL) | Provider-agnostic abstractions for vector similarity search; pair with a database-specific connector package (many are moving to community toolkits) |
-| Ingesting, chunking, and loading documents into a vector store | **Microsoft.Extensions.AI.DataIngestion** (preview) + MEVD | Handles document parsing, text chunking, embedding generation, and upserting into a vector database; pairs with Microsoft.Extensions.VectorData.Abstractions |
+| Ingesting, chunking, and loading documents into a vector store | **Microsoft.Extensions.AI.DataIngestion** (preview) + **Microsoft.Extensions.VectorData.Abstractions** (MEVD) | Handles document parsing, text chunking, embedding generation, and upserting into a vector database; pairs with Microsoft.Extensions.VectorData.Abstractions |
 | Both structured ML predictions AND natural language reasoning | **Hybrid**: ML.NET for predictions + LLM for reasoning layer | Keep loosely coupled; ML.NET handles deterministic scoring, LLM adds explanation |
 
 **Critical rule:** Do NOT use an LLM for tasks that ML.NET handles well (classification on tabular data, regression, clustering). LLMs are slower, more expensive, and non-deterministic for these tasks.
@@ -201,11 +201,12 @@ Apply the guardrails for the selected technology branch. Every generated impleme
 
 2. **Cost ceiling**: Implement a token budget per execution and terminate when reached.
 
-3. **Observability**: Log every agent step — tool selected, input, output, and reasoning:
+3. **Observability**: Log non-sensitive metadata for every agent step. Never log raw `message.Content` — it may contain user prompts, tool outputs, secrets, or PII that persist in plaintext in central logging systems:
    ```csharp
    await foreach (var message in agent.InvokeStreamingAsync(history, settings))
    {
-       logger.LogDebug("Agent step: {Role} {Content}", message.Role, message.Content);
+       logger.LogDebug("Agent step: Role={Role}, ContentLength={Length}",
+           message.Role, message.Content?.Length ?? 0);
    }
    ```
 
