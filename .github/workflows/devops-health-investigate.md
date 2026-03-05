@@ -29,6 +29,9 @@ on:
         description: "Unique ID linking this investigation to the health check run"
         required: true
 
+concurrency:
+  group: gh-aw-${{ github.workflow }}-${{ inputs.finding_id }}
+
 permissions:
   contents: read
   actions: read
@@ -124,6 +127,7 @@ add-comment:
     **Finding ID:** `{finding_id}`
     **Severity:** {finding_severity}
     **Correlation:** {correlation_id}
+    **Executive Summary:** {one-sentence summary of the root cause and recommended action}
 
     ### Root Cause
     {one-paragraph description with evidence}

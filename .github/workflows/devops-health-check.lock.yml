@@ -27,13 +27,12 @@
 #   Imports:
 #     - ../aw/shared/devops-health.lock.md
 #
-# frontmatter-hash: 89e96fed526ed8de503f19c5a126d86a2b3d97082e84569a337bc5e364a0ddbc
+# frontmatter-hash: 3a45921606507e64c4f93aeea372a163d789c980b5ef581b7f33d1b0ed191c27
 
 name: "DevOps Daily Health Check"
 "on":
   schedule:
-  - cron: "40 17 * * *"
-    # Friendly format: daily (scattered)
+  - cron: "0 3 * * *"
   workflow_dispatch:
 
 permissions: {}
@@ -610,13 +609,13 @@ jobs:
                   }
                 },
                 "required": [
+                  "finding_type",
+                  "health_issue_number",
+                  "resource_url",
                   "correlation_id",
                   "finding_id",
                   "finding_severity",
-                  "finding_title",
-                  "finding_type",
-                  "health_issue_number",
-                  "resource_url"
+                  "finding_title"
                 ],
                 "type": "object"
               },

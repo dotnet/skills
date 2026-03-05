@@ -7,7 +7,8 @@ description: >
   dispatches investigation workers for new critical/warning findings.
 
 on:
-  schedule: daily
+  schedule:
+    - cron: "0 3 * * *"  # 03:00 UTC daily
   workflow_dispatch:
 
 permissions:
@@ -376,7 +377,19 @@ Replace the entire issue body with the following structure:
 > These appeared since the last health check ({previous_date}).
 
 {For each new finding, render a full section with title, details, link, and suggested action}
-{Include investigation placeholder islands for findings that qualify for dispatch — see Step 5}
+
+---
+
+## 🔍 Investigation Results
+
+> Deep investigations are dispatched for new critical/warning findings.
+> The [grooming workflow](../workflows/devops-health-groom.md) links results ~3 hours after this run.
+
+| Finding | Severity | Status | Result |
+|---------|----------|--------|--------|
+{For each finding dispatched in the current run:}
+| {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | [Workflow Run]({workflow_actions_url}) |
+{Preserve any rows from the previous issue body that already show ✅ Done or ✅ Resolved — do not remove them}
 
 ---
 
@@ -491,6 +504,8 @@ dispatch-workflow:
 Before finishing, verify:
 - [ ] At least one `dispatch-workflow` call was made (if any 🔴 critical or qualifying 🟡 warning findings exist)
 - [ ] All 🔴 critical NEW findings have been dispatched (up to budget cap)
+- [ ] The "🔍 Investigation Results" section in the issue body shows newly dispatched findings as "🔄 Dispatched"
+- [ ] Any existing "✅ Done" or "✅ Resolved" rows from the previous issue body are preserved
 - [ ] The noop summary message mentions how many investigations were dispatched
 
 ---
