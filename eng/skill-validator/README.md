@@ -24,8 +24,8 @@ Plugging into your CI, it ensures every new skill adds real value, and existing 
 
 ### Download from pipeline artifacts
 
-A nightly scheduled job uploads the produced AOT compiled NuGet packages as GitHub pre-release artifacts to https://github.com/dotnet/skills. Extract the nuget package (which is just a zip file) that matches the target platform and execute the binary under `tools/any/<rid>/skill-validator`.
-You might need to give +x (execute) permissions to the `skill-validator` and `copilot` (under runtimes folder) binaries on non-Windows platforms.
+A nightly scheduled job publishes AOT-compiled NuGet packages as assets on the [`skill-validator-nightly` GitHub Release](https://github.com/dotnet/skills/releases/tag/skill-validator-nightly). Download the NuGet package matching your platform (it is a zip file), extract it, and run the binary at `tools/any/<rid>/skill-validator`.
+On non-Windows platforms, you may need to run `chmod +x` on the `skill-validator` and `copilot` (under the runtimes folder) binaries.
 
 ## Usage
 
