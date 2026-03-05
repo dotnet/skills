@@ -1,0 +1,56 @@
+scenarios:
+  - name: "Build document Q&A system"
+    prompt: "Build a RAG-based document Q&A system for this .NET 8 web API. Users should be able to ask questions and get answers grounded in our markdown documentation files. Use OpenAI for the LLM and embeddings, and InMemory vector store for development."
+    setup:
+      files:
+        - path: "DocQA/DocQA.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+            </Project>
+        - path: "DocQA/Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            var app = builder.Build();
+            app.Run();
+        - path: "DocQA/Docs/setup.md"
+          content: |
+            # Setup Guide
+            Install the product with `dotnet tool install --global our-tool`.
+            The minimum requirement is .NET 8.0 SDK.
+        - path: "DocQA/Docs/config.md"
+          content: |
+            # Configuration
+            Set `APP_API_KEY` environment variable to authenticate.
+            Configuration can also be done via appsettings.json.
+    assertions:
+      - type: "output_contains"
+        value: "chunk"
+      - type: "output_contains"
+        value: "embedding"
+      - type: "output_contains"
+        value: "Microsoft.Extensions.AI"
+      - type: "exit_success"
+    rubric:
+      - "Implements document ingestion with chunking"
+      - "Generates embeddings and stores in vector database"
+      - "Builds retrieval query with similarity search"
+      - "Grounds LLM response in retrieved context (not hallucinating)"
+      - "Includes source attribution in responses"
+      - "Sets minimum similarity threshold for search results"
+    timeout: 360
+
+  - name: "RAG with out-of-scope question handling"
+    prompt: "I have the RAG system from the previous setup. How should I handle questions that our documentation doesn't cover? The system should gracefully say it doesn't know rather than making up answers."
+    assertions:
+      - type: "output_contains"
+        value: "threshold"
+      - type: "exit_success"
+    rubric:
+      - "Implements similarity score threshold to filter irrelevant results"
+      - "System prompt instructs LLM to say 'I don't know' when context is insufficient"
+      - "Does not suggest always generating an answer regardless of context"
+    timeout: 360
