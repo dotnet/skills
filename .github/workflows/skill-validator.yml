@@ -17,6 +17,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  RETENTION_DAYS: ${{ github.event_name == 'schedule' && 90 || 5 }}
+  AGNOSTIC_RID: linux-x64
+
 jobs:
   build:
     strategy:
@@ -48,7 +52,7 @@ jobs:
       - name: Test
         run: dotnet test --solution eng/skill-validator/SkillValidator.slnx --no-build
 
-      - name: Pack NuGet packages
+      - name: Pack RID-specific NuGet package
         run: dotnet pack eng/skill-validator/src/SkillValidator.csproj --use-current-runtime
 
       - name: Upload RID-specific NuGet package
@@ -56,20 +60,20 @@ jobs:
         with:
           name: skill-validator-${{ matrix.rid }}
           path: artifacts/package/release/Microsoft.DotNet.SkillValidator.${{ matrix.rid }}.*.nupkg
-          retention-days: ${{ github.event_name == 'schedule' && 90 || 5 }}
+          retention-days: ${{ env.RETENTION_DAYS }}
           if-no-files-found: error
 
       - name: Pack RID-agnostic NuGet package
-        if: matrix.rid == 'linux-x64'
+        if: matrix.rid == env.AGNOSTIC_RID
         run: dotnet pack eng/skill-validator/src/SkillValidator.csproj
 
       - name: Upload RID-agnostic NuGet package
-        if: matrix.rid == 'linux-x64'
+        if: matrix.rid == env.AGNOSTIC_RID
         uses: actions/upload-artifact@v4
         with:
           name: skill-validator
           path: |
             artifacts/package/release/Microsoft.DotNet.SkillValidator.*.nupkg
-            !artifacts/package/release/Microsoft.DotNet.SkillValidator.linux-x64.*.nupkg
-          retention-days: ${{ github.event_name == 'schedule' && 90 || 5 }}
+            !artifacts/package/release/Microsoft.DotNet.SkillValidator.${{ env.AGNOSTIC_RID }}.*.nupkg
+          retention-days: ${{ env.RETENTION_DAYS }}
           if-no-files-found: error
