@@ -1,15 +1,15 @@
 <#
 .SYNOPSIS
-    Symbolicates .NET runtime frames in an iOS .ips crash log.
+    Symbolicates .NET runtime frames in an Apple platform .ips crash log.
 
 .DESCRIPTION
-    Parses an iOS .ips crash log (JSON format, iOS 15+), extracts Mach-O UUIDs and
-    frame addresses from the native backtrace, locates dSYM debug symbols from local
-    SDK packs and NuGet cache, and runs atos to resolve each frame to function name,
-    source file, and line number.
+    Parses an Apple platform .ips crash log (JSON format, iOS 15+ / macOS 12+), extracts
+    Mach-O UUIDs and frame addresses from the native backtrace, locates dSYM debug symbols
+    from local SDK packs and NuGet cache, and runs atos to resolve each frame to function
+    name, source file, and line number. Supports iOS, tvOS, Mac Catalyst, and macOS.
 
 .PARAMETER CrashFile
-    Path to the iOS .ips crash log file.
+    Path to the .ips crash log file.
 
 .PARAMETER Atos
     Path to atos. Defaults to 'atos' (assumes Xcode Command Line Tools are installed).
@@ -65,7 +65,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# .NET runtime libraries on iOS (framework bundles omit .dylib extension)
+# .NET runtime libraries on Apple platforms (framework bundles omit .dylib extension)
 $dotnetLibraries = @(
     'libcoreclr'
     'libmonosgen-2.0'
@@ -74,6 +74,16 @@ $dotnetLibraries = @(
     'libSystem.Security.Cryptography.Native.Apple'
     'libSystem.IO.Compression.Native'
     'libSystem.Net.Security.Native'
+)
+
+# All Apple platform RIDs to search for dSYMs and runtime packs
+$appleRids = @(
+    'ios-arm64'
+    'tvos-arm64'
+    'maccatalyst-arm64'
+    'maccatalyst-x64'
+    'osx-arm64'
+    'osx-x64'
 )
 
 function Test-DotNetLibrary([string]$imageName) {
@@ -88,7 +98,7 @@ function Format-Uuid([string]$uuid) {
     return ($uuid -replace '-', '').ToLowerInvariant()
 }
 
-# Parse iOS .ips crash log (two-part JSON: line 1 = metadata, lines 2+ = crash body)
+# Parse .ips crash log (two-part JSON: line 1 = metadata, lines 2+ = crash body)
 function Read-IpsCrashLog([string]$path) {
     $lines = Get-Content $path -Raw
     $splitIndex = $lines.IndexOf("`n")
@@ -180,10 +190,11 @@ function Find-Dsym([string]$uuid, [string]$libraryName, [string[]]$extraPaths) {
                   elseif (Test-Path (Join-Path $HOME '.dotnet')) { Join-Path $HOME '.dotnet' }
                   else { $null }
     if ($dotnetRoot) {
-        $packPatterns = @(
-            'packs/Microsoft.NETCore.App.Runtime.ios-arm64/*/runtimes/ios-arm64/native'
-            'packs/Microsoft.NETCore.App.Runtime.Mono.ios-arm64/*/runtimes/ios-arm64/native'
-        )
+        $packPatterns = @()
+        foreach ($rid in $script:appleRids) {
+            $packPatterns += "packs/Microsoft.NETCore.App.Runtime.$rid/*/runtimes/$rid/native"
+            $packPatterns += "packs/Microsoft.NETCore.App.Runtime.Mono.$rid/*/runtimes/$rid/native"
+        }
         foreach ($pattern in $packPatterns) {
             $searchDirs += @(Get-Item (Join-Path $dotnetRoot $pattern) -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
         }
@@ -192,10 +203,11 @@ function Find-Dsym([string]$uuid, [string]$libraryName, [string[]]$extraPaths) {
     # 3. NuGet cache
     $nugetDir = if ($env:NUGET_PACKAGES) { $env:NUGET_PACKAGES }
                 else { Join-Path $HOME '.nuget/packages' }
-    $nugetPatterns = @(
-        'microsoft.netcore.app.runtime.ios-arm64/*/runtimes/ios-arm64/native'
-        'microsoft.netcore.app.runtime.mono.ios-arm64/*/runtimes/ios-arm64/native'
-    )
+    $nugetPatterns = @()
+    foreach ($rid in $script:appleRids) {
+        $nugetPatterns += "microsoft.netcore.app.runtime.$rid/*/runtimes/$rid/native"
+        $nugetPatterns += "microsoft.netcore.app.runtime.mono.$rid/*/runtimes/$rid/native"
+    }
     foreach ($pattern in $nugetPatterns) {
         $searchDirs += @(Get-Item (Join-Path $nugetDir $pattern) -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
     }
@@ -295,15 +307,17 @@ function Resolve-Frames([string]$dsymPath, [string]$arch, [uint64]$loadAddress, 
 # Try to identify the .NET runtime version by matching a UUID against locally-installed packs
 function Find-RuntimeVersion([string]$uuid, [string]$libraryName) {
     $packNames = @()
-    if ($libraryName -like '*monosgen*') {
-        $packNames += 'Microsoft.NETCore.App.Runtime.Mono.ios-arm64'
-    }
-    elseif ($libraryName -like '*coreclr*') {
-        $packNames += 'Microsoft.NETCore.App.Runtime.ios-arm64'
-    }
-    else {
-        $packNames += 'Microsoft.NETCore.App.Runtime.Mono.ios-arm64'
-        $packNames += 'Microsoft.NETCore.App.Runtime.ios-arm64'
+    foreach ($rid in $script:appleRids) {
+        if ($libraryName -like '*monosgen*') {
+            $packNames += "Microsoft.NETCore.App.Runtime.Mono.$rid"
+        }
+        elseif ($libraryName -like '*coreclr*') {
+            $packNames += "Microsoft.NETCore.App.Runtime.$rid"
+        }
+        else {
+            $packNames += "Microsoft.NETCore.App.Runtime.Mono.$rid"
+            $packNames += "Microsoft.NETCore.App.Runtime.$rid"
+        }
     }
 
     $searchRoots = @()
@@ -329,9 +343,16 @@ function Find-RuntimeVersion([string]$uuid, [string]$libraryName) {
 
     foreach ($root in $searchRoots) {
         foreach ($versionDir in (Get-ChildItem $root -Directory -ErrorAction SilentlyContinue)) {
-            # Find the native library or dSYM under this version
-            $nativeDir = Join-Path $versionDir.FullName "runtimes/ios-arm64/native"
-            if (-not (Test-Path $nativeDir)) { continue }
+            # Find the native directory — each pack has one RID under runtimes/
+            $nativeDir = $null
+            $runtimesDir = Join-Path $versionDir.FullName 'runtimes'
+            if (Test-Path $runtimesDir) {
+                foreach ($ridDir in (Get-ChildItem $runtimesDir -Directory -ErrorAction SilentlyContinue)) {
+                    $nd = Join-Path $ridDir.FullName 'native'
+                    if (Test-Path $nd) { $nativeDir = $nd; break }
+                }
+            }
+            if (-not $nativeDir) { continue }
 
             # Check dSYM bundles first, then bare binaries
             $candidates = @()
@@ -401,7 +422,7 @@ $appName = if ($metadata.app_name) { $metadata.app_name }
            elseif ($metadata.name) { $metadata.name }
            else { 'Unknown' }
 $osVersion = if ($metadata.os_version) { $metadata.os_version } else { 'Unknown' }
-Write-Host "Crash log: $appName on iOS $osVersion" -ForegroundColor Cyan
+Write-Host "Crash log: $appName on $osVersion" -ForegroundColor Cyan
 
 # Check for Application Specific Information (often contains managed exception text)
 $asi = $body.asi
@@ -477,7 +498,7 @@ if ($dotnetFrames.Count -eq 0) {
 if ($ParseOnly) {
     Write-Host "`n=== Crash Log Parse Report ===" -ForegroundColor Green
     Write-Host "App: $appName"
-    Write-Host "OS: iOS $osVersion"
+    Write-Host "OS: $osVersion"
     Write-Host "Threads: $($threads.Count)"
     Write-Host "Total frames: $($allFrames.Count)"
     Write-Host ".NET frames: $($dotnetFrames.Count)"
