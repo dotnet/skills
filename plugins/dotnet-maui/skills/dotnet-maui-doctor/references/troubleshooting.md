@@ -41,7 +41,7 @@ dotnet workload install maui --version $WORKLOAD_VERSION
 # First, find the correct workload set version for your SDK
 # Query NuGet APIs (see workload-dependencies-discovery.md)
 
-# Then reinstall with explicit version
+# Then reinstall with explicit version (macOS example — omit ios/maccatalyst on Linux)
 dotnet workload install maui android ios maccatalyst --version $WORKLOAD_VERSION
 ```
 
@@ -229,7 +229,8 @@ dotnet workload install android --version $WORKLOAD_VERSION
 
 **Solution**:
 ```bash
-$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platforms;android-35"
+# Discover required API level from WorkloadDependencies.json, then:
+$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platforms;android-$API_LEVEL"
 ```
 
 ### "MSB4019: The imported project was not found"

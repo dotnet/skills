@@ -55,6 +55,7 @@ xcrun simctl list devices available
 xcrun simctl list devicetypes | grep iPhone
 xcrun simctl list runtimes | grep iOS
 
-# Create one using the newest iPhone type and latest iOS runtime
-xcrun simctl create "iPhone 16 Pro" "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro" "com.apple.CoreSimulator.SimRuntime.iOS-18-0"
+# Create one using a chosen device type and runtime from the lists above
+# Replace <DEVICE_TYPE_ID> and <RUNTIME_ID> with identifiers from the commands above
+xcrun simctl create "My iPhone Simulator" "<DEVICE_TYPE_ID>" "<RUNTIME_ID>"
 ```

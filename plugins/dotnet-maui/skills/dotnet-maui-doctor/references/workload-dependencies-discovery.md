@@ -129,6 +129,7 @@ unzip -p manifest.nupkg data/WorkloadDependencies.json
 **PowerShell:**
 ```powershell
 Invoke-WebRequest "https://api.nuget.org/v3-flatcontainer/{packageid}/{version}/{packageid}.{version}.nupkg" -OutFile manifest.nupkg
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [System.IO.Compression.ZipFile]::OpenRead("manifest.nupkg")
 $entry = $zip.Entries | Where-Object { $_.FullName -eq "data/WorkloadDependencies.json" }
 $reader = [System.IO.StreamReader]::new($entry.Open())
