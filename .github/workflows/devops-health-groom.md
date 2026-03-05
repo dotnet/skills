@@ -121,11 +121,9 @@ For each row in the Investigation Results table:
 
 Also check for investigation comments that correspond to findings in the **📌 Existing Findings** or **🆕 New Findings** sections (from previous runs). Add rows for those too if they aren't already in the table.
 
-### 3.3 Update the Issue Body
+### 3.3 Hold Changes (Do Not Update Yet)
 
-Use `update-issue` to write the updated issue body with the linked investigation results.
-
-Only update the issue if at least one change was made (a `🔄 Dispatched` row was resolved, or a new investigation result was linked).
+Do **not** call `update-issue` yet. Keep the modified issue body in memory — Step 4 will make further edits to the same body before a single combined `update-issue` call.
 
 ---
 
@@ -150,6 +148,12 @@ In the Investigation Results table, for findings whose investigation is complete
 
 Additionally, in the **📌 Existing Findings** section, if any finding that was previously `📌 EXISTING` is no longer in the current fingerprint set, annotate it with `(resolved {date})`.
 
+### 4.4 Write the Updated Issue Body
+
+Now that both Step 3 (linking investigation results) and Step 4 (marking resolved findings) have been applied to the in-memory issue body, make a **single** `update-issue` call with the combined changes.
+
+Only call `update-issue` if at least one change was made across Steps 3 and 4. If nothing changed, skip the call.
+
 ---
 
 ## Step 5: Hide Stale Comments
@@ -160,29 +164,29 @@ retention policy:
 
 ### 5.1 Daily Overview Comments
 
-Hide daily overview comments (`## 📋 Health Check —`) older than **7 days** with reason `outdated`.
+Hide daily overview comments (`## 📋 Health Check —`) older than **7 days** with reason `OUTDATED`.
 
 ```
 Age = now - comment.created_at
-If Age > 7 days → hide-comment(node_id, reason: "outdated")
+If Age > 7 days → hide-comment(node_id, reason: "OUTDATED")
 ```
 
 ### 5.2 Investigation Comments — Age-Based
 
-Hide investigation comments (`## 🔍 Investigation:`) older than **7 days** with reason `outdated`.
+Hide investigation comments (`## 🔍 Investigation:`) older than **7 days** with reason `OUTDATED`.
 
 ### 5.3 Investigation Comments — Resolved Findings
 
-Hide investigation comments for findings that have been **resolved** (finding_id is NOT in the current fingerprint set from `cache-memory`), regardless of age, with reason `resolved`. These investigations are no longer relevant since the underlying issue is fixed.
+Hide investigation comments for findings that have been **resolved** (finding_id is NOT in the current fingerprint set from `cache-memory`), regardless of age, with reason `RESOLVED`. These investigations are no longer relevant since the underlying issue is fixed.
 
 **Exception:** Do NOT hide investigation comments less than 24 hours old, even if the finding is resolved. This gives people time to read the investigation before it's cleaned up.
 
 ### 5.4 Hide Order
 
 Process hides in this priority order:
-1. Resolved investigation comments (oldest first) — reason: `resolved`
-2. Age-expired investigation comments (oldest first) — reason: `outdated`
-3. Age-expired daily overview comments (oldest first) — reason: `outdated`
+1. Resolved investigation comments (oldest first) — reason: `RESOLVED`
+2. Age-expired investigation comments (oldest first) — reason: `OUTDATED`
+3. Age-expired daily overview comments (oldest first) — reason: `OUTDATED`
 
 Use the `hide-comment` safe-output for each operation. The `node_id` field is
 required (GraphQL node ID starting with `IC_kwDO…`). Include the reason.

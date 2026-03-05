@@ -8,9 +8,9 @@ The workflow source files live in `.github/workflows/` and are compiled with `gh
 
 | Workflow | Description | Trigger |
 |----------|-------------|---------|
-| [devops-health-check](../.github/workflows/devops-health-check.md) | Daily orchestrator that collects repo health signals (pipelines, skill quality, PRs, infrastructure), computes a fingerprint-based diff against the previous run, and updates a pinned health dashboard issue | `schedule: daily` (fuzzy daily), `workflow_dispatch` |
+| [devops-health-check](../.github/workflows/devops-health-check.md) | Daily orchestrator that collects repo health signals (pipelines, skill quality, PRs, infrastructure), computes a fingerprint-based diff against the previous run, and updates a pinned health dashboard issue | `cron: 0 3 * * *` (03:00 UTC daily), `workflow_dispatch` |
 | [devops-health-investigate](../.github/workflows/devops-health-investigate.md) | Worker agent dispatched by the health check orchestrator to perform deep root-cause analysis on individual findings | `workflow_dispatch` (dispatched by orchestrator via `dispatch-workflow`) |
-| [devops-health-groom](../.github/workflows/devops-health-groom.md) | Runs ~3h after the health check to link investigation results into the issue body, prune stale comments (>7 days), and clean up resolved investigations | `schedule: daily` (~3h after health check), `workflow_dispatch` |
+| [devops-health-groom](../.github/workflows/devops-health-groom.md) | Runs ~3h after the health check to link investigation results into the issue body, hide stale comments (>7 days), and clean up resolved investigations | `cron: 0 6 * * *` (06:00 UTC daily), `workflow_dispatch` |
 
 ## Architecture
 
@@ -35,8 +35,8 @@ devops-health-groom (Groomer) ─── runs daily
   ├─ Links investigation comments into the issue body
   │   (updates 🔄 Dispatched → ✅ Done with summary + link)
   ├─ Marks resolved investigations as ✅ Resolved
-  ├─ Prunes daily overview comments older than 7 days
-  └─ Deletes investigation comments for resolved findings
+  ├─ Hides (collapses) daily overview comments older than 7 days
+  └─ Hides (collapses) investigation comments for resolved findings
 ```
 
 ## Setup
