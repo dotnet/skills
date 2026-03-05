@@ -13,6 +13,10 @@ on:
   schedule:
     - cron: '0 8 * * *' # daily at 08:00 UTC
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     strategy:
