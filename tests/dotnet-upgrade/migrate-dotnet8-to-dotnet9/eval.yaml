@@ -596,11 +596,14 @@ scenarios:
           content: |
             using System.Runtime.CompilerServices;
             using System.Runtime.InteropServices;
+            // NOTE: This file was compiled against .NET 9 RC2 which had
+            // String.Trim(params ReadOnlySpan<char>) overloads that were
+            // removed in GA. Recompiling against GA will change overload resolution.
             class StringUtils
             {
                 public string CleanInput(string input)
                 {
-                    ReadOnlySpan<char> trimChars = [' ', '\t', '\n'];
+                    char[] trimChars = [' ', '\t', '\n'];
                     return input.Trim(trimChars);
                 }
             }
@@ -632,7 +635,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(InlineArray|size|1 MiB|limit)"
     rubric:
-      - "Identifies String.Trim(ReadOnlySpan<char>) was removed in GA; code compiled against RC2 will get MissingMethodException; must rebuild with char[]"
+      - "Identifies String.Trim(ReadOnlySpan<char>) overloads were removed in GA; RC2-compiled code may get MissingMethodException at runtime or changed overload resolution when recompiled"
       - "Identifies FromKeyedServicesAttribute no longer falls back to non-keyed service; throws InvalidOperationException"
       - "Warns about InlineArray struct size limit enforcement (1 MiB)"
       - "Identifies HttpListenerRequest.UserAgent is now nullable"

@@ -36,16 +36,22 @@ Expression<Func<string, string, string>> join =
 
 **Impact: Medium.** The `Trim`, `TrimStart`, and `TrimEnd` overloads accepting `ReadOnlySpan<char>` were added in .NET 9 previews but removed in GA because they caused behavioral changes with common extension methods (e.g., `"prefixinfixsuffix".TrimEnd("suffix")` would change behavior).
 
-Code compiled against .NET 9 previews that explicitly passes `ReadOnlySpan<char>` will fail. Rebuild against .NET 9 GA. Code using `params char[]` continues to work.
+Code compiled against .NET 9 previews that explicitly passes `ReadOnlySpan<char>` to these overloads may fail with `MissingMethodException` at runtime when run on the GA runtime, or fail to compile when retargeted to .NET 9 GA. Code using `params char[]` continues to work.
 
 ```csharp
-// BREAKS — no longer compiles against GA
-private static readonly ReadOnlySpan<char> s_trimChars = [';', ',', '.'];
-str = str.Trim(s_trimChars);
+// BREAKS — compiled against .NET 9 Preview with ReadOnlySpan<char> overloads
+static string TrimLogEntry(string str)
+{
+    ReadOnlySpan<char> trimChars = [';', ',', '.'];
+    return str.Trim(trimChars); // calls Trim(ReadOnlySpan<char>) in previews only
+}
 
-// Fix — use char[]
-private static readonly char[] s_trimChars = [';', ',', '.'];
-str = str.Trim(s_trimChars);
+// Fix — target GA and use char[] so Trim binds to existing overloads
+static string TrimLogEntry(string str)
+{
+    char[] trimChars = [';', ',', '.'];
+    return str.Trim(trimChars); // calls Trim(char[]) / Trim(params char[])
+}
 ```
 
 > **Note:** Assemblies compiled against .NET 9 Preview 6 through RC2 must be recompiled to avoid `MissingMethodException` at runtime.
