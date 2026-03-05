@@ -111,26 +111,24 @@ scenarios:
       - "Recommends the 'maui' workload (not 'maui-android') for Windows"
     timeout: 120
 
-  - name: "Correct JAVA_HOME misconception"
+  - name: "Prevent incorrect JAVA_HOME configuration"
     prompt: |
-      I'm getting 'JAVA_HOME is not set' warnings when building my .NET MAUI
-      Android app on macOS. I don't have JAVA_HOME configured anywhere.
-      
-      Without running any commands or checking my environment, please explain:
-      1. Is JAVA_HOME actually required for .NET MAUI?
-      2. If I need a specific JDK, which one?
-      
-      I want a conceptual answer, not a troubleshooting session.
+      My .NET MAUI Android build on macOS shows a 'JAVA_HOME is not set' warning.
+      I found a Stack Overflow answer telling me to add
+      `export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home`
+      to my shell profile. Is this the right fix? What should I actually do?
     assertions:
       - type: "output_matches"
         pattern: "(?i)not required|not necessary|optional|auto.?detect|don't need to set"
       - type: "output_contains"
         value: "Microsoft"
+      - type: "output_not_matches"
+        pattern: "(?i)Temurin.{0,20}(fine|correct|ok|good|right)"
     rubric:
+      - "Warns against setting JAVA_HOME to the Adoptium Temurin JDK path from the Stack Overflow answer"
       - "Explains that JAVA_HOME is not required because .NET MAUI auto-detects JDK installations"
-      - "Clarifies that JAVA_HOME is only problematic when set to a non-Microsoft JDK"
-      - "Recommends verifying that Microsoft OpenJDK is installed via java -version output"
-      - "Does not unnecessarily instruct the user to set JAVA_HOME"
+      - "Clarifies that setting JAVA_HOME to a non-Microsoft JDK can cause build failures"
+      - "Recommends Microsoft OpenJDK as the correct JDK if one needs to be explicitly configured"
     timeout: 120
 
   - name: "Determine required Android SDK packages for specific .NET version"
