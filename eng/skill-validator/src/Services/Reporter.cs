@@ -113,6 +113,10 @@ public static class Reporter
                 // For moderate/high, show top signals
                 if (overfitResult.Severity is OverfittingSeverity.Moderate or OverfittingSeverity.High)
                 {
+                    // Show prompt-level issues first (most severe)
+                    foreach (var item in overfitResult.PromptAssessments)
+                        Console.WriteLine($"    \x1b[2m•\x1b[0m [{item.Issue}] \x1b[2mscenario \"{item.Scenario}\"\x1b[0m\n      \x1b[2m— {item.Reasoning}\x1b[0m");
+
                     var topRubric = overfitResult.RubricAssessments
                         .Where(a => a.Classification != "outcome")
                         .OrderByDescending(a => a.Confidence)

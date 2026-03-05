@@ -106,15 +106,19 @@ foreach ($verdict in $results.verdicts) {
             # When breakdowns exist we use them; when they don't (older schema)
             # we fall back to the verdict-level flag for every scenario.
             $hasBreakdowns = $verdict.overfittingResult.PSObject.Properties['rubricAssessments'] -or
-                             $verdict.overfittingResult.PSObject.Properties['assertionAssessments']
+                             $verdict.overfittingResult.PSObject.Properties['assertionAssessments'] -or
+                             $verdict.overfittingResult.PSObject.Properties['promptAssessments']
 
             if ($hasBreakdowns) {
                 $rubrics    = $verdict.overfittingResult.rubricAssessments    | Where-Object { $_.scenario -eq $scenarioName }
                 $assertions = $verdict.overfittingResult.assertionAssessments | Where-Object { $_.scenario -eq $scenarioName }
+                $prompts    = $verdict.overfittingResult.promptAssessments    | Where-Object { $_.scenario -eq $scenarioName }
                 # Rubric classifications: outcome | technique | vocabulary  — flag non-outcome.
                 # Assertion classifications: broad | narrow               — flag narrow.
+                # Prompt issues: any prompt assessment for this scenario is a flag.
                 $scenarioHasIssues = ($rubrics    | Where-Object { $_.classification -ne "outcome" }) -or
-                                     ($assertions | Where-Object { $_.classification -eq "narrow" })
+                                     ($assertions | Where-Object { $_.classification -eq "narrow" }) -or
+                                     ($prompts   | Measure-Object).Count -gt 0
                 if ($scenarioHasIssues) {
                     $overfittingSeverity = $verdict.overfittingResult.severity.ToLower()
                     $overfittingScore = $verdict.overfittingResult.score

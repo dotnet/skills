@@ -251,11 +251,18 @@ public sealed record AssertionOverfitAssessment(
     double Confidence,
     string Reasoning);
 
+public sealed record PromptOverfitAssessment(
+    string Scenario,
+    string Issue,               // e.g. "explicit_skill_reference" | "skill_instruction"
+    double Confidence,
+    string Reasoning);
+
 public sealed record OverfittingResult(
     double Score,               // [0, 1]
     OverfittingSeverity Severity,
     IReadOnlyList<RubricOverfitAssessment> RubricAssessments,
     IReadOnlyList<AssertionOverfitAssessment> AssertionAssessments,
+    IReadOnlyList<PromptOverfitAssessment> PromptAssessments,
     IReadOnlyList<string> CrossScenarioIssues,
     string OverallReasoning);
 
