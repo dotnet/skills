@@ -86,7 +86,7 @@ public static partial class SkillProfiler
         // Check if eval prompts explicitly reference the skill by name — this biases
         // baseline runs (agent wastes time searching) and forces activation instead of
         // testing organic discovery.
-        if (skill.EvalConfig is not null)
+        if (skill.EvalConfig is not null && !string.IsNullOrWhiteSpace(skill.Name))
         {
             foreach (var scenario in skill.EvalConfig.Scenarios)
             {
