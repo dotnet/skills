@@ -121,11 +121,12 @@ public class RetryHelperTests
                 },
                 "test",
                 maxRetries: 2,
-                baseDelayMs: 50,
+                baseDelayMs: 200,
                 cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(3, callCount);
-        // Second gap should be roughly double the first (with some tolerance)
+        // Second gap should be roughly double the first (with some tolerance).
+        // Using 200ms base so that OS scheduling jitter doesn't dominate.
         if (timestamps.Count == 3)
         {
             var gap1 = timestamps[1] - timestamps[0];
