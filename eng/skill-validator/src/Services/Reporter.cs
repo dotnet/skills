@@ -423,34 +423,25 @@ public static class Reporter
         string? model,
         string? judgeModel)
     {
-        var output = new
+        var output = new ResultsOutput
         {
-            model = model ?? "unknown",
-            judgeModel = judgeModel ?? model ?? "unknown",
-            timestamp = DateTime.UtcNow.ToString("o"),
-            verdicts,
+            Model = model ?? "unknown",
+            JudgeModel = judgeModel ?? model ?? "unknown",
+            Timestamp = DateTime.UtcNow.ToString("o"),
+            Verdicts = verdicts,
         };
 
-        var json = JsonSerializer.Serialize(output, new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        });
+        var json = JsonSerializer.Serialize(output, SkillValidatorJsonContext.Default.ResultsOutput);
 
         await File.WriteAllTextAsync(Path.Combine(resultsDir, "results.json"), json);
         Console.WriteLine($"JSON results written to {Path.Combine(resultsDir, "results.json")}");
 
         // Write per-skill verdict.json files for downstream consumers (e.g. dashboard)
-        var jsonOptions = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        };
         foreach (var verdict in verdicts)
         {
             var skillDir = Path.Combine(resultsDir, SafeDirName(verdict.SkillName));
             Directory.CreateDirectory(skillDir);
-            var verdictJson = JsonSerializer.Serialize(verdict, jsonOptions);
+            var verdictJson = JsonSerializer.Serialize(verdict, SkillValidatorJsonContext.Default.SkillVerdict);
             await File.WriteAllTextAsync(Path.Combine(skillDir, "verdict.json"), verdictJson);
         }
     }
