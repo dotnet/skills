@@ -10,14 +10,93 @@ on:
     paths:
       - 'eng/skill-validator/**'
       - '.github/workflows/skill-validator.yml'
+  schedule:
+    - cron: '0 8 * * *' # daily at 08:00 UTC
 
 jobs:
-  test:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+          - os: windows-latest
+            rid: win-x64
+          - os: windows-11-arm
+            rid: win-arm64
+          - os: macos-latest
+            rid: osx-arm64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build eng/skill-validator/SkillValidator.slnx
+
+      - name: Test
+        run: dotnet test --solution eng/skill-validator/SkillValidator.slnx --no-build
+
+      - name: Publish NativeAOT for ${{ matrix.rid }}
+        run: dotnet publish eng/skill-validator/src/SkillValidator.csproj --use-current-runtime
+
+      - name: Pack NuGet tool package
+        run: dotnet pack eng/skill-validator/src/SkillValidator.csproj --no-build
+
+      - name: Create tarball
+        shell: bash
+        run: tar -czf skill-validator-${{ matrix.rid }}.tar.gz -C artifacts/publish/SkillValidator/release .
+
+      - name: Upload tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: skill-validator-${{ matrix.rid }}
+          path: skill-validator-${{ matrix.rid }}.tar.gz
+          retention-days: ${{ github.event_name == 'schedule' && 90 || 5 }}
+          if-no-files-found: error
+
+      - name: Upload NuGet package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-${{ matrix.rid }}
+          path: artifacts/package/release/*.nupkg
+          retention-days: 5
+          if-no-files-found: error
+
+  collect-packages:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
-      - run: dotnet build eng/skill-validator/SkillValidator.slnx
-      - run: dotnet test --solution eng/skill-validator/SkillValidator.slnx --no-build
+
+      - name: Pack RID-agnostic NuGet package
+        run: dotnet pack eng/skill-validator/src/SkillValidator.csproj
+
+      - name: Download all per-RID NuGet packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nuget-*
+          path: packages
+          merge-multiple: true
+
+      - name: Collect agnostic package
+        shell: bash
+        run: cp artifacts/package/release/*.nupkg packages/
+
+      - name: Upload combined NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: skill-validator-nupkgs
+          path: packages/*.nupkg
+          retention-days: ${{ github.event_name == 'schedule' && 90 || 5 }}
+          if-no-files-found: error
