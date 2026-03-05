@@ -140,7 +140,7 @@ function Get-ImageTable($crashBody) {
         $images += [PSCustomObject]@{
             Index     = $i
             Name      = $img.name
-            Base      = [uint64]('0x' + ($img.base -replace '^0x', ''))
+            Base      = [uint64]$img.base
             Uuid      = Format-Uuid $img.uuid
             Arch      = if ($img.arch) { $img.arch } else { 'arm64' }
             IsDotNet  = (Test-DotNetLibrary $img.name)
@@ -477,7 +477,7 @@ if ($body.threads) {
 }
 
 # Also check lastExceptionBacktrace if present
-if ($body.lastExceptionBacktrace -and -not $CrashingThreadOnly) {
+if ($body.PSObject.Properties['lastExceptionBacktrace'] -and $body.lastExceptionBacktrace -and -not $CrashingThreadOnly) {
     $lebtFrames = Get-ThreadFrames ([PSCustomObject]@{ frames = $body.lastExceptionBacktrace }) $images
     if ($lebtFrames.Count -gt 0) {
         $threads = @([PSCustomObject]@{ Header = 'Last Exception Backtrace'; Frames = @($lebtFrames) }) + $threads
