@@ -1,58 +1,136 @@
 scenarios:
-  - name: "Symbolicate .NET frames in iOS crash log"
-    prompt: "I have an iOS crash log at crashlog_ios.txt from a crashed .NET MAUI app. Please symbolicate the .NET runtime frames in the backtrace to show function names and source locations."
+  - name: "Symbolicate .NET Mono frames in an iOS crash log"
+    prompt: "I have an iOS .ips crash log at crash_mono.ips from a crashed .NET MAUI app. Please symbolicate the .NET runtime frames in the backtrace to show function names and source locations."
     setup:
       copy_test_files: true
     assertions:
+      - type: "output_matches"
+        pattern: "libmonosgen-2\\.0"
+      - type: "output_matches"
+        pattern: "b2c3d4e5f6a78901bcdef23456789012"
       - type: "output_matches"
         pattern: "atos"
       - type: "output_matches"
-        pattern: "0x100000000"
+        pattern: "(dSYM|dsym|dwarfdump)"
       - type: "output_matches"
-        pattern: "8a2b3c4d5e6f78901234567890abcdef"
-      - type: "output_matches"
-        pattern: "-arch\\s+arm64"
-      - type: "output_matches"
-        pattern: "EXC_CRASH|SIGABRT"
+        pattern: "SIGABRT"
     rubric:
-      - "Parsed the iOS crash log and identified the crashing thread (Thread 0)"
-      - "Identified MyApp frames with load address 0x100000000 and extracted the UUID 8a2b3c4d5e6f78901234567890abcdef from Binary Images"
-      - "Showed an atos command with -arch arm64, the load address, and frame addresses from the backtrace"
-      - "Mentioned dSYM debug symbols and how to verify UUID match with dwarfdump --uuid"
-      - "Noted the exception type EXC_CRASH (SIGABRT) and its meaning"
+      - "Identified that the crash log contains .NET runtime frames from libmonosgen-2.0"
+      - "Extracted the UUID b2c3d4e5-f6a7-8901-bcde-f23456789012 from usedImages"
+      - "Showed the atos command with -arch arm64, -o pointing to a dSYM DWARF binary, and -l with the correct load address"
+      - "Checked the asi field and reported the NullReferenceException managed exception"
+      - "Produced or described a symbolicated backtrace with function names and source file locations"
     timeout: 300
 
-  - name: "Identify crash root cause and dSYM guidance"
-    prompt: "I have an iOS crash log at crashlog_ios.txt from a crashed .NET MAUI app. Please analyze the crash and tell me the root cause and how to find the dSYM debug symbols I need."
+  - name: "Recognize iOS crash log with no .NET frames"
+    prompt: "I have an iOS .ips crash log at crash_no_dotnet.ips from a crashed app. Please symbolicate the .NET runtime frames."
     setup:
       copy_test_files: true
     assertions:
       - type: "output_matches"
-        pattern: "8a2b3c4d5e6f78901234567890abcdef"
+        pattern: "(no .NET|not a .NET|no .net|no dotnet|no managed|not .NET|does not contain .NET|doesn.t contain .NET|no mono|no CoreCLR|no libmonosgen|no libcoreclr|no .NET runtime|pure Swift)"
       - type: "output_matches"
-        pattern: "(dSYM|\\.dSYM)"
-      - type: "output_matches"
-        pattern: "dwarfdump"
+        pattern: "(SwiftApp|libswiftCore|Swift|UIKit)"
     rubric:
-      - "Identified the crash as EXC_CRASH (SIGABRT) triggered on Thread 0"
-      - "Extracted the UUID 8a2b3c4d5e6f78901234567890abcdef for MyApp from the Binary Images section"
-      - "Described the dSYM search order: build output, .NET SDK packs, NuGet cache"
-      - "Explained how to verify UUID match using dwarfdump --uuid before symbolicating"
+      - "Correctly identified that the crash log contains no .NET runtime libraries (no libmonosgen-2.0 or libcoreclr)"
+      - "Did NOT attempt to search for dSYMs from .NET SDK packs or NuGet cache"
+      - "Did NOT fabricate or hallucinate symbolicated .NET frames"
+      - "Mentioned that the crash involves a Swift/UIKit app rather than a .NET app"
     timeout: 300
 
-  - name: "Produce atos symbolication commands"
-    prompt: "I have an iOS crash log at crashlog_ios.txt from a crashed .NET MAUI app. I have the dSYM files already. Please give me the exact atos commands to symbolicate the crash."
+  - name: "Symbolicate CoreCLR frames in an iOS crash log"
+    prompt: "I have an iOS .ips crash log at crash_coreclr.ips from a crashed .NET iOS app. Please symbolicate the .NET runtime frames in the backtrace."
     setup:
       copy_test_files: true
     assertions:
+      - type: "output_matches"
+        pattern: "libcoreclr"
+      - type: "output_matches"
+        pattern: "f2a3b4c5d6e78901fabcde2345678901"
       - type: "output_matches"
         pattern: "atos"
       - type: "output_matches"
-        pattern: "-l\\s+(0x)?100000000"
-      - type: "output_matches"
-        pattern: "(0x100abcdef|0x100123456|abcdef|123456)"
+        pattern: "EXC_BAD_ACCESS"
     rubric:
-      - "Produced atos commands using -arch arm64 and the correct load address 0x100000000 from Binary Images"
-      - "Included the frame addresses from the MyApp frames in Thread 0 (0x100abcdef and/or 0x100123456)"
-      - "Used the correct atos syntax: atos -arch arm64 -o <dsym_or_binary> -l <load_address> <addresses>"
+      - "Identified that the crash log contains .NET runtime frames from libcoreclr"
+      - "Extracted the UUID f2a3b4c5-d6e7-8901-fabc-de2345678901 from usedImages"
+      - "Showed the atos command with -arch arm64 and -o pointing to a dSYM DWARF binary"
+      - "Noted the EXC_BAD_ACCESS / SIGSEGV exception type indicating a memory access violation"
+      - "Did NOT assume the app is Mono-based — correctly identified it as CoreCLR"
+    timeout: 300
+
+  - name: "Recognize NativeAOT iOS crash with app binary and libSystem.Native"
+    prompt: "I have an iOS .ips crash log at crash_nativeaot.ips from a crashed .NET iOS app compiled with NativeAOT. Please symbolicate the .NET runtime frames in the backtrace."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(NativeAOT|native.AOT|nativeaot|statically.link|app.binary|AotApp)"
+      - type: "output_matches"
+        pattern: "libSystem\\.Native"
+      - type: "output_matches"
+        pattern: "libSystem\\.IO\\.Compression\\.Native"
+    rubric:
+      - "Recognized that this is a NativeAOT app — the runtime is statically linked into the app binary (AotApp), not a separate libcoreclr or libmonosgen-2.0"
+      - "Identified libSystem.Native and libSystem.IO.Compression.Native as .NET BCL native components that can be symbolicated with their own dSYMs"
+      - "Explained that the app binary (AotApp) requires the app's own dSYM from the build output, not dSYMs from SDK packs"
+      - "Did NOT confuse this with a Mono or CoreCLR JIT app"
+    timeout: 300
+
+  - name: "Symbolicate crash with multiple .NET libraries and different UUIDs"
+    prompt: "I have an iOS .ips crash log at crash_multi_lib.ips from a crashed .NET MAUI app. Please symbolicate the .NET runtime frames in the backtrace."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "libmonosgen-2\\.0"
+      - type: "output_matches"
+        pattern: "libSystem\\.Native"
+      - type: "output_matches"
+        pattern: "(libSystem\\.Globalization\\.Native|d4e5f6a7)"
+      - type: "output_matches"
+        pattern: "b2c3d4e5f6a78901bcdef23456789012"
+      - type: "output_matches"
+        pattern: "c3d4e5f6a7b89012cdef345678901234"
+      - type: "output_matches"
+        pattern: "atos"
+    rubric:
+      - "Identified .NET frames from multiple libraries: libmonosgen-2.0, libSystem.Native, and libSystem.Globalization.Native"
+      - "Extracted distinct UUIDs for each library from usedImages"
+      - "Showed separate atos commands (or a single script invocation) for symbolicating each library with its own dSYM"
+      - "Checked the asi field and reported the InvalidOperationException managed exception"
+    timeout: 300
+
+  - name: "Check ASI field for managed exception before symbolicating"
+    prompt: "I have an iOS .ips crash log at crash_mono.ips from a crashed .NET MAUI app. Can you help me figure out what went wrong?"
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(NullReferenceException|Object reference not set)"
+      - type: "output_matches"
+        pattern: "(asi|Application Specific Information)"
+    rubric:
+      - "Checked the asi field FIRST and found the managed NullReferenceException"
+      - "Reported the managed exception as the likely root cause before diving into native symbolication"
+      - "Still offered to symbolicate the native frames for additional context"
+      - "Did NOT ignore the asi field and jump straight to native symbolication"
+    timeout: 300
+
+  - name: "Reject Android tombstone passed as iOS crash log"
+    prompt: "I have a crash file at crash_android.txt from a crashed app. Please use the iOS crash symbolication skill to symbolicate the .NET runtime frames."
+    expect_activation: false
+    setup:
+      copy_test_files: true
+      extra_files:
+        - source: "../android-tombstone-symbolication/tombstone_sample.txt"
+          dest: "crash_android.txt"
+    assertions:
+      - type: "output_matches"
+        pattern: "(Android|tombstone|not.*(iOS|.ips)|wrong.*(format|type)|different.*(format|process))"
+    rubric:
+      - "Recognized that this is an Android tombstone, not an iOS .ips crash log"
+      - "Did NOT attempt to apply the iOS crash symbolication workflow"
+      - "Did NOT attempt to run atos or search for dSYMs"
+      - "Suggested using the Android tombstone symbolication skill instead"
     timeout: 300
