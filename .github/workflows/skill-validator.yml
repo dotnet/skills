@@ -48,10 +48,10 @@ jobs:
       - name: Test
         run: dotnet test --solution eng/skill-validator/SkillValidator.slnx --no-build
 
-      - name: Pack NuGet tool package
+      - name: Pack RID-specific NuGet package
         run: dotnet pack eng/skill-validator/src/SkillValidator.csproj --use-current-runtime
 
-      - name: Upload NuGet package
+      - name: Upload RID-specific NuGet package
         uses: actions/upload-artifact@v4
         with:
           name: nuget-${{ matrix.rid }}
@@ -59,33 +59,17 @@ jobs:
           retention-days: ${{ github.event_name == 'schedule' && 90 || 5 }}
           if-no-files-found: error
 
-  collect-packages:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
-
       - name: Pack RID-agnostic NuGet package
-        run: dotnet pack eng/skill-validator/src/SkillValidator.csproj
+        if: matrix.rid == 'linux-x64'
+        run: |
+          rm -rf artifacts/package/release
+          dotnet pack eng/skill-validator/src/SkillValidator.csproj
 
-      - name: Download all per-RID NuGet packages
-        uses: actions/download-artifact@v4
-        with:
-          pattern: nuget-*
-          path: packages
-          merge-multiple: true
-
-      - name: Collect agnostic package
-        shell: bash
-        run: cp artifacts/package/release/*.nupkg packages/
-
-      - name: Upload combined NuGet packages
+      - name: Upload RID-agnostic NuGet package
+        if: matrix.rid == 'linux-x64'
         uses: actions/upload-artifact@v4
         with:
-          name: nuget-bundled
-          path: packages/*.nupkg
+          name: nuget-agnostic
+          path: artifacts/package/release/*.nupkg
           retention-days: ${{ github.event_name == 'schedule' && 90 || 5 }}
           if-no-files-found: error
