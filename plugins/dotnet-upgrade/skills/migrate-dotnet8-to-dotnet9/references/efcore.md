@@ -1,6 +1,6 @@
 # Entity Framework Core 9 Breaking Changes
 
-These changes affect projects using EF Core or Microsoft.Data.Sqlite.
+These changes affect projects using EF Core.
 
 ## High-Impact Changes
 
