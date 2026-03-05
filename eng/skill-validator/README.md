@@ -19,8 +19,8 @@ Plugging into your CI, it ensures every new skill adds real value, and existing 
 
 ## Prerequisites
 
-- .NET 10 SDK or later (for building in this repo - the NativeAOT published binary doesn't need the SDK installed)
-- Authenticated with GitHub via `gh auth login` (the SDK picks up your credentials automatically)
+- .NET 10 SDK or later (for building from source - the NativeAOT published binary is self-contained and doesn't need the .NET SDK installed)
+- Authenticated with GitHub via `gh auth login` (the GitHub Copilot SDK picks up your credentials automatically)
 
 ### Download from pipeline artifacts
 
@@ -29,7 +29,7 @@ On non-Windows platforms, you may need to run `chmod +x` on the `skill-validator
 
 ## Usage
 
-All examples below use the `skill-validator` binary directly. If running from source, replace `skill-validator` with `dotnet run --project src/SkillValidator --`:
+All examples below use the `skill-validator` binary directly. If running from source, replace `skill-validator` with `dotnet run --project eng/skill-validator/src --`:
 
 ```bash
 # Show help and all available options
