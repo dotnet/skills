@@ -48,28 +48,28 @@ jobs:
       - name: Test
         run: dotnet test --solution eng/skill-validator/SkillValidator.slnx --no-build
 
-      - name: Pack RID-specific NuGet package
+      - name: Pack NuGet packages
         run: dotnet pack eng/skill-validator/src/SkillValidator.csproj --use-current-runtime
 
       - name: Upload RID-specific NuGet package
         uses: actions/upload-artifact@v4
         with:
           name: skill-validator-${{ matrix.rid }}
-          path: artifacts/package/release/*.nupkg
+          path: artifacts/package/release/Microsoft.DotNet.SkillValidator.${{ matrix.rid }}.*.nupkg
           retention-days: ${{ github.event_name == 'schedule' && 90 || 5 }}
           if-no-files-found: error
 
       - name: Pack RID-agnostic NuGet package
         if: matrix.rid == 'linux-x64'
-        run: |
-          rm -rf artifacts/package/release
-          dotnet pack eng/skill-validator/src/SkillValidator.csproj
+        run: dotnet pack eng/skill-validator/src/SkillValidator.csproj
 
       - name: Upload RID-agnostic NuGet package
         if: matrix.rid == 'linux-x64'
         uses: actions/upload-artifact@v4
         with:
           name: skill-validator
-          path: artifacts/package/release/*.nupkg
+          path: |
+            artifacts/package/release/Microsoft.DotNet.SkillValidator.*.nupkg
+            !artifacts/package/release/Microsoft.DotNet.SkillValidator.linux-x64.*.nupkg
           retention-days: ${{ github.event_name == 'schedule' && 90 || 5 }}
           if-no-files-found: error
