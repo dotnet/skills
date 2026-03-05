@@ -11,6 +11,7 @@
     <ToolCommandName>skillvalidator</ToolCommandName>
     <Version>1.0.0</Version>
     <Description>Validate that agent skills meaningfully improve agent performance</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!-- Publishing -->
     <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-arm64</RuntimeIdentifiers>
@@ -19,6 +20,10 @@
     <!-- dotnet run args for local invocation -->
     <RunArguments>--results-dir &quot;$([MSBuild]::NormalizePath('$(ArtifactsPath)', 'TestResults', '$(AssemblyName)'))&quot; --parallel-skills 3 --parallel-scenarios 3 --parallel-runs 3</RunArguments>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="SkillValidator.Tests" />
