@@ -93,7 +93,7 @@ jobs:
       - name: Upload combined NuGet packages
         uses: actions/upload-artifact@v4
         with:
-          name: skill-validator-nupkgs
+          name: nuget-bundled
           path: packages/*.nupkg
           retention-days: ${{ github.event_name == 'schedule' && 90 || 5 }}
           if-no-files-found: error
