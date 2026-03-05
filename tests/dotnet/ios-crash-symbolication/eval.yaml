@@ -1,0 +1,58 @@
+scenarios:
+  - name: "Symbolicate .NET frames in iOS crash log"
+    prompt: "I have an iOS crash log at crashlog_ios.txt from a crashed .NET MAUI app. Please symbolicate the .NET runtime frames in the backtrace to show function names and source locations."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "atos"
+      - type: "output_matches"
+        pattern: "0x100000000"
+      - type: "output_matches"
+        pattern: "8a2b3c4d5e6f78901234567890abcdef"
+      - type: "output_matches"
+        pattern: "-arch\\s+arm64"
+      - type: "output_matches"
+        pattern: "EXC_CRASH|SIGABRT"
+    rubric:
+      - "Parsed the iOS crash log and identified the crashing thread (Thread 0)"
+      - "Identified MyApp frames with load address 0x100000000 and extracted the UUID 8a2b3c4d5e6f78901234567890abcdef from Binary Images"
+      - "Showed an atos command with -arch arm64, the load address, and frame addresses from the backtrace"
+      - "Mentioned dSYM debug symbols and how to verify UUID match with dwarfdump --uuid"
+      - "Noted the exception type EXC_CRASH (SIGABRT) and its meaning"
+    timeout: 300
+
+  - name: "Identify crash root cause and dSYM guidance"
+    prompt: "I have an iOS crash log at crashlog_ios.txt from a crashed .NET MAUI app. Please analyze the crash and tell me the root cause and how to find the dSYM debug symbols I need."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "8a2b3c4d5e6f78901234567890abcdef"
+      - type: "output_matches"
+        pattern: "(dSYM|\\.dSYM)"
+      - type: "output_matches"
+        pattern: "dwarfdump"
+    rubric:
+      - "Identified the crash as EXC_CRASH (SIGABRT) triggered on Thread 0"
+      - "Extracted the UUID 8a2b3c4d5e6f78901234567890abcdef for MyApp from the Binary Images section"
+      - "Described the dSYM search order: build output, .NET SDK packs, NuGet cache"
+      - "Explained how to verify UUID match using dwarfdump --uuid before symbolicating"
+    timeout: 300
+
+  - name: "Produce atos symbolication commands"
+    prompt: "I have an iOS crash log at crashlog_ios.txt from a crashed .NET MAUI app. I have the dSYM files already. Please give me the exact atos commands to symbolicate the crash."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "atos"
+      - type: "output_matches"
+        pattern: "-l\\s+(0x)?100000000"
+      - type: "output_matches"
+        pattern: "(0x100abcdef|0x100123456|abcdef|123456)"
+    rubric:
+      - "Produced atos commands using -arch arm64 and the correct load address 0x100000000 from Binary Images"
+      - "Included the frame addresses from the MyApp frames in Thread 0 (0x100abcdef and/or 0x100123456)"
+      - "Used the correct atos syntax: atos -arch arm64 -o <dsym_or_binary> -l <load_address> <addresses>"
+    timeout: 300
