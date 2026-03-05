@@ -189,7 +189,7 @@ Assembly loading issues (`FileNotFoundException`, `FileLoadException`, `Reflecti
 
 The provider specification is `Microsoft-Windows-DotNETRuntime:0x4:4` (provider name, AssemblyLoader keyword, Informational verbosity).
 
-- **Windows (PerfView)**: Use `PerfView collect /Providers:*Microsoft-Windows-DotNETRuntime:0x4:4`. PerfView already collects some loader events by default, but specifying the Loader keyword explicitly ensures all binder events are captured at Informational level.
+- **Windows (PerfView)**: Use `PerfView collect /Providers:Microsoft-Windows-DotNETRuntime:0x4:4`. PerfView already collects some loader events by default, but specifying the Loader keyword explicitly ensures all binder events are captured at Informational level.
 - **Linux / cross-platform (dotnet-trace)**: Use `dotnet-trace collect --clrevents assemblyloader -- <path-to-built-exe>` to launch and trace the process, or `dotnet-trace collect --clrevents assemblyloader -p <PID>` to attach to a running process.
 - **Linux .NET 10+ with root**: Use `dotnet-trace collect-linux --clrevents assemblyloader`.
 - **Containers**: `dotnet-monitor` can capture traces with the loader provider via its REST API.
