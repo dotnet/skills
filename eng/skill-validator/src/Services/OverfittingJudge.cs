@@ -220,13 +220,19 @@ public static partial class OverfittingJudge
 
         // Merge deterministic prompt assessments (high priority) with LLM-detected ones.
         // Deterministic detections are authoritative — they have confidence 1.0.
-        // Only add LLM detections for scenarios not already covered by deterministic checks.
+        // Only add LLM detections for (scenario, issue) pairs not already covered by deterministic checks.
         var promptAssessments = new List<PromptOverfitAssessment>(deterministicPromptAssessments ?? []);
-        var coveredScenarios = new HashSet<string>(promptAssessments.Select(p => p.Scenario), StringComparer.OrdinalIgnoreCase);
+        var coveredScenarioIssues = new HashSet<string>(
+            promptAssessments.Select(p => $"{p.Scenario}\u0001{p.Issue}".ToLowerInvariant())
+        );
         foreach (var llmAssessment in llmPromptAssessments)
         {
-            if (!coveredScenarios.Contains(llmAssessment.Scenario))
+            var key = $"{llmAssessment.Scenario}\u0001{llmAssessment.Issue}".ToLowerInvariant();
+            if (!coveredScenarioIssues.Contains(key))
+            {
                 promptAssessments.Add(llmAssessment);
+                coveredScenarioIssues.Add(key);
+            }
         }
 
         double llmOverallScore = 0.0;
