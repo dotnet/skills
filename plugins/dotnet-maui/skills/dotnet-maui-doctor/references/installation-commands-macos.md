@@ -8,6 +8,8 @@
 
 Download a specific version from [Apple Developer Downloads](https://developer.apple.com/download/all/), matching the `xcode.version` range from WorkloadDependencies.json.
 
+> **Note**: Downloading from Apple Developer Downloads requires signing in with an Apple ID (with two-factor authentication). The agent cannot automate this — tell the user to download Xcode manually and then continue with the remaining steps.
+
 ### Install Command Line Tools
 
 ```bash

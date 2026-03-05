@@ -49,7 +49,7 @@ Registry: `HKLM\SOFTWARE\Microsoft\JDK\{VERSION}`
 
 Detection:
 ```powershell
-Get-ChildItem "C:\Program Files\Microsoft" -Filter "jdk-*" -ErrorAction SilentlyContinue
+Get-ChildItem "$env:ProgramFiles\Microsoft" -Filter "jdk-*" -ErrorAction SilentlyContinue
 java -version 2>&1 | Select-String "Microsoft"
 ```
 
@@ -94,6 +94,8 @@ unset JAVA_HOME
 # Windows PowerShell
 Remove-Item Env:JAVA_HOME
 ```
+
+> **Note**: Rather than automatically unsetting JAVA_HOME, report it as an anomaly to the user and let them decide. Example: "JAVA_HOME is set to a non-Microsoft JDK (Oracle). .NET MAUI auto-detects Microsoft OpenJDK, so JAVA_HOME is not needed. This may cause build issues."
 
 ### Multiple JDKs Installed
 

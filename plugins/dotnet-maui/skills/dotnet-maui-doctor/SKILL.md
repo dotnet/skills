@@ -108,7 +108,7 @@ Query NuGet for workload manifest → extract `WorkloadDependencies.json` → ge
 |-----------------|-----|--------|
 | Not set | ✅ | None needed — auto-detection works |
 | Set to Microsoft JDK | ✅ | None needed |
-| Set to non-Microsoft JDK | ❌ | **Unset it** or redirect to Microsoft JDK path |
+| Set to non-Microsoft JDK | ⚠️ | **Report as anomaly** — let user decide to unset or redirect |
 
 ### Task 6: Validate Android SDK
 
@@ -125,7 +125,7 @@ Compare against `xcode.version` range from Task 4. See `references/installation-
 ### Task 8: Validate Windows SDK (Windows Only)
 
 ```powershell
-Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots"
+(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots" -ErrorAction SilentlyContinue).KitsRoot10
 ```
 
 See `references/installation-commands-windows.md`.
@@ -187,7 +187,7 @@ Only run the target frameworks relevant to the user's platform and intent. This 
 - **`maui` vs `maui-android` workload**: On Linux, the `maui` meta-workload is not available — use `maui-android` instead. On macOS/Windows, `maui` installs all platform workloads.
 - **`workload update` / `workload repair`**: Never use these commands. Always install workloads with an explicit `--version` flag to ensure version consistency.
 - **Non-Microsoft JDK**: Only Microsoft OpenJDK is supported. Other distributions (Oracle, Adoptium, Azul) will cause build failures even if the version is correct.
-- **Unnecessary JAVA_HOME**: Do not set JAVA_HOME. MAUI auto-detects JDK from known install paths. Setting JAVA_HOME to a non-Microsoft JDK (e.g., Temurin) overrides auto-detection and causes failures. If already set to a wrong JDK, **unset it** (`unset JAVA_HOME` / `Remove-Item Env:JAVA_HOME`).
+- **Unnecessary JAVA_HOME**: Do not set JAVA_HOME. MAUI auto-detects JDK from known install paths. If JAVA_HOME is set to a non-Microsoft JDK (e.g., Temurin), report this as an anomaly — it may override auto-detection and cause failures. Let the user decide whether to unset it.
 - **Hardcoded versions**: Never hardcode SDK, workload, or dependency versions. Always discover them dynamically from the NuGet APIs (see Task 4).
 - **Android SDK `sdkmanager` on Windows**: Use `sdkmanager.bat`, not `sdkmanager`, on Windows.
 - **Stale training data**: LLM training data may reference outdated .NET versions. Always check the releases-index.json to discover the current active release.

@@ -78,20 +78,12 @@ See `microsoft-openjdk.md` for complete installation paths by platform.
 - ✅ `JAVA_HOME` points to Microsoft JDK → Fine
 
 **Solution (only if JAVA_HOME is set to wrong JDK):**
-```bash
-# Option 1: Unset JAVA_HOME (let tools auto-detect)
-unset JAVA_HOME
 
-# Option 2: Point to Microsoft JDK (macOS)
-export JAVA_HOME=/Library/Java/JavaVirtualMachines/microsoft-{VERSION}.jdk/Contents/Home
+Report this as an anomaly to the user: "JAVA_HOME is set to a non-Microsoft JDK. .NET MAUI auto-detects Microsoft OpenJDK, so JAVA_HOME is not needed and may cause build issues."
 
-# Option 2: Point to Microsoft JDK (Linux)
-export JAVA_HOME=/usr/lib/jvm/msopenjdk-{VERSION}
-
-# Option 2: Point to Microsoft JDK (Windows PowerShell)
-$env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-{VERSION}"
-# Or remove it: Remove-Item Env:JAVA_HOME
-```
+The user can then decide to:
+- Unset JAVA_HOME (recommended — lets auto-detection work)
+- Point it to Microsoft JDK if they have a specific reason to keep it set
 
 ### "Unsupported Java version" or "Wrong JDK vendor"
 
@@ -109,10 +101,7 @@ $env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-{VERSION}"
 
 **Solution**:
 1. Install the recommended Microsoft OpenJDK version (see commands above)
-2. Set `JAVA_HOME` to Microsoft JDK path:
-   - macOS: `/Library/Java/JavaVirtualMachines/microsoft-{VERSION}.jdk/Contents/Home`
-   - Windows: `C:\Program Files\Microsoft\jdk-{VERSION}\`
-   - Linux: `/usr/lib/jvm/msopenjdk-{VERSION}`
+2. If `JAVA_HOME` is set and points to a non-Microsoft JDK, report this as an anomaly — the user should unset it or point it to the Microsoft JDK path
 3. Optionally uninstall the non-Microsoft JDK
 
 ### Multiple JDKs installed, wrong one selected
@@ -287,7 +276,7 @@ dotnet workload install [workload-name] --version $WORKLOAD_VERSION
 **Key point about JAVA_HOME:**
 - ✅ Not set → Fine, tools auto-detect Microsoft JDK
 - ✅ Set to Microsoft JDK path → Fine
-- ❌ Set to non-Microsoft JDK → Problem! Unset or fix it
+- ❌ Set to non-Microsoft JDK → Anomaly! Report to user
 
 **Note**: The .NET MAUI toolchain auto-detects most paths. Only set these manually if auto-detection fails or wrong JDK is being selected.
 
