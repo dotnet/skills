@@ -52,6 +52,7 @@ scenarios:
       - "Provided correct symbolication commands or ran the automation script to resolve native frames"
       - "Noted the EXC_BAD_ACCESS / SIGSEGV exception type indicating a memory access violation"
       - "Did NOT assume the app is Mono-based — correctly identified it as CoreCLR"
+      - "Searched for or referenced specific .NET SDK pack paths or NuGet cache directories where the CoreCLR dSYM can be found"
     timeout: 300
 
   - name: "Recognize NativeAOT iOS crash with app binary and libSystem.Native"
@@ -104,6 +105,7 @@ scenarios:
       - "Reported the managed exception as the likely root cause"
       - "Still offered or attempted to symbolicate the native frames for additional context"
       - "Did NOT ignore the managed exception — it should appear prominently in the output"
+      - "Provided specific dSYM search paths (SDK packs or NuGet cache) for symbolicating the native Mono frames"
     timeout: 300
 
   - name: "Reject Android tombstone passed as iOS crash log"
