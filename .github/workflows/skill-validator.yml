@@ -52,7 +52,7 @@ jobs:
         run: dotnet publish eng/skill-validator/src/SkillValidator.csproj --use-current-runtime
 
       - name: Pack NuGet tool package
-        run: dotnet pack eng/skill-validator/src/SkillValidator.csproj --no-build
+        run: dotnet pack eng/skill-validator/src/SkillValidator.csproj --no-build --use-current-runtime
 
       - name: Upload published binary
         uses: actions/upload-artifact@v4
