@@ -51,20 +51,12 @@ jobs:
       - name: Pack NuGet tool package
         run: dotnet pack eng/skill-validator/src/SkillValidator.csproj --use-current-runtime
 
-      - name: Upload published binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: skill-validator-${{ matrix.rid }}
-          path: artifacts/publish/SkillValidator/release/
-          retention-days: ${{ github.event_name == 'schedule' && 90 || 5 }}
-          if-no-files-found: error
-
       - name: Upload NuGet package
         uses: actions/upload-artifact@v4
         with:
           name: nuget-${{ matrix.rid }}
           path: artifacts/package/release/*.nupkg
-          retention-days: 5
+          retention-days: ${{ github.event_name == 'schedule' && 90 || 5 }}
           if-no-files-found: error
 
   collect-packages:
