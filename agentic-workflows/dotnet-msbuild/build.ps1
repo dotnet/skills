@@ -5,7 +5,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$RepoRoot = Split-Path $PSScriptRoot -Parent
+$RepoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $SkillsDir = Join-Path $RepoRoot 'plugins' 'dotnet-msbuild' 'skills'
 $DomainGatePattern = 'Only activate in MSBuild/\.NET build context'
 
@@ -47,9 +47,9 @@ foreach ($dir in $skillDirs) {
 }
 
 # Delegate description size checks to the central validation script
-$descValidator = Join-Path $RepoRoot '..' 'eng' 'validate-descriptions.ps1'
+$descValidator = Join-Path $RepoRoot 'eng' 'validate-descriptions.ps1'
 if (Test-Path $descValidator) {
-    $pluginsRoot = Join-Path $RepoRoot '..' 'plugins'
+    $pluginsRoot = Join-Path $RepoRoot 'plugins'
     & pwsh $descValidator -PluginsDir (Resolve-Path $pluginsRoot)
     if ($LASTEXITCODE -ne 0) { $errors++ }
 }

@@ -83,7 +83,8 @@ public static partial class SkillProfiler
 
         // --- agentskills.io spec: body line count (warning only — upgrade to blocking
         // error after existing skills are fixed, see dotnet/skills#222) ---
-        int bodyLineCount = body.Split('\n').Length;
+        var trimmedBody = body.TrimEnd('\r', '\n');
+        int bodyLineCount = trimmedBody.Length == 0 ? 0 : trimmedBody.Split('\n').Length;
         if (bodyLineCount > MaxBodyLines)
         {
             warnings.Add($"SKILL.md body is {bodyLineCount} lines — spec recommends max {MaxBodyLines}. Move detailed reference material to separate files.");
@@ -96,10 +97,32 @@ public static partial class SkillProfiler
             var refPath = refMatch.Groups[1].Value;
             if (refPath.StartsWith("http", StringComparison.OrdinalIgnoreCase) || refPath.StartsWith('#'))
                 continue;
-            int depth = refPath.Split('/').Length;
-            if (depth > 2) // e.g. "references/deep/nested/file.md" = depth 4
+
+            // Strip fragment anchors (e.g. "file.md#section")
+            int fragmentIndex = refPath.IndexOf('#');
+            if (fragmentIndex >= 0)
+                refPath = refPath[..fragmentIndex];
+            if (refPath.Length == 0)
+                continue;
+
+            // Normalize: trim leading "./"
+            if (refPath.StartsWith("./"))
+                refPath = refPath[2..];
+
+            var segments = refPath.Split('/');
+
+            // Reject parent-directory traversals
+            if (segments.Any(s => s == ".."))
             {
-                warnings.Add($"File reference '{refPath}' is nested {depth} levels deep — spec recommends keeping references one level from SKILL.md.");
+                warnings.Add($"File reference '{refMatch.Groups[1].Value}' uses parent-directory traversal — references must stay within the skill directory.");
+                continue;
+            }
+
+            // Depth = directory segments only (exclude filename)
+            int dirDepth = segments.Length - 1;
+            if (dirDepth > 1) // e.g. "references/deep/file.md" = dirDepth 2
+            {
+                warnings.Add($"File reference '{refMatch.Groups[1].Value}' is {dirDepth} directories deep — spec recommends max 1 level from SKILL.md.");
             }
         }
 

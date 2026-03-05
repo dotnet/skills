@@ -11,7 +11,7 @@ public class AnalyzeSkillTests
             Name: name,
             Description: description,
             Path: path ?? $"/tmp/{name}",
-            SkillMdPath: $"/tmp/{name}/SKILL.md",
+            SkillMdPath: $"{path ?? $"/tmp/{name}"}/SKILL.md",
             SkillMdContent: content,
             EvalPath: null,
             EvalConfig: null);
@@ -320,6 +320,15 @@ public class AnalyzeSkillTests
         Assert.DoesNotContain(profile.Warnings, w => w.Contains("lines") && w.Contains("500"));
     }
 
+    [Fact]
+    public void BodyAt500LinesWithTrailingNewlineNoWarning()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 500).Select(i => $"Line {i}")) + "\n";
+        var content = "---\nname: test-skill\n---\n" + body;
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("lines") && w.Contains("500"));
+    }
+
     // --- File reference depth tests ---
 
     [Fact]
@@ -327,7 +336,7 @@ public class AnalyzeSkillTests
     {
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](deep/nested/file.md)\n" + new string('x', 4000);
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.Contains(profile.Warnings, w => w.Contains("nested") && w.Contains("levels deep"));
+        Assert.Contains(profile.Warnings, w => w.Contains("deep/nested/file.md") && w.Contains("directories deep"));
     }
 
     [Fact]
@@ -335,7 +344,7 @@ public class AnalyzeSkillTests
     {
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](references/file.md)\n" + new string('x', 4000);
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.DoesNotContain(profile.Warnings, w => w.Contains("levels deep"));
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("directories deep") || w.Contains("traversal"));
     }
 
     [Fact]
@@ -343,7 +352,31 @@ public class AnalyzeSkillTests
     {
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [docs](https://example.com/a/b/c)\n" + new string('x', 4000);
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.DoesNotContain(profile.Warnings, w => w.Contains("levels deep"));
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("directories deep") || w.Contains("traversal"));
+    }
+
+    [Fact]
+    public void ParentDirectoryTraversalWarns()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](../other-skill/SKILL.md)\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.Contains(profile.Warnings, w => w.Contains("parent-directory traversal"));
+    }
+
+    [Fact]
+    public void AnchorFragmentStrippedFromDepthCheck()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](references/file.md#section)\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("directories deep") || w.Contains("traversal"));
+    }
+
+    [Fact]
+    public void DotSlashPrefixNormalizedInDepthCheck()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](./references/file.md)\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("directories deep") || w.Contains("traversal"));
     }
 }
 
