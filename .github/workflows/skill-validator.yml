@@ -50,15 +50,11 @@ jobs:
       - name: Pack NuGet tool package
         run: dotnet pack eng/skill-validator/src/SkillValidator.csproj --no-build
 
-      - name: Create tarball
-        shell: bash
-        run: tar -czf skill-validator-${{ matrix.rid }}.tar.gz -C artifacts/publish/SkillValidator/release .
-
-      - name: Upload tarball
+      - name: Upload published binary
         uses: actions/upload-artifact@v4
         with:
           name: skill-validator-${{ matrix.rid }}
-          path: skill-validator-${{ matrix.rid }}.tar.gz
+          path: artifacts/publish/SkillValidator/release/
           retention-days: ${{ github.event_name == 'schedule' && 90 || 5 }}
           if-no-files-found: error
 
