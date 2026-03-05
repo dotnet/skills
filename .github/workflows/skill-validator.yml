@@ -77,3 +77,31 @@ jobs:
             !artifacts/package/release/Microsoft.DotNet.SkillValidator.${{ env.AGNOSTIC_RID }}.*.nupkg
           retention-days: ${{ env.RETENTION_DAYS }}
           if-no-files-found: error
+
+  release:
+    if: github.event_name == 'schedule'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create or update nightly release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="skill-validator-nightly"
+          gh release delete "$tag" --yes || true
+          git tag -f "$tag"
+          git push -f origin "$tag"
+          gh release create "$tag" release-assets/*.nupkg \
+            --title "SkillValidator Nightly" \
+            --notes "Automated nightly build from \`main\` ($(date -u +%Y-%m-%d))." \
+            --prerelease
