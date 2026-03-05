@@ -1,0 +1,54 @@
+scenarios:
+  - name: "Build agent with tool calling using MAF"
+    prompt: "Build a .NET 8 console app that creates an AI agent with two tools: one to search a product database and one to check inventory. The agent should be able to answer questions like 'Is the blue widget in stock?' by calling the appropriate tools. Use the Microsoft Agent Framework."
+    setup:
+      files:
+        - path: "AgentApp/AgentApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>Exe</OutputType>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "AgentApp/Program.cs"
+          content: |
+            Console.WriteLine("TODO: Build AI agent");
+    assertions:
+      - type: "output_contains"
+        value: "Microsoft.Agents.AI"
+      - type: "output_contains"
+        value: "AsAIAgent"
+      - type: "exit_success"
+    rubric:
+      - "Uses Microsoft.Agents.AI (AIAgent via AsAIAgent()) as the agent abstraction"
+      - "Uses Microsoft.Extensions.AI (IChatClient) as the foundation layer"
+      - "Defines tools with [Description] on methods and parameters"
+      - "Creates an AgentSession for conversation management"
+      - "Calls UseFunctionInvocation() on the ChatClientBuilder"
+    timeout: 360
+
+  - name: "Multi-agent orchestration with AsAIFunction"
+    prompt: "I need to build a system where a supervisor agent coordinates two specialist agents: a researcher that searches the web and an analyst that queries a database. The supervisor should delegate tasks to the appropriate specialist. Show me how to do this in .NET using the Agent Framework."
+    assertions:
+      - type: "output_contains"
+        value: "AsAIFunction"
+      - type: "exit_success"
+    rubric:
+      - "Uses AsAIFunction() to expose specialist agents as tools for the supervisor"
+      - "Creates separate AIAgent instances for each specialist with their own tools"
+      - "The supervisor agent's tools list includes the specialist agents via AsAIFunction()"
+      - "Uses AgentSession for the conversation with the supervisor"
+    timeout: 360
+
+  - name: "Recommend durable agents for production"
+    prompt: "I'm building a customer support agent that needs to maintain conversation state across server restarts and scale across multiple Kubernetes pods. What should I use in .NET?"
+    assertions:
+      - type: "output_contains"
+        value: "durable"
+    rubric:
+      - "Recommends MAF durable agents for persistence and horizontal scaling"
+      - "Mentions external storage (SQL, Cosmos, etc.) for state persistence"
+      - "Explains that in-memory agents lose state on restart"
+      - "Does NOT recommend Copilot SDK for this scenario (session state is per-machine)"
+    timeout: 120
