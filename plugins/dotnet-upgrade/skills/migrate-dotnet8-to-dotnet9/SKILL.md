@@ -96,43 +96,43 @@ Work through compilation errors and new warnings systematically. Load the approp
 
 | If the project uses… | Load reference |
 |-----------------------|----------------|
-| Any .NET 9 project | `references/csharp-compiler.md` |
-| Any .NET 9 project | `references/core-libraries.md` |
-| Any .NET 9 project | `references/sdk-msbuild.md` |
-| ASP.NET Core | `references/aspnet-core.md` |
-| Entity Framework Core | `references/efcore.md` |
-| Cryptography APIs | `references/cryptography.md` |
-| System.Text.Json, HttpClient, networking | `references/serialization-networking.md` |
-| Windows Forms or WPF | `references/winforms-wpf.md` |
-| Docker containers, native interop | `references/containers-interop.md` |
-| Runtime configuration, deployment | `references/deployment-runtime.md` |
+| Any .NET 9 project | `references/csharp-compiler-dotnet8to9.md` |
+| Any .NET 9 project | `references/core-libraries-dotnet8to9.md` |
+| Any .NET 9 project | `references/sdk-msbuild-dotnet8to9.md` |
+| ASP.NET Core | `references/aspnet-core-dotnet8to9.md` |
+| Entity Framework Core | `references/efcore-dotnet8to9.md` |
+| Cryptography APIs | `references/cryptography-dotnet8to9.md` |
+| System.Text.Json, HttpClient, networking | `references/serialization-networking-dotnet8to9.md` |
+| Windows Forms or WPF | `references/winforms-wpf-dotnet8to9.md` |
+| Docker containers, native interop | `references/containers-interop-dotnet8to9.md` |
+| Runtime configuration, deployment | `references/deployment-runtime-dotnet8to9.md` |
 
 **Common source-incompatible changes to check for:**
 
-1. **`params` span overload resolution** — New `params ReadOnlySpan<T>` overloads on `String.Join`, `String.Concat`, `Path.Combine`, `Task.WhenAll`, and many more now bind preferentially. Code calling these methods inside `Expression` lambdas will fail (CS8640/CS9226). See `references/core-libraries.md`.
+1. **`params` span overload resolution** — New `params ReadOnlySpan<T>` overloads on `String.Join`, `String.Concat`, `Path.Combine`, `Task.WhenAll`, and many more now bind preferentially. Code calling these methods inside `Expression` lambdas will fail (CS8640/CS9226). See `references/core-libraries-dotnet8to9.md`.
 
-2. **`StringValues` ambiguous overload** — The `params Span<T>` feature creates ambiguity with `StringValues` implicit operators on methods like `String.Concat`, `String.Join`, `Path.Combine`. Fix by explicitly casting arguments. See `references/core-libraries.md`.
+2. **`StringValues` ambiguous overload** — The `params Span<T>` feature creates ambiguity with `StringValues` implicit operators on methods like `String.Concat`, `String.Join`, `Path.Combine`. Fix by explicitly casting arguments. See `references/core-libraries-dotnet8to9.md`.
 
 3. **New obsoletion warnings (SYSLIB0054–SYSLIB0057)**:
    - `SYSLIB0054`: Replace `Thread.VolatileRead`/`VolatileWrite` with `Volatile.Read`/`Volatile.Write`
    - `SYSLIB0057`: Replace `X509Certificate2`/`X509Certificate` binary/file constructors with `X509CertificateLoader` methods
-   - Also `SYSLIB0055` (ARM AdvSimd signed overloads) and `SYSLIB0056` (Assembly.LoadFrom with hash algorithm) — see `references/core-libraries.md`
+   - Also `SYSLIB0055` (ARM AdvSimd signed overloads) and `SYSLIB0056` (Assembly.LoadFrom with hash algorithm) — see `references/core-libraries-dotnet8to9.md`
 
-4. **C# 13 `InlineArray` on record structs** — `[InlineArray]` attribute on `record struct` types is now disallowed (CS9259). Change to a regular `struct`. See `references/csharp-compiler.md`.
+4. **C# 13 `InlineArray` on record structs** — `[InlineArray]` attribute on `record struct` types is now disallowed (CS9259). Change to a regular `struct`. See `references/csharp-compiler-dotnet8to9.md`.
 
-5. **C# 13 iterator safe context** — Iterators now introduce a safe context in C# 13. Local functions inside iterators that used unsafe code inherited from an outer `unsafe` class will now error. Add `unsafe` modifier to the local function. See `references/csharp-compiler.md`.
+5. **C# 13 iterator safe context** — Iterators now introduce a safe context in C# 13. Local functions inside iterators that used unsafe code inherited from an outer `unsafe` class will now error. Add `unsafe` modifier to the local function. See `references/csharp-compiler-dotnet8to9.md`.
 
-6. **C# 13 collection expression overload resolution** — Empty collection expressions (`[]`) no longer use span vs non-span to tiebreak overloads. Exact element type is now preferred. See `references/csharp-compiler.md`.
+6. **C# 13 collection expression overload resolution** — Empty collection expressions (`[]`) no longer use span vs non-span to tiebreak overloads. Exact element type is now preferred. See `references/csharp-compiler-dotnet8to9.md`.
 
-7. **`String.Trim(params ReadOnlySpan<char>)` removed** — Code compiled against .NET 9 previews that passes `ReadOnlySpan<char>` to `Trim`/`TrimStart`/`TrimEnd` must rebuild; the overload was removed in GA. See `references/core-libraries.md`.
+7. **`String.Trim(params ReadOnlySpan<char>)` removed** — Code compiled against .NET 9 previews that passes `ReadOnlySpan<char>` to `Trim`/`TrimStart`/`TrimEnd` must rebuild; the overload was removed in GA. See `references/core-libraries-dotnet8to9.md`.
 
-8. **`BinaryFormatter` always throws** — If the project uses `BinaryFormatter`, **stop and inform the user** — this is a major decision. See `references/serialization-networking.md`.
+8. **`BinaryFormatter` always throws** — If the project uses `BinaryFormatter`, **stop and inform the user** — this is a major decision. See `references/serialization-networking-dotnet8to9.md`.
 
-9. **`HttpListenerRequest.UserAgent` is nullable** — The property is now `string?`. Add null checks. See `references/serialization-networking.md`.
+9. **`HttpListenerRequest.UserAgent` is nullable** — The property is now `string?`. Add null checks. See `references/serialization-networking-dotnet8to9.md`.
 
-10. **Windows Forms nullability annotation changes** — Some WinForms API parameters changed from nullable to non-nullable. Update call sites. See `references/winforms-wpf.md`.
+10. **Windows Forms nullability annotation changes** — Some WinForms API parameters changed from nullable to non-nullable. Update call sites. See `references/winforms-wpf-dotnet8to9.md`.
 
-11. **Windows Forms security analyzers (WFO1000)** — New analyzers produce errors for properties without explicit serialization configuration. See `references/winforms-wpf.md`.
+11. **Windows Forms security analyzers (WFO1000)** — New analyzers produce errors for properties without explicit serialization configuration. See `references/winforms-wpf-dotnet8to9.md`.
 
 Build again after each batch of fixes. Repeat until the build is clean.
 
@@ -142,19 +142,19 @@ Behavioral changes do not cause build errors but may change runtime behavior. Re
 
 **High-impact behavioral changes (check first):**
 
-1. **Floating-point to integer conversions are now saturating** — Conversions from `float`/`double` to integer types now saturate instead of wrapping on x86/x64. See `references/deployment-runtime.md`.
+1. **Floating-point to integer conversions are now saturating** — Conversions from `float`/`double` to integer types now saturate instead of wrapping on x86/x64. See `references/deployment-runtime-dotnet8to9.md`.
 
-2. **EF Core: Pending model changes exception** — `Migrate()`/`MigrateAsync()` now throws if the model has pending changes. See `references/efcore.md`.
+2. **EF Core: Pending model changes exception** — `Migrate()`/`MigrateAsync()` now throws if the model has pending changes. See `references/efcore-dotnet8to9.md`.
 
-3. **EF Core: Explicit transaction exception** — `Migrate()` inside a user transaction now throws. See `references/efcore.md`.
+3. **EF Core: Explicit transaction exception** — `Migrate()` inside a user transaction now throws. See `references/efcore-dotnet8to9.md`.
 
-4. **HttpClientFactory uses `SocketsHttpHandler` by default** — Code that casts the primary handler to `HttpClientHandler` will get `InvalidCastException`. See `references/serialization-networking.md`.
+4. **HttpClientFactory uses `SocketsHttpHandler` by default** — Code that casts the primary handler to `HttpClientHandler` will get `InvalidCastException`. See `references/serialization-networking-dotnet8to9.md`.
 
-5. **HttpClientFactory header redaction by default** — All header values in `Trace`-level logs are now redacted. See `references/serialization-networking.md`.
+5. **HttpClientFactory header redaction by default** — All header values in `Trace`-level logs are now redacted. See `references/serialization-networking-dotnet8to9.md`.
 
-6. **Environment variables take precedence over runtimeconfig.json** — Runtime configuration settings from environment variables now override `runtimeconfig.json`. See `references/deployment-runtime.md`.
+6. **Environment variables take precedence over runtimeconfig.json** — Runtime configuration settings from environment variables now override `runtimeconfig.json`. See `references/deployment-runtime-dotnet8to9.md`.
 
-7. **ASP.NET Core `ValidateOnBuild`/`ValidateScopes` in development** — `HostBuilder` now enables DI validation in development by default. See `references/aspnet-core.md`.
+7. **ASP.NET Core `ValidateOnBuild`/`ValidateScopes` in development** — `HostBuilder` now enables DI validation in development by default. See `references/aspnet-core-dotnet8to9.md`.
 
 **Other behavioral changes to review (may cause runtime exceptions ⚠️ or subtle behavioral differences):**
 
@@ -228,13 +228,13 @@ The `references/` folder contains detailed breaking change information organized
 
 | Reference file | When to load |
 |----------------|-------------|
-| `references/csharp-compiler.md` | Always (C# 13 compiler breaking changes — InlineArray on records, iterator safe context, collection expression overloads) |
-| `references/core-libraries.md` | Always (applies to all .NET 9 projects) |
-| `references/sdk-msbuild.md` | Always (SDK and build tooling changes) |
-| `references/aspnet-core.md` | Project uses ASP.NET Core |
-| `references/efcore.md` | Project uses Entity Framework Core |
-| `references/cryptography.md` | Project uses System.Security.Cryptography or X.509 certificates |
-| `references/serialization-networking.md` | Project uses BinaryFormatter, System.Text.Json, HttpClient, or networking APIs |
-| `references/winforms-wpf.md` | Project uses Windows Forms or WPF |
-| `references/containers-interop.md` | Project uses Docker containers or native interop (P/Invoke) |
-| `references/deployment-runtime.md` | Project uses runtime configuration, deployment, or has floating-point to integer conversions |
+| `references/csharp-compiler-dotnet8to9.md` | Always (C# 13 compiler breaking changes — InlineArray on records, iterator safe context, collection expression overloads) |
+| `references/core-libraries-dotnet8to9.md` | Always (applies to all .NET 9 projects) |
+| `references/sdk-msbuild-dotnet8to9.md` | Always (SDK and build tooling changes) |
+| `references/aspnet-core-dotnet8to9.md` | Project uses ASP.NET Core |
+| `references/efcore-dotnet8to9.md` | Project uses Entity Framework Core |
+| `references/cryptography-dotnet8to9.md` | Project uses System.Security.Cryptography or X.509 certificates |
+| `references/serialization-networking-dotnet8to9.md` | Project uses BinaryFormatter, System.Text.Json, HttpClient, or networking APIs |
+| `references/winforms-wpf-dotnet8to9.md` | Project uses Windows Forms or WPF |
+| `references/containers-interop-dotnet8to9.md` | Project uses Docker containers or native interop (P/Invoke) |
+| `references/deployment-runtime-dotnet8to9.md` | Project uses runtime configuration, deployment, or has floating-point to integer conversions |
