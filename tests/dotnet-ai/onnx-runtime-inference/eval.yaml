@@ -1,0 +1,55 @@
+scenarios:
+  - name: "Standalone ONNX model inference"
+    prompt: "Load an ONNX image classification model and run inference on an input image in this .NET 8 console app. Use the standalone ONNX Runtime API."
+    setup:
+      files:
+        - path: "OnnxApp/OnnxApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>Exe</OutputType>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "OnnxApp/Program.cs"
+          content: |
+            Console.WriteLine("TODO: Run ONNX inference");
+    assertions:
+      - type: "output_contains"
+        value: "InferenceSession"
+      - type: "output_contains"
+        value: "Microsoft.ML.OnnxRuntime"
+      - type: "exit_success"
+    rubric:
+      - "Uses Microsoft.ML.OnnxRuntime (standalone, not ML.NET integration)"
+      - "Creates InferenceSession as a reusable singleton"
+      - "Prepares input tensors with correct shape"
+      - "Extracts and processes output tensors"
+    timeout: 360
+
+  - name: "ML.NET with ONNX integration"
+    prompt: "I have a text classification ONNX model. Integrate it into an ML.NET pipeline that tokenizes input text, scores with the ONNX model, and returns the predicted class."
+    setup:
+      files:
+        - path: "TextClassifier/TextClassifier.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>Exe</OutputType>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "TextClassifier/Program.cs"
+          content: |
+            Console.WriteLine("TODO: ML.NET + ONNX text classification");
+    assertions:
+      - type: "output_contains"
+        value: "MLContext"
+      - type: "output_contains"
+        value: "Onnx"
+      - type: "exit_success"
+    rubric:
+      - "Uses ML.NET's ONNX integration (ApplyOnnxModel or OnnxScoringEstimator)"
+      - "Combines ML.NET transforms with ONNX scoring in a pipeline"
+      - "Creates MLContext with seed for reproducibility"
+    timeout: 360
