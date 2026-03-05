@@ -659,7 +659,7 @@ public class OverfittingJudgeTests
             assertion_assessments = Array.Empty<object>(),
             prompt_assessments = new[]
             {
-                new { scenario = "sc1", issue = "skill_instruction", confidence = 0.8, reasoning = "LLM detected" },
+                new { scenario = "sc1", issue = "explicit_skill_reference", confidence = 0.8, reasoning = "LLM detected" },
                 new { scenario = "sc2", issue = "explicit_skill_reference", confidence = 0.9, reasoning = "LLM detected" }
             },
             cross_scenario_issues = Array.Empty<string>(),
@@ -674,7 +674,7 @@ public class OverfittingJudgeTests
 
         var result = OverfittingJudge.ParseOverfittingResponse(json, deterministicAssessments);
 
-        // sc1: deterministic wins (already covered), sc2: LLM addition
+        // sc1: deterministic wins (same scenario+issue already covered), sc2: LLM addition
         Assert.Equal(2, result.PromptAssessments.Count);
         var sc1 = result.PromptAssessments.First(p => p.Scenario == "sc1");
         Assert.Equal(1.0, sc1.Confidence); // deterministic confidence
