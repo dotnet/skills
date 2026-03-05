@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using SkillValidator.Models;
 using SkillValidator.Utilities;
 using GitHub.Copilot.SDK;
@@ -204,7 +205,7 @@ public static class Judge
             relevant.Insert(headCount, new AgentEvent(
                 "summary",
                 0,
-                new Dictionary<string, object?> { ["message"] = $"... ({omitted} events omitted for brevity) ..." }));
+                new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create($"... ({omitted} events omitted for brevity) ...") }));
         }
 
         var sb = new System.Text.StringBuilder();
@@ -242,10 +243,10 @@ public static class Judge
         var parts = new List<string>();
         if (content.Length > 0) parts.Add(Truncate(content, 500));
 
-        if (e.Data.TryGetValue("toolRequests", out var toolReqs) && toolReqs is JsonElement el && el.ValueKind == JsonValueKind.Array)
+        if (e.Data.TryGetValue("toolRequests", out var toolReqs) && toolReqs is JsonArray toolArr)
         {
-            var tools = string.Join(", ", el.EnumerateArray()
-                .Select(t => t.GetProperty("name").GetString() ?? ""));
+            var tools = string.Join(", ", toolArr
+                .Select(t => t?["name"]?.GetValue<string>() ?? ""));
             if (tools.Length > 0) parts.Add($"(called tools: {tools})");
         }
         return $"[ASSISTANT] {string.Join(" ", parts)}";
@@ -289,6 +290,6 @@ public static class Judge
     private static string Truncate(string s, int max) =>
         s.Length > max ? s[..(max - 3)] + "..." : s;
 
-    private static string GetStr(Dictionary<string, object?> data, string key) =>
+    private static string GetStr(Dictionary<string, JsonNode?> data, string key) =>
         data.TryGetValue(key, out var v) && v is not null ? v.ToString() ?? "" : "";
 }

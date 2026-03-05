@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using SkillValidator.Models;
 using GitHub.Copilot.SDK;
 
@@ -190,17 +191,17 @@ public static class AgentRunner
                 switch (evt)
                 {
                     case AssistantMessageDeltaEvent delta:
-                        agentEvent.Data["deltaContent"] = delta.Data.DeltaContent;
+                        agentEvent.Data["deltaContent"] = JsonValue.Create(delta.Data.DeltaContent);
                         agentOutput += delta.Data.DeltaContent ?? "";
                         break;
                     case AssistantMessageEvent msg:
-                        agentEvent.Data["content"] = msg.Data.Content;
+                        agentEvent.Data["content"] = JsonValue.Create(msg.Data.Content);
                         if (!string.IsNullOrEmpty(msg.Data.Content))
                             agentOutput = msg.Data.Content;
                         break;
                     case ToolExecutionStartEvent toolStart:
-                        agentEvent.Data["toolName"] = toolStart.Data.ToolName;
-                        agentEvent.Data["arguments"] = toolStart.Data.Arguments?.ToString();
+                        agentEvent.Data["toolName"] = JsonValue.Create(toolStart.Data.ToolName);
+                        agentEvent.Data["arguments"] = JsonValue.Create(toolStart.Data.Arguments?.ToString());
                         if (options.Verbose)
                         {
                             var write = options.Log ?? (m => Console.Error.WriteLine(m));
@@ -208,14 +209,19 @@ public static class AgentRunner
                         }
                         break;
                     case ToolExecutionCompleteEvent toolComplete:
-                        agentEvent.Data["success"] = toolComplete.Data.Success.ToString();
-                        agentEvent.Data["result"] = toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "";
+                        agentEvent.Data["success"] = JsonValue.Create(toolComplete.Data.Success.ToString());
+                        agentEvent.Data["result"] = JsonValue.Create(toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "");
                         break;
                     case SkillInvokedEvent skillInvoked:
-                        agentEvent.Data["name"] = skillInvoked.Data.Name;
-                        agentEvent.Data["path"] = skillInvoked.Data.Path;
+                        agentEvent.Data["name"] = JsonValue.Create(skillInvoked.Data.Name);
+                        agentEvent.Data["path"] = JsonValue.Create(skillInvoked.Data.Path);
                         if (skillInvoked.Data.AllowedTools is { } allowedTools)
-                            agentEvent.Data["allowedTools"] = allowedTools;
+                        {
+                            var arr = new JsonArray();
+                            foreach (var tool in allowedTools)
+                                arr.Add((JsonNode?)JsonValue.Create(tool));
+                            agentEvent.Data["allowedTools"] = arr;
+                        }
                         if (options.Verbose)
                         {
                             var write = options.Log ?? (m => Console.Error.WriteLine(m));
@@ -223,18 +229,18 @@ public static class AgentRunner
                         }
                         break;
                     case AssistantUsageEvent usage:
-                        agentEvent.Data["inputTokens"] = usage.Data.InputTokens;
-                        agentEvent.Data["outputTokens"] = usage.Data.OutputTokens;
-                        agentEvent.Data["model"] = usage.Data.Model;
+                        agentEvent.Data["inputTokens"] = JsonValue.Create(usage.Data.InputTokens);
+                        agentEvent.Data["outputTokens"] = JsonValue.Create(usage.Data.OutputTokens);
+                        agentEvent.Data["model"] = JsonValue.Create(usage.Data.Model);
                         break;
                     case UserMessageEvent userMsg:
-                        agentEvent.Data["content"] = userMsg.Data.Content;
+                        agentEvent.Data["content"] = JsonValue.Create(userMsg.Data.Content);
                         break;
                     case SessionIdleEvent:
                         done.TrySetResult();
                         break;
                     case SessionErrorEvent err:
-                        agentEvent.Data["message"] = err.Data.Message;
+                        agentEvent.Data["message"] = JsonValue.Create(err.Data.Message);
                         done.TrySetException(new InvalidOperationException(err.Data.Message ?? "Session error"));
                         break;
                 }
@@ -251,7 +257,7 @@ public static class AgentRunner
             events.Add(new AgentEvent(
                 "runner.error",
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                new Dictionary<string, object?> { ["message"] = te.ToString() }));
+                new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(te.ToString()) }));
         }
         catch (Exception error)
         {
@@ -263,7 +269,7 @@ public static class AgentRunner
                 events.Add(new AgentEvent(
                     "runner.timeout",
                     DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    new Dictionary<string, object?> { ["message"] = msg }));
+                    new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(msg) }));
             }
             else if (!events.Any(e => e.Type == "session.error"))
             {
@@ -271,7 +277,7 @@ public static class AgentRunner
                 events.Add(new AgentEvent(
                     "runner.error",
                     DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    new Dictionary<string, object?> { ["message"] = msg }));
+                    new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(msg) }));
             }
         }
 

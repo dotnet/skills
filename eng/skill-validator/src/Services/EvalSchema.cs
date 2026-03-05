@@ -6,7 +6,7 @@ namespace SkillValidator.Services;
 
 public static class EvalSchema
 {
-    private static readonly IDeserializer YamlDeserializer = new DeserializerBuilder()
+    private static readonly IDeserializer YamlDeserializer = new StaticDeserializerBuilder(new SkillValidatorYamlContext())
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
         .Build();
@@ -112,12 +112,18 @@ public static class EvalSchema
 
     // Raw YAML deserialization models
 
-    private sealed class RawEvalConfig
+    internal sealed class RawFrontmatter
+    {
+        public string? Name { get; set; }
+        public string? Description { get; set; }
+    }
+
+    internal sealed class RawEvalConfig
     {
         public List<RawScenario>? Scenarios { get; set; }
     }
 
-    private sealed class RawScenario
+    internal sealed class RawScenario
     {
         public string Name { get; set; } = "";
         public string Prompt { get; set; } = "";
@@ -132,21 +138,21 @@ public static class EvalSchema
         public bool? ExpectActivation { get; set; }
     }
 
-    private sealed class RawSetup
+    internal sealed class RawSetup
     {
         public bool CopyTestFiles { get; set; }
         public List<RawSetupFile>? Files { get; set; }
         public List<string>? Commands { get; set; }
     }
 
-    private sealed class RawSetupFile
+    internal sealed class RawSetupFile
     {
         public string Path { get; set; } = "";
         public string? Source { get; set; }
         public string? Content { get; set; }
     }
 
-    private sealed class RawAssertion
+    internal sealed class RawAssertion
     {
         public string Type { get; set; } = "";
         public string? Path { get; set; }

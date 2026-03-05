@@ -3,10 +3,18 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>skill-validator</AssemblyName>
-    <PublishSelfContained>true</PublishSelfContained>
-    <PublishRelease>true</PublishRelease>
+
+    <!-- Packaging -->
+    <PackageId>Microsoft.DotNet.SkillValidator</PackageId>
+    <PackAsTool>true</PackAsTool>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <ToolCommandName>skillvalidator</ToolCommandName>
     <Version>1.0.0</Version>
     <Description>Validate that agent skills meaningfully improve agent performance</Description>
+
+    <!-- Publishing -->
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-arm64</RuntimeIdentifiers>
+    <PublishAot>true</PublishAot>
 
     <!-- dotnet run args for local invocation -->
     <RunArguments>--results-dir &quot;$([MSBuild]::NormalizePath('$(ArtifactsPath)', 'TestResults', '$(AssemblyName)'))&quot; --parallel-skills 3 --parallel-scenarios 3 --parallel-runs 3</RunArguments>
@@ -22,6 +30,7 @@
     <!-- external -->
     <PackageReference Include="GitHub.Copilot.SDK" Version="0.1.30" />
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
+    <PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="16.3.0" />
   </ItemGroup>
 
 </Project>
