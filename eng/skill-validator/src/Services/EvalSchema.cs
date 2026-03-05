@@ -16,8 +16,10 @@ public static class EvalSchema
         var raw = YamlDeserializer.Deserialize<RawEvalConfig>(yamlContent)
             ?? throw new InvalidOperationException("Failed to parse eval config YAML");
 
-        var scenarios = raw.Scenarios?.Select(ParseScenario).ToList()
-            ?? throw new InvalidOperationException("Eval config must have scenarios");
+        var scenarios = raw.Scenarios?.Select(ParseScenario).ToList();
+
+        if (scenarios is not { Count: > 0 })
+            throw new InvalidOperationException("Eval config must have at least one scenario");
 
         return new EvalConfig(scenarios);
     }
