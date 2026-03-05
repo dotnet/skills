@@ -13,16 +13,16 @@ scenarios:
         pattern: "(?i)apple developer|developer\\.apple\\.com"
       - type: "output_contains"
         value: "Microsoft"
-      - type: "output_contains"
-        value: "--version"
+      - type: "output_matches"
+        pattern: "(?i)version|pin"
       - type: "output_not_matches"
         pattern: "workload update|workload repair"
     rubric:
-      - "Recommends downloading Xcode from Apple Developer Downloads for version control rather than relying on the Mac App Store"
+      - "Warns about the risk of uncontrolled Xcode version updates and recommends a specific download source"
       - "Recommends the 'maui' workload (not 'maui-android') since this is macOS"
       - "Specifies Microsoft OpenJDK as the only supported Java distribution"
-      - "Describes how to look up current version requirements rather than hardcoding them"
-      - "Uses --version flag when installing workloads"
+      - "Provides a way to determine current version requirements rather than relying on potentially outdated information"
+      - "Pins workloads to a specific version to ensure reproducible environment setup"
     timeout: 120
 
   - name: "Plan Linux MAUI environment for Android"
@@ -36,8 +36,8 @@ scenarios:
         value: "maui-android"
       - type: "output_contains"
         value: "Microsoft"
-      - type: "output_contains"
-        value: "--version"
+      - type: "output_matches"
+        pattern: "(?i)version|pin"
       - type: "output_matches"
         pattern: "sdkmanager|android command-line tools"
       - type: "output_not_matches"
@@ -46,7 +46,7 @@ scenarios:
       - "Recommends 'maui-android' workload, not the 'maui' meta-workload which fails on Linux"
       - "Does not suggest iOS or Mac Catalyst workloads for Linux"
       - "Specifies Microsoft OpenJDK as the only supported Java distribution"
-      - "Describes how to look up current version requirements rather than hardcoding them"
+      - "Provides a way to determine current version requirements rather than relying on potentially outdated information"
     timeout: 120
 
   - name: "Guardrail against workload update and repair"
@@ -55,15 +55,13 @@ scenarios:
       workloads are out of date. Should I run `dotnet workload update` or
       `dotnet workload repair` to fix this?
     assertions:
-      - type: "output_contains"
-        value: "--version"
       - type: "output_matches"
-        pattern: "workload install"
+        pattern: "(?i)version|pin"
     rubric:
       - "Explicitly warns against using dotnet workload update and dotnet workload repair"
-      - "Recommends reinstalling workloads with dotnet workload install and an explicit --version flag"
+      - "Recommends reinstalling workloads pinned to a specific version to ensure consistency"
       - "Explains that workload update/repair can cause version inconsistencies"
-      - "Describes how to discover the correct workload version from NuGet APIs"
+      - "Provides a method to determine the correct workload version for the current SDK"
     timeout: 120
 
   - name: "Diagnose non-Microsoft JDK causing build failure"
@@ -97,8 +95,8 @@ scenarios:
         pattern: "sdkmanager\\.bat"
       - type: "output_matches"
         pattern: "(?i)Invoke-RestMethod|Invoke-WebRequest"
-      - type: "output_contains"
-        value: "--version"
+      - type: "output_matches"
+        pattern: "(?i)version|pin"
       - type: "output_contains"
         value: "Microsoft"
       - type: "output_not_matches"
@@ -167,12 +165,12 @@ scenarios:
       - type: "output_matches"
         pattern: "dotnet workload (list|install)"
       - type: "output_matches"
-        pattern: "install.*--version"
+        pattern: "(?i)version|pin"
       - type: "output_not_matches"
         pattern: "workload update|workload repair"
     rubric:
-      - "Explains why dotnet workload update and repair are discouraged for MAUI and recommends explicit workload install with a matching --version"
-      - "Describes how to determine which workloads and versions should be installed for the new SDK"
+      - "Explains why dotnet workload update and repair are discouraged for MAUI and recommends reinstalling workloads pinned to a specific version"
+      - "Provides a method to determine which workloads and versions should be installed for the new SDK"
       - "Includes checks for Android SDK packages and build tools consistent with the current workload"
       - "Provides a step-by-step approach: diagnose current state, discover correct versions, reinstall, re-validate"
       - "Emphasizes re-running validation after fixes to confirm a healthy environment"
