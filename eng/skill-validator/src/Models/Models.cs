@@ -82,7 +82,8 @@ public sealed record SkillInfo(
     string SkillMdContent,
     string? EvalPath,
     EvalConfig? EvalConfig,
-    IReadOnlyDictionary<string, MCPServerDef>? McpServers = null);
+    IReadOnlyDictionary<string, MCPServerDef>? McpServers = null,
+    string? Compatibility = null);
 
 // --- Agent events ---
 

@@ -5,13 +5,13 @@ namespace SkillValidator.Tests;
 
 public class AnalyzeSkillTests
 {
-    private static SkillInfo MakeSkill(string content, string name = "test-skill", string description = "Test skill")
+    private static SkillInfo MakeSkill(string content, string name = "test-skill", string description = "Test skill", string? path = null)
     {
         return new SkillInfo(
             Name: name,
             Description: description,
-            Path: "/tmp/test-skill",
-            SkillMdPath: "/tmp/test-skill/SKILL.md",
+            Path: path ?? $"/tmp/{name}",
+            SkillMdPath: $"/tmp/{name}/SKILL.md",
             SkillMdContent: content,
             EvalPath: null,
             EvalConfig: null);
@@ -190,8 +190,160 @@ public class AnalyzeSkillTests
     public void EmptyDescriptionWithFrontmatterWarns()
     {
         var content = "---\nname: foo\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
-        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, description: ""));
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, description: "", name: "foo"));
         Assert.Contains(profile.Warnings, w => w.Contains("no description"));
+    }
+
+    // --- Name validation tests ---
+
+    [Fact]
+    public void ValidNameProducesNoNameWarning()
+    {
+        var content = "---\nname: my-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "my-skill"));
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("Skill name"));
+    }
+
+    [Fact]
+    public void NameTooLongWarns()
+    {
+        var longName = new string('a', 65);
+        var content = $"---\nname: {longName}\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: longName));
+        Assert.Contains(profile.Warnings, w => w.Contains("maximum is 64"));
+    }
+
+    [Fact]
+    public void NameAtLimitNoWarning()
+    {
+        var name = new string('a', 64);
+        var content = $"---\nname: {name}\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: name));
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("maximum is 64"));
+    }
+
+    [Fact]
+    public void NameWithUppercaseWarns()
+    {
+        var content = "---\nname: My-Skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "My-Skill"));
+        Assert.Contains(profile.Warnings, w => w.Contains("invalid characters"));
+    }
+
+    [Fact]
+    public void NameWithUnderscoreWarns()
+    {
+        var content = "---\nname: my_skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "my_skill"));
+        Assert.Contains(profile.Warnings, w => w.Contains("invalid characters"));
+    }
+
+    [Fact]
+    public void NameStartingWithHyphenWarns()
+    {
+        var content = "---\nname: -my-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "-my-skill"));
+        Assert.Contains(profile.Warnings, w => w.Contains("starts or ends with a hyphen"));
+    }
+
+    [Fact]
+    public void NameEndingWithHyphenWarns()
+    {
+        var content = "---\nname: my-skill-\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "my-skill-"));
+        Assert.Contains(profile.Warnings, w => w.Contains("starts or ends with a hyphen"));
+    }
+
+    [Fact]
+    public void NameWithConsecutiveHyphensWarns()
+    {
+        var content = "---\nname: my--skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "my--skill"));
+        Assert.Contains(profile.Warnings, w => w.Contains("consecutive hyphens"));
+    }
+
+    [Fact]
+    public void NameNotMatchingDirectoryWarns()
+    {
+        var content = "---\nname: my-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "my-skill", path: "/tmp/different-name"));
+        Assert.Contains(profile.Warnings, w => w.Contains("does not match directory"));
+    }
+
+    [Fact]
+    public void NameMatchingDirectoryNoWarning()
+    {
+        var content = "---\nname: my-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "my-skill", path: "/tmp/my-skill"));
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("does not match directory"));
+    }
+
+    // --- Compatibility field tests ---
+
+    [Fact]
+    public void CompatibilityOverLimitWarns()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var skill = new SkillInfo("test-skill", "desc", "/tmp/test-skill", "/tmp/test-skill/SKILL.md",
+            content, null, null, Compatibility: new string('a', 501));
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.Contains(profile.Warnings, w => w.Contains("Compatibility") && w.Contains("500"));
+    }
+
+    [Fact]
+    public void CompatibilityAtLimitNoWarning()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var skill = new SkillInfo("test-skill", "desc", "/tmp/test-skill", "/tmp/test-skill/SKILL.md",
+            content, null, null, Compatibility: new string('a', 500));
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("Compatibility"));
+    }
+
+    // --- Body line count tests ---
+
+    [Fact]
+    public void BodyOver500LinesWarns()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 501).Select(i => $"Line {i}"));
+        var content = "---\nname: test-skill\n---\n" + body;
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.Contains(profile.Warnings, w => w.Contains("lines") && w.Contains("500"));
+    }
+
+    [Fact]
+    public void BodyAt500LinesNoWarning()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 500).Select(i => $"Line {i}"));
+        var content = "---\nname: test-skill\n---\n" + body;
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("lines") && w.Contains("500"));
+    }
+
+    // --- File reference depth tests ---
+
+    [Fact]
+    public void DeepFileReferenceWarns()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](deep/nested/file.md)\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.Contains(profile.Warnings, w => w.Contains("nested") && w.Contains("levels deep"));
+    }
+
+    [Fact]
+    public void ShallowFileReferenceNoWarning()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](references/file.md)\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("levels deep"));
+    }
+
+    [Fact]
+    public void HttpLinksNotFlaggedAsDeepRefs()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [docs](https://example.com/a/b/c)\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("levels deep"));
     }
 }
 

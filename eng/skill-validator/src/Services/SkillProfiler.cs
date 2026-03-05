@@ -25,6 +25,9 @@ public static partial class SkillProfiler
     private const int TokenSweetHigh = 2500;
     private const int TokenWarnHigh = 5000;
     internal const int MaxDescriptionLength = 1024;
+    private const int MaxNameLength = 64;
+    private const int MaxCompatibilityLength = 500;
+    private const int MaxBodyLines = 500;
 
     public static SkillProfile AnalyzeSkill(SkillInfo skill)
     {
@@ -57,6 +60,50 @@ public static partial class SkillProfiler
 
         var warnings = new List<string>();
 
+        // --- agentskills.io spec: name validation ---
+        ValidateName(skill.Name, Path.GetFileName(skill.Path), warnings);
+
+        // --- agentskills.io spec: description validation ---
+        bool descriptionTooLong = false;
+        if (skill.Description.Length > MaxDescriptionLength)
+        {
+            descriptionTooLong = true;
+            warnings.Add($"Skill description is {skill.Description.Length:N0} characters — maximum is {MaxDescriptionLength:N0}. Shorten the description in SKILL.md frontmatter.");
+        }
+        else if (skill.Description.Length == 0 && hasFrontmatter)
+        {
+            warnings.Add("YAML frontmatter has no description — agents use description for skill discovery.");
+        }
+
+        // --- agentskills.io spec: compatibility field ---
+        if (skill.Compatibility is { Length: > MaxCompatibilityLength })
+        {
+            warnings.Add($"Compatibility field is {skill.Compatibility.Length} characters — maximum is {MaxCompatibilityLength}.");
+        }
+
+        // --- agentskills.io spec: body line count (warning only — upgrade to blocking
+        // error after existing skills are fixed, see dotnet/skills#222) ---
+        int bodyLineCount = body.Split('\n').Length;
+        if (bodyLineCount > MaxBodyLines)
+        {
+            warnings.Add($"SKILL.md body is {bodyLineCount} lines — spec recommends max {MaxBodyLines}. Move detailed reference material to separate files.");
+        }
+
+        // --- agentskills.io spec: file reference depth (warning only — upgrade to
+        // blocking error after existing skills are fixed, see dotnet/skills#222) ---
+        foreach (Match refMatch in FileRefRegex().Matches(body))
+        {
+            var refPath = refMatch.Groups[1].Value;
+            if (refPath.StartsWith("http", StringComparison.OrdinalIgnoreCase) || refPath.StartsWith('#'))
+                continue;
+            int depth = refPath.Split('/').Length;
+            if (depth > 2) // e.g. "references/deep/nested/file.md" = depth 4
+            {
+                warnings.Add($"File reference '{refPath}' is nested {depth} levels deep — spec recommends keeping references one level from SKILL.md.");
+            }
+        }
+
+        // --- Token size warnings ---
         if (tokenCount > TokenWarnHigh)
         {
             warnings.Add(
@@ -81,17 +128,6 @@ public static partial class SkillProfiler
 
         if (numberedStepCount == 0)
             warnings.Add("No numbered workflow steps — agents follow sequenced procedures more reliably.");
-
-        bool descriptionTooLong = false;
-        if (skill.Description.Length > MaxDescriptionLength)
-        {
-            descriptionTooLong = true;
-            warnings.Add($"Skill description is {skill.Description.Length:N0} characters — maximum is {MaxDescriptionLength:N0}. Shorten the description in SKILL.md frontmatter.");
-        }
-        else if (skill.Description.Length == 0 && hasFrontmatter)
-        {
-            warnings.Add("YAML frontmatter has no description — agents use description for skill discovery.");
-        }
 
         if (!hasFrontmatter)
             warnings.Add("No YAML frontmatter — agents use name/description for skill discovery.");
@@ -122,6 +158,24 @@ public static partial class SkillProfiler
             DescriptionTooLong: descriptionTooLong,
             ResourceFileCount: resourceFileCount,
             Warnings: warnings);
+    }
+
+    internal static void ValidateName(string name, string directoryName, List<string> warnings)
+    {
+        if (name.Length > MaxNameLength)
+            warnings.Add($"Skill name '{name}' is {name.Length} characters — maximum is {MaxNameLength}.");
+
+        if (!NameFormatRegex().IsMatch(name))
+            warnings.Add($"Skill name '{name}' contains invalid characters — must be lowercase alphanumeric and hyphens only.");
+
+        if (name.StartsWith('-') || name.EndsWith('-'))
+            warnings.Add($"Skill name '{name}' starts or ends with a hyphen.");
+
+        if (name.Contains("--"))
+            warnings.Add($"Skill name '{name}' contains consecutive hyphens.");
+
+        if (!string.Equals(name, directoryName, StringComparison.Ordinal))
+            warnings.Add($"Skill name '{name}' does not match directory name '{directoryName}'.");
     }
 
     public static string FormatProfileLine(SkillProfile profile)
@@ -171,4 +225,10 @@ public static partial class SkillProfiler
 
     [GeneratedRegex(@"^#{1,4}\s+when\s+not\s+to\s+use", RegexOptions.IgnoreCase | RegexOptions.Multiline)]
     private static partial Regex WhenNotToUseRegex();
+
+    [GeneratedRegex(@"^[a-z0-9-]+$")]
+    private static partial Regex NameFormatRegex();
+
+    [GeneratedRegex(@"\]\(([^)]+)\)")]
+    private static partial Regex FileRefRegex();
 }
