@@ -7,7 +7,12 @@ The Windows SDK is required for WinUI 3 / Windows targets.
 ### Detect Windows SDK
 
 ```powershell
-Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots" -ErrorAction SilentlyContinue
+# Get the Windows 10/11 SDK root path
+$kitsRoot = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots" -ErrorAction SilentlyContinue).KitsRoot10
+
+# List installed SDK versions
+Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots" -ErrorAction SilentlyContinue |
+  ForEach-Object { $_.PSChildName }
 ```
 
 ### Install Windows SDK

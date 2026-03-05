@@ -25,19 +25,11 @@ For scripted/CI installs, use the [dotnet-install scripts](https://learn.microso
 
 **Always use explicit workload set version** to ensure consistent, reproducible installs.
 
-First, find the latest workload set version using the process in `workload-dependencies-discovery.md`:
+First, find the latest workload set version:
 ```bash
-# Discover NuGet search endpoint from service index
-NUGET_SEARCH_URL=$(curl -s "https://api.nuget.org/v3/index.json" | \
-  jq -r '.resources[] | select(.["@type"]=="SearchQueryService") | .["@id"]' | head -1)
-
-# Query for latest workload set
-# SDK band = first 2 segments of SDK version (e.g., 10.0 from 10.0.102)
-curl -s "$NUGET_SEARCH_URL?q=Microsoft.NET.Workloads.$SDK_BAND&prerelease=false" | \
-  jq '.data[] | select(.id | test("^Microsoft.NET.Workloads.$SDK_BAND.[0-9]+$")) | {id, version}'
-
-# Convert NuGet version to CLI version:
-# NuGet A.B.C → CLI A.0.B (e.g., NuGet 10.102.0 → CLI 10.0.102)
+# Use the CLI to discover available workload versions for your SDK
+dotnet workload search version $SDK_VERSION
+# e.g., dotnet workload search version 10.0.103
 ```
 
 Then install with explicit version:
