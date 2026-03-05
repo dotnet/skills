@@ -107,8 +107,8 @@ echo $ANDROID_SDK_ROOT
 # macOS/Linux
 $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --version
 
-# Windows
-%ANDROID_SDK_ROOT%\cmdline-tools\latest\bin\sdkmanager.bat --version
+# Windows (PowerShell)
+& "$env:ANDROID_SDK_ROOT\cmdline-tools\latest\bin\sdkmanager.bat" --version
 ```
 
 ### Installing Android SDK Command-Line Tools
