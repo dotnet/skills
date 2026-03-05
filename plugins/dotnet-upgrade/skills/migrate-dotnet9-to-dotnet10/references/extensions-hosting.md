@@ -49,7 +49,7 @@ public MyService(ILogger<MyService> logger)
 
 | Scenario | .NET 9 behavior | .NET 10 behavior |
 |----------|----------------|-----------------|
-| `"StringProperty": null` | Bound as `""` (empty string) | Bound as `null` |
+| `"StringProperty": null` | Bound as `""` (empty string) | Bound as `null` (overwrites constructor default) |
 | `"IntProperty": null` | Ignored (kept constructor default) | Bound as `null` (if `int?`) |
 | `"Array": [null, null]` | Bound as `["", ""]` | Bound as `[null, null]` |
 | **`"Array": []`** | **Ignored (`null`)** | **Bound as empty array `[]`** |

@@ -210,7 +210,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(logCommandText|diagnostics|logger|parameter)"
     rubric:
-      - "Identifies that ExecuteUpdateAsync now takes Func instead of Expression; shows the simplified replacement using a regular lambda with if/else"
+      - "Identifies that ExecuteUpdateAsync now takes a regular lambda/delegate instead of an expression tree; shows the simplified replacement using a regular lambda with if/else"
       - "Warns about complex type column name uniquification — Street columns will get a number suffix"
       - "Warns about nested complex type full-path column naming — BillingAddress_City becomes Payment_BillingAddress_City"
       - "Identifies the missing logCommandText string parameter in CommandReaderExecuting"
@@ -238,7 +238,7 @@ scenarios:
     prompt: |
       I'm upgrading a .NET 9 worker service to .NET 10. I have specific concerns:
       - My appsettings.json has `"AllowedOrigins": [null, null]` and `"EmptyList": []`. In .NET 9, AllowedOrigins binds as `["", ""]` and EmptyList binds as null. What happens in .NET 10?
-      - I have `"ConnectionString": null` in my JSON config and my class has `public string ConnectionString { get; set; } = "default";` — in .NET 9 the constructor default "default" was preserved. Does this change?
+      - I have `"ConnectionString": null` in my JSON config and my class has `public string ConnectionString { get; set; } = "default";` — in .NET 9 this was bound as an empty string. Does this change?
       - My logging provider uses `[ProviderAlias("custom")]` and I reference it by assembly-qualified name `Microsoft.Extensions.Logging.ProviderAliasAttribute, Microsoft.Extensions.Logging`. Will that still resolve?
       - I register services with `services.AddKeyedSingleton<ICache, RedisCache>("redis")` and discover them with `provider.GetKeyedServices<ICache>(KeyedService.AnyKey)`. There was a bug in .NET 9 where this didn't work correctly. Is it fixed?
       - My BackgroundService does database seeding synchronously at the start of ExecuteAsync before the first await, and other services depend on the database being seeded. Will this still work?
