@@ -136,7 +136,7 @@ See `references/installation-commands.md` for all commands.
 
 Key rules:
 - **Workloads**: Always use `--version` flag. Never use `workload update` or `workload repair`.
-- **JDK**: Only install Microsoft OpenJDK.
+- **JDK**: Only install Microsoft OpenJDK. Do not set JAVA_HOME (auto-detected).
 - **Android SDK**: Use `sdkmanager` (from Android SDK command-line tools). On Windows use `sdkmanager.bat`.
 
 ### Task 10: Re-validate
