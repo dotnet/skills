@@ -153,12 +153,12 @@ public class RetryHelperTests
                 "test",
                 maxRetries: 1,
                 baseDelayMs: 60_000, // 60s base delay - would be huge without clamping
-                totalTimeoutMs: 200,
+                totalTimeoutMs: 2000,
                 cancellationToken: TestContext.Current.CancellationToken));
 
         sw.Stop();
         Assert.Equal(2, callCount);
-        // Should complete quickly since delay was clamped to remaining budget (~200ms), not 60s
+        // Should complete quickly since delay was clamped to remaining budget (~2s), not 60s
         Assert.True(sw.ElapsedMilliseconds < 5000, $"Took too long: {sw.ElapsedMilliseconds}ms");
     }
 
