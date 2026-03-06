@@ -8,7 +8,7 @@ scenarios:
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <OutputType>Exe</OutputType>
-                <TargetFramework>net8.0</TargetFramework>
+                <TargetFramework>net10.0</TargetFramework>
               </PropertyGroup>
             </Project>
         - path: "Ingestor/Program.cs"
@@ -19,7 +19,7 @@ scenarios:
             # Getting Started
             Install the SDK with `dotnet tool install`.
             ## Prerequisites
-            You need .NET 8 or later.
+            You need .NET 10 or later.
     assertions:
       - type: "output_contains"
         value: "chunk"
