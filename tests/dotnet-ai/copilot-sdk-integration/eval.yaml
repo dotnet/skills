@@ -1,6 +1,6 @@
 scenarios:
   - name: "Use CopilotClient as LLM backend"
-    prompt: "I want to build a .NET 8 console app that uses the GitHub Copilot SDK as my LLM provider so I don't have to manage API keys. Show me how to create a simple chat interaction."
+    prompt: "I want to build a .NET 10 console app that uses the GitHub Copilot SDK as my LLM provider so I don't have to manage API keys. Show me how to create a simple chat interaction."
     assertions:
       - type: "output_contains"
         value: "CopilotClient"
@@ -15,14 +15,14 @@ scenarios:
     timeout: 360
 
   - name: "Build a Copilot platform extension"
-    prompt: "Build a .NET 8 GitHub Copilot extension that exposes two tools: one to search internal documentation and one to create GitHub issues. The agent should run as an HTTP server and authenticate via a GitHub App."
+    prompt: "Build a .NET 10 GitHub Copilot extension that exposes two tools: one to search internal documentation and one to create GitHub issues. The agent should run as an HTTP server and authenticate via a GitHub App."
     setup:
       files:
         - path: "CopilotAgent/CopilotAgent.csproj"
           content: |
             <Project Sdk="Microsoft.NET.Sdk.Web">
               <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
+                <TargetFramework>net10.0</TargetFramework>
                 <Nullable>enable</Nullable>
                 <ImplicitUsings>enable</ImplicitUsings>
               </PropertyGroup>

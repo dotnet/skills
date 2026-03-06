@@ -1,6 +1,6 @@
 scenarios:
   - name: "Build agent with tool calling using MAF"
-    prompt: "Build a .NET 8 console app that creates an AI agent with two tools: one to search a product database and one to check inventory. The agent should be able to answer questions like 'Is the blue widget in stock?' by calling the appropriate tools. Use the Microsoft Agent Framework."
+    prompt: "Build a .NET 10 console app that creates an AI agent with two tools: one to search a product database and one to check inventory. The agent should be able to answer questions like 'Is the blue widget in stock?' by calling the appropriate tools. Use the Microsoft Agent Framework."
     setup:
       files:
         - path: "AgentApp/AgentApp.csproj"
@@ -8,7 +8,7 @@ scenarios:
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <OutputType>Exe</OutputType>
-                <TargetFramework>net8.0</TargetFramework>
+                <TargetFramework>net10.0</TargetFramework>
               </PropertyGroup>
             </Project>
         - path: "AgentApp/Program.cs"
