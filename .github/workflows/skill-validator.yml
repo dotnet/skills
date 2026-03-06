@@ -12,13 +12,19 @@ on:
       - '.github/workflows/skill-validator.yml'
   schedule:
     - cron: '0 8 * * *' # daily at 08:00 UTC
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a nightly release after building'
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  RETENTION_DAYS: ${{ github.event_name == 'schedule' && 90 || 5 }}
+  RETENTION_DAYS: ${{ (github.event_name == 'schedule' || inputs.create_release == true) && 90 || 5 }}
   AGNOSTIC_RID: linux-x64
 
 jobs:
@@ -96,7 +102,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || inputs.create_release == true
     needs: build
     runs-on: ubuntu-latest
     permissions:
