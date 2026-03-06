@@ -1,0 +1,79 @@
+scenarios:
+  - name: "Implement file upload endpoint with validation"
+    prompt: >
+      I need to implement a file upload endpoint in my ASP.NET Core 8 minimal API.
+      The endpoint should accept image files (JPEG and PNG only), reject files over 10MB,
+      and save them to an "uploads" folder. My app already has UseAntiforgery() in the pipeline.
+      Show me the complete implementation including size limits configuration and the endpoint.
+    assertions:
+      - type: "output_matches"
+        pattern: "(IFormFile|IFormFileCollection)"
+      - type: "output_matches"
+        pattern: "(MaxRequestBodySize|MultipartBodyLengthLimit|RequestSizeLimit)"
+    rubric:
+      - "Configures BOTH Kestrel MaxRequestBodySize AND FormOptions.MultipartBodyLengthLimit — configuring only one is INCORRECT"
+      - "Uses .DisableAntiforgery() on the file upload endpoint to prevent 400 errors from the anti-forgery middleware"
+      - "Generates a safe filename (e.g., Guid.NewGuid()) instead of using user-provided IFormFile.FileName directly"
+      - "Validates file content via magic bytes/file signatures, not just file extension or ContentType (which are client-spoofable)"
+      - "Correctly uses IFormFile parameter binding in the minimal API endpoint"
+      - "Uses [RequestSizeLimit] or global config for the 10MB limit"
+    expect_tools: ["bash"]
+    timeout: 120
+
+  - name: "Fix 400 error on file upload with UseAntiforgery"
+    prompt: |
+      My ASP.NET Core 8 minimal API file upload endpoint keeps returning 400 Bad Request, but only after I added authentication. The endpoint worked fine before. Here's my code:
+
+      ```csharp
+      builder.Services.AddAntiforgery();
+      var app = builder.Build();
+      app.UseAntiforgery();
+
+      app.MapPost("/api/upload", (IFormFile file) =>
+      {
+          return Results.Ok(new { file.FileName, file.Length });
+      });
+      ```
+
+      What's wrong?
+    assertions:
+      - type: "output_matches"
+        pattern: "(DisableAntiforgery|antiforgery|anti-forgery)"
+    rubric:
+      - "Identified the root cause: UseAntiforgery() auto-validates anti-forgery tokens on all form-bound endpoints including file uploads"
+      - "Recommended .DisableAntiforgery() on the endpoint for API-only (non-cookie-auth) scenarios"
+      - "Warned about CSRF risk if the endpoint uses cookie authentication — do NOT disable antiforgery for cookie-auth endpoints"
+    timeout: 60
+
+  - name: "Dual size limit configuration"
+    prompt: |
+      My ASP.NET Core 8 file upload endpoint rejects files over 30MB even though I configured the limit to 100MB. Here's my config:
+
+      ```csharp
+      builder.WebHost.ConfigureKestrel(options =>
+      {
+          options.Limits.MaxRequestBodySize = 100 * 1024 * 1024;
+      });
+      ```
+
+      Smaller files work fine. What am I missing?
+    assertions:
+      - type: "output_matches"
+        pattern: "(FormOptions|MultipartBodyLengthLimit)"
+    rubric:
+      - "Identified that Kestrel MaxRequestBodySize is only ONE of TWO limits — FormOptions.MultipartBodyLengthLimit also needs to be configured"
+      - "Showed how to configure both limits: builder.WebHost.ConfigureKestrel for request body AND builder.Services.Configure<FormOptions> for multipart"
+      - "Explained that the default MultipartBodyLengthLimit is 128MB but the default MaxRequestBodySize is 30MB, causing the mismatch"
+    timeout: 60
+
+  - name: "File upload should not use magic bytes for JSON API"
+    prompt: |
+      I'm building a REST API in ASP.NET Core that accepts JSON payloads with base64-encoded file data. Should I use IFormFile?
+    assertions:
+      - type: "output_not_matches"
+        pattern: "(IFormFile.*base64|base64.*IFormFile)"
+    rubric:
+      - "Recommended against IFormFile for base64-encoded JSON payloads — IFormFile is for multipart/form-data"
+      - "Suggested reading the base64 string from the JSON body and decoding with Convert.FromBase64String"
+      - "Mentioned that multipart/form-data (IFormFile) is more efficient for actual file uploads than base64 in JSON (33% overhead)"
+    timeout: 60
