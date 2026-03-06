@@ -96,11 +96,27 @@ skill-validator --verdict-warn-only --require-evals ./skills/
 | `--verdict-warn-only` | `false` | Treat verdict failures as warnings (exit 0). Execution errors and `--require-evals` still fail. |
 | `--no-overfitting-check` | `false` | Disable the LLM-based overfitting analysis (on by default) |
 | `--overfitting-fix` | `false` | Generate `eval.fixed.yaml` with improved rubric items/assertions |
+| `--run-in-docker` | `false` | Run agent sessions and setup commands inside a Docker container (requires `GITHUB_TOKEN`). |
 | `--verbose` | `false` | Show tool calls and agent events during runs |
 | `--reporter <spec>` | `console`, `json`, `markdown` | Output format: `console`, `json`, `junit`, `markdown`. |
 | `--results-dir <path>` | `.skill-validator-results` | Directory for file reporter output. |
 
 Models are validated on startup — invalid model names fail fast with a list of available models.
+
+## Docker mode
+
+Use `--run-in-docker` to run agent sessions and setup commands in a Docker container instead of the host environment.
+
+Requirements:
+- Docker installed and running
+- `GITHUB_TOKEN` set in your environment (for example: `export GITHUB_TOKEN="$(gh auth token)"`)
+
+```bash
+# Run validation in Docker
+dotnet run --project src/SkillValidator -- --run-in-docker ./skills/
+```
+
+When Docker mode is enabled, skill-validator builds the runtime image from `src/Docker/Dockerfile`, mounts run workdirs at `/work`, mounts discovered skill directories read-only under `/skills/*`, and stops/removes the container during normal cleanup (and on process exit).
 
 ## Output
 

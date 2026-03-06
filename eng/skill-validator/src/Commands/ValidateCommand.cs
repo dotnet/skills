@@ -30,6 +30,7 @@ public static class ValidateCommand
         var reporterOpt = new Option<string[]>("--reporter") { Description = "Reporter (console, json, junit, markdown). Can be repeated.", AllowMultipleArgumentsPerToken = true };
         var noOverfittingCheckOpt = new Option<bool>("--no-overfitting-check") { Description = "Disable LLM-based overfitting analysis (on by default)" };
         var overfittingFixOpt = new Option<bool>("--overfitting-fix") { Description = "Generate a fixed eval.yaml with improved rubric items/assertions" };
+        var runInDockerOpt = new Option<bool>("--run-in-docker") { Description = "Run agents and judges inside Docker containers" };
 
         var command = new RootCommand("Validate that agent skills meaningfully improve agent performance")
         {
@@ -53,6 +54,7 @@ public static class ValidateCommand
             reporterOpt,
             noOverfittingCheckOpt,
             overfittingFixOpt,
+            runInDockerOpt,
         };
 
         command.SetAction(async (parseResult, _) =>
@@ -98,6 +100,7 @@ public static class ValidateCommand
                 TestsDir = parseResult.GetValue(testsDirOpt),
                 OverfittingCheck = !parseResult.GetValue(noOverfittingCheckOpt),
                 OverfittingFix = parseResult.GetValue(overfittingFixOpt),
+                RunInDocker = parseResult.GetValue(runInDockerOpt),
             };
 
             return await Run(config);
@@ -117,6 +120,26 @@ public static class ValidateCommand
 
     public static async Task<int> Run(ValidatorConfig config)
     {
+        // Discover skills first (needed to determine Docker volume mounts)
+        var allSkills = new List<SkillInfo>();
+        foreach (var path in config.SkillPaths)
+        {
+            var skills = await SkillDiscovery.DiscoverSkills(path, config.TestsDir);
+            allSkills.AddRange(skills);
+        }
+
+        if (allSkills.Count == 0)
+        {
+            Console.Error.WriteLine("No skills found in the specified paths.");
+            return 1;
+        }
+
+        Console.WriteLine($"Found {allSkills.Count} skill(s)\n");
+
+        // Set up DockerCopilotServer with skill directories to mount
+        if (config.RunInDocker)
+            DockerCopilotServer.Initialize(config.Verbose, allSkills);
+
         // Validate model early
         try
         {
@@ -147,22 +170,6 @@ public static class ValidateCommand
 
         if (config.Verbose)
             Console.WriteLine($"Results dir: {config.ResultsDir}");
-
-        // Discover skills
-        var allSkills = new List<SkillInfo>();
-        foreach (var path in config.SkillPaths)
-        {
-            var skills = await SkillDiscovery.DiscoverSkills(path, config.TestsDir);
-            allSkills.AddRange(skills);
-        }
-
-        if (allSkills.Count == 0)
-        {
-            Console.Error.WriteLine("No skills found in the specified paths.");
-            return 1;
-        }
-
-        Console.WriteLine($"Found {allSkills.Count} skill(s)\n");
 
         if (config.Runs < 5)
             Console.WriteLine($"\x1b[33m⚠  Running with {config.Runs} run(s). For statistically significant results, use --runs 5 or higher.\x1b[0m");
@@ -202,6 +209,8 @@ public static class ValidateCommand
             config.Model, config.JudgeModel, config.ResultsDir);
 
         await AgentRunner.StopSharedClient();
+        if (DockerCopilotServer.Instance is { } dockerServer)
+            await dockerServer.StopAsync();
         await AgentRunner.CleanupWorkDirs();
 
         // Always fail on execution errors, even in --verdict-warn-only mode
@@ -262,13 +271,13 @@ public static class ValidateCommand
             log(warning);
 
         // Launch overfitting check in parallel with scenario execution
-        var workDir = Path.GetTempPath();
+        var overfittingWorkDir = DockerCopilotServer.Instance is not null ? "/tmp" : Path.GetTempPath();
         Task<OverfittingResult?> overfittingTask = Task.FromResult<OverfittingResult?>(null);
         if (config.OverfittingCheck && skill.EvalConfig is not null)
         {
             log("🔍 Running overfitting check (parallel)...");
             overfittingTask = Services.OverfittingJudge.Analyze(skill, new OverfittingJudgeOptions(
-                config.JudgeModel, config.Verbose, config.JudgeTimeout, workDir));
+                config.JudgeModel, config.Verbose, config.JudgeTimeout, overfittingWorkDir));
         }
 
         bool singleScenario = skill.EvalConfig!.Scenarios.Count == 1;
@@ -301,7 +310,7 @@ public static class ValidateCommand
             try
             {
                 await Services.OverfittingJudge.GenerateFix(skill, overfittingResult, new OverfittingJudgeOptions(
-                    config.JudgeModel, config.Verbose, config.JudgeTimeout, workDir));
+                    config.JudgeModel, config.Verbose, config.JudgeTimeout, overfittingWorkDir));
                 log("📝 Generated eval.fixed.yaml with suggested improvements");
             }
             catch (Exception ex)

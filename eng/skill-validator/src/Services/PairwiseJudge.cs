@@ -69,11 +69,13 @@ public static class PairwiseJudge
         var client = await AgentRunner.GetSharedClient(options.Verbose);
         var rubric = scenario.Rubric ?? [];
 
+        var sessionWorkDir = DockerCopilotServer.Instance?.MapHostPathToContainer(options.WorkDir) ?? options.WorkDir;
+
         await using var session = await client.CreateSessionAsync(new SessionConfig
         {
             Model = options.Model,
             Streaming = true,
-            WorkingDirectory = options.WorkDir,
+            WorkingDirectory = sessionWorkDir,
             SystemMessage = new SystemMessageConfig
             {
                 Mode = SystemMessageMode.Replace,

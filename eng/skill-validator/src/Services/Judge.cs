@@ -34,11 +34,13 @@ public static class Judge
     {
         var client = await AgentRunner.GetSharedClient(options.Verbose);
 
+        var sessionWorkDir = DockerCopilotServer.Instance?.MapHostPathToContainer(options.WorkDir) ?? options.WorkDir;
+
         await using var session = await client.CreateSessionAsync(new SessionConfig
         {
             Model = options.Model,
             Streaming = true,
-            WorkingDirectory = options.WorkDir,
+            WorkingDirectory = sessionWorkDir,
             SystemMessage = new SystemMessageConfig
             {
                 Mode = SystemMessageMode.Replace,
