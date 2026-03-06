@@ -1,13 +1,13 @@
 scenarios:
   - name: "Build document Q&A system"
-    prompt: "Build a RAG-based document Q&A system for this .NET 8 web API. Users should be able to ask questions and get answers grounded in our markdown documentation files. Use OpenAI for the LLM and embeddings, and InMemory vector store for development."
+    prompt: "Build a RAG-based document Q&A system for this .NET 10 web API. Users should be able to ask questions and get answers grounded in our markdown documentation files. Use OpenAI for the LLM and embeddings, and InMemory vector store for development."
     setup:
       files:
         - path: "DocQA/DocQA.csproj"
           content: |
             <Project Sdk="Microsoft.NET.Sdk.Web">
               <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
+                <TargetFramework>net10.0</TargetFramework>
                 <Nullable>enable</Nullable>
               </PropertyGroup>
             </Project>
@@ -20,7 +20,7 @@ scenarios:
           content: |
             # Setup Guide
             Install the product with `dotnet tool install --global our-tool`.
-            The minimum requirement is .NET 8.0 SDK.
+            The minimum requirement is .NET 10 SDK.
         - path: "DocQA/Docs/config.md"
           content: |
             # Configuration

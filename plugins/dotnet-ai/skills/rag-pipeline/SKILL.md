@@ -21,7 +21,7 @@ This skill is **self-contained** — it includes all guidance needed to build th
 | Document corpus | Directory of files to ingest (Markdown, PDF, Word, etc.) |
 | LLM provider preference | OpenAI, Azure OpenAI, Ollama, etc. |
 | Vector store preference | InMemory (dev), Azure AI Search, Qdrant, etc. |
-| Target framework | .NET 8+ recommended |
+| Target framework | .NET 10+ recommended |
 
 ## Workflow
 
