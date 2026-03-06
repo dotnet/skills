@@ -1,0 +1,38 @@
+[maintainer]
+name = "dotnet/skills team"
+team = ".NET Developer Experience"
+
+[import]
+from = "path"
+path = "c:/src/skills/msbench/tasks"
+staging-folder = "${TEMP}/harborcuration/dotnetskills"
+dataset = "dotnetskills"
+
+# Original remote config (for CI/prod):
+# from = "path-clone"
+# repository = "https://dev.azure.com/devdiv/_git/skills"
+# path = "msbench/tasks"
+
+[docker.local]
+benchmark = "dotnetskills"
+type = "eval"
+architecture = "x86_64"
+version = "0.1.0"
+registry = "localhost:5000"
+provider = "Docker localhost registry"
+
+[docker.prod]
+benchmark = "dotnetskills"
+type = "eval"
+architecture = "x86_64"
+version = "0.1.0"
+registry = "codeexecservice.azurecr.io"
+provider = "Azure container registry"
+
+[tasks.exclude]
+# Tasks that fail to build (maintain as needed)
+
+[tasks.skip-verification]
+# Tasks where oracle verification is skipped (analysis-style prompts)
+# Analysis tasks don't have deterministic gold solutions
+# dotnet--analyzing-dotnet-performance--compiled-regex-startup-budget-regex-chain = [{skip = "oracle", reason = "Analysis task, no deterministic gold solution"}]
