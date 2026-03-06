@@ -84,6 +84,7 @@ skills/<skill-name>/
 - Ensure SKILL.md is under 500 lines
 - Check that file references use relative paths
 - Verify instructions are actionable and specific
+- Verify the skill follows the style of skills found at https://github.com/anthropics/skills
 
 ## SKILL.md Template
 
