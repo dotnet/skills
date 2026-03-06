@@ -1,0 +1,26 @@
+scenarios:
+  - name: "Create a console application"
+    prompt: "Create a new .NET console application called MyConsoleApp in the ./test-output directory"
+    assertions:
+      - type: "output_contains"
+        value: "MyConsoleApp"
+    rubric:
+      - "The agent used template_instantiate to create the project"
+      - "The agent specified the correct output path"
+      - "The agent verified the project was created successfully"
+    expect_tools:
+      - template_instantiate
+    timeout: 180
+
+  - name: "Create project with specific framework"
+    prompt: "Create a new class library targeting net9.0 called MyLib in ./test-output"
+    assertions:
+      - type: "output_contains"
+        value: "net9.0"
+    rubric:
+      - "The agent used template_instantiate with the classlib template"
+      - "The agent passed the Framework parameter as net9.0"
+      - "The agent confirmed successful creation"
+    expect_tools:
+      - template_instantiate
+    timeout: 180

@@ -1,0 +1,17 @@
+{
+  "name": "dotnet-template-engine",
+  "version": "1.1.0",
+  "description": ".NET Template Engine skills: template discovery, project scaffolding, and template authoring via the DotnetTemplateMCP MCP server.",
+  "skills": "./skills/",
+  "agents": "./agents/",
+  "mcpServers": {
+    "template-engine-mcp": {
+      "type": "stdio",
+      "command": "dnx",
+      "args": [
+        "-y",
+        "DotnetTemplateMCP@1.1.0"
+      ]
+    }
+  }
+}

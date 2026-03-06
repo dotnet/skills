@@ -1,0 +1,26 @@
+scenarios:
+  - name: "Find template for web API project"
+    prompt: "I need to create a web API project with authentication. What template should I use?"
+    assertions:
+      - type: "output_contains"
+        value: "webapi"
+    rubric:
+      - "The agent used template_from_intent or template_search to find templates"
+      - "The agent identified the webapi template as the best match"
+      - "The agent mentioned authentication-related parameters"
+    expect_tools:
+      - template_from_intent
+    timeout: 120
+
+  - name: "Inspect template parameters"
+    prompt: "Show me all the parameters available for the webapi template"
+    assertions:
+      - type: "output_contains"
+        value: "Framework"
+    rubric:
+      - "The agent used template_inspect to retrieve template metadata"
+      - "The agent listed parameters with their types and defaults"
+      - "The agent included the Framework parameter"
+    expect_tools:
+      - template_inspect
+    timeout: 120
