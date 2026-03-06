@@ -1,11 +1,6 @@
 name: skill-validator
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'eng/skill-validator/**'
-      - '.github/workflows/skill-validator.yml'
   pull_request:
     paths:
       - 'eng/skill-validator/**'
