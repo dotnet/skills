@@ -22,6 +22,8 @@ fingerprint = "pipeline:{workflow_name}:{job_name}:{failed_step}:{conclusion}"
 - Same workflow + job + step + conclusion = same finding (even across different run IDs)
 - A workflow that fails in a _different_ step is a _different_ finding
 - For timeouts/cancellations: `pipeline:{workflow_name}:{job_name}:timeout`
+- For aggregate failure rate (P5): `pipeline:evaluation:failure-rate:{bucket}` where bucket = "critical" or "warning"
+- For scheduled cancellation rate (P6): `pipeline:evaluation:schedule-cancellation:{bucket}` where bucket = "critical" or "warning"
 
 **Examples:**
 | Finding | Fingerprint |
@@ -29,6 +31,10 @@ fingerprint = "pipeline:{workflow_name}:{job_name}:{failed_step}:{conclusion}"
 | Evaluation workflow, evaluate job, "Run skill-validator" step failed | `pipeline:evaluation:evaluate:run-skill-validator:failure` |
 | Evaluation workflow, evaluate job, "Build validator" step failed | `pipeline:evaluation:evaluate:build-validator:failure` |
 | validate-skills workflow, validate job timed out | `pipeline:validate-skills:validate:timeout` |
+| Evaluation failure rate > 30% across all branches | `pipeline:evaluation:failure-rate:critical` |
+| Evaluation failure rate > 15% across all branches | `pipeline:evaluation:failure-rate:warning` |
+| Evaluation scheduled cancellation rate > 60% | `pipeline:evaluation:schedule-cancellation:critical` |
+| Evaluation scheduled cancellation rate > 30% | `pipeline:evaluation:schedule-cancellation:warning` |
 
 ### 1.2 Quality Fingerprints
 
@@ -139,12 +145,16 @@ Within each category (NEW, EXISTING, RESOLVED):
 
 | Check | Condition | Severity |
 |-------|-----------|----------|
-| P1 | `evaluation` workflow failed | 🔴 Critical |
-| P1 | Other workflow failed | 🟡 Warning |
+| P1 | `evaluation` workflow failed on `main` | 🔴 Critical |
+| P1 | Other workflow failed on `main` | 🟡 Warning |
 | P1 | Matches `known-noise` pattern | 🔵 Info (demoted) |
-| P2 | Any cancelled/timed-out run | 🟡 Warning |
+| P2 | Any cancelled/timed-out run on `main` | 🟡 Warning |
 | P3 | Eval avg duration > 55 min | 🔴 Critical |
 | P3 | Eval avg duration > 50 min | 🟡 Warning |
+| P5 | Eval failure rate > 30% (all branches, 24h) | 🔴 Critical |
+| P5 | Eval failure rate > 15% (all branches, 24h) | 🟡 Warning |
+| P6 | Eval scheduled cancellation rate > 60% (24h) | 🔴 Critical |
+| P6 | Eval scheduled cancellation rate > 30% (24h) | 🟡 Warning |
 
 ### Quality
 
@@ -303,7 +313,7 @@ The `cache-memory` key `known-noise` stores a list of fingerprint prefixes or pa
 
 When a finding's fingerprint matches any known-noise pattern (prefix match), demote its severity to 🔵 Info. The finding is still reported in the output (in the EXISTING section if recurring) — it is NOT hidden.
 
-New patterns can be added via the `/health-check suppress <pattern>` slash command, which appends to the `known-noise` list in `cache-memory`.
+New patterns can be added by manually editing the `known-noise` list in `cache-memory`.
 
 ---
 
@@ -391,7 +401,7 @@ If no previous fingerprints exist in `cache-memory`:
 |-----|----------|---------|
 | `health-check-fingerprints` | Map of fingerprint → finding (with occurrences, first_seen) | Every run |
 | `health-check-history` | Array of daily summaries (date, counts by diff type and severity) | Appended each run |
-| `known-noise` | Array of fingerprint patterns to demote to Info | Via `/health-check suppress` |
+| `known-noise` | Array of fingerprint patterns to demote to Info | Manual edit |
 
 ### 9.4 Graceful Degradation
 

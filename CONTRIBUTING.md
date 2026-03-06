@@ -101,14 +101,19 @@ Create the file with required YAML frontmatter:
 ```yaml
 ---
 name: <skill-name>
-description: <description of what the skill does and when to use it>
+description: <description of what the skill does, when to use it, and when not to use it>
 ---
 ```
+
+> **Tip:** The `description` field is used by the agent runtime to decide whether to load the full skill.
+> Include **when to use** and **when not to use** guidance directly in the description so the agent can
+> select or skip skills without reading the entire `SKILL.md`. This avoids unnecessary token usage.
+> See [`thread-abort-migration/SKILL.md`](plugins/dotnet/skills/thread-abort-migration/SKILL.md) for a good example.
 
 ### Recommended `SKILL.md` sections
 
 - **Purpose**: one paragraph describing the outcome.
-- **When to use** / **When not to use**
+- **When to use** / **When not to use** (put the essentials in the frontmatter `description`; expand here only if more detail is needed).
 - **Inputs**: what the agent needs (files, commands, permissions).
 - **Workflow**: numbered steps with checkpoints.
 - **Validation**: how to confirm the result (tests, linters, manual checks).
@@ -119,7 +124,7 @@ description: <description of what the skill does and when to use it>
 Include a `SKILL.md` that covers:
 
 - Purpose and non goals
-- When to use and when not to use
+- When to use and when not to use (summarized in the frontmatter `description`; body section for extended detail)
 - Inputs and prerequisites
 - Step by step workflow with checkpoints
 - Validation steps that can be run or observed

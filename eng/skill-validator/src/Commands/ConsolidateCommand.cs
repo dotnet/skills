@@ -45,8 +45,8 @@ public static class ConsolidateCommand
             try
             {
                 var content = await File.ReadAllTextAsync(file);
-                var data = System.Text.Json.JsonSerializer.Deserialize<ConsolidateData>(content,
-                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var data = System.Text.Json.JsonSerializer.Deserialize(content,
+                    SkillValidatorJsonContext.Default.ConsolidateData);
                 if (data?.Verdicts is not null)
                     allVerdicts.AddRange(data.Verdicts);
                 if (data?.Model is not null && model is null) model = data.Model;
@@ -62,12 +62,5 @@ public static class ConsolidateCommand
         await File.WriteAllTextAsync(outputPath, output);
         Console.WriteLine($"Consolidated {files.Length} result file(s) into {outputPath}");
         return 0;
-    }
-
-    private sealed class ConsolidateData
-    {
-        public string? Model { get; set; }
-        public string? JudgeModel { get; set; }
-        public List<SkillVerdict>? Verdicts { get; set; }
     }
 }

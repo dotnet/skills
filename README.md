@@ -1,6 +1,6 @@
 # .NET Agent Skills
 
-[![Dashboard](https://github.com/dotnet/skills/actions/workflows/pages/pages-build-deployment/badge.svg)](https://refactored-sniffle-qm9o678.pages.github.io/)
+[![Dashboard](https://github.com/dotnet/skills/actions/workflows/pages/pages-build-deployment/badge.svg)](https://dotnet.github.io/skills/)
 
 This repository contains the .NET team's curated set of core skills and custom agents for coding agents. For information about the Agent Skills standard, see [agentskills.io](http://agentskills.io).
 
@@ -37,6 +37,21 @@ This repository contains the .NET team's curated set of core skills and custom a
    ```
    /plugin update <plugin>@dotnet-agent-skills
    ```
+
+### VS Code / VS Code Insiders (Preview)
+
+> [!IMPORTANT]  
+> VS Code plugin support is a preview feature and subject to change. You may need to enable it first.
+
+```jsonc
+// settings.json
+{
+  "chat.plugins.enabled": true,
+  "chat.plugins.marketplaces": ["dotnet/skills"]
+}
+```
+
+Once configured, type `/plugins` in Copilot Chat or use the `@agentPlugins` filter in Extensions to browse and install plugins from the marketplace.
 
 ### ⚡ Agentic Workflows
 

@@ -7,8 +7,8 @@ description: >
   dispatches investigation workers for new critical/warning findings.
 
 on:
-  schedule: daily
-  slash_command: health-check
+  schedule:
+    - cron: "0 3 * * *"  # 03:00 UTC daily
   workflow_dispatch:
 
 permissions:
@@ -31,8 +31,10 @@ safe-outputs:
   create-issue:
     max: 1
   update-issue:
+    target: "*"
     max: 1
   add-comment:
+    target: "*"
     max: 1
   dispatch-workflow:
     workflows:
@@ -65,12 +67,12 @@ You are a DevOps health monitoring agent. Your job is to collect repo health sig
 Scan the repository to find all skill components:
 
 ```
-find src/*/plugin.json -maxdepth 2
+find plugins/*/plugin.json -maxdepth 2
 ```
 
-Each `src/{name}/` directory containing a `plugin.json` is a component. The corresponding dashboard data file is `data/{name}.json` on `gh-pages`.
+Each `plugins/{name}/` directory containing a `plugin.json` is a component. The corresponding dashboard data file is `data/{name}.json` on `gh-pages`.
 
-### 1.2 Pipeline Health (P1–P4)
+### 1.2 Pipeline Health (P1–P6)
 
 **P1 — Failed workflow runs on `main` in last 24h:**
 ```
@@ -104,6 +106,41 @@ GET /repos/{owner}/{repo}/actions/runs?branch=main&per_page=100
 ```
 Group by workflow name, compute success/failure ratio over the last 7 days.
 - 🔵 Info (metric only — reported in trends table, not fingerprinted)
+
+**P5 — Evaluation failure rate across all branches (last 24h):**
+```
+GET /repos/{owner}/{repo}/actions/workflows/evaluation.yml/runs?per_page=100
+```
+Filter to runs created within the last 24 hours across all branches and event types (schedule, pull_request, workflow_dispatch). Paginate if the first page does not cover the full 24h window. Compute:
+- Total runs, failures (conclusion=failure), cancellations (conclusion=cancelled), successes
+- **Overall failure rate** = failures / (failures + successes) — exclude cancelled runs from denominator
+- **Overall non-success rate** = (failures + cancellations) / total
+- Break down failure counts by event type (schedule vs pull_request vs workflow_dispatch)
+
+Severity thresholds:
+- 🔴 Critical if overall failure rate > 30%
+- 🟡 Warning if overall failure rate > 15%
+- Fingerprint: `pipeline:evaluation:failure-rate:{bucket}` (bucket = "critical" or "warning")
+
+Also include in the finding details:
+- Failure count by event type (e.g., "10 PR failures, 4 schedule failures")
+- Sample of recent failed run URLs (up to 5) for quick investigation
+- Common failing job names across the failed runs
+
+**P6 — Evaluation scheduled run cancellation rate (last 24h):**
+```
+GET /repos/{owner}/{repo}/actions/workflows/evaluation.yml/runs?branch=main&event=schedule&per_page=100
+```
+Filter to scheduled runs on `main` created within the last 24 hours. Compute:
+- Total scheduled runs, cancelled count, completed count
+- Cancellation rate = cancelled / total
+
+Severity thresholds:
+- 🟡 Warning if cancellation rate > 30% (pipeline frequently doesn't complete within schedule interval)
+- 🔴 Critical if cancellation rate > 60% (majority of scheduled runs never complete)
+- Fingerprint: `pipeline:evaluation:schedule-cancellation:{bucket}` (bucket = "critical" or "warning")
+
+This detects when the evaluation pipeline consistently takes longer than the schedule interval (e.g., runs every 2h but takes >2h to complete), causing the concurrency group to cancel in-flight runs.
 
 ### 1.3 Skill Quality (Q1–Q7)
 
@@ -157,9 +194,9 @@ Compute the standard deviation of `"Skilled Quality"` scores across all entries 
 
 **Q6 — Skills without eval tests:**
 ```
-find src/*/skills/ -mindepth 1 -maxdepth 1 -type d
+find plugins/*/skills/ -mindepth 1 -maxdepth 1 -type d
 ```
-For each skill directory, check if a corresponding test directory exists under `src/{component}/tests/{skill-name}/`.
+For each skill directory, check if a corresponding test directory exists under `tests/{component}/{skill-name}/`.
 If the test directory exists, verify that `eval.yaml` exists and contains at least one scenario.
 - 🟡 Warning if no test directory, no eval.yaml, or eval.yaml has no scenarios
 - Fingerprint: `coverage:{skill}:no-tests`
@@ -292,6 +329,8 @@ Using the classified findings, generate:
 2. **Correlation insights**: Identify connections between findings. For example:
    - A pipeline failure AND stale benchmark data → pipeline likely blocking data publication
    - Multiple quality regressions after the same date → look for a common commit
+   - High eval failure rate across all branches (P5) AND timeouts in quality checks → systemic model/infrastructure issue, not skill-specific
+   - High scheduled cancellation rate (P6) AND eval duration warning (P3) → pipeline consistently exceeds schedule interval, consider increasing interval or optimizing eval
 
 3. **Recommendations**: Prioritized list of suggested actions.
 
@@ -338,7 +377,19 @@ Replace the entire issue body with the following structure:
 > These appeared since the last health check ({previous_date}).
 
 {For each new finding, render a full section with title, details, link, and suggested action}
-{Include investigation placeholder islands for findings that qualify for dispatch — see Step 5}
+
+---
+
+## 🔍 Investigation Results
+
+> Deep investigations are dispatched for new critical/warning findings.
+> The [grooming workflow](../workflows/devops-health-groom.md) links results ~3 hours after this run.
+
+| Finding | Severity | Status | Result |
+|---------|----------|--------|--------|
+{For each finding dispatched in the current run:}
+| {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | [Workflow Run]({workflow_actions_url}) |
+{Preserve any rows from the previous issue body that already show ✅ Done or ✅ Resolved — do not remove them}
 
 ---
 
@@ -363,7 +414,9 @@ Replace the entire issue body with the following structure:
 | Metric | Today | 7d Avg | Δ | Trend |
 |--------|-------|--------|---|-------|
 | Eval duration (min) | {today} | {avg} | {delta} | {arrow} |
-| Eval success rate | {today} | {avg} | {delta} | {arrow} |
+| Eval success rate (main) | {today} | {avg} | {delta} | {arrow} |
+| Eval success rate (all branches) | {today} | {avg} | {delta} | {arrow} |
+| Eval scheduled cancellation rate | {today} | {avg} | {delta} | {arrow} |
 | PRs merged/day | {today} | {avg} | {delta} | {arrow} |
 | Open PRs | {today} | {avg} | {delta} | {arrow} |
 | Compute hours/day | {today} | {avg} | {delta} | {arrow} |
@@ -401,20 +454,26 @@ Append a short summary comment for the audit trail:
 
 ---
 
-## Step 5: Triage Dispatch
+## Step 5: Triage Dispatch (MANDATORY)
 
-For each 🆕 NEW finding that qualifies for investigation, dispatch a worker:
+> ⚠️ **CRITICAL**: This step is MANDATORY. You MUST dispatch investigation workers for qualifying findings.
+> Do NOT skip this step. Do NOT end with a noop before completing dispatches.
+> After creating/updating the health issue, immediately proceed to dispatch.
+
+For each 🆕 NEW finding that qualifies for investigation, dispatch a worker using the `dispatch-workflow` safe-output tool:
 
 ### 5.1 Dispatch Rules
 
 | Condition | Action |
 |-----------|--------|
-| 🆕 NEW + 🔴 Critical | **Always dispatch** |
+| 🆕 NEW + 🔴 Critical | **Always dispatch** — no exceptions |
 | 🆕 NEW + 🟡 Warning + category `pipeline` or `quality` | **Dispatch** |
 | 🆕 NEW + 🟡 Warning + category `pr` or `infra` | **Skip** (self-explanatory) |
 | 🆕 NEW + 🔵 Info | **Never dispatch** |
 | 📌 EXISTING (any) | **Never dispatch** |
 | ✅ RESOLVED (any) | **Never dispatch** |
+
+**First run note:** On the first run all findings are 🆕 NEW. This means ALL critical findings MUST be dispatched.
 
 **Budget:** Maximum 10 dispatches per run. If more than 10 qualify, prioritize by:
 1. Severity descending (🔴 first)
@@ -423,15 +482,7 @@ For each 🆕 NEW finding that qualifies for investigation, dispatch a worker:
 
 ### 5.2 For Each Dispatched Finding
 
-1. **Insert a placeholder island** in the issue body (within the 🆕 section, right after the finding details):
-
-```markdown
-<!-- investigation:{finding_fingerprint} -->
-⏳ Investigation dispatched — results arriving shortly...
-<!-- /investigation:{finding_fingerprint} -->
-```
-
-2. **Dispatch the worker:**
+1. **Dispatch the worker** by calling the `devops_health_investigate` safe-output tool with these inputs:
 
 ```
 dispatch-workflow:
@@ -446,7 +497,16 @@ dispatch-workflow:
     correlation_id: "hc-{date}-{sequence}"
 ```
 
-3. **Wait 5 seconds** between dispatches (platform rate limit).
+2. **Wait 5 seconds** between dispatches (platform rate limit).
+
+### 5.3 Verification Checklist
+
+Before finishing, verify:
+- [ ] At least one `dispatch-workflow` call was made (if any 🔴 critical or qualifying 🟡 warning findings exist)
+- [ ] All 🔴 critical NEW findings have been dispatched (up to budget cap)
+- [ ] The "🔍 Investigation Results" section in the issue body shows newly dispatched findings as "🔄 Dispatched"
+- [ ] Any existing "✅ Done" or "✅ Resolved" rows from the previous issue body are preserved
+- [ ] The noop summary message mentions how many investigations were dispatched
 
 ---
 
