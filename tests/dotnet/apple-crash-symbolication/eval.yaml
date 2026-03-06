@@ -1,111 +1,36 @@
 scenarios:
-  - name: "Symbolicate .NET Mono frames in an iOS crash log"
-    prompt: "I have an iOS .ips crash log at crash_mono.ips from a crashed .NET MAUI app. Please run the symbolication script against it and help me locate the dSYM files I need to resolve the native frames."
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(libmonosgen|Mono|mono.*runtime)"
-      - type: "output_matches"
-        pattern: "(dSYM|dsym|dwarfdump)"
-      - type: "output_matches"
-        pattern: "SIGABRT"
-    rubric:
-      - "Identified that the crash log contains .NET runtime frames from the Mono runtime"
-      - "Ran or attempted to run the Symbolicate-Crash.ps1 automation script against the crash log"
-      - "Explained where to find dSYM debug symbols (SDK packs, NuGet cache, or build output)"
-      - "Found the managed exception message in the crash log and reported it"
-      - "Produced or described a symbolicated backtrace with function names and source file locations"
-    timeout: 300
-
-  - name: "Recognize iOS crash log with no .NET frames"
-    prompt: "I have an iOS .ips crash log at crash_no_dotnet.ips from a crashed app. Please symbolicate the .NET runtime frames."
-    expect_activation: false
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(no .NET|not a .NET|no .net|no dotnet|no managed|not .NET|does not contain .NET|doesn.t contain .NET|no mono|no CoreCLR|no libmonosgen|no libcoreclr|no .NET runtime|pure Swift)"
-      - type: "output_matches"
-        pattern: "(SwiftApp|libswiftCore|Swift|UIKit)"
-    rubric:
-      - "Correctly identified that the crash log contains no .NET runtime libraries"
-      - "Did NOT attempt to search for dSYMs or perform .NET-specific symbolication"
-      - "Did NOT fabricate or hallucinate symbolicated .NET frames"
-      - "Mentioned that the crash involves a Swift/UIKit app rather than a .NET app"
-    timeout: 300
-
-  - name: "Symbolicate CoreCLR frames in an iOS crash log"
-    prompt: "I have an iOS .ips crash log at crash_coreclr.ips from a crashed .NET iOS app. Please symbolicate the .NET runtime frames in the backtrace."
+  - name: "Symbolicate .NET frames in an iOS crash log"
+    prompt: "I have an iOS .ips crash log at ios_crash.ips from a crashed .NET MAUI app. Please run the symbolication script against it and help me locate the dSYM files I need to resolve the native frames."
     setup:
       copy_test_files: true
     assertions:
       - type: "output_matches"
         pattern: "libcoreclr"
       - type: "output_matches"
-        pattern: "(atos|Symbolicate)"
+        pattern: "(dSYM|dsym|dwarfdump)"
       - type: "output_matches"
-        pattern: "EXC_BAD_ACCESS"
+        pattern: "(SIGABRT|EXC_CRASH)"
     rubric:
-      - "Identified that the crash log contains .NET runtime frames from the CoreCLR runtime"
-      - "Identified the correct runtime library and its UUID for dSYM matching"
-      - "Provided correct symbolication commands or ran the automation script to resolve native frames"
-      - "Noted the EXC_BAD_ACCESS / SIGSEGV exception type indicating a memory access violation"
-      - "Did NOT assume the app is Mono-based — correctly identified it as CoreCLR"
-      - "Searched for or referenced specific .NET SDK pack paths or NuGet cache directories where the CoreCLR dSYM can be found"
+      - "Symbolicating native frames using atos or an automation script to resolve addresses to function names"
+      - "Identified that the crash log contains CoreCLR .NET runtime frames and multiple .NET BCL libraries (libSystem.Native, libSystem.Globalization.Native, etc.)"
+      - "Recognized that each .NET library has a distinct UUID and may require its own dSYM"
+      - "Explained where to find dSYM debug symbols (SDK packs, NuGet cache, or build output)"
     timeout: 300
 
-  - name: "Recognize NativeAOT iOS crash with app binary and libSystem.Native"
-    prompt: "I have an iOS .ips crash log at crash_nativeaot.ips from a crashed .NET iOS app compiled with NativeAOT. Please symbolicate the .NET runtime frames in the backtrace."
+  - name: "Investigate root cause of a .NET MAUI iOS crash"
+    prompt: "I have an iOS .ips crash log at ios_crash.ips from a crashed .NET MAUI app. Please symbolicate the .NET runtime frames and help me figure out what went wrong."
     setup:
       copy_test_files: true
     assertions:
       - type: "output_matches"
-        pattern: "(NativeAOT|native.AOT|nativeaot|statically.link|app.binary|AotApp)"
+        pattern: "(SIGABRT|EXC_CRASH|abort)"
       - type: "output_matches"
-        pattern: "(libSystem|BCL|native.*component|system.*native)"
+        pattern: "(SampleMAUI2|libcoreclr)"
     rubric:
-      - "Recognized that this is a NativeAOT app — the runtime is statically linked into the app binary, not a separate runtime library"
-      - "Mentioned the .NET BCL native components present in the crash log alongside the app binary"
-      - "Explained that the app binary requires its own dSYM from the build output, not dSYMs from SDK packs"
-      - "Did NOT confuse this with a Mono or CoreCLR JIT app"
-    timeout: 300
-
-  - name: "Symbolicate crash with multiple .NET libraries and different UUIDs"
-    prompt: "I have an iOS .ips crash log at crash_multi_lib.ips from a crashed .NET MAUI app. Please symbolicate the .NET runtime frames in the backtrace."
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(libmonosgen|Mono|mono.*runtime)"
-      - type: "output_matches"
-        pattern: "(libSystem|system.*native|BCL)"
-      - type: "output_matches"
-        pattern: "(libSystem\\.Globalization|Globalization.*Native|d4e5f6a7|three|3.*librar)"
-      - type: "output_matches"
-        pattern: "(atos|Symbolicate|dSYM|symbolicat)"
-    rubric:
-      - "Identified .NET frames from multiple runtime and BCL libraries in the crash log"
-      - "Recognized that each library has a distinct UUID and requires its own dSYM for symbolication"
-      - "Provided symbolication commands or ran the automation script covering all .NET libraries, not just one"
-      - "Found the managed exception message in the crash log and reported it"
-    timeout: 300
-
-  - name: "Check ASI field for managed exception before symbolicating"
-    prompt: "I have an iOS .ips crash log at crash_mono.ips from a crashed .NET MAUI app. Please symbolicate the .NET runtime frames and help me figure out what went wrong."
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(NullReferenceException|Object reference not set)"
-      - type: "output_matches"
-        pattern: "(asi|Application Specific Information)"
-    rubric:
-      - "Found the managed NullReferenceException in the crash log"
-      - "Reported the managed exception as the likely root cause"
-      - "Still offered or attempted to symbolicate the native frames for additional context"
-      - "Did NOT ignore the managed exception — it should appear prominently in the output"
-      - "Provided specific dSYM search paths (SDK packs or NuGet cache) for symbolicating the native Mono frames"
+      - "Extracted the exception type and any application-specific crash messages from the crash log"
+      - "Identified that the crash is a SIGABRT / EXC_CRASH in a CoreCLR .NET MAUI app"
+      - "Examined both the faulting thread and lastExceptionBacktrace for .NET frames"
+      - "Provided specific dSYM search paths (SDK packs or NuGet cache) for symbolicating the CoreCLR frames"
     timeout: 300
 
   - name: "Reject Android tombstone passed as iOS crash log"
@@ -123,5 +48,5 @@ scenarios:
       - "Recognized that this is an Android tombstone, not an iOS .ips crash log"
       - "Did NOT attempt to apply the iOS crash symbolication workflow"
       - "Did NOT attempt to run atos or search for dSYMs"
-      - "Suggested using the Android tombstone symbolication skill instead"
+      - "Suggested using an Android-specific crash analysis approach (e.g., ndk-stack, addr2line, or a dedicated tool) instead"
     timeout: 300

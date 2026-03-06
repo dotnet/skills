@@ -49,7 +49,7 @@ Search order for locating dSYM debug symbols:
 3. **NuGet cache:** `~/.nuget/packages/microsoft.netcore.app.runtime.<rid>/<version>/runtimes/<rid>/native/`
 4. **NuGet.org:** Download the runtime package and extract
 
-Supported RIDs: `ios-arm64`, `tvos-arm64`, `maccatalyst-arm64`, `maccatalyst-x64`, `osx-arm64`, `osx-x64`.
+Supported RIDs: `ios-arm64`, `iossimulator-arm64`, `iossimulator-x64`, `tvos-arm64`, `tvossimulator-arm64`, `tvossimulator-x64`, `maccatalyst-arm64`, `maccatalyst-x64`, `osx-arm64`, `osx-x64`.
 
 Verify UUID match: `dwarfdump --uuid <dsym>` must match the UUID from the crash log exactly. Mismatch means the dSYM is from a different build — locate the original build artifacts.
 
