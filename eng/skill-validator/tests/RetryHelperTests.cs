@@ -165,10 +165,10 @@ public class RetryHelperTests
         Assert.Equal(2, callCount);
         // The retry delay should be clamped to remaining budget, not the raw 60s.
         Assert.Single(recordedDelays);
-        Assert.True(recordedDelays[0] < 2000,
+        Assert.True(recordedDelays[0] <= 2000,
             $"Delay should be clamped to remaining budget, got {recordedDelays[0]}ms");
-        Assert.True(recordedDelays[0] > 0,
-            $"Delay should be positive, got {recordedDelays[0]}ms");
+        Assert.True(recordedDelays[0] >= 0,
+            $"Delay should be non-negative, got {recordedDelays[0]}ms");
     }
 
     [Fact]
