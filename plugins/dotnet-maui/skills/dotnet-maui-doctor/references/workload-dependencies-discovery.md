@@ -124,7 +124,7 @@ $reader.Dispose(); $zip.Dispose()
   "microsoft.net.sdk.android": {
     "jdk": {
       "version": "[17.0,22.0)",
-      "recommendedVersion": "17.0.14"
+      "recommendedVersion": "21.0.8"
     },
     "androidsdk": {
       "packages": ["build-tools;35.0.0", "platform-tools", "platforms;android-35", "cmdline-tools;13.0"],
