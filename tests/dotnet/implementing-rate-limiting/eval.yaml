@@ -27,3 +27,73 @@ scenarios:
       - "Chose an appropriate algorithm (sliding window or token bucket preferred over fixed window to avoid burst problem)"
     expect_tools: ["bash"]
     timeout: 120
+
+  - name: "Fix rate limiter returning 503 instead of 429"
+    prompt: |
+      My ASP.NET Core API rate limiter is returning 503 Service Unavailable instead of 429 Too Many Requests when clients hit the limit. Clients are confused because 503 usually means the server is down. How do I fix this?
+    setup:
+      files:
+        - path: "Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 60,
+                            Window = TimeSpan.FromMinutes(1)
+                        }));
+            });
+
+            var app = builder.Build();
+            app.UseRateLimiter();
+            app.MapGet("/api/data", () => "Hello!");
+            app.Run();
+        - path: "RateLimitBug.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+    assertions:
+      - type: "output_matches"
+        pattern: "(RejectionStatusCode|429|TooManyRequests)"
+      - type: "output_matches"
+        pattern: "(OnRejected|Retry-After|RetryAfter)"
+    rubric:
+      - "Identified the root cause: default RejectionStatusCode is 503, must explicitly set to 429"
+      - "Added RejectionStatusCode = StatusCodes.Status429TooManyRequests"
+      - "Added OnRejected callback with Retry-After header"
+      - "Suggested switching from fixed window to sliding window or token bucket to avoid burst-at-boundary"
+    timeout: 120
+
+  - name: "Rate limiting should not apply to authentication scenarios"
+    prompt: |
+      I need to implement OAuth token endpoint throttling — limiting failed login attempts to 5 per minute per IP to prevent brute force attacks. Should I use ASP.NET Core rate limiting middleware for this?
+    assertions:
+      - type: "output_not_matches"
+        pattern: "(AddRateLimiter.*GlobalLimiter|UseRateLimiter.*app\\.Map)"
+    rubric:
+      - "Recognized that login throttling has different requirements than API rate limiting"
+      - "Mentioned that rate limiting middleware works at the HTTP pipeline level, not at the authentication/identity level"
+      - "Suggested alternatives or complementary approaches (e.g., Identity lockout, custom middleware, or combining rate limiting with auth-aware partitioning)"
+      - "Did NOT suggest a naive global rate limiter as the complete solution for brute force protection"
+    timeout: 60
+
+  - name: "Choose correct rate limiting algorithm"
+    prompt: |
+      I'm building a payment processing API. I need to rate limit to exactly 100 transactions per hour per merchant, with no bursting allowed — each merchant should get a steady, even flow of requests. Which .NET rate limiting algorithm should I use and why?
+    assertions:
+      - type: "output_matches"
+        pattern: "(TokenBucket|token.bucket|SlidingWindow|sliding.window)"
+    rubric:
+      - "Recommended token bucket or sliding window (NOT fixed window which allows burst at window boundary)"
+      - "Explained why fixed window is wrong for this use case (burst problem: 100 requests at end of window + 100 at start of next = 200 in seconds)"
+      - "Showed correct TokenBucketRateLimiterOptions or SlidingWindowRateLimiterOptions configuration"
+      - "Used per-merchant partitioning (CreatePartitionedLimiter with merchant ID as partition key)"
+    timeout: 120

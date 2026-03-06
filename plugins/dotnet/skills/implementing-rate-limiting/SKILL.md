@@ -1,23 +1,16 @@
-```skill
 ---
 name: implementing-rate-limiting
-description: Implement .NET 7+ built-in rate limiting middleware with correct algorithm selection, partitioning, and response handling. Use when adding API rate limiting without a third-party library.
+description: >
+  Implement .NET 7+ built-in rate limiting middleware (AddRateLimiter, UseRateLimiter) with correct
+  algorithm selection, partitioning, and response handling. USE FOR: adding API rate limiting,
+  per-client/per-IP/per-user throttling, configuring sliding window or token bucket algorithms,
+  fixing rate limiter returning 503 instead of 429, fixing silently inactive rate limiting.
+  DO NOT USE FOR: distributed rate limiting across multiple servers (need Redis-backed solution),
+  rate limiting at API gateway/reverse proxy layer (YARP, nginx, Azure API Management),
+  pre-.NET 7 projects (no built-in support).
 ---
 
 # Implementing Rate Limiting in ASP.NET Core (.NET 7+)
-
-## When to Use
-
-- Adding rate limiting to ASP.NET Core APIs using the built-in middleware
-- Choosing between fixed window, sliding window, token bucket, and concurrency limiter
-- Configuring per-client/per-endpoint rate limits
-- Fixing rate limiting that silently does nothing or blocks the wrong requests
-
-## When Not to Use
-
-- Distributed rate limiting across multiple server instances (need Redis-backed like `AspNetCoreRateLimit` or a gateway)
-- Rate limiting at the API gateway/reverse proxy layer (YARP, nginx, Azure API Management)
-- Pre-.NET 7 projects (no built-in support)
 
 ## Inputs
 
@@ -44,6 +37,7 @@ description: Implement .NET 7+ built-in rate limiting middleware with correct al
 
 ```csharp
 using Microsoft.AspNetCore.RateLimiting;
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 
 builder.Services.AddRateLimiter(options =>
@@ -51,15 +45,21 @@ builder.Services.AddRateLimiter(options =>
     // CRITICAL: Set rejection status code — default is 503! Most APIs should use 429
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    // Global rate limiter: fixed window
+    // Global rate limiter: sliding window (avoids fixed window burst problem)
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
-        return RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
+        // Use X-Forwarded-For behind a reverse proxy, fall back to RemoteIpAddress
+        var ipAddress = context.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+            ?? context.Connection.RemoteIpAddress?.ToString()
+            ?? "unknown";
+
+        return RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: ipAddress,
+            factory: _ => new SlidingWindowRateLimiterOptions
             {
                 PermitLimit = 100,
                 Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 6, // 10-second segments for smooth distribution
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 0 // Reject immediately, don't queue
             });
@@ -118,11 +118,13 @@ builder.Services.AddRateLimiter(options =>
 ```csharp
 var app = builder.Build();
 
-// Rate limiting middleware MUST be after routing but before endpoint execution
-// WRONG order will cause it to silently not apply to endpoints
-app.UseRouting();           // must come first
-app.UseRateLimiter();       // ← HERE — after UseRouting, before MapControllers/MapGet
+// Middleware ordering matters:
+// UseRouting → UseAuthentication → UseAuthorization → UseRateLimiter
+// Placing UseRateLimiter() AFTER UseAuthorization() lets you partition by authenticated user
+app.UseRouting();
+app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();       // ← AFTER auth so user claims are available for partitioning
 
 // Apply policies to specific endpoints
 app.MapGet("/api/search", SearchHandler)
@@ -185,11 +187,11 @@ options.AddPolicy("per-user", context =>
 | Mistake | Symptom | Fix |
 |---------|---------|-----|
 | Default `RejectionStatusCode` is 503 | Clients think server is down, not rate limited | Set `options.RejectionStatusCode = 429` |
-| `UseRateLimiter()` before `UseRouting()` | Endpoint-specific policies silently don't apply | Move after `UseRouting()` |
+| `UseRateLimiter()` before `UseRouting()` | Endpoint-specific policies silently don't apply | Move after `UseRouting()` and after `UseAuthorization()` so user claims are available for partitioning |
 | Missing `RequireRateLimiting()` on endpoints | Global limiter works but named policies do nothing | Apply policies to endpoints explicitly |
 | `AutoReplenishment = false` on token bucket | Tokens never replenish, all requests rejected after initial burst | Set `AutoReplenishment = true` (or use a background timer) |
 | `QueueLimit > 0` without timeout | Requests queue indefinitely under sustained overload | Set `QueueLimit = 0` to reject immediately, or impose a timeout |
-| Partitioning by `RemoteIpAddress` behind proxy | All requests share one IP (the proxy) | Partition by `X-Forwarded-For` header or authenticated user |
+| Partitioning by `RemoteIpAddress` behind proxy | All requests share one IP (the proxy) | Partition by `X-Forwarded-For` header (as shown in Step 2 global limiter) or authenticated user |
 | Not setting `Retry-After` header | Clients don't know when to retry | Use `OnRejected` callback with `MetadataName.RetryAfter` |
 
 ## Validation
@@ -210,4 +212,3 @@ options.AddPolicy("per-user", context =>
 | 503 instead of 429 on rate limit | Default status code misleads clients and monitoring |
 | Fixed window burst problem | 2x expected traffic at window boundaries |
 | Token bucket never replenishes | `AutoReplenishment = false` rejects everything after burst |
-```
