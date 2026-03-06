@@ -137,7 +137,7 @@ When `finding_type == "quality"`:
 7. **Check recent skill/test changes**:
    ```
    GET /repos/{owner}/{repo}/commits?path=plugins/{component}/skills/{skill}&per_page=5
-   GET /repos/{owner}/{repo}/commits?path=plugins/{component}/tests/{skill}&per_page=5
+   GET /repos/{owner}/{repo}/commits?path=tests/{component}/{skill}&per_page=5
    ```
 
 8. **Determine root cause** with confidence level.
