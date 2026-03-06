@@ -37,7 +37,7 @@ public static class RetryHelper
     /// <paramref name="maxRetries"/> has not been exhausted.
     /// </param>
     /// <param name="cancellationToken">Optional token to cancel the retry loop.</param>
-    public static async Task<T> ExecuteWithRetry<T>(
+    public static Task<T> ExecuteWithRetry<T>(
         Func<CancellationToken, Task<T>> action,
         string label,
         int maxRetries = DefaultMaxRetries,
@@ -45,13 +45,34 @@ public static class RetryHelper
         int totalTimeoutMs = DefaultTotalTimeoutMs,
         CancellationToken cancellationToken = default)
     {
+        return ExecuteWithRetryCore(action, label, maxRetries, baseDelayMs, totalTimeoutMs,
+            cancellationToken, clock: null, delayFunc: null);
+    }
+
+    /// <summary>
+    /// Internal overload with injectable <paramref name="clock"/> and <paramref name="delayFunc"/>
+    /// seams so that tests can run without real wall-clock timing.
+    /// </summary>
+    internal static async Task<T> ExecuteWithRetryCore<T>(
+        Func<CancellationToken, Task<T>> action,
+        string label,
+        int maxRetries,
+        int baseDelayMs,
+        int totalTimeoutMs,
+        CancellationToken cancellationToken,
+        Func<long>? clock,
+        Func<int, CancellationToken, Task>? delayFunc)
+    {
+        var getClock = clock ?? (() => Environment.TickCount64);
+        var doDelay = delayFunc ?? Task.Delay;
+
         // Linked CTS fires when either the caller-supplied token is cancelled
         // or the total retry budget expires — whichever comes first.
         using var budgetCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budgetCts.CancelAfter(totalTimeoutMs);
 
         Exception? lastError = null;
-        var overallStart = Environment.TickCount64;
+        var overallStart = getClock();
 
         for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
@@ -61,7 +82,7 @@ public static class RetryHelper
 
             if (budgetCts.IsCancellationRequested)
             {
-                var elapsed = Environment.TickCount64 - overallStart;
+                var elapsed = getClock() - overallStart;
                 Console.Error.WriteLine(
                     $"      ⏱️  {label}: total retry budget exhausted ({elapsed / 1000}s elapsed, cap {totalTimeoutMs / 1000}s). Giving up.");
                 break;
@@ -73,11 +94,11 @@ public static class RetryHelper
                 {
                     // Use long arithmetic to avoid int overflow for large retry counts.
                     var rawDelay = (long)baseDelayMs * (1L << (attempt - 1));
-                    var remaining = totalTimeoutMs - (Environment.TickCount64 - overallStart);
+                    var remaining = totalTimeoutMs - (getClock() - overallStart);
                     // Clamp: cap to MaxSingleDelayMs and remaining budget so we don't overshoot.
                     var delay = (int)Math.Min(rawDelay, Math.Min(MaxSingleDelayMs, Math.Max(0, remaining)));
                     Console.Error.WriteLine($"      🔄 {label}: retry {attempt}/{maxRetries} (waiting {delay / 1000}s)");
-                    await Task.Delay(delay, budgetCts.Token);
+                    await doDelay(delay, budgetCts.Token);
                 }
                 return await action(budgetCts.Token);
             }
@@ -88,7 +109,7 @@ public static class RetryHelper
             catch (OperationCanceledException) when (budgetCts.IsCancellationRequested)
             {
                 // Budget exhausted — stop retrying.
-                var elapsed = Environment.TickCount64 - overallStart;
+                var elapsed = getClock() - overallStart;
                 Console.Error.WriteLine(
                     $"      ⏱️  {label}: total retry budget exhausted ({elapsed / 1000}s elapsed, cap {totalTimeoutMs / 1000}s). Giving up.");
                 break;
@@ -103,6 +124,6 @@ public static class RetryHelper
         }
 
         throw new InvalidOperationException(
-            $"{label}: all attempts failed after {(Environment.TickCount64 - overallStart) / 1000}s: {lastError?.Message}", lastError);
+            $"{label}: all attempts failed after {(getClock() - overallStart) / 1000}s: {lastError?.Message}", lastError);
     }
 }

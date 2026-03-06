@@ -71,6 +71,10 @@ on:
         required: false
       COPILOT_GITHUB_TOKEN_8:
         required: false
+    outputs:
+      comment_action:
+        description: 'Whether the PR comment was created, updated, or not posted'
+        value: ${{ jobs.comment-on-pr.outputs.comment_action }}
 
 jobs:
   build-validator:
@@ -92,11 +96,15 @@ jobs:
       - name: Build skill-validator
         run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
 
+      - name: Create validator archive
+        run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
+
       - name: Upload built validator
         uses: actions/upload-artifact@v7
         with:
-          name: skill-validator-dist
-          path: artifacts/publish/SkillValidator/release/
+          name: skill-validator-dist.tar.gz
+          path: skill-validator-dist.tar.gz
+          archive: false
           retention-days: 1
 
   evaluate:
@@ -127,8 +135,12 @@ jobs:
       - name: Download built validator
         uses: actions/download-artifact@v8
         with:
-          name: skill-validator-dist
-          path: artifacts/publish/SkillValidator/release/
+          name: skill-validator-dist.tar.gz
+
+      - name: Extract validator
+        run: |
+          mkdir -p artifacts/publish/SkillValidator/release
+          tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
 
       - name: Select random Copilot token
         id: select-token
@@ -176,10 +188,6 @@ jobs:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
         run: |
-          # Restore execute permissions lost during artifact upload/download
-          chmod +x artifacts/publish/SkillValidator/release/skill-validator
-          chmod +x artifacts/publish/SkillValidator/release/runtimes/*/native/copilot
-
           ARGS="--require-evals --verdict-warn-only"
           ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
           ARGS="$ARGS --model ${{ inputs.model }}"
@@ -210,6 +218,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+    outputs:
+      comment_action: ${{ steps.post-comment.outputs.comment_action }}
     steps:
       - name: Download all result artifacts
         uses: actions/download-artifact@v8
@@ -221,11 +231,12 @@ jobs:
       - name: Download built validator
         uses: actions/download-artifact@v8
         with:
-          name: skill-validator-dist
-          path: artifacts/publish/SkillValidator/release/
+          name: skill-validator-dist.tar.gz
 
-      - name: Make validator executable
-        run: chmod +x artifacts/publish/SkillValidator/release/skill-validator
+      - name: Extract validator
+        run: |
+          mkdir -p artifacts/publish/SkillValidator/release
+          tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
 
       - name: Consolidate summaries
         run: |
@@ -248,6 +259,7 @@ jobs:
           cat consolidated-comment.md >> $GITHUB_STEP_SUMMARY
 
       - name: Post or update PR comment
+        id: post-comment
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -262,7 +274,9 @@ jobs:
           if [ -n "$COMMENT_ID" ]; then
             gh api "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" \
               -X PATCH -F "body=@consolidated-comment.md"
+            echo "comment_action=updated" >> $GITHUB_OUTPUT
           else
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
               -X POST -F "body=@consolidated-comment.md"
+            echo "comment_action=created" >> $GITHUB_OUTPUT
           fi

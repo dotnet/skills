@@ -53,6 +53,8 @@ safe-outputs:
 network:
   allowed:
     - defaults
+
+timeout-minutes: 60
 ---
 
 # DevOps Health — Deep Investigation Worker

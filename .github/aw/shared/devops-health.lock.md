@@ -292,10 +292,10 @@ This approach automatically discovers new flag types added in the future.
 Components are discovered by scanning the file system:
 
 ```bash
-find src/*/plugin.json -maxdepth 2
+find plugins/*/plugin.json -maxdepth 2
 ```
 
-Each `src/{name}/` directory containing a `plugin.json` is a component. The dashboard data file is at `data/{name}.json` on the `gh-pages` branch.
+Each `plugins/{name}/` directory containing a `plugin.json` is a component. The dashboard data file is at `data/{name}.json` on the `gh-pages` branch.
 
 To fetch benchmark data via the GitHub API (without `curl`):
 ```
