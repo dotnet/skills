@@ -4,7 +4,7 @@ description: >
   META/ROUTER skill — routes developers to the correct .NET AI/ML skill
   based on their task type. Use this when you are unsure which .NET AI
   technology or library to apply. Do NOT use this for projects targeting
-  .NET Framework (requires .NET 8+), pure data engineering/ETL with no
+  .NET Framework (requires .NET 10+), pure data engineering/ETL with no
   ML/AI component, or custom deep learning training loops beyond what
   ML.NET and TorchSharp provide.
 ---
@@ -20,7 +20,7 @@ Route to the right .NET AI/ML skill. Answer the questions below; follow the firs
 | `task_description` | yes | What the developer wants to build or solve |
 | `data_type` | no | structured/tabular, text, image, audio, mixed |
 | `deployment_target` | no | cloud, edge, local/offline |
-| `target_framework` | no | .NET version (must be .NET 8+) |
+| `target_framework` | no | .NET version (must be .NET 10+) |
 
 ## Library Stack (reference only)
 
