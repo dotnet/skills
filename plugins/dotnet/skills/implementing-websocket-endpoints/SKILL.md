@@ -1,23 +1,15 @@
-```skill
 ---
 name: implementing-websocket-endpoints
-description: Implement WebSocket endpoints in ASP.NET Core 8+ using the built-in middleware. Use when adding real-time bidirectional communication to an API.
+description: >
+  Implement raw WebSocket endpoints in ASP.NET Core 8+ using the built-in middleware.
+  USE FOR: real-time bidirectional communication (chat, live updates, gaming), WebSocket
+  receive/send loops, AcceptWebSocketAsync, UseWebSockets middleware, connection lifecycle,
+  broadcasting to multiple clients, WebSocket authentication.
+  DO NOT USE FOR: server-to-client only streaming (use SSE or TypedResults.ServerSentEvents),
+  apps needing automatic reconnection and hub abstraction (use SignalR), simple request/response (use HTTP).
 ---
 
 # Implementing WebSocket Endpoints in ASP.NET Core
-
-## When to Use
-
-- Real-time bidirectional communication (chat, live updates, gaming)
-- Need to push data from server to client without polling
-- Lower overhead than HTTP long-polling or SSE for high-frequency updates
-- Client needs to send messages to server unprompted
-
-## When Not to Use
-
-- Server-to-client only (use Server-Sent Events — simpler)
-- Need automatic reconnection and hub abstraction (use SignalR instead)
-- Simple request/response patterns (use regular HTTP)
 
 ## Inputs
 
@@ -59,13 +51,6 @@ app.Map("/ws", async (HttpContext context) =>
 ### Step 2: Configure WebSocket middleware
 
 ```csharp
-// Program.cs
-builder.Services.AddWebSockets(options =>
-{
-    // WRONG — this method doesn't exist! Use raw middleware options:
-});
-
-// CORRECT:
 var app = builder.Build();
 
 app.UseWebSockets(new WebSocketOptions
@@ -74,13 +59,16 @@ app.UseWebSockets(new WebSocketOptions
     // Default is 2 minutes. Set to match your infrastructure timeouts.
     KeepAliveInterval = TimeSpan.FromSeconds(30),
 
+    // KeepAliveTimeout: how long to wait for pong response before closing
+    // Set this to detect dead connections faster
+    KeepAliveTimeout = TimeSpan.FromSeconds(15),
+
     // Allowed origins (for browser CORS protection)
-    // CRITICAL: Without this, ANY website can open a WebSocket to your API
+    // CRITICAL: Without explicit AllowedOrigins, ANY website can open a WebSocket to your API
     AllowedOrigins = { "https://myapp.com", "https://www.myapp.com" }
 });
 
 // CRITICAL ORDERING: UseWebSockets MUST come before the endpoint that handles WebSockets
-app.UseWebSockets();    // ← BEFORE
 app.UseRouting();
 app.UseAuthorization();
 // WebSocket handling endpoint comes after routing
@@ -102,15 +90,18 @@ static async Task HandleWebSocketAsync(WebSocket webSocket, CancellationToken ct
     {
         if (result.MessageType == WebSocketMessageType.Text)
         {
-            var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-
             // CRITICAL: For large messages, EndOfMessage may be false
-            // You must accumulate fragments until EndOfMessage == true
+            // You MUST accumulate fragments until EndOfMessage == true
             if (!result.EndOfMessage)
             {
                 // Accumulate into a MemoryStream or larger buffer
-                // Don't process partial messages!
+                // Do NOT process until EndOfMessage == true
+                result = await webSocket.ReceiveAsync(
+                    new ArraySegment<byte>(buffer), ct);
+                continue;
             }
+
+            var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
 
             // Echo back (or process the message)
             var responseBytes = Encoding.UTF8.GetBytes($"Echo: {message}");
@@ -118,6 +109,15 @@ static async Task HandleWebSocketAsync(WebSocket webSocket, CancellationToken ct
                 new ArraySegment<byte>(responseBytes),
                 WebSocketMessageType.Text,
                 endOfMessage: true,  // ← MUST set this for the last (or only) fragment
+                ct);
+        }
+        else if (result.MessageType == WebSocketMessageType.Binary)
+        {
+            // Handle binary messages — echo back or process as needed
+            await webSocket.SendAsync(
+                new ArraySegment<byte>(buffer, 0, result.Count),
+                WebSocketMessageType.Binary,
+                endOfMessage: result.EndOfMessage,
                 ct);
         }
 
@@ -165,7 +165,8 @@ public class WebSocketConnectionManager
 
         // CRITICAL: ToList() snapshot to avoid modification during iteration
         var tasks = _connections.Values
-            .Where(s => s.State == WebSocketState.Open)  // Only open sockets
+            .Where(s => s.State == WebSocketState.Open)
+            .ToList()  // ← Snapshot! Without this, concurrent disconnects cause exceptions
             .Select(s => s.SendAsync(segment, WebSocketMessageType.Text, true, ct));
 
         // CRITICAL: Use Task.WhenAll for parallel sends
@@ -188,14 +189,16 @@ builder.Services.AddSingleton<WebSocketConnectionManager>();
 ### Step 5: Authentication with WebSockets
 
 ```csharp
-// CRITICAL: WebSocket connections don't support standard HTTP auth headers
-// after the initial handshake. The auth happens on the HTTP upgrade request.
+// CRITICAL: The browser WebSocket API does NOT support custom HTTP headers at all.
+// Unlike fetch/XMLHttpRequest, you CANNOT set Authorization headers on a WebSocket connection.
+// Auth must happen via query string, cookies, or a pre-auth handshake.
 
 // Option 1: Query string token (common for browser clients)
+// ⚠️ SECURITY WARNING: Tokens in query strings may leak via server/proxy logs,
+// browser history, and Referer headers. Always use wss:// (TLS) and consider
+// short-lived tokens or cookie-based auth for production.
 app.Map("/ws", async (HttpContext context) =>
 {
-    // Browser WebSocket API doesn't support custom headers
-    // Use query string: ws://server/ws?access_token=xxx
     var token = context.Request.Query["access_token"];
     if (string.IsNullOrEmpty(token))
     {
@@ -212,7 +215,7 @@ app.Map("/ws", async (HttpContext context) =>
     }
 });
 
-// Option 2: Cookie auth works naturally (cookies are sent on upgrade request)
+// Option 2: Cookie auth works naturally (cookies are sent on the HTTP upgrade request)
 // Option 3: Use [Authorize] attribute if using cookie or negotiate auth
 ```
 
@@ -228,5 +231,4 @@ app.Map("/ws", async (HttpContext context) =>
 
 5. **Forgetting `KeepAliveInterval`**: Load balancers and proxies close idle connections. The default 2 minutes may be too long — set to 30 seconds.
 
-6. **Not handling concurrent broadcasts safely**: Use `ConcurrentDictionary` and snapshot collections before iteration.
-```
+6. **Not handling concurrent broadcasts safely**: Use `ConcurrentDictionary` and snapshot collections (`.ToList()`) before iteration.
