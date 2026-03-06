@@ -1,0 +1,268 @@
+using SkillValidator.Models;
+using SkillValidator.Services;
+
+namespace SkillValidator.Tests;
+
+public class AgentProfilerTests
+{
+    private static AgentInfo MakeAgent(
+        string content,
+        string name = "test-agent",
+        string description = "Test agent description",
+        string fileName = "test-agent.agent.md")
+    {
+        return new AgentInfo(name, description, $"/tmp/agents/{fileName}", content, fileName);
+    }
+
+    [Fact]
+    public void ValidAgentProducesNoErrors()
+    {
+        var content = "---\nname: test-agent\ndescription: A test agent.\n---\n# Test Agent\n\nDo the thing.\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, "test-agent", "A test agent."));
+        Assert.Empty(profile.Errors);
+    }
+
+    [Fact]
+    public void MissingFrontmatterErrors()
+    {
+        var content = "# Test Agent\n\nNo frontmatter here.\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content));
+        Assert.Contains(profile.Errors, e => e.Contains("frontmatter"));
+    }
+
+    [Fact]
+    public void MissingNameErrors()
+    {
+        var content = "---\ndescription: A test agent.\n---\n# Test\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "", description: "A test agent."));
+        Assert.Contains(profile.Errors, e => e.Contains("name"));
+    }
+
+    [Fact]
+    public void MissingDescriptionErrors()
+    {
+        var content = "---\nname: test-agent\n---\n# Test\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, description: ""));
+        Assert.Contains(profile.Errors, e => e.Contains("description"));
+    }
+
+    [Fact]
+    public void DescriptionOverLimitErrors()
+    {
+        var desc = new string('a', 1025);
+        var content = $"---\nname: test-agent\ndescription: {desc}\n---\n# Test\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, description: desc));
+        Assert.Contains(profile.Errors, e => e.Contains("maximum"));
+    }
+
+    [Fact]
+    public void DescriptionAtLimitNoError()
+    {
+        var desc = new string('a', 1024);
+        var content = $"---\nname: test-agent\ndescription: {desc}\n---\n# Test\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, description: desc));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("maximum"));
+    }
+
+    [Fact]
+    public void NameNotMatchingFilenameWarns()
+    {
+        var content = "---\nname: my-agent\ndescription: test\n---\n# Test\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "my-agent", fileName: "different-agent.agent.md"));
+        Assert.Contains(profile.Warnings, w => w.Contains("does not match filename"));
+    }
+
+    [Fact]
+    public void NameMatchingFilenameNoWarning()
+    {
+        var content = "---\nname: my-agent\ndescription: test\n---\n# Test\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "my-agent", fileName: "my-agent.agent.md"));
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("does not match filename"));
+    }
+
+    [Fact]
+    public void NameWithUppercaseWarns()
+    {
+        var content = "---\nname: My-Agent\ndescription: test\n---\n# Test\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "My-Agent", fileName: "My-Agent.agent.md"));
+        Assert.Contains(profile.Warnings, w => w.Contains("invalid characters"));
+    }
+
+    [Fact]
+    public void NameTooLongWarns()
+    {
+        var longName = new string('a', 65);
+        var content = $"---\nname: {longName}\ndescription: test\n---\n# Test\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: longName, fileName: $"{longName}.agent.md"));
+        Assert.Contains(profile.Warnings, w => w.Contains("maximum is 64"));
+    }
+
+    [Fact]
+    public void BodyOver500LinesErrors()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 501).Select(i => $"Line {i}"));
+        var content = "---\nname: test-agent\ndescription: test\n---\n" + body;
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content));
+        Assert.Contains(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
+    }
+
+    [Fact]
+    public void BodyAt500LinesNoError()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 500).Select(i => $"Line {i}"));
+        var content = "---\nname: test-agent\ndescription: test\n---\n" + body;
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
+    }
+
+    [Fact]
+    public void BodyAt500LinesWithTrailingNewlineNoError()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 500).Select(i => $"Line {i}")) + "\n";
+        var content = "---\nname: test-agent\ndescription: test\n---\n" + body;
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
+    }
+}
+
+public class PluginValidatorTests
+{
+    [Fact]
+    public void ValidPluginProducesNoErrors()
+    {
+        var pluginDir = Path.Combine(Path.GetTempPath(), "plugin-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(pluginDir);
+            Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
+            Directory.CreateDirectory(Path.Combine(pluginDir, "agents"));
+            var dirName = Path.GetFileName(pluginDir);
+
+            var plugin = new PluginInfo(dirName, "1.0.0", "A test plugin.", "./skills/", "./agents/", pluginDir, dirName);
+            var result = PluginValidator.ValidatePlugin(plugin);
+            Assert.Empty(result.Errors);
+            Assert.Empty(result.Warnings);
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [Fact]
+    public void MissingNameErrors()
+    {
+        var plugin = new PluginInfo("", "1.0.0", "desc", "./skills/", null, "/tmp/test", "test");
+        var result = PluginValidator.ValidatePlugin(plugin);
+        Assert.Contains(result.Errors, e => e.Contains("name"));
+    }
+
+    [Fact]
+    public void NameNotMatchingDirectoryErrors()
+    {
+        var plugin = new PluginInfo("wrong-name", "1.0.0", "desc", "./skills/", null, "/tmp/my-plugin", "my-plugin");
+        var result = PluginValidator.ValidatePlugin(plugin);
+        Assert.Contains(result.Errors, e => e.Contains("does not match directory"));
+    }
+
+    [Fact]
+    public void MissingVersionErrors()
+    {
+        var plugin = new PluginInfo("test", null, "desc", "./skills/", null, "/tmp/test", "test");
+        var result = PluginValidator.ValidatePlugin(plugin);
+        Assert.Contains(result.Errors, e => e.Contains("version"));
+    }
+
+    [Fact]
+    public void MissingDescriptionErrors()
+    {
+        var plugin = new PluginInfo("test", "1.0.0", null, "./skills/", null, "/tmp/test", "test");
+        var result = PluginValidator.ValidatePlugin(plugin);
+        Assert.Contains(result.Errors, e => e.Contains("description"));
+    }
+
+    [Fact]
+    public void DescriptionOverLimitErrors()
+    {
+        var desc = new string('a', 1025);
+        var plugin = new PluginInfo("test", "1.0.0", desc, "./skills/", null, "/tmp/test", "test");
+        var result = PluginValidator.ValidatePlugin(plugin);
+        Assert.Contains(result.Errors, e => e.Contains("maximum"));
+    }
+
+    [Fact]
+    public void MissingSkillsPathErrors()
+    {
+        var plugin = new PluginInfo("test", "1.0.0", "desc", null, null, "/tmp/test", "test");
+        var result = PluginValidator.ValidatePlugin(plugin);
+        Assert.Contains(result.Errors, e => e.Contains("skills"));
+    }
+
+    [Fact]
+    public void NonexistentSkillsPathErrors()
+    {
+        var plugin = new PluginInfo("test", "1.0.0", "desc", "./nonexistent/", null, "/tmp/test", "test");
+        var result = PluginValidator.ValidatePlugin(plugin);
+        Assert.Contains(result.Errors, e => e.Contains("does not exist"));
+    }
+
+    [Fact]
+    public void NonexistentAgentsPathWarns()
+    {
+        var pluginDir = Path.Combine(Path.GetTempPath(), "plugin-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(pluginDir);
+            Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
+            var dirName = Path.GetFileName(pluginDir);
+
+            var plugin = new PluginInfo(dirName, "1.0.0", "desc", "./skills/", "./nonexistent/", pluginDir, dirName);
+            var result = PluginValidator.ValidatePlugin(plugin);
+            Assert.Empty(result.Errors);
+            Assert.Contains(result.Warnings, w => w.Contains("does not exist"));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [Fact]
+    public void NameFormatWarnings()
+    {
+        var plugin = new PluginInfo("My_Plugin", "1.0.0", "desc", "./skills/", null, "/tmp/My_Plugin", "My_Plugin");
+        var result = PluginValidator.ValidatePlugin(plugin);
+        Assert.Contains(result.Warnings, w => w.Contains("invalid characters"));
+    }
+
+    [Fact]
+    public void ParsePluginJsonReturnsNullForMissingFile()
+    {
+        var result = PluginValidator.ParsePluginJson("/nonexistent/plugin.json");
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void ParsePluginJsonParsesValidFile()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "parse-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(dir);
+            var jsonPath = Path.Combine(dir, "plugin.json");
+            File.WriteAllText(jsonPath, """{"name":"my-plugin","version":"0.1.0","description":"A plugin.","skills":"./skills/","agents":"./agents/"}""");
+
+            var plugin = PluginValidator.ParsePluginJson(jsonPath);
+            Assert.NotNull(plugin);
+            Assert.Equal("my-plugin", plugin.Name);
+            Assert.Equal("0.1.0", plugin.Version);
+            Assert.Equal("A plugin.", plugin.Description);
+            Assert.Equal("./skills/", plugin.SkillsPath);
+            Assert.Equal("./agents/", plugin.AgentsPath);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+}

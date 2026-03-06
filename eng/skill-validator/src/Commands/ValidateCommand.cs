@@ -173,6 +173,46 @@ public static class ValidateCommand
             return 1;
         }
 
+        // Validate plugins (plugin.json) reachable from the given paths
+        var plugins = SkillDiscovery.DiscoverPlugins(config.SkillPaths);
+        bool hasPluginErrors = false;
+        foreach (var plugin in plugins)
+        {
+            var result = PluginValidator.ValidatePlugin(plugin);
+            foreach (var warning in result.Warnings)
+                Console.WriteLine($"\x1b[33m⚠  [plugin:{result.Name}] {warning}\x1b[0m");
+            foreach (var error in result.Errors)
+            {
+                Console.Error.WriteLine($"\x1b[31m❌ [plugin:{result.Name}] {error}\x1b[0m");
+                hasPluginErrors = true;
+            }
+        }
+        if (plugins.Count > 0)
+            Console.WriteLine($"Validated {plugins.Count} plugin(s)");
+
+        // Validate agents (.agent.md) reachable from the given paths
+        var agents = await SkillDiscovery.DiscoverAgents(config.SkillPaths);
+        bool hasAgentErrors = false;
+        foreach (var agent in agents)
+        {
+            var profile = AgentProfiler.AnalyzeAgent(agent);
+            foreach (var warning in profile.Warnings)
+                Console.WriteLine($"\x1b[33m⚠  [agent:{profile.Name}] {warning}\x1b[0m");
+            foreach (var error in profile.Errors)
+            {
+                Console.Error.WriteLine($"\x1b[31m❌ [agent:{profile.Name}] {error}\x1b[0m");
+                hasAgentErrors = true;
+            }
+        }
+        if (agents.Count > 0)
+            Console.WriteLine($"Validated {agents.Count} agent(s)\n");
+
+        if (hasPluginErrors || hasAgentErrors)
+        {
+            Console.Error.WriteLine("\x1b[31mAgent/plugin spec conformance failures — fix the errors above.\x1b[0m");
+            return 1;
+        }
+
         if (config.Runs < 5)
             Console.WriteLine($"\x1b[33m⚠  Running with {config.Runs} run(s). For statistically significant results, use --runs 5 or higher.\x1b[0m");
 
