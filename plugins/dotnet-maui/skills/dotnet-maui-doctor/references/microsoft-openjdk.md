@@ -84,9 +84,11 @@ For installation instructions, refer to the official Microsoft documentation:
 |-------|-----|--------|
 | Not set | ✅ | None needed, auto-detection works |
 | Set to Microsoft JDK path | ✅ | None needed |
-| Set to non-Microsoft JDK | ❌ | Unset it or point to Microsoft JDK |
+| Set to non-Microsoft JDK | ⚠️ | Report as anomaly — let user decide to unset or redirect |
 
-To unset:
+Report a non-Microsoft JAVA_HOME as an anomaly: "JAVA_HOME is set to a non-Microsoft JDK. .NET MAUI auto-detects Microsoft OpenJDK, so JAVA_HOME is not needed and may cause build issues."
+
+If the user decides to unset:
 ```bash
 # macOS/Linux
 unset JAVA_HOME
@@ -95,12 +97,10 @@ unset JAVA_HOME
 Remove-Item Env:JAVA_HOME
 ```
 
-> **Note**: Rather than automatically unsetting JAVA_HOME, report it as an anomaly to the user and let them decide. Example: "JAVA_HOME is set to a non-Microsoft JDK (Oracle). .NET MAUI auto-detects Microsoft OpenJDK, so JAVA_HOME is not needed. This may cause build issues."
-
 ### Multiple JDKs Installed
 
 1. Run `java -version` and check for "Microsoft" in output
-2. If wrong vendor and `JAVA_HOME` is set → unset it or point to Microsoft JDK path
+2. If wrong vendor and `JAVA_HOME` is set → report as anomaly; user should unset or redirect to Microsoft JDK path
 3. If wrong vendor and `JAVA_HOME` is NOT set → the non-Microsoft JDK may be first in PATH; install Microsoft JDK and it should take precedence
 4. Restart terminal after changes
 

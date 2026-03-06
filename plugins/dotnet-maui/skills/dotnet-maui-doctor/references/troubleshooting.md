@@ -73,7 +73,7 @@ See `microsoft-openjdk.md` for complete installation paths by platform.
 **This is usually NOT a problem.** The .NET MAUI toolchain auto-detects JDK installations without needing `JAVA_HOME`.
 
 **When JAVA_HOME matters:**
-- ❌ `JAVA_HOME` is set but points to a **non-Microsoft JDK** → Fix by unsetting or pointing to Microsoft JDK
+- ⚠️ `JAVA_HOME` is set but points to a **non-Microsoft JDK** → Report as anomaly; user should unset or redirect to Microsoft JDK
 - ✅ `JAVA_HOME` is not set → Fine, tools will auto-detect
 - ✅ `JAVA_HOME` points to Microsoft JDK → Fine
 
@@ -82,7 +82,7 @@ See `microsoft-openjdk.md` for complete installation paths by platform.
 Report this as an anomaly to the user: "JAVA_HOME is set to a non-Microsoft JDK. .NET MAUI auto-detects Microsoft OpenJDK, so JAVA_HOME is not needed and may cause build issues."
 
 The user can then decide to:
-- Unset JAVA_HOME (recommended — lets auto-detection work)
+- Unset JAVA_HOME (lets auto-detection work)
 - Point it to Microsoft JDK if they have a specific reason to keep it set
 
 ### "Unsupported Java version" or "Wrong JDK vendor"
@@ -267,7 +267,7 @@ dotnet workload install [workload-name] --version $WORKLOAD_VERSION
 
 | Variable | Purpose | Required | Notes |
 |----------|---------|----------|-------|
-| `JAVA_HOME` | JDK location | No | Only problematic if set to non-Microsoft JDK |
+| `JAVA_HOME` | JDK location | No | Report as anomaly if set to non-Microsoft JDK |
 | `ANDROID_HOME` | Android SDK location | No | Auto-detected |
 | `ANDROID_SDK_ROOT` | Android SDK location | No | Alternative to ANDROID_HOME |
 | `DOTNET_ROOT` | .NET SDK location | No | Usually auto-detected |
@@ -276,7 +276,7 @@ dotnet workload install [workload-name] --version $WORKLOAD_VERSION
 **Key point about JAVA_HOME:**
 - ✅ Not set → Fine, tools auto-detect Microsoft JDK
 - ✅ Set to Microsoft JDK path → Fine
-- ❌ Set to non-Microsoft JDK → Anomaly! Report to user
+- ⚠️ Set to non-Microsoft JDK → Anomaly — report to user
 
 **Note**: The .NET MAUI toolchain auto-detects most paths. Only set these manually if auto-detection fails or wrong JDK is being selected.
 
