@@ -1,6 +1,6 @@
 ---
 name: fsharp-project-structure
-description: "F# .fsproj file ordering, adding .fs/.fsi files, fixing FS0039 FS0010 FS0034 compilation order errors, signature files."
+description: "F# .fsproj file ordering, adding .fs/.fsi files, fixing FS0039 and FS0034 compilation order errors, signature files."
 ---
 
 # F# Project File Structure
