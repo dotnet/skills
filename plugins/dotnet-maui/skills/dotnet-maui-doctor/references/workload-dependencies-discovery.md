@@ -42,45 +42,24 @@ Extract `latest-sdk` and derive SDK band:
 - `10.0.102` → band `10.0.100` (hundreds digit)
 - `10.0.205` → band `10.0.200`
 
-### Step 2: Find Workload Set Package
+### Step 2: Find Workload Set Version
 
-First, discover the NuGet search endpoint from the service index:
+Use the `dotnet workload search version` command to discover the latest workload set version:
 
-**Bash:**
 ```bash
-# Get the SearchQueryService URL from the NuGet v3 service index
-NUGET_SEARCH_URL=$(curl -s "https://api.nuget.org/v3/index.json" | \
-  jq -r '.resources[] | select(.["@type"]=="SearchQueryService") | .["@id"]' | head -1)
+dotnet workload search version --format json --take 1
+# Returns: [{"workloadVersion":"10.0.103"}]
 ```
 
-**PowerShell:**
 ```powershell
-$serviceIndex = Invoke-RestMethod "https://api.nuget.org/v3/index.json"
-$nugetSearchUrl = ($serviceIndex.resources | Where-Object { $_.'@type' -eq 'SearchQueryService' } | Select-Object -First 1).'@id'
+dotnet workload search version --format json --take 1 | ConvertFrom-Json
 ```
 
-Then search for the workload set package:
+The returned `workloadVersion` is the CLI version to use with `--version` flag.
 
-**Bash:**
-```bash
-curl -s "$NUGET_SEARCH_URL?q=Microsoft.NET.Workloads.{MAJOR}.0&prerelease=false&semVerLevel=2.0.0"
-```
-
-**PowerShell:**
-```powershell
-Invoke-RestMethod "$nugetSearchUrl`?q=Microsoft.NET.Workloads.{MAJOR}.0&prerelease=false&semVerLevel=2.0.0"
-```
-
-Filter results:
-- Match `Microsoft.NET.Workloads.{major}.{band}` (e.g., `Microsoft.NET.Workloads.10.0.100`)
-- Exclude `.Msi.*` packages
-- Pick highest version
-
-**Version conversion**: NuGet `10.102.0` → CLI `10.0.102`
-```
-parts = nugetVersion.split('.')
-cliVersion = parts[0] + ".0." + parts[1]
-```
+To convert this to the NuGet package version (needed for Steps 3-4):
+- CLI `10.0.102` → NuGet `10.102.0` (remove middle `.0.`, combine)
+- The NuGet package is: `Microsoft.NET.Workloads.{band}` where band = CLI version (e.g., `Microsoft.NET.Workloads.10.0.100`)
 
 ### Step 3: Download Workload Set Manifest
 
@@ -195,13 +174,10 @@ curl -s "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/release
   jq '.["releases-index"][] | select(.["channel-version"]=="10.0") | .["latest-sdk"]'
 # Result: "10.0.102" → band "10.0.100"
 
-# Step 2: Discover NuGet search endpoint and find workload set
-NUGET_SEARCH_URL=$(curl -s "https://api.nuget.org/v3/index.json" | \
-  jq -r '.resources[] | select(.["@type"]=="SearchQueryService") | .["@id"]' | head -1)
-curl -s "$NUGET_SEARCH_URL?q=Microsoft.NET.Workloads.10.0&prerelease=false" | \
-  jq '.data[] | select(.id=="Microsoft.NET.Workloads.10.0.100") | {id, version}'
-# Result: { "id": "Microsoft.NET.Workloads.10.0.100", "version": "10.102.0" }
-# CLI version: 10.0.102
+# Step 2: Get latest workload set version
+dotnet workload search version --format json --take 1
+# Result: [{"workloadVersion":"10.0.102"}]
+# NuGet version: 10.102.0
 
 # Step 3: Download workload set manifest
 curl -so workloadset.nupkg "https://api.nuget.org/v3-flatcontainer/microsoft.net.workloads.10.0.100/10.102.0/microsoft.net.workloads.10.0.100.10.102.0.nupkg"
@@ -222,12 +198,10 @@ $sdkInfo = $releases.'releases-index' | Where-Object { $_.'channel-version' -eq 
 $latestSdk = $sdkInfo.'latest-sdk'
 # Result: "10.0.102" → band "10.0.100"
 
-# Step 2: Discover NuGet search endpoint and find workload set
-$serviceIndex = Invoke-RestMethod "https://api.nuget.org/v3/index.json"
-$searchUrl = ($serviceIndex.resources | Where-Object { $_.'@type' -eq 'SearchQueryService' } | Select-Object -First 1).'@id'
-$result = Invoke-RestMethod "$searchUrl`?q=Microsoft.NET.Workloads.10.0&prerelease=false"
-$workloadSet = $result.data | Where-Object { $_.id -eq 'Microsoft.NET.Workloads.10.0.100' }
-# Result: version "10.102.0", CLI version: 10.0.102
+# Step 2: Get latest workload set version
+$workloadVersion = (dotnet workload search version --format json --take 1 | ConvertFrom-Json).workloadVersion
+# Result: "10.0.102"
+# NuGet version: 10.102.0
 
 # Step 3: Download workload set manifest and extract
 Invoke-WebRequest "https://api.nuget.org/v3-flatcontainer/microsoft.net.workloads.10.0.100/10.102.0/microsoft.net.workloads.10.0.100.10.102.0.nupkg" -OutFile workloadset.nupkg
@@ -261,7 +235,7 @@ $reader.Dispose(); $zip.Dispose()
 | NuGet service index | `https://api.nuget.org/v3/index.json` |
 | Download package | `https://api.nuget.org/v3-flatcontainer/{id}/{version}/{id}.{version}.nupkg` |
 
-**Discover the search endpoint** from the service index by filtering for `SearchQueryService` type. Do not hardcode search URLs — they are regional and may change.
+**Workload version discovery**: Use `dotnet workload search version --format json --take 1` instead of querying NuGet search APIs directly. The NuGet download URLs are still needed for Steps 3-4 (manifest extraction).
 
 **Important**: Package IDs must be lowercase in download URLs.
 

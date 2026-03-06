@@ -15,18 +15,14 @@
 ## Windows Diagnostic Commands
 
 ```powershell
-# Windows SDK detection
-$kitsRoot = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots" -ErrorAction SilentlyContinue).KitsRoot10
-Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots" -ErrorAction SilentlyContinue |
-  ForEach-Object { $_.PSChildName }
-
 # JDK detection (Windows-specific)
 Get-ChildItem "$env:ProgramFiles\Microsoft" -Filter "jdk-*" -ErrorAction SilentlyContinue
 java -version 2>&1 | Select-String "Microsoft"
 
 # Android SDK location
 echo $env:ANDROID_SDK_ROOT
-# Default: $env:LOCALAPPDATA\Android\Sdk
+# Known paths: $env:LOCALAPPDATA\Android\Sdk
+ls "$env:LOCALAPPDATA\Android\Sdk" -ErrorAction SilentlyContinue
 
 # Android SDK list installed (Windows)
 & "$env:ANDROID_SDK_ROOT\cmdline-tools\latest\bin\sdkmanager.bat" --list_installed
