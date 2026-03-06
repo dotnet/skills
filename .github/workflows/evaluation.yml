@@ -5,7 +5,9 @@ on:
     paths:
       - 'plugins/**'
       - 'tests/**'
-      - '.github/workflows/**'
+      - '.github/workflows/evaluation.yml'
+      - '.github/workflows/evaluation-run.yml'
+      - '.github/workflows/evaluation-fork-pr.yml'
       - 'eng/skill-validator/**'
 
   schedule:
@@ -52,9 +54,9 @@ jobs:
             $head = "${{ github.event.pull_request.head.sha }}"
             $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
 
-            # Check if any changed files are in infrastructure paths (.github/workflows/ or eng/skill-validator/)
+            # Check if any changed files are in infrastructure paths (evaluation workflows or eng/skill-validator/)
             $hasInfraChanges = $changedFiles |
-              Where-Object { $_ -match '^(\.github/workflows/|eng/skill-validator/)' } |
+              Where-Object { $_ -match '^(\.github/workflows/evaluation(-run|-fork-pr)?\.yml$|eng/skill-validator/)' } |
               Select-Object -First 1
 
             if ($hasInfraChanges) {
