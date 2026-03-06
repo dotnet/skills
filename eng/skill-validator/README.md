@@ -19,12 +19,24 @@ Plugging into your CI, it ensures every new skill adds real value, and existing 
 
 ## Prerequisites
 
-- .NET 10 SDK or later (for building from source - the NativeAOT published binary is self-contained and doesn't need the .NET SDK installed)
 - Authenticated with GitHub via `gh auth login` (the GitHub Copilot SDK picks up your credentials automatically)
 
 ### Download from pipeline artifacts
 
-A nightly scheduled job publishes AOT-compiled NuGet packages as assets on the [`skill-validator-nightly` GitHub Release](https://github.com/dotnet/skills/releases/tag/skill-validator-nightly). Download the .tar.gz archive matching your platform, extract it, and run the `skill-validator` binary.
+A nightly scheduled job publishes AOT-compiled .tar.gz archives and NuGet packages as assets on the [`skill-validator-nightly` GitHub Release](https://github.com/dotnet/skills/releases/tag/skill-validator-nightly).
+
+#### Run without .NET installed
+
+To execute skill-validator without .NET installed, download the .tar.gz archive matching your platform, extract it, and run the `skill-validator` binary.
+
+#### Run via `dnx`
+
+With .NET 10+, you can run skill-validator without permanently installing it using `dnx` (dotnet execute). Download the RID-agnostic `.nupkg` from the [`skill-validator-nightly` release](https://github.com/dotnet/skills/releases/tag/skill-validator-nightly), then point `dnx` at it:
+
+```bash
+# Run directly from the downloaded nupkg
+dnx Microsoft.DotNet.SkillValidator --source ./path/to/downloaded/ ./path/to/skills/
+```
 
 ## Usage
 
