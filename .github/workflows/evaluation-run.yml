@@ -92,11 +92,15 @@ jobs:
       - name: Build skill-validator
         run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
 
+      - name: Create validator archive
+        run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
+
       - name: Upload built validator
         uses: actions/upload-artifact@v7
         with:
-          name: skill-validator-dist
-          path: artifacts/publish/SkillValidator/release/
+          name: skill-validator-dist.tar.gz
+          path: skill-validator-dist.tar.gz
+          archive: false
           retention-days: 1
 
   evaluate:
@@ -127,8 +131,12 @@ jobs:
       - name: Download built validator
         uses: actions/download-artifact@v8
         with:
-          name: skill-validator-dist
-          path: artifacts/publish/SkillValidator/release/
+          name: skill-validator-dist.tar.gz
+
+      - name: Extract validator
+        run: |
+          mkdir -p artifacts/publish/SkillValidator/release
+          tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
 
       - name: Select random Copilot token
         id: select-token
@@ -176,10 +184,6 @@ jobs:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
         run: |
-          # Restore execute permissions lost during artifact upload/download
-          chmod +x artifacts/publish/SkillValidator/release/skill-validator
-          chmod +x artifacts/publish/SkillValidator/release/runtimes/*/native/copilot
-
           ARGS="--require-evals --verdict-warn-only"
           ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
           ARGS="$ARGS --model ${{ inputs.model }}"
@@ -221,11 +225,12 @@ jobs:
       - name: Download built validator
         uses: actions/download-artifact@v8
         with:
-          name: skill-validator-dist
-          path: artifacts/publish/SkillValidator/release/
+          name: skill-validator-dist.tar.gz
 
-      - name: Make validator executable
-        run: chmod +x artifacts/publish/SkillValidator/release/skill-validator
+      - name: Extract validator
+        run: |
+          mkdir -p artifacts/publish/SkillValidator/release
+          tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
 
       - name: Consolidate summaries
         run: |
