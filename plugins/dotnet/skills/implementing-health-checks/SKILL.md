@@ -30,11 +30,12 @@ description: Implement ASP.NET Core health checks with liveness, readiness, and 
 ### Step 1: Add the health checks packages
 
 ```bash
-dotnet add package Microsoft.Extensions.Diagnostics.HealthChecks
 dotnet add package AspNetCore.HealthChecks.SqlServer    # for SQL Server
 dotnet add package AspNetCore.HealthChecks.Redis         # for Redis
 dotnet add package AspNetCore.HealthChecks.Uris          # for HTTP dependencies
 ```
+
+> `Microsoft.Extensions.Diagnostics.HealthChecks` is already included in the ASP.NET Core framework — no explicit install needed.
 
 ### Step 2: Register health checks with SEPARATE liveness and readiness
 
@@ -53,15 +54,18 @@ builder.Services.AddHealthChecks()
     .AddSqlServer(
         connectionString: builder.Configuration.GetConnectionString("Default")!,
         name: "database",
-        tags: new[] { "ready" })
+        tags: new[] { "ready" },
+        timeout: TimeSpan.FromSeconds(5))
     .AddRedis(
         redisConnectionString: builder.Configuration.GetConnectionString("Redis")!,
         name: "redis",
-        tags: new[] { "ready" })
+        tags: new[] { "ready" },
+        timeout: TimeSpan.FromSeconds(5))
     .AddUrlGroup(
         new Uri("https://api.external-service.com/health"),
         name: "external-api",
-        tags: new[] { "ready" });
+        tags: new[] { "ready" },
+        timeout: TimeSpan.FromSeconds(5));
 ```
 
 ### Step 3: Map separate health endpoints
