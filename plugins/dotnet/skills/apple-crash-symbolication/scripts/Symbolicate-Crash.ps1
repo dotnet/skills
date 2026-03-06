@@ -500,6 +500,25 @@ if ($dotnetFrames.Count -eq 0) {
     exit 0
 }
 
+# Verify atos is available (before ParseOnly check so we can auto-fallback)
+if (-not $ParseOnly) {
+    $atosCmd = Get-Command $Atos -ErrorAction SilentlyContinue
+    if (-not $atosCmd) {
+        # Try xcrun atos
+        $xcrunAtos = & xcrun --find atos 2>$null
+        if ($xcrunAtos -and (Test-Path $xcrunAtos)) {
+            $Atos = $xcrunAtos
+            $atosCmd = Get-Command $Atos -ErrorAction SilentlyContinue
+        }
+    }
+    if (-not $atosCmd) {
+        Write-Warning "atos not found (requires macOS with Xcode Command Line Tools). Falling back to parse-only output."
+        $ParseOnly = $true
+    } else {
+        Write-Verbose "Using atos: $($atosCmd.Source)"
+    }
+}
+
 # --- ParseOnly mode ---
 if ($ParseOnly) {
     Write-Host "`n=== Crash Log Parse Report ===" -ForegroundColor Green
@@ -540,22 +559,6 @@ if ($ParseOnly) {
     Write-Host "`n=== End Parse Report ==="
     exit 0
 }
-
-# Verify atos is available
-$atosCmd = Get-Command $Atos -ErrorAction SilentlyContinue
-if (-not $atosCmd) {
-    # Try xcrun atos
-    $xcrunAtos = & xcrun --find atos 2>$null
-    if ($xcrunAtos -and (Test-Path $xcrunAtos)) {
-        $Atos = $xcrunAtos
-        $atosCmd = Get-Command $Atos -ErrorAction SilentlyContinue
-    }
-}
-if (-not $atosCmd) {
-    Write-Error "atos not found. Install Xcode Command Line Tools (xcode-select --install) or pass -Atos <path>."
-    exit 1
-}
-Write-Verbose "Using atos: $($atosCmd.Source)"
 
 # Search for dSYMs for each .NET library
 $dsymMap = @{} # UUID -> dSYM DWARF path
