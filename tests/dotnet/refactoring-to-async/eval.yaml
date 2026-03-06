@@ -23,6 +23,45 @@ scenarios:
 
   - name: "Async refactoring should not apply to CPU-bound code"
     prompt: "I have a method that does heavy matrix multiplication using nested for loops. Can you make it faster?"
+    setup:
+      files:
+        - path: "MatrixMultiplier.cs"
+          content: |
+            namespace MatrixOps;
+
+            public class MatrixMultiplier
+            {
+                public double[,] Multiply(double[,] a, double[,] b)
+                {
+                    int rows = a.GetLength(0);
+                    int cols = b.GetLength(1);
+                    int inner = a.GetLength(1);
+                    var result = new double[rows, cols];
+
+                    for (int i = 0; i < rows; i++)
+                    {
+                        for (int j = 0; j < cols; j++)
+                        {
+                            double sum = 0;
+                            for (int k = 0; k < inner; k++)
+                            {
+                                sum += a[i, k] * b[k, j];
+                            }
+                            result[i, j] = sum;
+                        }
+                    }
+
+                    return result;
+                }
+            }
+        - path: "MatrixMultiplier.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+            </Project>
     assertions:
       - type: "output_not_matches"
         pattern: "(async Task|await.*ReadAsync|await.*WriteAsync)"
