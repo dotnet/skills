@@ -24,7 +24,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  RETENTION_DAYS: ${{ (github.event_name == 'schedule' || inputs.create_release == 'true') && 90 || 5 }}
+  RETENTION_DAYS: ${{ (github.event_name == 'schedule' || inputs.create_release) && 90 || 5 }}
   AGNOSTIC_RID: linux-x64
 
 jobs:
@@ -102,7 +102,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.create_release == 'true')
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.create_release)
     needs: build
     runs-on: ubuntu-latest
     permissions:
