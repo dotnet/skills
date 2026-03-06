@@ -137,13 +137,18 @@ function Get-ImageTable($crashBody) {
 
     for ($i = 0; $i -lt $usedImages.Count; $i++) {
         $img = $usedImages[$i]
+        $imgName = if ($img.PSObject.Properties['name'] -and $img.name) { $img.name }
+                   elseif ($img.PSObject.Properties['path'] -and $img.path) { [System.IO.Path]::GetFileName($img.path) }
+                   else { $null }
+        # Skip sentinel/empty entries (e.g. null UUID, no name or path)
+        if (-not $imgName) { continue }
         $images += [PSCustomObject]@{
             Index     = $i
-            Name      = $img.name
+            Name      = $imgName
             Base      = [uint64]$img.base
             Uuid      = Format-Uuid $img.uuid
             Arch      = if ($img.arch) { $img.arch } else { 'arm64' }
-            IsDotNet  = (Test-DotNetLibrary $img.name)
+            IsDotNet  = (Test-DotNetLibrary $imgName)
         }
     }
     return $images
@@ -465,11 +470,12 @@ if ($body.threads) {
         if ($CrashingThreadOnly -and $t -ne $faultingThreadIdx) { continue }
 
         $threadData = $body.threads[$t]
+        $threadName = if ($threadData.PSObject.Properties['name']) { $threadData.name } else { $null }
         $label = if ($t -eq $faultingThreadIdx) { "Thread $t (Crashed)" }
-                 elseif ($threadData.name) { "Thread $t ($($threadData.name))" }
+                 elseif ($threadName) { "Thread $t ($threadName)" }
                  else { "Thread $t" }
 
-        $frames = Get-ThreadFrames $threadData $images
+        $frames = @(Get-ThreadFrames $threadData $images)
         if ($frames.Count -gt 0) {
             $threads += [PSCustomObject]@{ Header = $label; Frames = @($frames) }
         }
@@ -478,7 +484,7 @@ if ($body.threads) {
 
 # Also check lastExceptionBacktrace if present
 if ($body.PSObject.Properties['lastExceptionBacktrace'] -and $body.lastExceptionBacktrace -and -not $CrashingThreadOnly) {
-    $lebtFrames = Get-ThreadFrames ([PSCustomObject]@{ frames = $body.lastExceptionBacktrace }) $images
+    $lebtFrames = @(Get-ThreadFrames ([PSCustomObject]@{ frames = $body.lastExceptionBacktrace }) $images)
     if ($lebtFrames.Count -gt 0) {
         $threads = @([PSCustomObject]@{ Header = 'Last Exception Backtrace'; Frames = @($lebtFrames) }) + $threads
     }

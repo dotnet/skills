@@ -28,15 +28,18 @@ If `idevicecrashreport` is unavailable, crash logs can also be found in **Xcode 
 
 ### Step 2: Run the Automation Script
 
-[scripts/Symbolicate-Crash.ps1](scripts/Symbolicate-Crash.ps1) automates parsing, dSYM lookup, and symbolication:
+[scripts/Symbolicate-Crash.ps1](scripts/Symbolicate-Crash.ps1) automates parsing, dSYM lookup, and symbolication. The script is located in this skill's `scripts/` directory — resolve the path relative to this SKILL.md file (do **not** search the filesystem with `find` or `locate`).
 
 ```powershell
-pwsh scripts/Symbolicate-Crash.ps1 -CrashFile MyApp-2026-02-25.ips
+# $SKILL_DIR is the directory containing this SKILL.md
+pwsh "$SKILL_DIR/scripts/Symbolicate-Crash.ps1" -CrashFile MyApp-2026-02-25.ips
 ```
+
+**Start with `-ParseOnly`** to get a fast overview of libraries, UUIDs, and addresses without requiring `atos` or dSYMs. Present those results to the user first. Only proceed to full symbolication if `atos` is available and dSYMs are found.
 
 Flags: `-CrashingThreadOnly` (limit to faulting thread), `-OutputFile path` (write to file), `-ParseOnly` (report libraries/UUIDs/addresses without symbolicating), `-SkipVersionLookup` (skip runtime version identification), `-DsymSearchPaths path1,path2` (additional dSYM search directories).
 
-The script searches for dSYMs in SDK packs (`$DOTNET_ROOT/packs/`), NuGet cache (`~/.nuget/packages/`), and user-provided paths across all Apple platform RIDs (`ios-arm64`, `tvos-arm64`, `maccatalyst-arm64/x64`, `osx-arm64/x64`).
+The script searches for dSYMs in SDK packs (`$DOTNET_ROOT/packs/`), NuGet cache (`~/.nuget/packages/`), and user-provided paths across all Apple platform RIDs (`ios-arm64`, `tvos-arm64`, `maccatalyst-arm64/x64`, `osx-arm64/x64`). Do **not** run broad filesystem searches (`find /`, `find ~`) for dSYMs — if the script's built-in search paths don't find them, report the missing UUIDs and let the user provide the paths.
 
 The script requires `.ips` JSON format (iOS 15+ / macOS 12+). Legacy `.crash` text files are not supported.
 

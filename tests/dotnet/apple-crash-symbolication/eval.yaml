@@ -1,31 +1,32 @@
 scenarios:
-  - name: "Symbolicate .NET frames in an iOS crash log"
-    prompt: "I have an iOS .ips crash log at ios_crash.ips from a crashed .NET MAUI app. Please run the symbolication script against it and help me locate the dSYM files I need to resolve the native frames."
+  - name: "Parse .NET frames and locate dSYMs from an iOS crash log"
+    prompt: "I have an iOS .ips crash log at ios_crash.ips from a crashed .NET MAUI app. Please parse the crash log, identify the .NET runtime frames that need symbolication, and help me locate the dSYM files I need to resolve them."
     setup:
       copy_test_files: true
     assertions:
       - type: "output_matches"
         pattern: "libcoreclr"
       - type: "output_matches"
-        pattern: "(dSYM|dsym|dwarfdump)"
+        pattern: "(dSYM|dsym|SDK.packs|NuGet.cache|nuget)"
       - type: "output_matches"
         pattern: "(SIGABRT|EXC_CRASH)"
     rubric:
-      - "Symbolicating native frames using atos or an automation script to resolve addresses to function names"
-      - "Identified that the crash log contains CoreCLR .NET runtime frames and multiple .NET BCL libraries (libSystem.Native, libSystem.Globalization.Native, etc.)"
-      - "Recognized that each .NET library has a distinct UUID and may require its own dSYM"
-      - "Explained where to find dSYM debug symbols (SDK packs, NuGet cache, or build output)"
+      - "Identified that the crash log contains CoreCLR .NET runtime frames and extracted the unsymbolicated frame addresses"
+      - "Extracted UUIDs for the .NET libraries (e.g., libcoreclr) and explained that each library needs a UUID-matched dSYM"
+      - "Provided specific dSYM search paths (SDK packs, NuGet cache, or build output) for the .NET runtime libraries"
+      - "Generated correct atos commands with proper load addresses and frame offsets for the user to run on macOS"
+      - "Identified all .NET binary images in the crash log (not just the crashed thread) with their UUIDs and base load addresses, and named the correct NuGet runtime package (e.g., Microsoft.NETCore.App.Runtime.ios-arm64)"
     timeout: 300
 
   - name: "Investigate root cause of a .NET MAUI iOS crash"
-    prompt: "I have an iOS .ips crash log at ios_crash.ips from a crashed .NET MAUI app. Please symbolicate the .NET runtime frames and help me figure out what went wrong."
+    prompt: "I have an iOS .ips crash log at ios_crash.ips from a crashed .NET MAUI app. Please analyze the crash log and help me figure out what went wrong."
     setup:
       copy_test_files: true
     assertions:
       - type: "output_matches"
         pattern: "(SIGABRT|EXC_CRASH|abort)"
       - type: "output_matches"
-        pattern: "(SampleMAUI2|libcoreclr)"
+        pattern: "(SampleMAUI|libcoreclr)"
     rubric:
       - "Extracted the exception type and any application-specific crash messages from the crash log"
       - "Identified that the crash is a SIGABRT / EXC_CRASH in a CoreCLR .NET MAUI app"
