@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using SkillValidator.Models;
 using SkillValidator.Utilities;
 using GitHub.Copilot.SDK;
@@ -14,39 +15,22 @@ public sealed record JudgeOptions(
 
 public static class Judge
 {
-    private const int MaxJudgeRetries = 2;
-
-    public static async Task<JudgeResult> JudgeRun(
+    public static Task<JudgeResult> JudgeRun(
         EvalScenario scenario,
         RunMetrics metrics,
         JudgeOptions options)
     {
-        Exception? lastError = null;
-
-        for (int attempt = 0; attempt <= MaxJudgeRetries; attempt++)
-        {
-            try
-            {
-                if (attempt > 0)
-                    Console.Error.WriteLine($"      🔄 Judge retry {attempt}/{MaxJudgeRetries} for \"{scenario.Name}\"");
-                return await JudgeRunOnce(scenario, metrics, scenario.Rubric ?? [], options);
-            }
-            catch (Exception error)
-            {
-                lastError = error;
-                Console.Error.WriteLine($"      ⚠️  Judge attempt {attempt + 1} failed: {error.Message[..Math.Min(200, error.Message.Length)]}");
-            }
-        }
-
-        throw new InvalidOperationException(
-            $"Judge failed for \"{scenario.Name}\" after {MaxJudgeRetries + 1} attempts: {lastError}");
+        return RetryHelper.ExecuteWithRetry(
+            (ct) => JudgeRunOnce(scenario, metrics, scenario.Rubric ?? [], options, ct),
+            $"Judge for \"{scenario.Name}\"");
     }
 
     private static async Task<JudgeResult> JudgeRunOnce(
         EvalScenario scenario,
         RunMetrics metrics,
         IReadOnlyList<string> rubric,
-        JudgeOptions options)
+        JudgeOptions options,
+        CancellationToken cancellationToken)
     {
         var client = await AgentRunner.GetSharedClient(options.Verbose);
 
@@ -73,7 +57,10 @@ public static class Judge
 
         var userPrompt = BuildJudgeUserPrompt(scenario, metrics, rubric);
 
-        using var cts = new CancellationTokenSource(options.Timeout);
+        // Link per-attempt timeout with the budget token from RetryHelper so that
+        // both budget exhaustion and per-attempt timeout cancel the operation.
+        using var perAttemptCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        perAttemptCts.CancelAfter(options.Timeout);
         using var timer = new Timer(_ =>
         {
             Console.Error.WriteLine(
@@ -102,7 +89,7 @@ public static class Judge
 
         await session.SendAsync(new MessageOptions { Prompt = userPrompt });
 
-        var content = await done.Task.WaitAsync(cts.Token);
+        var content = await done.Task.WaitAsync(perAttemptCts.Token);
 
         if (!string.IsNullOrEmpty(content))
             return ParseJudgeResponse(content, rubric);
@@ -187,6 +174,11 @@ public static class Judge
         return string.Join("\n\n", sections);
     }
 
+    /// <summary>Maximum number of timeline events sent to the judge to avoid prompt explosion on large scenarios.</summary>
+    private const int MaxTimelineEvents = 100;
+    /// <summary>Maximum total characters for the formatted timeline string.</summary>
+    private const int MaxTimelineChars = 40_000;
+
     private static string FormatSessionTimeline(IReadOnlyList<AgentEvent> events)
     {
         var relevantTypes = new HashSet<string>
@@ -198,16 +190,52 @@ public static class Judge
         var relevant = events.Where(e => relevantTypes.Contains(e.Type)).ToList();
         if (relevant.Count == 0) return "(no events recorded)";
 
-        return string.Join("\n", relevant.Select(e => e.Type switch
+        // When the timeline is very large (e.g. hundreds of tool calls on a big
+        // project), keep the first and last events with a summary in between so
+        // the judge prompt stays within a reasonable size.
+        if (relevant.Count > MaxTimelineEvents)
         {
-            "user.message" => $"[USER] {Truncate(GetStr(e.Data, "content"), 200)}",
-            "assistant.message" => FormatAssistantEvent(e),
-            "tool.execution_start" => $"[TOOL START] {GetStr(e.Data, "toolName")}: {Truncate(GetStr(e.Data, "arguments"), 200)}",
-            "tool.execution_complete" => FormatToolComplete(e),
-            "session.error" or "runner.error" => $"[ERROR] {GetStr(e.Data, "message")}",
-            _ => $"[{e.Type}]",
-        }));
+            var headCount = MaxTimelineEvents / 2;
+            var tailCount = MaxTimelineEvents - headCount;
+            var omitted = relevant.Count - headCount - tailCount;
+            var head = relevant.Take(headCount).ToList();
+            var tail = relevant.Skip(relevant.Count - tailCount).ToList();
+            relevant = [..head, ..tail];
+            // Insert a synthetic marker so the judge knows events were trimmed
+            relevant.Insert(headCount, new AgentEvent(
+                "summary",
+                0,
+                new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create($"... ({omitted} events omitted for brevity) ...") }));
+        }
+
+        var sb = new System.Text.StringBuilder();
+        foreach (var e in relevant)
+        {
+            if (e.Type == "summary")
+            {
+                sb.AppendLine(GetStr(e.Data, "message"));
+                continue;
+            }
+            var line = FormatTimelineEntry(e);
+            if (sb.Length + line.Length > MaxTimelineChars)
+            {
+                sb.AppendLine($"... (timeline truncated at {MaxTimelineChars} chars; {relevant.Count - relevant.IndexOf(e)} events remaining) ...");
+                break;
+            }
+            sb.AppendLine(line);
+        }
+        return sb.ToString().TrimEnd();
     }
+
+    private static string FormatTimelineEntry(AgentEvent e) => e.Type switch
+    {
+        "user.message" => $"[USER] {Truncate(GetStr(e.Data, "content"), 200)}",
+        "assistant.message" => FormatAssistantEvent(e),
+        "tool.execution_start" => $"[TOOL START] {GetStr(e.Data, "toolName")}: {Truncate(GetStr(e.Data, "arguments"), 200)}",
+        "tool.execution_complete" => FormatToolComplete(e),
+        "session.error" or "runner.error" => $"[ERROR] {GetStr(e.Data, "message")}",
+        _ => $"[{e.Type}]",
+    };
 
     private static string FormatAssistantEvent(AgentEvent e)
     {
@@ -215,10 +243,10 @@ public static class Judge
         var parts = new List<string>();
         if (content.Length > 0) parts.Add(Truncate(content, 500));
 
-        if (e.Data.TryGetValue("toolRequests", out var toolReqs) && toolReqs is JsonElement el && el.ValueKind == JsonValueKind.Array)
+        if (e.Data.TryGetValue("toolRequests", out var toolReqs) && toolReqs is JsonArray toolArr)
         {
-            var tools = string.Join(", ", el.EnumerateArray()
-                .Select(t => t.GetProperty("name").GetString() ?? ""));
+            var tools = string.Join(", ", toolArr
+                .Select(t => t?["name"]?.GetValue<string>() ?? ""));
             if (tools.Length > 0) parts.Add($"(called tools: {tools})");
         }
         return $"[ASSISTANT] {string.Join(" ", parts)}";
@@ -262,6 +290,6 @@ public static class Judge
     private static string Truncate(string s, int max) =>
         s.Length > max ? s[..(max - 3)] + "..." : s;
 
-    private static string GetStr(Dictionary<string, object?> data, string key) =>
+    private static string GetStr(Dictionary<string, JsonNode?> data, string key) =>
         data.TryGetValue(key, out var v) && v is not null ? v.ToString() ?? "" : "";
 }

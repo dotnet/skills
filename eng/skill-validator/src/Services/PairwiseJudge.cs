@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using SkillValidator.Models;
 using SkillValidator.Utilities;
 using GitHub.Copilot.SDK;
@@ -14,8 +15,6 @@ public sealed record PairwiseJudgeOptions(
 
 public static class PairwiseJudge
 {
-    private const int MaxRetries = 2;
-
     /// <summary>
     /// Run a pairwise comparison with position-swap bias mitigation.
     /// Calls the judge twice (A-then-B and B-then-A) and checks consistency.
@@ -47,33 +46,16 @@ public static class PairwiseJudge
         return MergeInconsistentResults(forwardResult, reverseResult);
     }
 
-    private static async Task<PairwiseJudgeResult> JudgeOnce(
+    private static Task<PairwiseJudgeResult> JudgeOnce(
         EvalScenario scenario,
         RunMetrics metricsA,
         RunMetrics metricsB,
         PairwiseJudgeOptions options,
         string direction)
     {
-        Exception? lastError = null;
-
-        for (int attempt = 0; attempt <= MaxRetries; attempt++)
-        {
-            try
-            {
-                if (attempt > 0)
-                    Console.Error.WriteLine($"      🔄 Pairwise judge retry {attempt}/{MaxRetries} ({direction})");
-                return await JudgeCall(scenario, metricsA, metricsB, options, direction);
-            }
-            catch (Exception error)
-            {
-                lastError = error;
-                Console.Error.WriteLine(
-                    $"      ⚠️  Pairwise judge attempt {attempt + 1} failed ({direction}): {error.Message[..Math.Min(200, error.Message.Length)]}");
-            }
-        }
-
-        throw new InvalidOperationException(
-            $"Pairwise judge failed ({direction}) after {MaxRetries + 1} attempts: {lastError}");
+        return RetryHelper.ExecuteWithRetry(
+            (ct) => JudgeCall(scenario, metricsA, metricsB, options, direction, ct),
+            $"Pairwise judge ({direction}) for \"{scenario.Name}\"");
     }
 
     private static async Task<PairwiseJudgeResult> JudgeCall(
@@ -81,7 +63,8 @@ public static class PairwiseJudge
         RunMetrics metricsA,
         RunMetrics metricsB,
         PairwiseJudgeOptions options,
-        string direction)
+        string direction,
+        CancellationToken cancellationToken)
     {
         var client = await AgentRunner.GetSharedClient(options.Verbose);
         var rubric = scenario.Rubric ?? [];
@@ -109,7 +92,9 @@ public static class PairwiseJudge
 
         var userPrompt = BuildPairwiseUserPrompt(scenario, metricsA, metricsB, rubric);
 
-        using var cts = new CancellationTokenSource(options.Timeout);
+        // Link per-attempt timeout with the budget token from RetryHelper.
+        using var perAttemptCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        perAttemptCts.CancelAfter(options.Timeout);
         using var timer = new Timer(_ =>
         {
             Console.Error.WriteLine($"      ⏰ Pairwise judge timed out after {options.Timeout / 1000}s ({direction}).");
@@ -135,7 +120,7 @@ public static class PairwiseJudge
         });
 
         await session.SendAsync(new MessageOptions { Prompt = userPrompt });
-        var content = await done.Task.WaitAsync(cts.Token);
+        var content = await done.Task.WaitAsync(perAttemptCts.Token);
 
         if (!string.IsNullOrEmpty(content))
             return ParsePairwiseResponse(content, rubric, direction);
@@ -224,6 +209,11 @@ public static class PairwiseJudge
             """;
     }
 
+    /// <summary>Maximum number of timeline events to include in pairwise prompts.</summary>
+    private const int MaxTimelineEvents = 80;
+    /// <summary>Maximum total characters for each formatted timeline.</summary>
+    private const int MaxTimelineChars = 30_000;
+
     private static string FormatTimelineCompact(IReadOnlyList<AgentEvent> events)
     {
         var relevantTypes = new HashSet<string>
@@ -235,15 +225,45 @@ public static class PairwiseJudge
         var relevant = events.Where(e => relevantTypes.Contains(e.Type)).ToList();
         if (relevant.Count == 0) return "(no events recorded)";
 
-        return string.Join("\n", relevant.Select(e => e.Type switch
+        // Cap the event count — keep head and tail with a summary gap.
+        if (relevant.Count > MaxTimelineEvents)
         {
-            "user.message" => $"[USER] {Trunc(GetStr(e.Data, "content"), 200)}",
-            "assistant.message" => FormatAssistantTimeline(e),
-            "tool.execution_start" => $"[TOOL START] {GetStr(e.Data, "toolName")}: {Trunc(GetStr(e.Data, "arguments"), 200)}",
-            "tool.execution_complete" => $"[TOOL {(GetStr(e.Data, "success") is "True" or "true" ? "OK" : "FAIL")}] {Trunc(GetStr(e.Data, "result"), 200)}",
-            "session.error" or "runner.error" => $"[ERROR] {GetStr(e.Data, "message")}",
-            _ => $"[{e.Type}]",
-        }));
+            var headCount = MaxTimelineEvents / 2;
+            var tailCount = MaxTimelineEvents - headCount;
+            var omitted = relevant.Count - headCount - tailCount;
+            var head = relevant.Take(headCount).ToList();
+            var tail = relevant.Skip(relevant.Count - tailCount).ToList();
+            relevant = [..head, ..tail];
+            relevant.Insert(headCount, new AgentEvent(
+                "summary", 0,
+                new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create($"... ({omitted} events omitted for brevity) ...") }));
+        }
+
+        var sb = new System.Text.StringBuilder();
+        foreach (var e in relevant)
+        {
+            if (e.Type == "summary")
+            {
+                sb.AppendLine(GetStr(e.Data, "message"));
+                continue;
+            }
+            var line = e.Type switch
+            {
+                "user.message" => $"[USER] {Trunc(GetStr(e.Data, "content"), 200)}",
+                "assistant.message" => FormatAssistantTimeline(e),
+                "tool.execution_start" => $"[TOOL START] {GetStr(e.Data, "toolName")}: {Trunc(GetStr(e.Data, "arguments"), 200)}",
+                "tool.execution_complete" => $"[TOOL {(GetStr(e.Data, "success") is "True" or "true" ? "OK" : "FAIL")}] {Trunc(GetStr(e.Data, "result"), 200)}",
+                "session.error" or "runner.error" => $"[ERROR] {GetStr(e.Data, "message")}",
+                _ => $"[{e.Type}]",
+            };
+            if (sb.Length + line.Length > MaxTimelineChars)
+            {
+                sb.AppendLine($"... (timeline truncated at {MaxTimelineChars} chars) ...");
+                break;
+            }
+            sb.AppendLine(line);
+        }
+        return sb.ToString().TrimEnd();
     }
 
     private static string FormatAssistantTimeline(AgentEvent e)
@@ -252,10 +272,10 @@ public static class PairwiseJudge
         var parts = new List<string>();
         if (content.Length > 0) parts.Add(Trunc(content, 400));
 
-        if (e.Data.TryGetValue("toolRequests", out var toolReqs) && toolReqs is JsonElement el && el.ValueKind == JsonValueKind.Array)
+        if (e.Data.TryGetValue("toolRequests", out var toolReqs) && toolReqs is JsonArray toolArr)
         {
-            var tools = string.Join(", ", el.EnumerateArray()
-                .Select(t => t.GetProperty("name").GetString() ?? ""));
+            var tools = string.Join(", ", toolArr
+                .Select(t => t?["name"]?.GetValue<string>() ?? ""));
             if (tools.Length > 0) parts.Add($"(called tools: {tools})");
         }
         return $"[ASSISTANT] {string.Join(" ", parts)}";
@@ -389,6 +409,6 @@ public static class PairwiseJudge
     private static string Trunc(string s, int max) =>
         s.Length > max ? s[..(max - 3)] + "..." : s;
 
-    private static string GetStr(Dictionary<string, object?> data, string key) =>
+    private static string GetStr(Dictionary<string, JsonNode?> data, string key) =>
         data.TryGetValue(key, out var v) && v is not null ? v.ToString() ?? "" : "";
 }

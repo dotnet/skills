@@ -10,7 +10,7 @@ public static class ValidateCommand
 {
     public static RootCommand Create()
     {
-        var pathsArg = new Argument<string[]>("paths") { Description = "Paths to skill directories or parent directories" };
+        var pathsArg = new Argument<string[]>("paths") { Description = "Paths to skill directories or parent directories", Arity = ArgumentArity.OneOrMore };
         var minImprovementOpt = new Option<double>("--min-improvement") { Description = "Minimum improvement score to pass (0-1)", DefaultValueFactory = _ => 0.1 };
         var requireCompletionOpt = new Option<bool>("--require-completion") { Description = "Fail if skill regresses task completion", DefaultValueFactory = _ => true };
         var requireEvalsOpt = new Option<bool>("--require-evals") { Description = "Fail if skill has no tests/eval.yaml" };
@@ -271,7 +271,7 @@ public static class ValidateCommand
                 config.JudgeModel, config.Verbose, config.JudgeTimeout, workDir));
         }
 
-        bool singleScenario = skill.EvalConfig.Scenarios.Count == 1;
+        bool singleScenario = skill.EvalConfig!.Scenarios.Count == 1;
         using var scenarioLimit = new ConcurrencyLimiter(config.ParallelScenarios);
 
         var scenarioTasks = skill.EvalConfig.Scenarios.Select(scenario =>
@@ -454,14 +454,37 @@ public static class ValidateCommand
             withSkillMetrics.TaskCompleted = withSkillMetrics.ErrorCount == 0;
         }
 
-        // Judge
+        // Judge — failures are non-fatal so a single timeout doesn't kill the whole evaluation.
+        // Await each judge independently so a failure in one doesn't discard the other's result.
         var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path);
 
-        var judgeTasks = await Task.WhenAll(
-            Services.Judge.JudgeRun(scenario, baselineMetrics, judgeOpts),
-            Services.Judge.JudgeRun(scenario, withSkillMetrics, judgeOpts with { WorkDir = withSkillMetrics.WorkDir }));
-        var baselineJudge = judgeTasks[0];
-        var withSkillJudge = judgeTasks[1];
+        var baselineJudgeTask = Services.Judge.JudgeRun(scenario, baselineMetrics, judgeOpts);
+        var withSkillJudgeTask = Services.Judge.JudgeRun(
+            scenario, withSkillMetrics, judgeOpts with { WorkDir = withSkillMetrics.WorkDir });
+
+        JudgeResult baselineJudge;
+        try
+        {
+            baselineJudge = await baselineJudgeTask;
+        }
+        catch (Exception error)
+        {
+            var shortMsg = SanitizeErrorMessage(error.Message);
+            runLog($"\x1b[33m⚠️  Judge (baseline) failed, using fallback scores: {shortMsg}\x1b[0m");
+            baselineJudge = new JudgeResult([], 3, $"Judge failed: {shortMsg}");
+        }
+
+        JudgeResult withSkillJudge;
+        try
+        {
+            withSkillJudge = await withSkillJudgeTask;
+        }
+        catch (Exception error)
+        {
+            var shortMsg = SanitizeErrorMessage(error.Message);
+            runLog($"\x1b[33m⚠️  Judge (with skill) failed, using fallback scores: {shortMsg}\x1b[0m");
+            withSkillJudge = new JudgeResult([], 3, $"Judge failed: {shortMsg}");
+        }
 
         var baseline = new RunResult(baselineMetrics, baselineJudge);
         var withSkillResult = new RunResult(withSkillMetrics, withSkillJudge);
@@ -535,5 +558,16 @@ public static class ValidateCommand
             runs[^1].JudgeResult.OverallReasoning);
 
         return new RunResult(avgMetrics, avgJudge);
+    }
+
+    /// <summary>
+    /// Collapses multiline error messages to single-line and truncates to a reasonable length
+    /// so they don't bloat console/markdown reports.
+    /// </summary>
+    private static string SanitizeErrorMessage(string? message)
+    {
+        var raw = message ?? "unknown error";
+        var singleLine = raw.ReplaceLineEndings(" ");
+        return singleLine.Length > 150 ? singleLine[..150] + "…" : singleLine;
     }
 }

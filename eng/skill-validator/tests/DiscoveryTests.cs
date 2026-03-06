@@ -62,7 +62,7 @@ public class DiscoverSkillsTests
                     }
                 }
                 """;
-            await File.WriteAllTextAsync(Path.Combine(tmpDir, "plugin.json"), pluginJson);
+            await File.WriteAllTextAsync(Path.Combine(tmpDir, "plugin.json"), pluginJson, TestContext.Current.CancellationToken);
 
             var result = await SkillDiscovery.FindPluginMcpServers(skillDir);
             Assert.NotNull(result);
@@ -96,7 +96,7 @@ public class DiscoverSkillsTests
                     }
                 }
                 """;
-            await File.WriteAllTextAsync(Path.Combine(tmpDir, "plugin.json"), pluginJson);
+            await File.WriteAllTextAsync(Path.Combine(tmpDir, "plugin.json"), pluginJson, TestContext.Current.CancellationToken);
 
             var result = await SkillDiscovery.FindPluginMcpServers(skillDir);
             Assert.NotNull(result);

@@ -242,3 +242,41 @@ scenarios:
       - "Explains that this avoids the need for a .NET SDK in the container"
       - "Mentions kubectl cp as an alternative to copy the tool into the container"
     timeout: 60
+
+  - name: "HTTP 500s from downstream service on Linux (.NET 8)"
+    prompt: >-
+      My .NET 8 ASP.NET Core app running on a Linux VM is making HTTP calls to
+      a downstream API using HttpClient, and we're seeing intermittent HTTP 500
+      responses from that downstream service. I need to understand which
+      requests are failing and how long they're taking. What trace should I
+      collect?
+    assertions:
+      - type: "output_matches"
+        pattern: "(dotnet-trace|dotnet trace)"
+      - type: "output_matches"
+        pattern: "System\\.Net\\.Http"
+    rubric:
+      - "Recommends dotnet-trace with networking providers (at minimum System.Net.Http)"
+      - "Explains that System.Net.Http events include HTTP status codes in RequestStop events, allowing identification of 5xx responses"
+      - "Mentions that the trace also captures request timing to correlate slow requests with failures"
+      - "Provides the specific dotnet-trace collect command with --providers for networking"
+      - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
+    timeout: 60
+
+  - name: "Networking timeouts on Windows with admin (.NET 8)"
+    prompt: >-
+      My .NET 8 Windows service is experiencing networking timeouts when
+      calling external APIs via HttpClient. Requests are timing out after 30
+      seconds. I have admin access. What's the best way to collect diagnostic
+      data to understand what's happening at the networking level?
+    assertions:
+      - type: "output_contains"
+        value: "PerfView"
+      - type: "output_matches"
+        pattern: "System\\.Net"
+    rubric:
+      - "Recommends PerfView with /ThreadTime and networking providers as Additional Providers"
+      - "Lists the networking providers to enable (System.Net.Http, and optionally System.Net.NameResolution, System.Net.Security, System.Net.Sockets)"
+      - "Explains that combining thread-time traces with networking events shows both where threads are blocked and what networking operations are failing"
+      - "Mentions that RequestFailed events capture exception messages for timed-out requests"
+    timeout: 60

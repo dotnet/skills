@@ -1,11 +1,12 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using SkillValidator.Models;
 using SkillValidator.Utilities;
 using GitHub.Copilot.SDK;
 
 namespace SkillValidator.Services;
 
-public static class OverfittingJudge
+public static partial class OverfittingJudge
 {
     private const int MaxRetries = 2;
     private const int MaxSkillContentChars = 48_000; // ~12K tokens
@@ -38,6 +39,10 @@ public static class OverfittingJudge
 
     private static async Task<OverfittingResult> AnalyzeOnce(SkillInfo skill, OverfittingJudgeOptions options)
     {
+        // Run deterministic prompt checks first — these are high-confidence signals
+        // that don't need LLM judgment.
+        var deterministicPromptAssessments = DetectPromptOverfitting(skill);
+
         var client = await AgentRunner.GetSharedClient(options.Verbose);
 
         await using var session = await client.CreateSessionAsync(new SessionConfig
@@ -91,7 +96,7 @@ public static class OverfittingJudge
         var content = await done.Task.WaitAsync(cts.Token);
 
         if (!string.IsNullOrEmpty(content))
-            return ParseOverfittingResponse(content);
+            return ParseOverfittingResponse(content, deterministicPromptAssessments);
 
         throw new InvalidOperationException("Overfitting judge returned no content");
     }
@@ -154,7 +159,7 @@ public static class OverfittingJudge
         }
     }
 
-    internal static OverfittingResult ParseOverfittingResponse(string content)
+    internal static OverfittingResult ParseOverfittingResponse(string content, IReadOnlyList<PromptOverfitAssessment>? deterministicPromptAssessments = null)
     {
         var jsonStr = LlmJson.ExtractJson(content)
             ?? throw new InvalidOperationException(
@@ -199,6 +204,37 @@ public static class OverfittingJudge
             }
         }
 
+        // Parse LLM prompt assessments
+        var llmPromptAssessments = new List<PromptOverfitAssessment>();
+        if (parsed.TryGetProperty("prompt_assessments", out var promptEl) && promptEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in promptEl.EnumerateArray())
+            {
+                var scenario = item.TryGetProperty("scenario", out var s) ? s.GetString() ?? "" : "";
+                var issue = item.TryGetProperty("issue", out var i) ? i.GetString() ?? "" : "";
+                var confidence = item.TryGetProperty("confidence", out var conf) ? conf.GetDouble() : 0.5;
+                var reasoning = item.TryGetProperty("reasoning", out var r) ? r.GetString() ?? "" : "";
+                llmPromptAssessments.Add(new PromptOverfitAssessment(scenario, issue, confidence, reasoning));
+            }
+        }
+
+        // Merge deterministic prompt assessments (high priority) with LLM-detected ones.
+        // Deterministic detections are authoritative — they have confidence 1.0.
+        // Only add LLM detections for (scenario, issue) pairs not already covered by deterministic checks.
+        var promptAssessments = new List<PromptOverfitAssessment>(deterministicPromptAssessments ?? []);
+        var coveredScenarioIssues = new HashSet<string>(
+            promptAssessments.Select(p => $"{p.Scenario}\u0001{p.Issue}".ToLowerInvariant())
+        );
+        foreach (var llmAssessment in llmPromptAssessments)
+        {
+            var key = $"{llmAssessment.Scenario}\u0001{llmAssessment.Issue}".ToLowerInvariant();
+            if (!coveredScenarioIssues.Contains(key))
+            {
+                promptAssessments.Add(llmAssessment);
+                coveredScenarioIssues.Add(key);
+            }
+        }
+
         double llmOverallScore = 0.0;
         if (parsed.TryGetProperty("overall_overfitting_score", out var overallEl))
             llmOverallScore = Math.Clamp(overallEl.GetDouble(), 0.0, 1.0);
@@ -208,7 +244,7 @@ public static class OverfittingJudge
             overallReasoning = reasonEl.GetString() ?? "";
 
         // Compute score from per-element classifications
-        double computedScore = ComputeOverfittingScore(rubricAssessments, assertionAssessments);
+        double computedScore = ComputeOverfittingScore(rubricAssessments, assertionAssessments, promptAssessments);
 
         // Blend: 60% computed (systematic) + 40% LLM holistic
         double finalScore = Math.Clamp(0.6 * computedScore + 0.4 * llmOverallScore, 0.0, 1.0);
@@ -225,13 +261,15 @@ public static class OverfittingJudge
             severity,
             rubricAssessments,
             assertionAssessments,
+            promptAssessments,
             crossScenarioIssues,
             overallReasoning);
     }
 
     internal static double ComputeOverfittingScore(
         IReadOnlyList<RubricOverfitAssessment> rubricAssessments,
-        IReadOnlyList<AssertionOverfitAssessment> assertionAssessments)
+        IReadOnlyList<AssertionOverfitAssessment> assertionAssessments,
+        IReadOnlyList<PromptOverfitAssessment>? promptAssessments = null)
     {
         // Rubric scoring: weight by classification and confidence
         double rubricScore = 0;
@@ -264,12 +302,79 @@ public static class OverfittingJudge
             assertionCount++;
         }
 
-        // Weighted combination (rubric matters more — assertions are secondary gates)
+        // Prompt scoring — explicit skill references in prompts are a severe signal.
+        // Each prompt issue is scored at full weight (1.0) * confidence.
+        double promptScore = 0;
+        int promptCount = promptAssessments?.Count ?? 0;
+        if (promptAssessments is not null)
+        {
+            foreach (var item in promptAssessments)
+            {
+                promptScore += 1.0 * item.Confidence;
+            }
+        }
+
         double rubricAvg = rubricCount > 0 ? rubricScore / rubricCount : 0;
         double assertionAvg = assertionCount > 0 ? assertionScore / assertionCount : 0;
+        double promptAvg = promptCount > 0 ? promptScore / promptCount : 0;
 
+        if (promptCount > 0)
+        {
+            // When prompt issues exist, they dominate the score because explicit skill
+            // references in the prompt are the strongest form of overfitting — they
+            // directly bias which agent gets advantage.
+            // Weight: 40% prompt, 40% rubric, 20% assertion
+            return Math.Clamp(0.4 * promptAvg + 0.4 * rubricAvg + 0.2 * assertionAvg, 0.0, 1.0);
+        }
+
+        // Original weighting when no prompt issues (rubric matters more — assertions are secondary gates)
         return Math.Clamp(0.7 * rubricAvg + 0.3 * assertionAvg, 0.0, 1.0);
     }
+
+    /// <summary>
+    /// Deterministic pre-check: scans scenario prompts for explicit skill references
+    /// that bias the evaluation. These patterns are unambiguously overfitted — they
+    /// give the skilled agent a direct advantage by name-dropping the skill.
+    /// </summary>
+    internal static IReadOnlyList<PromptOverfitAssessment> DetectPromptOverfitting(SkillInfo skill)
+    {
+        var assessments = new List<PromptOverfitAssessment>();
+        if (skill.EvalConfig is null || string.IsNullOrWhiteSpace(skill.Name))
+            return assessments;
+
+        foreach (var scenario in skill.EvalConfig.Scenarios)
+        {
+            var prompt = scenario.Prompt;
+            if (string.IsNullOrWhiteSpace(prompt)) continue;
+
+            // Check 1: Prompt explicitly contains the skill name (e.g., "migrate-dotnet10-to-dotnet11")
+            if (prompt.Contains(skill.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                assessments.Add(new PromptOverfitAssessment(
+                    scenario.Name,
+                    "explicit_skill_reference",
+                    1.0,
+                    $"Prompt explicitly mentions skill name '{skill.Name}' — this directly tells the skilled agent which skill to activate and disadvantages the baseline agent."));
+                continue; // One assessment per scenario is enough
+            }
+
+            // Check 2: Prompt uses "use the ... skill" or "use ... skill to" phrasing
+            // even if the exact skill name isn't used (e.g., "use the migration skill")
+            if (UseSkillPattern().IsMatch(prompt))
+            {
+                assessments.Add(new PromptOverfitAssessment(
+                    scenario.Name,
+                    "skill_instruction",
+                    0.9,
+                    "Prompt explicitly instructs the agent to 'use' a skill — this biases toward the skilled agent and creates an unfair comparison with the baseline."));
+            }
+        }
+
+        return assessments;
+    }
+
+    [GeneratedRegex(@"\buse\s+(?:the\s+)?[\w-]+\s+skill\b", RegexOptions.IgnoreCase)]
+    private static partial Regex UseSkillPattern();
 
     internal static string BuildSystemPrompt() =>
         """
@@ -434,6 +539,41 @@ public static class OverfittingJudge
           "Identified evidence of a memory leak and proposed a diagnosis path"
           → Tests whether the agent found the issue, not which metric it checked.
 
+        ### Scenario prompt classifications
+
+        ALSO assess each scenario's PROMPT for bias that unfairly advantages the
+        skilled agent. This is a CRITICAL and often-overlooked form of overfitting:
+
+        - "explicit_skill_reference" — The prompt mentions the skill by name
+          (e.g., "Use the migrate-dotnet10-to-dotnet11 skill"). This directly
+          tells the skilled agent which skill to activate and creates an unfair
+          disadvantage for the baseline agent, which cannot follow this instruction.
+
+        - "skill_instruction" — The prompt instructs the agent to "use a skill"
+          or references skill-specific concepts that only make sense if the skill
+          is loaded (e.g., "use the migration skill to help me").
+
+        - "neutral" — The prompt describes the task naturally without referencing
+          skills. A developer might write this prompt regardless of whether a
+          skill exists.
+
+        If the prompt is "neutral", do NOT include it in prompt_assessments.
+
+        #### Example 8: HIGH overfitting — prompt explicitly names the skill
+
+        SKILL name: migrate-dotnet10-to-dotnet11
+
+        OVERFITTED prompt — HIGH:
+          "Use the migrate-dotnet10-to-dotnet11 skill to help me migrate my
+          .NET 10 console app to .NET 11."
+          → Tells the skilled agent exactly which skill to activate. The baseline
+          agent wastes time looking for a skill it doesn't have. This is the
+          strongest form of overfitting.
+
+        WELL-DESIGNED prompt:
+          "I need to migrate my .NET 10 console app to .NET 11. What breaks?"
+          → Describes the task naturally. Both agents get the same fair prompt.
+
         Respond ONLY with JSON. No markdown, no commentary outside the JSON.
         """;
 
@@ -470,7 +610,8 @@ public static class OverfittingJudge
             === CLASSIFICATION REQUEST ===
 
             Classify every rubric item and every assertion across all scenarios.
-            Then provide an overall overfitting score from 0.0 to 1.0.
+            Also assess each scenario prompt for bias (skill name references, skill
+            instructions). Then provide an overall overfitting score from 0.0 to 1.0.
 
             Respond in this exact JSON schema:
 
@@ -489,6 +630,14 @@ public static class OverfittingJudge
                   "scenario": "<scenario name>",
                   "assertion_summary": "<type: pattern_or_value>",
                   "classification": "broad" | "narrow",
+                  "confidence": <0.0-1.0>,
+                  "reasoning": "<1-2 sentence explanation>"
+                }
+              ],
+              "prompt_assessments": [
+                {
+                  "scenario": "<scenario name>",
+                  "issue": "explicit_skill_reference" | "skill_instruction",
                   "confidence": <0.0-1.0>,
                   "reasoning": "<1-2 sentence explanation>"
                 }

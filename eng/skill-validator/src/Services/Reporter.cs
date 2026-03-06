@@ -113,6 +113,10 @@ public static class Reporter
                 // For moderate/high, show top signals
                 if (overfitResult.Severity is OverfittingSeverity.Moderate or OverfittingSeverity.High)
                 {
+                    // Show prompt-level issues first (most severe)
+                    foreach (var item in overfitResult.PromptAssessments)
+                        Console.WriteLine($"    \x1b[2m•\x1b[0m [{item.Issue}] \x1b[2mscenario \"{item.Scenario}\"\x1b[0m\n      \x1b[2m— {item.Reasoning}\x1b[0m");
+
                     var topRubric = overfitResult.RubricAssessments
                         .Where(a => a.Classification != "outcome")
                         .OrderByDescending(a => a.Confidence)
@@ -423,34 +427,25 @@ public static class Reporter
         string? model,
         string? judgeModel)
     {
-        var output = new
+        var output = new ResultsOutput
         {
-            model = model ?? "unknown",
-            judgeModel = judgeModel ?? model ?? "unknown",
-            timestamp = DateTime.UtcNow.ToString("o"),
-            verdicts,
+            Model = model ?? "unknown",
+            JudgeModel = judgeModel ?? model ?? "unknown",
+            Timestamp = DateTime.UtcNow.ToString("o"),
+            Verdicts = verdicts,
         };
 
-        var json = JsonSerializer.Serialize(output, new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        });
+        var json = JsonSerializer.Serialize(output, SkillValidatorJsonContext.Default.ResultsOutput);
 
         await File.WriteAllTextAsync(Path.Combine(resultsDir, "results.json"), json);
         Console.WriteLine($"JSON results written to {Path.Combine(resultsDir, "results.json")}");
 
         // Write per-skill verdict.json files for downstream consumers (e.g. dashboard)
-        var jsonOptions = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        };
         foreach (var verdict in verdicts)
         {
             var skillDir = Path.Combine(resultsDir, SafeDirName(verdict.SkillName));
             Directory.CreateDirectory(skillDir);
-            var verdictJson = JsonSerializer.Serialize(verdict, jsonOptions);
+            var verdictJson = JsonSerializer.Serialize(verdict, SkillValidatorJsonContext.Default.SkillVerdict);
             await File.WriteAllTextAsync(Path.Combine(skillDir, "verdict.json"), verdictJson);
         }
     }

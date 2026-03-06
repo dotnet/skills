@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using SkillValidator.Models;
 
 namespace SkillValidator.Services;
@@ -131,20 +132,20 @@ public static class MetricsCollector
         };
     }
 
-    private static string? GetStringValue(Dictionary<string, object?> data, string key)
+    private static string? GetStringValue(Dictionary<string, JsonNode?> data, string key)
     {
         if (data.TryGetValue(key, out var value) && value is not null)
             return value.ToString();
         return null;
     }
 
-    private static int GetIntValue(Dictionary<string, object?> data, string key)
+    private static int GetIntValue(Dictionary<string, JsonNode?> data, string key)
     {
         if (data.TryGetValue(key, out var value) && value is not null)
         {
-            if (value is int i) return i;
-            if (value is long l) return (int)l;
-            if (value is double d) return (int)d;
+            try { return value.GetValue<int>(); } catch { }
+            try { return (int)value.GetValue<long>(); } catch { }
+            try { return (int)value.GetValue<double>(); } catch { }
             if (int.TryParse(value.ToString(), out var parsed)) return parsed;
         }
         return 0;

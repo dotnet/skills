@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace SkillValidator.Models;
@@ -88,7 +89,7 @@ public sealed record SkillInfo(
 public sealed record AgentEvent(
     string Type,
     long Timestamp,
-    Dictionary<string, object?> Data);
+    Dictionary<string, JsonNode?> Data);
 
 // --- Judge results ---
 
@@ -229,7 +230,7 @@ public sealed class SkillVerdict
 
 // --- Overfitting assessment ---
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
+[JsonConverter(typeof(JsonStringEnumConverter<OverfittingSeverity>))]
 public enum OverfittingSeverity
 {
     Low,
@@ -251,11 +252,18 @@ public sealed record AssertionOverfitAssessment(
     double Confidence,
     string Reasoning);
 
+public sealed record PromptOverfitAssessment(
+    string Scenario,
+    string Issue,               // e.g. "explicit_skill_reference" | "skill_instruction"
+    double Confidence,
+    string Reasoning);
+
 public sealed record OverfittingResult(
     double Score,               // [0, 1]
     OverfittingSeverity Severity,
     IReadOnlyList<RubricOverfitAssessment> RubricAssessments,
     IReadOnlyList<AssertionOverfitAssessment> AssertionAssessments,
+    IReadOnlyList<PromptOverfitAssessment> PromptAssessments,
     IReadOnlyList<string> CrossScenarioIssues,
     string OverallReasoning);
 
@@ -313,4 +321,21 @@ public static class DefaultWeights
         ["OverallJudgmentImprovement"] = 0.30,
         ["ErrorReduction"] = 0.05,
     };
+}
+
+// --- JSON transport types ---
+
+internal sealed class ConsolidateData
+{
+    public string? Model { get; set; }
+    public string? JudgeModel { get; set; }
+    public List<SkillVerdict>? Verdicts { get; set; }
+}
+
+internal sealed class ResultsOutput
+{
+    public required string Model { get; init; }
+    public required string JudgeModel { get; init; }
+    public required string Timestamp { get; init; }
+    public required IReadOnlyList<SkillVerdict> Verdicts { get; init; }
 }

@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using SkillValidator.Models;
 using SkillValidator.Services;
 
@@ -5,9 +6,17 @@ namespace SkillValidator.Tests;
 
 public class ExtractSkillActivationTests
 {
-    private static AgentEvent MakeEvent(string type, Dictionary<string, object?>? data = null)
+    private static AgentEvent MakeEvent(string type, Dictionary<string, JsonNode?>? data = null)
     {
-        return new AgentEvent(type, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), data ?? new Dictionary<string, object?>());
+        return new AgentEvent(type, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), data ?? new Dictionary<string, JsonNode?>());
+    }
+
+    private static Dictionary<string, JsonNode?> D(params (string Key, JsonNode? Value)[] entries)
+    {
+        var dict = new Dictionary<string, JsonNode?>();
+        foreach (var (key, value) in entries)
+            dict[key] = value;
+        return dict;
     }
 
     [Fact]
@@ -15,9 +24,9 @@ public class ExtractSkillActivationTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("skill.loaded", new() { ["skillName"] = "my-skill" }),
-            MakeEvent("assistant.message", new() { ["content"] = "hello" }),
-            MakeEvent("tool.execution_start", new() { ["toolName"] = "bash" }),
+            MakeEvent("skill.loaded", D(("skillName", JsonValue.Create("my-skill")))),
+            MakeEvent("assistant.message", D(("content", JsonValue.Create("hello")))),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
         };
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int> { ["bash"] = 1 });
@@ -33,8 +42,8 @@ public class ExtractSkillActivationTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("instruction.attached", new() { ["name"] = "build-helper" }),
-            MakeEvent("tool.execution_start", new() { ["toolName"] = "read" }),
+            MakeEvent("instruction.attached", D(("name", JsonValue.Create("build-helper")))),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("read")))),
         };
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int> { ["read"] = 1 });
@@ -49,9 +58,9 @@ public class ExtractSkillActivationTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("tool.execution_start", new() { ["toolName"] = "bash" }),
-            MakeEvent("tool.execution_start", new() { ["toolName"] = "msbuild_analyze" }),
-            MakeEvent("assistant.message", new() { ["content"] = "done" }),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("msbuild_analyze")))),
+            MakeEvent("assistant.message", D(("content", JsonValue.Create("done")))),
         };
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int> { ["bash"] = 3 });
@@ -67,8 +76,8 @@ public class ExtractSkillActivationTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("tool.execution_start", new() { ["toolName"] = "bash" }),
-            MakeEvent("assistant.message", new() { ["content"] = "done" }),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
+            MakeEvent("assistant.message", D(("content", JsonValue.Create("done")))),
         };
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int> { ["bash"] = 1 });
@@ -95,7 +104,7 @@ public class ExtractSkillActivationTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("tool.execution_start", new() { ["toolName"] = "bash" }),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
         };
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int>());
@@ -109,9 +118,9 @@ public class ExtractSkillActivationTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("skill.loaded", new() { ["skillName"] = "my-skill" }),
-            MakeEvent("skill.activated", new() { ["skillName"] = "my-skill" }),
-            MakeEvent("skill.loaded", new() { ["skillName"] = "other-skill" }),
+            MakeEvent("skill.loaded", D(("skillName", JsonValue.Create("my-skill")))),
+            MakeEvent("skill.activated", D(("skillName", JsonValue.Create("my-skill")))),
+            MakeEvent("skill.loaded", D(("skillName", JsonValue.Create("other-skill")))),
         };
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int>());
@@ -125,8 +134,8 @@ public class ExtractSkillActivationTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("skill.loaded", new()),
-            MakeEvent("skill.loaded", new() { ["skillName"] = "" }),
+            MakeEvent("skill.loaded"),
+            MakeEvent("skill.loaded", D(("skillName", JsonValue.Create("")))),
         };
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int>());
@@ -141,9 +150,9 @@ public class ExtractSkillActivationTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("skill.loaded", new() { ["skillName"] = "build-cache" }),
-            MakeEvent("tool.execution_start", new() { ["toolName"] = "bash" }),
-            MakeEvent("tool.execution_start", new() { ["toolName"] = "msbuild_diag" }),
+            MakeEvent("skill.loaded", D(("skillName", JsonValue.Create("build-cache")))),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("msbuild_diag")))),
         };
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int> { ["bash"] = 2 });
@@ -159,10 +168,10 @@ public class ExtractSkillActivationTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("assistant.message", new() { ["content"] = "I used a skill" }),
-            MakeEvent("session.idle", new()),
-            MakeEvent("tool.execution_start", new() { ["toolName"] = "bash" }),
-            MakeEvent("session.error", new() { ["message"] = "failed" }),
+            MakeEvent("assistant.message", D(("content", JsonValue.Create("I used a skill")))),
+            MakeEvent("session.idle"),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
+            MakeEvent("session.error", D(("message", JsonValue.Create("failed")))),
         };
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int> { ["bash"] = 1 });
@@ -177,8 +186,8 @@ public class ExtractSkillActivationTests
         // SkillInvokedEvent has type "skill.invoked" and Data with "name" property
         var events = new List<AgentEvent>
         {
-            MakeEvent("skill.invoked", new() { ["name"] = "binlog-failure-analysis", ["path"] = "/skills/binlog-failure-analysis" }),
-            MakeEvent("tool.execution_start", new() { ["toolName"] = "bash" }),
+            MakeEvent("skill.invoked", D(("name", JsonValue.Create("binlog-failure-analysis")), ("path", JsonValue.Create("/skills/binlog-failure-analysis")))),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
         };
 
         var result = MetricsCollector.ExtractSkillActivation(events, new Dictionary<string, int> { ["bash"] = 1 });
@@ -191,9 +200,17 @@ public class ExtractSkillActivationTests
 
 public class CollectMetricsTests
 {
-    private static AgentEvent MakeEvent(string type, Dictionary<string, object?>? data = null)
+    private static AgentEvent MakeEvent(string type, Dictionary<string, JsonNode?>? data = null)
     {
-        return new AgentEvent(type, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), data ?? new Dictionary<string, object?>());
+        return new AgentEvent(type, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), data ?? new Dictionary<string, JsonNode?>());
+    }
+
+    private static Dictionary<string, JsonNode?> D(params (string Key, JsonNode? Value)[] entries)
+    {
+        var dict = new Dictionary<string, JsonNode?>();
+        foreach (var (key, value) in entries)
+            dict[key] = value;
+        return dict;
     }
 
     [Fact]
@@ -201,10 +218,10 @@ public class CollectMetricsTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("tool.execution_start", new() { ["toolName"] = "bash" }),
-            MakeEvent("tool.execution_start", new() { ["toolName"] = "view" }),
-            MakeEvent("tool.execution_start", new() { ["toolName"] = "bash" }),
-            MakeEvent("assistant.message", new() { ["content"] = "done" }),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("view")))),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
+            MakeEvent("assistant.message", D(("content", JsonValue.Create("done")))),
         };
 
         var result = MetricsCollector.CollectMetrics(events, "done", 1000, "/tmp/work");
@@ -219,9 +236,9 @@ public class CollectMetricsTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("assistant.usage", new() { ["inputTokens"] = 500, ["outputTokens"] = 200 }),
-            MakeEvent("assistant.message", new() { ["content"] = "hello world" }),
-            MakeEvent("assistant.usage", new() { ["inputTokens"] = 300, ["outputTokens"] = 100 }),
+            MakeEvent("assistant.usage", D(("inputTokens", JsonValue.Create(500)), ("outputTokens", JsonValue.Create(200)))),
+            MakeEvent("assistant.message", D(("content", JsonValue.Create("hello world")))),
+            MakeEvent("assistant.usage", D(("inputTokens", JsonValue.Create(300)), ("outputTokens", JsonValue.Create(100)))),
         };
 
         var result = MetricsCollector.CollectMetrics(events, "hello world", 5000, "/tmp/work");
@@ -235,7 +252,7 @@ public class CollectMetricsTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("assistant.message", new() { ["content"] = "hello world!!" }), // 13 chars -> ceil(13/4) = 4
+            MakeEvent("assistant.message", D(("content", JsonValue.Create("hello world!!")))), // 13 chars -> ceil(13/4) = 4
         };
 
         var result = MetricsCollector.CollectMetrics(events, "hello world!!", 5000, "/tmp/work");
@@ -248,8 +265,8 @@ public class CollectMetricsTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("assistant.message", new() { ["content"] = "turn 1" }),
-            MakeEvent("assistant.message", new() { ["content"] = "turn 2" }),
+            MakeEvent("assistant.message", D(("content", JsonValue.Create("turn 1")))),
+            MakeEvent("assistant.message", D(("content", JsonValue.Create("turn 2")))),
         };
 
         var result = MetricsCollector.CollectMetrics(events, "turn 2", 1000, "/tmp/work");
@@ -262,8 +279,8 @@ public class CollectMetricsTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("session.error", new() { ["message"] = "something went wrong" }),
-            MakeEvent("runner.error", new() { ["message"] = "timeout" }),
+            MakeEvent("session.error", D(("message", JsonValue.Create("something went wrong")))),
+            MakeEvent("runner.error", D(("message", JsonValue.Create("timeout")))),
         };
 
         var result = MetricsCollector.CollectMetrics(events, "", 1000, "/tmp/work");
@@ -286,8 +303,8 @@ public class CollectMetricsTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("user.message", new() { ["content"] = "test" }), // 4 chars -> ceil(4/4) = 1
-            MakeEvent("assistant.message", new() { ["content"] = "response" }), // 8 chars -> ceil(8/4) = 2
+            MakeEvent("user.message", D(("content", JsonValue.Create("test")))), // 4 chars -> ceil(4/4) = 1
+            MakeEvent("assistant.message", D(("content", JsonValue.Create("response")))), // 8 chars -> ceil(8/4) = 2
         };
 
         var result = MetricsCollector.CollectMetrics(events, "response", 1000, "/tmp/work");
@@ -301,8 +318,8 @@ public class CollectMetricsTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("assistant.message", new() { ["content"] = "working..." }),
-            MakeEvent("runner.timeout", new() { ["message"] = "Scenario timed out after 120s" }),
+            MakeEvent("assistant.message", D(("content", JsonValue.Create("working...")))),
+            MakeEvent("runner.timeout", D(("message", JsonValue.Create("Scenario timed out after 120s")))),
         };
 
         var result = MetricsCollector.CollectMetrics(events, "", 120000, "/tmp/work");
@@ -316,8 +333,8 @@ public class CollectMetricsTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("assistant.message", new() { ["content"] = "done" }),
-            MakeEvent("tool.execution_start", new() { ["toolName"] = "bash" }),
+            MakeEvent("assistant.message", D(("content", JsonValue.Create("done")))),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
         };
 
         var result = MetricsCollector.CollectMetrics(events, "", 5000, "/tmp/work");
@@ -331,7 +348,7 @@ public class CollectMetricsTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("runner.error", new() { ["message"] = "Something went wrong" }),
+            MakeEvent("runner.error", D(("message", JsonValue.Create("Something went wrong")))),
         };
 
         var result = MetricsCollector.CollectMetrics(events, "", 3000, "/tmp/work");
@@ -345,8 +362,8 @@ public class CollectMetricsTests
     {
         var events = new List<AgentEvent>
         {
-            MakeEvent("runner.error", new() { ["message"] = "file not found" }),
-            MakeEvent("runner.timeout", new() { ["message"] = "Scenario timed out after 120s" }),
+            MakeEvent("runner.error", D(("message", JsonValue.Create("file not found")))),
+            MakeEvent("runner.timeout", D(("message", JsonValue.Create("Scenario timed out after 120s")))),
         };
 
         var result = MetricsCollector.CollectMetrics(events, "", 120000, "/tmp/work");
