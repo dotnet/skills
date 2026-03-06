@@ -1,0 +1,27 @@
+scenarios:
+  - name: "Explore System.IO.Path edge cases at runtime"
+    prompt: >
+      I need to understand some edge cases in .NET's System.IO.Path API. Can you
+      verify these at runtime:
+      (1) What does Path.GetExtension return for ".gitignore" — is it empty or ".gitignore"?
+      (2) What does Path.Combine("/usr", "/etc/passwd") return — does it concatenate or
+          does the second absolute path replace the first?
+      (3) How does Path.Join differ from Path.Combine on the same inputs?
+      (4) What does Path.GetFileNameWithoutExtension(".gitignore") return?
+      Don't guess — these have surprising answers. Run .NET code to check.
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: ".gitignore"
+      - type: "output_matches"
+        pattern: "(Combine|Join)"
+      - type: "output_matches"
+        pattern: "(/etc/passwd|replace)"
+    expect_tools: ["bash"]
+    max_turns: 10
+    rubric:
+      - "The agent correctly reports that Path.GetExtension('.gitignore') returns '.gitignore' (the whole filename is treated as extension)"
+      - "The agent correctly reports that Path.Combine('/usr', '/etc/passwd') returns '/etc/passwd' — the second absolute path replaces the first"
+      - "The agent correctly reports that Path.Join('/usr', '/etc/passwd') returns '/usr/etc/passwd' — it concatenates without replacing"
+      - "The agent verifies the answers by executing .NET code at runtime"
+    timeout: 120
