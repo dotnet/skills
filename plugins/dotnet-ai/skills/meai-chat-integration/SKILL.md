@@ -10,7 +10,7 @@ description: |
 
 # MEAI Chat Integration
 
-Add LLM chat capabilities to a .NET 8+ application using `Microsoft.Extensions.AI`.
+Add LLM chat capabilities to a .NET 10+ application using `Microsoft.Extensions.AI`.
 
 ## Inputs
 
