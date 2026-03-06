@@ -17,7 +17,7 @@ on:
     types: [created]
 
 concurrency:
-  group: eval-fork-${{ github.event.issue.number }}
+  group: ${{ startsWith(github.event.comment.body, '/evaluate') && format('eval-fork-{0}', github.event.issue.number) || format('eval-fork-{0}-noop-{1}', github.event.issue.number, github.event.comment.id) }}
   cancel-in-progress: true
 
 # pull-requests: write is required at the workflow level because the reusable
