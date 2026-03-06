@@ -168,23 +168,22 @@ public class AnalyzeSkillTests
     }
 
     [Fact]
-    public void DescriptionAtLimitProducesNoWarning()
+    public void DescriptionAtLimitProducesNoError()
     {
         var desc = new string('a', 1024);
         var content = "---\nname: foo\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, description: desc));
-        Assert.False(profile.DescriptionTooLong);
-        Assert.DoesNotContain(profile.Warnings, w => w.Contains("maximum") || w.Contains("no description"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("maximum"));
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("no description"));
     }
 
     [Fact]
-    public void DescriptionOverLimitWarnsAndFlags()
+    public void DescriptionOverLimitErrors()
     {
         var desc = new string('a', 1025);
         var content = "---\nname: foo\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, description: desc));
-        Assert.True(profile.DescriptionTooLong);
-        Assert.Contains(profile.Warnings, w => w.Contains("maximum"));
+        Assert.Contains(profile.Errors, e => e.Contains("maximum"));
     }
 
     [Fact]
@@ -304,48 +303,48 @@ public class AnalyzeSkillTests
     // --- Body line count tests ---
 
     [Fact]
-    public void BodyOver500LinesWarns()
+    public void BodyOver500LinesErrors()
     {
         var body = string.Join("\n", Enumerable.Range(1, 501).Select(i => $"Line {i}"));
         var content = "---\nname: test-skill\n---\n" + body;
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.Contains(profile.Warnings, w => w.Contains("lines") && w.Contains("500"));
+        Assert.Contains(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
     }
 
     [Fact]
-    public void BodyAt500LinesNoWarning()
+    public void BodyAt500LinesNoError()
     {
         var body = string.Join("\n", Enumerable.Range(1, 500).Select(i => $"Line {i}"));
         var content = "---\nname: test-skill\n---\n" + body;
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.DoesNotContain(profile.Warnings, w => w.Contains("lines") && w.Contains("500"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
     }
 
     [Fact]
-    public void BodyAt500LinesWithTrailingNewlineNoWarning()
+    public void BodyAt500LinesWithTrailingNewlineNoError()
     {
         var body = string.Join("\n", Enumerable.Range(1, 500).Select(i => $"Line {i}")) + "\n";
         var content = "---\nname: test-skill\n---\n" + body;
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.DoesNotContain(profile.Warnings, w => w.Contains("lines") && w.Contains("500"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
     }
 
     // --- File reference depth tests ---
 
     [Fact]
-    public void DeepFileReferenceWarns()
+    public void DeepFileReferenceErrors()
     {
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](deep/nested/file.md)\n" + new string('x', 4000);
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.Contains(profile.Warnings, w => w.Contains("deep/nested/file.md") && w.Contains("directories deep"));
+        Assert.Contains(profile.Errors, e => e.Contains("deep/nested/file.md") && e.Contains("directories deep"));
     }
 
     [Fact]
-    public void ShallowFileReferenceNoWarning()
+    public void ShallowFileReferenceNoError()
     {
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](references/file.md)\n" + new string('x', 4000);
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.DoesNotContain(profile.Warnings, w => w.Contains("directories deep") || w.Contains("traversal"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("directories deep") || e.Contains("traversal"));
     }
 
     [Fact]
@@ -353,15 +352,15 @@ public class AnalyzeSkillTests
     {
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [docs](https://example.com/a/b/c)\n" + new string('x', 4000);
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.DoesNotContain(profile.Warnings, w => w.Contains("directories deep") || w.Contains("traversal"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("directories deep") || e.Contains("traversal"));
     }
 
     [Fact]
-    public void ParentDirectoryTraversalWarns()
+    public void ParentDirectoryTraversalErrors()
     {
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](../other-skill/SKILL.md)\n" + new string('x', 4000);
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.Contains(profile.Warnings, w => w.Contains("parent-directory traversal"));
+        Assert.Contains(profile.Errors, e => e.Contains("parent-directory traversal"));
     }
 
     [Fact]
@@ -369,7 +368,7 @@ public class AnalyzeSkillTests
     {
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](references/file.md#section)\n" + new string('x', 4000);
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.DoesNotContain(profile.Warnings, w => w.Contains("directories deep") || w.Contains("traversal"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("directories deep") || e.Contains("traversal"));
     }
 
     [Fact]
@@ -377,7 +376,7 @@ public class AnalyzeSkillTests
     {
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](./references/file.md)\n" + new string('x', 4000);
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.DoesNotContain(profile.Warnings, w => w.Contains("directories deep") || w.Contains("traversal"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("directories deep") || e.Contains("traversal"));
     }
 }
 

@@ -314,10 +314,12 @@ public static class ValidateCommand
 
         var profile = SkillProfiler.AnalyzeSkill(skill);
         log($"📊 {SkillProfiler.FormatProfileLine(profile)}");
+        foreach (var error in profile.Errors)
+            log($"   ❌ {error}");
         foreach (var warning in SkillProfiler.FormatProfileWarnings(profile))
             log(warning);
 
-        if (profile.DescriptionTooLong)
+        if (profile.Errors.Count > 0)
         {
             return new SkillVerdict
             {
@@ -326,7 +328,7 @@ public static class ValidateCommand
                 Passed = false,
                 Scenarios = [],
                 OverallImprovementScore = 0,
-                Reason = $"Skill description exceeds maximum length ({skill.Description.Length:N0} characters). Limit: {SkillProfiler.MaxDescriptionLength:N0}.",
+                Reason = string.Join(" ", profile.Errors),
                 FailureKind = "spec_conformance_failure",
             };
         }

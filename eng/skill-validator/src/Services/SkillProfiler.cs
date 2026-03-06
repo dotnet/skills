@@ -14,8 +14,8 @@ public sealed record SkillProfile(
     bool HasFrontmatter,
     bool HasWhenToUse,
     bool HasWhenNotToUse,
-    bool DescriptionTooLong,
     int ResourceFileCount,
+    IReadOnlyList<string> Errors,
     IReadOnlyList<string> Warnings);
 
 public static partial class SkillProfiler
@@ -59,17 +59,16 @@ public static partial class SkillProfiler
         int resourceFileCount = skill.EvalConfig?.Scenarios
             .Sum(s => s.Setup?.Files?.Count ?? 0) ?? 0;
 
+        var errors = new List<string>();
         var warnings = new List<string>();
 
         // --- agentskills.io spec: name validation ---
         ValidateName(skill.Name, Path.GetFileName(skill.Path), warnings);
 
         // --- agentskills.io spec: description validation ---
-        bool descriptionTooLong = false;
         if (skill.Description.Length > MaxDescriptionLength)
         {
-            descriptionTooLong = true;
-            warnings.Add($"Skill description is {skill.Description.Length:N0} characters — maximum is {MaxDescriptionLength:N0}. Shorten the description in SKILL.md frontmatter.");
+            errors.Add($"Skill description is {skill.Description.Length:N0} characters — maximum is {MaxDescriptionLength:N0}. Shorten the description in SKILL.md frontmatter.");
         }
         else if (skill.Description.Length == 0 && hasFrontmatter)
         {
@@ -82,17 +81,15 @@ public static partial class SkillProfiler
             warnings.Add($"Compatibility field is {skill.Compatibility.Length} characters — maximum is {MaxCompatibilityLength}.");
         }
 
-        // --- agentskills.io spec: body line count (warning only — upgrade to blocking
-        // error after existing skills are fixed, see dotnet/skills#222) ---
+        // --- agentskills.io spec: body line count ---
         var trimmedBody = body.TrimEnd('\r', '\n');
         int bodyLineCount = trimmedBody.Length == 0 ? 0 : trimmedBody.Split('\n').Length;
         if (bodyLineCount > MaxBodyLines)
         {
-            warnings.Add($"SKILL.md body is {bodyLineCount} lines — spec recommends max {MaxBodyLines}. Move detailed reference material to separate files.");
+            errors.Add($"SKILL.md body is {bodyLineCount} lines — maximum is {MaxBodyLines}. Move detailed reference material to separate files.");
         }
 
-        // --- agentskills.io spec: file reference depth (warning only — upgrade to
-        // blocking error after existing skills are fixed, see dotnet/skills#222) ---
+        // --- agentskills.io spec: file reference depth ---
         foreach (Match refMatch in FileRefRegex().Matches(body))
         {
             var refPath = refMatch.Groups[1].Value;
@@ -115,7 +112,7 @@ public static partial class SkillProfiler
             // Reject parent-directory traversals
             if (segments.Any(s => s == ".."))
             {
-                warnings.Add($"File reference '{refMatch.Groups[1].Value}' uses parent-directory traversal — references must stay within the skill directory.");
+                errors.Add($"File reference '{refMatch.Groups[1].Value}' uses parent-directory traversal — references must stay within the skill directory.");
                 continue;
             }
 
@@ -123,7 +120,7 @@ public static partial class SkillProfiler
             int dirDepth = segments.Length - 1;
             if (dirDepth > 1) // e.g. "references/deep/file.md" = dirDepth 2
             {
-                warnings.Add($"File reference '{refMatch.Groups[1].Value}' is {dirDepth} directories deep — spec recommends max 1 level from SKILL.md.");
+                errors.Add($"File reference '{refMatch.Groups[1].Value}' is {dirDepth} directories deep — maximum is 1 level from SKILL.md.");
             }
         }
 
@@ -179,8 +176,8 @@ public static partial class SkillProfiler
             HasFrontmatter: hasFrontmatter,
             HasWhenToUse: hasWhenToUse,
             HasWhenNotToUse: hasWhenNotToUse,
-            DescriptionTooLong: descriptionTooLong,
             ResourceFileCount: resourceFileCount,
+            Errors: errors,
             Warnings: warnings);
     }
 
