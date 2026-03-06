@@ -92,9 +92,9 @@ public class MapHostPathToContainerTests
 
         try
         {
-            var subPath = Path.Combine(hostDir, "skill-validator-abc123");
+            var subPath = Path.Combine(hostDir, "sv-abc123");
             var result = server.MapHostPathToContainer(subPath);
-            Assert.Equal("/work/skill-validator-abc123", result);
+            Assert.Equal("/work/sv-abc123", result);
         }
         finally
         {

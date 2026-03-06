@@ -70,7 +70,7 @@ public partial class DockerCopilotServer
         return mounts;
     }
 
-    public string GetHostDir() => Path.Combine(Path.GetTempPath(), $"skill-validator-container-{_invocationId}");
+    public string GetHostDir() => Path.Combine(Path.GetTempPath(), $"sv-container-{_invocationId}");
 
     private string GetContainerName() => $"skill-validator-{_invocationId}";
 
