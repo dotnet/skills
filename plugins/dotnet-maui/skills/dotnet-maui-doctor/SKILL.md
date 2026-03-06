@@ -124,11 +124,7 @@ Compare against `xcode.version` range from Task 4. See `references/installation-
 
 ### Task 8: Validate Windows SDK (Windows Only)
 
-```powershell
-(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots" -ErrorAction SilentlyContinue).KitsRoot10
-```
-
-See `references/installation-commands-windows.md`.
+The Windows SDK is typically installed as part of the .NET MAUI workload or Visual Studio. See `references/installation-commands-windows.md`.
 
 ### Task 9: Remediation
 

@@ -27,9 +27,9 @@ For scripted/CI installs, use the [dotnet-install scripts](https://learn.microso
 
 First, find the latest workload set version:
 ```bash
-# Use the CLI to discover available workload versions for your SDK
-dotnet workload search version $SDK_VERSION
-# e.g., dotnet workload search version 10.0.103
+# Use the CLI to discover the latest workload version for your SDK
+dotnet workload search version --format json --take 1
+# Returns: [{"workloadVersion":"10.0.103"}]
 ```
 
 Then install with explicit version:
@@ -90,10 +90,14 @@ java -version
 echo $ANDROID_HOME
 echo $ANDROID_SDK_ROOT
 
-# Common SDK locations:
+# Known SDK locations by platform:
 # macOS: ~/Library/Android/sdk
-# Linux: ~/Android/Sdk
-# Windows: %LOCALAPPDATA%\Android\Sdk
+# Linux: ~/Android/Sdk or /usr/lib/android-sdk
+# Windows: $env:LOCALAPPDATA\Android\Sdk
+
+# Check known paths directly
+ls -d ~/Library/Android/sdk 2>/dev/null    # macOS
+ls -d ~/Android/Sdk 2>/dev/null            # Linux
 
 # Check if sdkmanager is available
 # macOS/Linux
