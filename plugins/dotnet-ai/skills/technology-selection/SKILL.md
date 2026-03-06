@@ -23,7 +23,8 @@ Evaluate the developer's task against this decision tree and select the appropri
 | Task type | Technology | Rationale |
 |-----------|-----------|-----------|
 | Structured/tabular data: classification, regression, clustering, anomaly detection, recommendation | **ML.NET** (`Microsoft.ML`) | Deterministic, reproducible, no cloud dependency, purpose-built for these tasks |
-| Natural language understanding, generation, summarization, reasoning, workflow over unstructured text | **LLM via Microsoft.Extensions.AI** with **Microsoft Agent Framework** for orchestration | Requires language model capabilities beyond pattern matching |
+| Natural language understanding, generation, summarization, reasoning over unstructured text (single prompt → response, no tool calling) | **LLM via Microsoft.Extensions.AI** (`IChatClient`) | Requires language model capabilities beyond pattern matching; no orchestration needed |
+| Agentic workflows: tool/function calling, multi-step reasoning, agent loops, multi-agent collaboration | **Microsoft Agent Framework** (`Microsoft.Agents.AI`) built on top of **Microsoft.Extensions.AI** | Requires orchestration, tool dispatch, iteration control, and guardrails that `IChatClient` alone does not provide |
 | Building GitHub Copilot extensions, custom agents, or developer workflow tools | **GitHub Copilot SDK** (`GitHub.Copilot.SDK`) | Integrates with the Copilot agent runtime for IDE and CLI extensibility |
 | Running a pre-trained or fine-tuned custom model in production | **ONNX Runtime** (`Microsoft.ML.OnnxRuntime`) | Hardware-accelerated inference, model-format agnostic |
 | Local/offline LLM inference with no cloud dependency | **LLamaSharp** with quantized GGUF models | Privacy-sensitive, air-gapped, or cost-constrained scenarios |
@@ -39,9 +40,9 @@ After identifying the task type, select the right library layer. These libraries
 
 | Layer | Library | NuGet package | Use when |
 |-------|---------|---------------|----------|
-| **Abstraction** | Microsoft.Extensions.AI (MEAI) | `Microsoft.Extensions.AI` | You need a provider-agnostic interface for chat, embeddings, or tool calling. This is the foundation — always include it. Use it directly for simple prompt-in/response-out scenarios with no orchestration. |
+| **Abstraction** | Microsoft.Extensions.AI (MEAI) | `Microsoft.Extensions.AI` | You need a provider-agnostic interface for chat, embeddings, or tool calling. This is the foundation — always include it. Use `IChatClient` directly **only** for simple prompt-in/response-out scenarios with no tool calling or agentic loops. If the task involves tools, agents, or multi-step reasoning, you must add the Orchestration layer above. |
 | **Provider SDK** | OpenAI, Azure.AI.OpenAI, Azure.AI.Inference, OllamaSharp | `OpenAI`, `Azure.AI.OpenAI`, `Azure.AI.Inference`, `OllamaSharp` | You need a concrete LLM provider implementation. These wire into MEAI via `AddChatClient`. Use `OpenAI` for direct OpenAI access, `Azure.AI.OpenAI` for Azure OpenAI, `Azure.AI.Inference` for Azure AI Foundry / GitHub Models, or `OllamaSharp` for local Ollama. Use directly only if you need provider-specific features not exposed through MEAI. |
-| **Orchestration** | Microsoft Agent Framework | `Microsoft.Agents.AI` (prerelease) | You need multi-step agent workflows, tool execution loops, multi-agent coordination, durable context, or graph-based workflows. Builds on top of MEAI. **Note:** This package is currently prerelease — use `dotnet add package Microsoft.Agents.AI --prerelease` to install it. |
+| **Orchestration** | Microsoft Agent Framework | `Microsoft.Agents.AI` (prerelease) | The task involves tool/function calling, agentic loops, multi-step reasoning, multi-agent coordination, durable context, or graph-based workflows. **This is required whenever the scenario involves agents or tools — do not hand-roll tool dispatch loops with `IChatClient`.** Builds on top of MEAI. **Note:** This package is currently prerelease — use `dotnet add package Microsoft.Agents.AI --prerelease` to install it. |
 | **Copilot integration** | GitHub Copilot SDK | `GitHub.Copilot.SDK` | You are building extensions or tools that integrate with the GitHub Copilot runtime — custom agents, IDE extensions, or developer workflow automation that leverages the Copilot agent platform. |
 
 #### Decision rules for library selection
@@ -50,11 +51,14 @@ After identifying the task type, select the right library layer. These libraries
 
 2. **Add a provider SDK** (`OpenAI`, `Azure.AI.OpenAI`) as the concrete implementation behind MEAI. Do not call the provider SDK directly in business logic — always go through the MEAI abstraction.
 
-3. **Add Agent Framework only when you need orchestration.** If the task is a single prompt → response, MEAI is sufficient. Add `Microsoft.Agents.AI` when you need:
-   - Tool/function calling loops (agent decides which tools to invoke)
+3. **Use Agent Framework (`Microsoft.Agents.AI`) for any task that involves tools or agents.** If the task is a single prompt → response with no tool calling, MEAI is sufficient. **You MUST use `Microsoft.Agents.AI`** when any of these apply:
+   - Tool/function calling (agent decides which tools to invoke)
    - Multi-step reasoning with state carried across turns
+   - Agentic loops that iterate until a goal is met
    - Multi-agent collaboration with handoff protocols
    - Graph-based or durable workflows
+   
+   Do **not** implement these patterns by hand with `IChatClient` — the Agent Framework provides iteration limits, observability, and tool dispatch that are error-prone to reimplement.
 
 4. **Add Copilot SDK only when building Copilot extensions.** Use `GitHub.Copilot.SDK` when the goal is to build a custom agent or tool that runs inside the GitHub Copilot platform (CLI, IDE, or Copilot Chat). This is not a general-purpose LLM orchestration library — it is specifically for Copilot extensibility.
 
@@ -191,6 +195,8 @@ Apply the guardrails for the selected technology branch. Every generated impleme
 
 #### Agentic workflow guardrails
 
+0. **Use `Microsoft.Agents.AI` for all agentic workflows.** Do not implement tool dispatch loops or multi-step agent reasoning by hand with `IChatClient`. The Agent Framework provides `ChatClientAgent` (or `AgentWorker`) which handles the tool call → result → re-prompt cycle with built-in guardrails. All rules below assume you are using `Microsoft.Agents.AI`.
+
 1. **Iteration limits**: Always cap agentic loops to prevent runaway execution:
    ```csharp
    var settings = new AgentInvokeOptions
@@ -321,7 +327,8 @@ When reviewing or generating code, flag and redirect the developer if any of the
 | Building custom neural networks in .NET from scratch | Use a pre-trained model via ONNX Runtime or call an LLM API |
 | RAG without chunking strategy or relevance filtering | Implement semantic chunking and set a minimum similarity score threshold |
 | Agentic loops without iteration limits or cost ceilings | Add `MaximumIterations` and a token budget ceiling |
-| Mixing `Microsoft.Extensions.AI` with raw `HttpClient` calls to the same provider | Pick one abstraction layer and commit to it |
+| Using MEAI `IChatClient` with raw `HttpClient` calls to the same provider | Pick one abstraction layer and commit to it |
+| Implementing tool calling or agentic loops manually with `IChatClient` instead of using `Microsoft.Agents.AI` | Use `Microsoft.Agents.AI` — it provides iteration limits (`MaximumIterations`), built-in tool dispatch, observability hooks, and cost controls. Hand-rolled loops lack these guardrails. |
 | Using Agent Framework for a single prompt→response call | Use MEAI `IChatClient` directly — Agent Framework is for multi-step orchestration |
 | Using Copilot SDK for general-purpose LLM apps | Copilot SDK is for Copilot platform extensions only — use MEAI + Agent Framework for standalone apps |
 | Calling OpenAI SDK directly in business logic instead of through MEAI | Register the provider via `AddChatClient` and depend on `IChatClient` in business code |

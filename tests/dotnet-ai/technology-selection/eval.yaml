@@ -156,6 +156,8 @@ scenarios:
       - type: "output_contains"
         value: "MaximumIterations"
       - type: "output_contains"
+        value: "Microsoft.Agents.AI"
+      - type: "output_contains"
         value: "Microsoft.Extensions.AI"
       - type: "exit_success"
     rubric:
@@ -193,7 +195,7 @@ scenarios:
       - type: "exit_success"
     rubric:
       - "Presents a plan or architecture breakdown before diving into code — decomposes the vague request into identifiable capability needs (chat, document ingestion, vector search, embedding, UI)"
-      - "Selects Microsoft.Extensions.AI (MEAI) as the abstraction layer and identifies a concrete provider for Google Gemini (e.g., Azure.AI.Inference or a Gemini-compatible SDK)"
+      - "Selects Microsoft.Extensions.AI (MEAI) as the abstraction layer and identifies a concrete LLM provider (e.g., OpenAI, Azure.AI.OpenAI, or Azure.AI.Inference)"
       - "Identifies the need for document ingestion and chunking of PDF files — references Microsoft.Extensions.AI.DataIngestion or implements equivalent parsing/chunking"
       - "Selects Microsoft.Extensions.VectorData.Abstractions with a pgvector connector for PostgreSQL-based vector storage"
       - "Uses Blazor for the web UI as requested — does not substitute a different frontend framework"
@@ -202,7 +204,7 @@ scenarios:
     timeout: 360
 
   - name: "RAG pipeline with vector search"
-    prompt: "Add a RAG-based Q&A feature to this .NET 10 Web API. The app has a collection of product documentation markdown files. Users should be able to ask questions and get answers grounded in the documentation. Include document ingestion with chunking and a query endpoint."
+    prompt: "I need to add a RAG-based Q&A feature to a .NET 10 Web API. The app has a collection of product documentation markdown files. Users should be able to ask questions and get answers grounded in the documentation. I need document ingestion with chunking and a query endpoint. Show me your plan and architecture only — do not write any code."
     setup:
       files:
         - path: "ProductQA/ProductQA.csproj"
@@ -238,10 +240,10 @@ scenarios:
         value: "embedding"
       - type: "exit_success"
     rubric:
-      - "Implements a chunking strategy for documents (semantic or paragraph-based, not naive fixed-size)"
-      - "Uses Microsoft.Extensions.VectorData or a vector database for storing and querying embeddings"
-      - "Sets a minimum similarity score threshold to filter out irrelevant results"
-      - "Includes source attribution — tracks which document chunks contributed to the answer"
-      - "Caches embeddings rather than re-embedding content on every query"
-      - "Uses Microsoft.Extensions.AI (IEmbeddingGenerator) for the embedding abstraction layer"
+      - "Describes a chunking strategy for documents (semantic or paragraph-based, not naive fixed-size)"
+      - "Selects Microsoft.Extensions.VectorData or a vector database for storing and querying embeddings"
+      - "Mentions setting a minimum similarity score threshold to filter out irrelevant results"
+      - "Includes source attribution in the design — tracks which document chunks contributed to the answer"
+      - "Plans to cache embeddings rather than re-embedding content on every query"
+      - "Selects Microsoft.Extensions.AI (IEmbeddingGenerator) for the embedding abstraction layer"
     timeout: 360
