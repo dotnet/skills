@@ -1,0 +1,426 @@
+scenarios:
+  - name: "Basic Blazor Server app conversion to Blazor Web App"
+    prompt: |
+      Convert this .NET 7 Blazor Server app to a .NET 8 Blazor Web App. Provide the complete
+      updated files needed. The app should use the new AddRazorComponents/MapRazorComponents
+      APIs and no longer use AddServerSideBlazor or MapBlazorHub.
+
+      BlazorServerApp.csproj:
+      ```xml
+      <Project Sdk="Microsoft.NET.Sdk.Web">
+        <PropertyGroup>
+          <TargetFramework>net7.0</TargetFramework>
+          <Nullable>enable</Nullable>
+          <ImplicitUsings>enable</ImplicitUsings>
+        </PropertyGroup>
+      </Project>
+      ```
+
+      Program.cs:
+      ```csharp
+      var builder = WebApplication.CreateBuilder(args);
+
+      builder.Services.AddRazorPages();
+      builder.Services.AddServerSideBlazor();
+
+      var app = builder.Build();
+
+      if (!app.Environment.IsDevelopment())
+      {
+          app.UseExceptionHandler("/Error");
+          app.UseHsts();
+      }
+
+      app.UseHttpsRedirection();
+      app.UseStaticFiles();
+      app.UseRouting();
+
+      app.MapBlazorHub();
+      app.MapFallbackToPage("/_Host");
+
+      app.Run();
+      ```
+
+      Pages/_Host.cshtml:
+      ```html
+      @page "/"
+      @using Microsoft.AspNetCore.Components.Web
+      @namespace BlazorServerApp.Pages
+      @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <base href="~/" />
+          <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
+          <link href="css/site.css" rel="stylesheet" />
+          <link href="BlazorServerApp.styles.css" rel="stylesheet" />
+          <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
+      </head>
+      <body>
+          <component type="typeof(App)" render-mode="ServerPrerendered" />
+
+          <div id="blazor-error-ui">
+              <environment include="Staging,Production">
+                  An error has occurred. This application may no longer respond until reloaded.
+              </environment>
+              <environment include="Development">
+                  An unhandled exception has occurred. See browser dev tools for details.
+              </environment>
+              <a href="" class="reload">Reload</a>
+              <a class="dismiss">🗙</a>
+          </div>
+
+          <script src="_framework/blazor.server.js"></script>
+      </body>
+      </html>
+      ```
+
+      App.razor:
+      ```razor
+      <Router AppAssembly="@typeof(Program).Assembly">
+          <Found Context="routeData">
+              <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+              <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+          </Found>
+          <NotFound>
+              <LayoutView Layout="@typeof(MainLayout)">
+                  <p>Sorry, there's nothing at this address.</p>
+              </LayoutView>
+          </NotFound>
+      </Router>
+      ```
+
+      _Imports.razor:
+      ```razor
+      @using System.Net.Http
+      @using Microsoft.AspNetCore.Components.Forms
+      @using Microsoft.AspNetCore.Components.Routing
+      @using Microsoft.AspNetCore.Components.Web
+      @using Microsoft.JSInterop
+      @using BlazorServerApp
+      @using BlazorServerApp.Shared
+      ```
+    assertions:
+      - type: output_contains
+        value: "AddRazorComponents"
+      - type: output_contains
+        value: "AddInteractiveServerComponents"
+      - type: output_contains
+        value: "MapRazorComponents"
+      - type: output_contains
+        value: "AddInteractiveServerRenderMode"
+      - type: output_contains
+        value: "blazor.web.js"
+      - type: output_contains
+        value: "Routes"
+      - type: output_contains
+        value: "UseAntiforgery"
+      - type: output_not_matches
+        pattern: "AddServerSideBlazor\\s*\\("
+      - type: output_not_matches
+        pattern: "MapBlazorHub\\s*\\("
+      - type: exit_success
+    rubric:
+      - "Replaces AddServerSideBlazor with AddRazorComponents().AddInteractiveServerComponents()"
+      - "Replaces MapBlazorHub with MapRazorComponents<App>().AddInteractiveServerRenderMode()"
+      - "Removes MapFallbackToPage and UseRouting"
+      - "Adds UseAntiforgery middleware"
+      - "Creates a Routes.razor with the Router content from the old App.razor"
+      - "Converts _Host.cshtml into the new App.razor with HeadOutlet and Routes components using InteractiveServer render mode"
+      - "Replaces blazor.server.js with blazor.web.js"
+      - "Deletes Pages/_Host.cshtml"
+    timeout: 120
+
+  - name: "Blazor Server app with CascadingAuthenticationState"
+    prompt: |
+      Convert this .NET 7 Blazor Server app to a .NET 8 Blazor Web App. The app uses
+      authentication with CascadingAuthenticationState. Provide the complete updated files.
+      The app should no longer use AddServerSideBlazor or MapBlazorHub.
+
+      Program.cs:
+      ```csharp
+      using BlazorAuthApp;
+
+      var builder = WebApplication.CreateBuilder(args);
+
+      builder.Services.AddRazorPages();
+      builder.Services.AddServerSideBlazor();
+
+      var app = builder.Build();
+
+      if (!app.Environment.IsDevelopment())
+      {
+          app.UseExceptionHandler("/Error");
+          app.UseHsts();
+      }
+
+      app.UseHttpsRedirection();
+      app.UseStaticFiles();
+      app.UseRouting();
+
+      app.UseAuthentication();
+      app.UseAuthorization();
+
+      app.MapControllers();
+      app.MapBlazorHub();
+      app.MapFallbackToPage("/_Host");
+
+      app.Run();
+      ```
+
+      App.razor:
+      ```razor
+      <CascadingAuthenticationState>
+          <Router AppAssembly="@typeof(Program).Assembly">
+              <Found Context="routeData">
+                  <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                      <NotAuthorized>
+                          <RedirectToLogin />
+                      </NotAuthorized>
+                  </AuthorizeRouteView>
+                  <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+              </Found>
+              <NotFound>
+                  <LayoutView Layout="@typeof(MainLayout)">
+                      <p>Sorry, there's nothing at this address.</p>
+                  </LayoutView>
+              </NotFound>
+          </Router>
+      </CascadingAuthenticationState>
+      ```
+
+      Pages/_Host.cshtml:
+      ```html
+      @page "/"
+      @using Microsoft.AspNetCore.Components.Web
+      @namespace BlazorAuthApp.Pages
+      @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <base href="~/" />
+          <link href="BlazorAuthApp.styles.css" rel="stylesheet" />
+          <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
+      </head>
+      <body>
+          <component type="typeof(App)" render-mode="ServerPrerendered" />
+
+          <div id="blazor-error-ui">
+              <environment include="Staging,Production">
+                  An error has occurred. This application may no longer respond until reloaded.
+              </environment>
+              <environment include="Development">
+                  An unhandled exception has occurred. See browser dev tools for details.
+              </environment>
+              <a href="" class="reload">Reload</a>
+              <a class="dismiss">🗙</a>
+          </div>
+
+          <script src="_framework/blazor.server.js"></script>
+      </body>
+      </html>
+      ```
+    assertions:
+      - type: output_contains
+        value: "AddCascadingAuthenticationState"
+      - type: output_contains
+        value: "AddRazorComponents"
+      - type: output_contains
+        value: "MapRazorComponents"
+      - type: output_contains
+        value: "UseAntiforgery"
+      - type: output_not_matches
+        pattern: "AddServerSideBlazor\\s*\\("
+      - type: output_not_matches
+        pattern: "MapBlazorHub\\s*\\("
+      - type: exit_success
+    rubric:
+      - "Removes the CascadingAuthenticationState component wrapper from App.razor/Routes.razor"
+      - "Adds builder.Services.AddCascadingAuthenticationState() to Program.cs"
+      - "Places UseAntiforgery after UseAuthentication and UseAuthorization in the middleware pipeline"
+      - "Keeps AuthorizeRouteView in the Routes component"
+      - "Does NOT switch to static rendering — preserves interactive server rendering"
+    timeout: 120
+
+  - name: "Blazor Server app with prerendering disabled"
+    prompt: |
+      Convert this .NET 6 Blazor Server app to a .NET 8 Blazor Web App. Note that
+      this app has prerendering disabled (render-mode="Server" not "ServerPrerendered").
+      Preserve this behavior in the converted app. Provide the complete updated files.
+      The app should no longer use AddServerSideBlazor or MapBlazorHub.
+
+      Program.cs:
+      ```csharp
+      var builder = WebApplication.CreateBuilder(args);
+
+      builder.Services.AddRazorPages();
+      builder.Services.AddServerSideBlazor();
+
+      var app = builder.Build();
+
+      if (!app.Environment.IsDevelopment())
+      {
+          app.UseExceptionHandler("/Error");
+          app.UseHsts();
+      }
+
+      app.UseHttpsRedirection();
+      app.UseStaticFiles();
+      app.UseRouting();
+
+      app.MapBlazorHub();
+      app.MapFallbackToPage("/_Host");
+
+      app.Run();
+      ```
+
+      Pages/_Host.cshtml:
+      ```html
+      @page "/"
+      @using Microsoft.AspNetCore.Components.Web
+      @namespace BlazorNoPrerenderApp.Pages
+      @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <base href="~/" />
+          <link href="BlazorNoPrerenderApp.styles.css" rel="stylesheet" />
+          <component type="typeof(HeadOutlet)" render-mode="Server" />
+      </head>
+      <body>
+          <component type="typeof(App)" render-mode="Server" />
+
+          <div id="blazor-error-ui">
+              <environment include="Staging,Production">
+                  An error has occurred. This application may no longer respond until reloaded.
+              </environment>
+              <environment include="Development">
+                  An unhandled exception has occurred. See browser dev tools for details.
+              </environment>
+              <a href="" class="reload">Reload</a>
+              <a class="dismiss">🗙</a>
+          </div>
+
+          <script src="_framework/blazor.server.js"></script>
+      </body>
+      </html>
+      ```
+
+      App.razor:
+      ```razor
+      <Router AppAssembly="@typeof(Program).Assembly">
+          <Found Context="routeData">
+              <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+          </Found>
+          <NotFound>
+              <LayoutView Layout="@typeof(MainLayout)">
+                  <p>Sorry, there's nothing at this address.</p>
+              </LayoutView>
+          </NotFound>
+      </Router>
+      ```
+    assertions:
+      - type: output_contains
+        value: "AddRazorComponents"
+      - type: output_contains
+        value: "MapRazorComponents"
+      - type: output_matches
+        pattern: "prerender.*false|InteractiveServerRenderMode\\(prerender:\\s*false\\)"
+      - type: output_contains
+        value: "blazor.web.js"
+      - type: output_not_matches
+        pattern: "AddServerSideBlazor\\s*\\("
+      - type: output_not_matches
+        pattern: "MapBlazorHub\\s*\\("
+      - type: exit_success
+    rubric:
+      - "Detects that the original app used render-mode=\"Server\" (not ServerPrerendered) which means prerendering was disabled"
+      - "Uses new InteractiveServerRenderMode(prerender: false) instead of InteractiveServer to preserve the disabled prerendering behavior"
+      - "Applies the prerender: false setting to both HeadOutlet and Routes components"
+      - "Does NOT use plain InteractiveServer which would enable prerendering and change behavior"
+    timeout: 120
+
+  - name: "App already using Blazor Web App model — no migration needed"
+    prompt: |
+      I want to convert this Blazor Server app to a Blazor Web App. Check if it needs
+      conversion and provide guidance. The app should not use AddServerSideBlazor or MapBlazorHub.
+
+      Program.cs:
+      ```csharp
+      using BlazorWebApp;
+
+      var builder = WebApplication.CreateBuilder(args);
+
+      builder.Services.AddRazorComponents()
+          .AddInteractiveServerComponents();
+
+      var app = builder.Build();
+
+      if (!app.Environment.IsDevelopment())
+      {
+          app.UseExceptionHandler("/Error");
+          app.UseHsts();
+      }
+
+      app.UseHttpsRedirection();
+      app.UseStaticFiles();
+      app.UseAntiforgery();
+
+      app.MapRazorComponents<App>()
+          .AddInteractiveServerRenderMode();
+
+      app.Run();
+      ```
+
+      App.razor:
+      ```razor
+      @inject IHostEnvironment Env
+
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <base href="/" />
+          <HeadOutlet @rendermode="InteractiveServer" />
+      </head>
+      <body>
+          <Routes @rendermode="InteractiveServer" />
+          <script src="_framework/blazor.web.js"></script>
+      </body>
+      </html>
+      ```
+
+      Routes.razor:
+      ```razor
+      <Router AppAssembly="@typeof(Program).Assembly">
+          <Found Context="routeData">
+              <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+          </Found>
+          <NotFound>
+              <LayoutView Layout="@typeof(MainLayout)">
+                  <p>Sorry, there's nothing at this address.</p>
+              </LayoutView>
+          </NotFound>
+      </Router>
+      ```
+    assertions:
+      - type: output_matches
+        pattern: "(already|no).{0,80}(Blazor Web App|converted|migration|changes needed|changes required|using.*AddRazorComponents)"
+      - type: exit_success
+    expect_activation: false
+    rubric:
+      - "Correctly identifies that this app is already a Blazor Web App using AddRazorComponents and MapRazorComponents"
+      - "Does NOT suggest converting AddRazorComponents to AddServerSideBlazor or making other backwards changes"
+      - "Does NOT fabricate migration steps that are not needed"
+      - "May suggest optional improvements but clearly marks them as optional, not migration requirements"
+    timeout: 120

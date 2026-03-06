@@ -10,6 +10,7 @@ This repository contains the .NET team's curated set of core skills and custom a
 |--------|-------------|
 | [dotnet](plugins/dotnet/) | Collection of core .NET skills for handling common .NET coding tasks. |
 | [dotnet-msbuild](plugins/dotnet-msbuild/) | Comprehensive MSBuild and .NET build skills: failure diagnosis, performance optimization, code quality, and modernization. |
+| [dotnet-aspnet](plugins/dotnet-aspnet/) | Skills for ASP.NET Core development: Blazor migration, web app modernization, and best practices. |
 
 ## Installation
 
