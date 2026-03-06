@@ -25,6 +25,7 @@ public static partial class SkillProfiler
     private const int TokenSweetHigh = 2500;
     private const int TokenWarnHigh = 5000;
     internal const int MaxDescriptionLength = 1024;
+    internal const int MaxAggregateDescriptionLength = 15_000;
     private const int MaxNameLength = 64;
     private const int MaxCompatibilityLength = 500;
     private const int MaxBodyLines = 500;

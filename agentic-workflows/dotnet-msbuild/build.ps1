@@ -46,14 +46,6 @@ foreach ($dir in $skillDirs) {
     }
 }
 
-# Delegate description size checks to the central validation script
-$descValidator = Join-Path $RepoRoot 'eng' 'validate-descriptions.ps1'
-if (Test-Path $descValidator) {
-    $pluginsRoot = Join-Path $RepoRoot 'plugins'
-    & pwsh $descValidator -PluginsDir (Resolve-Path $pluginsRoot)
-    if ($LASTEXITCODE -ne 0) { $errors++ }
-}
-
 if ($errors -gt 0) {
     Write-Host "`n$errors validation error(s) found." -ForegroundColor Red
     exit 1

@@ -1,4 +1,4 @@
-﻿<!-- AUTO-GENERATED -- DO NOT EDIT -->
+<!-- AUTO-GENERATED — DO NOT EDIT -->
 
 # Build Performance Baseline & Optimization
 
@@ -401,7 +401,7 @@ Is your no-op build slow (> 10s per project)?
     │       Is compilation slow?
     │       ├── YES
     │       │   Are analyzers/generators slow?
-    │       │   ├── YES → See `analyzer-performance` skill
+    │       │   ├── YES → See `build-perf-diagnostics` skill
     │       │   └── NO → Check parallelism, graph build, critical path (this skill + `build-parallelism`)
     │       └── NO → Check custom targets (binlog analysis via `build-perf-diagnostics`)
     └── NO

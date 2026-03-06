@@ -1,3 +1,4 @@
+using SkillValidator.Commands;
 using SkillValidator.Models;
 using SkillValidator.Services;
 
@@ -428,5 +429,85 @@ public class FormatDiagnosisHintsTests
         var hints = SkillProfiler.FormatDiagnosisHints(profile);
         Assert.True(hints.Count > 1);
         Assert.Contains("Possible causes", hints[0]);
+    }
+}
+
+public class AggregateDescriptionLimitTests
+{
+    private static SkillInfo MakeSkill(string name, string description, string pluginName = "test-plugin")
+    {
+        var path = Path.Combine("/tmp", "plugins", pluginName, "skills", name);
+        return new SkillInfo(name, description, path,
+            Path.Combine(path, "SKILL.md"), "---\nname: " + name + "\n---\n# Title", null, null);
+    }
+
+    [Fact]
+    public void SkillsUnderAggregateLimit_NoFailures()
+    {
+        var skills = new[]
+        {
+            MakeSkill("skill-a", new string('a', 500)),
+            MakeSkill("skill-b", new string('b', 400)),
+        };
+        var failures = ValidateCommand.CheckAggregateDescriptionLimits(skills);
+        Assert.Empty(failures);
+    }
+
+    [Fact]
+    public void SkillsExactlyAtAggregateLimit_NoFailures()
+    {
+        // Two skills summing to exactly MaxAggregateDescriptionLength
+        var half = SkillProfiler.MaxAggregateDescriptionLength / 2;
+        var remainder = SkillProfiler.MaxAggregateDescriptionLength - half;
+        var skills = new[]
+        {
+            MakeSkill("skill-a", new string('a', half)),
+            MakeSkill("skill-b", new string('b', remainder)),
+        };
+        var failures = ValidateCommand.CheckAggregateDescriptionLimits(skills);
+        Assert.Empty(failures);
+    }
+
+    [Fact]
+    public void SkillsOverAggregateLimit_ReportsFailure()
+    {
+        var half = SkillProfiler.MaxAggregateDescriptionLength / 2;
+        var skills = new[]
+        {
+            MakeSkill("skill-a", new string('a', half + 1)),
+            MakeSkill("skill-b", new string('b', half + 1)),
+        };
+        var failures = ValidateCommand.CheckAggregateDescriptionLimits(skills);
+        Assert.Single(failures);
+        Assert.Contains("test-plugin", failures[0]);
+        Assert.Contains("maximum", failures[0]);
+    }
+
+    [Fact]
+    public void MultiplePlugins_OnlyViolatingPluginFails()
+    {
+        var skills = new[]
+        {
+            MakeSkill("skill-a", new string('a', 100), "good-plugin"),
+            MakeSkill("skill-b", new string('b', SkillProfiler.MaxAggregateDescriptionLength + 1), "bad-plugin"),
+        };
+        var failures = ValidateCommand.CheckAggregateDescriptionLimits(skills);
+        Assert.Single(failures);
+        Assert.Contains("bad-plugin", failures[0]);
+        Assert.DoesNotContain("good-plugin", failures[0]);
+    }
+
+    [Fact]
+    public void DerivePluginName_StandardLayout()
+    {
+        var name = ValidateCommand.DerivePluginName("/repo/plugins/dotnet-msbuild/skills/build-perf");
+        Assert.Equal("dotnet-msbuild", name);
+    }
+
+    [Fact]
+    public void DerivePluginName_NoSkillsAncestor_ReturnsNull()
+    {
+        var name = ValidateCommand.DerivePluginName("/tmp/some-path/my-skill");
+        Assert.Null(name);
     }
 }
