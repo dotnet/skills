@@ -44,6 +44,8 @@ safe-outputs:
 network:
   allowed:
     - defaults
+
+timeout-minutes: 60
 ---
 
 # DevOps Daily Health Check — Orchestrator
@@ -512,6 +514,8 @@ Before finishing, verify:
 
 ## Guidelines
 
+- **Time budget**: You have a 60-minute timeout. Prioritize reaching Steps 4 and 5 (issue update + dispatch). Do NOT write intermediate scripts or analysis files. Work through each check, collect findings in memory, and proceed directly to output. Aim to complete data collection (Step 1) within 30 minutes.
+- **Efficiency**: Process API responses in memory. Do NOT create Python/bash scripts to analyze data — parse JSON directly using `jq` or inline analysis. Do NOT write intermediate files unless explicitly required by the output format.
 - **Be data-driven**: Include specific numbers, durations, percentages, and links.
 - **Be precise with fingerprints**: Use the exact fingerprint formulas from the knowledge file. Consistency is critical — the same finding MUST produce the same fingerprint across runs.
 - **First run handling**: If `cache-memory` has no previous state, note: "⚠️ This is the first health check run. All findings appear as new. Diff will resume from next run."

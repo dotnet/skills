@@ -103,7 +103,7 @@ When `finding_type == "quality"`:
    a. Identify which flag(s) are set on the bench entry
    b. For `notActivated`:
       - The skill failed to activate — the model didn't use any skill-provided context
-      - Check the skill definition file (`src/{component}/skills/{skill}/SKILL.md`) for syntax or trigger issues
+      - Check the skill definition file (`plugins/{component}/skills/{skill}/SKILL.md`) for syntax or trigger issues
       - Check if the skill's `description` field changed recently
       - Check if the test prompt still aligns with the skill's trigger keywords
    c. For `timedOut`:
@@ -136,8 +136,8 @@ When `finding_type == "quality"`:
 
 7. **Check recent skill/test changes**:
    ```
-   GET /repos/{owner}/{repo}/commits?path=src/{component}/skills/{skill}&per_page=5
-   GET /repos/{owner}/{repo}/commits?path=src/{component}/tests/{skill}&per_page=5
+   GET /repos/{owner}/{repo}/commits?path=plugins/{component}/skills/{skill}&per_page=5
+   GET /repos/{owner}/{repo}/commits?path=tests/{component}/{skill}&per_page=5
    ```
 
 8. **Determine root cause** with confidence level.
