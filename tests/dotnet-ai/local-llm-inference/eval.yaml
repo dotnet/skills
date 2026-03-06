@@ -1,6 +1,6 @@
 scenarios:
   - name: "Set up Ollama with MEAI"
-    prompt: "Set up local LLM inference in this .NET 8 app using Ollama with the phi3:mini model. Wire it through Microsoft.Extensions.AI so the rest of the app uses IChatClient."
+    prompt: "Set up local LLM inference in this .NET 10 app using Ollama with the phi3:mini model. Wire it through Microsoft.Extensions.AI so the rest of the app uses IChatClient."
     setup:
       files:
         - path: "LocalAI/LocalAI.csproj"
@@ -8,7 +8,7 @@ scenarios:
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <OutputType>Exe</OutputType>
-                <TargetFramework>net8.0</TargetFramework>
+                <TargetFramework>net10.0</TargetFramework>
               </PropertyGroup>
             </Project>
         - path: "LocalAI/Program.cs"
@@ -28,7 +28,7 @@ scenarios:
     timeout: 360
 
   - name: "Set up Foundry Local with MEAI"
-    prompt: "Set up local LLM inference in this .NET 9 app using Foundry Local with the phi-4-mini model. Wire it through Microsoft.Extensions.AI so the rest of the app uses IChatClient."
+    prompt: "Set up local LLM inference in this .NET 10 app using Foundry Local with the phi-4-mini model. Wire it through Microsoft.Extensions.AI so the rest of the app uses IChatClient."
     setup:
       files:
         - path: "LocalAI/LocalAI.csproj"
@@ -36,7 +36,7 @@ scenarios:
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <OutputType>Exe</OutputType>
-                <TargetFramework>net9.0</TargetFramework>
+                <TargetFramework>net10.0</TargetFramework>
               </PropertyGroup>
             </Project>
         - path: "LocalAI/Program.cs"
