@@ -13,13 +13,20 @@ public sealed record RunOptions(
     string? EvalPath,
     string Model,
     bool Verbose,
-    Action<string>? Log = null);
+    Action<string>? Log = null,
+    string? SessionsDir = null,
+    string? SessionId = null,
+    string? SessionRole = null,
+    string? SkillName = null,
+    string? ScenarioName = null,
+    int RunIndex = 0);
 
 public static class AgentRunner
 {
     private static CopilotClient? _sharedClient;
     private static readonly SemaphoreSlim _clientLock = new(1, 1);
     private static readonly ConcurrentBag<string> _workDirs = [];
+    private static readonly ConcurrentBag<string> _configDirs = [];
 
     /// <summary>
     /// Returns the shared <see cref="CopilotClient"/>, creating it on first call.
@@ -69,11 +76,16 @@ public static class AgentRunner
     }
 
     /// <summary>Remove all temporary working directories created during runs.</summary>
-    public static Task CleanupWorkDirs()
+    public static Task CleanupWorkDirs(bool keepSessions = false)
     {
         var dirs = _workDirs.ToArray();
         _workDirs.Clear();
-        return Task.WhenAll(dirs.Select(dir =>
+
+        var configDirsToClean = keepSessions ? [] : _configDirs.ToArray();
+        _configDirs.Clear();
+
+        var allDirs = dirs.Concat(configDirsToClean);
+        return Task.WhenAll(allDirs.Select(dir =>
         {
             try { Directory.Delete(dir, true); } catch { }
             return Task.CompletedTask;
@@ -104,14 +116,27 @@ public static class AgentRunner
 
     internal static SessionConfig BuildSessionConfig(
         SkillInfo? skill, string model, string workDir,
-        IReadOnlyDictionary<string, MCPServerDef>? mcpServers = null)
+        IReadOnlyDictionary<string, MCPServerDef>? mcpServers = null,
+        string? sessionsDir = null, string? sessionId = null)
     {
         var skillPath = skill is not null ? Path.GetDirectoryName(skill.Path) : null;
 
-        // Create a unique temporary config directory for this session to not share any data
-        var configDir = Path.Combine(Path.GetTempPath(), $"skill-validator-cfg-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(configDir);
-        _workDirs.Add(configDir);
+        string configDir;
+        if (sessionsDir is not null)
+        {
+            // Persistent session dir — use sessionId as folder name for DB linkage
+            var dirName = sessionId ?? Guid.NewGuid().ToString("N");
+            configDir = Path.Combine(sessionsDir, dirName);
+            Directory.CreateDirectory(configDir);
+            _configDirs.Add(configDir);
+        }
+        else
+        {
+            // Ephemeral temp dir — cleaned up after run
+            configDir = Path.Combine(Path.GetTempPath(), $"skill-validator-cfg-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(configDir);
+            _configDirs.Add(configDir);
+        }
 
         // Convert MCPServerDef records to the SDK's Dictionary<string, object> shape
         Dictionary<string, object>? sdkMcp = null;
@@ -172,7 +197,7 @@ public static class AgentRunner
             var client = await GetSharedClient(options.Verbose);
 
             await using var session = await client.CreateSessionAsync(
-                BuildSessionConfig(options.Skill, options.Model, workDir, options.Skill?.McpServers));
+                BuildSessionConfig(options.Skill, options.Model, workDir, options.Skill?.McpServers, options.SessionsDir, options.SessionId));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;

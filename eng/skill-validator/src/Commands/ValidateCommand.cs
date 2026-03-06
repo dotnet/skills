@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Text.Json;
 using SkillValidator.Models;
 using SkillValidator.Services;
 using SkillValidator.Utilities;
@@ -30,6 +31,7 @@ public static class ValidateCommand
         var reporterOpt = new Option<string[]>("--reporter") { Description = "Reporter (console, json, junit, markdown). Can be repeated.", AllowMultipleArgumentsPerToken = true };
         var noOverfittingCheckOpt = new Option<bool>("--no-overfitting-check") { Description = "Disable LLM-based overfitting analysis (on by default)" };
         var overfittingFixOpt = new Option<bool>("--overfitting-fix") { Description = "Generate a fixed eval.yaml with improved rubric items/assertions" };
+        var keepSessionsOpt = new Option<bool>("--keep-sessions") { Description = "Preserve agent session data in the results directory for later rejudging" };
 
         var command = new RootCommand("Validate that agent skills meaningfully improve agent performance")
         {
@@ -53,6 +55,7 @@ public static class ValidateCommand
             reporterOpt,
             noOverfittingCheckOpt,
             overfittingFixOpt,
+            keepSessionsOpt,
         };
 
         command.SetAction(async (parseResult, _) =>
@@ -98,6 +101,7 @@ public static class ValidateCommand
                 TestsDir = parseResult.GetValue(testsDirOpt),
                 OverfittingCheck = !parseResult.GetValue(noOverfittingCheckOpt),
                 OverfittingFix = parseResult.GetValue(overfittingFixOpt),
+                KeepSessions = parseResult.GetValue(keepSessionsOpt),
             };
 
             return await Run(config);
@@ -169,13 +173,27 @@ public static class ValidateCommand
 
         bool usePairwise = config.JudgeMode is JudgeMode.Pairwise or JudgeMode.Both;
 
+        // Set up session persistence if requested
+        string? sessionsDir = null;
+        SessionDatabase? sessionDb = null;
+        string? timestampedResultsDir = null;
+        if (config.KeepSessions && config.ResultsDir is not null)
+        {
+            timestampedResultsDir = Path.Combine(config.ResultsDir, Reporter.FormatTimestamp(DateTime.Now));
+            Directory.CreateDirectory(timestampedResultsDir);
+            sessionsDir = Path.Combine(timestampedResultsDir, "sessions");
+            Directory.CreateDirectory(sessionsDir);
+            sessionDb = new SessionDatabase(Path.Combine(timestampedResultsDir, "sessions.db"));
+            Console.WriteLine($"Session persistence enabled: {timestampedResultsDir}");
+        }
+
         using var spinner = new Spinner();
         using var skillLimit = new ConcurrencyLimiter(config.ParallelSkills);
 
         // Evaluate skills
         spinner.Start($"Evaluating {allSkills.Count} skill(s)...");
         var skillTasks = allSkills.Select(skill =>
-            skillLimit.RunAsync(() => EvaluateSkill(skill, config, usePairwise, spinner)));
+            skillLimit.RunAsync(() => EvaluateSkill(skill, config, usePairwise, spinner, sessionsDir, sessionDb)));
         var settled = await Task.WhenAll(skillTasks.Select(async t =>
         {
             try { return (Result: await t, Error: (Exception?)null); }
@@ -199,10 +217,11 @@ public static class ValidateCommand
         }
 
         await Reporter.ReportResults(verdicts, config.Reporters, config.Verbose,
-            config.Model, config.JudgeModel, config.ResultsDir);
+            config.Model, config.JudgeModel, config.ResultsDir, timestampedResultsDir);
 
         await AgentRunner.StopSharedClient();
-        await AgentRunner.CleanupWorkDirs();
+        await AgentRunner.CleanupWorkDirs(config.KeepSessions);
+        sessionDb?.Dispose();
 
         // Always fail on execution errors, even in --verdict-warn-only mode
         if (hasRejections) return 1;
@@ -224,7 +243,9 @@ public static class ValidateCommand
         SkillInfo skill,
         ValidatorConfig config,
         bool usePairwise,
-        Spinner spinner)
+        Spinner spinner,
+        string? sessionsDir,
+        SessionDatabase? sessionDb)
     {
         var prefix = $"[{skill.Name}]";
         var log = (string msg) => spinner.Log($"{prefix} {msg}");
@@ -275,7 +296,7 @@ public static class ValidateCommand
         using var scenarioLimit = new ConcurrencyLimiter(config.ParallelScenarios);
 
         var scenarioTasks = skill.EvalConfig.Scenarios.Select(scenario =>
-            scenarioLimit.RunAsync(() => ExecuteScenario(scenario, skill, config, usePairwise, singleScenario, spinner)));
+            scenarioLimit.RunAsync(() => ExecuteScenario(scenario, skill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb)));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
 
         // Await overfitting result (non-fatal — never blocks an otherwise-successful evaluation)
@@ -349,7 +370,9 @@ public static class ValidateCommand
         ValidatorConfig config,
         bool usePairwise,
         bool singleScenario,
-        Spinner spinner)
+        Spinner spinner,
+        string? sessionsDir,
+        SessionDatabase? sessionDb)
     {
         var tag = singleScenario ? $"[{skill.Name}]" : $"[{skill.Name}/{scenario.Name}]";
         var scenarioLog = (string msg) => spinner.Log($"{tag} {msg}");
@@ -359,7 +382,7 @@ public static class ValidateCommand
             scenarioLog("📋 Starting scenario");
 
         var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
-            runLimit.RunAsync(() => ExecuteRun(i, scenario, skill, config, usePairwise, singleScenario, spinner)));
+            runLimit.RunAsync(() => ExecuteRun(i, scenario, skill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb)));
         var runResults = await Task.WhenAll(runTasks);
 
         scenarioLog($"✓ All {config.Runs} run(s) complete");
@@ -413,7 +436,9 @@ public static class ValidateCommand
         ValidatorConfig config,
         bool usePairwise,
         bool singleScenario,
-        Spinner spinner)
+        Spinner spinner,
+        string? sessionsDir,
+        SessionDatabase? sessionDb)
     {
         var runTag = config.Runs > 1
             ? (singleScenario ? $"[{skill.Name}/{runIndex + 1}]" : $"[{skill.Name}/{scenario.Name}/{runIndex + 1}]")
@@ -423,11 +448,35 @@ public static class ValidateCommand
         if (config.Verbose)
             runLog("running agents...");
 
+        // Generate session IDs for tracking
+        var baselineSessionId = Guid.NewGuid().ToString("N");
+        var skillSessionId = Guid.NewGuid().ToString("N");
+
+        // Register sessions before running — config_dir stored as relative path for portability
+        var skillDir = Path.GetDirectoryName(skill.Path);
+        var skillSha = skillDir is not null ? SessionDatabase.ComputeDirectorySha(skillDir) : null;
+        var baselineConfigDir = sessionsDir is not null ? Path.Combine("sessions", baselineSessionId) : null;
+        var skillConfigDir = sessionsDir is not null ? Path.Combine("sessions", skillSessionId) : null;
+        sessionDb?.RegisterSession(baselineSessionId, skill.Name, skill.Path, scenario.Name, runIndex, "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, skillSha);
+        sessionDb?.RegisterSession(skillSessionId, skill.Name, skill.Path, scenario.Name, runIndex, "with-skill", config.Model, skillConfigDir, null, scenario.Prompt, skillSha);
+
         var agentTasks = await Task.WhenAll(
-            AgentRunner.RunAgent(new RunOptions(scenario, null, skill.EvalPath, config.Model, config.Verbose, runLog)),
-            AgentRunner.RunAgent(new RunOptions(scenario, skill, skill.EvalPath, config.Model, config.Verbose, runLog)));
+            AgentRunner.RunAgent(new RunOptions(scenario, null, skill.EvalPath, config.Model, config.Verbose, runLog,
+                SessionsDir: sessionsDir, SessionId: baselineSessionId, SessionRole: "baseline", SkillName: skill.Name, ScenarioName: scenario.Name, RunIndex: runIndex)),
+            AgentRunner.RunAgent(new RunOptions(scenario, skill, skill.EvalPath, config.Model, config.Verbose, runLog,
+                SessionsDir: sessionsDir, SessionId: skillSessionId, SessionRole: "with-skill", SkillName: skill.Name, ScenarioName: scenario.Name, RunIndex: runIndex)));
         var baselineMetrics = agentTasks[0];
         var withSkillMetrics = agentTasks[1];
+
+        // Save metrics to session DB
+        if (sessionDb is not null)
+        {
+            var jsonOpts = new JsonSerializerOptions { WriteIndented = false };
+            var baselineStatus = baselineMetrics.TimedOut ? "timed_out" : "completed";
+            var skillStatus = withSkillMetrics.TimedOut ? "timed_out" : "completed";
+            sessionDb.CompleteSession(baselineSessionId, baselineStatus, JsonSerializer.Serialize(baselineMetrics, jsonOpts));
+            sessionDb.CompleteSession(skillSessionId, skillStatus, JsonSerializer.Serialize(withSkillMetrics, jsonOpts));
+        }
 
         // Evaluate assertions
         if (scenario.Assertions is { Count: > 0 })
@@ -489,6 +538,14 @@ public static class ValidateCommand
         var baseline = new RunResult(baselineMetrics, baselineJudge);
         var withSkillResult = new RunResult(withSkillMetrics, withSkillJudge);
 
+        // Save judge results to session DB
+        if (sessionDb is not null)
+        {
+            var jsonOpts = new JsonSerializerOptions { WriteIndented = false };
+            sessionDb.SaveJudgeResult(baselineSessionId, JsonSerializer.Serialize(baselineJudge, jsonOpts));
+            sessionDb.SaveJudgeResult(skillSessionId, JsonSerializer.Serialize(withSkillJudge, jsonOpts));
+        }
+
         // Pairwise judging
         PairwiseJudgeResult? pairwise = null;
         if (usePairwise)
@@ -503,6 +560,13 @@ public static class ValidateCommand
             {
                 runLog($"⚠️  Pairwise judge failed: {error}");
             }
+        }
+
+        // Save pairwise result to session DB
+        if (sessionDb is not null && pairwise is not null)
+        {
+            var jsonOpts = new JsonSerializerOptions { WriteIndented = false };
+            sessionDb.SavePairwiseResult(baselineSessionId, JsonSerializer.Serialize(pairwise, jsonOpts));
         }
 
         // Skill activation
