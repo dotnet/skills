@@ -1,22 +1,19 @@
 ---
 name: refactoring-to-async
-description: Convert synchronous .NET code to async/await, including proper Task propagation, cancellation support, and avoiding common async anti-patterns. Use when converting blocking I/O calls to async, fixing thread pool starvation, or modernizing sync-over-async code.
+description: >
+  Convert synchronous .NET code to async/await, including proper Task propagation,
+  cancellation support, and avoiding common async anti-patterns.
+  USE FOR: converting blocking I/O calls (database, HTTP, file, stream) to async,
+  fixing thread pool starvation from .Result/.Wait()/.GetAwaiter().GetResult(),
+  modernizing sync-over-async code, adding CancellationToken support.
+  DO NOT USE FOR: CPU-bound computation (use Parallel.For or Task.Run instead),
+  code with no I/O operations, parallelizing work rather than making it async.
 ---
 
 # Refactoring to Async
 
-## When to Use
-
-- Converting synchronous I/O-bound code to async/await
-- Fixing thread pool starvation caused by blocking calls
-- Modernizing legacy `.Result` / `.Wait()` / `.GetAwaiter().GetResult()` patterns
-- Adding `CancellationToken` support to async call chains
-
-## When Not to Use
-
-- The code is CPU-bound (async won't help; consider `Parallel.For` or `Task.Run`)
-- The synchronous code has no I/O operations
-- The user wants to parallelize work, not make it async
+> **Note:** All code examples below are for ASP.NET Core / application code.
+> In **library code**, add `.ConfigureAwait(false)` to every `await`.
 
 ## Inputs
 
@@ -32,7 +29,7 @@ description: Convert synchronous .NET code to async/await, including proper Task
 Search for synchronous I/O patterns in the codebase:
 
 ```bash
-grep -rn "\.Result\b\|\.Wait()\|\.GetAwaiter()\.GetResult()\|ReadToEnd()\|\.Read()\|\.Write(" --include="*.cs" .
+grep -rnE '\.Result\b|\.Wait\(\)|\.GetAwaiter\(\)\.GetResult\(\)|ReadToEnd\(\)|\.Read\(|\.Write\(' --include='*.cs' .
 ```
 
 Common blocking patterns to convert:
@@ -152,7 +149,7 @@ Common errors after async refactoring:
 Search for remaining issues:
 
 ```bash
-grep -rn "\.Result\b\|\.Wait()\|\.GetAwaiter()\.GetResult()" --include="*.cs" .
+grep -rnE '\.Result\b|\.Wait\(\)|\.GetAwaiter\(\)\.GetResult\(\)' --include='*.cs' .
 ```
 
 This should return zero results in the refactored code paths.
@@ -164,7 +161,7 @@ This should return zero results in the refactored code paths.
 | `task.Result` or `task.Wait()` | Blocks thread, risks deadlock | `await task` |
 | `async void` methods | Exceptions crash the process | `async Task` (except event handlers) |
 | `Task.Run` wrapping async I/O | Wastes a thread pool thread | Call async method directly |
-| Missing `ConfigureAwait(false)` in libraries | Can deadlock in UI/ASP.NET sync contexts | Add `ConfigureAwait(false)` in library code |
+| Missing `ConfigureAwait(false)` in libraries | Can deadlock in UI/ASP.NET sync contexts | Add `.ConfigureAwait(false)` to every `await` in library code; omit in ASP.NET Core app code (no SynchronizationContext) |
 | Fire-and-forget without error handling | Swallows exceptions silently | `await` or use `_ = Task.Run(async () => { try... })` |
 
 ## Validation

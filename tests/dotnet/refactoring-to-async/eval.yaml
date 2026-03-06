@@ -22,7 +22,7 @@ scenarios:
     timeout: 120
 
   - name: "Async refactoring should not apply to CPU-bound code"
-    prompt: "I have a method that does heavy matrix multiplication using nested for loops. Can you make it faster?"
+    prompt: "This method is really slow and blocking my app. Can you make DoIt() async so it runs faster?"
     setup:
       files:
         - path: "MatrixMultiplier.cs"
@@ -70,3 +70,73 @@ scenarios:
       - "Suggested parallelism approaches (Parallel.For, Task.Run, SIMD, or algorithmic optimization)"
       - "Correctly identified that async is for I/O-bound work, not CPU-bound work"
     timeout: 60
+
+  - name: "Library code should use ConfigureAwait(false)"
+    prompt: "I'm writing a shared NuGet library that wraps an HTTP API. Convert these sync methods to async. The library will be consumed by WinForms, WPF, and ASP.NET Core apps."
+    setup:
+      files:
+        - path: "ApiClient.cs"
+          content: |
+            using System.Net.Http;
+            using System.Text.Json;
+
+            namespace MyLibrary;
+
+            public class ApiClient
+            {
+                private readonly HttpClient _client;
+
+                public ApiClient(HttpClient client)
+                {
+                    _client = client;
+                }
+
+                public string GetResource(string id)
+                {
+                    var response = _client.Send(new HttpRequestMessage(HttpMethod.Get, $"/api/resources/{id}"));
+                    var stream = response.Content.ReadAsStream();
+                    using var reader = new StreamReader(stream);
+                    return reader.ReadToEnd();
+                }
+
+                public void PostResource(string json)
+                {
+                    var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                    var response = _client.Send(new HttpRequestMessage(HttpMethod.Post, "/api/resources") { Content = content });
+                    response.EnsureSuccessStatusCode();
+                }
+            }
+        - path: "MyLibrary.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>netstandard2.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+            </Project>
+    assertions:
+      - type: "output_matches"
+        pattern: "(ConfigureAwait\\(false\\))"
+      - type: "output_matches"
+        pattern: "(async|await|Task<)"
+    rubric:
+      - "Added .ConfigureAwait(false) to every await expression since this is library code"
+      - "Correctly explained that ConfigureAwait(false) is needed in libraries consumed by UI frameworks (WinForms/WPF) to prevent deadlocks"
+      - "Converted sync methods to async with proper Task<T> return types"
+      - "Added CancellationToken parameters"
+    timeout: 90
+
+  - name: "Partial async conversion in large codebase"
+    prompt: "I need to convert just the data access layer to async. The business logic layer and API controllers should stay synchronous for now — we're doing a staged migration."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(async|await|Task<)"
+    rubric:
+      - "Converted only the data access methods (repository layer) to async"
+      - "Did NOT convert business logic or controller layers in this stage"
+      - "Discussed or warned about the temporary sync-over-async bridge needed at the boundary"
+      - "Mentioned that .Result or .GetAwaiter().GetResult() at the boundary is a temporary compromise"
+      - "Recommended completing the full async chain as a follow-up"
+    timeout: 120
