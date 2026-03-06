@@ -163,25 +163,14 @@ public partial class DockerCopilotServer
         var fullPath = Path.GetFullPath(hostPath);
 
         // Check work dir mount
-        var hostDir = GetHostDir();
-        var relativeToWork = Path.GetRelativePath(hostDir, fullPath);
-        if (!Path.IsPathRooted(relativeToWork) &&
-            !relativeToWork.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) &&
-            relativeToWork != "..")
-        {
-            return Path.Combine("/work", relativeToWork).Replace("\\", "/");
-        }
+        if (TryMapToContainerMount(fullPath, GetHostDir(), "/work", out var workResult))
+            return workResult;
 
         // Check skill dir mounts
         foreach (var (hostSkillDir, containerMount) in _skillMounts)
         {
-            var relativePath = Path.GetRelativePath(hostSkillDir, fullPath);
-            if (!Path.IsPathRooted(relativePath) &&
-                !relativePath.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) &&
-                relativePath != "..")
-            {
-                return Path.Combine(containerMount, relativePath).Replace("\\", "/");
-            }
+            if (TryMapToContainerMount(fullPath, hostSkillDir, containerMount, out var skillResult))
+                return skillResult;
         }
 
         throw new ArgumentException($"Host path is not mapped into the container: {hostPath}");
@@ -359,6 +348,25 @@ public partial class DockerCopilotServer
 
         return Process.Start(psi)
             ?? throw new InvalidOperationException("Failed to start docker run process");
+    }
+
+    private static bool TryMapToContainerMount(
+        string fullPath, 
+        string hostDir, 
+        string containerMount,
+        [NotNullWhen(true)] out string? containerPath)
+    {
+        var relativePath = Path.GetRelativePath(hostDir, fullPath);
+        if (!Path.IsPathRooted(relativePath) &&
+            !relativePath.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) &&
+            relativePath != "..")
+        {
+            containerPath = Path.Combine(containerMount, relativePath).Replace("\\", "/");
+            return true;
+        }
+
+        containerPath = null;
+        return false;
     }
 
     internal static string GetCopilotSdkVersion()
