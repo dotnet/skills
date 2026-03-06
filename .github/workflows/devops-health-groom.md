@@ -35,6 +35,8 @@ safe-outputs:
 network:
   allowed:
     - defaults
+
+timeout-minutes: 60
 ---
 
 # DevOps Health — Groom Dashboard
@@ -129,9 +131,14 @@ Do **not** call `update-issue` yet. Keep the modified issue body in memory — S
 
 ## Step 4: Check for Newly Resolved Findings
 
-### 4.1 Load Current Fingerprints
+### 4.1 Derive Current Fingerprints from Issue Body
 
-Load the current fingerprint set from `cache-memory` key `health-check-fingerprints`. This contains all findings the health check currently tracks.
+Extract the set of currently active findings by parsing the issue body (already loaded in Step 1):
+- **🆕 New Findings** section → these are current
+- **📌 Existing Findings** section → these are current
+- Extract the `Fingerprint:` line from each finding's detail block
+
+The union of new + existing fingerprints forms the current active set. Findings listed under **✅ Resolved Since Yesterday** are NOT current.
 
 ### 4.2 Cross-Reference Investigation Comments
 
@@ -177,7 +184,7 @@ Hide investigation comments (`## 🔍 Investigation:`) older than **7 days** wit
 
 ### 5.3 Investigation Comments — Resolved Findings
 
-Hide investigation comments for findings that have been **resolved** (finding_id is NOT in the current fingerprint set from `cache-memory`), regardless of age, with reason `RESOLVED`. These investigations are no longer relevant since the underlying issue is fixed.
+Hide investigation comments for findings that have been **resolved** (finding_id is NOT in the current active fingerprint set derived from the issue body in Step 4.1), regardless of age, with reason `RESOLVED`. These investigations are no longer relevant since the underlying issue is fixed.
 
 **Exception:** Do NOT hide investigation comments less than 24 hours old, even if the finding is resolved. This gives people time to read the investigation before it's cleaned up.
 
