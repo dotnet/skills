@@ -71,6 +71,10 @@ on:
         required: false
       COPILOT_GITHUB_TOKEN_8:
         required: false
+    outputs:
+      comment_action:
+        description: 'Whether the PR comment was created, updated, or not posted'
+        value: ${{ jobs.comment-on-pr.outputs.comment_action }}
 
 jobs:
   build-validator:
@@ -214,6 +218,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+    outputs:
+      comment_action: ${{ steps.post-comment.outputs.comment_action }}
     steps:
       - name: Download all result artifacts
         uses: actions/download-artifact@v8
@@ -253,6 +259,7 @@ jobs:
           cat consolidated-comment.md >> $GITHUB_STEP_SUMMARY
 
       - name: Post or update PR comment
+        id: post-comment
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -267,7 +274,9 @@ jobs:
           if [ -n "$COMMENT_ID" ]; then
             gh api "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" \
               -X PATCH -F "body=@consolidated-comment.md"
+            echo "comment_action=updated" >> $GITHUB_OUTPUT
           else
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
               -X POST -F "body=@consolidated-comment.md"
+            echo "comment_action=created" >> $GITHUB_OUTPUT
           fi
