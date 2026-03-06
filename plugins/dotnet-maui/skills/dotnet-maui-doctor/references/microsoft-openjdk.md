@@ -16,9 +16,9 @@
 Run `java -version`. Microsoft OpenJDK output contains `Microsoft` in the runtime line:
 
 ```
-openjdk version "17.0.14" 2025-01-21 LTS
-OpenJDK Runtime Environment Microsoft-XXXXXXX (build 17.0.14+7-LTS)
-OpenJDK 64-Bit Server VM Microsoft-XXXXXXX (build 17.0.14+7-LTS, mixed mode, sharing)
+openjdk version "21.0.6" 2025-01-21 LTS
+OpenJDK Runtime Environment Microsoft-XXXXXXX (build 21.0.6+7-LTS)
+OpenJDK 64-Bit Server VM Microsoft-XXXXXXX (build 21.0.6+7-LTS, mixed mode, sharing)
 ```
 
 If the output does NOT contain "Microsoft", the wrong JDK is installed or selected.
