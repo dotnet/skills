@@ -7,7 +7,8 @@ description: >
   dispatches investigation workers for new critical/warning findings.
 
 on:
-  schedule: daily
+  schedule:
+    - cron: "0 3 * * *"  # 03:00 UTC daily
   workflow_dispatch:
 
 permissions:
@@ -43,6 +44,8 @@ safe-outputs:
 network:
   allowed:
     - defaults
+
+timeout-minutes: 60
 ---
 
 # DevOps Daily Health Check — Orchestrator
@@ -376,7 +379,19 @@ Replace the entire issue body with the following structure:
 > These appeared since the last health check ({previous_date}).
 
 {For each new finding, render a full section with title, details, link, and suggested action}
-{Include investigation placeholder islands for findings that qualify for dispatch — see Step 5}
+
+---
+
+## 🔍 Investigation Results
+
+> Deep investigations are dispatched for new critical/warning findings.
+> The [grooming workflow](../workflows/devops-health-groom.md) links results ~3 hours after this run.
+
+| Finding | Severity | Status | Result |
+|---------|----------|--------|--------|
+{For each finding dispatched in the current run:}
+| {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | [Workflow Run]({workflow_actions_url}) |
+{Preserve any rows from the previous issue body that already show ✅ Done or ✅ Resolved — do not remove them}
 
 ---
 
@@ -491,12 +506,17 @@ dispatch-workflow:
 Before finishing, verify:
 - [ ] At least one `dispatch-workflow` call was made (if any 🔴 critical or qualifying 🟡 warning findings exist)
 - [ ] All 🔴 critical NEW findings have been dispatched (up to budget cap)
+- [ ] The "🔍 Investigation Results" section in the issue body shows newly dispatched findings as "🔄 Dispatched"
+- [ ] Any existing "✅ Done" or "✅ Resolved" rows from the previous issue body are preserved
 - [ ] The noop summary message mentions how many investigations were dispatched
 
 ---
 
 ## Guidelines
 
+- **Time budget**: You have a 60-minute timeout. Prioritize reaching Steps 4 and 5 (issue update + dispatch). Do NOT write intermediate scripts or analysis files. Work through each check, collect findings in memory, and proceed directly to output. Aim to complete data collection (Step 1) within 30 minutes.
+- **Efficiency**: Process API responses in memory. Do NOT create Python/bash scripts to analyze data — parse JSON directly using `jq` or inline analysis. Do NOT write intermediate files unless explicitly required by the output format.
+- **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **complete, literal issue body text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. Pass the body directly as the string value.
 - **Be data-driven**: Include specific numbers, durations, percentages, and links.
 - **Be precise with fingerprints**: Use the exact fingerprint formulas from the knowledge file. Consistency is critical — the same finding MUST produce the same fingerprint across runs.
 - **First run handling**: If `cache-memory` has no previous state, note: "⚠️ This is the first health check run. All findings appear as new. Diff will resume from next run."

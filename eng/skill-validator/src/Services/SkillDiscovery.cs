@@ -42,8 +42,8 @@ public static partial class SkillDiscovery
         var skillMdContent = await File.ReadAllTextAsync(skillMdPath);
         var (metadata, _) = ParseFrontmatter(skillMdContent);
 
-        var name = metadata.GetValueOrDefault("name") ?? Path.GetFileName(dirPath);
-        var description = metadata.GetValueOrDefault("description") ?? "";
+        var name = metadata.Name ?? Path.GetFileName(dirPath);
+        var description = metadata.Description ?? "";
 
         string? evalPath = null;
         EvalConfig? evalConfig = null;
@@ -85,17 +85,18 @@ public static partial class SkillDiscovery
             {
                 try
                 {
-                    var raw = JsonSerializer.Deserialize<JsonElement>(
-                        await File.ReadAllTextAsync(candidate));
+                    var raw = JsonSerializer.Deserialize(
+                        await File.ReadAllTextAsync(candidate),
+                        SkillValidatorJsonContext.Default.JsonElement);
                     if (raw.TryGetProperty("mcpServers", out var serversEl)
                         && serversEl.ValueKind == JsonValueKind.Object)
                     {
                         var result = new Dictionary<string, MCPServerDef>();
                         foreach (var prop in serversEl.EnumerateObject())
                         {
-                            var def = JsonSerializer.Deserialize<MCPServerDef>(
+                            var def = JsonSerializer.Deserialize(
                                 prop.Value.GetRawText(),
-                                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                                SkillValidatorJsonContext.Default.MCPServerDef);
                             if (def is not null)
                                 result[prop.Name] = def;
                         }
@@ -116,19 +117,19 @@ public static partial class SkillDiscovery
         return null;
     }
 
-    internal static (Dictionary<string, string> Metadata, string Body) ParseFrontmatter(string content)
+    private static readonly IDeserializer FrontmatterDeserializer = new StaticDeserializerBuilder(new SkillValidatorYamlContext())
+        .WithNamingConvention(UnderscoredNamingConvention.Instance)
+        .IgnoreUnmatchedProperties()
+        .Build();
+
+    internal static (EvalSchema.RawFrontmatter Metadata, string Body) ParseFrontmatter(string content)
     {
         var match = FrontmatterRegex().Match(content);
         if (!match.Success)
-            return (new Dictionary<string, string>(), content);
+            return (new EvalSchema.RawFrontmatter(), content);
 
-        var yamlDeserializer = new DeserializerBuilder()
-            .WithNamingConvention(UnderscoredNamingConvention.Instance)
-            .IgnoreUnmatchedProperties()
-            .Build();
-
-        var metadata = yamlDeserializer.Deserialize<Dictionary<string, string>>(match.Groups[1].Value)
-            ?? new Dictionary<string, string>();
+        var metadata = FrontmatterDeserializer.Deserialize<EvalSchema.RawFrontmatter>(match.Groups[1].Value)
+            ?? new EvalSchema.RawFrontmatter();
 
         return (metadata, match.Groups[2].Value);
     }

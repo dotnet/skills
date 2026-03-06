@@ -30,6 +30,12 @@ PerfView collect /GCCollectOnly /BufferSizeMB:1024 /CircularMB:2048
 # Collect with specific providers
 PerfView collect /Providers:Microsoft-Windows-DotNETRuntime /BufferSizeMB:1024 /CircularMB:2048
 
+# Collect with networking providers (HTTP status codes, DNS, TLS, sockets)
+PerfView /ThreadTime collect /BufferSizeMB:1024 /CircularMB:2048 /Providers:*System.Net.Http,*System.Net.NameResolution,*System.Net.Security,*System.Net.Sockets
+
+# Collect with Kestrel/ASP.NET providers for slow inbound requests
+PerfView /ThreadTime collect /BufferSizeMB:1024 /CircularMB:2048 /Providers:*Microsoft.AspNetCore.Hosting,*Microsoft-AspNetCore-Server-Kestrel
+
 # Collect for a specific duration (seconds)
 PerfView collect /MaxCollectSec:30 /BufferSizeMB:1024 /CircularMB:2048
 

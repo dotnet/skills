@@ -253,6 +253,7 @@ public class OverfittingJudgeTests
             {
                 new("sc1", "output_matches: pattern", "narrow", 0.85, "reason")
             },
+            new List<PromptOverfitAssessment>(),
             new List<string> { "cross-scenario issue" },
             "Overall reasoning"
         );
@@ -362,6 +363,7 @@ public class OverfittingJudgeTests
                     OverfittingSeverity.Moderate,
                     new List<RubricOverfitAssessment>(),
                     new List<AssertionOverfitAssessment>(),
+                    new List<PromptOverfitAssessment>(),
                     new List<string>(),
                     "Moderate overfitting detected"
                 )
@@ -408,5 +410,288 @@ public class OverfittingJudgeTests
 
         Assert.Contains("Overfit", md);
         Assert.Contains("| — |", md);
+    }
+
+    // --- Prompt overfitting detection tests ---
+
+    [Fact]
+    public void DetectPromptOverfitting_ExplicitSkillName_Detected()
+    {
+        var skill = new SkillInfo(
+            Name: "migrate-dotnet10-to-dotnet11",
+            Description: "Migration skill",
+            Path: "/skills/migrate-dotnet10-to-dotnet11",
+            SkillMdPath: "/skills/migrate-dotnet10-to-dotnet11/SKILL.md",
+            SkillMdContent: "# Migration Skill",
+            EvalPath: null,
+            EvalConfig: new EvalConfig(new List<EvalScenario>
+            {
+                new("scenario1",
+                    "Use the migrate-dotnet10-to-dotnet11 skill to help me migrate my .NET 10 console app to .NET 11."),
+            }));
+
+        var assessments = OverfittingJudge.DetectPromptOverfitting(skill);
+
+        Assert.Single(assessments);
+        Assert.Equal("explicit_skill_reference", assessments[0].Issue);
+        Assert.Equal(1.0, assessments[0].Confidence);
+        Assert.Contains("migrate-dotnet10-to-dotnet11", assessments[0].Reasoning);
+    }
+
+    [Fact]
+    public void DetectPromptOverfitting_MultipleScenarios_AllDetected()
+    {
+        var skill = new SkillInfo(
+            Name: "migrate-dotnet10-to-dotnet11",
+            Description: "Migration skill",
+            Path: "/skills/migrate-dotnet10-to-dotnet11",
+            SkillMdPath: "/skills/migrate-dotnet10-to-dotnet11/SKILL.md",
+            SkillMdContent: "# Migration Skill",
+            EvalPath: null,
+            EvalConfig: new EvalConfig(new List<EvalScenario>
+            {
+                new("scenario1",
+                    "Use the migrate-dotnet10-to-dotnet11 skill to help me with compression changes."),
+                new("scenario2",
+                    "Use the migrate-dotnet10-to-dotnet11 skill to help me with C# 15 compiler changes."),
+                new("scenario3",
+                    "Use the migrate-dotnet10-to-dotnet11 skill to help me with EF Core Cosmos DB."),
+            }));
+
+        var assessments = OverfittingJudge.DetectPromptOverfitting(skill);
+
+        Assert.Equal(3, assessments.Count);
+        Assert.All(assessments, a => Assert.Equal("explicit_skill_reference", a.Issue));
+    }
+
+    [Fact]
+    public void DetectPromptOverfitting_UseSkillPhrase_Detected()
+    {
+        var skill = new SkillInfo(
+            Name: "dotnet-pinvoke",
+            Description: "P/Invoke skill",
+            Path: "/skills/dotnet-pinvoke",
+            SkillMdPath: "/skills/dotnet-pinvoke/SKILL.md",
+            SkillMdContent: "# P/Invoke Skill",
+            EvalPath: null,
+            EvalConfig: new EvalConfig(new List<EvalScenario>
+            {
+                new("scenario1",
+                    "Use the pinvoke skill to help me create a P/Invoke binding."),
+            }));
+
+        var assessments = OverfittingJudge.DetectPromptOverfitting(skill);
+
+        Assert.Single(assessments);
+        Assert.Equal("skill_instruction", assessments[0].Issue);
+        Assert.Equal(0.9, assessments[0].Confidence);
+    }
+
+    [Fact]
+    public void DetectPromptOverfitting_NeutralPrompt_NothingDetected()
+    {
+        var skill = new SkillInfo(
+            Name: "migrate-dotnet10-to-dotnet11",
+            Description: "Migration skill",
+            Path: "/skills/migrate-dotnet10-to-dotnet11",
+            SkillMdPath: "/skills/migrate-dotnet10-to-dotnet11/SKILL.md",
+            SkillMdContent: "# Migration Skill",
+            EvalPath: null,
+            EvalConfig: new EvalConfig(new List<EvalScenario>
+            {
+                new("scenario1",
+                    "I need to migrate my .NET 10 console app to .NET 11. What breaks?"),
+            }));
+
+        var assessments = OverfittingJudge.DetectPromptOverfitting(skill);
+
+        Assert.Empty(assessments);
+    }
+
+    [Fact]
+    public void DetectPromptOverfitting_CaseInsensitive_Detected()
+    {
+        var skill = new SkillInfo(
+            Name: "Migrate-Dotnet10-To-Dotnet11",
+            Description: "Migration skill",
+            Path: "/skills/migrate-dotnet10-to-dotnet11",
+            SkillMdPath: "/skills/migrate-dotnet10-to-dotnet11/SKILL.md",
+            SkillMdContent: "# Migration Skill",
+            EvalPath: null,
+            EvalConfig: new EvalConfig(new List<EvalScenario>
+            {
+                new("scenario1",
+                    "Use the migrate-dotnet10-to-dotnet11 skill to help me."),
+            }));
+
+        var assessments = OverfittingJudge.DetectPromptOverfitting(skill);
+
+        Assert.Single(assessments);
+        Assert.Equal("explicit_skill_reference", assessments[0].Issue);
+    }
+
+    [Fact]
+    public void DetectPromptOverfitting_NoEvalConfig_ReturnsEmpty()
+    {
+        var skill = new SkillInfo(
+            Name: "test-skill",
+            Description: "Test",
+            Path: "/skills/test-skill",
+            SkillMdPath: "/skills/test-skill/SKILL.md",
+            SkillMdContent: "# Test",
+            EvalPath: null,
+            EvalConfig: null);
+
+        var assessments = OverfittingJudge.DetectPromptOverfitting(skill);
+
+        Assert.Empty(assessments);
+    }
+
+    // --- Score computation with prompt assessments ---
+
+    [Fact]
+    public void ComputeScore_WithPromptIssues_BoostsScore()
+    {
+        var rubric = new List<RubricOverfitAssessment>
+        {
+            new("sc1", "Explains GZipStream changes", "outcome", 0.9, "Good outcome test"),
+        };
+        var assertions = new List<AssertionOverfitAssessment>
+        {
+            new("sc1", "output_matches: GZipStream", "broad", 0.9, "Broad test"),
+        };
+        var prompts = new List<PromptOverfitAssessment>
+        {
+            new("sc1", "explicit_skill_reference", 1.0, "Prompt names the skill"),
+        };
+
+        var scoreWithPrompts = OverfittingJudge.ComputeOverfittingScore(rubric, assertions, prompts);
+        var scoreWithout = OverfittingJudge.ComputeOverfittingScore(rubric, assertions);
+
+        // With prompt issues: 0.4*1.0 + 0.4*0.0 + 0.2*0.0 = 0.4
+        // Without: 0.7*0.0 + 0.3*0.0 = 0.0
+        Assert.True(scoreWithPrompts > scoreWithout,
+            $"Score with prompts ({scoreWithPrompts}) should exceed score without ({scoreWithout})");
+        Assert.True(scoreWithPrompts >= 0.4,
+            $"Score with prompt issues should be at least 0.4, got {scoreWithPrompts}");
+    }
+
+    [Fact]
+    public void ComputeScore_AllScenariosExplicitRef_HighScore()
+    {
+        var rubric = new List<RubricOverfitAssessment>
+        {
+            new("sc1", "criterion1", "outcome", 0.9, "Good"),
+            new("sc2", "criterion2", "outcome", 0.8, "Good"),
+        };
+        var assertions = new List<AssertionOverfitAssessment>
+        {
+            new("sc1", "output_matches: pattern", "broad", 0.9, "Broad"),
+        };
+        var prompts = new List<PromptOverfitAssessment>
+        {
+            new("sc1", "explicit_skill_reference", 1.0, "Names skill"),
+            new("sc2", "explicit_skill_reference", 1.0, "Names skill"),
+        };
+
+        var score = OverfittingJudge.ComputeOverfittingScore(rubric, assertions, prompts);
+
+        // 0.4*1.0 + 0.4*0.0 + 0.2*0.0 = 0.4
+        Assert.Equal(0.4, score, 2);
+    }
+
+    [Fact]
+    public void ComputeScore_PromptIssuesWithVocabulary_CompoundsHigh()
+    {
+        var rubric = new List<RubricOverfitAssessment>
+        {
+            new("sc1", "Uses specific term", "vocabulary", 0.9, "Vocabulary test"),
+        };
+        var assertions = new List<AssertionOverfitAssessment>
+        {
+            new("sc1", "output_matches: specific-pattern", "narrow", 0.85, "Narrow match"),
+        };
+        var prompts = new List<PromptOverfitAssessment>
+        {
+            new("sc1", "explicit_skill_reference", 1.0, "Names skill"),
+        };
+
+        var score = OverfittingJudge.ComputeOverfittingScore(rubric, assertions, prompts);
+
+        // 0.4*1.0 + 0.4*(1.0*0.9) + 0.2*(1.0*0.85) = 0.4 + 0.36 + 0.17 = 0.93
+        Assert.True(score > 0.8, $"Combined prompt+vocabulary should produce high score, got {score}");
+    }
+
+    // --- ParseResponse with prompt assessments ---
+
+    [Fact]
+    public void ParseResponse_WithPromptAssessments_ParsesCorrectly()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            rubric_assessments = new[]
+            {
+                new { scenario = "sc1", criterion = "test", classification = "outcome", confidence = 0.9, reasoning = "ok" }
+            },
+            assertion_assessments = Array.Empty<object>(),
+            prompt_assessments = new[]
+            {
+                new { scenario = "sc1", issue = "explicit_skill_reference", confidence = 1.0, reasoning = "Prompt names the skill" }
+            },
+            cross_scenario_issues = Array.Empty<string>(),
+            overall_overfitting_score = 0.5,
+            overall_reasoning = "Prompt overfitting detected"
+        });
+
+        var result = OverfittingJudge.ParseOverfittingResponse(json);
+
+        Assert.Single(result.PromptAssessments);
+        Assert.Equal("explicit_skill_reference", result.PromptAssessments[0].Issue);
+        Assert.Equal(1.0, result.PromptAssessments[0].Confidence);
+    }
+
+    [Fact]
+    public void ParseResponse_DeterministicPromptsMergedWithLlm()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            rubric_assessments = Array.Empty<object>(),
+            assertion_assessments = Array.Empty<object>(),
+            prompt_assessments = new[]
+            {
+                new { scenario = "sc1", issue = "explicit_skill_reference", confidence = 0.8, reasoning = "LLM detected" },
+                new { scenario = "sc2", issue = "explicit_skill_reference", confidence = 0.9, reasoning = "LLM detected" }
+            },
+            cross_scenario_issues = Array.Empty<string>(),
+            overall_overfitting_score = 0.5,
+            overall_reasoning = "test"
+        });
+
+        var deterministicAssessments = new List<PromptOverfitAssessment>
+        {
+            new("sc1", "explicit_skill_reference", 1.0, "Deterministic: prompt contains skill name")
+        };
+
+        var result = OverfittingJudge.ParseOverfittingResponse(json, deterministicAssessments);
+
+        // sc1: deterministic wins (same scenario+issue already covered), sc2: LLM addition
+        Assert.Equal(2, result.PromptAssessments.Count);
+        var sc1 = result.PromptAssessments.First(p => p.Scenario == "sc1");
+        Assert.Equal(1.0, sc1.Confidence); // deterministic confidence
+        Assert.Contains("Deterministic", sc1.Reasoning);
+    }
+
+    // --- BuildSystemPrompt includes prompt classification ---
+
+    [Fact]
+    public void BuildSystemPrompt_ContainsPromptClassification()
+    {
+        var prompt = OverfittingJudge.BuildSystemPrompt();
+
+        Assert.Contains("prompt_assessments", prompt);
+        Assert.Contains("explicit_skill_reference", prompt);
+        Assert.Contains("skill_instruction", prompt);
+        Assert.Contains("neutral", prompt);
+        Assert.Contains("Scenario prompt classifications", prompt);
     }
 }
