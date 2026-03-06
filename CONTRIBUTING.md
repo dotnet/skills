@@ -43,6 +43,26 @@ agentic-workflows/
 
 Every plugin must have a plugin.json file in the plugin root that is linked to from the marketplace.json file.
 
+### Plugin organization
+
+Skills are grouped into domain-specific plugins. When proposing a new skill, place it in the plugin that best matches its domain:
+
+| Plugin | Domain |
+|--------|--------|
+| `dotnet` | Common everyday C#/.NET coding tasks useful to all .NET developers |
+| `dotnet-diag` | Performance investigations, debugging, and incident analysis |
+| `dotnet-data` | Data access and Entity Framework |
+| `dotnet-msbuild` | MSBuild and project system |
+
+If your skill does not fit any existing plugin, consider creating a new one. The following plugin names are reserved for future use and are good candidates for new skills in those areas:
+
+- `dotnet-aspnet` — ASP.NET
+- `dotnet-wpf` — WPF
+- `dotnet-winforms` — Windows Forms (WinForms)
+- `dotnet-maui` — .NET MAUI
+
+To create a new plugin, add a `plugins/<plugin-name>/plugin.json` file and a matching entry in the marketplace.json file. See existing plugins for the expected format.
+
 ## Before you start
 
 - Search existing issues and pull requests to avoid duplicates.
