@@ -39,7 +39,7 @@ public static partial class AgentProfiler
         {
             // Agent filename convention: {name}.agent.md
             var expectedFileName = agent.Name + ".agent.md";
-            if (!string.Equals(expectedFileName, agent.FileName, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(expectedFileName, agent.FileName, StringComparison.Ordinal))
                 errors.Add($"Agent name '{agent.Name}' does not match filename '{agent.FileName}' (expected '{expectedFileName}').");
 
             // Validate name format (lowercase, hyphens, length) per agentskills.io naming rules.

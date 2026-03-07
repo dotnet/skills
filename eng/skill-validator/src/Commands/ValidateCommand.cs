@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Text.Json;
 using SkillValidator.Models;
 using SkillValidator.Services;
 using SkillValidator.Utilities;
@@ -174,7 +175,16 @@ public static class ValidateCommand
         }
 
         // Validate plugins (plugin.json) reachable from the given paths
-        var plugins = SkillDiscovery.DiscoverPlugins(config.SkillPaths);
+        IReadOnlyList<PluginInfo> plugins;
+        try
+        {
+            plugins = SkillDiscovery.DiscoverPlugins(config.SkillPaths);
+        }
+        catch (JsonException ex)
+        {
+            Console.Error.WriteLine($"\x1b[31m❌ Malformed plugin.json: {ex.Message}\x1b[0m");
+            return 1;
+        }
         bool hasPluginErrors = false;
         foreach (var plugin in plugins)
         {

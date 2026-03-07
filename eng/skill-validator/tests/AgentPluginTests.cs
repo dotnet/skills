@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SkillValidator.Models;
 using SkillValidator.Services;
 
@@ -309,6 +310,24 @@ public class PluginValidatorTests
             Assert.Equal("A plugin.", plugin.Description);
             Assert.Equal("./skills/", plugin.SkillsPath);
             Assert.Equal("./agents/", plugin.AgentsPath);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void ParsePluginJsonThrowsOnMalformedJson()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "parse-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(dir);
+            var jsonPath = Path.Combine(dir, "plugin.json");
+            File.WriteAllText(jsonPath, "{ not valid json!!!");
+
+            Assert.Throws<JsonException>(() => PluginValidator.ParsePluginJson(jsonPath));
         }
         finally
         {

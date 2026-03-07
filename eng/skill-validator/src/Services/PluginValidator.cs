@@ -96,15 +96,14 @@ public static class PluginValidator
         var rootFullPath = Path.GetFullPath(rootDirectory);
         var combinedFullPath = Path.GetFullPath(Path.Combine(rootFullPath, relativePath));
 
-        var normalizedRoot = rootFullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var relativeToRoot = Path.GetRelativePath(rootFullPath, combinedFullPath);
 
-        var isUnderRoot =
-            combinedFullPath.Length >= normalizedRoot.Length &&
-            (string.Equals(combinedFullPath, normalizedRoot, StringComparison.OrdinalIgnoreCase) ||
-             combinedFullPath.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
-             combinedFullPath.StartsWith(normalizedRoot + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+        var traversesAboveRoot =
+            Path.IsPathRooted(relativeToRoot) ||
+            string.Equals(relativeToRoot, "..", StringComparison.Ordinal) ||
+            relativeToRoot.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal);
 
-        if (!isUnderRoot)
+        if (traversesAboveRoot)
         {
             errorMessage = $"Path '{relativePath}' resolves outside the plugin directory.";
             return false;
@@ -116,32 +115,26 @@ public static class PluginValidator
 
     /// <summary>
     /// Parses a plugin.json file into a PluginInfo record.
-    /// Returns null if the file doesn't exist or is malformed.
+    /// Returns null if the file doesn't exist. Throws on malformed JSON so callers
+    /// can surface it as a blocking validation error.
     /// </summary>
     public static PluginInfo? ParsePluginJson(string pluginJsonPath)
     {
         if (!File.Exists(pluginJsonPath))
             return null;
 
-        try
-        {
-            var json = File.ReadAllText(pluginJsonPath);
-            var doc = JsonSerializer.Deserialize(json, SkillValidatorJsonContext.Default.JsonElement);
+        var json = File.ReadAllText(pluginJsonPath);
+        var doc = JsonSerializer.Deserialize(json, SkillValidatorJsonContext.Default.JsonElement);
 
-            var name = doc.TryGetProperty("name", out var n) ? n.GetString() : null;
-            var version = doc.TryGetProperty("version", out var v) ? v.GetString() : null;
-            var description = doc.TryGetProperty("description", out var d) ? d.GetString() : null;
-            var skills = doc.TryGetProperty("skills", out var s) ? s.GetString() : null;
-            var agents = doc.TryGetProperty("agents", out var a) ? a.GetString() : null;
+        var name = doc.TryGetProperty("name", out var n) ? n.GetString() : null;
+        var version = doc.TryGetProperty("version", out var v) ? v.GetString() : null;
+        var description = doc.TryGetProperty("description", out var d) ? d.GetString() : null;
+        var skills = doc.TryGetProperty("skills", out var s) ? s.GetString() : null;
+        var agents = doc.TryGetProperty("agents", out var a) ? a.GetString() : null;
 
-            var dirPath = Path.GetDirectoryName(Path.GetFullPath(pluginJsonPath))!;
-            var dirName = Path.GetFileName(dirPath);
+        var dirPath = Path.GetDirectoryName(Path.GetFullPath(pluginJsonPath))!;
+        var dirName = Path.GetFileName(dirPath);
 
-            return new PluginInfo(name ?? "", version, description, skills, agents, dirPath, dirName);
-        }
-        catch
-        {
-            return null;
-        }
+        return new PluginInfo(name ?? "", version, description, skills, agents, dirPath, dirName);
     }
 }
