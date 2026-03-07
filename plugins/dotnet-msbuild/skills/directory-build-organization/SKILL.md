@@ -31,7 +31,7 @@ Because `.props` is imported before the project file, the project can override a
 
 **Property conditions on `$(TargetFramework)` in `.props` files silently fail for single-targeting projects** — the property is empty during `.props` evaluation. Move TFM-conditional properties to `.targets` instead. ItemGroup and Target conditions are not affected.
 
-See the AP-21 section in the [msbuild-antipatterns skill](../msbuild-antipatterns/SKILL.md) for the full explanation.
+See [targetframework-props-pitfall.md](references/targetframework-props-pitfall.md) for the full explanation.
 
 ## Directory.Build.props
 

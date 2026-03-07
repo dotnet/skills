@@ -19,49 +19,112 @@ Plugging into your CI, it ensures every new skill adds real value, and existing 
 
 ## Prerequisites
 
-- .NET 10 SDK or later
-- Authenticated with GitHub via `gh auth login` (the SDK picks up your credentials automatically)
+- Authenticated with GitHub via `gh auth login` (the GitHub Copilot SDK picks up your credentials automatically)
 
-## Build
+### Download from pipeline artifacts
+
+A nightly scheduled job publishes AOT-compiled .tar.gz archives and NuGet packages as assets on the [`skill-validator-nightly` GitHub Release](https://github.com/dotnet/skills/releases/tag/skill-validator-nightly).
+
+#### Run without .NET installed
+
+To execute skill-validator without .NET installed, download the .tar.gz archive matching your platform, extract it, and run the `skill-validator` binary.
+
+#### Run via `dnx`
+
+With .NET 10+, you can run skill-validator without permanently installing it using `dnx` (dotnet execute). Download the RID-agnostic `.nupkg` from the [`skill-validator-nightly` release](https://github.com/dotnet/skills/releases/tag/skill-validator-nightly), then point `dnx` at it:
 
 ```bash
-cd eng/skill-validator
-dotnet build
+# Run directly from the downloaded nupkg
+dnx Microsoft.DotNet.SkillValidator --source ./path/to/downloaded/ ./path/to/skills/
 ```
 
 ## Usage
 
+All examples below use the `skill-validator` binary directly. If running from source, replace `skill-validator` with `dotnet run --project eng/skill-validator/src --`:
+
 ```bash
+# Show help and all available options
+skill-validator --help
+
 # Validate all skills in a directory
-dotnet run --project src/SkillValidator -- ./path/to/skills/
+skill-validator ./path/to/skills/
 
 # Validate a single skill
-dotnet run --project src/SkillValidator -- ./path/to/my-skill/
+skill-validator ./path/to/my-skill/
 
 # Verbose output with per-scenario breakdowns
-dotnet run --project src/SkillValidator -- --verbose ./skills/
+skill-validator --verbose ./skills/
 
 # Custom model and threshold
-dotnet run --project src/SkillValidator -- --model claude-sonnet-4.5 --min-improvement 0.2 ./skills/
+skill-validator --model claude-sonnet-4.5 --min-improvement 0.2 ./skills/
 
 # Use a different model for judging vs agent runs
-dotnet run --project src/SkillValidator -- --model gpt-5.3-codex --judge-model claude-opus-4.6-fast ./skills/
+skill-validator --model gpt-5.3-codex --judge-model claude-opus-4.6-fast ./skills/
 
 # Multiple runs for stability
-dotnet run --project src/SkillValidator -- --runs 5 ./skills/
+skill-validator --runs 5 ./skills/
 
 # Override the default results directory (.skill-validator-results)
-dotnet run --project src/SkillValidator -- --results-dir ./my-results ./skills/
+skill-validator --results-dir ./my-results ./skills/
 
 # File reporters can also be specified explicitly.
-dotnet run --project src/SkillValidator -- --reporter junit ./skills/
+skill-validator --reporter junit ./skills/
 
 # Require all skills to have evals
-dotnet run --project src/SkillValidator -- --require-evals ./skills/
+skill-validator --require-evals ./skills/
 
 # Verdict-warn-only mode (verdict failures return exit 0, execution errors still fail)
-dotnet run --project src/SkillValidator -- --verdict-warn-only --require-evals ./skills/
+skill-validator --verdict-warn-only --require-evals ./skills/
 ```
+
+## CLI flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--model <name>` | `claude-opus-4.6` | Model for agent runs |
+| `--judge-model <name>` | same as `--model` | Model for LLM judge (can be different) |
+| `--judge-mode <mode>` | `pairwise` | Judge mode: `pairwise`, `independent`, or `both` |
+| `--min-improvement <n>` | `0.1` | Minimum improvement score (0–1) |
+| `--runs <n>` | `5` | Runs per scenario (averaged for stability) |
+| `--parallel-skills <n>` | `1` | Max concurrent skills to evaluate |
+| `--parallel-scenarios <n>` | `1` | Max concurrent scenarios per skill |
+| `--parallel-runs <n>` | `1` | Max concurrent runs per scenario |
+| `--confidence-level <n>` | `0.95` | Confidence level for statistical intervals (0–1) |
+| `--judge-timeout <n>` | `300` | Judge LLM timeout in seconds |
+| `--require-completion` | `true` | Fail if skill regresses task completion |
+| `--require-evals` | `false` | Fail if skill has no tests/eval.yaml |
+| `--verdict-warn-only` | `false` | Treat verdict failures as warnings (exit 0). Execution errors and `--require-evals` still fail. |
+| `--no-overfitting-check` | `false` | Disable the LLM-based overfitting analysis (on by default) |
+| `--overfitting-fix` | `false` | Generate `eval.fixed.yaml` with improved rubric items/assertions |
+| `--verbose` | `false` | Show tool calls and agent events during runs |
+| `--reporter <spec>` | `console`, `json`, `markdown` | Output format: `console`, `json`, `junit`, `markdown`. |
+| `--results-dir <path>` | `.skill-validator-results` | Directory for file reporter output. |
+
+Models are validated on startup — invalid model names fail fast with a list of available models.
+
+## Output
+
+Results are displayed in the console with color-coded scores and metric deltas. By default, `json` and `markdown` reporters are enabled and write to `.skill-validator-results/` (override with `--results-dir`). File reporters write to that directory:
+
+- `json` — `results.json` with model, timestamp, and all verdicts
+- `junit` — `results.xml` with JUnit XML test results
+- `markdown` — `summary.md` with a results table, plus per-skill directories with per-scenario judge reports
+
+### Consolidating results across matrix jobs
+
+When evaluating multiple plugins in parallel CI matrix jobs, use the `consolidate` subcommand to merge individual `results.json` files into a single markdown summary:
+
+```bash
+skill-validator consolidate --output summary.md results1.json results2.json
+
+# Or use find/glob to discover files
+skill-validator consolidate --output summary.md $(find ./all-results/ -name results.json)
+```
+
+| Flag | Description |
+|------|-------------|
+| `<files...>` | Paths to `results.json` files to merge |
+| `--output <path>` | Output file path for the consolidated markdown |
 
 ## Writing eval files
 
@@ -226,74 +289,3 @@ Results include bootstrap confidence intervals computed across individual runs. 
 - **g=**: normalized gain, controlling for ceiling effects (a skill improving a strong baseline is harder than improving a weak one)
 
 The default of 5 runs provides sufficient precision for significance testing (validated by [SkillsBench](https://arxiv.org/abs/2602.12670)).
-
-## CLI flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--model <name>` | `claude-opus-4.6` | Model for agent runs |
-| `--judge-model <name>` | same as `--model` | Model for LLM judge (can be different) |
-| `--judge-mode <mode>` | `pairwise` | Judge mode: `pairwise`, `independent`, or `both` |
-| `--min-improvement <n>` | `0.1` | Minimum improvement score (0–1) |
-| `--runs <n>` | `5` | Runs per scenario (averaged for stability) |
-| `--parallel-skills <n>` | `1` | Max concurrent skills to evaluate |
-| `--parallel-scenarios <n>` | `1` | Max concurrent scenarios per skill |
-| `--parallel-runs <n>` | `1` | Max concurrent runs per scenario |
-| `--confidence-level <n>` | `0.95` | Confidence level for statistical intervals (0–1) |
-| `--judge-timeout <n>` | `300` | Judge LLM timeout in seconds |
-| `--require-completion` | `true` | Fail if skill regresses task completion |
-| `--require-evals` | `false` | Fail if skill has no tests/eval.yaml |
-| `--verdict-warn-only` | `false` | Treat verdict failures as warnings (exit 0). Execution errors and `--require-evals` still fail. |
-| `--no-overfitting-check` | `false` | Disable the LLM-based overfitting analysis (on by default) |
-| `--overfitting-fix` | `false` | Generate `eval.fixed.yaml` with improved rubric items/assertions |
-| `--verbose` | `false` | Show tool calls and agent events during runs |
-| `--reporter <spec>` | `console`, `json`, `markdown` | Output format: `console`, `json`, `junit`, `markdown`. |
-| `--results-dir <path>` | `.skill-validator-results` | Directory for file reporter output. |
-
-Models are validated on startup — invalid model names fail fast with a list of available models.
-
-## Output
-
-Results are displayed in the console with color-coded scores and metric deltas. By default, `json` and `markdown` reporters are enabled and write to `.skill-validator-results/` (override with `--results-dir`). File reporters write to that directory:
-
-- `json` — `results.json` with model, timestamp, and all verdicts
-- `junit` — `results.xml` with JUnit XML test results
-- `markdown` — `summary.md` with a results table, plus per-skill directories with per-scenario judge reports
-
-## CI integration
-
-The same CLI works in CI — use `--require-evals` to enforce eval coverage and `--verdict-warn-only` to treat verdict failures as warnings while still failing on execution errors:
-
-```yaml
-name: Validate Skill Value
-on:
-  pull_request:
-    paths: ['**/SKILL.md', '**/tests/eval.yaml']
-jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-      - run: dotnet run --project eng/skill-validator/src/SkillValidator -- --require-evals --verdict-warn-only .
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```
-
-### Consolidating results across matrix jobs
-
-When evaluating multiple plugins in parallel CI matrix jobs, use the `consolidate` subcommand to merge individual `results.json` files into a single markdown summary:
-
-```bash
-dotnet run --project src/SkillValidator -- consolidate --output summary.md results1.json results2.json
-
-# Or use find/glob to discover files
-dotnet run --project src/SkillValidator -- consolidate --output summary.md $(find ./all-results/ -name results.json)
-```
-
-| Flag | Description |
-|------|-------------|
-| `<files...>` | Paths to `results.json` files to merge |
-| `--output <path>` | Output file path for the consolidated markdown |

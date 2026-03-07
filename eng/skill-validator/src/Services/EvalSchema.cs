@@ -116,6 +116,7 @@ public static class EvalSchema
     {
         public string? Name { get; set; }
         public string? Description { get; set; }
+        public string? Compatibility { get; set; }
     }
 
     internal sealed class RawEvalConfig
