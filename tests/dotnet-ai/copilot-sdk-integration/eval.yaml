@@ -1,0 +1,70 @@
+scenarios:
+  - name: "Use CopilotClient as LLM backend"
+    prompt: "I want to build a .NET 10 console app that uses the GitHub Copilot SDK as my LLM provider so I don't have to manage API keys. Show me how to create a simple chat interaction."
+    assertions:
+      - type: "output_contains"
+        value: "CopilotClient"
+      - type: "output_contains"
+        value: "GitHub.Copilot.SDK"
+      - type: "exit_success"
+    rubric:
+      - "Uses CopilotClient for zero-config LLM access"
+      - "Creates a session with a model specified"
+      - "Mentions gh CLI authentication as a prerequisite"
+      - "Does NOT overcomplicate with GitHub App registration (that's for platform extensions)"
+    timeout: 360
+
+  - name: "Build a Copilot platform extension"
+    prompt: "Build a .NET 10 GitHub Copilot extension that exposes two tools: one to search internal documentation and one to create GitHub issues. The agent should run as an HTTP server and authenticate via a GitHub App."
+    setup:
+      files:
+        - path: "CopilotAgent/CopilotAgent.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+            </Project>
+        - path: "CopilotAgent/Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            var app = builder.Build();
+            app.Run();
+    assertions:
+      - type: "output_contains"
+        value: "GitHub.Copilot.SDK"
+      - type: "exit_success"
+    rubric:
+      - "Uses GitHub.Copilot.SDK to build the Copilot extension"
+      - "Registers tools with descriptions"
+      - "Configures authentication via a GitHub App (not hardcoded credentials)"
+      - "Hosts the agent as an HTTP server (ASP.NET Core)"
+    timeout: 360
+
+  - name: "Redirect to MAF for enterprise production"
+    prompt: "I want to build an AI agent for my company's Azure-hosted customer service platform. We use Entra ID for authentication and need the agent to scale across multiple Kubernetes pods. Should I use the GitHub Copilot SDK?"
+    assertions:
+      - type: "output_contains"
+        value: "Microsoft.Agents.AI"
+      - type: "exit_success"
+    rubric:
+      - "Redirects away from Copilot SDK for this scenario"
+      - "Explains that BYOK only supports static credentials, not Entra ID"
+      - "Explains that Copilot session state is per-machine, not horizontally scalable"
+      - "Recommends MAF with Azure.AI.OpenAI and DefaultAzureCredential"
+      - "May mention the Bridge Pattern for prototyping with Copilot first"
+    timeout: 120
+
+  - name: "BYOK with Azure OpenAI"
+    prompt: "I have a GitHub Copilot subscription but I want to use my own Azure OpenAI endpoint with the Copilot SDK for a prototype. How do I configure BYOK?"
+    assertions:
+      - type: "output_contains"
+        value: "ProviderConfig"
+    rubric:
+      - "Shows BYOK configuration with ProviderConfig in SessionConfig"
+      - "Uses Type = azure for Azure OpenAI endpoints"
+      - "Mentions that BYOK only supports static credentials (API keys, bearer tokens)"
+      - "Notes that Entra ID / managed identity is NOT supported via BYOK"
+    timeout: 120
