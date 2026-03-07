@@ -31,6 +31,14 @@ public class AgentProfilerTests
     }
 
     [Fact]
+    public void MissingFrontmatterUsesFilenameAsProfileName()
+    {
+        var content = "# Test Agent\n\nNo frontmatter here.\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "", fileName: "my-agent.agent.md"));
+        Assert.Equal("my-agent.agent.md", profile.Name);
+    }
+
+    [Fact]
     public void MissingNameErrors()
     {
         var content = "---\ndescription: A test agent.\n---\n# Test\n";
@@ -306,5 +314,39 @@ public class PluginValidatorTests
         {
             Directory.Delete(dir, true);
         }
+    }
+
+    [Fact]
+    public void AbsoluteSkillsPathErrors()
+    {
+        var plugin = new PluginInfo("test", "1.0.0", "desc", "/etc/skills/", null, "/tmp/test", "test");
+        var result = PluginValidator.ValidatePlugin(plugin);
+        Assert.Contains(result.Errors, e => e.Contains("invalid") && e.Contains("absolute"));
+    }
+
+    [Fact]
+    public void TraversalSkillsPathErrors()
+    {
+        var pluginDir = Path.Combine(Path.GetTempPath(), "plugin-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(pluginDir);
+            var dirName = Path.GetFileName(pluginDir);
+            var plugin = new PluginInfo(dirName, "1.0.0", "desc", "../../../etc/", null, pluginDir, dirName);
+            var result = PluginValidator.ValidatePlugin(plugin);
+            Assert.Contains(result.Errors, e => e.Contains("invalid") && e.Contains("outside"));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [Fact]
+    public void MissingNameFallsBackToDirectoryName()
+    {
+        var plugin = new PluginInfo("", "1.0.0", "desc", "./skills/", null, "/tmp/my-plugin", "my-plugin");
+        var result = PluginValidator.ValidatePlugin(plugin);
+        Assert.Equal("my-plugin", result.Name);
     }
 }

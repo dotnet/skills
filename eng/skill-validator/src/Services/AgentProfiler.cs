@@ -20,11 +20,14 @@ public static partial class AgentProfiler
         var errors = new List<string>();
         var warnings = new List<string>();
 
+        // Use fileName as fallback identifier when name is empty (e.g. missing frontmatter).
+        var profileName = !string.IsNullOrWhiteSpace(agent.Name) ? agent.Name : agent.FileName;
+
         bool hasFrontmatter = FrontmatterRegex().IsMatch(content);
         if (!hasFrontmatter)
         {
             errors.Add("Agent file has no YAML frontmatter — agents require frontmatter for IDE discovery.");
-            return new AgentProfile(agent.Name, agent.FileName, errors, warnings);
+            return new AgentProfile(profileName, agent.FileName, errors, warnings);
         }
 
         // --- Name validation ---
@@ -66,10 +69,12 @@ public static partial class AgentProfiler
             errors.Add($"Agent body is {bodyLineCount} lines — maximum is {MaxBodyLines}. Keep agent instructions concise.");
         }
 
-        return new AgentProfile(agent.Name, agent.FileName, errors, warnings);
+        return new AgentProfile(profileName, agent.FileName, errors, warnings);
     }
 
-    [GeneratedRegex(@"^---\r?\n[\s\S]*?\r?\n---", RegexOptions.Multiline)]
+    // Anchored to start of string (no RegexOptions.Multiline) so a `---` horizontal
+    // rule in the body is not mistaken for frontmatter.
+    [GeneratedRegex(@"^---\r?\n[\s\S]*?\r?\n---")]
     private static partial Regex FrontmatterRegex();
 
     [GeneratedRegex(@"^---\r?\n[\s\S]*?\r?\n---\r?\n?")]
