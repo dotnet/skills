@@ -262,7 +262,7 @@ public static class ValidateCommand
         spinner.Stop();
 
         var verdicts = new List<SkillVerdict>();
-        bool hasRejections = false;
+        var rejectionMessages = new List<string>();
         foreach (var (result, error) in settled)
         {
             if (result is not null)
@@ -271,19 +271,27 @@ public static class ValidateCommand
             }
             else if (error is not null)
             {
-                hasRejections = true;
-                Console.Error.WriteLine($"\x1b[31m❌ Skill evaluation failed: {error.Message}\x1b[0m");
+                rejectionMessages.Add(error.Message);
             }
         }
 
         await Reporter.ReportResults(verdicts, config.Reporters, config.Verbose,
-            config.Model, config.JudgeModel, config.ResultsDir);
+            config.Model, config.JudgeModel, config.ResultsDir,
+            rejectedCount: rejectionMessages.Count);
+
+        if (rejectionMessages.Count > 0)
+        {
+            Console.Error.WriteLine($"\x1b[31m❗ {rejectionMessages.Count} skill(s) failed with execution errors:\x1b[0m");
+            foreach (var msg in rejectionMessages)
+                Console.Error.WriteLine($"\x1b[31m   • {msg}\x1b[0m");
+            Console.Error.WriteLine();
+        }
 
         await AgentRunner.StopSharedClient();
         await AgentRunner.CleanupWorkDirs();
 
         // Always fail on execution errors, even in --verdict-warn-only mode
-        if (hasRejections) return 1;
+        if (rejectionMessages.Count > 0) return 1;
 
         var allPassed = verdicts.All(v => v.Passed);
         if (config.VerdictWarnOnly && !allPassed)
