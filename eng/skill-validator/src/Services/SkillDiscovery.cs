@@ -44,6 +44,7 @@ public static partial class SkillDiscovery
 
         var name = metadata.Name ?? Path.GetFileName(dirPath);
         var description = metadata.Description ?? "";
+        var compatibility = metadata.Compatibility;
 
         string? evalPath = null;
         EvalConfig? evalConfig = null;
@@ -67,7 +68,8 @@ public static partial class SkillDiscovery
             SkillMdContent: skillMdContent,
             EvalPath: evalPath,
             EvalConfig: evalConfig,
-            McpServers: await FindPluginMcpServers(dirPath));
+            McpServers: await FindPluginMcpServers(dirPath),
+            Compatibility: compatibility);
     }
 
     /// <summary>

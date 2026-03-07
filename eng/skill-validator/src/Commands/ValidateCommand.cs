@@ -14,7 +14,7 @@ public static class ValidateCommand
         var minImprovementOpt = new Option<double>("--min-improvement") { Description = "Minimum improvement score to pass (0-1)", DefaultValueFactory = _ => 0.1 };
         var requireCompletionOpt = new Option<bool>("--require-completion") { Description = "Fail if skill regresses task completion", DefaultValueFactory = _ => true };
         var requireEvalsOpt = new Option<bool>("--require-evals") { Description = "Fail if skill has no tests/eval.yaml" };
-        var verdictWarnOnlyOpt = new Option<bool>("--verdict-warn-only") { Description = "Treat verdict failures as warnings (exit 0). Execution errors and --require-evals still fail." };
+        var verdictWarnOnlyOpt = new Option<bool>("--verdict-warn-only") { Description = "Treat verdict failures as warnings (exit 0). Execution errors, --require-evals, and spec conformance violations still fail." };
         var verboseOpt = new Option<bool>("--verbose") { Description = "Show detailed per-scenario breakdowns" };
         var modelOpt = new Option<string>("--model") { Description = "Model to use for agent runs", DefaultValueFactory = _ => "claude-opus-4.6" };
         var judgeModelOpt = new Option<string?>("--judge-model") { Description = "Model to use for judging (defaults to --model)" };
@@ -164,6 +164,15 @@ public static class ValidateCommand
 
         Console.WriteLine($"Found {allSkills.Count} skill(s)\n");
 
+        // Check per-plugin aggregate description size
+        var aggregateFailures = CheckAggregateDescriptionLimits(allSkills);
+        if (aggregateFailures.Count > 0)
+        {
+            foreach (var failure in aggregateFailures)
+                Console.Error.WriteLine($"\x1b[31m❌ {failure}\x1b[0m");
+            return 1;
+        }
+
         if (config.Runs < 5)
             Console.WriteLine($"\x1b[33m⚠  Running with {config.Runs} run(s). For statistically significant results, use --runs 5 or higher.\x1b[0m");
 
@@ -211,13 +220,60 @@ public static class ValidateCommand
         if (config.VerdictWarnOnly && !allPassed)
         {
             // In --verdict-warn-only mode, suppress verdict failures except missing_eval
-            // (which is controlled by --require-evals and should remain fatal).
+            // (which is controlled by --require-evals and should remain fatal) and
+            // spec_conformance_failure (structural violation that must always block).
             var onlyWarnableFailures = verdicts.All(
-                v => v.Passed || v.FailureKind != "missing_eval");
+                v => v.Passed || (v.FailureKind != "missing_eval" && v.FailureKind != "spec_conformance_failure"));
             if (onlyWarnableFailures) return 0;
         }
 
         return allPassed ? 0 : 1;
+    }
+
+    /// <summary>
+    /// Groups skills by plugin (derived from path) and checks that the aggregate
+    /// description length per plugin does not exceed the limit.
+    /// </summary>
+    internal static List<string> CheckAggregateDescriptionLimits(IReadOnlyList<SkillInfo> skills)
+    {
+        var failures = new List<string>();
+
+        // Group by plugin: convention is plugins/{plugin}/skills/{skill}/
+        // Derive plugin name by finding the "skills" ancestor directory.
+        var pluginGroups = skills
+            .GroupBy(s => DerivePluginName(s.Path))
+            .Where(g => g.Key is not null);
+
+        foreach (var group in pluginGroups)
+        {
+            int totalChars = group.Sum(s => s.Description.Length);
+            if (totalChars > SkillProfiler.MaxAggregateDescriptionLength)
+            {
+                failures.Add(
+                    $"Plugin '{group.Key}' aggregate description size is {totalChars:N0} characters — " +
+                    $"maximum is {SkillProfiler.MaxAggregateDescriptionLength:N0}.");
+            }
+        }
+
+        return failures;
+    }
+
+    /// <summary>
+    /// Derives the plugin name from a skill path by walking up to find the
+    /// "skills" directory and returning its parent directory name.
+    /// e.g. "plugins/dotnet-msbuild/skills/build-perf" → "dotnet-msbuild"
+    /// </summary>
+    internal static string? DerivePluginName(string skillPath)
+    {
+        var fullPath = Path.GetFullPath(skillPath);
+        var dir = new DirectoryInfo(fullPath);
+        while (dir is not null)
+        {
+            if (string.Equals(dir.Name, "skills", StringComparison.OrdinalIgnoreCase) && dir.Parent is not null)
+                return dir.Parent.Name;
+            dir = dir.Parent;
+        }
+        return null;
     }
 
     private static async Task<SkillVerdict?> EvaluateSkill(
@@ -258,8 +314,24 @@ public static class ValidateCommand
 
         var profile = SkillProfiler.AnalyzeSkill(skill);
         log($"📊 {SkillProfiler.FormatProfileLine(profile)}");
+        foreach (var error in profile.Errors)
+            log($"   ❌ {error}");
         foreach (var warning in SkillProfiler.FormatProfileWarnings(profile))
             log(warning);
+
+        if (profile.Errors.Count > 0)
+        {
+            return new SkillVerdict
+            {
+                SkillName = skill.Name,
+                SkillPath = skill.Path,
+                Passed = false,
+                Scenarios = [],
+                OverallImprovementScore = 0,
+                Reason = string.Join(" ", profile.Errors),
+                FailureKind = "spec_conformance_failure",
+            };
+        }
 
         // Launch overfitting check in parallel with scenario execution
         var workDir = Path.GetTempPath();
