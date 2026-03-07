@@ -26,7 +26,7 @@ public static class PluginValidator
             if (!string.Equals(plugin.Name, plugin.DirectoryName, StringComparison.Ordinal))
                 errors.Add($"Plugin name '{plugin.Name}' does not match directory name '{plugin.DirectoryName}'.");
 
-            SkillProfiler.ValidateNameFormat(plugin.Name, "Plugin", warnings);
+            SkillProfiler.ValidateNameFormat(plugin.Name, "Plugin", errors);
         }
 
         // --- Version validation ---

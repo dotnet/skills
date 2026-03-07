@@ -65,36 +65,36 @@ public class AgentProfilerTests
     }
 
     [Fact]
-    public void NameNotMatchingFilenameWarns()
+    public void NameNotMatchingFilenameErrors()
     {
         var content = "---\nname: my-agent\ndescription: test\n---\n# Test\n";
         var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "my-agent", fileName: "different-agent.agent.md"));
-        Assert.Contains(profile.Warnings, w => w.Contains("does not match filename"));
+        Assert.Contains(profile.Errors, e => e.Contains("does not match filename"));
     }
 
     [Fact]
-    public void NameMatchingFilenameNoWarning()
+    public void NameMatchingFilenameNoError()
     {
         var content = "---\nname: my-agent\ndescription: test\n---\n# Test\n";
         var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "my-agent", fileName: "my-agent.agent.md"));
-        Assert.DoesNotContain(profile.Warnings, w => w.Contains("does not match filename"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("does not match filename"));
     }
 
     [Fact]
-    public void NameWithUppercaseWarns()
+    public void NameWithUppercaseErrors()
     {
         var content = "---\nname: My-Agent\ndescription: test\n---\n# Test\n";
         var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "My-Agent", fileName: "My-Agent.agent.md"));
-        Assert.Contains(profile.Warnings, w => w.Contains("invalid characters"));
+        Assert.Contains(profile.Errors, e => e.Contains("invalid characters"));
     }
 
     [Fact]
-    public void NameTooLongWarns()
+    public void NameTooLongErrors()
     {
         var longName = new string('a', 65);
         var content = $"---\nname: {longName}\ndescription: test\n---\n# Test\n";
         var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: longName, fileName: $"{longName}.agent.md"));
-        Assert.Contains(profile.Warnings, w => w.Contains("maximum is 64"));
+        Assert.Contains(profile.Errors, e => e.Contains("maximum is 64"));
     }
 
     [Fact]
@@ -125,36 +125,36 @@ public class AgentProfilerTests
     }
 
     [Fact]
-    public void NameStartingWithHyphenWarns()
+    public void NameStartingWithHyphenErrors()
     {
         var content = "---\nname: -my-agent\ndescription: test\n---\n# Test\n";
         var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "-my-agent", fileName: "-my-agent.agent.md"));
-        Assert.Contains(profile.Warnings, w => w.Contains("starts or ends with a hyphen"));
+        Assert.Contains(profile.Errors, e => e.Contains("starts or ends with a hyphen"));
     }
 
     [Fact]
-    public void NameEndingWithHyphenWarns()
+    public void NameEndingWithHyphenErrors()
     {
         var content = "---\nname: my-agent-\ndescription: test\n---\n# Test\n";
         var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "my-agent-", fileName: "my-agent-.agent.md"));
-        Assert.Contains(profile.Warnings, w => w.Contains("starts or ends with a hyphen"));
+        Assert.Contains(profile.Errors, e => e.Contains("starts or ends with a hyphen"));
     }
 
     [Fact]
-    public void NameWithConsecutiveHyphensWarns()
+    public void NameWithConsecutiveHyphensErrors()
     {
         var content = "---\nname: my--agent\ndescription: test\n---\n# Test\n";
         var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "my--agent", fileName: "my--agent.agent.md"));
-        Assert.Contains(profile.Warnings, w => w.Contains("consecutive hyphens"));
+        Assert.Contains(profile.Errors, e => e.Contains("consecutive hyphens"));
     }
 
     [Fact]
-    public void WarningMessagesSayAgentNotSkill()
+    public void ErrorMessagesSayAgentNotSkill()
     {
         var content = "---\nname: My-Agent\ndescription: test\n---\n# Test\n";
         var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "My-Agent", fileName: "My-Agent.agent.md"));
-        Assert.Contains(profile.Warnings, w => w.StartsWith("Agent name"));
-        Assert.DoesNotContain(profile.Warnings, w => w.StartsWith("Skill name"));
+        Assert.Contains(profile.Errors, e => e.StartsWith("Agent name"));
+        Assert.DoesNotContain(profile.Errors, e => e.StartsWith("Skill name"));
     }
 }
 
@@ -261,20 +261,20 @@ public class PluginValidatorTests
     }
 
     [Fact]
-    public void NameFormatWarnings()
+    public void NameFormatErrors()
     {
         var plugin = new PluginInfo("My_Plugin", "1.0.0", "desc", "./skills/", null, "/tmp/My_Plugin", "My_Plugin");
         var result = PluginValidator.ValidatePlugin(plugin);
-        Assert.Contains(result.Warnings, w => w.Contains("invalid characters"));
+        Assert.Contains(result.Errors, e => e.Contains("invalid characters"));
     }
 
     [Fact]
-    public void WarningMessagesSayPluginNotSkill()
+    public void ErrorMessagesSayPluginNotSkill()
     {
         var plugin = new PluginInfo("My_Plugin", "1.0.0", "desc", "./skills/", null, "/tmp/My_Plugin", "My_Plugin");
         var result = PluginValidator.ValidatePlugin(plugin);
-        Assert.Contains(result.Warnings, w => w.StartsWith("Plugin name"));
-        Assert.DoesNotContain(result.Warnings, w => w.StartsWith("Skill name"));
+        Assert.Contains(result.Errors, e => e.StartsWith("Plugin name"));
+        Assert.DoesNotContain(result.Errors, e => e.StartsWith("Skill name"));
     }
 
     [Fact]
