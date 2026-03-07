@@ -192,29 +192,40 @@ public static partial class SkillProfiler
     }
 
     /// <summary>
-    /// Validate a skill name against the agentskills.io spec.
+    /// Validate a name against the agentskills.io spec naming rules.
     /// https://agentskills.io/specification#name-field
     /// All constraints use "Must" in the spec, so violations are errors.
     /// </summary>
-    internal static void ValidateName(string name, string directoryName, List<string> errors)
+    /// <param name="name">The name value from frontmatter or plugin.json.</param>
+    /// <param name="kind">Label for messages, e.g. "Skill", "Agent", "Plugin".</param>
+    /// <param name="errors">List to append errors to.</param>
+    internal static void ValidateNameFormat(string name, string kind, List<string> errors)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            errors.Add("Skill name is empty — must be 1-64 lowercase alphanumeric characters and hyphens.");
+            errors.Add($"{kind} name is empty — must be 1-64 lowercase alphanumeric characters and hyphens.");
             return;
         }
 
         if (name.Length > MaxNameLength)
-            errors.Add($"Skill name '{name}' is {name.Length} characters — maximum is {MaxNameLength}.");
+            errors.Add($"{kind} name '{name}' is {name.Length} characters — maximum is {MaxNameLength}.");
 
         if (!NameFormatRegex().IsMatch(name))
-            errors.Add($"Skill name '{name}' contains invalid characters — must be lowercase alphanumeric and hyphens only.");
+            errors.Add($"{kind} name '{name}' contains invalid characters — must be lowercase alphanumeric and hyphens only.");
 
         if (name.StartsWith('-') || name.EndsWith('-'))
-            errors.Add($"Skill name '{name}' starts or ends with a hyphen.");
+            errors.Add($"{kind} name '{name}' starts or ends with a hyphen.");
 
         if (name.Contains("--"))
-            errors.Add($"Skill name '{name}' contains consecutive hyphens.");
+            errors.Add($"{kind} name '{name}' contains consecutive hyphens.");
+    }
+
+    /// <summary>
+    /// Validate name format and directory match for skills.
+    /// </summary>
+    internal static void ValidateName(string name, string directoryName, List<string> errors)
+    {
+        ValidateNameFormat(name, "Skill", errors);
 
         if (!string.Equals(name, directoryName, StringComparison.Ordinal))
             errors.Add($"Skill name '{name}' does not match directory name '{directoryName}'.");
