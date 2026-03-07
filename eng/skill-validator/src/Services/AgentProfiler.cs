@@ -3,8 +3,15 @@ using SkillValidator.Models;
 
 namespace SkillValidator.Services;
 
+/// <summary>
+/// Validates .agent.md files against the agent plugin conventions.
+/// See: https://code.visualstudio.com/docs/copilot/customization/custom-agents
+/// See: https://code.claude.com/docs/en/plugins-reference (Agents section)
+/// </summary>
 public static partial class AgentProfiler
 {
+    // Aligned with SKILL.md body limit from the agentskills.io spec:
+    // https://agentskills.io/specification#progressive-disclosure
     private const int MaxBodyLines = 500;
 
     public static AgentProfile AnalyzeAgent(AgentInfo agent)
@@ -20,22 +27,25 @@ public static partial class AgentProfiler
             return new AgentProfile(agent.Name, agent.FileName, errors, warnings);
         }
 
-        // Name validation
+        // --- Name validation ---
         if (string.IsNullOrWhiteSpace(agent.Name))
         {
             errors.Add("Agent frontmatter has no 'name' field — required for agent identification.");
         }
         else
         {
-            // Expected filename: {name}.agent.md
+            // Agent filename convention: {name}.agent.md
             var expectedFileName = agent.Name + ".agent.md";
             if (!string.Equals(expectedFileName, agent.FileName, StringComparison.OrdinalIgnoreCase))
                 warnings.Add($"Agent name '{agent.Name}' does not match filename '{agent.FileName}' (expected '{expectedFileName}').");
 
-            SkillProfiler.ValidateName(agent.Name, agent.Name, warnings);
+            // Validate name format (lowercase, hyphens, length) per agentskills.io naming rules.
+            // Directory-match is not checked — agents use filename convention, not directory naming.
+            SkillProfiler.ValidateNameFormat(agent.Name, "Agent", warnings);
         }
 
-        // Description validation
+        // --- Description validation (same 1024-char limit as skills) ---
+        // https://agentskills.io/specification#description-field
         if (string.IsNullOrWhiteSpace(agent.Description))
         {
             errors.Add("Agent frontmatter has no 'description' field — required for agent discovery.");
@@ -45,7 +55,8 @@ public static partial class AgentProfiler
             errors.Add($"Agent description is {agent.Description.Length:N0} characters — maximum is {SkillProfiler.MaxDescriptionLength:N0}.");
         }
 
-        // Body line count
+        // --- Body line count ---
+        // https://agentskills.io/specification#progressive-disclosure
         var body = FrontmatterStripRegex().Replace(content, "");
         var trimmedBody = body.TrimEnd('\r', '\n');
         int bodyLineCount = trimmedBody.Length == 0 ? 0 : trimmedBody.Split('\n').Length;

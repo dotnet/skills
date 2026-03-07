@@ -123,6 +123,39 @@ public class AgentProfilerTests
         var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content));
         Assert.DoesNotContain(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
     }
+
+    [Fact]
+    public void NameStartingWithHyphenWarns()
+    {
+        var content = "---\nname: -my-agent\ndescription: test\n---\n# Test\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "-my-agent", fileName: "-my-agent.agent.md"));
+        Assert.Contains(profile.Warnings, w => w.Contains("starts or ends with a hyphen"));
+    }
+
+    [Fact]
+    public void NameEndingWithHyphenWarns()
+    {
+        var content = "---\nname: my-agent-\ndescription: test\n---\n# Test\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "my-agent-", fileName: "my-agent-.agent.md"));
+        Assert.Contains(profile.Warnings, w => w.Contains("starts or ends with a hyphen"));
+    }
+
+    [Fact]
+    public void NameWithConsecutiveHyphensWarns()
+    {
+        var content = "---\nname: my--agent\ndescription: test\n---\n# Test\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "my--agent", fileName: "my--agent.agent.md"));
+        Assert.Contains(profile.Warnings, w => w.Contains("consecutive hyphens"));
+    }
+
+    [Fact]
+    public void WarningMessagesSayAgentNotSkill()
+    {
+        var content = "---\nname: My-Agent\ndescription: test\n---\n# Test\n";
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "My-Agent", fileName: "My-Agent.agent.md"));
+        Assert.Contains(profile.Warnings, w => w.StartsWith("Agent name"));
+        Assert.DoesNotContain(profile.Warnings, w => w.StartsWith("Skill name"));
+    }
 }
 
 public class PluginValidatorTests
@@ -233,6 +266,15 @@ public class PluginValidatorTests
         var plugin = new PluginInfo("My_Plugin", "1.0.0", "desc", "./skills/", null, "/tmp/My_Plugin", "My_Plugin");
         var result = PluginValidator.ValidatePlugin(plugin);
         Assert.Contains(result.Warnings, w => w.Contains("invalid characters"));
+    }
+
+    [Fact]
+    public void WarningMessagesSayPluginNotSkill()
+    {
+        var plugin = new PluginInfo("My_Plugin", "1.0.0", "desc", "./skills/", null, "/tmp/My_Plugin", "My_Plugin");
+        var result = PluginValidator.ValidatePlugin(plugin);
+        Assert.Contains(result.Warnings, w => w.StartsWith("Plugin name"));
+        Assert.DoesNotContain(result.Warnings, w => w.StartsWith("Skill name"));
     }
 
     [Fact]
