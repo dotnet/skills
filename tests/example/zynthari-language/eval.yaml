@@ -77,6 +77,8 @@ scenarios:
         value: "finkel"
       - type: "output_contains"
         value: "spevni"
+      - type: "output_contains"
+        value: "skarvol"
       - type: "output_matches"
         pattern: "-ul"
       - type: "output_matches"
@@ -84,8 +86,8 @@ scenarios:
     rubric:
       - "Correctly translates teacher → chorpa and uses old → krothel before it"
       - "Applies future tense suffix -ul to the verb give (fwenki → fwenkiul)"
-      - "Uses plural suffix -ri for children (frimbleri)"
-      - "Places adjectives before nouns: small children → finkel frimbleri, new books → spevni (books)"
+      - "Uses plural suffix -ri for children (frimbleri) and books (skarvolri)"
+      - "Places adjectives before nouns: small children → finkel frimbleri, new books → spevni skarvolri"
       - "Explains the grammar rules applied: SVO order, adjective-before-noun, -ul future tense, -ri plural"
     timeout: 60
 

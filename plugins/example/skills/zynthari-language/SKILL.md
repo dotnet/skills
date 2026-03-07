@@ -144,6 +144,15 @@ All Zynthari verbs are listed in their base (infinitive) form. See the Grammar s
 | eye | glothek |
 | voice | jalkrim |
 
+### Objects
+
+| English | Zynthari |
+|---------|----------|
+| book | skarvol |
+| food | gworbani |
+| home | dwelkri |
+| path | trekhan |
+
 ### Adjectives
 
 | English | Zynthari |
@@ -215,6 +224,7 @@ Add **-ri** suffix to nouns for plural:
 - "stars" → "tivlari"
 - "wolves" → "spekriri"
 - "children" → "frimbleri"
+- "books" → "skarvolri"
 
 ### Past Tense
 
