@@ -45,12 +45,19 @@ The `<IncludeOpenAPIAnalyzers>` MSBuild property is deprecated. Remove it from `
 
 ### IPNetwork and ForwardedHeadersOptions.KnownNetworks are obsolete
 
-`IPNetwork` is obsolete. Use `System.Net.IPNetwork` (the new runtime type) instead:
+`IPNetwork` is obsolete. Use `System.Net.IPNetwork` (the new runtime type) and the new `KnownIpNetworks` property instead:
 ```csharp
 // Before
-options.KnownNetworks.Add(new IPNetwork(IPAddress.Parse("10.0.0.0"), 8));
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    KnownNetworks = { new IPNetwork(IPAddress.Parse("10.0.0.0"), 8) }
+});
 
-// After — use the new System.Net.IPNetwork type
+// After — use KnownIpNetworks with the new System.Net.IPNetwork type
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    KnownIpNetworks = { new System.Net.IPNetwork(IPAddress.Parse("10.0.0.0"), 8) }
+});
 ```
 
 ### Razor runtime compilation is obsolete
@@ -124,9 +131,9 @@ using System.Text.Json.Nodes;     // replaces OpenApiAny types
 
 ### Cookie login redirects disabled for known API endpoints
 
-ASP.NET Core no longer redirects to login pages for requests to known API endpoints (e.g., those returning `ProblemDetails`). Instead, a `401` status code is returned directly.
+ASP.NET Core no longer redirects to login pages for requests to known API endpoints (e.g., those returning `ProblemDetails`). Instead, a `401` status code is returned directly. This is controlled by `IApiEndpointMetadata`, which is automatically applied to endpoints with `[ApiController]`, minimal API endpoints that read/write JSON, SignalR hubs, and endpoints returning `TypedResults`.
 
-This is generally the desired behavior for APIs, but may affect apps that relied on the redirect for API calls.
+This is generally the desired behavior for APIs, but may affect apps that relied on the redirect for API calls. To influence this behavior, you can manually add or check for `IApiEndpointMetadata` on specific endpoints.
 
 ### Exception diagnostics suppressed when TryHandleAsync returns true
 
