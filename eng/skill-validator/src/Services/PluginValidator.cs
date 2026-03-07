@@ -49,22 +49,69 @@ public static class PluginValidator
         {
             errors.Add("plugin.json has no 'skills' field — required.");
         }
-        else
+        else if (!TryGetSafeSubdirectory(plugin.DirectoryPath, plugin.SkillsPath, out var skillsDir, out var skillsPathError))
         {
-            var skillsDir = Path.Combine(plugin.DirectoryPath, plugin.SkillsPath);
-            if (!Directory.Exists(skillsDir))
-                errors.Add($"Plugin skills path '{plugin.SkillsPath}' does not exist at '{skillsDir}'.");
+            errors.Add($"Plugin skills path is invalid: {skillsPathError}");
+        }
+        else if (!Directory.Exists(skillsDir!))
+        {
+            errors.Add($"Plugin skills path '{plugin.SkillsPath}' does not exist at '{skillsDir}'.");
         }
 
         // --- Agents path validation (optional, but warn if specified and missing) ---
         if (!string.IsNullOrWhiteSpace(plugin.AgentsPath))
         {
-            var agentsDir = Path.Combine(plugin.DirectoryPath, plugin.AgentsPath);
-            if (!Directory.Exists(agentsDir))
+            if (!TryGetSafeSubdirectory(plugin.DirectoryPath, plugin.AgentsPath, out var agentsDir, out var agentsPathError))
+            {
+                warnings.Add($"Plugin agents path is invalid: {agentsPathError}");
+            }
+            else if (!Directory.Exists(agentsDir!))
+            {
                 warnings.Add($"Plugin agents path '{plugin.AgentsPath}' does not exist at '{agentsDir}'.");
+            }
         }
 
-        return new PluginValidationResult(plugin.Name ?? "(unknown)", plugin.DirectoryPath, errors, warnings);
+        var resultName = !string.IsNullOrWhiteSpace(plugin.Name)
+            ? plugin.Name
+            : (!string.IsNullOrWhiteSpace(plugin.DirectoryName) ? plugin.DirectoryName : "(unknown)");
+
+        return new PluginValidationResult(resultName, plugin.DirectoryPath, errors, warnings);
+    }
+
+    /// <summary>
+    /// Validates that a relative path stays within the root directory.
+    /// Rejects absolute paths and parent-directory traversal.
+    /// </summary>
+    internal static bool TryGetSafeSubdirectory(string rootDirectory, string relativePath, out string? safeFullPath, out string? errorMessage)
+    {
+        safeFullPath = null;
+        errorMessage = null;
+
+        if (Path.IsPathRooted(relativePath))
+        {
+            errorMessage = $"Path '{relativePath}' must be relative to the plugin directory, not an absolute path.";
+            return false;
+        }
+
+        var rootFullPath = Path.GetFullPath(rootDirectory);
+        var combinedFullPath = Path.GetFullPath(Path.Combine(rootFullPath, relativePath));
+
+        var normalizedRoot = rootFullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        var isUnderRoot =
+            combinedFullPath.Length >= normalizedRoot.Length &&
+            (string.Equals(combinedFullPath, normalizedRoot, StringComparison.OrdinalIgnoreCase) ||
+             combinedFullPath.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+             combinedFullPath.StartsWith(normalizedRoot + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+
+        if (!isUnderRoot)
+        {
+            errorMessage = $"Path '{relativePath}' resolves outside the plugin directory.";
+            return false;
+        }
+
+        safeFullPath = combinedFullPath;
+        return true;
     }
 
     /// <summary>

@@ -167,14 +167,18 @@ public static partial class SkillDiscovery
             if (plugin is null)
                 continue;
 
-            var agentsDir = !string.IsNullOrWhiteSpace(plugin.AgentsPath)
-                ? Path.Combine(root, plugin.AgentsPath)
-                : Path.Combine(root, "agents");
+            var agentsPath = !string.IsNullOrWhiteSpace(plugin.AgentsPath)
+                ? plugin.AgentsPath
+                : "agents";
 
-            if (!Directory.Exists(agentsDir))
+            // Validate the agents path stays within the plugin root.
+            if (!PluginValidator.TryGetSafeSubdirectory(root, agentsPath, out var agentsDir, out _))
                 continue;
 
-            foreach (var file in Directory.GetFiles(agentsDir, "*.agent.md"))
+            if (!Directory.Exists(agentsDir!))
+                continue;
+
+            foreach (var file in Directory.GetFiles(agentsDir!, "*.agent.md"))
             {
                 var agent = await DiscoverAgentAt(file);
                 if (agent is not null)
