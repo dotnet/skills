@@ -3,6 +3,11 @@ using SkillValidator.Models;
 
 namespace SkillValidator.Services;
 
+/// <summary>
+/// Validates plugin.json files against the agent plugin conventions.
+/// See: https://code.visualstudio.com/docs/copilot/customization/agent-plugins
+/// See: https://code.claude.com/docs/en/plugins-reference (Plugin manifest schema)
+/// </summary>
 public static class PluginValidator
 {
     public static PluginValidationResult ValidatePlugin(PluginInfo plugin)
@@ -10,7 +15,8 @@ public static class PluginValidator
         var errors = new List<string>();
         var warnings = new List<string>();
 
-        // Name validation
+        // --- Name validation ---
+        // Plugin manifest schema: name is required, kebab-case.
         if (string.IsNullOrWhiteSpace(plugin.Name))
         {
             errors.Add("plugin.json has no 'name' field — required.");
@@ -20,14 +26,15 @@ public static class PluginValidator
             if (!string.Equals(plugin.Name, plugin.DirectoryName, StringComparison.Ordinal))
                 errors.Add($"Plugin name '{plugin.Name}' does not match directory name '{plugin.DirectoryName}'.");
 
-            SkillProfiler.ValidateName(plugin.Name, plugin.DirectoryName, warnings);
+            SkillProfiler.ValidateNameFormat(plugin.Name, "Plugin", warnings);
         }
 
-        // Version validation
+        // --- Version validation ---
         if (string.IsNullOrWhiteSpace(plugin.Version))
             errors.Add("plugin.json has no 'version' field — required.");
 
-        // Description validation
+        // --- Description validation (same 1024-char limit as skills) ---
+        // https://agentskills.io/specification#description-field
         if (string.IsNullOrWhiteSpace(plugin.Description))
         {
             errors.Add("plugin.json has no 'description' field — required.");
@@ -37,7 +44,7 @@ public static class PluginValidator
             errors.Add($"Plugin description is {plugin.Description.Length:N0} characters — maximum is {SkillProfiler.MaxDescriptionLength:N0}.");
         }
 
-        // Skills path validation
+        // --- Skills path validation ---
         if (string.IsNullOrWhiteSpace(plugin.SkillsPath))
         {
             errors.Add("plugin.json has no 'skills' field — required.");
@@ -49,7 +56,7 @@ public static class PluginValidator
                 errors.Add($"Plugin skills path '{plugin.SkillsPath}' does not exist at '{skillsDir}'.");
         }
 
-        // Agents path validation (optional, but warn if specified and missing)
+        // --- Agents path validation (optional, but warn if specified and missing) ---
         if (!string.IsNullOrWhiteSpace(plugin.AgentsPath))
         {
             var agentsDir = Path.Combine(plugin.DirectoryPath, plugin.AgentsPath);

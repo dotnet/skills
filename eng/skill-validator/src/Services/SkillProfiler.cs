@@ -181,19 +181,34 @@ public static partial class SkillProfiler
             Warnings: warnings);
     }
 
-    internal static void ValidateName(string name, string directoryName, List<string> warnings)
+    /// <summary>
+    /// Validate a name against the agentskills.io spec naming rules.
+    /// https://agentskills.io/specification#name-field
+    /// </summary>
+    /// <param name="name">The name value from frontmatter or plugin.json.</param>
+    /// <param name="kind">Label for messages, e.g. "Skill", "Agent", "Plugin".</param>
+    /// <param name="warnings">List to append warnings to.</param>
+    internal static void ValidateNameFormat(string name, string kind, List<string> warnings)
     {
         if (name.Length > MaxNameLength)
-            warnings.Add($"Skill name '{name}' is {name.Length} characters — maximum is {MaxNameLength}.");
+            warnings.Add($"{kind} name '{name}' is {name.Length} characters — maximum is {MaxNameLength}.");
 
         if (!NameFormatRegex().IsMatch(name))
-            warnings.Add($"Skill name '{name}' contains invalid characters — must be lowercase alphanumeric and hyphens only.");
+            warnings.Add($"{kind} name '{name}' contains invalid characters — must be lowercase alphanumeric and hyphens only.");
 
         if (name.StartsWith('-') || name.EndsWith('-'))
-            warnings.Add($"Skill name '{name}' starts or ends with a hyphen.");
+            warnings.Add($"{kind} name '{name}' starts or ends with a hyphen.");
 
         if (name.Contains("--"))
-            warnings.Add($"Skill name '{name}' contains consecutive hyphens.");
+            warnings.Add($"{kind} name '{name}' contains consecutive hyphens.");
+    }
+
+    /// <summary>
+    /// Validate name format and directory match for skills.
+    /// </summary>
+    internal static void ValidateName(string name, string directoryName, List<string> warnings)
+    {
+        ValidateNameFormat(name, "Skill", warnings);
 
         if (!string.Equals(name, directoryName, StringComparison.Ordinal))
             warnings.Add($"Skill name '{name}' does not match directory name '{directoryName}'.");
