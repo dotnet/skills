@@ -17,17 +17,18 @@
 /plugins/dotnet/skills/dotnet-pinvoke/ @dotnet/appmodel
 /tests/dotnet/dotnet-pinvoke/ @dotnet/appmodel
 
-/plugins/dotnet/skills/thread-abort-migration/ @dotnet/appmodel
-/tests/dotnet/thread-abort-migration/ @dotnet/appmodel
-
-/plugins/dotnet/skills/migrate-nullable-references/ @danmoseley
-/tests/dotnet/migrate-nullable-references/ @danmoseley
-
 /plugins/dotnet/skills/nuget-trusted-publishing/ @lewing @kartheekp-ms
 /tests/dotnet/nuget-trusted-publishing/ @lewing @kartheekp-ms
 
-/plugins/dotnet/skills/dotnet-aot-compat/ @agocke @dotnet/appmodel
-/tests/dotnet/dotnet-aot-compat/ @agocke @dotnet/appmodel
+# dotnet-upgrade (migrating and upgrading .NET projects)
+/plugins/dotnet-upgrade/skills/thread-abort-migration/ @dotnet/appmodel
+/tests/dotnet-upgrade/thread-abort-migration/ @dotnet/appmodel
+
+/plugins/dotnet-upgrade/skills/migrate-nullable-references/ @danmoseley
+/tests/dotnet-upgrade/migrate-nullable-references/ @danmoseley
+
+/plugins/dotnet-upgrade/skills/dotnet-aot-compat/ @agocke @dotnet/appmodel
+/tests/dotnet-upgrade/dotnet-aot-compat/ @agocke @dotnet/appmodel
 
 # dotnet-diag (perf investigations, debugging, incident analysis)
 /plugins/dotnet-diag/skills/analyzing-dotnet-performance/ @dotnet/dotnet-diag
