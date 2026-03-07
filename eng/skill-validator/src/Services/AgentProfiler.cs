@@ -37,11 +37,12 @@ public static partial class AgentProfiler
             // Agent filename convention: {name}.agent.md
             var expectedFileName = agent.Name + ".agent.md";
             if (!string.Equals(expectedFileName, agent.FileName, StringComparison.OrdinalIgnoreCase))
-                warnings.Add($"Agent name '{agent.Name}' does not match filename '{agent.FileName}' (expected '{expectedFileName}').");
+                errors.Add($"Agent name '{agent.Name}' does not match filename '{agent.FileName}' (expected '{expectedFileName}').");
 
             // Validate name format (lowercase, hyphens, length) per agentskills.io naming rules.
             // Directory-match is not checked — agents use filename convention, not directory naming.
-            SkillProfiler.ValidateNameFormat(agent.Name, "Agent", warnings);
+            // Spec uses "Must" for all name constraints, so violations are errors.
+            SkillProfiler.ValidateNameFormat(agent.Name, "Agent", errors);
         }
 
         // --- Description validation (same 1024-char limit as skills) ---
