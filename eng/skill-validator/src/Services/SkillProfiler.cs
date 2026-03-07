@@ -86,6 +86,10 @@ public static partial class SkillProfiler
         {
             errors.Add($"Compatibility field is {skill.Compatibility.Length} characters — maximum is {MaxCompatibilityLength}.");
         }
+        else if (skill.Compatibility is not null && string.IsNullOrWhiteSpace(skill.Compatibility))
+        {
+            errors.Add("Compatibility field must be 1-500 non-whitespace characters when provided.");
+        }
 
         // --- agentskills.io spec: body line count ---
         var trimmedBody = body.TrimEnd('\r', '\n');
@@ -194,6 +198,12 @@ public static partial class SkillProfiler
     /// </summary>
     internal static void ValidateName(string name, string directoryName, List<string> errors)
     {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            errors.Add("Skill name is empty — must be 1-64 lowercase alphanumeric characters and hyphens.");
+            return;
+        }
+
         if (name.Length > MaxNameLength)
             errors.Add($"Skill name '{name}' is {name.Length} characters — maximum is {MaxNameLength}.");
 

@@ -300,6 +300,16 @@ public class AnalyzeSkillTests
         Assert.DoesNotContain(profile.Errors, e => e.Contains("Compatibility"));
     }
 
+    [Fact]
+    public void CompatibilityEmptyStringErrors()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var skill = new SkillInfo("test-skill", "desc", "/tmp/test-skill", "/tmp/test-skill/SKILL.md",
+            content, null, null, Compatibility: string.Empty);
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.Contains(profile.Errors, e => e.Contains("Compatibility"));
+    }
+
     // --- Body line count tests ---
 
     [Fact]
