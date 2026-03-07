@@ -213,6 +213,25 @@ public static class ValidateCommand
             return 1;
         }
 
+        // Check for orphaned test directories (tests/ entries with no matching plugin/skill)
+        var repoRoot = SkillDiscovery.FindRepoRoot(config.SkillPaths);
+        bool hasOrphanErrors = false;
+        if (repoRoot is not null)
+        {
+            var orphans = SkillDiscovery.FindOrphanedTestDirectories(repoRoot);
+            foreach (var orphan in orphans)
+            {
+                Console.Error.WriteLine($"\x1b[31m❌ {orphan}\x1b[0m");
+                hasOrphanErrors = true;
+            }
+        }
+
+        if (hasOrphanErrors)
+        {
+            Console.Error.WriteLine("\x1b[31mOrphaned test directories found — remove them or create the matching plugin/skill.\x1b[0m");
+            return 1;
+        }
+
         if (config.Runs < 5)
             Console.WriteLine($"\x1b[33m⚠  Running with {config.Runs} run(s). For statistically significant results, use --runs 5 or higher.\x1b[0m");
 
