@@ -10,47 +10,53 @@
 /tests/dotnet-msbuild/ @ViktorHofer @JanKrivanek
 /agentic-workflows/dotnet-msbuild/ @ViktorHofer @JanKrivanek
 
-/plugins/dotnet/skills/analyzing-dotnet-performance/ @dotnet/dotnet-diag
-/tests/dotnet/analyzing-dotnet-performance/ @dotnet/dotnet-diag
-
+# dotnet (common everyday C#/.NET)
 /plugins/dotnet/skills/csharp-scripts/ @dotnet/roslyn
 /tests/dotnet/csharp-scripts/ @dotnet/roslyn
 
 /plugins/dotnet/skills/dotnet-pinvoke/ @dotnet/appmodel
 /tests/dotnet/dotnet-pinvoke/ @dotnet/appmodel
 
-/plugins/dotnet/skills/dump-collect/ @dotnet/dotnet-diag
-/tests/dotnet/dump-collect/ @dotnet/dotnet-diag
-
-/plugins/dotnet/skills/dotnet-trace-collect/ @brianrob
-/tests/dotnet/dotnet-trace-collect/ @brianrob
-
-/plugins/dotnet/skills/optimizing-ef-core-queries/ @dotnet/efteam
-/tests/dotnet/optimizing-ef-core-queries/ @dotnet/efteam
-
-/plugins/dotnet/skills/thread-abort-migration/ @dotnet/appmodel
-/tests/dotnet/thread-abort-migration/ @dotnet/appmodel
-
-/plugins/dotnet/skills/migrate-nullable-references/ @danmoseley
-/tests/dotnet/migrate-nullable-references/ @danmoseley
-
-/plugins/dotnet/skills/android-tombstone-symbolication/ @dotnet/dotnet-diag 
-/tests/dotnet/android-tombstone-symbolication/ @dotnet/dotnet-diag 
-
-/plugins/dotnet/skills/clr-activation-debugging/ @marklio @ChrisAhna
-/tests/dotnet/clr-activation-debugging/ @marklio @ChrisAhna
-
-/plugins/dotnet/skills/microbenchmarking/ @dotnet/dotnet-perf-team
-/tests/dotnet/microbenchmarking/ @dotnet/dotnet-perf-team
-
 /plugins/dotnet/skills/nuget-trusted-publishing/ @lewing @kartheekp-ms
 /tests/dotnet/nuget-trusted-publishing/ @lewing @kartheekp-ms
 
-/plugins/dotnet/skills/dotnet-aot-compat/ @agocke @dotnet/appmodel
-/tests/dotnet/dotnet-aot-compat/ @agocke @dotnet/appmodel
+# dotnet-upgrade (migrating and upgrading .NET projects)
+/plugins/dotnet-upgrade/skills/thread-abort-migration/ @dotnet/appmodel
+/tests/dotnet-upgrade/thread-abort-migration/ @dotnet/appmodel
+
+/plugins/dotnet-upgrade/skills/migrate-nullable-references/ @danmoseley
+/tests/dotnet-upgrade/migrate-nullable-references/ @danmoseley
+
+/plugins/dotnet-upgrade/skills/dotnet-aot-compat/ @agocke @dotnet/appmodel
+/tests/dotnet-upgrade/dotnet-aot-compat/ @agocke @dotnet/appmodel
+
+# dotnet-diag (perf investigations, debugging, incident analysis)
+/plugins/dotnet-diag/skills/analyzing-dotnet-performance/ @dotnet/dotnet-diag
+/tests/dotnet-diag/analyzing-dotnet-performance/ @dotnet/dotnet-diag
+
+/plugins/dotnet-diag/skills/dump-collect/ @dotnet/dotnet-diag
+/tests/dotnet-diag/dump-collect/ @dotnet/dotnet-diag
+
+/plugins/dotnet-diag/skills/dotnet-trace-collect/ @brianrob
+/tests/dotnet-diag/dotnet-trace-collect/ @brianrob
+
+/plugins/dotnet-diag/skills/android-tombstone-symbolication/ @dotnet/dotnet-diag
+/tests/dotnet-diag/android-tombstone-symbolication/ @dotnet/dotnet-diag
+
+/plugins/dotnet-diag/skills/clr-activation-debugging/ @marklio @ChrisAhna
+/tests/dotnet-diag/clr-activation-debugging/ @marklio @ChrisAhna
+
+/plugins/dotnet-diag/skills/microbenchmarking/ @dotnet/dotnet-perf-team
+/tests/dotnet-diag/microbenchmarking/ @dotnet/dotnet-perf-team
+
+/plugins/dotnet-diag/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel
 
 /plugins/dotnet/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel
 
 # dotnet-maui
 /plugins/dotnet-maui/ @Redth @jfversluis
 /tests/dotnet-maui/ @Redth @jfversluis
+
+# dotnet-data (data access, Entity Framework)
+/plugins/dotnet-data/skills/optimizing-ef-core-queries/ @dotnet/efteam
+/tests/dotnet-data/optimizing-ef-core-queries/ @dotnet/efteam
