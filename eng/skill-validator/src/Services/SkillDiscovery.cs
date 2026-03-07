@@ -267,4 +267,74 @@ public static partial class SkillDiscovery
         }
         return null;
     }
+
+    // --- Orphaned test directory detection ---
+
+    /// <summary>
+    /// Find test directories under tests/ that don't correspond to any plugin or skill.
+    /// Convention: tests/{plugin}/{skill}/ must match plugins/{plugin}/skills/{skill}/.
+    /// </summary>
+    public static IReadOnlyList<string> FindOrphanedTestDirectories(string repoRoot)
+    {
+        var orphans = new List<string>();
+        var testsRoot = Path.Combine(repoRoot, "tests");
+        var pluginsRoot = Path.Combine(repoRoot, "plugins");
+
+        if (!Directory.Exists(testsRoot) || !Directory.Exists(pluginsRoot))
+            return orphans;
+
+        foreach (var testPluginDir in Directory.GetDirectories(testsRoot))
+        {
+            var pluginName = Path.GetFileName(testPluginDir);
+            if (pluginName.StartsWith('.'))
+                continue;
+
+            var correspondingPluginDir = Path.Combine(pluginsRoot, pluginName);
+            if (!Directory.Exists(correspondingPluginDir))
+            {
+                orphans.Add($"Test directory 'tests/{pluginName}/' has no matching plugin directory 'plugins/{pluginName}/'.");
+                continue;
+            }
+
+            // Check skill-level: each tests/{plugin}/{skill}/ should have plugins/{plugin}/skills/{skill}/
+            foreach (var testSkillDir in Directory.GetDirectories(testPluginDir))
+            {
+                var skillName = Path.GetFileName(testSkillDir);
+                if (skillName.StartsWith('.'))
+                    continue;
+
+                var correspondingSkillDir = Path.Combine(correspondingPluginDir, "skills", skillName);
+                if (!Directory.Exists(correspondingSkillDir))
+                {
+                    orphans.Add($"Test directory 'tests/{pluginName}/{skillName}/' has no matching skill directory 'plugins/{pluginName}/skills/{skillName}/'.");
+                }
+            }
+        }
+
+        return orphans;
+    }
+
+    /// <summary>
+    /// Infer the repository root from the given skill paths by finding the parent of the 'plugins/' directory.
+    /// Returns null if no plugins/ parent can be determined.
+    /// </summary>
+    internal static string? FindRepoRoot(IReadOnlyList<string> skillPaths)
+    {
+        foreach (var path in skillPaths)
+        {
+            var pluginRoot = FindPluginRoot(path);
+            if (pluginRoot is null)
+                continue;
+
+            // Plugin root is plugins/{name}, so repo root is its parent's parent
+            // e.g., plugins/dotnet/skills -> plugins/dotnet -> plugins -> repo root
+            var pluginsDir = Directory.GetParent(pluginRoot)?.FullName;
+            if (pluginsDir is not null && Path.GetFileName(pluginsDir).Equals("plugins", StringComparison.OrdinalIgnoreCase))
+            {
+                return Directory.GetParent(pluginsDir)?.FullName;
+            }
+        }
+
+        return null;
+    }
 }
