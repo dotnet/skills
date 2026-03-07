@@ -1,0 +1,34 @@
+scenarios:
+  - name: "Ingest markdown documents for RAG"
+    prompt: "Build a document ingestion pipeline that reads markdown files from a directory, chunks them by headers, and writes the chunks to an in-memory vector store with embeddings."
+    setup:
+      files:
+        - path: "Ingestor/Ingestor.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>Exe</OutputType>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "Ingestor/Program.cs"
+          content: |
+            Console.WriteLine("TODO: Build ingestion pipeline");
+        - path: "Ingestor/docs/getting-started.md"
+          content: |
+            # Getting Started
+            Install the SDK with `dotnet tool install`.
+            ## Prerequisites
+            You need .NET 10 or later.
+    assertions:
+      - type: "output_contains"
+        value: "chunk"
+      - type: "output_contains"
+        value: "DataIngestion"
+      - type: "exit_success"
+    rubric:
+      - "Uses Microsoft.Extensions.DataIngestion for the pipeline"
+      - "Configures a Markdown reader (Markdig)"
+      - "Uses header-based chunking as specified"
+      - "Generates embeddings for chunks before writing to vector store"
+    timeout: 360
