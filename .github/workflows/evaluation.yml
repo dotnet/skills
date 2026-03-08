@@ -137,11 +137,11 @@ jobs:
     with:
       entries: ${{ needs.discover.outputs.entries }}
       runs: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.ref == 'refs/heads/main' && '5' || '3') }}
-      # Infra changes evaluate all plugins in parallel — reduce per-job concurrency
-      # to avoid API rate limits and timeouts from contention.
-      parallel-skills: ${{ needs.discover.outputs.is_infra == 'true' && '2' || '5' }}
-      parallel-scenarios: ${{ needs.discover.outputs.is_infra == 'true' && '3' || '5' }}
-      parallel-runs: ${{ needs.discover.outputs.is_infra == 'true' && '3' || '5' }}
+      # Infra changes and scheduled runs evaluate all plugins in parallel — reduce
+      # per-job concurrency to avoid API rate limits and timeouts from contention.
+      parallel-skills: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5' }}
+      parallel-scenarios: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
+      parallel-runs: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
       pr-number: ${{ github.event.pull_request.number || '' }}
     secrets:
       COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}

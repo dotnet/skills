@@ -175,9 +175,15 @@ jobs:
             exit 1
           fi
 
-          # Pick a random token
-          IDX=$((RANDOM % ${#TOKENS[@]}))
-          echo "Selected ${NAMES[$IDX]} (1 of ${#TOKENS[@]} available tokens)"
+          # Assign token deterministically by matrix job index to avoid collisions.
+          # Falls back to RANDOM if strategy.job-index is unavailable.
+          JOB_INDEX="${{ strategy.job-index }}"
+          if [ -n "$JOB_INDEX" ]; then
+            IDX=$(( JOB_INDEX % ${#TOKENS[@]} ))
+          else
+            IDX=$((RANDOM % ${#TOKENS[@]}))
+          fi
+          echo "Selected ${NAMES[$IDX]} (1 of ${#TOKENS[@]} available tokens, job-index=${JOB_INDEX:-random})"
 
           # Mask the value so it won't appear in logs, then export
           echo "::add-mask::${TOKENS[$IDX]}"

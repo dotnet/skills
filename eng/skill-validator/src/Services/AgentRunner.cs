@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using SkillValidator.Models;
+using SkillValidator.Utilities;
 using GitHub.Copilot.SDK;
 
 namespace SkillValidator.Services;
@@ -154,6 +155,16 @@ public static class AgentRunner
     }
 
     public static async Task<RunMetrics> RunAgent(RunOptions options)
+    {
+        return await RetryHelper.ExecuteWithRetry(
+            async ct => await RunAgentCore(options),
+            label: $"RunAgent({options.Scenario.Name}, {(options.Skill is not null ? "skilled" : "baseline")})",
+            maxRetries: 2,
+            baseDelayMs: 5_000,
+            totalTimeoutMs: (options.Scenario.Timeout + 60) * 1000);
+    }
+
+    private static async Task<RunMetrics> RunAgentCore(RunOptions options)
     {
         var workDir = await SetupWorkDir(options.Scenario, options.Skill?.Path, options.EvalPath);
         if (options.Verbose)
