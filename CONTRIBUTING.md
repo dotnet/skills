@@ -43,6 +43,27 @@ agentic-workflows/
 
 Every plugin must have a plugin.json file in the plugin root that is linked to from the marketplace.json file.
 
+### Plugin organization
+
+Skills are grouped into domain-specific plugins. When proposing a new skill, place it in the plugin that best matches its domain:
+
+| Plugin | Domain |
+|--------|--------|
+| `dotnet` | Common everyday C#/.NET coding tasks useful to all .NET developers |
+| `dotnet-upgrade` | Migrating and upgrading .NET projects across framework versions, language features, and compatibility targets |
+| `dotnet-diag` | Performance investigations, debugging, and incident analysis |
+| `dotnet-data` | Data access and Entity Framework |
+| `dotnet-msbuild` | MSBuild and project system |
+
+If your skill does not fit any existing plugin, consider creating a new one. The following plugin names are reserved for future use and are good candidates for new skills in those areas:
+
+- `dotnet-aspnet` — ASP.NET
+- `dotnet-wpf` — WPF
+- `dotnet-winforms` — Windows Forms (WinForms)
+- `dotnet-maui` — .NET MAUI
+
+To create a new plugin, add a `plugins/<plugin-name>/plugin.json` file and a matching entry in the marketplace.json file. See existing plugins for the expected format.
+
 ## Before you start
 
 - Search existing issues and pull requests to avoid duplicates.
@@ -108,7 +129,7 @@ description: <description of what the skill does, when to use it, and when not t
 > **Tip:** The `description` field is used by the agent runtime to decide whether to load the full skill.
 > Include **when to use** and **when not to use** guidance directly in the description so the agent can
 > select or skip skills without reading the entire `SKILL.md`. This avoids unnecessary token usage.
-> See [`thread-abort-migration/SKILL.md`](plugins/dotnet/skills/thread-abort-migration/SKILL.md) for a good example.
+> See [`thread-abort-migration/SKILL.md`](plugins/dotnet-upgrade/skills/thread-abort-migration/SKILL.md) for a good example.
 
 ### Recommended `SKILL.md` sections
 
