@@ -327,3 +327,8 @@ Skills and agents in this repo should be:
 - **Minimal**: no extra features or scope creep; focus on the task.
 - **Verifiable**: always include a way to validate success.
 - **Tool-conscious**: don't assume capabilities that might not exist in every runtime.
+
+## Skill-Validator & Evaluation workflow
+
+Changes to `eng/skill-validator` or the `.github/workflows/evaluation*.yml` workflows must be made from a dotnet/skills branch (non-forked). This is a security measurement.
+Modifications of these files are ignored in a Pull Request from a forked branch during the evaluation workflow run.
