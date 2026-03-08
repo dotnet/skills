@@ -23,6 +23,7 @@ scenarios:
 
   - name: "Async refactoring should not apply to CPU-bound code"
     prompt: "This method is really slow and blocking my app. Can you make DoIt() async so it runs faster?"
+    expect_activation: false
     setup:
       files:
         - path: "MatrixMultiplier.cs"
