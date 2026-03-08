@@ -123,7 +123,7 @@ public static class ValidateCommand
         {
             var client = await AgentRunner.GetSharedClient(config.Verbose);
             var models = await RetryHelper.ExecuteWithRetry(
-                async ct => await client.ListModelsAsync(),
+                async _ => await client.ListModelsAsync(),
                 label: "ListModels",
                 maxRetries: 3,
                 baseDelayMs: 2_000,
