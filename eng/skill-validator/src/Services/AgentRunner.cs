@@ -13,7 +13,8 @@ public sealed record RunOptions(
     string? EvalPath,
     string Model,
     bool Verbose,
-    Action<string>? Log = null);
+    Action<string>? Log = null,
+    IReadOnlyList<SkillInfo>? AdditionalSkills = null);
 
 public static class AgentRunner
 {
@@ -104,7 +105,8 @@ public static class AgentRunner
 
     internal static SessionConfig BuildSessionConfig(
         SkillInfo? skill, string model, string workDir,
-        IReadOnlyDictionary<string, MCPServerDef>? mcpServers = null)
+        IReadOnlyDictionary<string, MCPServerDef>? mcpServers = null,
+        IReadOnlyList<SkillInfo>? additionalSkills = null)
     {
         var skillPath = skill is not null ? Path.GetDirectoryName(skill.Path) : null;
 
@@ -112,6 +114,19 @@ public static class AgentRunner
         var configDir = Path.Combine(Path.GetTempPath(), $"sv-cfg-{Guid.NewGuid():N}");
         Directory.CreateDirectory(configDir);
         _workDirs.Add(configDir);
+
+        // Build skill directories list: primary skill + any additional skills
+        var skillDirs = new List<string>();
+        if (skillPath is not null) skillDirs.Add(skillPath);
+        if (additionalSkills is { Count: > 0 })
+        {
+            foreach (var s in additionalSkills)
+            {
+                var dir = Path.GetDirectoryName(s.Path);
+                if (dir is not null && !skillDirs.Contains(dir, StringComparer.OrdinalIgnoreCase))
+                    skillDirs.Add(dir);
+            }
+        }
 
         // Convert MCPServerDef records to the SDK's Dictionary<string, object> shape
         Dictionary<string, object>? sdkMcp = null;
@@ -138,7 +153,7 @@ public static class AgentRunner
             Model = model,
             Streaming = true,
             WorkingDirectory = workDir,
-            SkillDirectories = skill is not null ? [skillPath!] : [],
+            SkillDirectories = skillDirs,
             ConfigDir = configDir,
             McpServers = sdkMcp,
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
@@ -172,7 +187,7 @@ public static class AgentRunner
             var client = await GetSharedClient(options.Verbose);
 
             await using var session = await client.CreateSessionAsync(
-                BuildSessionConfig(options.Skill, options.Model, workDir, options.Skill?.McpServers));
+                BuildSessionConfig(options.Skill, options.Model, workDir, options.Skill?.McpServers, options.AdditionalSkills));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
