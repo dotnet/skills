@@ -330,5 +330,5 @@ Skills and agents in this repo should be:
 
 ## Skill-Validator & Evaluation workflow
 
-Changes to `eng/skill-validator` or the `.github/workflows/evaluation*.yml` workflows must be made from a dotnet/skills branch (non-forked). This is a security measurement.
-Modifications of these files are ignored in a Pull Request from a forked branch during the evaluation workflow run.
+Changes to `eng/skill-validator` or the `.github/workflows/evaluation*.yml` workflows must be made from a branch in the `dotnet/skills` repository (i.e., not from a fork). This is a security measure.
+For pull requests from forks, the evaluation workflow always uses the workflow YAML from the default branch of `dotnet/skills` and builds the validator from that default-branch checkout, so any changes to these files in the forked PR will be ignored during evaluation.
