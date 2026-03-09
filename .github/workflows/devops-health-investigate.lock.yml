@@ -27,7 +27,7 @@
 #   Imports:
 #     - ../aw/shared/devops-investigate.lock.md
 #
-# frontmatter-hash: e9dba9ea1b00a1f0efc705cf43053f4f0b395b52bcd0477ee569985f5c486797
+# frontmatter-hash: c8a2187ad006f5fa585fd7aeadc12fc12f166d296f46255dfc36baff729cd3e9
 
 name: "DevOps Health — Deep Investigation"
 "on":
@@ -58,7 +58,7 @@ name: "DevOps Health — Deep Investigation"
 permissions: {}
 
 concurrency:
-  group: "gh-aw-${{ github.workflow }}"
+  group: gh-aw-${{ github.workflow }}-${{ inputs.finding_id }}
 
 run-name: "DevOps Health — Deep Investigation"
 
@@ -382,7 +382,7 @@ jobs:
         id: validate-secret
         run: /opt/gh-aw/actions/validate_multi_secret.sh COPILOT_GITHUB_TOKEN 'GitHub Copilot CLI' https://github.github.com/gh-aw/reference/engines/#github-copilot-default
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
       - name: Install GitHub Copilot CLI
         run: /opt/gh-aw/actions/install_copilot_cli.sh 0.0.410
       - name: Install awf binary
@@ -678,14 +678,14 @@ jobs:
         # --allow-tool shell(wc)
         # --allow-tool shell(yq)
         # --allow-tool write
-        timeout-minutes: 20
+        timeout-minutes: 60
         run: |
           set -o pipefail
           sudo -E awf --env-all --container-workdir "${GITHUB_WORKSPACE}" --allow-domains api.business.githubcopilot.com,api.enterprise.githubcopilot.com,api.github.com,api.githubcopilot.com,api.individual.githubcopilot.com,api.snapcraft.io,archive.ubuntu.com,azure.archive.ubuntu.com,crl.geotrust.com,crl.globalsign.com,crl.identrust.com,crl.sectigo.com,crl.thawte.com,crl.usertrust.com,crl.verisign.com,crl3.digicert.com,crl4.digicert.com,crls.ssl.com,github.com,host.docker.internal,json-schema.org,json.schemastore.org,keyserver.ubuntu.com,ocsp.digicert.com,ocsp.geotrust.com,ocsp.globalsign.com,ocsp.identrust.com,ocsp.sectigo.com,ocsp.ssl.com,ocsp.thawte.com,ocsp.usertrust.com,ocsp.verisign.com,packagecloud.io,packages.cloud.google.com,packages.microsoft.com,ppa.launchpad.net,raw.githubusercontent.com,registry.npmjs.org,s.symcb.com,s.symcd.com,security.ubuntu.com,telemetry.enterprise.githubcopilot.com,ts-crl.ws.symantec.com,ts-ocsp.ws.symantec.com --log-level info --proxy-logs-dir /tmp/gh-aw/sandbox/firewall/logs --enable-host-access --image-tag 0.19.1 --skip-pull \
             -- /bin/bash -c '/usr/local/bin/copilot --add-dir /tmp/gh-aw/ --log-level all --log-dir /tmp/gh-aw/sandbox/agent/logs/ --add-dir "${GITHUB_WORKSPACE}" --disable-builtin-mcps --allow-tool github --allow-tool safeoutputs --allow-tool '\''shell(cat)'\'' --allow-tool '\''shell(date)'\'' --allow-tool '\''shell(diff)'\'' --allow-tool '\''shell(echo)'\'' --allow-tool '\''shell(find)'\'' --allow-tool '\''shell(grep)'\'' --allow-tool '\''shell(head)'\'' --allow-tool '\''shell(jq)'\'' --allow-tool '\''shell(ls)'\'' --allow-tool '\''shell(pwd)'\'' --allow-tool '\''shell(sort)'\'' --allow-tool '\''shell(tail)'\'' --allow-tool '\''shell(uniq)'\'' --allow-tool '\''shell(wc)'\'' --allow-tool '\''shell(yq)'\'' --allow-tool write --allow-all-paths --share /tmp/gh-aw/sandbox/agent/logs/conversation.md --prompt "$(cat /tmp/gh-aw/aw-prompts/prompt.txt)"${GH_AW_MODEL_AGENT_COPILOT:+ --model "$GH_AW_MODEL_AGENT_COPILOT"}' 2>&1 | tee -a /tmp/gh-aw/agent-stdio.log
         env:
           COPILOT_AGENT_RUNNER_TYPE: STANDALONE
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           GH_AW_MCP_CONFIG: /home/runner/.copilot/mcp-config.json
           GH_AW_MODEL_AGENT_COPILOT: ${{ vars.GH_AW_MODEL_AGENT_COPILOT || '' }}
           GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
@@ -743,7 +743,7 @@ jobs:
             await main();
         env:
           GH_AW_SECRET_NAMES: 'COPILOT_GITHUB_TOKEN,GH_AW_GITHUB_MCP_SERVER_TOKEN,GH_AW_GITHUB_TOKEN,GITHUB_TOKEN'
-          SECRET_COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+          SECRET_COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           SECRET_GH_AW_GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN }}
           SECRET_GH_AW_GITHUB_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
           SECRET_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -982,7 +982,7 @@ jobs:
         id: validate-secret
         run: /opt/gh-aw/actions/validate_multi_secret.sh COPILOT_GITHUB_TOKEN 'GitHub Copilot CLI' https://github.github.com/gh-aw/reference/engines/#github-copilot-default
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
       - name: Install GitHub Copilot CLI
         run: /opt/gh-aw/actions/install_copilot_cli.sh 0.0.410
       - name: Execute GitHub Copilot CLI
@@ -1006,7 +1006,7 @@ jobs:
           copilot --add-dir /tmp/ --add-dir /tmp/gh-aw/ --add-dir /tmp/gh-aw/agent/ --log-level all --log-dir /tmp/gh-aw/sandbox/agent/logs/ --disable-builtin-mcps --allow-tool 'shell(cat)' --allow-tool 'shell(grep)' --allow-tool 'shell(head)' --allow-tool 'shell(jq)' --allow-tool 'shell(ls)' --allow-tool 'shell(tail)' --allow-tool 'shell(wc)' --share /tmp/gh-aw/sandbox/agent/logs/conversation.md --prompt "$COPILOT_CLI_INSTRUCTION"${GH_AW_MODEL_DETECTION_COPILOT:+ --model "$GH_AW_MODEL_DETECTION_COPILOT"} 2>&1 | tee /tmp/gh-aw/threat-detection/detection.log
         env:
           COPILOT_AGENT_RUNNER_TYPE: STANDALONE
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           GH_AW_MODEL_DETECTION_COPILOT: ${{ vars.GH_AW_MODEL_DETECTION_COPILOT || '' }}
           GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
           GITHUB_HEAD_REF: ${{ github.head_ref }}

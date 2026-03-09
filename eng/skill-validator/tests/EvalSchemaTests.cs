@@ -40,11 +40,11 @@ public class ParseEvalConfigTests
     }
 
     [Fact]
-    public void AcceptsEmptyScenarios()
+    public void RejectsEmptyScenarios()
     {
         var yaml = "scenarios: []";
-        var result = EvalSchema.ParseEvalConfig(yaml);
-        Assert.Empty(result.Scenarios);
+        var ex = Assert.Throws<InvalidOperationException>(() => EvalSchema.ParseEvalConfig(yaml));
+        Assert.Contains("at least one scenario", ex.Message);
     }
 
     [Fact]

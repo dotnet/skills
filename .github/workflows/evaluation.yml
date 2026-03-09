@@ -5,65 +5,17 @@ on:
     paths:
       - 'plugins/**'
       - 'tests/**'
-      - '.github/workflows/**'
+      - '.github/workflows/evaluation.yml'
+      - '.github/workflows/evaluation-run.yml'
+      - '.github/workflows/evaluation-fork-pr.yml'
       - 'eng/skill-validator/**'
 
   schedule:
-    - cron: '0 */2 * * *'
-
-  workflow_dispatch:
-    inputs:
-      plugins:
-        description: 'Plugins to evaluate (comma-separated, empty=all tests)'
-        required: false
-        default: ''
-      model:
-        description: 'Copilot model to use'
-        required: false
-        default: 'claude-opus-4.6'
-      judge-model:
-        description: 'Judge model to use for evaluation'
-        required: false
-        default: 'claude-opus-4.6'
-      runs:
-        description: 'Number of runs per test'
-        required: false
-        type: number
-        default: 3
-      parallel-skills:
-        description: 'Max concurrent skills to evaluate'
-        required: false
-        type: number
-        default: 3
-      parallel-scenarios:
-        description: 'Max concurrent scenarios per skill'
-        required: false
-        type: number
-        default: 3
-      parallel-runs:
-        description: 'Max concurrent runs per scenario'
-        required: false
-        type: number
-        default: 3
-      verbose:
-        description: 'Enable verbose output'
-        required: false
-        type: boolean
-        default: false
+    - cron: '0 */3 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
-
-env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  DEFAULT_MODEL: 'claude-opus-4.6'
-  DEFAULT_JUDGE_MODEL: 'claude-opus-4.6'
-  # Use more runs for main branch to get more stable benchmark data, but fewer runs for PRs to reduce quota pressure.
-  DEFAULT_RUNS: ${{ github.ref == 'refs/heads/main' && '5' || '3' }}
-  DEFAULT_PARALLEL_SKILLS: '3'
-  DEFAULT_PARALLEL_SCENARIOS: '3'
-  DEFAULT_PARALLEL_RUNS: '3'
 
 permissions:
   contents: write
@@ -71,6 +23,12 @@ permissions:
 
 jobs:
   discover:
+    # Skip fork PRs (handled by evaluation-fork-pr.yml) and scheduled runs on forks.
+    # Without this guard, forks that have activated Actions will run the evaluation
+    # schedule indefinitely, consuming the fork owner's Actions minutes.
+    if: >-
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
+      (github.event_name != 'schedule' || github.repository == 'dotnet/skills')
     runs-on: ubuntu-latest
     outputs:
       entries: ${{ steps.find.outputs.entries }}
@@ -80,32 +38,26 @@ jobs:
       has_plugins: ${{ steps.find.outputs.has_plugins }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Find skills to evaluate
         id: find
         run: |
-          $input = "${{ github.event.inputs.plugins }}"
           $entries = @()
           $plugins = @()
 
-          if ($input) {
-            # Manual input: use specified plugins (evaluate all skills)
-            $plugins = @($input -split ',' | ForEach-Object { $_.Trim() })
-            $entries = @($plugins | ForEach-Object {
-              @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
-            })
-          } elseif ("${{ github.event_name }}" -eq "pull_request") {
+          if ("${{ github.event_name }}" -eq "pull_request") {
             # PR: detect individual changed skills
             $base = "${{ github.event.pull_request.base.sha }}"
             $head = "${{ github.event.pull_request.head.sha }}"
-            $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
+            $mergeBase = git merge-base $base $head
+            $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
-            # Check if any changed files are in infrastructure paths (.github/workflows/ or eng/skill-validator/)
+            # Check if any changed files are in infrastructure paths (evaluation workflows or eng/skill-validator/)
             $hasInfraChanges = $changedFiles |
-              Where-Object { $_ -match '^(\.github/workflows/|eng/skill-validator/)' } |
+              Where-Object { $_ -match '^(\.github/workflows/evaluation(-run|-fork-pr)?\.yml$|eng/skill-validator/)' } |
               Select-Object -First 1
 
             if ($hasInfraChanges) {
@@ -147,7 +99,7 @@ jobs:
               $plugins = @($entries | ForEach-Object { $_.plugin } | Sort-Object -Unique)
             }
           } else {
-            # Schedule/dispatch: evaluate all plugins with skills and tests
+            # Schedule: evaluate all plugins with skills and tests
             $plugins = @(Get-ChildItem -Path "plugins" -Directory |
               Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) } |
               Select-Object -ExpandProperty Name)
@@ -179,199 +131,31 @@ jobs:
           }
         shell: pwsh
 
-  build-validator:
-    runs-on: ubuntu-latest
+  run-evaluation:
     needs: discover
     if: needs.discover.outputs.has_entries == 'true'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
-
-      - name: Build skill-validator
-        run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
-
-      - name: Upload built validator
-        uses: actions/upload-artifact@v4
-        with:
-          name: skill-validator-dist
-          path: artifacts/publish/SkillValidator/release/
-          retention-days: 1
-
-  evaluate:
-    needs: [discover, build-validator]
-    if: ${{ needs.build-validator.result == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    name: evaluate (${{ matrix.entry.name }})
-    strategy:
-      fail-fast: false
-      matrix:
-        entry: ${{ fromJson(needs.discover.outputs.entries || '[]') }}
-
-    steps:
-      - name: Checkout skills repo
-        uses: actions/checkout@v4
-
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
-
-      - name: Download built validator
-        uses: actions/download-artifact@v4
-        with:
-          name: skill-validator-dist
-          path: artifacts/publish/SkillValidator/release/
-
-      - name: Select random Copilot token
-        id: select-token
-        env:
-          TOKEN_1: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
-          TOKEN_3: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
-          TOKEN_4: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
-          TOKEN_5: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
-          TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
-          TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
-          TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
-        run: |
-          # Collect all non-empty token secrets
-          TOKENS=()
-          NAMES=()
-          for i in 1 2 3 4 5 6 7 8; do
-            var="TOKEN_$i"
-            val="${!var}"
-            if [ -n "$val" ]; then
-              TOKENS+=("$val")
-              if [ "$i" -eq 1 ]; then
-                NAMES+=("COPILOT_GITHUB_TOKEN")
-              else
-                NAMES+=("COPILOT_GITHUB_TOKEN_$i")
-              fi
-            fi
-          done
-
-          if [ ${#TOKENS[@]} -eq 0 ]; then
-            echo "::error::No COPILOT_GITHUB_TOKEN secrets are configured"
-            exit 1
-          fi
-
-          # Pick a random token
-          IDX=$((RANDOM % ${#TOKENS[@]}))
-          echo "Selected ${NAMES[$IDX]} (1 of ${#TOKENS[@]} available tokens)"
-
-          # Mask the value so it won't appear in logs, then export
-          echo "::add-mask::${TOKENS[$IDX]}"
-          echo "token=${TOKENS[$IDX]}" >> $GITHUB_OUTPUT
-
-      - name: Run skill-validator
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        env:
-          GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
-          RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
-        run: |
-          # Restore execute permissions lost during artifact upload/download
-          chmod +x artifacts/publish/SkillValidator/release/skill-validator
-          chmod +x artifacts/publish/SkillValidator/release/runtimes/*/native/copilot
-
-          # --require-evals: fail if a skill has no tests/eval.yaml
-          # --verdict-warn-only: treat verdict failures (threshold, completion, activation) as warnings (exit 0);
-          #              execution errors and missing evals still fail.
-          ARGS="--require-evals --verdict-warn-only"
-          ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
-          ARGS="$ARGS --model ${{ github.event.inputs.model || env.DEFAULT_MODEL }}"
-          ARGS="$ARGS --judge-model ${{ github.event.inputs.judge-model || env.DEFAULT_JUDGE_MODEL }}"
-          # Use 2 runs as a balance between not spending excessive quota but still testing that multiple runs work.
-          RUNS="${{ github.event.inputs.runs || (needs.discover.outputs.is_infra == 'true' && '2' || env.DEFAULT_RUNS) }}"
-          ARGS="$ARGS --runs $RUNS"
-          ARGS="$ARGS --parallel-skills ${{ github.event.inputs.parallel-skills || env.DEFAULT_PARALLEL_SKILLS }}"
-          ARGS="$ARGS --parallel-scenarios ${{ github.event.inputs.parallel-scenarios || env.DEFAULT_PARALLEL_SCENARIOS }}"
-          ARGS="$ARGS --parallel-runs ${{ github.event.inputs.parallel-runs || env.DEFAULT_PARALLEL_RUNS }}"
-
-          if [ "${{ github.event.inputs.verbose }}" = "true" ]; then
-            ARGS="$ARGS --verbose"
-          fi
-
-          artifacts/publish/SkillValidator/release/skill-validator $ARGS --tests-dir ./tests/${{ matrix.entry.plugin }} ./${{ matrix.entry.skills_path }}
-
-      - name: Upload results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: skill-validator-results-${{ matrix.entry.name }}
-          path: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}/
-          include-hidden-files: true
-          retention-days: 30
-
-  comment-on-pr:
-    needs: [discover, evaluate]
-    if: always() && needs.evaluate.result != 'cancelled' && needs.discover.outputs.has_entries == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all result artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: skill-validator-results-*
-          path: all-results/
-          merge-multiple: false
-
-      - name: Download built validator
-        uses: actions/download-artifact@v4
-        with:
-          name: skill-validator-dist
-          path: artifacts/publish/SkillValidator/release/
-
-      - name: Make validator executable
-        run: chmod +x artifacts/publish/SkillValidator/release/skill-validator
-
-      - name: Consolidate summaries
-        run: |
-          JSON_FILES=$(find all-results/ -name results.json)
-
-          artifacts/publish/SkillValidator/release/skill-validator consolidate \
-            --output summary-body.md \
-            $JSON_FILES
-
-          MARKER="<!-- skill-validator-results -->"
-          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-          {
-            echo "$MARKER"
-            cat summary-body.md
-            echo ""
-            echo "[Full results]($RUN_URL)"
-          } > consolidated-comment.md
-
-          cat consolidated-comment.md >> $GITHUB_STEP_SUMMARY
-
-      - name: Post or update PR comment
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          MARKER="<!-- skill-validator-results -->"
-
-          # Find existing comment with our marker
-          COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
-            --paginate --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" | head -1)
-
-          if [ -n "$COMMENT_ID" ]; then
-            gh api "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" \
-              -X PATCH -F "body=@consolidated-comment.md"
-          else
-            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
-              -X POST -F "body=@consolidated-comment.md"
-          fi
+    uses: ./.github/workflows/evaluation-run.yml
+    with:
+      entries: ${{ needs.discover.outputs.entries }}
+      runs: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.ref == 'refs/heads/main' && '5' || '3') }}
+      # Infra changes and scheduled runs evaluate all plugins in parallel — reduce
+      # per-job concurrency to avoid API rate limits and timeouts from contention.
+      parallel-skills: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5' }}
+      parallel-scenarios: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
+      parallel-runs: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
+      pr-number: ${{ github.event.pull_request.number || '' }}
+    secrets:
+      COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+      COPILOT_GITHUB_TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+      COPILOT_GITHUB_TOKEN_3: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+      COPILOT_GITHUB_TOKEN_4: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
+      COPILOT_GITHUB_TOKEN_5: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
+      COPILOT_GITHUB_TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
+      COPILOT_GITHUB_TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
+      COPILOT_GITHUB_TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
 
   publish-benchmark:
-    needs: [discover, evaluate]
+    needs: [discover, run-evaluation]
     if: github.ref == 'refs/heads/main' && needs.discover.outputs.has_plugins == 'true'
     concurrency:
       group: publish-benchmark-deploy
@@ -380,10 +164,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download evaluation artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: skill-validator-results-*
           path: all-results/
@@ -473,14 +257,3 @@ jobs:
           git diff --cached --quiet && echo "No changes to deploy" && exit 0
           git commit -m "Update benchmark data"
           git push origin gh-pages
-
-  no-changes:
-    needs: discover
-    if: github.event_name == 'pull_request' && needs.discover.outputs.has_entries != 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Report no entries changed
-        run: |
-          echo "## Skill Evaluation" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "No skills with tests were modified in this PR." >> $GITHUB_STEP_SUMMARY

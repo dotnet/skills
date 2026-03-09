@@ -39,7 +39,7 @@ curl -JL https://aka.ms/dotnet-trace/win-x64 -o dotnet-trace.exe
 # List running .NET processes
 dotnet-trace ps
 
-# Collect a trace with the default profile (CPU sampling)
+# Collect a trace with the default profiles (dotnet-common and dotnet-sampled-thread-time)
 dotnet-trace collect -p <PID>
 
 # Collect with a specific profile
@@ -48,6 +48,9 @@ dotnet-trace collect -p <PID> --profile gc-verbose
 
 # Collect with specific providers
 dotnet-trace collect -p <PID> --providers Microsoft-DotNETCore-SampleProfiler,Microsoft-Windows-DotNETRuntime
+
+# Collect with networking providers (HTTP status codes, DNS, TLS, sockets)
+dotnet-trace collect -p <PID> --providers System.Net.Http,System.Net.NameResolution,System.Net.Security,System.Net.Sockets
 
 # Collect for a fixed duration (time span in hh:mm:ss format)
 dotnet-trace collect -p <PID> --duration 00:00:30

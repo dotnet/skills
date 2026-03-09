@@ -1,0 +1,332 @@
+# Reusable evaluation workflow shared by evaluation.yml and evaluation-fork-pr.yml.
+# Contains the build-validator, evaluate, and comment-on-pr jobs.
+name: evaluation-run
+
+on:
+  workflow_call:
+    inputs:
+      entries:
+        description: 'JSON array of {name, plugin, skills_path} entries to evaluate'
+        required: true
+        type: string
+      checkout-ref:
+        description: 'Git ref to checkout for skill content (empty = default)'
+        required: false
+        type: string
+        default: ''
+      model:
+        description: 'Copilot model to use'
+        required: false
+        type: string
+        default: 'claude-opus-4.6'
+      judge-model:
+        description: 'Judge model to use'
+        required: false
+        type: string
+        default: 'claude-opus-4.6'
+      runs:
+        description: 'Number of runs per test'
+        required: false
+        type: string
+        default: '3'
+      parallel-skills:
+        description: 'Max concurrent skills'
+        required: false
+        type: string
+        default: '5'
+      parallel-scenarios:
+        description: 'Max concurrent scenarios'
+        required: false
+        type: string
+        default: '5'
+      parallel-runs:
+        description: 'Max concurrent runs'
+        required: false
+        type: string
+        default: '5'
+      verbose:
+        description: 'Enable verbose output'
+        required: false
+        type: boolean
+        default: false
+      pr-number:
+        description: 'PR number for commenting (empty = skip)'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      COPILOT_GITHUB_TOKEN:
+        required: false
+      COPILOT_GITHUB_TOKEN_2:
+        required: false
+      COPILOT_GITHUB_TOKEN_3:
+        required: false
+      COPILOT_GITHUB_TOKEN_4:
+        required: false
+      COPILOT_GITHUB_TOKEN_5:
+        required: false
+      COPILOT_GITHUB_TOKEN_6:
+        required: false
+      COPILOT_GITHUB_TOKEN_7:
+        required: false
+      COPILOT_GITHUB_TOKEN_8:
+        required: false
+    outputs:
+      comment_action:
+        description: 'Whether the PR comment was created, updated, or not posted'
+        value: ${{ jobs.comment-on-pr.outputs.comment_action }}
+
+env:
+  PR_COMMENT_MARKER: '<!-- skill-validator-results -->'
+
+jobs:
+  build-validator:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # Always checkout the default ref (base branch) for building the validator.
+      # The caller's checkout-ref input is only used for skill content, not for
+      # building trusted tooling.
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Build skill-validator
+        run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
+
+      - name: Create validator archive
+        run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
+
+      - name: Upload built validator
+        uses: actions/upload-artifact@v7
+        with:
+          name: skill-validator-dist.tar.gz
+          path: skill-validator-dist.tar.gz
+          archive: false
+          retention-days: 1
+
+  evaluate:
+    needs: build-validator
+    if: needs.build-validator.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 90
+    name: evaluate (${{ matrix.entry.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJson(inputs.entries) }}
+
+    steps:
+      - name: Checkout skills content
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.checkout-ref || '' }}
+          persist-credentials: false
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Download built validator
+        uses: actions/download-artifact@v8
+        with:
+          name: skill-validator-dist.tar.gz
+
+      - name: Extract validator
+        run: |
+          mkdir -p artifacts/publish/SkillValidator/release
+          tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
+
+      - name: Select random Copilot token
+        id: select-token
+        env:
+          TOKEN_1: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+          TOKEN_3: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+          TOKEN_4: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
+          TOKEN_5: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
+          TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
+          TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
+          TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
+        run: |
+          # Collect all non-empty token secrets
+          TOKENS=()
+          NAMES=()
+          for i in 1 2 3 4 5 6 7 8; do
+            var="TOKEN_$i"
+            val="${!var}"
+            if [ -n "$val" ]; then
+              TOKENS+=("$val")
+              if [ "$i" -eq 1 ]; then
+                NAMES+=("COPILOT_GITHUB_TOKEN")
+              else
+                NAMES+=("COPILOT_GITHUB_TOKEN_$i")
+              fi
+            fi
+          done
+
+          if [ ${#TOKENS[@]} -eq 0 ]; then
+            echo "::error::No COPILOT_GITHUB_TOKEN secrets are configured"
+            exit 1
+          fi
+
+          # Assign token deterministically by matrix job index to avoid collisions.
+          # Falls back to RANDOM if strategy.job-index is unavailable.
+          JOB_INDEX="${{ strategy.job-index }}"
+          if [ -n "$JOB_INDEX" ]; then
+            IDX=$(( JOB_INDEX % ${#TOKENS[@]} ))
+          else
+            IDX=$((RANDOM % ${#TOKENS[@]}))
+          fi
+          echo "Selected ${NAMES[$IDX]} (1 of ${#TOKENS[@]} available tokens, job-index=${JOB_INDEX:-random})"
+
+          # Mask the value so it won't appear in logs, then export
+          echo "::add-mask::${TOKENS[$IDX]}"
+          echo "token=${TOKENS[$IDX]}" >> $GITHUB_OUTPUT
+
+      - name: Run skill-validator
+        env:
+          GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
+          RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
+        run: |
+          ARGS="--require-evals --verdict-warn-only"
+          ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
+          ARGS="$ARGS --model ${{ inputs.model }}"
+          ARGS="$ARGS --judge-model ${{ inputs.judge-model }}"
+          ARGS="$ARGS --runs ${{ inputs.runs }}"
+          ARGS="$ARGS --parallel-skills ${{ inputs.parallel-skills }}"
+          ARGS="$ARGS --parallel-scenarios ${{ inputs.parallel-scenarios }}"
+          ARGS="$ARGS --parallel-runs ${{ inputs.parallel-runs }}"
+
+          if [ "${{ inputs.verbose }}" = "true" ]; then
+            ARGS="$ARGS --verbose"
+          fi
+
+          artifacts/publish/SkillValidator/release/skill-validator $ARGS --tests-dir ./tests/${{ matrix.entry.plugin }} ./${{ matrix.entry.skills_path }}
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: skill-validator-results-${{ matrix.entry.name }}
+          path: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}/
+          include-hidden-files: true
+          retention-days: 30
+
+  comment-on-pr:
+    needs: evaluate
+    if: always() && needs.evaluate.result != 'cancelled' && needs.evaluate.result != 'skipped' && inputs.pr-number != ''
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    outputs:
+      comment_action: ${{ steps.post-comment.outputs.comment_action }}
+    steps:
+      - name: Download all result artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: skill-validator-results-*
+          path: all-results/
+          merge-multiple: false
+
+      - name: Download built validator
+        uses: actions/download-artifact@v8
+        with:
+          name: skill-validator-dist.tar.gz
+
+      - name: Extract validator
+        run: |
+          mkdir -p artifacts/publish/SkillValidator/release
+          tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
+
+      - name: Consolidate summaries
+        run: |
+          JSON_FILES=$(find all-results/ -name results.json)
+
+          artifacts/publish/SkillValidator/release/skill-validator consolidate \
+            --output summary-body.md \
+            $JSON_FILES
+
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          {
+            echo "$PR_COMMENT_MARKER"
+            cat summary-body.md
+            echo ""
+            echo "[Full results]($RUN_URL)"
+          } > consolidated-comment.md
+
+          cat consolidated-comment.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Post or update PR comment
+        id: post-comment
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER=${{ inputs.pr-number }}
+
+          # Find existing comment with our marker
+          COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --paginate --jq ".[] | select(.body | startswith(\"$PR_COMMENT_MARKER\")) | .id" | head -1)
+
+          if [ -n "$COMMENT_ID" ]; then
+            gh api "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" \
+              -X PATCH -F "body=@consolidated-comment.md"
+            echo "comment_action=updated" >> $GITHUB_OUTPUT
+          else
+            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+              -X POST -F "body=@consolidated-comment.md"
+            echo "comment_action=created" >> $GITHUB_OUTPUT
+          fi
+
+  post-completion-comment:
+    needs: [evaluate, comment-on-pr]
+    if: always() && needs.evaluate.result != 'cancelled' && inputs.pr-number != ''
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Post completion comment
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER=${{ inputs.pr-number }}
+          EVAL_RESULT="${{ needs.evaluate.result }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # Handle skipped (build-validator failed) or failure
+          if [[ "$EVAL_RESULT" == "skipped" ]]; then
+            BODY="❌ Evaluation did not complete (upstream job failed or was skipped). [View workflow run](${RUN_URL})"
+            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
+            exit 0
+          fi
+
+          if [[ "$EVAL_RESULT" != "success" ]]; then
+            BODY="❌ Evaluation failed. [View workflow run](${RUN_URL})"
+            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
+            exit 0
+          fi
+
+          # Success path — only post if the evaluation table was updated (not newly created)
+          # to avoid posting a duplicate comment alongside the new table
+          if [[ "${{ needs.comment-on-pr.outputs.comment_action }}" != "updated" ]]; then
+            echo "Evaluation table was newly created or not posted; skipping completion comment."
+            exit 0
+          fi
+
+          TABLE_COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --paginate --jq ".[] | select(.body | startswith(\"$PR_COMMENT_MARKER\")) | .id" | head -1 || echo "")
+
+          TABLE_URL="${{ github.server_url }}/${{ github.repository }}/pull/${PR_NUMBER}#issuecomment-${TABLE_COMMENT_ID}"
+          BODY="✅ Evaluation completed. [View results](${TABLE_URL}) | [View workflow run](${RUN_URL})"
+          gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"

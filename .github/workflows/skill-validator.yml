@@ -1,23 +1,125 @@
 name: skill-validator
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'eng/skill-validator/**'
-      - '.github/workflows/skill-validator.yml'
   pull_request:
     paths:
       - 'eng/skill-validator/**'
       - '.github/workflows/skill-validator.yml'
+  schedule:
+    - cron: '0 8 * * *' # daily at 08:00 UTC
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a nightly release after building'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RETENTION_DAYS: ${{ (github.event_name == 'schedule' || inputs.create_release) && 90 || 5 }}
+  AGNOSTIC_RID: linux-x64
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+          - os: windows-latest
+            rid: win-x64
+          - os: windows-11-arm
+            rid: win-arm64
+          - os: macos-latest
+            rid: osx-arm64
+
+    runs-on: ${{ matrix.os }}
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
-      - run: dotnet build eng/skill-validator/SkillValidator.slnx
-      - run: dotnet test --solution eng/skill-validator/SkillValidator.slnx --no-build
+
+      - name: Build
+        run: dotnet build eng/skill-validator/SkillValidator.slnx
+
+      - name: Test
+        run: dotnet test --solution eng/skill-validator/SkillValidator.slnx --no-build
+
+      - name: Pack RID-specific NuGet package
+        run: dotnet pack eng/skill-validator/src/SkillValidator.csproj --use-current-runtime
+
+      - name: Upload RID-specific NuGet package
+        uses: actions/upload-artifact@v7
+        with:
+          name: skill-validator-${{ matrix.rid }}
+          path: artifacts/package/release/Microsoft.DotNet.SkillValidator.${{ matrix.rid }}.*.nupkg
+          archive: false
+          retention-days: ${{ env.RETENTION_DAYS }}
+          if-no-files-found: error
+
+      - name: Create tar.gz archive
+        shell: bash
+        run: |
+          mkdir -p artifacts/assets
+          tar -czf artifacts/assets/skill-validator-${{ matrix.rid }}.tar.gz -C artifacts/publish/SkillValidator/release .
+
+      - name: Upload tar.gz archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: skill-validator-${{ matrix.rid }}.tar.gz
+          path: artifacts/assets/skill-validator-${{ matrix.rid }}.tar.gz
+          archive: false
+          retention-days: ${{ env.RETENTION_DAYS }}
+          if-no-files-found: error
+
+      - name: Pack RID-agnostic NuGet package
+        if: matrix.rid == env.AGNOSTIC_RID
+        run: dotnet pack eng/skill-validator/src/SkillValidator.csproj
+
+      - name: Upload RID-agnostic NuGet package
+        if: matrix.rid == env.AGNOSTIC_RID
+        uses: actions/upload-artifact@v7
+        with:
+          archive: false
+          name: skill-validator
+          path: |
+            artifacts/package/release/Microsoft.DotNet.SkillValidator.*.nupkg
+            !artifacts/package/release/Microsoft.DotNet.SkillValidator.${{ env.AGNOSTIC_RID }}.*.nupkg
+          retention-days: ${{ env.RETENTION_DAYS }}
+          if-no-files-found: error
+
+  release:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.create_release)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create or update nightly release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="skill-validator-nightly"
+          gh release delete "$tag" --yes || true
+          git tag -f "$tag"
+          git push -f origin "$tag"
+          gh release create "$tag" release-assets/*.nupkg release-assets/*.tar.gz \
+            --title "SkillValidator Nightly" \
+            --notes "Automated nightly build from \`main\` ($(date -u +%Y-%m-%d))." \
+            --prerelease

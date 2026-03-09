@@ -7,7 +7,8 @@ description: >
   dispatches investigation workers for new critical/warning findings.
 
 on:
-  schedule: daily
+  schedule:
+    - cron: "0 3 * * *"  # 03:00 UTC daily
   workflow_dispatch:
 
 permissions:
@@ -30,17 +31,21 @@ safe-outputs:
   create-issue:
     max: 1
   update-issue:
+    target: "*"
     max: 1
   add-comment:
+    target: "*"
     max: 1
   dispatch-workflow:
     workflows:
       - devops-health-investigate
-    max: 10
+    max: 2  # Workaround for https://github.com/github/gh-aw/issues/20187 — raise when fixed
 
 network:
   allowed:
     - defaults
+
+timeout-minutes: 60
 ---
 
 # DevOps Daily Health Check — Orchestrator
@@ -64,12 +69,12 @@ You are a DevOps health monitoring agent. Your job is to collect repo health sig
 Scan the repository to find all skill components:
 
 ```
-find src/*/plugin.json -maxdepth 2
+find plugins/*/plugin.json -maxdepth 2
 ```
 
-Each `src/{name}/` directory containing a `plugin.json` is a component. The corresponding dashboard data file is `data/{name}.json` on `gh-pages`.
+Each `plugins/{name}/` directory containing a `plugin.json` is a component. The corresponding dashboard data file is `data/{name}.json` on `gh-pages`.
 
-### 1.2 Pipeline Health (P1–P4)
+### 1.2 Pipeline Health (P1–P6)
 
 **P1 — Failed workflow runs on `main` in last 24h:**
 ```
@@ -103,6 +108,41 @@ GET /repos/{owner}/{repo}/actions/runs?branch=main&per_page=100
 ```
 Group by workflow name, compute success/failure ratio over the last 7 days.
 - 🔵 Info (metric only — reported in trends table, not fingerprinted)
+
+**P5 — Evaluation failure rate across all branches (last 24h):**
+```
+GET /repos/{owner}/{repo}/actions/workflows/evaluation.yml/runs?per_page=100
+```
+Filter to runs created within the last 24 hours across all branches and event types (schedule, pull_request, workflow_dispatch). Paginate if the first page does not cover the full 24h window. Compute:
+- Total runs, failures (conclusion=failure), cancellations (conclusion=cancelled), successes
+- **Overall failure rate** = failures / (failures + successes) — exclude cancelled runs from denominator
+- **Overall non-success rate** = (failures + cancellations) / total
+- Break down failure counts by event type (schedule vs pull_request vs workflow_dispatch)
+
+Severity thresholds:
+- 🔴 Critical if overall failure rate > 30%
+- 🟡 Warning if overall failure rate > 15%
+- Fingerprint: `pipeline:evaluation:failure-rate:{bucket}` (bucket = "critical" or "warning")
+
+Also include in the finding details:
+- Failure count by event type (e.g., "10 PR failures, 4 schedule failures")
+- Sample of recent failed run URLs (up to 5) for quick investigation
+- Common failing job names across the failed runs
+
+**P6 — Evaluation scheduled run cancellation rate (last 24h):**
+```
+GET /repos/{owner}/{repo}/actions/workflows/evaluation.yml/runs?branch=main&event=schedule&per_page=100
+```
+Filter to scheduled runs on `main` created within the last 24 hours. Compute:
+- Total scheduled runs, cancelled count, completed count
+- Cancellation rate = cancelled / total
+
+Severity thresholds:
+- 🟡 Warning if cancellation rate > 30% (pipeline frequently doesn't complete within schedule interval)
+- 🔴 Critical if cancellation rate > 60% (majority of scheduled runs never complete)
+- Fingerprint: `pipeline:evaluation:schedule-cancellation:{bucket}` (bucket = "critical" or "warning")
+
+This detects when the evaluation pipeline consistently takes longer than the schedule interval (e.g., runs every 2h but takes >2h to complete), causing the concurrency group to cancel in-flight runs.
 
 ### 1.3 Skill Quality (Q1–Q7)
 
@@ -156,9 +196,9 @@ Compute the standard deviation of `"Skilled Quality"` scores across all entries 
 
 **Q6 — Skills without eval tests:**
 ```
-find src/*/skills/ -mindepth 1 -maxdepth 1 -type d
+find plugins/*/skills/ -mindepth 1 -maxdepth 1 -type d
 ```
-For each skill directory, check if a corresponding test directory exists under `src/{component}/tests/{skill-name}/`.
+For each skill directory, check if a corresponding test directory exists under `tests/{component}/{skill-name}/`.
 If the test directory exists, verify that `eval.yaml` exists and contains at least one scenario.
 - 🟡 Warning if no test directory, no eval.yaml, or eval.yaml has no scenarios
 - Fingerprint: `coverage:{skill}:no-tests`
@@ -200,7 +240,7 @@ GET /repos/{owner}/{repo}/pulls?state=closed&sort=updated&direction=desc&per_pag
 Count merged PRs per day over the last 7 days.
 - 🔵 Info (metric only — reported in trends table, not fingerprinted)
 
-### 1.5 Infrastructure Checks (I1–I6)
+### 1.5 Infrastructure Checks (I1–I8)
 
 **I1 — Missing CODEOWNERS:**
 ```
@@ -239,6 +279,32 @@ Check last deployment status.
 Scan workflow YAML files for non-`actions/*` references. Flag those pinned to tags instead of SHAs.
 - 🔵 Info
 - Fingerprint: `infra:unpinned-action:{action_name}`
+
+**I7 — Orphan skills (not registered in any plugin):**
+Discover all skill directories on disk:
+```
+find plugins/*/skills/ -mindepth 1 -maxdepth 1 -type d
+```
+For each skill directory found, verify that its parent plugin directory contains a valid `plugin.json` with a `skills` field that resolves to a path containing the skill. Specifically:
+- Parse `plugins/{component}/plugin.json` and resolve the `skills` field (e.g., `"./skills/"`) relative to the plugin directory.
+- Confirm the skill directory is under the resolved skills path.
+- If a skill directory exists under `plugins/*/skills/` but the parent `plugins/*/` has no `plugin.json`, or the `plugin.json` has no `skills` field, the skill is orphaned.
+- Also scan for any stray skill-like directories outside the standard `plugins/*/skills/` structure (e.g., leftover directories in `plugins/*/` that contain `.md` prompt files but are not under `skills/` or `agents/`).
+- 🟡 Warning for each orphan skill found
+- Fingerprint: `infra:orphan-skill:{component}:{skill_name}`
+
+**I8 — Orphan plugins (not listed in marketplace.json):**
+Compare the set of plugin directories on disk against the marketplace registry:
+```
+find plugins -maxdepth 2 -type f -name plugin.json
+cat .github/plugin/marketplace.json | jq -r '.plugins[].source'
+```
+For each plugin directory under `plugins/` that contains a `plugin.json`:
+- Derive the plugin directory path from the actual location of `plugin.json` on disk (for example, if `plugin.json` is at `plugins/foo/plugin.json`, the directory is `plugins/foo/`), and separately read the plugin display name from its `name` field.
+- Check if a matching entry exists in `.github/plugin/marketplace.json` where `plugins[].source` resolves to the same directory path (e.g., `"./plugins/foo"`), comparing using the directory derived from the filesystem rather than the `name` field.
+- If no entry in marketplace.json points to that directory, the plugin is orphaned and will not be discoverable by consumers. Optionally, also emit a separate finding if the `plugin.json` `name` field does not match the directory basename (e.g., `plugins/foo/` with `name: "bar"`).
+- 🟡 Warning for each orphan plugin found
+- Fingerprint: `infra:orphan-plugin:{directory_basename}` (uses on-disk directory name, not the `name` field)
 
 ### 1.6 Resource Usage (U1–U3)
 
@@ -291,6 +357,8 @@ Using the classified findings, generate:
 2. **Correlation insights**: Identify connections between findings. For example:
    - A pipeline failure AND stale benchmark data → pipeline likely blocking data publication
    - Multiple quality regressions after the same date → look for a common commit
+   - High eval failure rate across all branches (P5) AND timeouts in quality checks → systemic model/infrastructure issue, not skill-specific
+   - High scheduled cancellation rate (P6) AND eval duration warning (P3) → pipeline consistently exceeds schedule interval, consider increasing interval or optimizing eval
 
 3. **Recommendations**: Prioritized list of suggested actions.
 
@@ -337,7 +405,19 @@ Replace the entire issue body with the following structure:
 > These appeared since the last health check ({previous_date}).
 
 {For each new finding, render a full section with title, details, link, and suggested action}
-{Include investigation placeholder islands for findings that qualify for dispatch — see Step 5}
+
+---
+
+## 🔍 Investigation Results
+
+> Deep investigations are dispatched for new critical/warning findings.
+> The [grooming workflow](../workflows/devops-health-groom.md) links results ~3 hours after this run.
+
+| Finding | Severity | Status | Result |
+|---------|----------|--------|--------|
+{For each finding dispatched in the current run:}
+| {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | [Workflow Run]({workflow_actions_url}) |
+{Preserve any rows from the previous issue body that already show ✅ Done or ✅ Resolved — do not remove them}
 
 ---
 
@@ -362,7 +442,9 @@ Replace the entire issue body with the following structure:
 | Metric | Today | 7d Avg | Δ | Trend |
 |--------|-------|--------|---|-------|
 | Eval duration (min) | {today} | {avg} | {delta} | {arrow} |
-| Eval success rate | {today} | {avg} | {delta} | {arrow} |
+| Eval success rate (main) | {today} | {avg} | {delta} | {arrow} |
+| Eval success rate (all branches) | {today} | {avg} | {delta} | {arrow} |
+| Eval scheduled cancellation rate | {today} | {avg} | {delta} | {arrow} |
 | PRs merged/day | {today} | {avg} | {delta} | {arrow} |
 | Open PRs | {today} | {avg} | {delta} | {arrow} |
 | Compute hours/day | {today} | {avg} | {delta} | {arrow} |
@@ -421,7 +503,7 @@ For each 🆕 NEW finding that qualifies for investigation, dispatch a worker us
 
 **First run note:** On the first run all findings are 🆕 NEW. This means ALL critical findings MUST be dispatched.
 
-**Budget:** Maximum 10 dispatches per run. If more than 10 qualify, prioritize by:
+**Budget:** Maximum **2** dispatches per run (limited to avoid investigation runs cancelling each other due to a shared agent concurrency group — see [gh-aw#20187](https://github.com/github/gh-aw/issues/20187)). If more than 2 qualify, prioritize by:
 1. Severity descending (🔴 first)
 2. Pipeline findings first
 3. Quality findings second
@@ -450,12 +532,17 @@ dispatch-workflow:
 Before finishing, verify:
 - [ ] At least one `dispatch-workflow` call was made (if any 🔴 critical or qualifying 🟡 warning findings exist)
 - [ ] All 🔴 critical NEW findings have been dispatched (up to budget cap)
+- [ ] The "🔍 Investigation Results" section in the issue body shows newly dispatched findings as "🔄 Dispatched"
+- [ ] Any existing "✅ Done" or "✅ Resolved" rows from the previous issue body are preserved
 - [ ] The noop summary message mentions how many investigations were dispatched
 
 ---
 
 ## Guidelines
 
+- **Time budget**: You have a 60-minute timeout. Prioritize reaching Steps 4 and 5 (issue update + dispatch). Do NOT write intermediate scripts or analysis files. Work through each check, collect findings in memory, and proceed directly to output. Aim to complete data collection (Step 1) within 30 minutes.
+- **Efficiency**: Process API responses in memory. Do NOT create Python/bash scripts to analyze data — parse JSON directly using `jq` or inline analysis. Do NOT write intermediate files unless explicitly required by the output format.
+- **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **complete, literal issue body text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. Pass the body directly as the string value.
 - **Be data-driven**: Include specific numbers, durations, percentages, and links.
 - **Be precise with fingerprints**: Use the exact fingerprint formulas from the knowledge file. Consistency is critical — the same finding MUST produce the same fingerprint across runs.
 - **First run handling**: If `cache-memory` has no previous state, note: "⚠️ This is the first health check run. All findings appear as new. Diff will resume from next run."

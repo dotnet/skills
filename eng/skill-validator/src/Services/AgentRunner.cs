@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using SkillValidator.Models;
+using SkillValidator.Utilities;
 using GitHub.Copilot.SDK;
 
 namespace SkillValidator.Services;
@@ -20,6 +22,11 @@ public static class AgentRunner
     private static readonly SemaphoreSlim _clientLock = new(1, 1);
     private static readonly ConcurrentBag<string> _workDirs = [];
 
+    /// <summary>
+    /// Returns the shared <see cref="CopilotClient"/>, creating it on first call.
+    /// Must be called before executing any untrusted workloads (eval scenarios,
+    /// setup commands).
+    /// </summary>
     public static async Task<CopilotClient> GetSharedClient(bool verbose)
     {
         if (_sharedClient is not null) return _sharedClient;
@@ -36,7 +43,12 @@ public static class AgentRunner
 
             var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
             if (!string.IsNullOrEmpty(githubToken))
+            {
                 options.GitHubToken = githubToken;
+                // Clear the token from the environment so child processes
+                // (e.g. LLM-generated code, eval shell commands) cannot read it.
+                Environment.SetEnvironmentVariable("GITHUB_TOKEN", null);
+            }
 
             _sharedClient = new CopilotClient(options);
             await _sharedClient.StartAsync();
@@ -98,7 +110,7 @@ public static class AgentRunner
         var skillPath = skill is not null ? Path.GetDirectoryName(skill.Path) : null;
 
         // Create a unique temporary config directory for this session to not share any data
-        var configDir = Path.Combine(Path.GetTempPath(), $"skill-validator-cfg-{Guid.NewGuid():N}");
+        var configDir = Path.Combine(Path.GetTempPath(), $"sv-cfg-{Guid.NewGuid():N}");
         Directory.CreateDirectory(configDir);
         _workDirs.Add(configDir);
 
@@ -144,6 +156,16 @@ public static class AgentRunner
 
     public static async Task<RunMetrics> RunAgent(RunOptions options)
     {
+        return await RetryHelper.ExecuteWithRetry(
+            async ct => await RunAgentCore(options, ct),
+            label: $"RunAgent({options.Scenario.Name}, {(options.Skill is not null ? "skilled" : "baseline")})",
+            maxRetries: 2,
+            baseDelayMs: 5_000,
+            totalTimeoutMs: (options.Scenario.Timeout + 60) * 1000);
+    }
+
+    private static async Task<RunMetrics> RunAgentCore(RunOptions options, CancellationToken cancellationToken)
+    {
         var workDir = await SetupWorkDir(options.Scenario, options.Skill?.Path, options.EvalPath);
         if (options.Verbose)
         {
@@ -165,7 +187,8 @@ public static class AgentRunner
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
-            using var cts = new CancellationTokenSource(effectiveTimeout * 1000);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(effectiveTimeout * 1000);
             cts.Token.Register(() =>
                 done.TrySetException(new TimeoutException($"Scenario timed out after {effectiveTimeout}s")));
 
@@ -180,17 +203,17 @@ public static class AgentRunner
                 switch (evt)
                 {
                     case AssistantMessageDeltaEvent delta:
-                        agentEvent.Data["deltaContent"] = delta.Data.DeltaContent;
+                        agentEvent.Data["deltaContent"] = JsonValue.Create(delta.Data.DeltaContent);
                         agentOutput += delta.Data.DeltaContent ?? "";
                         break;
                     case AssistantMessageEvent msg:
-                        agentEvent.Data["content"] = msg.Data.Content;
+                        agentEvent.Data["content"] = JsonValue.Create(msg.Data.Content);
                         if (!string.IsNullOrEmpty(msg.Data.Content))
                             agentOutput = msg.Data.Content;
                         break;
                     case ToolExecutionStartEvent toolStart:
-                        agentEvent.Data["toolName"] = toolStart.Data.ToolName;
-                        agentEvent.Data["arguments"] = toolStart.Data.Arguments?.ToString();
+                        agentEvent.Data["toolName"] = JsonValue.Create(toolStart.Data.ToolName);
+                        agentEvent.Data["arguments"] = JsonValue.Create(toolStart.Data.Arguments?.ToString());
                         if (options.Verbose)
                         {
                             var write = options.Log ?? (m => Console.Error.WriteLine(m));
@@ -198,14 +221,19 @@ public static class AgentRunner
                         }
                         break;
                     case ToolExecutionCompleteEvent toolComplete:
-                        agentEvent.Data["success"] = toolComplete.Data.Success.ToString();
-                        agentEvent.Data["result"] = toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "";
+                        agentEvent.Data["success"] = JsonValue.Create(toolComplete.Data.Success.ToString());
+                        agentEvent.Data["result"] = JsonValue.Create(toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "");
                         break;
                     case SkillInvokedEvent skillInvoked:
-                        agentEvent.Data["name"] = skillInvoked.Data.Name;
-                        agentEvent.Data["path"] = skillInvoked.Data.Path;
+                        agentEvent.Data["name"] = JsonValue.Create(skillInvoked.Data.Name);
+                        agentEvent.Data["path"] = JsonValue.Create(skillInvoked.Data.Path);
                         if (skillInvoked.Data.AllowedTools is { } allowedTools)
-                            agentEvent.Data["allowedTools"] = allowedTools;
+                        {
+                            var arr = new JsonArray();
+                            foreach (var tool in allowedTools)
+                                arr.Add((JsonNode?)JsonValue.Create(tool));
+                            agentEvent.Data["allowedTools"] = arr;
+                        }
                         if (options.Verbose)
                         {
                             var write = options.Log ?? (m => Console.Error.WriteLine(m));
@@ -213,18 +241,18 @@ public static class AgentRunner
                         }
                         break;
                     case AssistantUsageEvent usage:
-                        agentEvent.Data["inputTokens"] = usage.Data.InputTokens;
-                        agentEvent.Data["outputTokens"] = usage.Data.OutputTokens;
-                        agentEvent.Data["model"] = usage.Data.Model;
+                        agentEvent.Data["inputTokens"] = JsonValue.Create(usage.Data.InputTokens);
+                        agentEvent.Data["outputTokens"] = JsonValue.Create(usage.Data.OutputTokens);
+                        agentEvent.Data["model"] = JsonValue.Create(usage.Data.Model);
                         break;
                     case UserMessageEvent userMsg:
-                        agentEvent.Data["content"] = userMsg.Data.Content;
+                        agentEvent.Data["content"] = JsonValue.Create(userMsg.Data.Content);
                         break;
                     case SessionIdleEvent:
                         done.TrySetResult();
                         break;
                     case SessionErrorEvent err:
-                        agentEvent.Data["message"] = err.Data.Message;
+                        agentEvent.Data["message"] = JsonValue.Create(err.Data.Message);
                         done.TrySetException(new InvalidOperationException(err.Data.Message ?? "Session error"));
                         break;
                 }
@@ -241,11 +269,23 @@ public static class AgentRunner
             events.Add(new AgentEvent(
                 "runner.error",
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                new Dictionary<string, object?> { ["message"] = te.ToString() }));
+                new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(te.ToString()) }));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw; // Budget exhausted — let RetryHelper handle it.
         }
         catch (Exception error)
         {
             var msg = error.ToString();
+
+            // Re-throw rate-limit (429) errors so RetryHelper can retry them.
+            if (msg.Contains("429", StringComparison.Ordinal)
+                || msg.Contains("rate limit", StringComparison.OrdinalIgnoreCase))
+            {
+                throw;
+            }
+
             if (error is TimeoutException || error.InnerException is TimeoutException
                 || msg.Contains("timed out", StringComparison.OrdinalIgnoreCase))
             {
@@ -253,7 +293,7 @@ public static class AgentRunner
                 events.Add(new AgentEvent(
                     "runner.timeout",
                     DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    new Dictionary<string, object?> { ["message"] = msg }));
+                    new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(msg) }));
             }
             else if (!events.Any(e => e.Type == "session.error"))
             {
@@ -261,7 +301,7 @@ public static class AgentRunner
                 events.Add(new AgentEvent(
                     "runner.error",
                     DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    new Dictionary<string, object?> { ["message"] = msg }));
+                    new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(msg) }));
             }
         }
 
@@ -273,7 +313,7 @@ public static class AgentRunner
 
     private static async Task<string> SetupWorkDir(EvalScenario scenario, string? skillPath, string? evalPath)
     {
-        var workDir = Path.Combine(Path.GetTempPath(), $"skill-validator-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(Path.GetTempPath(), $"sv-{Guid.NewGuid():N}");
         Directory.CreateDirectory(workDir);
         _workDirs.Add(workDir);
 

@@ -1,3 +1,4 @@
+using SkillValidator.Commands;
 using SkillValidator.Models;
 using SkillValidator.Services;
 
@@ -5,13 +6,13 @@ namespace SkillValidator.Tests;
 
 public class AnalyzeSkillTests
 {
-    private static SkillInfo MakeSkill(string content, string name = "test-skill")
+    private static SkillInfo MakeSkill(string content, string name = "test-skill", string description = "Test skill", string? path = null)
     {
         return new SkillInfo(
             Name: name,
-            Description: "Test skill",
-            Path: "/tmp/test-skill",
-            SkillMdPath: "/tmp/test-skill/SKILL.md",
+            Description: description,
+            Path: path ?? $"/tmp/{name}",
+            SkillMdPath: $"{path ?? $"/tmp/{name}"}/SKILL.md",
             SkillMdContent: content,
             EvalPath: null,
             EvalConfig: null);
@@ -114,13 +115,286 @@ public class AnalyzeSkillTests
         Assert.Equal("detailed", profile.ComplexityTier);
         Assert.Empty(profile.Warnings);
     }
+
+    private static SkillInfo MakeSkillWithEval(string content, string name, List<EvalScenario> scenarios)
+    {
+        return new SkillInfo(
+            Name: name,
+            Description: "Test skill",
+            Path: "/tmp/test-skill",
+            SkillMdPath: "/tmp/test-skill/SKILL.md",
+            SkillMdContent: content,
+            EvalPath: "/tmp/test-skill/eval.yaml",
+            EvalConfig: new EvalConfig(scenarios));
+    }
+
+    [Fact]
+    public void WarnsWhenEvalPromptMentionsSkillName()
+    {
+        var content = "---\nname: migrate-app\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var scenarios = new List<EvalScenario>
+        {
+            new("basic", "Use the migrate-app skill to help me migrate my project")
+        };
+        var skill = MakeSkillWithEval(content, "migrate-app", scenarios);
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.Contains(profile.Warnings, w => w.Contains("mentions skill name") && w.Contains("migrate-app"));
+    }
+
+    [Fact]
+    public void NoWarningWhenEvalPromptDoesNotMentionSkillName()
+    {
+        var content = "---\nname: migrate-app\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var scenarios = new List<EvalScenario>
+        {
+            new("basic", "Help me migrate my project to the latest framework")
+        };
+        var skill = MakeSkillWithEval(content, "migrate-app", scenarios);
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("mentions skill name"));
+    }
+
+    [Fact]
+    public void NoWarningWhenSkillNameIsEmpty()
+    {
+        var content = "---\nname: \n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var scenarios = new List<EvalScenario>
+        {
+            new("basic", "Help me migrate my project")
+        };
+        var skill = MakeSkillWithEval(content, "", scenarios);
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("mentions skill name"));
+    }
+
+    [Fact]
+    public void DescriptionAtLimitProducesNoError()
+    {
+        var desc = new string('a', 1024);
+        var content = "---\nname: foo\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, description: desc));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("maximum"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("no description"));
+    }
+
+    [Fact]
+    public void DescriptionOverLimitErrors()
+    {
+        var desc = new string('a', 1025);
+        var content = "---\nname: foo\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, description: desc));
+        Assert.Contains(profile.Errors, e => e.Contains("maximum"));
+    }
+
+    [Fact]
+    public void EmptyDescriptionWithFrontmatterErrors()
+    {
+        var content = "---\nname: foo\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, description: "", name: "foo"));
+        Assert.Contains(profile.Errors, e => e.Contains("no description"));
+    }
+
+    // --- Name validation tests ---
+
+    [Fact]
+    public void ValidNameProducesNoNameError()
+    {
+        var content = "---\nname: my-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "my-skill"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("Skill name"));
+    }
+
+    [Fact]
+    public void NameTooLongErrors()
+    {
+        var longName = new string('a', 65);
+        var content = $"---\nname: {longName}\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: longName));
+        Assert.Contains(profile.Errors, e => e.Contains("maximum is 64"));
+    }
+
+    [Fact]
+    public void NameAtLimitNoError()
+    {
+        var name = new string('a', 64);
+        var content = $"---\nname: {name}\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: name));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("maximum is 64"));
+    }
+
+    [Fact]
+    public void NameWithUppercaseErrors()
+    {
+        var content = "---\nname: My-Skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "My-Skill"));
+        Assert.Contains(profile.Errors, e => e.Contains("invalid characters"));
+    }
+
+    [Fact]
+    public void NameWithUnderscoreErrors()
+    {
+        var content = "---\nname: my_skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "my_skill"));
+        Assert.Contains(profile.Errors, e => e.Contains("invalid characters"));
+    }
+
+    [Fact]
+    public void NameStartingWithHyphenErrors()
+    {
+        var content = "---\nname: -my-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "-my-skill"));
+        Assert.Contains(profile.Errors, e => e.Contains("starts or ends with a hyphen"));
+    }
+
+    [Fact]
+    public void NameEndingWithHyphenErrors()
+    {
+        var content = "---\nname: my-skill-\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "my-skill-"));
+        Assert.Contains(profile.Errors, e => e.Contains("starts or ends with a hyphen"));
+    }
+
+    [Fact]
+    public void NameWithConsecutiveHyphensErrors()
+    {
+        var content = "---\nname: my--skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "my--skill"));
+        Assert.Contains(profile.Errors, e => e.Contains("consecutive hyphens"));
+    }
+
+    [Fact]
+    public void NameNotMatchingDirectoryErrors()
+    {
+        var content = "---\nname: my-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "my-skill", path: "/tmp/different-name"));
+        Assert.Contains(profile.Errors, e => e.Contains("does not match directory"));
+    }
+
+    [Fact]
+    public void NameMatchingDirectoryNoError()
+    {
+        var content = "---\nname: my-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, name: "my-skill", path: "/tmp/my-skill"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("does not match directory"));
+    }
+
+    // --- Compatibility field tests ---
+
+    [Fact]
+    public void CompatibilityOverLimitErrors()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var skill = new SkillInfo("test-skill", "desc", "/tmp/test-skill", "/tmp/test-skill/SKILL.md",
+            content, null, null, Compatibility: new string('a', 501));
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.Contains(profile.Errors, e => e.Contains("Compatibility") && e.Contains("500"));
+    }
+
+    [Fact]
+    public void CompatibilityAtLimitNoError()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var skill = new SkillInfo("test-skill", "desc", "/tmp/test-skill", "/tmp/test-skill/SKILL.md",
+            content, null, null, Compatibility: new string('a', 500));
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("Compatibility"));
+    }
+
+    [Fact]
+    public void CompatibilityEmptyStringErrors()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var skill = new SkillInfo("test-skill", "desc", "/tmp/test-skill", "/tmp/test-skill/SKILL.md",
+            content, null, null, Compatibility: string.Empty);
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.Contains(profile.Errors, e => e.Contains("Compatibility"));
+    }
+
+    // --- Body line count tests ---
+
+    [Fact]
+    public void BodyOver500LinesErrors()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 501).Select(i => $"Line {i}"));
+        var content = "---\nname: test-skill\n---\n" + body;
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.Contains(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
+    }
+
+    [Fact]
+    public void BodyAt500LinesNoError()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 500).Select(i => $"Line {i}"));
+        var content = "---\nname: test-skill\n---\n" + body;
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
+    }
+
+    [Fact]
+    public void BodyAt500LinesWithTrailingNewlineNoError()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 500).Select(i => $"Line {i}")) + "\n";
+        var content = "---\nname: test-skill\n---\n" + body;
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
+    }
+
+    // --- File reference depth tests ---
+
+    [Fact]
+    public void DeepFileReferenceErrors()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](deep/nested/file.md)\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.Contains(profile.Errors, e => e.Contains("deep/nested/file.md") && e.Contains("directories deep"));
+    }
+
+    [Fact]
+    public void ShallowFileReferenceNoError()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](references/file.md)\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("directories deep") || e.Contains("traversal"));
+    }
+
+    [Fact]
+    public void HttpLinksNotFlaggedAsDeepRefs()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [docs](https://example.com/a/b/c)\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("directories deep") || e.Contains("traversal"));
+    }
+
+    [Fact]
+    public void ParentDirectoryTraversalErrors()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](../other-skill/SKILL.md)\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.Contains(profile.Errors, e => e.Contains("parent-directory traversal"));
+    }
+
+    [Fact]
+    public void AnchorFragmentStrippedFromDepthCheck()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](references/file.md#section)\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("directories deep") || e.Contains("traversal"));
+    }
+
+    [Fact]
+    public void DotSlashPrefixNormalizedInDepthCheck()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](./references/file.md)\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("directories deep") || e.Contains("traversal"));
+    }
 }
 
 public class FormatProfileLineTests
 {
-    private static SkillInfo MakeSkill(string content, string name = "test-skill")
+    private static SkillInfo MakeSkill(string content, string name = "test-skill", string description = "Test skill")
     {
-        return new SkillInfo(name, "Test skill", "/tmp/test-skill",
+        return new SkillInfo(name, description, "/tmp/test-skill",
             "/tmp/test-skill/SKILL.md", content, null, null);
     }
 
@@ -138,9 +412,9 @@ public class FormatProfileLineTests
 
 public class FormatDiagnosisHintsTests
 {
-    private static SkillInfo MakeSkill(string content)
+    private static SkillInfo MakeSkill(string content, string description = "Test skill")
     {
-        return new SkillInfo("test-skill", "Test skill", "/tmp/test-skill",
+        return new SkillInfo("test-skill", description, "/tmp/test-skill",
             "/tmp/test-skill/SKILL.md", content, null, null);
     }
 
@@ -164,5 +438,85 @@ public class FormatDiagnosisHintsTests
         var hints = SkillProfiler.FormatDiagnosisHints(profile);
         Assert.True(hints.Count > 1);
         Assert.Contains("Possible causes", hints[0]);
+    }
+}
+
+public class AggregateDescriptionLimitTests
+{
+    private static SkillInfo MakeSkill(string name, string description, string pluginName = "test-plugin")
+    {
+        var path = Path.Combine("/tmp", "plugins", pluginName, "skills", name);
+        return new SkillInfo(name, description, path,
+            Path.Combine(path, "SKILL.md"), "---\nname: " + name + "\n---\n# Title", null, null);
+    }
+
+    [Fact]
+    public void SkillsUnderAggregateLimit_NoFailures()
+    {
+        var skills = new[]
+        {
+            MakeSkill("skill-a", new string('a', 500)),
+            MakeSkill("skill-b", new string('b', 400)),
+        };
+        var failures = ValidateCommand.CheckAggregateDescriptionLimits(skills);
+        Assert.Empty(failures);
+    }
+
+    [Fact]
+    public void SkillsExactlyAtAggregateLimit_NoFailures()
+    {
+        // Two skills summing to exactly MaxAggregateDescriptionLength
+        var half = SkillProfiler.MaxAggregateDescriptionLength / 2;
+        var remainder = SkillProfiler.MaxAggregateDescriptionLength - half;
+        var skills = new[]
+        {
+            MakeSkill("skill-a", new string('a', half)),
+            MakeSkill("skill-b", new string('b', remainder)),
+        };
+        var failures = ValidateCommand.CheckAggregateDescriptionLimits(skills);
+        Assert.Empty(failures);
+    }
+
+    [Fact]
+    public void SkillsOverAggregateLimit_ReportsFailure()
+    {
+        var half = SkillProfiler.MaxAggregateDescriptionLength / 2;
+        var skills = new[]
+        {
+            MakeSkill("skill-a", new string('a', half + 1)),
+            MakeSkill("skill-b", new string('b', half + 1)),
+        };
+        var failures = ValidateCommand.CheckAggregateDescriptionLimits(skills);
+        Assert.Single(failures);
+        Assert.Contains("test-plugin", failures[0]);
+        Assert.Contains("maximum", failures[0]);
+    }
+
+    [Fact]
+    public void MultiplePlugins_OnlyViolatingPluginFails()
+    {
+        var skills = new[]
+        {
+            MakeSkill("skill-a", new string('a', 100), "good-plugin"),
+            MakeSkill("skill-b", new string('b', SkillProfiler.MaxAggregateDescriptionLength + 1), "bad-plugin"),
+        };
+        var failures = ValidateCommand.CheckAggregateDescriptionLimits(skills);
+        Assert.Single(failures);
+        Assert.Contains("bad-plugin", failures[0]);
+        Assert.DoesNotContain("good-plugin", failures[0]);
+    }
+
+    [Fact]
+    public void DerivePluginName_StandardLayout()
+    {
+        var name = ValidateCommand.DerivePluginName("/repo/plugins/dotnet-msbuild/skills/build-perf");
+        Assert.Equal("dotnet-msbuild", name);
+    }
+
+    [Fact]
+    public void DerivePluginName_NoSkillsAncestor_ReturnsNull()
+    {
+        var name = ValidateCommand.DerivePluginName("/tmp/some-path/my-skill");
+        Assert.Null(name);
     }
 }

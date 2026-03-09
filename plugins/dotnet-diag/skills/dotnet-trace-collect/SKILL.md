@@ -9,7 +9,7 @@ This skill helps developers diagnose production performance issues by recommendi
 
 ## When to Use
 
-- A developer needs to investigate a production performance issue (high CPU, memory leak, slow requests, excessive GC, etc.)
+- A developer needs to investigate a production performance issue (high CPU, memory leak, slow requests, excessive GC, networking errors, etc.)
 - Choosing the right diagnostic tool for a specific runtime, OS, or deployment topology
 - Setting up and running diagnostic tool commands for data collection
 - Understanding trade-offs between available tools (e.g. PerfView vs dotnet-trace)
@@ -25,7 +25,7 @@ This skill helps developers diagnose production performance issues by recommendi
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Symptom | Yes | What the developer is observing (high CPU, memory growth, slow requests, hangs, excessive GC, etc.) |
+| Symptom | Yes | What the developer is observing (high CPU, memory growth, slow requests, hangs, excessive GC, HTTP 5xx errors, networking timeouts, connection failures, etc.) |
 | Runtime | Yes | .NET Framework or modern .NET (and version, especially whether .NET 10+) |
 | OS | Yes | Windows or Linux |
 | Deployment | Yes | Non-container, container, or Kubernetes |
@@ -38,7 +38,7 @@ This skill helps developers diagnose production performance issues by recommendi
 
 Determine or ask the developer to clarify:
 
-1. **Symptom**: What they are observing (high CPU, memory leak, slow requests, hangs, excessive GC, etc.)
+1. **Symptom**: What they are observing (high CPU, memory leak, slow requests, hangs, excessive GC, HTTP 5xx errors, networking timeouts, connection failures, etc.)
 2. **Runtime**: .NET Framework or modern .NET? If modern .NET, which version? (Especially whether .NET 10 or later.)
 3. **OS**: Windows or Linux?
 4. **Deployment**: Running directly on the host, in a container, or in Kubernetes?
@@ -141,11 +141,11 @@ Excessive GC requires a **trace** to analyze GC events, pause times, and allocat
 
 #### Slow Requests
 
-Slow requests require a **thread time trace** to see where threads are spending time — waiting on locks, I/O, external calls, etc. Use larger buffers since thread time traces generate more data.
+Slow requests require a **thread time trace** to see where threads are spending time — waiting on locks, I/O, external calls, etc. Use larger buffers since thread time traces generate more data. For ASP.NET Core applications, also enable `Microsoft.AspNetCore.Hosting` and `Microsoft-AspNetCore-Server-Kestrel` providers to get server-side request lifecycle timing (when requests arrive, how long they take to process).
 
-- **Windows (PerfView)**: Use `PerfView /ThreadTime collect /BufferSizeMB:1024 /CircularMB:2048`. The `/ThreadTime` argument adds thread-level wait and block detail. Do not include a stop trigger by default — let the user design one based on their specific scenario.
-- **Linux (dotnet-trace)**: `dotnet-trace` captures thread time data by default — no special arguments needed. Use `dotnet-trace collect -p <PID>`.
-- **Linux .NET 10+ with root**: Use `dotnet-trace collect-linux --profile thread-time` for richer data with native stacks.
+- **Windows (PerfView)**: Use `PerfView /ThreadTime collect /BufferSizeMB:1024 /CircularMB:2048`. The `/ThreadTime` argument adds thread-level wait and block detail. For ASP.NET Core, add Kestrel providers: `PerfView /ThreadTime collect /BufferSizeMB:1024 /CircularMB:2048 /Providers:*Microsoft.AspNetCore.Hosting,*Microsoft-AspNetCore-Server-Kestrel`. Do not include a stop trigger by default — let the user design one based on their specific scenario.
+- **Linux (dotnet-trace)**: `dotnet-trace` captures thread time data by default — no special arguments needed. Use `dotnet-trace collect -p <PID>`. For ASP.NET Core, add Kestrel providers: `dotnet-trace collect -p <PID> --providers Microsoft.AspNetCore.Hosting,Microsoft-AspNetCore-Server-Kestrel`.
+- **Linux .NET 10+ with root**: Use `dotnet-trace collect-linux --profile thread-time` for richer data with native stacks. For ASP.NET Core, add: `--providers Microsoft.AspNetCore.Hosting,Microsoft-AspNetCore-Server-Kestrel`.
 - **Containers**: `dotnet-monitor` can capture traces via its REST API (`/trace?pid=<PID>&durationSeconds=30`).
 
 #### Hangs
@@ -158,6 +158,30 @@ Slow requests require a **thread time trace** to see where threads are spending 
 3. **Analyze the dump with a debugger** to inspect thread stacks and identify the lock cycle:
    - **Windows**: Visual Studio or WinDbg with the SOS debugger extension.
    - **Linux**: `lldb` with the SOS debugger extension.
+
+#### Networking Issues
+
+Networking issues (HTTP 5xx errors from downstream services, request timeouts, connection failures, DNS resolution failures, TLS handshake failures, connection pool exhaustion) require **both** a thread-time trace and networking event providers. The thread-time trace shows where threads are blocked (slow downstream calls, thread starvation), while the networking events show the request lifecycle — which requests failed, what status codes came back, how long DNS resolution and TLS handshakes took, and how long requests waited for a connection from the pool.
+
+For **.NET Framework**, `PerfView /ThreadTime` already collects the relevant networking events (from the `System.Net` ETW provider) — no additional providers are needed.
+
+For **modern .NET**, you must explicitly enable the `System.Net.*` EventSource providers:
+
+| Provider | What it covers |
+|----------|---------------|
+| `System.Net.Http` | HttpClient/SocketsHttpHandler — request lifecycle, HTTP status codes, connection pool |
+| `System.Net.NameResolution` | DNS lookups (start/stop, duration) |
+| `System.Net.Security` | TLS/SSL handshakes (SslStream) |
+| `System.Net.Sockets` | Low-level socket connect/disconnect |
+
+Key events from `System.Net.Http`: `RequestStart` (scheme, host, port, path), `RequestStop` (statusCode — `-1` if no response was received), `RequestFailed` (exception message for timeouts, connection refused, etc.), `RequestLeftQueue` (time waiting for a connection from the pool — indicates connection pool exhaustion), `ConnectionEstablished`, `ConnectionClosed`.
+
+Collect a thread-time trace with networking providers enabled (modern .NET only — .NET Framework needs only `PerfView /ThreadTime`):
+
+- **Windows (PerfView)**: Use `PerfView /ThreadTime collect /BufferSizeMB:1024 /CircularMB:2048 /Providers:*System.Net.Http,*System.Net.NameResolution,*System.Net.Security,*System.Net.Sockets`. For .NET Framework, omit the `/Providers` flag — `/ThreadTime` already includes the networking events. The thread-time trace shows where threads are blocked while the networking events show what requests are failing and why.
+- **Linux (dotnet-trace)**: `dotnet-trace` captures thread time data by default, but specifying `--providers` overrides the defaults so you must also include `--profile`: `dotnet-trace collect -p <PID> --profile dotnet-common,dotnet-sampled-thread-time --providers System.Net.Http,System.Net.NameResolution,System.Net.Security,System.Net.Sockets`.
+- **Linux .NET 10+ with root**: Use `dotnet-trace collect-linux --profile dotnet-common,cpu-sampling,thread-time --providers System.Net.Http,System.Net.NameResolution,System.Net.Security,System.Net.Sockets`.
+- **Containers**: `dotnet-monitor` can capture traces with custom providers via its REST API.
 
 Explain the trade-offs when recommending a tool. For example:
 - PerfView gives richer data but needs admin; runs on Windows including Windows containers.
@@ -210,3 +234,5 @@ After data is collected, recommend the appropriate tool for analysis. Do **not**
 | Diagnostic port not accessible in container | Mount `/tmp` as a shared volume between the app container and `dotnet-monitor` sidecar for the diagnostic Unix domain socket. |
 | Forgetting to install tools in container image | Add `dotnet tool install` to your Dockerfile, or use `dotnet-monitor` as a sidecar to avoid modifying the app image. |
 | Exposing `dotnet-monitor` with `--no-auth` in production | Keep auth enabled, bind to localhost, and use `kubectl port-forward` for access. Use `--no-auth` only for short-lived isolated debugging. |
+| Collecting only CPU/thread-time trace for networking issues | CPU and thread-time traces alone do not show HTTP status codes, DNS timing, or connection pool behavior. Add the networking providers (`System.Net.Http`, `System.Net.NameResolution`, `System.Net.Security`, `System.Net.Sockets`) alongside the thread-time trace. |
+| Enabling all networking providers when only one is needed | Each networking provider adds overhead. If the issue is clearly HTTP-level (5xx status codes), `System.Net.Http` alone may be sufficient. Add DNS, TLS, and socket providers when the root cause is unclear. |

@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Text.Json;
 using SkillValidator.Models;
 using SkillValidator.Services;
 using SkillValidator.Utilities;
@@ -10,11 +11,11 @@ public static class ValidateCommand
 {
     public static RootCommand Create()
     {
-        var pathsArg = new Argument<string[]>("paths") { Description = "Paths to skill directories or parent directories" };
+        var pathsArg = new Argument<string[]>("paths") { Description = "Paths to skill directories or parent directories", Arity = ArgumentArity.OneOrMore };
         var minImprovementOpt = new Option<double>("--min-improvement") { Description = "Minimum improvement score to pass (0-1)", DefaultValueFactory = _ => 0.1 };
         var requireCompletionOpt = new Option<bool>("--require-completion") { Description = "Fail if skill regresses task completion", DefaultValueFactory = _ => true };
         var requireEvalsOpt = new Option<bool>("--require-evals") { Description = "Fail if skill has no tests/eval.yaml" };
-        var verdictWarnOnlyOpt = new Option<bool>("--verdict-warn-only") { Description = "Treat verdict failures as warnings (exit 0). Execution errors and --require-evals still fail." };
+        var verdictWarnOnlyOpt = new Option<bool>("--verdict-warn-only") { Description = "Treat verdict failures as warnings (exit 0). Execution errors, --require-evals, and spec conformance violations still fail." };
         var verboseOpt = new Option<bool>("--verbose") { Description = "Show detailed per-scenario breakdowns" };
         var modelOpt = new Option<string>("--model") { Description = "Model to use for agent runs", DefaultValueFactory = _ => "claude-opus-4.6" };
         var judgeModelOpt = new Option<string?>("--judge-model") { Description = "Model to use for judging (defaults to --model)" };
@@ -121,7 +122,12 @@ public static class ValidateCommand
         try
         {
             var client = await AgentRunner.GetSharedClient(config.Verbose);
-            var models = await client.ListModelsAsync();
+            var models = await RetryHelper.ExecuteWithRetry(
+                async _ => await client.ListModelsAsync(),
+                label: "ListModels",
+                maxRetries: 3,
+                baseDelayMs: 2_000,
+                totalTimeoutMs: 60_000);
             var modelIds = models.Select(m => m.Id).ToList();
             var modelsToValidate = new List<string> { config.Model };
             if (config.JudgeModel != config.Model) modelsToValidate.Add(config.JudgeModel);
@@ -164,6 +170,83 @@ public static class ValidateCommand
 
         Console.WriteLine($"Found {allSkills.Count} skill(s)\n");
 
+        // Check per-plugin aggregate description size
+        var aggregateFailures = CheckAggregateDescriptionLimits(allSkills);
+        if (aggregateFailures.Count > 0)
+        {
+            foreach (var failure in aggregateFailures)
+                Console.Error.WriteLine($"\x1b[31m❌ {failure}\x1b[0m");
+            return 1;
+        }
+
+        // Validate plugins (plugin.json) reachable from the given paths
+        IReadOnlyList<PluginInfo> plugins;
+        try
+        {
+            plugins = SkillDiscovery.DiscoverPlugins(config.SkillPaths);
+        }
+        catch (JsonException ex)
+        {
+            Console.Error.WriteLine($"\x1b[31m❌ Malformed plugin.json: {ex.Message}\x1b[0m");
+            return 1;
+        }
+        bool hasPluginErrors = false;
+        foreach (var plugin in plugins)
+        {
+            var result = PluginValidator.ValidatePlugin(plugin);
+            foreach (var warning in result.Warnings)
+                Console.WriteLine($"\x1b[33m⚠  [plugin:{result.Name}] {warning}\x1b[0m");
+            foreach (var error in result.Errors)
+            {
+                Console.Error.WriteLine($"\x1b[31m❌ [plugin:{result.Name}] {error}\x1b[0m");
+                hasPluginErrors = true;
+            }
+        }
+        if (plugins.Count > 0)
+            Console.WriteLine($"Validated {plugins.Count} plugin(s)");
+
+        // Validate agents (.agent.md) reachable from the given paths
+        var agents = await SkillDiscovery.DiscoverAgents(config.SkillPaths);
+        bool hasAgentErrors = false;
+        foreach (var agent in agents)
+        {
+            var profile = AgentProfiler.AnalyzeAgent(agent);
+            foreach (var warning in profile.Warnings)
+                Console.WriteLine($"\x1b[33m⚠  [agent:{profile.Name}] {warning}\x1b[0m");
+            foreach (var error in profile.Errors)
+            {
+                Console.Error.WriteLine($"\x1b[31m❌ [agent:{profile.Name}] {error}\x1b[0m");
+                hasAgentErrors = true;
+            }
+        }
+        if (agents.Count > 0)
+            Console.WriteLine($"Validated {agents.Count} agent(s)\n");
+
+        if (hasPluginErrors || hasAgentErrors)
+        {
+            Console.Error.WriteLine("\x1b[31mAgent/plugin spec conformance failures — fix the errors above.\x1b[0m");
+            return 1;
+        }
+
+        // Check for orphaned test directories (tests/ entries with no matching plugin/skill)
+        var repoRoot = SkillDiscovery.FindRepoRoot(config.SkillPaths);
+        bool hasOrphanErrors = false;
+        if (repoRoot is not null)
+        {
+            var orphans = SkillDiscovery.FindOrphanedTestDirectories(repoRoot);
+            foreach (var orphan in orphans)
+            {
+                Console.Error.WriteLine($"\x1b[31m❌ {orphan}\x1b[0m");
+                hasOrphanErrors = true;
+            }
+        }
+
+        if (hasOrphanErrors)
+        {
+            Console.Error.WriteLine("\x1b[31mOrphaned test directories found — remove them or create the matching plugin/skill.\x1b[0m");
+            return 1;
+        }
+
         if (config.Runs < 5)
             Console.WriteLine($"\x1b[33m⚠  Running with {config.Runs} run(s). For statistically significant results, use --runs 5 or higher.\x1b[0m");
 
@@ -184,7 +267,7 @@ public static class ValidateCommand
         spinner.Stop();
 
         var verdicts = new List<SkillVerdict>();
-        bool hasRejections = false;
+        var rejectionMessages = new List<string>();
         foreach (var (result, error) in settled)
         {
             if (result is not null)
@@ -193,31 +276,86 @@ public static class ValidateCommand
             }
             else if (error is not null)
             {
-                hasRejections = true;
-                Console.Error.WriteLine($"\x1b[31m❌ Skill evaluation failed: {error.Message}\x1b[0m");
+                rejectionMessages.Add(error.Message);
             }
         }
 
         await Reporter.ReportResults(verdicts, config.Reporters, config.Verbose,
-            config.Model, config.JudgeModel, config.ResultsDir);
+            config.Model, config.JudgeModel, config.ResultsDir,
+            rejectedCount: rejectionMessages.Count);
+
+        if (rejectionMessages.Count > 0)
+        {
+            Console.Error.WriteLine($"\x1b[31m❗ {rejectionMessages.Count} skill(s) failed with execution errors:\x1b[0m");
+            foreach (var msg in rejectionMessages)
+                Console.Error.WriteLine($"\x1b[31m   • {msg}\x1b[0m");
+            Console.Error.WriteLine();
+        }
 
         await AgentRunner.StopSharedClient();
         await AgentRunner.CleanupWorkDirs();
 
         // Always fail on execution errors, even in --verdict-warn-only mode
-        if (hasRejections) return 1;
+        if (rejectionMessages.Count > 0) return 1;
 
         var allPassed = verdicts.All(v => v.Passed);
         if (config.VerdictWarnOnly && !allPassed)
         {
             // In --verdict-warn-only mode, suppress verdict failures except missing_eval
-            // (which is controlled by --require-evals and should remain fatal).
+            // (which is controlled by --require-evals and should remain fatal) and
+            // spec_conformance_failure (structural violation that must always block).
             var onlyWarnableFailures = verdicts.All(
-                v => v.Passed || v.FailureKind != "missing_eval");
+                v => v.Passed || (v.FailureKind != "missing_eval" && v.FailureKind != "spec_conformance_failure"));
             if (onlyWarnableFailures) return 0;
         }
 
         return allPassed ? 0 : 1;
+    }
+
+    /// <summary>
+    /// Groups skills by plugin (derived from path) and checks that the aggregate
+    /// description length per plugin does not exceed the limit.
+    /// </summary>
+    internal static List<string> CheckAggregateDescriptionLimits(IReadOnlyList<SkillInfo> skills)
+    {
+        var failures = new List<string>();
+
+        // Group by plugin: convention is plugins/{plugin}/skills/{skill}/
+        // Derive plugin name by finding the "skills" ancestor directory.
+        var pluginGroups = skills
+            .GroupBy(s => DerivePluginName(s.Path))
+            .Where(g => g.Key is not null);
+
+        foreach (var group in pluginGroups)
+        {
+            int totalChars = group.Sum(s => s.Description.Length);
+            if (totalChars > SkillProfiler.MaxAggregateDescriptionLength)
+            {
+                failures.Add(
+                    $"Plugin '{group.Key}' aggregate description size is {totalChars:N0} characters — " +
+                    $"maximum is {SkillProfiler.MaxAggregateDescriptionLength:N0}.");
+            }
+        }
+
+        return failures;
+    }
+
+    /// <summary>
+    /// Derives the plugin name from a skill path by walking up to find the
+    /// "skills" directory and returning its parent directory name.
+    /// e.g. "plugins/dotnet-msbuild/skills/build-perf" → "dotnet-msbuild"
+    /// </summary>
+    internal static string? DerivePluginName(string skillPath)
+    {
+        var fullPath = Path.GetFullPath(skillPath);
+        var dir = new DirectoryInfo(fullPath);
+        while (dir is not null)
+        {
+            if (string.Equals(dir.Name, "skills", StringComparison.OrdinalIgnoreCase) && dir.Parent is not null)
+                return dir.Parent.Name;
+            dir = dir.Parent;
+        }
+        return null;
     }
 
     private static async Task<SkillVerdict?> EvaluateSkill(
@@ -258,8 +396,24 @@ public static class ValidateCommand
 
         var profile = SkillProfiler.AnalyzeSkill(skill);
         log($"📊 {SkillProfiler.FormatProfileLine(profile)}");
+        foreach (var error in profile.Errors)
+            log($"   ❌ {error}");
         foreach (var warning in SkillProfiler.FormatProfileWarnings(profile))
             log(warning);
+
+        if (profile.Errors.Count > 0)
+        {
+            return new SkillVerdict
+            {
+                SkillName = skill.Name,
+                SkillPath = skill.Path,
+                Passed = false,
+                Scenarios = [],
+                OverallImprovementScore = 0,
+                Reason = string.Join(" ", profile.Errors),
+                FailureKind = "spec_conformance_failure",
+            };
+        }
 
         // Launch overfitting check in parallel with scenario execution
         var workDir = Path.GetTempPath();
@@ -271,7 +425,7 @@ public static class ValidateCommand
                 config.JudgeModel, config.Verbose, config.JudgeTimeout, workDir));
         }
 
-        bool singleScenario = skill.EvalConfig.Scenarios.Count == 1;
+        bool singleScenario = skill.EvalConfig!.Scenarios.Count == 1;
         using var scenarioLimit = new ConcurrencyLimiter(config.ParallelScenarios);
 
         var scenarioTasks = skill.EvalConfig.Scenarios.Select(scenario =>
@@ -454,14 +608,37 @@ public static class ValidateCommand
             withSkillMetrics.TaskCompleted = withSkillMetrics.ErrorCount == 0;
         }
 
-        // Judge
+        // Judge — failures are non-fatal so a single timeout doesn't kill the whole evaluation.
+        // Await each judge independently so a failure in one doesn't discard the other's result.
         var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path);
 
-        var judgeTasks = await Task.WhenAll(
-            Services.Judge.JudgeRun(scenario, baselineMetrics, judgeOpts),
-            Services.Judge.JudgeRun(scenario, withSkillMetrics, judgeOpts with { WorkDir = withSkillMetrics.WorkDir }));
-        var baselineJudge = judgeTasks[0];
-        var withSkillJudge = judgeTasks[1];
+        var baselineJudgeTask = Services.Judge.JudgeRun(scenario, baselineMetrics, judgeOpts);
+        var withSkillJudgeTask = Services.Judge.JudgeRun(
+            scenario, withSkillMetrics, judgeOpts with { WorkDir = withSkillMetrics.WorkDir });
+
+        JudgeResult baselineJudge;
+        try
+        {
+            baselineJudge = await baselineJudgeTask;
+        }
+        catch (Exception error)
+        {
+            var shortMsg = SanitizeErrorMessage(error.Message);
+            runLog($"\x1b[33m⚠️  Judge (baseline) failed, using fallback scores: {shortMsg}\x1b[0m");
+            baselineJudge = new JudgeResult([], 3, $"Judge failed: {shortMsg}");
+        }
+
+        JudgeResult withSkillJudge;
+        try
+        {
+            withSkillJudge = await withSkillJudgeTask;
+        }
+        catch (Exception error)
+        {
+            var shortMsg = SanitizeErrorMessage(error.Message);
+            runLog($"\x1b[33m⚠️  Judge (with skill) failed, using fallback scores: {shortMsg}\x1b[0m");
+            withSkillJudge = new JudgeResult([], 3, $"Judge failed: {shortMsg}");
+        }
 
         var baseline = new RunResult(baselineMetrics, baselineJudge);
         var withSkillResult = new RunResult(withSkillMetrics, withSkillJudge);
@@ -535,5 +712,16 @@ public static class ValidateCommand
             runs[^1].JudgeResult.OverallReasoning);
 
         return new RunResult(avgMetrics, avgJudge);
+    }
+
+    /// <summary>
+    /// Collapses multiline error messages to single-line and truncates to a reasonable length
+    /// so they don't bloat console/markdown reports.
+    /// </summary>
+    private static string SanitizeErrorMessage(string? message)
+    {
+        var raw = message ?? "unknown error";
+        var singleLine = raw.ReplaceLineEndings(" ");
+        return singleLine.Length > 150 ? singleLine[..150] + "…" : singleLine;
     }
 }
