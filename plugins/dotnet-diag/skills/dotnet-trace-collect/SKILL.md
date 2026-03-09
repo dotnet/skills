@@ -185,16 +185,16 @@ Collect a thread-time trace with networking providers enabled (modern .NET only 
 
 #### Assembly Loading Issues
 
-Assembly loading issues (`FileNotFoundException`, `FileLoadException`, `ReflectionTypeLoadException`, version conflicts, duplicate assembly loads across AssemblyLoadContexts) require collecting **assembly loader binder events** from the `Microsoft-Windows-DotNETRuntime` provider with the Loader keyword (`0x4`). These events trace every step of the runtime's assembly resolution algorithm — which paths were probed, which AssemblyLoadContext handled the load, whether the load succeeded or failed, and why.
+For modern .NET, assembly loading issues (`FileNotFoundException`, `FileLoadException`, `ReflectionTypeLoadException`, version conflicts, duplicate assembly loads across AssemblyLoadContexts) require collecting **assembly loader binder events** from the `Microsoft-Windows-DotNETRuntime` provider with the Loader keyword (`0x4`). These events trace every step of the runtime's assembly resolution algorithm — which paths were probed, which AssemblyLoadContext handled the load, whether the load succeeded or failed, and why. For .NET Framework, the same provider and keyword work for ETW-based collection; additionally, the Fusion Log Viewer (`fuslogvw.exe`) can diagnose assembly binding failures without requiring a trace.
 
 The provider specification is `Microsoft-Windows-DotNETRuntime:0x4:4` (provider name, AssemblyLoader keyword, Informational verbosity).
 
-- **Windows (PerfView)**: Use `PerfView collect /Providers:Microsoft-Windows-DotNETRuntime:0x4:4`. PerfView already collects some loader events by default, but specifying the Loader keyword explicitly ensures all binder events are captured at Informational level.
+- **Windows (PerfView)**: A default PerfView trace already includes binder events - simply run `PerfView collect` with no extra providers. For a smaller trace file, use `PerfView collect /ClrEvents:Default-Profile`, which removes the most verbose default events while keeping the events necessary for diagnosing assembly loading issues.
 - **Linux / cross-platform (dotnet-trace)**: Use `dotnet-trace collect --clrevents assemblyloader -- <path-to-built-exe>` to launch and trace the process, or `dotnet-trace collect --clrevents assemblyloader -p <PID>` to attach to a running process.
 - **Linux .NET 10+ with root**: Use `dotnet-trace collect-linux --clrevents assemblyloader`.
 - **Containers**: `dotnet-monitor` can capture traces with the loader provider via its REST API.
 
-For short-lived processes that fail on startup (common with assembly loading issues), prefer the launch form (`-- <path-to-built-exe>`) over attaching by PID, since the process may exit before you can attach.
+For short-lived processes that fail on startup (common with assembly loading issues), prefer the `dotnet-trace` launch form (`-- <path-to-built-exe>`) over attaching by PID, since the process may exit before you can attach.
 
 Explain the trade-offs when recommending a tool. For example:
 - PerfView gives richer data but needs admin; runs on Windows including Windows containers.
