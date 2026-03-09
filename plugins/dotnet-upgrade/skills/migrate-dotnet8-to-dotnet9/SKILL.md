@@ -2,23 +2,19 @@
 name: migrate-dotnet8-to-dotnet9
 description: >
   Migrate a .NET 8 project or solution to .NET 9 and resolve all breaking changes.
-  USE FOR: upgrading TargetFramework from net8.0 to net9.0, fixing build errors,
-  compilation errors, and new warnings after updating the .NET 9 SDK, resolving
-  behavioral changes introduced in .NET 9 / C# 13 / ASP.NET Core 9 / EF Core 9,
-  replacing BinaryFormatter usage (now always throws), resolving new obsoletion
-  warnings (SYSLIB0054–SYSLIB0057), adapting to params span overload resolution
-  changes, fixing C# 13 compiler breaking changes (InlineArray on records,
-  iterator safe context, collection expression overloads), updating HttpClientFactory
-  code for the SocketsHttpHandler default, and resolving EF Core 9 breaking changes
-  (pending model changes exception, Cosmos DB discriminator/$type rename).
-  DO NOT USE FOR: major framework migrations (e.g., .NET Framework to .NET 9),
+  USE FOR: upgrading TargetFramework from net8.0 to net9.0, fixing build errors
+  and new warnings after updating the .NET 9 SDK, resolving behavioral changes
+  in .NET 9 / C# 13 / ASP.NET Core 9 / EF Core 9, replacing BinaryFormatter
+  usage (now always throws), resolving obsoletion warnings (SYSLIB0054-SYSLIB0057),
+  adapting to params span overload resolution changes, fixing C# 13 compiler
+  changes (InlineArray on records, iterator safe context, collection expression
+  overloads), updating HttpClientFactory for SocketsHttpHandler default, and
+  resolving EF Core 9 changes (pending model changes exception, Cosmos DB
+  discriminator/type rename).
+  DO NOT USE FOR: major framework migrations (.NET Framework to .NET 9),
   upgrading from .NET 7 or earlier (address intermediate breaking changes first),
-  greenfield projects that start on .NET 9, or purely cosmetic code modernization
-  unrelated to the version upgrade. After completing this migration, use the
-  migrate-dotnet9-to-dotnet10 skill if the goal is to reach .NET 10.
-  LOADS REFERENCES: csharp-compiler, core-libraries, sdk-msbuild (always loaded),
-  aspnet-core, efcore, cryptography, serialization-networking, winforms-wpf,
-  containers-interop, deployment-runtime (loaded selectively based on project type).
+  greenfield .NET 9 projects, or cosmetic modernization unrelated to the upgrade.
+  Use migrate-dotnet9-to-dotnet10 to continue to .NET 10.
 ---
 
 # .NET 8 → .NET 9 Migration
