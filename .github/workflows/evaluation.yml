@@ -52,7 +52,8 @@ jobs:
             # PR: detect individual changed skills
             $base = "${{ github.event.pull_request.base.sha }}"
             $head = "${{ github.event.pull_request.head.sha }}"
-            $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
+            $mergeBase = git merge-base $base $head
+            $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
             # Check if any changed files are in infrastructure paths (evaluation workflows or eng/skill-validator/)
             $hasInfraChanges = $changedFiles |
@@ -136,7 +137,12 @@ jobs:
     uses: ./.github/workflows/evaluation-run.yml
     with:
       entries: ${{ needs.discover.outputs.entries }}
-      runs: ${{ needs.discover.outputs.is_infra == 'true' && '2' || (github.ref == 'refs/heads/main' && '5' || '3') }}
+      runs: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.ref == 'refs/heads/main' && '5' || '3') }}
+      # Infra changes and scheduled runs evaluate all plugins in parallel — reduce
+      # per-job concurrency to avoid API rate limits and timeouts from contention.
+      parallel-skills: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5' }}
+      parallel-scenarios: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
+      parallel-runs: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
       pr-number: ${{ github.event.pull_request.number || '' }}
     secrets:
       COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}

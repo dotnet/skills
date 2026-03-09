@@ -221,44 +221,18 @@ jobs:
             -f description="$DESC" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-      - name: Post completion comment
+      - name: Post completion comment for skipped evaluation
+        if: needs.run-evaluation.result == 'skipped'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           PR_NUMBER=${{ needs.gate.outputs.pr_number }}
-          EVAL_RESULT="${{ needs.run-evaluation.result }}"
-          MARKER="<!-- skill-validator-results -->"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          # Post a note when skipped — distinguish "no skills" from upstream failure
-          if [[ "$EVAL_RESULT" == "skipped" ]]; then
-            if [[ "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
-              BODY="⏭️ No skills to evaluate — no changed skills with tests were found in this PR. [View workflow run](${RUN_URL})"
-            else
-              BODY="❌ Evaluation did not complete (upstream job failed or was skipped). [View workflow run](${RUN_URL})"
-            fi
-            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
-            exit 0
+          if [[ "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
+            BODY="⏭️ No skills to evaluate — no changed skills with tests were found in this PR. [View workflow run](${RUN_URL})"
+          else
+            BODY="❌ Evaluation did not complete (upstream job failed or was skipped). [View workflow run](${RUN_URL})"
           fi
-
-          # Handle failure — always post, no table check needed
-          if [[ "$EVAL_RESULT" != "success" ]]; then
-            BODY="❌ Evaluation failed. [View workflow run](${RUN_URL})"
-            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
-            exit 0
-          fi
-
-          # Success path — only post if the evaluation table was updated (not newly created)
-          # to avoid posting a duplicate comment alongside the new table
-          if [[ "${{ needs.run-evaluation.outputs.comment_action }}" != "updated" ]]; then
-            echo "Evaluation table was newly created or not posted; skipping completion comment."
-            exit 0
-          fi
-
-          TABLE_COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
-            --paginate --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" | head -1 || echo "")
-
-          TABLE_URL="${{ github.server_url }}/${{ github.repository }}/pull/${PR_NUMBER}#issuecomment-${TABLE_COMMENT_ID}"
-          BODY="✅ Evaluation completed. [View results](${TABLE_URL}) | [View workflow run](${RUN_URL})"
           gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"

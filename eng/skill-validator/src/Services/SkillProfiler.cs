@@ -63,22 +63,32 @@ public static partial class SkillProfiler
         var warnings = new List<string>();
 
         // --- agentskills.io spec: name validation ---
-        ValidateName(skill.Name, Path.GetFileName(skill.Path), warnings);
+        // https://agentskills.io/specification#name-field
+        // Spec uses "Must" for all name constraints — violations are errors.
+        ValidateName(skill.Name, Path.GetFileName(skill.Path), errors);
 
         // --- agentskills.io spec: description validation ---
+        // https://agentskills.io/specification#description-field
+        // "Must be 1-1024 characters"
         if (skill.Description.Length > MaxDescriptionLength)
         {
             errors.Add($"Skill description is {skill.Description.Length:N0} characters — maximum is {MaxDescriptionLength:N0}. Shorten the description in SKILL.md frontmatter.");
         }
         else if (skill.Description.Length == 0 && hasFrontmatter)
         {
-            warnings.Add("YAML frontmatter has no description — agents use description for skill discovery.");
+            errors.Add("YAML frontmatter has no description — required by spec. Agents use description for skill discovery.");
         }
 
         // --- agentskills.io spec: compatibility field ---
+        // https://agentskills.io/specification#compatibility-field
+        // "Must be 1-500 characters if provided"
         if (skill.Compatibility is { Length: > MaxCompatibilityLength })
         {
-            warnings.Add($"Compatibility field is {skill.Compatibility.Length} characters — maximum is {MaxCompatibilityLength}.");
+            errors.Add($"Compatibility field is {skill.Compatibility.Length} characters — maximum is {MaxCompatibilityLength}.");
+        }
+        else if (skill.Compatibility is not null && string.IsNullOrWhiteSpace(skill.Compatibility))
+        {
+            errors.Add("Compatibility field must be 1-500 non-whitespace characters when provided.");
         }
 
         // --- agentskills.io spec: body line count ---
@@ -181,22 +191,44 @@ public static partial class SkillProfiler
             Warnings: warnings);
     }
 
-    internal static void ValidateName(string name, string directoryName, List<string> warnings)
+    /// <summary>
+    /// Validate a name against the agentskills.io spec naming rules.
+    /// https://agentskills.io/specification#name-field
+    /// All constraints use "Must" in the spec, so violations are errors.
+    /// </summary>
+    /// <param name="name">The name value from frontmatter or plugin.json.</param>
+    /// <param name="kind">Label for messages, e.g. "Skill", "Agent", "Plugin".</param>
+    /// <param name="errors">List to append errors to.</param>
+    internal static void ValidateNameFormat(string name, string kind, List<string> errors)
     {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            errors.Add($"{kind} name is empty — must be 1-64 lowercase alphanumeric characters and hyphens.");
+            return;
+        }
+
         if (name.Length > MaxNameLength)
-            warnings.Add($"Skill name '{name}' is {name.Length} characters — maximum is {MaxNameLength}.");
+            errors.Add($"{kind} name '{name}' is {name.Length} characters — maximum is {MaxNameLength}.");
 
         if (!NameFormatRegex().IsMatch(name))
-            warnings.Add($"Skill name '{name}' contains invalid characters — must be lowercase alphanumeric and hyphens only.");
+            errors.Add($"{kind} name '{name}' contains invalid characters — must be lowercase alphanumeric and hyphens only.");
 
         if (name.StartsWith('-') || name.EndsWith('-'))
-            warnings.Add($"Skill name '{name}' starts or ends with a hyphen.");
+            errors.Add($"{kind} name '{name}' starts or ends with a hyphen.");
 
         if (name.Contains("--"))
-            warnings.Add($"Skill name '{name}' contains consecutive hyphens.");
+            errors.Add($"{kind} name '{name}' contains consecutive hyphens.");
+    }
+
+    /// <summary>
+    /// Validate name format and directory match for skills.
+    /// </summary>
+    internal static void ValidateName(string name, string directoryName, List<string> errors)
+    {
+        ValidateNameFormat(name, "Skill", errors);
 
         if (!string.Equals(name, directoryName, StringComparison.Ordinal))
-            warnings.Add($"Skill name '{name}' does not match directory name '{directoryName}'.");
+            errors.Add($"Skill name '{name}' does not match directory name '{directoryName}'.");
     }
 
     public static string FormatProfileLine(SkillProfile profile)
