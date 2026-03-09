@@ -2,23 +2,20 @@
 name: migrate-dotnet9-to-dotnet10
 description: >
   Migrate a .NET 9 project or solution to .NET 10 and resolve all breaking changes.
-  USE FOR: upgrading TargetFramework from net9.0 to net10.0, fixing build errors,
-  compilation errors, and new warnings after updating the .NET 10 SDK, resolving
-  behavioral changes introduced in .NET 10 / C# 14 / ASP.NET Core 10 / EF Core 10,
-  updating Dockerfiles for the Debian-to-Ubuntu container image change, resolving
-  new obsoletion warnings (SYSLIB0058–SYSLIB0062), adapting to SDK and NuGet tooling
-  changes (NU1510, PrunePackageReference), migrating from System.Linq.Async to the
-  built-in AsyncEnumerable, fixing Microsoft.OpenApi v2 namespace and API changes,
-  and resolving cryptography API renames (MLDsa/SlhDsa SecretKey→PrivateKey,
-  Rfc2898DeriveBytes SYSLIB0060). Resolves C# 14 compiler breaking changes
-  (field keyword, extension keyword, span overload resolution).
-  DO NOT USE FOR: major framework migrations (e.g., .NET Framework to .NET 10),
-  upgrading from .NET 8 or earlier (use the migrate-dotnet8-to-dotnet9 skill first),
-  greenfield projects that start on .NET 10, or purely cosmetic code modernization
-  unrelated to the version upgrade.
-  LOADS REFERENCES: csharp-compiler, core-libraries, sdk-msbuild (always loaded),
-  aspnet-core, efcore, cryptography, extensions-hosting, serialization-networking,
-  winforms-wpf, containers-interop (loaded selectively based on project type).
+  USE FOR: upgrading TargetFramework from net9.0 to net10.0, fixing build errors
+  after updating the .NET 10 SDK, resolving source and behavioral changes in
+  .NET 10 / C# 14 / ASP.NET Core 10 / EF Core 10, updating Dockerfiles for
+  Debian-to-Ubuntu base images, resolving obsoletion warnings
+  (SYSLIB0058-SYSLIB0062), adapting to SDK/NuGet changes (NU1510,
+  PrunePackageReference), migrating System.Linq.Async to built-in
+  AsyncEnumerable, fixing OpenApi v2 API changes, cryptography renames, and
+  C# 14 compiler changes (field keyword, extension keyword, span overloads).
+  DO NOT USE FOR: .NET Framework migrations, upgrading from .NET 8 or earlier
+  (use migrate-dotnet8-to-dotnet9 first), greenfield .NET 10 projects, or
+  cosmetic modernization.
+  LOADS REFERENCES: csharp-compiler, core-libraries, sdk-msbuild (always);
+  aspnet-core, efcore, cryptography, extensions-hosting,
+  serialization-networking, winforms-wpf, containers-interop (selective).
 ---
 
 # .NET 9 → .NET 10 Migration
