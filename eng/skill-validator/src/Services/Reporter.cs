@@ -313,8 +313,10 @@ public static class Reporter
         var sb = new StringBuilder();
         sb.AppendLine("## Skill Validation Results");
         sb.AppendLine();
-        sb.AppendLine("| Skill | Scenario | Baseline | With Skill | Δ | Skills Loaded | Overfit | Verdict |");
-        sb.AppendLine("|-------|----------|----------|------------|---|---------------|---------|--------|");
+        sb.AppendLine("| Skill | Scenario | Baseline | With Skill | Δ | Skills Loaded | Overfit | Verdict | Notes |");
+        sb.AppendLine("|-------|----------|----------|------------|---|---------------|---------|--------|-------|");
+
+        var footnotes = new List<string>();
 
         foreach (var v in verdicts)
         {
@@ -329,11 +331,15 @@ public static class Reporter
                 var skillStr = (skillScore is { } ss && !double.IsNaN(ss) ? $"{ss:F1}/5" : "—") + (sTimedOut ? " ⏰ timeout" : "");
 
                 string deltaStr = "—";
+                double? qualityDelta = null;
                 if (baseScore is { } b && skillScore is { } sk && !double.IsNaN(b) && !double.IsNaN(sk))
                 {
                     double delta = sk - b;
                     if (!double.IsNaN(delta))
+                    {
                         deltaStr = delta > 0 ? $"+{delta:F1}" : $"{delta:F1}";
+                        qualityDelta = delta;
+                    }
                 }
 
                 var icon = s.ImprovementScore > 0 ? "✅" : s.ImprovementScore < 0 ? "❌" : "🟡";
@@ -358,8 +364,23 @@ public static class Reporter
                     skillsCol = "⚠️ NOT ACTIVATED";
                 }
 
-                sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {baseStr} | {skillStr} | {deltaStr} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {icon} |");
+                var footnote = BuildVerdictFootnote(s, qualityDelta);
+                string notesCol = "";
+                if (footnote is not null)
+                {
+                    footnotes.Add(footnote);
+                    notesCol = $"[{footnotes.Count}]";
+                }
+
+                sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {baseStr} | {skillStr} | {deltaStr} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {icon} | {notesCol} |");
             }
+        }
+
+        if (footnotes.Count > 0)
+        {
+            sb.AppendLine();
+            for (int i = 0; i < footnotes.Count; i++)
+                sb.AppendLine($"**[{i + 1}]** {footnotes[i]}");
         }
 
         bool anyTimeout = verdicts.Any(v => v.Scenarios.Any(s =>
@@ -522,6 +543,69 @@ public static class Reporter
             _ => "—",
         };
         return $"{icon} {result.Score:F2}";
+    }
+
+    /// <summary>
+    /// Returns a footnote string when the verdict (based on composite ImprovementScore)
+    /// disagrees with the quality delta shown in the table, or null if no explanation is needed.
+    /// </summary>
+    internal static string? BuildVerdictFootnote(ScenarioComparison s, double? qualityDelta)
+    {
+        bool verdictPositive = s.ImprovementScore > 0;
+        bool qualityPositive = qualityDelta.HasValue && qualityDelta.Value > 0.01;
+        bool qualityNegative = qualityDelta.HasValue && qualityDelta.Value < -0.01;
+        bool qualityNeutral = !qualityPositive && !qualityNegative;
+
+        // Verdict agrees with quality direction — no footnote needed
+        if (verdictPositive && (qualityPositive || qualityNeutral)) return null;
+        if (!verdictPositive && qualityNegative) return null;
+
+        var bd = s.Breakdown;
+        var composite = s.ImprovementScore * 100;
+
+        // Build list of metrics that hurt or helped the composite
+        var contributors = new List<(string label, double raw, double weighted)>
+        {
+            ("quality", bd.QualityImprovement, bd.QualityImprovement * 0.40),
+            ("judgment", bd.OverallJudgmentImprovement, bd.OverallJudgmentImprovement * 0.30),
+            ("completion", bd.TaskCompletionImprovement, bd.TaskCompletionImprovement * 0.15),
+            ("tokens", bd.TokenReduction, bd.TokenReduction * 0.05),
+            ("errors", bd.ErrorReduction, bd.ErrorReduction * 0.05),
+            ("tool calls", bd.ToolCallReduction, bd.ToolCallReduction * 0.025),
+            ("time", bd.TimeReduction, bd.TimeReduction * 0.025),
+        };
+
+        string compositeStr = $"composite {(composite >= 0 ? "+" : "")}{composite:F1}%";
+
+        if (!verdictPositive && (qualityPositive || qualityNeutral))
+        {
+            // Quality improved or flat, but composite is negative — show what dragged it down
+            var negatives = contributors
+                .Where(c => c.weighted < -0.005)
+                .OrderBy(c => c.weighted)
+                .Select(c => c.label)
+                .ToList();
+            string cause = negatives.Count > 0
+                ? string.Join(", ", negatives) + " offset quality gain"
+                : "efficiency metrics offset quality gain";
+            return $"{compositeStr} — {cause}";
+        }
+
+        if (verdictPositive && qualityNegative)
+        {
+            // Quality dropped, but composite is positive — show what compensated
+            var positives = contributors
+                .Where(c => c.weighted > 0.005 && c.label is not "quality" and not "judgment")
+                .OrderByDescending(c => c.weighted)
+                .Select(c => c.label)
+                .ToList();
+            string cause = positives.Count > 0
+                ? string.Join(", ", positives) + " offset quality drop"
+                : "efficiency gains offset quality drop";
+            return $"{compositeStr} — {cause}";
+        }
+
+        return null;
     }
 
     private static string FmtBool(bool v) => v ? "✓" : "✗";

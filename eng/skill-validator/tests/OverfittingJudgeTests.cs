@@ -373,6 +373,7 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("Overfit", md);
+        Assert.Contains("Notes", md);
         Assert.Contains("🟡 0.38", md);
     }
 
@@ -409,7 +410,90 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("Overfit", md);
+        Assert.Contains("Notes", md);
         Assert.Contains("| — |", md);
+    }
+
+    [Fact]
+    public void MarkdownTable_ShowsFootnoteWhenVerdictDisagreesWithQuality()
+    {
+        // Quality improved (+1.0) but composite is negative due to token/time overhead
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "test-skill",
+                SkillPath = "/test",
+                Passed = false,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "overhead-scenario",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
+                        WithSkill = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled" },
+                            new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
+                        ImprovementScore = -0.05,
+                        Breakdown = new MetricBreakdown(
+                            TokenReduction: -0.8,
+                            ToolCallReduction: -0.5,
+                            TaskCompletionImprovement: 0,
+                            TimeReduction: -0.7,
+                            QualityImprovement: 0.4,
+                            OverallJudgmentImprovement: 0.4,
+                            ErrorReduction: 0),
+                    }
+                },
+                OverallImprovementScore = -0.05,
+                Reason = "Below threshold",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.Contains("[1]", md);
+        Assert.Contains("composite", md);
+        Assert.Contains("offset quality gain", md);
+    }
+
+    [Fact]
+    public void MarkdownTable_NoFootnoteWhenVerdictMatchesQuality()
+    {
+        // Quality improved and composite is positive — no footnote needed
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "test-skill",
+                SkillPath = "/test",
+                Passed = true,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "clean-pass",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 3.0, "OK")),
+                        WithSkill = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled" },
+                            new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
+                        ImprovementScore = 0.3,
+                        Breakdown = new MetricBreakdown(0.1, 0.1, 0, 0.1, 0.6, 0.6, 0),
+                    }
+                },
+                OverallImprovementScore = 0.3,
+                Reason = "Pass",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.DoesNotContain("[1]", md);
+        Assert.DoesNotContain("composite", md);
     }
 
     // --- Prompt overfitting detection tests ---
