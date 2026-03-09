@@ -62,7 +62,15 @@ If your skill does not fit any existing plugin, consider creating a new one. The
 - `dotnet-winforms` — Windows Forms (WinForms)
 - `dotnet-maui` — .NET MAUI
 
-To create a new plugin, add a `plugins/<plugin-name>/plugin.json` file and a matching entry in the marketplace.json file. See existing plugins for the expected format.
+To create a new plugin:
+
+1. Add `plugins/<plugin-name>/plugin.json` and a `skills/` directory beneath it.
+2. Add a matching entry in `.github/plugin/marketplace.json`.
+3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
+4. Add the plugin to the **What's Included** table in the root `README.md`.
+5. Create a `tests/<plugin-name>/` directory for skill tests.
+
+See existing plugins for the expected format.
 
 ## Before you start
 
