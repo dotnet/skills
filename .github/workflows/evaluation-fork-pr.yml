@@ -250,13 +250,13 @@ jobs:
         if: needs.run-evaluation.result == 'failure'
         run: |
           for f in $(find all-results/ -name results.json 2>/dev/null); do
-            jq -r '.verdicts[]? | select(.passed == false and .failureKind != null) | (if (.scenarios | length) == 0 then "- ❌ " else "- ⚠️ " end) + "**\(.skillName | gsub("@";"@\u200B"))**: \(.reason | gsub("@";"@\u200B"))"' "$f" 2>/dev/null >> /tmp/error-details.txt || true
+            jq -r '.verdicts[]? | select(.passed == false and .failureKind != null and (.scenarios | length) == 0) | "- **\(.skillName | gsub("@";"@\u200B"))**: \(.reason | gsub("@";"@\u200B"))"' "$f" 2>/dev/null >> /tmp/error-details.txt || true
           done
           if [[ -s /tmp/error-details.txt ]]; then
             echo "Extracted error details:"
             cat /tmp/error-details.txt
           else
-            echo "No error details found in result artifacts"
+            echo "No pre-eval errors found in result artifacts"
           fi
 
       - name: Post completion comment for failed evaluation
@@ -268,16 +268,33 @@ jobs:
           PR_NUMBER=${{ needs.gate.outputs.pr_number }}
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
+          # Find the results table comment to link to
+          MARKER="<!-- skill-validator-results -->"
+          TABLE_COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --paginate --jq ".[] | select(.body | startswith(\"${MARKER}\")) | .id" | head -1 || echo "")
+
           if [[ -s /tmp/error-details.txt ]]; then
+            # Pre-eval errors exist — show them and link to results
             {
               echo "❌ Evaluation failed."
               echo ""
               cat /tmp/error-details.txt
               echo ""
-              echo "[View workflow run](${RUN_URL})"
+              if [ -n "$TABLE_COMMENT_ID" ]; then
+                TABLE_URL="${{ github.server_url }}/${{ github.repository }}/pull/${PR_NUMBER}#issuecomment-${TABLE_COMMENT_ID}"
+                echo "[View results](${TABLE_URL}) | [View workflow run](${RUN_URL})"
+              else
+                echo "[View workflow run](${RUN_URL})"
+              fi
             } > /tmp/failure-comment.md
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -F "body=@/tmp/failure-comment.md"
+          elif [ -n "$TABLE_COMMENT_ID" ]; then
+            # No pre-eval errors, but evaluation still failed — results table has the details
+            TABLE_URL="${{ github.server_url }}/${{ github.repository }}/pull/${PR_NUMBER}#issuecomment-${TABLE_COMMENT_ID}"
+            BODY="❌ Evaluation failed. [View results](${TABLE_URL}) | [View workflow run](${RUN_URL})"
+            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
           else
+            # No results table at all
             BODY="❌ Evaluation failed. [View workflow run](${RUN_URL})"
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
           fi
