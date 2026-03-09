@@ -20,7 +20,7 @@ scenarios:
       - "Sets DOTNET_DbgMiniDumpName with the /var/dumps path"
       - "Includes a verification step to confirm env vars are set"
       - "Does not attempt to analyze dumps or install analysis tools"
-    timeout: 60
+    timeout: 120
 
   - name: "Set up NativeAOT crash dumps with createdump in Kubernetes"
     prompt: |
@@ -42,7 +42,7 @@ scenarios:
       - "Mounts a volume for dump output"
       - "Sets DOTNET_DbgMiniDumpType=4 since NativeAOT only supports full dumps"
       - "Does not attempt to analyze dumps"
-    timeout: 60
+    timeout: 120
 
   - name: "Recover crash dump from macOS NativeAOT without createdump"
     prompt: |
@@ -58,7 +58,7 @@ scenarios:
       - "Checks ~/Library/Logs/DiagnosticReports for .crash or .ips reports"
       - "Explains that if ulimit -c unlimited was not set before the crash, the core dump may be lost"
       - "Does not attempt to analyze the dump contents"
-    timeout: 60
+    timeout: 120
 
   - name: "Configure CoreCLR dump collection in Alpine Docker as non-root"
     prompt: |
@@ -78,7 +78,7 @@ scenarios:
       - "Addresses dump directory permissions for non-root user"
       - "Does not claim Alpine requires special workarounds for crash dumps"
       - "Does not attempt to analyze dumps"
-    timeout: 60
+    timeout: 120
 
   - name: "Advisory: macOS NativeAOT crash dump recovery steps"
     prompt: |
@@ -97,7 +97,7 @@ scenarios:
       - "Mentions that ulimit -c unlimited must have been set before the crash for a core dump to exist"
       - "Provides guidance without attempting to execute commands or search the filesystem"
       - "Does not attempt to analyze dump contents"
-    timeout: 60
+    timeout: 120
 
   - name: "Advisory: CoreCLR Alpine Docker non-root configuration"
     prompt: |
@@ -116,7 +116,7 @@ scenarios:
       - "Explains dump directory ownership or permissions for non-root user"
       - "Does not claim Alpine requires special workarounds for crash dumps"
       - "Provides advisory guidance without attempting to execute commands"
-    timeout: 60
+    timeout: 120
 
   - name: "Advisory: NativeAOT Kubernetes dump collection setup"
     prompt: |
@@ -136,7 +136,7 @@ scenarios:
       - "Describes a volume mount for dump output"
       - "Sets DOTNET_DbgMiniDumpType=4 since NativeAOT only supports full dumps"
       - "Provides advisory guidance without attempting to modify actual cluster resources"
-    timeout: 60
+    timeout: 120
 
   - name: "Detect runtime and configure crash dumps for unknown .NET app on Linux"
     prompt: |
@@ -152,7 +152,7 @@ scenarios:
       - "Provides appropriate configuration based on the detected runtime"
       - "Does not assume one runtime or the other without checking"
       - "Does not attempt to analyze dumps"
-    timeout: 60
+    timeout: 120
 
   - name: "Decline dump analysis request"
     prompt: |

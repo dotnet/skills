@@ -13,7 +13,8 @@ public static class Reporter
         bool verbose,
         string? model = null,
         string? judgeModel = null,
-        string? resultsDir = null)
+        string? resultsDir = null,
+        int rejectedCount = 0)
     {
         bool needsResultsDir = reporters.Any(r =>
             r.Type is ReporterType.Json or ReporterType.Junit or ReporterType.Markdown);
@@ -29,7 +30,7 @@ public static class Reporter
             switch (reporter.Type)
             {
                 case ReporterType.Console:
-                    ReportConsole(verdicts, verbose);
+                    ReportConsole(verdicts, verbose, rejectedCount);
                     break;
                 case ReporterType.Json:
                     if (effectiveResultsDir is null)
@@ -52,7 +53,7 @@ public static class Reporter
 
     // --- Console reporter ---
 
-    private static void ReportConsole(IReadOnlyList<SkillVerdict> verdicts, bool verbose)
+    private static void ReportConsole(IReadOnlyList<SkillVerdict> verdicts, bool verbose, int rejectedCount = 0)
     {
         Console.WriteLine();
         Console.WriteLine("\x1b[1m═══ Skill Validation Results ═══\x1b[0m");
@@ -142,9 +143,12 @@ public static class Reporter
         }
 
         int passed = verdicts.Count(v => v.Passed);
-        int total = verdicts.Count;
-        var summaryColor = passed == total ? "\x1b[32m" : "\x1b[31m";
-        Console.WriteLine($"{summaryColor}{passed}/{total} skills passed validation\x1b[0m");
+        int total = verdicts.Count + rejectedCount;
+        var summaryColor = (passed == total) ? "\x1b[32m" : "\x1b[31m";
+        var summaryText = $"{passed}/{total} skills passed validation";
+        if (rejectedCount > 0)
+            summaryText += $" ({rejectedCount} rejected due to execution errors)";
+        Console.WriteLine($"{summaryColor}{summaryText}\x1b[0m");
 
         bool anyTimeout = verdicts.Any(v => v.Scenarios.Any(s =>
             s.Baseline.Metrics.TimedOut || s.WithSkill.Metrics.TimedOut));
