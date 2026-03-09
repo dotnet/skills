@@ -363,7 +363,11 @@ public static class Reporter
         }
 
         // Show validation/spec errors for skills that failed before evaluation ran
-        var failedVerdicts = verdicts.Where(v => !v.Passed && !string.IsNullOrEmpty(v.FailureKind)).ToList();
+        var failedVerdicts = verdicts
+            .Where(v => !v.Passed
+                        && !string.IsNullOrEmpty(v.FailureKind)
+                        && v.Scenarios.Count == 0)
+            .ToList();
         if (failedVerdicts.Count > 0)
         {
             sb.AppendLine();
