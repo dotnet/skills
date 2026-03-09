@@ -551,33 +551,49 @@ public static class Reporter
     /// </summary>
     internal static string? BuildVerdictFootnote(ScenarioComparison s, double? qualityDelta)
     {
+        // No footnote for neutral verdicts (🟡) or when quality delta is unknown
+        if (s.ImprovementScore == 0 || !qualityDelta.HasValue)
+            return null;
+
         bool verdictPositive = s.ImprovementScore > 0;
-        bool qualityPositive = qualityDelta.HasValue && qualityDelta.Value > 0.01;
-        bool qualityNegative = qualityDelta.HasValue && qualityDelta.Value < -0.01;
-        bool qualityNeutral = !qualityPositive && !qualityNegative;
+
+        // Align with the F1 rounding used in the Δ column so footnotes don't
+        // reference a direction the user can't see in the table.
+        double roundedDelta = Math.Round(qualityDelta.Value, 1);
+        bool qualityPositive = roundedDelta > 0;
+        bool qualityNegative = roundedDelta < 0;
 
         // Verdict agrees with quality direction — no footnote needed
-        if (verdictPositive && (qualityPositive || qualityNeutral)) return null;
+        if (verdictPositive && !qualityNegative) return null;
         if (!verdictPositive && qualityNegative) return null;
 
         var bd = s.Breakdown;
         var composite = s.ImprovementScore * 100;
 
-        // Build list of metrics that hurt or helped the composite
-        var contributors = new List<(string label, double raw, double weighted)>
+        // Map breakdown fields using DefaultWeights to avoid hard-coded weight duplication
+        var breakdownByKey = new Dictionary<string, (string label, double raw)>
         {
-            ("quality", bd.QualityImprovement, bd.QualityImprovement * 0.40),
-            ("judgment", bd.OverallJudgmentImprovement, bd.OverallJudgmentImprovement * 0.30),
-            ("completion", bd.TaskCompletionImprovement, bd.TaskCompletionImprovement * 0.15),
-            ("tokens", bd.TokenReduction, bd.TokenReduction * 0.05),
-            ("errors", bd.ErrorReduction, bd.ErrorReduction * 0.05),
-            ("tool calls", bd.ToolCallReduction, bd.ToolCallReduction * 0.025),
-            ("time", bd.TimeReduction, bd.TimeReduction * 0.025),
+            ["QualityImprovement"] = ("quality", bd.QualityImprovement),
+            ["OverallJudgmentImprovement"] = ("judgment", bd.OverallJudgmentImprovement),
+            ["TaskCompletionImprovement"] = ("completion", bd.TaskCompletionImprovement),
+            ["TokenReduction"] = ("tokens", bd.TokenReduction),
+            ["ErrorReduction"] = ("errors", bd.ErrorReduction),
+            ["ToolCallReduction"] = ("tool calls", bd.ToolCallReduction),
+            ["TimeReduction"] = ("time", bd.TimeReduction),
         };
+
+        var contributors = DefaultWeights.Values
+            .Where(kvp => breakdownByKey.ContainsKey(kvp.Key))
+            .Select(kvp =>
+            {
+                var (label, raw) = breakdownByKey[kvp.Key];
+                return (label, raw, weighted: raw * kvp.Value);
+            })
+            .ToList();
 
         string compositeStr = $"composite {(composite >= 0 ? "+" : "")}{composite:F1}%";
 
-        if (!verdictPositive && (qualityPositive || qualityNeutral))
+        if (!verdictPositive && (qualityPositive || !qualityNegative))
         {
             // Quality improved or flat, but composite is negative — show what dragged it down
             var negatives = contributors
