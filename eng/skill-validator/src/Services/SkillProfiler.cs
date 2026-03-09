@@ -168,9 +168,14 @@ public static partial class SkillProfiler
         // discovery. This is a hard error — no existing evals on main have this pattern.
         if (skill.EvalConfig is not null && !string.IsNullOrWhiteSpace(skill.Name))
         {
+            // Boundary-aware match: skill name must appear as a standalone token,
+            // not as part of a larger word or hyphenated identifier.
+            var escapedName = Regex.Escape(skill.Name.Trim());
+            var namePattern = new Regex($@"(?<![\w-]){escapedName}(?![\w-])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
             foreach (var scenario in skill.EvalConfig.Scenarios)
             {
-                if (scenario.Prompt.Contains(skill.Name, StringComparison.OrdinalIgnoreCase))
+                if (namePattern.IsMatch(scenario.Prompt))
                     errors.Add($"Eval scenario '{scenario.Name}' prompt mentions skill name '{skill.Name}' — remove skill name from prompt to avoid biasing baseline runs.");
             }
         }

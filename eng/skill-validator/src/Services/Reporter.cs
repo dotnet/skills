@@ -375,10 +375,10 @@ public static class Reporter
             sb.AppendLine();
             foreach (var v in failedVerdicts)
             {
-                // Neutralize @ to prevent mention-spam from PR-controlled content
-                var safeName = v.SkillName.Replace("@", "@\u200B");
-                var safeReason = v.Reason.Replace("@", "@\u200B");
-                sb.AppendLine($"**{safeName}**: {safeReason}");
+                // Wrap in inline code to prevent markdown injection from PR-controlled content
+                var safeName = v.SkillName.Replace("`", "'");
+                var safeReason = v.Reason.Replace("`", "'").Replace("\r", "").Replace("\n", " ");
+                sb.AppendLine($"`{safeName}`: {safeReason}");
             }
         }
 

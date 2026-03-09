@@ -432,7 +432,7 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("### Errors", md);
-        Assert.Contains("**broken-skill**: Skill description is 1,370 characters", md);
+        Assert.Contains("`broken-skill`: Skill description is 1,370 characters", md);
     }
 
     [Fact]
