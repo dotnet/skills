@@ -250,7 +250,7 @@ jobs:
         if: needs.run-evaluation.result == 'failure'
         run: |
           for f in $(find all-results/ -name results.json 2>/dev/null); do
-            jq -r '.verdicts[]? | select(.passed == false and .failureKind != null) | "- **\(.skillName | gsub("@";"@\u200B"))**: \(.reason | gsub("@";"@\u200B"))"' "$f" 2>/dev/null >> /tmp/error-details.txt || true
+            jq -r '.verdicts[]? | select(.passed == false and .failureKind != null) | (if (.scenarios | length) == 0 then "- ❌ " else "- ⚠️ " end) + "**\(.skillName | gsub("@";"@\u200B"))**: \(.reason | gsub("@";"@\u200B"))"' "$f" 2>/dev/null >> /tmp/error-details.txt || true
           done
           if [[ -s /tmp/error-details.txt ]]; then
             echo "Extracted error details:"
