@@ -50,8 +50,4 @@ For ReadyToRun-capable assemblies, there may be additional startup overhead on s
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/jit/11/minimum-hardware-requirements
 
-### Globalization: Japanese Calendar minimum supported date corrected
 
-**Impact: Low.** The minimum supported date for the Japanese Calendar has been corrected. Code using very early dates in the Japanese Calendar may be affected.
-
-Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/globalization/11/japanese-calendar-min-date

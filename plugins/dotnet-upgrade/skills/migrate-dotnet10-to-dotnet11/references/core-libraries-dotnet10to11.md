@@ -79,3 +79,9 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-librari
 **Impact: Low.** `Environment.TickCount` behavior has been made consistent with Windows timeout behavior. Code that relies on specific tick count wrapping or comparison patterns may need adjustment.
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/11/environment-tickcount-windows-behavior
+
+### Globalization: Japanese Calendar minimum supported date corrected
+
+**Impact: Low.** The minimum supported date for the Japanese Calendar has been corrected. Code using very early dates in the Japanese Calendar may be affected.
+
+Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/globalization/11/japanese-calendar-min-date
