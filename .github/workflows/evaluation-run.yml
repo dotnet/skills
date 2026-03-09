@@ -76,6 +76,9 @@ on:
         description: 'Whether the PR comment was created, updated, or not posted'
         value: ${{ jobs.comment-on-pr.outputs.comment_action }}
 
+env:
+  PR_COMMENT_MARKER: '<!-- skill-validator-results -->'
+
 jobs:
   build-validator:
     runs-on: ubuntu-latest
@@ -252,11 +255,10 @@ jobs:
             --output summary-body.md \
             $JSON_FILES
 
-          MARKER="<!-- skill-validator-results -->"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           {
-            echo "$MARKER"
+            echo "$PR_COMMENT_MARKER"
             cat summary-body.md
             echo ""
             echo "[Full results]($RUN_URL)"
@@ -271,11 +273,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           PR_NUMBER=${{ inputs.pr-number }}
-          MARKER="<!-- skill-validator-results -->"
 
           # Find existing comment with our marker
           COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
-            --paginate --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" | head -1)
+            --paginate --jq ".[] | select(.body | startswith(\"$PR_COMMENT_MARKER\")) | .id" | head -1)
 
           if [ -n "$COMMENT_ID" ]; then
             gh api "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" \
@@ -286,3 +287,46 @@ jobs:
               -X POST -F "body=@consolidated-comment.md"
             echo "comment_action=created" >> $GITHUB_OUTPUT
           fi
+
+  post-completion-comment:
+    needs: [evaluate, comment-on-pr]
+    if: always() && needs.evaluate.result != 'cancelled' && inputs.pr-number != ''
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Post completion comment
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER=${{ inputs.pr-number }}
+          EVAL_RESULT="${{ needs.evaluate.result }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # Handle skipped (build-validator failed) or failure
+          if [[ "$EVAL_RESULT" == "skipped" ]]; then
+            BODY="❌ Evaluation did not complete (upstream job failed or was skipped). [View workflow run](${RUN_URL})"
+            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
+            exit 0
+          fi
+
+          if [[ "$EVAL_RESULT" != "success" ]]; then
+            BODY="❌ Evaluation failed. [View workflow run](${RUN_URL})"
+            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
+            exit 0
+          fi
+
+          # Success path — only post if the evaluation table was updated (not newly created)
+          # to avoid posting a duplicate comment alongside the new table
+          if [[ "${{ needs.comment-on-pr.outputs.comment_action }}" != "updated" ]]; then
+            echo "Evaluation table was newly created or not posted; skipping completion comment."
+            exit 0
+          fi
+
+          TABLE_COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --paginate --jq ".[] | select(.body | startswith(\"$PR_COMMENT_MARKER\")) | .id" | head -1 || echo "")
+
+          TABLE_URL="${{ github.server_url }}/${{ github.repository }}/pull/${PR_NUMBER}#issuecomment-${TABLE_COMMENT_ID}"
+          BODY="✅ Evaluation completed. [View results](${TABLE_URL}) | [View workflow run](${RUN_URL})"
+          gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
