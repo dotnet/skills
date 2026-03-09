@@ -362,6 +362,19 @@ public static class Reporter
             }
         }
 
+        // Show validation/spec errors for skills that failed before evaluation ran
+        var failedVerdicts = verdicts.Where(v => !v.Passed && !string.IsNullOrEmpty(v.FailureKind)).ToList();
+        if (failedVerdicts.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("### Errors");
+            sb.AppendLine();
+            foreach (var v in failedVerdicts)
+            {
+                sb.AppendLine($"**{v.SkillName}**: {v.Reason}");
+            }
+        }
+
         bool anyTimeout = verdicts.Any(v => v.Scenarios.Any(s =>
             (s.Baseline?.Metrics?.TimedOut == true) || (s.WithSkill?.Metrics?.TimedOut == true)));
         if (anyTimeout)
