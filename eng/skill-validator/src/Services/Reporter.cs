@@ -375,7 +375,10 @@ public static class Reporter
             sb.AppendLine();
             foreach (var v in failedVerdicts)
             {
-                sb.AppendLine($"**{v.SkillName}**: {v.Reason}");
+                // Neutralize @ to prevent mention-spam from PR-controlled content
+                var safeName = v.SkillName.Replace("@", "@\u200B");
+                var safeReason = v.Reason.Replace("@", "@\u200B");
+                sb.AppendLine($"**{safeName}**: {safeReason}");
             }
         }
 
