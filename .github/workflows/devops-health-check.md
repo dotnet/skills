@@ -39,7 +39,7 @@ safe-outputs:
   dispatch-workflow:
     workflows:
       - devops-health-investigate
-    max: 10
+    max: 2  # Workaround for https://github.com/github/gh-aw/issues/20187 — raise when fixed
 
 network:
   allowed:
@@ -477,7 +477,7 @@ For each 🆕 NEW finding that qualifies for investigation, dispatch a worker us
 
 **First run note:** On the first run all findings are 🆕 NEW. This means ALL critical findings MUST be dispatched.
 
-**Budget:** Maximum 10 dispatches per run. If more than 10 qualify, prioritize by:
+**Budget:** Maximum **2** dispatches per run (limited to avoid investigation runs cancelling each other due to a shared agent concurrency group — see [gh-aw#20187](https://github.com/github/gh-aw/issues/20187)). If more than 2 qualify, prioritize by:
 1. Severity descending (🔴 first)
 2. Pipeline findings first
 3. Quality findings second

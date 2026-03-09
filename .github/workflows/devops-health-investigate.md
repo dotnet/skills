@@ -29,6 +29,9 @@ on:
         description: "Unique ID linking this investigation to the health check run"
         required: true
 
+# NOTE: The workflow-level group correctly discriminates by finding_id, but the
+# compiler-generated agent job-level group does not, limiting parallel runs to 2.
+# See https://github.com/github/gh-aw/issues/20187
 concurrency:
   group: gh-aw-${{ github.workflow }}-${{ inputs.finding_id }}
 
