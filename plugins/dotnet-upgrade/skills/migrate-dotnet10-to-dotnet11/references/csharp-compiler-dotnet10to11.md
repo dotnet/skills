@@ -148,7 +148,7 @@ items = [with(x, y), z];   // C# 14: call to with() method; C# 15: error
 items = [@with(x, y), z];  // fix: escape to call method named 'with'
 ```
 
-### Parsing of `with` in switch-expression-arm
+### Parsing of `when` in switch-expression-arm
 
 **Impact: Low.** In a switch expression, `(X.Y) when` is now parsed as a constant pattern `(X.Y)` followed by a `when` clause. Previously it was parsed as a cast expression casting `when` to `(X.Y)`.
 

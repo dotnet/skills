@@ -9,6 +9,7 @@ scenarios:
       - Uses MemoryStream with very large allocations close to the maximum capacity
       What breaks when migrating to .NET 11?
     assertions:
+      - type: "exit_success"
       - type: "output_matches"
         pattern: "(GZipStream|DeflateStream|header|footer|empty)"
       - type: "output_matches"
@@ -59,6 +60,7 @@ scenarios:
 
       What breaks in each case and how do I fix it?
     assertions:
+      - type: "exit_success"
       - type: "output_matches"
         pattern: "(Span|safe.context|declaration.block|scope)"
       - type: "output_matches"
@@ -107,6 +109,7 @@ scenarios:
 
       In .NET 10 we had the sync-over-async opt-in configured. What breaks in .NET 11?
     assertions:
+      - type: "exit_success"
       - type: "output_matches"
         pattern: "(sync|async|ToList|SaveChanges)"
       - type: "output_matches"
@@ -127,6 +130,7 @@ scenarios:
       After upgrading, one of our Linux x86 nodes fails with "The current CPU is missing
       one or more of the baseline instruction sets." What's happening?
     assertions:
+      - type: "exit_success"
       - type: "output_matches"
         pattern: "(x86.64.v2|baseline|minimum|hardware)"
       - type: "output_matches"
@@ -145,6 +149,7 @@ scenarios:
       and macOS. After upgrading to .NET 11, the macOS builds fail at runtime when calling
       DSA.Create(). What happened and how do we fix it?
     assertions:
+      - type: "exit_success"
       - type: "output_matches"
         pattern: "(DSA|macOS|removed)"
       - type: "output_matches"
@@ -164,6 +169,7 @@ scenarios:
       - A Dockerfile using mcr.microsoft.com/dotnet/aspnet:10.0 and sdk:10.0
       How do I update everything for .NET 11?
     assertions:
+      - type: "exit_success"
       - type: "output_matches"
         pattern: "(net11\\.0|TargetFramework)"
       - type: "output_matches"
@@ -218,6 +224,7 @@ scenarios:
 
       What's happening?
     assertions:
+      - type: "exit_success"
       - type: "output_matches"
         pattern: "(interface|dynamic|CS7083|operator)"
       - type: "output_matches"

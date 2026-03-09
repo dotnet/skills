@@ -143,7 +143,7 @@ These changes compile successfully but alter runtime behavior. Review each one a
 
 9. **Mono launch target for .NET Framework** — No longer set automatically. If using Mono for .NET Framework apps on Linux, specify explicitly.
 
-10. **`with()` switch-expression-arm parsing** — `(X.Y) when` now parsed as constant pattern + when clause instead of cast.
+10. **`when` switch-expression-arm parsing** — `(X.Y) when` now parsed as constant pattern + when clause instead of cast.
 
 ### Step 5: Update infrastructure
 
