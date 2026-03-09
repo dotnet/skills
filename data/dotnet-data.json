@@ -58,6 +58,37 @@
           "timestamp": "2026-03-08T20:11:02+00:00",
           "url": "https://github.com/dotnet/skills/commit/dcdad225a92701bf599f471748ca00da2a7affe9"
         }
+      },
+      {
+        "benches": [
+          {
+            "overfittingScore": 0.31,
+            "value": 14.7,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
+            "overfitting": "moderate",
+            "unit": "seconds"
+          },
+          {
+            "overfittingScore": 0.31,
+            "value": 25213.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
+            "overfitting": "moderate",
+            "unit": "tokens"
+          }
+        ],
+        "model": "claude-opus-4.6",
+        "date": 1773020655056,
+        "tool": "customSmallerIsBetter",
+        "commit": {
+          "timestamp": "2026-03-08T20:11:02+00:00",
+          "url": "https://github.com/dotnet/skills/commit/dcdad225a92701bf599f471748ca00da2a7affe9",
+          "message": "Fix 429 rate limiting in evaluation pipeline (#284)",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Jan Krivanek"
+          },
+          "id": "dcdad225a92701bf599f471748ca00da2a7affe9"
+        }
       }
     ],
     "Quality": [
@@ -116,9 +147,38 @@
           "timestamp": "2026-03-08T20:11:02+00:00",
           "url": "https://github.com/dotnet/skills/commit/dcdad225a92701bf599f471748ca00da2a7affe9"
         }
+      },
+      {
+        "benches": [
+          {
+            "overfittingScore": 0.31,
+            "value": 10.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
+            "overfitting": "moderate",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.800000190734863,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality",
+            "unit": "Score (0-10)"
+          }
+        ],
+        "model": "claude-opus-4.6",
+        "date": 1773020655056,
+        "tool": "customBiggerIsBetter",
+        "commit": {
+          "timestamp": "2026-03-08T20:11:02+00:00",
+          "url": "https://github.com/dotnet/skills/commit/dcdad225a92701bf599f471748ca00da2a7affe9",
+          "message": "Fix 429 rate limiting in evaluation pipeline (#284)",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Jan Krivanek"
+          },
+          "id": "dcdad225a92701bf599f471748ca00da2a7affe9"
+        }
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1773008196985
+  "lastUpdate": 1773020655056
 }
