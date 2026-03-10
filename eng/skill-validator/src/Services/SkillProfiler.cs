@@ -165,7 +165,7 @@ public static partial class SkillProfiler
 
         // Eval prompts that explicitly reference the skill by name bias baseline runs
         // (agent wastes time searching) and force activation instead of testing organic
-        // discovery. This is a hard error — no existing evals on main have this pattern.
+        // discovery. This is a hard error.
         if (skill.EvalConfig is not null && !string.IsNullOrWhiteSpace(skill.Name))
         {
             // Boundary-aware match: skill name must appear as a standalone token,
