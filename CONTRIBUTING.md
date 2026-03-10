@@ -100,7 +100,7 @@ We are less likely to accept contributions that:
 
 ## Proposing a new skill
 
-Please review **What we look for** section and add justification for the skill in your issue and PR. 
+Please review the **What we look for** section and add justification for the skill in your issue and PR.
 
 A skill should be self-contained and:
 
