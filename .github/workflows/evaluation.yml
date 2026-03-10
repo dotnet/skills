@@ -2,13 +2,6 @@ name: evaluation
 
 on:
   pull_request:
-    paths:
-      - 'plugins/**'
-      - 'tests/**'
-      - '.github/workflows/evaluation.yml'
-      - '.github/workflows/evaluation-run.yml'
-      - '.github/workflows/evaluation-fork-pr.yml'
-      - 'eng/skill-validator/**'
 
   schedule:
     - cron: '0 */3 * * *'
@@ -23,6 +16,7 @@ env:
 permissions:
   contents: write
   pull-requests: write
+  statuses: write
 
 jobs:
   discover:
@@ -156,6 +150,40 @@ jobs:
       COPILOT_GITHUB_TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
       COPILOT_GITHUB_TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
       COPILOT_GITHUB_TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
+
+  report-status:
+    needs: [discover, run-evaluation]
+    if: always() && github.event_name == 'pull_request' && needs.discover.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Set evaluation commit status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          HAS_ENTRIES="${{ needs.discover.outputs.has_entries }}"
+          EVAL_RESULT="${{ needs.run-evaluation.result }}"
+
+          if [[ "$HAS_ENTRIES" != "true" ]]; then
+            STATE="success"
+            DESC="No skills to evaluate"
+          elif [[ "$EVAL_RESULT" == "success" ]]; then
+            STATE="success"
+            DESC="Evaluation passed"
+          elif [[ "$EVAL_RESULT" == "failure" ]]; then
+            STATE="failure"
+            DESC="Evaluation failed"
+          else
+            STATE="error"
+            DESC="Evaluation did not complete ($EVAL_RESULT)"
+          fi
+
+          gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
+            -f state="$STATE" \
+            -f context="evaluation" \
+            -f description="$DESC" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   publish-benchmark:
     needs: [discover, run-evaluation]
