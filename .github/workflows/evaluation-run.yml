@@ -228,14 +228,14 @@ jobs:
           pattern: skill-validator-results-*
           path: all-results/
           merge-multiple: false
-        continue-on-error: true
+        continue-on-error: ${{ needs.evaluate.result != 'success' }}
 
       - name: Download built validator
         if: needs.evaluate.result != 'skipped'
         uses: actions/download-artifact@v8
         with:
           name: skill-validator-dist.tar.gz
-        continue-on-error: true
+        continue-on-error: ${{ needs.evaluate.result != 'success' }}
 
       - name: Extract validator
         if: needs.evaluate.result != 'skipped' && hashFiles('skill-validator-dist.tar.gz') != ''
