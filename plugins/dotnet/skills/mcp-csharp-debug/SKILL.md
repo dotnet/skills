@@ -136,10 +136,12 @@ npx @modelcontextprotocol/inspector dotnet run --project <path/to/ProjectFile.cs
    public class MyTools { ... }
    ```
 
-3. **Check `[McpServerTool]` on each method** (must be `public static`):
+3. **Check `[McpServerTool]` on each tool method:**
+   - The method must be `public`.
+   - It can be `static` or instance. For instance methods, ensure the containing type is discoverable/registered (for example via `WithTools<MyTools>()` or `WithToolsFromAssembly()`) so DI can construct it.
    ```csharp
    [McpServerTool, Description("Does something")]
-   public static string DoSomething(string input) => input;
+   public string DoSomething(string input) => input;
    ```
 
 4. **Verify tool registration in Program.cs** — use one of:

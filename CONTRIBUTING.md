@@ -43,6 +43,35 @@ agentic-workflows/
 
 Every plugin must have a plugin.json file in the plugin root that is linked to from the marketplace.json file.
 
+### Plugin organization
+
+Skills are grouped into domain-specific plugins. When proposing a new skill, place it in the plugin that best matches its domain:
+
+| Plugin | Domain |
+|--------|--------|
+| `dotnet` | Common everyday C#/.NET coding tasks useful to all .NET developers |
+| `dotnet-upgrade` | Migrating and upgrading .NET projects across framework versions, language features, and compatibility targets |
+| `dotnet-diag` | Performance investigations, debugging, and incident analysis |
+| `dotnet-data` | Data access and Entity Framework |
+| `dotnet-msbuild` | MSBuild and project system |
+
+If your skill does not fit any existing plugin, consider creating a new one. The following plugin names are reserved for future use and are good candidates for new skills in those areas:
+
+- `dotnet-aspnet` — ASP.NET
+- `dotnet-wpf` — WPF
+- `dotnet-winforms` — Windows Forms (WinForms)
+- `dotnet-maui` — .NET MAUI
+
+To create a new plugin:
+
+1. Add `plugins/<plugin-name>/plugin.json` and a `skills/` directory beneath it.
+2. Add a matching entry in both `.github/plugin/marketplace.json` and `.claude-plugin/marketplace.json`. The `.claude-plugin/marketplace.json` file must remain an exact copy of `.github/plugin/marketplace.json`, so any change to one file (adding, removing, or editing a plugin entry) must be applied to the other in the same way.
+3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
+4. Add the plugin to the **What's Included** table in the root `README.md`.
+5. Create a `tests/<plugin-name>/` directory for skill tests.
+
+See existing plugins for the expected format.
+
 ## Before you start
 
 - Search existing issues and pull requests to avoid duplicates.
@@ -108,7 +137,7 @@ description: <description of what the skill does, when to use it, and when not t
 > **Tip:** The `description` field is used by the agent runtime to decide whether to load the full skill.
 > Include **when to use** and **when not to use** guidance directly in the description so the agent can
 > select or skip skills without reading the entire `SKILL.md`. This avoids unnecessary token usage.
-> See [`thread-abort-migration/SKILL.md`](plugins/dotnet/skills/thread-abort-migration/SKILL.md) for a good example.
+> See [`thread-abort-migration/SKILL.md`](plugins/dotnet-upgrade/skills/thread-abort-migration/SKILL.md) for a good example.
 
 ### Recommended `SKILL.md` sections
 
@@ -306,3 +335,8 @@ Skills and agents in this repo should be:
 - **Minimal**: no extra features or scope creep; focus on the task.
 - **Verifiable**: always include a way to validate success.
 - **Tool-conscious**: don't assume capabilities that might not exist in every runtime.
+
+## Skill-Validator & Evaluation workflow
+
+Changes to `eng/skill-validator` or the `.github/workflows/evaluation*.yml` workflows must be made from a branch in the `dotnet/skills` repository (i.e., not from a fork). This is a security measure.
+For pull requests from forks, the evaluation workflow (triggered via `/evaluate`) always uses the workflow YAML from the default branch of `dotnet/skills` and builds the validator from that default-branch checkout, so any changes to these files in the forked PR will be ignored during evaluation.

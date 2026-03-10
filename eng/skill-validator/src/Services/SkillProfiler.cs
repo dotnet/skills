@@ -1,11 +1,13 @@
 using System.Text.RegularExpressions;
+using Microsoft.ML.Tokenizers;
 using SkillValidator.Models;
 
 namespace SkillValidator.Services;
 
 public sealed record SkillProfile(
     string Name,
-    int TokenCount,
+    int Chars4TokenCount,
+    int BpeTokenCount,
     string ComplexityTier, // "compact" | "detailed" | "standard" | "comprehensive"
     int SectionCount,
     int CodeBlockCount,
@@ -15,6 +17,7 @@ public sealed record SkillProfile(
     bool HasWhenToUse,
     bool HasWhenNotToUse,
     int ResourceFileCount,
+    IReadOnlyList<string> Errors,
     IReadOnlyList<string> Warnings);
 
 public static partial class SkillProfiler
@@ -23,11 +26,22 @@ public static partial class SkillProfiler
     private const int TokenSweetLow = 200;
     private const int TokenSweetHigh = 2500;
     private const int TokenWarnHigh = 5000;
+    internal const int MaxDescriptionLength = 1024;
+
+    // BPE tokenizer (cl100k_base) used as a model-independent sizing heuristic.
+    // Not tied to the configured eval/judge model — TiktokenTokenizer only supports OpenAI
+    // vocabularies, but BPE counts are close enough across models for complexity classification.
+    private static readonly Lazy<TiktokenTokenizer> s_bpeTokenizer = new(() => TiktokenTokenizer.CreateForModel("gpt-4"));
+    internal const int MaxAggregateDescriptionLength = 15_000;
+    private const int MaxNameLength = 64;
+    private const int MaxCompatibilityLength = 500;
+    private const int MaxBodyLines = 500;
 
     public static SkillProfile AnalyzeSkill(SkillInfo skill)
     {
         var content = skill.SkillMdContent;
-        int tokenCount = (int)Math.Ceiling(content.Length / 4.0);
+        int chars4TokenCount = (int)Math.Ceiling(content.Length / 4.0);
+        int bpeTokenCount = s_bpeTokenizer.Value.CountTokens(content);
 
         bool hasFrontmatter = FrontmatterRegex().IsMatch(content);
 
@@ -42,7 +56,7 @@ public static partial class SkillProfiler
         bool hasWhenToUse = WhenToUseRegex().IsMatch(body);
         bool hasWhenNotToUse = WhenNotToUseRegex().IsMatch(body);
 
-        string complexityTier = tokenCount switch
+        string complexityTier = bpeTokenCount switch
         {
             < 400 => "compact",
             <= 2500 => "detailed",
@@ -53,22 +67,93 @@ public static partial class SkillProfiler
         int resourceFileCount = skill.EvalConfig?.Scenarios
             .Sum(s => s.Setup?.Files?.Count ?? 0) ?? 0;
 
+        var errors = new List<string>();
         var warnings = new List<string>();
 
-        if (tokenCount > TokenWarnHigh)
+        // --- agentskills.io spec: name validation ---
+        // https://agentskills.io/specification#name-field
+        // Spec uses "Must" for all name constraints — violations are errors.
+        ValidateName(skill.Name, Path.GetFileName(skill.Path), errors);
+
+        // --- agentskills.io spec: description validation ---
+        // https://agentskills.io/specification#description-field
+        // "Must be 1-1024 characters"
+        if (skill.Description.Length > MaxDescriptionLength)
         {
-            warnings.Add(
-                $"Skill is {tokenCount:N0} tokens — \"comprehensive\" skills hurt performance by 2.9pp on average. Consider splitting into 2–3 focused skills.");
+            errors.Add($"Skill description is {skill.Description.Length:N0} characters — maximum is {MaxDescriptionLength:N0}. Shorten the description in SKILL.md frontmatter.");
         }
-        else if (tokenCount > TokenSweetHigh)
+        else if (skill.Description.Length == 0 && hasFrontmatter)
         {
-            warnings.Add(
-                $"Skill is {tokenCount:N0} tokens — approaching \"comprehensive\" range where gains diminish.");
+            errors.Add("YAML frontmatter has no description — required by spec. Agents use description for skill discovery.");
         }
-        else if (tokenCount < TokenSweetLow)
+
+        // --- agentskills.io spec: compatibility field ---
+        // https://agentskills.io/specification#compatibility-field
+        // "Must be 1-500 characters if provided"
+        if (skill.Compatibility is { Length: > MaxCompatibilityLength })
         {
-            warnings.Add(
-                $"Skill is only {tokenCount} tokens — may be too sparse to provide actionable guidance.");
+            errors.Add($"Compatibility field is {skill.Compatibility.Length} characters — maximum is {MaxCompatibilityLength}.");
+        }
+        else if (skill.Compatibility is not null && string.IsNullOrWhiteSpace(skill.Compatibility))
+        {
+            errors.Add("Compatibility field must be 1-500 non-whitespace characters when provided.");
+        }
+
+        // --- agentskills.io spec: body line count ---
+        var trimmedBody = body.TrimEnd('\r', '\n');
+        int bodyLineCount = trimmedBody.Length == 0 ? 0 : trimmedBody.Split('\n').Length;
+        if (bodyLineCount > MaxBodyLines)
+        {
+            errors.Add($"SKILL.md body is {bodyLineCount} lines — maximum is {MaxBodyLines}. Move detailed reference material to separate files.");
+        }
+
+        // --- agentskills.io spec: file reference depth ---
+        foreach (Match refMatch in FileRefRegex().Matches(body))
+        {
+            var refPath = refMatch.Groups[1].Value;
+            if (refPath.StartsWith("http", StringComparison.OrdinalIgnoreCase) || refPath.StartsWith('#'))
+                continue;
+
+            // Strip fragment anchors (e.g. "file.md#section")
+            int fragmentIndex = refPath.IndexOf('#');
+            if (fragmentIndex >= 0)
+                refPath = refPath[..fragmentIndex];
+            if (refPath.Length == 0)
+                continue;
+
+            // Normalize: trim leading "./"
+            if (refPath.StartsWith("./"))
+                refPath = refPath[2..];
+
+            var segments = refPath.Split('/');
+
+            // Reject parent-directory traversals
+            if (segments.Any(s => s == ".."))
+            {
+                errors.Add($"File reference '{refMatch.Groups[1].Value}' uses parent-directory traversal — references must stay within the skill directory.");
+                continue;
+            }
+
+            // Depth = directory segments only (exclude filename)
+            int dirDepth = segments.Length - 1;
+            if (dirDepth > 1) // e.g. "references/deep/file.md" = dirDepth 2
+            {
+                errors.Add($"File reference '{refMatch.Groups[1].Value}' is {dirDepth} directories deep — maximum is 1 level from SKILL.md.");
+            }
+        }
+
+        // --- Token size warnings (based on BPE token count) ---
+        if (bpeTokenCount > TokenWarnHigh)
+        {
+            warnings.Add($"Skill is {bpeTokenCount:N0} BPE tokens (chars/4 estimate: {chars4TokenCount:N0}) — \"comprehensive\" skills hurt performance by 2.9pp on average. Consider splitting into 2–3 focused skills.");
+        }
+        else if (bpeTokenCount > TokenSweetHigh)
+        {
+            warnings.Add($"Skill is {bpeTokenCount:N0} BPE tokens (chars/4 estimate: {chars4TokenCount:N0}) — approaching \"comprehensive\" range where gains diminish.");
+        }
+        else if (bpeTokenCount < TokenSweetLow)
+        {
+            warnings.Add($"Skill is only {bpeTokenCount:N0} BPE tokens (chars/4 estimate: {chars4TokenCount:N0}) — may be too sparse to provide actionable guidance.");
         }
 
         if (sectionCount == 0)
@@ -83,21 +168,27 @@ public static partial class SkillProfiler
         if (!hasFrontmatter)
             warnings.Add("No YAML frontmatter — agents use name/description for skill discovery.");
 
-        // Check if eval prompts explicitly reference the skill by name — this biases
-        // baseline runs (agent wastes time searching) and forces activation instead of
-        // testing organic discovery.
+        // Eval prompts that explicitly reference the skill by name bias baseline runs
+        // (agent wastes time searching) and force activation instead of testing organic
+        // discovery. This is a hard error.
         if (skill.EvalConfig is not null && !string.IsNullOrWhiteSpace(skill.Name))
         {
+            // Boundary-aware match: skill name must appear as a standalone token,
+            // not as part of a larger word or hyphenated identifier.
+            var escapedName = Regex.Escape(skill.Name.Trim());
+            var namePattern = new Regex($@"(?<![\w-]){escapedName}(?![\w-])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
             foreach (var scenario in skill.EvalConfig.Scenarios)
             {
-                if (scenario.Prompt.Contains(skill.Name, StringComparison.OrdinalIgnoreCase))
-                    warnings.Add($"Eval scenario '{scenario.Name}' prompt mentions skill name '{skill.Name}' — this biases baseline runs and forces activation.");
+                if (namePattern.IsMatch(scenario.Prompt))
+                    errors.Add($"Eval scenario '{scenario.Name}' prompt mentions skill name '{skill.Name}' — remove skill name from prompt to avoid biasing baseline runs.");
             }
         }
 
         return new SkillProfile(
             Name: skill.Name,
-            TokenCount: tokenCount,
+            Chars4TokenCount: chars4TokenCount,
+            BpeTokenCount: bpeTokenCount,
             ComplexityTier: complexityTier,
             SectionCount: sectionCount,
             CodeBlockCount: codeBlockCount,
@@ -107,7 +198,48 @@ public static partial class SkillProfiler
             HasWhenToUse: hasWhenToUse,
             HasWhenNotToUse: hasWhenNotToUse,
             ResourceFileCount: resourceFileCount,
+            Errors: errors,
             Warnings: warnings);
+    }
+
+    /// <summary>
+    /// Validate a name against the agentskills.io spec naming rules.
+    /// https://agentskills.io/specification#name-field
+    /// All constraints use "Must" in the spec, so violations are errors.
+    /// </summary>
+    /// <param name="name">The name value from frontmatter or plugin.json.</param>
+    /// <param name="kind">Label for messages, e.g. "Skill", "Agent", "Plugin".</param>
+    /// <param name="errors">List to append errors to.</param>
+    internal static void ValidateNameFormat(string name, string kind, List<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            errors.Add($"{kind} name is empty — must be 1-64 lowercase alphanumeric characters and hyphens.");
+            return;
+        }
+
+        if (name.Length > MaxNameLength)
+            errors.Add($"{kind} name '{name}' is {name.Length} characters — maximum is {MaxNameLength}.");
+
+        if (!NameFormatRegex().IsMatch(name))
+            errors.Add($"{kind} name '{name}' contains invalid characters — must be lowercase alphanumeric and hyphens only.");
+
+        if (name.StartsWith('-') || name.EndsWith('-'))
+            errors.Add($"{kind} name '{name}' starts or ends with a hyphen.");
+
+        if (name.Contains("--"))
+            errors.Add($"{kind} name '{name}' contains consecutive hyphens.");
+    }
+
+    /// <summary>
+    /// Validate name format and directory match for skills.
+    /// </summary>
+    internal static void ValidateName(string name, string directoryName, List<string> errors)
+    {
+        ValidateNameFormat(name, "Skill", errors);
+
+        if (!string.Equals(name, directoryName, StringComparison.Ordinal))
+            errors.Add($"Skill name '{name}' does not match directory name '{directoryName}'.");
     }
 
     public static string FormatProfileLine(SkillProfile profile)
@@ -120,7 +252,7 @@ public static partial class SkillProfiler
         };
 
         return
-            $"📊 {profile.Name}: {profile.TokenCount:N0} tokens ({profile.ComplexityTier} {tierIndicator}), " +
+            $"{profile.Name}: {profile.BpeTokenCount:N0} BPE tokens [chars/4: {profile.Chars4TokenCount:N0}] ({profile.ComplexityTier} {tierIndicator}), " +
             $"{profile.SectionCount} sections, {profile.CodeBlockCount} code blocks";
     }
 
@@ -157,4 +289,10 @@ public static partial class SkillProfiler
 
     [GeneratedRegex(@"^#{1,4}\s+when\s+not\s+to\s+use", RegexOptions.IgnoreCase | RegexOptions.Multiline)]
     private static partial Regex WhenNotToUseRegex();
+
+    [GeneratedRegex(@"^[a-z0-9-]+$")]
+    private static partial Regex NameFormatRegex();
+
+    [GeneratedRegex(@"\]\(([^)]+)\)")]
+    private static partial Regex FileRefRegex();
 }

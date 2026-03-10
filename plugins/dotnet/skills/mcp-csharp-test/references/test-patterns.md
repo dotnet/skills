@@ -100,7 +100,7 @@ public class HttpServerTests : IClassFixture<WebApplicationFactory<Program>>
             }
         };
 
-        var response = await client.PostAsJsonAsync("/", request);
+        var response = await client.PostAsJsonAsync("/mcp", request);
         response.EnsureSuccessStatusCode();
     }
 

@@ -166,7 +166,7 @@ az containerapp create \
   --ingress external \
   --min-replicas 0 \
   --max-replicas 10 \
-  --secrets api-key=secretref:api-key \
+  --secrets api-key=my-actual-api-key \
   --env-vars API_KEY=secretref:api-key
 ```
 
