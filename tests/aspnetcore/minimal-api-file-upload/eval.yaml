@@ -1,0 +1,67 @@
+scenarios:
+  - name: "Implement secure file upload in ASP.NET Core 8 minimal API"
+    prompt: |
+      I need to implement a file upload endpoint in my ASP.NET Core 8 minimal API.
+      The endpoint should accept image files (JPEG and PNG only), reject files over 10MB,
+      and save them to an "uploads" folder. My app already has UseAntiforgery() in the pipeline.
+      Show me the complete implementation including size limits configuration and the endpoint.
+    assertions:
+      - type: "output_matches"
+        pattern: "(IFormFile|IFormFileCollection)"
+      - type: "output_matches"
+        pattern: "(Guid\\.NewGuid|Path\\.GetRandomFileName)"
+      - type: "output_matches"
+        pattern: "(ContentType|image/jpeg|image/png)"
+    rubric:
+      - "Configures BOTH Kestrel MaxRequestBodySize AND FormOptions.MultipartBodyLengthLimit"
+      - "Uses .DisableAntiforgery() on the file upload endpoint to prevent automatic 400 errors"
+      - "Generates a safe filename (Guid.NewGuid or similar) instead of using user-provided IFormFile.FileName directly"
+      - "Validates file content beyond just checking file extension — checks ContentType or magic bytes"
+      - "Correctly uses IFormFile parameter binding in the minimal API endpoint"
+    timeout: 120
+
+  - name: "Fix file upload returning 400 Bad Request"
+    prompt: |
+      My ASP.NET Core 8 minimal API file upload endpoint returns 400 Bad Request with no error details. The endpoint works fine when I remove UseAntiforgery() from Program.cs. What's going on?
+    setup:
+      files:
+        - path: "Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddAntiforgery();
+            var app = builder.Build();
+            app.UseAntiforgery();
+            app.MapPost("/upload", (IFormFile file) =>
+            {
+                return Results.Ok(new { file.FileName, file.Length });
+            });
+            app.Run();
+        - path: "UploadBug.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+    assertions:
+      - type: "output_matches"
+        pattern: "(DisableAntiforgery|antiforgery|anti-forgery)"
+    rubric:
+      - "Identified the root cause: UseAntiforgery() middleware rejects file upload requests that lack an antiforgery token"
+      - "Recommended using .DisableAntiforgery() on the file upload endpoint"
+      - "Explained that minimal API file upload endpoints typically need antiforgery disabled since the token cannot be included in multipart form uploads from API clients"
+    timeout: 60
+
+  - name: "Upload multiple files with metadata in minimal API"
+    prompt: |
+      I need to upload multiple files along with a description string in a single request to my ASP.NET Core 8 minimal API. How do I bind both the files and the form field?
+    assertions:
+      - type: "output_matches"
+        pattern: "(IFormFileCollection|IFormFile)"
+      - type: "output_matches"
+        pattern: "(FromForm|\\[FromForm\\])"
+    rubric:
+      - "Used IFormFileCollection for multiple files"
+      - "Used [FromForm] attribute on parameters when mixing files with other form fields"
+      - "Showed correct multipart/form-data binding pattern"
+    timeout: 120
