@@ -226,7 +226,7 @@ jobs:
             & ./eng/dashboard/generate-benchmark-data.ps1 @params
           }
 
-          # Purge entries older than 14 days from plugin data files; delete files left with no remaining entries
+          # Purge entries older than the configured retention window from plugin data files; delete files left with no remaining entries
           & ./eng/dashboard/generate-benchmark-data.ps1 -PurgeStaleFiles -DataDir "/tmp/gh-pages/data" -RetentionDays $env:DASHBOARD_RETENTION_DAYS
 
           # Generate components.json manifest
