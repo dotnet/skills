@@ -28,6 +28,49 @@ scenarios:
     expect_tools: ["bash"]
     timeout: 120
 
+  - name: "Rate limiting silently inactive without UseRateLimiter"
+    prompt: |
+      I configured rate limiting in my ASP.NET Core 8 API with AddRateLimiter and applied RequireRateLimiting to my endpoints, but requests are never rate limited — even when I send 1000 requests per second, they all succeed. What's wrong?
+    setup:
+      files:
+        - path: "Program.cs"
+          content: |
+            using Microsoft.AspNetCore.RateLimiting;
+            using System.Threading.RateLimiting;
+
+            var builder = WebApplication.CreateBuilder(args);
+
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.AddFixedWindowLimiter("api", o =>
+                {
+                    o.PermitLimit = 10;
+                    o.Window = TimeSpan.FromMinutes(1);
+                });
+            });
+
+            var app = builder.Build();
+            app.UseRouting();
+            app.UseAuthorization();
+            app.MapGet("/api/data", () => "Hello!").RequireRateLimiting("api");
+            app.Run();
+        - path: "SilentBug.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+    assertions:
+      - type: "output_matches"
+        pattern: "(UseRateLimiter|app\\.UseRateLimiter)"
+    rubric:
+      - "Identified the root cause: app.UseRateLimiter() is missing from the middleware pipeline"
+      - "Explained that AddRateLimiter only registers services but UseRateLimiter is required to activate the middleware"
+      - "Showed the correct middleware ordering: UseRateLimiter() after UseRouting() and UseAuthorization()"
+    timeout: 60
+
   - name: "Fix rate limiter returning 503 instead of 429"
     prompt: |
       My ASP.NET Core API rate limiter is returning 503 Service Unavailable instead of 429 Too Many Requests when clients hit the limit. Clients are confused because 503 usually means the server is down. How do I fix this?
