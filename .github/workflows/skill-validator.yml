@@ -2,6 +2,7 @@ name: skill-validator
 
 on:
   pull_request:
+  pull_request_target:
   schedule:
     - cron: '0 8 * * *' # daily at 08:00 UTC
   workflow_dispatch:
@@ -48,7 +49,7 @@ jobs:
 
   build:
     needs: discover
-    if: always() && (needs.discover.result == 'skipped' || needs.discover.outputs.has_changes == 'true')
+    if: always() && github.event_name != 'pull_request_target' && (needs.discover.result == 'skipped' || needs.discover.outputs.has_changes == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -151,7 +152,9 @@ jobs:
 
   report-status:
     needs: [discover, build]
-    if: always() && github.event_name == 'pull_request'
+    if: >-
+      always() && github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       statuses: write
@@ -181,4 +184,25 @@ jobs:
             -f state="$STATE" \
             -f context="skill-validator" \
             -f description="$DESC" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  # Post skill-validator commit status for fork PRs using pull_request_target
+  # (which runs with base repo permissions). Fork PRs should never change
+  # skill-validator, so this always posts success.
+  fork-status:
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Post skill-validator commit status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
+            -f state="success" \
+            -f context="skill-validator" \
+            -f description="No skill-validator changes" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
