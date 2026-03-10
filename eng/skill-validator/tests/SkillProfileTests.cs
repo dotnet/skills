@@ -70,8 +70,9 @@ public class AnalyzeSkillTests
     [Fact]
     public void ClassifiesComprehensiveSkillsAndWarns()
     {
-        // >5000 tokens = >20000 chars
-        var content = "---\nname: foo\n---\n# Big\n" + new string('x', 25000);
+        // >5000 BPE tokens — use varied text since BPE compresses repeated chars efficiently
+        var content = "---\nname: foo\n---\n# Big\n" + string.Concat(
+            Enumerable.Range(0, 5000).Select(i => $"word{i} "));
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
         Assert.Equal("comprehensive", profile.ComplexityTier);
         Assert.Contains(profile.Warnings, w => w.Contains("comprehensive"));
