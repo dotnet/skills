@@ -1,6 +1,6 @@
 ---
 name: csharp-scripts
-description: Run single-file C# programs as scripts for quick experimentation, prototyping, and concept testing. Use when the user wants to write and execute a small C# program without creating a full project.
+description: Run single-file C# programs as scripts (file-based apps) for quick experimentation, prototyping, and concept testing. Use when the user wants to write and execute a small C# program without creating a full project.
 ---
 
 # C# Scripts
@@ -58,9 +58,13 @@ Builds and runs the file automatically. Cached so subsequent runs are fast. Pass
 dotnet hello.cs -- arg1 arg2 "multi word arg"
 ```
 
-### Step 4: Add NuGet packages (if needed)
+### Step 4: Add directives (if needed)
 
-Use the `#:package` directive at the top of the file to reference NuGet packages. Always specify a version:
+Place directives at the top of the file, before any C# code. All directives start with `#:`.
+
+#### `#:package` — NuGet package references
+
+Always specify a version:
 
 ```csharp
 #:package Humanizer@2.14.1
@@ -68,6 +72,48 @@ Use the `#:package` directive at the top of the file to reference NuGet packages
 using Humanizer;
 
 Console.WriteLine("hello world".Titleize());
+```
+
+#### `#:property` — MSBuild properties
+
+Set any MSBuild property inline. Syntax: `#:property PropertyName=Value`
+
+```csharp
+#:property AllowUnsafeBlocks=true
+#:property PublishAot=false
+#:property NoWarn=CS0162
+```
+
+MSBuild expressions and property functions are supported:
+
+```csharp
+#:property LogLevel=$([MSBuild]::ValueOrDefault('$(LOG_LEVEL)', 'Information'))
+```
+
+Common properties:
+
+| Property | Purpose |
+|----------|---------|
+| `AllowUnsafeBlocks=true` | Enable `unsafe` code |
+| `PublishAot=false` | Disable native AOT (enabled by default) |
+| `NoWarn=CS0162;CS0219` | Suppress specific warnings |
+| `LangVersion=preview` | Enable preview language features |
+| `InvariantGlobalization=false` | Enable culture-specific globalization |
+
+#### `#:project` — Project references
+
+Reference another project by relative path:
+
+```csharp
+#:project ../MyLibrary/MyLibrary.csproj
+```
+
+#### `#:sdk` — SDK selection
+
+Override the default SDK (`Microsoft.NET.Sdk`):
+
+```csharp
+#:sdk Microsoft.NET.Sdk.Web
 ```
 
 ### Step 5: Clean up
@@ -156,6 +202,8 @@ Replace the generated `Program.cs` with the script content and run with `dotnet 
 |---------|----------|
 | `.cs` file is inside a directory with a `.csproj` | Move the script outside the project directory, or use `dotnet run --file file.cs` |
 | `#:package` without a version | Specify a version: `#:package PackageName@1.2.3` or `@*` for latest |
+| `#:property` with wrong syntax | Use `PropertyName=Value` with no spaces around `=` and no quotes: `#:property AllowUnsafeBlocks=true` |
+| Directives placed after C# code | All `#:` directives must appear at the very top of the file, before any C# statements or `using` directives |
 | Reflection-based JSON serialization fails | Use source-generated JSON with `JsonSerializerContext` (see [Source-generated JSON](#source-generated-json)) |
 | Unexpected build behavior or version errors | File-based apps inherit `global.json`, `Directory.Build.props`, `Directory.Build.targets`, and `nuget.config` from parent directories. Move the script to an isolated directory if the inherited settings conflict |
 
