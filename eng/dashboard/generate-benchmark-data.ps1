@@ -76,6 +76,7 @@ if ($PurgeStaleFiles) {
         try {
             $data = Get-Content $file.FullName -Raw | ConvertFrom-Json -AsHashtable
             $hasRecentEntries = $false
+            if (-not $data -or -not $data['entries']) { continue }
             foreach ($category in $data['entries'].Keys) {
                 $data['entries'][$category] = @($data['entries'][$category] | Where-Object { $_.date -ge $cutoffMs })
                 if ($data['entries'][$category].Count -gt 0) { $hasRecentEntries = $true }
