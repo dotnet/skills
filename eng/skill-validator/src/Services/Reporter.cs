@@ -314,6 +314,27 @@ public static class Reporter
         sb.AppendLine("## Skill Validation Results");
         sb.AppendLine();
 
+        // Show validation/spec errors for skills that failed before evaluation ran
+        var failedVerdicts = verdicts
+            .Where(v => !v.Passed
+                        && !string.IsNullOrEmpty(v.FailureKind)
+                        && v.Scenarios.Count == 0)
+            .ToArray();
+        if (failedVerdicts.Length > 0)
+        {
+            sb.AppendLine("### Errors");
+            sb.AppendLine();
+            foreach (var v in failedVerdicts)
+            {
+                // Wrap in inline code to prevent markdown injection from PR-controlled content
+                var safeName = v.SkillName.Replace("`", "'").Replace("\r", "").Replace("\n", " ");
+                var safeReason = v.Reason.Replace("`", "'").Replace("\r", "").Replace("\n", " ");
+                sb.AppendLine($"- `{safeName}: {safeReason}`");
+            }
+
+            sb.AppendLine();
+        }
+
         var footnotes = new List<string>();
         var tableRows = new List<string>();
 
@@ -369,26 +390,6 @@ public static class Reporter
             sb.AppendLine("|-------|----------|---------|---------------|---------|---------|");
             foreach (var row in tableRows)
                 sb.AppendLine(row);
-        }
-
-        // Show validation/spec errors for skills that failed before evaluation ran
-        var failedVerdicts = verdicts
-            .Where(v => !v.Passed
-                        && !string.IsNullOrEmpty(v.FailureKind)
-                        && v.Scenarios.Count == 0)
-            .ToList();
-        if (failedVerdicts.Count > 0)
-        {
-            sb.AppendLine();
-            sb.AppendLine("### Errors");
-            sb.AppendLine();
-            foreach (var v in failedVerdicts)
-            {
-                // Wrap in inline code to prevent markdown injection from PR-controlled content
-                var safeName = v.SkillName.Replace("`", "'").Replace("\r", "").Replace("\n", " ");
-                var safeReason = v.Reason.Replace("`", "'").Replace("\r", "").Replace("\n", " ");
-                sb.AppendLine($"`{safeName}: {safeReason}`");
-            }
         }
       
         if (footnotes.Count > 0)
