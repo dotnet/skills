@@ -93,9 +93,18 @@ msbench/
 │           └── solve.sh       ← stub (gold solutions are authored separately)
 │
 ├── agents/                    ← agent runner packages for the A/B pattern
+│   ├── plugin-runner.template.sh  ← shared template for per-plugin runners
 │   ├── with-skills/           ← Copilot CLI + native skill loading
-│   │   ├── runner.sh
-│   │   └── config.yaml
+│   │   ├── runner.sh          ← legacy combined runner (assumes pre-installed skills)
+│   │   ├── config.yaml
+│   │   ├── dotnet/            ← self-contained runner embedding the dotnet plugin
+│   │   │   ├── runner.sh      ← generated — do not edit (see Generate-PluginAgents.ps1)
+│   │   │   └── config.yaml
+│   │   ├── dotnet-data/       ← self-contained runner embedding the dotnet-data plugin
+│   │   ├── dotnet-diag/       ← self-contained runner embedding the dotnet-diag plugin
+│   │   ├── dotnet-maui/       ← self-contained runner embedding the dotnet-maui plugin
+│   │   ├── dotnet-msbuild/    ← self-contained runner embedding the dotnet-msbuild plugin
+│   │   └── dotnet-upgrade/    ← self-contained runner embedding the dotnet-upgrade plugin
 │   └── without-skills/        ← Copilot CLI baseline (no skills)
 │       ├── runner.sh
 │       └── config.yaml
@@ -112,6 +121,7 @@ msbench/
     ├── convert_evals.py          ← converter: eval.yaml → Harbor tasks
     ├── validate_tasks.py         ← E2E structural validation
     ├── analyze_results.py        ← post-run A/B comparison report
+    ├── Generate-PluginAgents.ps1 ← generates per-plugin self-contained runner.sh files
     ├── prepare_agent_packages.sh ← copies in-scope SKILL.md files into agent package
     └── test_convert_evals.py     ← unit tests for the converter (pytest)
 ```
@@ -195,7 +205,13 @@ The container produces `/output/eval.json` with the result.
 ### 4. Submit via msbench-cli (against CES)
 
 ```bash
-# With skills
+# With a specific plugin's skills (self-contained runner, no pre-install needed)
+msbench-cli run submit \
+    --benchmark dotnetskills \
+    --agent-dir msbench/agents/with-skills/dotnet-msbuild/ \
+    --tag skills=enabled,plugin=dotnet-msbuild
+
+# With skills (legacy combined runner, requires pre-installed skills)
 msbench-cli run submit \
     --benchmark dotnetskills \
     --agent-dir msbench/agents/with-skills/ \
@@ -207,6 +223,23 @@ msbench-cli run submit \
     --agent-dir msbench/agents/without-skills/ \
     --tag skills=disabled
 ```
+
+### Regenerating per-plugin runners
+
+When plugin content changes, regenerate the self-contained runner scripts:
+
+```powershell
+# Regenerate all plugin runners
+pwsh msbench/scripts/Generate-PluginAgents.ps1
+
+# Regenerate a single plugin
+pwsh msbench/scripts/Generate-PluginAgents.ps1 -PluginName dotnet-msbuild
+```
+
+The generated `runner.sh` files embed all plugin files (skills, agents,
+references, scripts, plugin.json) as heredoc blocks. Only the `.sh` file
+needs to be copied to the benchmark machine — it recreates the full plugin
+directory structure at runtime.
 
 ### 5. Compare results
 

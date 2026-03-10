@@ -1,0 +1,14 @@
+# Agent configuration for Copilot CLI with dotnet-upgrade plugin skills
+agent:
+  name: "github-copilot-cli"
+  description: "GitHub Copilot CLI with dotnet-upgrade plugin skills"
+  tags:
+    skills: "enabled"
+    plugin: "dotnet-upgrade"
+
+skills:
+  enabled: true
+  plugin: "dotnet-upgrade"
+
+resources:
+  timeout_sec: 600

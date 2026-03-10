@@ -1,0 +1,14 @@
+# Agent configuration for Copilot CLI with dotnet-data plugin skills
+agent:
+  name: "github-copilot-cli"
+  description: "GitHub Copilot CLI with dotnet-data plugin skills"
+  tags:
+    skills: "enabled"
+    plugin: "dotnet-data"
+
+skills:
+  enabled: true
+  plugin: "dotnet-data"
+
+resources:
+  timeout_sec: 600
