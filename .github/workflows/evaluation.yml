@@ -16,7 +16,6 @@ env:
 permissions:
   contents: write
   pull-requests: write
-  statuses: write
 
 jobs:
   discover:
@@ -153,7 +152,7 @@ jobs:
 
   report-status:
     needs: [discover, run-evaluation]
-    if: always() && github.event_name == 'pull_request' && needs.discover.result == 'success'
+    if: always() && github.event_name == 'pull_request' && needs.discover.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       statuses: write
@@ -162,10 +161,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          DISCOVER_RESULT="${{ needs.discover.result }}"
           HAS_ENTRIES="${{ needs.discover.outputs.has_entries }}"
           EVAL_RESULT="${{ needs.run-evaluation.result }}"
 
-          if [[ "$HAS_ENTRIES" != "true" ]]; then
+          if [[ "$DISCOVER_RESULT" != "success" ]]; then
+            STATE="error"
+            DESC="Discovery failed ($DISCOVER_RESULT)"
+          elif [[ "$HAS_ENTRIES" != "true" ]]; then
             STATE="success"
             DESC="No skills to evaluate"
           elif [[ "$EVAL_RESULT" == "success" ]]; then
