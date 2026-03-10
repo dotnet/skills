@@ -337,6 +337,37 @@
         ],
         "tool": "customSmallerIsBetter",
         "date": 1773118303093
+      },
+      {
+        "commit": {
+          "url": "https://github.com/dotnet/skills/commit/ebe71e2f0658337286b36a8d1e8a5ad5bf008188",
+          "message": "Add dotnet-maui plugin with dotnet-maui-doctor skill (#199)",
+          "id": "ebe71e2f0658337286b36a8d1e8a5ad5bf008188",
+          "timestamp": "2026-03-09T20:34:19+00:00",
+          "author": {
+            "name": "Gerald Versluis",
+            "username": "JanKrivanek"
+          }
+        },
+        "tool": "customSmallerIsBetter",
+        "date": 1773127923537,
+        "model": "claude-opus-4.6",
+        "benches": [
+          {
+            "value": 15.4,
+            "overfittingScore": 0.36,
+            "unit": "seconds",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 25230.0,
+            "overfittingScore": 0.36,
+            "unit": "tokens",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
+            "overfitting": "moderate"
+          }
+        ]
       }
     ],
     "Quality": [
@@ -656,9 +687,38 @@
         ],
         "tool": "customBiggerIsBetter",
         "date": 1773118303093
+      },
+      {
+        "commit": {
+          "url": "https://github.com/dotnet/skills/commit/ebe71e2f0658337286b36a8d1e8a5ad5bf008188",
+          "message": "Add dotnet-maui plugin with dotnet-maui-doctor skill (#199)",
+          "id": "ebe71e2f0658337286b36a8d1e8a5ad5bf008188",
+          "timestamp": "2026-03-09T20:34:19+00:00",
+          "author": {
+            "name": "Gerald Versluis",
+            "username": "JanKrivanek"
+          }
+        },
+        "tool": "customBiggerIsBetter",
+        "date": 1773127923537,
+        "model": "claude-opus-4.6",
+        "benches": [
+          {
+            "value": 8.800000190734863,
+            "overfittingScore": 0.36,
+            "unit": "Score (0-10)",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 8.399999618530273,
+            "unit": "Score (0-10)",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality"
+          }
+        ]
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1773118303093
+  "lastUpdate": 1773127923537
 }
