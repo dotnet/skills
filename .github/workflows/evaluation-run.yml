@@ -307,9 +307,13 @@ jobs:
       - name: Extract error details
         if: needs.evaluate.result == 'failure'
         run: |
-          find all-results/ -name results.json -print0 2>/dev/null | while IFS= read -r -d '' f; do
-            jq -r '.verdicts[]? | select(.passed == false and .failureKind != null and (.scenarios | length) == 0) | "- `\(.skillName | gsub("`";"'\''") | gsub("\r|\n";" "))`: `\(.reason | gsub("`";"'\''") | gsub("\r|\n";" "))`"' "$f" 2>/dev/null >> /tmp/error-details.txt || true
-          done
+          if [ -d all-results ]; then
+            find all-results/ -name results.json -print0 2>/dev/null | while IFS= read -r -d '' f; do
+              jq -r '.verdicts[]? | select(.passed == false and .failureKind != null and (.scenarios | length) == 0) | "- `\(.skillName | gsub("`";"'\''") | gsub("\r|\n";" "))`: `\(.reason | gsub("`";"'\''") | gsub("\r|\n";" "))`"' "$f" 2>/dev/null >> /tmp/error-details.txt || true
+            done
+          else
+            echo "No result artifacts directory found at all-results/"
+          fi
           if [[ -s /tmp/error-details.txt ]]; then
             echo "Extracted error details:"
             cat /tmp/error-details.txt
