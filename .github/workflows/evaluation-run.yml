@@ -308,7 +308,7 @@ jobs:
         if: needs.evaluate.result == 'failure'
         run: |
           find all-results/ -name results.json -print0 2>/dev/null | while IFS= read -r -d '' f; do
-            jq -r '.verdicts[]? | select(.passed == false and .failureKind != null and (.scenarios | length) == 0) | "- `\(.skillName | gsub("`";"'\''"))`: \(.reason | gsub("`";"'\''") | gsub("\n";" "))"' "$f" 2>/dev/null >> /tmp/error-details.txt || true
+            jq -r '.verdicts[]? | select(.passed == false and .failureKind != null and (.scenarios | length) == 0) | "- `\(.skillName | gsub("`";"'\''") | gsub("\r|\n";" "))`: `\(.reason | gsub("`";"'\''") | gsub("\r|\n";" "))`"' "$f" 2>/dev/null >> /tmp/error-details.txt || true
           done
           if [[ -s /tmp/error-details.txt ]]; then
             echo "Extracted error details:"
