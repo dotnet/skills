@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Text.Json;
 using SkillValidator.Models;
 using SkillValidator.Services;
 using SkillValidator.Utilities;
@@ -121,7 +122,12 @@ public static class ValidateCommand
         try
         {
             var client = await AgentRunner.GetSharedClient(config.Verbose);
-            var models = await client.ListModelsAsync();
+            var models = await RetryHelper.ExecuteWithRetry(
+                async _ => await client.ListModelsAsync(),
+                label: "ListModels",
+                maxRetries: 3,
+                baseDelayMs: 2_000,
+                totalTimeoutMs: 60_000);
             var modelIds = models.Select(m => m.Id).ToList();
             var modelsToValidate = new List<string> { config.Model };
             if (config.JudgeModel != config.Model) modelsToValidate.Add(config.JudgeModel);
@@ -173,6 +179,74 @@ public static class ValidateCommand
             return 1;
         }
 
+        // Validate plugins (plugin.json) reachable from the given paths
+        IReadOnlyList<PluginInfo> plugins;
+        try
+        {
+            plugins = SkillDiscovery.DiscoverPlugins(config.SkillPaths);
+        }
+        catch (JsonException ex)
+        {
+            Console.Error.WriteLine($"\x1b[31m❌ Malformed plugin.json: {ex.Message}\x1b[0m");
+            return 1;
+        }
+        bool hasPluginErrors = false;
+        foreach (var plugin in plugins)
+        {
+            var result = PluginValidator.ValidatePlugin(plugin);
+            foreach (var warning in result.Warnings)
+                Console.WriteLine($"\x1b[33m⚠  [plugin:{result.Name}] {warning}\x1b[0m");
+            foreach (var error in result.Errors)
+            {
+                Console.Error.WriteLine($"\x1b[31m❌ [plugin:{result.Name}] {error}\x1b[0m");
+                hasPluginErrors = true;
+            }
+        }
+        if (plugins.Count > 0)
+            Console.WriteLine($"Validated {plugins.Count} plugin(s)");
+
+        // Validate agents (.agent.md) reachable from the given paths
+        var agents = await SkillDiscovery.DiscoverAgents(config.SkillPaths);
+        bool hasAgentErrors = false;
+        foreach (var agent in agents)
+        {
+            var profile = AgentProfiler.AnalyzeAgent(agent);
+            foreach (var warning in profile.Warnings)
+                Console.WriteLine($"\x1b[33m⚠  [agent:{profile.Name}] {warning}\x1b[0m");
+            foreach (var error in profile.Errors)
+            {
+                Console.Error.WriteLine($"\x1b[31m❌ [agent:{profile.Name}] {error}\x1b[0m");
+                hasAgentErrors = true;
+            }
+        }
+        if (agents.Count > 0)
+            Console.WriteLine($"Validated {agents.Count} agent(s)\n");
+
+        if (hasPluginErrors || hasAgentErrors)
+        {
+            Console.Error.WriteLine("\x1b[31mAgent/plugin spec conformance failures — fix the errors above.\x1b[0m");
+            return 1;
+        }
+
+        // Check for orphaned test directories (tests/ entries with no matching plugin/skill)
+        var repoRoot = SkillDiscovery.FindRepoRoot(config.SkillPaths);
+        bool hasOrphanErrors = false;
+        if (repoRoot is not null)
+        {
+            var orphans = SkillDiscovery.FindOrphanedTestDirectories(repoRoot);
+            foreach (var orphan in orphans)
+            {
+                Console.Error.WriteLine($"\x1b[31m❌ {orphan}\x1b[0m");
+                hasOrphanErrors = true;
+            }
+        }
+
+        if (hasOrphanErrors)
+        {
+            Console.Error.WriteLine("\x1b[31mOrphaned test directories found — remove them or create the matching plugin/skill.\x1b[0m");
+            return 1;
+        }
+
         if (config.Runs < 5)
             Console.WriteLine($"\x1b[33m⚠  Running with {config.Runs} run(s). For statistically significant results, use --runs 5 or higher.\x1b[0m");
 
@@ -193,7 +267,7 @@ public static class ValidateCommand
         spinner.Stop();
 
         var verdicts = new List<SkillVerdict>();
-        bool hasRejections = false;
+        var rejectionMessages = new List<string>();
         foreach (var (result, error) in settled)
         {
             if (result is not null)
@@ -202,19 +276,27 @@ public static class ValidateCommand
             }
             else if (error is not null)
             {
-                hasRejections = true;
-                Console.Error.WriteLine($"\x1b[31m❌ Skill evaluation failed: {error.Message}\x1b[0m");
+                rejectionMessages.Add(error.Message);
             }
         }
 
         await Reporter.ReportResults(verdicts, config.Reporters, config.Verbose,
-            config.Model, config.JudgeModel, config.ResultsDir);
+            config.Model, config.JudgeModel, config.ResultsDir,
+            rejectedCount: rejectionMessages.Count);
+
+        if (rejectionMessages.Count > 0)
+        {
+            Console.Error.WriteLine($"\x1b[31m❗ {rejectionMessages.Count} skill(s) failed with execution errors:\x1b[0m");
+            foreach (var msg in rejectionMessages)
+                Console.Error.WriteLine($"\x1b[31m   • {msg}\x1b[0m");
+            Console.Error.WriteLine();
+        }
 
         await AgentRunner.StopSharedClient();
         await AgentRunner.CleanupWorkDirs();
 
         // Always fail on execution errors, even in --verdict-warn-only mode
-        if (hasRejections) return 1;
+        if (rejectionMessages.Count > 0) return 1;
 
         var allPassed = verdicts.All(v => v.Passed);
         if (config.VerdictWarnOnly && !allPassed)
