@@ -33,6 +33,9 @@
 
 .PARAMETER DataDir
     Directory containing plugin JSON files to purge. Required with -PurgeStaleFiles.
+
+.PARAMETER RetentionDays
+    Number of days of data to retain. Entries older than this are purged. Defaults to 14.
 #>
 [CmdletBinding(DefaultParameterSetName = 'Generate')]
 param(
@@ -55,16 +58,18 @@ param(
     [switch]$PurgeStaleFiles,
 
     [Parameter(Mandatory, ParameterSetName = 'Purge')]
-    [string]$DataDir
+    [string]$DataDir,
+
+    [Parameter(Mandatory, ParameterSetName = 'Purge')]
+    [Parameter(ParameterSetName = 'Generate')]
+    [int]$RetentionDays
 )
 
 $ErrorActionPreference = "Stop"
 
-$retentionDays = 14
-
 # --- Purge mode: scan a data directory and remove stale files ---
 if ($PurgeStaleFiles) {
-    $cutoffMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - ([long]$retentionDays * 24 * 60 * 60 * 1000)
+    $cutoffMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - ([long]$RetentionDays * 24 * 60 * 60 * 1000)
     $dataFiles = Get-ChildItem -Path $DataDir -Filter "*.json" -File -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -ne "components.json" }
     foreach ($file in $dataFiles) {
@@ -77,7 +82,7 @@ if ($PurgeStaleFiles) {
             }
             if (-not $hasRecentEntries) {
                 Remove-Item $file.FullName -Force
-                Write-Host "[REMOVED] $($file.Name) — all entries older than $retentionDays days"
+                Write-Host "[REMOVED] $($file.Name) — all entries older than $RetentionDays days"
             } else {
                 $data | ConvertTo-Json -Depth 10 | Out-File -FilePath $file.FullName -Encoding utf8
             }
@@ -308,16 +313,18 @@ $benchmarkData['entries'][$qualityKey] += @($qualityEntry)
 $benchmarkData['entries'][$efficiencyKey] += @($efficiencyEntry)
 
 # Purge entries older than the retention window
-$cutoffMs = $now - ([long]$retentionDays * 24 * 60 * 60 * 1000)
+if ($RetentionDays -gt 0) {
+    $cutoffMs = $now - ([long]$RetentionDays * 24 * 60 * 60 * 1000)
 
-foreach ($key in @($qualityKey, $efficiencyKey)) {
-    $before = $benchmarkData['entries'][$key].Count
-    $benchmarkData['entries'][$key] = @($benchmarkData['entries'][$key] | Where-Object {
-        $_.date -ge $cutoffMs
-    })
-    $purged = $before - $benchmarkData['entries'][$key].Count
-    if ($purged -gt 0) {
-        Write-Host "   Purged $purged $key entries older than $retentionDays days"
+    foreach ($key in @($qualityKey, $efficiencyKey)) {
+        $before = $benchmarkData['entries'][$key].Count
+        $benchmarkData['entries'][$key] = @($benchmarkData['entries'][$key] | Where-Object {
+            $_.date -ge $cutoffMs
+        })
+        $purged = $before - $benchmarkData['entries'][$key].Count
+        if ($purged -gt 0) {
+            Write-Host "   Purged $purged $key entries older than $RetentionDays days"
+        }
     }
 }
 

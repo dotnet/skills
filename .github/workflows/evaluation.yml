@@ -17,6 +17,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+  DASHBOARD_RETENTION_DAYS: 14
+
 permissions:
   contents: write
   pull-requests: write
@@ -215,6 +218,7 @@ jobs:
               PluginName = $plugin
               OutputDir     = "/tmp/gh-pages/data"
               CommitJson    = $commitJson
+              RetentionDays = $env:DASHBOARD_RETENTION_DAYS
             }
             if ((Test-Path $existingFile) -and (Get-Content $existingFile -Raw -ErrorAction SilentlyContinue)) {
               $params.ExistingDataFile = $existingFile
@@ -223,7 +227,7 @@ jobs:
           }
 
           # Purge stale plugin data files whose entries are all older than 14 days
-          & ./eng/dashboard/generate-benchmark-data.ps1 -PurgeStaleFiles -DataDir "/tmp/gh-pages/data"
+          & ./eng/dashboard/generate-benchmark-data.ps1 -PurgeStaleFiles -DataDir "/tmp/gh-pages/data" -RetentionDays $env:DASHBOARD_RETENTION_DAYS
 
           # Generate components.json manifest
           $plugins = Get-ChildItem -Path "/tmp/gh-pages/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |
