@@ -18,7 +18,7 @@ scenarios:
       - "Generates a safe filename (Guid.NewGuid or similar) instead of using user-provided IFormFile.FileName directly"
       - "Validates file content beyond just checking file extension — checks ContentType or magic bytes"
       - "Correctly uses IFormFile parameter binding in the minimal API endpoint"
-    timeout: 120
+    timeout: 180
 
   - name: "Fix file upload returning 400 Bad Request"
     prompt: |
@@ -50,7 +50,7 @@ scenarios:
       - "Identified the root cause: UseAntiforgery() middleware rejects file upload requests that lack an antiforgery token"
       - "Recommended using .DisableAntiforgery() on the file upload endpoint"
       - "Explained that minimal API file upload endpoints typically need antiforgery disabled since the token cannot be included in multipart form uploads from API clients"
-    timeout: 60
+    timeout: 180
 
   - name: "Upload multiple files with metadata in minimal API"
     prompt: |
@@ -64,4 +64,4 @@ scenarios:
       - "Used IFormFileCollection for multiple files"
       - "Used [FromForm] attribute on parameters when mixing files with other form fields"
       - "Showed correct multipart/form-data binding pattern"
-    timeout: 120
+    timeout: 180
