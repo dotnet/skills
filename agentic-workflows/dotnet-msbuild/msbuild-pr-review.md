@@ -40,6 +40,7 @@ You are a specialized reviewer for MSBuild project file changes. When a PR modif
 - **AP-17** Side effects during property evaluation (file writes, network calls)
 - **AP-18** Platform-specific `<Exec>` without OS condition guard
 - **AP-21** Properties conditioned on `$(TargetFramework)` in `.props` files (silently fails for single-targeting projects — move to `.targets`). **Item and target conditions are NOT affected** and must not be flagged.
+- `<TargetFramework>` or `<TargetFrameworks>` set in `Directory.Build.props` (causes inner/outer build collision when a project sets the other variant — TFMs must always live in each `.csproj`)
 
 ### Check for Correctness
 - Potential bin/obj path clashes in multi-targeting

@@ -51,7 +51,7 @@ Good candidates: language settings, assembly/package metadata, build warnings, c
 </Project>
 ```
 
-**Do NOT put here:** project-specific TFMs, project-specific PackageReferences, targets/build logic, or properties depending on SDK-defined values (not available during `.props` evaluation).
+**Do NOT put here:** `<TargetFramework>` or `<TargetFrameworks>` (even when every project shares the same TFM — see [targetframework-props-pitfall.md](references/targetframework-props-pitfall.md)), project-specific PackageReferences, targets/build logic, or properties depending on SDK-defined values (not available during `.props` evaluation).
 
 ## Directory.Build.targets
 
@@ -152,7 +152,7 @@ Set `<ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>` in `Di
 3. **Create root `Directory.Build.targets`** — Move custom build targets, post-build validation, and any properties that depend on SDK-defined values (e.g., `OutputPath`, `TargetFramework` for single-targeting projects) here. These are imported after the SDK so all properties are available.
 4. **Create `Directory.Packages.props`** — Enable Central Package Management (`ManagePackageVersionsCentrally`), list all `PackageVersion` entries, and remove `Version=` from `PackageReference` items in `.csproj` files.
 5. **Set up multi-level hierarchy** — Create inner `Directory.Build.props` files for `src/` and `test/` folders with distinct settings. Use `GetPathOfFileAbove` to chain to the parent.
-6. **Simplify `.csproj` files** — Remove all centralized properties, version attributes, and duplicated targets. Each project should only contain what is unique to it.
+6. **Simplify `.csproj` files** — Remove all centralized properties, version attributes, and duplicated targets. Each project should only contain what is unique to it. **Exception: `<TargetFramework>` / `<TargetFrameworks>` must always stay in each project file** — never centralize these (see [targetframework-props-pitfall.md](references/targetframework-props-pitfall.md)).
 7. **Validate** — Run `dotnet restore && dotnet build` and verify no regressions. Use `dotnet msbuild -pp:output.xml` to inspect the final merged view if needed.
 
 ## Troubleshooting

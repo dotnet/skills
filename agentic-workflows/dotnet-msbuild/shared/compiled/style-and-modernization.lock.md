@@ -1,4 +1,4 @@
-﻿<!-- AUTO-GENERATED -- DO NOT EDIT -->
+<!-- AUTO-GENERATED — DO NOT EDIT -->
 
 # MSBuild Anti-Pattern Catalog
 
@@ -234,7 +234,7 @@ Analyzer and build-tool packages should always use `PrivateAssets="all"` to prev
 </Project>
 ```
 
-See `directory-build-organization` skill for full guidance on structuring `Directory.Build.props` / `Directory.Build.targets`.
+**Exception: Never centralize `<TargetFramework>` or `<TargetFrameworks>`** — even when every project uses the same TFM. If `.props` sets the singular form and a project sets the plural form (or vice versa), both properties coexist and MSBuild simultaneously runs inner and outer builds, breaking everything. Each project must declare its own TFM. See the `directory-build-organization` skill for full guidance.
 
 ---
 
@@ -431,7 +431,7 @@ See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, a
 
 ---
 
-## AP-16: Using `<Exec>` for String/Path Operations
+For additional anti-patterns (AP-16 through AP-21) and a quick-reference checklist, see ## AP-16: Using `<Exec>` for String/Path Operations
 
 **Smell**: `<Exec Command="echo $(Var) | sed ..." />` or `<Exec Command="powershell -c ..." />` for simple string manipulation.
 
@@ -630,7 +630,7 @@ When reviewing an MSBuild file, scan for these in order:
 | AP-16 | `<Exec>` for string operations | 🔵 Preference |
 | AP-17 | Mixed Include/Update in one ItemGroup | 🔵 Subtle bugs |
 | AP-18 | Redundant transitive ProjectReferences | 🔵 Graph noise |
-| AP-20 | Platform-specific Exec without guard | 🔵 Cross-platform |
+| AP-20 | Platform-specific Exec without guard | 🔵 Cross-platform |.
 
 ---
 
@@ -1082,19 +1082,6 @@ Identify properties repeated across multiple `.csproj` files and move them to sh
 <Project>
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Company>Contoso</Company>
-    <Copyright>Copyright © Contoso 2024</Copyright>
-  </PropertyGroup>
-</Project>
-```
-
-**`Directory.Build.targets`** (for targets/tasks — placed at repo or src root):
-
-```xml
-<Project>
-  <Target Name="PrintBuildInfo" Af
+    <Null
 
 [truncated]
