@@ -216,7 +216,7 @@ See [`references/private-assets.md`](references/private-assets.md) for BAD/GOOD 
 </Project>
 ```
 
-**Exception: Never centralize `<TargetFramework>` or `<TargetFrameworks>`** — even when every project uses the same TFM. If `.props` sets the singular form and a project sets the plural form (or vice versa), both properties coexist and MSBuild simultaneously runs inner and outer builds, breaking everything. Each project must declare its own TFM. See the `directory-build-organization` skill for full guidance.
+See `directory-build-organization` skill for full guidance on structuring `Directory.Build.props` / `Directory.Build.targets`.
 
 ---
 

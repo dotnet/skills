@@ -103,7 +103,7 @@ Full file examples for a typical multi-level repo layout.
 
 **After — centralized with Directory.Build files:**
 
-Note that `<TargetFramework>` is intentionally NOT centralized — it must stay in each `.csproj` even when every project uses the same TFM (see [targetframework-props-pitfall.md](targetframework-props-pitfall.md)).
+Note that `<TargetFramework>` is intentionally NOT centralized — it must stay in each `.csproj` even when every project uses the same TFM (see [targetframework-centralization-pitfall.md](targetframework-centralization-pitfall.md)).
 
 ```xml
 <!-- Directory.Build.props -->
