@@ -157,6 +157,7 @@ jobs:
     needs: [discover, run-evaluation]
     if: always() && github.event_name == 'pull_request' && needs.discover.result != 'skipped'
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Check evaluation result
         run: |
