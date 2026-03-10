@@ -145,18 +145,15 @@ public static partial class SkillProfiler
         // --- Token size warnings (based on BPE token count) ---
         if (bpeTokenCount > TokenWarnHigh)
         {
-            warnings.Add(
-                $"Skill is {bpeTokenCount:N0} BPE tokens (chars/4 estimate: {chars4TokenCount:N0}) — \"comprehensive\" skills hurt performance by 2.9pp on average. Consider splitting into 2–3 focused skills.");
+            warnings.Add($"Skill is {bpeTokenCount:N0} BPE tokens (chars/4 estimate: {chars4TokenCount:N0}) — \"comprehensive\" skills hurt performance by 2.9pp on average. Consider splitting into 2–3 focused skills.");
         }
         else if (bpeTokenCount > TokenSweetHigh)
         {
-            warnings.Add(
-                $"Skill is {bpeTokenCount:N0} BPE tokens (chars/4 estimate: {chars4TokenCount:N0}) — approaching \"comprehensive\" range where gains diminish.");
+            warnings.Add($"Skill is {bpeTokenCount:N0} BPE tokens (chars/4 estimate: {chars4TokenCount:N0}) — approaching \"comprehensive\" range where gains diminish.");
         }
         else if (bpeTokenCount < TokenSweetLow)
         {
-            warnings.Add(
-                $"Skill is only {bpeTokenCount} BPE tokens (chars/4 estimate: {chars4TokenCount}) — may be too sparse to provide actionable guidance.");
+            warnings.Add($"Skill is only {bpeTokenCount:N0} BPE tokens (chars/4 estimate: {chars4TokenCount:N0}) — may be too sparse to provide actionable guidance.");
         }
 
         if (sectionCount == 0)
