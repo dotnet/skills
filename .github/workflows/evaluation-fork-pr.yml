@@ -49,6 +49,8 @@ jobs:
     steps:
       - name: Checkout base branch
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
 
       - name: Fetch PR head (metadata only)
         run: git fetch origin +refs/pull/${{ github.event.pull_request.number }}/head --depth=1
@@ -57,8 +59,10 @@ jobs:
         id: discover
         shell: pwsh
         run: |
+          $base = "${{ github.event.pull_request.base.sha }}"
           $head = "FETCH_HEAD"
-          $changedFiles = git diff --name-only --diff-filter=ACMR HEAD $head
+          $mergeBase = git merge-base $base $head
+          $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
             Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
