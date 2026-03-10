@@ -560,6 +560,9 @@ public static class Reporter
         // Align with the F1 rounding used in the Δ column so footnotes don't
         // reference a direction the user can't see in the table.
         double roundedDelta = Math.Round(qualityDelta.Value, 1);
+        if (roundedDelta == 0)
+            return null;
+
         bool qualityPositive = roundedDelta > 0;
         bool qualityNegative = roundedDelta < 0;
 

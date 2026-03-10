@@ -417,7 +417,9 @@ public class OverfittingJudgeTests
     [Fact]
     public void MarkdownTable_ShowsFootnoteWhenVerdictDisagreesWithQuality()
     {
-        // Quality improved (+1.0) but composite is negative due to token/time overhead
+        // Quality improved (+1.0) but composite is negative due to token/time overhead.
+        // ImprovementScore derived from breakdown * DefaultWeights:
+        //   -5.0*0.05 + -3.0*0.025 + 0*0.15 + -3.0*0.025 + 0.4*0.40 + 0.2*0.30 + 0*0.05 = -0.18
         var verdicts = new List<SkillVerdict>
         {
             new()
@@ -436,18 +438,18 @@ public class OverfittingJudgeTests
                         WithSkill = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
-                        ImprovementScore = -0.05,
+                        ImprovementScore = -0.18,
                         Breakdown = new MetricBreakdown(
-                            TokenReduction: -0.8,
-                            ToolCallReduction: -0.5,
+                            TokenReduction: -5.0,
+                            ToolCallReduction: -3.0,
                             TaskCompletionImprovement: 0,
-                            TimeReduction: -0.7,
+                            TimeReduction: -3.0,
                             QualityImprovement: 0.4,
-                            OverallJudgmentImprovement: 0.4,
+                            OverallJudgmentImprovement: 0.2,
                             ErrorReduction: 0),
                     }
                 },
-                OverallImprovementScore = -0.05,
+                OverallImprovementScore = -0.18,
                 Reason = "Below threshold",
             }
         };
@@ -462,7 +464,9 @@ public class OverfittingJudgeTests
     [Fact]
     public void MarkdownTable_NoFootnoteWhenVerdictMatchesQuality()
     {
-        // Quality improved and composite is positive — no footnote needed
+        // Quality improved and composite is positive — no footnote needed.
+        // ImprovementScore derived from breakdown * DefaultWeights:
+        //   0*0.05 + 0*0.025 + 0*0.15 + 0*0.025 + 0.5*0.40 + 0.5*0.30 + 0*0.05 = 0.35
         var verdicts = new List<SkillVerdict>
         {
             new()
@@ -481,12 +485,113 @@ public class OverfittingJudgeTests
                         WithSkill = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
-                        ImprovementScore = 0.3,
-                        Breakdown = new MetricBreakdown(0.1, 0.1, 0, 0.1, 0.6, 0.6, 0),
+                        ImprovementScore = 0.35,
+                        Breakdown = new MetricBreakdown(
+                            TokenReduction: 0,
+                            ToolCallReduction: 0,
+                            TaskCompletionImprovement: 0,
+                            TimeReduction: 0,
+                            QualityImprovement: 0.5,
+                            OverallJudgmentImprovement: 0.5,
+                            ErrorReduction: 0),
                     }
                 },
-                OverallImprovementScore = 0.3,
+                OverallImprovementScore = 0.35,
                 Reason = "Pass",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.DoesNotContain("[1]", md);
+        Assert.DoesNotContain("composite", md);
+    }
+
+    [Fact]
+    public void MarkdownTable_ShowsFootnoteWhenQualityDroppedButCompositePositive()
+    {
+        // Quality dropped (-1.0) but composite is positive due to efficiency gains.
+        // ImprovementScore derived from breakdown * DefaultWeights:
+        //   2.0*0.05 + 0*0.025 + 1.0*0.15 + 0*0.025 + -0.2*0.40 + -0.1*0.30 + 0*0.05 = 0.14
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "test-skill",
+                SkillPath = "/test",
+                Passed = true,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "efficiency-offset",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 4.0, "Good")),
+                        WithSkill = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled" },
+                            new JudgeResult(new List<RubricScore>(), 3.0, "OK")),
+                        ImprovementScore = 0.14,
+                        Breakdown = new MetricBreakdown(
+                            TokenReduction: 2.0,
+                            ToolCallReduction: 0,
+                            TaskCompletionImprovement: 1.0,
+                            TimeReduction: 0,
+                            QualityImprovement: -0.2,
+                            OverallJudgmentImprovement: -0.1,
+                            ErrorReduction: 0),
+                    }
+                },
+                OverallImprovementScore = 0.14,
+                Reason = "Pass",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.Contains("[1]", md);
+        Assert.Contains("composite", md);
+        Assert.Contains("offset quality drop", md);
+    }
+
+    [Fact]
+    public void MarkdownTable_NoFootnoteWhenRoundedDeltaIsZero()
+    {
+        // Quality delta is 0.04 (rounds to 0.0 in the Δ column), verdict is negative.
+        // No footnote should appear since the user sees no quality direction.
+        // ImprovementScore derived from breakdown * DefaultWeights:
+        //   -2.0*0.05 + 0 + 0 + 0 + 0 + 0 + 0 = -0.10
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "test-skill",
+                SkillPath = "/test",
+                Passed = false,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "near-zero-delta",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 3.52, "OK")),
+                        WithSkill = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled" },
+                            new JudgeResult(new List<RubricScore>(), 3.56, "OK")),
+                        ImprovementScore = -0.10,
+                        Breakdown = new MetricBreakdown(
+                            TokenReduction: -2.0,
+                            ToolCallReduction: 0,
+                            TaskCompletionImprovement: 0,
+                            TimeReduction: 0,
+                            QualityImprovement: 0,
+                            OverallJudgmentImprovement: 0,
+                            ErrorReduction: 0),
+                    }
+                },
+                OverallImprovementScore = -0.10,
+                Reason = "Below threshold",
             }
         };
 
