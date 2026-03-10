@@ -370,7 +370,7 @@ public static class Reporter
         {
             sb.AppendLine();
             for (int i = 0; i < footnotes.Count; i++)
-                sb.AppendLine($"<a href=\"#user-content-ref-{i + 1}\" id=\"fn-{i + 1}\">**[{i + 1}]**</a> {footnotes[i]}");
+                sb.AppendLine($"<a href=\"#user-content-ref-{i + 1}\" id=\"fn-{i + 1}\"><strong>[{i + 1}]</strong></a> {footnotes[i]}");
         }
 
         bool anyTimeout = verdicts.Any(v => v.Scenarios.Any(s =>
