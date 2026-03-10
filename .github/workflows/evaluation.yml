@@ -153,7 +153,7 @@ jobs:
   # Plain check-run job that can be required in the GitHub ruleset.
   # For fork PRs, discover is skipped (fork guard) so this job is also skipped;
   # the fork-status job in evaluation-fork-pr.yml posts a commit status instead.
-  evaluation:
+  evaluation-status:
     needs: [discover, run-evaluation]
     if: always() && github.event_name == 'pull_request' && needs.discover.result != 'skipped'
     runs-on: ubuntu-latest

@@ -88,7 +88,7 @@ jobs:
 
           gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
             -f state="$STATE" \
-            -f context="evaluation" \
+            -f context="evaluation-status" \
             -f description="$DESC" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
@@ -154,7 +154,7 @@ jobs:
         run: |
           gh api "repos/${{ github.repository }}/statuses/${{ steps.pr.outputs.head_sha }}" \
             -f state=pending \
-            -f context="evaluation" \
+            -f context="evaluation-status" \
             -f description="Evaluation in progress..." \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
@@ -280,7 +280,7 @@ jobs:
           fi
           gh api "repos/${{ github.repository }}/statuses/${{ needs.gate.outputs.head_sha }}" \
             -f state="$STATE" \
-            -f context="evaluation" \
+            -f context="evaluation-status" \
             -f description="$DESC" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
