@@ -608,7 +608,6 @@ scenarios:
                 }
             }
             [InlineArray(1048577)]
-            [StructLayout(LayoutKind.Sequential, Size = 1048577)]
             struct LargeBuffer { private byte _element0; }
         - path: "ApiController.cs"
           content: |
@@ -684,7 +683,7 @@ scenarios:
       Migrate this containerized .NET 8 app to .NET 9.
       Our Kubernetes deployment sets these env vars:
         DOTNET_gcServer=0 (save memory on small pods)
-        DOTNET_GCConcurrent=0
+        DOTNET_gcConcurrent=0
         DOTNET_ThreadPool_MinThreads=4
       In .NET 8, the runtimeconfig.json values (Server=true, Concurrent=true, MinThreads=25)
       took precedence and our app used server GC with 25 min threads.

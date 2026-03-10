@@ -1,6 +1,6 @@
 # C# 13 Compiler Breaking Changes (.NET 9)
 
-These breaking changes are introduced by the Roslyn compiler shipping with the .NET 9 SDK. They affect all projects targeting `net9.0` (which uses C# 13 by default). These are maintained separately from the runtime breaking changes at: https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/breaking-changes/compiler%20breaking%20changes%20-%20dotnet%209
+These breaking changes are introduced by the Roslyn compiler shipping with the .NET 9 SDK. They affect all projects targeting `net9.0` (which uses C# 13 by default). These are maintained separately from the runtime breaking changes at: https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/breaking-changes/compiler-breaking-changes---dotnet-9
 
 ## Source-Incompatible Changes
 

@@ -8,8 +8,8 @@ These changes affect runtime configuration, deployment, and JIT compiler behavio
 
 **Impact: Medium.** When both an environment variable and a corresponding `runtimeconfig.json` setting are provided, the environment variable now takes precedence.
 
+Example `runtimeconfig.json`:
 ```json
-// runtimeconfig.json
 {
   "runtimeOptions": {
     "configProperties": {
