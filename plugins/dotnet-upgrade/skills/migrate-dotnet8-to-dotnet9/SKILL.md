@@ -135,7 +135,7 @@ Behavioral changes do not cause build errors but may change runtime behavior. Re
 
 1. **Floating-point to integer conversions are now saturating** — Conversions from `float`/`double` to integer types now saturate instead of wrapping on x86/x64. See `references/deployment-runtime-dotnet8to9.md`.
 
-2. **EF Core: Pending model changes exception** — `Migrate()`/`MigrateAsync()` now throws if the model has pending changes. See `references/efcore-dotnet8to9.md`.
+2. **EF Core: Pending model changes exception** — `Migrate()`/`MigrateAsync()` now throws if the model has pending changes. **Search for `DateTime.Now`, `DateTime.UtcNow`, or `Guid.NewGuid()` in any `HasData` call — these must be replaced with fixed constants** (e.g., `new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)`). See `references/efcore-dotnet8to9.md`.
 
 3. **EF Core: Explicit transaction exception** — `Migrate()` inside a user transaction now throws. See `references/efcore-dotnet8to9.md`.
 
