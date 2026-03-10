@@ -380,7 +380,7 @@ public static class Reporter
             foreach (var v in failedVerdicts)
             {
                 // Wrap in inline code to prevent markdown injection from PR-controlled content
-                var safeName = v.SkillName.Replace("`", "'");
+                var safeName = v.SkillName.Replace("`", "'").Replace("\r", "").Replace("\n", " ");
                 var safeReason = v.Reason.Replace("`", "'").Replace("\r", "").Replace("\n", " ");
                 sb.AppendLine($"`{safeName}: {safeReason}`");
             }
