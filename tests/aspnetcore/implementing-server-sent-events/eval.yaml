@@ -1,0 +1,28 @@
+scenarios:
+  - name: "Implement SSE notification endpoint in ASP.NET Core 8 minimal API"
+    prompt: |
+      I need to implement a Server-Sent Events (SSE) endpoint in an ASP.NET Core 8 minimal API project.
+
+      The endpoint should be at GET /api/events/notifications and should:
+      1. Stream real-time notifications to connected clients
+      2. Support named event types (e.g., "message", "alert", "update")
+      3. Include event IDs so clients can reconnect and resume from where they left off
+      4. Handle client disconnection gracefully
+      5. Set a 5-second retry interval for client reconnection
+      6. Work correctly behind reverse proxies like nginx
+
+      The notification data should be JSON objects with properties: Id, Type, Message, Timestamp.
+
+      Use a simple background service that generates a notification every 2 seconds to simulate a real event source. Use Channel<T> to communicate between the background service and the SSE endpoint.
+
+      Create a complete working project with Program.cs and any needed service files.
+    rubric:
+      - "Uses manual SSE protocol (Response.WriteAsync with text/event-stream content type), NOT a non-existent MapSSE(), MapServerSentEvents(), or UseServerSentEvents() helper method"
+      - "Sets all required SSE headers: Content-Type text/event-stream, Cache-Control no-cache, and Connection keep-alive"
+      - "Uses correct SSE format with double newline (\\n\\n) to terminate each event, not single newline"
+      - "Calls Response.Body.FlushAsync() after each event write (or uses equivalent auto-flush mechanism) so client receives events immediately"
+      - "Uses HttpContext.RequestAborted or CancellationToken to detect client disconnection and handles OperationCanceledException gracefully"
+      - "Includes id: field in SSE events and reads Last-Event-ID header from request for reconnection support"
+      - "Sets retry: field to control client reconnection interval"
+      - "Sets X-Accel-Buffering: no header for reverse proxy compatibility"
+      - "Does NOT return Results.Ok() or any IResult after writing SSE events to the response body"
