@@ -17,6 +17,17 @@ These changes affect projects using EF Core.
 - Last migration created for a different provider
 - ASP.NET Core Identity options that affect the model aren't applied in design-time factory
 
+**Non-deterministic `HasData` example (common pitfall):**
+```csharp
+// BREAKS — DateTime.UtcNow changes every evaluation, causing "pending model changes"
+modelBuilder.Entity<Order>().HasData(
+    new Order { Id = 1, CreatedAt = DateTime.UtcNow });
+
+// Fix — use a fixed constant
+modelBuilder.Entity<Order>().HasData(
+    new Order { Id = 1, CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) });
+```
+
 **Mitigation (temporary workaround — not recommended for production):**
 ```csharp
 // Suppress the warning if intentional — review before deploying to production,
@@ -103,7 +114,17 @@ modelBuilder.Entity<Session>().HasDiscriminator<string>("Discriminator");
 
 ### `id` property no longer contains discriminator (High Impact)
 
-The `id` property now contains only the EF key property value, not `EntityType|KeyValue`. Existing documents have the old format.
+The `id` property now contains only the EF key property value (e.g., `123`), not `EntityType|KeyValue` (e.g., `Product|123`). Existing documents written by EF Core 8 still have the old compound format.
+
+**Implications for existing data:**
+- `FindAsync` and point-reads by id will fail because EF Core 9 generates `123` but the stored document has `Product|123`
+- New documents get the short format, creating id inconsistency with existing documents
+- Direct Cosmos SQL queries matching on `c.id` need updating
+
+**Mitigation:** Preserve the old id format so existing documents remain accessible:
+```csharp
+modelBuilder.Entity<Product>().HasRootDiscriminatorInJsonId(true);
+```
 
 ### JSON `id` property mapped to key (High Impact)
 
@@ -125,9 +146,9 @@ Query results that are `undefined` in Cosmos DB are now automatically filtered o
 
 Some queries that were previously translated incorrectly now throw `InvalidOperationException` to prevent silent data corruption.
 
-### `HasIndex` now throws (Low Impact)
+### `HasIndex` now throws (Medium Impact)
 
-`HasIndex` on a Cosmos DB entity type now throws instead of being silently ignored.
+`HasIndex` on a Cosmos DB entity type now throws `InvalidOperationException` at startup instead of being silently ignored. Remove all `HasIndex` calls for Cosmos entities — Cosmos DB indexing is managed through the container's indexing policy (Azure Portal, Bicep, or Terraform), not through EF Core.
 
 ### `IncludeRootDiscriminatorInJsonId` renamed (Low Impact)
 
