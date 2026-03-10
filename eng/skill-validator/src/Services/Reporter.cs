@@ -358,7 +358,8 @@ public static class Reporter
                 if (footnote is not null)
                 {
                     footnotes.Add(footnote);
-                    notesCol = $"[{footnotes.Count}]";
+                    int n = footnotes.Count;
+                    notesCol = $"<a href=\"#user-content-fn-{n}\" id=\"ref-{n}\">[{n}]</a>";
                 }
 
                 sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {qualityCol} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {icon} | {notesCol} |");
@@ -369,7 +370,7 @@ public static class Reporter
         {
             sb.AppendLine();
             for (int i = 0; i < footnotes.Count; i++)
-                sb.AppendLine($"**[{i + 1}]** {footnotes[i]}");
+                sb.AppendLine($"<a href=\"#user-content-ref-{i + 1}\" id=\"fn-{i + 1}\">**[{i + 1}]**</a> {footnotes[i]}");
         }
 
         bool anyTimeout = verdicts.Any(v => v.Scenarios.Any(s =>
