@@ -94,7 +94,7 @@ After publishing, users configure their MCP client to run the tool:
 }
 ```
 
-The `dnx` tool runner (`dotnet tool run` shorthand) downloads and runs the tool automatically.
+The `dnx` tool runner (a `dotnet execute`-style runner for NuGet packages) downloads and runs the package automatically. For more details, see the .NET package execution docs: https://learn.microsoft.com/dotnet/core/tools/dotnet-execute
 
 ## server.json for MCP Registry Integration
 
