@@ -374,6 +374,9 @@ public class OverfittingJudgeTests
 
         Assert.Contains("Overfit", md);
         Assert.Contains("Notes", md);
+        Assert.Contains("Quality", md);
+        Assert.DoesNotContain("Baseline", md);
+        Assert.Contains("\u2191", md); // ↑ arrow for improvement
         Assert.Contains("🟡 0.38", md);
     }
 
@@ -411,7 +414,8 @@ public class OverfittingJudgeTests
 
         Assert.Contains("Overfit", md);
         Assert.Contains("Notes", md);
-        Assert.Contains("| — |", md);
+        Assert.Contains("Quality", md);
+        Assert.Contains("\u2192", md); // → arrow in quality cell
     }
 
     [Fact]
@@ -457,8 +461,8 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("[1]", md);
-        Assert.Contains("composite", md);
-        Assert.Contains("offset quality gain", md);
+        Assert.Contains("Quality improved but weighted score is", md);
+        Assert.Contains("due to:", md);
     }
 
     [Fact]
@@ -550,8 +554,8 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("[1]", md);
-        Assert.Contains("composite", md);
-        Assert.Contains("offset quality drop", md);
+        Assert.Contains("Quality dropped but weighted score is", md);
+        Assert.Contains("due to:", md);
     }
 
     [Fact]

@@ -313,8 +313,8 @@ public static class Reporter
         var sb = new StringBuilder();
         sb.AppendLine("## Skill Validation Results");
         sb.AppendLine();
-        sb.AppendLine("| Skill | Scenario | Baseline | With Skill | Δ | Skills Loaded | Overfit | Verdict | Notes |");
-        sb.AppendLine("|-------|----------|----------|------------|---|---------------|---------|--------|-------|");
+        sb.AppendLine("| Skill | Scenario | Quality | Skills Loaded | Overfit | Verdict | Notes |");
+        sb.AppendLine("|-------|----------|---------|---------------|---------|---------|-------|");
 
         var footnotes = new List<string>();
 
@@ -327,20 +327,9 @@ public static class Reporter
                 var skillScore = s.WithSkill?.JudgeResult?.OverallScore;
                 var bTimedOut = s.Baseline?.Metrics?.TimedOut == true;
                 var sTimedOut = s.WithSkill?.Metrics?.TimedOut == true;
-                var baseStr = (baseScore is { } bs && !double.IsNaN(bs) ? $"{bs:F1}/5" : "—") + (bTimedOut ? " ⏰ timeout" : "");
-                var skillStr = (skillScore is { } ss && !double.IsNaN(ss) ? $"{ss:F1}/5" : "—") + (sTimedOut ? " ⏰ timeout" : "");
 
-                string deltaStr = "—";
                 double? qualityDelta = null;
-                if (baseScore is { } b && skillScore is { } sk && !double.IsNaN(b) && !double.IsNaN(sk))
-                {
-                    double delta = sk - b;
-                    if (!double.IsNaN(delta))
-                    {
-                        deltaStr = delta > 0 ? $"+{delta:F1}" : $"{delta:F1}";
-                        qualityDelta = delta;
-                    }
-                }
+                string qualityCol = FormatQualityCell(baseScore, skillScore, bTimedOut, sTimedOut, out qualityDelta);
 
                 var icon = s.ImprovementScore > 0 ? "✅" : s.ImprovementScore < 0 ? "❌" : "🟡";
 
@@ -372,7 +361,7 @@ public static class Reporter
                     notesCol = $"[{footnotes.Count}]";
                 }
 
-                sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {baseStr} | {skillStr} | {deltaStr} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {icon} | {notesCol} |");
+                sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {qualityCol} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {icon} | {notesCol} |");
             }
         }
 
@@ -546,6 +535,36 @@ public static class Reporter
     }
 
     /// <summary>
+    /// Formats the combined Quality column: "baseline → skill" with the better score bolded
+    /// and a directional arrow indicator.
+    /// </summary>
+    internal static string FormatQualityCell(
+        double? baseScore, double? skillScore,
+        bool bTimedOut, bool sTimedOut,
+        out double? qualityDelta)
+    {
+        qualityDelta = null;
+        string baseFmt = baseScore is { } b && !double.IsNaN(b) ? $"{b:F1}/5" : "\u2014";
+        string skillFmt = skillScore is { } sk && !double.IsNaN(sk) ? $"{sk:F1}/5" : "\u2014";
+        if (bTimedOut) baseFmt += " \u23f0";
+        if (sTimedOut) skillFmt += " \u23f0";
+
+        if (baseScore is { } bv && skillScore is { } sv && !double.IsNaN(bv) && !double.IsNaN(sv))
+        {
+            double delta = sv - bv;
+            if (!double.IsNaN(delta))
+                qualityDelta = delta;
+
+            if (sv > bv)
+                return $"{baseFmt} \u2192 **{skillFmt}** \u2191";
+            if (sv < bv)
+                return $"**{baseFmt}** \u2192 {skillFmt} \u2193";
+        }
+
+        return $"{baseFmt} \u2192 {skillFmt}";
+    }
+
+    /// <summary>
     /// Returns a footnote string when the verdict (based on composite ImprovementScore)
     /// disagrees with the quality delta shown in the table, or null if no explanation is needed.
     /// </summary>
@@ -604,10 +623,10 @@ public static class Reporter
                 .OrderBy(c => c.weighted)
                 .Select(c => c.label)
                 .ToList();
-            string cause = negatives.Count > 0
-                ? string.Join(", ", negatives) + " offset quality gain"
-                : "efficiency metrics offset quality gain";
-            return $"{compositeStr} — {cause}";
+            string factors = negatives.Count > 0
+                ? string.Join(", ", negatives)
+                : "efficiency metrics";
+            return $"Quality improved but weighted score is {compositeStr} due to: {factors}";
         }
 
         if (verdictPositive && qualityNegative)
@@ -618,10 +637,10 @@ public static class Reporter
                 .OrderByDescending(c => c.weighted)
                 .Select(c => c.label)
                 .ToList();
-            string cause = positives.Count > 0
-                ? string.Join(", ", positives) + " offset quality drop"
-                : "efficiency gains offset quality drop";
-            return $"{compositeStr} — {cause}";
+            string factors = positives.Count > 0
+                ? string.Join(", ", positives)
+                : "efficiency metrics";
+            return $"Quality dropped but weighted score is {compositeStr} due to: {factors}";
         }
 
         return null;
