@@ -151,7 +151,8 @@ jobs:
 
   # Require this job in the GitHub ruleset. It always runs on PRs and
   # succeeds when no relevant files changed or the build passed.
-  skill-validator-status:
+  status:
+    name: skill-validator-status
     needs: [discover, build]
     if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
