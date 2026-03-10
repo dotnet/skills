@@ -9,7 +9,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(CancellationToken|cancellation)"
       - type: "output_not_matches"
-        pattern: "\\.Result\\b|\\.Wait\\(\\)"
+        pattern: "\\.Result\\b(?=\\s*[);])|\\.Wait\\(\\)(?=\\s*[);])"
     rubric:
       - "Identified all synchronous blocking I/O patterns (.Result, .Wait(), synchronous Read/Write calls)"
       - "Converted methods bottom-up starting from the lowest-level I/O calls"
@@ -65,67 +65,143 @@ scenarios:
             </Project>
     assertions:
       - type: "output_not_matches"
-        pattern: "(async Task|await.*ReadAsync|await.*WriteAsync)"
+        pattern: "(\\basync\\s+Task\\b.*\\(|await.*ReadAsync|await.*WriteAsync)"
     rubric:
       - "Did NOT suggest converting CPU-bound computation to async/await"
       - "Suggested parallelism approaches (Parallel.For, Task.Run, SIMD, or algorithmic optimization)"
       - "Correctly identified that async is for I/O-bound work, not CPU-bound work"
-    timeout: 60
+    timeout: 120
 
-  - name: "Library code should use ConfigureAwait(false)"
-    prompt: "I'm writing a shared NuGet library that wraps an HTTP API. Convert these sync methods to async. The library will be consumed by WinForms, WPF, and ASP.NET Core apps."
+  - name: "Fix sync-over-async deadlock in WPF app"
+    prompt: |
+      My WPF app freezes when I click a button. The click handler calls a method that uses .Result to get data from an API. How do I fix this deadlock?
+
+      ```csharp
+      private void OnButtonClick(object sender, RoutedEventArgs e)
+      {
+          var data = GetDataFromApi().Result; // UI freezes here
+          DataLabel.Text = data;
+      }
+
+      private async Task<string> GetDataFromApi()
+      {
+          var response = await _httpClient.GetAsync("/api/data");
+          return await response.Content.ReadAsStringAsync();
+      }
+      ```
     setup:
       files:
-        - path: "ApiClient.cs"
+        - path: "MainWindow.xaml.cs"
           content: |
             using System.Net.Http;
-            using System.Text.Json;
+            using System.Windows;
 
-            namespace MyLibrary;
+            namespace WpfApp;
 
-            public class ApiClient
+            public partial class MainWindow : Window
             {
-                private readonly HttpClient _client;
+                private readonly HttpClient _httpClient = new();
 
-                public ApiClient(HttpClient client)
+                public MainWindow()
                 {
-                    _client = client;
+                    InitializeComponent();
                 }
 
-                public string GetResource(string id)
+                private void OnButtonClick(object sender, RoutedEventArgs e)
                 {
-                    var response = _client.Send(new HttpRequestMessage(HttpMethod.Get, $"/api/resources/{id}"));
-                    var stream = response.Content.ReadAsStream();
-                    using var reader = new StreamReader(stream);
-                    return reader.ReadToEnd();
+                    var data = GetDataFromApi().Result;
+                    DataLabel.Text = data;
                 }
 
-                public void PostResource(string json)
+                private async Task<string> GetDataFromApi()
                 {
-                    var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-                    var response = _client.Send(new HttpRequestMessage(HttpMethod.Post, "/api/resources") { Content = content });
-                    response.EnsureSuccessStatusCode();
+                    var response = await _httpClient.GetAsync("/api/data");
+                    return await response.Content.ReadAsStringAsync();
                 }
             }
-        - path: "MyLibrary.csproj"
+        - path: "WpfApp.csproj"
           content: |
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
-                <TargetFramework>netstandard2.0</TargetFramework>
-                <Nullable>enable</Nullable>
+                <TargetFramework>net8.0-windows</TargetFramework>
+                <OutputType>WinExe</OutputType>
+                <UseWPF>true</UseWPF>
               </PropertyGroup>
             </Project>
     assertions:
       - type: "output_matches"
-        pattern: "(ConfigureAwait\\(false\\))"
+        pattern: "(async void|async.*RoutedEventArgs|await.*GetDataFromApi)"
       - type: "output_matches"
-        pattern: "(async|await|Task<)"
+        pattern: "(SynchronizationContext|deadlock|UI thread|synchronization context)"
     rubric:
-      - "Added .ConfigureAwait(false) to every await expression since this is library code"
-      - "Correctly explained that ConfigureAwait(false) is needed in libraries consumed by UI frameworks (WinForms/WPF) to prevent deadlocks"
-      - "Converted sync methods to async with proper Task<T> return types"
-      - "Added CancellationToken parameters"
-    timeout: 90
+      - "Identified the root cause: .Result blocks the UI thread while the awaited task needs the UI SynchronizationContext to resume, causing a deadlock"
+      - "Made the event handler async void (the one valid use of async void — UI event handlers)"
+      - "Replaced .Result with await in the event handler"
+      - "Explained that the fix works because await releases the UI thread instead of blocking it"
+    timeout: 120
+
+  - name: "Convert file I/O operations to async"
+    prompt: "Convert this file processing class to async. It reads CSV files, processes them, and writes output files."
+    setup:
+      files:
+        - path: "FileProcessor.cs"
+          content: |
+            namespace DataPipeline;
+
+            public class FileProcessor
+            {
+                public void ProcessFile(string inputPath, string outputPath)
+                {
+                    var lines = File.ReadAllLines(inputPath);
+                    var results = new List<string>();
+
+                    foreach (var line in lines)
+                    {
+                        if (string.IsNullOrWhiteSpace(line)) continue;
+                        var parts = line.Split(',');
+                        var processed = string.Join("|", parts.Select(p => p.Trim().ToUpperInvariant()));
+                        results.Add(processed);
+                    }
+
+                    File.WriteAllLines(outputPath, results);
+                }
+
+                public string ReadConfig(string configPath)
+                {
+                    if (!File.Exists(configPath))
+                        throw new FileNotFoundException($"Config not found: {configPath}");
+
+                    return File.ReadAllText(configPath);
+                }
+
+                public void AppendLog(string logPath, string message)
+                {
+                    var entry = $"[{DateTime.UtcNow:O}] {message}\n";
+                    File.AppendAllText(logPath, entry);
+                }
+            }
+        - path: "DataPipeline.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+            </Project>
+    assertions:
+      - type: "output_matches"
+        pattern: "(ReadAllLinesAsync|ReadAllTextAsync|WriteAllLinesAsync|AppendAllTextAsync)"
+      - type: "output_matches"
+        pattern: "(async Task|CancellationToken)"
+    rubric:
+      - "Converted File.ReadAllLines to File.ReadAllLinesAsync"
+      - "Converted File.WriteAllLines to File.WriteAllLinesAsync"
+      - "Converted File.ReadAllText to File.ReadAllTextAsync"
+      - "Converted File.AppendAllText to File.AppendAllTextAsync"
+      - "Added CancellationToken parameter to all async methods"
+      - "Added Async suffix to method names"
+    timeout: 120
 
   - name: "Partial async conversion in large codebase"
     prompt: "I need to convert just the data access layer to async. The business logic layer and API controllers should stay synchronous for now — we're doing a staged migration."

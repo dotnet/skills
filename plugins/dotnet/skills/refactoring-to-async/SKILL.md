@@ -36,9 +36,9 @@ Common blocking patterns to convert:
 
 | Synchronous | Async Replacement |
 |---|---|
-| `stream.Read(buffer)` | `await stream.ReadAsync(buffer, ct)` |
-| `stream.Write(data)` | `await stream.WriteAsync(data, ct)` |
-| `reader.ReadToEnd()` | `await reader.ReadToEndAsync(ct)` |
+| `stream.Read(buffer, offset, count)` | `await stream.ReadAsync(buffer, offset, count, ct)` |
+| `stream.Write(data, offset, count)` | `await stream.WriteAsync(data, offset, count, ct)` |
+| `reader.ReadToEnd()` | `await reader.ReadToEndAsync()` |
 | `File.ReadAllText(path)` | `await File.ReadAllTextAsync(path, ct)` |
 | `File.WriteAllBytes(...)` | `await File.WriteAllBytesAsync(..., ct)` |
 | `client.Send(request)` | `await client.SendAsync(request, ct)` |

@@ -12,12 +12,10 @@ public interface IUserRepository
 public class UserRepository : IUserRepository
 {
     private readonly string _connectionString;
-    private readonly HttpClient _httpClient;
 
-    public UserRepository(string connectionString, HttpClient httpClient)
+    public UserRepository(string connectionString)
     {
         _connectionString = connectionString;
-        _httpClient = httpClient;
     }
 
     public User GetById(int id)
@@ -85,8 +83,8 @@ public class UserService
     {
         var user = _repo.GetById(userId);
 
-        // Sync-over-async: blocking call
-        var response = _httpClient.Send(new HttpRequestMessage(HttpMethod.Get, $"/api/avatars/{userId}"));
+        // Sync-over-async: blocking on async call
+        var response = _httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, $"/api/avatars/{userId}")).Result;
         var avatarUrl = new StreamReader(response.Content.ReadAsStream()).ReadToEnd();
         user.AvatarUrl = avatarUrl;
 
