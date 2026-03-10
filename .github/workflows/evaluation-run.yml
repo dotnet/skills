@@ -340,7 +340,7 @@ jobs:
           if [[ "$EVAL_RESULT" != "success" ]]; then
             # Find the results table comment to link to
             TABLE_COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
-              --paginate --jq ".[] | select(.body | startswith(\"$PR_COMMENT_MARKER\")) | .id" | head -1 || echo "")
+              --paginate --jq ".[] | select(.body | startswith(\"$PR_COMMENT_MARKER\")) | .id" | tail -1 || echo "")
 
             if [[ -s /tmp/error-details.txt ]]; then
               # Pre-eval errors exist — show them and link to results
