@@ -261,13 +261,39 @@ if (-not $benchmarkData['entries'][$efficiencyKey]) {
 $benchmarkData['entries'][$qualityKey] += @($qualityEntry)
 $benchmarkData['entries'][$efficiencyKey] += @($efficiencyEntry)
 
-# Write <PluginName>.json
-New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
-$dataJson = $benchmarkData | ConvertTo-Json -Depth 10
-$dataJsonFile = Join-Path $OutputDir "$PluginName.json"
-$dataJson | Out-File -FilePath $dataJsonFile -Encoding utf8
+# Purge entries older than 14 days
+$retentionDays = 14
+$cutoffMs = $now - ([long]$retentionDays * 24 * 60 * 60 * 1000)
 
-Write-Host "[OK] Benchmark $PluginName.json generated: $dataJsonFile"
-Write-Host "   Quality entries: $($qualityBenches.Count)"
-Write-Host "   Efficiency entries: $($efficiencyBenches.Count)"
-Write-Host "   Total data points: $($benchmarkData['entries'][$qualityKey].Count)"
+foreach ($key in @($qualityKey, $efficiencyKey)) {
+    $before = $benchmarkData['entries'][$key].Count
+    $benchmarkData['entries'][$key] = @($benchmarkData['entries'][$key] | Where-Object {
+        $_.date -ge $cutoffMs
+    })
+    $purged = $before - $benchmarkData['entries'][$key].Count
+    if ($purged -gt 0) {
+        Write-Host "   Purged $purged $key entries older than $retentionDays days"
+    }
+}
+
+# Write <PluginName>.json (or remove it if all entries were purged)
+$dataJsonFile = Join-Path $OutputDir "$PluginName.json"
+$totalEntries = $benchmarkData['entries'][$qualityKey].Count + $benchmarkData['entries'][$efficiencyKey].Count
+
+if ($totalEntries -eq 0) {
+    if (Test-Path $dataJsonFile) {
+        Remove-Item $dataJsonFile -Force
+        Write-Host "[REMOVED] $PluginName.json — all entries older than $retentionDays days"
+    } else {
+        Write-Host "[SKIP] $PluginName.json — no entries to write"
+    }
+} else {
+    New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+    $dataJson = $benchmarkData | ConvertTo-Json -Depth 10
+    $dataJson | Out-File -FilePath $dataJsonFile -Encoding utf8
+
+    Write-Host "[OK] Benchmark $PluginName.json generated: $dataJsonFile"
+    Write-Host "   Quality entries: $($qualityBenches.Count)"
+    Write-Host "   Efficiency entries: $($efficiencyBenches.Count)"
+    Write-Host "   Total data points: $($benchmarkData['entries'][$qualityKey].Count)"
+}
