@@ -105,7 +105,7 @@ Please review the **What we look for** section and add justification for the ski
 A skill should be self-contained and:
 
 - Clearly state **what it does** and **when to use it**.
-- Front matter ( name and description) is small and minimal, just enough for LLM to understand when to use it
+- Frontmatter (name and description) is small and minimal, just enough for LLM to understand when to use it
 - Keep the SKILL.md body under 500 lines for optimal performance. Split content into separate files when approaching this limit and use a progressive disclosure pattern by referring to them in the SKILL.md file where needed.
 - Specify required inputs (repo context, environment, access needs).
 - Prefer concrete checklists and verification steps over vague guidance.
