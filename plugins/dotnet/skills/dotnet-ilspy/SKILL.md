@@ -29,12 +29,12 @@ Use this skill to answer "how does this .NET code actually work?" by decompiling
 
 ## Inputs
 
-| Input | Required | Description |
-|-------|----------|-------------|
-| Assembly path, package name, or framework component | Yes | The binary to inspect, or enough information to locate it |
-| Type, member, or behavior to investigate | Yes | The exact API, class, method, or question the user wants explained |
-| Target framework or package version | Recommended | Needed to choose the correct `lib/`, `runtimes/`, or shared framework assembly |
-| ILSpy CLI availability | Recommended | Whether `dnx ilspycmd` or `ilspycmd` is already available on the machine |
+| Input                                               | Required    | Description                                                                    |
+| --------------------------------------------------- | ----------- | ------------------------------------------------------------------------------ |
+| Assembly path, package name, or framework component | Yes         | The binary to inspect, or enough information to locate it                      |
+| Type, member, or behavior to investigate            | Yes         | The exact API, class, method, or question the user wants explained             |
+| Target framework or package version                 | Recommended | Needed to choose the correct `lib/`, `runtimes/`, or shared framework assembly |
+| ILSpy CLI availability                              | Recommended | Whether `dnx ilspycmd` or `ilspycmd` is already available on the machine       |
 
 ## Workflow
 
@@ -125,15 +125,15 @@ Framework implementation:
 
 ```bash
 dotnet --list-runtimes
-dnx ilspycmd -l class "C:/Program Files/dotnet/shared/Microsoft.NETCore.App/8.0.0/System.Text.Json.dll"
-dnx ilspycmd -t System.Text.Json.JsonSerializer "C:/Program Files/dotnet/shared/Microsoft.NETCore.App/8.0.0/System.Text.Json.dll"
+dnx ilspycmd -l class "C:/Program Files/dotnet/shared/Microsoft.NETCore.App/10.0.2/System.Text.Json.dll"
+dnx ilspycmd -t System.Text.Json.JsonSerializer "C:/Program Files/dotnet/shared/Microsoft.NETCore.App/10.0.2/System.Text.Json.dll"
 ```
 
 NuGet package source inspection:
 
 ```bash
-dnx ilspycmd -t Polly.Retry.RetryPolicy "~/.nuget/packages/polly/8.0.0/lib/net8.0/Polly.dll"
-dnx ilspycmd -p -o ./polly-src "~/.nuget/packages/polly/8.0.0/lib/net8.0/Polly.dll"
+dnx ilspycmd -t Polly.Retry.RetryPolicy "~/.nuget/packages/polly/10.0.2/lib/net8.0/Polly.dll"
+dnx ilspycmd -p -o ./polly-src "~/.nuget/packages/polly/10.0.2/lib/net8.0/Polly.dll"
 ```
 
 Compare reconstructed C# with IL for the same type:
@@ -173,13 +173,13 @@ If the result is still ambiguous and Source Link or the upstream repository is a
 
 ## Common Pitfalls
 
-| Pitfall | Solution |
-|---------|----------|
-| Decompiling `ref/<tfm>/` and finding empty or stubbed method bodies | Switch to `lib/<tfm>/`, `runtimes/<rid>/lib/<tfm>/`, or the shared runtime assembly |
-| Inspecting the wrong NuGet asset for the app's target framework | Choose the nearest matching TFM and prefer runtime-specific assets when behavior differs by platform |
-| Assuming the first public method contains the real logic | Follow delegated calls into helper types, internal implementations, or generated state machines |
-| Treating decompiled C# as the exact original source | Explain that ILSpy reconstructs readable C# and that names, formatting, and some constructs may differ |
-| Using ILSpy for native, obfuscated, or NativeAOT binaries | Switch to native debugging or binary analysis tooling; this skill is for managed assemblies |
+| Pitfall                                                             | Solution                                                                                               |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Decompiling `ref/<tfm>/` and finding empty or stubbed method bodies | Switch to `lib/<tfm>/`, `runtimes/<rid>/lib/<tfm>/`, or the shared runtime assembly                    |
+| Inspecting the wrong NuGet asset for the app's target framework     | Choose the nearest matching TFM and prefer runtime-specific assets when behavior differs by platform   |
+| Assuming the first public method contains the real logic            | Follow delegated calls into helper types, internal implementations, or generated state machines        |
+| Treating decompiled C# as the exact original source                 | Explain that ILSpy reconstructs readable C# and that names, formatting, and some constructs may differ |
+| Using ILSpy for native, obfuscated, or NativeAOT binaries           | Switch to native debugging or binary analysis tooling; this skill is for managed assemblies            |
 
 ## Reference Files
 
