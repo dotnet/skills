@@ -13,7 +13,8 @@ public static class Reporter
         bool verbose,
         string? model = null,
         string? judgeModel = null,
-        string? resultsDir = null)
+        string? resultsDir = null,
+        int rejectedCount = 0)
     {
         bool needsResultsDir = reporters.Any(r =>
             r.Type is ReporterType.Json or ReporterType.Junit or ReporterType.Markdown);
@@ -29,7 +30,7 @@ public static class Reporter
             switch (reporter.Type)
             {
                 case ReporterType.Console:
-                    ReportConsole(verdicts, verbose);
+                    ReportConsole(verdicts, verbose, rejectedCount);
                     break;
                 case ReporterType.Json:
                     if (effectiveResultsDir is null)
@@ -52,7 +53,7 @@ public static class Reporter
 
     // --- Console reporter ---
 
-    private static void ReportConsole(IReadOnlyList<SkillVerdict> verdicts, bool verbose)
+    private static void ReportConsole(IReadOnlyList<SkillVerdict> verdicts, bool verbose, int rejectedCount = 0)
     {
         Console.WriteLine();
         Console.WriteLine("\x1b[1m═══ Skill Validation Results ═══\x1b[0m");
@@ -161,9 +162,12 @@ public static class Reporter
         }
 
         int passed = verdicts.Count(v => v.Passed);
-        int total = verdicts.Count;
-        var summaryColor = passed == total ? "\x1b[32m" : "\x1b[31m";
-        Console.WriteLine($"{summaryColor}{passed}/{total} skills passed validation\x1b[0m");
+        int total = verdicts.Count + rejectedCount;
+        var summaryColor = (passed == total) ? "\x1b[32m" : "\x1b[31m";
+        var summaryText = $"{passed}/{total} skills passed validation";
+        if (rejectedCount > 0)
+            summaryText += $" ({rejectedCount} rejected due to execution errors)";
+        Console.WriteLine($"{summaryColor}{summaryText}\x1b[0m");
 
         bool anyTimeout = verdicts.Any(v => v.Scenarios.Any(s =>
             s.Baseline.Metrics.TimedOut || s.WithSkill.Metrics.TimedOut));
@@ -328,8 +332,30 @@ public static class Reporter
         var sb = new StringBuilder();
         sb.AppendLine("## Skill Validation Results");
         sb.AppendLine();
-        sb.AppendLine("| Skill | Scenario | Baseline | With Skill | Δ | Skills Loaded | Overfit | Verdict |");
-        sb.AppendLine("|-------|----------|----------|------------|---|---------------|---------|--------|");
+
+        // Show validation/spec errors for skills that failed before evaluation ran
+        var failedVerdicts = verdicts
+            .Where(v => !v.Passed
+                        && !string.IsNullOrEmpty(v.FailureKind)
+                        && v.Scenarios.Count == 0)
+            .ToArray();
+        if (failedVerdicts.Length > 0)
+        {
+            sb.AppendLine("### ❌ Skill validation errors");
+            sb.AppendLine();
+            foreach (var v in failedVerdicts)
+            {
+                // Wrap in inline code to prevent markdown injection from PR-controlled content
+                var safeName = v.SkillName.Replace("`", "'").Replace("\r", "").Replace("\n", " ");
+                var safeReason = v.Reason.Replace("`", "'").Replace("\r", "").Replace("\n", " ");
+                sb.AppendLine($"- `{safeName}: {safeReason}`");
+            }
+
+            sb.AppendLine();
+        }
+
+        var footnotes = new List<string>();
+        var tableRows = new List<string>();
 
         foreach (var v in verdicts)
         {
@@ -340,17 +366,8 @@ public static class Reporter
                 var skillScore = s.WithSkill?.JudgeResult?.OverallScore;
                 var bTimedOut = s.Baseline?.Metrics?.TimedOut == true;
                 var sTimedOut = s.WithSkill?.Metrics?.TimedOut == true;
-                var baseStr = (baseScore is { } bs && !double.IsNaN(bs) ? $"{bs:F1}/5" : "—") + (bTimedOut ? " ⏰ timeout" : "");
-                var skillStr = (skillScore is { } ss && !double.IsNaN(ss) ? $"{ss:F1}/5" : "—") + (sTimedOut ? " ⏰ timeout" : "");
 
-                string deltaStr = "—";
-                if (baseScore is { } b && skillScore is { } sk && !double.IsNaN(b) && !double.IsNaN(sk))
-                {
-                    double delta = sk - b;
-                    if (!double.IsNaN(delta))
-                        deltaStr = delta > 0 ? $"+{delta:F1}" : $"{delta:F1}";
-                }
-
+                string qualityCol = FormatQualityCell(baseScore, skillScore, bTimedOut, sTimedOut, out double? qualityDelta);
                 var icon = s.ImprovementScore > 0 ? "✅" : s.ImprovementScore < 0 ? "❌" : "🟡";
 
                 string skillsCol = "—";
@@ -373,8 +390,32 @@ public static class Reporter
                     skillsCol = "⚠️ NOT ACTIVATED";
                 }
 
-                sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {baseStr} | {skillStr} | {deltaStr} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {icon} |");
+                var footnote = BuildVerdictFootnote(s, qualityDelta);
+                string verdictCol = icon;
+                if (footnote is not null)
+                {
+                    footnotes.Add(footnote);
+                    int n = footnotes.Count;
+                    verdictCol = $"{icon} <a href=\"#user-content-fn-{n}\" id=\"ref-{n}\">[{n}]</a>";
+                }
+
+                tableRows.Add($"| {v.SkillName} | {s.ScenarioName} | {qualityCol} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {verdictCol} |");
             }
+        }
+
+        if (tableRows.Count > 0)
+        {
+            sb.AppendLine("| Skill | Scenario | Quality | Skills Loaded | Overfit | Verdict |");
+            sb.AppendLine("|-------|----------|---------|---------------|---------|---------|");
+            foreach (var row in tableRows)
+                sb.AppendLine(row);
+        }
+      
+        if (footnotes.Count > 0)
+        {
+            sb.AppendLine();
+            for (int i = 0; i < footnotes.Count; i++)
+                sb.AppendLine($"<a href=\"#user-content-ref-{i + 1}\" id=\"fn-{i + 1}\"><strong>[{i + 1}]</strong></a> {footnotes[i]}");
         }
 
         bool anyTimeout = verdicts.Any(v => v.Scenarios.Any(s =>
@@ -418,6 +459,7 @@ public static class Reporter
         }
 
         sb.AppendLine($"\nModel: {model ?? "unknown"} | Judge: {judgeModel ?? "unknown"}");
+
         return sb.ToString();
     }
 
@@ -572,6 +614,137 @@ public static class Reporter
             _ => "—",
         };
         return $"{icon} {result.Score:F2}";
+    }
+
+    /// <summary>
+    /// Formats the combined Quality column: "baseline → skill" with the better score bolded
+    /// and an emoji indicator.
+    /// </summary>
+    internal static string FormatQualityCell(
+        double? baseScore, double? skillScore,
+        bool bTimedOut, bool sTimedOut,
+        out double? qualityDelta)
+    {
+        qualityDelta = null;
+        string baseFmt = baseScore is { } b && !double.IsNaN(b) ? $"{b:F1}/5" : "\u2014";
+        string skillFmt = skillScore is { } sk && !double.IsNaN(sk) ? $"{sk:F1}/5" : "\u2014";
+        if (bTimedOut) baseFmt += " \u23f0";
+        if (sTimedOut) skillFmt += " \u23f0";
+
+        if (baseScore is { } bv && skillScore is { } sv && !double.IsNaN(bv) && !double.IsNaN(sv))
+        {
+            double delta = sv - bv;
+            if (!double.IsNaN(delta))
+                qualityDelta = delta;
+
+            if (sv > bv)
+                return $"{baseFmt} \u2192 **{skillFmt}** \U0001f7e2";
+            if (sv < bv)
+                return $"**{baseFmt}** \u2192 {skillFmt} \U0001f534";
+        }
+
+        return $"{baseFmt} \u2192 {skillFmt}";
+    }
+
+    /// <summary>
+    /// Returns a footnote string when the verdict (based on composite ImprovementScore)
+    /// disagrees with the quality delta shown in the table, or null if no explanation is needed.
+    /// </summary>
+    internal static string? BuildVerdictFootnote(ScenarioComparison s, double? qualityDelta)
+    {
+        // No footnote for neutral verdicts (🟡) or when quality delta is unknown
+        if (s.ImprovementScore == 0 || !qualityDelta.HasValue)
+            return null;
+
+        bool verdictPositive = s.ImprovementScore > 0;
+
+        // Use the raw quality delta to determine direction, matching the comparison
+        // used in FormatQualityCell (which shows arrows based on unrounded scores).
+        double delta = qualityDelta.Value;
+
+        bool qualityPositive = delta > 0;
+        bool qualityNegative = delta < 0;
+
+        // Verdict agrees with quality direction — no footnote needed
+        if (verdictPositive && !qualityNegative) return null;
+        if (!verdictPositive && qualityNegative) return null;
+
+        var bd = s.Breakdown;
+        var composite = s.ImprovementScore * 100;
+
+        // Map breakdown fields using DefaultWeights to avoid hard-coded weight duplication
+        var breakdownByKey = new Dictionary<string, (string label, double raw)>
+        {
+            ["QualityImprovement"] = ("quality", bd.QualityImprovement),
+            ["OverallJudgmentImprovement"] = ("judgment", bd.OverallJudgmentImprovement),
+            ["TaskCompletionImprovement"] = ("completion", bd.TaskCompletionImprovement),
+            ["TokenReduction"] = ("tokens", bd.TokenReduction),
+            ["ErrorReduction"] = ("errors", bd.ErrorReduction),
+            ["ToolCallReduction"] = ("tool calls", bd.ToolCallReduction),
+            ["TimeReduction"] = ("time", bd.TimeReduction),
+        };
+
+        var contributors = DefaultWeights.Values
+            .Where(kvp => breakdownByKey.ContainsKey(kvp.Key))
+            .Select(kvp =>
+            {
+                var (label, raw) = breakdownByKey[kvp.Key];
+                return (label, raw, weighted: raw * kvp.Value);
+            })
+            .ToList();
+
+        // Format a contributor label with raw metric values when available
+        string FormatContributor(string label)
+        {
+            var bm = s.Baseline?.Metrics;
+            var sm = s.WithSkill?.Metrics;
+            if (bm is null || sm is null) return label;
+
+            string? raw = label switch
+            {
+                "tokens" => $"{bm.TokenEstimate} \u2192 {sm.TokenEstimate}",
+                "tool calls" => $"{bm.ToolCallCount} \u2192 {sm.ToolCallCount}",
+                "time" => $"{FmtMs(bm.WallTimeMs)} \u2192 {FmtMs(sm.WallTimeMs)}",
+                "errors" => $"{bm.ErrorCount} \u2192 {sm.ErrorCount}",
+                "completion" => $"{FmtBool(bm.TaskCompleted)} \u2192 {FmtBool(sm.TaskCompleted)}",
+                _ => null,
+            };
+
+            return raw is not null ? $"{label} ({raw})" : label;
+        }
+
+        string compositeStr = $"{(composite >= 0 ? "+" : "")}{composite:F1}%";
+
+        if (!verdictPositive && (qualityPositive || !qualityNegative))
+        {
+            // Quality improved or unchanged, but composite is negative — show what dragged it down
+            var negatives = contributors
+                .Where(c => c.weighted < -0.005)
+                .OrderBy(c => c.weighted)
+                .Select(c => FormatContributor(c.label))
+                .ToList();
+            string factors = negatives.Count > 0
+                ? string.Join(", ", negatives)
+                : "efficiency metrics";
+            string qualityDesc = qualityPositive ? "Quality improved" : "Quality unchanged";
+            return $"{qualityDesc} but weighted score is {compositeStr} due to: {factors}";
+        }
+
+        if (verdictPositive && qualityNegative)
+        {
+            // Quality dropped, but composite is positive — show what compensated
+            var positives = contributors
+                .Where(c => c.weighted > 0.005 && c.label is not "quality" and not "judgment")
+                .OrderByDescending(c => c.weighted)
+                .Select(c => FormatContributor(c.label))
+                .ToList();
+            string factors = positives.Count > 0
+                ? string.Join(", ", positives)
+                : "efficiency metrics";
+            return $"Quality dropped but weighted score is {compositeStr} due to: {factors}";
+        }
+
+        return null;
     }
 
     private static string FmtBool(bool v) => v ? "✓" : "✗";

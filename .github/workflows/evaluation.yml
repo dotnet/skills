@@ -17,6 +17,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+  DASHBOARD_RETENTION_DAYS: 14
+
 permissions:
   contents: write
   pull-requests: write
@@ -52,7 +55,8 @@ jobs:
             # PR: detect individual changed skills
             $base = "${{ github.event.pull_request.base.sha }}"
             $head = "${{ github.event.pull_request.head.sha }}"
-            $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
+            $mergeBase = git merge-base $base $head
+            $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
             # Check if any changed files are in infrastructure paths (evaluation workflows or eng/skill-validator/)
             $hasInfraChanges = $changedFiles |
@@ -136,7 +140,12 @@ jobs:
     uses: ./.github/workflows/evaluation-run.yml
     with:
       entries: ${{ needs.discover.outputs.entries }}
-      runs: ${{ needs.discover.outputs.is_infra == 'true' && '2' || (github.ref == 'refs/heads/main' && '5' || '3') }}
+      runs: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.ref == 'refs/heads/main' && '5' || '3') }}
+      # Infra changes and scheduled runs evaluate all plugins in parallel — reduce
+      # per-job concurrency to avoid API rate limits and timeouts from contention.
+      parallel-skills: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5' }}
+      parallel-scenarios: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
+      parallel-runs: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
       pr-number: ${{ github.event.pull_request.number || '' }}
     secrets:
       COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
@@ -209,12 +218,16 @@ jobs:
               PluginName = $plugin
               OutputDir     = "/tmp/gh-pages/data"
               CommitJson    = $commitJson
+              RetentionDays = $env:DASHBOARD_RETENTION_DAYS
             }
             if ((Test-Path $existingFile) -and (Get-Content $existingFile -Raw -ErrorAction SilentlyContinue)) {
               $params.ExistingDataFile = $existingFile
             }
             & ./eng/dashboard/generate-benchmark-data.ps1 @params
           }
+
+          # Purge entries older than the configured retention window from plugin data files; delete files left with no remaining entries
+          & ./eng/dashboard/generate-benchmark-data.ps1 -PurgeStaleFiles -DataDir "/tmp/gh-pages/data" -RetentionDays $env:DASHBOARD_RETENTION_DAYS
 
           # Generate components.json manifest
           $plugins = Get-ChildItem -Path "/tmp/gh-pages/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |
