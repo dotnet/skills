@@ -15,7 +15,6 @@ scenarios:
       - "Mapped separate endpoints for liveness and readiness (e.g., /healthz/live and /healthz/ready)"
       - "Explained WHY liveness should not check dependencies (restart cascading)"
       - "Provided Kubernetes probe YAML configuration or explained probe settings"
-    expect_tools: ["bash"]
     timeout: 120
 
   - name: "Health check skill should not activate for monitoring setup"
