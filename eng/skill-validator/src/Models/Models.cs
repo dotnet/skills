@@ -82,7 +82,40 @@ public sealed record SkillInfo(
     string SkillMdContent,
     string? EvalPath,
     EvalConfig? EvalConfig,
-    IReadOnlyDictionary<string, MCPServerDef>? McpServers = null);
+    IReadOnlyDictionary<string, MCPServerDef>? McpServers = null,
+    string? Compatibility = null);
+
+// --- Agent info ---
+
+public sealed record AgentInfo(
+    string Name,
+    string Description,
+    string Path,
+    string AgentMdContent,
+    string FileName);
+
+public sealed record AgentProfile(
+    string Name,
+    string FileName,
+    IReadOnlyList<string> Errors,
+    IReadOnlyList<string> Warnings);
+
+// --- Plugin info ---
+
+public sealed record PluginInfo(
+    string Name,
+    string? Version,
+    string? Description,
+    string? SkillsPath,
+    string? AgentsPath,
+    string DirectoryPath,
+    string DirectoryName);
+
+public sealed record PluginValidationResult(
+    string Name,
+    string DirectoryPath,
+    IReadOnlyList<string> Errors,
+    IReadOnlyList<string> Warnings);
 
 // --- Agent events ---
 

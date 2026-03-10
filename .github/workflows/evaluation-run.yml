@@ -71,10 +71,6 @@ on:
         required: false
       COPILOT_GITHUB_TOKEN_8:
         required: false
-    outputs:
-      comment_action:
-        description: 'Whether the PR comment was created, updated, or not posted'
-        value: ${{ jobs.comment-on-pr.outputs.comment_action }}
 
 jobs:
   build-validator:
@@ -175,9 +171,15 @@ jobs:
             exit 1
           fi
 
-          # Pick a random token
-          IDX=$((RANDOM % ${#TOKENS[@]}))
-          echo "Selected ${NAMES[$IDX]} (1 of ${#TOKENS[@]} available tokens)"
+          # Assign token deterministically by matrix job index to avoid collisions.
+          # Falls back to RANDOM if strategy.job-index is unavailable.
+          JOB_INDEX="${{ strategy.job-index }}"
+          if [ -n "$JOB_INDEX" ]; then
+            IDX=$(( JOB_INDEX % ${#TOKENS[@]} ))
+          else
+            IDX=$((RANDOM % ${#TOKENS[@]}))
+          fi
+          echo "Selected ${NAMES[$IDX]} (1 of ${#TOKENS[@]} available tokens, job-index=${JOB_INDEX:-random})"
 
           # Mask the value so it won't appear in logs, then export
           echo "::add-mask::${TOKENS[$IDX]}"
@@ -214,69 +216,66 @@ jobs:
 
   comment-on-pr:
     needs: evaluate
-    if: always() && needs.evaluate.result != 'cancelled' && needs.evaluate.result != 'skipped' && inputs.pr-number != ''
+    if: always() && needs.evaluate.result != 'cancelled' && inputs.pr-number != ''
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
-    outputs:
-      comment_action: ${{ steps.post-comment.outputs.comment_action }}
     steps:
       - name: Download all result artifacts
+        if: needs.evaluate.result != 'skipped'
         uses: actions/download-artifact@v8
         with:
           pattern: skill-validator-results-*
           path: all-results/
           merge-multiple: false
+        continue-on-error: ${{ needs.evaluate.result != 'success' }}
 
       - name: Download built validator
+        if: needs.evaluate.result != 'skipped'
         uses: actions/download-artifact@v8
         with:
           name: skill-validator-dist.tar.gz
+        continue-on-error: ${{ needs.evaluate.result != 'success' }}
 
       - name: Extract validator
+        if: needs.evaluate.result != 'skipped' && hashFiles('skill-validator-dist.tar.gz') != ''
         run: |
           mkdir -p artifacts/publish/SkillValidator/release
           tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
 
-      - name: Consolidate summaries
-        run: |
-          JSON_FILES=$(find all-results/ -name results.json)
-
-          artifacts/publish/SkillValidator/release/skill-validator consolidate \
-            --output summary-body.md \
-            $JSON_FILES
-
-          MARKER="<!-- skill-validator-results -->"
-          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-          {
-            echo "$MARKER"
-            cat summary-body.md
-            echo ""
-            echo "[Full results]($RUN_URL)"
-          } > consolidated-comment.md
-
-          cat consolidated-comment.md >> $GITHUB_STEP_SUMMARY
-
-      - name: Post or update PR comment
-        id: post-comment
+      - name: Consolidate and post results
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           PR_NUMBER=${{ inputs.pr-number }}
-          MARKER="<!-- skill-validator-results -->"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          # Find existing comment with our marker
-          COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
-            --paginate --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" | head -1)
+          # If results exist, consolidate them into a summary comment
+          JSON_FILES=$(find all-results/ -name results.json 2>/dev/null || true)
+          VALIDATOR="artifacts/publish/SkillValidator/release/skill-validator"
+          if [ -n "$JSON_FILES" ] && [ -x "$VALIDATOR" ]; then
+            "$VALIDATOR" consolidate \
+              --output summary-body.md \
+              $JSON_FILES
 
-          if [ -n "$COMMENT_ID" ]; then
-            gh api "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" \
-              -X PATCH -F "body=@consolidated-comment.md"
-            echo "comment_action=updated" >> $GITHUB_OUTPUT
-          else
+            {
+              cat summary-body.md
+              echo ""
+              echo "[Full results]($RUN_URL)"
+            } > consolidated-comment.md
+
+            cat consolidated-comment.md >> $GITHUB_STEP_SUMMARY
+
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
               -X POST -F "body=@consolidated-comment.md"
-            echo "comment_action=created" >> $GITHUB_OUTPUT
+          else
+            # No results — evaluate was skipped or failed before producing artifacts
+            if [[ "${{ needs.evaluate.result }}" == "skipped" ]]; then
+              BODY="❌ Evaluation did not complete (upstream job failed or was skipped). [View workflow run](${RUN_URL})"
+            else
+              BODY="❌ Evaluation failed. [View workflow run](${RUN_URL})"
+            fi
+
+            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
           fi
