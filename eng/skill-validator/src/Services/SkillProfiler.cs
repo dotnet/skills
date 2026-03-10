@@ -6,7 +6,7 @@ namespace SkillValidator.Services;
 
 public sealed record SkillProfile(
     string Name,
-    int TokenCount,
+    int Chars4TokenCount,
     int BpeTokenCount,
     string ComplexityTier, // "compact" | "detailed" | "standard" | "comprehensive"
     int SectionCount,
@@ -184,7 +184,7 @@ public static partial class SkillProfiler
 
         return new SkillProfile(
             Name: skill.Name,
-            TokenCount: chars4TokenCount,
+            Chars4TokenCount: chars4TokenCount,
             BpeTokenCount: bpeTokenCount,
             ComplexityTier: complexityTier,
             SectionCount: sectionCount,
@@ -238,7 +238,7 @@ public static partial class SkillProfiler
         };
 
         return
-            $"📊 {profile.Name}: {profile.BpeTokenCount:N0} BPE tokens [chars/4: {profile.TokenCount:N0}] ({profile.ComplexityTier} {tierIndicator}), " +
+            $"{profile.Name}: {profile.BpeTokenCount:N0} BPE tokens [chars/4: {profile.Chars4TokenCount:N0}] ({profile.ComplexityTier} {tierIndicator}), " +
             $"{profile.SectionCount} sections, {profile.CodeBlockCount} code blocks";
     }
 
