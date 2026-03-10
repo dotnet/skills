@@ -111,3 +111,15 @@ scenarios:
       - "Only deserialize JSON after all fragments have been received"
       - "Suggested increasing buffer size or using a MemoryStream for accumulation"
     timeout: 120
+
+  - name: "WebSocket connection drops through reverse proxy"
+    prompt: |
+      My ASP.NET Core WebSocket connections work fine locally but keep dropping after about 60 seconds when deployed behind nginx. The WebSocket connects fine but idle connections get terminated. How do I fix this?
+    assertions:
+      - type: "output_matches"
+        pattern: "(KeepAliveInterval|KeepAlive|ping|pong)"
+    rubric:
+      - "Identified the root cause: nginx has a default idle connection timeout (typically 60s) that kills idle WebSocket connections"
+      - "Configured KeepAliveInterval on WebSocketOptions to send periodic ping frames that keep the connection alive"
+      - "Mentioned setting appropriate nginx proxy_read_timeout and proxy_send_timeout values"
+    timeout: 60
