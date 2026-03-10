@@ -28,9 +28,10 @@ public static partial class SkillProfiler
     private const int TokenWarnHigh = 5000;
     internal const int MaxDescriptionLength = 1024;
 
-    // Lazy-initialized BPE tokenizer (cl100k_base, same BPE family as GPT-4/Claude)
-    private static readonly Lazy<TiktokenTokenizer> s_bpeTokenizer = new(
-        () => TiktokenTokenizer.CreateForModel("gpt-4"));
+    // BPE tokenizer (cl100k_base) used as a model-independent sizing heuristic.
+    // Not tied to the configured eval/judge model — TiktokenTokenizer only supports OpenAI
+    // vocabularies, but BPE counts are close enough across models for complexity classification.
+    private static readonly Lazy<TiktokenTokenizer> s_bpeTokenizer = new(() => TiktokenTokenizer.CreateForModel("gpt-4"));
     internal const int MaxAggregateDescriptionLength = 15_000;
     private const int MaxNameLength = 64;
     private const int MaxCompatibilityLength = 500;
