@@ -39,7 +39,7 @@ dotnet add package AspNetCore.HealthChecks.Uris          # for HTTP dependencies
 
 ### Step 2: Register health checks with SEPARATE liveness and readiness
 
-**Critical distinction** most implementations get wrong:
+**Critical distinction most implementations get wrong:**
 
 - **Liveness** = "Is the process alive?" — Only checks the process isn't deadlocked. Failure → Kubernetes RESTARTS the pod.
 - **Readiness** = "Can the process serve traffic?" — Checks dependencies. Failure → Kubernetes STOPS SENDING traffic (but doesn't restart).
@@ -79,16 +79,17 @@ app.MapHealthChecks("/healthz/live", new HealthCheckOptions
 });
 
 // Readiness: Kubernetes readinessProbe hits this
+// Use minimal response by default; only expose detailed responses on protected/internal endpoints
 app.MapHealthChecks("/healthz/ready", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("ready"),
-    ResponseWriter = WriteDetailedResponse
+    ResponseWriter = WriteMinimalResponse
 });
 
-// Startup: Kubernetes startupProbe hits this
+// Startup: Kubernetes startupProbe hits this — check process health only (same as liveness)
 app.MapHealthChecks("/healthz/startup", new HealthCheckOptions
 {
-    Predicate = _ => true,
+    Predicate = check => check.Tags.Contains("live"),
     ResponseWriter = WriteMinimalResponse
 });
 ```
@@ -171,3 +172,4 @@ app.MapHealthChecksUI();
 | Health endpoint not excluded from auth | Add `.AllowAnonymous()` to `MapHealthChecks` or exclude path in auth middleware |
 | Startup probe missing | Without it, liveness probe kills pods during slow cold starts |
 | All checks on one endpoint | Separate live/ready/startup — mixing them causes cascading restarts |
+| Detailed response on public endpoint | Detailed health responses can leak internal dependency names. Use minimal responses by default; only expose details on protected/internal endpoints |
