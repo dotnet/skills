@@ -671,7 +671,7 @@ public class OverfittingJudgeTests
 
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
-        Assert.DoesNotContain("### ❌ Skill validation errors:", md);
+        Assert.DoesNotContain("### ❌ Skill validation errors", md);
     }
 
     [Fact]
