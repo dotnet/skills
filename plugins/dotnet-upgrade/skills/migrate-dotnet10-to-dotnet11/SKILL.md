@@ -2,25 +2,16 @@
 name: migrate-dotnet10-to-dotnet11
 description: >
   Migrate a .NET 10 project or solution to .NET 11 and resolve all breaking changes.
-  This is a MIGRATION skill — use it when upgrading, migrating, or moving from
-  .NET 10 to .NET 11, NOT for writing new C# scripts or programs.
+  This is a MIGRATION skill — use it when upgrading from .NET 10 to .NET 11,
+  NOT for writing new programs.
   USE FOR: upgrading TargetFramework from net10.0 to net11.0, fixing build errors
-  and compilation errors after updating the .NET 11 SDK, resolving breaking changes
-  and behavioral changes introduced in .NET 11 / C# 15 / ASP.NET Core 11 / EF Core 11,
-  adapting to updated minimum hardware requirements (x86-64-v2, Arm64 LSE),
-  fixing C# 15 compiler breaking changes (Span collection expression safe-context,
-  ref readonly delegate/local function InAttribute, with() parsing, nameof(this.)
-  in attributes), resolving EF Core Cosmos DB sync I/O removal, and adapting to
-  core library behavioral changes (DeflateStream/GZipStream empty payloads,
-  MemoryStream capacity, TAR checksum validation, ZipArchive.CreateAsync).
-  DO NOT USE FOR: major framework migrations (e.g., .NET Framework to .NET 11),
-  upgrading from .NET 9 or earlier (address intermediate breaking changes first),
-  greenfield projects that start on .NET 11, writing new C# scripts or programs,
-  or purely cosmetic code modernization unrelated to the version upgrade.
-  LOADS REFERENCES: csharp-compiler, core-libraries, sdk-msbuild (always loaded),
-  efcore, cryptography, runtime-jit (loaded selectively based on project type).
-  NOTE: .NET 11 is in preview. This skill covers breaking changes through Preview 1.
-  Additional breaking changes are expected in later previews.
+  after updating the .NET 11 SDK, resolving source-breaking and behavioral changes
+  in .NET 11 runtime, C# 15 compiler, and EF Core 11, adapting to updated minimum
+  hardware requirements (x86-64-v2, Arm64 LSE), and updating CI/CD pipelines and
+  Dockerfiles for .NET 11.
+  DO NOT USE FOR: .NET Framework migrations, upgrading from .NET 9 or earlier,
+  greenfield .NET 11 projects, or cosmetic modernization unrelated to the upgrade.
+  NOTE: .NET 11 is in preview. Covers breaking changes through Preview 1.
 ---
 
 # .NET 10 → .NET 11 Migration
