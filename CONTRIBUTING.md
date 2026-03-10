@@ -83,8 +83,9 @@ See existing plugins for the expected format.
 
 We are most likely to accept contributions that are:
 
+- Addresses a LLM gap and is clearly motivated by a real use case
+- Likely to be used frequently and is general ( not repo specific)
 - Narrow in scope and easy to review
-- Clearly motivated by a real use case
 - Tool conscious and explicit about assumptions
 - Verifiable with concrete validation steps
 - Written to be durable across repo changes
@@ -99,9 +100,13 @@ We are less likely to accept contributions that:
 
 ## Proposing a new skill
 
+Please review **What we look for** section and add justification for the skill in your issue and PR. 
+
 A skill should be self-contained and:
 
 - Clearly state **what it does** and **when to use it**.
+- Front matter ( name and description) is small and minimal, just enough for LLM to understand when to use it
+- SKILL.md body under 500 lines for optimal performance. Split content into separate files when approaching this limit and use progressive disclosure pattern by refering to them in SKILL.md file where needed.
 - Specify required inputs (repo context, environment, access needs).
 - Prefer concrete checklists and verification steps over vague guidance.
 
