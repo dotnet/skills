@@ -55,7 +55,7 @@ Migrate a .NET 10 project or solution to .NET 11, systematically resolving all b
 
 ## Workflow
 
-> **Answer directly from the loaded reference documents.** Do not search the filesystem or fetch web pages for breaking change information — the references contain the authoritative details. Focus on identifying which breaking changes apply and providing concrete fixes.
+> **Answer directly from the loaded reference documents for information about .NET 11 breaking changes.** You may inspect the local repository (project/solution files, source code, configuration, build/test scripts) as needed to determine which changes apply. Do not fetch web pages or other external sources for breaking change information — the loaded references are the authoritative source. Focus on identifying which breaking changes apply and providing concrete fixes.
 >
 > **Commit strategy:** Commit at each logical boundary — after updating the TFM (Step 2), after resolving build errors (Step 3), after addressing behavioral changes (Step 4), and after updating infrastructure (Step 5). This keeps each commit focused and reviewable.
 
