@@ -683,7 +683,7 @@ When reviewing an MSBuild file, scan for these in order:
 | AP-17 | Mixed Include/Update in one ItemGroup | 🔵 Subtle bugs |
 | AP-18 | Redundant transitive ProjectReferences | 🔵 Graph noise |
 | AP-20 | Platform-specific Exec without guard | 🔵 Cross-platform |
-| AP-22 | TargetFramework/TargetFrameworks in Directory.Build.props | 🔴 Build collision |.
+| AP-22 | TargetFramework/TargetFrameworks in Directory.Build.props | 🔴 Build collision |
 
 ---
 
