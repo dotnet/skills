@@ -2,7 +2,6 @@ name: skill-validator
 
 on:
   pull_request:
-  pull_request_target:
   schedule:
     - cron: '0 8 * * *' # daily at 08:00 UTC
   workflow_dispatch:
@@ -38,7 +37,7 @@ jobs:
           $base = "${{ github.event.pull_request.base.sha }}"
           $head = "${{ github.event.pull_request.head.sha }}"
           $mergeBase = git merge-base $base $head
-          $changed = git diff --name-only --diff-filter=ACMR $mergeBase $head |
+          $changed = git diff --name-only $mergeBase $head |
             Where-Object { $_ -match '^(eng/skill-validator/|\.github/workflows/skill-validator\.yml$)' } |
             Select-Object -First 1
           if ($changed) {
@@ -49,7 +48,7 @@ jobs:
 
   build:
     needs: discover
-    if: always() && github.event_name != 'pull_request_target' && (needs.discover.result == 'skipped' || needs.discover.outputs.has_changes == 'true')
+    if: always() && (needs.discover.result == 'skipped' || needs.discover.outputs.has_changes == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -150,59 +149,23 @@ jobs:
             --notes "Automated nightly build from \`main\` ($(date -u +%Y-%m-%d))." \
             --prerelease
 
-  report-status:
+  # Require this job in the GitHub ruleset. It always runs on PRs and
+  # succeeds when no relevant files changed or the build passed.
+  status:
     needs: [discover, build]
-    if: >-
-      always() && github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository
+    if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    permissions:
-      statuses: write
     steps:
-      - name: Set skill-validator commit status
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Check result
         run: |
-          HAS_CHANGES="${{ needs.discover.outputs.has_changes }}"
-          BUILD_RESULT="${{ needs.build.result }}"
-
-          if [[ "$HAS_CHANGES" != "true" ]]; then
-            STATE="success"
-            DESC="No skill-validator changes"
-          elif [[ "$BUILD_RESULT" == "success" ]]; then
-            STATE="success"
-            DESC="Build and tests passed"
-          elif [[ "$BUILD_RESULT" == "failure" ]]; then
-            STATE="failure"
-            DESC="Build or tests failed"
+          if [[ "${{ needs.discover.result }}" != "success" ]]; then
+            echo "::error::Discovery failed (${{ needs.discover.result }})"
+            exit 1
+          elif [[ "${{ needs.discover.outputs.has_changes }}" != "true" ]]; then
+            echo "No skill-validator changes — skipping build"
+          elif [[ "${{ needs.build.result }}" != "success" ]]; then
+            echo "::error::Build failed (${{ needs.build.result }})"
+            exit 1
           else
-            STATE="error"
-            DESC="Build did not complete ($BUILD_RESULT)"
+            echo "Build and tests passed"
           fi
-
-          gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
-            -f state="$STATE" \
-            -f context="skill-validator" \
-            -f description="$DESC" \
-            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-  # Post skill-validator commit status for fork PRs using pull_request_target
-  # (which runs with base repo permissions). Fork PRs should never change
-  # skill-validator, so this always posts success.
-  fork-status:
-    if: >-
-      github.event_name == 'pull_request_target' &&
-      github.event.pull_request.head.repo.full_name != github.repository
-    runs-on: ubuntu-latest
-    permissions:
-      statuses: write
-    steps:
-      - name: Post skill-validator commit status
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
-            -f state="success" \
-            -f context="skill-validator" \
-            -f description="No skill-validator changes" \
-            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
