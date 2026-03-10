@@ -437,10 +437,10 @@ public class OverfittingJudgeTests
                     {
                         ScenarioName = "overhead-scenario",
                         Baseline = new RunResult(
-                            new RunMetrics { AgentOutput = "baseline" },
+                            new RunMetrics { AgentOutput = "baseline", TokenEstimate = 1000, ToolCallCount = 5, WallTimeMs = 2100 },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
                         WithSkill = new RunResult(
-                            new RunMetrics { AgentOutput = "skilled" },
+                            new RunMetrics { AgentOutput = "skilled", TokenEstimate = 8000, ToolCallCount = 15, WallTimeMs = 8500 },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = -0.18,
                         Breakdown = new MetricBreakdown(
@@ -463,6 +463,11 @@ public class OverfittingJudgeTests
         Assert.Contains("[1]", md);
         Assert.Contains("Quality improved but weighted score is", md);
         Assert.Contains("due to:", md);
+        // Raw metrics should appear in footnote
+        Assert.Contains("tokens (1000", md);
+        Assert.Contains("8000)", md);
+        Assert.Contains("tool calls (5", md);
+        Assert.Contains("time (2.1s", md);
     }
 
     [Fact]
@@ -530,10 +535,10 @@ public class OverfittingJudgeTests
                     {
                         ScenarioName = "efficiency-offset",
                         Baseline = new RunResult(
-                            new RunMetrics { AgentOutput = "baseline" },
+                            new RunMetrics { AgentOutput = "baseline", TokenEstimate = 5000, TaskCompleted = false },
                             new JudgeResult(new List<RubricScore>(), 4.0, "Good")),
                         WithSkill = new RunResult(
-                            new RunMetrics { AgentOutput = "skilled" },
+                            new RunMetrics { AgentOutput = "skilled", TokenEstimate = 2000, TaskCompleted = true },
                             new JudgeResult(new List<RubricScore>(), 3.0, "OK")),
                         ImprovementScore = 0.14,
                         Breakdown = new MetricBreakdown(
@@ -556,6 +561,10 @@ public class OverfittingJudgeTests
         Assert.Contains("[1]", md);
         Assert.Contains("Quality dropped but weighted score is", md);
         Assert.Contains("due to:", md);
+        // Raw metrics should appear in footnote
+        Assert.Contains("completion", md);
+        Assert.Contains("tokens (5000", md);
+        Assert.Contains("2000)", md);
     }
 
     [Fact]

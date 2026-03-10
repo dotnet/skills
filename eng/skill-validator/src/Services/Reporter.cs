@@ -576,7 +576,7 @@ public static class Reporter
 
         bool verdictPositive = s.ImprovementScore > 0;
 
-        // Align with the F1 rounding used in the Δ column so footnotes don't
+        // Align with the F1 rounding used in the Quality column so footnotes don't
         // reference a direction the user can't see in the table.
         double roundedDelta = Math.Round(qualityDelta.Value, 1);
         if (roundedDelta == 0)
@@ -613,7 +613,27 @@ public static class Reporter
             })
             .ToList();
 
-        string compositeStr = $"composite {(composite >= 0 ? "+" : "")}{composite:F1}%";
+        // Format a contributor label with raw metric values when available
+        string FormatContributor(string label)
+        {
+            var bm = s.Baseline?.Metrics;
+            var sm = s.WithSkill?.Metrics;
+            if (bm is null || sm is null) return label;
+
+            string? raw = label switch
+            {
+                "tokens" => $"{bm.TokenEstimate} \u2192 {sm.TokenEstimate}",
+                "tool calls" => $"{bm.ToolCallCount} \u2192 {sm.ToolCallCount}",
+                "time" => $"{FmtMs(bm.WallTimeMs)} \u2192 {FmtMs(sm.WallTimeMs)}",
+                "errors" => $"{bm.ErrorCount} \u2192 {sm.ErrorCount}",
+                "completion" => $"{FmtBool(bm.TaskCompleted)} \u2192 {FmtBool(sm.TaskCompleted)}",
+                _ => null,
+            };
+
+            return raw is not null ? $"{label} ({raw})" : label;
+        }
+
+        string compositeStr = $"{(composite >= 0 ? "+" : "")}{composite:F1}%";
 
         if (!verdictPositive && (qualityPositive || !qualityNegative))
         {
@@ -621,7 +641,7 @@ public static class Reporter
             var negatives = contributors
                 .Where(c => c.weighted < -0.005)
                 .OrderBy(c => c.weighted)
-                .Select(c => c.label)
+                .Select(c => FormatContributor(c.label))
                 .ToList();
             string factors = negatives.Count > 0
                 ? string.Join(", ", negatives)
@@ -635,7 +655,7 @@ public static class Reporter
             var positives = contributors
                 .Where(c => c.weighted > 0.005 && c.label is not "quality" and not "judgment")
                 .OrderByDescending(c => c.weighted)
-                .Select(c => c.label)
+                .Select(c => FormatContributor(c.label))
                 .ToList();
             string factors = positives.Count > 0
                 ? string.Join(", ", positives)
