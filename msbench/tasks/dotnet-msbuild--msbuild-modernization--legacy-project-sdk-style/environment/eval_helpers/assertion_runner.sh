@@ -232,6 +232,14 @@ compute_reward() {
     echo "========================="
     echo ""
 
+    # For now, reward is binary: 1 only if all assertions pass, else 0.
+    # The fractional REWARD is preserved in logs for future granular scoring.
+    REWARD_FRACTIONAL=$REWARD
+    if [ "$REWARD" != "1.0" ] && [ "$REWARD" != "1" ]; then
+        REWARD="0.0"
+    fi
+    echo "Final (binary): REWARD = $REWARD  (fractional was $REWARD_FRACTIONAL)"
+
     mkdir -p /logs/verifier
     echo "$REWARD" > /logs/verifier/reward.txt
     echo "Reward: $REWARD"
