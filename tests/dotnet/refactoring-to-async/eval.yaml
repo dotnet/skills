@@ -72,72 +72,112 @@ scenarios:
       - "Correctly identified that async is for I/O-bound work, not CPU-bound work"
     timeout: 120
 
-  - name: "Fix sync-over-async deadlock in WPF app"
+  - name: "Refactor sync-over-async in ASP.NET Core controller"
     prompt: |
-      My WPF app freezes when I click a button. The click handler calls a method that uses .Result to get data from an API. How do I fix this deadlock?
-
-      ```csharp
-      private void OnButtonClick(object sender, RoutedEventArgs e)
-      {
-          var data = GetDataFromApi().Result; // UI freezes here
-          DataLabel.Text = data;
-      }
-
-      private async Task<string> GetDataFromApi()
-      {
-          var response = await _httpClient.GetAsync("/api/data");
-          return await response.Content.ReadAsStringAsync();
-      }
-      ```
+      This ASP.NET Core controller has performance issues under load. Some methods use .GetAwaiter().GetResult() and others mix sync and async patterns. Can you fix the async anti-patterns and convert it properly?
     setup:
       files:
-        - path: "MainWindow.xaml.cs"
+        - path: "OrderController.cs"
           content: |
-            using System.Net.Http;
-            using System.Windows;
+            using Microsoft.AspNetCore.Mvc;
+            using System.Text.Json;
 
-            namespace WpfApp;
+            namespace MyApi.Controllers;
 
-            public partial class MainWindow : Window
+            [ApiController]
+            [Route("api/[controller]")]
+            public class OrderController : ControllerBase
             {
-                private readonly HttpClient _httpClient = new();
+                private readonly HttpClient _httpClient;
+                private readonly string _dbConnectionString;
 
-                public MainWindow()
+                public OrderController(HttpClient httpClient, IConfiguration config)
                 {
-                    InitializeComponent();
+                    _httpClient = httpClient;
+                    _dbConnectionString = config.GetConnectionString("Default")!;
                 }
 
-                private void OnButtonClick(object sender, RoutedEventArgs e)
+                [HttpGet("{id}")]
+                public ActionResult<Order> GetOrder(int id)
                 {
-                    var data = GetDataFromApi().Result;
-                    DataLabel.Text = data;
+                    var order = FetchOrderFromDb(id);
+                    var enriched = EnrichWithShipping(order).GetAwaiter().GetResult();
+                    return Ok(enriched);
                 }
 
-                private async Task<string> GetDataFromApi()
+                [HttpPost]
+                public ActionResult<Order> CreateOrder([FromBody] CreateOrderRequest request)
                 {
-                    var response = await _httpClient.GetAsync("/api/data");
-                    return await response.Content.ReadAsStringAsync();
+                    var order = new Order { Id = Random.Shared.Next(), Product = request.Product, Quantity = request.Quantity };
+                    SaveToDb(order);
+                    NotifyWarehouse(order).Wait();
+                    return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
+                }
+
+                [HttpGet("report")]
+                public ActionResult<List<Order>> GetReport()
+                {
+                    var orders = FetchAllOrdersFromDb();
+                    foreach (var order in orders)
+                    {
+                        var shipping = _httpClient.GetStringAsync($"/api/shipping/{order.Id}").Result;
+                        order.ShippingStatus = shipping;
+                    }
+                    return Ok(orders);
+                }
+
+                private Order FetchOrderFromDb(int id) => new Order { Id = id, Product = "Widget", Quantity = 1 };
+                private List<Order> FetchAllOrdersFromDb() => new List<Order> { new() { Id = 1 }, new() { Id = 2 } };
+                private void SaveToDb(Order order) { /* sync db write */ }
+
+                private async Task<Order> EnrichWithShipping(Order order)
+                {
+                    var response = await _httpClient.GetAsync($"/api/shipping/{order.Id}");
+                    order.ShippingStatus = await response.Content.ReadAsStringAsync();
+                    return order;
+                }
+
+                private async Task NotifyWarehouse(Order order)
+                {
+                    var json = JsonSerializer.Serialize(order);
+                    var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                    await _httpClient.PostAsync("/api/warehouse/notify", content);
                 }
             }
-        - path: "WpfApp.csproj"
+
+            public class Order
+            {
+                public int Id { get; set; }
+                public string Product { get; set; } = "";
+                public int Quantity { get; set; }
+                public string? ShippingStatus { get; set; }
+            }
+
+            public class CreateOrderRequest
+            {
+                public string Product { get; set; } = "";
+                public int Quantity { get; set; }
+            }
+        - path: "MyApi.csproj"
           content: |
-            <Project Sdk="Microsoft.NET.Sdk">
+            <Project Sdk="Microsoft.NET.Sdk.Web">
               <PropertyGroup>
-                <TargetFramework>net8.0-windows</TargetFramework>
-                <OutputType>WinExe</OutputType>
-                <UseWPF>true</UseWPF>
+                <TargetFramework>net8.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
               </PropertyGroup>
             </Project>
     assertions:
       - type: "output_matches"
-        pattern: "(async void|async.*RoutedEventArgs|await.*GetDataFromApi)"
+        pattern: "(async Task<ActionResult|async Task<IActionResult)"
       - type: "output_matches"
-        pattern: "(SynchronizationContext|deadlock|UI thread|synchronization context)"
+        pattern: "(CancellationToken|cancellation)"
     rubric:
-      - "Identified the root cause: .Result blocks the UI thread while the awaited task needs the UI SynchronizationContext to resume, causing a deadlock"
-      - "Made the event handler async void (the one valid use of async void — UI event handlers)"
-      - "Replaced .Result with await in the event handler"
-      - "Explained that the fix works because await releases the UI thread instead of blocking it"
+      - "Identified all three sync-over-async anti-patterns: .GetAwaiter().GetResult() in GetOrder, .Wait() in CreateOrder, and .Result in the GetReport loop"
+      - "Converted controller action methods to async Task<ActionResult<T>>"
+      - "Replaced .GetAwaiter().GetResult(), .Wait(), and .Result with await"
+      - "Added CancellationToken parameter to async actions to support request cancellation"
+      - "Used Task.WhenAll or sequential awaits instead of blocking .Result in the loop"
     timeout: 120
 
   - name: "Convert file I/O operations to async"
