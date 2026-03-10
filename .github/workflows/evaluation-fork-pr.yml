@@ -236,7 +236,3 @@ jobs:
             BODY="❌ Evaluation did not complete (upstream job failed or was skipped). [View workflow run](${RUN_URL})"
           fi
           gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
-
-      # Failure comments are posted by the reusable evaluation-run.yml workflow
-      # (post-completion-comment job) when pr-number is provided. No need to
-      # duplicate that here for fork PRs.
