@@ -373,7 +373,7 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("Overfit", md);
-        Assert.Contains("Notes", md);
+        Assert.DoesNotContain("Notes", md);
         Assert.Contains("Quality", md);
         Assert.DoesNotContain("Baseline", md);
         Assert.Contains("\U0001f7e2", md); // 🟢 green circle for improvement
@@ -413,7 +413,7 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("Overfit", md);
-        Assert.Contains("Notes", md);
+        Assert.DoesNotContain("Notes", md);
         Assert.Contains("Quality", md);
         Assert.Contains("\u2192", md); // → arrow in quality cell
         Assert.Contains("| \u2014 |", md); // — dash in Overfit column when no result
@@ -514,7 +514,7 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.DoesNotContain("[1]", md);
-        Assert.DoesNotContain("composite", md);
+        Assert.DoesNotContain("weighted score", md);
     }
 
     [Fact]
@@ -569,11 +569,10 @@ public class OverfittingJudgeTests
     }
 
     [Fact]
-    public void MarkdownTable_NoFootnoteWhenQualityUnchanged()
+    public void MarkdownTable_ShowsFootnoteWhenQualityUnchangedButVerdictNegative()
     {
-        // Quality scores are identical between baseline and skill runs.
-        // The Quality cell shows no direction indicator, and the verdict is negative.
-        // No footnote should appear since there is no quality disagreement to explain.
+        // Quality scores are identical between baseline and skill runs, but verdict is negative.
+        // A footnote should explain what efficiency metrics caused the negative score.
         // ImprovementScore derived from breakdown * DefaultWeights:
         //   -2.0*0.05 + 0 + 0 + 0 + 0 + 0 + 0 = -0.10
         var verdicts = new List<SkillVerdict>
@@ -589,10 +588,10 @@ public class OverfittingJudgeTests
                     {
                         ScenarioName = "quality-unchanged",
                         Baseline = new RunResult(
-                            new RunMetrics { AgentOutput = "baseline" },
+                            new RunMetrics { AgentOutput = "baseline", TokenEstimate = 1000, ToolCallCount = 5 },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
                         WithSkill = new RunResult(
-                            new RunMetrics { AgentOutput = "skilled" },
+                            new RunMetrics { AgentOutput = "skilled", TokenEstimate = 3000, ToolCallCount = 5 },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
                         ImprovementScore = -0.10,
                         Breakdown = new MetricBreakdown(
@@ -612,8 +611,9 @@ public class OverfittingJudgeTests
 
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
-        Assert.DoesNotContain("[1]", md);
-        Assert.DoesNotContain("weighted score", md);
+        Assert.Contains("[1]", md);
+        Assert.Contains("Quality unchanged but weighted score is", md);
+        Assert.Contains("tokens (1000", md);
     }
 
     // --- Prompt overfitting detection tests ---

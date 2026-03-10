@@ -313,8 +313,8 @@ public static class Reporter
         var sb = new StringBuilder();
         sb.AppendLine("## Skill Validation Results");
         sb.AppendLine();
-        sb.AppendLine("| Skill | Scenario | Quality | Skills Loaded | Overfit | Verdict | Notes |");
-        sb.AppendLine("|-------|----------|---------|---------------|---------|---------|-------|");
+        sb.AppendLine("| Skill | Scenario | Quality | Skills Loaded | Overfit | Verdict |");
+        sb.AppendLine("|-------|----------|---------|---------------|---------|---------|");
 
         var footnotes = new List<string>();
 
@@ -354,15 +354,15 @@ public static class Reporter
                 }
 
                 var footnote = BuildVerdictFootnote(s, qualityDelta);
-                string notesCol = "";
+                string verdictCol = icon;
                 if (footnote is not null)
                 {
                     footnotes.Add(footnote);
                     int n = footnotes.Count;
-                    notesCol = $"<a href=\"#user-content-fn-{n}\" id=\"ref-{n}\">[{n}]</a>";
+                    verdictCol = $"{icon} <a href=\"#user-content-fn-{n}\" id=\"ref-{n}\">[{n}]</a>";
                 }
 
-                sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {qualityCol} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {icon} | {notesCol} |");
+                sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {qualityCol} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {verdictCol} |");
             }
         }
 
@@ -580,8 +580,6 @@ public static class Reporter
         // Use the raw quality delta to determine direction, matching the comparison
         // used in FormatQualityCell (which shows arrows based on unrounded scores).
         double delta = qualityDelta.Value;
-        if (delta == 0)
-            return null; // Quality unchanged — no disagreement to explain
 
         bool qualityPositive = delta > 0;
         bool qualityNegative = delta < 0;
@@ -638,7 +636,7 @@ public static class Reporter
 
         if (!verdictPositive && (qualityPositive || !qualityNegative))
         {
-            // Quality improved or flat, but composite is negative — show what dragged it down
+            // Quality improved or unchanged, but composite is negative — show what dragged it down
             var negatives = contributors
                 .Where(c => c.weighted < -0.005)
                 .OrderBy(c => c.weighted)
@@ -647,7 +645,8 @@ public static class Reporter
             string factors = negatives.Count > 0
                 ? string.Join(", ", negatives)
                 : "efficiency metrics";
-            return $"Quality improved but weighted score is {compositeStr} due to: {factors}";
+            string qualityDesc = qualityPositive ? "Quality improved" : "Quality unchanged";
+            return $"{qualityDesc} but weighted score is {compositeStr} due to: {factors}";
         }
 
         if (verdictPositive && qualityNegative)
