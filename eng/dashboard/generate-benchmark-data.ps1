@@ -35,7 +35,8 @@
     Directory containing plugin JSON files to purge. Required with -PurgeStaleFiles.
 
 .PARAMETER RetentionDays
-    Number of days of data to retain. Entries older than this are purged. Defaults to 14.
+    Number of days of data to retain. Entries older than this are purged. Required for the
+    Purge parameter set; optional for the Generate parameter set (no default value).
 #>
 [CmdletBinding(DefaultParameterSetName = 'Generate')]
 param(
