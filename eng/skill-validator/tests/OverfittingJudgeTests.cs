@@ -416,6 +416,7 @@ public class OverfittingJudgeTests
         Assert.Contains("Notes", md);
         Assert.Contains("Quality", md);
         Assert.Contains("\u2192", md); // → arrow in quality cell
+        Assert.Contains("| \u2014 |", md); // — dash in Overfit column when no result
     }
 
     [Fact]
