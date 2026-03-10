@@ -373,6 +373,10 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("Overfit", md);
+        Assert.DoesNotContain("Notes", md);
+        Assert.Contains("Quality", md);
+        Assert.DoesNotContain("Baseline", md);
+        Assert.Contains("\U0001f7e2", md); // 🟢 green circle for improvement
         Assert.Contains("🟡 0.38", md);
     }
 
@@ -409,7 +413,301 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("Overfit", md);
-        Assert.Contains("| — |", md);
+        Assert.DoesNotContain("Notes", md);
+        Assert.Contains("Quality", md);
+        Assert.Contains("\u2192", md); // → arrow in quality cell
+        Assert.Contains("| \u2014 |", md); // — dash in Overfit column when no result
+    }
+
+    [Fact]
+    public void MarkdownTable_ShowsFootnoteWhenVerdictDisagreesWithQuality()
+    {
+        // Quality improved (+1.0) but composite is negative due to token/time overhead.
+        // ImprovementScore derived from breakdown * DefaultWeights:
+        //   -5.0*0.05 + -3.0*0.025 + 0*0.15 + -3.0*0.025 + 0.4*0.40 + 0.2*0.30 + 0*0.05 = -0.18
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "test-skill",
+                SkillPath = "/test",
+                Passed = false,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "overhead-scenario",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline", TokenEstimate = 1000, ToolCallCount = 5, WallTimeMs = 2100 },
+                            new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
+                        WithSkill = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled", TokenEstimate = 8000, ToolCallCount = 15, WallTimeMs = 8500 },
+                            new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
+                        ImprovementScore = -0.18,
+                        Breakdown = new MetricBreakdown(
+                            TokenReduction: -5.0,
+                            ToolCallReduction: -3.0,
+                            TaskCompletionImprovement: 0,
+                            TimeReduction: -3.0,
+                            QualityImprovement: 0.4,
+                            OverallJudgmentImprovement: 0.2,
+                            ErrorReduction: 0),
+                    }
+                },
+                OverallImprovementScore = -0.18,
+                Reason = "Below threshold",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.Contains("[1]", md);
+        Assert.Contains("Quality improved but weighted score is", md);
+        Assert.Contains("due to:", md);
+        // Raw metrics should appear in footnote
+        Assert.Contains("tokens (1000", md);
+        Assert.Contains("8000)", md);
+        Assert.Contains("tool calls (5", md);
+        Assert.Contains("time (2.1s", md);
+    }
+
+    [Fact]
+    public void MarkdownTable_NoFootnoteWhenVerdictMatchesQuality()
+    {
+        // Quality improved and composite is positive — no footnote needed.
+        // ImprovementScore derived from breakdown * DefaultWeights:
+        //   0*0.05 + 0*0.025 + 0*0.15 + 0*0.025 + 0.5*0.40 + 0.5*0.30 + 0*0.05 = 0.35
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "test-skill",
+                SkillPath = "/test",
+                Passed = true,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "clean-pass",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 3.0, "OK")),
+                        WithSkill = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled" },
+                            new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
+                        ImprovementScore = 0.35,
+                        Breakdown = new MetricBreakdown(
+                            TokenReduction: 0,
+                            ToolCallReduction: 0,
+                            TaskCompletionImprovement: 0,
+                            TimeReduction: 0,
+                            QualityImprovement: 0.5,
+                            OverallJudgmentImprovement: 0.5,
+                            ErrorReduction: 0),
+                    }
+                },
+                OverallImprovementScore = 0.35,
+                Reason = "Pass",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.DoesNotContain("[1]", md);
+        Assert.DoesNotContain("weighted score", md);
+    }
+
+    [Fact]
+    public void MarkdownTable_ShowsFootnoteWhenQualityDroppedButCompositePositive()
+    {
+        // Quality dropped (-1.0) but composite is positive due to efficiency gains.
+        // ImprovementScore derived from breakdown * DefaultWeights:
+        //   2.0*0.05 + 0*0.025 + 1.0*0.15 + 0*0.025 + -0.2*0.40 + -0.1*0.30 + 0*0.05 = 0.14
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "test-skill",
+                SkillPath = "/test",
+                Passed = true,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "efficiency-offset",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline", TokenEstimate = 5000, TaskCompleted = false },
+                            new JudgeResult(new List<RubricScore>(), 4.0, "Good")),
+                        WithSkill = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled", TokenEstimate = 2000, TaskCompleted = true },
+                            new JudgeResult(new List<RubricScore>(), 3.0, "OK")),
+                        ImprovementScore = 0.14,
+                        Breakdown = new MetricBreakdown(
+                            TokenReduction: 2.0,
+                            ToolCallReduction: 0,
+                            TaskCompletionImprovement: 1.0,
+                            TimeReduction: 0,
+                            QualityImprovement: -0.2,
+                            OverallJudgmentImprovement: -0.1,
+                            ErrorReduction: 0),
+                    }
+                },
+                OverallImprovementScore = 0.14,
+                Reason = "Pass",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.Contains("[1]", md);
+        Assert.Contains("Quality dropped but weighted score is", md);
+        Assert.Contains("due to:", md);
+        // Raw metrics should appear in footnote
+        Assert.Contains("completion", md);
+        Assert.Contains("tokens (5000", md);
+        Assert.Contains("2000)", md);
+    }
+
+    [Fact]
+    public void MarkdownTable_ShowsFootnoteWhenQualityUnchangedButVerdictNegative()
+    {
+        // Quality scores are identical between baseline and skill runs, but verdict is negative.
+        // A footnote should explain what efficiency metrics caused the negative score.
+        // ImprovementScore derived from breakdown * DefaultWeights:
+        //   -2.0*0.05 + 0 + 0 + 0 + 0 + 0 + 0 = -0.10
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "test-skill",
+                SkillPath = "/test",
+                Passed = false,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "quality-unchanged",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline", TokenEstimate = 1000, ToolCallCount = 5 },
+                            new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
+                        WithSkill = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled", TokenEstimate = 3000, ToolCallCount = 5 },
+                            new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
+                        ImprovementScore = -0.10,
+                        Breakdown = new MetricBreakdown(
+                            TokenReduction: -2.0,
+                            ToolCallReduction: 0,
+                            TaskCompletionImprovement: 0,
+                            TimeReduction: 0,
+                            QualityImprovement: 0,
+                            OverallJudgmentImprovement: 0,
+                            ErrorReduction: 0),
+                    }
+                },
+                OverallImprovementScore = -0.10,
+                Reason = "Below threshold",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.Contains("[1]", md);
+        Assert.Contains("Quality unchanged but weighted score is", md);
+        Assert.Contains("tokens (1000", md);
+    }
+
+    [Fact]
+    public void MarkdownSummary_ShowsErrorsSectionForPreEvalFailures()
+    {
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "broken-skill",
+                SkillPath = "/test",
+                Passed = false,
+                Scenarios = [],
+                OverallImprovementScore = 0,
+                Reason = "Skill description is 1,370 characters — maximum is 1,024.",
+                FailureKind = "spec_conformance_failure",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.Contains("### ❌ Skill validation errors", md);
+        Assert.Contains("- `broken-skill: Skill description is 1,370 characters", md);
+    }
+
+    [Fact]
+    public void MarkdownSummary_OmitsErrorsSectionWhenAllVerdictsPassed()
+    {
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "good-skill",
+                SkillPath = "/test",
+                Passed = true,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "test-scenario",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
+                        WithSkill = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled" },
+                            new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
+                        ImprovementScore = 0.25,
+                        Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+                    }
+                },
+                OverallImprovementScore = 0.25,
+                Reason = "Pass",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.DoesNotContain("### ❌ Skill validation errors", md);
+    }
+
+    [Fact]
+    public void MarkdownSummary_OmitsErrorsSectionForFailuresWithScenarios()
+    {
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "threshold-fail",
+                SkillPath = "/test",
+                Passed = false,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "test-scenario",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 4.0, "OK")),
+                        WithSkill = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled" },
+                            new JudgeResult(new List<RubricScore>(), 3.0, "Worse")),
+                        ImprovementScore = -0.25,
+                        Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+                    }
+                },
+                OverallImprovementScore = -0.25,
+                Reason = "Regression detected",
+                FailureKind = "completion_regression",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.DoesNotContain("### ❌ Skill validation errors", md);
     }
 
     // --- Prompt overfitting detection tests ---
