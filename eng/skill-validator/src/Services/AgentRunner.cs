@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using SkillValidator.Models;
+using SkillValidator.Utilities;
 using GitHub.Copilot.SDK;
 
 namespace SkillValidator.Services;
@@ -155,6 +156,16 @@ public static class AgentRunner
 
     public static async Task<RunMetrics> RunAgent(RunOptions options)
     {
+        return await RetryHelper.ExecuteWithRetry(
+            async ct => await RunAgentCore(options, ct),
+            label: $"RunAgent({options.Scenario.Name}, {(options.Skill is not null ? "skilled" : "baseline")})",
+            maxRetries: 2,
+            baseDelayMs: 5_000,
+            totalTimeoutMs: (options.Scenario.Timeout + 60) * 1000);
+    }
+
+    private static async Task<RunMetrics> RunAgentCore(RunOptions options, CancellationToken cancellationToken)
+    {
         var workDir = await SetupWorkDir(options.Scenario, options.Skill?.Path, options.EvalPath);
         if (options.Verbose)
         {
@@ -176,7 +187,8 @@ public static class AgentRunner
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
-            using var cts = new CancellationTokenSource(effectiveTimeout * 1000);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(effectiveTimeout * 1000);
             cts.Token.Register(() =>
                 done.TrySetException(new TimeoutException($"Scenario timed out after {effectiveTimeout}s")));
 
@@ -259,9 +271,21 @@ public static class AgentRunner
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(te.ToString()) }));
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw; // Budget exhausted — let RetryHelper handle it.
+        }
         catch (Exception error)
         {
             var msg = error.ToString();
+
+            // Re-throw rate-limit (429) errors so RetryHelper can retry them.
+            if (msg.Contains("429", StringComparison.Ordinal)
+                || msg.Contains("rate limit", StringComparison.OrdinalIgnoreCase))
+            {
+                throw;
+            }
+
             if (error is TimeoutException || error.InnerException is TimeoutException
                 || msg.Contains("timed out", StringComparison.OrdinalIgnoreCase))
             {

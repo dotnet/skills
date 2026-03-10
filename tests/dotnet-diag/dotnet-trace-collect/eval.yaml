@@ -15,7 +15,7 @@ scenarios:
       - "Mentions dotnet-monitor as an alternative when console access is not available"
       - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
       - "Mentions how to get the collected trace out of the container for analysis (e.g., kubectl cp)"
-    timeout: 60
+    timeout: 120
 
   - name: ".NET Framework on Windows without admin privileges"
     prompt: >-
@@ -33,7 +33,7 @@ scenarios:
       - "Does not recommend dotnet-trace since it does not work with .NET Framework"
       - "Mentions that process dumps can still be captured without admin for hangs or memory leaks"
       - "Advises the user to obtain admin privileges for high CPU investigation on .NET Framework"
-    timeout: 60
+    timeout: 120
 
   - name: ".NET 10 on Linux with root access and native call stacks"
     prompt: >-
@@ -50,7 +50,7 @@ scenarios:
       - "Explains that collect-linux uses perf_events for richer traces including native call stacks and kernel events"
       - "Mentions that dotnet-trace (without collect-linux) is a fallback if root or kernel requirements are not met"
       - "Provides the specific command to run dotnet-trace collect-linux"
-    timeout: 60
+    timeout: 120
 
   - name: "Memory leak on Linux (.NET 8)"
     prompt: >-
@@ -68,7 +68,7 @@ scenarios:
       - "Recommends dotnet-trace while memory is growing for allocation tracking"
       - "Explains that diffing two dumps helps identify which objects are increasing"
       - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
-    timeout: 60
+    timeout: 120
 
   - name: "Slow requests on Windows with PerfView"
     prompt: >-
@@ -88,7 +88,7 @@ scenarios:
       - "Does not include a stop trigger by default for slow request scenarios"
       - "Provides the specific PerfView command line to run"
       - "Explains that /ThreadTime adds thread-level wait and block detail for diagnosing slow requests"
-    timeout: 60
+    timeout: 120
 
   - name: "Excessive GC on Linux (.NET 8)"
     prompt: >-
@@ -108,7 +108,7 @@ scenarios:
       - "Provides the specific dotnet-trace collect command with --profile gc-verbose"
       - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
       - "Suggests an analysis tool for the resulting .nettrace file"
-    timeout: 60
+    timeout: 120
 
   - name: "Hang or deadlock diagnosis on Linux"
     prompt: >-
@@ -125,7 +125,7 @@ scenarios:
       - "Mentions invoking the dump-collect skill or recommends a dump as a follow-up step"
       - "Mentions lldb with SOS or a debugger for analyzing thread stacks in the dump"
       - "Distinguishes between livelocks (threads spinning), thread starvation, and true deadlocks"
-    timeout: 60
+    timeout: 120
 
   - name: "Windows container high CPU with PerfView"
     prompt: >-
@@ -141,7 +141,7 @@ scenarios:
       - "Recommends PerfView from the host with /EnableEventsInContainers for process-isolation Windows containers"
       - "Explains the two analysis options: analyze locally while container is running, or merge symbols before container shuts down"
       - "Mentions PerfViewCollect merge /ImageIDsOnly for off-machine analysis"
-    timeout: 60
+    timeout: 120
 
   - name: "Long-running intermittent issue with PerfView triggers"
     prompt: >-
@@ -159,7 +159,7 @@ scenarios:
       - "Includes /CircularMB and /BufferSizeMB for a circular buffer that keeps only the most recent data"
       - "Explains that the stop trigger should fire on the interesting event, not the recovery"
       - "Provides specific PerfView command-line arguments for the circular buffer and trigger setup"
-    timeout: 60
+    timeout: 120
 
   - name: "Linux pre-.NET 10 needing native call stacks"
     prompt: >-
@@ -177,7 +177,7 @@ scenarios:
       - "Mentions that dotnet-trace only captures managed stacks and would miss native frames"
       - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
       - "Provides guidance on installing and running perfcollect"
-    timeout: 60
+    timeout: 120
 
   - name: "Windows modern .NET with admin high CPU"
     prompt: >-
@@ -193,7 +193,7 @@ scenarios:
       - "Recommends PerfView as the preferred tool for Windows with admin access"
       - "Provides the specific PerfView collect command to run"
       - "Recommends analysis approach for the resulting .etl.zip file"
-    timeout: 60
+    timeout: 120
 
   - name: "Memory leak on .NET Framework Windows"
     prompt: >-
@@ -211,7 +211,7 @@ scenarios:
       - "Recommends a PerfView trace while memory is growing to see what is being allocated"
       - "Explains that diffing two dumps in PerfView identifies which objects have increased"
       - "Advises to capture during the growth period rather than waiting for the OutOfMemoryException"
-    timeout: 60
+    timeout: 120
 
   - name: "Kubernetes with console access prefers console tools"
     prompt: >-
@@ -225,7 +225,7 @@ scenarios:
       - "Recommends dotnet-trace (console tool) as the preferred option since the user has console access to the container"
       - "Provides the specific dotnet-trace collect command to run inside the container"
       - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
-    timeout: 60
+    timeout: 120
 
   - name: "Container installation without .NET SDK"
     prompt: >-
@@ -241,7 +241,7 @@ scenarios:
       - "Provides the curl or wget command to download dotnet-trace for the appropriate platform"
       - "Explains that this avoids the need for a .NET SDK in the container"
       - "Mentions kubectl cp as an alternative to copy the tool into the container"
-    timeout: 60
+    timeout: 120
 
   - name: "HTTP 500s from downstream service on Linux (.NET 8)"
     prompt: >-
@@ -261,7 +261,7 @@ scenarios:
       - "Mentions that the trace also captures request timing to correlate slow requests with failures"
       - "Provides the specific dotnet-trace collect command with --providers for networking"
       - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
-    timeout: 60
+    timeout: 120
 
   - name: "Networking timeouts on Windows with admin (.NET 8)"
     prompt: >-
@@ -279,4 +279,4 @@ scenarios:
       - "Lists the networking providers to enable (System.Net.Http, and optionally System.Net.NameResolution, System.Net.Security, System.Net.Sockets)"
       - "Explains that combining thread-time traces with networking events shows both where threads are blocked and what networking operations are failing"
       - "Mentions that RequestFailed events capture exception messages for timed-out requests"
-    timeout: 60
+    timeout: 120

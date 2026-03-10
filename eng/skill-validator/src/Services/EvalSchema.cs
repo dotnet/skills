@@ -119,6 +119,12 @@ public static class EvalSchema
         public string? Compatibility { get; set; }
     }
 
+    internal sealed class RawAgentFrontmatter
+    {
+        public string? Name { get; set; }
+        public string? Description { get; set; }
+    }
+
     internal sealed class RawEvalConfig
     {
         public List<RawScenario>? Scenarios { get; set; }

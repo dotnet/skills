@@ -130,7 +130,7 @@ public class AnalyzeSkillTests
     }
 
     [Fact]
-    public void WarnsWhenEvalPromptMentionsSkillName()
+    public void ErrorsWhenEvalPromptMentionsSkillName()
     {
         var content = "---\nname: migrate-app\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
         var scenarios = new List<EvalScenario>
@@ -139,11 +139,12 @@ public class AnalyzeSkillTests
         };
         var skill = MakeSkillWithEval(content, "migrate-app", scenarios);
         var profile = SkillProfiler.AnalyzeSkill(skill);
-        Assert.Contains(profile.Warnings, w => w.Contains("mentions skill name") && w.Contains("migrate-app"));
+        Assert.Contains(profile.Errors, e => e.Contains("mentions skill name") && e.Contains("migrate-app"));
+        Assert.DoesNotContain(profile.Warnings, w => w.Contains("mentions skill name"));
     }
 
     [Fact]
-    public void NoWarningWhenEvalPromptDoesNotMentionSkillName()
+    public void NoErrorWhenEvalPromptDoesNotMentionSkillName()
     {
         var content = "---\nname: migrate-app\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
         var scenarios = new List<EvalScenario>
@@ -152,11 +153,11 @@ public class AnalyzeSkillTests
         };
         var skill = MakeSkillWithEval(content, "migrate-app", scenarios);
         var profile = SkillProfiler.AnalyzeSkill(skill);
-        Assert.DoesNotContain(profile.Warnings, w => w.Contains("mentions skill name"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("mentions skill name"));
     }
 
     [Fact]
-    public void NoWarningWhenSkillNameIsEmpty()
+    public void NoErrorWhenSkillNameIsEmpty()
     {
         var content = "---\nname: \n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
         var scenarios = new List<EvalScenario>
@@ -165,7 +166,7 @@ public class AnalyzeSkillTests
         };
         var skill = MakeSkillWithEval(content, "", scenarios);
         var profile = SkillProfiler.AnalyzeSkill(skill);
-        Assert.DoesNotContain(profile.Warnings, w => w.Contains("mentions skill name"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("mentions skill name"));
     }
 
     [Fact]
