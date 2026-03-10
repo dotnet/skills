@@ -2,17 +2,16 @@
 #
 # Fork PRs cannot access repository secrets via the `pull_request` trigger.
 # This workflow uses `issue_comment` so that a maintainer can trigger evaluation
-# by posting "/evaluate" on a fork PR. The workflow YAML always comes from the
-# default branch (enforced by the issue_comment and pull_request_target triggers).
+# by posting "/evaluate" on a fork PR.
 #
 # The `pull_request_target` trigger handles initial status posting for fork PRs:
 # it runs discovery (from the base branch, safe) and posts a commit status so
 # the required "evaluation" check is never stuck as "Expected".
 #
 # Security model:
-#   - Workflow YAML: always from the default branch (enforced by issue_comment
-#     and pull_request_target)
-#   - Validator binary: built from the default branch checkout (trusted)
+#   - Workflow YAML: always from the base branch (enforced by issue_comment
+#     and pull_request_target triggers)
+#   - Validator binary: built from the base branch checkout (trusted)
 #   - Skill/test content: checked out from the fork PR (untrusted data, read-only)
 #   - Secret access: only users with write+ permission can trigger evaluation
 name: evaluation (fork PRs)
@@ -50,8 +49,6 @@ jobs:
     steps:
       - name: Checkout base branch
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - name: Fetch PR head (metadata only)
         run: git fetch origin +refs/pull/${{ github.event.pull_request.number }}/head --depth=1
@@ -60,9 +57,8 @@ jobs:
         id: discover
         shell: pwsh
         run: |
-          $base = "${{ github.event.pull_request.base.sha }}"
           $head = "FETCH_HEAD"
-          $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
+          $changedFiles = git diff --name-only --diff-filter=ACMR HEAD $head
 
           $hasSkillChanges = $changedFiles |
             Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
