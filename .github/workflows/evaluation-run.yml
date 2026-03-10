@@ -253,8 +253,9 @@ jobs:
 
           # If results exist, consolidate them into a summary comment
           JSON_FILES=$(find all-results/ -name results.json 2>/dev/null || true)
-          if [ -n "$JSON_FILES" ]; then
-            artifacts/publish/SkillValidator/release/skill-validator consolidate \
+          VALIDATOR="artifacts/publish/SkillValidator/release/skill-validator"
+          if [ -n "$JSON_FILES" ] && [ -x "$VALIDATOR" ]; then
+            "$VALIDATOR" consolidate \
               --output summary-body.md \
               $JSON_FILES
 
