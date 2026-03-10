@@ -313,10 +313,9 @@ public static class Reporter
         var sb = new StringBuilder();
         sb.AppendLine("## Skill Validation Results");
         sb.AppendLine();
-        sb.AppendLine("| Skill | Scenario | Quality | Skills Loaded | Overfit | Verdict |");
-        sb.AppendLine("|-------|----------|---------|---------------|---------|---------|");
 
         var footnotes = new List<string>();
+        var tableRows = new List<string>();
 
         foreach (var v in verdicts)
         {
@@ -328,9 +327,7 @@ public static class Reporter
                 var bTimedOut = s.Baseline?.Metrics?.TimedOut == true;
                 var sTimedOut = s.WithSkill?.Metrics?.TimedOut == true;
 
-                double? qualityDelta = null;
-                string qualityCol = FormatQualityCell(baseScore, skillScore, bTimedOut, sTimedOut, out qualityDelta);
-
+                string qualityCol = FormatQualityCell(baseScore, skillScore, bTimedOut, sTimedOut, out double? qualityDelta);
                 var icon = s.ImprovementScore > 0 ? "✅" : s.ImprovementScore < 0 ? "❌" : "🟡";
 
                 string skillsCol = "—";
@@ -362,8 +359,16 @@ public static class Reporter
                     verdictCol = $"{icon} <a href=\"#user-content-fn-{n}\" id=\"ref-{n}\">[{n}]</a>";
                 }
 
-                sb.AppendLine($"| {v.SkillName} | {s.ScenarioName} | {qualityCol} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {verdictCol} |");
+                tableRows.Add($"| {v.SkillName} | {s.ScenarioName} | {qualityCol} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {verdictCol} |");
             }
+        }
+
+        if (tableRows.Count > 0)
+        {
+            sb.AppendLine("| Skill | Scenario | Quality | Skills Loaded | Overfit | Verdict |");
+            sb.AppendLine("|-------|----------|---------|---------------|---------|---------|");
+            foreach (var row in tableRows)
+                sb.AppendLine(row);
         }
 
         // Show validation/spec errors for skills that failed before evaluation ran
