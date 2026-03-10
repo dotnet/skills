@@ -8,6 +8,10 @@
     benchmark dashboard. If an existing JSON file is provided, the new data point
     is appended to the existing history.
 
+    When -PurgeStaleFiles is used, scans a data directory for plugin JSON files and
+    removes entries older than the retention window. Files left with no entries are
+    deleted so they are excluded from the components.json manifest.
+
 .PARAMETER ResultsFile
     Path to the skill-validator results.json file.
 
@@ -22,27 +26,69 @@
 
 .PARAMETER CommitJson
     Optional JSON string with commit info (id, message, author, timestamp, url).
+
+.PARAMETER PurgeStaleFiles
+    When set, scans DataDir for plugin JSON files, purges entries older than the
+    retention window, and deletes files that have no remaining entries.
+
+.PARAMETER DataDir
+    Directory containing plugin JSON files to purge. Required with -PurgeStaleFiles.
 #>
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName = 'Generate')]
 param(
-    [Parameter(Mandatory)]
+    [Parameter(Mandatory, ParameterSetName = 'Generate')]
     [string]$ResultsFile,
 
-    [Parameter(Mandatory)]
+    [Parameter(Mandatory, ParameterSetName = 'Generate')]
     [string]$PluginName,
 
-    [Parameter()]
+    [Parameter(ParameterSetName = 'Generate')]
     [string]$OutputDir,
 
-    [Parameter()]
+    [Parameter(ParameterSetName = 'Generate')]
     [string]$ExistingDataFile,
 
-    [Parameter()]
-    [string]$CommitJson
+    [Parameter(ParameterSetName = 'Generate')]
+    [string]$CommitJson,
+
+    [Parameter(Mandatory, ParameterSetName = 'Purge')]
+    [switch]$PurgeStaleFiles,
+
+    [Parameter(Mandatory, ParameterSetName = 'Purge')]
+    [string]$DataDir
 )
 
 $ErrorActionPreference = "Stop"
 
+$retentionDays = 14
+
+# --- Purge mode: scan a data directory and remove stale files ---
+if ($PurgeStaleFiles) {
+    $cutoffMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - ([long]$retentionDays * 24 * 60 * 60 * 1000)
+    $dataFiles = Get-ChildItem -Path $DataDir -Filter "*.json" -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne "components.json" }
+    foreach ($file in $dataFiles) {
+        try {
+            $data = Get-Content $file.FullName -Raw | ConvertFrom-Json -AsHashtable
+            $hasRecentEntries = $false
+            foreach ($category in $data['entries'].Keys) {
+                $data['entries'][$category] = @($data['entries'][$category] | Where-Object { $_.date -ge $cutoffMs })
+                if ($data['entries'][$category].Count -gt 0) { $hasRecentEntries = $true }
+            }
+            if (-not $hasRecentEntries) {
+                Remove-Item $file.FullName -Force
+                Write-Host "[REMOVED] $($file.Name) — all entries older than $retentionDays days"
+            } else {
+                $data | ConvertTo-Json -Depth 10 | Out-File -FilePath $file.FullName -Encoding utf8
+            }
+        } catch {
+            Write-Warning "Failed to process $($file.Name) for purge: $_"
+        }
+    }
+    exit 0
+}
+
+# --- Generate mode: produce per-plugin benchmark data ---
 if (-not $OutputDir) {
     $OutputDir = Split-Path $ResultsFile -Parent
 }
@@ -261,8 +307,7 @@ if (-not $benchmarkData['entries'][$efficiencyKey]) {
 $benchmarkData['entries'][$qualityKey] += @($qualityEntry)
 $benchmarkData['entries'][$efficiencyKey] += @($efficiencyEntry)
 
-# Purge entries older than 14 days
-$retentionDays = 14
+# Purge entries older than the retention window
 $cutoffMs = $now - ([long]$retentionDays * 24 * 60 * 60 * 1000)
 
 foreach ($key in @($qualityKey, $efficiencyKey)) {

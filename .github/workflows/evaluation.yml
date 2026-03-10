@@ -223,28 +223,7 @@ jobs:
           }
 
           # Purge stale plugin data files whose entries are all older than 14 days
-          $retentionDays = 14
-          $cutoffMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - ([long]$retentionDays * 24 * 60 * 60 * 1000)
-          $dataFiles = Get-ChildItem -Path "/tmp/gh-pages/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -ne "components.json" }
-          foreach ($file in $dataFiles) {
-            try {
-              $data = Get-Content $file.FullName -Raw | ConvertFrom-Json -AsHashtable
-              $hasRecentEntries = $false
-              foreach ($category in $data['entries'].Keys) {
-                $data['entries'][$category] = @($data['entries'][$category] | Where-Object { $_.date -ge $cutoffMs })
-                if ($data['entries'][$category].Count -gt 0) { $hasRecentEntries = $true }
-              }
-              if (-not $hasRecentEntries) {
-                Remove-Item $file.FullName -Force
-                Write-Host "[REMOVED] $($file.Name) — all entries older than $retentionDays days"
-              } else {
-                $data | ConvertTo-Json -Depth 10 | Out-File -FilePath $file.FullName -Encoding utf8
-              }
-            } catch {
-              Write-Warning "Failed to process $($file.Name) for purge: $_"
-            }
-          }
+          & ./eng/dashboard/generate-benchmark-data.ps1 -PurgeStaleFiles -DataDir "/tmp/gh-pages/data"
 
           # Generate components.json manifest
           $plugins = Get-ChildItem -Path "/tmp/gh-pages/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |
