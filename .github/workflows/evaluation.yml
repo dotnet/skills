@@ -16,7 +16,6 @@ env:
 permissions:
   contents: write
   pull-requests: write
-  statuses: write
 
 jobs:
   discover:
@@ -151,43 +150,31 @@ jobs:
       COPILOT_GITHUB_TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
       COPILOT_GITHUB_TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
 
-  report-status:
+  # Plain check-run job that can be required in the GitHub ruleset.
+  # For fork PRs, discover is skipped (fork guard) so this job is also skipped;
+  # the fork-status job in evaluation-fork-pr.yml posts a commit status instead.
+  evaluation:
     needs: [discover, run-evaluation]
     if: always() && github.event_name == 'pull_request' && needs.discover.result != 'skipped'
     runs-on: ubuntu-latest
-    permissions:
-      statuses: write
     steps:
-      - name: Set evaluation commit status
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Check evaluation result
         run: |
           DISCOVER_RESULT="${{ needs.discover.result }}"
           HAS_ENTRIES="${{ needs.discover.outputs.has_entries }}"
           EVAL_RESULT="${{ needs.run-evaluation.result }}"
 
           if [[ "$DISCOVER_RESULT" != "success" ]]; then
-            STATE="error"
-            DESC="Discovery failed ($DISCOVER_RESULT)"
+            echo "::error::Discovery failed ($DISCOVER_RESULT)"
+            exit 1
           elif [[ "$HAS_ENTRIES" != "true" ]]; then
-            STATE="success"
-            DESC="No skills to evaluate"
+            echo "No skills to evaluate"
           elif [[ "$EVAL_RESULT" == "success" ]]; then
-            STATE="success"
-            DESC="Evaluation passed"
-          elif [[ "$EVAL_RESULT" == "failure" ]]; then
-            STATE="failure"
-            DESC="Evaluation failed"
+            echo "Evaluation passed"
           else
-            STATE="error"
-            DESC="Evaluation did not complete ($EVAL_RESULT)"
+            echo "::error::Evaluation did not pass ($EVAL_RESULT)"
+            exit 1
           fi
-
-          gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
-            -f state="$STATE" \
-            -f context="evaluation" \
-            -f description="$DESC" \
-            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   publish-benchmark:
     needs: [discover, run-evaluation]
