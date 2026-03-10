@@ -112,6 +112,8 @@ Work through each build error systematically. Common patterns:
 
 7. **SYSLIB0063: `NamedPipeClientStream` `isConnected` parameter obsoleted** — The constructor overload taking `bool isConnected` is obsoleted. Remove the `isConnected` argument and use the new 3-parameter constructor. Projects with `TreatWarningsAsErrors` will fail to build.
 
+8. **`when` switch-expression-arm parsing** — `(X.Y) when` is now parsed as a constant pattern with a `when` clause instead of a cast expression, which can cause existing code to fail to compile or change meaning. Review switch expressions using `when` and adjust syntax as needed.
+
 ### Step 4: Address behavioral changes
 
 These changes compile successfully but alter runtime behavior. Review each one and determine impact:
@@ -133,8 +135,6 @@ These changes compile successfully but alter runtime behavior. Review each one a
 8. **Minimum hardware requirements** — x86/x64 baseline moved to `x86-64-v2`; Windows Arm64 requires `LSE`. Verify deployment targets meet requirements.
 
 9. **Mono launch target for .NET Framework** — No longer set automatically. If using Mono for .NET Framework apps on Linux, specify explicitly.
-
-10. **`when` switch-expression-arm parsing** — `(X.Y) when` now parsed as constant pattern + when clause instead of cast.
 
 ### Step 5: Update infrastructure
 
