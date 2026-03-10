@@ -635,7 +635,7 @@ public class OverfittingJudgeTests
 
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
-        Assert.Contains("### Errors", md);
+        Assert.Contains("### ❌ Skill validation errors", md);
         Assert.Contains("- `broken-skill: Skill description is 1,370 characters", md);
     }
 
@@ -671,7 +671,7 @@ public class OverfittingJudgeTests
 
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
-        Assert.DoesNotContain("### Errors", md);
+        Assert.DoesNotContain("### ❌ Skill validation errors:", md);
     }
 
     [Fact]
@@ -707,7 +707,7 @@ public class OverfittingJudgeTests
 
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
-        Assert.DoesNotContain("### Errors", md);
+        Assert.DoesNotContain("### ❌ Skill validation errors", md);
     }
 
     // --- Prompt overfitting detection tests ---

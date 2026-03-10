@@ -322,7 +322,7 @@ public static class Reporter
             .ToArray();
         if (failedVerdicts.Length > 0)
         {
-            sb.AppendLine("### Errors");
+            sb.AppendLine("### ❌ Skill validation errors");
             sb.AppendLine();
             foreach (var v in failedVerdicts)
             {
