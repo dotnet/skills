@@ -93,7 +93,7 @@ services.ConfigureHttpClientDefaults(b =>
 
 **Impact: Medium.** All header values in `Trace`-level `HttpClientFactory` logs are now redacted by default. Previously, unspecified headers were logged in full.
 
-**Fix:** Explicitly whitelist specific non-sensitive headers that need to be logged:
+**Fix:** Explicitly allowlist specific non-sensitive headers that need to be logged:
 ```csharp
 // Allow specific non-sensitive headers to be logged unredacted
 services.ConfigureHttpClientDefaults(b =>

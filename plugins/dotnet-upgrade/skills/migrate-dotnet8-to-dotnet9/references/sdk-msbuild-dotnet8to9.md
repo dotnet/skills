@@ -8,8 +8,8 @@ These changes affect the .NET SDK, CLI tooling, NuGet, and MSBuild behavior.
 
 The .NET 9 SDK has updated minimum Visual Studio and MSBuild version requirements:
 
-- 9.0.100 requires Visual Studio 17.11 to target `net8.0` and earlier frameworks
-- 9.0.100 requires Visual Studio 17.12 or later to target `net9.0`
+- With VS 17.11, the .NET 9.0.100 SDK can only target `net8.0` and earlier frameworks
+- VS 17.12 or later is required to target `net9.0`
 
 Attempting to target `net9.0` in VS 17.11 produces: `NETSDK1223: Targeting .NET 9.0 or higher in Visual Studio 2022 17.11 is not supported.`
 

@@ -603,7 +603,7 @@ scenarios:
             {
                 public string CleanInput(string input)
                 {
-                    char[] trimChars = [' ', '\t', '\n'];
+                    ReadOnlySpan<char> trimChars = [' ', '\t', '\n'];
                     return input.Trim(trimChars);
                 }
             }

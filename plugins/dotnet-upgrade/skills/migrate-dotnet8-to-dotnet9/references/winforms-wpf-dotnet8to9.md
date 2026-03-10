@@ -76,7 +76,7 @@ The starting row index in accessible object names has changed.
 
 ### Behavioral Changes / Source-Incompatible
 
-#### `GetXmlNamespaceMaps` type change
+#### `XmlNamespaceMaps` type change
 
 **Impact: Low.** The backing property of `XmlAttributeProperties.XmlNamespaceMaps` changed from `String` to `Hashtable`. The `SetXmlNamespaceMaps` method now accepts `Hashtable` instead of `String`.
 

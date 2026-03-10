@@ -75,7 +75,7 @@ These use custom diagnostic IDs — suppressing `CS0618` does not suppress them.
 
 ### BinaryFormatter always throws
 
-**Impact: High.** `BinaryFormatter.Serialize` and `BinaryFormatter.Deserialize` now always throw `NotSupportedException` regardless of any configuration. The `EnableUnsafeBinaryFormatterSerialization` AppContext switch has been removed. See `serialization-networking.md` for full details.
+**Impact: High.** `BinaryFormatter.Serialize` and `BinaryFormatter.Deserialize` now always throw `NotSupportedException` regardless of any configuration. The `EnableUnsafeBinaryFormatterSerialization` AppContext switch has been removed. See `serialization-networking-dotnet8to9.md` for full details.
 
 ### BigInteger maximum length restriction
 

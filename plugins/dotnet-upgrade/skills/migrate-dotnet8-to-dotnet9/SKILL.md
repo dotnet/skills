@@ -1,20 +1,15 @@
 ---
 name: migrate-dotnet8-to-dotnet9
 description: >
-  Migrate a .NET 8 project or solution to .NET 9 and resolve all breaking changes.
+  Migrate a .NET 8 project to .NET 9 and resolve all breaking changes.
   USE FOR: upgrading TargetFramework from net8.0 to net9.0, fixing build errors
-  and new warnings after updating the .NET 9 SDK, resolving behavioral changes
-  in .NET 9 / C# 13 / ASP.NET Core 9 / EF Core 9, replacing BinaryFormatter
-  usage (now always throws), resolving obsoletion warnings (SYSLIB0054-SYSLIB0057),
-  adapting to params span overload resolution changes, fixing C# 13 compiler
-  changes (InlineArray on records, iterator safe context, collection expression
-  overloads), updating HttpClientFactory for SocketsHttpHandler default, and
-  resolving EF Core 9 changes (pending model changes exception, Cosmos DB
-  discriminator/type rename).
-  DO NOT USE FOR: major framework migrations (.NET Framework to .NET 9),
-  upgrading from .NET 7 or earlier (address intermediate breaking changes first),
+  after updating the .NET 9 SDK, resolving behavioral changes in .NET 9 / C# 13 /
+  ASP.NET Core 9 / EF Core 9, replacing BinaryFormatter (now always throws),
+  resolving SYSLIB0054-SYSLIB0057, adapting to params span overload resolution,
+  fixing C# 13 compiler changes, updating HttpClientFactory for SocketsHttpHandler,
+  and resolving EF Core 9 migration/Cosmos DB changes.
+  DO NOT USE FOR: .NET Framework migrations, upgrading from .NET 7 or earlier,
   greenfield .NET 9 projects, or cosmetic modernization unrelated to the upgrade.
-  Use migrate-dotnet9-to-dotnet10 to continue to .NET 10.
 ---
 
 # .NET 8 → .NET 9 Migration
