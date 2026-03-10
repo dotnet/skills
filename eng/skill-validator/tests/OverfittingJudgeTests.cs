@@ -376,7 +376,7 @@ public class OverfittingJudgeTests
         Assert.Contains("Notes", md);
         Assert.Contains("Quality", md);
         Assert.DoesNotContain("Baseline", md);
-        Assert.Contains("\u2191", md); // ↑ arrow for improvement
+        Assert.Contains("\U0001f7e2", md); // 🟢 green circle for improvement
         Assert.Contains("🟡 0.38", md);
     }
 
@@ -568,10 +568,11 @@ public class OverfittingJudgeTests
     }
 
     [Fact]
-    public void MarkdownTable_NoFootnoteWhenRoundedDeltaIsZero()
+    public void MarkdownTable_NoFootnoteWhenQualityUnchanged()
     {
-        // Quality delta is 0.04 (rounds to 0.0 in the Δ column), verdict is negative.
-        // No footnote should appear since the user sees no quality direction.
+        // Quality scores are identical between baseline and skill runs.
+        // The Quality cell shows no direction indicator, and the verdict is negative.
+        // No footnote should appear since there is no quality disagreement to explain.
         // ImprovementScore derived from breakdown * DefaultWeights:
         //   -2.0*0.05 + 0 + 0 + 0 + 0 + 0 + 0 = -0.10
         var verdicts = new List<SkillVerdict>
@@ -585,13 +586,13 @@ public class OverfittingJudgeTests
                 {
                     new()
                     {
-                        ScenarioName = "near-zero-delta",
+                        ScenarioName = "quality-unchanged",
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline" },
-                            new JudgeResult(new List<RubricScore>(), 3.52, "OK")),
+                            new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
                         WithSkill = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
-                            new JudgeResult(new List<RubricScore>(), 3.56, "OK")),
+                            new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
                         ImprovementScore = -0.10,
                         Breakdown = new MetricBreakdown(
                             TokenReduction: -2.0,
@@ -611,7 +612,7 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.DoesNotContain("[1]", md);
-        Assert.DoesNotContain("composite", md);
+        Assert.DoesNotContain("weighted score", md);
     }
 
     // --- Prompt overfitting detection tests ---

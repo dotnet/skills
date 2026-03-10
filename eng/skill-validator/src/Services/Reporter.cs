@@ -536,7 +536,7 @@ public static class Reporter
 
     /// <summary>
     /// Formats the combined Quality column: "baseline → skill" with the better score bolded
-    /// and a directional arrow indicator.
+    /// and an emoji indicator.
     /// </summary>
     internal static string FormatQualityCell(
         double? baseScore, double? skillScore,
@@ -556,9 +556,9 @@ public static class Reporter
                 qualityDelta = delta;
 
             if (sv > bv)
-                return $"{baseFmt} \u2192 **{skillFmt}** \u2191";
+                return $"{baseFmt} \u2192 **{skillFmt}** \U0001f7e2";
             if (sv < bv)
-                return $"**{baseFmt}** \u2192 {skillFmt} \u2193";
+                return $"**{baseFmt}** \u2192 {skillFmt} \U0001f534";
         }
 
         return $"{baseFmt} \u2192 {skillFmt}";
@@ -576,14 +576,14 @@ public static class Reporter
 
         bool verdictPositive = s.ImprovementScore > 0;
 
-        // Align with the F1 rounding used in the Quality column so footnotes don't
-        // reference a direction the user can't see in the table.
-        double roundedDelta = Math.Round(qualityDelta.Value, 1);
-        if (roundedDelta == 0)
-            return null;
+        // Use the raw quality delta to determine direction, matching the comparison
+        // used in FormatQualityCell (which shows arrows based on unrounded scores).
+        double delta = qualityDelta.Value;
+        if (delta == 0)
+            return null; // Quality unchanged — no disagreement to explain
 
-        bool qualityPositive = roundedDelta > 0;
-        bool qualityNegative = roundedDelta < 0;
+        bool qualityPositive = delta > 0;
+        bool qualityNegative = delta < 0;
 
         // Verdict agrees with quality direction — no footnote needed
         if (verdictPositive && !qualityNegative) return null;
