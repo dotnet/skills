@@ -616,6 +616,100 @@ public class OverfittingJudgeTests
         Assert.Contains("tokens (1000", md);
     }
 
+    [Fact]
+    public void MarkdownSummary_ShowsErrorsSectionForPreEvalFailures()
+    {
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "broken-skill",
+                SkillPath = "/test",
+                Passed = false,
+                Scenarios = [],
+                OverallImprovementScore = 0,
+                Reason = "Skill description is 1,370 characters — maximum is 1,024.",
+                FailureKind = "spec_conformance_failure",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.Contains("### ❌ Skill validation errors", md);
+        Assert.Contains("- `broken-skill: Skill description is 1,370 characters", md);
+    }
+
+    [Fact]
+    public void MarkdownSummary_OmitsErrorsSectionWhenAllVerdictsPassed()
+    {
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "good-skill",
+                SkillPath = "/test",
+                Passed = true,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "test-scenario",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
+                        WithSkill = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled" },
+                            new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
+                        ImprovementScore = 0.25,
+                        Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+                    }
+                },
+                OverallImprovementScore = 0.25,
+                Reason = "Pass",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.DoesNotContain("### ❌ Skill validation errors", md);
+    }
+
+    [Fact]
+    public void MarkdownSummary_OmitsErrorsSectionForFailuresWithScenarios()
+    {
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "threshold-fail",
+                SkillPath = "/test",
+                Passed = false,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "test-scenario",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 4.0, "OK")),
+                        WithSkill = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled" },
+                            new JudgeResult(new List<RubricScore>(), 3.0, "Worse")),
+                        ImprovementScore = -0.25,
+                        Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+                    }
+                },
+                OverallImprovementScore = -0.25,
+                Reason = "Regression detected",
+                FailureKind = "completion_regression",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.DoesNotContain("### ❌ Skill validation errors", md);
+    }
+
     // --- Prompt overfitting detection tests ---
 
     [Fact]
