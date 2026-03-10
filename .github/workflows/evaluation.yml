@@ -20,15 +20,16 @@ permissions:
 
 jobs:
   discover:
-    # Skip scheduled runs on forks — without this guard, forks that have
-    # activated Actions will run the evaluation schedule indefinitely,
-    # consuming the fork owner's Actions minutes.
-    if: github.event_name != 'schedule' || github.repository == 'dotnet/skills'
+    # Skip fork PRs (handled by evaluation-fork-pr.yml) and scheduled runs on forks.
+    # Without this guard, forks that have activated Actions will run the evaluation
+    # schedule indefinitely, consuming the fork owner's Actions minutes.
+    if: >-
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
+      (github.event_name != 'schedule' || github.repository == 'dotnet/skills')
     runs-on: ubuntu-latest
     outputs:
       entries: ${{ steps.find.outputs.entries }}
       has_entries: ${{ steps.find.outputs.has_entries }}
-      is_fork: ${{ steps.find.outputs.is_fork }}
       is_infra: ${{ steps.find.outputs.is_infra }}
       plugins: ${{ steps.find.outputs.plugins }}
       has_plugins: ${{ steps.find.outputs.has_plugins }}
@@ -43,10 +44,6 @@ jobs:
         run: |
           $entries = @()
           $plugins = @()
-
-          $isFork = ("${{ github.event_name }}" -eq "pull_request") -and `
-                    ("${{ github.event.pull_request.head.repo.full_name }}" -ne "${{ github.repository }}")
-          echo "is_fork=$($isFork.ToString().ToLower())" >> $env:GITHUB_OUTPUT
 
           if ("${{ github.event_name }}" -eq "pull_request") {
             # PR: detect individual changed skills
@@ -133,7 +130,7 @@ jobs:
 
   run-evaluation:
     needs: discover
-    if: needs.discover.outputs.has_entries == 'true' && needs.discover.outputs.is_fork != 'true'
+    if: needs.discover.outputs.has_entries == 'true'
     uses: ./.github/workflows/evaluation-run.yml
     with:
       entries: ${{ needs.discover.outputs.entries }}
@@ -156,7 +153,7 @@ jobs:
 
   report-status:
     needs: [discover, run-evaluation]
-    if: always() && github.event_name == 'pull_request'
+    if: always() && github.event_name == 'pull_request' && needs.discover.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       statuses: write
@@ -166,7 +163,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           DISCOVER_RESULT="${{ needs.discover.result }}"
-          IS_FORK="${{ needs.discover.outputs.is_fork }}"
           HAS_ENTRIES="${{ needs.discover.outputs.has_entries }}"
           EVAL_RESULT="${{ needs.run-evaluation.result }}"
 
@@ -176,9 +172,6 @@ jobs:
           elif [[ "$HAS_ENTRIES" != "true" ]]; then
             STATE="success"
             DESC="No skills to evaluate"
-          elif [[ "$IS_FORK" == "true" ]]; then
-            STATE="pending"
-            DESC="Fork PR — post /evaluate to trigger evaluation"
           elif [[ "$EVAL_RESULT" == "success" ]]; then
             STATE="success"
             DESC="Evaluation passed"
