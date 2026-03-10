@@ -171,6 +171,58 @@ For a detailed explanation of MSBuild's evaluation and execution phases, see [Bu
 
 ---
 
+## AP-22: Setting `<TargetFramework>` or `<TargetFrameworks>` in Directory.Build.props
+
+**Smell**: `<TargetFramework>` or `<TargetFrameworks>` set in `Directory.Build.props` (at any level) as a "default" TFM.
+
+**Why it's bad**: If `Directory.Build.props` sets the singular `<TargetFramework>` and a project sets the plural `<TargetFrameworks>` (or vice versa), both properties coexist. MSBuild interprets `<TargetFrameworks>` (plural) as a request for an outer build that dispatches inner builds per TFM, while also seeing `<TargetFramework>` (singular) which signals an inner build. The build is simultaneously an inner and outer build — targets run in the wrong order, items appear in the wrong phase, and the build produces corrupt or nonsensical results.
+
+```xml
+<!-- BAD: Directory.Build.props sets a "default" TFM -->
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>  <!-- NEVER DO THIS -->
+  </PropertyGroup>
+</Project>
+
+<!-- A project then tries to multi-target: -->
+<!-- MyLib.csproj -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;netstandard2.0</TargetFrameworks>
+  </PropertyGroup>
+</Project>
+<!-- 💥 BOTH TargetFramework AND TargetFrameworks are set. Build breaks. -->
+
+<!-- GOOD: Each project declares its own TFM -->
+<!-- MyLib.csproj -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+</Project>
+```
+
+To centralize the version string without this problem, define a custom property and reference it:
+
+```xml
+<!-- Directory.Build.props — safe: custom property, not TargetFramework -->
+<Project>
+  <PropertyGroup>
+    <DefaultTargetFramework>net8.0</DefaultTargetFramework>
+  </PropertyGroup>
+</Project>
+
+<!-- MyLib.csproj — project controls singular vs plural -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(DefaultTargetFramework)</TargetFramework>
+  </PropertyGroup>
+</Project>
+```
+
+---
+
 ## Quick-Reference Checklist
 
 When reviewing an MSBuild file, scan for these in order:
@@ -198,3 +250,4 @@ When reviewing an MSBuild file, scan for these in order:
 | AP-17 | Mixed Include/Update in one ItemGroup | 🔵 Subtle bugs |
 | AP-18 | Redundant transitive ProjectReferences | 🔵 Graph noise |
 | AP-20 | Platform-specific Exec without guard | 🔵 Cross-platform |
+| AP-22 | TargetFramework/TargetFrameworks in Directory.Build.props | 🔴 Build collision |
