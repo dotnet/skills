@@ -84,7 +84,7 @@ See existing plugins for the expected format.
 We are most likely to accept contributions that are:
 
 - Addresses a LLM gap and is clearly motivated by a real use case
-- Likely to be used frequently and is general ( not repo specific)
+- Likely to be used frequently and is general (not repo-specific)
 - Narrow in scope and easy to review
 - Tool conscious and explicit about assumptions
 - Verifiable with concrete validation steps
