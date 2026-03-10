@@ -6,7 +6,7 @@
 #
 # The `pull_request_target` trigger handles initial status posting for fork PRs:
 # it runs discovery (from the base branch, safe) and posts a commit status so
-# the required "evaluation" check is never stuck as "Expected".
+# the required "evaluation-status" check is never stuck as "Expected".
 #
 # Security model:
 #   - Workflow YAML: always from the base branch (enforced by issue_comment
