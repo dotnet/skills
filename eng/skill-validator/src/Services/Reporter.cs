@@ -378,7 +378,7 @@ public static class Reporter
                 // Wrap in inline code to prevent markdown injection from PR-controlled content
                 var safeName = v.SkillName.Replace("`", "'");
                 var safeReason = v.Reason.Replace("`", "'").Replace("\r", "").Replace("\n", " ");
-                sb.AppendLine($"`{safeName}`: {safeReason}");
+                sb.AppendLine($"`{safeName}: {safeReason}`");
             }
         }
 
