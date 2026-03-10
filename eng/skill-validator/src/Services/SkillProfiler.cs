@@ -163,15 +163,20 @@ public static partial class SkillProfiler
         if (!hasFrontmatter)
             warnings.Add("No YAML frontmatter — agents use name/description for skill discovery.");
 
-        // Check if eval prompts explicitly reference the skill by name — this biases
-        // baseline runs (agent wastes time searching) and forces activation instead of
-        // testing organic discovery.
+        // Eval prompts that explicitly reference the skill by name bias baseline runs
+        // (agent wastes time searching) and force activation instead of testing organic
+        // discovery. This is a hard error.
         if (skill.EvalConfig is not null && !string.IsNullOrWhiteSpace(skill.Name))
         {
+            // Boundary-aware match: skill name must appear as a standalone token,
+            // not as part of a larger word or hyphenated identifier.
+            var escapedName = Regex.Escape(skill.Name.Trim());
+            var namePattern = new Regex($@"(?<![\w-]){escapedName}(?![\w-])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
             foreach (var scenario in skill.EvalConfig.Scenarios)
             {
-                if (scenario.Prompt.Contains(skill.Name, StringComparison.OrdinalIgnoreCase))
-                    warnings.Add($"Eval scenario '{scenario.Name}' prompt mentions skill name '{skill.Name}' — this biases baseline runs and forces activation.");
+                if (namePattern.IsMatch(scenario.Prompt))
+                    errors.Add($"Eval scenario '{scenario.Name}' prompt mentions skill name '{skill.Name}' — remove skill name from prompt to avoid biasing baseline runs.");
             }
         }
 

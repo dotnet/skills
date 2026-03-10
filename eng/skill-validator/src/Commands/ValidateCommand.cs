@@ -122,7 +122,12 @@ public static class ValidateCommand
         try
         {
             var client = await AgentRunner.GetSharedClient(config.Verbose);
-            var models = await client.ListModelsAsync();
+            var models = await RetryHelper.ExecuteWithRetry(
+                async _ => await client.ListModelsAsync(),
+                label: "ListModels",
+                maxRetries: 3,
+                baseDelayMs: 2_000,
+                totalTimeoutMs: 60_000);
             var modelIds = models.Select(m => m.Id).ToList();
             var modelsToValidate = new List<string> { config.Model };
             if (config.JudgeModel != config.Model) modelsToValidate.Add(config.JudgeModel);
