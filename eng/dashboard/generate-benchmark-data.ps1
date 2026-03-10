@@ -276,24 +276,13 @@ foreach ($key in @($qualityKey, $efficiencyKey)) {
     }
 }
 
-# Write <PluginName>.json (or remove it if all entries were purged)
+# Write <PluginName>.json
+New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+$dataJson = $benchmarkData | ConvertTo-Json -Depth 10
 $dataJsonFile = Join-Path $OutputDir "$PluginName.json"
-$totalEntries = $benchmarkData['entries'][$qualityKey].Count + $benchmarkData['entries'][$efficiencyKey].Count
+$dataJson | Out-File -FilePath $dataJsonFile -Encoding utf8
 
-if ($totalEntries -eq 0) {
-    if (Test-Path $dataJsonFile) {
-        Remove-Item $dataJsonFile -Force
-        Write-Host "[REMOVED] $PluginName.json — all entries older than $retentionDays days"
-    } else {
-        Write-Host "[SKIP] $PluginName.json — no entries to write"
-    }
-} else {
-    New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
-    $dataJson = $benchmarkData | ConvertTo-Json -Depth 10
-    $dataJson | Out-File -FilePath $dataJsonFile -Encoding utf8
-
-    Write-Host "[OK] Benchmark $PluginName.json generated: $dataJsonFile"
-    Write-Host "   Quality entries: $($qualityBenches.Count)"
-    Write-Host "   Efficiency entries: $($efficiencyBenches.Count)"
-    Write-Host "   Total data points: $($benchmarkData['entries'][$qualityKey].Count)"
-}
+Write-Host "[OK] Benchmark $PluginName.json generated: $dataJsonFile"
+Write-Host "   Quality entries: $($qualityBenches.Count)"
+Write-Host "   Efficiency entries: $($efficiencyBenches.Count)"
+Write-Host "   Total data points: $($benchmarkData['entries'][$qualityKey].Count)"
