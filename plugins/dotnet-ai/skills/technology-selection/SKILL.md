@@ -347,7 +347,7 @@ When reviewing or generating code, flag and redirect the developer if any of the
 | Over-engineering with LLMs | Start with the simplest approach (rules, ML.NET) and add LLM capability only when simpler methods fall short |
 | Evaluating ML models on training data | Always use `TrainTestSplit` and report metrics on the held-out test set |
 | LLM output drift between deployments | Pin to specific dated model versions (e.g., `gpt-4o-2024-08-06`) |
-| Token cost surprises | Set `MaxOutputTokens`, log token counts per request, and alert on budget thresholds |
+| Token cost surprises | Set `MaxOutputTokens`, use Microsoft.ML.Tokenizers for accurate client-side token counting, log token counts per request, and alert on budget thresholds |
 | Non-reproducible ML training | Set `MLContext(seed: N)` and version your training data alongside the code |
 | RAG returning irrelevant context | Set a minimum similarity score and limit the number of injected chunks |
 | Cold start latency on ML.NET models | Pre-warm the `PredictionEnginePool` during application startup |
