@@ -311,6 +311,77 @@ public static class AgentRunner
         return metrics;
     }
 
+    /// <summary>
+    /// Lightweight probe that sends a prompt and checks whether the skill is activated.
+    /// Exits immediately when a SkillInvokedEvent is seen, or waits for the session to
+    /// complete/timeout. Designed to run many probes in parallel via Task.WhenAll.
+    /// </summary>
+    public static async Task<bool> ProbeSkillActivation(RunOptions options)
+    {
+        var workDir = Path.Combine(Path.GetTempPath(), $"sv-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(workDir);
+        _workDirs.Add(workDir);
+
+        if (options.Verbose)
+        {
+            var write = options.Log ?? (msg => Console.Error.WriteLine(msg));
+            write($"      📂 {workDir} (skilled)");
+        }
+
+        bool skillActivated = false;
+        var done = new TaskCompletionSource<bool>();
+
+        try
+        {
+            var client = await GetSharedClient(options.Verbose);
+            await using var session = await client.CreateSessionAsync(
+                BuildSessionConfig(options.Skill, options.Model, workDir, options.Skill?.McpServers));
+
+            // 30s timeout — enough for the agent to reach the skill-loading decision
+            using var cts = new CancellationTokenSource(30_000);
+            cts.Token.Register(() => done.TrySetResult(skillActivated));
+
+            session.On(evt =>
+            {
+                switch (evt)
+                {
+                    // Skill loaded → we have our answer, bail immediately
+                    case SkillInvokedEvent:
+                        skillActivated = true;
+                        done.TrySetResult(true);
+                        break;
+
+                    // Session finished without loading the skill → not activated
+                    case SessionIdleEvent:
+                        done.TrySetResult(skillActivated);
+                        break;
+
+                    case SessionErrorEvent err:
+                        done.TrySetException(new InvalidOperationException(err.Data.Message ?? "Session error"));
+                        break;
+                }
+
+                if (options.Verbose && evt is SkillInvokedEvent si)
+                {
+                    var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                    write($"      📘 Skill invoked: {si.Data.Name}");
+                }
+                if (options.Verbose && evt is ToolExecutionStartEvent ts)
+                {
+                    var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                    write($"      🔧 {ts.Data.ToolName}");
+                }
+            });
+
+            await session.SendAsync(new MessageOptions { Prompt = options.Scenario.Prompt });
+            return await done.Task;
+        }
+        catch
+        {
+            return skillActivated;
+        }
+    }
+
     private static async Task<string> SetupWorkDir(EvalScenario scenario, string? skillPath, string? evalPath)
     {
         var workDir = Path.Combine(Path.GetTempPath(), $"sv-{Guid.NewGuid():N}");

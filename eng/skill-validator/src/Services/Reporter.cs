@@ -63,22 +63,34 @@ public static class Reporter
         {
             var icon = verdict.Passed ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m";
             var name = $"\x1b[1m{verdict.SkillName}\x1b[0m";
-            var score = FormatScore(verdict.OverallImprovementScore);
 
-            var scoreLine = $"{icon} {name}  {score}";
-            if (verdict.ConfidenceInterval is { } ci)
+            // Selectivity-only verdict: no scenarios or score to display
+            bool isSelectivityOnly = verdict.Scenarios.Count == 0 && verdict.SelectivityResult is not null;
+
+            if (isSelectivityOnly)
             {
-                var ciStr = $"[{FormatPct(ci.Low)}, {FormatPct(ci.High)}]";
-                var sigStr = verdict.IsSignificant == true
-                    ? "\x1b[32msignificant\x1b[0m"
-                    : "\x1b[33mnot significant\x1b[0m";
-                scoreLine += $"  \x1b[2m{ciStr}\x1b[0m {sigStr}";
+                Console.WriteLine($"{icon} {name}  \x1b[2m(selectivity only)\x1b[0m");
+                Console.WriteLine($"  \x1b[2m{verdict.Reason}\x1b[0m");
             }
-            if (verdict.NormalizedGain is { } ng)
-                scoreLine += $"  \x1b[2m(g={FormatPct(ng)})\x1b[0m";
+            else
+            {
+                var score = FormatScore(verdict.OverallImprovementScore);
 
-            Console.WriteLine(scoreLine);
-            Console.WriteLine($"  \x1b[2m{verdict.Reason}\x1b[0m");
+                var scoreLine = $"{icon} {name}  {score}";
+                if (verdict.ConfidenceInterval is { } ci)
+                {
+                    var ciStr = $"[{FormatPct(ci.Low)}, {FormatPct(ci.High)}]";
+                    var sigStr = verdict.IsSignificant == true
+                        ? "\x1b[32msignificant\x1b[0m"
+                        : "\x1b[33mnot significant\x1b[0m";
+                    scoreLine += $"  \x1b[2m{ciStr}\x1b[0m {sigStr}";
+                }
+                if (verdict.NormalizedGain is { } ng)
+                    scoreLine += $"  \x1b[2m(g={FormatPct(ng)})\x1b[0m";
+
+                Console.WriteLine(scoreLine);
+                Console.WriteLine($"  \x1b[2m{verdict.Reason}\x1b[0m");
+            }
 
             if (!verdict.Passed && verdict.ProfileWarnings is { Count: > 0 })
             {
@@ -131,6 +143,21 @@ public static class Reporter
                         .Take(2);
                     foreach (var item in topAssert)
                         Console.WriteLine($"    \x1b[2m•\x1b[0m [{item.Classification}] \x1b[2m{item.AssertionSummary}\x1b[0m\n      \x1b[2m— {item.Reasoning}\x1b[0m");
+                }
+            }
+            if (verdict.SelectivityResult is { } selResult)
+            {
+                Console.WriteLine();
+                var selIcon = selResult.Passed ? "✅" : "🔴";
+                Console.WriteLine($"  🎯 Selectivity: recall={selResult.Recall:P0}, precision={selResult.Precision:P0} {selIcon}");
+                foreach (var pr in selResult.PromptResults)
+                {
+                    var expected = pr.ExpectedActivation ? "should activate" : "should NOT activate";
+                    var correct = (pr.ExpectedActivation == pr.SkillActivated);
+                    var prIcon = correct ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m";
+                    var activatedStr = pr.SkillActivated ? "activated" : "not activated";
+                    var prompt = pr.Prompt.Length > 60 ? pr.Prompt[..59] + "…" : pr.Prompt;
+                    Console.WriteLine($"    {prIcon} \x1b[2m\"{prompt}\" — {expected} → {activatedStr}\x1b[0m");
                 }
             }
             if (verdict.Scenarios.Count > 0)

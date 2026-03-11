@@ -33,6 +33,8 @@ namespace SkillValidator;
 [JsonSerializable(typeof(PairwiseMagnitude))]
 [JsonSerializable(typeof(AssertionType))]
 [JsonSerializable(typeof(MCPServerDef))]
+[JsonSerializable(typeof(SelectivityPromptResult))]
+[JsonSerializable(typeof(SelectivityResult))]
 [JsonSerializable(typeof(JsonElement))]
 [JsonSerializable(typeof(Dictionary<string, int>))]
 [JsonSerializable(typeof(Dictionary<string, JsonNode?>))]

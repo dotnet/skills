@@ -18,7 +18,7 @@
     <PublishAot>true</PublishAot>
 
     <!-- dotnet run args for local invocation -->
-    <RunArguments>--results-dir &quot;$([MSBuild]::NormalizePath('$(ArtifactsPath)', 'TestResults', '$(AssemblyName)'))&quot; --parallel-skills 3 --parallel-scenarios 3 --parallel-runs 3</RunArguments>
+    <RunArguments>--results-dir "$([MSBuild]::NormalizePath('$(ArtifactsPath)', 'TestResults', '$(AssemblyName)'))" --parallel-skills 3 --parallel-scenarios 3 --parallel-runs 3</RunArguments>
   </PropertyGroup>
 
   <ItemGroup>

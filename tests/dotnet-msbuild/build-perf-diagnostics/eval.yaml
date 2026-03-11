@@ -15,3 +15,17 @@ scenarios:
       - "Identified EnforceCodeStyleInBuild should be conditional on CI, not always true"
       - "Solution preserves full analyzer enforcement in CI pipelines while speeding dev builds"
     timeout: 160
+
+selectivity:
+  should_activate:
+    - "My .NET build takes over 5 minutes, how can I speed it up?"
+    - "How do I analyze a binlog to find slow targets in MSBuild?"
+    - "Roslyn analyzers are making my compilation really slow, what can I do?"
+    - "I want to profile my MSBuild build to understand where time is being spent"
+    - "Our CI builds are fast but local dev builds are painfully slow, how do I diagnose this?"
+  should_not_activate:
+    - "How do I add a NuGet package reference to my project?"
+    - "My unit tests are failing with a NullReferenceException"
+    - "How do I configure Docker for my .NET application?"
+    - "What's the difference between .NET 8 and .NET 9?"
+    - "How do I set up Entity Framework Core migrations?"

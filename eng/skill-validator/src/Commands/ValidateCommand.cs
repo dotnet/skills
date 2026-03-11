@@ -31,6 +31,9 @@ public static class ValidateCommand
         var reporterOpt = new Option<string[]>("--reporter") { Description = "Reporter (console, json, junit, markdown). Can be repeated.", AllowMultipleArgumentsPerToken = true };
         var noOverfittingCheckOpt = new Option<bool>("--no-overfitting-check") { Description = "Disable LLM-based overfitting analysis (on by default)" };
         var overfittingFixOpt = new Option<bool>("--overfitting-fix") { Description = "Generate a fixed eval.yaml with improved rubric items/assertions" };
+        var selectivityTestOpt = new Option<bool>("--selectivity-test") { Description = "Run selectivity test using should_activate / should_not_activate prompts from eval.yaml" };
+        var selectivityMinRecallOpt = new Option<double>("--selectivity-min-recall") { Description = "Minimum recall (activation on should_activate prompts) to pass (0-1)", DefaultValueFactory = _ => 0.8 };
+        var selectivityMinPrecisionOpt = new Option<double>("--selectivity-min-precision") { Description = "Minimum precision (non-activation on should_not_activate prompts) to pass (0-1)", DefaultValueFactory = _ => 0.8 };
 
         var command = new RootCommand("Validate that agent skills meaningfully improve agent performance")
         {
@@ -54,6 +57,9 @@ public static class ValidateCommand
             reporterOpt,
             noOverfittingCheckOpt,
             overfittingFixOpt,
+            selectivityTestOpt,
+            selectivityMinRecallOpt,
+            selectivityMinPrecisionOpt,
         };
 
         command.SetAction(async (parseResult, _) =>
@@ -99,6 +105,9 @@ public static class ValidateCommand
                 TestsDir = parseResult.GetValue(testsDirOpt),
                 OverfittingCheck = !parseResult.GetValue(noOverfittingCheckOpt),
                 OverfittingFix = parseResult.GetValue(overfittingFixOpt),
+                SelectivityTest = parseResult.GetValue(selectivityTestOpt),
+                SelectivityMinRecall = parseResult.GetValue(selectivityMinRecallOpt),
+                SelectivityMinPrecision = parseResult.GetValue(selectivityMinPrecisionOpt),
             };
 
             return await Run(config);
@@ -415,6 +424,36 @@ public static class ValidateCommand
             };
         }
 
+        // Selectivity-only mode: skip full evaluation, just probe skill activation
+        if (config.SelectivityTest)
+        {
+            if (skill.EvalConfig is not null
+                && (skill.EvalConfig.ShouldActivatePrompts is { Count: > 0 } || skill.EvalConfig.ShouldNotActivatePrompts is { Count: > 0 }))
+            {
+                log("🎯 Running selectivity test (standalone)...");
+                var selectivityResult = await ExecuteSelectivityTest(skill, config, spinner);
+                log($"🎯 Selectivity: recall={selectivityResult.Recall:P0}, precision={selectivityResult.Precision:P0} — {(selectivityResult.Passed ? "PASSED" : "FAILED")}");
+
+                return new SkillVerdict
+                {
+                    SkillName = skill.Name,
+                    SkillPath = skill.Path,
+                    Passed = selectivityResult.Passed,
+                    Scenarios = [],
+                    OverallImprovementScore = 0,
+                    Reason = selectivityResult.Passed
+                        ? "Selectivity test passed"
+                        : $"Selectivity test failed: {selectivityResult.Reason}",
+                    FailureKind = selectivityResult.Passed ? null : "selectivity_failure",
+                    ProfileWarnings = profile.Warnings,
+                    SelectivityResult = selectivityResult,
+                };
+            }
+
+            log("⏭  Skipping (no selectivity prompts in eval.yaml)");
+            return null;
+        }
+
         // Launch overfitting check in parallel with scenario execution
         var workDir = Path.GetTempPath();
         Task<OverfittingResult?> overfittingTask = Task.FromResult<OverfittingResult?>(null);
@@ -578,8 +617,8 @@ public static class ValidateCommand
             runLog("running agents...");
 
         var agentTasks = await Task.WhenAll(
-            AgentRunner.RunAgent(new RunOptions(scenario, null, skill.EvalPath, config.Model, config.Verbose, runLog)),
-            AgentRunner.RunAgent(new RunOptions(scenario, skill, skill.EvalPath, config.Model, config.Verbose, runLog)));
+            AgentRunner.RunAgent(new RunOptions(scenario, null, skill.EvalPath, config.Model, config.Verbose, Log: runLog)),
+            AgentRunner.RunAgent(new RunOptions(scenario, skill, skill.EvalPath, config.Model, config.Verbose, Log: runLog)));
         var baselineMetrics = agentTasks[0];
         var withSkillMetrics = agentTasks[1];
 
@@ -724,4 +763,75 @@ public static class ValidateCommand
         var singleLine = raw.ReplaceLineEndings(" ");
         return singleLine.Length > 150 ? singleLine[..150] + "…" : singleLine;
     }
+
+    private static async Task<SelectivityResult> ExecuteSelectivityTest(SkillInfo skill, ValidatorConfig config, Spinner spinner)
+    {
+        var prefix = $"[{skill.Name}/selectivity]";
+        var log = (string msg) => spinner.Log($"{prefix} {msg}");
+
+        // Launch all probes in parallel
+        var tasks = new List<Task<SelectivityPromptResult>>();
+
+        if (skill.EvalConfig!.ShouldActivatePrompts is { } activatePrompts)
+        {
+            foreach (var prompt in activatePrompts)
+            {
+                log($"Testing should_activate: \"{Truncate(prompt, 60)}\"");
+                tasks.Add(ProbeAndLog(skill, prompt, expectedActivation: true, config, log));
+            }
+        }
+
+        if (skill.EvalConfig.ShouldNotActivatePrompts is { } deactivatePrompts)
+        {
+            foreach (var prompt in deactivatePrompts)
+            {
+                log($"Testing should_not_activate: \"{Truncate(prompt, 60)}\"");
+                tasks.Add(ProbeAndLog(skill, prompt, expectedActivation: false, config, log));
+            }
+        }
+
+        var promptResults = (await Task.WhenAll(tasks)).ToList();
+
+        // Calculate recall: fraction of should_activate prompts that actually activated
+        var shouldActivateResults = promptResults.Where(r => r.ExpectedActivation).ToList();
+        double recall = shouldActivateResults.Count > 0
+            ? (double)shouldActivateResults.Count(r => r.SkillActivated) / shouldActivateResults.Count
+            : 1.0;
+
+        // Calculate precision: fraction of should_not_activate prompts that correctly did NOT activate
+        var shouldNotActivateResults = promptResults.Where(r => !r.ExpectedActivation).ToList();
+        double precision = shouldNotActivateResults.Count > 0
+            ? (double)shouldNotActivateResults.Count(r => !r.SkillActivated) / shouldNotActivateResults.Count
+            : 1.0;
+
+        bool passed = recall >= config.SelectivityMinRecall && precision >= config.SelectivityMinPrecision;
+        var reasons = new List<string>();
+        if (recall < config.SelectivityMinRecall)
+            reasons.Add($"Recall {recall:P0} below threshold {config.SelectivityMinRecall:P0}");
+        if (precision < config.SelectivityMinPrecision)
+            reasons.Add($"Precision {precision:P0} below threshold {config.SelectivityMinPrecision:P0}");
+        string reason = passed ? "Selectivity test passed" : string.Join("; ", reasons);
+
+        return new SelectivityResult(promptResults, recall, precision, passed, reason);
+    }
+
+    private static async Task<SelectivityPromptResult> ProbeAndLog(
+        SkillInfo skill, string prompt, bool expectedActivation, ValidatorConfig config, Action<string> log)
+    {
+        var activated = await TestSkillActivation(skill, prompt, config);
+        if (expectedActivation)
+            log($"  → {(activated ? "✅ activated" : "❌ NOT activated")}: \"{Truncate(prompt, 50)}\"");
+        else
+            log($"  → {(activated ? "❌ activated (unexpected)" : "✅ correctly NOT activated")}: \"{Truncate(prompt, 50)}\"");
+        return new SelectivityPromptResult(prompt, ExpectedActivation: expectedActivation, SkillActivated: activated);
+    }
+
+    private static async Task<bool> TestSkillActivation(SkillInfo skill, string prompt, ValidatorConfig config)
+    {
+        var scenario = new EvalScenario(Name: "selectivity-probe", Prompt: prompt, Rubric: [], Timeout: 15);
+        return await AgentRunner.ProbeSkillActivation(new RunOptions(scenario, skill, skill.EvalPath, config.Model, config.Verbose));
+    }
+
+    private static string Truncate(string value, int maxLength) =>
+        value.Length <= maxLength ? value : value[..(maxLength - 1)] + "…";
 }

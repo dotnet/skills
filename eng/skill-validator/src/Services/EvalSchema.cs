@@ -21,7 +21,7 @@ public static class EvalSchema
         if (scenarios is not { Count: > 0 })
             throw new InvalidOperationException("Eval config must have at least one scenario");
 
-        return new EvalConfig(scenarios);
+        return new EvalConfig(scenarios, raw.Selectivity?.ShouldActivate, raw.Selectivity?.ShouldNotActivate);
     }
 
     public static (bool Success, EvalConfig? Data, IReadOnlyList<string>? Errors) ValidateEvalConfig(string yamlContent)
@@ -128,6 +128,15 @@ public static class EvalSchema
     internal sealed class RawEvalConfig
     {
         public List<RawScenario>? Scenarios { get; set; }
+        public RawSelectivity? Selectivity { get; set; }
+    }
+
+    internal sealed class RawSelectivity
+    {
+        [YamlMember(Alias = "should_activate")]
+        public List<string>? ShouldActivate { get; set; }
+        [YamlMember(Alias = "should_not_activate")]
+        public List<string>? ShouldNotActivate { get; set; }
     }
 
     internal sealed class RawScenario
