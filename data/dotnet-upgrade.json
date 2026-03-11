@@ -2327,6 +2327,115 @@
           "url": "https://github.com/dotnet/skills/commit/4a4306f5638db875f821d6c2e4d280e7224d359d",
           "timestamp": "2026-03-11T09:17:01+00:00"
         }
+      },
+      {
+        "commit": {
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Jan Krivanek"
+          },
+          "timestamp": "2026-03-11T09:17:01+00:00",
+          "id": "4a4306f5638db875f821d6c2e4d280e7224d359d",
+          "url": "https://github.com/dotnet/skills/commit/4a4306f5638db875f821d6c2e4d280e7224d359d",
+          "message": "Disable scheduled workflows on forks (#318)"
+        },
+        "tool": "customSmallerIsBetter",
+        "model": "claude-opus-4.6",
+        "date": 1773247551892,
+        "benches": [
+          {
+            "unit": "seconds",
+            "value": 41.6,
+            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 33651.0,
+            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 36.5,
+            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 29933.0,
+            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 41.4,
+            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 30430.0,
+            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 41.1,
+            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 36836.0,
+            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 13.7,
+            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 28843.0,
+            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 125.5,
+            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 260524.0,
+            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 61.9,
+            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 133045.0,
+            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 143.3,
+            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 218194.0,
+            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "timedOut": true,
+            "value": 1050.1,
+            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "timedOut": true,
+            "value": 2584339.0,
+            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Skilled Tokens In"
+          }
+        ]
       }
     ],
     "Quality": [
@@ -4616,9 +4725,117 @@
           "url": "https://github.com/dotnet/skills/commit/4a4306f5638db875f821d6c2e4d280e7224d359d",
           "timestamp": "2026-03-11T09:17:01+00:00"
         }
+      },
+      {
+        "commit": {
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Jan Krivanek"
+          },
+          "timestamp": "2026-03-11T09:17:01+00:00",
+          "id": "4a4306f5638db875f821d6c2e4d280e7224d359d",
+          "url": "https://github.com/dotnet/skills/commit/4a4306f5638db875f821d6c2e4d280e7224d359d",
+          "message": "Disable scheduled workflows on forks (#318)"
+        },
+        "tool": "customBiggerIsBetter",
+        "model": "claude-opus-4.6",
+        "date": 1773247551892,
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.800000190734863,
+            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.0,
+            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.600000381469727,
+            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.599999904632568,
+            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.0,
+            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.199999809265137,
+            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "timedOut": true,
+            "value": 2.4000000953674316,
+            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 3.200000047683716,
+            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Vanilla Quality"
+          }
+        ]
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1773236072383
+  "lastUpdate": 1773247551892
 }
