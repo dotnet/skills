@@ -54,6 +54,7 @@ Skills are grouped into domain-specific plugins. When proposing a new skill, pla
 | `dotnet-diag` | Performance investigations, debugging, and incident analysis |
 | `dotnet-data` | Data access and Entity Framework |
 | `dotnet-msbuild` | MSBuild and project system |
+| `dotnet-ai` | AI and ML: technology selection, LLM integration, agentic workflows, RAG pipelines, and classic ML |
 
 If your skill does not fit any existing plugin, consider creating a new one. The following plugin names are reserved for future use and are good candidates for new skills in those areas:
 
