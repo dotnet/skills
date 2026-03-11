@@ -2,9 +2,6 @@ name: skill-validator
 
 on:
   pull_request:
-    paths:
-      - 'eng/skill-validator/**'
-      - '.github/workflows/skill-validator.yml'
   schedule:
     - cron: '0 8 * * *' # daily at 08:00 UTC
   workflow_dispatch:
@@ -23,7 +20,41 @@ env:
   AGNOSTIC_RID: linux-x64
 
 jobs:
+  discover:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.check.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for relevant changes
+        id: check
+        shell: pwsh
+        run: |
+          $base = "${{ github.event.pull_request.base.sha }}"
+          $head = "${{ github.event.pull_request.head.sha }}"
+          $mergeBase = git merge-base $base $head
+          $changed = git diff --name-only $mergeBase $head |
+            Where-Object { $_ -match '^(eng/skill-validator/|\.github/workflows/skill-validator\.yml$)' } |
+            Select-Object -First 1
+          if ($changed) {
+            echo "has_changes=true" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "has_changes=false" >> $env:GITHUB_OUTPUT
+          }
+
   build:
+    needs: discover
+    # Don't run scheduled builds on forked repositories — forks that enable
+    # Actions would otherwise consume the fork owner's minutes indefinitely.
+    # For PRs, skip when no relevant files changed (discover job).
+    if: >-
+      always() &&
+      !(github.event_name == 'schedule' && github.event.repository.fork) &&
+      (needs.discover.result == 'skipped' || needs.discover.outputs.has_changes == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -123,3 +154,24 @@ jobs:
             --title "SkillValidator Nightly" \
             --notes "Automated nightly build from \`main\` ($(date -u +%Y-%m-%d))." \
             --prerelease
+
+  # Require this job in the GitHub ruleset. It always runs on PRs and
+  # succeeds when no relevant files changed or the build passed.
+  skill-validator-status:
+    needs: [discover, build]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check result
+        run: |
+          if [[ "${{ needs.discover.result }}" != "success" ]]; then
+            echo "::error::Discovery failed (${{ needs.discover.result }})"
+            exit 1
+          elif [[ "${{ needs.discover.outputs.has_changes }}" != "true" ]]; then
+            echo "No skill-validator changes — skipping build"
+          elif [[ "${{ needs.build.result }}" != "success" ]]; then
+            echo "::error::Build failed (${{ needs.build.result }})"
+            exit 1
+          else
+            echo "Build and tests passed"
+          fi
