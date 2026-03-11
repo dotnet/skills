@@ -159,7 +159,7 @@ var hi_nibble = Vector128.ShiftRightLogical(vec.AsUInt16(), 4).AsByte() & nibble
 var lo_match = Vector128.Shuffle(lo_lut, lo_nibble);
 var hi_match = Vector128.Shuffle(hi_lut, hi_nibble);
 var match = lo_match & hi_match;
-count += Vector128.CountWhereAllBitsSet(Vector128.Equals(match, Vector128<byte>.Zero).IsNot());
+count += Vector128.CountWhereAllBitsSet(~Vector128.Equals(match, Vector128<byte>.Zero));
 ```
 This same technique works for popcount (LUT = {0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4}).
 For simpler cases (single byte value, adjacent range), use `Equals` + `Count` or range check instead.
