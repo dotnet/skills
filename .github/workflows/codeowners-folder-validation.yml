@@ -2,11 +2,6 @@ name: codeowners-folder-validation
 
 on:
   pull_request:
-    paths:
-      - 'plugins/**'
-      - 'tests/**'
-      - '.github/CODEOWNERS'
-      - '.github/workflows/codeowners-folder-validation.yml'
   push:
     branches: [main]
     paths:
@@ -40,6 +35,7 @@ jobs:
 
           # Collect CODEOWNERS path tokens that represent concrete directory scopes.
           # Wildcard tokens are ignored for this validation to keep checks folder-specific.
+          $codeownerEntries = New-Object 'System.Collections.Generic.List[PSCustomObject]'
           $ownedPaths = New-Object 'System.Collections.Generic.List[string]'
           $lines = Get-Content -Path $codeownersPath
           foreach ($line in $lines) {
@@ -48,7 +44,8 @@ jobs:
               continue
             }
 
-            $pathToken = ($trimmed -split '\s+')[0]
+            $tokens = $trimmed -split '\s+'
+            $pathToken = $tokens[0]
             if ($pathToken -match '[*?\[]') {
               continue
             }
@@ -59,6 +56,11 @@ jobs:
               $pathToken = "$pathToken/"
             }
 
+            $owners = @($tokens | Select-Object -Skip 1 | Where-Object { $_ -match '^@' })
+            $codeownerEntries.Add([PSCustomObject]@{
+              Path   = $pathToken
+              Owners = $owners
+            })
             $ownedPaths.Add($pathToken)
           }
 
@@ -98,53 +100,117 @@ jobs:
             return $false
           }
 
+          # Return the last matching CODEOWNERS entry (last-match-wins semantics).
+          function Get-EffectiveEntry([string]$ExpectedPath, [System.Collections.Generic.List[PSCustomObject]]$Entries) {
+            $lastMatch = $null
+            foreach ($entry in $Entries) {
+              if ($ExpectedPath.StartsWith($entry.Path, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $lastMatch = $entry
+              }
+            }
+            return $lastMatch
+          }
+
+          # Require at least one team or at least two individuals.
+          function Test-SufficientOwners([string[]]$Owners) {
+            $teams = @($Owners | Where-Object { $_ -match '/' })
+            if ($teams.Count -ge 1) { return $true }
+            $individuals = @($Owners | Where-Object { $_ -notmatch '/' })
+            if ($individuals.Count -ge 2) { return $true }
+            return $false
+          }
+
+          # --- Check 1: missing CODEOWNERS entries ---
           $missing = @(
             $expectedPaths |
               Where-Object { -not (Test-IsCovered $_ $ownedPaths) } |
               Sort-Object
           )
 
+          # --- Check 2: insufficient owners (only for covered paths) ---
+          $insufficientOwners = @(
+            $expectedPaths |
+              Where-Object { Test-IsCovered $_ $ownedPaths } |
+              ForEach-Object {
+                $entry = Get-EffectiveEntry $_ $codeownerEntries
+                if ($entry -and -not (Test-SufficientOwners $entry.Owners)) {
+                  [PSCustomObject]@{
+                    path   = $_
+                    owners = $entry.Owners -join ' '
+                  }
+                }
+              } |
+              Sort-Object -Property path
+          )
+
+          # --- Outputs ---
           $missingJson = ConvertTo-Json -InputObject @($missing) -Compress
-          if (-not $missingJson) {
-            $missingJson = '[]'
-          }
+          if (-not $missingJson) { $missingJson = '[]' }
 
-          if ($missing.Count -gt 0) {
-            Write-Host "Missing CODEOWNERS entries found:"
+          $insufficientJson = ConvertTo-Json -InputObject @($insufficientOwners) -Compress -Depth 3
+          if (-not $insufficientJson) { $insufficientJson = '[]' }
+
+          $hasMissing = $missing.Count -gt 0
+          $hasInsufficient = $insufficientOwners.Count -gt 0
+
+          if ($hasMissing) {
+            Write-Host "Missing CODEOWNERS entries:"
             $missing | ForEach-Object { Write-Host "  - $_" }
-            "has_missing=true" >> $env:GITHUB_OUTPUT
-          } else {
-            Write-Host 'All required CODEOWNERS folder entries are present.'
-            "has_missing=false" >> $env:GITHUB_OUTPUT
+          }
+          if ($hasInsufficient) {
+            Write-Host "Insufficient owners (need 2+ individuals or 1+ team):"
+            $insufficientOwners | ForEach-Object { Write-Host "  - $($_.path)  (current: $($_.owners))" }
+          }
+          if (-not $hasMissing -and -not $hasInsufficient) {
+            Write-Host 'All CODEOWNERS entries are present and have sufficient owners.'
           }
 
+          "has_missing=$($hasMissing.ToString().ToLower())" >> $env:GITHUB_OUTPUT
           "missing_json=$missingJson" >> $env:GITHUB_OUTPUT
+          "has_insufficient_owners=$($hasInsufficient.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          "insufficient_owners_json=$insufficientJson" >> $env:GITHUB_OUTPUT
 
-      - name: Create or update issue for missing entries
-        if: steps.audit.outputs.has_missing == 'true' && github.event_name != 'pull_request'
+      - name: Create or update issue for validation failures
+        if: (steps.audit.outputs.has_missing == 'true' || steps.audit.outputs.has_insufficient_owners == 'true') && github.event_name != 'pull_request'
         uses: actions/github-script@v8
         env:
           MISSING_JSON: ${{ steps.audit.outputs.missing_json }}
+          INSUFFICIENT_OWNERS_JSON: ${{ steps.audit.outputs.insufficient_owners_json }}
         with:
           script: |
             const missing = JSON.parse(process.env.MISSING_JSON || '[]');
-            if (!Array.isArray(missing) || missing.length === 0) {
-              core.info('No missing entries to report.');
+            const insufficientOwners = JSON.parse(process.env.INSUFFICIENT_OWNERS_JSON || '[]');
+
+            if ((!Array.isArray(missing) || missing.length === 0) &&
+                (!Array.isArray(insufficientOwners) || insufficientOwners.length === 0)) {
+              core.info('No issues to report.');
               return;
             }
 
-            const title = 'Missing CODEOWNERS entries for skill/test folders';
+            const title = 'CODEOWNERS validation failures for skill/test folders';
             const marker = '<!-- codeowners-folder-validation -->';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const body = [
+            const bodyParts = [
               marker,
-              'This issue tracks missing folder-level CODEOWNERS entries discovered by workflow `codeowners-folder-validation`.',
-              '',
-              'Missing paths:',
-              ...missing.map((p) => `- \`${p}\``),
-              '',
-              `Run: ${runUrl}`
-            ].join('\n');
+              'Issues discovered by workflow `codeowners-folder-validation`.',
+              ''
+            ];
+
+            if (missing.length > 0) {
+              bodyParts.push('## Missing CODEOWNERS entries', '');
+              bodyParts.push(...missing.map((p) => `- \`${p}\``));
+              bodyParts.push('');
+            }
+
+            if (insufficientOwners.length > 0) {
+              bodyParts.push('## Insufficient owners', '');
+              bodyParts.push('Each skill/test folder must have at least **2 individual owners** or **1 team**.', '');
+              bodyParts.push(...insufficientOwners.map((e) => `- \`${e.path}\` — current: ${e.owners}`));
+              bodyParts.push('');
+            }
+
+            bodyParts.push(`Run: ${runUrl}`);
+            const body = bodyParts.join('\n');
 
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
@@ -173,13 +239,19 @@ jobs:
               core.info(`Created issue #${created.data.number}`);
             }
 
-      - name: Fail when CODEOWNERS entries are missing
-        if: steps.audit.outputs.has_missing == 'true'
+      - name: Fail when CODEOWNERS validation fails
+        if: steps.audit.outputs.has_missing == 'true' || steps.audit.outputs.has_insufficient_owners == 'true'
         shell: pwsh
         env:
           MISSING_JSON: ${{ steps.audit.outputs.missing_json }}
+          INSUFFICIENT_OWNERS_JSON: ${{ steps.audit.outputs.insufficient_owners_json }}
         run: |
-          Write-Host "missing_json: $env:MISSING_JSON"
-          Write-Error 'Missing required CODEOWNERS folder entries. See issue for details.'
+          if ($env:MISSING_JSON -ne '[]') {
+            Write-Host "Missing entries: $env:MISSING_JSON"
+          }
+          if ($env:INSUFFICIENT_OWNERS_JSON -ne '[]') {
+            Write-Host "Insufficient owners: $env:INSUFFICIENT_OWNERS_JSON"
+          }
+          Write-Error 'CODEOWNERS validation failed. Each skill/test folder needs a CODEOWNERS entry with 2+ individuals or 1+ team.'
           exit 1
  
