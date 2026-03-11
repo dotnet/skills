@@ -22,7 +22,7 @@ Evaluate the developer's task against this decision tree and select the appropri
 
 | Task type | Technology | Rationale |
 |-----------|-----------|-----------|
-| Structured/tabular data: classification, regression, clustering, anomaly detection, recommendation | **ML.NET** (`Microsoft.ML`) | Deterministic, reproducible, no cloud dependency, purpose-built for these tasks |
+| Structured/tabular data: classification, regression, clustering, anomaly detection, recommendation | **ML.NET** (`Microsoft.ML`) | Reproducible (given a fixed seed and dataset), no cloud dependency, purpose-built models for these tasks |
 | Natural language understanding, generation, summarization, reasoning over unstructured text (single prompt → response, no tool calling) | **LLM via Microsoft.Extensions.AI** (`IChatClient`) | Requires language model capabilities beyond pattern matching; no orchestration needed |
 | Agentic workflows: tool/function calling, multi-step reasoning, agent loops, multi-agent collaboration | **Microsoft Agent Framework** (`Microsoft.Agents.AI`) built on top of **Microsoft.Extensions.AI** | Requires orchestration, tool dispatch, iteration control, and guardrails that `IChatClient` alone does not provide |
 | Building GitHub Copilot extensions, custom agents, or developer workflow tools | **GitHub Copilot SDK** (`GitHub.Copilot.SDK`) | Integrates with the Copilot agent runtime for IDE and CLI extensibility |
