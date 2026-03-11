@@ -50,7 +50,7 @@ public static class Judge
                 var result = AgentRunner.CheckPermission(request, options.WorkDir, options.SkillPath);
                 return Task.FromResult(new PermissionRequestResult
                 {
-                    Kind = result ? "approved" : "denied-by-rules",
+                    Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,
                 });
             },
         });
