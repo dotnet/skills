@@ -183,7 +183,7 @@ public static class ValidateCommand
         var noiseSkills = new List<SkillInfo>();
         if (config.NoiseSkillsDir is not null)
         {
-            noiseSkills.AddRange(await SkillDiscovery.DiscoverSkills(config.NoiseSkillsDir, config.TestsDir));
+            noiseSkills.AddRange(await SkillDiscovery.DiscoverSkillsRecursive(config.NoiseSkillsDir, config.TestsDir));
             Console.WriteLine($"Noise test enabled: discovered {noiseSkills.Count} noise skill(s) from {config.NoiseSkillsDir}");
         }
 
@@ -433,6 +433,12 @@ public static class ValidateCommand
             };
         }
 
+        // --- Noise-only path: skip normal baseline-vs-skill eval, run only skill-only vs all-skills ---
+        if (config.NoiseSkillsDir is not null && noiseSkills.Count > 0)
+        {
+            return await EvaluateSkillNoise(skill, noiseSkills, config, profile, spinner);
+        }
+
         // Launch overfitting check in parallel with scenario execution
         var workDir = Path.GetTempPath();
         Task<OverfittingResult?> overfittingTask = Task.FromResult<OverfittingResult?>(null);
@@ -479,28 +485,6 @@ public static class ValidateCommand
             catch (Exception ex)
             {
                 log($"⚠️ Failed to generate overfitting fix: {ex.Message}");
-            }
-        }
-
-        // --- Noise test: run scenarios with all skills loaded ---
-        if (config.NoiseSkillsDir is not null && noiseSkills.Count > 0)
-        {
-            try
-            {
-                var noiseResult = await ExecuteNoiseTest(skill, noiseSkills, config, spinner);
-                verdict.NoiseTestResult = noiseResult;
-                if (!noiseResult.Passed)
-                {
-                    log($"\x1b[33m\u26a0\ufe0f  Noise test: quality degraded by {noiseResult.OverallDegradation * 100:F1}% with {noiseResult.TotalSkillsLoaded} skills loaded\x1b[0m");
-                }
-                else
-                {
-                    log($"\u2705 Noise test passed ({noiseResult.TotalSkillsLoaded} skills loaded, degradation: {noiseResult.OverallDegradation * 100:F1}%)");
-                }
-            }
-            catch (Exception ex)
-            {
-                log($"\u26a0\ufe0f Noise test failed: {ex.Message}");
             }
         }
 
@@ -718,6 +702,72 @@ public static class ValidateCommand
             runLog("✓ complete");
 
         return new RunExecutionResult(baseline, withSkillResult, pairwise, skillActivation);
+    }
+
+    // --- Noise-only evaluation: skill-only vs all-skills (no pure-agent baseline) ---
+
+    private static async Task<SkillVerdict> EvaluateSkillNoise(
+        SkillInfo skill,
+        IReadOnlyList<SkillInfo> noiseSkills,
+        ValidatorConfig config,
+        SkillProfile profile,
+        Spinner spinner)
+    {
+        var prefix = $"[{skill.Name}]";
+        var log = (string msg) => spinner.Log($"{prefix} {msg}");
+
+        NoiseTestResult noiseResult;
+        try
+        {
+            noiseResult = await ExecuteNoiseTest(skill, noiseSkills, config, spinner);
+        }
+        catch (Exception ex)
+        {
+            log($"\u26a0\ufe0f Noise test failed: {ex.Message}");
+            return new SkillVerdict
+            {
+                SkillName = skill.Name,
+                SkillPath = skill.Path,
+                Passed = false,
+                Scenarios = [],
+                OverallImprovementScore = 0,
+                Reason = $"Noise test execution failed: {ex.Message}",
+                FailureKind = "noise_degradation",
+                ProfileWarnings = profile.Warnings,
+            };
+        }
+
+        var verdict = new SkillVerdict
+        {
+            SkillName = skill.Name,
+            SkillPath = skill.Path,
+            Passed = noiseResult.Passed,
+            Scenarios = [],
+            OverallImprovementScore = 0,
+            Reason = noiseResult.Reason,
+            FailureKind = noiseResult.Passed ? null : "noise_degradation",
+            ProfileWarnings = profile.Warnings,
+            NoiseTestResult = noiseResult,
+        };
+
+        if (!noiseResult.Passed)
+        {
+            log($"\x1b[33m\u26a0\ufe0f  Noise test: quality degraded by {noiseResult.OverallDegradation * 100:F1}% with {noiseResult.TotalSkillsLoaded} skills loaded\x1b[0m");
+        }
+        else
+        {
+            log($"\u2705 Noise test passed ({noiseResult.TotalSkillsLoaded} skills loaded, degradation: {noiseResult.OverallDegradation * 100:F1}%)");
+        }
+
+        var noiseNotActivated = noiseResult.Scenarios.Where(s => s.SkillActivation is { Activated: false }).ToList();
+        if (noiseNotActivated.Count > 0)
+        {
+            var names = string.Join(", ", noiseNotActivated.Select(s => s.ScenarioName));
+            log($"\x1b[33m\u26a0\ufe0f  Skills NOT activated in noise scenario(s): {names}\x1b[0m");
+        }
+
+        log($"{(verdict.Passed ? "✅" : "❌")} Done (noise degradation: {noiseResult.OverallDegradation * 100:F1}%)");
+        return verdict;
     }
 
     // --- Noise test: run scenarios with all discovered skills loaded ---
