@@ -10,7 +10,7 @@
 
 ## TensorPrimitives API Reference
 
-Use for any float/double array operation that has a matching API below. If the project doesn't already reference `System.Numerics.Tensors`, add it to the `.csproj`. Replace the entire manual loop with **one** call:
+Use for any float/double array operation that has a matching API below. If the project doesn't already reference `System.Numerics.Tensors`, add it to the `.csproj`. Replace the entire manual loop with **one or more** `TensorPrimitives` calls as needed (prefer a single call when possible):
 
 ### Reductions (span → scalar)
 | Operation | API |
