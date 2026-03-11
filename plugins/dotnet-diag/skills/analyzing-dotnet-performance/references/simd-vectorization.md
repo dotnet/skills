@@ -2,7 +2,7 @@
 
 ## Decision Gate
 
-1. **Check for TensorPrimitives first.** If one or more TensorPrimitives methods cover the operation → use them. If the `.csproj` does NOT already reference `System.Numerics.Tensors`, **add the package**: `<PackageReference Include="System.Numerics.Tensors" Version="10.0.0-preview.2.25163.2" />`. Then replace the scalar loop with TP calls and stop. See the full API table below. Compose multiple TP calls when needed (e.g., finding both min and max → `TensorPrimitives.Min(span)` + `TensorPrimitives.Max(span)` as two calls). Do NOT write manual Vector128 code for operations TP already handles.
+1. **Check for TensorPrimitives first.** If one or more TensorPrimitives methods cover the operation → use them. If the `.csproj` does NOT already reference `System.Numerics.Tensors`, **add the package**, for example: `<PackageReference Include="System.Numerics.Tensors" />` (or use the versioning approach already used by your solution). Then replace the scalar loop with TP calls and stop. See the full API table below. Compose multiple TP calls when needed (e.g., finding both min and max → `TensorPrimitives.Min(span)` + `TensorPrimitives.Max(span)` as two calls). Do NOT write manual Vector128 code for operations TP already handles.
 
 2. **Scalar loop over contiguous array/span** of `byte`, `short`, `int`, `long`, `float`, `double`? → Implement with explicit `Vector128<T>` / `Vector256<T>` / `Vector512<T>` intrinsics using the patterns below.
 
