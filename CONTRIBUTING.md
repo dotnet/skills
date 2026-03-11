@@ -303,12 +303,10 @@ expected and welcome, including community and third-party resources. To help
 reviewers stay aware of external dependencies, the repository includes an
 automated reference scanner (`eng/reference-scanner/scan.ps1`) that runs in CI.
 
-**Hard errors** (block merge):
+The scanner treats all of the following as CI-blocking errors:
 - `http://` URLs where `https://` should be used
 - `<script>` tags loading external resources without an `integrity` (SRI) attribute
 - Pipe-to-shell patterns (`curl ... | bash`)
-
-**Errors** (will fail CI):
 - URLs pointing to domains not listed in `eng/reference-scanner/known-domains.txt`
 
 Community tools and third-party projects are evaluated on a case-by-case basis

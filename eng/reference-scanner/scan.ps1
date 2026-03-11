@@ -14,7 +14,7 @@
     Specific files to scan.
 
 .PARAMETER RepoRoot
-    Repository root path. Defaults to three levels up from this script.
+    Repository root path. Defaults to two levels up from this script.
 
 .EXAMPLE
     pwsh eng/reference-scanner/scan.ps1 -All
@@ -67,14 +67,14 @@ function Test-KnownDomain {
     $urlLower = $Url.ToLower()
     foreach ($domain in $KnownDomains) {
         if ($domain.StartsWith('github.com/')) {
-            # Org-scoped: require / or end-of-string after the org/repo prefix
-            if ($urlLower -match "^https?://$([regex]::Escape($domain))(/|$)") {
+            # Org-scoped: require /, ?, #, or end-of-string after the org/repo prefix
+            if ($urlLower -match "^https?://$([regex]::Escape($domain))([/?#]|$)") {
                 return $true
             }
         }
         else {
             # Extract host from URL
-            $host_ = ($urlLower -replace '^https?://', '') -replace '[/:\?].*$', ''
+            $host_ = ($urlLower -replace '^https?://', '') -replace '[/:\?#].*$', ''
             if ($host_ -eq $domain -or $host_.EndsWith(".$domain")) {
                 return $true
             }
@@ -96,7 +96,7 @@ function Test-HttpNotHttps {
     param([string]$Url)
     $lower = $Url.ToLower()
     # Extract host and check against schemas.microsoft.com exactly
-    $host_ = ($lower -replace '^https?://', '') -replace '[/:\?].*$', ''
+    $host_ = ($lower -replace '^https?://', '') -replace '[/:\?#].*$', ''
     return ($lower.StartsWith('http://') -and
             -not (Test-LocalUrl $Url) -and
             $host_ -ne 'schemas.microsoft.com' -and
@@ -168,14 +168,21 @@ function Invoke-ScanFile {
         $lines = Get-Content $FilePath -Encoding UTF8
     }
     catch {
+        $errorFinding = [RefFinding]::new()
+        $errorFinding.Path = $relPath
+        $errorFinding.LineNum = 0
+        $errorFinding.Level = 'error'
+        $errorFinding.Code = 'FILE-READ-ERROR'
+        $errorFinding.Message = "Failed to read file: $($_.Exception.Message)"
+        $findings.Add($errorFinding)
         return $findings
     }
 
     $urlPattern = [regex]'https?://[^\s\)\]\"''<>;]+'
     $pipeToShell = [regex]'curl\s[^|]*\|\s*(ba)?sh\b|wget\s[^|]*\|\s*(ba)?sh\b'
-    $scriptTagSrc = [regex]'<script\s[^>]*src\s*=\s*["\x27][^"\x27]*["\x27][^>]*>'
-    $sriIntegrity = [regex]'integrity\s*='
-    $externalSrc = [regex]'src\s*=\s*["\x27]https?://'
+    $scriptTagSrc = [regex]'(?i)<script\s[^>]*src\s*=\s*["\x27][^"\x27]*["\x27][^>]*>'
+    $sriIntegrity = [regex]'(?i)integrity\s*='
+    $externalSrc = [regex]'(?i)src\s*=\s*["\x27]https?://'
 
     for ($i = 0; $i -lt $lines.Count; $i++) {
         $line = $lines[$i]
