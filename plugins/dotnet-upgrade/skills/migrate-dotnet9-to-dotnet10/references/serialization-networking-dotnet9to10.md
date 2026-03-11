@@ -18,7 +18,7 @@ public abstract class Animal
 }
 ```
 
-Fix: rename the conflicting property, or suppress it with `[JsonIgnore]`:
+**Fix:** rename the conflicting property, or suppress it with `[JsonIgnore]`:
 
 ```csharp
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "Type")]
