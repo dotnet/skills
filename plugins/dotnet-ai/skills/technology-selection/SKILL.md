@@ -74,6 +74,7 @@ Install only the packages needed for the selected technology branch. Do not mix 
 <PackageReference Include="Microsoft.ML" Version="4.*" />
 <PackageReference Include="Microsoft.ML.AutoML" Version="0.*" />
 <!-- Only if custom numerical work is needed: -->
+PackageReference Include="System.Numerics.Tensors" Version="10.*"
 <PackageReference Include="MathNet.Numerics" Version="5.*" />
 <!-- Only for data exploration: -->
 <PackageReference Include="Microsoft.Data.Analysis" Version="0.*" />
