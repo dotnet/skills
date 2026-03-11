@@ -5,7 +5,7 @@ description: "Skill for .NET/MSBuild *.binlog files and complicated build failur
 
 # Analyzing MSBuild Failures with Binary Logs
 
-Use MSBuild's built-in **binlog replay** to convert binary logs into searchable text logs, then analyze with standard tools (`grep`, `cat`, `head`, `tail`, `find`).
+Use MSBuild's built-in **binlog replay** to convert binary logs into searchable text logs, then analyze with standard tools (`grep`, `cat`, `head`, `tail`, `find`). There's currently no binlog mcp server available.
 
 ## Build Error Investigation (Primary Workflow)
 
