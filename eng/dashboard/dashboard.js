@@ -1,4 +1,12 @@
 (async function () {
+  // HTML escape helper for defense-in-depth against XSS
+  function escapeHtml(str) {
+    if (str == null) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+  }
+
   // Fetch plugin manifest
   let plugins;
   try {
@@ -192,7 +200,7 @@
           </div>
           <div class="card">
             <div class="card-label">Model</div>
-            <div class="card-value" style="font-size: 18px">${latestModel || 'N/A'}</div>
+            <div class="card-value" style="font-size: 18px">${escapeHtml(latestModel) || 'N/A'}</div>
             <div class="card-delta">latest run</div>
           </div>
         `;
@@ -290,7 +298,7 @@
       effTests.forEach(test => {
         const div = document.createElement('div');
         div.className = 'chart-container';
-        div.innerHTML = `<h3>${test}</h3><canvas></canvas>`;
+        div.innerHTML = `<h3>${escapeHtml(test)}</h3><canvas></canvas>`;
         efficiencyChartsDiv.appendChild(div);
         const canvas = div.querySelector('canvas');
 
@@ -441,7 +449,7 @@
   function createPairedChart(container, title, entries, nameA, nameB, labelA, labelB, colorA, colorB) {
     const div = document.createElement('div');
     div.className = 'chart-container';
-    div.innerHTML = `<h3>${title}</h3><canvas></canvas>`;
+    div.innerHTML = `<h3>${escapeHtml(title)}</h3><canvas></canvas>`;
     container.appendChild(div);
     const canvas = div.querySelector('canvas');
 

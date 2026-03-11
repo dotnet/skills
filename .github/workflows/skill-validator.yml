@@ -67,8 +67,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
         with:
           global-json-file: global.json
 
@@ -82,7 +84,7 @@ jobs:
         run: dotnet pack eng/skill-validator/src/SkillValidator.csproj --use-current-runtime
 
       - name: Upload RID-specific NuGet package
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: skill-validator-${{ matrix.rid }}
           path: artifacts/package/release/Microsoft.DotNet.SkillValidator.${{ matrix.rid }}.*.nupkg
@@ -97,7 +99,7 @@ jobs:
           tar -czf artifacts/assets/skill-validator-${{ matrix.rid }}.tar.gz -C artifacts/publish/SkillValidator/release .
 
       - name: Upload tar.gz archive
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: skill-validator-${{ matrix.rid }}.tar.gz
           path: artifacts/assets/skill-validator-${{ matrix.rid }}.tar.gz
@@ -111,7 +113,7 @@ jobs:
 
       - name: Upload RID-agnostic NuGet package
         if: matrix.rid == env.AGNOSTIC_RID
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           archive: false
           name: skill-validator
@@ -128,10 +130,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
         with:
           path: release-assets
           merge-multiple: true

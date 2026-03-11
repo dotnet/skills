@@ -92,15 +92,21 @@ public static class AgentRunner
                 reqPath = cmdEl.GetString() ?? "";
         }
 
-        if (string.IsNullOrEmpty(reqPath)) return true;
+        // Deny-by-default: if no path/command can be extracted, deny the request.
+        if (string.IsNullOrEmpty(reqPath)) return false;
 
         var resolved = Path.GetFullPath(reqPath);
         var allowedDirs = new List<string> { Path.GetFullPath(workDir) };
         if (skillPath is not null) allowedDirs.Add(Path.GetFullPath(skillPath));
 
+        // Use case-sensitive comparison on Linux/macOS, case-insensitive on Windows.
+        var comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
         return allowedDirs.Any(dir =>
-            resolved.Equals(dir, StringComparison.OrdinalIgnoreCase) ||
-            resolved.StartsWith(dir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+            resolved.Equals(dir, comparison) ||
+            resolved.StartsWith(dir + Path.DirectorySeparatorChar, comparison));
     }
 
     internal static SessionConfig BuildSessionConfig(
@@ -121,17 +127,39 @@ public static class AgentRunner
             sdkMcp = new Dictionary<string, object>();
             foreach (var (name, def) in mcpServers)
             {
+                if (!IsAllowedMcpCommand(def.Command))
+                {
+                    Console.Error.WriteLine(
+                        $"Skipping MCP server '{name}': command '{def.Command}' is not in the allowlist");
+                    continue;
+                }
+
+                var sanitizedArgs = SanitizeMcpArgs(def.Command, def.Args);
+                if (sanitizedArgs is null)
+                {
+                    Console.Error.WriteLine(
+                        $"Skipping MCP server '{name}': args contain dangerous eval/exec flags");
+                    continue;
+                }
+
                 var entry = new Dictionary<string, object>
                 {
                     ["type"] = def.Type ?? "stdio",
                     ["command"] = def.Command,
-                    ["args"] = def.Args,
+                    ["args"] = sanitizedArgs,
                     ["tools"] = def.Tools ?? ["*"],
                 };
-                if (def.Env is not null) entry["env"] = def.Env;
-                if (def.Cwd is not null) entry["cwd"] = def.Cwd;
+
+                // Sanitize env: strip dangerous keys that could hijack the process.
+                var sanitizedEnv = SanitizeMcpEnv(def.Env);
+                if (sanitizedEnv is not null) entry["env"] = sanitizedEnv;
+
+                // Drop custom cwd — MCP servers run in workDir, not attacker-chosen dirs.
                 sdkMcp[name] = entry;
             }
+
+            // If all servers were filtered out, treat as no MCP servers
+            if (sdkMcp.Count == 0) sdkMcp = null;
         }
 
         return new SessionConfig
@@ -335,9 +363,22 @@ public static class AgentRunner
         // Explicit setup files override/supplement auto-copied files
         if (scenario.Setup?.Files is { } files)
         {
+            var canonicalWorkDir = Path.GetFullPath(workDir);
+            var pathComparison = OperatingSystem.IsWindows()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+
             foreach (var file in files)
             {
-                var targetPath = Path.Combine(workDir, file.Path);
+                var targetPath = Path.GetFullPath(Path.Combine(workDir, file.Path));
+                // Prevent path traversal: target must stay inside workDir
+                if (!targetPath.StartsWith(canonicalWorkDir + Path.DirectorySeparatorChar, pathComparison)
+                    && !targetPath.Equals(canonicalWorkDir, pathComparison))
+                {
+                    Console.Error.WriteLine($"Setup file target escapes work directory, skipping: {file.Path}");
+                    continue;
+                }
+
                 Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
 
                 if (file.Content is not null)
@@ -346,7 +387,15 @@ public static class AgentRunner
                 }
                 else if (file.Source is not null && skillPath is not null)
                 {
-                    var sourcePath = Path.Combine(skillPath, file.Source);
+                    var canonicalSkillPath = Path.GetFullPath(skillPath);
+                    var sourcePath = Path.GetFullPath(Path.Combine(skillPath, file.Source));
+                    // Prevent path traversal: source must stay inside skillPath
+                    if (!sourcePath.StartsWith(canonicalSkillPath + Path.DirectorySeparatorChar, pathComparison)
+                        && !sourcePath.Equals(canonicalSkillPath, pathComparison))
+                    {
+                        Console.Error.WriteLine($"Setup file source escapes skill directory, skipping: {file.Source}");
+                        continue;
+                    }
                     File.Copy(sourcePath, targetPath, true);
                 }
             }
@@ -368,22 +417,159 @@ public static class AgentRunner
                         RedirectStandardError = true,
                         UseShellExecute = false,
                     };
+
+                    // Scrub sensitive environment variables from child processes.
+                    // ProcessStartInfo.Environment is pre-populated with the current
+                    // process's environment on first access; removing keys prevents
+                    // them from being inherited by the child.
+                    ScrubSensitiveEnvironment(psi);
+
                     using var proc = Process.Start(psi);
                     if (proc is not null)
                     {
                         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
-                        await proc.WaitForExitAsync(cts.Token);
+                        try
+                        {
+                            await proc.WaitForExitAsync(cts.Token);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // Process timed out — kill the orphan
+                            try { proc.Kill(true); } catch { }
+                            Console.Error.WriteLine($"Setup command timed out and was killed");
+                        }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
                     // Setup commands may return non-zero exit codes
                     // (e.g. building a broken project to produce a binlog)
+                    Console.Error.WriteLine($"Setup command failed: {ex.GetType().Name}: {ex.Message}");
                 }
             }
         }
 
         return workDir;
+    }
+
+    // --- Security: environment scrubbing for child processes ---
+
+    private static readonly string[] SensitiveEnvKeys =
+    [
+        "GITHUB_TOKEN",
+        "ACTIONS_RUNTIME_TOKEN",
+        "ACTIONS_ID_TOKEN_REQUEST_URL",
+        "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+        "ACTIONS_CACHE_URL",
+        "ACTIONS_RESULTS_URL",
+        "GITHUB_STEP_SUMMARY",
+        "GITHUB_OUTPUT",
+        "GITHUB_ENV",
+        "GITHUB_PATH",
+        "GITHUB_STATE",
+        "NODE_AUTH_TOKEN",
+        "NPM_TOKEN",
+        "NUGET_API_KEY",
+    ];
+
+    private static readonly string[] SensitiveEnvPrefixes =
+    [
+        "COPILOT_",
+        "GH_AW_",
+    ];
+
+    internal static void ScrubSensitiveEnvironment(ProcessStartInfo psi)
+    {
+        foreach (var key in SensitiveEnvKeys)
+        {
+            psi.Environment.Remove(key);
+        }
+
+        var prefixedKeys = psi.Environment.Keys
+            .Where(k => SensitiveEnvPrefixes.Any(p =>
+                k.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        foreach (var key in prefixedKeys)
+        {
+            psi.Environment.Remove(key);
+        }
+    }
+
+    // --- Security: MCP server command allowlist ---
+
+    private static readonly HashSet<string> AllowedMcpCommands = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "dotnet", "node", "npx", "python", "python3", "uvx",
+    };
+
+    internal static bool IsAllowedMcpCommand(string command)
+    {
+        // Only allow bare command names (resolved via PATH), not paths.
+        if (command.Contains(Path.DirectorySeparatorChar) ||
+            command.Contains(Path.AltDirectorySeparatorChar) ||
+            command.Contains(".."))
+        {
+            return false;
+        }
+
+        var fileName = Path.GetFileNameWithoutExtension(command);
+        return AllowedMcpCommands.Contains(fileName);
+    }
+
+    // Dangerous env var keys that could hijack MCP server processes.
+    private static readonly HashSet<string> DangerousMcpEnvKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "PATH", "LD_PRELOAD", "LD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES",
+        "DYLD_LIBRARY_PATH", "NODE_OPTIONS", "PYTHONSTARTUP", "PYTHONPATH",
+        "PERL5OPT", "RUBYOPT", "JAVA_TOOL_OPTIONS", "DOTNET_STARTUP_HOOKS",
+        "COMSPEC", "ComSpec",
+    };
+
+    internal static Dictionary<string, string>? SanitizeMcpEnv(
+        Dictionary<string, string>? env)
+    {
+        if (env is null or { Count: 0 }) return null;
+
+        var sanitized = new Dictionary<string, string>(env.Count);
+        foreach (var (key, value) in env)
+        {
+            if (DangerousMcpEnvKeys.Contains(key))
+            {
+                Console.Error.WriteLine(
+                    $"Stripping dangerous env var '{key}' from MCP server definition");
+                continue;
+            }
+            sanitized[key] = value;
+        }
+
+        return sanitized.Count > 0 ? sanitized : null;
+    }
+
+    // Per-runtime dangerous arg patterns that enable arbitrary code execution.
+    private static readonly Dictionary<string, HashSet<string>> DangerousMcpArgs =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["node"] = new(StringComparer.Ordinal) { "-e", "--eval", "-p", "--print", "--input-type" },
+            ["python"] = new(StringComparer.Ordinal) { "-c", "-m" },
+            ["python3"] = new(StringComparer.Ordinal) { "-c", "-m" },
+            ["npx"] = new(StringComparer.Ordinal) { "-y", "--yes" },
+            ["uvx"] = new(StringComparer.Ordinal) { "--from" },
+        };
+
+    internal static string[]? SanitizeMcpArgs(string command, string[] args)
+    {
+        var cmdName = Path.GetFileNameWithoutExtension(command);
+        if (!DangerousMcpArgs.TryGetValue(cmdName, out var blocked))
+            return args;
+
+        foreach (var arg in args)
+        {
+            if (blocked.Contains(arg))
+                return null;
+        }
+
+        return args;
     }
 
     private static void CopyDirectory(string source, string destination)
