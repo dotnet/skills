@@ -176,7 +176,7 @@ public static class AgentRunner
                 var result = CheckPermission(request, workDir, skillPath);
                 return Task.FromResult(new PermissionRequestResult
                 {
-                    Kind = result ? "approved" : "denied-by-rules",
+                    Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,
                 });
             },
         };

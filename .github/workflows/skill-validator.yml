@@ -48,7 +48,13 @@ jobs:
 
   build:
     needs: discover
-    if: always() && (needs.discover.result == 'skipped' || needs.discover.outputs.has_changes == 'true')
+    # Don't run scheduled builds on forked repositories — forks that enable
+    # Actions would otherwise consume the fork owner's minutes indefinitely.
+    # For PRs, skip when no relevant files changed (discover job).
+    if: >-
+      always() &&
+      !(github.event_name == 'schedule' && github.event.repository.fork) &&
+      (needs.discover.result == 'skipped' || needs.discover.outputs.has_changes == 'true')
     strategy:
       fail-fast: false
       matrix:

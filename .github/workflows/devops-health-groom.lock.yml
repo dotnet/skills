@@ -27,7 +27,7 @@
 #   Imports:
 #     - ../aw/shared/devops-health.lock.md
 #
-# frontmatter-hash: 906153251fa361e865ead32d8868ada8b83883588d558e4fec9ad488c64d4010
+# frontmatter-hash: 8286f13c2239f3b933923113ded5a51d5fba2a15c325b62d7ec40630a4e46cfb
 
 name: "DevOps Health — Groom Dashboard"
 "on":
@@ -44,6 +44,7 @@ run-name: "DevOps Health — Groom Dashboard"
 
 jobs:
   activation:
+    if: !(github.event_name == 'schedule' && github.event.repository.fork)
     runs-on: ubuntu-slim
     permissions:
       contents: read
