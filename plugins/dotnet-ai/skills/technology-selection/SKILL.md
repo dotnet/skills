@@ -96,6 +96,9 @@ PackageReference Include="System.Numerics.Tensors" Version="10.*"
 <!-- OR -->
 <PackageReference Include="OpenAI" Version="2.*" />
 
+<!-- Client-side token counting for cost management -->
+    <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.*" 
+
 <!-- Local LLM inference -->
 <PackageReference Include="OllamaSharp" Version="5.*" />
 
