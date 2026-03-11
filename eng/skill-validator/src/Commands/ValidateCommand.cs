@@ -173,7 +173,8 @@ public static class ValidateCommand
 
         if (allSkills.Count == 0)
         {
-            Console.Error.WriteLine("No skills found in the specified paths.");
+            var searched = string.Join(", ", config.SkillPaths.Select(p => $"\"{Path.GetFullPath(p)}\""));
+            Console.Error.WriteLine($"No skills found in the specified paths: {searched}");
             return 1;
         }
 
