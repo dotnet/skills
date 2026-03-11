@@ -1,8 +1,8 @@
 ---
 name: template-discovery
 description: >
-  Helps find, inspect, and compare .NET project templates using the DotnetTemplateMCP
-  MCP server. Resolves natural-language project descriptions to ranked template matches
+  Helps find, inspect, and compare .NET project templates.
+  Resolves natural-language project descriptions to ranked template matches
   with pre-filled parameters.
   USE FOR: finding the right dotnet new template for a task, comparing templates side by
   side, inspecting template parameters and constraints, understanding what a template
@@ -15,7 +15,7 @@ description: >
 
 # Template Discovery
 
-This skill helps an agent find, inspect, and select the right `dotnet new` template for a given task. It uses the DotnetTemplateMCP MCP server tools for search, inspection, and intent resolution — providing richer results than raw `dotnet new list` or `dotnet new search` commands.
+This skill helps an agent find, inspect, and select the right `dotnet new` template for a given task. It uses template tools for search, inspection, and intent resolution — providing richer results than raw `dotnet new list` or `dotnet new search` commands.
 
 ## When to Use
 
@@ -107,12 +107,11 @@ Summarize the best template match with:
 
 | Pitfall | Solution |
 |---------|----------|
-| Using `dotnet new list` instead of MCP tools | MCP tools provide richer metadata, NuGet search, and intent resolution. Always prefer `template_search` and `template_from_intent`. |
+| Using `dotnet new list` instead of template tools | Template tools provide richer metadata, NuGet search, and intent resolution. Always prefer `template_search` and `template_from_intent`. |
 | Not checking template constraints | Some templates require specific SDKs or workloads. Use `template_inspect` to surface constraints before recommending. |
 | Recommending a template without previewing output | Always use `template_dry_run` to confirm the template produces what the user expects. |
 
 ## More Info
 
-- [DotnetTemplateMCP](https://github.com/YuliiaKovalova/dotnet-template-mcp) — MCP server source and documentation
 - [dotnet new templates](https://learn.microsoft.com/dotnet/core/tools/dotnet-new-sdk-templates) — built-in template reference
 - [Template Engine Wiki](https://github.com/dotnet/templating/wiki) — template engine internals

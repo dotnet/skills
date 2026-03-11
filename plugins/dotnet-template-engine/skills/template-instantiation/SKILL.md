@@ -3,7 +3,6 @@ name: template-instantiation
 description: >
   Creates .NET projects from templates with validated parameters, smart defaults,
   Central Package Management adaptation, and latest NuGet version resolution.
-  Powered by the DotnetTemplateMCP MCP server.
   USE FOR: creating new dotnet projects, scaffolding solutions with multiple projects,
   installing or uninstalling template packages, creating projects that respect
   Directory.Packages.props (CPM), composing multi-project solutions (API + tests + library),
@@ -15,7 +14,7 @@ description: >
 
 # Template Instantiation
 
-This skill creates .NET projects from templates using the DotnetTemplateMCP MCP server. It provides validated parameter handling, automatic Central Package Management adaptation, latest NuGet version resolution, and multi-template composition — capabilities beyond raw `dotnet new` commands.
+This skill creates .NET projects from templates. It provides validated parameter handling, automatic Central Package Management adaptation, latest NuGet version resolution, and multi-template composition — capabilities beyond raw `dotnet new` commands.
 
 ## When to Use
 
@@ -66,7 +65,7 @@ template_dry_run("webapi", name="MyApi", parametersJson={"Framework": "net10.0"}
 
 ### Step 4: Create the project
 
-Use `template_instantiate` with all parameters. The MCP server automatically:
+Use `template_instantiate` with all parameters. It automatically:
 - **Validates parameters** and reports errors with "did you mean?" suggestions
 - **Auto-resolves from NuGet** if the template is not installed
 - **Adapts to CPM** — detects `Directory.Packages.props`, strips versions from `.csproj`, adds `<PackageVersion>` entries
@@ -113,13 +112,12 @@ Both operations are idempotent. Install supports upgrade detection.
 
 | Pitfall | Solution |
 |---------|----------|
-| Using `dotnet new` directly instead of `template_instantiate` | `dotnet new` does not adapt to CPM, does not resolve latest NuGet versions, and does not validate parameters with suggestions. Always prefer the MCP tool. |
+| Using `dotnet new` directly instead of `template_instantiate` | `dotnet new` does not adapt to CPM, does not resolve latest NuGet versions, and does not validate parameters with suggestions. Always prefer the template tool. |
 | Not checking for CPM before creating a project | If `Directory.Packages.props` exists, a raw `dotnet new` creates projects with inline versions that conflict. `template_instantiate` handles this automatically. |
 | Creating projects without specifying the framework | Always specify `--framework` when the template supports multiple TFMs to avoid defaulting to an older version. |
 | Not adding the project to the solution | After creation, run `dotnet sln add` to include the project in the solution. |
 
 ## More Info
 
-- [DotnetTemplateMCP](https://github.com/YuliiaKovalova/dotnet-template-mcp) — MCP server source and documentation
 - [Central Package Management](https://learn.microsoft.com/nuget/consume-packages/central-package-management) — CPM documentation
 - [dotnet new](https://learn.microsoft.com/dotnet/core/tools/dotnet-new) — CLI reference

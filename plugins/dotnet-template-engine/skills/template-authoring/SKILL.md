@@ -3,7 +3,6 @@ name: template-authoring
 description: >
   Guides creation and validation of custom dotnet new templates. Generates templates
   from existing projects and validates template.json for authoring issues.
-  Powered by the DotnetTemplateMCP MCP server.
   USE FOR: creating a reusable dotnet new template from an existing project, validating
   template.json files for schema compliance and parameter issues, bootstrapping
   .template.config/template.json with correct identity, shortName, parameters, and
@@ -15,7 +14,7 @@ description: >
 
 # Template Authoring
 
-This skill helps an agent create and validate custom `dotnet new` templates. It uses the DotnetTemplateMCP MCP server to bootstrap templates from existing projects and validate `template.json` files for authoring issues before publishing.
+This skill helps an agent create and validate custom `dotnet new` templates. It bootstraps templates from existing projects and validates `template.json` files for authoring issues before publishing.
 
 ## When to Use
 
@@ -134,5 +133,4 @@ Based on validation results and user requirements:
 
 - [Custom templates for dotnet new](https://learn.microsoft.com/dotnet/core/tools/custom-templates) — official authoring guide
 - [template.json reference](https://github.com/dotnet/templating/wiki/Reference-for-template.json) — full schema reference
-- [DotnetTemplateMCP](https://github.com/YuliiaKovalova/dotnet-template-mcp) — MCP server source and documentation
 - [Template Engine Wiki](https://github.com/dotnet/templating/wiki) — template engine internals
