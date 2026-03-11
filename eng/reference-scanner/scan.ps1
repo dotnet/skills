@@ -149,7 +149,7 @@ function Get-SkillFiles {
 class RefFinding {
     [string]$Path
     [int]$LineNum
-    [string]$Level   # "error" or "notice"
+    [string]$Level   # "error"
     [string]$Code
     [string]$Message
 }
@@ -162,7 +162,16 @@ function Invoke-ScanFile {
     )
 
     $findings = [System.Collections.Generic.List[RefFinding]]::new()
-    $relPath = $FilePath.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/'
+    $relPath = $FilePath
+    try {
+        $relPath = [System.IO.Path]::GetRelativePath($Root, $FilePath)
+    }
+    catch {
+        if ($FilePath.StartsWith($Root, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $relPath = $FilePath.Substring($Root.Length)
+        }
+    }
+    $relPath = $relPath.TrimStart('\', '/') -replace '\\', '/'
 
     try {
         $lines = @(Get-Content $FilePath -Encoding UTF8)
@@ -180,15 +189,42 @@ function Invoke-ScanFile {
 
     $urlPattern = [regex]'https?://[^\s\)\]\"''<>;]+'
     $pipeToShell = [regex]'curl\s[^|]*\|\s*(ba)?sh\b|wget\s[^|]*\|\s*(ba)?sh\b'
-    $scriptTagSrc = [regex]'(?i)<script\s[^>]*src\s*=\s*["\x27][^"\x27]*["\x27][^>]*>'
     $sriIntegrity = [regex]'(?i)integrity\s*='
     $externalSrc = [regex]'(?i)src\s*=\s*["\x27]https?://'
 
+    # Multi-line <script> tag detection: join file content to catch attributes spanning lines
+    $fullContent = $lines -join "`n"
+    $scriptTagMultiLine = [regex]'(?is)<script\s[^>]*src\s*=\s*["\x27][^"\x27]*["\x27][^>]*>'
+    $sriProtectedUrls = @()
+
+    foreach ($m in $scriptTagMultiLine.Matches($fullContent)) {
+        $tag = $m.Value
+        $hasSri = $sriIntegrity.IsMatch($tag)
+        # Find line number from character offset
+        $tagLineNum = ($fullContent.Substring(0, $m.Index) -split "`n").Count
+
+        if ($externalSrc.IsMatch($tag)) {
+            $scriptUrl = $null
+            if ($tag -match '(?i)src\s*=\s*["' + "'" + ']([^"' + "'" + ']+)') {
+                $scriptUrl = $matches[1]
+            }
+            if ($hasSri) {
+                if ($scriptUrl) { $sriProtectedUrls += $scriptUrl }
+            }
+            elseif (-not $scriptUrl -or -not (Test-LocalUrl $scriptUrl)) {
+                $f = [RefFinding]::new()
+                $f.Path = $relPath; $f.LineNum = $tagLineNum; $f.Level = 'error'
+                $f.Code = 'SCRIPT-NO-SRI'
+                $f.Message = 'External script tag without integrity (SRI) attribute'
+                $findings.Add($f)
+            }
+        }
+    }
+
+    # Line-by-line scanning for URLs and pipe-to-shell
     for ($i = 0; $i -lt $lines.Count; $i++) {
         $line = $lines[$i]
         $lineNum = $i + 1
-
-        # --- Hard errors ---
 
         # Pipe-to-shell (except known-safe .NET install scripts)
         if ($pipeToShell.IsMatch($line)) {
@@ -207,31 +243,6 @@ function Invoke-ScanFile {
                 $f.Code = 'PIPE-TO-SHELL'
                 $f.Message = 'Pipe-to-shell pattern: content is downloaded and piped directly to a shell interpreter'
                 $findings.Add($f)
-            }
-        }
-
-        # <script src="https://..."> without integrity (external only)
-        # Also collect SRI-protected URLs so the domain check can skip them
-        $sriProtectedUrls = @()
-        foreach ($m in $scriptTagSrc.Matches($line)) {
-            $tag = $m.Value
-            $hasSri = $sriIntegrity.IsMatch($tag)
-            if ($externalSrc.IsMatch($tag)) {
-                $scriptUrl = $null
-                if ($tag -match 'src\s*=\s*["' + "'" + ']([^"' + "'" + ']+)') {
-                    $scriptUrl = $matches[1]
-                }
-                if ($hasSri) {
-                    # SRI is the real security gate; skip domain check for this URL
-                    if ($scriptUrl) { $sriProtectedUrls += $scriptUrl }
-                }
-                elseif (-not $scriptUrl -or -not (Test-LocalUrl $scriptUrl)) {
-                    $f = [RefFinding]::new()
-                    $f.Path = $relPath; $f.LineNum = $lineNum; $f.Level = 'error'
-                    $f.Code = 'SCRIPT-NO-SRI'
-                    $f.Message = 'External script tag without integrity (SRI) attribute'
-                    $findings.Add($f)
-                }
             }
         }
 
@@ -289,36 +300,27 @@ foreach ($file in $files) {
     }
 }
 
-$errors = @($allFindings | Where-Object { $_.Level -eq 'error' })
-$notices = @($allFindings | Where-Object { $_.Level -eq 'notice' })
-$errorCount = ($errors | Measure-Object).Count
-$noticeCount = ($notices | Measure-Object).Count
+$errorCount = ($allFindings | Measure-Object).Count
 $fileCount = ($files | Measure-Object).Count
 $isCI = $env:GITHUB_ACTIONS -eq 'true'
 
 if ($isCI) {
     foreach ($f in $allFindings) {
-        Write-Host "::$($f.Level) file=$($f.Path),line=$($f.LineNum)::[$($f.Code)] $($f.Message)"
+        Write-Host "::error file=$($f.Path),line=$($f.LineNum)::[$($f.Code)] $($f.Message)"
     }
 }
 else {
     if ($errorCount -gt 0) {
         Write-Host "`n  $errorCount error(s):`n"
-        foreach ($f in $errors) {
+        foreach ($f in $allFindings) {
             Write-Host "  $([char]0x274C) $($f.Path):$($f.LineNum) [$($f.Code)] $($f.Message)"
         }
     }
-    if ($noticeCount -gt 0) {
-        Write-Host "`n  $noticeCount external reference(s) (informational -- for reviewer awareness):`n"
-        foreach ($f in $notices) {
-            Write-Host "  $([char]0x2139)$([char]0xFE0F) $($f.Path):$($f.LineNum) [$($f.Code)] $($f.Message)"
-        }
-    }
-    if ($errorCount -eq 0 -and $noticeCount -eq 0) {
+    else {
         Write-Host "`n  No external reference issues found.`n"
     }
 }
 
-Write-Host "`n--- Reference scan: $fileCount file(s) scanned, $errorCount error(s), $noticeCount notice(s) ---"
+Write-Host "`n--- Reference scan: $fileCount file(s) scanned, $errorCount error(s) ---"
 
 if ($errorCount -gt 0) { exit 1 } else { exit 0 }
