@@ -31,6 +31,9 @@ public static class ValidateCommand
         var reporterOpt = new Option<string[]>("--reporter") { Description = "Reporter (console, json, junit, markdown). Can be repeated.", AllowMultipleArgumentsPerToken = true };
         var noOverfittingCheckOpt = new Option<bool>("--no-overfitting-check") { Description = "Disable LLM-based overfitting analysis (on by default)" };
         var overfittingFixOpt = new Option<bool>("--overfitting-fix") { Description = "Generate a fixed eval.yaml with improved rubric items/assertions" };
+        var noiseSkillsDirOpt = new Option<string?>("--noise-skills-dir") { Description = "Directory containing skills to load as noise. Enables the noise test: re-runs scenarios with all noise skills loaded and measures degradation." };
+        var noiseMaxDegradationOpt = new Option<double>("--noise-max-degradation") { Description = "Maximum acceptable average quality degradation (0-1) in noise test (only positive degradations count)", DefaultValueFactory = _ => 0.2 };
+        var noiseMaxScenarioDegradationOpt = new Option<double>("--noise-max-scenario-degradation") { Description = "Maximum acceptable quality degradation (0-1) for any single noise-test scenario", DefaultValueFactory = _ => 0.4 };
 
         var command = new RootCommand("Validate that agent skills meaningfully improve agent performance")
         {
@@ -54,6 +57,9 @@ public static class ValidateCommand
             reporterOpt,
             noOverfittingCheckOpt,
             overfittingFixOpt,
+            noiseSkillsDirOpt,
+            noiseMaxDegradationOpt,
+            noiseMaxScenarioDegradationOpt,
         };
 
         command.SetAction(async (parseResult, _) =>
@@ -99,6 +105,9 @@ public static class ValidateCommand
                 TestsDir = parseResult.GetValue(testsDirOpt),
                 OverfittingCheck = !parseResult.GetValue(noOverfittingCheckOpt),
                 OverfittingFix = parseResult.GetValue(overfittingFixOpt),
+                NoiseSkillsDir = parseResult.GetValue(noiseSkillsDirOpt),
+                NoiseDegradationLimit = parseResult.GetValue(noiseMaxDegradationOpt),
+                NoiseMaxScenarioDegradation = parseResult.GetValue(noiseMaxScenarioDegradationOpt),
             };
 
             return await Run(config);
@@ -164,11 +173,20 @@ public static class ValidateCommand
 
         if (allSkills.Count == 0)
         {
-            Console.Error.WriteLine("No skills found in the specified paths.");
+            var searched = string.Join(", ", config.SkillPaths.Select(p => $"\"{Path.GetFullPath(p)}\""));
+            Console.Error.WriteLine($"No skills found in the specified paths: {searched}");
             return 1;
         }
 
         Console.WriteLine($"Found {allSkills.Count} skill(s)\n");
+
+        // Discover noise skills when --noise-skills-dir is provided
+        var noiseSkills = new List<SkillInfo>();
+        if (config.NoiseSkillsDir is not null)
+        {
+            noiseSkills.AddRange(await SkillDiscovery.DiscoverSkillsRecursive(config.NoiseSkillsDir, config.TestsDir));
+            Console.WriteLine($"Noise test enabled: discovered {noiseSkills.Count} noise skill(s) from {config.NoiseSkillsDir}");
+        }
 
         // Check per-plugin aggregate description size
         var aggregateFailures = CheckAggregateDescriptionLimits(allSkills);
@@ -258,7 +276,7 @@ public static class ValidateCommand
         // Evaluate skills
         spinner.Start($"Evaluating {allSkills.Count} skill(s)...");
         var skillTasks = allSkills.Select(skill =>
-            skillLimit.RunAsync(() => EvaluateSkill(skill, config, usePairwise, spinner)));
+            skillLimit.RunAsync(() => EvaluateSkill(skill, config, usePairwise, spinner, noiseSkills)));
         var settled = await Task.WhenAll(skillTasks.Select(async t =>
         {
             try { return (Result: await t, Error: (Exception?)null); }
@@ -362,7 +380,8 @@ public static class ValidateCommand
         SkillInfo skill,
         ValidatorConfig config,
         bool usePairwise,
-        Spinner spinner)
+        Spinner spinner,
+        IReadOnlyList<SkillInfo> noiseSkills)
     {
         var prefix = $"[{skill.Name}]";
         var log = (string msg) => spinner.Log($"{prefix} {msg}");
@@ -413,6 +432,12 @@ public static class ValidateCommand
                 Reason = string.Join(" ", profile.Errors),
                 FailureKind = "spec_conformance_failure",
             };
+        }
+
+        // --- Noise-only path: skip normal baseline-vs-skill eval, run only skill-only vs all-skills ---
+        if (config.NoiseSkillsDir is not null && noiseSkills.Count > 0)
+        {
+            return await EvaluateSkillNoise(skill, noiseSkills, config, profile, spinner);
         }
 
         // Launch overfitting check in parallel with scenario execution
@@ -678,6 +703,222 @@ public static class ValidateCommand
             runLog("✓ complete");
 
         return new RunExecutionResult(baseline, withSkillResult, pairwise, skillActivation);
+    }
+
+    // --- Noise-only evaluation: skill-only vs all-skills (no pure-agent baseline) ---
+
+    private static async Task<SkillVerdict> EvaluateSkillNoise(
+        SkillInfo skill,
+        IReadOnlyList<SkillInfo> noiseSkills,
+        ValidatorConfig config,
+        SkillProfile profile,
+        Spinner spinner)
+    {
+        var prefix = $"[{skill.Name}]";
+        var log = (string msg) => spinner.Log($"{prefix} {msg}");
+
+        NoiseTestResult noiseResult;
+        try
+        {
+            noiseResult = await ExecuteNoiseTest(skill, noiseSkills, config, spinner);
+        }
+        catch (Exception ex)
+        {
+            log($"\u26a0\ufe0f Noise test failed: {ex.Message}");
+            return new SkillVerdict
+            {
+                SkillName = skill.Name,
+                SkillPath = skill.Path,
+                Passed = false,
+                Scenarios = [],
+                OverallImprovementScore = 0,
+                Reason = $"Noise test execution failed: {ex.Message}",
+                FailureKind = "noise_degradation",
+                ProfileWarnings = profile.Warnings,
+            };
+        }
+
+        var verdict = new SkillVerdict
+        {
+            SkillName = skill.Name,
+            SkillPath = skill.Path,
+            Passed = noiseResult.Passed,
+            Scenarios = [],
+            OverallImprovementScore = 0,
+            Reason = noiseResult.Reason,
+            FailureKind = noiseResult.Passed ? null : "noise_degradation",
+            ProfileWarnings = profile.Warnings,
+            NoiseTestResult = noiseResult,
+        };
+
+        if (!noiseResult.Passed)
+        {
+            log($"\x1b[33m\u26a0\ufe0f  Noise test: quality degraded by {noiseResult.OverallDegradation * 100:F1}% with {noiseResult.TotalSkillsLoaded} skills loaded\x1b[0m");
+        }
+        else
+        {
+            log($"\u2705 Noise test passed ({noiseResult.TotalSkillsLoaded} skills loaded, degradation: {noiseResult.OverallDegradation * 100:F1}%)");
+        }
+
+        var noiseNotActivated = noiseResult.Scenarios.Where(s => s.SkillActivation is { Activated: false }).ToList();
+        if (noiseNotActivated.Count > 0)
+        {
+            var names = string.Join(", ", noiseNotActivated.Select(s => s.ScenarioName));
+            log($"\x1b[33m\u26a0\ufe0f  Skills NOT activated in noise scenario(s): {names}\x1b[0m");
+        }
+
+        log($"{(verdict.Passed ? "✅" : "❌")} Done (noise degradation: {noiseResult.OverallDegradation * 100:F1}%)");
+        return verdict;
+    }
+
+    // --- Noise test: run scenarios with all discovered skills loaded ---
+
+    private static async Task<NoiseTestResult> ExecuteNoiseTest(
+        SkillInfo targetSkill,
+        IReadOnlyList<SkillInfo> allSkills,
+        ValidatorConfig config,
+        Spinner spinner)
+    {
+        var prefix = $"[{targetSkill.Name}/noise]";
+        var log = (string msg) => spinner.Log($"{prefix} {msg}");
+
+        var otherSkills = allSkills.Where(s => !string.Equals(s.Path, targetSkill.Path, StringComparison.OrdinalIgnoreCase)).ToList();
+        int totalLoaded = otherSkills.Count + 1; // target + others
+
+        log($"🔊 Running noise test with {totalLoaded} skills loaded...");
+
+        var noiseScenarios = new List<NoiseScenarioResult>();
+        using var scenarioLimit = new ConcurrencyLimiter(config.ParallelScenarios);
+
+        var tasks = targetSkill.EvalConfig!.Scenarios
+            .Where(s => s.ExpectActivation) // only test positive scenarios
+            .Select(scenario => scenarioLimit.RunAsync(async () =>
+            {
+                var tag = $"[{targetSkill.Name}/noise/{scenario.Name}]";
+                var scenarioLog = (string msg) => spinner.Log($"{tag} {msg}");
+
+                scenarioLog($"running skill-only vs all-skills ({config.Runs} run(s))...");
+
+                using var runLimit = new ConcurrencyLimiter(config.ParallelRuns);
+
+                var runResults = await Task.WhenAll(Enumerable.Range(0, config.Runs).Select(runIndex =>
+                    runLimit.RunAsync(async () =>
+                    {
+                        // Run with target skill only
+                        var skillOnlyMetrics = await AgentRunner.RunAgent(new RunOptions(
+                            scenario, targetSkill, targetSkill.EvalPath, config.Model, config.Verbose, scenarioLog));
+
+                        // Run with all skills loaded
+                        var allSkillsMetrics = await AgentRunner.RunAgent(new RunOptions(
+                            scenario, targetSkill, targetSkill.EvalPath, config.Model, config.Verbose, scenarioLog, AdditionalSkills: otherSkills));
+
+                        // Evaluate assertions on both
+                        if (scenario.Assertions is { Count: > 0 })
+                        {
+                            skillOnlyMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(
+                                scenario.Assertions, skillOnlyMetrics.AgentOutput, skillOnlyMetrics.WorkDir);
+                            allSkillsMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(
+                                scenario.Assertions, allSkillsMetrics.AgentOutput, allSkillsMetrics.WorkDir);
+                        }
+                        var soConstraints = AssertionEvaluator.EvaluateConstraints(scenario, skillOnlyMetrics);
+                        var asConstraints = AssertionEvaluator.EvaluateConstraints(scenario, allSkillsMetrics);
+                        skillOnlyMetrics.AssertionResults = [..skillOnlyMetrics.AssertionResults, ..soConstraints];
+                        allSkillsMetrics.AssertionResults = [..allSkillsMetrics.AssertionResults, ..asConstraints];
+
+                        skillOnlyMetrics.TaskCompleted = scenario.Assertions is { Count: > 0 } || soConstraints.Count > 0
+                            ? skillOnlyMetrics.AssertionResults.All(a => a.Passed)
+                            : skillOnlyMetrics.ErrorCount == 0;
+                        allSkillsMetrics.TaskCompleted = scenario.Assertions is { Count: > 0 } || asConstraints.Count > 0
+                            ? allSkillsMetrics.AssertionResults.All(a => a.Passed)
+                            : allSkillsMetrics.ErrorCount == 0;
+
+                        // Judge both runs
+                        var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, skillOnlyMetrics.WorkDir, targetSkill.Path);
+                        JudgeResult skillOnlyJudge, allSkillsJudge;
+                        try
+                        {
+                            skillOnlyJudge = await Services.Judge.JudgeRun(scenario, skillOnlyMetrics, judgeOpts);
+                        }
+                        catch
+                        {
+                            skillOnlyJudge = new JudgeResult([], 3, "Judge failed");
+                        }
+                        try
+                        {
+                            allSkillsJudge = await Services.Judge.JudgeRun(scenario, allSkillsMetrics,
+                                judgeOpts with { WorkDir = allSkillsMetrics.WorkDir });
+                        }
+                        catch
+                        {
+                            allSkillsJudge = new JudgeResult([], 3, "Judge failed");
+                        }
+
+                        var skillOnly = new RunResult(skillOnlyMetrics, skillOnlyJudge);
+                        var allSkills = new RunResult(allSkillsMetrics, allSkillsJudge);
+                        var activation = MetricsCollector.ExtractSkillActivation(
+                            allSkillsMetrics.Events, skillOnlyMetrics.ToolCallBreakdown);
+
+                        return (SkillOnly: skillOnly, AllSkills: allSkills, Activation: activation);
+                    })));
+
+                scenarioLog($"✓ All {config.Runs} noise run(s) complete");
+
+                // Average across runs, then compare the averaged results
+                var avgSkillOnly = AverageResults(runResults.Select(r => r.SkillOnly).ToList());
+                var avgAllSkills = AverageResults(runResults.Select(r => r.AllSkills).ToList());
+
+                // Compare: skill-only is "baseline", all-skills is "with-skill"
+                // A positive score means all-skills is *better*, negative means degradation
+                var comparison = Comparator.CompareScenario(scenario.Name, avgSkillOnly, avgAllSkills);
+                var degradation = -comparison.ImprovementScore; // positive = degradation
+
+                // Aggregate activation info across runs
+                var activation = new SkillActivationInfo(
+                    Activated: runResults.Any(r => r.Activation.Activated),
+                    DetectedSkills: runResults.SelectMany(r => r.Activation.DetectedSkills).Distinct().ToList(),
+                    ExtraTools: runResults.SelectMany(r => r.Activation.ExtraTools).Distinct().ToList(),
+                    SkillEventCount: runResults.Sum(r => r.Activation.SkillEventCount));
+
+                scenarioLog($"✓ degradation: {degradation * 100:F1}%, target skill activated: {activation.Activated}");
+
+                return new NoiseScenarioResult(
+                    scenario.Name,
+                    avgSkillOnly,
+                    avgAllSkills,
+                    degradation,
+                    comparison.Breakdown,
+                    activation,
+                    totalLoaded);
+            }));
+
+        noiseScenarios = (await Task.WhenAll(tasks)).ToList();
+
+        // Aggregate only positive (harmful) degradations so that improvements don't mask regressions
+        double overallDegradation = noiseScenarios.Count > 0 ? noiseScenarios.Average(s => Math.Max(0, s.DegradationScore)) : 0;
+
+        // Also enforce a per-scenario cap so a single bad scenario can't be hidden by others
+        var worstScenario = noiseScenarios.Count > 0 ? noiseScenarios.MaxBy(s => s.DegradationScore) : null;
+        double worstDegradation = worstScenario?.DegradationScore ?? 0;
+
+        bool avgPassed = overallDegradation <= config.NoiseDegradationLimit;
+        bool worstScenarioPassed = worstDegradation <= config.NoiseMaxScenarioDegradation;
+        bool passed = avgPassed && worstScenarioPassed;
+
+        string reason;
+        if (!worstScenarioPassed)
+        {
+            reason = $"Scenario '{worstScenario!.ScenarioName}' degradation {worstDegradation * 100:F1}% exceeds per-scenario threshold of {config.NoiseMaxScenarioDegradation * 100:F1}% ({totalLoaded} skills loaded)";
+        }
+        else if (!avgPassed)
+        {
+            reason = $"Average degradation {overallDegradation * 100:F1}% exceeds threshold of {config.NoiseDegradationLimit * 100:F1}% ({totalLoaded} skills loaded)";
+        }
+        else
+        {
+            reason = $"Quality degradation {overallDegradation * 100:F1}% within threshold of {config.NoiseDegradationLimit * 100:F1}%, worst scenario {worstDegradation * 100:F1}% within {config.NoiseMaxScenarioDegradation * 100:F1}% ({totalLoaded} skills loaded)";
+        }
+
+        return new NoiseTestResult(noiseScenarios, overallDegradation, passed, reason, totalLoaded);
     }
 
     private static RunResult AverageResults(List<RunResult> runs)

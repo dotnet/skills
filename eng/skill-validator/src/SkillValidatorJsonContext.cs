@@ -30,6 +30,8 @@ namespace SkillValidator;
 [JsonSerializable(typeof(RubricOverfitAssessment))]
 [JsonSerializable(typeof(AssertionOverfitAssessment))]
 [JsonSerializable(typeof(OverfittingSeverity))]
+[JsonSerializable(typeof(NoiseScenarioResult))]
+[JsonSerializable(typeof(NoiseTestResult))]
 [JsonSerializable(typeof(PairwiseMagnitude))]
 [JsonSerializable(typeof(AssertionType))]
 [JsonSerializable(typeof(MCPServerDef))]

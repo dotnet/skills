@@ -27,7 +27,7 @@
 #   Imports:
 #     - ../aw/shared/devops-health.lock.md
 #
-# frontmatter-hash: 47e51b9968a47d003fb929d22559b126ec43d44516d5007356cda45907da4be0
+# frontmatter-hash: 2fe0b0313ccf343a5ddf9bcbdde7a3ec334fd4369f2eb2f84eaaf61cb2f8c299
 
 name: "DevOps Daily Health Check"
 "on":
@@ -44,6 +44,7 @@ run-name: "DevOps Daily Health Check"
 
 jobs:
   activation:
+    if: !(github.event_name == 'schedule' && github.event.repository.fork)
     runs-on: ubuntu-slim
     permissions:
       contents: read
