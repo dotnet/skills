@@ -678,6 +678,37 @@
             "overfittingScore": 0.41
           }
         ]
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "model": "claude-opus-4.6",
+        "benches": [
+          {
+            "unit": "seconds",
+            "value": 13.1,
+            "overfittingScore": 0.29,
+            "overfitting": "moderate",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 23548.0,
+            "overfittingScore": 0.29,
+            "overfitting": "moderate",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In"
+          }
+        ],
+        "commit": {
+          "message": "Add binder tracing to dotnet-trace-collect skill (#250)",
+          "author": {
+            "name": "Elinor Fung",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/ba56c936b3b1ce74f75fcc60877d9c4179b675c7",
+          "timestamp": "2026-03-11T16:31:33+00:00",
+          "id": "ba56c936b3b1ce74f75fcc60877d9c4179b675c7"
+        },
+        "date": 1773258095573
       }
     ],
     "Quality": [
@@ -1316,9 +1347,38 @@
             "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality"
           }
         ]
+      },
+      {
+        "tool": "customBiggerIsBetter",
+        "model": "claude-opus-4.6",
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "value": 8.399999618530273,
+            "overfittingScore": 0.29,
+            "overfitting": "moderate",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.399999618530273,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality"
+          }
+        ],
+        "commit": {
+          "message": "Add binder tracing to dotnet-trace-collect skill (#250)",
+          "author": {
+            "name": "Elinor Fung",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/ba56c936b3b1ce74f75fcc60877d9c4179b675c7",
+          "timestamp": "2026-03-11T16:31:33+00:00",
+          "id": "ba56c936b3b1ce74f75fcc60877d9c4179b675c7"
+        },
+        "date": 1773258095573
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1773247549116
+  "lastUpdate": 1773258095573
 }
