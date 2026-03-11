@@ -39,7 +39,7 @@ if (-not $RepoRoot) {
     $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
 }
 
-$KnownDomainsFile = Join-Path $RepoRoot '.github' 'known-domains.txt'
+$KnownDomainsFile = Join-Path $PSScriptRoot 'known-domains.txt'
 
 # ---------------------------------------------------------------------------
 # Load known domains
@@ -237,7 +237,7 @@ function Invoke-ScanFile {
                 $f = [RefFinding]::new()
                 $f.Path = $relPath; $f.LineNum = $lineNum; $f.Level = 'error'
                 $f.Code = 'EXTERNAL-DOMAIN'
-                $f.Message = "Domain not in known-domains.txt -- add it to .github/known-domains.txt in your PR if this reference is intentional: $url"
+                $f.Message = "Domain not in known-domains.txt -- add it to eng/reference-scanner/known-domains.txt in your PR if this reference is intentional: $url"
                 $findings.Add($f)
             }
         }

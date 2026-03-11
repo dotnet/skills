@@ -309,11 +309,11 @@ automated reference scanner (`eng/reference-scanner/scan.ps1`) that runs in CI.
 - Pipe-to-shell patterns (`curl ... | bash`)
 
 **Errors** (will fail CI):
-- URLs pointing to domains not listed in `.github/known-domains.txt`
+- URLs pointing to domains not listed in `eng/reference-scanner/known-domains.txt`
 
 Community tools and third-party projects are evaluated on a case-by-case basis
 (see "What we look for" above). If your skill references a new external domain,
-add it to `.github/known-domains.txt` in the same PR — the reviewer will
+add it to `eng/reference-scanner/known-domains.txt` in the same PR — the reviewer will
 approve it alongside the skill content.
 
 ## Review process

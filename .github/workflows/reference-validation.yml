@@ -8,7 +8,7 @@ on:
       - 'agentic-workflows/**'
       - 'eng/dashboard/**'
       - 'README.md'
-      - '.github/known-domains.txt'
+      - 'eng/reference-scanner/known-domains.txt'
   push:
     branches: [main]
     paths:
@@ -17,7 +17,7 @@ on:
       - 'agentic-workflows/**'
       - 'eng/dashboard/**'
       - 'README.md'
-      - '.github/known-domains.txt'
+      - 'eng/reference-scanner/known-domains.txt'
   workflow_dispatch:
 
 jobs:

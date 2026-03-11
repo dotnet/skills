@@ -1,18 +1,12 @@
 # Known domains for skill/agent content
 #
-# URLs pointing to domains on this list are expected in skill and agent
-# instructions and won't be flagged during reference validation.
-#
-# Domains not on this list are surfaced as informational notices so
-# reviewers are aware of external references. Community tools and
-# third-party projects are welcome — this list just helps reviewers
-# spot new external dependencies during code review.
+# URLs pointing to domains not on this list will fail reference validation.
 #
 # To add a domain: include it in your PR and a reviewer will approve it
 # alongside the skill content.
 #
-# Format: one domain per line. Prefix with github.com/<org> to scope
-# GitHub references to a specific org. Lines starting with # are comments.
+# Format: one domain per line. Lines starting with # are comments.
+# For GitHub, use github.com/<org>/<repo> to scope to a specific repo.
 
 # Standards
 agentskills.io
@@ -58,6 +52,7 @@ github.com/microsoftdocs/visualstudio-docs
 github.com/modelcontextprotocol/csharp-sdk
 
 # Community
+ollama.com
 stackoverflow.com
 
 # UI helpers
