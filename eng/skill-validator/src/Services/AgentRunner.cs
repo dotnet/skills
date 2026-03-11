@@ -109,6 +109,8 @@ public static class AgentRunner
         IReadOnlyDictionary<string, MCPServerDef>? mcpServers = null,
         IReadOnlyList<SkillInfo>? additionalSkills = null)
     {
+        // The SDK expects SkillDirectories entries to be parent directories that
+        // it scans for child folders containing SKILL.md.
         var skillPath = skill is not null ? Path.GetDirectoryName(skill.Path) : null;
 
         // Create a unique temporary config directory for this session to not share any data
@@ -116,17 +118,30 @@ public static class AgentRunner
         Directory.CreateDirectory(configDir);
         _workDirs.Add(configDir);
 
-        // Build skill directories list: primary skill + any additional skills
+        // Build skill directories list: primary skill + any additional skills.
+        // For additional skills we stage a temp directory with copies of each
+        // skill's SKILL.md so the SDK discovers exactly those skills — not
+        // every sibling that happens to share the same parent directory.
         var skillDirs = new List<string>();
         if (skillPath is not null) skillDirs.Add(skillPath);
         if (additionalSkills is { Count: > 0 })
         {
+            var stageDir = Path.Combine(Path.GetTempPath(), $"sv-noise-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(stageDir);
+            _workDirs.Add(stageDir);
+
             foreach (var s in additionalSkills)
             {
-                var dir = Path.GetDirectoryName(s.Path);
-                if (dir is not null && !skillDirs.Contains(dir, StringComparer.OrdinalIgnoreCase))
-                    skillDirs.Add(dir);
+                var skillMdPath = Path.Combine(s.Path, "SKILL.md");
+                if (!File.Exists(skillMdPath))
+                    continue;
+
+                var stagedSkillDir = Path.Combine(stageDir, Path.GetFileName(s.Path));
+                Directory.CreateDirectory(stagedSkillDir);
+                File.Copy(skillMdPath, Path.Combine(stagedSkillDir, "SKILL.md"));
             }
+
+            skillDirs.Add(stageDir);
         }
 
         // Convert MCPServerDef records to the SDK's Dictionary<string, object> shape

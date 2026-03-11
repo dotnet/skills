@@ -487,7 +487,7 @@ public static class ValidateCommand
         {
             try
             {
-                var noiseResult = await ExecuteNoiseTest(skill, noiseSkills, config, usePairwise, spinner);
+                var noiseResult = await ExecuteNoiseTest(skill, noiseSkills, config, spinner);
                 verdict.NoiseTestResult = noiseResult;
                 if (!noiseResult.Passed)
                 {
@@ -726,14 +726,12 @@ public static class ValidateCommand
         SkillInfo targetSkill,
         IReadOnlyList<SkillInfo> allSkills,
         ValidatorConfig config,
-        bool usePairwise,
         Spinner spinner)
     {
         var prefix = $"[{targetSkill.Name}/noise]";
         var log = (string msg) => spinner.Log($"{prefix} {msg}");
 
-        var otherSkills = allSkills.Where(s =>
-            !string.Equals(s.Path, targetSkill.Path, StringComparison.OrdinalIgnoreCase)).ToList();
+        var otherSkills = allSkills.Where(s => !string.Equals(s.Path, targetSkill.Path, StringComparison.OrdinalIgnoreCase)).ToList();
         int totalLoaded = otherSkills.Count + 1; // target + others
 
         log($"🔊 Running noise test with {totalLoaded} skills loaded...");
@@ -748,74 +746,94 @@ public static class ValidateCommand
                 var tag = $"[{targetSkill.Name}/noise/{scenario.Name}]";
                 var scenarioLog = (string msg) => spinner.Log($"{tag} {msg}");
 
-                scenarioLog("running skill-only vs all-skills...");
+                scenarioLog($"running skill-only vs all-skills ({config.Runs} run(s))...");
 
-                // Run with target skill only
-                var skillOnlyMetrics = await AgentRunner.RunAgent(new RunOptions(
-                    scenario, targetSkill, targetSkill.EvalPath, config.Model, config.Verbose, scenarioLog));
+                using var runLimit = new ConcurrencyLimiter(config.ParallelRuns);
 
-                // Run with all skills loaded
-                var allSkillsMetrics = await AgentRunner.RunAgent(new RunOptions(
-                    scenario, targetSkill, targetSkill.EvalPath, config.Model, config.Verbose, scenarioLog, AdditionalSkills: otherSkills));
+                var runResults = await Task.WhenAll(Enumerable.Range(0, config.Runs).Select(runIndex =>
+                    runLimit.RunAsync(async () =>
+                    {
+                        // Run with target skill only
+                        var skillOnlyMetrics = await AgentRunner.RunAgent(new RunOptions(
+                            scenario, targetSkill, targetSkill.EvalPath, config.Model, config.Verbose, scenarioLog));
 
-                // Evaluate assertions on both
-                if (scenario.Assertions is { Count: > 0 })
-                {
-                    skillOnlyMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(
-                        scenario.Assertions, skillOnlyMetrics.AgentOutput, skillOnlyMetrics.WorkDir);
-                    allSkillsMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(
-                        scenario.Assertions, allSkillsMetrics.AgentOutput, allSkillsMetrics.WorkDir);
-                }
-                var soConstraints = AssertionEvaluator.EvaluateConstraints(scenario, skillOnlyMetrics);
-                var asConstraints = AssertionEvaluator.EvaluateConstraints(scenario, allSkillsMetrics);
-                skillOnlyMetrics.AssertionResults = [..skillOnlyMetrics.AssertionResults, ..soConstraints];
-                allSkillsMetrics.AssertionResults = [..allSkillsMetrics.AssertionResults, ..asConstraints];
+                        // Run with all skills loaded
+                        var allSkillsMetrics = await AgentRunner.RunAgent(new RunOptions(
+                            scenario, targetSkill, targetSkill.EvalPath, config.Model, config.Verbose, scenarioLog, AdditionalSkills: otherSkills));
 
-                skillOnlyMetrics.TaskCompleted = scenario.Assertions is { Count: > 0 } || soConstraints.Count > 0
-                    ? skillOnlyMetrics.AssertionResults.All(a => a.Passed)
-                    : skillOnlyMetrics.ErrorCount == 0;
-                allSkillsMetrics.TaskCompleted = scenario.Assertions is { Count: > 0 } || asConstraints.Count > 0
-                    ? allSkillsMetrics.AssertionResults.All(a => a.Passed)
-                    : allSkillsMetrics.ErrorCount == 0;
+                        // Evaluate assertions on both
+                        if (scenario.Assertions is { Count: > 0 })
+                        {
+                            skillOnlyMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(
+                                scenario.Assertions, skillOnlyMetrics.AgentOutput, skillOnlyMetrics.WorkDir);
+                            allSkillsMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(
+                                scenario.Assertions, allSkillsMetrics.AgentOutput, allSkillsMetrics.WorkDir);
+                        }
+                        var soConstraints = AssertionEvaluator.EvaluateConstraints(scenario, skillOnlyMetrics);
+                        var asConstraints = AssertionEvaluator.EvaluateConstraints(scenario, allSkillsMetrics);
+                        skillOnlyMetrics.AssertionResults = [..skillOnlyMetrics.AssertionResults, ..soConstraints];
+                        allSkillsMetrics.AssertionResults = [..allSkillsMetrics.AssertionResults, ..asConstraints];
 
-                // Judge both runs
-                var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, skillOnlyMetrics.WorkDir, targetSkill.Path);
-                JudgeResult skillOnlyJudge, allSkillsJudge;
-                try
-                {
-                    skillOnlyJudge = await Services.Judge.JudgeRun(scenario, skillOnlyMetrics, judgeOpts);
-                }
-                catch
-                {
-                    skillOnlyJudge = new JudgeResult([], 3, "Judge failed");
-                }
-                try
-                {
-                    allSkillsJudge = await Services.Judge.JudgeRun(scenario, allSkillsMetrics,
-                        judgeOpts with { WorkDir = allSkillsMetrics.WorkDir });
-                }
-                catch
-                {
-                    allSkillsJudge = new JudgeResult([], 3, "Judge failed");
-                }
+                        skillOnlyMetrics.TaskCompleted = scenario.Assertions is { Count: > 0 } || soConstraints.Count > 0
+                            ? skillOnlyMetrics.AssertionResults.All(a => a.Passed)
+                            : skillOnlyMetrics.ErrorCount == 0;
+                        allSkillsMetrics.TaskCompleted = scenario.Assertions is { Count: > 0 } || asConstraints.Count > 0
+                            ? allSkillsMetrics.AssertionResults.All(a => a.Passed)
+                            : allSkillsMetrics.ErrorCount == 0;
 
-                var skillOnlyResult = new RunResult(skillOnlyMetrics, skillOnlyJudge);
-                var allSkillsResult = new RunResult(allSkillsMetrics, allSkillsJudge);
+                        // Judge both runs
+                        var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, skillOnlyMetrics.WorkDir, targetSkill.Path);
+                        JudgeResult skillOnlyJudge, allSkillsJudge;
+                        try
+                        {
+                            skillOnlyJudge = await Services.Judge.JudgeRun(scenario, skillOnlyMetrics, judgeOpts);
+                        }
+                        catch
+                        {
+                            skillOnlyJudge = new JudgeResult([], 3, "Judge failed");
+                        }
+                        try
+                        {
+                            allSkillsJudge = await Services.Judge.JudgeRun(scenario, allSkillsMetrics,
+                                judgeOpts with { WorkDir = allSkillsMetrics.WorkDir });
+                        }
+                        catch
+                        {
+                            allSkillsJudge = new JudgeResult([], 3, "Judge failed");
+                        }
+
+                        var skillOnly = new RunResult(skillOnlyMetrics, skillOnlyJudge);
+                        var allSkills = new RunResult(allSkillsMetrics, allSkillsJudge);
+                        var activation = MetricsCollector.ExtractSkillActivation(
+                            allSkillsMetrics.Events, skillOnlyMetrics.ToolCallBreakdown);
+
+                        return (SkillOnly: skillOnly, AllSkills: allSkills, Activation: activation);
+                    })));
+
+                scenarioLog($"✓ All {config.Runs} noise run(s) complete");
+
+                // Average across runs, then compare the averaged results
+                var avgSkillOnly = AverageResults(runResults.Select(r => r.SkillOnly).ToList());
+                var avgAllSkills = AverageResults(runResults.Select(r => r.AllSkills).ToList());
 
                 // Compare: skill-only is "baseline", all-skills is "with-skill"
                 // A positive score means all-skills is *better*, negative means degradation
-                var comparison = Comparator.CompareScenario(scenario.Name, skillOnlyResult, allSkillsResult);
+                var comparison = Comparator.CompareScenario(scenario.Name, avgSkillOnly, avgAllSkills);
                 var degradation = -comparison.ImprovementScore; // positive = degradation
 
-                var activation = MetricsCollector.ExtractSkillActivation(
-                    allSkillsMetrics.Events, skillOnlyMetrics.ToolCallBreakdown);
+                // Aggregate activation info across runs
+                var activation = new SkillActivationInfo(
+                    Activated: runResults.Any(r => r.Activation.Activated),
+                    DetectedSkills: runResults.SelectMany(r => r.Activation.DetectedSkills).Distinct().ToList(),
+                    ExtraTools: runResults.SelectMany(r => r.Activation.ExtraTools).Distinct().ToList(),
+                    SkillEventCount: runResults.Sum(r => r.Activation.SkillEventCount));
 
                 scenarioLog($"✓ degradation: {degradation * 100:F1}%, target skill activated: {activation.Activated}");
 
                 return new NoiseScenarioResult(
                     scenario.Name,
-                    skillOnlyResult,
-                    allSkillsResult,
+                    avgSkillOnly,
+                    avgAllSkills,
                     degradation,
                     comparison.Breakdown,
                     activation,
