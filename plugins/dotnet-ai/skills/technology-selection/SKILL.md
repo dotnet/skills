@@ -96,7 +96,7 @@ Install only the packages needed for the selected technology branch. Do not mix 
 <PackageReference Include="OpenAI" Version="2.*" />
 
 <!-- Local LLM inference -->
-<PackageReference Include="LLamaSharp" Version="0.*" />
+<PackageReference Include="OllamaSharp" Version="5.*" />
 
 <!-- Custom model inference -->
 <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.*" />
