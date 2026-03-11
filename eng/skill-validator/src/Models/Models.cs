@@ -259,6 +259,7 @@ public sealed class SkillVerdict
     public IReadOnlyList<string>? ProfileWarnings { get; set; }
     public bool SkillNotActivated { get; set; }
     public OverfittingResult? OverfittingResult { get; set; }
+    public NoiseTestResult? NoiseTestResult { get; set; }
 }
 
 // --- Overfitting assessment ---
@@ -306,6 +307,24 @@ public sealed record OverfittingJudgeOptions(
     int Timeout,
     string WorkDir);
 
+// --- Multi-skill noise test ---
+
+public sealed record NoiseScenarioResult(
+    string ScenarioName,
+    RunResult WithSkillOnly,
+    RunResult WithAllSkills,
+    double DegradationScore,
+    MetricBreakdown Breakdown,
+    SkillActivationInfo? SkillActivation,
+    int TotalSkillsLoaded);
+
+public sealed record NoiseTestResult(
+    IReadOnlyList<NoiseScenarioResult> Scenarios,
+    double OverallDegradation,
+    bool Passed,
+    string Reason,
+    int TotalSkillsLoaded);
+
 // --- Config ---
 
 public sealed record ReporterSpec(ReporterType Type);
@@ -340,6 +359,9 @@ public sealed record ValidatorConfig
     public string? TestsDir { get; init; }
     public bool OverfittingCheck { get; init; } = true;
     public bool OverfittingFix { get; init; }
+    public string? NoiseSkillsDir { get; init; }
+    public double NoiseDegradationLimit { get; init; } = 0.2;
+    public double NoiseMaxScenarioDegradation { get; init; } = 0.4;
 }
 
 public static class DefaultWeights

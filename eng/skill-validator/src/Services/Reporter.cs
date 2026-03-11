@@ -133,6 +133,25 @@ public static class Reporter
                         Console.WriteLine($"    \x1b[2m•\x1b[0m [{item.Classification}] \x1b[2m{item.AssertionSummary}\x1b[0m\n      \x1b[2m— {item.Reasoning}\x1b[0m");
                 }
             }
+
+            // Noise test results
+            if (verdict.NoiseTestResult is { } noiseResult)
+            {
+                Console.WriteLine();
+                var noiseIcon = noiseResult.Passed ? "✅" : "⚠️";
+                var noiseColor = noiseResult.Passed ? "\x1b[32m" : "\x1b[33m";
+                Console.WriteLine($"  🔊 Noise test ({noiseResult.TotalSkillsLoaded} skills loaded): {noiseColor}{noiseResult.OverallDegradation * 100:F1}% avg degradation\x1b[0m {noiseIcon}");
+                Console.WriteLine($"  \x1b[2m{noiseResult.Reason}\x1b[0m");
+
+                foreach (var ns in noiseResult.Scenarios)
+                {
+                    var nsIcon = ns.DegradationScore <= 0 ? "\x1b[32m↑\x1b[0m" : "\x1b[33m↓\x1b[0m";
+                    var activated = ns.SkillActivation?.Activated == true ? "✅" : "⚠️ not activated";
+                    Console.WriteLine($"    {nsIcon} {ns.ScenarioName}  degradation: {ns.DegradationScore * 100:F1}%  target skill: {activated}");
+                    Console.WriteLine($"      \x1b[2mskill-only: {ns.WithSkillOnly.JudgeResult.OverallScore:F1}/5 → all-skills: {ns.WithAllSkills.JudgeResult.OverallScore:F1}/5\x1b[0m");
+                }
+            }
+
             if (verdict.Scenarios.Count > 0)
             {
                 Console.WriteLine();
@@ -403,6 +422,41 @@ public static class Reporter
             (s.Baseline?.Metrics?.TimedOut == true) || (s.WithSkill?.Metrics?.TimedOut == true)));
         if (anyTimeout)
             sb.AppendLine("\n> ⏰ **timeout** — run hit the scenario timeout limit; scoring may be impacted by aborting model execution before it could produce its full output");
+
+        // Noise test results
+        var withNoise = verdicts.Where(v => v.NoiseTestResult is not null).ToList();
+        if (withNoise.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("### Noise Test (Multi-Skill Loading)");
+            sb.AppendLine();
+            sb.AppendLine("| Skill | Skills Loaded | Degradation | Verdict |");
+            sb.AppendLine("|-------|--------------|-------------|---------|");
+            foreach (var v in withNoise)
+            {
+                var nr = v.NoiseTestResult!;
+                var icon = nr.Passed ? "✅" : "⚠️";
+                sb.AppendLine($"| {v.SkillName} | {nr.TotalSkillsLoaded} | {nr.OverallDegradation * 100:F1}% | {icon} |");
+            }
+
+            foreach (var v in withNoise)
+            {
+                var nr = v.NoiseTestResult!;
+                if (nr.Scenarios.Count > 0)
+                {
+                    sb.AppendLine();
+                    sb.AppendLine($"**{v.SkillName}** noise scenarios:");
+                    sb.AppendLine();
+                    sb.AppendLine("| Scenario | Skill-Only | All-Skills | Degradation | Target Activated |");
+                    sb.AppendLine("|----------|-----------|------------|-------------|-----------------|");
+                    foreach (var ns in nr.Scenarios)
+                    {
+                        var activated = ns.SkillActivation?.Activated == true ? "✅" : "⚠️";
+                        sb.AppendLine($"| {ns.ScenarioName} | {ns.WithSkillOnly.JudgeResult.OverallScore:F1}/5 | {ns.WithAllSkills.JudgeResult.OverallScore:F1}/5 | {ns.DegradationScore * 100:F1}% | {activated} |");
+                    }
+                }
+            }
+        }
 
         sb.AppendLine($"\nModel: {model ?? "unknown"} | Judge: {judgeModel ?? "unknown"}");
 

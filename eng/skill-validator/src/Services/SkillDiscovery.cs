@@ -33,6 +33,29 @@ public static partial class SkillDiscovery
         return skills;
     }
 
+    /// <summary>
+    /// Recursively discover all skills under a directory tree by finding SKILL.md files.
+    /// </summary>
+    public static async Task<IReadOnlyList<SkillInfo>> DiscoverSkillsRecursive(string targetPath, string? testsDir = null)
+    {
+        if (!Directory.Exists(targetPath))
+            return [];
+
+        var skills = new List<SkillInfo>();
+        foreach (var skillMdPath in Directory.EnumerateFiles(targetPath, "SKILL.md", SearchOption.AllDirectories))
+        {
+            var dirPath = Path.GetDirectoryName(skillMdPath)!;
+            if (Path.GetFileName(dirPath).StartsWith('.'))
+                continue;
+
+            var skill = await DiscoverSkillAt(dirPath, testsDir);
+            if (skill is not null)
+                skills.Add(skill);
+        }
+
+        return skills;
+    }
+
     private static async Task<SkillInfo?> DiscoverSkillAt(string dirPath, string? testsDir)
     {
         var skillMdPath = Path.Combine(dirPath, "SKILL.md");
@@ -49,11 +72,9 @@ public static partial class SkillDiscovery
         string? evalPath = null;
         EvalConfig? evalConfig = null;
 
-        var evalFilePath = testsDir is not null
-            ? Path.Combine(testsDir, Path.GetFileName(dirPath), "eval.yaml")
-            : Path.Combine(dirPath, "tests", "eval.yaml");
+        var evalFilePath = ResolveEvalPath(dirPath, testsDir);
 
-        if (File.Exists(evalFilePath))
+        if (evalFilePath is not null && File.Exists(evalFilePath))
         {
             evalPath = evalFilePath;
             var evalContent = await File.ReadAllTextAsync(evalFilePath);
@@ -116,6 +137,39 @@ public static partial class SkillDiscovery
             if (parent is null || parent == dir) break;
             dir = parent;
         }
+        return null;
+    }
+
+    /// <summary>
+    /// Resolve the eval.yaml path for a skill. Tries flat layout first,
+    /// then searches one level of subdirectories under testsDir.
+    /// </summary>
+    private static string? ResolveEvalPath(string skillDirPath, string? testsDir)
+    {
+        var skillDirName = Path.GetFileName(skillDirPath);
+
+        if (testsDir is null)
+        {
+            var inTree = Path.Combine(skillDirPath, "tests", "eval.yaml");
+            return File.Exists(inTree) ? inTree : null;
+        }
+
+        // Flat: testsDir/<skill-name>/eval.yaml
+        var flat = Path.Combine(testsDir, skillDirName, "eval.yaml");
+        if (File.Exists(flat))
+            return flat;
+
+        // Nested: testsDir/<subdir>/<skill-name>/eval.yaml (e.g., tests/dotnet/csharp-scripts/eval.yaml)
+        if (Directory.Exists(testsDir))
+        {
+            foreach (var subDir in Directory.GetDirectories(testsDir))
+            {
+                var nested = Path.Combine(subDir, skillDirName, "eval.yaml");
+                if (File.Exists(nested))
+                    return nested;
+            }
+        }
+
         return null;
     }
 
