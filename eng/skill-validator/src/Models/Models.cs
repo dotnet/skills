@@ -360,7 +360,8 @@ public sealed record ValidatorConfig
     public bool OverfittingCheck { get; init; } = true;
     public bool OverfittingFix { get; init; }
     public string? NoiseSkillsDir { get; init; }
-    public double NoiseMaxDegradation { get; init; } = 0.2;
+    public double NoiseDegradationLimit { get; init; } = 0.2;
+    public double NoiseMaxScenarioDegradation { get; init; } = 0.4;
 }
 
 public static class DefaultWeights

@@ -32,7 +32,8 @@ public static class ValidateCommand
         var noOverfittingCheckOpt = new Option<bool>("--no-overfitting-check") { Description = "Disable LLM-based overfitting analysis (on by default)" };
         var overfittingFixOpt = new Option<bool>("--overfitting-fix") { Description = "Generate a fixed eval.yaml with improved rubric items/assertions" };
         var noiseSkillsDirOpt = new Option<string?>("--noise-skills-dir") { Description = "Directory containing skills to load as noise. Enables the noise test: re-runs scenarios with all noise skills loaded and measures degradation." };
-        var noiseMaxDegradationOpt = new Option<double>("--noise-max-degradation") { Description = "Maximum acceptable quality degradation (0-1) in noise test", DefaultValueFactory = _ => 0.2 };
+        var noiseMaxDegradationOpt = new Option<double>("--noise-max-degradation") { Description = "Maximum acceptable average quality degradation (0-1) in noise test (only positive degradations count)", DefaultValueFactory = _ => 0.2 };
+        var noiseMaxScenarioDegradationOpt = new Option<double>("--noise-max-scenario-degradation") { Description = "Maximum acceptable quality degradation (0-1) for any single noise-test scenario", DefaultValueFactory = _ => 0.4 };
 
         var command = new RootCommand("Validate that agent skills meaningfully improve agent performance")
         {
@@ -58,6 +59,7 @@ public static class ValidateCommand
             overfittingFixOpt,
             noiseSkillsDirOpt,
             noiseMaxDegradationOpt,
+            noiseMaxScenarioDegradationOpt,
         };
 
         command.SetAction(async (parseResult, _) =>
@@ -104,7 +106,8 @@ public static class ValidateCommand
                 OverfittingCheck = !parseResult.GetValue(noOverfittingCheckOpt),
                 OverfittingFix = parseResult.GetValue(overfittingFixOpt),
                 NoiseSkillsDir = parseResult.GetValue(noiseSkillsDirOpt),
-                NoiseMaxDegradation = parseResult.GetValue(noiseMaxDegradationOpt),
+                NoiseDegradationLimit = parseResult.GetValue(noiseMaxDegradationOpt),
+                NoiseMaxScenarioDegradation = parseResult.GetValue(noiseMaxScenarioDegradationOpt),
             };
 
             return await Run(config);
@@ -821,14 +824,30 @@ public static class ValidateCommand
 
         noiseScenarios = (await Task.WhenAll(tasks)).ToList();
 
-        double overallDegradation = noiseScenarios.Count > 0
-            ? noiseScenarios.Average(s => s.DegradationScore)
-            : 0;
-        bool passed = overallDegradation <= config.NoiseMaxDegradation;
+        // Aggregate only positive (harmful) degradations so that improvements don't mask regressions
+        double overallDegradation = noiseScenarios.Count > 0 ? noiseScenarios.Average(s => Math.Max(0, s.DegradationScore)) : 0;
 
-        string reason = passed
-            ? $"Quality degradation {overallDegradation * 100:F1}% within threshold of {config.NoiseMaxDegradation * 100:F1}% ({totalLoaded} skills loaded)"
-            : $"Quality degradation {overallDegradation * 100:F1}% exceeds threshold of {config.NoiseMaxDegradation * 100:F1}% ({totalLoaded} skills loaded)";
+        // Also enforce a per-scenario cap so a single bad scenario can't be hidden by others
+        var worstScenario = noiseScenarios.Count > 0 ? noiseScenarios.MaxBy(s => s.DegradationScore) : null;
+        double worstDegradation = worstScenario?.DegradationScore ?? 0;
+
+        bool avgPassed = overallDegradation <= config.NoiseDegradationLimit;
+        bool worstScenarioPassed = worstDegradation <= config.NoiseMaxScenarioDegradation;
+        bool passed = avgPassed && worstScenarioPassed;
+
+        string reason;
+        if (!worstScenarioPassed)
+        {
+            reason = $"Scenario '{worstScenario!.ScenarioName}' degradation {worstDegradation * 100:F1}% exceeds per-scenario threshold of {config.NoiseMaxScenarioDegradation * 100:F1}% ({totalLoaded} skills loaded)";
+        }
+        else if (!avgPassed)
+        {
+            reason = $"Average degradation {overallDegradation * 100:F1}% exceeds threshold of {config.NoiseDegradationLimit * 100:F1}% ({totalLoaded} skills loaded)";
+        }
+        else
+        {
+            reason = $"Quality degradation {overallDegradation * 100:F1}% within threshold of {config.NoiseDegradationLimit * 100:F1}%, worst scenario {worstDegradation * 100:F1}% within {config.NoiseMaxScenarioDegradation * 100:F1}% ({totalLoaded} skills loaded)";
+        }
 
         return new NoiseTestResult(noiseScenarios, overallDegradation, passed, reason, totalLoaded);
     }

@@ -140,7 +140,7 @@ public static class Reporter
                 Console.WriteLine();
                 var noiseIcon = noiseResult.Passed ? "✅" : "⚠️";
                 var noiseColor = noiseResult.Passed ? "\x1b[32m" : "\x1b[33m";
-                Console.WriteLine($"  🔊 Noise test ({noiseResult.TotalSkillsLoaded} skills loaded): {noiseColor}{noiseResult.OverallDegradation * 100:F1}% degradation\x1b[0m {noiseIcon}");
+                Console.WriteLine($"  🔊 Noise test ({noiseResult.TotalSkillsLoaded} skills loaded): {noiseColor}{noiseResult.OverallDegradation * 100:F1}% avg degradation\x1b[0m {noiseIcon}");
                 Console.WriteLine($"  \x1b[2m{noiseResult.Reason}\x1b[0m");
 
                 foreach (var ns in noiseResult.Scenarios)
