@@ -19,12 +19,13 @@ permissions:
 
 jobs:
   discover:
-    # Skip fork PRs (handled by evaluation-fork-pr.yml) and scheduled runs on forks.
-    # Without this guard, forks that have activated Actions will run the evaluation
-    # schedule indefinitely, consuming the fork owner's Actions minutes.
+    # Skip fork PRs (handled by evaluation-fork-pr.yml) and scheduled runs
+    # outside the canonical repo. The schedule guard uses an explicit repo
+    # name (not just the fork flag) because evaluation requires
+    # COPILOT_GITHUB_TOKEN* secrets that only exist in dotnet/skills.
     if: >-
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
-      !(github.event_name == 'schedule' && github.event.repository.fork)
+      (github.event_name != 'schedule' || github.repository == 'dotnet/skills')
     runs-on: ubuntu-latest
     outputs:
       entries: ${{ steps.find.outputs.entries }}
