@@ -26,7 +26,7 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
-    public void AdditionalSkillsStageOnlyVerifiedSkillDirs()
+    public async Task AdditionalSkillsStageOnlyVerifiedSkillDirs()
     {
         // Create real temp directories with SKILL.md so the staging logic finds them
         var tmpBase = Path.Combine(Path.GetTempPath(), $"sv-test-{Guid.NewGuid():N}");
@@ -66,6 +66,7 @@ public class BuildSessionConfigTests
         finally
         {
             try { Directory.Delete(tmpBase, true); } catch { }
+            try { await AgentRunner.CleanupWorkDirs(); } catch { }
         }
     }
 
