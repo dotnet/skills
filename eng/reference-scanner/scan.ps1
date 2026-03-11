@@ -1,0 +1,311 @@
+<#
+.SYNOPSIS
+    Reference scanner for dotnet/skills.
+
+.DESCRIPTION
+    Scans skill and agent markdown files for external references and
+    potentially dangerous patterns. Outputs GitHub Actions annotations
+    when running in CI, or human-readable text otherwise.
+
+.PARAMETER All
+    Scan all skill/agent files in the repository.
+
+.PARAMETER Paths
+    Specific files to scan.
+
+.PARAMETER RepoRoot
+    Repository root path. Defaults to three levels up from this script.
+
+.EXAMPLE
+    pwsh eng/reference-scanner/scan.ps1 -All
+    pwsh eng/reference-scanner/scan.ps1 -Paths plugins/dotnet/skills/foo/SKILL.md
+#>
+
+[CmdletBinding()]
+param(
+    [switch]$All,
+    [string[]]$Paths,
+    [string]$RepoRoot
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# ---------------------------------------------------------------------------
+# Setup
+# ---------------------------------------------------------------------------
+
+if (-not $RepoRoot) {
+    $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+}
+
+$KnownDomainsFile = Join-Path $RepoRoot '.github' 'known-domains.txt'
+
+# ---------------------------------------------------------------------------
+# Load known domains
+# ---------------------------------------------------------------------------
+
+function Get-KnownDomains {
+    if (-not (Test-Path $KnownDomainsFile)) { return @() }
+    $domains = @()
+    foreach ($line in (Get-Content $KnownDomainsFile -Encoding UTF8)) {
+        $line = $line.Trim()
+        if ($line -and -not $line.StartsWith('#')) {
+            $domains += $line.ToLower()
+        }
+    }
+    return $domains
+}
+
+# ---------------------------------------------------------------------------
+# Domain matching
+# ---------------------------------------------------------------------------
+
+function Test-KnownDomain {
+    param([string]$Url, [string[]]$KnownDomains)
+
+    $urlLower = $Url.ToLower()
+    foreach ($domain in $KnownDomains) {
+        if ($domain.StartsWith('github.com/')) {
+            # Org-scoped: require / or end-of-string after the org/repo prefix
+            if ($urlLower -match "^https?://$([regex]::Escape($domain))(/|$)") {
+                return $true
+            }
+        }
+        else {
+            # Extract host from URL
+            $host_ = ($urlLower -replace '^https?://', '') -replace '[/:\?].*$', ''
+            if ($host_ -eq $domain -or $host_.EndsWith(".$domain")) {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
+function Test-LocalUrl {
+    param([string]$Url)
+    $lower = $Url.ToLower()
+    # Match localhost, 127.0.0.1, [::1] followed by :, /, or end-of-string
+    return ($lower -match '^https?://localhost([:/]|$)' -or
+            $lower -match '^https?://127\.0\.0\.1([:/]|$)' -or
+            $lower -match '^https?://\[::1\]([:/]|$)')
+}
+
+function Test-HttpNotHttps {
+    param([string]$Url)
+    $lower = $Url.ToLower()
+    # Extract host and check against schemas.microsoft.com exactly
+    $host_ = ($lower -replace '^https?://', '') -replace '[/:\?].*$', ''
+    return ($lower.StartsWith('http://') -and
+            -not (Test-LocalUrl $Url) -and
+            $host_ -ne 'schemas.microsoft.com' -and
+            -not $host_.EndsWith('.schemas.microsoft.com'))
+}
+
+# ---------------------------------------------------------------------------
+# File discovery
+# ---------------------------------------------------------------------------
+
+function Get-SkillFiles {
+    param([string]$Root)
+
+    $files = @()
+
+    # plugins/**/SKILL.md and plugins/**/*.agent.md
+    $files += @(Get-ChildItem -Path (Join-Path $Root 'plugins') -Recurse -Filter 'SKILL.md' -ErrorAction SilentlyContinue)
+    $files += @(Get-ChildItem -Path (Join-Path $Root 'plugins') -Recurse -Filter '*.agent.md' -ErrorAction SilentlyContinue)
+
+    # plugins/**/references/*.md
+    $files += @(Get-ChildItem -Path (Join-Path $Root 'plugins') -Recurse -Directory -Filter 'references' -ErrorAction SilentlyContinue |
+        ForEach-Object { Get-ChildItem -Path $_.FullName -Filter '*.md' -ErrorAction SilentlyContinue })
+
+    # .agents/**/*.md
+    $agentsDir = Join-Path $Root '.agents'
+    if (Test-Path $agentsDir) {
+        $files += @(Get-ChildItem -Path $agentsDir -Recurse -Filter '*.md' -ErrorAction SilentlyContinue)
+    }
+
+    # agentic-workflows/**/*.md
+    $awDir = Join-Path $Root 'agentic-workflows'
+    if (Test-Path $awDir) {
+        $files += @(Get-ChildItem -Path $awDir -Recurse -Filter '*.md' -ErrorAction SilentlyContinue)
+    }
+
+    # eng/**/*.html
+    $files += @(Get-ChildItem -Path (Join-Path $Root 'eng') -Recurse -Filter '*.html' -ErrorAction SilentlyContinue)
+
+    # README.md
+    $readme = Join-Path $Root 'README.md'
+    if (Test-Path $readme) { $files += @(Get-Item $readme) }
+
+    return ($files | Sort-Object FullName -Unique)
+}
+
+# ---------------------------------------------------------------------------
+# Scanning
+# ---------------------------------------------------------------------------
+
+class RefFinding {
+    [string]$Path
+    [int]$LineNum
+    [string]$Level   # "error" or "notice"
+    [string]$Code
+    [string]$Message
+}
+
+function Invoke-ScanFile {
+    param(
+        [string]$FilePath,
+        [string]$Root,
+        [string[]]$KnownDomains
+    )
+
+    $findings = [System.Collections.Generic.List[RefFinding]]::new()
+    $relPath = $FilePath.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/'
+
+    try {
+        $lines = Get-Content $FilePath -Encoding UTF8
+    }
+    catch {
+        return $findings
+    }
+
+    $urlPattern = [regex]'https?://[^\s\)\]\"''<>;]+'
+    $pipeToShell = [regex]'curl\s[^|]*\|\s*(ba)?sh\b|wget\s[^|]*\|\s*(ba)?sh\b'
+    $scriptTagSrc = [regex]'<script\s[^>]*src\s*=\s*["\x27][^"\x27]*["\x27][^>]*>'
+    $sriIntegrity = [regex]'integrity\s*='
+    $externalSrc = [regex]'src\s*=\s*["\x27]https?://'
+
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        $lineNum = $i + 1
+
+        # --- Hard errors ---
+
+        # Pipe-to-shell (except known-safe .NET install scripts)
+        if ($pipeToShell.IsMatch($line)) {
+            $allowedPipeUrls = @(
+                'https://dot.net/v1/dotnet-install.sh',
+                'https://aka.ms/dotnet-install.sh'
+            )
+            $isPipeAllowed = $false
+            foreach ($allowed in $allowedPipeUrls) {
+                # Require the URL to end at a word boundary (space, quote, pipe, or end-of-string)
+                if ($line -match "$([regex]::Escape($allowed))(\s|['""|]|$)") { $isPipeAllowed = $true; break }
+            }
+            if (-not $isPipeAllowed) {
+                $f = [RefFinding]::new()
+                $f.Path = $relPath; $f.LineNum = $lineNum; $f.Level = 'error'
+                $f.Code = 'PIPE-TO-SHELL'
+                $f.Message = 'Pipe-to-shell pattern: content is downloaded and piped directly to a shell interpreter'
+                $findings.Add($f)
+            }
+        }
+
+        # <script src="https://..."> without integrity (external only)
+        foreach ($m in $scriptTagSrc.Matches($line)) {
+            $tag = $m.Value
+            if ($externalSrc.IsMatch($tag) -and -not $sriIntegrity.IsMatch($tag)) {
+                # Extract the URL and skip localhost scripts
+                $skipSri = $false
+                if ($tag -match 'src\s*=\s*["' + "'" + ']([^"' + "'" + ']+)') {
+                    if (Test-LocalUrl $matches[1]) { $skipSri = $true }
+                }
+                if (-not $skipSri) {
+                    $f = [RefFinding]::new()
+                    $f.Path = $relPath; $f.LineNum = $lineNum; $f.Level = 'error'
+                    $f.Code = 'SCRIPT-NO-SRI'
+                    $f.Message = 'External script tag without integrity (SRI) attribute'
+                    $findings.Add($f)
+                }
+            }
+        }
+
+        # All URLs
+        foreach ($m in $urlPattern.Matches($line)) {
+            $url = $m.Value.TrimEnd('.', ',', ';', ':', ')', "'", '"')
+
+            if (Test-HttpNotHttps $url) {
+                $f = [RefFinding]::new()
+                $f.Path = $relPath; $f.LineNum = $lineNum; $f.Level = 'error'
+                $f.Code = 'HTTP-NOT-HTTPS'
+                $f.Message = "Insecure http:// URL (use https://): $url"
+                $findings.Add($f)
+            }
+            elseif (-not (Test-KnownDomain $url $KnownDomains) -and -not (Test-LocalUrl $url)) {
+                $f = [RefFinding]::new()
+                $f.Path = $relPath; $f.LineNum = $lineNum; $f.Level = 'error'
+                $f.Code = 'EXTERNAL-DOMAIN'
+                $f.Message = "Domain not in known-domains.txt -- add it to .github/known-domains.txt in your PR if this reference is intentional: $url"
+                $findings.Add($f)
+            }
+        }
+    }
+
+    return $findings
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+$knownDomains = Get-KnownDomains
+
+# Determine files to scan
+if ($All) {
+    $files = Get-SkillFiles $RepoRoot
+}
+elseif ($Paths) {
+    $files = $Paths | Where-Object { Test-Path $_ } | ForEach-Object { Get-Item $_ }
+}
+elseif ($env:CHANGED_FILES) {
+    $files = $env:CHANGED_FILES -split "`n" |
+        Where-Object { $_ -match '\.(md|html)$' -and (Test-Path $_) } |
+        ForEach-Object { Get-Item $_ }
+}
+else {
+    $files = Get-SkillFiles $RepoRoot
+}
+
+$allFindings = [System.Collections.Generic.List[RefFinding]]::new()
+foreach ($file in $files) {
+    $results = @(Invoke-ScanFile $file.FullName $RepoRoot $knownDomains)
+    foreach ($r in $results) {
+        if ($r) { $allFindings.Add($r) }
+    }
+}
+
+$errors = @($allFindings | Where-Object { $_.Level -eq 'error' })
+$notices = @($allFindings | Where-Object { $_.Level -eq 'notice' })
+$errorCount = ($errors | Measure-Object).Count
+$noticeCount = ($notices | Measure-Object).Count
+$fileCount = ($files | Measure-Object).Count
+$isCI = $env:GITHUB_ACTIONS -eq 'true'
+
+if ($isCI) {
+    foreach ($f in $allFindings) {
+        Write-Host "::$($f.Level) file=$($f.Path),line=$($f.LineNum)::[$($f.Code)] $($f.Message)"
+    }
+}
+else {
+    if ($errorCount -gt 0) {
+        Write-Host "`n  $errorCount error(s):`n"
+        foreach ($f in $errors) {
+            Write-Host "  $([char]0x274C) $($f.Path):$($f.LineNum) [$($f.Code)] $($f.Message)"
+        }
+    }
+    if ($noticeCount -gt 0) {
+        Write-Host "`n  $noticeCount external reference(s) (informational -- for reviewer awareness):`n"
+        foreach ($f in $notices) {
+            Write-Host "  $([char]0x2139)$([char]0xFE0F) $($f.Path):$($f.LineNum) [$($f.Code)] $($f.Message)"
+        }
+    }
+    if ($errorCount -eq 0 -and $noticeCount -eq 0) {
+        Write-Host "`n  No external reference issues found.`n"
+    }
+}
+
+Write-Host "`n--- Reference scan: $fileCount file(s) scanned, $errorCount error(s), $noticeCount notice(s) ---"
+
+if ($errorCount -gt 0) { exit 1 } else { exit 0 }

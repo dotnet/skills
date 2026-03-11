@@ -1,0 +1,36 @@
+name: Reference Validation
+
+on:
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - '.agents/**'
+      - 'agentic-workflows/**'
+      - 'eng/dashboard/**'
+      - 'README.md'
+      - '.github/known-domains.txt'
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+      - '.agents/**'
+      - 'agentic-workflows/**'
+      - 'eng/dashboard/**'
+      - 'README.md'
+      - '.github/known-domains.txt'
+  workflow_dispatch:
+
+jobs:
+  scan-references:
+    name: Scan external references
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Run reference scanner
+        shell: pwsh
+        run: ./eng/reference-scanner/scan.ps1 -All
