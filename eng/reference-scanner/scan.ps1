@@ -165,7 +165,7 @@ function Invoke-ScanFile {
     $relPath = $FilePath.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/'
 
     try {
-        $lines = Get-Content $FilePath -Encoding UTF8
+        $lines = @(Get-Content $FilePath -Encoding UTF8)
     }
     catch {
         $errorFinding = [RefFinding]::new()
@@ -211,15 +211,21 @@ function Invoke-ScanFile {
         }
 
         # <script src="https://..."> without integrity (external only)
+        # Also collect SRI-protected URLs so the domain check can skip them
+        $sriProtectedUrls = @()
         foreach ($m in $scriptTagSrc.Matches($line)) {
             $tag = $m.Value
-            if ($externalSrc.IsMatch($tag) -and -not $sriIntegrity.IsMatch($tag)) {
-                # Extract the URL and skip localhost scripts
-                $skipSri = $false
+            $hasSri = $sriIntegrity.IsMatch($tag)
+            if ($externalSrc.IsMatch($tag)) {
+                $scriptUrl = $null
                 if ($tag -match 'src\s*=\s*["' + "'" + ']([^"' + "'" + ']+)') {
-                    if (Test-LocalUrl $matches[1]) { $skipSri = $true }
+                    $scriptUrl = $matches[1]
                 }
-                if (-not $skipSri) {
+                if ($hasSri) {
+                    # SRI is the real security gate; skip domain check for this URL
+                    if ($scriptUrl) { $sriProtectedUrls += $scriptUrl }
+                }
+                elseif (-not $scriptUrl -or -not (Test-LocalUrl $scriptUrl)) {
                     $f = [RefFinding]::new()
                     $f.Path = $relPath; $f.LineNum = $lineNum; $f.Level = 'error'
                     $f.Code = 'SCRIPT-NO-SRI'
@@ -240,7 +246,7 @@ function Invoke-ScanFile {
                 $f.Message = "Insecure http:// URL (use https://): $url"
                 $findings.Add($f)
             }
-            elseif (-not (Test-KnownDomain $url $KnownDomains) -and -not (Test-LocalUrl $url)) {
+            elseif (-not (Test-KnownDomain $url $KnownDomains) -and -not (Test-LocalUrl $url) -and $url -notin $sriProtectedUrls) {
                 $f = [RefFinding]::new()
                 $f.Path = $relPath; $f.LineNum = $lineNum; $f.Level = 'error'
                 $f.Code = 'EXTERNAL-DOMAIN'
