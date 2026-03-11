@@ -1,0 +1,38 @@
+scenarios:
+  - name: "Create an F# console app with discriminated unions and pattern matching"
+    prompt: |
+      I want to create a new F# console app called ShapeCalculator that models geometric shapes and
+      computes their areas. It should use discriminated unions for the shape types and pattern matching
+      to compute the area. Show me the project structure and the code.
+    assertions:
+      - type: output_contains
+        value: "dotnet new console"
+      - type: output_matches
+        pattern: "-lang\\s+F#"
+      - type: output_contains
+        value: "discriminated union"
+      - type: output_matches
+        pattern: "type Shape"
+      - type: output_matches
+        pattern: "match\\s+shape\\s+with"
+    rubric:
+      - "Creates the project using `dotnet new console -lang F#`"
+      - "Defines a Shape discriminated union with at least two cases (e.g., Circle, Rectangle)"
+      - "Uses exhaustive pattern matching to compute area for each shape case"
+      - "Code is idiomatic F#: uses records or DUs, not classes; uses pipe operator where appropriate"
+    timeout: 60
+
+  - name: "Explain F# file compilation order"
+    prompt: |
+      Why does my F# project fail to compile with "The value or constructor 'Customer' is not defined"
+      even though Customer is defined in Domain.fs and used in Services.fs?
+    assertions:
+      - type: output_matches
+        pattern: "(?i)compilation order|compile order|order.*matter|fsproj"
+      - type: output_matches
+        pattern: "(?i)Domain\\.fs.*before|above.*Services\\.fs|order.*fsproj"
+    rubric:
+      - "Explains that F# compiles files in the order they appear in the .fsproj file"
+      - "Instructs the user to place Domain.fs before Services.fs in the <Compile> item group"
+      - "Does NOT suggest the fix is to add `open` or change namespace"
+    timeout: 60
