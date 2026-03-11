@@ -249,7 +249,7 @@ scenarios:
     timeout: 180
 
   - name: "Optimize int array conditional increment with SIMD"
-    prompt: "This .NET 10 project conditionally increments each element of an int array based on a threshold for counter updates. Arrays are 100K+ elements. Please optimize ConditionalIncrement for maximum throughput."
+    prompt: "This .NET 10 project conditionally increments each element of an int array based on a threshold for counter updates. Arrays are 100K+ elements. Please optimize ConditionalIncrement.IncrementAbove for maximum throughput."
     setup:
       files:
         - path: "ConditionalIncrement.cs"
