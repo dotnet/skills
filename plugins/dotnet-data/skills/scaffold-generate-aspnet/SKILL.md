@@ -98,7 +98,7 @@ Skip this step for non-Blazor scaffolders.
 
 Generate all code files manually. Follow these constraints:
 
-- **DO NOT** use any scaffolding CLI tools (`dotnet aspnet-codegenerator`, `dotnet scaffold`, etc.)
+- **DO NOT** use any scaffolding CLI tools
 - **DO NOT** add packages beyond those required for the scaffolded functionality (e.g., do not add `RuntimeCompilation`, or other convenience packages)
 - Match the coding style of existing files in the project (naming conventions, indentation, namespace patterns)
 
