@@ -183,7 +183,7 @@ Apply the guardrails for the selected technology branch. Every generated impleme
        .Use(new RetryingChatClient(maxRetries: 3)));
    ```
 
-4. **Cost control**: Always estimate and log token usage. Choose the smallest model tier that meets quality requirements (e.g., `gpt-4o-mini` before `gpt-4o`).
+4. **Cost control**: Always estimate and log token usage. Use Microsoft.ML.Tokenizers to count tokens client-side before sending requests so you can enforce budgets proactively. Choose the smallest model tier that meets quality requirements (e.g., gpt-4o-mini before gpt-4o).
 
 5. **Secret management**: Never hardcode API keys. Use Azure Key Vault, user-secrets, or environment variables:
    ```csharp
