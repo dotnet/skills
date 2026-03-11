@@ -209,7 +209,7 @@ Apply the guardrails for the selected technology branch. Every generated impleme
    };
    ```
 
-2. **Cost ceiling**: Implement a token budget per execution and terminate when reached.
+2. **Cost ceiling**: Implement a token budget per execution and terminate when reached. Use Microsoft.ML.Tokenizers to count prompt and completion tokens locally and compare against the budget before each iteration.
 
 3. **Observability**: Log non-sensitive metadata for every agent step. Never log raw `message.Content` — it may contain user prompts, tool outputs, secrets, or PII that persist in plaintext in central logging systems:
    ```csharp
