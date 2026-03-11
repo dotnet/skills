@@ -30,7 +30,7 @@ Evaluate the developer's task against this decision tree and select the appropri
 | Local/offline LLM inference with no cloud dependency | **OllamaSharp** with local [AI models supported by Ollama](https://ollama.com/search) | Privacy-sensitive, air-gapped, or cost-constrained scenarios |
 | Semantic search, RAG, or embedding storage | **Microsoft.Extensions.VectorData.Abstractions** + a vector database provider (e.g., Azure AI Search, Milvus, MongoDB, pgvector, Pinecone, Qdrant, Redis, SQL) | Provider-agnostic abstractions for vector similarity search; pair with a database-specific connector package (many are moving to community toolkits) |
 | Ingesting, chunking, and loading documents into a vector store | **Microsoft.Extensions.AI.DataIngestion** (preview) + **Microsoft.Extensions.VectorData.Abstractions** (MEVD) | Handles document parsing, text chunking, embedding generation, and upserting into a vector database; pairs with Microsoft.Extensions.VectorData.Abstractions |
-| Both structured ML predictions AND natural language reasoning | **Hybrid**: ML.NET for predictions + LLM for reasoning layer | Keep loosely coupled; ML.NET handles deterministic scoring, LLM adds explanation |
+| Both structured ML predictions AND natural language reasoning | **Hybrid**: ML.NET for predictions + LLM for reasoning layer | Keep loosely coupled; ML.NET handles reproducible scoring, LLM adds explanation |
 
 **Critical rule:** Do NOT use an LLM for tasks that ML.NET handles well (classification on tabular data, regression, clustering). LLMs are slower, more expensive, and non-deterministic for these tasks.
 
