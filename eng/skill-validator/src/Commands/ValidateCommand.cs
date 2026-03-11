@@ -246,6 +246,39 @@ public static class ValidateCommand
             return 1;
         }
 
+        // Check for external dependencies (scripts, tools, MCP servers, URLs)
+        // These are advisory — flagged for human review, not hard errors.
+        bool hasExternalDeps = false;
+        foreach (var skill in allSkills)
+        {
+            foreach (var finding in ExternalDependencyChecker.CheckSkill(skill))
+            {
+                Console.WriteLine($"\x1b[33m⚠  [skill:{skill.Name}] {finding}\x1b[0m");
+                hasExternalDeps = true;
+            }
+        }
+        foreach (var agent in agents)
+        {
+            foreach (var finding in ExternalDependencyChecker.CheckAgent(agent))
+            {
+                Console.WriteLine($"\x1b[33m⚠  [agent:{agent.Name}] {finding}\x1b[0m");
+                hasExternalDeps = true;
+            }
+        }
+        foreach (var plugin in plugins)
+        {
+            foreach (var finding in ExternalDependencyChecker.CheckPlugin(plugin))
+            {
+                Console.WriteLine($"\x1b[33m⚠  [plugin:{plugin.Name}] {finding}\x1b[0m");
+                hasExternalDeps = true;
+            }
+        }
+
+        if (hasExternalDeps)
+        {
+            Console.WriteLine("\x1b[33m⚠  External dependency findings above require review — please verify each is intentional.\x1b[0m");
+        }
+
         // Check for orphaned test directories (tests/ entries with no matching plugin/skill)
         var repoRoot = SkillDiscovery.FindRepoRoot(config.SkillPaths);
         bool hasOrphanErrors = false;
