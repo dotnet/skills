@@ -1,11 +1,13 @@
 using System.Text.RegularExpressions;
+using Microsoft.ML.Tokenizers;
 using SkillValidator.Models;
 
 namespace SkillValidator.Services;
 
 public sealed record SkillProfile(
     string Name,
-    int TokenCount,
+    int Chars4TokenCount,
+    int BpeTokenCount,
     string ComplexityTier, // "compact" | "detailed" | "standard" | "comprehensive"
     int SectionCount,
     int CodeBlockCount,
@@ -25,6 +27,11 @@ public static partial class SkillProfiler
     private const int TokenSweetHigh = 2500;
     private const int TokenWarnHigh = 5000;
     internal const int MaxDescriptionLength = 1024;
+
+    // BPE tokenizer (cl100k_base) used as a model-independent sizing heuristic.
+    // Not tied to the configured eval/judge model — TiktokenTokenizer only supports OpenAI
+    // vocabularies, but BPE counts are close enough across models for complexity classification.
+    private static readonly Lazy<TiktokenTokenizer> s_bpeTokenizer = new(() => TiktokenTokenizer.CreateForModel("gpt-4"));
     internal const int MaxAggregateDescriptionLength = 15_000;
     private const int MaxNameLength = 64;
     private const int MaxCompatibilityLength = 500;
@@ -33,7 +40,8 @@ public static partial class SkillProfiler
     public static SkillProfile AnalyzeSkill(SkillInfo skill)
     {
         var content = skill.SkillMdContent;
-        int tokenCount = (int)Math.Ceiling(content.Length / 4.0);
+        int chars4TokenCount = (int)Math.Ceiling(content.Length / 4.0);
+        int bpeTokenCount = s_bpeTokenizer.Value.CountTokens(content);
 
         bool hasFrontmatter = FrontmatterRegex().IsMatch(content);
 
@@ -48,7 +56,7 @@ public static partial class SkillProfiler
         bool hasWhenToUse = WhenToUseRegex().IsMatch(body);
         bool hasWhenNotToUse = WhenNotToUseRegex().IsMatch(body);
 
-        string complexityTier = tokenCount switch
+        string complexityTier = bpeTokenCount switch
         {
             < 400 => "compact",
             <= 2500 => "detailed",
@@ -134,21 +142,18 @@ public static partial class SkillProfiler
             }
         }
 
-        // --- Token size warnings ---
-        if (tokenCount > TokenWarnHigh)
+        // --- Token size warnings (based on BPE token count) ---
+        if (bpeTokenCount > TokenWarnHigh)
         {
-            warnings.Add(
-                $"Skill is {tokenCount:N0} tokens — \"comprehensive\" skills hurt performance by 2.9pp on average. Consider splitting into 2–3 focused skills.");
+            warnings.Add($"Skill is {bpeTokenCount:N0} BPE tokens (chars/4 estimate: {chars4TokenCount:N0}) — \"comprehensive\" skills hurt performance by 2.9pp on average. Consider splitting into 2–3 focused skills.");
         }
-        else if (tokenCount > TokenSweetHigh)
+        else if (bpeTokenCount > TokenSweetHigh)
         {
-            warnings.Add(
-                $"Skill is {tokenCount:N0} tokens — approaching \"comprehensive\" range where gains diminish.");
+            warnings.Add($"Skill is {bpeTokenCount:N0} BPE tokens (chars/4 estimate: {chars4TokenCount:N0}) — approaching \"comprehensive\" range where gains diminish.");
         }
-        else if (tokenCount < TokenSweetLow)
+        else if (bpeTokenCount < TokenSweetLow)
         {
-            warnings.Add(
-                $"Skill is only {tokenCount} tokens — may be too sparse to provide actionable guidance.");
+            warnings.Add($"Skill is only {bpeTokenCount:N0} BPE tokens (chars/4 estimate: {chars4TokenCount:N0}) — may be too sparse to provide actionable guidance.");
         }
 
         if (sectionCount == 0)
@@ -182,7 +187,8 @@ public static partial class SkillProfiler
 
         return new SkillProfile(
             Name: skill.Name,
-            TokenCount: tokenCount,
+            Chars4TokenCount: chars4TokenCount,
+            BpeTokenCount: bpeTokenCount,
             ComplexityTier: complexityTier,
             SectionCount: sectionCount,
             CodeBlockCount: codeBlockCount,
@@ -246,7 +252,7 @@ public static partial class SkillProfiler
         };
 
         return
-            $"📊 {profile.Name}: {profile.TokenCount:N0} tokens ({profile.ComplexityTier} {tierIndicator}), " +
+            $"{profile.Name}: {profile.BpeTokenCount:N0} BPE tokens [chars/4: {profile.Chars4TokenCount:N0}] ({profile.ComplexityTier} {tierIndicator}), " +
             $"{profile.SectionCount} sections, {profile.CodeBlockCount} code blocks";
     }
 

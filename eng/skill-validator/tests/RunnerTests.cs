@@ -26,6 +26,51 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public async Task AdditionalSkillsStageOnlyVerifiedSkillDirs()
+    {
+        // Create real temp directories with SKILL.md so the staging logic finds them
+        var tmpBase = Path.Combine(Path.GetTempPath(), $"sv-test-{Guid.NewGuid():N}");
+        var skillADir = Path.Combine(tmpBase, "plugin-a", "skills", "skill-a");
+        var skillBDir = Path.Combine(tmpBase, "plugin-b", "skills", "skill-b");
+        var noSkillDir = Path.Combine(tmpBase, "plugin-c", "skills", "not-a-skill");
+        Directory.CreateDirectory(skillADir);
+        Directory.CreateDirectory(skillBDir);
+        Directory.CreateDirectory(noSkillDir);
+        File.WriteAllText(Path.Combine(skillADir, "SKILL.md"), "# A");
+        File.WriteAllText(Path.Combine(skillBDir, "SKILL.md"), "# B");
+        // noSkillDir intentionally has no SKILL.md
+
+        try
+        {
+            var additionalSkills = new[]
+            {
+                new SkillInfo("skill-a", "A", skillADir, Path.Combine(skillADir, "SKILL.md"), "# A", null, null),
+                new SkillInfo("skill-b", "B", skillBDir, Path.Combine(skillBDir, "SKILL.md"), "# B", null, null),
+                new SkillInfo("no-skill", "None", noSkillDir, Path.Combine(noSkillDir, "SKILL.md"), "", null, null),
+            };
+
+            var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work",
+                additionalSkills: additionalSkills);
+
+            // Primary skill parent + one staging directory for additional skills
+            Assert.Equal(2, config.SkillDirectories!.Count);
+            Assert.Equal(Path.GetDirectoryName(MockSkill.Path), config.SkillDirectories[0]);
+
+            var stageDir = config.SkillDirectories[1];
+            Assert.StartsWith(Path.GetTempPath(), stageDir);
+
+            // Staging dir should contain links only for directories that have SKILL.md
+            var stagedEntries = Directory.GetDirectories(stageDir).Select(Path.GetFileName).OrderBy(n => n).ToArray();
+            Assert.Equal(new[] { "skill-a", "skill-b" }, stagedEntries);
+        }
+        finally
+        {
+            try { Directory.Delete(tmpBase, true); } catch { }
+            try { await AgentRunner.CleanupWorkDirs(); } catch { }
+        }
+    }
+
+    [Fact]
     public void SetsWorkingDirectoryToWorkDir()
     {
         var config = AgentRunner.BuildSessionConfig(MockSkill, "gpt-4.1", "C:\\tmp\\work");

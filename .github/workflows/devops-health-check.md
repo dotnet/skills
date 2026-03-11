@@ -11,6 +11,11 @@ on:
     - cron: "0 3 * * *"  # 03:00 UTC daily
   workflow_dispatch:
 
+# Don't run scheduled triggers on forked repositories — forks lack the
+# secrets and context required, and scheduled runs would consume the
+# fork owner's minutes.
+if: "!(github.event_name == 'schedule' && github.event.repository.fork)"
+
 permissions:
   contents: read
   actions: read

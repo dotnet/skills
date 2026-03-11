@@ -1,0 +1,236 @@
+scenarios:
+  # --- Scenario 1: Core libraries (DeflateStream, MemoryStream, TAR, ZipArchive) ---
+  - name: "Console app with compression and TAR operations"
+    prompt: |
+      Help me migrate my .NET 10 console app to .NET 11. The app:
+      - Creates GZipStream to compress data, then checks if the output is empty (zero bytes) to detect "no data" scenarios
+      - Reads TAR archives that were hand-crafted by a legacy tool (some may have invalid checksums)
+      - Uses ZipArchive.CreateAsync for large ZIP files and relies on lazy loading behavior
+      - Uses MemoryStream with very large allocations close to the maximum capacity
+      What breaks when migrating to .NET 11?
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(GZipStream|DeflateStream|header|footer|empty)"
+      - type: "output_matches"
+        pattern: "(TAR|checksum|verify|validation)"
+      - type: "output_matches"
+        pattern: "(ZipArchive|CreateAsync|eager)"
+    rubric:
+      - "Explains GZipStream/DeflateStream now writes headers and footers even for empty payloads; zero-length check needs updating"
+      - "Warns TAR-reading APIs now verify header checksums; corrupted or hand-crafted TAR files may fail"
+      - "Notes ZipArchive.CreateAsync now eagerly loads entries, potentially affecting memory usage"
+      - "Mentions MemoryStream maximum capacity update and changed exception behavior"
+    timeout: 180
+
+  # --- Scenario 2: C# 15 compiler breaking changes (Span safe-context, nameof, with()) ---
+  - name: "C# 15 compiler breaking changes — Span safe-context, nameof, with()"
+    prompt: |
+      I'm migrating a .NET 10 library to .NET 11 / C# 15 and getting new compiler errors. Here's the code:
+
+      ```csharp
+      // SpanHelper.cs
+      public static int[] ProcessItems(int[] source)
+      {
+          scoped Span<int> results = default;
+          foreach (var x in source)
+          {
+              Span<int> items = [x * 2];
+              results = items;  // worked in C# 14
+          }
+          return results.ToArray();
+      }
+      ```
+
+      ```csharp
+      // Metadata.cs
+      class MyService
+      {
+          string Endpoint;
+          [System.Obsolete(nameof(this.Endpoint))]
+          void LegacyConnect() { }
+      }
+      ```
+
+      ```csharp
+      // Pipeline.cs
+      object with(object a, object b) => (a, b);
+      object[] items = [with(x, y), z];  // worked in C# 14
+      ```
+
+      What breaks in each case and how do I fix it?
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(Span|safe.context|declaration.block|scope)"
+      - type: "output_matches"
+        pattern: "(nameof|this\\.|attribute)"
+      - type: "output_matches"
+        pattern: "(with|collection expression|@with|constructor)"
+    rubric:
+      - "Identifies the Span collection expression safe-context change to declaration-block; recommends using array type or moving expression to outer scope"
+      - "Identifies nameof(this.Endpoint) is now disallowed in attributes; recommends nameof(Endpoint)"
+      - "Explains with() in collection expressions is now treated as constructor arguments in C# 15; recommends @with() to call the method"
+    timeout: 180
+
+  # --- Scenario 3: EF Core Cosmos DB sync I/O removal ---
+  - name: "EF Core app with Cosmos DB provider using sync APIs"
+    prompt: |
+      I'm migrating a .NET 10 web API to .NET 11. The app uses EF Core with the Azure Cosmos DB provider.
+      We have a repository pattern where some methods use synchronous LINQ:
+
+      ```csharp
+      public class ProductRepository
+      {
+          private readonly CosmosDbContext _context;
+
+          public List<Product> GetAll()
+          {
+              return _context.Products.ToList();
+          }
+
+          public Product GetById(int id)
+          {
+              return _context.Products.First(p => p.Id == id);
+          }
+
+          public int GetCount()
+          {
+              return _context.Products.Count();
+          }
+
+          public void Save(Product product)
+          {
+              _context.Products.Add(product);
+              _context.SaveChanges();
+          }
+      }
+      ```
+
+      In .NET 10 we had the sync-over-async opt-in configured. What breaks in .NET 11?
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(sync|async|ToList|SaveChanges)"
+      - type: "output_matches"
+        pattern: "(Cosmos|always throws|no.*opt.in|removed)"
+    rubric:
+      - "Identifies that sync I/O via Cosmos DB provider is fully removed in EF Core 11 with no opt-in"
+      - "Recommends converting all sync methods to async: ToList→ToListAsync, First→FirstAsync, Count→CountAsync, SaveChanges→SaveChangesAsync"
+      - "Notes the methods must return Task<T> and the callers must be updated to await"
+    timeout: 180
+
+  # --- Scenario 4: Minimum hardware requirements ---
+  - name: "Deployment to older hardware with minimum requirement changes"
+    prompt: |
+      We're upgrading our .NET 10 microservices to .NET 11. We deploy to:
+      - x86-64 Linux containers on a mix of hardware, some dating back to 2012
+      - Windows Arm64 devices (Surface Pro X with SQ1 chip)
+      - Raspberry Pi 4 running Linux for edge computing
+      After upgrading, one of our Linux x86 nodes fails with "The current CPU is missing
+      one or more of the baseline instruction sets." What's happening?
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(x86.64.v2|baseline|minimum|hardware)"
+      - type: "output_matches"
+        pattern: "(SSE4|POPCNT|SSSE3)"
+    rubric:
+      - "Explains .NET 11 raised the x86/x64 minimum from x86-64-v1 to x86-64-v2, requiring SSE4.1, SSE4.2, POPCNT, etc."
+      - "Notes hardware from 2012 may lack x86-64-v2 support — need to upgrade or keep on .NET 10"
+      - "Confirms Raspberry Pi 4 (Arm64 Linux) is still supported — no change to Linux Arm64 minimum"
+      - "Notes Surface Pro X (SQ1) supports LSE so Windows Arm64 requirement is met"
+    timeout: 180
+
+  # --- Scenario 5: Cryptography — DSA on macOS ---
+  - name: "Cryptography app using DSA on macOS"
+    prompt: |
+      We have a .NET 10 library that verifies legacy DSA signatures. It runs on Linux, Windows,
+      and macOS. After upgrading to .NET 11, the macOS builds fail at runtime when calling
+      DSA.Create(). What happened and how do we fix it?
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(DSA|macOS|removed)"
+      - type: "output_matches"
+        pattern: "(ECDSA|RSA|alternative|replacement)"
+    rubric:
+      - "Explains DSA has been removed from macOS in .NET 11"
+      - "Notes DSA still works on Windows and Linux"
+      - "Recommends migrating to ECDSA or RSA"
+    timeout: 180
+
+  # --- Scenario 6: TFM update + global.json + Docker ---
+  - name: "Basic TFM update with Docker and global.json"
+    prompt: |
+      I have a .NET 10 ASP.NET Core web app with:
+      - TargetFramework set to net10.0 in the csproj
+      - global.json pinning SDK to 10.0.100
+      - A Dockerfile using mcr.microsoft.com/dotnet/aspnet:10.0 and sdk:10.0
+      How do I update everything for .NET 11?
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(net11\\.0|TargetFramework)"
+      - type: "output_matches"
+        pattern: "(global\\.json|11\\.0)"
+      - type: "output_matches"
+        pattern: "(Dockerfile|sdk:11\\.0|aspnet:11\\.0)"
+    rubric:
+      - "Updates TargetFramework from net10.0 to net11.0"
+      - "Updates global.json SDK version to 11.0.x"
+      - "Updates Dockerfile base images from 10.0 to 11.0"
+      - "Recommends updating Microsoft.* package references to 11.0.x versions"
+    timeout: 180
+
+  # --- Scenario 7: Dynamic operator with interface and ref readonly delegate ---
+  - name: "C# 15 dynamic operator and ref readonly delegate issues"
+    prompt: |
+      After upgrading to .NET 11 / C# 15, I'm getting two new compiler errors:
+
+      ```csharp
+      // DynamicOps.cs
+      interface IFilter
+      {
+          static bool operator true(IFilter x) => true;
+          static bool operator false(IFilter x) => false;
+      }
+
+      class CompositeFilter : IFilter
+      {
+          public static CompositeFilter operator &(CompositeFilter x, CompositeFilter y) => x;
+          public static bool operator true(CompositeFilter x) => true;
+          public static bool operator false(CompositeFilter x) => false;
+      }
+
+      void Apply(IFilter left, dynamic right)
+      {
+          var combined = left && right;  // error!
+      }
+      ```
+
+      ```csharp
+      // RefHelper.cs
+      class RefHelper
+      {
+          private static int value = 42;
+
+          public static void M()
+          {
+              var fn = ref readonly int () => ref value;  // error CS0518
+          }
+      }
+      ```
+
+      What's happening?
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(interface|dynamic|CS7083|operator)"
+      - type: "output_matches"
+        pattern: "(ref readonly|InAttribute|CS0518)"
+    rubric:
+      - "Explains that interface types as left operand of && with dynamic right operand now produces CS7083 at compile time"
+      - "Recommends casting to concrete type or to dynamic"
+      - "Explains ref readonly delegate synthesis requires InAttribute; recommends ensuring proper assembly references"
+    timeout: 180
