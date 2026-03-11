@@ -264,7 +264,7 @@ scenarios:
     timeout: 180
 
   - name: "Optimize byte buffer bit reversal with SIMD"
-    prompt: "This .NET 10 project reverses the bit order of each byte in a buffer for serial protocol decoding. Buffers are 64KB+. Please optimize ReverseBits for maximum throughput."
+    prompt: "This .NET 10 project reverses the bit order of each byte in a buffer for serial protocol decoding. Buffers are 64KB+. Please optimize BitReverser.ReverseInPlace for maximum throughput."
     setup:
       files:
         - path: "BitReverser.cs"
