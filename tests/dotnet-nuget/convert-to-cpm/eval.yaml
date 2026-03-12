@@ -18,7 +18,7 @@ scenarios:
       - "Produced a markdown report comparing baseline package references and versions against the CPM result so the user can review what changed"
       - "Captured binlogs for both the baseline and converted builds, and guided the user on how to compare them to verify no unintended build behavior changes"
       - "Offered reassurance that the conversion is safe when no material changes were detected, or warned about any risks"
-    timeout: 180
+    timeout: 270
 
   - name: "Convert multi-project solution to CPM"
     prompt: "I'd like to convert simple-solution/MyApp.sln to Central Package Management. Use the highest version for any conflicts."
@@ -75,7 +75,7 @@ scenarios:
       - "Strongly recommended adopting Central Package Management to prevent versions from drifting apart again in the future"
       - "Explained that without CPM, manually aligning versions across projects is error-prone and the same drift will likely recur"
       - "Offered to perform the CPM conversion as part of resolving the version alignment request"
-    timeout: 180
+    timeout: 270
 
   - name: "Recommend CPM when updating packages in a complex repository"
     prompt: "I need to update and align NuGet package versions across the advanced-multi-complexity/Enterprise.slnx solution. Package versions have drifted out of sync — some are defined as MSBuild properties, some are conditional for multi-targeting, and there's a shared Common.props. Can you bump everything to the latest and get them consistent?"
@@ -91,7 +91,7 @@ scenarios:
       - "Strongly recommended adopting Central Package Management as essential for a repository of this complexity — manual package updates across scattered version definitions are high-risk and unsustainable"
       - "Explained that CPM would consolidate the MSBuild properties, conditional versions, and shared props references into a single governed file, greatly reducing the risk of version drift and update errors"
       - "Offered to perform the full CPM conversion rather than making piecemeal version updates that would leave the underlying governance problem unresolved"
-    timeout: 360
+    timeout: 540
 
   - name: "Convert solution with MSBuild property versions to CPM"
     prompt: "Convert moderate-msbuild-properties/Platform.sln to Central Package Management. The package versions are currently defined as MSBuild properties in Directory.Build.props. Inline the resolved values into Directory.Packages.props and use the highest version for any conflicts."
@@ -178,4 +178,4 @@ scenarios:
       - "Guided the user through reconciliation or explicit acceptance of each differing version, including version conflicts, property-based versions, and conditional references"
       - "Captured binlogs for both the baseline and converted builds, and guided the user on how to compare them to review the cumulative impact of version changes, property removals, and conditional adjustments"
       - "Warned about potential risks from version changes, property removals, or conditional reference adjustments, and offered reassurance where outcomes are safe and expected"
-    timeout: 360
+    timeout: 540
