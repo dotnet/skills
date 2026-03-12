@@ -95,10 +95,12 @@ public static class AgentRunner
                 reqPath = cmdEl.GetString() ?? "";
         }
 
+        var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
+
         // Deny-by-default: if no path/command can be extracted, deny the request.
         if (string.IsNullOrEmpty(reqPath))
         {
-            log?.Invoke($"      ❌ Denying permission request with no path/command json entry ({runLabel}): "
+            log?.Invoke($"      ❌ Denying permission request with no path/command json entry{labelSuffix}: "
                 + string.Join(", ", request.ExtensionData?.Select(kv => $"{kv.Key}={kv.Value}") ?? []));
             return false;
         }
@@ -136,7 +138,7 @@ public static class AgentRunner
 
         if (!anyAllowed)
         {
-            log?.Invoke($"      ❌ Denying permission request for path/command ({runLabel}): {resolved} (allowed: {string.Join(", ", allowedDirs)})");
+            log?.Invoke($"      ❌ Denying permission request for path/command{labelSuffix}: {resolved} (allowed: {string.Join(", ", allowedDirs)})");
         }
 
         return anyAllowed;
