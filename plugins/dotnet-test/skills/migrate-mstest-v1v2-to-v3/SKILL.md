@@ -96,7 +96,27 @@ Also ensure `Microsoft.NET.Test.Sdk` is referenced:
 
 **Option C — Use MSTest.Sdk (SDK-style projects only):**
 
-Change the project SDK to MSTest.Sdk. This produces the simplest possible project file:
+Change the project SDK to MSTest.Sdk. This produces the simplest possible project file because MSTest.Sdk automatically provides MSTest.TestFramework, MSTest.TestAdapter, MSTest.Analyzers, and Microsoft.NET.Test.Sdk — no explicit package references needed.
+
+> **Important**: MSTest.Sdk defaults to using Microsoft.Testing.Platform (MTP) as the test runner instead of VSTest. This means `dotnet test` uses MTP by default. If you need VSTest compatibility (e.g., for `vstest.console` in CI), add `<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />` explicitly.
+
+**Before (v2 with individual packages):**
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
+    <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
+  </ItemGroup>
+</Project>
+```
+
+**After (MSTest.Sdk):**
 
 ```xml
 <Project Sdk="MSTest.Sdk/3.8.0">
@@ -182,7 +202,16 @@ public async Task TestMethod() { }
 
 ### Step 6: Replace .testsettings with .runsettings
 
-The `.testsettings` file and `<LegacySettings>` are no longer supported in MSTest v3. Migrate to `.runsettings`:
+The `.testsettings` file and `<LegacySettings>` are no longer supported in MSTest v3. **Delete the `.testsettings` file** and create a new `.runsettings` file — do not keep both files side by side.
+
+Map `.testsettings` configuration to `.runsettings`:
+
+| .testsettings element | .runsettings equivalent |
+|---|---|
+| `<Properties><Property name="TestTimeout" value="30000" /></Properties>` | `<MSTest><TestTimeout>30000</TestTimeout></MSTest>` |
+| `<Execution><TestTypeSpecific>` deployment config | `<MSTest><DeploymentEnabled>true</DeploymentEnabled></MSTest>` or remove if unnecessary |
+| Assembly resolution / load context settings | Generally not needed in modern .NET — remove |
+| Data collectors | `<DataCollectionRunSettings><DataCollectors>` section |
 
 ```xml
 <!-- .runsettings -->
@@ -230,7 +259,8 @@ After completing this migration to MSTest v3, proceed to the `migrate-mstest-v3-
 | `Assert.AreEqual(obj, obj)` no longer compiles | Add explicit generic type: `Assert.AreEqual<T>(expected, actual)` |
 | DataRow with > 16 parameters fails | Refactor to use fewer parameters or wrap in an array |
 | DataRow implicit type conversions fail | Match DataRow argument types exactly to method parameter types |
-| `.testsettings` ignored silently | Migrate to `.runsettings` — legacy settings are not supported |
+| `.testsettings` ignored silently | Delete `.testsettings` and migrate to `.runsettings` — legacy settings are not supported; do not keep both files |
 | Tests with tight timeouts fail | MSTest v3 unified timeout handling; adjust values if needed |
 | Target framework no longer supported | Update to minimum supported version (e.g., net462, netstandard2.0) |
 | Missing `Microsoft.NET.Test.Sdk` | Add package reference — required for test discovery with VSTest |
+| MSTest.Sdk tests not found by vstest.console | MSTest.Sdk defaults to Microsoft.Testing.Platform; add explicit `Microsoft.NET.Test.Sdk` reference for VSTest compatibility |

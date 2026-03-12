@@ -7,9 +7,11 @@ description: >
   removal, TestContext.Properties IDictionary<string,object>, Assert API changes,
   ExpectedExceptionAttribute removal, TestTimeout enum removal), resolving
   behavioral changes (TreatDiscoveryWarningsAsErrors default, TestContext
-  lifecycle exceptions, TestCase.Id changes, MSTest.Sdk MTP changes), handling
-  dropped target frameworks (net5.0/net6.0/net7.0 dropped — only net8.0, net9.0,
-  net462, uap10.0 supported).
+  lifecycle exceptions, TestCase.Id changes affecting Azure DevOps test history,
+  MSTest.Sdk MTP changes), handling dropped target frameworks
+  (net5.0/net6.0/net7.0 dropped — only net8.0, net9.0, net462, uap10.0
+  supported), checking target framework compatibility before upgrading to
+  MSTest v4.
   DO NOT USE FOR: migrating from MSTest v1/v2 to v3 (use migrate-mstest-v1v2-to-v3
   first), migrating between test frameworks, or .NET version upgrades.
 ---
@@ -80,7 +82,23 @@ Run `dotnet restore`, then `dotnet build`. Collect all errors for Step 3.
 
 ### Step 3: Resolve source breaking changes
 
-Work through compilation errors systematically. The following sections cover each breaking change.
+Work through compilation errors systematically. Use this quick-lookup table to identify all applicable changes, then apply each fix:
+
+| Error / Pattern in code | Breaking change | Fix |
+|---|---|---|
+| Custom `TestMethodAttribute` overrides `Execute` | Execute removed | Change to `ExecuteAsync` returning `Task<TestResult[]>` (§3.1) |
+| `[TestMethod("name")]` or custom attribute constructor | CallerInfo params added | Use `DisplayName = "name"` named param; propagate CallerInfo in subclasses (§3.2) |
+| `ClassCleanupBehavior.EndOfClass` | Enum removed | Remove argument: just `[ClassCleanup]` (§3.3) |
+| `TestContext.Properties.Contains("key")` | `Properties` is `IDictionary<string, object>` | Change to `ContainsKey("key")` (§3.4) |
+| `[Timeout(TestTimeout.Infinite)]` | `TestTimeout` enum removed | Replace with `[Timeout(int.MaxValue)]` (§3.5) |
+| `TestContext.ManagedType` | Property removed | Use `FullyQualifiedTestClassName` (§3.6) |
+| `Assert.AreEqual(a, b, "msg {0}", arg)` | Message+params overloads removed | Use string interpolation: `$"msg {arg}"` (§3.7) |
+| `Assert.ThrowsException<T>(...)` | Deprecated API removed | Replace with `Assert.ThrowsExactly<T>(...)` (§3.7) |
+| `Assert.IsInstanceOfType<T>(obj, out var t)` | Out parameter removed | Use `var t = Assert.IsInstanceOfType<T>(obj)` (§3.7) |
+| `[ExpectedException(typeof(T))]` | Attribute removed | Move assertion into test body: `Assert.ThrowsExactly<T>(() => ...)` (§3.8) |
+| Project targets net5.0, net6.0, or net7.0 | TFM dropped | Change to net8.0 or net9.0 (§3.9) |
+
+> **Important**: Scan the entire project for ALL patterns above before starting fixes. Multiple breaking changes often coexist in the same project.
 
 #### 3.1 TestMethodAttribute.Execute → ExecuteAsync
 
@@ -282,6 +300,15 @@ If your code references any of these, find alternative approaches or remove the 
 ### Step 4: Address behavioral changes
 
 These changes won't cause build errors but may affect test runtime behavior.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Tests show as new in Azure DevOps / test history lost | `TestCase.Id` generation changed (§4.3) | No code fix; history will re-baseline |
+| `TestContext.TestName` throws in `[ClassInitialize]` | v4 enforces lifecycle scope (§4.2) | Move access to `[TestInitialize]` or test methods |
+| Tests not discovered / discovery failures | `TreatDiscoveryWarningsAsErrors` now true (§4.4) | Fix warnings, or set to false in .runsettings |
+| Tests hang that didn't before | AppDomain disabled by default in MTP (§4.1) | Set `DisableAppDomain` to false in .runsettings |
+| vstest.console can't find tests with MSTest.Sdk | SDK no longer adds `Microsoft.NET.Test.Sdk` (§4.5) | Add explicit package reference or switch to `dotnet test` |
+| New warnings from analyzers | Analyzer severities upgraded (§4.6) | Fix warnings or suppress in .editorconfig |
 
 #### 4.1 DisableAppDomain defaults to true (MTP only)
 
