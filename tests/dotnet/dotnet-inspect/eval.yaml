@@ -37,8 +37,8 @@ scenarios:
         pattern: "IChatClient"
     expect_tools: ["bash"]
     rubric:
-      - "Shows the members of IChatClient (e.g., GetResponseAsync, GetStreamingResponseAsync)"
-      - "Identifies that IChatClient is in the Microsoft.Extensions.AI package and namespace"
+      - "Shows the 3 members of IChatClient: GetResponseAsync (returns Task<ChatResponse>), GetStreamingResponseAsync (returns IAsyncEnumerable<ChatResponseUpdate>), and GetService (returns object?)"
+      - "Identifies that IChatClient is in the Microsoft.Extensions.AI.Abstractions package (Microsoft.Extensions.AI namespace)"
       - "Provides a useful summary of the interface's purpose and shape"
     timeout: 240
 
@@ -49,8 +49,8 @@ scenarios:
         pattern: "(extension|HttpClient)"
     expect_tools: ["bash"]
     rubric:
-      - "Lists extension methods from System.Net.Http.Json (e.g., GetFromJsonAsync, PostAsJsonAsync)"
-      - "Identifies the library or namespace each extension method comes from"
+      - "Lists HttpClient extension methods from System.Net.Http.Json including GetFromJsonAsync, PostAsJsonAsync, PutAsJsonAsync, PatchAsJsonAsync, DeleteFromJsonAsync, and GetFromJsonAsAsyncEnumerable"
+      - "Identifies that these extensions come from HttpClientJsonExtensions in the System.Net.Http.Json library"
       - "Presents the results clearly, grouped or summarized by source"
     timeout: 120
 
@@ -61,8 +61,8 @@ scenarios:
         value: "IJsonTypeInfoResolver"
     expect_tools: ["bash"]
     rubric:
-      - "Lists the complete set of interfaces in System.Text.Json (e.g., IJsonTypeInfoResolver, IJsonOnSerializing, IJsonOnDeserialized)"
-      - "Includes interfaces from both the System.Text.Json and System.Text.Json.Serialization namespaces"
+      - "Lists the complete set of 5 interfaces: IJsonTypeInfoResolver (in System.Text.Json.Serialization.Metadata), and IJsonOnDeserialized, IJsonOnDeserializing, IJsonOnSerialized, IJsonOnSerializing (all in System.Text.Json.Serialization)"
+      - "Includes interfaces from both System.Text.Json.Serialization.Metadata and System.Text.Json.Serialization namespaces"
       - "Results are accurate and comprehensive, not a partial list from memory"
     timeout: 120
 
@@ -85,9 +85,9 @@ scenarios:
         pattern: "IHostedService"
     expect_tools: ["bash"]
     rubric:
-      - "Lists concrete types that implement IHostedService from the .NET platform or extensions packages"
-      - "Identifies the library or package each implementor comes from"
-      - "Results reflect actual platform assemblies, not hypothetical or user-space implementations"
+      - "Lists BackgroundService as the primary concrete implementor of IHostedService (in Microsoft.Extensions.Hosting.Abstractions from aspnetcore). IHostedLifecycleService is an interface that extends IHostedService, not a concrete implementor."
+      - "Identifies the library or package each implementor comes from (Microsoft.Extensions.Hosting.Abstractions is the key library)"
+      - "Results are grounded in actual platform data, not fabricated types — the platform only contains BackgroundService and IHostedLifecycleService as public types related to IHostedService"
     timeout: 120
 
   - name: "Inspect package dependency chain"
@@ -97,9 +97,9 @@ scenarios:
         pattern: "(depend|Microsoft\\.Extensions)"
     expect_tools: ["bash"]
     rubric:
-      - "Lists the direct dependencies of Microsoft.Extensions.AI (e.g., Microsoft.Extensions.AI.Abstractions, Microsoft.Bcl.AsyncInterfaces)"
-      - "Provides version information for the dependencies"
-      - "Gives a clear picture of the full dependency tree or transitive closure, not just top-level names"
+      - "Lists the 5 direct dependencies for net10.0: Microsoft.Extensions.AI.Abstractions, Microsoft.Extensions.Caching.Abstractions, Microsoft.Extensions.DependencyInjection.Abstractions, Microsoft.Extensions.Logging.Abstractions, and System.Numerics.Tensors"
+      - "Provides version information (e.g., AI.Abstractions 10.4.0, other deps at 10.0.4)"
+      - "Shows transitive dependencies or the deeper tree — e.g., Caching.Abstractions pulls in Microsoft.Extensions.Primitives, or for net9.0 there are additional direct deps like System.Text.Json and System.Threading.Channels"
     timeout: 120
 
   - name: "Inspect method overloads in a NuGet package"
@@ -109,9 +109,9 @@ scenarios:
         pattern: "JsonSerializerOptions"
     expect_tools: ["bash"]
     rubric:
-      - "Identifies the overloads of GetResponseAsync that accept a JsonSerializerOptions parameter (3 of the 6 overloads)"
-      - "Shows full method signatures including return types and all parameters for the matching overloads"
-      - "Distinguishes the matching overloads from the ones that do not accept JsonSerializerOptions"
+      - "Identifies the 3 overloads that accept JsonSerializerOptions: one taking string, one taking ChatMessage, and one taking IEnumerable<ChatMessage> — all on ChatClientStructuredOutputExtensions"
+      - "Shows full method signatures including the return type Task<ChatResponse<T>> and all parameters (chatClient, message input, serializerOptions, options?, useJsonSchemaResponseFormat?, cancellationToken)"
+      - "Distinguishes the 3 matching overloads from the 3 that do not accept JsonSerializerOptions (which are otherwise identical but omit the serializerOptions parameter)"
     timeout: 120
 
   - name: "Audit package signing and SourceLink"
@@ -121,9 +121,9 @@ scenarios:
         pattern: "(Newtonsoft|sign|source)"
     expect_tools: ["bash"]
     rubric:
-      - "Reports whether the Newtonsoft.Json assembly is signed and provides its public key token"
-      - "Reports SourceLink status (whether source is available for debugging)"
-      - "Includes additional package metadata such as version, target frameworks, or author information"
+      - "Reports that the Newtonsoft.Json assembly is signed with public key token 11425bc5744002c7"
+      - "Reports that Newtonsoft.Json does NOT have SourceLink (no readable PDB embedded)"
+      - "Includes additional metadata such as version (13.0.4), author (James Newton-King), license (MIT), or target frameworks (net6.0, netstandard2.0, etc.)"
     timeout: 120
 
   - name: "Review source for hash collision protection"
