@@ -94,7 +94,7 @@ public static class AgentRunner
         foreach (var (_, client) in _pluginClients)
         {
             try { await client.StopAsync(); }
-            catch { /* best effort */ }
+            catch (Exception ex) { Console.Error.WriteLine($"Warning: failed to stop Copilot client: {ex.Message}"); }
         }
         _pluginClients.Clear();
     }
