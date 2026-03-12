@@ -105,8 +105,14 @@ public static class AgentRunner
             : StringComparison.Ordinal;
 
         return allowedDirs.Any(dir =>
-            resolved.Equals(dir, comparison) ||
-            resolved.StartsWith(dir + Path.DirectorySeparatorChar, comparison));
+        {
+            var dirPrefix = dir.EndsWith(Path.DirectorySeparatorChar)
+                ? dir
+                : dir + Path.DirectorySeparatorChar;
+
+            return resolved.Equals(dir, comparison) ||
+                   resolved.StartsWith(dirPrefix, comparison);
+        });
     }
 
     internal static SessionConfig BuildSessionConfig(
