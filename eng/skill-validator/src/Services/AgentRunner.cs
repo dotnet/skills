@@ -89,6 +89,8 @@ public static class AgentRunner
         {
             if (data.TryGetValue("path", out var pathVal) && pathVal is JsonElement pathEl && pathEl.ValueKind == JsonValueKind.String)
                 reqPath = pathEl.GetString() ?? "";
+            else if (data.TryGetValue("fileName", out var fileVal) && fileVal is JsonElement fileEl && fileEl.ValueKind == JsonValueKind.String)
+                reqPath = fileEl.GetString() ?? "";
             else if (data.TryGetValue("fullCommandText", out var cmdVal) && cmdVal is JsonElement cmdEl && cmdEl.ValueKind == JsonValueKind.String)
                 reqPath = cmdEl.GetString() ?? "";
         }
