@@ -159,6 +159,8 @@ public static class AgentRunner
         var configDir = Path.Combine(Path.GetTempPath(), $"sv-cfg-{Guid.NewGuid():N}");
         Directory.CreateDirectory(configDir);
         _workDirs.Add(configDir);
+        if (verbose)
+            log?.Invoke($"      📂 Config dir: {configDir} ({(skill is not null ? "skilled" : "baseline")})");
 
         // Build skill directories list: primary skill + any additional skills.
         // For additional skills we stage a temp directory with copies of each
