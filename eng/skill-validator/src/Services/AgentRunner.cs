@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using SkillValidator.Models;
+using SkillValidator.Utilities;
 using GitHub.Copilot.SDK;
 
 namespace SkillValidator.Services;
@@ -13,7 +14,8 @@ public sealed record RunOptions(
     string? EvalPath,
     string Model,
     bool Verbose,
-    Action<string>? Log = null);
+    Action<string>? Log = null,
+    IReadOnlyList<SkillInfo>? AdditionalSkills = null);
 
 public static class AgentRunner
 {
@@ -104,14 +106,43 @@ public static class AgentRunner
 
     internal static SessionConfig BuildSessionConfig(
         SkillInfo? skill, string model, string workDir,
-        IReadOnlyDictionary<string, MCPServerDef>? mcpServers = null)
+        IReadOnlyDictionary<string, MCPServerDef>? mcpServers = null,
+        IReadOnlyList<SkillInfo>? additionalSkills = null)
     {
+        // The SDK expects SkillDirectories entries to be parent directories that
+        // it scans for child folders containing SKILL.md.
         var skillPath = skill is not null ? Path.GetDirectoryName(skill.Path) : null;
 
         // Create a unique temporary config directory for this session to not share any data
         var configDir = Path.Combine(Path.GetTempPath(), $"sv-cfg-{Guid.NewGuid():N}");
         Directory.CreateDirectory(configDir);
         _workDirs.Add(configDir);
+
+        // Build skill directories list: primary skill + any additional skills.
+        // For additional skills we stage a temp directory with copies of each
+        // skill's SKILL.md so the SDK discovers exactly those skills — not
+        // every sibling that happens to share the same parent directory.
+        var skillDirs = new List<string>();
+        if (skillPath is not null) skillDirs.Add(skillPath);
+        if (additionalSkills is { Count: > 0 })
+        {
+            var stageDir = Path.Combine(Path.GetTempPath(), $"sv-noise-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(stageDir);
+            _workDirs.Add(stageDir);
+
+            foreach (var s in additionalSkills)
+            {
+                var skillMdPath = Path.Combine(s.Path, "SKILL.md");
+                if (!File.Exists(skillMdPath))
+                    continue;
+
+                var stagedSkillDir = Path.Combine(stageDir, Path.GetFileName(s.Path));
+                Directory.CreateDirectory(stagedSkillDir);
+                File.Copy(skillMdPath, Path.Combine(stagedSkillDir, "SKILL.md"));
+            }
+
+            skillDirs.Add(stageDir);
+        }
 
         // Convert MCPServerDef records to the SDK's Dictionary<string, object> shape
         Dictionary<string, object>? sdkMcp = null;
@@ -138,7 +169,7 @@ public static class AgentRunner
             Model = model,
             Streaming = true,
             WorkingDirectory = workDir,
-            SkillDirectories = skill is not null ? [skillPath!] : [],
+            SkillDirectories = skillDirs,
             ConfigDir = configDir,
             McpServers = sdkMcp,
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
@@ -147,13 +178,23 @@ public static class AgentRunner
                 var result = CheckPermission(request, workDir, skillPath);
                 return Task.FromResult(new PermissionRequestResult
                 {
-                    Kind = result ? "approved" : "denied-by-rules",
+                    Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,
                 });
             },
         };
     }
 
     public static async Task<RunMetrics> RunAgent(RunOptions options)
+    {
+        return await RetryHelper.ExecuteWithRetry(
+            async ct => await RunAgentCore(options, ct),
+            label: $"RunAgent({options.Scenario.Name}, {(options.Skill is not null ? "skilled" : "baseline")})",
+            maxRetries: 2,
+            baseDelayMs: 5_000,
+            totalTimeoutMs: (options.Scenario.Timeout + 60) * 1000);
+    }
+
+    private static async Task<RunMetrics> RunAgentCore(RunOptions options, CancellationToken cancellationToken)
     {
         var workDir = await SetupWorkDir(options.Scenario, options.Skill?.Path, options.EvalPath);
         if (options.Verbose)
@@ -172,11 +213,12 @@ public static class AgentRunner
             var client = await GetSharedClient(options.Verbose);
 
             await using var session = await client.CreateSessionAsync(
-                BuildSessionConfig(options.Skill, options.Model, workDir, options.Skill?.McpServers));
+                BuildSessionConfig(options.Skill, options.Model, workDir, options.Skill?.McpServers, options.AdditionalSkills));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
-            using var cts = new CancellationTokenSource(effectiveTimeout * 1000);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(effectiveTimeout * 1000);
             cts.Token.Register(() =>
                 done.TrySetException(new TimeoutException($"Scenario timed out after {effectiveTimeout}s")));
 
@@ -259,9 +301,21 @@ public static class AgentRunner
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(te.ToString()) }));
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw; // Budget exhausted — let RetryHelper handle it.
+        }
         catch (Exception error)
         {
             var msg = error.ToString();
+
+            // Re-throw rate-limit (429) errors so RetryHelper can retry them.
+            if (msg.Contains("429", StringComparison.Ordinal)
+                || msg.Contains("rate limit", StringComparison.OrdinalIgnoreCase))
+            {
+                throw;
+            }
+
             if (error is TimeoutException || error.InnerException is TimeoutException
                 || msg.Contains("timed out", StringComparison.OrdinalIgnoreCase))
             {

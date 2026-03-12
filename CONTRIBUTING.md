@@ -54,6 +54,7 @@ Skills are grouped into domain-specific plugins. When proposing a new skill, pla
 | `dotnet-diag` | Performance investigations, debugging, and incident analysis |
 | `dotnet-data` | Data access and Entity Framework |
 | `dotnet-msbuild` | MSBuild and project system |
+| `dotnet-ai` | AI and ML: technology selection, LLM integration, agentic workflows, RAG pipelines, and classic ML |
 
 If your skill does not fit any existing plugin, consider creating a new one. The following plugin names are reserved for future use and are good candidates for new skills in those areas:
 
@@ -62,7 +63,15 @@ If your skill does not fit any existing plugin, consider creating a new one. The
 - `dotnet-winforms` — Windows Forms (WinForms)
 - `dotnet-maui` — .NET MAUI
 
-To create a new plugin, add a `plugins/<plugin-name>/plugin.json` file and a matching entry in the marketplace.json file. See existing plugins for the expected format.
+To create a new plugin:
+
+1. Add `plugins/<plugin-name>/plugin.json` and a `skills/` directory beneath it.
+2. Add a matching entry in both `.github/plugin/marketplace.json` and `.claude-plugin/marketplace.json`. The `.claude-plugin/marketplace.json` file must remain an exact copy of `.github/plugin/marketplace.json`, so any change to one file (adding, removing, or editing a plugin entry) must be applied to the other in the same way.
+3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
+4. Add the plugin to the **What's Included** table in the root `README.md`.
+5. Create a `tests/<plugin-name>/` directory for skill tests.
+
+See existing plugins for the expected format.
 
 ## Before you start
 
@@ -327,3 +336,8 @@ Skills and agents in this repo should be:
 - **Minimal**: no extra features or scope creep; focus on the task.
 - **Verifiable**: always include a way to validate success.
 - **Tool-conscious**: don't assume capabilities that might not exist in every runtime.
+
+## Skill-Validator & Evaluation workflow
+
+Changes to `eng/skill-validator` or the `.github/workflows/evaluation*.yml` workflows must be made from a branch in the `dotnet/skills` repository (i.e., not from a fork). This is a security measure.
+For pull requests from forks, the evaluation workflow (triggered via `/evaluate`) always uses the workflow YAML from the default branch of `dotnet/skills` and builds the validator from that default-branch checkout, so any changes to these files in the forked PR will be ignored during evaluation.

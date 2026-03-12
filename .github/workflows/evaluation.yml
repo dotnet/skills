@@ -2,13 +2,6 @@ name: evaluation
 
 on:
   pull_request:
-    paths:
-      - 'plugins/**'
-      - 'tests/**'
-      - '.github/workflows/evaluation.yml'
-      - '.github/workflows/evaluation-run.yml'
-      - '.github/workflows/evaluation-fork-pr.yml'
-      - 'eng/skill-validator/**'
 
   schedule:
     - cron: '0 */3 * * *'
@@ -17,15 +10,19 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+  DASHBOARD_RETENTION_DAYS: 14
+
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
   discover:
-    # Skip fork PRs (handled by evaluation-fork-pr.yml) and scheduled runs on forks.
-    # Without this guard, forks that have activated Actions will run the evaluation
-    # schedule indefinitely, consuming the fork owner's Actions minutes.
+    # Skip fork PRs (handled by evaluation-fork-pr.yml) and scheduled runs
+    # outside the canonical repo. The schedule guard uses an explicit repo
+    # name (not just the fork flag) because evaluation requires
+    # COPILOT_GITHUB_TOKEN* secrets that only exist in dotnet/skills.
     if: >-
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
       (github.event_name != 'schedule' || github.repository == 'dotnet/skills')
@@ -52,7 +49,8 @@ jobs:
             # PR: detect individual changed skills
             $base = "${{ github.event.pull_request.base.sha }}"
             $head = "${{ github.event.pull_request.head.sha }}"
-            $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
+            $mergeBase = git merge-base $base $head
+            $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
             # Check if any changed files are in infrastructure paths (evaluation workflows or eng/skill-validator/)
             $hasInfraChanges = $changedFiles |
@@ -136,7 +134,12 @@ jobs:
     uses: ./.github/workflows/evaluation-run.yml
     with:
       entries: ${{ needs.discover.outputs.entries }}
-      runs: ${{ needs.discover.outputs.is_infra == 'true' && '2' || (github.ref == 'refs/heads/main' && '5' || '3') }}
+      runs: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.ref == 'refs/heads/main' && '5' || '3') }}
+      # Infra changes and scheduled runs evaluate all plugins in parallel — reduce
+      # per-job concurrency to avoid API rate limits and timeouts from contention.
+      parallel-skills: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5' }}
+      parallel-scenarios: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
+      parallel-runs: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
       pr-number: ${{ github.event.pull_request.number || '' }}
     secrets:
       COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
@@ -147,6 +150,33 @@ jobs:
       COPILOT_GITHUB_TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
       COPILOT_GITHUB_TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
       COPILOT_GITHUB_TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
+
+  # Plain check-run job that can be required in the GitHub ruleset.
+  # For fork PRs, discover is skipped (fork guard) so this job is also skipped;
+  # the fork-status job in evaluation-fork-pr.yml posts a commit status instead.
+  evaluation-status:
+    needs: [discover, run-evaluation]
+    if: always() && github.event_name == 'pull_request' && needs.discover.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check evaluation result
+        run: |
+          DISCOVER_RESULT="${{ needs.discover.result }}"
+          HAS_ENTRIES="${{ needs.discover.outputs.has_entries }}"
+          EVAL_RESULT="${{ needs.run-evaluation.result }}"
+
+          if [[ "$DISCOVER_RESULT" != "success" ]]; then
+            echo "::error::Discovery failed ($DISCOVER_RESULT)"
+            exit 1
+          elif [[ "$HAS_ENTRIES" != "true" ]]; then
+            echo "No skills to evaluate"
+          elif [[ "$EVAL_RESULT" == "success" ]]; then
+            echo "Evaluation passed"
+          else
+            echo "::error::Evaluation did not pass ($EVAL_RESULT)"
+            exit 1
+          fi
 
   publish-benchmark:
     needs: [discover, run-evaluation]
@@ -209,12 +239,16 @@ jobs:
               PluginName = $plugin
               OutputDir     = "/tmp/gh-pages/data"
               CommitJson    = $commitJson
+              RetentionDays = $env:DASHBOARD_RETENTION_DAYS
             }
             if ((Test-Path $existingFile) -and (Get-Content $existingFile -Raw -ErrorAction SilentlyContinue)) {
               $params.ExistingDataFile = $existingFile
             }
             & ./eng/dashboard/generate-benchmark-data.ps1 @params
           }
+
+          # Purge entries older than the configured retention window from plugin data files; delete files left with no remaining entries
+          & ./eng/dashboard/generate-benchmark-data.ps1 -PurgeStaleFiles -DataDir "/tmp/gh-pages/data" -RetentionDays $env:DASHBOARD_RETENTION_DAYS
 
           # Generate components.json manifest
           $plugins = Get-ChildItem -Path "/tmp/gh-pages/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |

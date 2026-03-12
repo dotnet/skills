@@ -11,6 +11,11 @@ on:
     - cron: "0 3 * * *"  # 03:00 UTC daily
   workflow_dispatch:
 
+# Don't run scheduled triggers on forked repositories — forks lack the
+# secrets and context required, and scheduled runs would consume the
+# fork owner's minutes.
+if: "!(github.event_name == 'schedule' && github.event.repository.fork)"
+
 permissions:
   contents: read
   actions: read
@@ -39,7 +44,7 @@ safe-outputs:
   dispatch-workflow:
     workflows:
       - devops-health-investigate
-    max: 10
+    max: 2  # Workaround for https://github.com/github/gh-aw/issues/20187 — raise when fixed
 
 network:
   allowed:
@@ -240,7 +245,7 @@ GET /repos/{owner}/{repo}/pulls?state=closed&sort=updated&direction=desc&per_pag
 Count merged PRs per day over the last 7 days.
 - 🔵 Info (metric only — reported in trends table, not fingerprinted)
 
-### 1.5 Infrastructure Checks (I1–I6)
+### 1.5 Infrastructure Checks (I1–I8)
 
 **I1 — Missing CODEOWNERS:**
 ```
@@ -279,6 +284,32 @@ Check last deployment status.
 Scan workflow YAML files for non-`actions/*` references. Flag those pinned to tags instead of SHAs.
 - 🔵 Info
 - Fingerprint: `infra:unpinned-action:{action_name}`
+
+**I7 — Orphan skills (not registered in any plugin):**
+Discover all skill directories on disk:
+```
+find plugins/*/skills/ -mindepth 1 -maxdepth 1 -type d
+```
+For each skill directory found, verify that its parent plugin directory contains a valid `plugin.json` with a `skills` field that resolves to a path containing the skill. Specifically:
+- Parse `plugins/{component}/plugin.json` and resolve the `skills` field (e.g., `"./skills/"`) relative to the plugin directory.
+- Confirm the skill directory is under the resolved skills path.
+- If a skill directory exists under `plugins/*/skills/` but the parent `plugins/*/` has no `plugin.json`, or the `plugin.json` has no `skills` field, the skill is orphaned.
+- Also scan for any stray skill-like directories outside the standard `plugins/*/skills/` structure (e.g., leftover directories in `plugins/*/` that contain `.md` prompt files but are not under `skills/` or `agents/`).
+- 🟡 Warning for each orphan skill found
+- Fingerprint: `infra:orphan-skill:{component}:{skill_name}`
+
+**I8 — Orphan plugins (not listed in marketplace.json):**
+Compare the set of plugin directories on disk against the marketplace registry:
+```
+find plugins -maxdepth 2 -type f -name plugin.json
+cat .github/plugin/marketplace.json | jq -r '.plugins[].source'
+```
+For each plugin directory under `plugins/` that contains a `plugin.json`:
+- Derive the plugin directory path from the actual location of `plugin.json` on disk (for example, if `plugin.json` is at `plugins/foo/plugin.json`, the directory is `plugins/foo/`), and separately read the plugin display name from its `name` field.
+- Check if a matching entry exists in `.github/plugin/marketplace.json` where `plugins[].source` resolves to the same directory path (e.g., `"./plugins/foo"`), comparing using the directory derived from the filesystem rather than the `name` field.
+- If no entry in marketplace.json points to that directory, the plugin is orphaned and will not be discoverable by consumers. Optionally, also emit a separate finding if the `plugin.json` `name` field does not match the directory basename (e.g., `plugins/foo/` with `name: "bar"`).
+- 🟡 Warning for each orphan plugin found
+- Fingerprint: `infra:orphan-plugin:{directory_basename}` (uses on-disk directory name, not the `name` field)
 
 ### 1.6 Resource Usage (U1–U3)
 
@@ -477,7 +508,7 @@ For each 🆕 NEW finding that qualifies for investigation, dispatch a worker us
 
 **First run note:** On the first run all findings are 🆕 NEW. This means ALL critical findings MUST be dispatched.
 
-**Budget:** Maximum 10 dispatches per run. If more than 10 qualify, prioritize by:
+**Budget:** Maximum **2** dispatches per run (limited to avoid investigation runs cancelling each other due to a shared agent concurrency group — see [gh-aw#20187](https://github.com/github/gh-aw/issues/20187)). If more than 2 qualify, prioritize by:
 1. Severity descending (🔴 first)
 2. Pipeline findings first
 3. Quality findings second
