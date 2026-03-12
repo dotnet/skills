@@ -568,7 +568,7 @@ public static class AgentRunner
 
     private static readonly HashSet<string> AllowedMcpCommands = new(StringComparer.OrdinalIgnoreCase)
     {
-        "dotnet", "node", "npx", "python", "python3", "uvx",
+        "dotnet", "dnx", "node", "npx", "python", "python3", "uvx",
     };
 
     internal static bool IsAllowedMcpCommand(string command)
