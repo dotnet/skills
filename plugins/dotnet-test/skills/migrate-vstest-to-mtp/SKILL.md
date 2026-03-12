@@ -211,7 +211,9 @@ VSTest-specific arguments must be translated to MTP equivalents. Build-related a
 
 **MSTest and NUnit**: The `--filter` syntax is identical on both VSTest and MTP. No changes needed.
 
-**xUnit.net (breaking change)**: The VSTest `--filter` syntax is **not supported** on MTP. You must migrate to xUnit.net v3 native filter options. If your CI uses `--filter`, this is a required change:
+**xUnit.net (breaking change)**: The VSTest `--filter` syntax is **not supported** on MTP. You must migrate to xUnit.net v3 native filter options. If your CI uses `--filter`, this is a required change.
+
+##### Simple filter translations
 
 | VSTest filter | xUnit.net MTP filter |
 |---------------|----------------------|
@@ -219,7 +221,31 @@ VSTest-specific arguments must be translated to MTP equivalents. Build-related a
 | `--filter "FullyQualifiedName~MyMethod"` | `--filter-method MyMethod` |
 | `--filter "Category=Integration"` | `--filter-trait "Category=Integration"` |
 | `--filter "FullyQualifiedName!~Slow"` | `--filter-not-method Slow` |
-| Complex expressions | `--filter-query` (xUnit.net query filter language) |
+
+Multiple `--filter-*` options can be combined on the same command line. They are ANDed together:
+
+```shell
+dotnet test -- --filter-class MyNamespace.IntegrationTests --filter-trait "Category=Smoke"
+```
+
+##### Compound expressions with --filter-query
+
+For compound VSTest filter expressions (using `&`, `|`, `!`), use `--filter-query` which supports the xUnit.net query filter language:
+
+| VSTest compound filter | xUnit.net MTP --filter-query |
+|------------------------|------------------------------|
+| `--filter "FullyQualifiedName~IntegrationTests&Category=Smoke"` | `--filter-query "class=/IntegrationTests/ and trait('Category','Smoke')"` |
+| `--filter "Category=Unit\|Category=Integration"` | `--filter-query "trait('Category','Unit') or trait('Category','Integration')"` |
+| `--filter "FullyQualifiedName~Tests&FullyQualifiedName!~Slow"` | `--filter-query "class=/Tests/ and not method=/Slow/"` |
+
+The `--filter-query` language supports:
+
+- `class=` / `method=` / `namespace=` — match by name (exact match or `/regex/` for patterns)
+- `trait('name','value')` — match by trait
+- `and`, `or`, `not` — logical operators
+- Parentheses for grouping
+
+> **Reference**: See the [xUnit.net v3 filter query documentation](https://xunit.net/docs/query-filter-language) for the full query language specification.
 
 ### Step 6: Install MTP extension packages (if needed)
 
@@ -354,7 +380,7 @@ Once migration is complete and verified, remove packages that are only needed fo
 | `dotnet test` arguments ignored on .NET 9 and earlier | Use `--` to separate build args from MTP args: `dotnet test -- --report-trx` |
 | `--logger trx` produces no output | Replace with `--report-trx` and install `Microsoft.Testing.Extensions.TrxReport` |
 | `--collect "Code Coverage"` does nothing | Replace with `--coverage` and install `Microsoft.Testing.Extensions.CodeCoverage` |
-| `--filter` fails on xUnit.net v3 | xUnit.net MTP uses different filter options (`--filter-class`, `--filter-method`, `--filter-trait`, `--filter-query`) |
+| `--filter` fails on xUnit.net v3 | VSTest `--filter` is not supported; use `--filter-class`, `--filter-method`, `--filter-trait` for simple filters, or `--filter-query` for compound expressions |
 | Exit code 8 on CI without failures | MTP fails when zero tests run; use `--ignore-exit-code 8` or fix test discovery |
 | VSTest task in Azure DevOps fails | Replace `VSTest@3` with `DotNetCoreCLI@2` task |
 | NUnit3TestAdapter < 5.0.0 | MTP requires adapter version 5.0.0 or later |
