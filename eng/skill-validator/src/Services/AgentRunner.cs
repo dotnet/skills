@@ -96,7 +96,8 @@ public static class AgentRunner
         // Deny-by-default: if no path/command can be extracted, deny the request.
         if (string.IsNullOrEmpty(reqPath))
         {
-            log?.Invoke($"      ❌ Denying permission request with no path/command json entry.");
+            log?.Invoke($"      ❌ Denying permission request with no path/command json entry: "
+                + string.Join(", ", request.ExtensionData?.Select(kv => $"{kv.Key}={kv.Value}") ?? []));
             return false;
         }
 
@@ -133,7 +134,7 @@ public static class AgentRunner
 
         if (!anyAllowed)
         {
-            log?.Invoke($"      ❌ Denying permission request for path/command: {resolved}");
+            log?.Invoke($"      ❌ Denying permission request for path/command: {resolved} (allowed: {string.Join(", ", allowedDirs)})");
         }
 
         return anyAllowed;
