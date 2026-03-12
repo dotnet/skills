@@ -385,7 +385,11 @@ public static class AgentRunner
                     continue;
                 }
 
-                Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+                var targetDir = Path.GetDirectoryName(targetPath);
+                if (!string.IsNullOrEmpty(targetDir))
+                {
+                    Directory.CreateDirectory(targetDir);
+                }
 
                 if (file.Content is not null)
                 {
