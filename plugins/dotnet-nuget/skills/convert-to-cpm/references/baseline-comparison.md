@@ -42,14 +42,14 @@ Compare `baseline-packages.json` and `after-cpm-packages.json` per project. For 
 
 ### Example comparison tables
 
-Present changes and unchanged packages in separate tables. The **Changes** table highlights anything that differs from baseline — version bumps, security fixes, `VersionOverride` entries, and added/removed packages. The **Unchanged** table lists everything else for reference and confidence.
+Present changes and unchanged packages in separate tables. The **Changes** table highlights anything that differs from baseline — version alignment from conflict resolution, `VersionOverride` entries, and added/removed packages. The **Unchanged** table lists everything else for reference and confidence.
 
 **Changes:**
 
 ```
 | Project | Package | Before | After | Status |
 |---------|---------|--------|-------|--------|
-| Legacy.csproj | System.Text.Json | 8.0.4 | 8.0.5 | ⚠️ Security fix (CVE-2024-43485) |
+| Legacy.csproj | System.Text.Json | 8.0.4 | 9.0.0 | Aligned to highest version |
 | Core.csproj | System.Text.Json | 9.0.0 | 9.0.0 | VersionOverride |
 | Shared.csproj | Azure.Identity | 1.10.0 | 1.10.0 | VersionOverride |
 ```
@@ -85,7 +85,7 @@ winget install KirillOsenkov.MSBuildStructuredLogViewer
 
 ## When comparison reveals unexpected differences
 
-If the post-conversion package list resolves different versions than expected (beyond intentional changes like security fixes or `VersionOverride`), investigate:
+If the post-conversion package list resolves different versions than expected (beyond intentional changes like version conflict alignment or `VersionOverride`), investigate:
 
 - Missing `<PackageVersion>` entries causing fallback behavior
 - Conditional `<PackageVersion>` entries not matching the project's target framework

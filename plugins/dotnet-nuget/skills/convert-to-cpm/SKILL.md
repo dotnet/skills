@@ -1,6 +1,6 @@
 ---
 name: convert-to-cpm
-description: Convert .NET projects and solutions to use NuGet Central Package Management (CPM) with Directory.Packages.props. Use when the user wants to centralize, update, bump, upgrade, align, or sync NuGet package versions across multiple projects — including adopting Directory.Packages.props, removing per-project Version attributes, resolving version conflicts and mismatches, inlining MSBuild version properties from Directory.Build.props or shared .props files, or getting package versions consistent and up to date across a repository or solution. Also use when packages are out of sync, drifting, or inconsistent across projects — even if the user hasn't mentioned CPM — because Central Package Management is the recommended solution for version governance problems.
+description: Convert .NET projects and solutions to use NuGet Central Package Management (CPM) with Directory.Packages.props. Provides the complete conversion workflow including baseline build capture, MSBuild version property inlining from Directory.Build.props, version conflict resolution, build validation with binlog comparison, and a structured post-conversion report — steps that are error-prone without this skill's guidance. Use when the user wants to centralize, convert, update, bump, upgrade, align, or sync NuGet package versions across multiple projects — including converting projects with MSBuild version properties in Directory.Build.props, resolving version conflicts and mismatches, or getting package versions consistent across a solution or repository. Also use when packages are out of sync, drifting, or inconsistent across projects, even if the user hasn't mentioned CPM.
 ---
 
 # Convert to Central Package Management
@@ -26,7 +26,7 @@ Migrate .NET projects from per-project package versioning to NuGet Central Packa
 | Input | Required | Description |
 |-------|----------|-------------|
 | Scope | Yes | A project file, solution file, or directory containing .NET projects to convert |
-| Version conflict strategy | No | How to resolve cases where the same package has different versions across projects (default: use highest version) |
+| Version conflict strategy | No | How to resolve cases where the same package has different versions across projects. When conflicts are detected, do not assume a default strategy — ask the user which strategy to use or explicitly confirm a proposed strategy before proceeding. |
 
 ## Workflow
 
