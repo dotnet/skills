@@ -701,7 +701,7 @@ public static class ValidateCommand
             // 2. Skilled-isolated: single skill only (current behavior)
             AgentRunner.RunAgent(new RunOptions(scenario, skill, skill.EvalPath, config.Model, config.Verbose,
                 PluginRoot: null, Log: runLog)),
-            // 3. Skilled-plugin: entire plugin loaded via --plugin-dir
+            // 3. Skilled-plugin: load entire plugin from plugin root directory
             AgentRunner.RunAgent(new RunOptions(scenario, skill, skill.EvalPath, config.Model, config.Verbose,
                 PluginRoot: pluginRoot, Log: runLog)));
         var baselineMetrics = agentTasks[0];

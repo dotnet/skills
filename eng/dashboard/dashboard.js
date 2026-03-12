@@ -523,7 +523,7 @@
     }
   }
 
-  // Helper: create a triple line chart (baseline, isolated, plugin)
+  // Helper: create a triple line chart with three series (e.g., Skill / Plugin / Vanilla quality)
   function createTripleChart(container, title, entries, nameA, nameB, nameC, labelA, labelB, labelC, colorA, colorB, colorC) {
     const div = document.createElement('div');
     div.className = 'chart-container';

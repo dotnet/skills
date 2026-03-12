@@ -19,11 +19,16 @@ public class BuildSessionConfigTests
         McpServers: null);
 
     [Fact]
-    public void SetsSkillDirectoriesToParentOfSkillPath()
+    public void SetsSkillDirectoriesToStagedIsolationDir()
     {
         var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
         Assert.Single(config.SkillDirectories!);
-        Assert.Equal(Path.GetDirectoryName(MockSkill.Path), config.SkillDirectories![0]);
+        // Isolated skills are now staged into a temp directory so the SDK
+        // discovers only the target skill, not siblings.
+        var stageDir = config.SkillDirectories![0];
+        Assert.StartsWith(Path.GetTempPath(), stageDir);
+        var stagedSkillDir = Path.Combine(stageDir, Path.GetFileName(MockSkill.Path));
+        Assert.True(File.Exists(Path.Combine(stagedSkillDir, "SKILL.md")));
     }
 
     [Fact]
@@ -53,9 +58,10 @@ public class BuildSessionConfigTests
             var config = AgentRunner.BuildSessionConfig(MockSkill, pluginRoot: null, "gpt-4.1", "C:\\tmp\\work",
                 additionalSkills: additionalSkills);
 
-            // Primary skill parent + one staging directory for additional skills
+            // Primary skill staged dir + one staging directory for additional skills
             Assert.Equal(2, config.SkillDirectories!.Count);
-            Assert.Equal(Path.GetDirectoryName(MockSkill.Path), config.SkillDirectories[0]);
+            // First dir is the isolated skill staging directory
+            Assert.StartsWith(Path.GetTempPath(), config.SkillDirectories[0]);
 
             var stageDir = config.SkillDirectories[1];
             Assert.StartsWith(Path.GetTempPath(), stageDir);
@@ -311,9 +317,9 @@ public class BuildSessionConfigTests
     public void PluginRootNullPreservesSkillDirectories()
     {
         var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
-        // Without pluginRoot, SkillDirectories should contain the skill's parent
+        // Without pluginRoot, SkillDirectories should contain the staged isolation dir
         Assert.Single(config.SkillDirectories!);
-        Assert.Equal(Path.GetDirectoryName(MockSkill.Path), config.SkillDirectories![0]);
+        Assert.StartsWith(Path.GetTempPath(), config.SkillDirectories![0]);
     }
 }
 

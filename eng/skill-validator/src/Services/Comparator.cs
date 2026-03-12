@@ -138,7 +138,9 @@ public static class Comparator
             ConfidenceInterval = ci,
             IsSignificant = significant,
             IsolatedScore = comparisons.Average(c => c.IsolatedImprovementScore),
-            PluginScore = comparisons.Average(c => c.PluginImprovementScore),
+            PluginScore = comparisons.Any(c => c.SkilledPlugin != null)
+                ? comparisons.Where(c => c.SkilledPlugin != null).Average(c => c.PluginImprovementScore)
+                : null,
             Reason = reason,
             FailureKind = passed ? null : "threshold",
         };

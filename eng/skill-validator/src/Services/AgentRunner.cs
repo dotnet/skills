@@ -40,11 +40,10 @@ public static class AgentRunner
     }
 
     /// <summary>
-    /// Returns a CopilotClient configured for the given plugin.
-    /// The client is created once per plugin root and reused.
-    /// Note: --plugin-dir is NOT honored by the SDK, so all clients share
-    /// the same configuration. Plugin skills are loaded manually via
-    /// SkillDirectories in BuildSessionConfig instead.
+    /// Returns a shared CopilotClient, keyed by plugin root for future
+    /// per-plugin configuration. Currently all clients share the same
+    /// options because --plugin-dir is NOT honored by the SDK; plugin
+    /// skills are loaded via SkillDirectories in BuildSessionConfig.
     /// </summary>
     public static async Task<CopilotClient> GetPluginClient(
         string? pluginRoot, bool verbose)
@@ -91,10 +90,10 @@ public static class AgentRunner
     /// <summary>Stop all plugin clients (including the no-plugin client).</summary>
     public static async Task StopAllClients()
     {
-        foreach (var (_, client) in _pluginClients)
+        foreach (var (key, client) in _pluginClients)
         {
             try { await client.StopAsync(); }
-            catch { /* best effort */ }
+            catch (Exception ex) { Console.Error.WriteLine($"Warning: failed to stop client '{key}': {ex.Message}"); }
         }
         _pluginClients.Clear();
     }
@@ -290,8 +289,10 @@ public static class AgentRunner
 
         // Three run types:
         // 1. Baseline (skill == null, pluginRoot == null): no skills, no MCP.
-        // 2. Skilled-isolated (skill != null, pluginRoot == null): single skill via SkillDirectories.
-        // 3. Skilled-plugin (skill != null, pluginRoot != null): entire plugin loaded manually
+        // 2. Skilled-isolated (skill != null, pluginRoot == null): ONLY the target skill
+        //    is loaded — we stage it into a temp directory so the SDK doesn't
+        //    discover sibling skills from the same parent.
+        // 3. Skilled-plugin (skill != null, pluginRoot != null): entire plugin loaded
         //    via SkillDirectories (--plugin-dir is NOT honored by SDK).
         //
         // For skilled-plugin, we enumerate all skill directories from plugin.json
@@ -303,7 +304,17 @@ public static class AgentRunner
         }
         else if (skill is not null)
         {
-            skillDirs = [skillPath!];
+            // Stage the single skill into a temp directory so the SDK discovers
+            // only this skill — not every sibling that shares the same parent.
+            var isoStageDir = Path.Combine(Path.GetTempPath(), $"sv-iso-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(isoStageDir);
+            _workDirs.Add(isoStageDir);
+
+            var stagedSkillDir = Path.Combine(isoStageDir, Path.GetFileName(skill.Path));
+            Directory.CreateDirectory(stagedSkillDir);
+            File.WriteAllText(Path.Combine(stagedSkillDir, "SKILL.md"), skill.SkillMdContent);
+
+            skillDirs = [isoStageDir];
         }
         else
         {
@@ -390,9 +401,9 @@ public static class AgentRunner
 
         try
         {
-            // All runs use the shared client — plugin skills are loaded manually
+            // All runs use the same client — plugin skills are loaded manually
             // via SkillDirectories (--plugin-dir is not honored by SDK).
-            var client = await GetSharedClient(options.Verbose);
+            var client = await GetPluginClient(options.PluginRoot, options.Verbose);
 
             await using var session = await client.CreateSessionAsync(
                 BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.Skill?.McpServers, options.AdditionalSkills, options.Log, options.Verbose));

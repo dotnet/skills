@@ -216,6 +216,10 @@ public class ComputeVerdictTests
             SkilledPlugin = MakeRunResult(taskCompleted: false, tokenEstimate: 100, overallScore: 5),
             ImprovementScore = comparison.ImprovementScore,
             Breakdown = comparison.Breakdown,
+            IsolatedImprovementScore = comparison.IsolatedImprovementScore,
+            PluginImprovementScore = comparison.PluginImprovementScore,
+            IsolatedBreakdown = comparison.IsolatedBreakdown,
+            PluginBreakdown = comparison.PluginBreakdown,
         };
 
         var verdict = Comparator.ComputeVerdict(MockSkill, [comparison], 0.0, true);
