@@ -42,9 +42,18 @@ jobs:
           }
 
           # On PRs, scan only changed files to avoid failing on pre-existing issues
-          git fetch origin $env:GITHUB_BASE_REF --depth=1
-          $changedFiles = @(git diff --name-only "origin/$env:GITHUB_BASE_REF"...HEAD |
-            Where-Object { $_ -match '\.(md|html)$' })
+          git fetch origin $env:GITHUB_BASE_REF
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::Failed to fetch base branch '$env:GITHUB_BASE_REF'"
+            exit 1
+          }
+
+          $diffOutput = @(git diff --name-only "origin/$env:GITHUB_BASE_REF"...HEAD)
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::git diff failed -- cannot determine changed files"
+            exit 1
+          }
+          $changedFiles = @($diffOutput | Where-Object { $_ -match '\.(md|html)$' })
 
           if ($changedFiles.Count -eq 0) {
             Write-Host "No changed .md or .html files in this PR. Nothing to scan."
