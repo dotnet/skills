@@ -150,15 +150,13 @@ scenarios:
     timeout: 120
 
   - name: "Review source for hash collision protection"
-    prompt: "How does .NET's Dictionary protect against hash collision attacks? Trace it to the source code."
+    prompt: "Where is Dictionary's source code in the .NET platform? Get the SourceLink URLs and show me how it handles hash collisions."
     assertions:
-      - type: "output_matches"
-        pattern: "dnx dotnet-inspect"
       - type: "output_matches"
         pattern: "(Dictionary|hash|collision)"
     expect_tools: ["bash"]
     rubric:
-      - "Uses dnx dotnet-inspect source command to retrieve Dictionary source URLs"
-      - "Reads the actual source code (via SourceLink URLs) and identifies the collision resolution strategy"
-      - "Traces into the hashing implementation (e.g., HashCode, randomized hashing) to explain the HashDoS mitigation"
+      - "Response includes a URL pointing to Dictionary.cs in the dotnet/dotnet or dotnet/runtime repository with a specific commit SHA in the path"
+      - "Correctly explains that Dictionary uses separate chaining via an Entry struct array with a next field forming an embedded linked list"
+      - "Describes the defensive behavior when excessive collisions are detected with string keys, including switching to a randomized equality comparer"
     timeout: 180

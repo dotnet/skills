@@ -1,6 +1,6 @@
 ---
 name: dotnet-inspect
-version: 0.6.8
+version: 0.6.9
 description: Query .NET APIs across NuGet packages, platform libraries, and local files. Search for types, list API surfaces, compare and diff versions, find extension methods and implementors. Use whenever you need to answer questions about .NET library contents.
 ---
 
@@ -16,7 +16,8 @@ Query .NET library APIs — the same commands work across NuGet packages, platfo
 - **What does a type look like?** → `type Type --package Foo` (tree view for single type)
 - **What are the method signatures?** → `member Type --package Foo -m Method` (full signatures + docs)
 - **What is the source/IL?** → `member Type --package Foo -m Method:1 -v:d` (Source, Lowered C#, IL)
-- **Where is the source code?** → `source Type --package Foo` (SourceLink URLs), `source Type Member` (with line numbers)
+- **Where is the source code?** → `source Type --package Foo` (SourceLink URLs), `source Type --platform Lib` (platform types), `source Type Member` (with line numbers), `--cat` to dump content inline
+- **Read source directly?** → `source Type --platform Lib --cat` (fetches and prints source), `--head N`/`--tail N` to limit lines
 - **What constructors exist?** → `member 'Type<T>' --package Foo -m .ctor` (use `<T>` not `<>`)
 - **How many overloads?** → `member Type --package Foo --show-index` (shows `Name:N` indices)
 - **What does this package depend on?** → `depends --package Foo`
@@ -33,7 +34,8 @@ Query .NET library APIs — the same commands work across NuGet packages, platfo
 - **"What extends this type?"** — `extensions` finds extension methods/properties (`--reachable` for transitive)
 - **"What implements this interface?"** — `implements` finds concrete types
 - **"What does this type depend on?"** — `depends` walks type hierarchy, package deps, or library refs
-- **"Where is the source code?"** — `source` returns SourceLink URLs; add member name for line numbers
+- **"Where is the source code?"** — `source` returns SourceLink URLs; add member name for line numbers; use `--platform` for runtime types (e.g., `source Dictionary --platform System.Collections`); `--cat` to fetch and print source inline
+- **"Show me the source code"** — `source Type --platform Lib --cat` dumps source to stdout; combine with `--head N` or `--tail N` to limit output
 - **"What version/metadata does this have?"** — `package` and `library` inspect metadata
 - **"What version is available?"** — `Foo --version` (fast, cache-first — like `docker run`)
 - **"What's the latest on NuGet?"** — `Foo --latest-version` (always queries NuGet — like `docker pull`)
@@ -144,7 +146,7 @@ Search commands (`find`, `extensions`, `implements`, `depends`) use scope flags:
 | `depends` | Walk dependency graphs upward — type hierarchy, package deps, or library refs |
 | `package` | Package metadata, files, versions, dependencies, `search` for NuGet discovery |
 | `library` | Library metadata, symbols, references, SourceLink audit |
-| `source` | **SourceLink URLs** — type-level or member-level (with line numbers), `--verify` to check URLs |
+| `source` | **SourceLink URLs** — type-level or member-level (with line numbers), `--cat` to dump source inline, `--verify` to check URLs |
 | `demo` | Run curated showcase queries — list, invoke, or feeling-lucky |
 
 ## Filtering and Limiting
@@ -159,6 +161,8 @@ dnx dotnet-inspect -y -- type System.Text.Json -5                    # first 5 l
 **Do not pipe output through `head`, `tail`, or `Select-Object`.** Use built-in limiting:
 
 - **`-n N` or `-N`** — line limit (like `head`). Keeps headers, truncates cleanly.
+- **`--head N`** — alias for `-n N` (first N lines).
+- **`--tail N`** — last N lines (like `tail`).
 - **`-m N`** (numeric) — item limit (members per kind section).
 - **`-k Kind`** — filter by kind: `class/struct/interface/enum/delegate` (type) or `method/property/field/event/constructor` (type single-type view, member).
 - **`-S Section`** — show only a specific section (glob-capable).
