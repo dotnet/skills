@@ -241,7 +241,7 @@ scenarios:
   # ============================================================================
 
   - name: "MTP project on SDK 9 must use -- separator for args"
-    prompt: "I need to run tests with verbose output and TRX reporting on this MTP project. I'm using .NET SDK 9."
+    prompt: "I want to run these tests and collect a crash dump if any test crashes the host."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -252,18 +252,20 @@ scenarios:
           source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk9/global.json"
     assertions:
       - type: "output_matches"
-        pattern: "-- --report-trx"
+        pattern: "dotnet test"
+      - type: "output_matches"
+        pattern: "--\\s+--blame-crash"
       - type: "exit_success"
     rubric:
-      - "Recognizes this is an MTP project on .NET SDK 9 (not SDK 10)"
-      - "Places MTP-specific arguments like --report-trx after the '--' separator"
-      - "Does not mix VSTest '--logger trx' with MTP arguments"
-      - "Explains why the '--' separator is necessary on SDK 8/9"
+      - "Detects TestingPlatformDotnetTestSupport in the csproj indicating MTP"
+      - "Recognizes that SDK 9 requires MTP arguments after the '--' separator"
+      - "Places --blame-crash after the '--' separator: 'dotnet test -- --blame-crash'"
+      - "Does not use the VSTest-style '--blame' flag for this MTP project"
     expect_tools: ["bash"]
     timeout: 120
 
   - name: "MTP project on SDK 10 passes args directly"
-    prompt: "I want to run these tests with TRX output and list all available tests first."
+    prompt: "I want to run these tests and produce a TRX report."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -283,7 +285,7 @@ scenarios:
     rubric:
       - "Detects MTP via global.json runner setting and SDK 10"
       - "Passes --report-trx directly without the '--' separator"
-      - "Uses --list-tests to list available tests before running"
+      - "Uses the SDK 10+ dotnet test syntax (e.g., --project flag instead of bare positional argument)"
       - "Does not use VSTest-style '--logger trx' for an MTP project on SDK 10"
     expect_tools: ["bash"]
     timeout: 120
@@ -340,13 +342,13 @@ scenarios:
       - type: "output_matches"
         pattern: "--filter.*TestCategory=Integration"
       - type: "output_matches"
-        pattern: "-- "
+        pattern: "-- --filter"
       - type: "exit_success"
     rubric:
-      - "Checks Directory.Build.props and finds TestingPlatformDotnetTestSupport=true"
+      - "Reads Directory.Build.props (not just the csproj) and finds TestingPlatformDotnetTestSupport=true"
       - "Correctly identifies this as an MTP project even though the csproj alone looks like VSTest"
       - "Uses MSTest filter syntax for TestCategory since MSTest on MTP uses the same filter syntax as VSTest"
-      - "Uses '--' separator before MTP filter args since this is SDK 9"
+      - "Uses '--' separator before MTP filter args since this is SDK 9: 'dotnet test -- --filter TestCategory=Integration'"
     expect_tools: ["bash"]
     timeout: 120
 

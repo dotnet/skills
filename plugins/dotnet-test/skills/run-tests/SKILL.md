@@ -30,13 +30,23 @@ Detect the test platform and framework, run tests, and apply filters using `dotn
 
 ## Workflow
 
+### Quick Reference
+
+| Platform | SDK | Command pattern |
+|----------|-----|----------------|
+| VSTest | Any | `dotnet test [<path>] [--filter <expr>] [--logger trx]` |
+| MTP | 8 or 9 | `dotnet test [<path>] -- <MTP_ARGS>` |
+| MTP | 10+ | `dotnet test --project <path> <MTP_ARGS>` |
+
+**Detection files to always check** (in order): `global.json` → `.csproj` → `Directory.Build.props` → `Directory.Packages.props`
+
 ### Step 1: Detect the test platform and framework
 
 Determine **which test platform** (VSTest or Microsoft.Testing.Platform) and **which test framework** (MSTest, xUnit, NUnit, TUnit) the project uses.
 
 #### Detecting the test framework
 
-Read the `.csproj` file (and `Directory.Build.props` / `Directory.Packages.props` for centrally managed dependencies) and look for:
+Read the `.csproj` file **and** `Directory.Build.props` / `Directory.Packages.props` (for centrally managed dependencies) and look for:
 
 | Package or SDK reference | Framework |
 |--------------------------|-----------|
@@ -63,7 +73,9 @@ On .NET 10+, the `global.json` `test.runner` setting is the **authoritative sour
 
 On older SDKs, check these signals in priority order:
 
-**1. Check the `<TestingPlatformDotnetTestSupport>` MSBuild property.** Look in the `.csproj`, `Directory.Build.props`, or `Directory.Packages.props`. If set to `true`, the project uses **MTP**.
+**1. Check the `<TestingPlatformDotnetTestSupport>` MSBuild property.** Look in the `.csproj`, `Directory.Build.props`, **and** `Directory.Packages.props`. If set to `true` in **any** of these files, the project uses **MTP**.
+
+> **Critical**: Always read `Directory.Build.props` and `Directory.Packages.props` if they exist. MTP properties are frequently set there instead of in the `.csproj`, so checking only the project file will miss them.
 
 **2. Check project-level signals:**
 
