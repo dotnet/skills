@@ -124,12 +124,11 @@ public static class AgentRunner
 
         bool anyAllowed = allowedDirs.Any(dir =>
         {
-            var dirPrefix = Path.EndsInDirectorySeparator(dir)
+            string normalizedDir = Path.EndsInDirectorySeparator(dir)
                 ? dir
                 : dir + Path.DirectorySeparatorChar;
-
-            return resolved.Equals(dir, comparison) ||
-                   resolved.StartsWith(dirPrefix, comparison);
+            return resolved.Equals(normalizedDir, comparison) ||
+                   resolved.StartsWith(normalizedDir, comparison);
         });
 
         if (!anyAllowed)
@@ -427,7 +426,7 @@ public static class AgentRunner
         // Explicit setup files override/supplement auto-copied files
         if (scenario.Setup?.Files is { } files)
         {
-            var canonicalWorkDir = Path.GetFullPath(workDir);
+            var canonicalWorkDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(workDir));
             var pathComparison = OperatingSystem.IsWindows()
                 ? StringComparison.OrdinalIgnoreCase
                 : StringComparison.Ordinal;
@@ -455,7 +454,7 @@ public static class AgentRunner
                 }
                 else if (file.Source is not null && skillPath is not null)
                 {
-                    var canonicalSkillPath = Path.GetFullPath(skillPath);
+                    var canonicalSkillPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(skillPath));
                     var sourcePath = Path.GetFullPath(Path.Combine(skillPath, file.Source));
                     // Prevent path traversal: source must stay inside skillPath
                     if (!sourcePath.StartsWith(canonicalSkillPath + Path.DirectorySeparatorChar, pathComparison)
@@ -581,7 +580,13 @@ public static class AgentRunner
             return false;
         }
 
-        var fileName = Path.GetFileNameWithoutExtension(command);
+        var fileName = Path.GetFileName(command);
+        // On Windows, also allow the .exe extension (e.g., "dotnet.exe").
+        if (OperatingSystem.IsWindows() &&
+            fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            fileName = Path.GetFileNameWithoutExtension(fileName);
+        }
         return AllowedMcpCommands.Contains(fileName);
     }
 
@@ -633,8 +638,17 @@ public static class AgentRunner
 
         foreach (var arg in args)
         {
-            if (blocked.Contains(arg))
-                return null;
+            foreach (var flag in blocked)
+            {
+                // Exact match: -e, --eval
+                if (arg.Equals(flag, StringComparison.Ordinal))
+                    return null;
+                // Combined form: -econsole.log(1), --eval=...
+                if (flag.StartsWith("--") && arg.StartsWith(flag + "=", StringComparison.Ordinal))
+                    return null;
+                if (flag.StartsWith("-") && !flag.StartsWith("--") && arg.StartsWith(flag, StringComparison.Ordinal) && arg.Length > flag.Length)
+                    return null;
+            }
         }
 
         return args;
