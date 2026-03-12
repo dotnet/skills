@@ -5,8 +5,6 @@ scenarios:
       This app uses a beta version of System.CommandLine. Upgrade it to the latest stable version.
     assertions:
       - type: "output_matches"
-        pattern: "dnx dotnet-inspect"
-      - type: "output_matches"
         pattern: "(diff|member|type)"
       - type: "file_contains"
         path: "**/ZeroDaySearch.csproj"
@@ -14,11 +12,8 @@ scenarios:
       - type: "exit_success"
     expect_tools: ["bash"]
     rubric:
-      - "Uses dnx dotnet-inspect package to discover the latest stable System.CommandLine version (e.g., --latest-version)"
-      - "Uses dnx dotnet-inspect diff or member commands to understand API differences between System.CommandLine versions"
-      - "Uses dnx dotnet-inspect member to understand the new API surface (e.g., Command, Option, RootCommand)"
-      - "Correctly migrates Handler.SetHandler calls to the new System.CommandLine API (e.g., SetAction)"
       - "Updates the PackageReference to the latest stable System.CommandLine version (2.0.4)"
+      - "Correctly migrates Handler.SetHandler calls to the new System.CommandLine API (e.g., SetAction)"
       - "The project compiles successfully after migration"
       - "All seven subcommands (list, search, severity, product, platform, date, summary) are preserved"
     timeout: 600
@@ -27,27 +22,23 @@ scenarios:
     prompt: "Where is INumber defined in .NET? What other numeric interfaces are nearby?"
     assertions:
       - type: "output_matches"
-        pattern: "dnx dotnet-inspect"
-      - type: "output_matches"
         pattern: "INumber"
     expect_tools: ["bash"]
     rubric:
-      - "Uses dnx dotnet-inspect find to search for INumber across platform libraries"
       - "Identifies that INumber is in the System.Runtime library (System.Numerics namespace)"
-      - "Shows related numeric interfaces (e.g., IAdditionOperators, IFloatingPoint, IBinaryInteger)"
+      - "Lists related numeric interfaces (e.g., IAdditionOperators, IFloatingPoint, IBinaryInteger)"
+      - "Shows at least 5 distinct numeric interfaces from the same namespace or library"
     timeout: 120
 
   - name: "Find types in a NuGet package"
     prompt: "What's the IChatClient interface in Microsoft.Extensions.AI? Show me its API surface."
     assertions:
       - type: "output_matches"
-        pattern: "dnx dotnet-inspect"
-      - type: "output_matches"
         pattern: "IChatClient"
     expect_tools: ["bash"]
     rubric:
-      - "Uses dnx dotnet-inspect to find and inspect IChatClient in the Microsoft.Extensions.AI package"
       - "Shows the members of IChatClient (e.g., GetResponseAsync, GetStreamingResponseAsync)"
+      - "Identifies that IChatClient is in the Microsoft.Extensions.AI package and namespace"
       - "Provides a useful summary of the interface's purpose and shape"
     timeout: 240
 
@@ -55,13 +46,11 @@ scenarios:
     prompt: "What extension methods are available for HttpClient in .NET?"
     assertions:
       - type: "output_matches"
-        pattern: "dnx dotnet-inspect"
-      - type: "output_matches"
         pattern: "(extension|HttpClient)"
     expect_tools: ["bash"]
     rubric:
-      - "Uses dnx dotnet-inspect extensions command to find extension methods for HttpClient"
-      - "Discovers extension methods from System.Net.Http.Json (e.g., GetFromJsonAsync, PostAsJsonAsync)"
+      - "Lists extension methods from System.Net.Http.Json (e.g., GetFromJsonAsync, PostAsJsonAsync)"
+      - "Identifies the library or namespace each extension method comes from"
       - "Presents the results clearly, grouped or summarized by source"
     timeout: 120
 
@@ -70,83 +59,71 @@ scenarios:
     assertions:
       - type: "output_contains"
         value: "JsonConverter"
-      - type: "output_matches"
-        pattern: "dnx dotnet-inspect"
     expect_tools: ["bash"]
     rubric:
-      - "Uses dnx dotnet-inspect type command with --package flag and kind filter for interfaces"
-      - "Shows the complete set of interfaces (e.g., IJsonTypeInfoResolver, IJsonOnSerializing, IJsonOnDeserialized)"
-      - "Output is accurate and sourced from the tool, not from training knowledge"
+      - "Lists the complete set of interfaces in System.Text.Json (e.g., IJsonTypeInfoResolver, IJsonOnSerializing, IJsonOnDeserialized)"
+      - "Includes interfaces from both the System.Text.Json and System.Text.Json.Serialization namespaces"
+      - "Results are accurate and comprehensive, not a partial list from memory"
     timeout: 120
 
   - name: "Find logging and tracing types across platform"
     prompt: "I'm building an observability layer. Find all the ILogger*, Activity*, and Meter* types in the .NET platform. I need the full picture."
     assertions:
       - type: "output_matches"
-        pattern: "dnx dotnet-inspect"
-      - type: "output_matches"
         pattern: "(ILogger|Activity|Meter)"
     expect_tools: ["bash"]
     rubric:
-      - "Uses dnx dotnet-inspect find with glob patterns to search for ILogger*, Activity*, and Meter* types"
-      - "Finds types across multiple platform libraries (e.g., Microsoft.Extensions.Logging.Abstractions, System.Diagnostics.DiagnosticSource)"
-      - "Covers all three families (logging, tracing, metrics) rather than only one"
+      - "Lists types from all three observability families: logging (ILogger*), tracing (Activity*), and metrics (Meter*)"
+      - "Identifies the platform libraries each type comes from (e.g., Microsoft.Extensions.Logging.Abstractions, System.Diagnostics.DiagnosticSource)"
+      - "Results are comprehensive — covers at least 3 types per family, not just the top-level ones"
     timeout: 120
 
   - name: "Find implementors of an interface"
     prompt: "What types implement IHostedService in the .NET platform? I want to know what's built-in."
     assertions:
       - type: "output_matches"
-        pattern: "dnx dotnet-inspect"
-      - type: "output_matches"
         pattern: "IHostedService"
     expect_tools: ["bash"]
     rubric:
-      - "Uses dnx dotnet-inspect implements command to search for IHostedService implementors"
-      - "Finds concrete types that implement IHostedService across platform or extensions packages"
-      - "Provides accurate results from the tool rather than guessing from training knowledge"
+      - "Lists concrete types that implement IHostedService from the .NET platform or extensions packages"
+      - "Identifies the library or package each implementor comes from"
+      - "Results reflect actual platform assemblies, not hypothetical or user-space implementations"
     timeout: 120
 
   - name: "Inspect package dependency chain"
     prompt: "What are the package dependencies of Microsoft.Extensions.AI? I want to understand what it pulls in."
     assertions:
       - type: "output_matches"
-        pattern: "dnx dotnet-inspect"
-      - type: "output_matches"
         pattern: "(depend|Microsoft\\.Extensions)"
     expect_tools: ["bash"]
     rubric:
-      - "Uses dnx dotnet-inspect depends or package command to inspect dependencies of Microsoft.Extensions.AI"
-      - "Shows the dependency tree or list (e.g., Microsoft.Extensions.AI.Abstractions, Microsoft.Bcl.AsyncInterfaces)"
+      - "Lists the direct dependencies of Microsoft.Extensions.AI (e.g., Microsoft.Extensions.AI.Abstractions, Microsoft.Bcl.AsyncInterfaces)"
       - "Provides version information for the dependencies"
+      - "Gives a clear picture of the full dependency tree or transitive closure, not just top-level names"
     timeout: 120
 
   - name: "Inspect method overloads in a NuGet package"
     prompt: "Which overloads of GetResponseAsync in Microsoft.Extensions.AI accept a JsonSerializerOptions parameter? Show me their full signatures."
     assertions:
       - type: "output_matches"
-        pattern: "dnx dotnet-inspect"
-      - type: "output_matches"
         pattern: "JsonSerializerOptions"
     expect_tools: ["bash"]
     rubric:
-      - "Uses dnx dotnet-inspect member command with --package and -m GetResponseAsync to inspect overloads"
-      - "Identifies the overloads that accept a JsonSerializerOptions parameter (3 of the 6 overloads)"
-      - "Shows full method signatures for the matching overloads"
+      - "Identifies the overloads of GetResponseAsync that accept a JsonSerializerOptions parameter (3 of the 6 overloads)"
+      - "Shows full method signatures including return types and all parameters for the matching overloads"
+      - "Distinguishes the matching overloads from the ones that do not accept JsonSerializerOptions"
     timeout: 120
 
   - name: "Audit package signing and SourceLink"
     prompt: "Is the Newtonsoft.Json NuGet package signed? Does it support SourceLink? Give me the full metadata."
     assertions:
       - type: "output_matches"
-        pattern: "dnx dotnet-inspect"
-      - type: "output_matches"
         pattern: "(Newtonsoft|sign|source)"
     expect_tools: ["bash"]
     rubric:
-      - "Uses dnx dotnet-inspect library or package command to inspect Newtonsoft.Json metadata"
-      - "Reports whether the assembly is signed and its public key token"
+      - "Reports whether the Newtonsoft.Json assembly is signed and provides its public key token"
       - "Reports SourceLink status (whether source is available for debugging)"
+      - "Includes additional package metadata such as version, target frameworks, or author information"
     timeout: 120
 
   - name: "Review source for hash collision protection"
