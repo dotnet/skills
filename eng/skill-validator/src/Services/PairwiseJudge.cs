@@ -11,7 +11,8 @@ public sealed record PairwiseJudgeOptions(
     bool Verbose,
     int Timeout,
     string WorkDir,
-    string? SkillPath = null);
+    string? SkillPath = null,
+    string? SkilledWorkDir = null);
 
 public static class PairwiseJudge
 {
@@ -85,7 +86,8 @@ public static class PairwiseJudge
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
             OnPermissionRequest = (request, _) =>
             {
-                var result = AgentRunner.CheckPermission(request, options.WorkDir, options.SkillPath, options.Verbose ? log : null, "pairwise-judge");
+                var extraDirs = options.SkilledWorkDir is not null ? new[] { options.SkilledWorkDir } : null;
+                var result = AgentRunner.CheckPermission(request, options.WorkDir, options.SkillPath, options.Verbose ? log : null, "pairwise-judge", extraDirs);
                 return Task.FromResult(new PermissionRequestResult
                 {
                     Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,

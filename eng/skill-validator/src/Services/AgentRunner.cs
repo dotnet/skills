@@ -82,7 +82,7 @@ public static class AgentRunner
         }));
     }
 
-    public static bool CheckPermission(PermissionRequest request, string workDir, string? skillPath, Action<string>? log, string? runLabel = null)
+    public static bool CheckPermission(PermissionRequest request, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, IReadOnlyList<string>? additionalAllowedDirs = null)
     {
         string? reqPath = null;
         if (request.ExtensionData is { } data)
@@ -97,17 +97,21 @@ public static class AgentRunner
 
         var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
 
-        // Deny-by-default: if no path/command can be extracted, deny the request.
+        // Allow-by-default: if no path/fileName/fullCommandText can be extracted, allow the request.
+        // The above fields cover file system access and are best effort.
+        // Deny-by-default isn't feasible as we would need to whitelist all kinds of tool calls.
         if (string.IsNullOrEmpty(reqPath))
         {
-            log?.Invoke($"      ❌ Denying permission request with no path/command json entry{labelSuffix}: "
+            log?.Invoke($"      Allowing permission request with no path/command json entry{labelSuffix}: "
                 + string.Join(", ", request.ExtensionData?.Select(kv => $"{kv.Key}={kv.Value}") ?? []));
-            return false;
+            return true;
         }
 
         if (!Path.EndsInDirectorySeparator(workDir))
             workDir += Path.DirectorySeparatorChar;
 
+        // All relative paths are resolved against the workDir, which is the SDK's current
+        // working directory for the session.
         string resolved = Path.GetFullPath(reqPath, workDir);
         if (!Path.EndsInDirectorySeparator(resolved))
             resolved += Path.DirectorySeparatorChar;
@@ -120,6 +124,17 @@ public static class AgentRunner
                 skillsPathAbsolute = skillsPathAbsolute + Path.DirectorySeparatorChar;
 
             allowedDirs.Add(skillsPathAbsolute);
+        }
+
+        if (additionalAllowedDirs is not null)
+        {
+            foreach (var dir in additionalAllowedDirs)
+            {
+                string abs = Path.GetFullPath(dir);
+                if (!Path.EndsInDirectorySeparator(abs))
+                    abs += Path.DirectorySeparatorChar;
+                allowedDirs.Add(abs);
+            }
         }
 
         // Use case-sensitive comparison on Linux/macOS, case-insensitive on Windows.

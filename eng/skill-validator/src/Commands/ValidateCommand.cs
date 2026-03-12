@@ -676,7 +676,7 @@ public static class ValidateCommand
             {
                 pairwise = await Services.PairwiseJudge.Judge(
                     scenario, baselineMetrics, withSkillMetrics,
-                    new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path),
+                    new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path, withSkillMetrics.WorkDir),
                     runLog);
             }
             catch (Exception error)
