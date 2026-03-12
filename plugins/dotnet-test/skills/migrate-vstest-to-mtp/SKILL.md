@@ -230,22 +230,22 @@ dotnet test -- --filter-class MyNamespace.IntegrationTests --filter-trait "Categ
 
 ##### Compound expressions with --filter-query
 
-For compound VSTest filter expressions (using `&`, `|`, `!`), use `--filter-query` which supports the xUnit.net query filter language:
+For compound VSTest filter expressions (using `&`, `|`, `!`), use `--filter-query` which supports the [xUnit.net v3 query filter language](https://xunit.net/docs/query-filter-language). The syntax is segment-based:
+
+```
+/<assemblyFilter>/<namespaceFilter>/<classFilter>/<methodFilter>
+```
+
+Traits use bracket notation: `[name=value]` or `[name!=value]`. Combine expressions within a segment using parentheses with `&` (AND) or `|` (OR). Use `*` as a wildcard at the start or end of any segment.
 
 | VSTest compound filter | xUnit.net MTP --filter-query |
 |------------------------|------------------------------|
-| `--filter "FullyQualifiedName~IntegrationTests&Category=Smoke"` | `--filter-query "class=/IntegrationTests/ and trait('Category','Smoke')"` |
-| `--filter "Category=Unit\|Category=Integration"` | `--filter-query "trait('Category','Unit') or trait('Category','Integration')"` |
-| `--filter "FullyQualifiedName~Tests&FullyQualifiedName!~Slow"` | `--filter-query "class=/Tests/ and not method=/Slow/"` |
+| `--filter "FullyQualifiedName~IntegrationTests&Category=Smoke"` | `--filter-query "/*/*/IntegrationTests*/*[Category=Smoke]"` |
+| `--filter "Category=Unit\|Category=Integration"` | `--filter-query "/[(Category=Unit)\|(Category=Integration)]"` |
+| `--filter "FullyQualifiedName~Tests&FullyQualifiedName!~Slow"` | `--filter-query "/*/*/(*Tests*)&(!*Slow*)"` |
+| `--filter "FullyQualifiedName~MyMethod"` | `--filter-query "/*/*/*/MyMethod*"` |
 
-The `--filter-query` language supports:
-
-- `class=` / `method=` / `namespace=` — match by name (exact match or `/regex/` for patterns)
-- `trait('name','value')` — match by trait
-- `and`, `or`, `not` — logical operators
-- Parentheses for grouping
-
-> **Reference**: See the [xUnit.net v3 filter query documentation](https://xunit.net/docs/query-filter-language) for the full query language specification.
+> **Reference**: See the [xUnit.net v3 query filter language documentation](https://xunit.net/docs/query-filter-language) for the full specification, including escaping special characters and negation.
 
 ### Step 6: Install MTP extension packages (if needed)
 
