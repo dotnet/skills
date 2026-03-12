@@ -1,0 +1,57 @@
+name: Reference Validation
+
+on:
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - '.agents/**'
+      - 'agentic-workflows/**'
+      - 'eng/dashboard/**'
+      - 'README.md'
+      - 'eng/reference-scanner/**'
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+      - '.agents/**'
+      - 'agentic-workflows/**'
+      - 'eng/dashboard/**'
+      - 'README.md'
+      - 'eng/reference-scanner/**'
+  workflow_dispatch:
+
+jobs:
+  scan-references:
+    name: Scan external references
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Run reference scanner
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_EVENT_NAME -ne 'pull_request') {
+            Write-Host "Push or manual trigger -- running full scan."
+            ./eng/reference-scanner/scan.ps1 -All
+            exit $LASTEXITCODE
+          }
+
+          # On PRs, scan only changed files to avoid failing on pre-existing issues
+          git fetch origin $env:GITHUB_BASE_REF --depth=1
+          $changedFiles = @(git diff --name-only "origin/$env:GITHUB_BASE_REF"...HEAD |
+            Where-Object { $_ -match '\.(md|html)$' })
+
+          if ($changedFiles.Count -eq 0) {
+            Write-Host "No changed .md or .html files in this PR. Nothing to scan."
+            exit 0
+          }
+
+          Write-Host "Scanning $($changedFiles.Count) changed file(s):"
+          $changedFiles | ForEach-Object { Write-Host "  $_" }
+          ./eng/reference-scanner/scan.ps1 -Paths $changedFiles
+          exit $LASTEXITCODE

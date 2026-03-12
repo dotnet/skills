@@ -9,4 +9,11 @@
     <ArtifactsPath>$(MSBuildThisFileDirectory)..\..\artifacts</ArtifactsPath>
   </PropertyGroup>
 
+  <!-- Non-needed dependency. Prune away. -->
+  <Target Name="AddToPackagePruneList" AfterTargets="AddPrunePackageReferences">
+    <ItemGroup>
+      <PrunePackageReference Include="Microsoft.Bcl.Memory" Version="4.0.0" />
+    </ItemGroup>
+  </Target>
+
 </Project>
