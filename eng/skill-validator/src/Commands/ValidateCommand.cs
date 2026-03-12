@@ -637,9 +637,9 @@ public static class ValidateCommand
         // Await each judge independently so a failure in one doesn't discard the other's result.
         var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path);
 
-        var baselineJudgeTask = Services.Judge.JudgeRun(scenario, baselineMetrics, judgeOpts);
+        var baselineJudgeTask = Services.Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, runLog);
         var withSkillJudgeTask = Services.Judge.JudgeRun(
-            scenario, withSkillMetrics, judgeOpts with { WorkDir = withSkillMetrics.WorkDir });
+            scenario, withSkillMetrics, judgeOpts with { WorkDir = withSkillMetrics.WorkDir }, runLog);
 
         JudgeResult baselineJudge;
         try
@@ -676,7 +676,8 @@ public static class ValidateCommand
             {
                 pairwise = await Services.PairwiseJudge.Judge(
                     scenario, baselineMetrics, withSkillMetrics,
-                    new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path));
+                    new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path),
+                    runLog);
             }
             catch (Exception error)
             {
@@ -837,7 +838,7 @@ public static class ValidateCommand
                         JudgeResult skillOnlyJudge, allSkillsJudge;
                         try
                         {
-                            skillOnlyJudge = await Services.Judge.JudgeRun(scenario, skillOnlyMetrics, judgeOpts);
+                            skillOnlyJudge = await Services.Judge.JudgeRun(scenario, skillOnlyMetrics, judgeOpts, log);
                         }
                         catch
                         {
@@ -846,7 +847,7 @@ public static class ValidateCommand
                         try
                         {
                             allSkillsJudge = await Services.Judge.JudgeRun(scenario, allSkillsMetrics,
-                                judgeOpts with { WorkDir = allSkillsMetrics.WorkDir });
+                                judgeOpts with { WorkDir = allSkillsMetrics.WorkDir }, log);
                         }
                         catch
                         {

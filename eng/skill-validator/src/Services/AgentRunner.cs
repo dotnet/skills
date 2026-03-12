@@ -82,44 +82,72 @@ public static class AgentRunner
         }));
     }
 
-    public static bool CheckPermission(PermissionRequest request, string workDir, string? skillPath)
+    public static bool CheckPermission(PermissionRequest request, string workDir, string? skillPath, Action<string>? log)
     {
         string? reqPath = null;
         if (request.ExtensionData is { } data)
         {
             if (data.TryGetValue("path", out var pathVal) && pathVal is JsonElement pathEl && pathEl.ValueKind == JsonValueKind.String)
                 reqPath = pathEl.GetString() ?? "";
-            else if (data.TryGetValue("command", out var cmdVal) && cmdVal is JsonElement cmdEl && cmdEl.ValueKind == JsonValueKind.String)
+            else if (data.TryGetValue("fullCommandText", out var cmdVal) && cmdVal is JsonElement cmdEl && cmdEl.ValueKind == JsonValueKind.String)
                 reqPath = cmdEl.GetString() ?? "";
         }
 
         // Deny-by-default: if no path/command can be extracted, deny the request.
-        if (string.IsNullOrEmpty(reqPath)) return false;
+        if (string.IsNullOrEmpty(reqPath))
+        {
+            log?.Invoke($"      ❌ Denying permission request with no path/command json entry.");
+            return false;
+        }
 
-        var resolved = Path.GetFullPath(reqPath);
+        if (!Path.EndsInDirectorySeparator(workDir))
+            workDir += Path.DirectorySeparatorChar;
+
+        string resolved = Path.GetFullPath(reqPath, workDir);
+        if (!Path.EndsInDirectorySeparator(resolved))
+            resolved += Path.DirectorySeparatorChar;
+
         var allowedDirs = new List<string> { Path.GetFullPath(workDir) };
-        if (skillPath is not null) allowedDirs.Add(Path.GetFullPath(skillPath));
+        if (skillPath is not null)
+        {
+            string skillsPathAbsolute = Path.GetFullPath(skillPath);
+            if (!Path.EndsInDirectorySeparator(skillsPathAbsolute))
+                skillsPathAbsolute = skillsPathAbsolute + Path.DirectorySeparatorChar;
+
+            allowedDirs.Add(skillsPathAbsolute);
+        }
 
         // Use case-sensitive comparison on Linux/macOS, case-insensitive on Windows.
         var comparison = OperatingSystem.IsWindows()
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
 
-        return allowedDirs.Any(dir =>
+        bool anyAllowed = allowedDirs.Any(dir =>
         {
-            var dirPrefix = dir.EndsWith(Path.DirectorySeparatorChar)
+            var dirPrefix = Path.EndsInDirectorySeparator(dir)
                 ? dir
                 : dir + Path.DirectorySeparatorChar;
 
             return resolved.Equals(dir, comparison) ||
                    resolved.StartsWith(dirPrefix, comparison);
         });
+
+        if (!anyAllowed)
+        {
+            log?.Invoke($"      ❌ Denying permission request for path/command: {resolved}");
+        }
+
+        return anyAllowed;
     }
 
     internal static SessionConfig BuildSessionConfig(
-        SkillInfo? skill, string model, string workDir,
+        SkillInfo? skill,
+        string model,
+        string workDir,
         IReadOnlyDictionary<string, MCPServerDef>? mcpServers = null,
-        IReadOnlyList<SkillInfo>? additionalSkills = null)
+        IReadOnlyList<SkillInfo>? additionalSkills = null,
+        Action<string>? log = null,
+        bool verbose = false)
     {
         // The SDK expects SkillDirectories entries to be parent directories that
         // it scans for child folders containing SKILL.md.
@@ -209,7 +237,7 @@ public static class AgentRunner
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
             OnPermissionRequest = (request, _) =>
             {
-                var result = CheckPermission(request, workDir, skillPath);
+                var result = CheckPermission(request, workDir, skillPath, verbose ? log : null);
                 return Task.FromResult(new PermissionRequestResult
                 {
                     Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,
@@ -247,7 +275,7 @@ public static class AgentRunner
             var client = await GetSharedClient(options.Verbose);
 
             await using var session = await client.CreateSessionAsync(
-                BuildSessionConfig(options.Skill, options.Model, workDir, options.Skill?.McpServers, options.AdditionalSkills));
+                BuildSessionConfig(options.Skill, options.Model, workDir, options.Skill?.McpServers, options.AdditionalSkills, options.Log, options.Verbose));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
