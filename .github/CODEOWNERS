@@ -11,6 +11,8 @@
 /agentic-workflows/dotnet-msbuild/ @ViktorHofer @JanKrivanek
 
 # dotnet (common everyday C#/.NET)
+/plugins/dotnet/lsp.json @dotnet/roslyn-ide
+
 /plugins/dotnet/skills/csharp-scripts/ @dotnet/roslyn
 /tests/dotnet/csharp-scripts/ @dotnet/roslyn
 
@@ -29,6 +31,13 @@
 
 /plugins/dotnet-upgrade/skills/dotnet-aot-compat/ @agocke @dotnet/appmodel
 /tests/dotnet-upgrade/dotnet-aot-compat/ @agocke @dotnet/appmodel
+
+/plugins/dotnet-upgrade/skills/migrate-dotnet9-to-dotnet10/ @danmoseley @dotnet/compat
+/tests/dotnet-upgrade/migrate-dotnet9-to-dotnet10/ @danmoseley @dotnet/compat
+/plugins/dotnet-upgrade/skills/migrate-dotnet10-to-dotnet11/ @danmoseley @dotnet/compat
+/tests/dotnet-upgrade/migrate-dotnet10-to-dotnet11/ @danmoseley @dotnet/compat
+/plugins/dotnet-upgrade/skills/migrate-dotnet8-to-dotnet9/ @danmoseley @dotnet/compat
+/tests/dotnet-upgrade/migrate-dotnet8-to-dotnet9/ @danmoseley @dotnet/compat
 
 # dotnet-diag (perf investigations, debugging, incident analysis)
 /plugins/dotnet-diag/skills/analyzing-dotnet-performance/ @dotnet/dotnet-diag
@@ -50,6 +59,11 @@
 /tests/dotnet-diag/microbenchmarking/ @dotnet/dotnet-perf-team
 
 /plugins/dotnet-diag/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel
+
+/plugins/dotnet/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel
+
+/plugins/dotnet-ai/skills/technology-selection/ @luisquintanilla @artl93
+/tests/dotnet-ai/technology-selection/ @luisquintanilla @artl93
 
 # dotnet-data (data access, Entity Framework)
 /plugins/dotnet-data/skills/optimizing-ef-core-queries/ @dotnet/efteam
