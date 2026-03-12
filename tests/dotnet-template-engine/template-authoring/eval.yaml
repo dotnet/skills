@@ -21,10 +21,8 @@ scenarios:
       - type: "output_contains"
         value: "identity"
     rubric:
-      - "The agent used template_validate to check the template.json"
+      - "The agent reviewed the template.json for authoring issues"
       - "The agent identified the missing identity field"
       - "The agent flagged the shortName conflict with the built-in 'build' command"
       - "The agent reported the invalid datatype"
-    expect_tools:
-      - template_validate
     timeout: 120

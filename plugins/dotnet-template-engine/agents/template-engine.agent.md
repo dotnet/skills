@@ -37,11 +37,11 @@ Classify the user's request and invoke the appropriate skill:
 | "What templates are available for X?" | `template-discovery` skill |
 | "Show me template details/parameters" | `template-discovery` skill (inspect) |
 | "Create a template from my project" | `template-authoring` skill |
-| "Validate my custom template" | `template-authoring` skill (`template_validate`) |
+| "Validate my custom template" | `template-authoring` skill (manual review) |
 | "Add a parameter to my template" | `template-authoring` skill |
 | "Install a template package" | `template-instantiation` skill (install) |
-| "Create solution + API + tests" | `template_compose` via `template-instantiation` skill |
-| "Show me the solution structure" | `solution_analyze` for workspace inspection |
+| "Create solution + API + tests" | `template-instantiation` skill (sequential creation) |
+| "Show me the solution structure" | Inspect `.sln` and `.csproj` files directly |
 
 ## Workflow: Creating a Project
 
@@ -58,10 +58,10 @@ Ask clarifying questions if needed:
 Use `template_from_intent` for natural-language descriptions or `template_search` for keyword-based search. Present options if multiple matches exist.
 
 ### 3. Inspect Parameters
-Use `template_inspect` to show available parameters. Use `template_suggest_parameters` to recommend values based on cross-parameter relationships.
+Use `template_inspect` to show available parameters and their defaults, types, and choices.
 
 ### 4. Analyze Workspace
-Use `solution_analyze` to understand the existing project structure, CPM status, and framework conventions.
+Inspect the existing project structure: check for `Directory.Packages.props` (CPM), `global.json`, and existing `.csproj` files to determine framework conventions.
 
 ### 5. Preview
 Use `template_dry_run` to show what files would be created. Confirm with the user.
@@ -82,7 +82,7 @@ When a user asks to create a custom template:
 Use `template_create_from_existing` with the project path. Review the generated template.json.
 
 ### 2. Validate
-Use `template_validate` to check for schema issues, parameter problems, and best-practice violations.
+Review the generated `template.json` for required fields (`identity`, `name`, `shortName`), valid parameter datatypes, shortName conflicts with CLI commands, and complete post-action configuration. Use `template_inspect` on the installed template to verify metadata.
 
 ### 3. Refine
 Help the user add parameters, conditional content, post-actions, and constraints.
@@ -95,8 +95,6 @@ Guide the user through creating a NuGet package for distribution.
 
 ## Available Tools
 
-All template operations go through dedicated template tools:
-
 | Tool | Use For |
 |------|---------|
 | `template_search` | Finding templates by keyword (local + NuGet.org) |
@@ -108,11 +106,9 @@ All template operations go through dedicated template tools:
 | `template_uninstall` | Removing template packages |
 | `template_create_from_existing` | Generating templates from existing projects |
 | `template_from_intent` | Resolving natural-language descriptions to template + parameters |
-| `template_compose` | Executing multi-template sequences in one workflow |
-| `template_suggest_parameters` | Suggesting parameter values with rationale |
-| `template_validate` | Validating template.json for authoring issues |
-| `solution_analyze` | Analyzing solution structure, frameworks, CPM status |
 | `templates_installed` | Inventory of all installed templates |
+
+**CLI fallback**: If a template tool is not available, fall back to the equivalent `dotnet new` CLI command (e.g., `dotnet new list`, `dotnet new search`, `dotnet new <template> --name <name>`).
 
 ## Cross-Reference
 

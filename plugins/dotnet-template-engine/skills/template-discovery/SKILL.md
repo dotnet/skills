@@ -80,16 +80,7 @@ template_dry_run("webapi", name="MyApi", parametersJson={"auth": "Individual"})
 → list of files that would be created
 ```
 
-### Step 5: Suggest parameter values
-
-Use `template_suggest_parameters` to get smart defaults based on cross-parameter relationships.
-
-```
-template_suggest_parameters("webapi", parametersJson={"EnableAot": "true"})
-→ suggests Framework=net10.0 because "NativeAOT works best with the latest framework"
-```
-
-### Step 6: Present findings
+### Step 5: Present findings
 
 Summarize the best template match with:
 - Template name and short description
@@ -107,7 +98,7 @@ Summarize the best template match with:
 
 | Pitfall | Solution |
 |---------|----------|
-| Using `dotnet new list` instead of template tools | Template tools provide richer metadata, NuGet search, and intent resolution. Always prefer `template_search` and `template_from_intent`. |
+| Using `dotnet new list` instead of template tools | Template tools provide richer metadata, NuGet search, and intent resolution. Prefer `template_search` and `template_from_intent` when available; fall back to `dotnet new list` / `dotnet new search` otherwise. |
 | Not checking template constraints | Some templates require specific SDKs or workloads. Use `template_inspect` to surface constraints before recommending. |
 | Recommending a template without previewing output | Always use `template_dry_run` to confirm the template produces what the user expects. |
 

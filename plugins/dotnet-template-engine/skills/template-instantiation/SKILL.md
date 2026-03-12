@@ -44,13 +44,13 @@ This skill creates .NET projects from templates. It provides validated parameter
 
 If the user provides a natural-language description, use `template_from_intent` first to resolve it to a template and parameters. If they provide a template name, proceed directly.
 
-Use `template_suggest_parameters` to fill in smart defaults for any parameters the user did not specify.
+Use `template_inspect` to review parameter defaults and types for any parameters the user did not specify.
 
 ### Step 2: Analyze the workspace
 
-Use `solution_analyze` to understand the existing solution structure:
-- Is Central Package Management (CPM) enabled?
-- What target frameworks are in use?
+Check the existing solution structure before creating:
+- Is Central Package Management (CPM) enabled? Look for `Directory.Packages.props`
+- What target frameworks are in use? Check existing `.csproj` files
 - Is there a `global.json` pinning the SDK?
 
 This ensures the new project is consistent with the workspace.
@@ -78,14 +78,14 @@ template_instantiate("webapi", name="MyApi", outputPath="./src/MyApi",
 
 ### Step 5: Multi-project composition (optional)
 
-For complex structures, use `template_compose` to create multiple projects in one orchestrated workflow:
+For complex structures, create each project sequentially with `template_instantiate` and wire them together:
 
 ```
-template_compose(stepsJson=[
-  {"templateName": "webapi", "name": "MyApi", "outputPath": "./src/MyApi"},
-  {"templateName": "xunit", "name": "MyApi.Tests", "outputPath": "./tests/MyApi.Tests"}
-])
+template_instantiate("webapi", name="MyApi", outputPath="./src/MyApi")
+template_instantiate("xunit", name="MyApi.Tests", outputPath="./tests/MyApi.Tests")
 ```
+
+Then add project references and solution entries as needed.
 
 ### Step 6: Template package management
 
@@ -112,7 +112,7 @@ Both operations are idempotent. Install supports upgrade detection.
 
 | Pitfall | Solution |
 |---------|----------|
-| Using `dotnet new` directly instead of `template_instantiate` | `dotnet new` does not adapt to CPM, does not resolve latest NuGet versions, and does not validate parameters with suggestions. Always prefer the template tool. |
+| Using `dotnet new` directly instead of `template_instantiate` | `template_instantiate` validates parameters, adapts to CPM, and resolves latest NuGet versions. Prefer it when available; fall back to `dotnet new` with manual CPM adjustment otherwise. |
 | Not checking for CPM before creating a project | If `Directory.Packages.props` exists, a raw `dotnet new` creates projects with inline versions that conflict. `template_instantiate` handles this automatically. |
 | Creating projects without specifying the framework | Always specify `--framework` when the template supports multiple TFMs to avoid defaulting to an older version. |
 | Not adding the project to the solution | After creation, run `dotnet sln add` to include the project in the solution. |

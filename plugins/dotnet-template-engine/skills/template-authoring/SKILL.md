@@ -56,22 +56,17 @@ This generates:
 
 ### Step 2: Validate template.json
 
-Use `template_validate` to check for authoring issues:
+Manually review the `template.json` for common authoring issues:
 
-```
-template_validate(templateJsonPath="path/to/.template.config/template.json")
-```
+Validation checks to perform:
+- **Required fields** — verify `identity`, `name`, and `shortName` are present
+- **Identity format** — use reverse-DNS format (e.g., `MyOrg.Templates.WebApi`)
+- **Parameter issues** — check datatypes are valid (`string`, `bool`, `choice`, `int`, `float`), choices have defaults, descriptions are present
+- **ShortName conflicts** — avoid names that collide with built-in CLI commands (`build`, `run`, `test`, `publish`)
+- **Post-action completeness** — verify post-actions have all required configuration
+- **Tags** — ensure language, type, and classification tags are set for discoverability
 
-Validation checks include:
-- **Schema compliance** — required fields (identity, name, shortName), identity format
-- **Parameter issues** — invalid datatypes, choices without defaults, missing descriptions
-- **Prefix collisions** — parameter names that shadow each other (e.g., `auth` vs `authMode`)
-- **ShortName conflicts** — names that collide with built-in CLI commands
-- **Post-action gaps** — post-actions with incomplete configuration
-- **Constraint issues** — constraints with missing or invalid rules
-- **Tag recommendations** — missing language, type, or classification tags
-
-The tool returns `{ valid, errors, warnings, suggestions }` JSON.
+Use `template_inspect` on the installed template to verify the metadata is parsed correctly.
 
 ### Step 3: Refine the template
 
@@ -111,7 +106,7 @@ Based on validation results and user requirements:
 
 ## Validation
 
-- [ ] `template.json` passes `template_validate` with zero errors
+- [ ] `template.json` passes manual validation with zero errors
 - [ ] Template identity and shortName are unique and meaningful
 - [ ] All parameters have descriptions and appropriate defaults
 - [ ] Template can be installed, dry-run, and instantiated successfully
@@ -123,7 +118,7 @@ Based on validation results and user requirements:
 | Pitfall | Solution |
 |---------|----------|
 | Identity format issues | Use reverse-DNS format (e.g., `MyOrg.Templates.WebApi`). Avoid spaces or special characters. |
-| ShortName conflicts with CLI commands | Avoid names like `build`, `run`, `test`, `publish`. Use `template_validate` to detect conflicts. |
+| ShortName conflicts with CLI commands | Avoid names like `build`, `run`, `test`, `publish`. Check by running `dotnet new list` to see if the name is already taken. |
 | Missing parameter descriptions | Every parameter should have a `description` and `displayName` for discoverability. |
 | Not testing all parameter combinations | Use `template_dry_run` with different parameter values to verify conditional content works correctly. |
 | Hardcoded versions in template | Use `sourceName` replacement for project names and consider parameterizing framework versions. |
