@@ -12,7 +12,7 @@
   <!-- Non-needed dependency. Prune away. -->
   <Target Name="AddToPackagePruneList" AfterTargets="AddPrunePackageReferences">
     <ItemGroup>
-      <PrunePackageReference Update="Microsoft.Bcl.Memory" Version="4.0.0" />
+      <PrunePackageReference Include="Microsoft.Bcl.Memory" Version="4.0.0" />
     </ItemGroup>
   </Target>
 
