@@ -6,29 +6,29 @@
 /.github/workflows/ @ViktorHofer @JanKrivanek
 
 # msbuild
-/plugins/dotnet-msbuild/ @ViktorHofer @JanKrivanek
-/tests/dotnet-msbuild/ @ViktorHofer @JanKrivanek
-/agentic-workflows/dotnet-msbuild/ @ViktorHofer @JanKrivanek
+/plugins/dotnet-msbuild/ @dotnet/skills-msbuild-reviewers
+/tests/dotnet-msbuild/ @dotnet/skills-msbuild-reviewers
+/agentic-workflows/dotnet-msbuild/ @dotnet/skills-msbuild-reviewers
 
 # dotnet (common everyday C#/.NET)
-/plugins/dotnet/skills/csharp-scripts/ @dotnet/roslyn
-/tests/dotnet/csharp-scripts/ @dotnet/roslyn
+/plugins/dotnet/skills/csharp-scripts/ @dotnet/roslyn @dotnet/skills-csharp-language-reviewers
+/tests/dotnet/csharp-scripts/ @dotnet/roslyn @dotnet/skills-csharp-language-reviewers
 
-/plugins/dotnet/skills/dotnet-pinvoke/ @dotnet/appmodel
-/tests/dotnet/dotnet-pinvoke/ @dotnet/appmodel
+/plugins/dotnet/skills/dotnet-pinvoke/ @dotnet/appmodel @dotnet/skills-csharp-language-reviewers
+/tests/dotnet/dotnet-pinvoke/ @dotnet/appmodel @dotnet/skills-csharp-language-reviewers
 
-/plugins/dotnet/skills/nuget-trusted-publishing/ @lewing @kartheekp-ms
-/tests/dotnet/nuget-trusted-publishing/ @lewing @kartheekp-ms
+/plugins/dotnet/skills/nuget-trusted-publishing/ @lewing @kartheekp-ms @dotnet/skills-csharp-language-reviewers
+/tests/dotnet/nuget-trusted-publishing/ @lewing @kartheekp-ms @dotnet/skills-csharp-language-reviewers
 
 # dotnet-upgrade (migrating and upgrading .NET projects)
-/plugins/dotnet-upgrade/skills/thread-abort-migration/ @dotnet/appmodel
-/tests/dotnet-upgrade/thread-abort-migration/ @dotnet/appmodel
+/plugins/dotnet-upgrade/skills/thread-abort-migration/ @dotnet/appmodel @dotnet/skills-upgrade-reviewers
+/tests/dotnet-upgrade/thread-abort-migration/ @dotnet/appmodel @dotnet/skills-upgrade-reviewers
 
-/plugins/dotnet-upgrade/skills/migrate-nullable-references/ @danmoseley @agocke
-/tests/dotnet-upgrade/migrate-nullable-references/ @danmoseley @agocke
+/plugins/dotnet-upgrade/skills/migrate-nullable-references/ @danmoseley @agocke @dotnet/skills-upgrade-reviewers
+/tests/dotnet-upgrade/migrate-nullable-references/ @danmoseley @agocke @dotnet/skills-upgrade-reviewers
 
-/plugins/dotnet-upgrade/skills/dotnet-aot-compat/ @agocke @dotnet/appmodel
-/tests/dotnet-upgrade/dotnet-aot-compat/ @agocke @dotnet/appmodel
+/plugins/dotnet-upgrade/skills/dotnet-aot-compat/ @agocke @dotnet/appmodel @dotnet/skills-upgrade-reviewers
+/tests/dotnet-upgrade/dotnet-aot-compat/ @agocke @dotnet/appmodel @dotnet/skills-upgrade-reviewers
 
 /plugins/dotnet-upgrade/skills/migrate-dotnet9-to-dotnet10/ @danmoseley @dotnet/compat
 /tests/dotnet-upgrade/migrate-dotnet9-to-dotnet10/ @danmoseley @dotnet/compat
@@ -38,25 +38,25 @@
 /tests/dotnet-upgrade/migrate-dotnet8-to-dotnet9/ @danmoseley @dotnet/compat
 
 # dotnet-diag (perf investigations, debugging, incident analysis)
-/plugins/dotnet-diag/skills/analyzing-dotnet-performance/ @dotnet/dotnet-diag
-/tests/dotnet-diag/analyzing-dotnet-performance/ @dotnet/dotnet-diag
+/plugins/dotnet-diag/skills/analyzing-dotnet-performance/ @dotnet/dotnet-diag @dotnet/skills-diag-reviewers
+/tests/dotnet-diag/analyzing-dotnet-performance/ @dotnet/dotnet-diag @dotnet/skills-diag-reviewers
 
-/plugins/dotnet-diag/skills/dump-collect/ @dotnet/dotnet-diag
-/tests/dotnet-diag/dump-collect/ @dotnet/dotnet-diag
+/plugins/dotnet-diag/skills/dump-collect/ @dotnet/dotnet-diag @dotnet/skills-diag-reviewers
+/tests/dotnet-diag/dump-collect/ @dotnet/dotnet-diag @dotnet/skills-diag-reviewers
 
-/plugins/dotnet-diag/skills/dotnet-trace-collect/ @brianrob @noahfalk
-/tests/dotnet-diag/dotnet-trace-collect/ @brianrob @noahfalk
+/plugins/dotnet-diag/skills/dotnet-trace-collect/ @brianrob @noahfalk @dotnet/skills-diag-reviewers
+/tests/dotnet-diag/dotnet-trace-collect/ @brianrob @noahfalk @dotnet/skills-diag-reviewers
 
-/plugins/dotnet-diag/skills/android-tombstone-symbolication/ @dotnet/dotnet-diag
-/tests/dotnet-diag/android-tombstone-symbolication/ @dotnet/dotnet-diag
+/plugins/dotnet-diag/skills/android-tombstone-symbolication/ @dotnet/dotnet-diag @dotnet/skills-diag-reviewers
+/tests/dotnet-diag/android-tombstone-symbolication/ @dotnet/dotnet-diag @dotnet/skills-diag-reviewers
 
-/plugins/dotnet-diag/skills/clr-activation-debugging/ @marklio @ChrisAhna
-/tests/dotnet-diag/clr-activation-debugging/ @marklio @ChrisAhna
+/plugins/dotnet-diag/skills/clr-activation-debugging/ @marklio @ChrisAhna @dotnet/skills-diag-reviewers
+/tests/dotnet-diag/clr-activation-debugging/ @marklio @ChrisAhna @dotnet/skills-diag-reviewers
 
-/plugins/dotnet-diag/skills/microbenchmarking/ @dotnet/dotnet-perf-team
-/tests/dotnet-diag/microbenchmarking/ @dotnet/dotnet-perf-team
+/plugins/dotnet-diag/skills/microbenchmarking/ @dotnet/dotnet-perf-team @dotnet/skills-diag-reviewers
+/tests/dotnet-diag/microbenchmarking/ @dotnet/dotnet-perf-team @dotnet/skills-diag-reviewers
 
-/plugins/dotnet-diag/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel
+/plugins/dotnet-diag/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel @dotnet/skills-diag-reviewers
 
 /plugins/dotnet/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel
 
@@ -64,9 +64,9 @@
 /tests/dotnet-ai/technology-selection/ @luisquintanilla @artl93
 
 # dotnet-data (data access, Entity Framework)
-/plugins/dotnet-data/skills/optimizing-ef-core-queries/ @dotnet/efteam
-/tests/dotnet-data/optimizing-ef-core-queries/ @dotnet/efteam
+/plugins/dotnet-data/skills/optimizing-ef-core-queries/ @dotnet/efteam @dotnet/skills-data-reviewers
+/tests/dotnet-data/optimizing-ef-core-queries/ @dotnet/efteam @dotnet/skills-data-reviewers
 
 # dotnet-maui
-/plugins/dotnet-maui/ @Redth @jfversluis
-/tests/dotnet-maui/ @Redth @jfversluis
+/plugins/dotnet-maui/ @Redth @jfversluis @dotnet/skills-maui-reviewers
+/tests/dotnet-maui/ @Redth @jfversluis @dotnet/skills-maui-reviewers
