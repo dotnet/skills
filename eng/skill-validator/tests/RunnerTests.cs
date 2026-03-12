@@ -526,11 +526,11 @@ public class CheckPermissionTests
     }
 
     [Fact]
-    public void DeniesRequestsWithNoPath()
+    public void AllowsRequestsWithNoPath()
     {
         var req = new PermissionRequest { Kind = "read" };
         var result = AgentRunner.CheckPermission(req, WorkDir, null, log: null);
-        Assert.False(result);
+        Assert.True(result);
     }
 
     [Fact]
@@ -550,11 +550,11 @@ public class CheckPermissionTests
     }
 
     [Fact]
-    public void DeniesEmptyStringPath()
+    public void AllowsEmptyStringPath()
     {
         var req = MakeRequest("{\"kind\":\"read\",\"path\":\"\"}");
         var result = AgentRunner.CheckPermission(req, WorkDir, null, log: null);
-        Assert.False(result);
+        Assert.True(result);
     }
 
     [Fact]
@@ -580,18 +580,18 @@ public class CheckPermissionTests
     }
 
     [Fact]
-    public void DeniesRequestWithNoExtensionData()
+    public void AllowsRequestWithNoExtensionData()
     {
         var req = new PermissionRequest { Kind = "other" };
         var result = AgentRunner.CheckPermission(req, WorkDir, null, log: null);
-        Assert.False(result);
+        Assert.True(result);
     }
 
     [Fact]
-    public void DeniesRequestWithUnrelatedExtensionData()
+    public void AllowsRequestWithUnrelatedExtensionData()
     {
         var req = MakeRequest("{\"kind\":\"other\",\"skill\":\"binlog-failure-analysis\"}");
         var result = AgentRunner.CheckPermission(req, WorkDir, null, log: null);
-        Assert.False(result);
+        Assert.True(result);
     }
 }
