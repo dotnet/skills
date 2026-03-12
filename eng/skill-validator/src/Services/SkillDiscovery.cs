@@ -126,9 +126,10 @@ public static partial class SkillDiscovery
                         return result.Count > 0 ? result : null;
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
                     // malformed plugin.json — skip
+                    Console.Error.WriteLine($"Failed to parse plugin.json in {dir}: {ex.GetType().Name}: {ex.Message}");
                 }
                 return null;
             }

@@ -82,10 +82,12 @@ jobs:
       # The caller's checkout-ref input is only used for skill content, not for
       # building trusted tooling.
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
         with:
           global-json-file: global.json
 
@@ -96,7 +98,7 @@ jobs:
         run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
 
       - name: Upload built validator
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: skill-validator-dist.tar.gz
           path: skill-validator-dist.tar.gz
@@ -118,18 +120,18 @@ jobs:
 
     steps:
       - name: Checkout skills content
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ inputs.checkout-ref || '' }}
           persist-credentials: false
 
       - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
         with:
           global-json-file: global.json
 
       - name: Download built validator
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
         with:
           name: skill-validator-dist.tar.gz
 
@@ -190,7 +192,7 @@ jobs:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
         run: |
-          ARGS="--require-evals --verdict-warn-only"
+          ARGS="--require-evals --verdict-warn-only --verbose"
           ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
           ARGS="$ARGS --model ${{ inputs.model }}"
           ARGS="$ARGS --judge-model ${{ inputs.judge-model }}"
@@ -207,7 +209,7 @@ jobs:
 
       - name: Upload results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: skill-validator-results-${{ matrix.entry.name }}
           path: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}/
@@ -223,7 +225,7 @@ jobs:
     steps:
       - name: Download all result artifacts
         if: needs.evaluate.result != 'skipped'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
         with:
           pattern: skill-validator-results-*
           path: all-results/
@@ -232,7 +234,7 @@ jobs:
 
       - name: Download built validator
         if: needs.evaluate.result != 'skipped'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
         with:
           name: skill-validator-dist.tar.gz
         continue-on-error: ${{ needs.evaluate.result != 'success' }}

@@ -169,9 +169,10 @@ jobs:
       has_entries: ${{ steps.find.outputs.has_entries }}
     steps:
       - name: Checkout base branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Fetch PR head
         run: git fetch origin +refs/pull/${{ needs.gate.outputs.pr_number }}/head:refs/remotes/origin/pr-head

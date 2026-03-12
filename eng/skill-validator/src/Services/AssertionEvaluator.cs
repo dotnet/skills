@@ -189,24 +189,42 @@ public static class AssertionEvaluator
                 : $"Output contains '{value}' but should not");
     }
 
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(5);
+
     private static AssertionResult EvalOutputMatches(Assertion a, string agentOutput)
     {
         var pattern = a.Pattern ?? "";
-        bool matches = Regex.IsMatch(agentOutput, pattern, RegexOptions.IgnoreCase);
-        return new AssertionResult(a, matches,
-            matches
-                ? $"Output matches pattern '{pattern}'"
-                : $"Output does not match pattern '{pattern}'");
+        try
+        {
+            bool matches = Regex.IsMatch(agentOutput, pattern, RegexOptions.IgnoreCase, RegexTimeout);
+            return new AssertionResult(a, matches,
+                matches
+                    ? $"Output matches pattern '{pattern}'"
+                    : $"Output does not match pattern '{pattern}'");
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return new AssertionResult(a, false,
+                $"Regex pattern '{pattern}' timed out after {RegexTimeout.TotalSeconds}s (possible catastrophic backtracking)");
+        }
     }
 
     private static AssertionResult EvalOutputNotMatches(Assertion a, string agentOutput)
     {
         var pattern = a.Pattern ?? "";
-        bool matches = Regex.IsMatch(agentOutput, pattern, RegexOptions.IgnoreCase);
-        return new AssertionResult(a, !matches,
-            !matches
-                ? $"Output does not match pattern '{pattern}' (expected)"
-                : $"Output matches pattern '{pattern}' but should not");
+        try
+        {
+            bool matches = Regex.IsMatch(agentOutput, pattern, RegexOptions.IgnoreCase, RegexTimeout);
+            return new AssertionResult(a, !matches,
+                !matches
+                    ? $"Output does not match pattern '{pattern}' (expected)"
+                    : $"Output matches pattern '{pattern}' but should not");
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return new AssertionResult(a, false,
+                $"Regex pattern '{pattern}' timed out after {RegexTimeout.TotalSeconds}s (possible catastrophic backtracking)");
+        }
     }
 
     private static AssertionResult EvalExitSuccess(Assertion a, string agentOutput)
