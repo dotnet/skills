@@ -12,7 +12,7 @@ scenarios:
       - type: "exit_success"
     expect_tools: ["bash"]
     rubric:
-      - "Updates the PackageReference to the latest stable System.CommandLine version (2.0.4)"
+      - "Updates the PackageReference to the latest stable System.CommandLine version discovered during the run"
       - "Correctly migrates Handler.SetHandler calls to the new System.CommandLine API (e.g., SetAction)"
       - "The project compiles successfully after migration"
       - "All seven subcommands (list, search, severity, product, platform, date, summary) are preserved"
@@ -58,7 +58,7 @@ scenarios:
     prompt: "Which interfaces are defined in the System.Text.Json NuGet package? Show me the complete set."
     assertions:
       - type: "output_contains"
-        value: "JsonConverter"
+        value: "IJsonTypeInfoResolver"
     expect_tools: ["bash"]
     rubric:
       - "Lists the complete set of interfaces in System.Text.Json (e.g., IJsonTypeInfoResolver, IJsonOnSerializing, IJsonOnDeserialized)"
