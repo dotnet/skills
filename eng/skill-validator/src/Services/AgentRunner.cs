@@ -82,7 +82,7 @@ public static class AgentRunner
         }));
     }
 
-    public static bool CheckPermission(PermissionRequest request, string workDir, string? skillPath, Action<string>? log)
+    public static bool CheckPermission(PermissionRequest request, string workDir, string? skillPath, Action<string>? log, string? runLabel = null)
     {
         string? reqPath = null;
         if (request.ExtensionData is { } data)
@@ -98,7 +98,7 @@ public static class AgentRunner
         // Deny-by-default: if no path/command can be extracted, deny the request.
         if (string.IsNullOrEmpty(reqPath))
         {
-            log?.Invoke($"      ❌ Denying permission request with no path/command json entry: "
+            log?.Invoke($"      ❌ Denying permission request with no path/command json entry ({runLabel}): "
                 + string.Join(", ", request.ExtensionData?.Select(kv => $"{kv.Key}={kv.Value}") ?? []));
             return false;
         }
@@ -136,7 +136,7 @@ public static class AgentRunner
 
         if (!anyAllowed)
         {
-            log?.Invoke($"      ❌ Denying permission request for path/command: {resolved} (allowed: {string.Join(", ", allowedDirs)})");
+            log?.Invoke($"      ❌ Denying permission request for path/command ({runLabel}): {resolved} (allowed: {string.Join(", ", allowedDirs)})");
         }
 
         return anyAllowed;
@@ -241,7 +241,8 @@ public static class AgentRunner
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
             OnPermissionRequest = (request, _) =>
             {
-                var result = CheckPermission(request, workDir, skillPath, verbose ? log : null);
+                var runLabel = skill is not null ? "skilled" : "baseline";
+                var result = CheckPermission(request, workDir, skillPath, verbose ? log : null, runLabel);
                 return Task.FromResult(new PermissionRequestResult
                 {
                     Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,
