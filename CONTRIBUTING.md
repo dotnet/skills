@@ -296,6 +296,24 @@ Tests run automatically on pull requests that modify files under `plugins/`. The
 - Do not include secrets, tokens, or internal URLs.
 - If you discover a security issue, do not open a public issue with sensitive details. Use the repository or organization security reporting process instead.
 
+### External references
+
+Skills often reference external tools, documentation, and projects — this is
+expected and welcome, including community and third-party resources. To help
+reviewers stay aware of external dependencies, the repository includes an
+automated reference scanner (`eng/reference-scanner/scan.ps1`) that runs in CI.
+
+The scanner treats all of the following as CI-blocking errors:
+- `http://` URLs where `https://` should be used
+- `<script>` tags loading external resources without an `integrity` (SRI) attribute
+- Pipe-to-shell patterns (`curl ... | bash`)
+- URLs pointing to domains not listed in `eng/reference-scanner/known-domains.txt`
+
+Community tools and third-party projects are evaluated on a case-by-case basis
+(see "What we look for" above). If your skill references a new external domain,
+add it to `eng/reference-scanner/known-domains.txt` in the same PR — the reviewer will
+approve it alongside the skill content.
+
 ## Review process
 
 Maintainers may request changes for:
