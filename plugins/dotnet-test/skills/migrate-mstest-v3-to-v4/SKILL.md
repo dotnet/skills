@@ -2,19 +2,16 @@
 name: migrate-mstest-v3-to-v4
 description: >
   Migrate an MSTest v3 test project to MSTest v4.
-  USE FOR: upgrading MSTest.TestFramework / MSTest.TestAdapter / MSTest packages
-  from 3.x to 4.x, fixing source breaking changes (TestMethodAttribute.Execute
-  → ExecuteAsync, CallerInfo constructor changes, ClassCleanupBehavior removal,
-  TestContext.Properties generic IDictionary, Assert API signature changes,
-  ExpectedExceptionAttribute removal, TestTimeout enum removal,
-  TestContext.ManagedType removal), resolving behavioral changes (DisableAppDomain
-  default, TestContext incorrect usage exceptions, TestCase.Id changes,
-  TreatDiscoveryWarningsAsErrors default, MSTest.Sdk Microsoft.NET.Test.Sdk
-  removal), dropping unsupported target frameworks (< net8.0), and updating
-  custom TestMethodAttribute / ConditionBaseAttribute implementations.
+  USE FOR: upgrading MSTest packages from 3.x to 4.x, fixing source breaking
+  changes (Execute → ExecuteAsync, CallerInfo constructor, ClassCleanupBehavior
+  removal, TestContext.Properties IDictionary<string,object>, Assert API changes,
+  ExpectedExceptionAttribute removal, TestTimeout enum removal), resolving
+  behavioral changes (TreatDiscoveryWarningsAsErrors default, TestContext
+  lifecycle exceptions, TestCase.Id changes, MSTest.Sdk MTP changes), handling
+  dropped target frameworks (net5.0/net6.0/net7.0 dropped — only net8.0, net9.0,
+  net462, uap10.0 supported).
   DO NOT USE FOR: migrating from MSTest v1/v2 to v3 (use migrate-mstest-v1v2-to-v3
-  first, then return here), migrating between test frameworks (MSTest to
-  xUnit/NUnit), or .NET version upgrades (use migrate-dotnet*-to-dotnet* skills).
+  first), migrating between test frameworks, or .NET version upgrades.
 ---
 
 # MSTest v3 → v4 Migration
@@ -52,7 +49,7 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 
 1. Identify the current MSTest version by checking package references for `MSTest`, `MSTest.TestFramework`, `MSTest.TestAdapter`, or `MSTest.Sdk` in `.csproj`, `Directory.Build.props`, or `Directory.Packages.props`.
 2. Confirm the project is on MSTest v3 (3.x). If on v1 or v2, use `migrate-mstest-v1v2-to-v3` first.
-3. Check target framework(s) — MSTest v4 drops support for .NET Core 3.1 through .NET 7. Minimum supported .NET is **net8.0**. .NET Framework 4.6.2+ continues to be supported.
+3. Check target framework(s) — MSTest v4 drops support for .NET Core 3.1 through .NET 7. Supported target frameworks are: **net8.0**, **net9.0**, **net462** (.NET Framework 4.6.2+), and **uap10.0**.
 4. Check for custom `TestMethodAttribute` subclasses — these require changes in v4.
 5. Check for usages of `ExpectedExceptionAttribute` — removed in v4 (deprecated since v3 with analyzer MSTEST0006).
 6. Check for usages of `Assert.ThrowsException` (deprecated) — removed in v4.
@@ -87,7 +84,7 @@ Work through compilation errors systematically. The following sections cover eac
 
 #### 3.1 TestMethodAttribute.Execute → ExecuteAsync
 
-If you have custom `TestMethodAttribute` subclasses that override `Execute`, change to `ExecuteAsync`:
+If you have custom `TestMethodAttribute` subclasses that override `Execute`, change to `ExecuteAsync`. This change was made because the v3 synchronous `Execute` API caused deadlocks when test code used `async`/`await` internally — the synchronous wrapper would block the thread while the async operation needed that same thread to complete.
 
 ```csharp
 // Before (v3)
@@ -100,16 +97,28 @@ public sealed class MyTestMethodAttribute : TestMethodAttribute
     }
 }
 
-// After (v4)
+// After (v4) — Option A: wrap synchronous logic with Task.FromResult
 public sealed class MyTestMethodAttribute : TestMethodAttribute
 {
     public override Task<TestResult[]> ExecuteAsync(ITestMethod testMethod)
     {
-        // custom logic
+        // custom logic (synchronous)
         return Task.FromResult(result);
     }
 }
+
+// After (v4) — Option B: make properly async
+public sealed class MyTestMethodAttribute : TestMethodAttribute
+{
+    public override async Task<TestResult[]> ExecuteAsync(ITestMethod testMethod)
+    {
+        // custom async logic
+        return await base.ExecuteAsync(testMethod);
+    }
+}
 ```
+
+Use `Task.FromResult` when your override logic is purely synchronous. Use `async`/`await` when you call `base.ExecuteAsync` or other async methods.
 
 #### 3.2 TestMethodAttribute CallerInfo constructor
 
@@ -219,7 +228,7 @@ var typed = Assert.IsInstanceOfType<MyType>(obj);
 
 #### 3.8 ExpectedExceptionAttribute removed
 
-The `[ExpectedException]` attribute is removed (deprecated since MSTest 3.2 with analyzer MSTEST0006). Migrate to `Assert.ThrowsExactly`:
+The `[ExpectedException]` attribute is removed in v4. In MSTest 3.2, the `MSTEST0006` analyzer was introduced to flag `[ExpectedException]` usage and suggest migrating to `Assert.ThrowsExactly` while still on v3 (a non-breaking change). In v4, the attribute is gone entirely. Migrate to `Assert.ThrowsExactly`:
 
 ```csharp
 // Before (v3)
@@ -240,7 +249,7 @@ public void TestMethod()
 
 #### 3.9 Dropped target frameworks
 
-MSTest v4 drops support for .NET Core 3.1 through .NET 7. The minimum supported .NET version is **.NET 8**. .NET Framework 4.6.2+ continues to be supported.
+MSTest v4 supports: **net8.0**, **net9.0**, **net462** (.NET Framework 4.6.2+), and **uap10.0**. All other frameworks are dropped — including net5.0, net6.0, net7.0, and netcoreapp3.1.
 
 If the test project targets an unsupported framework, update `TargetFramework`:
 
@@ -294,13 +303,25 @@ MSTest v4 now throws when accessing test-specific properties in the wrong lifecy
 - `TestContext.FullyQualifiedTestClassName` — cannot be accessed in `[AssemblyInitialize]`
 - `TestContext.TestName` — cannot be accessed in `[AssemblyInitialize]` or `[ClassInitialize]`
 
+**Fix**: Move any code that accesses `TestContext.TestName` from `[ClassInitialize]` to `[TestInitialize]` or individual test methods, where per-test context is available. Do not replace `TestName` with `FullyQualifiedTestClassName` as a workaround — they have different semantics.
+
 #### 4.3 TestCase.Id generation changed
 
 The generation algorithm for `TestCase.Id` has changed to fix long-standing bugs. This may affect Azure DevOps test result tracking (e.g., test failure tracking over time). There is no code fix needed, but be aware of test result history discontinuity.
 
 #### 4.4 TreatDiscoveryWarningsAsErrors defaults to true
 
-v4 uses stricter defaults. Discovery warnings are now treated as errors. This should be transparent for most projects, but may surface hidden issues in test discovery.
+v4 uses stricter defaults. Discovery warnings are now treated as errors, which means tests that previously ran despite discovery issues may now fail entirely. If you see unexpected test failures after upgrading (not build errors, but tests not being discovered), check for discovery warnings. To restore v3 behavior while you investigate:
+
+```xml
+<RunSettings>
+  <MSTest>
+    <TreatDiscoveryWarningsAsErrors>false</TreatDiscoveryWarningsAsErrors>
+  </MSTest>
+</RunSettings>
+```
+
+> **Recommended**: Fix the underlying discovery warnings rather than suppressing this setting.
 
 #### 4.5 MSTest.Sdk no longer adds Microsoft.NET.Test.Sdk for MTP
 
@@ -336,7 +357,7 @@ Review and fix any new warnings, or suppress them in `.editorconfig` if intentio
 - [ ] `Assert.ThrowsException` replaced with `Assert.ThrowsExactly`
 - [ ] `ClassCleanupBehavior` enum usages removed
 - [ ] `TestContext.Properties.Contains` updated to `ContainsKey`
-- [ ] All target frameworks are net8.0+ (or net462+ for .NET Framework)
+- [ ] All target frameworks are net8.0+, net9.0, net462+, or uap10.0
 - [ ] Behavioral changes reviewed and addressed
 - [ ] No tests were lost during migration (compare test counts)
 
@@ -354,4 +375,4 @@ Review and fix any new warnings, or suppress them in `.editorconfig` if intentio
 | Tests hang that didn't before | AppDomain is disabled by default in MTP; foreground threads no longer aborted |
 | Azure DevOps test history breaks | Expected — `TestCase.Id` generation changed; no code fix, results will re-baseline |
 | Discovery warnings now fail the run | `TreatDiscoveryWarningsAsErrors` is true by default; fix the discovery warnings |
-| Net6.0/net7.0 targets don't compile | Update to net8.0 — MSTest v4 dropped support for .NET < 8 |
+| Net6.0/net7.0 targets don't compile | Update to net8.0 — MSTest v4 supports net8.0, net9.0, net462, and uap10.0 |

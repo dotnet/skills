@@ -96,7 +96,7 @@ Also ensure `Microsoft.NET.Test.Sdk` is referenced:
 
 **Option C — Use MSTest.Sdk (SDK-style projects only):**
 
-Change the project SDK to MSTest.Sdk, which handles all MSTest references automatically:
+Change the project SDK to MSTest.Sdk. This produces the simplest possible project file:
 
 ```xml
 <Project Sdk="MSTest.Sdk/3.8.0">
@@ -106,7 +106,12 @@ Change the project SDK to MSTest.Sdk, which handles all MSTest references automa
 </Project>
 ```
 
-When using MSTest.Sdk, remove all explicit MSTest and Microsoft.NET.Test.Sdk package references — the SDK provides them.
+When switching to MSTest.Sdk, remove the following — the SDK provides them automatically:
+
+- **Packages to remove**: `MSTest`, `MSTest.TestFramework`, `MSTest.TestAdapter`, `MSTest.Analyzers`, `Microsoft.NET.Test.Sdk`
+- **Properties to remove**: `<EnableMSTestRunner>`, `<OutputType>Exe</OutputType>`, `<IsPackable>false</IsPackable>`, `<IsTestProject>true</IsTestProject>`
+
+The resulting `.csproj` should contain only `TargetFramework` and any project-specific references.
 
 ### Step 4: Update target frameworks if needed
 
@@ -145,17 +150,23 @@ Assert.AreNotSame<MyType>(expected, actual);
 
 #### DataRow constructor changes
 
-MSTest v3 simplified `DataRowAttribute` constructors to enforce strict type matching. DataRow values must precisely match method parameter types:
+MSTest v3 simplified `DataRowAttribute` constructors to enforce strict type matching. DataRow argument types must precisely match the test method parameter types — implicit conversions that worked in v2 now fail at runtime or compile time:
 
 ```csharp
-// Correct: types match exactly
+// Correct in v3: types match exactly
 [DataRow(1, "test")]
 public void MyTest(int number, string text) { }
 
-// Error in v3: implicit conversions no longer accepted
-[DataRow(1L, "test")]  // long won't auto-convert to int
+// Error in v3: long (1L) won't auto-convert to int parameter
+[DataRow(1L, "test")]
 public void MyTest(int number, string text) { }
+
+// Error in v3: double (1.0) won't auto-convert to float parameter
+[DataRow(1.0, "test")]
+public void MyTest(float number, string text) { }
 ```
+
+**Fix**: Update each `[DataRow(...)]` literal to match the exact parameter type. Use `1` for `int`, `1L` for `long`, `1.0f` for `float`, etc.
 
 Also, `DataRowAttribute` now supports a maximum of 16 constructor parameters. If you have more than 16, wrap parameters in an array or refactor the test.
 
@@ -180,6 +191,7 @@ The `.testsettings` file and `<LegacySettings>` are no longer supported in MSTes
     <MaxCpuCount>-1</MaxCpuCount> <!-- Uses all available processors -->
   </RunConfiguration>
   <MSTest>
+    <TestTimeout>30000</TestTimeout> <!-- Per-test timeout in ms (replaces .testsettings TestTimeout) -->
     <Parallelize>
       <Workers>0</Workers> <!-- 0 = number of processors -->
       <Scope>MethodLevel</Scope>
@@ -187,6 +199,8 @@ The `.testsettings` file and `<LegacySettings>` are no longer supported in MSTes
   </MSTest>
 </RunSettings>
 ```
+
+> **Important**: Map `.testsettings` timeout values to `<MSTest><TestTimeout>` (per-test timeout), **not** to `<TestSessionTimeout>` (which is a session-wide limit). The `<LegacySettings>` element is not a valid transitional bridge — remove it entirely and recreate the needed settings in `.runsettings`.
 
 ### Step 7: Verify
 

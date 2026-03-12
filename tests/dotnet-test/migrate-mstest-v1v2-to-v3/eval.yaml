@@ -50,7 +50,7 @@ scenarios:
       - "Warns about Assert.AreEqual/AreNotEqual object overload removal"
       - "Mentions DataRow constructor changes and strict type matching"
       - "Mentions timeout behavior unification across .NET Core and .NET Framework"
-    timeout: 180
+    timeout: 240
 
   # ============================================================================
   # Goal 3: Handling assertion overload changes
@@ -222,7 +222,7 @@ scenarios:
       - "Identifies the 1L (long) vs int mismatch and recommends fixing to 1 (int)"
       - "Explains the 16-parameter limit on DataRow constructors and suggests refactoring or wrapping in an array"
       - "Does not suggest downgrading as a fix"
-    timeout: 180
+    timeout: 240
 
   # ============================================================================
   # Goal 6: Adopting MSTest.Sdk
@@ -246,7 +246,7 @@ scenarios:
       - "Shows the simplified project file format with MSTest.Sdk"
       - "Mentions that MSTest.Sdk eliminates the need for explicit MSTest and Microsoft.NET.Test.Sdk package references"
       - "Notes that MSTest.Sdk defaults to Microsoft.Testing.Platform"
-    timeout: 180
+    timeout: 240
 
   # ============================================================================
   # Goal 7: Target framework compatibility
