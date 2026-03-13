@@ -50,7 +50,7 @@ public static partial class ExternalDependencyChecker
     /// </summary>
     public static IReadOnlyList<string> CheckSkill(SkillInfo skill, IReadOnlySet<string>? allowed = null)
     {
-        var errors = new List<string>();
+        var findings = new List<string>();
 
         // 1. Script files in the skill's scripts/ directory
         var scriptsDir = Path.Combine(skill.Path, "scripts");
@@ -64,7 +64,7 @@ public static partial class ExternalDependencyChecker
                     var relativePath = Path.GetRelativePath(skill.Path, file).Replace('\\', '/');
                     var key = $"script:{skill.Name}:{relativePath}";
                     if (allowed?.Contains(key) != true)
-                        errors.Add($"Script file '{relativePath}' — review needed: skills should generally not bundle executable scripts. Verify this is intentional. (allow: {key})");
+                        findings.Add($"Script file '{relativePath}' — review needed: skills should generally not bundle executable scripts. Verify this is intentional. (allow: {key})");
                 }
             }
         }
@@ -74,22 +74,23 @@ public static partial class ExternalDependencyChecker
         {
             var key = $"invokes:{skill.Name}";
             if (allowed?.Contains(key) != true)
-                errors.Add($"Description references an invoked script — review needed: skills should generally not depend on external scripts. Verify this is intentional. (allow: {key})");
+                findings.Add($"Description references an invoked script — review needed: skills should generally not depend on external scripts. Verify this is intentional. (allow: {key})");
         }
 
-        // 3. Non-built-in tool references (#tool:...) in body
+        // 3. Non-built-in tool references (#tool:...) in body — deduplicate by key
+        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (Match match in ToolReferenceRegex().Matches(skill.SkillMdContent))
         {
             var toolName = match.Value[6..]; // strip "#tool:" prefix
             if (!BuiltInTools.Contains(toolName))
             {
                 var key = $"tool-ref:{skill.Name}:{match.Value}";
-                if (allowed?.Contains(key) != true)
-                    errors.Add($"Tool reference '{match.Value}' — review needed: verify this non-built-in tool reference is intentional. (allow: {key})");
+                if (seenKeys.Add(key) && allowed?.Contains(key) != true)
+                    findings.Add($"Tool reference '{match.Value}' — review needed: verify this non-built-in tool reference is intentional. (allow: {key})");
             }
         }
 
-        return errors;
+        return findings;
     }
 
     /// <summary>
@@ -98,17 +99,18 @@ public static partial class ExternalDependencyChecker
     /// </summary>
     public static IReadOnlyList<string> CheckAgent(AgentInfo agent, IReadOnlySet<string>? allowed = null)
     {
-        var errors = new List<string>();
+        var findings = new List<string>();
 
-        // 1. Non-built-in tool references (#tool:...) in body
+        // 1. Non-built-in tool references (#tool:...) in body — deduplicate by key
+        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (Match match in ToolReferenceRegex().Matches(agent.AgentMdContent))
         {
             var toolName = match.Value[6..]; // strip "#tool:" prefix
             if (!BuiltInTools.Contains(toolName))
             {
                 var key = $"tool-ref:{agent.Name}:{match.Value}";
-                if (allowed?.Contains(key) != true)
-                    errors.Add($"Tool reference '{match.Value}' — review needed: verify this non-built-in tool reference is intentional. (allow: {key})");
+                if (seenKeys.Add(key) && allowed?.Contains(key) != true)
+                    findings.Add($"Tool reference '{match.Value}' — review needed: verify this non-built-in tool reference is intentional. (allow: {key})");
             }
         }
 
@@ -121,12 +123,12 @@ public static partial class ExternalDependencyChecker
                 {
                     var key = $"agent-tool:{agent.Name}:{tool}";
                     if (allowed?.Contains(key) != true)
-                        errors.Add($"Non-built-in tool '{tool}' in tools list — review needed: verify this tool is intentional and available in the target environment. (allow: {key})");
+                        findings.Add($"Non-built-in tool '{tool}' in tools list — review needed: verify this tool is intentional and available in the target environment. (allow: {key})");
                 }
             }
         }
 
-        return errors;
+        return findings;
     }
 
     /// <summary>
@@ -135,11 +137,11 @@ public static partial class ExternalDependencyChecker
     /// </summary>
     public static IReadOnlyList<string> CheckPlugin(PluginInfo plugin, IReadOnlySet<string>? allowed = null)
     {
-        var errors = new List<string>();
+        var findings = new List<string>();
 
         var pluginJsonPath = Path.Combine(plugin.DirectoryPath, "plugin.json");
         if (!File.Exists(pluginJsonPath))
-            return errors;
+            return findings;
 
         string json;
         try
@@ -148,7 +150,7 @@ public static partial class ExternalDependencyChecker
         }
         catch
         {
-            return errors;
+            return findings;
         }
 
         try
@@ -163,7 +165,7 @@ public static partial class ExternalDependencyChecker
                 {
                     var key = $"mcp-server:{plugin.Name}:{prop.Name}";
                     if (allowed?.Contains(key) != true)
-                        errors.Add($"MCP server '{prop.Name}' — review needed: verify this MCP server dependency is intentional and necessary. (allow: {key})");
+                        findings.Add($"MCP server '{prop.Name}' — review needed: verify this MCP server dependency is intentional and necessary. (allow: {key})");
                 }
             }
         }
@@ -172,7 +174,7 @@ public static partial class ExternalDependencyChecker
             // JSON parsing errors are reported by the main plugin validator
         }
 
-        return errors;
+        return findings;
     }
 
     // Matches "INVOKES" followed by a script-like filename (word.ext)

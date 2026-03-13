@@ -57,7 +57,7 @@ public class ExternalDependencyCheckerTests
     // ========================================
 
     [Fact]
-    public void Skill_WithPs1Script_FlagsError()
+    public void Skill_WithPs1Script_FlagsWarning()
     {
         var skill = MakeSkill();
         try
@@ -66,17 +66,17 @@ public class ExternalDependencyCheckerTests
             Directory.CreateDirectory(scriptsDir);
             File.WriteAllText(Path.Combine(scriptsDir, "Run-Check.ps1"), "Write-Host 'hello'");
 
-            var errors = ExternalDependencyChecker.CheckSkill(skill);
-            Assert.Single(errors);
-            Assert.Contains("Script file", errors[0]);
-            Assert.Contains("Run-Check.ps1", errors[0]);
-            Assert.Contains("review needed", errors[0]);
+            var findings = ExternalDependencyChecker.CheckSkill(skill);
+            Assert.Single(findings);
+            Assert.Contains("Script file", findings[0]);
+            Assert.Contains("Run-Check.ps1", findings[0]);
+            Assert.Contains("review needed", findings[0]);
         }
         finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
     }
 
     [Fact]
-    public void Skill_WithShScript_FlagsError()
+    public void Skill_WithShScript_FlagsWarning()
     {
         var skill = MakeSkill();
         try
@@ -85,49 +85,49 @@ public class ExternalDependencyCheckerTests
             Directory.CreateDirectory(scriptsDir);
             File.WriteAllText(Path.Combine(scriptsDir, "run.sh"), "#!/bin/bash\necho hello");
 
-            var errors = ExternalDependencyChecker.CheckSkill(skill);
-            Assert.Single(errors);
-            Assert.Contains("run.sh", errors[0]);
+            var findings = ExternalDependencyChecker.CheckSkill(skill);
+            Assert.Single(findings);
+            Assert.Contains("run.sh", findings[0]);
         }
         finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
     }
 
     [Fact]
-    public void Skill_WithEmptyScriptsDir_NoError()
+    public void Skill_WithEmptyScriptsDir_NoWarning()
     {
         var skill = MakeSkill();
         try
         {
             Directory.CreateDirectory(Path.Combine(skill.Path, "scripts"));
 
-            var errors = ExternalDependencyChecker.CheckSkill(skill);
-            Assert.Empty(errors);
+            var findings = ExternalDependencyChecker.CheckSkill(skill);
+            Assert.Empty(findings);
         }
         finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
     }
 
     [Fact]
-    public void Skill_WithNoScriptsDir_NoError()
+    public void Skill_WithNoScriptsDir_NoWarning()
     {
         var skill = MakeSkill();
         try
         {
-            var errors = ExternalDependencyChecker.CheckSkill(skill);
-            Assert.Empty(errors);
+            var findings = ExternalDependencyChecker.CheckSkill(skill);
+            Assert.Empty(findings);
         }
         finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
     }
 
     [Fact]
-    public void Skill_DescriptionWithInvokes_FlagsError()
+    public void Skill_DescriptionWithInvokes_FlagsWarning()
     {
         var skill = MakeSkill(
             description: "Run diagnostics. INVOKES Get-NullableReadiness.ps1 scanner script.",
             content: "---\nname: test-skill\ndescription: Run diagnostics. INVOKES Get-NullableReadiness.ps1 scanner script.\n---\n# Test\n");
         try
         {
-            var errors = ExternalDependencyChecker.CheckSkill(skill);
-            Assert.Contains(errors, e => e.Contains("invoked script") && e.Contains("review needed"));
+            var findings = ExternalDependencyChecker.CheckSkill(skill);
+            Assert.Contains(findings, e => e.Contains("invoked script") && e.Contains("review needed"));
         }
         finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
     }
@@ -137,40 +137,54 @@ public class ExternalDependencyCheckerTests
     // ========================================
 
     [Fact]
-    public void Skill_WithToolReference_FlagsError()
+    public void Skill_WithToolReference_FlagsWarning()
     {
         var content = "---\nname: test-skill\ndescription: A test skill.\n---\n# Test\nUse `#tool:web/fetch` to retrieve docs.\n";
         var skill = MakeSkill(content: content);
         try
         {
-            var errors = ExternalDependencyChecker.CheckSkill(skill);
-            Assert.Contains(errors, e => e.Contains("#tool:web/fetch"));
+            var findings = ExternalDependencyChecker.CheckSkill(skill);
+            Assert.Contains(findings, e => e.Contains("#tool:web/fetch"));
         }
         finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
     }
 
     [Fact]
-    public void Skill_WithBuiltInToolReference_NoError()
+    public void Skill_WithBuiltInToolReference_NoWarning()
     {
         var content = "---\nname: test-skill\ndescription: A test skill.\n---\n# Test\nUse `#tool:edit` to modify files and `#tool:bash` to run commands.\n";
         var skill = MakeSkill(content: content);
         try
         {
-            var errors = ExternalDependencyChecker.CheckSkill(skill);
-            Assert.Empty(errors);
+            var findings = ExternalDependencyChecker.CheckSkill(skill);
+            Assert.Empty(findings);
         }
         finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
     }
 
     [Fact]
-    public void Skill_WithNoToolReference_NoError()
+    public void Skill_WithNoToolReference_NoWarning()
     {
         var content = "---\nname: test-skill\ndescription: A test skill.\n---\n# Test\nNo tool references here.\n";
         var skill = MakeSkill(content: content);
         try
         {
-            var errors = ExternalDependencyChecker.CheckSkill(skill);
-            Assert.Empty(errors);
+            var findings = ExternalDependencyChecker.CheckSkill(skill);
+            Assert.Empty(findings);
+        }
+        finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
+    }
+
+    [Fact]
+    public void Skill_WithDuplicateToolReferences_DeduplicatesWarnings()
+    {
+        var content = "---\nname: test-skill\ndescription: A test skill.\n---\n# Test\nUse `#tool:web/fetch` here and `#tool:web/fetch` again.\n";
+        var skill = MakeSkill(content: content);
+        try
+        {
+            var findings = ExternalDependencyChecker.CheckSkill(skill);
+            Assert.Single(findings);
+            Assert.Contains("#tool:web/fetch", findings[0]);
         }
         finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
     }
@@ -180,41 +194,41 @@ public class ExternalDependencyCheckerTests
     // ========================================
 
     [Fact]
-    public void Agent_WithAllBuiltInTools_NoError()
+    public void Agent_WithAllBuiltInTools_NoWarning()
     {
         var agent = MakeAgent(tools: new[] { "read", "search", "edit" });
 
-        var errors = ExternalDependencyChecker.CheckAgent(agent);
-        Assert.Empty(errors);
+        var findings = ExternalDependencyChecker.CheckAgent(agent);
+        Assert.Empty(findings);
     }
 
     [Fact]
-    public void Agent_WithNonBuiltInTool_FlagsError()
+    public void Agent_WithNonBuiltInTool_FlagsWarning()
     {
         var agent = MakeAgent(tools: new[] { "read", "custom-tool" });
 
-        var errors = ExternalDependencyChecker.CheckAgent(agent);
-        Assert.Single(errors);
-        Assert.Contains("custom-tool", errors[0]);
+        var findings = ExternalDependencyChecker.CheckAgent(agent);
+        Assert.Single(findings);
+        Assert.Contains("custom-tool", findings[0]);
     }
 
     [Fact]
-    public void Agent_WithToolReferenceInProse_FlagsError()
+    public void Agent_WithToolReferenceInProse_FlagsWarning()
     {
         var content = "---\nname: test-agent\ndescription: A test agent.\n---\n# Test\nUse `#tool:agent/runSubagent` to delegate.\n";
         var agent = MakeAgent(content: content);
 
-        var errors = ExternalDependencyChecker.CheckAgent(agent);
-        Assert.Contains(errors, e => e.Contains("#tool:agent/runSubagent"));
+        var findings = ExternalDependencyChecker.CheckAgent(agent);
+        Assert.Contains(findings, e => e.Contains("#tool:agent/runSubagent"));
     }
 
     [Fact]
-    public void Agent_WithNoToolsArray_NoError()
+    public void Agent_WithNoToolsArray_NoWarning()
     {
         var agent = MakeAgent(tools: null);
 
-        var errors = ExternalDependencyChecker.CheckAgent(agent);
-        Assert.Empty(errors);
+        var findings = ExternalDependencyChecker.CheckAgent(agent);
+        Assert.Empty(findings);
     }
 
     [Fact]
@@ -222,8 +236,19 @@ public class ExternalDependencyCheckerTests
     {
         var agent = MakeAgent(tools: new[] { "READ", "Search", "EDIT" });
 
-        var errors = ExternalDependencyChecker.CheckAgent(agent);
-        Assert.Empty(errors);
+        var findings = ExternalDependencyChecker.CheckAgent(agent);
+        Assert.Empty(findings);
+    }
+
+    [Fact]
+    public void Agent_WithDuplicateToolReferences_DeduplicatesWarnings()
+    {
+        var content = "---\nname: test-agent\ndescription: A test agent.\n---\n# Test\nUse `#tool:agent/runSubagent` here and `#tool:agent/runSubagent` again.\n";
+        var agent = MakeAgent(content: content);
+
+        var findings = ExternalDependencyChecker.CheckAgent(agent);
+        Assert.Single(findings);
+        Assert.Contains("#tool:agent/runSubagent", findings[0]);
     }
 
     // ========================================
@@ -231,7 +256,7 @@ public class ExternalDependencyCheckerTests
     // ========================================
 
     [Fact]
-    public void Plugin_WithMcpServers_FlagsError()
+    public void Plugin_WithMcpServers_FlagsWarning()
     {
         var (plugin, dir) = MakePlugin();
         try
@@ -239,27 +264,27 @@ public class ExternalDependencyCheckerTests
             var json = $@"{{""name"":""{plugin.Name}"",""version"":""0.1.0"",""description"":""Test."",""skills"":""./skills/"",""mcpServers"":{{""my-server"":{{""command"":""node"",""args"":[""server.js""]}}}}}}";
             File.WriteAllText(Path.Combine(dir, "plugin.json"), json);
 
-            var errors = ExternalDependencyChecker.CheckPlugin(plugin);
-            Assert.Single(errors);
-            Assert.Contains("my-server", errors[0]);
+            var findings = ExternalDependencyChecker.CheckPlugin(plugin);
+            Assert.Single(findings);
+            Assert.Contains("my-server", findings[0]);
         }
         finally { Cleanup(dir); }
     }
 
     [Fact]
-    public void Plugin_WithNoMcpServers_NoError()
+    public void Plugin_WithNoMcpServers_NoWarning()
     {
         var (plugin, dir) = MakePlugin();
         try
         {
-            var errors = ExternalDependencyChecker.CheckPlugin(plugin);
-            Assert.Empty(errors);
+            var findings = ExternalDependencyChecker.CheckPlugin(plugin);
+            Assert.Empty(findings);
         }
         finally { Cleanup(dir); }
     }
 
     [Fact]
-    public void Plugin_WithEmptyMcpServers_NoError()
+    public void Plugin_WithEmptyMcpServers_NoWarning()
     {
         var (plugin, dir) = MakePlugin();
         try
@@ -267,8 +292,8 @@ public class ExternalDependencyCheckerTests
             var json = $@"{{""name"":""{plugin.Name}"",""version"":""0.1.0"",""description"":""Test."",""skills"":""./skills/"",""mcpServers"":{{}}}}";
             File.WriteAllText(Path.Combine(dir, "plugin.json"), json);
 
-            var errors = ExternalDependencyChecker.CheckPlugin(plugin);
-            Assert.Empty(errors);
+            var findings = ExternalDependencyChecker.CheckPlugin(plugin);
+            Assert.Empty(findings);
         }
         finally { Cleanup(dir); }
     }
@@ -280,7 +305,8 @@ public class ExternalDependencyCheckerTests
     [Fact]
     public void LoadAllowList_MissingFile_ReturnsEmpty()
     {
-        var allowed = ExternalDependencyChecker.LoadAllowList("/nonexistent/path.txt");
+        var path = Path.Combine(Path.GetTempPath(), "nonexistent-" + Guid.NewGuid().ToString("N") + ".txt");
+        var allowed = ExternalDependencyChecker.LoadAllowList(path);
         Assert.Empty(allowed);
     }
 
@@ -330,8 +356,8 @@ public class ExternalDependencyCheckerTests
             {
                 "script:test-skill:scripts/setup.ps1"
             };
-            var errors = ExternalDependencyChecker.CheckSkill(skill, allowed);
-            Assert.Empty(errors);
+            var findings = ExternalDependencyChecker.CheckSkill(skill, allowed);
+            Assert.Empty(findings);
         }
         finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
     }
@@ -345,8 +371,8 @@ public class ExternalDependencyCheckerTests
         {
             "tool-ref:test-agent:#tool:web/fetch"
         };
-        var errors = ExternalDependencyChecker.CheckAgent(agent, allowed);
-        Assert.Empty(errors);
+        var findings = ExternalDependencyChecker.CheckAgent(agent, allowed);
+        Assert.Empty(findings);
     }
 
     [Fact]
@@ -357,9 +383,9 @@ public class ExternalDependencyCheckerTests
         {
             "agent-tool:test-agent:custom_a"
         };
-        var errors = ExternalDependencyChecker.CheckAgent(agent, allowed);
-        Assert.Single(errors);
-        Assert.Contains("custom_b", errors[0]);
+        var findings = ExternalDependencyChecker.CheckAgent(agent, allowed);
+        Assert.Single(findings);
+        Assert.Contains("custom_b", findings[0]);
     }
 
     [Fact]
@@ -375,8 +401,8 @@ public class ExternalDependencyCheckerTests
             {
                 "mcp-server:test-plugin:my-server"
             };
-            var errors = ExternalDependencyChecker.CheckPlugin(plugin, allowed);
-            Assert.Empty(errors);
+            var findings = ExternalDependencyChecker.CheckPlugin(plugin, allowed);
+            Assert.Empty(findings);
         }
         finally { Cleanup(dir); }
     }
