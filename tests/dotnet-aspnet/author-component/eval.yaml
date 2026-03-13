@@ -1,22 +1,32 @@
 scenarios:
   - name: "Author a data-loading search component"
     prompt: |
-      Write a Blazor component called ProductSearch. Here are the service contracts:
+      Write a Blazor component called ProductSearch that will be used on a catalog browsing page. Here are the service contracts the application already registers in DI:
 
       ```csharp
       public record Product(int Id, string Name, decimal Price, string ImageUrl);
 
       public interface IProductService
       {
+          /// <summary>
+          /// Searches products by query string. Throws on network failure.
+          /// Respects the cancellation token — callers should cancel when results are no longer needed.
+          /// </summary>
           Task<List<Product>> SearchAsync(string query, CancellationToken ct);
       }
+      ```
+
+      The parent page will use the component like this:
+
+      ```razor
+      <ProductSearch OnProductSelected="HandleSelection" />
       ```
 
       The component should:
       - Have a search text input. When the user stops typing for 300ms, search automatically
       - Call IProductService.SearchAsync to fetch results
       - Display each product as a card showing Name, Price, and ImageUrl
-      - When a card is clicked, the parent needs to know which product was selected
+      - Notify the parent when a card is clicked so it can navigate to the product detail page
       - Handle all the states the component can be in (fetching, nothing found, failure, etc.)
       - If the user types again while a search is in flight, the old search should be abandoned
       - Clean up properly when the component is removed from the page
@@ -37,7 +47,7 @@ scenarios:
       - "Does not use .Result, .Wait(), Task.Run, or other forbidden threading primitives"
       - "Uses a private field for mutable state — does not mutate [Parameter] properties"
       - "Uses async/await throughout — no fire-and-forget without error handling"
-    timeout: 120
+    timeout: 180
 
   - name: "Author a multi-step wizard with shared state"
     prompt: |

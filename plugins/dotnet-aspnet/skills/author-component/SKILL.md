@@ -1,48 +1,34 @@
 ---
 name: author-component
-description: Use this skill when you need to create or review a Blazor component. Covers component design principles (UI decomposition, data flow, size guidelines), parameter definitions (Parameter, EditorRequired), child content with RenderFragment, EventCallback for parent-child communication, cascading parameters, route directives, layouts, code-behind patterns, async programming rules, and rendering behavior. Also use as a reference for correct patterns when reviewing component structure.
+description: Create or review Blazor components. Covers UI decomposition, data flow, parameters, EventCallback, RenderFragment, lifecycle, async rules, disposal. Use as a reference when authoring new components or reviewing existing ones.
 ---
 
 # Author Blazor Component
 
-## Component Design Principles
+## Design Rules
 
-### Decompose the UI into a natural hierarchy
+- Decompose UI into a component tree mirroring visual structure. Parent orchestrates; children render.
+- Data flows **down** via `[Parameter]`. Events flow **up** via `EventCallback`.
+- Enumerate all states before writing markup: loading, empty, loaded, error, unauthorized. Handle each with `@if`/`@else`.
+- Never mutate `[Parameter]` properties. Copy to a private field in `OnParametersSet`.
+- Delegate business logic to injected services. Components are thin UI shells.
 
-Break the UI into a tree of components that mirrors the visual structure. Each distinct region becomes its own component.
+### Size Limits
 
-For example, a data grid component might decompose as:
+| Metric | Target |
+|--------|--------|
+| Lines (markup + `@code`) | 100–200; refactor above 500 |
+| Cyclomatic complexity | ≤ 10 per method/render block |
+| Parameters / event handlers | ≤ 10 each |
 
-```
-DataGrid<T>
-├── GridToolbar            (search box, filter toggles, "Add" button)
-├── GridHeader             (column headings with sort indicators)
-├── GridBody
-│   └── GridRow<T>         (one per item: cells, inline actions)
-│       └── GridCell       (single value, optional edit mode)
-├── GridPager              (page size selector, prev/next, page numbers)
-└── GridEmptyState         (illustration + message when Items is empty)
-```
+See `references/breaking-down-components.md` for extraction patterns.
 
-### Identify all component states up front
-
-Before writing markup, enumerate every visual state the component can be in. Then make sure the template handles each one explicitly — missing states cause blank screens or stale data.
-
-| State | Example |
-|-------|---------|
-| **Loading** | Data is being fetched; show a spinner or skeleton |
-| **Empty** | Fetch completed but returned zero items; show an empty-state message |
-| **Loaded** | Data is available; render the normal content |
-| **Error** | The fetch or operation failed; show an error message with a retry option |
-| **Unauthorized** | User lacks permission; show an access-denied message |
+### State Handling Pattern
 
 ```razor
 @if (error is not null)
 {
-    <div class="alert alert-danger">
-        @error
-        <button @onclick="LoadData">Retry</button>
-    </div>
+    <div class="alert alert-danger">@error <button @onclick="LoadData">Retry</button></div>
 }
 else if (items is null)
 {
@@ -55,49 +41,25 @@ else if (items.Count == 0)
 else
 {
     <GridBody Items="items" />
-    <GridPager TotalCount="totalCount" Page="page" OnPageChanged="HandlePageChanged" />
 }
 ```
 
-### Data flows top-down
+## Parameters
 
-Pass data from parent to children via `[Parameter]` properties. Parents own the state; children receive it as read-only inputs.
+**Do:**
+- `[Parameter] public string Title { get; set; } = "";` — public auto-property with `{ get; set; }`.
+- `[Parameter, EditorRequired] public string Label { get; set; } = "";` — mark required params.
+- `[Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }` — splatting HTML attributes.
 
-```razor
-<ProductHeader Name="@product.Name" Price="@product.Price" Rating="@product.Rating" />
-<ReviewList Reviews="@product.Reviews" />
-```
+**Don't:**
+- `required` or `init` on parameters — runtime failures (BL0007).
+- Logic in parameter getters/setters.
+- Write to parameter properties inside the component.
 
-### Events flow bottom-up
-
-When a child needs to notify a parent, expose an `EventCallback` parameter. The parent passes a handler; the child invokes it.
-
-```razor
-<!-- Child component -->
-<button @onclick="() => OnAddToCart.InvokeAsync(Quantity)">Add to Cart</button>
-
-@code {
-    [Parameter] public int Quantity { get; set; }
-    [Parameter] public EventCallback<int> OnAddToCart { get; set; }
-}
-```
-
-```razor
-<!-- Parent component -->
-<AddToCartPanel Quantity="@selectedQty" OnAddToCart="HandleAddToCart" />
-
-@code {
-    private async Task HandleAddToCart(int qty) { /* update cart state */ }
-}
-```
-
-### Parameters are inputs — never mutate them
-
-Parameters are set by the framework after construction. Do **not** write to `[Parameter]` properties inside the component. If you need mutable local state derived from a parameter, copy it to a private field:
+### Deriving Local State
 
 ```csharp
 [Parameter] public string InitialText { get; set; } = "";
-
 private string currentText = "";
 
 protected override void OnParametersSet()
@@ -106,242 +68,106 @@ protected override void OnParametersSet()
 }
 ```
 
-### Keep components small and focused
+## EventCallback
 
-| Guideline | Target |
-|-----------|--------|
-| Total lines of code (markup + `@code`) | 100–200 (investigate at ~300, refactor above ~500) |
-| Cyclomatic complexity of the render logic | ≤ 10 |
-| Cyclomatic complexity per lifecycle/event handler method | ≤ 10 |
-| Parameters | 0–10 |
-| Event handlers | 0–10 |
-
-A component's purpose and structure should be self-evident. If you need to scroll to understand a component, it is too large. See `references/breaking-down-components.md` for extraction techniques.
-
-### Keep lifecycle and event handler methods simple
-
-Component code should be focused on **UI concerns**: reading parameters, managing local UI state, and invoking rendering. Business logic, validation rules, data transformation, and orchestration belong in injected services.
+Use `EventCallback` / `EventCallback<T>` for parent-child events. Never use `Action` or `Func` — they don't trigger parent re-render.
 
 ```csharp
-// Wrong — component does too much
-protected override async Task OnInitializedAsync()
-{
-    var raw = await Http.GetFromJsonAsync<List<OrderDto>>("api/orders");
-    orders = raw!
-        .Where(o => o.Status != "Cancelled")
-        .OrderByDescending(o => o.CreatedAt)
-        .Select(o => new OrderViewModel(o.Id, o.Total, o.CreatedAt))
-        .ToList();
-}
-
-// Correct — component delegates to a service
-protected override async Task OnInitializedAsync()
-{
-    orders = await OrderService.GetActiveOrdersAsync();
-}
+[Parameter] public EventCallback<int> OnAddToCart { get; set; }
 ```
-
-## Component File Patterns
-
-### Single-file (.razor)
 
 ```razor
-@page "/my-route"
-@using System.ComponentModel.DataAnnotations
-@implements IDisposable
-@inject NavigationManager Navigation
-
-<h3>@Title</h3>
-@ChildContent
-
-@code {
-    [Parameter] public string Title { get; set; } = "";
-    [Parameter] public RenderFragment? ChildContent { get; set; }
-}
+<button @onclick="() => OnAddToCart.InvokeAsync(Quantity)">Add</button>
 ```
 
-### Code-behind (.razor + .razor.cs)
-
-Split markup and logic into two files with matching names:
-
-**MyComponent.razor:**
+**Don't** bind external object methods directly to `@on*` attributes — the component won't re-render:
 ```razor
-<h3>@Title</h3>
-@ChildContent
+<!-- WRONG --> <button @onclick="CartService.AddItemAsync">Click</button>
+<!-- RIGHT --> <button @onclick="HandleClick">Click</button>
 ```
 
-**MyComponent.razor.cs:**
-```csharp
-public partial class MyComponent : ComponentBase
-{
-    [Parameter] public string Title { get; set; } = "";
-    [Parameter] public RenderFragment? ChildContent { get; set; }
-}
-```
-
-Use code-behind when the `@code` block exceeds ~50 lines.
-
-## Parameters
-
-### Rules
-
-- Parameters **must** be public auto-properties with `{ get; set; }` (analyzer BL0007).
-- Do **not** use `required` or `init` — the component framework sets parameters after construction.
-- Do **not** write to parameter properties from within the component — copy to a local field instead.
-- Use `[EditorRequired]` (not `[Required]`) to mark parameters the consumer must provide.
-
-### Basic parameters
+## Child Content / RenderFragment
 
 ```csharp
-[Parameter] public string Title { get; set; } = "";
-[Parameter] public int Count { get; set; }
-[Parameter] public bool IsVisible { get; set; } = true;
-[Parameter, EditorRequired] public string Label { get; set; } = "";
-```
-
-### Capture unmatched values
-
-Pass arbitrary HTML attributes to an underlying element:
-
-```csharp
-[Parameter(CaptureUnmatchedValues = true)]
-public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
-```
-
-## Child Content
-
-### Single child content
-
-```csharp
+// Single slot
 [Parameter] public RenderFragment? ChildContent { get; set; }
-```
 
-### Templated (generic) content
+// Typed template (generic component)
+[Parameter] public RenderFragment<TItem>? RowTemplate { get; set; }
 
-```csharp
-[Parameter] public RenderFragment<TItem>? ItemTemplate { get; set; }
-[Parameter] public IReadOnlyList<TItem> Items { get; set; } = [];
-```
-
-```razor
-@foreach (var item in Items)
-{
-    @ItemTemplate?.Invoke(item)
-}
-```
-
-### Multiple render fragments
-
-Use named render fragments when a component needs multiple content slots:
-
-```csharp
+// Multiple named slots
 [Parameter] public RenderFragment? Header { get; set; }
-[Parameter] public RenderFragment? Body { get; set; }
 [Parameter] public RenderFragment? Footer { get; set; }
 ```
 
-## EventCallback
+Use `@typeparam TItem` for generic components. Use `@key` on repeated elements in loops.
 
-Use `EventCallback` / `EventCallback<T>` for parent-child communication. Never use raw `Action` or `Func` delegates as parameters — `EventCallback` automatically triggers re-rendering of the parent.
+## File Patterns
+
+**Single-file:** All in `.razor` file. Use when `@code` block < ~50 lines.
+
+**Code-behind:** `.razor` for markup, `.razor.cs` for `partial class`. Use when `@code` > ~50 lines.
 
 ```csharp
-[Parameter] public EventCallback OnClick { get; set; }
-[Parameter] public EventCallback<string> OnSearch { get; set; }
-```
-
-```razor
-<button @onclick="OnClick">Click me</button>
-<input @oninput="e => OnSearch.InvokeAsync(e.Value?.ToString())" />
-```
-
-### Always assign component methods to event handlers
-
-When the component needs to re-render in response to an event, pass a component method (or `EventCallback`) — not a delegate from an external object — to the event handler attribute.
-
-**Correct — component method, triggers re-render:**
-```razor
-<button @onclick="HandleClick">Click</button>
-
-@code {
-    [Inject] private CartService CartService { get; set; } = default!;
-
-    private async Task HandleClick()
-    {
-        await CartService.AddItemAsync(itemId);
-    }
+// MyComponent.razor.cs
+public partial class MyComponent : ComponentBase
+{
+    [Parameter] public string Title { get; set; } = "";
 }
-```
-
-**Wrong — external object delegate, parent will NOT re-render:**
-```razor
-<button @onclick="CartService.AddItemAsync">Click</button>
 ```
 
 ## Directives
 
-| Directive | Purpose | Example |
-|-----------|---------|---------|
-| `@page` | Routable component with route template | `@page "/items/{Id:int}"` |
-| `@layout` | Specify layout for a page | `@layout MainLayout` |
-| `@implements` | Implement an interface | `@implements IDisposable` |
-| `@inherits` | Inherit a base class | `@inherits CustomBase` |
-| `@inject` | DI injection | `@inject HttpClient Http` |
-| `@rendermode` | Set render mode | `@rendermode InteractiveServer` |
-| `@attribute` | Apply an attribute | `@attribute [Authorize]` |
-| `@typeparam` | Generic type parameter | `@typeparam TItem` |
+| Directive | Example |
+|-----------|---------|
+| `@page` | `@page "/items/{Id:int}"` |
+| `@layout` | `@layout MainLayout` |
+| `@implements` | `@implements IAsyncDisposable` |
+| `@inject` | `@inject HttpClient Http` |
+| `@rendermode` | `@rendermode InteractiveServer` |
+| `@typeparam` | `@typeparam TItem` |
+| `@attribute` | `@attribute [Authorize]` |
 
-### Route parameters
+## Lifecycle
+
+Execution order:
+1. `SetParametersAsync` — raw parameter assignment (advanced).
+2. `OnInitialized[Async]` — once on first render. Load data here.
+3. `OnParametersSet[Async]` — after every parameter update. Copy params to local fields here.
+4. `OnAfterRender[Async](bool firstRender)` — after DOM update. JS interop only here.
+
+## Disposal
+
+Implement `IAsyncDisposable` (not `IDisposable`) when the component owns event subscriptions, timers, `CancellationTokenSource`, or JS interop references.
 
 ```razor
-@page "/items/{Id:int}"
-@page "/items/{Id:int}/{Slug}"
-
-@code {
-    [Parameter] public int Id { get; set; }
-    [Parameter] public string? Slug { get; set; }
-}
+@implements IAsyncDisposable
 ```
 
-## Lifecycle Methods
+In `DisposeAsync`: unsubscribe events (`-=`), dispose timers, cancel tokens. Don't call `StateHasChanged`. Null-check fields — `DisposeAsync` may run before `OnInitializedAsync` completes. Catch `JSDisconnectedException` when disposing JS references.
 
-Override in order of execution:
+See `references/component-disposal.md` for full patterns.
 
-1. `SetParametersAsync(ParameterView parameters)` — raw parameter assignment (advanced)
-2. `OnInitialized` / `OnInitializedAsync` — runs once on first render
-3. `OnParametersSet` / `OnParametersSetAsync` — runs after parameters are set (every render)
-4. `OnAfterRender(bool firstRender)` / `OnAfterRenderAsync(bool firstRender)` — runs after DOM update
+## Async Rules
 
-- Perform async data loading in `OnInitializedAsync`.
-- Access JS interop only in `OnAfterRenderAsync` (DOM must exist).
-- Implement `IAsyncDisposable` to clean up resources when the component is removed. See `references/component-disposal.md` for patterns.
+**Do:** `await` every async operation. Use `InvokeAsync` + `StateHasChanged` for external events (timers, C# events). Use `DispatchExceptionAsync` for fire-and-forget error routing.
 
-## Async Programming Rules
+**Don't:** `.Result`, `.Wait()`, `Task.Run`, `ContinueWith`, `Thread.Start`, `ConcurrentDictionary`, `Channel<T>`. These deadlock or escape the sync context.
 
-Blazor runs inside a synchronization context that guarantees single-threaded access. See `references/async-programming-rules.md` for full rules.
+`StateHasChanged` is only needed for: (1) intermediate updates between multiple awaits, (2) external event callbacks marshaled via `InvokeAsync`.
 
-Key rules:
-- Always `await` every async operation — never leave a `Task` unobserved.
-- **Forbidden in components:** `Task.Run`, `.Result`, `.Wait()`, `ContinueWith`, `Thread.Start`, concurrent collections.
-- Call `StateHasChanged` only for intermediate updates in multi-await handlers or external event callbacks (timer, WebSocket).
-- Use `InvokeAsync` to marshal back onto the sync context from external events.
-- Use `DispatchExceptionAsync` for fire-and-forget tasks to route errors to error boundaries.
+See `references/async-programming-rules.md` for alternatives to forbidden primitives.
 
-## Cascading Parameters
+## Don'ts Checklist
 
-Cascading values flow data down the component hierarchy without explicit parameter passing at each level. They are useful for cross-cutting concerns like theming, authorization state, or parent-child coordination.
-
-For detailed patterns and `[CascadingParameter]` usage, see the `implement-data-binding` skill.
-
-## Common Mistakes to Avoid
-
-- Using `required` or `init` on `[Parameter]` properties — causes runtime failures.
-- Logic in parameter getters/setters — triggers BL0007 analyzer warning.
-- Setting `[Parameter]` properties from within the component — use a local backing field instead.
-- Putting `@ref` and `@rendermode` on the same element — not supported.
-- Calling JS interop in `OnInitializedAsync` — JS is only available in `OnAfterRenderAsync`.
-- Using `Action`/`Func` instead of `EventCallback` for event parameters — parent won't re-render.
-- Using `Task.Run`, `.Result`, `.Wait()`, `ContinueWith`, or `Thread.Start` — deadlocks or escapes the sync context.
-- Calling `StateHasChanged` in every event handler — unnecessary and adds rendering overhead.
-- Passing an external object's method directly to an `@on*` attribute — the component won't re-render.
-- Discarding a `Task` (`_ = SomethingAsync()`) without wrapping it in try/catch + `DispatchExceptionAsync` — exceptions are silently lost.
-- Forgetting to cancel async work on disposal — causes memory leaks and operations on disposed components.
+- `required`/`init` on `[Parameter]` — runtime failure.
+- Logic in parameter setters — BL0007.
+- Mutate `[Parameter]` from inside — copy to private field.
+- `@ref` + `@rendermode` on same element — not supported.
+- JS interop in `OnInitializedAsync` — use `OnAfterRenderAsync`.
+- `Action`/`Func` for event params — use `EventCallback`.
+- `Task.Run`/`.Result`/`.Wait()`/`ContinueWith`/`Thread.Start` — deadlock.
+- `StateHasChanged` in every handler — unnecessary overhead.
+- External delegate on `@on*` — component won't re-render.
+- Unobserved `Task` without `DispatchExceptionAsync` — silent exception loss.
+- Missing disposal of subscriptions/timers/tokens — memory leak.

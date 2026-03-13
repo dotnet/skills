@@ -1,147 +1,100 @@
 # Async Programming Rules
 
-Blazor runs inside a synchronization context that guarantees only one thread executes component code at a time. Follow these rules to work correctly within that model.
+Blazor's sync context guarantees single-threaded component execution. All rules below follow from this.
 
-## Always use async/await
+## Await every Task
 
-Every asynchronous operation must be `await`ed. Never leave a `Task` unobserved — unobserved tasks swallow exceptions silently and can cause subtle bugs.
+Never leave a `Task` unobserved — exceptions are silently lost.
 
-**Correct:**
 ```csharp
+// DO
 private async Task LoadData()
 {
     items = await Http.GetFromJsonAsync<List<Item>>("api/items");
 }
-```
 
-**Wrong — fire-and-forget hides exceptions:**
-```csharp
+// DON'T — fire-and-forget hides exceptions
 private void LoadData()
 {
-    // BUG: unobserved task — exceptions are silently lost
     _ = Http.GetFromJsonAsync<List<Item>>("api/items");
 }
 ```
 
-## Forbidden threading primitives
+## Forbidden Primitives
 
-Do **not** use any of the following in Blazor components. They are unnecessary because the synchronization context already guarantees single-threaded access, and using them introduces deadlocks or race conditions:
+These deadlock or escape the sync context. Never use in components:
 
-- `Thread.Start` / `new Thread(...)`
-- `Task.Run` (offloads work to a thread-pool thread outside the sync context)
-- `Channel<T>` / `BlockingCollection<T>` / `ConcurrentDictionary<K,V>` and other concurrent collections
-- `.Result` / `.Wait()` (synchronous blocking deadlocks the sync context)
-- `Task.ContinueWith` (runs continuations outside the sync context)
+| Forbidden | Why |
+|-----------|-----|
+| `Thread.Start` / `new Thread` | Escapes sync context |
+| `Task.Run` | Offloads to thread-pool; `StateHasChanged` throws |
+| `.Result` / `.Wait()` | Deadlocks sync context |
+| `Task.ContinueWith` | Continuation runs outside sync context |
+| `Channel<T>`, `BlockingCollection<T>`, concurrent collections | Unnecessary — single-threaded access guaranteed |
 
-**Wrong — Task.Run escapes the synchronization context:**
 ```csharp
-private void ProcessOrder()
-{
-    // BUG: runs outside the sync context — StateHasChanged will throw
-    _ = Task.Run(async () =>
-    {
-        var result = await OrderService.SubmitAsync(order);
-        message = result.Message;
-        StateHasChanged(); // InvalidOperationException!
-    });
-}
-```
+// DON'T — Task.Run escapes sync context
+_ = Task.Run(async () => {
+    var result = await OrderService.SubmitAsync(order);
+    StateHasChanged(); // InvalidOperationException!
+});
 
-**Correct — stay on the sync context:**
-```csharp
+// DO — stay on sync context
 private async Task ProcessOrder()
 {
     var result = await OrderService.SubmitAsync(order);
     message = result.Message;
-    // No StateHasChanged needed — the framework re-renders after the handler completes
 }
 ```
 
-## When to call StateHasChanged
+## StateHasChanged
 
-The framework automatically re-renders a component:
-1. After the first synchronous block of a lifecycle method or event handler completes.
-2. After the `Task` returned by an async lifecycle method or event handler completes.
+Framework auto-renders after lifecycle methods and event handlers complete. Don't call `StateHasChanged` routinely.
 
-You do **not** need to call `StateHasChanged` in routine event handlers or lifecycle methods.
+**Call only for:**
 
-**Call `StateHasChanged` only when:**
-
-1. **An async handler has multiple await points and you want intermediate UI updates:**
-
+1. **Intermediate updates** between multiple awaits:
 ```csharp
 private async Task ProcessSteps()
 {
     status = "Step 1...";
     await Step1Async();
     status = "Step 2...";
-    StateHasChanged();
+    StateHasChanged(); // intermediate update
     await Step2Async();
-    status = "Step 3...";
-    StateHasChanged();
-    await Step3Async();
-    status = "Done!";
 }
 ```
 
-2. **An external event (timer, C# event, WebSocket message) modifies state outside the Blazor event pipeline:**
-
+2. **External events** (timer, C# event, WebSocket) via `InvokeAsync`:
 ```csharp
 private void OnTimerElapsed()
 {
-    _ = InvokeAsync(() =>
-    {
-        count++;
-        StateHasChanged();
-    });
+    _ = InvokeAsync(() => { count++; StateHasChanged(); });
 }
 ```
 
-Use `InvokeAsync` to marshal back onto the renderer's synchronization context when responding to events from external sources. `StateHasChanged` can only be called from the sync context — calling it from a raw thread-pool thread throws `InvalidOperationException`.
+`InvokeAsync` marshals onto the sync context. `StateHasChanged` from a raw thread throws `InvalidOperationException`.
 
-## Handling fire-and-forget tasks
+## Fire-and-Forget
 
-Sometimes you intentionally start work that outlives an event handler (e.g., sending an analytics event, dispatching a notification). Even then, you **must** observe the `Task` so exceptions are not silently lost.
-
-Use `DispatchExceptionAsync` to route any failure back into Blazor's normal error-handling pipeline (error boundaries, circuit termination, lifecycle exception logging):
-
-```razor
-<button @onclick="SendReport">Send report</button>
-
-@code {
-    private void SendReport()
-    {
-        _ = SendReportAsync();
-    }
-
-    private async Task SendReportAsync()
-    {
-        try
-        {
-            await ReportSender.SendAsync();
-        }
-        catch (Exception ex)
-        {
-            await DispatchExceptionAsync(ex);
-        }
-    }
-}
-```
-
-`DispatchExceptionAsync` is a method on `ComponentBase`. It lets the component treat the failure as though it occurred during a lifecycle method, which means:
-- An `<ErrorBoundary>` wrapping the component will activate.
-- If no error boundary exists, the circuit is terminated (server) or the error UI is shown (WebAssembly).
-- The exception is logged the same way as lifecycle exceptions.
-
-## Alternatives to forbidden threading primitives
-
-If you reach for `Thread.Start`, `Task.Run`, `Channel<T>`, or concurrent collections, there is almost always a simpler Blazor-friendly alternative.
-
-### Instead of `Thread.Start` / `Task.Run` — use `await` directly or `Task.Yield`
-
-If the work is not CPU-heavy and you just want to "kick it to the background" so the UI updates first, yield and continue:
+Route errors via `DispatchExceptionAsync` (activates error boundaries, logs like lifecycle exceptions):
 
 ```csharp
+private void SendReport() => _ = SendReportCore();
+
+private async Task SendReportCore()
+{
+    try { await ReportSender.SendAsync(); }
+    catch (Exception ex) { await DispatchExceptionAsync(ex); }
+}
+```
+
+## Alternatives to Forbidden Primitives
+
+**Instead of `Task.Run`** — use `await` directly or `Task.Yield`:
+
+```csharp
+// Yield to let renderer paint, then continue on sync context
 private async Task StartLongOperation()
 {
     status = "Starting...";
@@ -151,9 +104,7 @@ private async Task StartLongOperation()
 }
 ```
 
-`Task.Yield` returns control to the renderer so it can paint, then the continuation resumes on the same synchronization context. No thread-pool thread is needed.
-
-For compute-heavy synchronous work (e.g., processing a large list), break the work into chunks separated by `Task.Yield` so the UI thread can process events and repaint between chunks:
+**Chunked CPU work** — break with `Task.Yield` so UI stays responsive:
 
 ```csharp
 private async Task ProcessLargeList()
@@ -161,41 +112,27 @@ private async Task ProcessLargeList()
     for (var i = 0; i < items.Count; i++)
     {
         ProcessItem(items[i]);
-
         if (i % 100 == 0)
         {
-            status = $"Processed {i}/{items.Count}...";
             StateHasChanged();
             await Task.Yield();
         }
     }
-
-    status = "Done!";
 }
 ```
 
-Without the periodic `Task.Yield`, the entire loop runs synchronously on the sync context, blocking the UI from responding to clicks, keyboard input, or painting progress updates.
-
-For indivisible long-running async operations (e.g., a single HTTP call or database query that cannot be chunked), use `Task.WhenAny` with `Task.Delay` to provide periodic progress feedback while waiting:
+**Indivisible long ops** — `Task.WhenAny` + `Task.Delay` for progress:
 
 ```csharp
 private async Task RunLongQuery()
 {
-    status = "Running query...";
-    var elapsed = TimeSpan.Zero;
-    var interval = TimeSpan.FromSeconds(1);
-
     var queryTask = DatabaseService.RunExpensiveQueryAsync();
-
-    while (queryTask != await Task.WhenAny(queryTask, Task.Delay(interval)))
+    while (queryTask != await Task.WhenAny(queryTask, Task.Delay(1000)))
     {
-        elapsed += interval;
-        status = $"Still working... ({elapsed.TotalSeconds:0}s)";
+        status = "Still working...";
         StateHasChanged();
     }
-
     result = await queryTask;
-    status = "Done!";
 }
 ```
 
