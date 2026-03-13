@@ -89,6 +89,8 @@ cp libcoreclr.dylib.dwarf libcoreclr.dylib.dSYM/Contents/Resources/DWARF/libcore
 
 The flat `.dwarf` is the same Mach-O DWARF format that lives inside the bundle — the conversion is purely structural (mkdir + cp).
 
+> **Symbol server note:** The Microsoft symbol server (`msdl.microsoft.com/download/symbols`) and the `dotnet-symbol` tool do **not** serve macOS Mach-O symbols. They only provide Windows PDBs and Linux ELF debug info. NuGet packages are the only public distribution channel for macOS .NET debug symbols.
+
 ## .ips JSON Parsing Gotchas
 
 Some Apple .ips files contain **case-conflicting duplicate keys** at the top level (e.g., `vmRegionInfo` and `vmregioninfo`). Most JSON parsers reject this. Workaround: pre-process the raw JSON string to rename the lowercase duplicate before parsing.

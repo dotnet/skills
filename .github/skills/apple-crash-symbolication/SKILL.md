@@ -81,6 +81,8 @@ If the script's guidance isn't available or you need to do it manually:
      ```
 3. **User-provided paths**: Re-run with `-DsymSearchPaths` pointing to the dSYM location
 
+> ❌ **Do not use `dotnet-symbol` or the Microsoft symbol server** (`msdl.microsoft.com/download/symbols`) for macOS crashes. They only serve Windows PDBs and Linux ELF debug info — no Mach-O dSYMs or DWARF files. NuGet packages are the only public source for macOS .NET symbols.
+
 Always verify UUID match with `dwarfdump --uuid <dsym>` before symbolicating. For **NativeAOT** apps, the runtime is in the app binary itself — its dSYM comes from the build output.
 
 ---
