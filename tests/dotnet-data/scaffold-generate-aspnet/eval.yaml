@@ -8,9 +8,9 @@ scenarios:
       copy_test_files: true
     assertions:
       - type: "file_exists"
-        value: "**/Data/*AppDbContext*.cs"
+        path: "**/Data/*AppDbContext*.cs"
       - type: "file_exists"
-        value: "**/Migrations/*"
+        path: "**/Migrations/*"
     rubric:
       - "Generates Razor Pages (.cshtml and .cshtml.cs) for the Product model with Create, Read, Update, Delete pages"
       - "Creates an AppDbContext class that inherits from DbContext and includes DbSet properties"
@@ -31,7 +31,7 @@ scenarios:
       - type: "output_contains"
         value: "TodoDbContext"
       - type: "file_exists"
-        value: "**/*.http"
+        path: "**/*.http"
     rubric:
       - "Creates a TodoEndpoints class with MapGet, MapPost, MapPut, and MapDelete endpoints for TodoItem"
       - "Creates a TodoDbContext with a DbSet for TodoItem"
@@ -49,9 +49,9 @@ scenarios:
       copy_test_files: true
     assertions:
       - type: "file_exists"
-        value: "**/Data/*DbContext*.cs"
+        path: "**/Data/*DbContext*.cs"
       - type: "file_exists"
-        value: "**/Migrations/*"
+        path: "**/Migrations/*"
     rubric:
       - "Generates Blazor components (.razor) for the Employee model with Create, Read, Update, Delete functionality"
       - "Creates an AppDbContext with DbSet properties for Employee"
