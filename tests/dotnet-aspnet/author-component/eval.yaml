@@ -1,0 +1,201 @@
+scenarios:
+  - name: "Author a data-loading search component"
+    prompt: |
+      Write a Blazor component called ProductSearch. Here are the service contracts:
+
+      ```csharp
+      public record Product(int Id, string Name, decimal Price, string ImageUrl);
+
+      public interface IProductService
+      {
+          Task<List<Product>> SearchAsync(string query, CancellationToken ct);
+      }
+      ```
+
+      The component should:
+      - Have a search text input. When the user stops typing for 300ms, search automatically
+      - Call IProductService.SearchAsync to fetch results
+      - Display each product as a card showing Name, Price, and ImageUrl
+      - When a card is clicked, the parent needs to know which product was selected
+      - Handle all the states the component can be in (fetching, nothing found, failure, etc.)
+      - If the user types again while a search is in flight, the old search should be abandoned
+      - Clean up properly when the component is removed from the page
+    assertions:
+      - type: "output_contains"
+        value: "IAsyncDisposable"
+      - type: "output_contains"
+        value: "CancellationToken"
+      - type: "output_contains"
+        value: "EventCallback"
+      - type: "output_matches"
+        pattern: "(@if|@else)"
+    rubric:
+      - "Handles all visual states: loading, empty, error, and loaded — no missing branches"
+      - "Uses EventCallback<Product> (not Action or Func) for product selection"
+      - "Cancels the previous CancellationTokenSource when a new search starts"
+      - "Implements IAsyncDisposable and cancels/disposes resources in DisposeAsync"
+      - "Does not use .Result, .Wait(), Task.Run, or other forbidden threading primitives"
+      - "Uses a private field for mutable state — does not mutate [Parameter] properties"
+      - "Uses async/await throughout — no fire-and-forget without error handling"
+    timeout: 120
+
+  - name: "Author a multi-step wizard with shared state"
+    prompt: |
+      Write a set of Blazor components for a checkout wizard. Here are the models:
+
+      ```csharp
+      public class ShippingInfo
+      {
+          public string Name { get; set; } = "";
+          public string Address { get; set; } = "";
+          public string City { get; set; } = "";
+          public string ZipCode { get; set; } = "";
+      }
+
+      public class PaymentInfo
+      {
+          public string CardNumber { get; set; } = "";
+          public string ExpiryDate { get; set; } = "";
+      }
+
+      public class Order
+      {
+          public ShippingInfo Shipping { get; set; } = new();
+          public PaymentInfo Payment { get; set; } = new();
+      }
+      ```
+
+      Build three components:
+      1. CheckoutWizard — manages which step is active and holds the order state
+      2. ShippingStep — collects shipping address fields, has a "Next" button. Name and Address must not be empty to proceed.
+      3. PaymentStep — collects payment method, has "Back" and "Place Order" buttons
+
+      When "Place Order" is clicked, the parent of CheckoutWizard needs to receive the completed order.
+    assertions:
+      - type: "output_contains"
+        value: "EventCallback"
+      - type: "output_contains"
+        value: "[Parameter]"
+      - type: "output_matches"
+        pattern: "(CheckoutWizard|ShippingStep|PaymentStep)"
+    rubric:
+      - "Parent (CheckoutWizard) owns the order state and passes data to children via [Parameter]"
+      - "Children communicate back to the parent through EventCallback — no direct parameter mutation"
+      - "Steps are separate component files, not inline blocks in the parent"
+      - "Required parameters use [EditorRequired] — not [Required] or the required keyword"
+      - "Does not use forbidden threading primitives (.Result, Task.Run, etc.)"
+      - "Parameters are public auto-properties with { get; set; } — no required or init"
+    timeout: 120
+
+  - name: "Author a generic data table component"
+    prompt: |
+      Write a generic Blazor component called DataTable that works with any item type.
+      The parent should be able to customize how headers and rows are rendered by passing
+      in their own templates. Here's an example of how a consumer would use it:
+
+      ```razor
+      <DataTable Items="@people" OnRowClick="HandleRowClick">
+          <HeaderTemplate>
+              <th>Name</th>
+              <th>Email</th>
+          </HeaderTemplate>
+          <RowTemplate>
+              <td>@context.Name</td>
+              <td>@context.Email</td>
+          </RowTemplate>
+      </DataTable>
+      ```
+
+      When there are no items, it should show a sensible default empty state, but the
+      consumer should be able to override that too.
+    assertions:
+      - type: "output_contains"
+        value: "@typeparam"
+      - type: "output_matches"
+        pattern: "RenderFragment"
+      - type: "output_contains"
+        value: "EventCallback"
+    rubric:
+      - "Uses @typeparam to make the component generic"
+      - "RowTemplate is RenderFragment<TItem> — not RenderFragment or a delegate"
+      - "HeaderTemplate and EmptyTemplate are RenderFragment (non-generic)"
+      - "Uses @key on repeated row elements for efficient diffing in loops"
+      - "Handles the empty state with a default message and an optional override template"
+      - "Uses EventCallback<TItem> for OnRowClick (not Action or Func)"
+      - "Parameters use [Parameter] with { get; set; } — correct Blazor conventions"
+    timeout: 120
+
+  - name: "Author a real-time notification badge component"
+    prompt: |
+      Write a Blazor component called NotificationBadge. Here are the service contracts:
+
+      ```csharp
+      public record Notification(int Id, string Title, DateTime ReceivedAt);
+
+      public interface INotificationService
+      {
+          event Action<Notification> OnNotificationReceived;
+          Task<int> GetUnreadCountAsync();
+      }
+      ```
+
+      The component should:
+      - Show a badge with the current unread count
+      - Update the count in real time when OnNotificationReceived fires
+      - Also poll GetUnreadCountAsync every 30 seconds as a fallback
+      - When clicked, the parent needs to know so it can open a notification panel
+      - Clean up everything when the component is removed
+    assertions:
+      - type: "output_contains"
+        value: "IAsyncDisposable"
+      - type: "output_contains"
+        value: "DisposeAsync"
+      - type: "output_contains"
+        value: "InvokeAsync"
+      - type: "output_matches"
+        pattern: "(\\+=|OnNotificationReceived)"
+    rubric:
+      - "Implements IAsyncDisposable — not IDisposable"
+      - "Subscribes to the event in OnInitialized and unsubscribes in DisposeAsync with -="
+      - "Uses InvokeAsync to marshal the event callback onto the Blazor sync context before calling StateHasChanged"
+      - "Disposes the timer in DisposeAsync"
+      - "Does not use Task.Run, Thread.Start, or concurrent collections"
+      - "Does not call StateHasChanged directly from the timer or event callback without InvokeAsync"
+      - "Uses async/await for the polling call — no .Result or .Wait()"
+    timeout: 120
+
+  - name: "Author a sortable list with code-behind pattern"
+    prompt: |
+      Write a Blazor component called SortableList using the code-behind pattern
+      (SortableList.razor + SortableList.razor.cs). It should work with any item type.
+
+      Here's an example of how a consumer would use it:
+
+      ```razor
+      <SortableList Items="@tasks" OnOrderChanged="HandleReorder">
+          <ItemTemplate>
+              <span>@context.Title</span>
+          </ItemTemplate>
+      </SortableList>
+      ```
+
+      Each item should have "Move Up" and "Move Down" buttons. After each reorder,
+      the parent needs the updated list. The component must not modify the list
+      that was passed in — it should work on its own internal copy.
+    assertions:
+      - type: "output_contains"
+        value: "partial class"
+      - type: "output_contains"
+        value: "EventCallback"
+      - type: "output_matches"
+        pattern: "(private|_items|localItems|internalItems)"
+      - type: "output_matches"
+        pattern: "RenderFragment"
+    rubric:
+      - "Uses the code-behind pattern: .razor file for markup, .razor.cs for logic with partial class"
+      - "Does NOT mutate the [Parameter] Items property — copies to a private field"
+      - "Copies Items to a local field in OnParametersSet (not in a constructor or setter)"
+      - "Uses @key in the loop for efficient diffing"
+      - "Uses EventCallback (not Action or Func) to notify the parent of reorder"
+      - "Parameters are public auto-properties with { get; set; }, not required or init"
+    timeout: 120
