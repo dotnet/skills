@@ -262,8 +262,43 @@ public static class ValidateCommand
             return 1;
         }
 
-        // Check for orphaned test directories (tests/ entries with no matching plugin/skill)
+        // Check for external dependencies (scripts, tools, MCP servers)
+        // These are advisory — flagged for human review, not hard errors.
+        // URL scanning is handled separately by the reference scanner.
         var repoRoot = SkillDiscovery.FindRepoRoot(config.SkillPaths);
+        var allowListPath = repoRoot is not null
+            ? Path.Combine(repoRoot, "eng", "skill-validator", "allowed-external-deps.txt")
+            : "";
+        var allowed = ExternalDependencyChecker.LoadAllowList(allowListPath);
+        bool hasExternalDeps = false;
+        foreach (var skill in allSkills)
+        {
+            foreach (var warning in ExternalDependencyChecker.CheckSkill(skill, allowed))
+            {
+                Console.WriteLine($"\x1b[33m⚠  [skill:{skill.Name}] {warning}\x1b[0m");
+                hasExternalDeps = true;
+            }
+        }
+        foreach (var agent in agents)
+        {
+            foreach (var warning in ExternalDependencyChecker.CheckAgent(agent, allowed))
+            {
+                Console.WriteLine($"\x1b[33m⚠  [agent:{agent.Name}] {warning}\x1b[0m");
+                hasExternalDeps = true;
+            }
+        }
+        foreach (var plugin in plugins)
+        {
+            foreach (var warning in ExternalDependencyChecker.CheckPlugin(plugin, allowed))
+            {
+                Console.WriteLine($"\x1b[33m⚠  [plugin:{plugin.Name}] {warning}\x1b[0m");
+                hasExternalDeps = true;
+            }
+        }
+        if (hasExternalDeps)
+            Console.WriteLine();
+
+        // Check for orphaned test directories (tests/ entries with no matching plugin/skill)
         bool hasOrphanErrors = false;
         if (repoRoot is not null)
         {
