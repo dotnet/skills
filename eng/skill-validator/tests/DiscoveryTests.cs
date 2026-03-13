@@ -1,4 +1,5 @@
 using SkillValidator.Services;
+using SkillValidator.Models;
 
 namespace SkillValidator.Tests;
 
@@ -216,6 +217,98 @@ public class DiscoverSkillsTests
             Assert.NotNull(skills[0].EvalPath);
             // Flat path should win
             Assert.DoesNotContain("some-plugin", skills[0].EvalPath!);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
+}
+
+public class GroupSkillsByPluginTests
+{
+    [Fact]
+    public void GroupsSkillsUnderSamePlugin()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"group-test-{Guid.NewGuid():N}");
+        var pluginDir = Path.Combine(tmpDir, "my-plugin");
+        var skillDir1 = Path.Combine(pluginDir, "skills", "skill-a");
+        var skillDir2 = Path.Combine(pluginDir, "skills", "skill-b");
+        Directory.CreateDirectory(skillDir1);
+        Directory.CreateDirectory(skillDir2);
+        try
+        {
+            File.WriteAllText(Path.Combine(pluginDir, "plugin.json"), """{ "name": "my-plugin" }""");
+
+            var skills = new[]
+            {
+                new SkillInfo("skill-a", "A", skillDir1, Path.Combine(skillDir1, "SKILL.md"), "# A", null, null, null),
+                new SkillInfo("skill-b", "B", skillDir2, Path.Combine(skillDir2, "SKILL.md"), "# B", null, null, null),
+            };
+
+            var (groups, errors) = SkillDiscovery.GroupSkillsByPlugin(skills);
+            Assert.Empty(errors);
+            Assert.Single(groups);
+            var (plugin, grouped) = groups.Values.First();
+            Assert.Equal(2, grouped.Count);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
+
+    [Fact]
+    public void ReportsErrorForStandaloneSkill()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"group-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tmpDir);
+        try
+        {
+            // No plugin.json in parents
+            var skill = new SkillInfo("orphan", "O", tmpDir, Path.Combine(tmpDir, "SKILL.md"), "# O", null, null, null);
+            var (groups, errors) = SkillDiscovery.GroupSkillsByPlugin([skill]);
+            Assert.Empty(groups);
+            Assert.Single(errors);
+            Assert.Contains("orphan", errors[0]);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
+
+    [Fact]
+    public void FindPluginContextReturnsNullWithoutPluginJson()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"ctx-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tmpDir);
+        try
+        {
+            var skill = new SkillInfo("test", "T", tmpDir, Path.Combine(tmpDir, "SKILL.md"), "# T", null, null, null);
+            var result = SkillDiscovery.FindPluginContext(skill);
+            Assert.Null(result);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
+
+    [Fact]
+    public void FindPluginContextReturnsPluginInfo()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"ctx-test-{Guid.NewGuid():N}");
+        var pluginDir = Path.Combine(tmpDir, "my-plugin");
+        var skillDir = Path.Combine(pluginDir, "skills", "test-skill");
+        Directory.CreateDirectory(skillDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(pluginDir, "plugin.json"), """{ "name": "my-plugin" }""");
+            var skill = new SkillInfo("test-skill", "T", skillDir, Path.Combine(skillDir, "SKILL.md"), "# T", null, null, null);
+            var result = SkillDiscovery.FindPluginContext(skill);
+            Assert.NotNull(result);
+            Assert.Equal(pluginDir, result!.Value.PluginRoot);
         }
         finally
         {

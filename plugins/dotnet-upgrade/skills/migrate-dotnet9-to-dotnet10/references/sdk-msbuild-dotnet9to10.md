@@ -15,7 +15,7 @@ Every `<PackageReference>` must now have a `Version` attribute or use Central Pa
 ### Other source-incompatible changes
 
 - `dnx.ps1` file removed from .NET SDK — remove any references
-- File-level directives (`#r`, `#load`) no longer accept double-quoted paths — use single quotes
+- File-level directives (`#r`, `#load`) no longer accept double-quoted paths — remove the quotes (e.g., `#r MyLib.dll` instead of `#r "MyLib.dll"`)
 - `project.json` no longer recognized by `dotnet restore` — use `PackageReference` format
 - NuGet packages with no runtime assets excluded from `deps.json`
 - `ToolCommandName` not set for non-tool packages

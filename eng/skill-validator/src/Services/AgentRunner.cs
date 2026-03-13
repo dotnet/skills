@@ -14,46 +14,65 @@ public sealed record RunOptions(
     string? EvalPath,
     string Model,
     bool Verbose,
+    string? PluginRoot = null,
     Action<string>? Log = null,
     IReadOnlyList<SkillInfo>? AdditionalSkills = null);
 
 public static class AgentRunner
 {
-    private static CopilotClient? _sharedClient;
+    private static readonly ConcurrentDictionary<string, CopilotClient> _pluginClients = new(StringComparer.OrdinalIgnoreCase);
     private static readonly SemaphoreSlim _clientLock = new(1, 1);
     private static readonly ConcurrentBag<string> _workDirs = [];
+    private static string? _capturedGitHubToken;
+    private static bool _tokenCaptured;
 
     /// <summary>
-    /// Returns the shared <see cref="CopilotClient"/>, creating it on first call.
-    /// Must be called before executing any untrusted workloads (eval scenarios,
-    /// setup commands).
+    /// Capture GITHUB_TOKEN once at startup so multiple clients can share it
+    /// and the env var is cleared from child processes.
     /// </summary>
-    public static async Task<CopilotClient> GetSharedClient(bool verbose)
+    public static void CaptureGitHubToken()
     {
-        if (_sharedClient is not null) return _sharedClient;
+        if (_tokenCaptured) return;
+        _capturedGitHubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+        if (!string.IsNullOrEmpty(_capturedGitHubToken))
+            Environment.SetEnvironmentVariable("GITHUB_TOKEN", null);
+        _tokenCaptured = true;
+    }
+
+    /// <summary>
+    /// Returns a shared CopilotClient, keyed by plugin root for future
+    /// per-plugin configuration. Currently all clients share the same
+    /// options because --plugin-dir is NOT honored by the SDK; plugin
+    /// skills are loaded via SkillDirectories in BuildSessionConfig.
+    /// </summary>
+    public static async Task<CopilotClient> GetPluginClient(
+        string? pluginRoot, bool verbose)
+    {
+        var key = pluginRoot ?? "";
+
+        if (_pluginClients.TryGetValue(key, out var existing))
+            return existing;
 
         await _clientLock.WaitAsync();
         try
         {
-            if (_sharedClient is not null) return _sharedClient;
+            if (_pluginClients.TryGetValue(key, out existing))
+                return existing;
+
+            CaptureGitHubToken();
 
             var options = new CopilotClientOptions
             {
                 LogLevel = verbose ? "info" : "none",
             };
 
-            var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
-            if (!string.IsNullOrEmpty(githubToken))
-            {
-                options.GitHubToken = githubToken;
-                // Clear the token from the environment so child processes
-                // (e.g. LLM-generated code, eval shell commands) cannot read it.
-                Environment.SetEnvironmentVariable("GITHUB_TOKEN", null);
-            }
+            if (!string.IsNullOrEmpty(_capturedGitHubToken))
+                options.GitHubToken = _capturedGitHubToken;
 
-            _sharedClient = new CopilotClient(options);
-            await _sharedClient.StartAsync();
-            return _sharedClient;
+            var client = new CopilotClient(options);
+            await client.StartAsync();
+            _pluginClients[key] = client;
+            return client;
         }
         finally
         {
@@ -61,14 +80,26 @@ public static class AgentRunner
         }
     }
 
-    public static async Task StopSharedClient()
+    /// <summary>
+    /// Backward-compatible alias — returns the no-plugin client.
+    /// Used by judge sessions that don't need plugin loading.
+    /// </summary>
+    public static Task<CopilotClient> GetSharedClient(bool verbose)
+        => GetPluginClient(null, verbose);
+
+    /// <summary>Stop all plugin clients (including the no-plugin client).</summary>
+    public static async Task StopAllClients()
     {
-        if (_sharedClient is not null)
+        foreach (var (key, client) in _pluginClients)
         {
-            await _sharedClient.StopAsync();
-            _sharedClient = null;
+            try { await client.StopAsync(); }
+            catch (Exception ex) { Console.Error.WriteLine($"Warning: failed to stop client '{key}': {ex.Message}"); }
         }
+        _pluginClients.Clear();
     }
+
+    /// <summary>Backward-compatible alias.</summary>
+    public static Task StopSharedClient() => StopAllClients();
 
     /// <summary>Remove all temporary working directories created during runs.</summary>
     public static Task CleanupWorkDirs()
@@ -82,32 +113,100 @@ public static class AgentRunner
         }));
     }
 
-    public static bool CheckPermission(PermissionRequest request, string workDir, string? skillPath)
+    public static bool CheckPermission(PermissionRequest request, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
     {
         string? reqPath = null;
         if (request.ExtensionData is { } data)
         {
             if (data.TryGetValue("path", out var pathVal) && pathVal is JsonElement pathEl && pathEl.ValueKind == JsonValueKind.String)
                 reqPath = pathEl.GetString() ?? "";
-            else if (data.TryGetValue("command", out var cmdVal) && cmdVal is JsonElement cmdEl && cmdEl.ValueKind == JsonValueKind.String)
+            else if (data.TryGetValue("fileName", out var fileVal) && fileVal is JsonElement fileEl && fileEl.ValueKind == JsonValueKind.String)
+                reqPath = fileEl.GetString() ?? "";
+            else if (data.TryGetValue("fullCommandText", out var cmdVal) && cmdVal is JsonElement cmdEl && cmdEl.ValueKind == JsonValueKind.String)
                 reqPath = cmdEl.GetString() ?? "";
         }
 
-        if (string.IsNullOrEmpty(reqPath)) return true;
+        var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
 
-        var resolved = Path.GetFullPath(reqPath);
+        // Allow-by-default: if no path/fileName/fullCommandText can be extracted, allow the request.
+        // The above fields cover file system access and are best effort.
+        // Deny-by-default isn't feasible as we would need to whitelist all kinds of tool calls.
+        if (string.IsNullOrEmpty(reqPath))
+        {
+            log?.Invoke($"      Allowing permission request with no path/command json entry{labelSuffix}: "
+                + string.Join(", ", request.ExtensionData?.Select(kv => $"{kv.Key}={kv.Value}") ?? []));
+            return true;
+        }
+
+        if (!Path.EndsInDirectorySeparator(workDir))
+            workDir += Path.DirectorySeparatorChar;
+
+        // All relative paths are resolved against the workDir, which is the SDK's current
+        // working directory for the session.
+        string resolved = Path.GetFullPath(reqPath, workDir);
+        if (!Path.EndsInDirectorySeparator(resolved))
+            resolved += Path.DirectorySeparatorChar;
+
         var allowedDirs = new List<string> { Path.GetFullPath(workDir) };
-        if (skillPath is not null) allowedDirs.Add(Path.GetFullPath(skillPath));
+        if (skillPath is not null)
+        {
+            string skillsPathAbsolute = Path.GetFullPath(skillPath);
+            if (!Path.EndsInDirectorySeparator(skillsPathAbsolute))
+                skillsPathAbsolute = skillsPathAbsolute + Path.DirectorySeparatorChar;
 
-        return allowedDirs.Any(dir =>
-            resolved.Equals(dir, StringComparison.OrdinalIgnoreCase) ||
-            resolved.StartsWith(dir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+            allowedDirs.Add(skillsPathAbsolute);
+        }
+        if (pluginRoot is not null)
+        {
+            string pluginRootAbsolute = Path.GetFullPath(pluginRoot);
+            if (!Path.EndsInDirectorySeparator(pluginRootAbsolute))
+                pluginRootAbsolute = pluginRootAbsolute + Path.DirectorySeparatorChar;
+
+            allowedDirs.Add(pluginRootAbsolute);
+        }
+
+        if (additionalAllowedDirs is not null)
+        {
+            foreach (var dir in additionalAllowedDirs)
+            {
+                string abs = Path.GetFullPath(dir);
+                if (!Path.EndsInDirectorySeparator(abs))
+                    abs += Path.DirectorySeparatorChar;
+                allowedDirs.Add(abs);
+            }
+        }
+
+        // Use case-sensitive comparison on Linux/macOS, case-insensitive on Windows.
+        var comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        bool anyAllowed = allowedDirs.Any(dir =>
+        {
+            string normalizedDir = Path.EndsInDirectorySeparator(dir)
+                ? dir
+                : dir + Path.DirectorySeparatorChar;
+            return resolved.Equals(normalizedDir, comparison) ||
+                   resolved.StartsWith(normalizedDir, comparison);
+        });
+
+        if (!anyAllowed)
+        {
+            log?.Invoke($"      ❌ Denying permission request for path/command{labelSuffix}: {resolved} (allowed: {string.Join(", ", allowedDirs)})");
+        }
+
+        return anyAllowed;
     }
 
     internal static SessionConfig BuildSessionConfig(
-        SkillInfo? skill, string model, string workDir,
+        SkillInfo? skill,
+        string? pluginRoot,
+        string model,
+        string workDir,
         IReadOnlyDictionary<string, MCPServerDef>? mcpServers = null,
-        IReadOnlyList<SkillInfo>? additionalSkills = null)
+        IReadOnlyList<SkillInfo>? additionalSkills = null,
+        Action<string>? log = null,
+        bool verbose = false)
     {
         // The SDK expects SkillDirectories entries to be parent directories that
         // it scans for child folders containing SKILL.md.
@@ -117,13 +216,14 @@ public static class AgentRunner
         var configDir = Path.Combine(Path.GetTempPath(), $"sv-cfg-{Guid.NewGuid():N}");
         Directory.CreateDirectory(configDir);
         _workDirs.Add(configDir);
+        if (verbose)
+            log?.Invoke($"      📂 Config dir: {configDir} ({(skill is not null ? "skilled" : "baseline")})");
 
-        // Build skill directories list: primary skill + any additional skills.
+        // Build additional noise skill directories when noise testing is active.
         // For additional skills we stage a temp directory with copies of each
         // skill's SKILL.md so the SDK discovers exactly those skills — not
         // every sibling that happens to share the same parent directory.
-        var skillDirs = new List<string>();
-        if (skillPath is not null) skillDirs.Add(skillPath);
+        var noiseDirs = new List<string>();
         if (additionalSkills is { Count: > 0 })
         {
             var stageDir = Path.Combine(Path.GetTempPath(), $"sv-noise-{Guid.NewGuid():N}");
@@ -141,27 +241,84 @@ public static class AgentRunner
                 File.Copy(skillMdPath, Path.Combine(stagedSkillDir, "SKILL.md"));
             }
 
-            skillDirs.Add(stageDir);
+            noiseDirs.Add(stageDir);
         }
 
         // Convert MCPServerDef records to the SDK's Dictionary<string, object> shape
+        // Security hardening: validate commands, sanitize args/env, drop custom cwd.
         Dictionary<string, object>? sdkMcp = null;
         if (mcpServers is { Count: > 0 })
         {
             sdkMcp = new Dictionary<string, object>();
             foreach (var (name, def) in mcpServers)
             {
+                if (!IsAllowedMcpCommand(def.Command))
+                {
+                    Console.Error.WriteLine(
+                        $"Skipping MCP server '{name}': command '{def.Command}' is not in the allowlist");
+                    continue;
+                }
+
+                var sanitizedArgs = SanitizeMcpArgs(def.Command, def.Args);
+                if (sanitizedArgs is null)
+                {
+                    Console.Error.WriteLine(
+                        $"Skipping MCP server '{name}': args contain dangerous eval/exec flags");
+                    continue;
+                }
+
                 var entry = new Dictionary<string, object>
                 {
                     ["type"] = def.Type ?? "stdio",
                     ["command"] = def.Command,
-                    ["args"] = def.Args,
+                    ["args"] = sanitizedArgs,
                     ["tools"] = def.Tools ?? ["*"],
                 };
-                if (def.Env is not null) entry["env"] = def.Env;
-                if (def.Cwd is not null) entry["cwd"] = def.Cwd;
+
+                // Sanitize env: strip dangerous keys that could hijack the process.
+                var sanitizedEnv = SanitizeMcpEnv(def.Env);
+                if (sanitizedEnv is not null) entry["env"] = sanitizedEnv;
+
+                // Drop custom cwd — MCP servers run in workDir, not attacker-chosen dirs.
                 sdkMcp[name] = entry;
             }
+
+            // If all servers were filtered out, treat as no MCP servers
+            if (sdkMcp.Count == 0) sdkMcp = null;
+        }
+
+        // Three run types:
+        // 1. Baseline (skill == null, pluginRoot == null): no skills, no MCP.
+        // 2. Skilled-isolated (skill != null, pluginRoot == null): ONLY the target skill
+        //    is loaded — we stage it into a temp directory so the SDK doesn't
+        //    discover sibling skills from the same parent.
+        // 3. Skilled-plugin (skill != null, pluginRoot != null): entire plugin loaded
+        //    via SkillDirectories (--plugin-dir is NOT honored by SDK).
+        //
+        // For skilled-plugin, we enumerate all skill directories from plugin.json
+        // so that all sibling skills are loaded, matching production behavior.
+        string[] skillDirs;
+        if (pluginRoot is not null)
+        {
+            skillDirs = ResolvePluginSkillDirectories(pluginRoot);
+        }
+        else if (skill is not null)
+        {
+            // Stage the single skill into a temp directory so the SDK discovers
+            // only this skill — not every sibling that shares the same parent.
+            var isoStageDir = Path.Combine(Path.GetTempPath(), $"sv-iso-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(isoStageDir);
+            _workDirs.Add(isoStageDir);
+
+            var stagedSkillDir = Path.Combine(isoStageDir, Path.GetFileName(skill.Path));
+            Directory.CreateDirectory(stagedSkillDir);
+            File.WriteAllText(Path.Combine(stagedSkillDir, "SKILL.md"), skill.SkillMdContent);
+
+            skillDirs = [isoStageDir];
+        }
+        else
+        {
+            skillDirs = [];
         }
 
         return new SessionConfig
@@ -169,13 +326,14 @@ public static class AgentRunner
             Model = model,
             Streaming = true,
             WorkingDirectory = workDir,
-            SkillDirectories = skillDirs,
+            SkillDirectories = [..skillDirs, ..noiseDirs],
             ConfigDir = configDir,
             McpServers = sdkMcp,
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
             OnPermissionRequest = (request, _) =>
             {
-                var result = CheckPermission(request, workDir, skillPath);
+                var runLabel = skill is not null ? "skilled" : "baseline";
+                var result = CheckPermission(request, workDir, skillPath, verbose ? log : null, runLabel, pluginRoot);
                 return Task.FromResult(new PermissionRequestResult
                 {
                     Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,
@@ -184,11 +342,44 @@ public static class AgentRunner
         };
     }
 
+    /// <summary>
+    /// Resolves the skill directories for a plugin by reading its plugin.json
+    /// and returning the resolved skills path. The SDK scans this directory
+    /// for subdirectories containing SKILL.md files.
+    /// </summary>
+    internal static string[] ResolvePluginSkillDirectories(string pluginRoot)
+    {
+        var pluginJsonPath = Path.Combine(pluginRoot, "plugin.json");
+        PluginInfo? pluginInfo;
+        try
+        {
+            pluginInfo = PluginValidator.ParsePluginJson(pluginJsonPath);
+        }
+        catch (JsonException)
+        {
+            // Malformed plugin.json — return empty so the session is created
+            // without extra skill directories; validation surfaces the real error.
+            return [];
+        }
+        if (pluginInfo?.SkillsPath is null) return [];
+
+        if (!PluginValidator.TryGetSafeSubdirectory(
+                pluginRoot, pluginInfo.SkillsPath, out var skillsDir, out _))
+            return [];
+
+        if (!Directory.Exists(skillsDir!)) return [];
+
+        return [skillsDir!];
+    }
+
     public static async Task<RunMetrics> RunAgent(RunOptions options)
     {
+        var runType = options.Skill is null ? "baseline"
+            : options.PluginRoot is not null ? "skilled-plugin"
+            : "skilled-isolated";
         return await RetryHelper.ExecuteWithRetry(
             async ct => await RunAgentCore(options, ct),
-            label: $"RunAgent({options.Scenario.Name}, {(options.Skill is not null ? "skilled" : "baseline")})",
+            label: $"RunAgent({options.Scenario.Name}, {runType})",
             maxRetries: 2,
             baseDelayMs: 5_000,
             totalTimeoutMs: (options.Scenario.Timeout + 60) * 1000);
@@ -210,10 +401,12 @@ public static class AgentRunner
 
         try
         {
-            var client = await GetSharedClient(options.Verbose);
+            // All runs use the same client — plugin skills are loaded manually
+            // via SkillDirectories (--plugin-dir is not honored by SDK).
+            var client = await GetPluginClient(options.PluginRoot, options.Verbose);
 
             await using var session = await client.CreateSessionAsync(
-                BuildSessionConfig(options.Skill, options.Model, workDir, options.Skill?.McpServers, options.AdditionalSkills));
+                BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.Skill?.McpServers, options.AdditionalSkills, options.Log, options.Verbose));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
@@ -365,10 +558,27 @@ public static class AgentRunner
         // Explicit setup files override/supplement auto-copied files
         if (scenario.Setup?.Files is { } files)
         {
+            var canonicalWorkDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(workDir));
+            var pathComparison = OperatingSystem.IsWindows()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+
             foreach (var file in files)
             {
-                var targetPath = Path.Combine(workDir, file.Path);
-                Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+                var targetPath = Path.GetFullPath(Path.Combine(workDir, file.Path));
+                // Prevent path traversal: target must stay inside workDir
+                if (!targetPath.StartsWith(canonicalWorkDir + Path.DirectorySeparatorChar, pathComparison)
+                    && !targetPath.Equals(canonicalWorkDir, pathComparison))
+                {
+                    Console.Error.WriteLine($"Setup file target escapes work directory, skipping: {file.Path}");
+                    continue;
+                }
+
+                var targetDir = Path.GetDirectoryName(targetPath);
+                if (!string.IsNullOrEmpty(targetDir))
+                {
+                    Directory.CreateDirectory(targetDir);
+                }
 
                 if (file.Content is not null)
                 {
@@ -376,7 +586,15 @@ public static class AgentRunner
                 }
                 else if (file.Source is not null && skillPath is not null)
                 {
-                    var sourcePath = Path.Combine(skillPath, file.Source);
+                    var canonicalSkillPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(skillPath));
+                    var sourcePath = Path.GetFullPath(Path.Combine(skillPath, file.Source));
+                    // Prevent path traversal: source must stay inside skillPath
+                    if (!sourcePath.StartsWith(canonicalSkillPath + Path.DirectorySeparatorChar, pathComparison)
+                        && !sourcePath.Equals(canonicalSkillPath, pathComparison))
+                    {
+                        Console.Error.WriteLine($"Setup file source escapes skill directory, skipping: {file.Source}");
+                        continue;
+                    }
                     File.Copy(sourcePath, targetPath, true);
                 }
             }
@@ -398,22 +616,174 @@ public static class AgentRunner
                         RedirectStandardError = true,
                         UseShellExecute = false,
                     };
+
+                    // Scrub sensitive environment variables from child processes.
+                    // ProcessStartInfo.Environment is pre-populated with the current
+                    // process's environment on first access; removing keys prevents
+                    // them from being inherited by the child.
+                    ScrubSensitiveEnvironment(psi);
+
                     using var proc = Process.Start(psi);
                     if (proc is not null)
                     {
                         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
-                        await proc.WaitForExitAsync(cts.Token);
+                        try
+                        {
+                            await proc.WaitForExitAsync(cts.Token);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // Process timed out — kill the orphan
+                            try { proc.Kill(true); } catch { }
+                            Console.Error.WriteLine($"Setup command timed out and was killed");
+                        }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
                     // Setup commands may return non-zero exit codes
                     // (e.g. building a broken project to produce a binlog)
+                    Console.Error.WriteLine($"Setup command failed: {ex.GetType().Name}: {ex.Message}");
                 }
             }
         }
 
         return workDir;
+    }
+
+    // --- Security: environment scrubbing for child processes ---
+
+    private static readonly string[] SensitiveEnvKeys =
+    [
+        "GITHUB_TOKEN",
+        "ACTIONS_RUNTIME_TOKEN",
+        "ACTIONS_ID_TOKEN_REQUEST_URL",
+        "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+        "ACTIONS_CACHE_URL",
+        "ACTIONS_RESULTS_URL",
+        "GITHUB_STEP_SUMMARY",
+        "GITHUB_OUTPUT",
+        "GITHUB_ENV",
+        "GITHUB_PATH",
+        "GITHUB_STATE",
+        "NODE_AUTH_TOKEN",
+        "NPM_TOKEN",
+        "NUGET_API_KEY",
+    ];
+
+    private static readonly string[] SensitiveEnvPrefixes =
+    [
+        "COPILOT_",
+        "GH_AW_",
+    ];
+
+    internal static void ScrubSensitiveEnvironment(ProcessStartInfo psi)
+    {
+        foreach (var key in SensitiveEnvKeys)
+        {
+            psi.Environment.Remove(key);
+        }
+
+        var prefixedKeys = psi.Environment.Keys
+            .Where(k => SensitiveEnvPrefixes.Any(p =>
+                k.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        foreach (var key in prefixedKeys)
+        {
+            psi.Environment.Remove(key);
+        }
+    }
+
+    // --- Security: MCP server command allowlist ---
+
+    private static readonly HashSet<string> AllowedMcpCommands = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "dotnet", "dnx", "node", "npx", "python", "python3", "uvx",
+    };
+
+    internal static bool IsAllowedMcpCommand(string command)
+    {
+        // Only allow bare command names (resolved via PATH), not paths.
+        if (command.Contains(Path.DirectorySeparatorChar) ||
+            command.Contains(Path.AltDirectorySeparatorChar) ||
+            command.Contains(".."))
+        {
+            return false;
+        }
+
+        var fileName = Path.GetFileName(command);
+        // On Windows, also allow the .exe extension (e.g., "dotnet.exe").
+        if (OperatingSystem.IsWindows() &&
+            fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            fileName = Path.GetFileNameWithoutExtension(fileName);
+        }
+        return AllowedMcpCommands.Contains(fileName);
+    }
+
+    // Dangerous env var keys that could hijack MCP server processes.
+    private static readonly HashSet<string> DangerousMcpEnvKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "PATH", "LD_PRELOAD", "LD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES",
+        "DYLD_LIBRARY_PATH", "NODE_OPTIONS", "PYTHONSTARTUP", "PYTHONPATH",
+        "PERL5OPT", "RUBYOPT", "JAVA_TOOL_OPTIONS", "DOTNET_STARTUP_HOOKS",
+        "COMSPEC", "ComSpec",
+    };
+
+    internal static Dictionary<string, string>? SanitizeMcpEnv(
+        Dictionary<string, string>? env)
+    {
+        if (env is null or { Count: 0 }) return null;
+
+        var sanitized = new Dictionary<string, string>(env.Count);
+        foreach (var (key, value) in env)
+        {
+            if (DangerousMcpEnvKeys.Contains(key))
+            {
+                Console.Error.WriteLine(
+                    $"Stripping dangerous env var '{key}' from MCP server definition");
+                continue;
+            }
+            sanitized[key] = value;
+        }
+
+        return sanitized.Count > 0 ? sanitized : null;
+    }
+
+    // Per-runtime dangerous arg patterns that enable arbitrary code execution.
+    private static readonly Dictionary<string, HashSet<string>> DangerousMcpArgs =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["node"] = new(StringComparer.Ordinal) { "-e", "--eval", "-p", "--print", "--input-type" },
+            ["python"] = new(StringComparer.Ordinal) { "-c", "-m" },
+            ["python3"] = new(StringComparer.Ordinal) { "-c", "-m" },
+            ["npx"] = new(StringComparer.Ordinal) { "-y", "--yes" },
+            ["uvx"] = new(StringComparer.Ordinal) { "--from" },
+        };
+
+    internal static string[]? SanitizeMcpArgs(string command, string[] args)
+    {
+        var cmdName = Path.GetFileNameWithoutExtension(command);
+        if (!DangerousMcpArgs.TryGetValue(cmdName, out var blocked))
+            return args;
+
+        foreach (var arg in args)
+        {
+            foreach (var flag in blocked)
+            {
+                // Exact match: -e, --eval
+                if (arg.Equals(flag, StringComparison.Ordinal))
+                    return null;
+                // Combined form: -econsole.log(1), --eval=...
+                if (flag.StartsWith("--") && arg.StartsWith(flag + "=", StringComparison.Ordinal))
+                    return null;
+                if (flag.StartsWith("-") && !flag.StartsWith("--") && arg.StartsWith(flag, StringComparison.Ordinal) && arg.Length > flag.Length)
+                    return null;
+            }
+        }
+
+        return args;
     }
 
     private static void CopyDirectory(string source, string destination)

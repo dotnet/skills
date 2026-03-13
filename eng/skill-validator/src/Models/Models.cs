@@ -92,7 +92,8 @@ public sealed record AgentInfo(
     string Description,
     string Path,
     string AgentMdContent,
-    string FileName);
+    string FileName,
+    IReadOnlyList<string>? Tools = null);
 
 public sealed record AgentProfile(
     string Name,
@@ -230,15 +231,29 @@ public sealed class ScenarioComparison
 {
     public required string ScenarioName { get; init; }
     public required RunResult Baseline { get; init; }
-    public required RunResult WithSkill { get; init; }
+    public RunResult SkilledIsolated { get; init; } = null!;
+    public RunResult? SkilledPlugin { get; init; }
     public required double ImprovementScore { get; init; }
+    public double IsolatedImprovementScore { get; init; }
+    public double PluginImprovementScore { get; init; }
     public required MetricBreakdown Breakdown { get; init; }
+    public MetricBreakdown? IsolatedBreakdown { get; init; }
+    public MetricBreakdown? PluginBreakdown { get; init; }
     public PairwiseJudgeResult? PairwiseResult { get; init; }
     public IReadOnlyList<double>? PerRunScores { get; set; }
-    public SkillActivationInfo? SkillActivation { get; set; }
+    public SkillActivationInfo? SkillActivationIsolated { get; set; }
+    public SkillActivationInfo? SkillActivationPlugin { get; set; }
     public bool TimedOut { get; set; }
     /// <summary>When false, non-activation is expected (negative test) and should not flag the verdict.</summary>
     public bool ExpectActivation { get; set; } = true;
+
+    // Backward-compatible aliases for JSON deserialization of older results files.
+    // These must be settable (init) so System.Text.Json can populate them during
+    // deserialization of legacy JSON that uses the old property names.
+    [JsonPropertyName("withSkill")]
+    public RunResult WithSkill { get => SkilledIsolated; init => SkilledIsolated = value; }
+    [JsonPropertyName("skillActivation")]
+    public SkillActivationInfo? SkillActivation { get => SkillActivationIsolated; init => SkillActivationIsolated = value; }
 }
 
 // --- Verdict ---
@@ -253,6 +268,8 @@ public sealed class SkillVerdict
     public double? NormalizedGain { get; init; }
     public ConfidenceInterval? ConfidenceInterval { get; init; }
     public bool? IsSignificant { get; init; }
+    public double? IsolatedScore { get; set; }
+    public double? PluginScore { get; set; }
     public required string Reason { get; set; }
     /// <summary>Categorizes why the verdict failed, if it did.</summary>
     public string? FailureKind { get; set; }

@@ -128,15 +128,15 @@ foreach ($verdict in $results.verdicts) {
         # roll-up across all scenarios and must NOT be used here — each datapoint
         # should reflect only its own scenario's activation result).
         $notActivated = $false
-        if ($scenario.skillActivation -and -not $scenario.skillActivation.activated) {
-            # Only flag as not-activated if activation was expected (expect_activation defaults to true)
-            $expectActivation = $true
-            if ($scenario.PSObject.Properties['expectActivation'] -and $scenario.expectActivation -eq $false) {
-                $expectActivation = $false
-            }
-            if ($expectActivation) {
-                $notActivated = $true
-            }
+        # Determine whether activation is expected (defaults to true)
+        $expectActivation = $true
+        if ($scenario.PSObject.Properties['expectActivation'] -and $scenario.expectActivation -eq $false) {
+            $expectActivation = $false
+        }
+        # Support both old (skillActivation) and new (skillActivationIsolated) JSON schemas
+        $sa = if ($scenario.PSObject.Properties['skillActivationIsolated']) { $scenario.skillActivationIsolated } else { $scenario.skillActivation }
+        if ($sa -and -not $sa.activated -and $expectActivation) {
+            $notActivated = $true
         }
 
         # Check per-scenario timeout state
@@ -184,12 +184,18 @@ foreach ($verdict in $results.verdicts) {
             }
         }
 
+        # Support both old (withSkill) and new (skilledIsolated) JSON schemas
+        $skilled = if ($scenario.PSObject.Properties['skilledIsolated']) { $scenario.skilledIsolated } else { $scenario.withSkill }
+
+        # Plugin run (may not exist for older results or utility methods)
+        $plugin = if ($scenario.PSObject.Properties['skilledPlugin']) { $scenario.skilledPlugin } else { $null }
+
         # Quality scores (from judge results, scale 0-5 mapped to 0-10 for dashboard)
-        if ($null -ne $scenario.withSkill.judgeResult.overallScore) {
+        if ($null -ne $skilled.judgeResult.overallScore) {
             $benchEntry = @{
                 name  = "$testName - Skilled Quality"
                 unit  = "Score (0-10)"
-                value = [float]$scenario.withSkill.judgeResult.overallScore * 2
+                value = [float]$skilled.judgeResult.overallScore * 2
             }
             if ($notActivated) {
                 $benchEntry.notActivated = $true
@@ -203,6 +209,26 @@ foreach ($verdict in $results.verdicts) {
             }
             $qualityBenches.Add($benchEntry)
         }
+        if ($null -ne $plugin -and $null -ne $plugin.judgeResult.overallScore) {
+            $pluginBenchEntry = @{
+                name  = "$testName - Plugin Quality"
+                unit  = "Score (0-10)"
+                value = [float]$plugin.judgeResult.overallScore * 2
+            }
+            # Plugin activation check
+            $saPlugin = if ($scenario.PSObject.Properties['skillActivationPlugin']) { $scenario.skillActivationPlugin } else { $null }
+            if ($saPlugin -and -not $saPlugin.activated -and $expectActivation) {
+                $pluginBenchEntry.notActivated = $true
+            }
+            if ($scenarioTimedOut) {
+                $pluginBenchEntry.timedOut = $true
+            }
+            if ($overfittingSeverity) {
+                $pluginBenchEntry.overfitting = $overfittingSeverity
+                $pluginBenchEntry.overfittingScore = $overfittingScore
+            }
+            $qualityBenches.Add($pluginBenchEntry)
+        }
         if ($null -ne $scenario.baseline.judgeResult.overallScore) {
             $qualityBenches.Add(@{
                 name  = "$testName - Vanilla Quality"
@@ -211,12 +237,12 @@ foreach ($verdict in $results.verdicts) {
             })
         }
 
-        # Efficiency metrics (from with-skill run)
-        if ($null -ne $scenario.withSkill.metrics.wallTimeMs) {
+        # Efficiency metrics (from with-skill isolated run)
+        if ($null -ne $skilled.metrics.wallTimeMs) {
             $effBenchEntry = @{
                 name  = "$testName - Skilled Time"
                 unit  = "seconds"
-                value = [math]::Round([float]$scenario.withSkill.metrics.wallTimeMs / 1000, 1)
+                value = [math]::Round([float]$skilled.metrics.wallTimeMs / 1000, 1)
             }
             if ($notActivated) {
                 $effBenchEntry.notActivated = $true
@@ -230,11 +256,11 @@ foreach ($verdict in $results.verdicts) {
             }
             $efficiencyBenches.Add($effBenchEntry)
         }
-        if ($null -ne $scenario.withSkill.metrics.tokenEstimate) {
+        if ($null -ne $skilled.metrics.tokenEstimate) {
             $tokenBenchEntry = @{
                 name  = "$testName - Skilled Tokens In"
                 unit  = "tokens"
-                value = [float]$scenario.withSkill.metrics.tokenEstimate
+                value = [float]$skilled.metrics.tokenEstimate
             }
             if ($notActivated) {
                 $tokenBenchEntry.notActivated = $true
@@ -247,6 +273,50 @@ foreach ($verdict in $results.verdicts) {
                 $tokenBenchEntry.overfittingScore = $overfittingScore
             }
             $efficiencyBenches.Add($tokenBenchEntry)
+        }
+
+        # Efficiency metrics (from plugin run, if exists)
+        # Compute plugin-specific notActivated signal for efficiency benches
+        $pluginNotActivated = $false
+        $saPlugin = if ($scenario.PSObject.Properties['skillActivationPlugin']) { $scenario.skillActivationPlugin } else { $null }
+        if ($saPlugin -and -not $saPlugin.activated -and $expectActivation) {
+            $pluginNotActivated = $true
+        }
+        if ($null -ne $plugin -and $null -ne $plugin.metrics.wallTimeMs) {
+            $pluginTimeBench = @{
+                name  = "$testName - Plugin Time"
+                unit  = "seconds"
+                value = [math]::Round([float]$plugin.metrics.wallTimeMs / 1000, 1)
+            }
+            if ($pluginNotActivated) {
+                $pluginTimeBench.notActivated = $true
+            }
+            if ($scenarioTimedOut) {
+                $pluginTimeBench.timedOut = $true
+            }
+            if ($overfittingSeverity) {
+                $pluginTimeBench.overfitting = $overfittingSeverity
+                $pluginTimeBench.overfittingScore = $overfittingScore
+            }
+            $efficiencyBenches.Add($pluginTimeBench)
+        }
+        if ($null -ne $plugin -and $null -ne $plugin.metrics.tokenEstimate) {
+            $pluginTokenBench = @{
+                name  = "$testName - Plugin Tokens In"
+                unit  = "tokens"
+                value = [float]$plugin.metrics.tokenEstimate
+            }
+            if ($pluginNotActivated) {
+                $pluginTokenBench.notActivated = $true
+            }
+            if ($scenarioTimedOut) {
+                $pluginTokenBench.timedOut = $true
+            }
+            if ($overfittingSeverity) {
+                $pluginTokenBench.overfitting = $overfittingSeverity
+                $pluginTokenBench.overfittingScore = $overfittingScore
+            }
+            $efficiencyBenches.Add($pluginTokenBench)
         }
     }
 }
