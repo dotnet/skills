@@ -2,7 +2,7 @@
 
 ## Session: 2025-07-24 — macOS .NET 10.0.4 crash (dotnet/runtime#125513)
 
-**Crash:** `dotnet` process on macOS 15.7.4 ARM64, EXC_BAD_ACCESS/SIGSEGV in libcoreclr.dylib, .NET 10.0.4. GC-vs-thread-startup race in `CallDescrWorkerInternal`. 41 threads, 391 .NET frames.
+**Crash:** `dotnet` process on macOS 15.7.4 ARM64, EXC_BAD_ACCESS/SIGSEGV in libcoreclr.dylib, .NET 10.0.4. NULL signal handler (`_sigtramp → 0x0`) during thread startup in `CallDescrWorkerInternal` — caused by PAL signal handler regression in PR #124308, fixed in .NET 10.0.5 OOB release. 41 threads, 391 .NET frames. (Original analysis incorrectly attributed to GC-vs-thread-startup race; corrected in session 2026-03-13.)
 
 ### Issues Found
 
@@ -148,3 +148,30 @@ End-to-end test with `~/dev/dotnet-2026-03-12-081456.ips`: script automatically 
 ### Rationale
 
 Mirrors the android tombstone skill's `Get-DebugSymbols` pattern — direct HTTP to symbol server using the binary's unique ID, no external tool dependencies. The skill now achieves fully automated symbolication for any published .NET runtime release without requiring `dotnet-symbol`, NuGet packages, or user intervention.
+
+---
+
+## Session: 2026-03-13 — Crash analysis triage order
+
+**Problem:** In an earlier session symbolicating [dotnet/runtime#125513](https://github.com/dotnet/runtime/issues/125513), the skill produced correct symbolication across all 41 threads but the subsequent analysis reached the wrong root cause. The analysis focused on cross-thread GC state (neighboring TP Worker threads blocked in `gc_heap::try_allocate_more_space`) and concluded it was a GC-vs-thread-startup race. The actual cause was `_sigtramp` jumping to address `0x0` (NULL signal handler) — visible in frames #0–#1 of the crashing thread but never examined first.
+
+A second session with a clean context path (skill loaded, symbols auto-downloaded, crashing thread only) correctly identified the `_sigtramp → NULL` pattern and matched it to [dotnet/runtime#125484](https://github.com/dotnet/runtime/issues/125484) — PAL signal handlers reset to NULL under debugger launch on macOS, fixed in the .NET 10.0.5 OOB release.
+
+### Root cause of misdiagnosis
+
+1. **No triage order guidance.** Step 3 listed what to check (asi, version, unsymbolicated frames) but not the order in which to analyze a symbolicated crash. The agent examined cross-thread context before understanding the faulting mechanism.
+2. **Context exhaustion.** The earlier session spent most turns fixing tooling issues (skill discovery, symbol formats, script bugs). By the time analysis began, reasoning quality had degraded.
+
+### Change
+
+Added triage order guidance to Step 3: "Start with the faulting mechanism — explain what frames #0 and #1 on the crashing thread mean before examining other threads. Cross-thread context is useful for validation but is not evidence of causation."
+
+### Rationale
+
+This is a behavioral nudge, not a crash-pattern catalog. The skill shouldn't try to enumerate every known crash signature (e.g., `_sigtramp → NULL`). Instead, it should enforce the discipline of examining the faulting mechanism first, which would have led to the correct diagnosis regardless of the specific pattern.
+
+### Key Learnings
+
+- Tooling friction in a session degrades downstream analysis quality. The automated symbol download added in Session 5 directly enabled the second session's clean path to the correct answer.
+- Full-thread symbolication is valuable but creates a risk of correlation-not-causation errors if the agent doesn't have clear triage order guidance.
+- The retrospective is documented at: [dotnet/runtime#125513 correction comment](https://github.com/dotnet/runtime/issues/125513#issuecomment-4054254202).

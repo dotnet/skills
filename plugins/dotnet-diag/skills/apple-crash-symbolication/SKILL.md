@@ -47,7 +47,9 @@ The script requires `.ips` JSON format (iOS 15+ / macOS 12+). Legacy `.crash` te
 
 ### Step 3: Interpret Results
 
-The script outputs a symbolicated backtrace with function names and source locations. Check the output for:
+The script outputs a symbolicated backtrace with function names and source locations. **Start with the faulting mechanism** — explain what frames #0 and #1 on the crashing thread mean before examining other threads. Cross-thread context (e.g., GC state, thread pool activity) is useful for validation but is not evidence of causation.
+
+Check the output for:
 
 - **`asi` (Application Specific Information)**: Often contains the managed exception message (e.g., `XamlParseException`). The root cause may already be visible here — check before diving into frames.
 - **Runtime version**: The script identifies the .NET version and source commit from `.nuspec` metadata. Use the commit link to browse runtime source at the exact revision.
