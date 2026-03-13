@@ -89,7 +89,7 @@ cp libcoreclr.dylib.dwarf libcoreclr.dylib.dSYM/Contents/Resources/DWARF/libcore
 
 The flat `.dwarf` is the same Mach-O DWARF format that lives inside the bundle — the conversion is purely structural (mkdir + cp).
 
-> **Symbol server note:** The Microsoft symbol server (`msdl.microsoft.com/download/symbols`) and the `dotnet-symbol` tool do **not** serve macOS Mach-O symbols. They only provide Windows PDBs and Linux ELF debug info. NuGet packages are the only public distribution channel for macOS .NET debug symbols.
+> **`dotnet-symbol` alternative:** If you have the runtime binary locally (e.g., from the main NuGet runtime package), `dotnet-symbol --symbols <binary>` downloads matching `.dwarf` debug symbols from the Microsoft symbol server (`msdl.microsoft.com`). This avoids needing the separate `.symbols` NuGet package. The downloaded `.dwarf` files still require the `.dSYM` bundle conversion above.
 
 ## .ips JSON Parsing Gotchas
 

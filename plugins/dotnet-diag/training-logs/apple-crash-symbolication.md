@@ -69,3 +69,26 @@
 - Path-based version extraction is instant and eliminates the UUID-matching chicken-and-egg problem
 - Preview versions also work: `9.0.1-preview.3.24215.6` matched correctly by the regex
 - The script should guide users through the full acquisition workflow, not just report what's missing
+
+---
+
+## Session: 2025-07-24 (cont.) — Symbol server correction
+
+**Problem:** Incorrectly added anti-pattern claiming `dotnet-symbol` and the Microsoft symbol server don't serve macOS symbols. User corrected: `dotnet-symbol --symbols <binary>` **does** download `.dwarf` files for macOS .NET binaries.
+
+### Issue
+
+| # | Severity | Issue | Fix |
+|---|----------|-------|-----|
+| 1 | ❌ Critical | Added false anti-pattern: "❌ Do not use `dotnet-symbol` or the Microsoft symbol server for macOS crashes" — based on incorrect web research | Replaced with positive guidance: `dotnet-symbol --symbols <binary>` works for macOS, downloads `.dwarf` from msdl.microsoft.com |
+
+### Changes
+
+- **SKILL.md (both copies)**: Replaced ❌ anti-pattern with `dotnet-symbol` as option 4 for symbol acquisition
+- **Reference doc**: Replaced incorrect "Symbol server note" with `dotnet-symbol` alternative guidance
+
+### Key Learnings
+
+- **Verify claims empirically before adding anti-patterns.** Web search said the symbol server doesn't host macOS symbols — this was wrong. The user confirmed `dotnet-symbol` downloads `.dwarf` files for Mach-O binaries.
+- `dotnet-symbol` requires the binary first (e.g., from the main NuGet runtime package), then downloads matching debug symbols. Workflow: download NuGet runtime pkg → `dotnet-symbol --symbols <binary>` → convert `.dwarf` to `.dSYM`.
+- This is simpler than hunting for the separate `.symbols` NuGet package and should be the recommended approach.
