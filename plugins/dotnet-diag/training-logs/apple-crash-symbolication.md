@@ -31,3 +31,41 @@
 - macOS .NET symbols use a completely different distribution mechanism than iOS (separate `.symbols` NuGet package, flat `.dwarf` format)
 - Apple .ips files can have case-conflicting JSON keys — this is an Apple-side quirk, not .NET-specific
 - Users frequently want crash analysis beyond "here are the frames" — the skill should support the full triage workflow
+
+---
+
+## Session: 2025-07-24 (cont.) — Automated version extraction and symbol acquisition
+
+**Problem:** Symbol acquisition was the biggest friction point. The script knew the UUID but not the .NET version, creating a chicken-and-egg: need version to download symbols, but `Find-RuntimeVersion` needed local symbols. Users had to manually figure out the version.
+
+### Issues Found
+
+| # | Severity | Issue | Fix |
+|---|----------|-------|-----|
+| 1 | ❌ Critical | `Get-ImageTable` discarded full image paths via `GetFileName()` — version info embedded in path was lost | Added `Path` property to image table and propagated through frame objects |
+| 2 | ❌ Critical | No path-based version extraction — only UUID matching against local packs | Added `Get-RuntimeVersionFromPath` (regex on shared framework and NuGet pack paths) |
+| 3 | ⚠️ Medium | No automated symbol acquisition guidance when dSYMs missing | Script now emits exact `curl` + `unzip` + `.dwarf` → `.dSYM` conversion commands |
+| 4 | ⚠️ Medium | ParseOnly output didn't show detected .NET version | Added version tag to library listing in ParseOnly mode |
+| 5 | 💡 Low | No RID inference from crash metadata | Added `Get-RidFromPath` with fallback to OS/CPU type inference |
+
+### Script Changes
+
+- **`Get-ImageTable`**: Preserves full `ImagePath` from `usedImages[N].path` (no longer discarded)
+- **`Get-ThreadFrames`**: Propagates `ImagePath` to each frame object
+- **`Get-RuntimeVersionFromPath`**: Regex extraction from `.../shared/Microsoft.NETCore.App/<version>/...` and `.../host/fxr/<version>/...`
+- **`Get-RidFromPath`**: Extracts RID from NuGet-layout paths; falls back to OS/CPU inference from crash metadata
+- **Version identification**: Path-based extraction as fast primary method (instant), UUID matching as fallback
+- **Symbol acquisition output**: When dSYMs missing + version known → prints copy-pasteable download commands differentiated for macOS vs iOS/tvOS/MacCatalyst
+- **ParseOnly**: Now shows `.NET <version>` next to each library
+
+### SKILL.md Changes
+
+- Step 2: Documents automated version detection from crash paths and symbol acquisition command output
+- Step 4: Now mentions script-emitted acquisition commands; added full `curl`+`unzip`+conversion example
+
+### Key Learnings
+
+- .ips crash logs embed the .NET version in `usedImages[].path` — e.g., `/usr/local/share/dotnet/shared/Microsoft.NETCore.App/10.0.4/libcoreclr.dylib`
+- Path-based version extraction is instant and eliminates the UUID-matching chicken-and-egg problem
+- Preview versions also work: `9.0.1-preview.3.24215.6` matched correctly by the regex
+- The script should guide users through the full acquisition workflow, not just report what's missing

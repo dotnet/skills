@@ -35,7 +35,9 @@ If `idevicecrashreport` is unavailable, crash logs can also be found in **Xcode 
 pwsh "$SKILL_DIR/scripts/Symbolicate-Crash.ps1" -CrashFile MyApp-2026-02-25.ips
 ```
 
-**Start with `-ParseOnly`** to get a fast overview of libraries, UUIDs, and addresses without requiring `atos` or dSYMs. Present those results to the user first. Only proceed to full symbolication if `atos` is available and dSYMs are found.
+**Start with `-ParseOnly`** to get a fast overview of libraries, UUIDs, addresses, and **.NET runtime version** without requiring `atos` or dSYMs. The script extracts the version directly from image paths in the crash log (e.g., `.../Microsoft.NETCore.App/10.0.4/libcoreclr.dylib`). Present those results to the user first. Only proceed to full symbolication if `atos` is available and dSYMs are found.
+
+When dSYMs are missing but the version is known, the script emits **symbol acquisition commands** — exact `curl` + `unzip` + `.dwarf` → `.dSYM` conversion steps ready to copy-paste. Execute these to download symbols automatically.
 
 Flags: `-CrashingThreadOnly` (limit to faulting thread), `-OutputFile path` (write to file), `-ParseOnly` (report libraries/UUIDs/addresses without symbolicating), `-SkipVersionLookup` (skip runtime version identification), `-DsymSearchPaths path1,path2` (additional dSYM search directories).
 
@@ -55,16 +57,21 @@ Strip the `/__w/1/s/` CI workspace prefix from resolved paths — meaningful pat
 
 ### Step 4: Locate Missing dSYMs
 
-When the script reports missing dSYMs, help the user find them. The script already searches SDK packs and NuGet cache automatically. Additional options:
+When the script reports missing dSYMs, it also detects the .NET version from crash log image paths and **prints ready-to-run acquisition commands**. Execute those commands to download and prepare symbols automatically.
+
+If the script's guidance isn't available or you need to do it manually:
 
 1. **Build output**: Check the app's build directory (e.g., `bin/Debug/net*-ios/ios-arm64/<App>.app.dSYM/`)
 2. **NuGet.org runtime symbols**:
    - **iOS / Mac Catalyst / tvOS**: Symbols ship as `.dSYM` bundles inside the `Microsoft.NETCore.App.Runtime.<rid>` package — download and extract.
    - **macOS (osx-arm64, osx-x64)**: Symbols are **not** in the runtime package. Download the separate **`Microsoft.NETCore.App.Runtime.<rid>.symbols`** package (note `.symbols` suffix). This contains flat `.dwarf` files that must be converted to `.dSYM` bundles for `atos`:
      ```bash
+     # Download symbols for macOS .NET 10.0.4 osx-arm64
+     curl -Lo symbols.nupkg https://www.nuget.org/api/v2/package/Microsoft.NETCore.App.Runtime.osx-arm64.symbols/10.0.4
+     unzip -q symbols.nupkg -d symbols-extracted
      # Convert flat .dwarf to .dSYM bundle (example: libcoreclr)
      mkdir -p libcoreclr.dylib.dSYM/Contents/Resources/DWARF
-     cp libcoreclr.dylib.dwarf libcoreclr.dylib.dSYM/Contents/Resources/DWARF/libcoreclr.dylib
+     cp symbols-extracted/runtimes/osx-arm64/native/libcoreclr.dylib.dwarf libcoreclr.dylib.dSYM/Contents/Resources/DWARF/libcoreclr.dylib
      ```
 3. **User-provided paths**: Re-run with `-DsymSearchPaths` pointing to the dSYM location
 

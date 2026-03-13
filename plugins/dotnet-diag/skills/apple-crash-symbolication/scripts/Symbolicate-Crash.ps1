@@ -141,14 +141,16 @@ function Get-ImageTable($crashBody) {
 
     for ($i = 0; $i -lt $usedImages.Count; $i++) {
         $img = $usedImages[$i]
+        $imgPath = if ($img.PSObject.Properties['path'] -and $img.path) { $img.path } else { $null }
         $imgName = if ($img.PSObject.Properties['name'] -and $img.name) { $img.name }
-                   elseif ($img.PSObject.Properties['path'] -and $img.path) { [System.IO.Path]::GetFileName($img.path) }
+                   elseif ($imgPath) { [System.IO.Path]::GetFileName($imgPath) }
                    else { $null }
         # Skip sentinel/empty entries (e.g. null UUID, no name or path)
         if (-not $imgName) { continue }
         $images += [PSCustomObject]@{
             Index     = $i
             Name      = $imgName
+            Path      = $imgPath
             Base      = [uint64]$img.base
             Uuid      = Format-Uuid $img.uuid
             Arch      = if ($img.arch) { $img.arch } else { 'arm64' }
@@ -173,6 +175,7 @@ function Get-ThreadFrames($thread, $images) {
             $frames += [PSCustomObject]@{
                 ImageIndex  = $imgIdx
                 ImageName   = $img.Name
+                ImagePath   = $img.Path
                 ImageUuid   = $img.Uuid
                 ImageArch   = $img.Arch
                 LoadAddress = $img.Base
@@ -311,6 +314,45 @@ function Resolve-Frames([string]$dsymPath, [string]$arch, [uint64]$loadAddress, 
         Write-Verbose "atos failed: $_"
         return @()
     }
+}
+
+# Extract .NET runtime version from a crash log image path.
+# macOS paths: /usr/local/share/dotnet/shared/Microsoft.NETCore.App/10.0.4/libcoreclr.dylib
+# host/fxr:    /usr/local/share/dotnet/host/fxr/10.0.4/libhostfxr.dylib
+# Mono:        /usr/local/share/dotnet/shared/Microsoft.NETCore.App/10.0.4/libmonosgen-2.0.dylib
+function Get-RuntimeVersionFromPath([string]$imagePath) {
+    if (-not $imagePath) { return $null }
+
+    # Pattern: .../shared/Microsoft.NETCore.App/<version>/... or .../host/fxr/<version>/...
+    # Version pattern: digits.digits.digits with optional pre-release suffix
+    $patterns = @(
+        '(?:shared|packs)/Microsoft\.NETCore\.App(?:\.Runtime\.[^/]+)?/([0-9]+\.[0-9]+\.[0-9]+[^/]*?)/'
+        'host/fxr/([0-9]+\.[0-9]+\.[0-9]+[^/]*?)/'
+    )
+
+    foreach ($pat in $patterns) {
+        if ($imagePath -match $pat) {
+            return $Matches[1]
+        }
+    }
+    return $null
+}
+
+# Detect the platform RID from a crash log image path.
+# e.g., .../runtimes/osx-arm64/native/... → osx-arm64
+function Get-RidFromPath([string]$imagePath) {
+    if (-not $imagePath) { return $null }
+
+    # NuGet layout: .../runtimes/<rid>/native/...
+    if ($imagePath -match 'runtimes/([a-z]+-[a-z0-9]+)/native/') {
+        return $Matches[1]
+    }
+
+    # macOS shared framework — infer from OS name and arch in the crash metadata
+    if ($imagePath -match '/usr/local/share/dotnet/' -or $imagePath -match '\.dotnet/') {
+        return $null  # caller infers from crash metadata
+    }
+    return $null
 }
 
 # Try to identify the .NET runtime version by matching a UUID against locally-installed packs
@@ -536,7 +578,9 @@ if ($ParseOnly) {
     $libGroups = $dotnetFrames | Group-Object ImageName
     foreach ($g in $libGroups) {
         $sample = $g.Group | Select-Object -First 1
-        Write-Host "  $($g.Name)  UUID: $($sample.ImageUuid)  Arch: $($sample.ImageArch)  Load: 0x$($sample.LoadAddress.ToString('x'))  ($($g.Count) frame(s))"
+        $pathVersion = Get-RuntimeVersionFromPath $sample.ImagePath
+        $versionTag = if ($pathVersion) { "  .NET $pathVersion" } else { '' }
+        Write-Host "  $($g.Name)  UUID: $($sample.ImageUuid)  Arch: $($sample.ImageArch)  Load: 0x$($sample.LoadAddress.ToString('x'))  ($($g.Count) frame(s))$versionTag"
     }
 
     Write-Host "`n--- Frames to Symbolicate ---"
@@ -566,7 +610,7 @@ if ($ParseOnly) {
 
 # Search for dSYMs for each .NET library
 $dsymMap = @{} # UUID -> dSYM DWARF path
-$uniqueLibs = $dotnetFrames | Select-Object ImageName, ImageUuid -Unique
+$uniqueLibs = $dotnetFrames | Select-Object ImageName, ImagePath, ImageUuid -Unique
 
 Write-Host "Searching for dSYM debug symbols..." -ForegroundColor Cyan
 foreach ($lib in $uniqueLibs) {
@@ -589,16 +633,81 @@ else {
     Write-Host "Found dSYMs for $foundCount/$($uniqueLibs.Count) .NET library/libraries" -ForegroundColor Green
 }
 
-# Version identification
+# Version identification — try extracting from crash log image paths first (instant,
+# works without local installs), then fall back to UUID matching against local packs.
 $versionMap = @{} # UUID -> version info
 if (-not $SkipVersionLookup) {
     Write-Host "Identifying .NET runtime version..." -ForegroundColor Cyan
     foreach ($lib in $uniqueLibs) {
+        # Fast path: extract version directly from the image path in the crash log
+        $pathVersion = Get-RuntimeVersionFromPath $lib.ImagePath
+        if ($pathVersion) {
+            $versionMap[$lib.ImageUuid] = [PSCustomObject]@{
+                Version  = $pathVersion
+                Commit   = $null
+                PackPath = $null
+                Source   = 'crash-path'
+            }
+            Write-Host "  $($lib.ImageName) → .NET $pathVersion (from crash log path)" -ForegroundColor Green
+            continue
+        }
+
+        # Slow path: UUID match against locally-installed packs/NuGet cache
         $versionInfo = Find-RuntimeVersion $lib.ImageUuid $lib.ImageName
         if ($versionInfo) {
             $versionMap[$lib.ImageUuid] = $versionInfo
             $commitShort = if ($versionInfo.Commit) { " (commit $($versionInfo.Commit.Substring(0, [Math]::Min(12, $versionInfo.Commit.Length))))" } else { '' }
             Write-Host "  $($lib.ImageName) → .NET $($versionInfo.Version)$commitShort" -ForegroundColor Green
+        }
+    }
+}
+
+# If dSYMs are missing but version is known, emit acquisition guidance
+$missingDsymLibs = @($uniqueLibs | Where-Object { -not $dsymMap.ContainsKey($_.ImageUuid) })
+if ($missingDsymLibs.Count -gt 0 -and $versionMap.Count -gt 0) {
+    # Determine the version and RID for acquisition
+    $anyVersion = ($versionMap.Values | Select-Object -First 1).Version
+    $crashRid = $null
+    foreach ($lib in $missingDsymLibs) {
+        $rid = Get-RidFromPath $lib.ImagePath
+        if ($rid) { $crashRid = $rid; break }
+    }
+    # Infer RID from crash metadata if not found in paths
+    if (-not $crashRid) {
+        $osVer = if ($metadata.os_version) { $metadata.os_version } else { '' }
+        $cpuType = if ($body.cpuType) { $body.cpuType } else { '' }
+        $archSuffix = if ($cpuType -eq 'ARM-64' -or $cpuType -eq 'arm64') { 'arm64' } else { 'x64' }
+        if ($osVer -match 'macOS|Mac OS') { $crashRid = "osx-$archSuffix" }
+        elseif ($osVer -match 'iPhone OS|iOS') { $crashRid = "ios-arm64" }
+        elseif ($osVer -match 'tvOS') { $crashRid = "tvos-arm64" }
+        elseif ($osVer -match 'Mac Catalyst') { $crashRid = "maccatalyst-$archSuffix" }
+    }
+
+    $missingNames = ($missingDsymLibs | ForEach-Object { $_.ImageName }) -join ', '
+    Write-Host "`n⚠️  Missing dSYMs for: $missingNames" -ForegroundColor Yellow
+    Write-Host "   Version detected: .NET $anyVersion" -ForegroundColor Yellow
+    if ($crashRid) {
+        $isOsx = $crashRid -like 'osx-*'
+        $runtimePackBase = "Microsoft.NETCore.App.Runtime.$crashRid"
+        if ($isOsx) {
+            # macOS: symbols ship in separate .symbols package as flat .dwarf files
+            $symbolsPkg = "$runtimePackBase.symbols"
+            Write-Host "   To acquire symbols (macOS .dwarf → .dSYM):" -ForegroundColor Yellow
+            Write-Host "     1. curl -Lo symbols.nupkg https://www.nuget.org/api/v2/package/$symbolsPkg/$anyVersion" -ForegroundColor DarkYellow
+            Write-Host "     2. unzip -q symbols.nupkg -d symbols-extracted" -ForegroundColor DarkYellow
+            Write-Host "     3. For each .dwarf file in symbols-extracted/runtimes/$crashRid/native/:" -ForegroundColor DarkYellow
+            foreach ($lib in $missingDsymLibs) {
+                Write-Host "        mkdir -p $($lib.ImageName).dSYM/Contents/Resources/DWARF" -ForegroundColor DarkYellow
+                Write-Host "        cp $($lib.ImageName).dwarf $($lib.ImageName).dSYM/Contents/Resources/DWARF/$($lib.ImageName)" -ForegroundColor DarkYellow
+            }
+            Write-Host "     4. Re-run with: -DsymSearchPaths ./symbols-extracted/runtimes/$crashRid/native" -ForegroundColor DarkYellow
+        }
+        else {
+            # iOS/tvOS/MacCatalyst: dSYM bundles ship in the main runtime package
+            Write-Host "   To acquire symbols:" -ForegroundColor Yellow
+            Write-Host "     1. curl -Lo runtime.nupkg https://www.nuget.org/api/v2/package/$runtimePackBase/$anyVersion" -ForegroundColor DarkYellow
+            Write-Host "     2. unzip -q runtime.nupkg -d runtime-extracted" -ForegroundColor DarkYellow
+            Write-Host "     3. Re-run with: -DsymSearchPaths ./runtime-extracted/runtimes/$crashRid/native" -ForegroundColor DarkYellow
         }
     }
 }
