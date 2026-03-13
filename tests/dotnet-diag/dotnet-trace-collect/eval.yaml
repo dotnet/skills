@@ -279,4 +279,21 @@ scenarios:
       - "Lists the networking providers to enable (System.Net.Http, and optionally System.Net.NameResolution, System.Net.Security, System.Net.Sockets)"
       - "Explains that combining thread-time traces with networking events shows both where threads are blocked and what networking operations are failing"
       - "Mentions that RequestFailed events capture exception messages for timed-out requests"
+    timeout: 60
+
+  - name: "Assembly loading failure on Linux (.NET 8)"
+    prompt: >-
+      My .NET 8 application running on a Linux VM throws a
+      ReflectionTypeLoadException at startup when loading a plugin via a
+      custom AssemblyLoadContext. How do I collect the right trace to
+      diagnose what's going wrong with assembly loading?
+    assertions:
+      - type: "output_matches"
+        pattern: "(dotnet-trace|dotnet trace)"
+      - type: "output_matches"
+        pattern: "(assemblyloader|assembly.?load|loader|binder)"
+    rubric:
+      - "Recommends dotnet-trace with --clrevents assemblyloader or --providers Microsoft-Windows-DotNETRuntime:0x4:4 to capture assembly loader binder events"
+      - "Recommends the launch form (-- <exe>) rather than attaching by PID since the process may fail on startup"
+      - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
     timeout: 120

@@ -2,9 +2,6 @@ name: skill-validator
 
 on:
   pull_request:
-    paths:
-      - 'eng/skill-validator/**'
-      - '.github/workflows/skill-validator.yml'
   schedule:
     - cron: '0 8 * * *' # daily at 08:00 UTC
   workflow_dispatch:
@@ -15,7 +12,7 @@ on:
         default: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -23,7 +20,41 @@ env:
   AGNOSTIC_RID: linux-x64
 
 jobs:
+  discover:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.check.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for relevant changes
+        id: check
+        shell: pwsh
+        run: |
+          $base = "${{ github.event.pull_request.base.sha }}"
+          $head = "${{ github.event.pull_request.head.sha }}"
+          $mergeBase = git merge-base $base $head
+          $changed = git diff --name-only $mergeBase $head |
+            Where-Object { $_ -match '^(eng/skill-validator/|\.github/workflows/skill-validator\.yml$)' } |
+            Select-Object -First 1
+          if ($changed) {
+            echo "has_changes=true" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "has_changes=false" >> $env:GITHUB_OUTPUT
+          }
+
   build:
+    needs: discover
+    # Don't run scheduled builds on forked repositories — forks that enable
+    # Actions would otherwise consume the fork owner's minutes indefinitely.
+    # For PRs, skip when no relevant files changed (discover job).
+    if: >-
+      always() &&
+      !(github.event_name == 'schedule' && github.event.repository.fork) &&
+      (needs.discover.result == 'skipped' || needs.discover.outputs.has_changes == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -42,22 +73,24 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
         with:
           global-json-file: global.json
 
       - name: Build
-        run: dotnet build eng/skill-validator/SkillValidator.slnx
+        run: dotnet build eng/skill-validator/SkillValidator.slnx /bl:artifacts/logs/build.binlog
 
       - name: Test
-        run: dotnet test --solution eng/skill-validator/SkillValidator.slnx --no-build
+        run: dotnet test --solution eng/skill-validator/SkillValidator.slnx --no-build /bl:artifacts/logs/test.binlog
 
       - name: Pack RID-specific NuGet package
-        run: dotnet pack eng/skill-validator/src/SkillValidator.csproj --use-current-runtime
+        run: dotnet pack eng/skill-validator/src/SkillValidator.csproj --use-current-runtime /bl:artifacts/logs/pack-rid.binlog
 
       - name: Upload RID-specific NuGet package
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: skill-validator-${{ matrix.rid }}
           path: artifacts/package/release/Microsoft.DotNet.SkillValidator.${{ matrix.rid }}.*.nupkg
@@ -72,7 +105,7 @@ jobs:
           tar -czf artifacts/assets/skill-validator-${{ matrix.rid }}.tar.gz -C artifacts/publish/SkillValidator/release .
 
       - name: Upload tar.gz archive
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: skill-validator-${{ matrix.rid }}.tar.gz
           path: artifacts/assets/skill-validator-${{ matrix.rid }}.tar.gz
@@ -82,11 +115,11 @@ jobs:
 
       - name: Pack RID-agnostic NuGet package
         if: matrix.rid == env.AGNOSTIC_RID
-        run: dotnet pack eng/skill-validator/src/SkillValidator.csproj
+        run: dotnet pack eng/skill-validator/src/SkillValidator.csproj /bl:artifacts/logs/pack-agnostic.binlog
 
       - name: Upload RID-agnostic NuGet package
         if: matrix.rid == env.AGNOSTIC_RID
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           archive: false
           name: skill-validator
@@ -96,6 +129,15 @@ jobs:
           retention-days: ${{ env.RETENTION_DAYS }}
           if-no-files-found: error
 
+      - name: Upload binlogs
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: binlogs-${{ matrix.rid }}
+          path: artifacts/logs/*.binlog
+          retention-days: ${{ env.RETENTION_DAYS }}
+          if-no-files-found: ignore
+
   release:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.create_release)
     needs: build
@@ -103,10 +145,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: true
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
         with:
           path: release-assets
           merge-multiple: true
@@ -123,3 +167,24 @@ jobs:
             --title "SkillValidator Nightly" \
             --notes "Automated nightly build from \`main\` ($(date -u +%Y-%m-%d))." \
             --prerelease
+
+  # Require this job in the GitHub ruleset. It always runs on PRs and
+  # succeeds when no relevant files changed or the build passed.
+  skill-validator-status:
+    needs: [discover, build]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check result
+        run: |
+          if [[ "${{ needs.discover.result }}" != "success" ]]; then
+            echo "::error::Discovery failed (${{ needs.discover.result }})"
+            exit 1
+          elif [[ "${{ needs.discover.outputs.has_changes }}" != "true" ]]; then
+            echo "No skill-validator changes — skipping build"
+          elif [[ "${{ needs.build.result }}" != "success" ]]; then
+            echo "::error::Build failed (${{ needs.build.result }})"
+            exit 1
+          else
+            echo "Build and tests passed"
+          fi

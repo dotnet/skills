@@ -201,6 +201,41 @@ public class ComputeVerdictTests
         Assert.False(verdict.IsSignificant!.Value);
         Assert.Contains("not statistically significant", verdict.Reason);
     }
+    [Fact]
+    public void FailsWhenPluginRunRegressesTaskCompletion()
+    {
+        var baseline = MakeRunResult(taskCompleted: true, overallScore: 3);
+        var withSkill = MakeRunResult(taskCompleted: true, tokenEstimate: 100, overallScore: 5);
+        var comparison = Comparator.CompareScenario("test", baseline, withSkill);
+        // Simulate plugin run that failed completion
+        comparison = new ScenarioComparison
+        {
+            ScenarioName = comparison.ScenarioName,
+            Baseline = comparison.Baseline,
+            SkilledIsolated = comparison.SkilledIsolated,
+            SkilledPlugin = MakeRunResult(taskCompleted: false, tokenEstimate: 100, overallScore: 5),
+            ImprovementScore = comparison.ImprovementScore,
+            Breakdown = comparison.Breakdown,
+            IsolatedImprovementScore = comparison.IsolatedImprovementScore,
+            PluginImprovementScore = comparison.PluginImprovementScore,
+            IsolatedBreakdown = comparison.IsolatedBreakdown,
+            PluginBreakdown = comparison.PluginBreakdown,
+        };
+
+        var verdict = Comparator.ComputeVerdict(MockSkill, [comparison], 0.0, true);
+        Assert.False(verdict.Passed);
+        Assert.Contains("regressed", verdict.Reason);
+    }
+
+    [Fact]
+    public void CompareScenarioSetsPluginToNull()
+    {
+        var baseline = MakeRunResult();
+        var withSkill = MakeRunResult(tokenEstimate: 500, overallScore: 5);
+        var comparison = Comparator.CompareScenario("test", baseline, withSkill);
+        // CompareScenario is a utility for single-run comparison; SkilledPlugin should be null
+        Assert.Null(comparison.SkilledPlugin);
+    }
 }
 
 public class CompareScenarioWithPairwiseTests

@@ -54,9 +54,12 @@ public static class Comparator
         {
             ScenarioName = scenarioName,
             Baseline = baseline,
-            WithSkill = withSkill,
+            SkilledIsolated = withSkill,
+            SkilledPlugin = null,
             ImprovementScore = improvementScore,
+            IsolatedImprovementScore = improvementScore,
             Breakdown = breakdown,
+            IsolatedBreakdown = breakdown,
             PairwiseResult = pairwiseResult,
         };
     }
@@ -95,7 +98,8 @@ public static class Comparator
         if (requireCompletion)
         {
             bool regressed = comparisons.Any(c =>
-                c.Baseline.Metrics.TaskCompleted && !c.WithSkill.Metrics.TaskCompleted);
+                c.Baseline.Metrics.TaskCompleted &&
+                (!c.SkilledIsolated.Metrics.TaskCompleted || (c.SkilledPlugin is not null && !c.SkilledPlugin.Metrics.TaskCompleted)));
             if (regressed)
             {
                 return new SkillVerdict
@@ -133,6 +137,10 @@ public static class Comparator
             NormalizedGain = normalizedGain,
             ConfidenceInterval = ci,
             IsSignificant = significant,
+            IsolatedScore = comparisons.Average(c => c.IsolatedImprovementScore),
+            PluginScore = comparisons.Any(c => c.SkilledPlugin != null)
+                ? comparisons.Where(c => c.SkilledPlugin != null).Average(c => c.PluginImprovementScore)
+                : null,
             Reason = reason,
             FailureKind = passed ? null : "threshold",
         };
@@ -170,7 +178,15 @@ public static class Comparator
         foreach (var c in comparisons)
         {
             double pre = (c.Baseline.JudgeResult.OverallScore - 1) / 4.0;
-            double post = (c.WithSkill.JudgeResult.OverallScore - 1) / 4.0;
+            // Select the effective run based on the worse (lower) improvement score,
+            // then use that run's overall score so this aligns with the effective
+            // comparison used for pass/fail and reporting.
+            double effectiveScore;
+            if (c.SkilledPlugin is not null && c.PluginImprovementScore < c.IsolatedImprovementScore)
+                effectiveScore = c.SkilledPlugin.JudgeResult.OverallScore;
+            else
+                effectiveScore = c.SkilledIsolated.JudgeResult.OverallScore;
+            double post = (effectiveScore - 1) / 4.0;
 
             if (pre >= 1)
                 totalGain += post >= pre ? 0 : post - pre;

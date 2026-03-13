@@ -1,4 +1,12 @@
 (async function () {
+  // HTML escape helper for defense-in-depth against XSS
+  function escapeHtml(str) {
+    if (str == null) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+  }
+
   // Fetch plugin manifest
   let plugins;
   try {
@@ -152,14 +160,16 @@
     if (qualityEntries.length > 0) {
       // Use only the most recent entries for summary cards
       const recentEntries = qualityEntries.slice(-SUMMARY_WINDOW);
-      let skilledTotal = 0, skilledCount = 0, vanillaTotal = 0, vanillaCount = 0;
+      let skilledTotal = 0, skilledCount = 0, pluginTotal = 0, pluginCount = 0, vanillaTotal = 0, vanillaCount = 0;
       recentEntries.forEach(entry => {
         entry.benches.forEach(b => {
           if (b.name.endsWith('- Skilled Quality')) { skilledTotal += b.value; skilledCount++; }
+          if (b.name.endsWith('- Plugin Quality')) { pluginTotal += b.value; pluginCount++; }
           if (b.name.endsWith('- Vanilla Quality')) { vanillaTotal += b.value; vanillaCount++; }
         });
       });
       const skilledAvg = skilledCount > 0 ? skilledTotal / skilledCount : null;
+      const pluginAvg = pluginCount > 0 ? pluginTotal / pluginCount : null;
       const vanillaAvg = vanillaCount > 0 ? vanillaTotal / vanillaCount : null;
       const latestModel = qualityEntries[qualityEntries.length - 1].model;
       const windowLabel = qualityEntries.length > SUMMARY_WINDOW
@@ -169,22 +179,43 @@
         const delta = (skilledAvg - vanillaAvg).toFixed(2);
         const deltaClass = delta > 0 ? 'positive' : delta < 0 ? 'negative' : 'neutral';
         const deltaSign = delta > 0 ? '+' : '';
-        summaryDiv.innerHTML = `
+        let cardsHtml = `
           <div class="card">
-            <div class="card-label">Skilled Avg</div>
+            <div class="card-label">Skilled (Isolated) Avg</div>
             <div class="card-value" style="color: var(--skilled)">${skilledAvg.toFixed(2)}</div>
             <div class="card-delta">${windowLabel}</div>
-          </div>
+          </div>`;
+        if (pluginAvg !== null) {
+          cardsHtml += `
+          <div class="card">
+            <div class="card-label">Skilled (Plugin) Avg</div>
+            <div class="card-value" style="color: #3fb950">${pluginAvg.toFixed(2)}</div>
+            <div class="card-delta">${windowLabel}</div>
+          </div>`;
+        }
+        cardsHtml += `
           <div class="card">
             <div class="card-label">Vanilla Avg</div>
             <div class="card-value" style="color: var(--vanilla)">${vanillaAvg.toFixed(2)}</div>
             <div class="card-delta">${windowLabel}</div>
           </div>
           <div class="card">
-            <div class="card-label">Delta</div>
+            <div class="card-label">Delta (Isolated)</div>
             <div class="card-value ${deltaClass}">${deltaSign}${delta}</div>
             <div class="card-delta ${deltaClass}">${delta > 0 ? 'Skills improve quality' : delta < 0 ? 'Skills degrade quality' : 'No difference'}</div>
-          </div>
+          </div>`;
+        if (pluginAvg !== null && vanillaAvg !== null) {
+          const pluginDelta = (pluginAvg - vanillaAvg).toFixed(2);
+          const pluginDeltaClass = pluginDelta > 0 ? 'positive' : pluginDelta < 0 ? 'negative' : 'neutral';
+          const pluginDeltaSign = pluginDelta > 0 ? '+' : '';
+          cardsHtml += `
+          <div class="card">
+            <div class="card-label">Delta (Plugin)</div>
+            <div class="card-value ${pluginDeltaClass}">${pluginDeltaSign}${pluginDelta}</div>
+            <div class="card-delta ${pluginDeltaClass}">${pluginDelta > 0 ? 'Plugin improves quality' : pluginDelta < 0 ? 'Plugin degrades quality' : 'No difference'}</div>
+          </div>`;
+        }
+        cardsHtml += `
           <div class="card">
             <div class="card-label">Data Points</div>
             <div class="card-value">${qualityEntries.length}</div>
@@ -192,10 +223,11 @@
           </div>
           <div class="card">
             <div class="card-label">Model</div>
-            <div class="card-value" style="font-size: 18px">${latestModel || 'N/A'}</div>
+            <div class="card-value" style="font-size: 18px">${escapeHtml(latestModel) || 'N/A'}</div>
             <div class="card-delta">latest run</div>
           </div>
         `;
+        summaryDiv.innerHTML = cardsHtml;
       }
 
       // Count not-activated entries
@@ -259,19 +291,32 @@
     if (qualityEntries.length > 0) {
       // Discover tests from all entries (not just latest, which may have partial data)
       const tests = new Set();
+      let hasAnyPlugin = false;
       qualityEntries.forEach(entry => {
         entry.benches.forEach(b => {
-          const match = b.name.match(/^(.+) - (Skilled|Vanilla) Quality$/);
-          if (match) tests.add(match[1]);
+          const match = b.name.match(/^(.+) - (Skilled|Plugin|Vanilla) Quality$/);
+          if (match) {
+            tests.add(match[1]);
+            if (match[2] === 'Plugin') hasAnyPlugin = true;
+          }
         });
       });
 
       tests.forEach(test => {
-        createPairedChart(
-          qualityChartsDiv, test, qualityEntries,
-          `${test} - Skilled Quality`, `${test} - Vanilla Quality`,
-          'Skilled', 'Vanilla', '#58a6ff', '#8b949e'
-        );
+        if (hasAnyPlugin) {
+          createTripleChart(
+            qualityChartsDiv, test, qualityEntries,
+            `${test} - Skilled Quality`, `${test} - Plugin Quality`, `${test} - Vanilla Quality`,
+            'Isolated', 'Plugin', 'Vanilla',
+            '#58a6ff', '#3fb950', '#8b949e'
+          );
+        } else {
+          createPairedChart(
+            qualityChartsDiv, test, qualityEntries,
+            `${test} - Skilled Quality`, `${test} - Vanilla Quality`,
+            'Skilled', 'Vanilla', '#58a6ff', '#8b949e'
+          );
+        }
       });
     }
 
@@ -280,17 +325,20 @@
     if (efficiencyEntries.length > 0) {
       // Discover tests from all entries (not just latest, which may have partial data)
       const effTests = new Set();
+      let hasAnyPluginEff = false;
       efficiencyEntries.forEach(entry => {
         entry.benches.forEach(b => {
-          const match = b.name.match(/^(.+) - Skilled Time$/);
-          if (match) effTests.add(match[1]);
+          const matchSkilled = b.name.match(/^(.+) - Skilled Time$/);
+          if (matchSkilled) effTests.add(matchSkilled[1]);
+          const matchPlugin = b.name.match(/^(.+) - Plugin Time$/);
+          if (matchPlugin) { effTests.add(matchPlugin[1]); hasAnyPluginEff = true; }
         });
       });
 
       effTests.forEach(test => {
         const div = document.createElement('div');
         div.className = 'chart-container';
-        div.innerHTML = `<h3>${test}</h3><canvas></canvas>`;
+        div.innerHTML = `<h3>${escapeHtml(test)}</h3><canvas></canvas>`;
         efficiencyChartsDiv.appendChild(div);
         const canvas = div.querySelector('canvas');
 
@@ -302,15 +350,20 @@
         // Precompute per-entry data in a single pass over e.benches
         const timeName = `${test} - Skilled Time`;
         const tokenName = `${test} - Skilled Tokens In`;
+        const plugTimeName = `${test} - Plugin Time`;
+        const plugTokenName = `${test} - Plugin Tokens In`;
         const legendFlags = { notActivated: false, timedOut: false, overfittingModerate: false, overfittingHigh: false, multiIssue: false };
 
         const perEntryData = efficiencyEntries.map(e => {
           let timeBench = undefined;
           let tokenBench = undefined;
+          let plugTimeBench = undefined;
+          let plugTokenBench = undefined;
           for (const b of e.benches) {
             if (!timeBench && b.name === timeName) timeBench = b;
             else if (!tokenBench && b.name === tokenName) tokenBench = b;
-            if (timeBench && tokenBench) break;
+            else if (!plugTimeBench && b.name === plugTimeName) plugTimeBench = b;
+            else if (!plugTokenBench && b.name === plugTokenName) plugTokenBench = b;
           }
           const timeNA = !!(timeBench && timeBench.notActivated);
           const tokenNA = !!(tokenBench && tokenBench.notActivated);
@@ -336,11 +389,15 @@
             tokenNotActivated: tokenNA,
             tokenTimedOut: tokenTO,
             tokenOverfitting: tokenOF,
+            plugTimeValue: plugTimeBench ? plugTimeBench.value : null,
+            plugTokenValue: plugTokenBench ? plugTokenBench.value / 1000 : null,
           };
         });
 
         const timeData = perEntryData.map(d => d.timeValue);
         const tokenData = perEntryData.map(d => d.tokenValue);
+        const plugTimeData = perEntryData.map(d => d.plugTimeValue);
+        const plugTokenData = perEntryData.map(d => d.plugTokenValue);
 
         // Per-point styling using shared helper
         const timeAp = perEntryData.map(d => getPointAppearance({ timedOut: d.timeTimedOut, notActivated: d.timeNotActivated, overfitting: d.timeOverfitting }, '#f0883e'));
@@ -354,41 +411,70 @@
         const tokenPointRadius = tokenAp.map(a => a.radius);
         const tokenPointBorderWidth = tokenAp.map(a => a.borderWidth);
 
+        const datasets = [
+          {
+            label: 'Isolated Time (s)',
+            data: timeData,
+            borderColor: '#f0883e',
+            borderWidth: 2,
+            pointBackgroundColor: timePointBg,
+            pointBorderColor: timePointBg,
+            pointRadius: timePointRadius,
+            pointBorderWidth: timePointBorderWidth,
+            pointStyle: timePointStyle,
+            tension: 0.3,
+            fill: false,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Isolated Tokens (k)',
+            data: tokenData,
+            borderColor: '#a371f7',
+            borderWidth: 2,
+            pointBackgroundColor: tokenPointBg,
+            pointBorderColor: tokenPointBg,
+            pointRadius: tokenPointRadius,
+            pointBorderWidth: tokenPointBorderWidth,
+            pointStyle: tokenPointStyle,
+            tension: 0.3,
+            borderDash: [5, 5],
+            fill: false,
+            yAxisID: 'y1'
+          }
+        ];
+
+        // Add plugin efficiency datasets if any plugin data exists
+        if (hasAnyPluginEff) {
+          datasets.push({
+            label: 'Plugin Time (s)',
+            data: plugTimeData,
+            borderColor: '#3fb950',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            fill: false,
+            yAxisID: 'y'
+          });
+          datasets.push({
+            label: 'Plugin Tokens (k)',
+            data: plugTokenData,
+            borderColor: '#56d364',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            borderDash: [5, 5],
+            fill: false,
+            yAxisID: 'y1'
+          });
+        }
+
         new Chart(canvas, {
           type: 'line',
           data: {
             labels,
-            datasets: [
-              {
-                label: 'Time (s)',
-                data: timeData,
-                borderColor: '#f0883e',
-                borderWidth: 2,
-                pointBackgroundColor: timePointBg,
-                pointBorderColor: timePointBg,
-                pointRadius: timePointRadius,
-                pointBorderWidth: timePointBorderWidth,
-                pointStyle: timePointStyle,
-                tension: 0.3,
-                fill: false,
-                yAxisID: 'y'
-              },
-              {
-                label: 'Tokens In (k)',
-                data: tokenData,
-                borderColor: '#a371f7',
-                borderWidth: 2,
-                pointBackgroundColor: tokenPointBg,
-                pointBorderColor: tokenPointBg,
-                pointRadius: tokenPointRadius,
-                pointBorderWidth: tokenPointBorderWidth,
-                pointStyle: tokenPointStyle,
-                tension: 0.3,
-                borderDash: [5, 5],
-                fill: false,
-                yAxisID: 'y1'
-              }
-            ]
+            datasets
           },
           options: {
             responsive: true,
@@ -437,11 +523,162 @@
     }
   }
 
+  // Helper: create a triple line chart with three series (e.g., Skill / Plugin / Vanilla quality)
+  function createTripleChart(container, title, entries, nameA, nameB, nameC, labelA, labelB, labelC, colorA, colorB, colorC) {
+    const div = document.createElement('div');
+    div.className = 'chart-container';
+    div.innerHTML = `<h3>${title}</h3><canvas></canvas>`;
+    container.appendChild(div);
+    const canvas = div.querySelector('canvas');
+
+    const labels = entries.map(e => {
+      const d = new Date(e.date);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    });
+
+    // Precompute per-entry data in a single pass
+    const legendFlags = { notActivated: false, timedOut: false, overfittingModerate: false, overfittingHigh: false, multiIssue: false };
+    const perEntryData = entries.map(e => {
+      let benchA = undefined, benchB = undefined, benchC = undefined;
+      for (const b of e.benches) {
+        if (!benchA && b.name === nameA) benchA = b;
+        else if (!benchB && b.name === nameB) benchB = b;
+        else if (!benchC && b.name === nameC) benchC = b;
+        if (benchA && benchB && benchC) break;
+      }
+      const aNotActivated = !!(benchA && benchA.notActivated);
+      const aTimedOut = !!(benchA && benchA.timedOut);
+      const aOverfitting = benchA && benchA.overfitting ? benchA.overfitting : null;
+      const bNotActivated = !!(benchB && benchB.notActivated);
+      const bTimedOut = !!(benchB && benchB.timedOut);
+      const bOverfitting = benchB && benchB.overfitting ? benchB.overfitting : null;
+      if (aNotActivated || bNotActivated) legendFlags.notActivated = true;
+      if (aTimedOut || bTimedOut) legendFlags.timedOut = true;
+      if (aOverfitting || bOverfitting) {
+        if (aOverfitting === 'high' || bOverfitting === 'high') legendFlags.overfittingHigh = true;
+        else legendFlags.overfittingModerate = true;
+      }
+      const aIssues = (aNotActivated ? 1 : 0) + (aTimedOut ? 1 : 0) + (aOverfitting ? 1 : 0);
+      const bIssues = (bNotActivated ? 1 : 0) + (bTimedOut ? 1 : 0) + (bOverfitting ? 1 : 0);
+      if (aIssues > 1 || bIssues > 1) legendFlags.multiIssue = true;
+      return {
+        valueA: benchA ? benchA.value : null,
+        valueB: benchB ? benchB.value : null,
+        valueC: benchC ? benchC.value : null,
+        aNotActivated, aTimedOut, aOverfitting,
+        bNotActivated, bTimedOut, bOverfitting,
+      };
+    });
+
+    const dataA = perEntryData.map(d => d.valueA);
+    const dataB = perEntryData.map(d => d.valueB);
+    const dataC = perEntryData.map(d => d.valueC);
+
+    // Per-point styling for dataset A (Isolated) and B (Plugin)
+    const pointApA = perEntryData.map(d => getPointAppearance({ timedOut: d.aTimedOut, notActivated: d.aNotActivated, overfitting: d.aOverfitting }, colorA));
+    const pointBgA = pointApA.map(a => a.color);
+    const pointBorderA = pointApA.map(a => a.color);
+    const pointRadiusA = pointApA.map(a => a.radius);
+    const pointStyleA = pointApA.map(a => a.style);
+    const pointBorderWidthA = pointApA.map(a => a.borderWidth);
+    const pointApB = perEntryData.map(d => getPointAppearance({ timedOut: d.bTimedOut, notActivated: d.bNotActivated, overfitting: d.bOverfitting }, colorB));
+    const pointBgB = pointApB.map(a => a.color);
+    const pointBorderB = pointApB.map(a => a.color);
+    const pointRadiusB = pointApB.map(a => a.radius);
+    const pointStyleB = pointApB.map(a => a.style);
+    const pointBorderWidthB = pointApB.map(a => a.borderWidth);
+
+    new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: labelA,
+            data: dataA,
+            borderColor: colorA,
+            backgroundColor: colorA + '20',
+            borderWidth: 2,
+            pointBackgroundColor: pointBgA,
+            pointBorderColor: pointBorderA,
+            pointRadius: pointRadiusA,
+            pointBorderWidth: pointBorderWidthA,
+            pointStyle: pointStyleA,
+            pointHoverRadius: 8,
+            tension: 0.3,
+            fill: false
+          },
+          {
+            label: labelB,
+            data: dataB,
+            borderColor: colorB,
+            backgroundColor: colorB + '20',
+            borderWidth: 2,
+            pointBackgroundColor: pointBgB,
+            pointBorderColor: pointBorderB,
+            pointRadius: pointRadiusB,
+            pointBorderWidth: pointBorderWidthB,
+            pointStyle: pointStyleB,
+            pointHoverRadius: 8,
+            tension: 0.3,
+            fill: false
+          },
+          {
+            label: labelC,
+            data: dataC,
+            borderColor: colorC,
+            backgroundColor: colorC + '20',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            borderDash: [5, 5],
+            fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true } },
+          tooltip: {
+            callbacks: {
+              afterTitle: (items) => {
+                const idx = items[0].dataIndex;
+                const entry = entries[idx];
+                const parts = [];
+                if (entry && entry.model) parts.push(`Model: ${entry.model}`);
+                if (entry && entry.commit) {
+                  const msg = entry.commit.message.split('\n')[0];
+                  parts.push(msg.length > 60 ? msg.substring(0, 60) + '...' : msg);
+                }
+                parts.push(...buildIssueTooltipLines(entry, b => b.name === nameA || b.name === nameB || b.name === nameC));
+                return parts.join('\n');
+              }
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
+          y: {
+            ticks: { color: '#8b949e' },
+            grid: { color: '#30363d' },
+            suggestedMin: 0,
+            suggestedMax: 10
+          }
+        }
+      }
+    });
+
+    appendLegendNotes(div, legendFlags);
+  }
+
   // Helper: create a paired line chart
   function createPairedChart(container, title, entries, nameA, nameB, labelA, labelB, colorA, colorB) {
     const div = document.createElement('div');
     div.className = 'chart-container';
-    div.innerHTML = `<h3>${title}</h3><canvas></canvas>`;
+    div.innerHTML = `<h3>${escapeHtml(title)}</h3><canvas></canvas>`;
     container.appendChild(div);
     const canvas = div.querySelector('canvas');
 

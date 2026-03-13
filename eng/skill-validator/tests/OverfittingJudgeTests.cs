@@ -349,7 +349,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline" },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = 0.25,
@@ -398,7 +398,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline" },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = 0.25,
@@ -440,7 +440,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline", TokenEstimate = 1000, ToolCallCount = 5, WallTimeMs = 2100 },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled", TokenEstimate = 8000, ToolCallCount = 15, WallTimeMs = 8500 },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = -0.18,
@@ -462,7 +462,7 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("[1]", md);
-        Assert.Contains("Quality improved but weighted score is", md);
+        Assert.Contains("(Isolated) Quality improved but weighted score is", md);
         Assert.Contains("due to:", md);
         // Raw metrics should appear in footnote
         Assert.Contains("tokens (1000", md);
@@ -492,7 +492,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline" },
                             new JudgeResult(new List<RubricScore>(), 3.0, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = 0.35,
@@ -538,7 +538,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline", TokenEstimate = 5000, TaskCompleted = false },
                             new JudgeResult(new List<RubricScore>(), 4.0, "Good")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled", TokenEstimate = 2000, TaskCompleted = true },
                             new JudgeResult(new List<RubricScore>(), 3.0, "OK")),
                         ImprovementScore = 0.14,
@@ -560,7 +560,7 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("[1]", md);
-        Assert.Contains("Quality dropped but weighted score is", md);
+        Assert.Contains("(Isolated) Quality dropped but weighted score is", md);
         Assert.Contains("due to:", md);
         // Raw metrics should appear in footnote
         Assert.Contains("completion", md);
@@ -590,7 +590,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline", TokenEstimate = 1000, ToolCallCount = 5 },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled", TokenEstimate = 3000, ToolCallCount = 5 },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
                         ImprovementScore = -0.10,
@@ -612,8 +612,102 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("[1]", md);
-        Assert.Contains("Quality unchanged but weighted score is", md);
+        Assert.Contains("(Isolated) Quality unchanged but weighted score is", md);
         Assert.Contains("tokens (1000", md);
+    }
+
+    [Fact]
+    public void MarkdownSummary_ShowsErrorsSectionForPreEvalFailures()
+    {
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "broken-skill",
+                SkillPath = "/test",
+                Passed = false,
+                Scenarios = [],
+                OverallImprovementScore = 0,
+                Reason = "Skill description is 1,370 characters — maximum is 1,024.",
+                FailureKind = "spec_conformance_failure",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.Contains("### ❌ Skill validation errors", md);
+        Assert.Contains("- `broken-skill: Skill description is 1,370 characters", md);
+    }
+
+    [Fact]
+    public void MarkdownSummary_OmitsErrorsSectionWhenAllVerdictsPassed()
+    {
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "good-skill",
+                SkillPath = "/test",
+                Passed = true,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "test-scenario",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
+                        SkilledIsolated = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled" },
+                            new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
+                        ImprovementScore = 0.25,
+                        Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+                    }
+                },
+                OverallImprovementScore = 0.25,
+                Reason = "Pass",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.DoesNotContain("### ❌ Skill validation errors", md);
+    }
+
+    [Fact]
+    public void MarkdownSummary_OmitsErrorsSectionForFailuresWithScenarios()
+    {
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "threshold-fail",
+                SkillPath = "/test",
+                Passed = false,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "test-scenario",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 4.0, "OK")),
+                        SkilledIsolated = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled" },
+                            new JudgeResult(new List<RubricScore>(), 3.0, "Worse")),
+                        ImprovementScore = -0.25,
+                        Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+                    }
+                },
+                OverallImprovementScore = -0.25,
+                Reason = "Regression detected",
+                FailureKind = "completion_regression",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        Assert.DoesNotContain("### ❌ Skill validation errors", md);
     }
 
     // --- Prompt overfitting detection tests ---

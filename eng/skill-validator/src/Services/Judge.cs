@@ -18,10 +18,11 @@ public static class Judge
     public static Task<JudgeResult> JudgeRun(
         EvalScenario scenario,
         RunMetrics metrics,
-        JudgeOptions options)
+        JudgeOptions options,
+        Action<string>? log)
     {
         return RetryHelper.ExecuteWithRetry(
-            (ct) => JudgeRunOnce(scenario, metrics, scenario.Rubric ?? [], options, ct),
+            (ct) => JudgeRunOnce(scenario, metrics, scenario.Rubric ?? [], options, log, ct),
             $"Judge for \"{scenario.Name}\"");
     }
 
@@ -30,6 +31,7 @@ public static class Judge
         RunMetrics metrics,
         IReadOnlyList<string> rubric,
         JudgeOptions options,
+        Action<string>? log,
         CancellationToken cancellationToken)
     {
         var client = await AgentRunner.GetSharedClient(options.Verbose);
@@ -47,10 +49,10 @@ public static class Judge
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
             OnPermissionRequest = (request, _) =>
             {
-                var result = AgentRunner.CheckPermission(request, options.WorkDir, options.SkillPath);
+                var result = AgentRunner.CheckPermission(request, options.WorkDir, options.SkillPath, options.Verbose ? log : null, "judge");
                 return Task.FromResult(new PermissionRequestResult
                 {
-                    Kind = result ? "approved" : "denied-by-rules",
+                    Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,
                 });
             },
         });

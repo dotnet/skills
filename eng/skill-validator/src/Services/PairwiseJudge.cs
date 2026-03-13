@@ -11,7 +11,8 @@ public sealed record PairwiseJudgeOptions(
     bool Verbose,
     int Timeout,
     string WorkDir,
-    string? SkillPath = null);
+    string? SkillPath = null,
+    string? SkilledWorkDir = null);
 
 public static class PairwiseJudge
 {
@@ -23,11 +24,12 @@ public static class PairwiseJudge
         EvalScenario scenario,
         RunMetrics baselineMetrics,
         RunMetrics withSkillMetrics,
-        PairwiseJudgeOptions options)
+        PairwiseJudgeOptions options,
+        Action<string>? log)
     {
         var results = await Task.WhenAll(
-            JudgeOnce(scenario, baselineMetrics, withSkillMetrics, options, "forward"),
-            JudgeOnce(scenario, withSkillMetrics, baselineMetrics, options, "reverse"));
+            JudgeOnce(scenario, baselineMetrics, withSkillMetrics, options, "forward", log),
+            JudgeOnce(scenario, withSkillMetrics, baselineMetrics, options, "reverse", log));
         var forwardResult = results[0];
         var reverseResult = results[1];
 
@@ -51,10 +53,11 @@ public static class PairwiseJudge
         RunMetrics metricsA,
         RunMetrics metricsB,
         PairwiseJudgeOptions options,
-        string direction)
+        string direction,
+        Action<string>? log)
     {
         return RetryHelper.ExecuteWithRetry(
-            (ct) => JudgeCall(scenario, metricsA, metricsB, options, direction, ct),
+            (ct) => JudgeCall(scenario, metricsA, metricsB, options, direction, log, ct),
             $"Pairwise judge ({direction}) for \"{scenario.Name}\"");
     }
 
@@ -64,6 +67,7 @@ public static class PairwiseJudge
         RunMetrics metricsB,
         PairwiseJudgeOptions options,
         string direction,
+        Action<string>? log,
         CancellationToken cancellationToken)
     {
         var client = await AgentRunner.GetSharedClient(options.Verbose);
@@ -82,10 +86,11 @@ public static class PairwiseJudge
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
             OnPermissionRequest = (request, _) =>
             {
-                var result = AgentRunner.CheckPermission(request, options.WorkDir, options.SkillPath);
+                var extraDirs = options.SkilledWorkDir is not null ? new[] { options.SkilledWorkDir } : null;
+                var result = AgentRunner.CheckPermission(request, options.WorkDir, options.SkillPath, options.Verbose ? log : null, "pairwise-judge", additionalAllowedDirs: extraDirs);
                 return Task.FromResult(new PermissionRequestResult
                 {
-                    Kind = result ? "approved" : "denied-by-rules",
+                    Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,
                 });
             },
         });
