@@ -70,3 +70,27 @@ atos -arch arm64 -o libcoreclr.dSYM/Contents/Resources/DWARF/libcoreclr -l 0x104
 ```
 
 The `/__w/1/s/` prefix in output paths is the CI workspace root — meaningful paths start at `src/runtime/`, mapping to [dotnet/dotnet](https://github.com/dotnet/dotnet) VMR.
+
+## macOS Symbol Packages
+
+On macOS (`osx-arm64`, `osx-x64`), .NET runtime symbols are distributed differently than iOS:
+
+- **iOS / Mac Catalyst / tvOS**: dSYM bundles ship inside the `Microsoft.NETCore.App.Runtime.<rid>` NuGet package.
+- **macOS**: Symbols are in a **separate** package: `Microsoft.NETCore.App.Runtime.<rid>.symbols` (note `.symbols` suffix — not `.snupkg`). The main runtime package does not contain debug symbols.
+
+The macOS symbols package contains **flat `.dwarf` files** (produced by `dsymutil --flat`), not `.dSYM` bundles. `atos` requires a `.dSYM` bundle directory structure. Convert:
+
+```bash
+# For each .dwarf file (e.g., libcoreclr.dylib.dwarf):
+mkdir -p libcoreclr.dylib.dSYM/Contents/Resources/DWARF
+cp libcoreclr.dylib.dwarf libcoreclr.dylib.dSYM/Contents/Resources/DWARF/libcoreclr.dylib
+# Verify: dwarfdump --uuid libcoreclr.dylib.dSYM
+```
+
+The flat `.dwarf` is the same Mach-O DWARF format that lives inside the bundle — the conversion is purely structural (mkdir + cp).
+
+## .ips JSON Parsing Gotchas
+
+Some Apple .ips files contain **case-conflicting duplicate keys** at the top level (e.g., `vmRegionInfo` and `vmregioninfo`). Most JSON parsers reject this. Workaround: pre-process the raw JSON string to rename the lowercase duplicate before parsing.
+
+The `asi` (Application Specific Information) field is not present in all crash logs — access it safely (check existence before reading).

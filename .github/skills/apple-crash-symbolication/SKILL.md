@@ -28,11 +28,17 @@ If `idevicecrashreport` is unavailable, crash logs can also be found in **Xcode 
 
 ### Step 2: Run the Automation Script
 
-[scripts/Symbolicate-Crash.ps1](scripts/Symbolicate-Crash.ps1) automates parsing, dSYM lookup, and symbolication. The script is located in this skill's `scripts/` directory — resolve the path relative to this SKILL.md file (do **not** search the filesystem with `find` or `locate`).
+The symbolication script lives in the plugin directory of this repository:
+
+```
+plugins/dotnet-diag/skills/apple-crash-symbolication/scripts/Symbolicate-Crash.ps1
+```
+
+Resolve the path relative to the repository root (do **not** search the filesystem with `find` or `locate`).
 
 ```powershell
-# $SKILL_DIR is the directory containing this SKILL.md
-pwsh "$SKILL_DIR/scripts/Symbolicate-Crash.ps1" -CrashFile MyApp-2026-02-25.ips
+# $REPO_ROOT is the root of this git repository
+pwsh "$REPO_ROOT/plugins/dotnet-diag/skills/apple-crash-symbolication/scripts/Symbolicate-Crash.ps1" -CrashFile MyApp-2026-02-25.ips
 ```
 
 **Start with `-ParseOnly`** to get a fast overview of libraries, UUIDs, and addresses without requiring `atos` or dSYMs. Present those results to the user first. Only proceed to full symbolication if `atos` is available and dSYMs are found.
@@ -87,4 +93,4 @@ Always verify UUID match with `dwarfdump --uuid <dsym>` before symbolicating. Fo
 
 ## References
 
-- **IPS format & manual symbolication**: See [references/ips-crash-format.md](references/ips-crash-format.md) for .ips file structure, .NET runtime library table, dSYM search paths, and manual `atos` usage.
+- **IPS format & manual symbolication**: See [plugins/dotnet-diag/skills/apple-crash-symbolication/references/ips-crash-format.md](../../../plugins/dotnet-diag/skills/apple-crash-symbolication/references/ips-crash-format.md) for .ips file structure, .NET runtime library table, dSYM search paths, and manual `atos` usage.

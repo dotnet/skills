@@ -119,6 +119,10 @@ function Read-IpsCrashLog([string]$path) {
     }
 
     try {
+        # Some .ips files contain case-variant duplicate keys (e.g. vmRegionInfo
+        # and vmregioninfo) which ConvertFrom-Json rejects. Remove the lowercase
+        # duplicate so parsing succeeds while preserving the camelCase variant.
+        $bodyJson = $bodyJson -replace '"vmregioninfo"\s*:', '"_vmregioninfo_dup":'
         $body = $bodyJson | ConvertFrom-Json
     }
     catch {
@@ -430,7 +434,7 @@ $osVersion = if ($metadata.os_version) { $metadata.os_version } else { 'Unknown'
 Write-Host "Crash log: $appName on $osVersion" -ForegroundColor Cyan
 
 # Check for Application Specific Information (often contains managed exception text)
-$asi = $body.asi
+$asi = if ($body.PSObject.Properties['asi']) { $body.asi } else { $null }
 if ($asi) {
     Write-Host "`nApplication Specific Information:" -ForegroundColor Yellow
     # asi can be a hashtable/object or array — flatten to string
