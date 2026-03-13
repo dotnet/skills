@@ -29,10 +29,6 @@ on:
         description: "Unique ID linking this investigation to the health check run"
         required: true
 
-# NOTE: The workflow-level group correctly discriminates by finding_id, but the
-# compiler-generated agent job-level group does not include finding_id, so concurrent
-# investigation runs share a group and cancel each other. Dispatches are capped at 2 as
-# a workaround. See https://github.com/github/gh-aw/issues/20187
 concurrency:
   group: gh-aw-${{ github.workflow }}-${{ inputs.finding_id }}
 
