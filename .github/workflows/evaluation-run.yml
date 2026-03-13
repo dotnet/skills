@@ -111,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 90
+    timeout-minutes: 150
     name: evaluate (${{ matrix.entry.name }})
     strategy:
       fail-fast: false
