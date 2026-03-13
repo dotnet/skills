@@ -102,75 +102,72 @@ scenarios:
       - "Describes the defensive behavior when excessive collisions are detected with string keys, including switching to a randomized equality comparer"
     timeout: 180
 
-  - name: "Build M.E.AI chatbot with tool calling"
+  - name: "Build Hex1b TUI dashboard with charts"
     prompt: |
-      Build a .NET 10 console chatbot in the ChatBot project that uses Microsoft.Extensions.AI
-      with Ollama as the provider. The chatbot should:
+      Build a .NET 8 terminal dashboard app using the Hex1b NuGet package (v0.114.0).
 
-      1. Create a conversation loop that reads user input and streams AI responses
-      2. Register two custom tools the AI can call:
-         - A weather lookup tool that takes a city name and returns fake weather data
-         - A calculator tool that evaluates simple math expressions
-      3. Use AIFunction/AIFunctionFactory to register the tools
-      4. Configure the chat client pipeline with logging middleware
-      5. Handle the tool call lifecycle — when the AI wants to call a tool, execute it and feed the result back
+      Hex1b is a brand-new TUI library you haven't seen before. Before writing code,
+      study the package API to understand how apps are created and how widgets are composed.
 
-      The project already has the necessary package references. Make it compile and be structurally correct.
-      Don't worry about actually connecting to Ollama — focus on getting the code right.
+      The app should:
+      1. Use a VStack layout with a title at the top and a horizontal splitter below
+      2. Left panel: a BarChart showing monthly sales data (Jan–Jun)
+      3. Right panel: a List widget showing recent orders
+      4. Apply the Ocean theme
+      5. Make the chart panel take 60% width and the list panel fill remaining space
+
+      The project is set up with the package reference. Make it compile.
     setup:
       files:
-        - path: "ChatBot/ChatBot.csproj"
+        - path: "Dashboard/Dashboard.csproj"
           content: |
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <OutputType>Exe</OutputType>
-                <TargetFramework>net10.0</TargetFramework>
+                <TargetFramework>net8.0</TargetFramework>
                 <Nullable>enable</Nullable>
-                <ImplicitUsings>enable</ImplicitUsings>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Microsoft.Extensions.AI" Version="10.4.0" />
-                <PackageReference Include="Microsoft.Extensions.AI.Ollama" Version="10.4.0" />
+                <PackageReference Include="Hex1b" Version="0.114.0" />
               </ItemGroup>
             </Project>
-        - path: "ChatBot/Program.cs"
+        - path: "Dashboard/Program.cs"
           content: |
-            // TODO: Implement the chatbot
-            Console.WriteLine("ChatBot starting...");
+            // TODO: Build the dashboard
+            Console.WriteLine("Dashboard starting...");
     assertions:
       - type: "file_contains"
         path: "**/Program.cs"
-        value: "IChatClient"
+        value: "Hex1b"
       - type: "exit_success"
     rubric:
-      - "OllamaChatClient constructor is called correctly — it takes (Uri, string?, HttpClient?) or (string, string?, HttpClient?) where the second param is the model name. The M.E.AI.Ollama package is only available in preview versions (latest 9.7.0-preview), not stable 10.4.0."
-      - "Tools are registered via AIFunctionFactory.Create(Delegate, ...) and passed to ChatOptions.Tools or FunctionInvokingChatClient.AdditionalTools. AIFunctionFactory is in the Microsoft.Extensions.AI.Abstractions package, not the main M.E.AI package."
-      - "FunctionInvokingChatClient is used for automatic tool dispatch (via UseFunctionInvocation() builder extension). It has properties: MaximumIterationsPerRequest, AllowConcurrentInvocation, TerminateOnUnknownCalls. Manual tool dispatch (checking FunctionCallContent) is NOT needed when this middleware is used."
-      - "ChatClientBuilder pipeline is constructed correctly: either new ChatClientBuilder(innerClient).Use*().Build() or innerClient.AsBuilder().Use*().Build(). The Build() method returns IChatClient."
-      - "Streaming uses GetStreamingResponseAsync which returns IAsyncEnumerable<ChatResponseUpdate>. ChatResponseUpdate has a Text property (string?) for content. ChatResponse (non-streaming) has a different shape."
-      - "Chat history uses List<ChatMessage> with ChatRole.User/ChatRole.Assistant/ChatRole.System. ChatMessage constructor takes (ChatRole, string) or (ChatRole, IEnumerable<AIContent>). Assistant responses MUST be added back to the history list to maintain multi-turn context."
+      - "Uses Hex1bTerminalBuilder correctly: new Hex1bTerminalBuilder().WithHex1bApp(...).Build() then RunAsync(). The builder pattern is the only way to start a Hex1b app — not new Hex1bApp() directly."
+      - "Layout uses extension methods on WidgetContext<TParent>: ctx.VStack(v => [...]) via VStackExtensions, ctx.HSplitter(...) via SplitterExtensions. These are the API entry points — NOT constructors like new VStackWidget()."
+      - "Text is created via ctx.Text('title') which returns TextBlockWidget. List via ctx.List(items) returning ListWidget. All via extension methods on WidgetContext, not constructors."
+      - "BarChart is created via ctx.BarChart<T>(...) from BarChartExtensions. The widget type is BarChartWidget<T> (generic). It is one of 5 chart types: BarChart, BreakdownChart, ColumnChart, ScatterChart, TimeSeriesChart."
+      - "SizeHint layout system used correctly: SizeHint.Fill (fill available space), SizeHint.Fixed(n) (exact size), SizeHint.Content (auto-size), SizeHint.Weighted(n) (proportional). Set via .WidthHint/.HeightHint on Hex1bWidget."
+      - "Ocean theme applied correctly. Preferred: ctx.ThemePanel(Hex1bThemes.Ocean, ...) from ThemePanelExtensions. Also valid: Hex1bAppOptions { Theme = Hex1bThemes.Ocean }. Hex1bThemes has 4 built-in themes: Default, HighContrast, Ocean, Sunset."
       - "The code compiles without errors (dotnet build succeeds)"
     timeout: 600
 
-  - name: "Discover M.E.AI 10.4 abstraction surface"
+  - name: "Discover Hex1b widget catalog and layout API"
     prompt: |
-      I'm evaluating Microsoft.Extensions.AI for a multi-modal AI application. I need to understand
-      the full set of client abstractions available in M.E.AI Abstractions 10.4.0.
+      I'm evaluating the Hex1b NuGet package (v0.114.0) for building a terminal UI. Before writing
+      code, I need to understand:
 
-      1. List ALL the client interfaces (I* pattern) in Microsoft.Extensions.AI.Abstractions 10.4.0.
-         For each, show its methods and what they return.
-      2. For each client interface, identify what middleware/pipeline builder support exists in the
-         main Microsoft.Extensions.AI 10.4.0 package (e.g., logging, OpenTelemetry, caching wrappers).
-      3. Tell me which abstractions have DI registration support (AddXxxClient builder extensions).
+      1. What widget types are available? Give me the full catalog.
+      2. How does the layout system work — what's SizeHint and how do I use it?
+      3. What charting widgets exist and how are they constructed?
+      4. What built-in themes are available?
+      5. How do input bindings work?
     assertions:
       - type: "output_matches"
-        pattern: "(IChatClient|ISpeechToTextClient|IHostedFileClient|IImageGenerator)"
+        pattern: "(Hex1b|Widget|SizeHint)"
     expect_tools: ["bash"]
     rubric:
-      - "Identifies all 4 client interfaces in M.E.AI Abstractions 10.4.0: IChatClient, ISpeechToTextClient, IHostedFileClient, and IImageGenerator — not just IChatClient"
-      - "Shows correct method signatures for ISpeechToTextClient: GetTextAsync (returns Task<SpeechToTextResponse>) and GetStreamingTextAsync (returns IAsyncEnumerable<SpeechToTextResponseUpdate>)"
-      - "Shows correct method signatures for IHostedFileClient: UploadAsync, DownloadAsync, DeleteAsync, GetFileInfoAsync, ListFilesAsync — at least 4 of these 5"
-      - "Shows correct method signatures for IImageGenerator: GenerateAsync (returns Task<ImageGenerationResponse>)"
-      - "Identifies pipeline infrastructure for each abstraction: e.g., LoggingSpeechToTextClient, OpenTelemetrySpeechToTextClient, SpeechToTextClientBuilder for speech; similar patterns for images and hosted files"
-      - "Identifies DI registration via ChatClientBuilderServiceCollectionExtensions, SpeechToTextClientBuilderServiceCollectionExtensions, and equivalent extensions for the other abstractions"
+      - "Lists a substantial portion of the 116 widget classes in Hex1b.Widgets — at minimum covers VStackWidget, HStackWidget, GridWidget, TextBlockWidget, TextBoxWidget, ButtonWidget, ListWidget, SplitterWidget, TabPanelWidget, AccordionWidget, CheckboxWidget, SliderWidget"
+      - "Explains SizeHint correctly as a struct in Hex1b.Layout with factory methods: Fill, Content, Fixed(int), Weighted(int). Applied via WidthHint/HeightHint properties on Hex1bWidget base class."
+      - "Identifies all 5 chart widget types: BarChartWidget<T>, BreakdownChartWidget<T>, ColumnChartWidget<T>, ScatterChartWidget<T>, TimeSeriesChartWidget<T> — each generic on T. Created via extension methods (BarChartExtensions, etc.), not constructors."
+      - "Lists all 4 built-in themes from Hex1bThemes: Default, HighContrast, Ocean, Sunset. Applied via ThemePanelExtensions.ThemePanel(). Hex1bTheme supports Clone, Lock, Get/Set for customization."
+      - "Describes InputBinding (class in Hex1b.Input): has Steps (IReadOnlyList<KeyStep>), ActionId, Description, IsGlobal. Applied to widgets via WithInputBindings extension method using InputBindingsBuilder."
     timeout: 240
