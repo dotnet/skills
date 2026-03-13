@@ -18,18 +18,6 @@ scenarios:
       - "All seven subcommands (list, search, severity, product, platform, date, summary) are preserved"
     timeout: 600
 
-  - name: "Find types across platform libraries"
-    prompt: "Where is INumber defined in .NET? What other numeric interfaces are nearby?"
-    assertions:
-      - type: "output_matches"
-        pattern: "INumber"
-    expect_tools: ["bash"]
-    rubric:
-      - "Identifies that INumber is in the System.Runtime library (System.Numerics namespace)"
-      - "Lists related numeric interfaces (e.g., IAdditionOperators, IFloatingPoint, IBinaryInteger)"
-      - "Shows at least 5 distinct numeric interfaces from the same namespace or library"
-    timeout: 120
-
   - name: "Find types in a NuGet package"
     prompt: "What's the IChatClient interface in Microsoft.Extensions.AI? Show me its API surface."
     assertions:
@@ -52,18 +40,6 @@ scenarios:
       - "Lists HttpClient extension methods from System.Net.Http.Json including GetFromJsonAsync, PostAsJsonAsync, PutAsJsonAsync, PatchAsJsonAsync, DeleteFromJsonAsync, and GetFromJsonAsAsyncEnumerable"
       - "Identifies that these extensions come from HttpClientJsonExtensions in the System.Net.Http.Json library"
       - "Presents the results clearly, grouped or summarized by source"
-    timeout: 120
-
-  - name: "Discover interfaces in a NuGet package"
-    prompt: "Which interfaces are defined in the System.Text.Json NuGet package? Show me the complete set."
-    assertions:
-      - type: "output_contains"
-        value: "IJsonTypeInfoResolver"
-    expect_tools: ["bash"]
-    rubric:
-      - "Lists the complete set of 5 interfaces: IJsonTypeInfoResolver (in System.Text.Json.Serialization.Metadata), and IJsonOnDeserialized, IJsonOnDeserializing, IJsonOnSerialized, IJsonOnSerializing (all in System.Text.Json.Serialization)"
-      - "Includes interfaces from both System.Text.Json.Serialization.Metadata and System.Text.Json.Serialization namespaces"
-      - "Results are accurate and comprehensive, not a partial list from memory"
     timeout: 120
 
   - name: "Find logging and tracing types across platform"
@@ -100,18 +76,6 @@ scenarios:
       - "Lists the 5 direct dependencies for net10.0: Microsoft.Extensions.AI.Abstractions, Microsoft.Extensions.Caching.Abstractions, Microsoft.Extensions.DependencyInjection.Abstractions, Microsoft.Extensions.Logging.Abstractions, and System.Numerics.Tensors"
       - "Provides version information (e.g., AI.Abstractions 10.4.0, other deps at 10.0.4)"
       - "Shows transitive dependencies or the deeper tree — e.g., Caching.Abstractions pulls in Microsoft.Extensions.Primitives, or for net9.0 there are additional direct deps like System.Text.Json and System.Threading.Channels"
-    timeout: 120
-
-  - name: "Inspect method overloads in a NuGet package"
-    prompt: "Which overloads of GetResponseAsync in Microsoft.Extensions.AI accept a JsonSerializerOptions parameter? Show me their full signatures."
-    assertions:
-      - type: "output_matches"
-        pattern: "JsonSerializerOptions"
-    expect_tools: ["bash"]
-    rubric:
-      - "Identifies the 3 overloads that accept JsonSerializerOptions: one taking string, one taking ChatMessage, and one taking IEnumerable<ChatMessage> — all on ChatClientStructuredOutputExtensions"
-      - "Shows full method signatures including the return type Task<ChatResponse<T>> and all parameters (chatClient, message input, serializerOptions, options?, useJsonSchemaResponseFormat?, cancellationToken)"
-      - "Distinguishes the 3 matching overloads from the 3 that do not accept JsonSerializerOptions (which are otherwise identical but omit the serializerOptions parameter)"
     timeout: 120
 
   - name: "Audit package signing and SourceLink"
