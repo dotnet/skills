@@ -137,3 +137,76 @@ scenarios:
       - "Correctly explains that Dictionary uses separate chaining via an Entry struct array with a next field forming an embedded linked list"
       - "Describes the defensive behavior when excessive collisions are detected with string keys, including switching to a randomized equality comparer"
     timeout: 180
+
+  - name: "Build M.E.AI chatbot with tool calling"
+    prompt: |
+      Build a .NET 10 console chatbot in the ChatBot project that uses Microsoft.Extensions.AI
+      with Ollama as the provider. The chatbot should:
+
+      1. Create a conversation loop that reads user input and streams AI responses
+      2. Register two custom tools the AI can call:
+         - A weather lookup tool that takes a city name and returns fake weather data
+         - A calculator tool that evaluates simple math expressions
+      3. Use AIFunction/AIFunctionFactory to register the tools
+      4. Configure the chat client pipeline with logging middleware
+      5. Handle the tool call lifecycle — when the AI wants to call a tool, execute it and feed the result back
+
+      The project already has the necessary package references. Make it compile and be structurally correct.
+      Don't worry about actually connecting to Ollama — focus on getting the code right.
+    setup:
+      files:
+        - path: "ChatBot/ChatBot.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>Exe</OutputType>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.Extensions.AI" Version="10.4.0" />
+                <PackageReference Include="Microsoft.Extensions.AI.Ollama" Version="10.4.0" />
+              </ItemGroup>
+            </Project>
+        - path: "ChatBot/Program.cs"
+          content: |
+            // TODO: Implement the chatbot
+            Console.WriteLine("ChatBot starting...");
+    assertions:
+      - type: "file_contains"
+        path: "**/Program.cs"
+        value: "IChatClient"
+      - type: "exit_success"
+    rubric:
+      - "OllamaChatClient constructor is called correctly — it takes (Uri, string?, HttpClient?) or (string, string?, HttpClient?) where the second param is the model name. The M.E.AI.Ollama package is only available in preview versions (latest 9.7.0-preview), not stable 10.4.0."
+      - "Tools are registered via AIFunctionFactory.Create(Delegate, ...) and passed to ChatOptions.Tools or FunctionInvokingChatClient.AdditionalTools. AIFunctionFactory is in the Microsoft.Extensions.AI.Abstractions package, not the main M.E.AI package."
+      - "FunctionInvokingChatClient is used for automatic tool dispatch (via UseFunctionInvocation() builder extension). It has properties: MaximumIterationsPerRequest, AllowConcurrentInvocation, TerminateOnUnknownCalls. Manual tool dispatch (checking FunctionCallContent) is NOT needed when this middleware is used."
+      - "ChatClientBuilder pipeline is constructed correctly: either new ChatClientBuilder(innerClient).Use*().Build() or innerClient.AsBuilder().Use*().Build(). The Build() method returns IChatClient."
+      - "Streaming uses GetStreamingResponseAsync which returns IAsyncEnumerable<ChatResponseUpdate>. ChatResponseUpdate has a Text property (string?) for content. ChatResponse (non-streaming) has a different shape."
+      - "Chat history uses List<ChatMessage> with ChatRole.User/ChatRole.Assistant/ChatRole.System. ChatMessage constructor takes (ChatRole, string) or (ChatRole, IEnumerable<AIContent>). Assistant responses MUST be added back to the history list to maintain multi-turn context."
+      - "The code compiles without errors (dotnet build succeeds)"
+    timeout: 600
+
+  - name: "Discover M.E.AI 10.4 abstraction surface"
+    prompt: |
+      I'm evaluating Microsoft.Extensions.AI for a multi-modal AI application. I need to understand
+      the full set of client abstractions available in M.E.AI Abstractions 10.4.0.
+
+      1. List ALL the client interfaces (I* pattern) in Microsoft.Extensions.AI.Abstractions 10.4.0.
+         For each, show its methods and what they return.
+      2. For each client interface, identify what middleware/pipeline builder support exists in the
+         main Microsoft.Extensions.AI 10.4.0 package (e.g., logging, OpenTelemetry, caching wrappers).
+      3. Tell me which abstractions have DI registration support (AddXxxClient builder extensions).
+    assertions:
+      - type: "output_matches"
+        pattern: "(IChatClient|ISpeechToTextClient|IHostedFileClient|IImageGenerator)"
+    expect_tools: ["bash"]
+    rubric:
+      - "Identifies all 4 client interfaces in M.E.AI Abstractions 10.4.0: IChatClient, ISpeechToTextClient, IHostedFileClient, and IImageGenerator — not just IChatClient"
+      - "Shows correct method signatures for ISpeechToTextClient: GetTextAsync (returns Task<SpeechToTextResponse>) and GetStreamingTextAsync (returns IAsyncEnumerable<SpeechToTextResponseUpdate>)"
+      - "Shows correct method signatures for IHostedFileClient: UploadAsync, DownloadAsync, DeleteAsync, GetFileInfoAsync, ListFilesAsync — at least 4 of these 5"
+      - "Shows correct method signatures for IImageGenerator: GenerateAsync (returns Task<ImageGenerationResponse>)"
+      - "Identifies pipeline infrastructure for each abstraction: e.g., LoggingSpeechToTextClient, OpenTelemetrySpeechToTextClient, SpeechToTextClientBuilder for speech; similar patterns for images and hosted files"
+      - "Identifies DI registration via ChatClientBuilderServiceCollectionExtensions, SpeechToTextClientBuilderServiceCollectionExtensions, and equivalent extensions for the other abstractions"
+    timeout: 240
