@@ -47,6 +47,9 @@ scenarios:
       - "Does not use .Result, .Wait(), Task.Run, or other forbidden threading primitives"
       - "Uses a private field for mutable state — does not mutate [Parameter] properties"
       - "Uses async/await throughout — no fire-and-forget without error handling"
+      - "Debounces with Task.Delay + CancellationTokenSource — not System.Threading.Timer or System.Timers.Timer"
+      - "No inline style attributes — uses CSS classes or data-* attributes for styling"
+      - "No catch-and-rethrow patterns (catch { throw; }) — uses when guards or lets exceptions propagate naturally"
     timeout: 180
 
   - name: "Author a multi-step wizard with shared state"
@@ -133,6 +136,8 @@ scenarios:
       - "Handles the empty state with a default message and an optional override template"
       - "Uses EventCallback<TItem> for OnRowClick (not Action or Func)"
       - "Parameters use [Parameter] with { get; set; } — correct Blazor conventions"
+      - "No inline style attributes — uses CSS classes or data-* attributes for styling"
+      - "Items parameter is IReadOnlyList<TItem> or List<TItem> — not IEnumerable<TItem> — and is copied to a private field in OnParametersSet"
     timeout: 120
 
   - name: "Author a real-time notification badge component"
@@ -168,10 +173,12 @@ scenarios:
       - "Implements IAsyncDisposable — not IDisposable"
       - "Subscribes to the event in OnInitialized and unsubscribes in DisposeAsync with -="
       - "Uses InvokeAsync to marshal the event callback onto the Blazor sync context before calling StateHasChanged"
-      - "Disposes the timer in DisposeAsync"
+      - "Cancels CTS in DisposeAsync to stop polling — does not catch ObjectDisposedException as a disposal guard"
       - "Does not use Task.Run, Thread.Start, or concurrent collections"
-      - "Does not call StateHasChanged directly from the timer or event callback without InvokeAsync"
+      - "Event handler uses async void + try/catch + DispatchExceptionAsync — does not use _ = InvokeAsync(...) which discards Task and swallows exceptions"
       - "Uses async/await for the polling call — no .Result or .Wait()"
+      - "Polls using Task.Delay in a loop or PeriodicTimer — not System.Timers.Timer with Elapsed events"
+      - "Does not gold-plate: no ARIA roles, wrapper divs, or accessibility attributes the prompt did not request"
     timeout: 120
 
   - name: "Author a sortable list with code-behind pattern"

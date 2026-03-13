@@ -156,7 +156,101 @@ See `references/component-disposal.md` for full patterns.
 
 `StateHasChanged` is only needed for: (1) intermediate updates between multiple awaits, (2) external event callbacks marshaled via `InvokeAsync`.
 
+### Debounce with Task.Delay
+
+Prefer `Task.Delay` + `CancellationTokenSource` over `Timer` callbacks. Stays on the sync context — no `InvokeAsync`, no fire-and-forget trampolines.
+
+```csharp
+private CancellationTokenSource? _debounceCts;
+
+private async Task OnInput(ChangeEventArgs e)
+{
+    _debounceCts?.Cancel();
+    _debounceCts?.Dispose();
+    _debounceCts = new CancellationTokenSource();
+    var token = _debounceCts.Token;
+
+    try
+    {
+        await Task.Delay(300, token);
+        await DoWorkAsync(token);
+    }
+    catch (OperationCanceledException) { }
+}
+```
+
+**Don't** use `System.Threading.Timer` or `System.Timers.Timer` for debounce — they fire on thread-pool threads, require `InvokeAsync` marshaling, and create unobserved `Task` risks.
+
+### Polling with Task.Delay
+
+A loop started from `OnInitializedAsync` stays on the Blazor sync context. No `InvokeAsync` needed — just call `StateHasChanged` directly.
+
+```csharp
+protected override async Task OnInitializedAsync()
+{
+    _cts = new CancellationTokenSource();
+    _ = PollAsync(_cts.Token);
+}
+
+private async Task PollAsync(CancellationToken token)
+{
+    try
+    {
+        while (!token.IsCancellationRequested)
+        {
+            await Task.Delay(30_000, token);
+            count = await Service.GetCountAsync();
+            StateHasChanged();
+        }
+    }
+    catch (OperationCanceledException) { }
+    catch (Exception ex) { await DispatchExceptionAsync(ex); }
+}
+```
+
+Cancel the CTS in `DisposeAsync` — `Task.Delay` throws `OperationCanceledException` and the loop exits cleanly. Don't catch `ObjectDisposedException` as a disposal guard — use CTS cancellation instead.
+
+### External C# Event Handlers
+
+C# events (e.g. `Action<T>`) fire on arbitrary threads. The handler must marshal back to the Blazor sync context and route errors through `DispatchExceptionAsync`.
+
+```csharp
+private async void HandleNotification(Notification n)
+{
+    try
+    {
+        await InvokeAsync(() =>
+        {
+            count++;
+            StateHasChanged();
+        });
+    }
+    catch (Exception ex)
+    {
+        await DispatchExceptionAsync(ex);
+    }
+}
+```
+
+**Don't** use `_ = InvokeAsync(...)` — the discarded `Task` swallows exceptions silently.
+
 See `references/async-programming-rules.md` for alternatives to forbidden primitives.
+
+## Styling
+
+**Don't** use inline `style` attributes. Use CSS classes or data attributes with CSS selectors.
+
+```razor
+<!-- WRONG -->
+<tr style="@(OnRowClick.HasDelegate ? "cursor:pointer" : null)">
+<!-- RIGHT -->
+<tr data-clickable="@OnRowClick.HasDelegate">
+```
+```css
+::deep tr[data-clickable="True"] { cursor: pointer; }
+```
+
+Use CSS isolation (`.razor.css`) for component-scoped styles.
 
 ## Don'ts Checklist
 
@@ -167,7 +261,14 @@ See `references/async-programming-rules.md` for alternatives to forbidden primit
 - JS interop in `OnInitializedAsync` — use `OnAfterRenderAsync`.
 - `Action`/`Func` for event params — use `EventCallback`.
 - `Task.Run`/`.Result`/`.Wait()`/`ContinueWith`/`Thread.Start` — deadlock.
+- `Timer`/`System.Timers.Timer` for debounce — use `Task.Delay` + CTS.
 - `StateHasChanged` in every handler — unnecessary overhead.
+- Inline `style` attributes — use CSS classes or `data-*` attributes.
+- `catch (SomeException) { throw; }` — noise. Use `when` guard or let exceptions propagate.
+- `catch (ObjectDisposedException)` as disposal guard — use CTS cancellation instead.
 - External delegate on `@on*` — component won't re-render.
 - Unobserved `Task` without `DispatchExceptionAsync` — silent exception loss.
+- `_ = InvokeAsync(...)` in event handlers — use `async void` + `DispatchExceptionAsync`.
+- `IEnumerable<T>` for collection parameters — use `IReadOnlyList<T>` and copy in `OnParametersSet`.
+- Gold-plating: ARIA roles, extra wrapper `<div>`s, accessibility attributes, or features the prompt didn't ask for.
 - Missing disposal of subscriptions/timers/tokens — memory leak.
