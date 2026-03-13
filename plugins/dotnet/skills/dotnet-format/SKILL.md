@@ -10,7 +10,7 @@ description: >
 
 # dotnet format (whitespace)
 
-`dotnet format whitespace` reformats indentation, trailing whitespace, and line endings in C#/VB files without applying analyzer or code-style fixes. It is the fastest `dotnet format` sub-command because it operates on syntax only and does not need to load the full workspace. It is also the safest because it never changes semantics.
+`dotnet format whitespace` reformats indentation, trailing whitespace, and line endings in C#/VB files without applying analyzer or code-style fixes. When used with `--folder`, it is the fastest `dotnet format` sub-command because in that mode it operates on syntax only and does not need to load the full MSBuild workspace; when run against a project or solution it still loads the workspace. It is also the safest because it never changes semantics.
 
 ## When to Use
 
