@@ -117,3 +117,34 @@
 - `--symbols` flag explicitly supports `.dwarf` format
 
 The `.symbols` NuGet fallback is preserved for environments where `dotnet-symbol` isn't installed.
+
+---
+
+## Session 5: Automated symbol server download
+
+### Problem
+
+Symbol acquisition was still manual — the script printed instructions but didn't download anything. Users had to copy/paste commands and re-run the script. The android tombstone skill already downloads symbols automatically from the Microsoft symbol server using ELF build IDs.
+
+### Key findings
+
+1. **Microsoft symbol server URL pattern for Mach-O**: `https://msdl.microsoft.com/download/symbols/_.dwarf/mach-uuid-sym-{UUID}/_.dwarf` — empirically verified (HTTP 302 → Azure Blob, correct Mach-O magic, UUID match confirmed)
+2. **UUID format**: Lowercase, no dashes — already how `Format-Uuid` normalizes it
+3. **Mach-O 64-bit LE magic**: bytes `CF FA ED FE` — used for download validation
+4. **`.dwarf` → `.dSYM` conversion** is purely structural: `mkdir -p name.dSYM/Contents/Resources/DWARF && cp file.dwarf name.dSYM/.../name`
+
+### Changes
+
+- **`Symbolicate-Crash.ps1`**: Added three new parameters (`-SymbolCacheDir`, `-SymbolServerUrl`, `-SkipSymbolDownload`), `Get-DebugSymbols` function (HTTP download with Mach-O validation, caching), `Convert-DwarfToDsym` function (bundle creation with UUID verification), and wired both into the main flow after local dSYM search
+- **Manual guidance block**: Refactored to only show for libraries still missing after both local search AND symbol server download failed
+- **Both SKILL.md copies**: Updated Step 2 flags, Step 4 to document automatic download behavior with fallbacks
+- **Reference doc**: Restructured macOS Symbol Packages section — automatic download as primary, `dotnet-symbol` and NuGet as manual fallbacks
+- **Symbol cache**: `$TMPDIR/dotnet-crash-symbols/` by default, overridable with `-SymbolCacheDir`
+
+### Test result
+
+End-to-end test with `~/dev/dotnet-2026-03-12-081456.ips`: script automatically downloaded 48 MB `.dwarf` for libcoreclr.dylib (UUID 567bd720d4ad3ff3b39c1982b66649e5), converted to `.dSYM`, symbolicated all 6/6 .NET frames on crashing thread including `CallDescrWorkerInternal`.
+
+### Rationale
+
+Mirrors the android tombstone skill's `Get-DebugSymbols` pattern — direct HTTP to symbol server using the binary's unique ID, no external tool dependencies. The skill now achieves fully automated symbolication for any published .NET runtime release without requiring `dotnet-symbol`, NuGet packages, or user intervention.

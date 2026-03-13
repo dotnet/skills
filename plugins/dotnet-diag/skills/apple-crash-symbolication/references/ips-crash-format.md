@@ -76,21 +76,29 @@ The `/__w/1/s/` prefix in output paths is the CI workspace root — meaningful p
 On macOS (`osx-arm64`, `osx-x64`), .NET runtime symbols are distributed differently than iOS:
 
 - **iOS / Mac Catalyst / tvOS**: dSYM bundles ship inside the `Microsoft.NETCore.App.Runtime.<rid>` NuGet package.
-- **macOS**: The main runtime package contains binaries but **not** debug symbols. Two acquisition methods:
+- **macOS**: The main runtime package contains binaries but **not** debug symbols.
 
-### Preferred: `dotnet-symbol` (downloads from Microsoft symbol server)
+### Automatic download (built into the script)
 
-Download the main runtime NuGet package (for binaries), then use `dotnet-symbol` to fetch matching `.dwarf` files:
+The `Symbolicate-Crash.ps1` script automatically downloads `.dwarf` files from the Microsoft symbol server using the Mach-O UUID:
 
-```bash
-curl -Lo runtime.nupkg https://www.nuget.org/api/v2/package/Microsoft.NETCore.App.Runtime.osx-arm64/10.0.4
-unzip -q runtime.nupkg -d runtime-extracted
-dotnet-symbol --symbols -o symbols-out runtime-extracted/runtimes/osx-arm64/native/*.dylib
+```
+URL pattern: https://msdl.microsoft.com/download/symbols/_.dwarf/mach-uuid-sym-{UUID}/_.dwarf
 ```
 
-### Fallback: `.symbols` NuGet package
+The UUID is extracted from the crash log's binary image list (already lowercase, no dashes). The server returns HTTP 302 → Azure Blob Storage on hit, 404 on miss. Downloaded files are cached in `$TMPDIR/dotnet-crash-symbols/` and converted to `.dSYM` bundles automatically. This mirrors the approach used by the Android tombstone symbolication skill.
 
-If `dotnet-symbol` is not installed, download the separate **`Microsoft.NETCore.App.Runtime.<rid>.symbols`** package (note `.symbols` suffix — not `.snupkg`):
+### Manual fallback: `dotnet-symbol`
+
+If automatic download fails, use `dotnet-symbol` to fetch symbols from the same server:
+
+```bash
+dotnet-symbol --symbols -o symbols-out <path-to-binary.dylib>
+```
+
+### Manual fallback: `.symbols` NuGet package
+
+Download the separate **`Microsoft.NETCore.App.Runtime.<rid>.symbols`** package (note `.symbols` suffix — not `.snupkg`):
 
 ```bash
 curl -Lo symbols.nupkg https://www.nuget.org/api/v2/package/Microsoft.NETCore.App.Runtime.osx-arm64.symbols/10.0.4
@@ -99,7 +107,7 @@ unzip -q symbols.nupkg -d symbols-extracted
 
 ### Converting `.dwarf` → `.dSYM`
 
-Both methods produce flat `.dwarf` files. `atos` requires `.dSYM` bundle directory structure. Convert:
+Manual fallback methods produce flat `.dwarf` files. `atos` requires `.dSYM` bundle directory structure. Convert:
 
 ```bash
 # For each .dwarf file (e.g., libcoreclr.dylib.dwarf):

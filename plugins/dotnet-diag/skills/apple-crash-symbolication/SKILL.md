@@ -1,6 +1,6 @@
 ---
 name: apple-crash-symbolication
-description: Symbolicate .NET runtime frames in Apple platform .ips crash logs (iOS, tvOS, Mac Catalyst, macOS). Extracts UUIDs and addresses from the native backtrace, locates dSYM debug symbols, and runs atos to produce function names with source file and line numbers. USE FOR triaging a .NET MAUI or Mono app crash from an .ips file on any Apple platform, resolving native backtrace frames in libcoreclr or libmonosgen-2.0 to .NET runtime source code, retrieving .ips crash logs from a connected iOS device or iPhone, or investigating EXC_CRASH, EXC_BAD_ACCESS, SIGABRT, or SIGSEGV originating from the .NET runtime. DO NOT USE FOR pure Swift/Objective-C crashes with no .NET components, or Android tombstone files. INVOKES Symbolicate-Crash.ps1 script, atos, dwarfdump, idevicecrashreport.
+description: Symbolicate .NET runtime frames in Apple platform .ips crash logs (iOS, tvOS, Mac Catalyst, macOS). Extracts UUIDs and addresses from the native backtrace, locates dSYM debug symbols, and runs atos to produce function names with source file and line numbers. Automatically downloads .dwarf symbols from the Microsoft symbol server using Mach-O UUIDs. USE FOR triaging a .NET MAUI or Mono app crash from an .ips file on any Apple platform, resolving native backtrace frames in libcoreclr or libmonosgen-2.0 to .NET runtime source code, retrieving .ips crash logs from a connected iOS device or iPhone, or investigating EXC_CRASH, EXC_BAD_ACCESS, SIGABRT, or SIGSEGV originating from the .NET runtime. DO NOT USE FOR pure Swift/Objective-C crashes with no .NET components, or Android tombstone files. INVOKES Symbolicate-Crash.ps1 script, atos, dwarfdump, idevicecrashreport.
 ---
 
 # Apple Platform Crash Log .NET Symbolication
@@ -37,9 +37,9 @@ pwsh "$SKILL_DIR/scripts/Symbolicate-Crash.ps1" -CrashFile MyApp-2026-02-25.ips
 
 **Start with `-ParseOnly`** to get a fast overview of libraries, UUIDs, addresses, and **.NET runtime version** without requiring `atos` or dSYMs. The script extracts the version directly from image paths in the crash log (e.g., `.../Microsoft.NETCore.App/10.0.4/libcoreclr.dylib`). Present those results to the user first. Only proceed to full symbolication if `atos` is available and dSYMs are found.
 
-When dSYMs are missing but the version is known, the script emits **symbol acquisition commands** — for macOS it prefers `dotnet-symbol` (downloads `.dwarf` from the Microsoft symbol server) with a `.symbols` NuGet fallback; for iOS/tvOS/MacCatalyst it emits `curl` + `unzip` steps. Execute these to download symbols automatically.
+The script **automatically downloads symbols** from the Microsoft symbol server when local dSYMs are missing. It uses Mach-O UUIDs to fetch `.dwarf` files via `https://msdl.microsoft.com/download/symbols/`, converts them to `.dSYM` bundles, and caches them in a temp directory. No manual symbol acquisition needed for published .NET runtime releases.
 
-Flags: `-CrashingThreadOnly` (limit to faulting thread), `-OutputFile path` (write to file), `-ParseOnly` (report libraries/UUIDs/addresses without symbolicating), `-SkipVersionLookup` (skip runtime version identification), `-DsymSearchPaths path1,path2` (additional dSYM search directories).
+Flags: `-CrashingThreadOnly` (limit to faulting thread), `-OutputFile path` (write to file), `-ParseOnly` (report libraries/UUIDs/addresses without symbolicating), `-SkipVersionLookup` (skip runtime version identification), `-SkipSymbolDownload` (skip automatic symbol server download), `-SymbolCacheDir path` (override symbol cache location), `-DsymSearchPaths path1,path2` (additional dSYM search directories).
 
 The script searches for dSYMs in SDK packs (`$DOTNET_ROOT/packs/`), NuGet cache (`~/.nuget/packages/`), and user-provided paths across all Apple platform RIDs (`ios-arm64`, `tvos-arm64`, `maccatalyst-arm64/x64`, `osx-arm64/x64`). Do **not** run broad filesystem searches (`find /`, `find ~`) for dSYMs — if the script's built-in search paths don't find them, report the missing UUIDs and let the user provide the paths.
 
@@ -57,25 +57,13 @@ Strip the `/__w/1/s/` CI workspace prefix from resolved paths — meaningful pat
 
 ### Step 4: Locate Missing dSYMs
 
-When the script reports missing dSYMs, it also detects the .NET version from crash log image paths and **prints ready-to-run acquisition commands**. Execute those commands to download and prepare symbols automatically.
+The script automatically downloads symbols from the Microsoft symbol server for any .NET libraries where local dSYMs are not found. Downloaded `.dwarf` files are cached in a temp directory (`$TMPDIR/dotnet-crash-symbols/`) and converted to `.dSYM` bundles automatically.
 
-If the script's guidance isn't available or you need to do it manually:
+If automatic download fails (e.g., symbols not yet published, air-gapped machine), the script prints manual fallback commands. You can also:
 
 1. **Build output**: Check the app's build directory (e.g., `bin/Debug/net*-ios/ios-arm64/<App>.app.dSYM/`)
-2. **`dotnet-symbol` (preferred for macOS)**: Download the runtime NuGet package, then use `dotnet-symbol --symbols` on the binaries to fetch `.dwarf` files from the Microsoft symbol server:
-   ```bash
-   # Download runtime binaries for macOS .NET 10.0.4 osx-arm64
-   curl -Lo runtime.nupkg https://www.nuget.org/api/v2/package/Microsoft.NETCore.App.Runtime.osx-arm64/10.0.4
-   unzip -q runtime.nupkg -d runtime-extracted
-   # Download .dwarf symbols from symbol server
-   dotnet-symbol --symbols -o symbols-out runtime-extracted/runtimes/osx-arm64/native/*.dylib
-   # Convert flat .dwarf to .dSYM bundle (example: libcoreclr)
-   mkdir -p libcoreclr.dylib.dSYM/Contents/Resources/DWARF
-   cp symbols-out/libcoreclr.dylib.dwarf libcoreclr.dylib.dSYM/Contents/Resources/DWARF/libcoreclr.dylib
-   ```
-3. **NuGet.org runtime symbols (fallback)**:
-   - **iOS / Mac Catalyst / tvOS**: Symbols ship as `.dSYM` bundles inside the `Microsoft.NETCore.App.Runtime.<rid>` package — download and extract.
-   - **macOS (osx-arm64, osx-x64)**: If `dotnet-symbol` is not available, download the separate **`Microsoft.NETCore.App.Runtime.<rid>.symbols`** NuGet package (note `.symbols` suffix). This contains flat `.dwarf` files that must be converted to `.dSYM` bundles as shown above.
+2. **`dotnet-symbol`**: `dotnet-symbol --symbols -o symbols-out <path-to-binary.dylib>` fetches `.dwarf` from the symbol server
+3. **NuGet.org**: Download `Microsoft.NETCore.App.Runtime.<rid>.symbols` package (macOS) or the main runtime package (iOS/tvOS/MacCatalyst)
 4. **User-provided paths**: Re-run with `-DsymSearchPaths` pointing to the dSYM location
 
 Always verify UUID match with `dwarfdump --uuid <dsym>` before symbolicating. For **NativeAOT** apps, the runtime is in the app binary itself — its dSYM comes from the build output.

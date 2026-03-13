@@ -5,8 +5,9 @@
 .DESCRIPTION
     Parses an Apple platform .ips crash log (JSON format, iOS 15+ / macOS 12+), extracts
     Mach-O UUIDs and frame addresses from the native backtrace, locates dSYM debug symbols
-    from local SDK packs and NuGet cache, and runs atos to resolve each frame to function
-    name, source file, and line number. Supports iOS, tvOS, Mac Catalyst, and macOS.
+    from local SDK packs and NuGet cache, downloads missing symbols from the Microsoft
+    symbol server, and runs atos to resolve each frame to function name, source file, and
+    line number. Supports iOS, tvOS, Mac Catalyst, and macOS.
 
 .PARAMETER CrashFile
     Path to the .ips crash log file.
@@ -31,11 +32,23 @@
 .PARAMETER SkipVersionLookup
     Skip .NET runtime version identification.
 
+.PARAMETER SymbolCacheDir
+    Directory to cache downloaded symbol files. Defaults to a temp directory.
+
+.PARAMETER SymbolServerUrl
+    Base URL for the symbol server. Defaults to Microsoft's public server.
+
+.PARAMETER SkipSymbolDownload
+    Skip downloading symbols from the symbol server. Only use locally-found dSYMs.
+
 .EXAMPLE
     pwsh Symbolicate-Crash.ps1 -CrashFile MyApp-2026-02-25.ips
 
 .EXAMPLE
     pwsh Symbolicate-Crash.ps1 -CrashFile MyApp.ips -DsymSearchPaths ./build/dSYMs -OutputFile symbolicated.txt
+
+.EXAMPLE
+    pwsh Symbolicate-Crash.ps1 -CrashFile MyApp.ips -SymbolCacheDir ./symbol-cache
 #>
 
 [CmdletBinding()]
@@ -59,7 +72,16 @@ param(
     [switch]$ParseOnly,
 
     [Parameter()]
-    [switch]$SkipVersionLookup
+    [switch]$SkipVersionLookup,
+
+    [Parameter()]
+    [string]$SymbolCacheDir,
+
+    [Parameter()]
+    [string]$SymbolServerUrl = 'https://msdl.microsoft.com/download/symbols',
+
+    [Parameter()]
+    [switch]$SkipSymbolDownload
 )
 
 Set-StrictMode -Version Latest
@@ -270,6 +292,86 @@ function Get-DsymUuid([string]$path) {
         Write-Verbose "dwarfdump failed for $path`: $_"
     }
     return $null
+}
+
+# Download DWARF symbols from the Microsoft symbol server using a Mach-O UUID
+function Get-DebugSymbols([string]$uuid, [string]$cacheDir, [string]$serverUrl) {
+    $dwarfFile = Join-Path $cacheDir "$uuid.dwarf"
+
+    if (Test-Path $dwarfFile) {
+        Write-Verbose "Using cached symbols for UUID $uuid"
+        return $dwarfFile
+    }
+
+    $url = "$serverUrl/_.dwarf/mach-uuid-sym-$uuid/_.dwarf"
+    Write-Verbose "Downloading symbols from $url"
+
+    $savedProgressPreference = $ProgressPreference
+    try {
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri $url -OutFile $dwarfFile -UseBasicParsing -TimeoutSec 120
+
+        # Verify the download is a Mach-O file (64-bit LE magic: CF FA ED FE)
+        $stream = [System.IO.File]::OpenRead($dwarfFile)
+        try {
+            $header = [byte[]]::new(4)
+            $bytesRead = $stream.Read($header, 0, 4)
+        }
+        finally {
+            $stream.Close()
+        }
+        if ($bytesRead -ge 4 -and $header[0] -eq 0xCF -and $header[1] -eq 0xFA -and $header[2] -eq 0xED -and $header[3] -eq 0xFE) {
+            $size = (Get-Item $dwarfFile).Length
+            Write-Verbose "Downloaded $([math]::Round($size / 1MB, 1)) MB symbols for UUID $uuid"
+            return $dwarfFile
+        }
+        else {
+            Write-Warning "Downloaded file for UUID $uuid is not a valid Mach-O file (symbols may not be published)"
+            Remove-Item $dwarfFile -ErrorAction SilentlyContinue
+            return $null
+        }
+    }
+    catch {
+        Write-Warning "Failed to download symbols for UUID $uuid`: $_"
+        Remove-Item $dwarfFile -ErrorAction SilentlyContinue
+        return $null
+    }
+    finally {
+        $ProgressPreference = $savedProgressPreference
+    }
+}
+
+# Convert a raw .dwarf file into a .dSYM bundle that atos can consume
+function Convert-DwarfToDsym([string]$dwarfFile, [string]$libraryName, [string]$cacheDir) {
+    $dsymBundle = Join-Path $cacheDir "$libraryName.dSYM"
+    $dwarfDir = Join-Path $dsymBundle 'Contents/Resources/DWARF'
+    $targetFile = Join-Path $dwarfDir $libraryName
+
+    if (Test-Path $targetFile) {
+        Write-Verbose "Using cached dSYM bundle for $libraryName"
+        return $targetFile
+    }
+
+    try {
+        New-Item -ItemType Directory -Path $dwarfDir -Force | Out-Null
+        Copy-Item -Path $dwarfFile -Destination $targetFile -Force
+
+        # Verify UUID is readable from the converted bundle
+        $verifyUuid = Get-DsymUuid $targetFile
+        if (-not $verifyUuid) {
+            Write-Warning "Converted dSYM for $libraryName failed UUID verification"
+            Remove-Item $dsymBundle -Recurse -Force -ErrorAction SilentlyContinue
+            return $null
+        }
+
+        Write-Verbose "Created dSYM bundle: $dsymBundle"
+        return $targetFile
+    }
+    catch {
+        Write-Warning "Failed to create dSYM bundle for $libraryName`: $_"
+        Remove-Item $dsymBundle -Recurse -Force -ErrorAction SilentlyContinue
+        return $null
+    }
 }
 
 # Symbolicate a batch of addresses for one image using atos
@@ -608,6 +710,15 @@ if ($ParseOnly) {
     exit 0
 }
 
+# Set up symbol cache directory
+if (-not $SymbolCacheDir) {
+    $SymbolCacheDir = Join-Path ([System.IO.Path]::GetTempPath()) 'dotnet-crash-symbols'
+}
+if (-not (Test-Path $SymbolCacheDir)) {
+    New-Item -ItemType Directory -Path $SymbolCacheDir -Force | Out-Null
+}
+Write-Verbose "Symbol cache: $SymbolCacheDir"
+
 # Search for dSYMs for each .NET library
 $dsymMap = @{} # UUID -> dSYM DWARF path
 $uniqueLibs = $dotnetFrames | Select-Object ImageName, ImagePath, ImageUuid -Unique
@@ -626,11 +737,43 @@ foreach ($lib in $uniqueLibs) {
 }
 
 $foundCount = $dsymMap.Count
-if ($foundCount -eq 0) {
-    Write-Warning "Could not locate dSYM for any .NET library. Outputting unsymbolicated backtrace."
+if ($foundCount -gt 0) {
+    Write-Host "Found local dSYMs for $foundCount/$($uniqueLibs.Count) .NET library/libraries" -ForegroundColor Green
 }
-else {
-    Write-Host "Found dSYMs for $foundCount/$($uniqueLibs.Count) .NET library/libraries" -ForegroundColor Green
+
+# Download symbols from the Microsoft symbol server for any libraries still missing
+$missingAfterLocal = @($uniqueLibs | Where-Object { -not $dsymMap.ContainsKey($_.ImageUuid) })
+if ($missingAfterLocal.Count -gt 0 -and -not $SkipSymbolDownload) {
+    Write-Host "Downloading symbols for $($missingAfterLocal.Count) missing library/libraries from symbol server..." -ForegroundColor Cyan
+    foreach ($lib in $missingAfterLocal) {
+        $uuid = Format-Uuid $lib.ImageUuid
+        Write-Host "  $($lib.ImageName) (UUID: $uuid)" -ForegroundColor DarkGray
+        $dwarfFile = Get-DebugSymbols $uuid $SymbolCacheDir $SymbolServerUrl
+        if ($dwarfFile) {
+            $dsymPath = Convert-DwarfToDsym $dwarfFile $lib.ImageName $SymbolCacheDir
+            if ($dsymPath) {
+                # Verify the UUID matches what the crash expects
+                $downloadedUuid = Get-DsymUuid $dsymPath
+                if ($downloadedUuid -and (Format-Uuid $downloadedUuid) -eq $uuid) {
+                    $dsymMap[$lib.ImageUuid] = $dsymPath
+                    $size = [math]::Round((Get-Item $dwarfFile).Length / 1MB, 1)
+                    Write-Host "    ✅ Downloaded and converted ($($size) MB)" -ForegroundColor Green
+                }
+                else {
+                    Write-Warning "    UUID mismatch for $($lib.ImageName) — expected $uuid, got $(Format-Uuid $downloadedUuid)"
+                }
+            }
+        }
+    }
+    $downloadedCount = $dsymMap.Count - $foundCount
+    if ($downloadedCount -gt 0) {
+        Write-Host "Downloaded symbols for $downloadedCount/$($missingAfterLocal.Count) library/libraries" -ForegroundColor Green
+    }
+}
+
+$totalFound = $dsymMap.Count
+if ($totalFound -eq 0) {
+    Write-Warning "Could not locate or download dSYM for any .NET library. Outputting unsymbolicated backtrace."
 }
 
 # Version identification — try extracting from crash log image paths first (instant,
@@ -662,7 +805,7 @@ if (-not $SkipVersionLookup) {
     }
 }
 
-# If dSYMs are missing but version is known, emit acquisition guidance
+# If dSYMs are still missing after download, emit manual acquisition guidance as fallback
 $missingDsymLibs = @($uniqueLibs | Where-Object { -not $dsymMap.ContainsKey($_.ImageUuid) })
 if ($missingDsymLibs.Count -gt 0 -and $versionMap.Count -gt 0) {
     # Determine the version and RID for acquisition
@@ -684,37 +827,22 @@ if ($missingDsymLibs.Count -gt 0 -and $versionMap.Count -gt 0) {
     }
 
     $missingNames = ($missingDsymLibs | ForEach-Object { $_.ImageName }) -join ', '
-    Write-Host "`n⚠️  Missing dSYMs for: $missingNames" -ForegroundColor Yellow
+    Write-Host "`n⚠️  Still missing dSYMs for: $missingNames" -ForegroundColor Yellow
+    if ($SkipSymbolDownload) {
+        Write-Host "   (Symbol download was skipped — re-run without -SkipSymbolDownload to try automatic download)" -ForegroundColor Yellow
+    }
     Write-Host "   Version detected: .NET $anyVersion" -ForegroundColor Yellow
     if ($crashRid) {
         $isOsx = $crashRid -like 'osx-*'
         $runtimePackBase = "Microsoft.NETCore.App.Runtime.$crashRid"
+        Write-Host "   Manual acquisition fallback:" -ForegroundColor Yellow
         if ($isOsx) {
-            # macOS: download runtime binaries, then use dotnet-symbol to get .dwarf from symbol server
-            Write-Host "   To acquire symbols (macOS):" -ForegroundColor Yellow
-            Write-Host "   Option A — dotnet-symbol (preferred, downloads .dwarf from Microsoft symbol server):" -ForegroundColor Yellow
-            Write-Host "     1. curl -Lo runtime.nupkg https://www.nuget.org/api/v2/package/$runtimePackBase/$anyVersion" -ForegroundColor DarkYellow
-            Write-Host "     2. unzip -q runtime.nupkg -d runtime-extracted" -ForegroundColor DarkYellow
-            Write-Host "     3. dotnet-symbol --symbols -o symbols-out runtime-extracted/runtimes/$crashRid/native/*.dylib" -ForegroundColor DarkYellow
-            Write-Host "     4. Convert .dwarf → .dSYM for each library:" -ForegroundColor DarkYellow
-            foreach ($lib in $missingDsymLibs) {
-                Write-Host "        mkdir -p $($lib.ImageName).dSYM/Contents/Resources/DWARF" -ForegroundColor DarkYellow
-                Write-Host "        cp symbols-out/$($lib.ImageName).dwarf $($lib.ImageName).dSYM/Contents/Resources/DWARF/$($lib.ImageName)" -ForegroundColor DarkYellow
-            }
-            Write-Host "     5. Re-run with: -DsymSearchPaths ." -ForegroundColor DarkYellow
-            Write-Host "" -ForegroundColor DarkYellow
-            $symbolsPkg = "$runtimePackBase.symbols"
-            Write-Host "   Option B — .symbols NuGet package (fallback if dotnet-symbol is not installed):" -ForegroundColor Yellow
-            Write-Host "     1. curl -Lo symbols.nupkg https://www.nuget.org/api/v2/package/$symbolsPkg/$anyVersion" -ForegroundColor DarkYellow
-            Write-Host "     2. unzip -q symbols.nupkg -d symbols-extracted" -ForegroundColor DarkYellow
-            Write-Host "     3. Convert .dwarf → .dSYM (same step 4-5 as above, from symbols-extracted/runtimes/$crashRid/native/)" -ForegroundColor DarkYellow
+            Write-Host "     dotnet-symbol: curl -Lo runtime.nupkg https://www.nuget.org/api/v2/package/$runtimePackBase/$anyVersion && unzip -q runtime.nupkg -d runtime-extracted && dotnet-symbol --symbols -o symbols-out runtime-extracted/runtimes/$crashRid/native/*.dylib" -ForegroundColor DarkYellow
         }
         else {
             # iOS/tvOS/MacCatalyst: dSYM bundles ship in the main runtime package
-            Write-Host "   To acquire symbols:" -ForegroundColor Yellow
-            Write-Host "     1. curl -Lo runtime.nupkg https://www.nuget.org/api/v2/package/$runtimePackBase/$anyVersion" -ForegroundColor DarkYellow
-            Write-Host "     2. unzip -q runtime.nupkg -d runtime-extracted" -ForegroundColor DarkYellow
-            Write-Host "     3. Re-run with: -DsymSearchPaths ./runtime-extracted/runtimes/$crashRid/native" -ForegroundColor DarkYellow
+            Write-Host "     curl -Lo runtime.nupkg https://www.nuget.org/api/v2/package/$runtimePackBase/$anyVersion && unzip -q runtime.nupkg -d runtime-extracted" -ForegroundColor DarkYellow
+            Write-Host "     Re-run with: -DsymSearchPaths ./runtime-extracted/runtimes/$crashRid/native" -ForegroundColor DarkYellow
         }
     }
 }
