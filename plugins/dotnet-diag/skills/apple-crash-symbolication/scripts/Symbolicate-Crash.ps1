@@ -690,17 +690,24 @@ if ($missingDsymLibs.Count -gt 0 -and $versionMap.Count -gt 0) {
         $isOsx = $crashRid -like 'osx-*'
         $runtimePackBase = "Microsoft.NETCore.App.Runtime.$crashRid"
         if ($isOsx) {
-            # macOS: symbols ship in separate .symbols package as flat .dwarf files
-            $symbolsPkg = "$runtimePackBase.symbols"
-            Write-Host "   To acquire symbols (macOS .dwarf → .dSYM):" -ForegroundColor Yellow
-            Write-Host "     1. curl -Lo symbols.nupkg https://www.nuget.org/api/v2/package/$symbolsPkg/$anyVersion" -ForegroundColor DarkYellow
-            Write-Host "     2. unzip -q symbols.nupkg -d symbols-extracted" -ForegroundColor DarkYellow
-            Write-Host "     3. For each .dwarf file in symbols-extracted/runtimes/$crashRid/native/:" -ForegroundColor DarkYellow
+            # macOS: download runtime binaries, then use dotnet-symbol to get .dwarf from symbol server
+            Write-Host "   To acquire symbols (macOS):" -ForegroundColor Yellow
+            Write-Host "   Option A — dotnet-symbol (preferred, downloads .dwarf from Microsoft symbol server):" -ForegroundColor Yellow
+            Write-Host "     1. curl -Lo runtime.nupkg https://www.nuget.org/api/v2/package/$runtimePackBase/$anyVersion" -ForegroundColor DarkYellow
+            Write-Host "     2. unzip -q runtime.nupkg -d runtime-extracted" -ForegroundColor DarkYellow
+            Write-Host "     3. dotnet-symbol --symbols -o symbols-out runtime-extracted/runtimes/$crashRid/native/*.dylib" -ForegroundColor DarkYellow
+            Write-Host "     4. Convert .dwarf → .dSYM for each library:" -ForegroundColor DarkYellow
             foreach ($lib in $missingDsymLibs) {
                 Write-Host "        mkdir -p $($lib.ImageName).dSYM/Contents/Resources/DWARF" -ForegroundColor DarkYellow
-                Write-Host "        cp $($lib.ImageName).dwarf $($lib.ImageName).dSYM/Contents/Resources/DWARF/$($lib.ImageName)" -ForegroundColor DarkYellow
+                Write-Host "        cp symbols-out/$($lib.ImageName).dwarf $($lib.ImageName).dSYM/Contents/Resources/DWARF/$($lib.ImageName)" -ForegroundColor DarkYellow
             }
-            Write-Host "     4. Re-run with: -DsymSearchPaths ./symbols-extracted/runtimes/$crashRid/native" -ForegroundColor DarkYellow
+            Write-Host "     5. Re-run with: -DsymSearchPaths ." -ForegroundColor DarkYellow
+            Write-Host "" -ForegroundColor DarkYellow
+            $symbolsPkg = "$runtimePackBase.symbols"
+            Write-Host "   Option B — .symbols NuGet package (fallback if dotnet-symbol is not installed):" -ForegroundColor Yellow
+            Write-Host "     1. curl -Lo symbols.nupkg https://www.nuget.org/api/v2/package/$symbolsPkg/$anyVersion" -ForegroundColor DarkYellow
+            Write-Host "     2. unzip -q symbols.nupkg -d symbols-extracted" -ForegroundColor DarkYellow
+            Write-Host "     3. Convert .dwarf → .dSYM (same step 4-5 as above, from symbols-extracted/runtimes/$crashRid/native/)" -ForegroundColor DarkYellow
         }
         else {
             # iOS/tvOS/MacCatalyst: dSYM bundles ship in the main runtime package

@@ -76,9 +76,30 @@ The `/__w/1/s/` prefix in output paths is the CI workspace root — meaningful p
 On macOS (`osx-arm64`, `osx-x64`), .NET runtime symbols are distributed differently than iOS:
 
 - **iOS / Mac Catalyst / tvOS**: dSYM bundles ship inside the `Microsoft.NETCore.App.Runtime.<rid>` NuGet package.
-- **macOS**: Symbols are in a **separate** package: `Microsoft.NETCore.App.Runtime.<rid>.symbols` (note `.symbols` suffix — not `.snupkg`). The main runtime package does not contain debug symbols.
+- **macOS**: The main runtime package contains binaries but **not** debug symbols. Two acquisition methods:
 
-The macOS symbols package contains **flat `.dwarf` files** (produced by `dsymutil --flat`), not `.dSYM` bundles. `atos` requires a `.dSYM` bundle directory structure. Convert:
+### Preferred: `dotnet-symbol` (downloads from Microsoft symbol server)
+
+Download the main runtime NuGet package (for binaries), then use `dotnet-symbol` to fetch matching `.dwarf` files:
+
+```bash
+curl -Lo runtime.nupkg https://www.nuget.org/api/v2/package/Microsoft.NETCore.App.Runtime.osx-arm64/10.0.4
+unzip -q runtime.nupkg -d runtime-extracted
+dotnet-symbol --symbols -o symbols-out runtime-extracted/runtimes/osx-arm64/native/*.dylib
+```
+
+### Fallback: `.symbols` NuGet package
+
+If `dotnet-symbol` is not installed, download the separate **`Microsoft.NETCore.App.Runtime.<rid>.symbols`** package (note `.symbols` suffix — not `.snupkg`):
+
+```bash
+curl -Lo symbols.nupkg https://www.nuget.org/api/v2/package/Microsoft.NETCore.App.Runtime.osx-arm64.symbols/10.0.4
+unzip -q symbols.nupkg -d symbols-extracted
+```
+
+### Converting `.dwarf` → `.dSYM`
+
+Both methods produce flat `.dwarf` files. `atos` requires `.dSYM` bundle directory structure. Convert:
 
 ```bash
 # For each .dwarf file (e.g., libcoreclr.dylib.dwarf):
@@ -88,8 +109,6 @@ cp libcoreclr.dylib.dwarf libcoreclr.dylib.dSYM/Contents/Resources/DWARF/libcore
 ```
 
 The flat `.dwarf` is the same Mach-O DWARF format that lives inside the bundle — the conversion is purely structural (mkdir + cp).
-
-> **`dotnet-symbol` alternative:** If you have the runtime binary locally (e.g., from the main NuGet runtime package), `dotnet-symbol --symbols <binary>` downloads matching `.dwarf` debug symbols from the Microsoft symbol server (`msdl.microsoft.com`). This avoids needing the separate `.symbols` NuGet package. The downloaded `.dwarf` files still require the `.dSYM` bundle conversion above.
 
 ## .ips JSON Parsing Gotchas
 

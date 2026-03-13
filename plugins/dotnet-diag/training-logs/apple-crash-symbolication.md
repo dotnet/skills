@@ -92,3 +92,28 @@
 - **Verify claims empirically before adding anti-patterns.** Web search said the symbol server doesn't host macOS symbols — this was wrong. The user confirmed `dotnet-symbol` downloads `.dwarf` files for Mach-O binaries.
 - `dotnet-symbol` requires the binary first (e.g., from the main NuGet runtime package), then downloads matching debug symbols. Workflow: download NuGet runtime pkg → `dotnet-symbol --symbols <binary>` → convert `.dwarf` to `.dSYM`.
 - This is simpler than hunting for the separate `.symbols` NuGet package and should be the recommended approach.
+
+---
+
+## Session: 2025-07-24 (cont.) — Integrate dotnet-symbol as preferred acquisition method
+
+**Problem:** Script's symbol acquisition guidance only emitted `.symbols` NuGet package commands for macOS. `dotnet-symbol` is simpler and should be the preferred approach.
+
+### Changes
+
+| # | Component | Change |
+|---|-----------|--------|
+| 1 | Script acquisition block | macOS guidance now shows Option A (`dotnet-symbol`, preferred) and Option B (`.symbols` NuGet, fallback). iOS/tvOS/MacCatalyst unchanged. |
+| 2 | SKILL.md Step 2 | Updated acquisition command description to mention `dotnet-symbol` preference |
+| 3 | SKILL.md Step 4 | Restructured: `dotnet-symbol` is now item #2 (preferred for macOS), `.symbols` NuGet demoted to item #3 (fallback) |
+| 4 | Reference doc | Restructured macOS Symbol Packages section with "Preferred" and "Fallback" subsections + shared `.dwarf` → `.dSYM` conversion section |
+
+### Rationale
+
+`dotnet-symbol` is preferred because:
+- Needs only the main runtime NuGet package (which you need anyway for binaries)
+- No need to know about the separate `.symbols` package naming convention
+- Uses the binary's Mach-O UUID to query the symbol server — exact match guaranteed
+- `--symbols` flag explicitly supports `.dwarf` format
+
+The `.symbols` NuGet fallback is preserved for environments where `dotnet-symbol` isn't installed.
