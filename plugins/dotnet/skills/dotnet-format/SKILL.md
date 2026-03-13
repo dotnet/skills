@@ -1,7 +1,7 @@
 ---
 name: dotnet-format
 description: >
-  Format C#/.NET source files using the dotnet-format whitespace formatter.
+  Format C#/.NET source files using the `dotnet format whitespace` subcommand.
   USE FOR: quickly fixing whitespace and indentation in one or more files after
   code generation or editing, batch-formatting changed files before a commit.
   DO NOT USE FOR: enforcing code-style analyzers (SA/IDE rules), fixing
