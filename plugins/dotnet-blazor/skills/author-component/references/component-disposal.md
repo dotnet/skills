@@ -52,7 +52,9 @@ Implement when component owns: event subscriptions, timers, `CancellationTokenSo
 }
 ```
 
-## Pattern — Timer
+## Anti-pattern — Timer (Don't)
+
+Prefer `Task.Delay` polling loops (see SKILL.md). If you must use a timer, use `async void` to avoid discarding the `InvokeAsync` task:
 
 ```razor
 @using System.Timers
@@ -64,8 +66,20 @@ Implement when component owns: event subscriptions, timers, `CancellationTokenSo
     protected override void OnInitialized()
     {
         timer = new Timer(1000);
-        timer.Elapsed += (_, _) => InvokeAsync(() => { count++; StateHasChanged(); });
+        timer.Elapsed += OnTimerElapsed;
         timer.Start();
+    }
+
+    private async void OnTimerElapsed(object? sender, ElapsedEventArgs e)
+    {
+        try
+        {
+            await InvokeAsync(() => { count++; StateHasChanged(); });
+        }
+        catch (Exception ex)
+        {
+            await DispatchExceptionAsync(ex);
+        }
     }
 
     public ValueTask DisposeAsync()
@@ -76,7 +90,7 @@ Implement when component owns: event subscriptions, timers, `CancellationTokenSo
 }
 ```
 
-`Timer.Elapsed` fires on thread-pool thread. Wrap in `InvokeAsync` to marshal onto sync context.
+`Timer.Elapsed` fires on thread-pool thread. `async void` is the only correct handler signature — it awaits `InvokeAsync` and routes errors via `DispatchExceptionAsync`.
 
 ## Rules
 

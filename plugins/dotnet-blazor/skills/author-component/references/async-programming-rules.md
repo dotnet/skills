@@ -4,7 +4,7 @@ Blazor's sync context guarantees single-threaded component execution. All rules 
 
 ## Await every Task
 
-Never leave a `Task` unobserved — exceptions are silently lost.
+`await` every `Task` by default — discarded tasks silently lose exceptions. The only exception: fire-and-forget where the called method wraps its body in `try/catch` and routes errors via `DispatchExceptionAsync` (see Fire-and-Forget section below).
 
 ```csharp
 // DO
@@ -67,13 +67,20 @@ private async Task ProcessSteps()
 
 2. **External events** (timer, C# event, WebSocket) via `InvokeAsync`:
 ```csharp
-private void OnTimerElapsed()
+private async void OnExternalEvent(object? sender, EventArgs e)
 {
-    _ = InvokeAsync(() => { count++; StateHasChanged(); });
+    try
+    {
+        await InvokeAsync(() => { count++; StateHasChanged(); });
+    }
+    catch (Exception ex)
+    {
+        await DispatchExceptionAsync(ex);
+    }
 }
 ```
 
-`InvokeAsync` marshals onto the sync context. `StateHasChanged` from a raw thread throws `InvalidOperationException`.
+`InvokeAsync` marshals onto the sync context. `StateHasChanged` from a raw thread throws `InvalidOperationException`. Use `async void` for external event handlers — it's the only place `async void` is appropriate in Blazor. Always `await InvokeAsync` and route errors via `DispatchExceptionAsync`.
 
 ## Fire-and-Forget
 

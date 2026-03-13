@@ -80,7 +80,7 @@ Use `EventCallback` / `EventCallback<T>` for parent-child events. Never use `Act
 <button @onclick="() => OnAddToCart.InvokeAsync(Quantity)">Add</button>
 ```
 
-**Don't** bind external object methods directly to `@on*` attributes — the component won't re-render:
+**Don't** bind external object methods directly to `@on*` attributes — you lose the ability to update local state, debounce/cancel, or route errors via `DispatchExceptionAsync`:
 ```razor
 <!-- WRONG --> <button @onclick="CartService.AddItemAsync">Click</button>
 <!-- RIGHT --> <button @onclick="HandleClick">Click</button>
@@ -189,6 +189,7 @@ A loop started from `OnInitializedAsync` stays on the Blazor sync context. No `I
 protected override async Task OnInitializedAsync()
 {
     _cts = new CancellationTokenSource();
+    // Safe to discard — PollAsync catches all exceptions internally
     _ = PollAsync(_cts.Token);
 }
 
