@@ -205,9 +205,9 @@ jobs:
           pattern: skill-validator-results-*
           path: all-results/
           merge-multiple: false
-        # Some matrix legs may have failed (OOM, timeout) and not produced
-        # artifacts. Publish data from the plugins that did succeed.
-        continue-on-error: true
+        # Tolerate missing artifacts only when some evaluate legs failed (OOM,
+        # timeout). When all legs succeeded, a download failure is a real error.
+        continue-on-error: ${{ needs.run-evaluation.result != 'success' }}
 
       - name: Fetch existing benchmark data
         run: |
