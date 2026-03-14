@@ -170,7 +170,7 @@ public static class Reporter
         Console.WriteLine($"{summaryColor}{summaryText}\x1b[0m");
 
         bool anyTimeout = verdicts.Any(v => v.Scenarios.Any(s =>
-            s.Baseline.Metrics.TimedOut || s.WithSkill.Metrics.TimedOut));
+            s.Baseline.Metrics.TimedOut || s.SkilledIsolated.Metrics.TimedOut || (s.SkilledPlugin?.Metrics.TimedOut == true)));
         if (anyTimeout)
         {
             Console.WriteLine();
@@ -186,70 +186,105 @@ public static class Reporter
         Console.WriteLine($"    {icon} {scenario.ScenarioName}  {FormatScore(scenario.ImprovementScore)}");
 
         var b = scenario.Baseline.Metrics;
-        var s = scenario.WithSkill.Metrics;
-        var bd = scenario.Breakdown;
+        var s = scenario.SkilledIsolated.Metrics;
+        var p = scenario.SkilledPlugin?.Metrics;
 
         double bRubric = AvgRubricScore(scenario.Baseline.JudgeResult.RubricScores);
-        double sRubric = AvgRubricScore(scenario.WithSkill.JudgeResult.RubricScores);
+        double sRubric = AvgRubricScore(scenario.SkilledIsolated.JudgeResult.RubricScores);
+        double? pRubric = scenario.SkilledPlugin is { } sp ? AvgRubricScore(sp.JudgeResult.RubricScores) : null;
 
-        var metrics = new (string Label, double Value, string Absolute, bool LowerIsBetter)[]
+        // Build 3-column metric rows: baseline: X  isolated: Y (delta%)  plugin: Z (delta%)
+        var metricRows = new (string Label, string Baseline, string Isolated, string? Plugin)[]
         {
-            ("Tokens", bd.TokenReduction, $"{b.TokenEstimate} → {s.TokenEstimate}", true),
-            ("Tool calls", bd.ToolCallReduction, $"{b.ToolCallCount} → {s.ToolCallCount}", true),
-            ("Task completion", bd.TaskCompletionImprovement, $"{FmtBool(b.TaskCompleted)} → {FmtBool(s.TaskCompleted)}", false),
-            ("Time", bd.TimeReduction, $"{FmtMs(b.WallTimeMs)}{(b.TimedOut ? " ⏰" : "")} → {FmtMs(s.WallTimeMs)}{(s.TimedOut ? " ⏰" : "")}", true),
-            ("Quality (rubric)", bd.QualityImprovement, $"{bRubric:F1}/5 → {sRubric:F1}/5", false),
-            ("Quality (overall)", bd.OverallJudgmentImprovement, $"{scenario.Baseline.JudgeResult.OverallScore:F1}/5 → {scenario.WithSkill.JudgeResult.OverallScore:F1}/5", false),
-            ("Errors", bd.ErrorReduction, $"{b.ErrorCount} → {s.ErrorCount}", true),
+            ("Tokens",
+             $"{b.TokenEstimate}",
+             FormatMetricWithDelta(s.TokenEstimate, b.TokenEstimate, true),
+             p is not null ? FormatMetricWithDelta(p.TokenEstimate, b.TokenEstimate, true) : null),
+            ("Tool calls",
+             $"{b.ToolCallCount}",
+             FormatMetricWithDelta(s.ToolCallCount, b.ToolCallCount, true),
+             p is not null ? FormatMetricWithDelta(p.ToolCallCount, b.ToolCallCount, true) : null),
+            ("Task completion",
+             FmtBool(b.TaskCompleted),
+             FmtBool(s.TaskCompleted),
+             p is not null ? FmtBool(p.TaskCompleted) : null),
+            ("Time",
+             $"{FmtMs(b.WallTimeMs)}{(b.TimedOut ? " ⏰" : "")}",
+             $"{FmtMs(s.WallTimeMs)}{(s.TimedOut ? " ⏰" : "")}{FormatPctDelta(s.WallTimeMs, b.WallTimeMs, true)}",
+             p is not null ? $"{FmtMs(p.WallTimeMs)}{(p.TimedOut ? " ⏰" : "")}{FormatPctDelta(p.WallTimeMs, b.WallTimeMs, true)}" : null),
+            ("Quality (rubric)",
+             $"{bRubric:F1}/5",
+             $"{sRubric:F1}/5{FormatPctDelta(sRubric, bRubric, false)}",
+             pRubric is not null ? $"{pRubric:F1}/5{FormatPctDelta(pRubric.Value, bRubric, false)}" : null),
+            ("Quality (overall)",
+             $"{scenario.Baseline.JudgeResult.OverallScore:F1}/5",
+             $"{scenario.SkilledIsolated.JudgeResult.OverallScore:F1}/5{FormatPctDelta(scenario.SkilledIsolated.JudgeResult.OverallScore, scenario.Baseline.JudgeResult.OverallScore, false)}",
+             scenario.SkilledPlugin is not null ? $"{scenario.SkilledPlugin.JudgeResult.OverallScore:F1}/5{FormatPctDelta(scenario.SkilledPlugin.JudgeResult.OverallScore, scenario.Baseline.JudgeResult.OverallScore, false)}" : null),
+            ("Errors",
+             $"{b.ErrorCount}",
+             FormatMetricWithDelta(s.ErrorCount, b.ErrorCount, true),
+             p is not null ? FormatMetricWithDelta(p.ErrorCount, b.ErrorCount, true) : null),
         };
 
+        bool hasPlugin = scenario.SkilledPlugin is not null;
+
         // Show timeout warnings prominently before the metrics table
-        if (b.TimedOut || s.TimedOut)
+        if (b.TimedOut || s.TimedOut || p?.TimedOut == true)
         {
             var parts = new List<string>();
             if (b.TimedOut) parts.Add("baseline");
-            if (s.TimedOut) parts.Add("with-skill");
+            if (s.TimedOut) parts.Add("isolated");
+            if (p?.TimedOut == true) parts.Add("plugin");
             Console.WriteLine($"      \x1b[31;1m⏰ TIMEOUT\x1b[0m — {string.Join(" and ", parts)} run(s) hit the scenario timeout limit");
         }
 
-        foreach (var (label, value, absolute, lowerIsBetter) in metrics)
+        foreach (var (label, baseline, isolated, plugin) in metricRows)
         {
-            var color = value > 0 ? "\x1b[32m" : value < 0 ? "\x1b[31m" : "\x1b[2m";
-            double displayValue = lowerIsBetter ? -value : value;
-            Console.WriteLine($"      \x1b[2m{label,-20}\x1b[0m {color}{FormatDelta(displayValue),-10}\x1b[0m \x1b[2m{absolute}\x1b[0m");
+            var line = $"      \x1b[2m{label,-20}\x1b[0m baseline: \x1b[2m{baseline,-12}\x1b[0m isolated: {isolated,-20}";
+            if (hasPlugin)
+                line += $" plugin: {plugin ?? "—"}";
+            Console.WriteLine(line);
         }
 
-        // Skill activation info
-        if (scenario.SkillActivation is { } sa)
+        // Effective score line (when plugin run exists, show min)
+        if (hasPlugin)
+        {
+            var isoScore = scenario.IsolatedImprovementScore;
+            var plugScore = scenario.PluginImprovementScore;
+            Console.WriteLine($"      \x1b[1mEffective score:\x1b[0m min(isolated={FormatPct(isoScore)}, plugin={FormatPct(plugScore)}) = {FormatPct(scenario.ImprovementScore)}");
+        }
+
+        // Skill activation info — isolated
+        if (scenario.SkillActivationIsolated is { } saIso)
         {
             Console.WriteLine();
-            if (sa.Activated)
-            {
-                var parts = new List<string>();
-                if (sa.DetectedSkills.Count > 0) parts.Add(string.Join(", ", sa.DetectedSkills));
-                if (sa.ExtraTools.Count > 0) parts.Add("extra tools: " + string.Join(", ", sa.ExtraTools));
-                Console.WriteLine($"      \x1b[2mSkill activated:\x1b[0m \x1b[32m{(parts.Count > 0 ? string.Join("; ", parts) : "yes")}\x1b[0m");
-            }
-            else
-            {
-                if (!scenario.ExpectActivation)
-                    Console.WriteLine("      \x1b[36mℹ️  Skill correctly NOT activated (negative test)\x1b[0m");
-                else
-                    Console.WriteLine("      \x1b[33m⚠️  Skill was NOT activated\x1b[0m");
-            }
+            ReportActivation(saIso, "Isolated", scenario.ExpectActivation);
+        }
+
+        // Skill activation info — plugin
+        if (scenario.SkillActivationPlugin is { } saPlug)
+        {
+            ReportActivation(saPlug, "Plugin", scenario.ExpectActivation);
         }
 
         Console.WriteLine();
 
         var bj = scenario.Baseline.JudgeResult;
-        var sj = scenario.WithSkill.JudgeResult;
-        double scoreDelta = sj.OverallScore - bj.OverallScore;
-        var deltaStr = scoreDelta > 0 ? $"\x1b[32m+{scoreDelta:F1}\x1b[0m" :
-            scoreDelta < 0 ? $"\x1b[31m{scoreDelta:F1}\x1b[0m" : "\x1b[2m±0\x1b[0m";
+        var sj = scenario.SkilledIsolated.JudgeResult;
+        var pj = scenario.SkilledPlugin?.JudgeResult;
+        double scoreDeltaIso = sj.OverallScore - bj.OverallScore;
+        var deltaStrIso = FormatColorDelta(scoreDeltaIso);
 
         var bTimeout = b.TimedOut ? " \x1b[31m⏰ timeout\x1b[0m" : "";
         var sTimeout = s.TimedOut ? " \x1b[31m⏰ timeout\x1b[0m" : "";
-        Console.WriteLine($"      \x1b[1mOverall:\x1b[0m {bj.OverallScore:F1}{bTimeout} → {sj.OverallScore:F1}{sTimeout} ({deltaStr})");
+        var overallLine = $"      \x1b[1mOverall:\x1b[0m {bj.OverallScore:F1}{bTimeout} → isolated: {sj.OverallScore:F1}{sTimeout} ({deltaStrIso})";
+        if (pj is not null)
+        {
+            double scoreDeltaPlug = pj.OverallScore - bj.OverallScore;
+            var pTimeout = p!.TimedOut ? " \x1b[31m⏰ timeout\x1b[0m" : "";
+            overallLine += $"  plugin: {pj.OverallScore:F1}{pTimeout} ({FormatColorDelta(scoreDeltaPlug)})";
+        }
+        Console.WriteLine(overallLine);
         Console.WriteLine();
 
         // Baseline judge
@@ -269,8 +304,8 @@ public static class Reporter
 
         Console.WriteLine();
 
-        // With-skill judge
-        Console.WriteLine($"      \x1b[35m─── With-Skill Judge\x1b[0m \x1b[35;1m{sj.OverallScore:F1}/5\x1b[0m{sTimeout} \x1b[35m───\x1b[0m");
+        // With-skill judge (Isolated)
+        Console.WriteLine($"      \x1b[35m─── With-Skill Judge (Isolated)\x1b[0m \x1b[35;1m{sj.OverallScore:F1}/5\x1b[0m{sTimeout} \x1b[35m───\x1b[0m");
         Console.WriteLine($"      \x1b[2m{sj.OverallReasoning}\x1b[0m");
         if (sj.RubricScores.Count > 0)
         {
@@ -287,6 +322,29 @@ public static class Reporter
             }
         }
         Console.WriteLine();
+
+        // With-skill judge (Plugin) — only if plugin run exists
+        if (pj is not null)
+        {
+            var pTimeout = p!.TimedOut ? " \x1b[31m⏰ timeout\x1b[0m" : "";
+            Console.WriteLine($"      \x1b[32m─── With-Skill Judge (Plugin)\x1b[0m \x1b[32;1m{pj.OverallScore:F1}/5\x1b[0m{pTimeout} \x1b[32m───\x1b[0m");
+            Console.WriteLine($"      \x1b[2m{pj.OverallReasoning}\x1b[0m");
+            if (pj.RubricScores.Count > 0)
+            {
+                Console.WriteLine();
+                foreach (var rs in pj.RubricScores)
+                {
+                    var scoreColor = rs.Score >= 4 ? "\x1b[32m" : rs.Score >= 3 ? "\x1b[33m" : "\x1b[31m";
+                    var baselineRs = bj.RubricScores.FirstOrDefault(b =>
+                        string.Equals(b.Criterion, rs.Criterion, StringComparison.OrdinalIgnoreCase));
+                    var comparison = baselineRs is not null ? $"\x1b[2m (was {baselineRs.Score}/5)\x1b[0m" : "";
+                    Console.WriteLine($"        {scoreColor}\x1b[1m{rs.Score}/5\x1b[0m{comparison}  \x1b[1m{rs.Criterion}\x1b[0m");
+                    if (!string.IsNullOrEmpty(rs.Reasoning))
+                        Console.WriteLine($"              \x1b[2m{rs.Reasoning}\x1b[0m");
+                }
+            }
+            Console.WriteLine();
+        }
 
         // Pairwise judge results
         if (scenario.PairwiseResult is { } pw)
@@ -317,10 +375,61 @@ public static class Reporter
             Console.WriteLine();
             Console.WriteLine("      \x1b[2mBaseline output:\x1b[0m");
             Console.WriteLine(IndentBlock(scenario.Baseline.Metrics.AgentOutput.Length > 0 ? scenario.Baseline.Metrics.AgentOutput : "(no output)", 8));
-            Console.WriteLine("      \x1b[2mWith-skill output:\x1b[0m");
-            Console.WriteLine(IndentBlock(scenario.WithSkill.Metrics.AgentOutput.Length > 0 ? scenario.WithSkill.Metrics.AgentOutput : "(no output)", 8));
+            Console.WriteLine("      \x1b[2mWith-skill output (isolated):\x1b[0m");
+            Console.WriteLine(IndentBlock(scenario.SkilledIsolated.Metrics.AgentOutput.Length > 0 ? scenario.SkilledIsolated.Metrics.AgentOutput : "(no output)", 8));
+            if (scenario.SkilledPlugin is { } pluginRun)
+            {
+                Console.WriteLine("      \x1b[2mWith-skill output (plugin):\x1b[0m");
+                Console.WriteLine(IndentBlock(pluginRun.Metrics.AgentOutput.Length > 0 ? pluginRun.Metrics.AgentOutput : "(no output)", 8));
+            }
         }
     }
+
+    private static void ReportActivation(SkillActivationInfo sa, string label, bool expectActivation)
+    {
+        if (sa.Activated)
+        {
+            var parts = new List<string>();
+            if (sa.DetectedSkills.Count > 0) parts.Add(string.Join(", ", sa.DetectedSkills));
+            if (sa.ExtraTools.Count > 0) parts.Add("extra tools: " + string.Join(", ", sa.ExtraTools));
+            Console.WriteLine($"      \x1b[2mSkill activated ({label}):\x1b[0m \x1b[32m{(parts.Count > 0 ? string.Join("; ", parts) : "yes")}\x1b[0m");
+        }
+        else
+        {
+            if (!expectActivation)
+                Console.WriteLine($"      \x1b[36mℹ️  Skill correctly NOT activated ({label}, negative test)\x1b[0m");
+            else
+                Console.WriteLine($"      \x1b[33m⚠️  Skill was NOT activated ({label})\x1b[0m");
+        }
+    }
+
+    /// <summary>Formats a metric value with a percentage delta from baseline, e.g. "800 (-33%)".</summary>
+    private static string FormatMetricWithDelta(double value, double baseline, bool lowerIsBetter)
+    {
+        if (baseline == 0) return $"{value}";
+        double pctChange = (value - baseline) / baseline * 100;
+        var sign = pctChange > 0 ? "+" : "";
+        bool isGood = lowerIsBetter ? pctChange < 0 : pctChange > 0;
+        var color = isGood ? "\x1b[32m" : pctChange == 0 ? "" : "\x1b[31m";
+        var reset = string.IsNullOrEmpty(color) ? "" : "\x1b[0m";
+        return $"{value} {color}({sign}{pctChange:F0}%){reset}";
+    }
+
+    /// <summary>Returns a parenthesized percentage delta string, e.g. " (-33%)".</summary>
+    private static string FormatPctDelta(double value, double baseline, bool lowerIsBetter)
+    {
+        if (baseline == 0) return "";
+        double pctChange = (value - baseline) / baseline * 100;
+        var sign = pctChange > 0 ? "+" : "";
+        bool isGood = lowerIsBetter ? pctChange < 0 : pctChange > 0;
+        var color = isGood ? "\x1b[32m" : pctChange == 0 ? "" : "\x1b[31m";
+        var reset = string.IsNullOrEmpty(color) ? "" : "\x1b[0m";
+        return $" {color}({sign}{pctChange:F0}%){reset}";
+    }
+
+    private static string FormatColorDelta(double delta) =>
+        delta > 0 ? $"\x1b[32m+{delta:F1}\x1b[0m" :
+        delta < 0 ? $"\x1b[31m{delta:F1}\x1b[0m" : "\x1b[2m±0\x1b[0m";
 
     // --- Markdown reporter ---
 
@@ -356,6 +465,7 @@ public static class Reporter
 
         var footnotes = new List<string>();
         var tableRows = new List<string>();
+        bool anyPluginRun = verdicts.Any(v => v.Scenarios.Any(s => s.SkilledPlugin is not null));
 
         foreach (var v in verdicts)
         {
@@ -363,31 +473,40 @@ public static class Reporter
             foreach (var s in v.Scenarios)
             {
                 var baseScore = s.Baseline?.JudgeResult?.OverallScore;
-                var skillScore = s.WithSkill?.JudgeResult?.OverallScore;
+                var isoScore = s.SkilledIsolated?.JudgeResult?.OverallScore;
+                var plugScore = s.SkilledPlugin?.JudgeResult?.OverallScore;
                 var bTimedOut = s.Baseline?.Metrics?.TimedOut == true;
-                var sTimedOut = s.WithSkill?.Metrics?.TimedOut == true;
+                var isoTimedOut = s.SkilledIsolated?.Metrics?.TimedOut == true;
+                var plugTimedOut = s.SkilledPlugin?.Metrics?.TimedOut == true;
 
-                string qualityCol = FormatQualityCell(baseScore, skillScore, bTimedOut, sTimedOut, out double? qualityDelta);
+                string isoQualityCol = FormatQualityCell(baseScore, isoScore, bTimedOut, isoTimedOut, out double? isoQualityDelta);
+                double? plugQualityDelta = null;
+                string plugQualityCol = "";
+                if (anyPluginRun)
+                {
+                    plugQualityCol = FormatQualityCell(baseScore, plugScore, bTimedOut, plugTimedOut, out plugQualityDelta);
+                }
+
+                // Use the effective (worse) run's quality delta for footnotes
+                bool pluginIsEffective = s.SkilledPlugin is not null && s.PluginImprovementScore < s.IsolatedImprovementScore;
+                double? qualityDelta = pluginIsEffective ? plugQualityDelta : isoQualityDelta;
                 var icon = s.ImprovementScore > 0 ? "✅" : s.ImprovementScore < 0 ? "❌" : "🟡";
 
+                // Skills loaded column — show both isolated and plugin activation
                 string skillsCol = "—";
-                if (s.SkillActivation is { } sa)
+                if (s.SkillActivationIsolated is { } saIso)
                 {
-                    if (sa.Activated)
-                    {
-                        var parts = new List<string>();
-                        if (sa.DetectedSkills.Count > 0) parts.AddRange(sa.DetectedSkills);
-                        if (sa.ExtraTools.Count > 0) parts.Add("tools: " + string.Join(", ", sa.ExtraTools));
-                        skillsCol = parts.Count > 0 ? "✅ " + string.Join("; ", parts) : "✅";
-                    }
-                    else
-                    {
-                        skillsCol = s.ExpectActivation ? "⚠️ NOT ACTIVATED" : "ℹ️ not activated (expected)";
-                    }
+                    skillsCol = FormatActivationCell(saIso, s.ExpectActivation);
                 }
                 else if (skillNotActivated)
                 {
                     skillsCol = "⚠️ NOT ACTIVATED";
+                }
+
+                if (anyPluginRun && s.SkillActivationPlugin is { } saPlug)
+                {
+                    string plugActivation = FormatActivationCell(saPlug, s.ExpectActivation);
+                    skillsCol += $" / {plugActivation}";
                 }
 
                 var footnote = BuildVerdictFootnote(s, qualityDelta);
@@ -399,14 +518,25 @@ public static class Reporter
                     verdictCol = $"{icon} <a href=\"#user-content-fn-{n}\" id=\"ref-{n}\">[{n}]</a>";
                 }
 
-                tableRows.Add($"| {v.SkillName} | {s.ScenarioName} | {qualityCol} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {verdictCol} |");
+                var row = anyPluginRun
+                    ? $"| {v.SkillName} | {s.ScenarioName} | {isoQualityCol} | {plugQualityCol} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {verdictCol} |"
+                    : $"| {v.SkillName} | {s.ScenarioName} | {isoQualityCol} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {verdictCol} |";
+                tableRows.Add(row);
             }
         }
 
         if (tableRows.Count > 0)
         {
-            sb.AppendLine("| Skill | Scenario | Quality | Skills Loaded | Overfit | Verdict |");
-            sb.AppendLine("|-------|----------|---------|---------------|---------|---------|");
+            if (anyPluginRun)
+            {
+                sb.AppendLine("| Skill | Scenario | Quality (Isolated) | Quality (Plugin) | Skills Loaded | Overfit | Verdict |");
+                sb.AppendLine("|-------|----------|--------------------|------------------|---------------|---------|---------|");
+            }
+            else
+            {
+                sb.AppendLine("| Skill | Scenario | Quality | Skills Loaded | Overfit | Verdict |");
+                sb.AppendLine("|-------|----------|---------|---------------|---------|---------|");
+            }
             foreach (var row in tableRows)
                 sb.AppendLine(row);
         }
@@ -419,7 +549,7 @@ public static class Reporter
         }
 
         bool anyTimeout = verdicts.Any(v => v.Scenarios.Any(s =>
-            (s.Baseline?.Metrics?.TimedOut == true) || (s.WithSkill?.Metrics?.TimedOut == true)));
+            (s.Baseline?.Metrics?.TimedOut == true) || (s.SkilledIsolated?.Metrics?.TimedOut == true) || (s.SkilledPlugin?.Metrics?.TimedOut == true)));
         if (anyTimeout)
             sb.AppendLine("\n> ⏰ **timeout** — run hit the scenario timeout limit; scoring may be impacted by aborting model execution before it could produce its full output");
 
@@ -493,22 +623,45 @@ public static class Reporter
                 foreach (var rs in scenario.Baseline.JudgeResult.RubricScores)
                     judgeReport.AppendLine($"- **{rs.Criterion}**: {rs.Score}/5 — {rs.Reasoning}");
                 judgeReport.AppendLine();
-                judgeReport.AppendLine("## With-Skill Judge");
-                judgeReport.AppendLine($"Overall Score: {scenario.WithSkill.JudgeResult.OverallScore}/5");
-                judgeReport.AppendLine($"Reasoning: {scenario.WithSkill.JudgeResult.OverallReasoning}");
+                judgeReport.AppendLine("## With-Skill Judge (Isolated)");
+                judgeReport.AppendLine($"Overall Score: {scenario.SkilledIsolated.JudgeResult.OverallScore}/5");
+                judgeReport.AppendLine($"Reasoning: {scenario.SkilledIsolated.JudgeResult.OverallReasoning}");
                 judgeReport.AppendLine();
-                foreach (var rs in scenario.WithSkill.JudgeResult.RubricScores)
+                foreach (var rs in scenario.SkilledIsolated.JudgeResult.RubricScores)
                     judgeReport.AppendLine($"- **{rs.Criterion}**: {rs.Score}/5 — {rs.Reasoning}");
                 judgeReport.AppendLine();
+
+                // Plugin judge section (if plugin run exists)
+                if (scenario.SkilledPlugin is { } pluginRun)
+                {
+                    judgeReport.AppendLine("## With-Skill Judge (Plugin)");
+                    judgeReport.AppendLine($"Overall Score: {pluginRun.JudgeResult.OverallScore}/5");
+                    judgeReport.AppendLine($"Reasoning: {pluginRun.JudgeResult.OverallReasoning}");
+                    judgeReport.AppendLine();
+                    foreach (var rs in pluginRun.JudgeResult.RubricScores)
+                        judgeReport.AppendLine($"- **{rs.Criterion}**: {rs.Score}/5 — {rs.Reasoning}");
+                    judgeReport.AppendLine();
+                }
+
                 judgeReport.AppendLine("## Baseline Agent Output");
                 judgeReport.AppendLine("```");
                 judgeReport.AppendLine(scenario.Baseline.Metrics.AgentOutput.Length > 0 ? scenario.Baseline.Metrics.AgentOutput : "(no output)");
                 judgeReport.AppendLine("```");
                 judgeReport.AppendLine();
-                judgeReport.AppendLine("## With-Skill Agent Output");
+                judgeReport.AppendLine("## With-Skill Agent Output (Isolated)");
                 judgeReport.AppendLine("```");
-                judgeReport.AppendLine(scenario.WithSkill.Metrics.AgentOutput.Length > 0 ? scenario.WithSkill.Metrics.AgentOutput : "(no output)");
+                judgeReport.AppendLine(scenario.SkilledIsolated.Metrics.AgentOutput.Length > 0 ? scenario.SkilledIsolated.Metrics.AgentOutput : "(no output)");
                 judgeReport.AppendLine("```");
+
+                // Plugin agent output (if plugin run exists)
+                if (scenario.SkilledPlugin is { } pluginRunOutput)
+                {
+                    judgeReport.AppendLine();
+                    judgeReport.AppendLine("## With-Skill Agent Output (Plugin)");
+                    judgeReport.AppendLine("```");
+                    judgeReport.AppendLine(pluginRunOutput.Metrics.AgentOutput.Length > 0 ? pluginRunOutput.Metrics.AgentOutput : "(no output)");
+                    judgeReport.AppendLine("```");
+                }
 
                 await File.WriteAllTextAsync(Path.Combine(skillDir, $"{scenarioSlug}.md"), judgeReport.ToString());
             }
@@ -646,6 +799,19 @@ public static class Reporter
         return $"{baseFmt} \u2192 {skillFmt}";
     }
 
+    /// <summary>Formats an activation info object into a markdown cell string.</summary>
+    internal static string FormatActivationCell(SkillActivationInfo sa, bool expectActivation)
+    {
+        if (sa.Activated)
+        {
+            var parts = new List<string>();
+            if (sa.DetectedSkills.Count > 0) parts.AddRange(sa.DetectedSkills);
+            if (sa.ExtraTools.Count > 0) parts.Add("tools: " + string.Join(", ", sa.ExtraTools));
+            return parts.Count > 0 ? "✅ " + string.Join("; ", parts) : "✅";
+        }
+        return expectActivation ? "⚠️ NOT ACTIVATED" : "ℹ️ not activated (expected)";
+    }
+
     /// <summary>
     /// Returns a footnote string when the verdict (based on composite ImprovementScore)
     /// disagrees with the quality delta shown in the table, or null if no explanation is needed.
@@ -693,11 +859,18 @@ public static class Reporter
             })
             .ToList();
 
+        // Determine which run is the effective (worse) one for raw metric values
+        bool pluginIsWorse = s.SkilledPlugin is not null && s.PluginImprovementScore < s.IsolatedImprovementScore;
+        string runLabel = pluginIsWorse ? "Plugin" : "Isolated";
+
         // Format a contributor label with raw metric values when available
         string FormatContributor(string label)
         {
             var bm = s.Baseline?.Metrics;
-            var sm = s.WithSkill?.Metrics;
+            // Use the effective (worse) run's metrics for raw values
+            var sm = pluginIsWorse
+                ? s.SkilledPlugin?.Metrics
+                : s.SkilledIsolated?.Metrics;
             if (bm is null || sm is null) return label;
 
             string? raw = label switch
@@ -727,7 +900,7 @@ public static class Reporter
                 ? string.Join(", ", negatives)
                 : "efficiency metrics";
             string qualityDesc = qualityPositive ? "Quality improved" : "Quality unchanged";
-            return $"{qualityDesc} but weighted score is {compositeStr} due to: {factors}";
+            return $"({runLabel}) {qualityDesc} but weighted score is {compositeStr} due to: {factors}";
         }
 
         if (verdictPositive && qualityNegative)
@@ -741,7 +914,7 @@ public static class Reporter
             string factors = positives.Count > 0
                 ? string.Join(", ", positives)
                 : "efficiency metrics";
-            return $"Quality dropped but weighted score is {compositeStr} due to: {factors}";
+            return $"({runLabel}) Quality dropped but weighted score is {compositeStr} due to: {factors}";
         }
 
         return null;

@@ -255,7 +255,7 @@ public static partial class SkillDiscovery
         var name = metadata.Name ?? "";
         var description = metadata.Description ?? "";
 
-        return new AgentInfo(name, description, filePath, content, fileName);
+        return new AgentInfo(name, description, filePath, content, fileName, metadata.Tools);
     }
 
     internal static (EvalSchema.RawAgentFrontmatter Metadata, string Body) ParseAgentFrontmatter(string content)
@@ -276,6 +276,67 @@ public static partial class SkillDiscovery
         .Build();
 
     // --- Plugin discovery ---
+
+    /// <summary>
+    /// For a given skill, find its plugin root directory (the directory containing plugin.json).
+    /// Returns the plugin root path and the parsed PluginInfo.
+    /// Returns null if no plugin.json is found or if it is malformed.
+    /// </summary>
+    public static (string PluginRoot, PluginInfo Plugin)? FindPluginContext(SkillInfo skill)
+    {
+        var pluginRoot = FindPluginRoot(skill.Path);
+        if (pluginRoot is null) return null;
+
+        var pluginJsonPath = Path.Combine(pluginRoot, "plugin.json");
+        PluginInfo? plugin;
+        try
+        {
+            plugin = PluginValidator.ParsePluginJson(pluginJsonPath);
+        }
+        catch (JsonException)
+        {
+            // Malformed plugin.json — treated as "no plugin" here;
+            // the later DiscoverPlugins/ValidatePlugin path will surface
+            // the user-friendly error message.
+            return null;
+        }
+        if (plugin is null) return null;
+
+        return (pluginRoot, plugin);
+    }
+
+    /// <summary>
+    /// Groups discovered skills by their parent plugin root.
+    /// Returns a dictionary: pluginRoot -> (PluginInfo, skills[])
+    /// Skills without a plugin are reported as errors and excluded.
+    /// </summary>
+    public static (Dictionary<string, (PluginInfo Plugin, List<SkillInfo> Skills)> Groups, List<string> Errors)
+        GroupSkillsByPlugin(IReadOnlyList<SkillInfo> skills)
+    {
+        var groups = new Dictionary<string, (PluginInfo Plugin, List<SkillInfo> Skills)>(
+            StringComparer.OrdinalIgnoreCase);
+        var errors = new List<string>();
+
+        foreach (var skill in skills)
+        {
+            var context = FindPluginContext(skill);
+            if (context is null)
+            {
+                errors.Add($"Skill '{skill.Name}' at '{skill.Path}' is not inside a plugin directory (no valid plugin.json found: missing or malformed). All skills must belong to a plugin.");
+                continue;
+            }
+
+            var (root, plugin) = context.Value;
+            if (!groups.TryGetValue(root, out var group))
+            {
+                group = (plugin, []);
+                groups[root] = group;
+            }
+            group.Skills.Add(skill);
+        }
+
+        return (groups, errors);
+    }
 
     /// <summary>
     /// Discover plugin.json files from plugin directories reachable from the given paths.

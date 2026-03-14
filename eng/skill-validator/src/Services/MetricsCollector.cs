@@ -7,10 +7,14 @@ public static class MetricsCollector
 {
     /// <summary>
     /// Analyse events from a "with-skill" run to determine whether the skill was activated.
+    /// When <paramref name="targetSkillName"/> is set, only counts as "Activated" if the
+    /// target skill was specifically detected — prevents false positives in plugin runs
+    /// where sibling skills may fire instead of the skill under test.
     /// </summary>
     public static SkillActivationInfo ExtractSkillActivation(
         IReadOnlyList<AgentEvent> skilledEvents,
-        Dictionary<string, int> baselineToolBreakdown)
+        Dictionary<string, int> baselineToolBreakdown,
+        string? targetSkillName = null)
     {
         var detectedSkills = new List<string>();
         int skillEventCount = 0;
@@ -44,8 +48,18 @@ public static class MetricsCollector
             .Where(tool => !baselineToolBreakdown.ContainsKey(tool))
             .ToList();
 
+        // When targetSkillName is set, activation is determined solely by whether
+        // the target skill was specifically detected (case-insensitive). ExtraTools
+        // and sibling skill names are still populated for diagnostic purposes but
+        // do NOT contribute to the Activated flag — we control the SDK and it always
+        // emits SkillInvokedEvent when a skill is loaded.
+        bool activated = targetSkillName is null
+            ? skillEventCount > 0 || extraTools.Count > 0
+            : detectedSkills.Any(s =>
+                s.Equals(targetSkillName, StringComparison.OrdinalIgnoreCase));
+
         return new SkillActivationInfo(
-            Activated: skillEventCount > 0 || extraTools.Count > 0,
+            Activated: activated,
             DetectedSkills: detectedSkills,
             ExtraTools: extraTools,
             SkillEventCount: skillEventCount);

@@ -14,46 +14,65 @@ public sealed record RunOptions(
     string? EvalPath,
     string Model,
     bool Verbose,
+    string? PluginRoot = null,
     Action<string>? Log = null,
     IReadOnlyList<SkillInfo>? AdditionalSkills = null);
 
 public static class AgentRunner
 {
-    private static CopilotClient? _sharedClient;
+    private static readonly ConcurrentDictionary<string, CopilotClient> _pluginClients = new(StringComparer.OrdinalIgnoreCase);
     private static readonly SemaphoreSlim _clientLock = new(1, 1);
     private static readonly ConcurrentBag<string> _workDirs = [];
+    private static string? _capturedGitHubToken;
+    private static bool _tokenCaptured;
 
     /// <summary>
-    /// Returns the shared <see cref="CopilotClient"/>, creating it on first call.
-    /// Must be called before executing any untrusted workloads (eval scenarios,
-    /// setup commands).
+    /// Capture GITHUB_TOKEN once at startup so multiple clients can share it
+    /// and the env var is cleared from child processes.
     /// </summary>
-    public static async Task<CopilotClient> GetSharedClient(bool verbose)
+    public static void CaptureGitHubToken()
     {
-        if (_sharedClient is not null) return _sharedClient;
+        if (_tokenCaptured) return;
+        _capturedGitHubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+        if (!string.IsNullOrEmpty(_capturedGitHubToken))
+            Environment.SetEnvironmentVariable("GITHUB_TOKEN", null);
+        _tokenCaptured = true;
+    }
+
+    /// <summary>
+    /// Returns a shared CopilotClient, keyed by plugin root for future
+    /// per-plugin configuration. Currently all clients share the same
+    /// options because --plugin-dir is NOT honored by the SDK; plugin
+    /// skills are loaded via SkillDirectories in BuildSessionConfig.
+    /// </summary>
+    public static async Task<CopilotClient> GetPluginClient(
+        string? pluginRoot, bool verbose)
+    {
+        var key = pluginRoot ?? "";
+
+        if (_pluginClients.TryGetValue(key, out var existing))
+            return existing;
 
         await _clientLock.WaitAsync();
         try
         {
-            if (_sharedClient is not null) return _sharedClient;
+            if (_pluginClients.TryGetValue(key, out existing))
+                return existing;
+
+            CaptureGitHubToken();
 
             var options = new CopilotClientOptions
             {
                 LogLevel = verbose ? "info" : "none",
             };
 
-            var githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
-            if (!string.IsNullOrEmpty(githubToken))
-            {
-                options.GitHubToken = githubToken;
-                // Clear the token from the environment so child processes
-                // (e.g. LLM-generated code, eval shell commands) cannot read it.
-                Environment.SetEnvironmentVariable("GITHUB_TOKEN", null);
-            }
+            if (!string.IsNullOrEmpty(_capturedGitHubToken))
+                options.GitHubToken = _capturedGitHubToken;
 
-            _sharedClient = new CopilotClient(options);
-            await _sharedClient.StartAsync();
-            return _sharedClient;
+            var client = new CopilotClient(options);
+            await client.StartAsync();
+            _pluginClients[key] = client;
+            return client;
         }
         finally
         {
@@ -61,14 +80,26 @@ public static class AgentRunner
         }
     }
 
-    public static async Task StopSharedClient()
+    /// <summary>
+    /// Backward-compatible alias — returns the no-plugin client.
+    /// Used by judge sessions that don't need plugin loading.
+    /// </summary>
+    public static Task<CopilotClient> GetSharedClient(bool verbose)
+        => GetPluginClient(null, verbose);
+
+    /// <summary>Stop all plugin clients (including the no-plugin client).</summary>
+    public static async Task StopAllClients()
     {
-        if (_sharedClient is not null)
+        foreach (var (key, client) in _pluginClients)
         {
-            await _sharedClient.StopAsync();
-            _sharedClient = null;
+            try { await client.StopAsync(); }
+            catch (Exception ex) { Console.Error.WriteLine($"Warning: failed to stop client '{key}': {ex.Message}"); }
         }
+        _pluginClients.Clear();
     }
+
+    /// <summary>Backward-compatible alias.</summary>
+    public static Task StopSharedClient() => StopAllClients();
 
     /// <summary>Remove all temporary working directories created during runs.</summary>
     public static Task CleanupWorkDirs()
@@ -82,7 +113,7 @@ public static class AgentRunner
         }));
     }
 
-    public static bool CheckPermission(PermissionRequest request, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, IReadOnlyList<string>? additionalAllowedDirs = null)
+    public static bool CheckPermission(PermissionRequest request, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
     {
         string? reqPath = null;
         if (request.ExtensionData is { } data)
@@ -125,6 +156,14 @@ public static class AgentRunner
 
             allowedDirs.Add(skillsPathAbsolute);
         }
+        if (pluginRoot is not null)
+        {
+            string pluginRootAbsolute = Path.GetFullPath(pluginRoot);
+            if (!Path.EndsInDirectorySeparator(pluginRootAbsolute))
+                pluginRootAbsolute = pluginRootAbsolute + Path.DirectorySeparatorChar;
+
+            allowedDirs.Add(pluginRootAbsolute);
+        }
 
         if (additionalAllowedDirs is not null)
         {
@@ -161,6 +200,7 @@ public static class AgentRunner
 
     internal static SessionConfig BuildSessionConfig(
         SkillInfo? skill,
+        string? pluginRoot,
         string model,
         string workDir,
         IReadOnlyDictionary<string, MCPServerDef>? mcpServers = null,
@@ -179,12 +219,11 @@ public static class AgentRunner
         if (verbose)
             log?.Invoke($"      📂 Config dir: {configDir} ({(skill is not null ? "skilled" : "baseline")})");
 
-        // Build skill directories list: primary skill + any additional skills.
+        // Build additional noise skill directories when noise testing is active.
         // For additional skills we stage a temp directory with copies of each
         // skill's SKILL.md so the SDK discovers exactly those skills — not
         // every sibling that happens to share the same parent directory.
-        var skillDirs = new List<string>();
-        if (skillPath is not null) skillDirs.Add(skillPath);
+        var noiseDirs = new List<string>();
         if (additionalSkills is { Count: > 0 })
         {
             var stageDir = Path.Combine(Path.GetTempPath(), $"sv-noise-{Guid.NewGuid():N}");
@@ -202,10 +241,11 @@ public static class AgentRunner
                 File.Copy(skillMdPath, Path.Combine(stagedSkillDir, "SKILL.md"));
             }
 
-            skillDirs.Add(stageDir);
+            noiseDirs.Add(stageDir);
         }
 
         // Convert MCPServerDef records to the SDK's Dictionary<string, object> shape
+        // Security hardening: validate commands, sanitize args/env, drop custom cwd.
         Dictionary<string, object>? sdkMcp = null;
         if (mcpServers is { Count: > 0 })
         {
@@ -247,19 +287,53 @@ public static class AgentRunner
             if (sdkMcp.Count == 0) sdkMcp = null;
         }
 
+        // Three run types:
+        // 1. Baseline (skill == null, pluginRoot == null): no skills, no MCP.
+        // 2. Skilled-isolated (skill != null, pluginRoot == null): ONLY the target skill
+        //    is loaded — we stage it into a temp directory so the SDK doesn't
+        //    discover sibling skills from the same parent.
+        // 3. Skilled-plugin (skill != null, pluginRoot != null): entire plugin loaded
+        //    via SkillDirectories (--plugin-dir is NOT honored by SDK).
+        //
+        // For skilled-plugin, we enumerate all skill directories from plugin.json
+        // so that all sibling skills are loaded, matching production behavior.
+        string[] skillDirs;
+        if (pluginRoot is not null)
+        {
+            skillDirs = ResolvePluginSkillDirectories(pluginRoot);
+        }
+        else if (skill is not null)
+        {
+            // Stage the single skill into a temp directory so the SDK discovers
+            // only this skill — not every sibling that shares the same parent.
+            var isoStageDir = Path.Combine(Path.GetTempPath(), $"sv-iso-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(isoStageDir);
+            _workDirs.Add(isoStageDir);
+
+            var stagedSkillDir = Path.Combine(isoStageDir, Path.GetFileName(skill.Path));
+            Directory.CreateDirectory(stagedSkillDir);
+            File.WriteAllText(Path.Combine(stagedSkillDir, "SKILL.md"), skill.SkillMdContent);
+
+            skillDirs = [isoStageDir];
+        }
+        else
+        {
+            skillDirs = [];
+        }
+
         return new SessionConfig
         {
             Model = model,
             Streaming = true,
             WorkingDirectory = workDir,
-            SkillDirectories = skillDirs,
+            SkillDirectories = [..skillDirs, ..noiseDirs],
             ConfigDir = configDir,
             McpServers = sdkMcp,
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
             OnPermissionRequest = (request, _) =>
             {
                 var runLabel = skill is not null ? "skilled" : "baseline";
-                var result = CheckPermission(request, workDir, skillPath, verbose ? log : null, runLabel);
+                var result = CheckPermission(request, workDir, skillPath, verbose ? log : null, runLabel, pluginRoot);
                 return Task.FromResult(new PermissionRequestResult
                 {
                     Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,
@@ -268,11 +342,44 @@ public static class AgentRunner
         };
     }
 
+    /// <summary>
+    /// Resolves the skill directories for a plugin by reading its plugin.json
+    /// and returning the resolved skills path. The SDK scans this directory
+    /// for subdirectories containing SKILL.md files.
+    /// </summary>
+    internal static string[] ResolvePluginSkillDirectories(string pluginRoot)
+    {
+        var pluginJsonPath = Path.Combine(pluginRoot, "plugin.json");
+        PluginInfo? pluginInfo;
+        try
+        {
+            pluginInfo = PluginValidator.ParsePluginJson(pluginJsonPath);
+        }
+        catch (JsonException)
+        {
+            // Malformed plugin.json — return empty so the session is created
+            // without extra skill directories; validation surfaces the real error.
+            return [];
+        }
+        if (pluginInfo?.SkillsPath is null) return [];
+
+        if (!PluginValidator.TryGetSafeSubdirectory(
+                pluginRoot, pluginInfo.SkillsPath, out var skillsDir, out _))
+            return [];
+
+        if (!Directory.Exists(skillsDir!)) return [];
+
+        return [skillsDir!];
+    }
+
     public static async Task<RunMetrics> RunAgent(RunOptions options)
     {
+        var runType = options.Skill is null ? "baseline"
+            : options.PluginRoot is not null ? "skilled-plugin"
+            : "skilled-isolated";
         return await RetryHelper.ExecuteWithRetry(
             async ct => await RunAgentCore(options, ct),
-            label: $"RunAgent({options.Scenario.Name}, {(options.Skill is not null ? "skilled" : "baseline")})",
+            label: $"RunAgent({options.Scenario.Name}, {runType})",
             maxRetries: 2,
             baseDelayMs: 5_000,
             totalTimeoutMs: (options.Scenario.Timeout + 60) * 1000);
@@ -294,10 +401,12 @@ public static class AgentRunner
 
         try
         {
-            var client = await GetSharedClient(options.Verbose);
+            // All runs use the same client — plugin skills are loaded manually
+            // via SkillDirectories (--plugin-dir is not honored by SDK).
+            var client = await GetPluginClient(options.PluginRoot, options.Verbose);
 
             await using var session = await client.CreateSessionAsync(
-                BuildSessionConfig(options.Skill, options.Model, workDir, options.Skill?.McpServers, options.AdditionalSkills, options.Log, options.Verbose));
+                BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.Skill?.McpServers, options.AdditionalSkills, options.Log, options.Verbose));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;

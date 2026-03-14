@@ -66,9 +66,9 @@ function Test-KnownDomain {
 
     $urlLower = $Url.ToLower()
     foreach ($domain in $KnownDomains) {
-        if ($domain.StartsWith('github.com/')) {
-            # Org-scoped: require /, ?, #, or end-of-string after the org/repo prefix
-            if ($urlLower -match "^https?://$([regex]::Escape($domain))([/?#]|$)") {
+        if ($domain.Contains('/')) {
+            # Path-scoped: require /, ?, #, or end-of-string after the prefix
+            if ($urlLower -match "^https?://(www\.)?$([regex]::Escape($domain))([/?#]|$)") {
                 return $true
             }
         }
@@ -86,10 +86,12 @@ function Test-KnownDomain {
 function Test-LocalUrl {
     param([string]$Url)
     $lower = $Url.ToLower()
-    # Match localhost, 127.0.0.1, [::1] followed by :, /, or end-of-string
+    # Match localhost, 127.0.0.1, [::1], and wildcard listen addresses (+, *)
+    # followed by :, /, or end-of-string
     return ($lower -match '^https?://localhost([:/]|$)' -or
             $lower -match '^https?://127\.0\.0\.1([:/]|$)' -or
-            $lower -match '^https?://\[::1\]([:/]|$)')
+            $lower -match '^https?://\[::1\]([:/]|$)' -or
+            $lower -match '^https?://[+*]([:/]|$)')
 }
 
 function Test-HttpNotHttps {
@@ -221,10 +223,35 @@ function Invoke-ScanFile {
         }
     }
 
+    # Placeholder host patterns: {template} variables, your-*/your_*/yourusername
+    # hosts, and well-known example domains. Applied to the host portion only to
+    # avoid bypassing domain checks via path (e.g. https://evil.com/placeholder).
+    $placeholderHost = [regex]'(?i)(\{[^}]+\}|your[-_]?\w*name\w*|your[-_]\w+|example\.(com|org|net)|contoso\.com)'
+
     # Line-by-line scanning for URLs and pipe-to-shell
+    $inFencedBlock = $false
     for ($i = 0; $i -lt $lines.Count; $i++) {
         $line = $lines[$i]
         $lineNum = $i + 1
+
+        # Track fenced code blocks per CommonMark: opening fences may have an
+        # info string (e.g. ```csharp), closing fences must be only fence chars
+        # and optional whitespace. Closing must match char type and >= length.
+        if ($line -match '^\s{0,3}(`{3,}|~{3,})') {
+            $fenceMatch = $matches[1]
+            $fenceChar = $fenceMatch[0]
+            $fenceLen = $fenceMatch.Length
+            if (-not $inFencedBlock) {
+                $inFencedBlock = $true
+                $openFenceChar = $fenceChar
+                $openFenceLen = $fenceLen
+            }
+            elseif ($fenceChar -eq $openFenceChar -and $fenceLen -ge $openFenceLen -and
+                    $line -match '^\s{0,3}[`~]+\s*$') {
+                $inFencedBlock = $false
+            }
+            continue
+        }
 
         # Pipe-to-shell (except known-safe .NET install scripts)
         if ($pipeToShell.IsMatch($line)) {
@@ -249,6 +276,26 @@ function Invoke-ScanFile {
         # All URLs
         foreach ($m in $urlPattern.Matches($line)) {
             $url = $m.Value.TrimEnd('.', ',', ';', ':', ')', "'", '"')
+
+            # Skip placeholder/template URLs.
+            # Extract host to avoid bypassing via path (e.g. evil.com/your-app).
+            $urlHost = ($url -replace '^https?://', '') -replace '[/:\?#].*$', ''
+            if ($placeholderHost.IsMatch($urlHost)) { continue }
+
+            # Inside fenced code blocks, skip HTTP-not-HTTPS (code examples
+            # legitimately use http:// listen addresses) but still check
+            # external domains -- agents see raw text, not rendered markdown.
+            if ($inFencedBlock) {
+                if (-not (Test-KnownDomain $url $KnownDomains) -and -not (Test-LocalUrl $url) -and
+                    $url -notin $sriProtectedUrls) {
+                    $f = [RefFinding]::new()
+                    $f.Path = $relPath; $f.LineNum = $lineNum; $f.Level = 'error'
+                    $f.Code = 'EXTERNAL-DOMAIN'
+                    $f.Message = "Domain not in known-domains.txt -- add it to eng/reference-scanner/known-domains.txt in your PR if this reference is intentional: $url"
+                    $findings.Add($f)
+                }
+                continue
+            }
 
             if (Test-HttpNotHttps $url) {
                 $f = [RefFinding]::new()
