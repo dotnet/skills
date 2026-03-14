@@ -1,13 +1,11 @@
 name: evaluation
 
 on:
-  pull_request:
-
   schedule:
     - cron: '0 */3 * * *'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -19,18 +17,13 @@ permissions:
 
 jobs:
   discover:
-    # Skip fork PRs (handled by evaluation-fork-pr.yml) and scheduled runs
-    # outside the canonical repo. The schedule guard uses an explicit repo
-    # name (not just the fork flag) because evaluation requires
-    # COPILOT_GITHUB_TOKEN* secrets that only exist in dotnet/skills.
-    if: >-
-      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
-      (github.event_name != 'schedule' || github.repository == 'dotnet/skills')
+    # Only run scheduled evaluations in the canonical repo (requires
+    # COPILOT_GITHUB_TOKEN* secrets that only exist in dotnet/skills).
+    if: github.repository == 'dotnet/skills'
     runs-on: ubuntu-latest
     outputs:
       entries: ${{ steps.find.outputs.entries }}
       has_entries: ${{ steps.find.outputs.has_entries }}
-      is_infra: ${{ steps.find.outputs.is_infra }}
       plugins: ${{ steps.find.outputs.plugins }}
       has_plugins: ${{ steps.find.outputs.has_plugins }}
     steps:
@@ -43,68 +36,13 @@ jobs:
       - name: Find skills to evaluate
         id: find
         run: |
-          $entries = @()
-          $plugins = @()
-
-          if ("${{ github.event_name }}" -eq "pull_request") {
-            # PR: detect individual changed skills
-            $base = "${{ github.event.pull_request.base.sha }}"
-            $head = "${{ github.event.pull_request.head.sha }}"
-            $mergeBase = git merge-base $base $head
-            $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
-
-            # Check if any changed files are in infrastructure paths (evaluation workflows or eng/skill-validator/)
-            $hasInfraChanges = $changedFiles |
-              Where-Object { $_ -match '^(\.github/workflows/evaluation(-run|-fork-pr)?\.yml$|eng/skill-validator/)' } |
-              Select-Object -First 1
-
-            if ($hasInfraChanges) {
-              # Infra changes can affect any evaluation — evaluate all plugins
-              Write-Host "Infrastructure changes detected, evaluating all plugins"
-              echo "is_infra=true" >> $env:GITHUB_OUTPUT
-              $plugins = @(Get-ChildItem -Path "plugins" -Directory |
-                Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) } |
-                Select-Object -ExpandProperty Name)
-              $entries = @($plugins | ForEach-Object {
-                @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
-              })
-            } else {
-              # Extract unique plugin/skill pairs from changed files under plugins/*/skills/*/ or tests/*/*/
-              $changedPairs = @($changedFiles |
-                Where-Object { $_ -match '^(?:plugins/([^/]+)/skills|tests/([^/]+))/([^/]+)/' } |
-                ForEach-Object {
-                  $p = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
-                  "$p/$($Matches[3])"
-                } |
-                Sort-Object -Unique)
-
-              # Filter to skills that have a SKILL.md and a tests directory
-              $entries = @($changedPairs | ForEach-Object {
-                $parts = $_ -split '/'
-                $plugin = $parts[0]
-                $skill = $parts[1]
-                $skillMd = Join-Path "plugins" $plugin "skills" $skill "SKILL.md"
-                $testsDir = Join-Path "tests" $plugin
-                if ((Test-Path $skillMd) -and (Test-Path $testsDir)) {
-                  @{
-                    name = "$plugin--$skill"
-                    plugin = $plugin
-                    skills_path = "plugins/$plugin/skills/$skill"
-                  }
-                }
-              } | Where-Object { $_ })
-
-              $plugins = @($entries | ForEach-Object { $_.plugin } | Sort-Object -Unique)
-            }
-          } else {
-            # Schedule: evaluate all plugins with skills and tests
-            $plugins = @(Get-ChildItem -Path "plugins" -Directory |
-              Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) } |
-              Select-Object -ExpandProperty Name)
-            $entries = @($plugins | ForEach-Object {
-              @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
-            })
-          }
+          # Schedule: evaluate all plugins with skills and tests
+          $plugins = @(Get-ChildItem -Path "plugins" -Directory |
+            Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) } |
+            Select-Object -ExpandProperty Name)
+          $entries = @($plugins | ForEach-Object {
+            @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
+          })
 
           # Output entries for evaluate matrix
           if (-not $entries -or $entries.Count -eq 0) {
@@ -135,13 +73,12 @@ jobs:
     uses: ./.github/workflows/evaluation-run.yml
     with:
       entries: ${{ needs.discover.outputs.entries }}
-      runs: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.ref == 'refs/heads/main' && '5' || '3') }}
-      # Infra changes and scheduled runs evaluate all plugins in parallel — reduce
-      # per-job concurrency to avoid API rate limits and timeouts from contention.
-      parallel-skills: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5' }}
-      parallel-scenarios: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
-      parallel-runs: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
-      pr-number: ${{ github.event.pull_request.number || '' }}
+      runs: '5'
+      # Scheduled runs evaluate all plugins in parallel — reduce per-job
+      # concurrency to avoid API rate limits and timeouts from contention.
+      parallel-skills: '2'
+      parallel-scenarios: '3'
+      parallel-runs: '3'
     secrets:
       COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
       COPILOT_GITHUB_TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
@@ -151,33 +88,6 @@ jobs:
       COPILOT_GITHUB_TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
       COPILOT_GITHUB_TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
       COPILOT_GITHUB_TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
-
-  # Plain check-run job that can be required in the GitHub ruleset.
-  # For fork PRs, discover is skipped (fork guard) so this job is also skipped;
-  # the fork-status job in evaluation-fork-pr.yml posts a commit status instead.
-  evaluation-status:
-    needs: [discover, run-evaluation]
-    if: always() && github.event_name == 'pull_request' && needs.discover.result != 'skipped'
-    runs-on: ubuntu-latest
-    permissions: {}
-    steps:
-      - name: Check evaluation result
-        run: |
-          DISCOVER_RESULT="${{ needs.discover.result }}"
-          HAS_ENTRIES="${{ needs.discover.outputs.has_entries }}"
-          EVAL_RESULT="${{ needs.run-evaluation.result }}"
-
-          if [[ "$DISCOVER_RESULT" != "success" ]]; then
-            echo "::error::Discovery failed ($DISCOVER_RESULT)"
-            exit 1
-          elif [[ "$HAS_ENTRIES" != "true" ]]; then
-            echo "No skills to evaluate"
-          elif [[ "$EVAL_RESULT" == "success" ]]; then
-            echo "Evaluation passed"
-          else
-            echo "::error::Evaluation did not pass ($EVAL_RESULT)"
-            exit 1
-          fi
 
   publish-benchmark:
     needs: [discover, run-evaluation]

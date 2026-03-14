@@ -1,10 +1,9 @@
-# Evaluation workflow for fork PRs.
+# Evaluation workflow for pull requests.
 #
-# Fork PRs cannot access repository secrets via the `pull_request` trigger.
-# This workflow uses `issue_comment` so that a maintainer can trigger evaluation
-# by posting "/evaluate" on a fork PR.
+# All PRs require an explicit `/evaluate` command to trigger evaluation.
+# This avoids automatic evaluation runs on every push, reducing token consumption.
 #
-# The `pull_request_target` trigger handles initial status posting for fork PRs:
+# The `pull_request_target` trigger handles initial status posting for all PRs:
 # it runs discovery (from the base branch, safe) and posts a commit status so
 # the required "evaluation-status" check is never stuck as "Expected".
 #
@@ -12,9 +11,9 @@
 #   - Workflow YAML: always from the base branch (enforced by issue_comment
 #     and pull_request_target triggers)
 #   - Validator binary: built from the base branch checkout (trusted)
-#   - Skill/test content: checked out from the fork PR (untrusted data, read-only)
+#   - Skill/test content: checked out from the PR head (untrusted for forks, read-only)
 #   - Secret access: only users with write+ permission can trigger evaluation
-name: evaluation (fork PRs)
+name: evaluation (PRs)
 
 on:
   issue_comment:
@@ -22,7 +21,7 @@ on:
   pull_request_target:
 
 concurrency:
-  group: ${{ github.event_name == 'issue_comment' && (startsWith(github.event.comment.body, '/evaluate') && format('eval-fork-{0}', github.event.issue.number) || format('eval-fork-{0}-noop-{1}', github.event.issue.number, github.event.comment.id)) || format('eval-fork-status-{0}', github.event.pull_request.number) }}
+  group: ${{ github.event_name == 'issue_comment' && (startsWith(github.event.comment.body, '/evaluate') && format('eval-pr-{0}', github.event.issue.number) || format('eval-pr-{0}-noop-{1}', github.event.issue.number, github.event.comment.id)) || format('eval-pr-status-{0}', github.event.pull_request.number) }}
   cancel-in-progress: true
 
 # pull-requests: write is required at the workflow level because the reusable
@@ -35,16 +34,16 @@ permissions:
   statuses: write
 
 jobs:
-  # Post initial evaluation commit status for fork PRs so the required check
+  # Post initial evaluation commit status for all PRs so the required check
   # is never stuck as "Expected". Posts success (no skills) or pending (needs /evaluate).
   # Uses pull_request_target so it runs with base repo permissions.
-  fork-status:
+  pr-status:
     if: >-
-      github.event_name == 'pull_request_target' &&
-      github.event.pull_request.head.repo.full_name != github.repository
+      github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: write
       statuses: write
     steps:
       - name: Checkout base branch
@@ -81,7 +80,7 @@ jobs:
         run: |
           if [[ "${{ steps.discover.outputs.has_skills }}" == "true" ]]; then
             STATE="pending"
-            DESC="Fork PR — post /evaluate to trigger evaluation"
+            DESC="Post /evaluate to trigger evaluation"
           else
             STATE="success"
             DESC="No skills to evaluate"
@@ -93,7 +92,16 @@ jobs:
             -f description="$DESC" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-  # Validate the trigger: must be a /evaluate comment on a fork PR from a user
+      - name: Post /evaluate reminder comment
+        if: github.event.action == 'opened' && steps.discover.outputs.has_skills == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "This PR changes skills or tests. A maintainer can post \`/evaluate\` to trigger evaluation."
+
+  # Validate the trigger: must be a /evaluate comment on a PR from a user
   # with write+ permissions.
   gate:
     if: >-
@@ -129,13 +137,7 @@ jobs:
           PR_NUMBER=${{ github.event.issue.number }}
           PR_DATA=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}")
           HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
-          HEAD_REPO=$(echo "$PR_DATA" | jq -r '.head.repo.full_name')
-          BASE_REPO=$(echo "$PR_DATA" | jq -r '.base.repo.full_name')
           BASE_SHA=$(echo "$PR_DATA" | jq -r '.base.sha')
-          if [[ "$HEAD_REPO" == "$BASE_REPO" ]]; then
-            echo "::error::This command is only for fork PRs. Same-repo PRs are evaluated automatically."
-            exit 1
-          fi
           echo "PR #${PR_NUMBER}: head=${HEAD_SHA} base=${BASE_SHA}"
           echo "head_sha=${HEAD_SHA}" >> $GITHUB_OUTPUT
           echo "base_sha=${BASE_SHA}" >> $GITHUB_OUTPUT
