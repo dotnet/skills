@@ -43,6 +43,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Bypass the skip guard on manual reruns so "Re-run jobs" always executes.
+          if [ "${GITHUB_RUN_ATTEMPT}" != "1" ]; then
+            echo "Manual rerun (attempt ${GITHUB_RUN_ATTEMPT}) — bypassing skip guard"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           # Determine whether a new evaluation is needed by inspecting the most
           # recent completed scheduled run.  We key off the *latest* completed
           # run (not just the latest successful one) so that a transient failure
