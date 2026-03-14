@@ -87,7 +87,7 @@ public static class PairwiseJudge
             OnPermissionRequest = (request, _) =>
             {
                 var extraDirs = options.SkilledWorkDir is not null ? new[] { options.SkilledWorkDir } : null;
-                var result = AgentRunner.CheckPermission(request, options.WorkDir, options.SkillPath, options.Verbose ? log : null, "pairwise-judge", extraDirs);
+                var result = AgentRunner.CheckPermission(request, options.WorkDir, options.SkillPath, options.Verbose ? log : null, "pairwise-judge", additionalAllowedDirs: extraDirs);
                 return Task.FromResult(new PermissionRequestResult
                 {
                     Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,

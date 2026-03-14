@@ -196,6 +196,143 @@ public class ExtractSkillActivationTests
         Assert.Equal(["binlog-failure-analysis"], result.DetectedSkills);
         Assert.Equal(1, result.SkillEventCount);
     }
+
+    // --- Targeted skill activation (targetSkillName parameter) tests ---
+
+    [Fact]
+    public void TargetSkillName_ActivatedWhenTargetSkillDetected()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("skill.invoked", D(("name", JsonValue.Create("build-perf")))),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
+        };
+
+        var result = MetricsCollector.ExtractSkillActivation(
+            events, new Dictionary<string, int> { ["bash"] = 1 }, targetSkillName: "build-perf");
+
+        Assert.True(result.Activated);
+        Assert.Equal(["build-perf"], result.DetectedSkills);
+    }
+
+    [Fact]
+    public void TargetSkillName_NotActivatedWhenSiblingSkillFires()
+    {
+        // In a plugin run, a sibling skill fires but not the target skill
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("skill.invoked", D(("name", JsonValue.Create("sibling-skill")))),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
+        };
+
+        var result = MetricsCollector.ExtractSkillActivation(
+            events, new Dictionary<string, int> { ["bash"] = 1 }, targetSkillName: "build-perf");
+
+        Assert.False(result.Activated);
+        Assert.Equal(["sibling-skill"], result.DetectedSkills);
+        Assert.Equal(1, result.SkillEventCount);
+    }
+
+    [Fact]
+    public void TargetSkillName_CaseInsensitiveMatch()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("skill.invoked", D(("name", JsonValue.Create("Build-Perf")))),
+        };
+
+        var result = MetricsCollector.ExtractSkillActivation(
+            events, new Dictionary<string, int>(), targetSkillName: "build-perf");
+
+        Assert.True(result.Activated);
+    }
+
+    [Fact]
+    public void TargetSkillName_NotActivatedEvenWithExtraToolsWhenNoTargetDetected()
+    {
+        // Extra tools present but target skill not detected — NOT activated.
+        // We control the SDK; it always emits SkillInvokedEvent. Extra tools
+        // alone are not proof the target skill was loaded.
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("msbuild_analyze")))),
+        };
+
+        var result = MetricsCollector.ExtractSkillActivation(
+            events, new Dictionary<string, int>(), targetSkillName: "build-perf");
+
+        Assert.False(result.Activated);
+        Assert.Equal(["msbuild_analyze"], result.ExtraTools);
+    }
+
+    [Fact]
+    public void TargetSkillName_ExtraToolsIgnoredWhenSiblingSkillEventsExist()
+    {
+        // Sibling skill fired (skill events exist) plus extra tools — NOT activated.
+        // The event system works, so extra tools likely came from the sibling, not
+        // the target skill. This is the false-positive scenario from plugin runs.
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("skill.invoked", D(("name", JsonValue.Create("sibling-skill")))),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("view")))),
+        };
+
+        var result = MetricsCollector.ExtractSkillActivation(
+            events, new Dictionary<string, int>(), targetSkillName: "nuget-trusted-publishing");
+
+        Assert.False(result.Activated);
+        Assert.Equal(["sibling-skill"], result.DetectedSkills);
+        Assert.Equal(["view"], result.ExtraTools);
+    }
+
+    [Fact]
+    public void TargetSkillName_NullBehavesAsOriginal()
+    {
+        // When targetSkillName is null, any skill event counts as activation (original behavior)
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("skill.invoked", D(("name", JsonValue.Create("sibling-skill")))),
+        };
+
+        var result = MetricsCollector.ExtractSkillActivation(
+            events, new Dictionary<string, int>(), targetSkillName: null);
+
+        Assert.True(result.Activated);
+        Assert.Equal(["sibling-skill"], result.DetectedSkills);
+    }
+
+    [Fact]
+    public void TargetSkillName_NotActivatedWhenNoEventsAndNoExtraTools()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
+        };
+
+        var result = MetricsCollector.ExtractSkillActivation(
+            events, new Dictionary<string, int> { ["bash"] = 1 }, targetSkillName: "build-perf");
+
+        Assert.False(result.Activated);
+    }
+
+    [Fact]
+    public void TargetSkillName_ActivatedWhenTargetAmongMultipleSkills()
+    {
+        // Multiple skills fire in a plugin run, including the target
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("skill.invoked", D(("name", JsonValue.Create("sibling-skill")))),
+            MakeEvent("skill.invoked", D(("name", JsonValue.Create("build-perf")))),
+            MakeEvent("skill.invoked", D(("name", JsonValue.Create("another-skill")))),
+        };
+
+        var result = MetricsCollector.ExtractSkillActivation(
+            events, new Dictionary<string, int>(), targetSkillName: "build-perf");
+
+        Assert.True(result.Activated);
+        Assert.Equal(3, result.SkillEventCount);
+        Assert.Contains("build-perf", result.DetectedSkills);
+    }
 }
 
 public class CollectMetricsTests
