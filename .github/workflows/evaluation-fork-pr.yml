@@ -19,6 +19,7 @@ on:
   issue_comment:
     types: [created]
   pull_request_target:
+    types: [opened, synchronize, reopened]
 
 concurrency:
   group: ${{ github.event_name == 'issue_comment' && (startsWith(github.event.comment.body, '/evaluate') && format('eval-pr-{0}', github.event.issue.number) || format('eval-pr-{0}-noop-{1}', github.event.issue.number, github.event.comment.id)) || format('eval-pr-status-{0}', github.event.pull_request.number) }}
@@ -47,10 +48,11 @@ jobs:
       statuses: write
     steps:
       - name: Checkout base branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Fetch PR head (metadata only)
         run: git fetch origin +refs/pull/${{ github.event.pull_request.number }}/head
@@ -65,7 +67,7 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
+            Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/|^(\.github/workflows/evaluation(-run|-fork-pr)?\.yml$|eng/skill-validator/)' } |
             Select-Object -First 1
 
           if ($hasSkillChanges) {
