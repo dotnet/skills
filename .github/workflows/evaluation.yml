@@ -4,7 +4,7 @@ on:
   pull_request:
 
   schedule:
-    - cron: '0 */3 * * *'
+    - cron: '0 8 * * *'  # Once daily at 08:00 UTC (reduced from every 3h)
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
@@ -27,6 +27,9 @@ jobs:
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
       (github.event_name != 'schedule' || github.repository == 'dotnet/skills')
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     outputs:
       entries: ${{ steps.find.outputs.entries }}
       has_entries: ${{ steps.find.outputs.has_entries }}
@@ -34,13 +37,61 @@ jobs:
       plugins: ${{ steps.find.outputs.plugins }}
       has_plugins: ${{ steps.find.outputs.has_plugins }}
     steps:
+      - name: Check for new commits since last evaluation
+        if: github.event_name == 'schedule'
+        id: check-changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Bypass the skip guard on manual reruns so "Re-run jobs" always executes.
+          if [ "${GITHUB_RUN_ATTEMPT}" != "1" ]; then
+            echo "Manual rerun (attempt ${GITHUB_RUN_ATTEMPT}) — bypassing skip guard"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Determine whether a new evaluation is needed by inspecting the most
+          # recent completed scheduled run.  We key off the *latest* completed
+          # run (not just the latest successful one) so that a transient failure
+          # at the current SHA still triggers a retry on the next schedule.
+          # All API calls are non-fatal: if anything fails, fall back to
+          # running the evaluation (has_changes=true).
+          LATEST=$(gh api "repos/${{ github.repository }}/actions/workflows/evaluation.yml/runs?event=schedule&status=completed&per_page=1" \
+            --jq '(.workflow_runs[0] // empty) | "\(.head_sha) \(.conclusion)"' 2>/dev/null) || LATEST=""
+
+          if [ -z "$LATEST" ]; then
+            echo "No previous completed scheduled run found — proceeding"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          LAST_SHA="${LATEST%% *}"
+          LAST_CONCLUSION="${LATEST##* }"
+          CURRENT_SHA="${{ github.sha }}"
+
+          if [ "$LAST_SHA" = "$CURRENT_SHA" ] && [ "$LAST_CONCLUSION" = "success" ]; then
+            echo "Last scheduled evaluation at $LAST_SHA succeeded — skipping"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            if [ "$LAST_SHA" != "$CURRENT_SHA" ]; then
+              # Best-effort: log commit count but don't fail if the compare call errors
+              COUNT=$(gh api "repos/${{ github.repository }}/compare/${LAST_SHA}...${CURRENT_SHA}" --jq '.total_commits' 2>/dev/null) || COUNT="unknown"
+              echo "$COUNT new commit(s) since last evaluation ($LAST_SHA)"
+            else
+              echo "Last scheduled evaluation at $LAST_SHA concluded with '$LAST_CONCLUSION' — retrying"
+            fi
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout repository
+        if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Find skills to evaluate
+        if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true'
         id: find
         run: |
           $entries = @()
