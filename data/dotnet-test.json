@@ -1,0 +1,540 @@
+{
+  "entries": {
+    "Efficiency": [
+      {
+        "model": "claude-opus-4.6",
+        "tool": "customSmallerIsBetter",
+        "date": 1773481327357,
+        "commit": {
+          "message": "Reduce false positives in reference scanner (#360)",
+          "author": {
+            "username": "danmoseley",
+            "name": "Dan Moseley"
+          },
+          "url": "https://github.com/dotnet/skills/commit/a0f77070f511ed6c16f2918d1033c9b1c807acd5",
+          "id": "a0f77070f511ed6c16f2918d1033c9b1c807acd5",
+          "timestamp": "2026-03-14T06:47:37+00:00"
+        },
+        "benches": [
+          {
+            "value": 16.6,
+            "unit": "seconds",
+            "notActivated": true,
+            "name": "run-tests/Run tests in a VSTest MSTest project - Skilled Time"
+          },
+          {
+            "value": 36373.0,
+            "unit": "tokens",
+            "notActivated": true,
+            "name": "run-tests/Run tests in a VSTest MSTest project - Skilled Tokens In"
+          },
+          {
+            "value": 15.5,
+            "unit": "seconds",
+            "notActivated": true,
+            "name": "run-tests/Run tests in a VSTest MSTest project - Plugin Time"
+          },
+          {
+            "value": 36347.0,
+            "unit": "tokens",
+            "notActivated": true,
+            "name": "run-tests/Run tests in a VSTest MSTest project - Plugin Tokens In"
+          },
+          {
+            "value": 24.4,
+            "unit": "seconds",
+            "name": "run-tests/Run tests with trx reporting on MTP project (SDK 9) - Skilled Time"
+          },
+          {
+            "value": 47629.0,
+            "unit": "tokens",
+            "name": "run-tests/Run tests with trx reporting on MTP project (SDK 9) - Skilled Tokens In"
+          },
+          {
+            "value": 19.1,
+            "unit": "seconds",
+            "name": "run-tests/Run tests with trx reporting on MTP project (SDK 9) - Plugin Time"
+          },
+          {
+            "value": 38884.0,
+            "unit": "tokens",
+            "name": "run-tests/Run tests with trx reporting on MTP project (SDK 9) - Plugin Tokens In"
+          },
+          {
+            "value": 31.3,
+            "unit": "seconds",
+            "name": "run-tests/Run tests with blame-hang on MTP project (SDK 10) - Skilled Time"
+          },
+          {
+            "value": 64827.0,
+            "unit": "tokens",
+            "name": "run-tests/Run tests with blame-hang on MTP project (SDK 10) - Skilled Tokens In"
+          },
+          {
+            "value": 19.3,
+            "unit": "seconds",
+            "name": "run-tests/Run tests with blame-hang on MTP project (SDK 10) - Plugin Time"
+          },
+          {
+            "value": 45904.0,
+            "unit": "tokens",
+            "name": "run-tests/Run tests with blame-hang on MTP project (SDK 10) - Plugin Tokens In"
+          },
+          {
+            "value": 29.3,
+            "unit": "seconds",
+            "name": "run-tests/Run tests in a multi-TFM project targeting a specific framework - Skilled Time"
+          },
+          {
+            "value": 85586.0,
+            "unit": "tokens",
+            "name": "run-tests/Run tests in a multi-TFM project targeting a specific framework - Skilled Tokens In"
+          },
+          {
+            "value": 19.9,
+            "unit": "seconds",
+            "name": "run-tests/Run tests in a multi-TFM project targeting a specific framework - Plugin Time"
+          },
+          {
+            "value": 51425.0,
+            "unit": "tokens",
+            "name": "run-tests/Run tests in a multi-TFM project targeting a specific framework - Plugin Tokens In"
+          },
+          {
+            "value": 32.2,
+            "unit": "seconds",
+            "name": "run-tests/Filter MSTest tests by category on VSTest - Skilled Time"
+          },
+          {
+            "value": 76998.0,
+            "unit": "tokens",
+            "name": "run-tests/Filter MSTest tests by category on VSTest - Skilled Tokens In"
+          },
+          {
+            "value": 28.7,
+            "unit": "seconds",
+            "name": "run-tests/Filter MSTest tests by category on VSTest - Plugin Time"
+          },
+          {
+            "value": 63225.0,
+            "unit": "tokens",
+            "name": "run-tests/Filter MSTest tests by category on VSTest - Plugin Tokens In"
+          },
+          {
+            "value": 20.8,
+            "unit": "seconds",
+            "name": "run-tests/Filter NUnit tests by class name on VSTest - Skilled Time"
+          },
+          {
+            "value": 52493.0,
+            "unit": "tokens",
+            "name": "run-tests/Filter NUnit tests by class name on VSTest - Skilled Tokens In"
+          },
+          {
+            "value": 17.3,
+            "unit": "seconds",
+            "name": "run-tests/Filter NUnit tests by class name on VSTest - Plugin Time"
+          },
+          {
+            "value": 45646.0,
+            "unit": "tokens",
+            "name": "run-tests/Filter NUnit tests by class name on VSTest - Plugin Tokens In"
+          },
+          {
+            "value": 20.3,
+            "unit": "seconds",
+            "name": "run-tests/Filter xUnit v3 tests by class on MTP - Skilled Time"
+          },
+          {
+            "value": 52536.0,
+            "unit": "tokens",
+            "name": "run-tests/Filter xUnit v3 tests by class on MTP - Skilled Tokens In"
+          },
+          {
+            "value": 24.7,
+            "unit": "seconds",
+            "name": "run-tests/Filter xUnit v3 tests by class on MTP - Plugin Time"
+          },
+          {
+            "value": 52828.0,
+            "unit": "tokens",
+            "name": "run-tests/Filter xUnit v3 tests by class on MTP - Plugin Tokens In"
+          },
+          {
+            "value": 30.2,
+            "unit": "seconds",
+            "name": "run-tests/Filter xUnit v3 tests by trait on MTP - Skilled Time"
+          },
+          {
+            "value": 73741.0,
+            "unit": "tokens",
+            "name": "run-tests/Filter xUnit v3 tests by trait on MTP - Skilled Tokens In"
+          },
+          {
+            "value": 29.4,
+            "unit": "seconds",
+            "name": "run-tests/Filter xUnit v3 tests by trait on MTP - Plugin Time"
+          },
+          {
+            "value": 63568.0,
+            "unit": "tokens",
+            "name": "run-tests/Filter xUnit v3 tests by trait on MTP - Plugin Tokens In"
+          },
+          {
+            "value": 22.0,
+            "unit": "seconds",
+            "name": "run-tests/Filter TUnit tests by class using treenode-filter - Skilled Time"
+          },
+          {
+            "value": 52642.0,
+            "unit": "tokens",
+            "name": "run-tests/Filter TUnit tests by class using treenode-filter - Skilled Tokens In"
+          },
+          {
+            "value": 19.3,
+            "unit": "seconds",
+            "name": "run-tests/Filter TUnit tests by class using treenode-filter - Plugin Time"
+          },
+          {
+            "value": 48930.0,
+            "unit": "tokens",
+            "name": "run-tests/Filter TUnit tests by class using treenode-filter - Plugin Tokens In"
+          },
+          {
+            "value": 18.6,
+            "unit": "seconds",
+            "name": "run-tests/Combine multiple filter criteria on VSTest MSTest - Skilled Time"
+          },
+          {
+            "value": 38992.0,
+            "unit": "tokens",
+            "name": "run-tests/Combine multiple filter criteria on VSTest MSTest - Skilled Tokens In"
+          },
+          {
+            "value": 20.1,
+            "unit": "seconds",
+            "name": "run-tests/Combine multiple filter criteria on VSTest MSTest - Plugin Time"
+          },
+          {
+            "value": 39034.0,
+            "unit": "tokens",
+            "name": "run-tests/Combine multiple filter criteria on VSTest MSTest - Plugin Tokens In"
+          },
+          {
+            "value": 27.9,
+            "unit": "seconds",
+            "name": "run-tests/MTP project on SDK 9 must use -- separator for args - Skilled Time"
+          },
+          {
+            "value": 66762.0,
+            "unit": "tokens",
+            "name": "run-tests/MTP project on SDK 9 must use -- separator for args - Skilled Tokens In"
+          },
+          {
+            "value": 21.1,
+            "unit": "seconds",
+            "name": "run-tests/MTP project on SDK 9 must use -- separator for args - Plugin Time"
+          },
+          {
+            "value": 54503.0,
+            "unit": "tokens",
+            "name": "run-tests/MTP project on SDK 9 must use -- separator for args - Plugin Tokens In"
+          },
+          {
+            "value": 20.4,
+            "unit": "seconds",
+            "name": "run-tests/MTP project on SDK 10 passes args directly - Skilled Time"
+          },
+          {
+            "value": 59635.0,
+            "unit": "tokens",
+            "name": "run-tests/MTP project on SDK 10 passes args directly - Skilled Tokens In"
+          },
+          {
+            "value": 21.0,
+            "unit": "seconds",
+            "name": "run-tests/MTP project on SDK 10 passes args directly - Plugin Time"
+          },
+          {
+            "value": 66232.0,
+            "unit": "tokens",
+            "name": "run-tests/MTP project on SDK 10 passes args directly - Plugin Tokens In"
+          },
+          {
+            "value": 39.1,
+            "unit": "seconds",
+            "name": "run-tests/Detect test platform from Directory.Build.props - Skilled Time"
+          },
+          {
+            "value": 69756.0,
+            "unit": "tokens",
+            "name": "run-tests/Detect test platform from Directory.Build.props - Skilled Tokens In"
+          },
+          {
+            "value": 39.6,
+            "unit": "seconds",
+            "name": "run-tests/Detect test platform from Directory.Build.props - Plugin Time"
+          },
+          {
+            "value": 65816.0,
+            "unit": "tokens",
+            "name": "run-tests/Detect test platform from Directory.Build.props - Plugin Tokens In"
+          },
+          {
+            "value": 21.5,
+            "unit": "seconds",
+            "name": "run-tests/Negative test: do not use MTP syntax for a VSTest project - Skilled Time"
+          },
+          {
+            "value": 69481.0,
+            "unit": "tokens",
+            "name": "run-tests/Negative test: do not use MTP syntax for a VSTest project - Skilled Tokens In"
+          },
+          {
+            "value": 20.9,
+            "unit": "seconds",
+            "name": "run-tests/Negative test: do not use MTP syntax for a VSTest project - Plugin Time"
+          },
+          {
+            "value": 69479.0,
+            "unit": "tokens",
+            "name": "run-tests/Negative test: do not use MTP syntax for a VSTest project - Plugin Tokens In"
+          }
+        ]
+      }
+    ],
+    "Quality": [
+      {
+        "model": "claude-opus-4.6",
+        "tool": "customBiggerIsBetter",
+        "date": 1773481327357,
+        "commit": {
+          "message": "Reduce false positives in reference scanner (#360)",
+          "author": {
+            "username": "danmoseley",
+            "name": "Dan Moseley"
+          },
+          "url": "https://github.com/dotnet/skills/commit/a0f77070f511ed6c16f2918d1033c9b1c807acd5",
+          "id": "a0f77070f511ed6c16f2918d1033c9b1c807acd5",
+          "timestamp": "2026-03-14T06:47:37+00:00"
+        },
+        "benches": [
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "notActivated": true,
+            "name": "run-tests/Run tests in a VSTest MSTest project - Skilled Quality"
+          },
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "notActivated": true,
+            "name": "run-tests/Run tests in a VSTest MSTest project - Plugin Quality"
+          },
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Run tests in a VSTest MSTest project - Vanilla Quality"
+          },
+          {
+            "value": 6.400000095367432,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Run tests with trx reporting on MTP project (SDK 9) - Skilled Quality"
+          },
+          {
+            "value": 7.199999809265137,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Run tests with trx reporting on MTP project (SDK 9) - Plugin Quality"
+          },
+          {
+            "value": 4.400000095367432,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Run tests with trx reporting on MTP project (SDK 9) - Vanilla Quality"
+          },
+          {
+            "value": 2.4000000953674316,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Run tests with blame-hang on MTP project (SDK 10) - Skilled Quality"
+          },
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Run tests with blame-hang on MTP project (SDK 10) - Plugin Quality"
+          },
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Run tests with blame-hang on MTP project (SDK 10) - Vanilla Quality"
+          },
+          {
+            "value": 5.599999904632568,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Run tests in a multi-TFM project targeting a specific framework - Skilled Quality"
+          },
+          {
+            "value": 4.800000190734863,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Run tests in a multi-TFM project targeting a specific framework - Plugin Quality"
+          },
+          {
+            "value": 3.200000047683716,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Run tests in a multi-TFM project targeting a specific framework - Vanilla Quality"
+          },
+          {
+            "value": 4.800000190734863,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter MSTest tests by category on VSTest - Skilled Quality"
+          },
+          {
+            "value": 5.199999809265137,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter MSTest tests by category on VSTest - Plugin Quality"
+          },
+          {
+            "value": 3.5999999046325684,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter MSTest tests by category on VSTest - Vanilla Quality"
+          },
+          {
+            "value": 4.800000190734863,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter NUnit tests by class name on VSTest - Skilled Quality"
+          },
+          {
+            "value": 4.800000190734863,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter NUnit tests by class name on VSTest - Plugin Quality"
+          },
+          {
+            "value": 4.400000095367432,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter NUnit tests by class name on VSTest - Vanilla Quality"
+          },
+          {
+            "value": 3.5999999046325684,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter xUnit v3 tests by class on MTP - Skilled Quality"
+          },
+          {
+            "value": 3.5999999046325684,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter xUnit v3 tests by class on MTP - Plugin Quality"
+          },
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter xUnit v3 tests by class on MTP - Vanilla Quality"
+          },
+          {
+            "value": 3.200000047683716,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter xUnit v3 tests by trait on MTP - Skilled Quality"
+          },
+          {
+            "value": 3.5999999046325684,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter xUnit v3 tests by trait on MTP - Plugin Quality"
+          },
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter xUnit v3 tests by trait on MTP - Vanilla Quality"
+          },
+          {
+            "value": 8.800000190734863,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter TUnit tests by class using treenode-filter - Skilled Quality"
+          },
+          {
+            "value": 9.199999809265137,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter TUnit tests by class using treenode-filter - Plugin Quality"
+          },
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Filter TUnit tests by class using treenode-filter - Vanilla Quality"
+          },
+          {
+            "value": 8.0,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Combine multiple filter criteria on VSTest MSTest - Skilled Quality"
+          },
+          {
+            "value": 7.599999904632568,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Combine multiple filter criteria on VSTest MSTest - Plugin Quality"
+          },
+          {
+            "value": 5.199999809265137,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Combine multiple filter criteria on VSTest MSTest - Vanilla Quality"
+          },
+          {
+            "value": 2.799999952316284,
+            "unit": "Score (0-10)",
+            "name": "run-tests/MTP project on SDK 9 must use -- separator for args - Skilled Quality"
+          },
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "name": "run-tests/MTP project on SDK 9 must use -- separator for args - Plugin Quality"
+          },
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "name": "run-tests/MTP project on SDK 9 must use -- separator for args - Vanilla Quality"
+          },
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "name": "run-tests/MTP project on SDK 10 passes args directly - Skilled Quality"
+          },
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "name": "run-tests/MTP project on SDK 10 passes args directly - Plugin Quality"
+          },
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "name": "run-tests/MTP project on SDK 10 passes args directly - Vanilla Quality"
+          },
+          {
+            "value": 6.400000095367432,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Detect test platform from Directory.Build.props - Skilled Quality"
+          },
+          {
+            "value": 6.400000095367432,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Detect test platform from Directory.Build.props - Plugin Quality"
+          },
+          {
+            "value": 2.4000000953674316,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Detect test platform from Directory.Build.props - Vanilla Quality"
+          },
+          {
+            "value": 2.799999952316284,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Negative test: do not use MTP syntax for a VSTest project - Skilled Quality"
+          },
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Negative test: do not use MTP syntax for a VSTest project - Plugin Quality"
+          },
+          {
+            "value": 2.0,
+            "unit": "Score (0-10)",
+            "name": "run-tests/Negative test: do not use MTP syntax for a VSTest project - Vanilla Quality"
+          }
+        ]
+      }
+    ]
+  },
+  "lastUpdate": 1773481327357,
+  "repoUrl": ""
+}

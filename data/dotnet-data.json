@@ -709,6 +709,51 @@
           "id": "ba56c936b3b1ce74f75fcc60877d9c4179b675c7"
         },
         "date": 1773258095573
+      },
+      {
+        "model": "claude-opus-4.6",
+        "tool": "customSmallerIsBetter",
+        "date": 1773481323685,
+        "commit": {
+          "message": "Reduce false positives in reference scanner (#360)",
+          "author": {
+            "username": "danmoseley",
+            "name": "Dan Moseley"
+          },
+          "url": "https://github.com/dotnet/skills/commit/a0f77070f511ed6c16f2918d1033c9b1c807acd5",
+          "id": "a0f77070f511ed6c16f2918d1033c9b1c807acd5",
+          "timestamp": "2026-03-14T06:47:37+00:00"
+        },
+        "benches": [
+          {
+            "value": 11.0,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "overfittingScore": 0.22,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time"
+          },
+          {
+            "value": 17939.0,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "overfittingScore": 0.22,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In"
+          },
+          {
+            "value": 11.5,
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "overfittingScore": 0.22,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time"
+          },
+          {
+            "value": 17910.0,
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "overfittingScore": 0.22,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In"
+          }
+        ]
       }
     ],
     "Quality": [
@@ -1376,9 +1421,45 @@
           "id": "ba56c936b3b1ce74f75fcc60877d9c4179b675c7"
         },
         "date": 1773258095573
+      },
+      {
+        "model": "claude-opus-4.6",
+        "tool": "customBiggerIsBetter",
+        "date": 1773481323685,
+        "commit": {
+          "message": "Reduce false positives in reference scanner (#360)",
+          "author": {
+            "username": "danmoseley",
+            "name": "Dan Moseley"
+          },
+          "url": "https://github.com/dotnet/skills/commit/a0f77070f511ed6c16f2918d1033c9b1c807acd5",
+          "id": "a0f77070f511ed6c16f2918d1033c9b1c807acd5",
+          "timestamp": "2026-03-14T06:47:37+00:00"
+        },
+        "benches": [
+          {
+            "value": 8.399999618530273,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.22,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality"
+          },
+          {
+            "value": 8.399999618530273,
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.22,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality"
+          },
+          {
+            "value": 8.0,
+            "unit": "Score (0-10)",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality"
+          }
+        ]
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1773258095573
+  "lastUpdate": 1773481323685
 }
