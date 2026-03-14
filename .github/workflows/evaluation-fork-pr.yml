@@ -101,7 +101,7 @@ jobs:
         run: |
           gh pr comment "${{ github.event.pull_request.number }}" \
             --repo "${{ github.repository }}" \
-            --body "This PR changes skills or tests. A maintainer can post \`/evaluate\` to trigger evaluation."
+            --body "This PR changes skills, tests, or evaluation infrastructure. A maintainer can post \`/evaluate\` to trigger evaluation."
 
   # Validate the trigger: must be a /evaluate comment on a PR from a user
   # with write+ permissions.
@@ -188,33 +188,49 @@ jobs:
           $head = (git rev-parse origin/pr-head)
           $changedFiles = git diff --name-only --diff-filter=ACMR $base $head
 
+          # Check if any changed files are in infrastructure paths
+          $hasInfraChanges = $changedFiles |
+            Where-Object { $_ -match '^(\.github/workflows/evaluation(-run|-fork-pr)?\.yml$|eng/skill-validator/)' } |
+            Select-Object -First 1
+
           # We need the PR content to check for SKILL.md files — use a worktree
           git worktree add /tmp/pr-content origin/pr-head 2>$null
 
-          # Extract unique plugin/skill pairs from changed files
-          $changedPairs = @($changedFiles |
-            Where-Object { $_ -match '^(?:plugins/([^/]+)/skills|tests/([^/]+))/([^/]+)/' } |
-            ForEach-Object {
-              $p = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
-              "$p/$($Matches[3])"
-            } |
-            Sort-Object -Unique)
+          if ($hasInfraChanges) {
+            # Infra changes can affect any evaluation — evaluate all plugins
+            Write-Host "Infrastructure changes detected, evaluating all plugins"
+            $plugins = @(Get-ChildItem -Path "/tmp/pr-content/plugins" -Directory |
+              Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "/tmp/pr-content/tests" $_.Name)) } |
+              Select-Object -ExpandProperty Name)
+            $entries = @($plugins | ForEach-Object {
+              @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
+            })
+          } else {
+            # Extract unique plugin/skill pairs from changed files
+            $changedPairs = @($changedFiles |
+              Where-Object { $_ -match '^(?:plugins/([^/]+)/skills|tests/([^/]+))/([^/]+)/' } |
+              ForEach-Object {
+                $p = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
+                "$p/$($Matches[3])"
+              } |
+              Sort-Object -Unique)
 
-          # Filter to skills that have a SKILL.md and a tests directory (check in PR content)
-          $entries = @($changedPairs | ForEach-Object {
-            $parts = $_ -split '/'
-            $plugin = $parts[0]
-            $skill = $parts[1]
-            $skillMd = Join-Path "/tmp/pr-content" "plugins" $plugin "skills" $skill "SKILL.md"
-            $testsDir = Join-Path "/tmp/pr-content" "tests" $plugin
-            if ((Test-Path $skillMd) -and (Test-Path $testsDir)) {
-              @{
-                name = "$plugin--$skill"
-                plugin = $plugin
-                skills_path = "plugins/$plugin/skills/$skill"
+            # Filter to skills that have a SKILL.md and a tests directory (check in PR content)
+            $entries = @($changedPairs | ForEach-Object {
+              $parts = $_ -split '/'
+              $plugin = $parts[0]
+              $skill = $parts[1]
+              $skillMd = Join-Path "/tmp/pr-content" "plugins" $plugin "skills" $skill "SKILL.md"
+              $testsDir = Join-Path "/tmp/pr-content" "tests" $plugin
+              if ((Test-Path $skillMd) -and (Test-Path $testsDir)) {
+                @{
+                  name = "$plugin--$skill"
+                  plugin = $plugin
+                  skills_path = "plugins/$plugin/skills/$skill"
+                }
               }
-            }
-          } | Where-Object { $_ })
+            } | Where-Object { $_ })
+          }
 
           git worktree remove /tmp/pr-content --force 2>$null
 
