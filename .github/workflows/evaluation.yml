@@ -4,7 +4,7 @@ on:
   pull_request:
 
   schedule:
-    - cron: '0 */3 * * *'
+    - cron: '0 */5 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
