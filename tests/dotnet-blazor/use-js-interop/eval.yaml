@@ -1,0 +1,208 @@
+scenarios:
+  - name: "Auto-saving notepad that survives page reloads"
+    prompt: |
+      I need a `Notepad` component for my Blazor Web App.
+
+      Requirements:
+      - A textarea where the user can type notes
+      - Content is automatically saved to the browser every 30 seconds
+      - When the user returns to the page (or reloads), their last saved content is restored
+      - A "Last saved at HH:MM:SS" label that updates after each save
+      - If the user has unsaved changes and tries to close the browser tab, show the browser's
+        built-in "Leave site?" confirmation dialog
+      - A "Clear" button that erases both the textarea and the saved data
+      - A "Save now" button for manual saves
+    setup: &blazor_project
+      commands:
+        - "dotnet new blazor --interactivity Server --no-https"
+    assertions:
+      - type: "output_contains"
+        value: "OnAfterRenderAsync"
+      - type: "output_contains"
+        value: "IAsyncDisposable"
+      - type: "output_matches"
+        pattern: "(export function|export \\{)"
+    rubric:
+      - "Uses a collocated .razor.js file with exported functions — not a global script tag or window-level globals"
+      - "Initializes interop in OnAfterRenderAsync(firstRender), not in OnInitializedAsync — JS is unavailable during prerendering"
+      - "Restores saved content on first interactive render so the user sees their previous notes immediately"
+      - "Batches related browser operations into single JS calls where possible — e.g., save content + timestamp together instead of separate interop calls for each"
+      - "Registers and removes the beforeunload listener properly — adds on setup, removes on dispose"
+      - "Manages the auto-save interval in JS and clears it on dispose — no dangling timers"
+      - "Implements IAsyncDisposable and catches JSDisconnectedException so disposal doesn't throw when the circuit is already gone"
+      - "Uses InvokeVoidAsync when no return value is needed"
+      - "Does not use fire-and-forget (unawaited ValueTask) — all JS calls are properly awaited"
+      - "The clear function removes stored data and resets the beforeunload guard in one operation"
+      - "Uses sessionStorage (or localStorage) for persistence, the beforeunload event for the unsaved-changes prompt, and setInterval/clearInterval for the auto-save timer"
+      - "Extracts JS interop calls into a dedicated typed C# wrapper class (e.g., NotepadInterop.cs) with internal const fields for method names and module path — no magic strings in the component"
+    timeout: 600
+
+  - name: "User activity tracker that detects idle timeout"
+    prompt: |
+      I need a `UserActivityTracker` component for my Blazor Web App.
+
+      Requirements:
+      - Monitors user activity on the page (mouse movement, key presses, clicks, scrolling)
+      - After a configurable period of inactivity, triggers an `EventCallback OnIdle` to notify the parent
+      - When the user becomes active again after being idle, triggers `EventCallback OnActive`
+      - The idle timeout duration is set via `[Parameter] int TimeoutSeconds` (default 300)
+      - Wraps child content — can be placed around any section of the app
+      - After the component is removed from the page, no leftover timers or event handlers should remain
+    setup: *blazor_project
+    assertions:
+      - type: "output_contains"
+        value: "OnAfterRenderAsync"
+      - type: "output_contains"
+        value: "DotNetObjectReference"
+      - type: "output_contains"
+        value: "IAsyncDisposable"
+      - type: "output_matches"
+        pattern: "(export function|export \\{)"
+    rubric:
+      - "Uses a collocated .razor.js file with exported functions — not global window functions or inline scripts"
+      - "Registers activity event listeners (mousemove, keydown, click, scroll) in OnAfterRenderAsync(firstRender) — not during prerendering"
+      - "Uses DotNetObjectReference to report idle/active status changes from JS to .NET and disposes it in DisposeAsync"
+      - "The [JSInvokable] callback is public and wraps state changes in InvokeAsync(StateHasChanged)"
+      - "Removes all activity event listeners (mousemove, keydown, click, scroll) in the JS dispose function — no dangling listeners on document or window"
+      - "Implements IAsyncDisposable and catches JSDisconnectedException in DisposeAsync"
+      - "Manages the idle timeout timer in JavaScript using setTimeout/clearTimeout — not via .NET Task.Delay or System.Timers"
+      - "The JS invokeMethodAsync call uses async/await with try/catch (or .catch()) to handle circuit loss — not fire-and-forget without error handling"
+      - "Clears the idle timer in the JS dispose function — no dangling timers after component disposal"
+      - "Passes the timeout duration from .NET to JS during initialization — does not hardcode the timeout in JavaScript"
+      - "Wraps the DotNetObjectReference in a JS class with a private field — not a bare module-level variable"
+      - "Extracts JS interop calls into a dedicated typed C# wrapper class (e.g., ActivityTrackerInterop.cs) with internal const fields for method names and module path — no magic strings in the component"
+    timeout: 600
+
+  - name: "Drag-and-drop file upload zone"
+    prompt: |
+      I need a `FileDropZone` component for my Blazor Web App.
+
+      Requirements:
+      - A styled rectangular drop area where users can drag and drop files
+      - Shows a visual highlight when files are being dragged over the zone (CSS class change)
+      - When files are dropped, displays each file's name, size, and type in a list below the zone
+      - Files larger than 10MB should be shown with an error message instead (not rejected silently)
+      - Each file entry has a "Remove" button
+      - The accepted file info (name, size, type) is exposed to the parent via an `EventCallback<List<FileInfo>>` parameter
+        where `FileInfo` is a simple record: `record FileInfo(string Name, long Size, string Type)`
+    setup: *blazor_project
+    assertions:
+      - type: "output_contains"
+        value: "DotNetObjectReference"
+      - type: "output_contains"
+        value: "[JSInvokable]"
+      - type: "output_contains"
+        value: "IAsyncDisposable"
+      - type: "output_matches"
+        pattern: "(export function|export \\{)"
+    rubric:
+      - "Uses a collocated .razor.js file with exported functions — not global window functions"
+      - "Registers drag event listeners (dragover, dragleave, drop) in OnAfterRenderAsync(firstRender) — not during prerendering"
+      - "Uses DotNetObjectReference to send file metadata from JS to .NET and disposes it in DisposeAsync"
+      - "The [JSInvokable] method is public and wraps state changes in InvokeAsync(StateHasChanged)"
+      - "Removes all event listeners (dragover, dragleave, drop) in the JS dispose function — no dangling listeners"
+      - "Implements IAsyncDisposable and catches JSDisconnectedException in DisposeAsync"
+      - "Uses ElementReference with @ref for the drop zone element — not a string ID"
+      - "Reads file metadata (name, size, type) in JavaScript and sends it to .NET — does not try to pass File objects across the interop boundary"
+      - "Validates file size either in JS before sending to .NET, or clearly in .NET after receiving metadata"
+      - "The JS invokeMethodAsync call uses async/await with try/catch (or .catch()) to handle circuit loss — not fire-and-forget without error handling"
+      - "Uses the native drag-and-drop API (dragover, dragleave, drop events on the element) — not Blazor's built-in @ondrop"
+      - "Wraps the DotNetObjectReference in a JS class with a private field — not a bare module-level variable"
+      - "Extracts JS interop calls into a dedicated typed C# wrapper class (e.g., FileDropZoneInterop.cs) with internal const fields for method names and module path — no magic strings in the component"
+    timeout: 600
+
+  - name: "Responsive layout that adapts to screen size"
+    prompt: |
+      My Blazor Web App needs to adapt its layout based on the browser viewport width. I need:
+
+      1. A `ScreenSizeProvider` component that wraps child content and detects the current
+         viewport category:
+         - `Mobile` (width < 768px)
+         - `Tablet` (768px ≤ width < 1024px)
+         - `Desktop` (width ≥ 1024px)
+
+      2. The current category should be available to all child components as a cascading value
+
+      3. When the user resizes their browser, the category should update in real time
+
+      4. The default category (before detection runs) should be `Desktop`
+
+      Usage:
+      ```razor
+      <ScreenSizeProvider>
+          <MyNavigation />   @* can read the cascading ScreenSize value *@
+          <MyContent />
+      </ScreenSizeProvider>
+      ```
+    setup: *blazor_project
+    assertions:
+      - type: "output_contains"
+        value: "CascadingValue"
+      - type: "output_contains"
+        value: "OnAfterRenderAsync"
+      - type: "output_contains"
+        value: "IAsyncDisposable"
+      - type: "output_matches"
+        pattern: "(export function|export \\{)"
+    rubric:
+      - "Provides the screen size category to children via CascadingValue — child components can consume it with [CascadingParameter]"
+      - "Uses a collocated .razor.js module with exported functions — not global scripts"
+      - "Sets up matchMedia listeners or resize listener in OnAfterRenderAsync(firstRender) — not in OnInitializedAsync"
+      - "Defaults to Desktop (or a sensible fallback) during prerendering before JavaScript is available"
+      - "Updates the category in real time when the browser is resized — uses event-based detection, not polling"
+      - "Uses DotNetObjectReference for the JS resize/matchMedia callback and disposes it in DisposeAsync"
+      - "The [JSInvokable] callback wraps state changes in InvokeAsync(StateHasChanged)"
+      - "Implements IAsyncDisposable and catches JSDisconnectedException in DisposeAsync"
+      - "Removes matchMedia/resize event listeners in the JS dispose function — no dangling listeners"
+      - "The JS invokeMethodAsync call uses async/await with try/catch (or .catch()) to handle circuit loss — not fire-and-forget without error handling"
+      - "Does not call JS interop during prerendering — guards all JS calls behind firstRender or a flag"
+      - "Uses window.matchMedia or the resize event for viewport detection — not polling or server-side user-agent sniffing"
+      - "Wraps the DotNetObjectReference in a JS class with a private field — not a bare module-level variable"
+      - "Extracts JS interop calls into a dedicated typed C# wrapper class (e.g., ScreenSizeInterop.cs) with internal const fields for method names and module path — no magic strings in the component"
+    timeout: 600
+
+  - name: "Infinite scroll list using IntersectionObserver"
+    prompt: |
+      I need an `InfiniteScrollList` component for my Blazor Web App that loads more items
+      as the user scrolls.
+
+      Requirements:
+      - Displays items in a scrollable container
+      - When the user scrolls near the bottom, automatically triggers loading of more items
+      - Shows a loading spinner while fetching
+      - Stops triggering when there are no more items (parent signals this via a parameter)
+      - The component is generic — it accepts a `RenderFragment<TItem>` for rendering each item
+      - Uses an efficient browser API for scroll detection (not scroll event listeners)
+
+      Usage:
+      ```razor
+      <InfiniteScrollList Items="products" HasMore="hasMore"
+                          OnLoadMore="LoadNextPage" Context="product">
+          <div class="product-card">@product.Name — @product.Price</div>
+      </InfiniteScrollList>
+      ```
+    setup: *blazor_project
+    assertions:
+      - type: "output_contains"
+        value: "IntersectionObserver"
+      - type: "output_contains"
+        value: "OnAfterRenderAsync"
+      - type: "output_contains"
+        value: "IAsyncDisposable"
+      - type: "output_contains"
+        value: "DotNetObjectReference"
+    rubric:
+      - "Uses a collocated .razor.js file with exported functions — not a global script"
+      - "Creates IntersectionObserver in OnAfterRenderAsync(firstRender) — not during prerendering"
+      - "Uses a sentinel element (observed by IntersectionObserver) at the bottom of the list to detect when to load more"
+      - "Uses DotNetObjectReference to receive the intersection callback from JS and disposes it in DisposeAsync"
+      - "The [JSInvokable] callback is public and wraps state changes in InvokeAsync(StateHasChanged)"
+      - "Calls observer.disconnect() in the JS dispose function — no dangling observers"
+      - "Implements IAsyncDisposable and catches JSDisconnectedException in DisposeAsync"
+      - "Uses ElementReference for the sentinel element — not a string ID"
+      - "The JS invokeMethodAsync call uses async/await with try/catch (or .catch()) to handle circuit loss — not fire-and-forget without error handling"
+      - "Respects the HasMore parameter — does not trigger loads or observe the sentinel when there are no more items"
+      - "Uses IntersectionObserver (not scroll event listeners) for efficient visibility detection"
+      - "Wraps the DotNetObjectReference in a JS class with a private field — not a bare module-level variable"
+      - "Extracts JS interop calls into a dedicated typed C# wrapper class (e.g., InfiniteScrollInterop.cs) with internal const fields for method names and module path — no magic strings in the component"
+    timeout: 600
