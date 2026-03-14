@@ -1,0 +1,36 @@
+trigger:
+  - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+  - task: UseDotNet@2
+    inputs:
+      packageType: 'sdk'
+      version: '8.0.x'
+
+  - task: DotNetCoreCLI@2
+    displayName: Restore
+    inputs:
+      command: 'restore'
+
+  - task: DotNetCoreCLI@2
+    displayName: Build
+    inputs:
+      command: 'build'
+      arguments: '--no-restore --configuration Release'
+
+  - task: VSTest@3
+    displayName: Run tests
+    inputs:
+      testAssemblyVer2: |
+        **/*Tests.dll
+        !**/obj/**
+      runSettingsFile: 'test.runsettings'
+      codeCoverageEnabled: true
+
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '**/*.trx'
