@@ -26,10 +26,10 @@ scenarios:
     setup:
       copy_test_files: true
     assertions:
-      - type: "output_contains"
-        value: "TodoEndpoints"
-      - type: "output_contains"
-        value: "TodoDbContext"
+      - type: "file_exists"
+        path: "**/*TodoEndpoints*.cs"
+      - type: "file_exists"
+        path: "**/*TodoDbContext*.cs"
       - type: "file_exists"
         path: "**/*.http"
     rubric:
