@@ -14,7 +14,6 @@ env:
   DASHBOARD_RETENTION_DAYS: 14
 
 permissions:
-  actions: read
   contents: write
   pull-requests: write
 
@@ -28,6 +27,9 @@ jobs:
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
       (github.event_name != 'schedule' || github.repository == 'dotnet/skills')
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     outputs:
       entries: ${{ steps.find.outputs.entries }}
       has_entries: ${{ steps.find.outputs.has_entries }}
@@ -44,7 +46,7 @@ jobs:
           # Find the HEAD SHA of the last successful scheduled evaluation run.
           # All API calls are non-fatal: if anything fails, fall back to
           # running the evaluation (has_changes=true).
-          LAST_SHA=$(gh api "repos/${{ github.repository }}/actions/workflows/evaluation.yml/runs?event=schedule&status=completed&per_page=10" \
+          LAST_SHA=$(gh api "repos/${{ github.repository }}/actions/workflows/evaluation.yml/runs?event=schedule&status=completed&per_page=100" \
             --jq '[.workflow_runs[] | select(.conclusion=="success")][0].head_sha // empty' 2>/dev/null) || LAST_SHA=""
 
           if [ -z "$LAST_SHA" ]; then
