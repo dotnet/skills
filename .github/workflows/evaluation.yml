@@ -232,7 +232,13 @@ jobs:
 
   publish-benchmark:
     needs: [discover, run-evaluation]
-    if: github.ref == 'refs/heads/main' && needs.discover.outputs.has_plugins == 'true'
+    # Use !cancelled() so that benchmark data from successful plugins is still
+    # published even when one or more evaluate matrix legs fail (e.g. OOM).
+    if: >-
+      !cancelled() &&
+      github.ref == 'refs/heads/main' &&
+      needs.discover.outputs.has_plugins == 'true' &&
+      needs.discover.result == 'success'
     concurrency:
       group: publish-benchmark-deploy
       cancel-in-progress: false
@@ -250,6 +256,9 @@ jobs:
           pattern: skill-validator-results-*
           path: all-results/
           merge-multiple: false
+        # Tolerate missing artifacts only when some evaluate legs failed (OOM,
+        # timeout). When all legs succeeded, a download failure is a real error.
+        continue-on-error: ${{ needs.run-evaluation.result != 'success' }}
 
       - name: Fetch existing benchmark data
         run: |
