@@ -1,0 +1,56 @@
+scenarios:
+  - name: "Set up Ollama with MEAI"
+    prompt: "Set up local LLM inference in this .NET 10 app using Ollama with the phi3:mini model. Wire it through Microsoft.Extensions.AI so the rest of the app uses IChatClient."
+    setup:
+      files:
+        - path: "LocalAI/LocalAI.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>Exe</OutputType>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "LocalAI/Program.cs"
+          content: |
+            Console.WriteLine("TODO: Local LLM");
+    assertions:
+      - type: "output_contains"
+        value: "Ollama"
+      - type: "output_contains"
+        value: "IChatClient"
+      - type: "exit_success"
+    rubric:
+      - "Uses OllamaSharp package for Ollama integration"
+      - "Wires through IChatClient via MEAI abstraction"
+      - "Does not require cloud API keys"
+      - "Specifies model name (phi3:mini or similar)"
+    timeout: 360
+
+  - name: "Set up Foundry Local with MEAI"
+    prompt: "Set up local LLM inference in this .NET 10 app using Foundry Local with the phi-4-mini model. Wire it through Microsoft.Extensions.AI so the rest of the app uses IChatClient."
+    setup:
+      files:
+        - path: "LocalAI/LocalAI.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>Exe</OutputType>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "LocalAI/Program.cs"
+          content: |
+            Console.WriteLine("TODO: Local LLM with Foundry Local");
+    assertions:
+      - type: "output_contains"
+        value: "FoundryLocalManager"
+      - type: "output_contains"
+        value: "IChatClient"
+      - type: "exit_success"
+    rubric:
+      - "Uses Microsoft.AI.Foundry.Local package"
+      - "Uses OpenAI package for OpenAI-compatible API integration"
+      - "Wires through IChatClient via MEAI abstraction"
+      - "Does not require cloud API keys"
+    timeout: 360
