@@ -48,7 +48,8 @@ jobs:
             exit 1
           }
 
-          $diffOutput = @(git diff --name-only "origin/$env:GITHUB_BASE_REF"...HEAD)
+          $range = "origin/$env:GITHUB_BASE_REF...HEAD"
+          $diffOutput = @(git diff --name-only $range)
           if ($LASTEXITCODE -ne 0) {
             Write-Host "::error::git diff failed -- cannot determine changed files"
             exit 1

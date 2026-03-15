@@ -255,7 +255,7 @@ public static partial class SkillDiscovery
         var name = metadata.Name ?? "";
         var description = metadata.Description ?? "";
 
-        return new AgentInfo(name, description, filePath, content, fileName);
+        return new AgentInfo(name, description, filePath, content, fileName, metadata.Tools);
     }
 
     internal static (EvalSchema.RawAgentFrontmatter Metadata, string Body) ParseAgentFrontmatter(string content)

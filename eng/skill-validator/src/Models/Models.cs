@@ -92,7 +92,8 @@ public sealed record AgentInfo(
     string Description,
     string Path,
     string AgentMdContent,
-    string FileName);
+    string FileName,
+    IReadOnlyList<string>? Tools = null);
 
 public sealed record AgentProfile(
     string Name,
