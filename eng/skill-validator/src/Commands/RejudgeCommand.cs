@@ -11,7 +11,8 @@ public static class RejudgeCommand
     {
         var resultsDirArg = new Argument<string>("results-dir") { Description = "Path to a timestamped results directory containing sessions.db" };
         var judgeModelOpt = new Option<string?>("--judge-model") { Description = "Model to use for judging (defaults to the persisted judge model when available)" };
-        var judgeModeOpt = new Option<string>("--judge-mode") { Description = "Judge mode: pairwise, independent, or both", DefaultValueFactory = _ => "pairwise" };
+        var judgeModeOpt = new Option<string>("--judge-mode") { Description = "Judge mode: pairwise, independent, or both", DefaultValueFactory = _ => "pairwise" }
+            .AcceptOnlyFromAmong("pairwise", "independent", "both");
         var judgeTimeoutOpt = new Option<int>("--judge-timeout") { Description = "Judge timeout in seconds", DefaultValueFactory = _ => 300 };
         var verboseOpt = new Option<bool>("--verbose") { Description = "Show detailed output" };
         var minImprovementOpt = new Option<double>("--min-improvement") { Description = "Minimum improvement score to pass (0-1)", DefaultValueFactory = _ => 0.1 };
@@ -133,6 +134,7 @@ public static class RejudgeCommand
             foreach (var scenarioGroup in skillGroup.GroupBy(g => g.Key.ScenarioName))
             {
                 var scenarioName = scenarioGroup.Key;
+                var storedRubric = GetStoredRubric(skillName, scenarioName, scenarioGroup.SelectMany(g => g));
                 var rejudgedRuns = new List<RejudgedRun>();
 
                 foreach (var runGroup in scenarioGroup)
@@ -145,7 +147,7 @@ public static class RejudgeCommand
 
                     var pluginSess = runGroup.FirstOrDefault(s => s.Role == "with-skill-plugin");
                     var prompt = baselineSess.Prompt ?? isolatedSess.Prompt ?? pluginSess?.Prompt ?? "";
-                    var scenario = new EvalScenario(scenarioName, prompt);
+                    var scenario = new EvalScenario(scenarioName, prompt, Rubric: storedRubric);
                     Action<string>? log = verbose ? msg => Console.WriteLine($"  [{scenarioName}/{runGroup.Key.RunIndex + 1}] {msg}") : null;
 
                     var baselineMetrics = JsonSerializer.Deserialize(baselineSess.MetricsJson!, SkillValidatorJsonContext.Default.RunMetrics)!;
@@ -379,6 +381,28 @@ public static class RejudgeCommand
             SkillEventCount: runs.Sum(r => r.IsolatedActivation.SkillEventCount));
         comparisonNoPlugin.TimedOut = runs.Any(r => r.Baseline.Metrics.TimedOut || r.Isolated.Metrics.TimedOut);
         return comparisonNoPlugin;
+    }
+
+    private static string[]? GetStoredRubric(string skillName, string scenarioName, IEnumerable<SessionRecord> sessions)
+    {
+        var rubricJson = sessions
+            .Select(s => s.RubricJson)
+            .FirstOrDefault(r => !string.IsNullOrWhiteSpace(r));
+        if (rubricJson is null)
+        {
+            Console.WriteLine($"[{skillName}] ⚠️  Scenario '{scenarioName}' has no persisted rubric in sessions.db; falling back to the default judging rubric.");
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize(rubricJson, SkillValidatorJsonContext.Default.StringArray) ?? [];
+        }
+        catch (JsonException error)
+        {
+            Console.WriteLine($"[{skillName}] ⚠️  Scenario '{scenarioName}' has an unreadable persisted rubric ({error.Message}); falling back to the default judging rubric.");
+            return null;
+        }
     }
 
     private static async Task<JudgeResult> SafeJudge(Task<JudgeResult> task, string label, Action<string>? log)

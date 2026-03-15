@@ -19,7 +19,8 @@ public static class ValidateCommand
         var verboseOpt = new Option<bool>("--verbose") { Description = "Show detailed per-scenario breakdowns" };
         var modelOpt = new Option<string>("--model") { Description = "Model to use for agent runs", DefaultValueFactory = _ => "claude-opus-4.6" };
         var judgeModelOpt = new Option<string?>("--judge-model") { Description = "Model to use for judging (defaults to --model)" };
-        var judgeModeOpt = new Option<string>("--judge-mode") { Description = "Judge mode: pairwise, independent, or both", DefaultValueFactory = _ => "pairwise" };
+        var judgeModeOpt = new Option<string>("--judge-mode") { Description = "Judge mode: pairwise, independent, or both", DefaultValueFactory = _ => "pairwise" }
+            .AcceptOnlyFromAmong("pairwise", "independent", "both");
         var runsOpt = new Option<int>("--runs") { Description = "Number of runs per scenario for averaging", DefaultValueFactory = _ => 5 };
         var parallelSkillsOpt = new Option<int>("--parallel-skills") { Description = "Max concurrent skills to evaluate", DefaultValueFactory = _ => 1 };
         var parallelScenariosOpt = new Option<int>("--parallel-scenarios") { Description = "Max concurrent scenarios per skill", DefaultValueFactory = _ => 1 };
@@ -762,13 +763,14 @@ public static class ValidateCommand
         var baselineConfigDir = sessionsDir is not null ? Path.Combine("sessions", baselineSessionId) : null;
         var isolatedConfigDir = sessionsDir is not null ? Path.Combine("sessions", isolatedSessionId) : null;
         var pluginConfigDir = sessionsDir is not null ? Path.Combine("sessions", pluginSessionId) : null;
+        var rubricJson = JsonSerializer.Serialize(scenario.Rubric?.ToArray() ?? [], SkillValidatorJsonContext.Default.StringArray);
 
         sessionDb?.RegisterSession(baselineSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
-            "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, skillSha);
+            "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, skillSha, rubricJson);
         sessionDb?.RegisterSession(isolatedSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
-            "with-skill-isolated", config.Model, isolatedConfigDir, null, scenario.Prompt, skillSha);
+            "with-skill-isolated", config.Model, isolatedConfigDir, null, scenario.Prompt, skillSha, rubricJson);
         sessionDb?.RegisterSession(pluginSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
-            "with-skill-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, skillSha);
+            "with-skill-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, skillSha, rubricJson);
 
         var agentTasks = await Task.WhenAll(
             // 1. Baseline: no plugin, no skills — vanilla agent

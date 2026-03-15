@@ -34,7 +34,7 @@ public sealed class SessionDatabase : IDisposable
                 value TEXT NOT NULL
             );
             INSERT OR IGNORE INTO schema_info (key, value) VALUES ('type', 'skill-validator');
-            INSERT OR IGNORE INTO schema_info (key, value) VALUES ('version', '1');
+            INSERT OR IGNORE INTO schema_info (key, value) VALUES ('version', '2');
 
             CREATE TABLE IF NOT EXISTS sessions (
                 id TEXT PRIMARY KEY,
@@ -50,7 +50,8 @@ public sealed class SessionDatabase : IDisposable
                 skill_sha TEXT,
                 status TEXT NOT NULL DEFAULT 'running',
                 started_at TEXT NOT NULL,
-                completed_at TEXT
+                completed_at TEXT,
+                rubric TEXT
             );
 
             CREATE TABLE IF NOT EXISTS run_results (
@@ -61,6 +62,32 @@ public sealed class SessionDatabase : IDisposable
             );
             """;
         cmd.ExecuteNonQuery();
+        EnsureSessionsRubricColumn();
+        SetSchemaInfo("version", "2");
+    }
+
+    private void EnsureSessionsRubricColumn()
+    {
+        if (HasColumn("sessions", "rubric"))
+            return;
+
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "ALTER TABLE sessions ADD COLUMN rubric TEXT";
+        cmd.ExecuteNonQuery();
+    }
+
+    private bool HasColumn(string tableName, string columnName)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = $"PRAGMA table_info({tableName})";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -95,15 +122,15 @@ public sealed class SessionDatabase : IDisposable
 
     public void RegisterSession(string sessionId, string skillName, string skillPath,
         string scenarioName, int runIndex, string role, string model,
-        string? configDir, string? workDir, string? prompt = null, string? skillSha = null)
+        string? configDir, string? workDir, string? prompt = null, string? skillSha = null, string? rubric = null)
     {
         _writeLock.Wait();
         try
         {
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
-                INSERT INTO sessions (id, skill_name, skill_path, scenario_name, run_index, role, model, config_dir, work_dir, prompt, skill_sha, status, started_at)
-                VALUES ($id, $skill_name, $skill_path, $scenario_name, $run_index, $role, $model, $config_dir, $work_dir, $prompt, $skill_sha, 'running', $started_at)
+                INSERT INTO sessions (id, skill_name, skill_path, scenario_name, run_index, role, model, config_dir, work_dir, prompt, skill_sha, rubric, status, started_at)
+                VALUES ($id, $skill_name, $skill_path, $scenario_name, $run_index, $role, $model, $config_dir, $work_dir, $prompt, $skill_sha, $rubric, 'running', $started_at)
                 """;
             cmd.Parameters.AddWithValue("$id", sessionId);
             cmd.Parameters.AddWithValue("$skill_name", skillName);
@@ -116,6 +143,7 @@ public sealed class SessionDatabase : IDisposable
             cmd.Parameters.AddWithValue("$work_dir", (object?)workDir ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$prompt", (object?)prompt ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$skill_sha", (object?)skillSha ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$rubric", (object?)rubric ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$started_at", DateTimeOffset.UtcNow.ToString("o"));
             cmd.ExecuteNonQuery();
         }
@@ -226,7 +254,7 @@ public sealed class SessionDatabase : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = $"""
             SELECT s.id, s.skill_name, s.skill_path, s.scenario_name, s.run_index, s.role, s.model,
-                   s.config_dir, s.work_dir, s.prompt, s.skill_sha, s.status,
+                   s.config_dir, s.work_dir, s.prompt, s.skill_sha, s.rubric, s.status,
                    r.metrics_json, r.judge_json, r.pairwise_json
             FROM sessions s
             LEFT JOIN run_results r ON s.id = r.session_id
@@ -248,10 +276,11 @@ public sealed class SessionDatabase : IDisposable
                 WorkDir: reader.IsDBNull(8) ? null : reader.GetString(8),
                 Prompt: reader.IsDBNull(9) ? null : reader.GetString(9),
                 SkillSha: reader.IsDBNull(10) ? null : reader.GetString(10),
-                Status: reader.GetString(11),
-                MetricsJson: reader.IsDBNull(12) ? null : reader.GetString(12),
-                JudgeJson: reader.IsDBNull(13) ? null : reader.GetString(13),
-                PairwiseJson: reader.IsDBNull(14) ? null : reader.GetString(14)));
+                RubricJson: reader.IsDBNull(11) ? null : reader.GetString(11),
+                Status: reader.GetString(12),
+                MetricsJson: reader.IsDBNull(13) ? null : reader.GetString(13),
+                JudgeJson: reader.IsDBNull(14) ? null : reader.GetString(14),
+                PairwiseJson: reader.IsDBNull(15) ? null : reader.GetString(15)));
         }
         return results;
     }
@@ -275,6 +304,7 @@ public sealed record SessionRecord(
     string? WorkDir,
     string? Prompt,
     string? SkillSha,
+    string? RubricJson,
     string Status,
     string? MetricsJson,
     string? JudgeJson,

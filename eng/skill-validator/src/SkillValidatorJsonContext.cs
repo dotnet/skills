@@ -38,6 +38,7 @@ namespace SkillValidator;
 [JsonSerializable(typeof(JsonElement))]
 [JsonSerializable(typeof(Dictionary<string, int>))]
 [JsonSerializable(typeof(Dictionary<string, JsonNode?>))]
+[JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(List<SkillVerdict>))]
 [JsonSerializable(typeof(IReadOnlyList<SkillVerdict>))]
 internal partial class SkillValidatorJsonContext : JsonSerializerContext;

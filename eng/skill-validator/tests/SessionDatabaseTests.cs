@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Microsoft.Data.Sqlite;
 using SkillValidator.Services;
 
 namespace SkillValidator.Tests;
@@ -31,7 +33,9 @@ public class SessionDatabaseTests : IDisposable
     [Fact]
     public void RegisterAndComplete_RoundTrips()
     {
-        _db.RegisterSession("s1", "my-skill", "/path/to/skill", "scenario-a", 0, "baseline", "gpt-4.1", "sessions/s1", "/work", "Fix the bug", "abcdef012345");
+        var rubricJson = JsonSerializer.Serialize(new[] { "Quality", "Completeness" });
+
+        _db.RegisterSession("s1", "my-skill", "/path/to/skill", "scenario-a", 0, "baseline", "gpt-4.1", "sessions/s1", "/work", "Fix the bug", "abcdef012345", rubricJson);
         _db.CompleteSession("s1", "completed", """{"TokenEstimate":100}""");
 
         var sessions = _db.GetCompletedSessions();
@@ -47,6 +51,7 @@ public class SessionDatabaseTests : IDisposable
         Assert.Equal("completed", s.Status);
         Assert.Equal("Fix the bug", s.Prompt);
         Assert.Equal("abcdef012345", s.SkillSha);
+        Assert.Equal(rubricJson, s.RubricJson);
         Assert.Equal("""{"TokenEstimate":100}""", s.MetricsJson);
         Assert.Null(s.JudgeJson);
         Assert.Null(s.PairwiseJson);
@@ -83,6 +88,7 @@ public class SessionDatabaseTests : IDisposable
         var s = Assert.Single(_db.GetCompletedSessions());
         Assert.Null(s.Prompt);
         Assert.Null(s.SkillSha);
+        Assert.Null(s.RubricJson);
     }
 
     [Fact]
@@ -242,7 +248,7 @@ public class SessionDatabaseTests : IDisposable
     {
         var info = _db.GetSchemaInfo();
         Assert.Equal("skill-validator", info["type"]);
-        Assert.Equal("1", info["version"]);
+        Assert.Equal("2", info["version"]);
     }
 
     [Fact]
@@ -252,6 +258,76 @@ public class SessionDatabaseTests : IDisposable
 
         var info = _db.GetSchemaInfo();
         Assert.Equal("claude-opus-4.6", info["judge_model"]);
+    }
+
+    [Fact]
+    public void LegacyDatabase_UpgradesRubricColumn()
+    {
+        var legacyDbPath = Path.Combine(Path.GetTempPath(), $"legacy-sessions-{Guid.NewGuid()}.db");
+        try
+        {
+            using (var connection = new SqliteConnection($"Data Source={legacyDbPath}"))
+            {
+                connection.Open();
+                using var cmd = connection.CreateCommand();
+                cmd.CommandText = """
+                    CREATE TABLE schema_info (
+                        key TEXT PRIMARY KEY,
+                        value TEXT NOT NULL
+                    );
+                    INSERT INTO schema_info (key, value) VALUES ('type', 'skill-validator');
+                    INSERT INTO schema_info (key, value) VALUES ('version', '1');
+
+                    CREATE TABLE sessions (
+                        id TEXT PRIMARY KEY,
+                        skill_name TEXT NOT NULL,
+                        skill_path TEXT NOT NULL,
+                        scenario_name TEXT NOT NULL,
+                        run_index INTEGER NOT NULL,
+                        role TEXT NOT NULL,
+                        model TEXT NOT NULL,
+                        config_dir TEXT,
+                        work_dir TEXT,
+                        prompt TEXT,
+                        skill_sha TEXT,
+                        status TEXT NOT NULL DEFAULT 'running',
+                        started_at TEXT NOT NULL,
+                        completed_at TEXT
+                    );
+
+                    CREATE TABLE run_results (
+                        session_id TEXT PRIMARY KEY REFERENCES sessions(id),
+                        metrics_json TEXT NOT NULL,
+                        judge_json TEXT,
+                        pairwise_json TEXT
+                    );
+
+                    INSERT INTO sessions (id, skill_name, skill_path, scenario_name, run_index, role, model, status, started_at, completed_at)
+                    VALUES ('s1', 'skill', '/p', 'scn', 0, 'baseline', 'model', 'completed', '2026-01-01T00:00:00Z', '2026-01-01T00:01:00Z');
+                    INSERT INTO run_results (session_id, metrics_json) VALUES ('s1', '{}');
+                    """;
+                cmd.ExecuteNonQuery();
+            }
+
+            using var upgradedDb = new SessionDatabase(legacyDbPath);
+            var legacySession = Assert.Single(upgradedDb.GetCompletedSessions());
+            Assert.Null(legacySession.RubricJson);
+            Assert.Equal("2", upgradedDb.GetSchemaInfo()["version"]);
+
+            var rubricJson = JsonSerializer.Serialize(new[] { "Quality" });
+            upgradedDb.RegisterSession("s2", "skill", "/p", "scn", 1, "with-skill", "model", null, null, "Prompt", null, rubricJson);
+            upgradedDb.CompleteSession("s2", "completed", "{}");
+
+            var upgradedSession = Assert.Single(upgradedDb.GetCompletedSessions(), s => s.Id == "s2");
+            Assert.Equal(rubricJson, upgradedSession.RubricJson);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            TryDelete(legacyDbPath);
+            TryDelete(legacyDbPath + "-wal");
+            TryDelete(legacyDbPath + "-shm");
+        }
     }
 
     [Fact]
