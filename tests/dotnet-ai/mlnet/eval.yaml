@@ -1,0 +1,46 @@
+scenarios:
+  - name: "Binary classification on tabular data"
+    prompt: "Build an ML.NET model to predict whether a customer will churn based on this CSV data. The target column is 'Churn' (true/false)."
+    setup:
+      files:
+        - path: "ChurnPredictor/ChurnPredictor.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>Exe</OutputType>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "ChurnPredictor/Program.cs"
+          content: |
+            Console.WriteLine("TODO: Build churn prediction model");
+        - path: "ChurnPredictor/data.csv"
+          content: |
+            CustomerId,Age,Income,MonthsActive,Churn
+            1,25,50000,12,false
+            2,45,80000,36,true
+            3,35,60000,24,false
+    assertions:
+      - type: "output_contains"
+        value: "MLContext"
+      - type: "output_contains"
+        value: "BinaryClassification"
+      - type: "exit_success"
+    rubric:
+      - "Creates MLContext with a seed for reproducibility"
+      - "Loads data from CSV using LoadFromTextFile or DataFrame"
+      - "Uses BinaryClassification trainer (not multiclass or regression)"
+      - "Evaluates the model with a train/test split"
+      - "Does not suggest using an LLM for this tabular task"
+    timeout: 360
+
+  - name: "Reject LLM for tabular classification"
+    prompt: "I have a spreadsheet with product data and customer ratings. I want to use GPT-4 to classify products into categories based on the ratings. Can you help?"
+    assertions:
+      - type: "output_contains"
+        value: "ML.NET"
+    rubric:
+      - "Redirects from LLM to ML.NET for tabular classification"
+      - "Explains why ML.NET is better for this task (faster, cheaper, purpose-built)"
+      - "Provides ML.NET multiclass classification approach"
+    timeout: 360
