@@ -2,7 +2,6 @@ using System.CommandLine;
 using System.Text.Json;
 using SkillValidator.Models;
 using SkillValidator.Services;
-using SkillValidator.Utilities;
 
 namespace SkillValidator.Commands;
 
@@ -75,17 +74,14 @@ public static class RejudgeCommand
 
         using var sessionDb = new SessionDatabase(dbPath);
         var sessions = sessionDb.GetCompletedSessions();
-
         if (sessions.Count == 0)
         {
             Console.Error.WriteLine("No completed sessions found in the database.");
             return 1;
         }
 
-        // Determine judge model from sessions if not specified
         var effectiveJudgeModel = judgeModel ?? sessions[0].Model;
 
-        // Validate model
         try
         {
             var client = await AgentRunner.GetSharedClient(verbose);
@@ -105,111 +101,144 @@ public static class RejudgeCommand
         Console.WriteLine($"Rejudging {sessions.Count} sessions with model: {effectiveJudgeModel}, mode: {judgeMode}");
 
         bool usePairwise = judgeMode is JudgeMode.Pairwise or JudgeMode.Both;
-        var jsonOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-
-        // Group sessions into run pairs: (skill, scenario, run_index) → (baseline, with-skill)
-        var runPairs = sessions
+        var runGroups = sessions
             .GroupBy(s => (s.SkillName, s.ScenarioName, s.RunIndex))
-            .Where(g => g.Any(s => s.Role == "baseline") && g.Any(s => s.Role == "with-skill"))
+            .Where(g => g.Any(s => s.Role == "baseline") &&
+                (g.Any(s => s.Role == "with-skill-isolated") || g.Any(s => s.Role == "with-skill")))
             .ToList();
 
-        if (runPairs.Count == 0)
+        if (runGroups.Count == 0)
         {
-            Console.Error.WriteLine("No complete run pairs (baseline + with-skill) found.");
+            Console.Error.WriteLine("No complete run groups found.");
             return 1;
         }
 
-        Console.WriteLine($"Found {runPairs.Count} run pair(s) across {runPairs.Select(g => g.Key.SkillName).Distinct().Count()} skill(s)\n");
+        Console.WriteLine($"Found {runGroups.Count} run group(s) across {runGroups.Select(g => g.Key.SkillName).Distinct().Count()} skill(s)\n");
 
-        // Group by skill → scenario for verdict computation
-        var skillGroups = runPairs.GroupBy(g => g.Key.SkillName);
         var verdicts = new List<SkillVerdict>();
-
-        foreach (var skillGroup in skillGroups)
+        foreach (var skillGroup in runGroups.GroupBy(g => g.Key.SkillName))
         {
             var skillName = skillGroup.Key;
             var firstSession = skillGroup.First().First();
             Console.WriteLine($"[{skillName}] Rejudging...");
 
-            var scenarioGroups = skillGroup.GroupBy(g => g.Key.ScenarioName);
             var comparisons = new List<ScenarioComparison>();
-
-            foreach (var scenarioGroup in scenarioGroups)
+            foreach (var scenarioGroup in skillGroup.GroupBy(g => g.Key.ScenarioName))
             {
                 var scenarioName = scenarioGroup.Key;
-                var perRunScores = new List<double>();
-                RunResult? lastBaseline = null;
-                RunResult? lastWithSkill = null;
-                PairwiseJudgeResult? lastPairwise = null;
+                var rejudgedRuns = new List<RejudgedRun>();
 
                 foreach (var runGroup in scenarioGroup)
                 {
                     var baselineSess = runGroup.First(s => s.Role == "baseline");
-                    var skillSess = runGroup.First(s => s.Role == "with-skill");
+                    var isolatedSess = runGroup.FirstOrDefault(s => s.Role == "with-skill-isolated")
+                        ?? runGroup.FirstOrDefault(s => s.Role == "with-skill");
+                    if (isolatedSess is null)
+                        continue;
 
-                    var baselineMetrics = JsonSerializer.Deserialize<RunMetrics>(baselineSess.MetricsJson!, jsonOpts)!;
-                    var withSkillMetrics = JsonSerializer.Deserialize<RunMetrics>(skillSess.MetricsJson!, jsonOpts)!;
+                    var pluginSess = runGroup.FirstOrDefault(s => s.Role == "with-skill-plugin");
+                    var prompt = baselineSess.Prompt ?? isolatedSess.Prompt ?? pluginSess?.Prompt ?? "";
+                    var scenario = new EvalScenario(scenarioName, prompt);
+                    Action<string>? log = verbose ? msg => Console.WriteLine($"  [{scenarioName}/{runGroup.Key.RunIndex + 1}] {msg}") : null;
 
-                    // Reconstruct scenario for judge (we need rubric)
-                    // For now, create a minimal scenario from the saved data
-                    var scenario = new EvalScenario(scenarioName, "");
+                    var baselineMetrics = JsonSerializer.Deserialize(baselineSess.MetricsJson!, SkillValidatorJsonContext.Default.RunMetrics)!;
+                    var isolatedMetrics = JsonSerializer.Deserialize(isolatedSess.MetricsJson!, SkillValidatorJsonContext.Default.RunMetrics)!;
+                    var pluginMetrics = pluginSess?.MetricsJson is not null
+                        ? JsonSerializer.Deserialize(pluginSess.MetricsJson, SkillValidatorJsonContext.Default.RunMetrics)
+                        : null;
 
-                    // Re-judge
                     var judgeOpts = new JudgeOptions(effectiveJudgeModel, verbose, judgeTimeout, baselineMetrics.WorkDir, firstSession.SkillPath);
-                    var judgeTasks = await Task.WhenAll(
-                        Judge.JudgeRun(scenario, baselineMetrics, judgeOpts),
-                        Judge.JudgeRun(scenario, withSkillMetrics, judgeOpts with { WorkDir = withSkillMetrics.WorkDir }));
+                    var baselineJudge = await SafeJudge(
+                        Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, log),
+                        "baseline",
+                        log);
+                    var isolatedJudge = await SafeJudge(
+                        Judge.JudgeRun(scenario, isolatedMetrics, judgeOpts with { WorkDir = isolatedMetrics.WorkDir }, log),
+                        "isolated",
+                        log);
+                    var pluginJudge = pluginMetrics is not null
+                        ? await SafeJudge(
+                            Judge.JudgeRun(scenario, pluginMetrics, judgeOpts with { WorkDir = pluginMetrics.WorkDir }, log),
+                            "plugin",
+                            log)
+                        : null;
 
-                    var baselineResult = new RunResult(baselineMetrics, judgeTasks[0]);
-                    var withSkillResult = new RunResult(withSkillMetrics, judgeTasks[1]);
+                    sessionDb.SaveJudgeResult(baselineSess.Id, JsonSerializer.Serialize(baselineJudge, SkillValidatorJsonContext.Default.JudgeResult));
+                    sessionDb.SaveJudgeResult(isolatedSess.Id, JsonSerializer.Serialize(isolatedJudge, SkillValidatorJsonContext.Default.JudgeResult));
+                    if (pluginSess is not null && pluginJudge is not null)
+                    {
+                        sessionDb.SaveJudgeResult(pluginSess.Id, JsonSerializer.Serialize(pluginJudge, SkillValidatorJsonContext.Default.JudgeResult));
+                    }
 
-                    // Update judge results in DB
-                    sessionDb.SaveJudgeResult(baselineSess.Id, JsonSerializer.Serialize(judgeTasks[0]));
-                    sessionDb.SaveJudgeResult(skillSess.Id, JsonSerializer.Serialize(judgeTasks[1]));
+                    var baselineResult = new RunResult(baselineMetrics, baselineJudge);
+                    var isolatedResult = new RunResult(isolatedMetrics, isolatedJudge);
+                    var pluginResult = pluginMetrics is not null && pluginJudge is not null
+                        ? new RunResult(pluginMetrics, pluginJudge)
+                        : null;
 
-                    // Pairwise
                     PairwiseJudgeResult? pairwise = null;
+                    bool pairwiseFromPlugin = false;
                     if (usePairwise)
                     {
                         try
                         {
+                            var pairwiseTarget = pluginResult is not null && pluginResult.JudgeResult.OverallScore < isolatedResult.JudgeResult.OverallScore
+                                ? pluginResult
+                                : isolatedResult;
+                            pairwiseFromPlugin = ReferenceEquals(pairwiseTarget, pluginResult);
                             pairwise = await PairwiseJudge.Judge(
-                                scenario, baselineMetrics, withSkillMetrics,
-                                new PairwiseJudgeOptions(effectiveJudgeModel, verbose, judgeTimeout, baselineMetrics.WorkDir, firstSession.SkillPath));
-                            sessionDb.SavePairwiseResult(baselineSess.Id, JsonSerializer.Serialize(pairwise));
+                                scenario,
+                                baselineMetrics,
+                                pairwiseTarget.Metrics,
+                                new PairwiseJudgeOptions(
+                                    effectiveJudgeModel,
+                                    verbose,
+                                    judgeTimeout,
+                                    baselineMetrics.WorkDir,
+                                    firstSession.SkillPath,
+                                    pairwiseTarget.Metrics.WorkDir),
+                                log);
+                            sessionDb.SavePairwiseResult(baselineSess.Id, JsonSerializer.Serialize(pairwise, SkillValidatorJsonContext.Default.PairwiseJudgeResult));
                         }
                         catch (Exception error)
                         {
-                            Console.Error.WriteLine($"  ⚠️  Pairwise judge failed: {error.Message}");
+                            log?.Invoke($"⚠️  Pairwise judge failed: {error.Message}");
                         }
                     }
 
-                    var runComparison = Comparator.CompareScenario(scenarioName, baselineResult, withSkillResult, pairwise);
-                    perRunScores.Add(runComparison.ImprovementScore);
+                    var isolatedActivation = MetricsCollector.ExtractSkillActivation(
+                        isolatedMetrics.Events,
+                        baselineMetrics.ToolCallBreakdown,
+                        skillName);
+                    var pluginActivation = pluginMetrics is not null
+                        ? MetricsCollector.ExtractSkillActivation(pluginMetrics.Events, baselineMetrics.ToolCallBreakdown, skillName)
+                        : null;
 
-                    lastBaseline = baselineResult;
-                    lastWithSkill = withSkillResult;
-                    lastPairwise = pairwise;
+                    rejudgedRuns.Add(new RejudgedRun(
+                        Baseline: baselineResult,
+                        Isolated: isolatedResult,
+                        Plugin: pluginResult,
+                        Pairwise: pairwise,
+                        PairwiseFromPlugin: pairwiseFromPlugin,
+                        IsolatedActivation: isolatedActivation,
+                        PluginActivation: pluginActivation));
                 }
 
-                if (lastBaseline is not null && lastWithSkill is not null)
-                {
-                    var comparison = Comparator.CompareScenario(scenarioName, lastBaseline, lastWithSkill, lastPairwise);
-                    comparison.PerRunScores = perRunScores;
-                    comparisons.Add(comparison);
-                }
+                if (rejudgedRuns.Count == 0)
+                    continue;
+
+                comparisons.Add(BuildScenarioComparison(scenarioName, rejudgedRuns));
             }
 
-            if (comparisons.Count > 0)
-            {
-                var skill = new SkillInfo(skillName, "", firstSession.SkillPath, firstSession.SkillPath, "", null, null);
-                var verdict = Comparator.ComputeVerdict(skill, comparisons, minImprovement, requireCompletion, confidenceLevel);
-                Console.WriteLine($"[{skillName}] {(verdict.Passed ? "✅" : "❌")} Score: {verdict.OverallImprovementScore * 100:F1}%");
-                verdicts.Add(verdict);
-            }
+            if (comparisons.Count == 0)
+                continue;
+
+            var skill = new SkillInfo(skillName, "", firstSession.SkillPath, firstSession.SkillPath, "", null, null);
+            var verdict = Comparator.ComputeVerdict(skill, comparisons, minImprovement, requireCompletion, confidenceLevel);
+            Console.WriteLine($"[{skillName}] {(verdict.Passed ? "✅" : "❌")} Score: {verdict.OverallImprovementScore * 100:F1}%");
+            verdicts.Add(verdict);
         }
 
-        // Write new results
         var reporters = new List<ReporterSpec>
         {
             new(ReporterType.Console),
@@ -217,10 +246,149 @@ public static class RejudgeCommand
             new(ReporterType.Markdown),
         };
         await Reporter.ReportResults(verdicts, reporters, verbose,
-            effectiveJudgeModel, effectiveJudgeModel, resultsDir);
+            effectiveJudgeModel, effectiveJudgeModel, resultsDir, resultsDir);
 
-        await AgentRunner.StopSharedClient();
-
+        await AgentRunner.StopAllClients();
         return verdicts.All(v => v.Passed) ? 0 : 1;
     }
+
+    private static ScenarioComparison BuildScenarioComparison(string scenarioName, List<RejudgedRun> runs)
+    {
+        var baselineRuns = runs.Select(r => r.Baseline).ToList();
+        var isolatedRuns = runs.Select(r => r.Isolated).ToList();
+        var avgBaseline = AverageResults(baselineRuns);
+        var avgIsolated = AverageResults(isolatedRuns);
+        var bestPairwise = runs.Select(r => r.Pairwise).FirstOrDefault(p => p?.PositionSwapConsistent == true)
+            ?? runs.Select(r => r.Pairwise).FirstOrDefault();
+
+        if (runs.Any(r => r.Plugin is not null))
+        {
+            var pluginRuns = runs.Where(r => r.Plugin is not null).Select(r => r.Plugin!).ToList();
+            var perRunIsolatedScores = new List<double>();
+            var perRunPluginScores = new List<double>();
+
+            foreach (var run in runs)
+            {
+                var isoComp = Comparator.CompareScenario(scenarioName, run.Baseline, run.Isolated,
+                    run.PairwiseFromPlugin ? null : run.Pairwise);
+                var pluginComp = run.Plugin is not null
+                    ? Comparator.CompareScenario(scenarioName, run.Baseline, run.Plugin,
+                        run.PairwiseFromPlugin ? run.Pairwise : null)
+                    : isoComp;
+                perRunIsolatedScores.Add(isoComp.ImprovementScore);
+                perRunPluginScores.Add(pluginComp.ImprovementScore);
+            }
+
+            var perRunScores = perRunIsolatedScores
+                .Zip(perRunPluginScores, (iso, plugin) => Math.Min(iso, plugin))
+                .ToList();
+            var avgPlugin = AverageResults(pluginRuns);
+            int bestPairwiseIdx = runs.FindIndex(r => r.Pairwise?.PositionSwapConsistent == true);
+            if (bestPairwiseIdx < 0)
+                bestPairwiseIdx = runs.FindIndex(r => r.Pairwise is not null);
+            bool pairwiseFromPlugin = bestPairwiseIdx >= 0 && runs[bestPairwiseIdx].PairwiseFromPlugin;
+
+            var isoComparison = Comparator.CompareScenario(scenarioName, avgBaseline, avgIsolated,
+                pairwiseFromPlugin ? null : bestPairwise);
+            var pluginComparison = Comparator.CompareScenario(scenarioName, avgBaseline, avgPlugin,
+                pairwiseFromPlugin ? bestPairwise : null);
+
+            var comparison = new ScenarioComparison
+            {
+                ScenarioName = scenarioName,
+                Baseline = avgBaseline,
+                SkilledIsolated = avgIsolated,
+                SkilledPlugin = avgPlugin,
+                ImprovementScore = Math.Min(isoComparison.ImprovementScore, pluginComparison.ImprovementScore),
+                IsolatedImprovementScore = isoComparison.ImprovementScore,
+                PluginImprovementScore = pluginComparison.ImprovementScore,
+                Breakdown = isoComparison.ImprovementScore <= pluginComparison.ImprovementScore
+                    ? isoComparison.Breakdown
+                    : pluginComparison.Breakdown,
+                IsolatedBreakdown = isoComparison.Breakdown,
+                PluginBreakdown = pluginComparison.Breakdown,
+                PairwiseResult = bestPairwise,
+                PerRunScores = perRunScores,
+                SkillActivationIsolated = new SkillActivationInfo(
+                    Activated: runs.Any(r => r.IsolatedActivation.Activated),
+                    DetectedSkills: runs.SelectMany(r => r.IsolatedActivation.DetectedSkills).Distinct().ToList(),
+                    ExtraTools: runs.SelectMany(r => r.IsolatedActivation.ExtraTools).Distinct().ToList(),
+                    SkillEventCount: runs.Sum(r => r.IsolatedActivation.SkillEventCount)),
+                SkillActivationPlugin = new SkillActivationInfo(
+                    Activated: runs.Any(r => r.PluginActivation?.Activated == true),
+                    DetectedSkills: runs.SelectMany(r => r.PluginActivation?.DetectedSkills ?? []).Distinct().ToList(),
+                    ExtraTools: runs.SelectMany(r => r.PluginActivation?.ExtraTools ?? []).Distinct().ToList(),
+                    SkillEventCount: runs.Sum(r => r.PluginActivation?.SkillEventCount ?? 0)),
+                TimedOut = runs.Any(r => r.Baseline.Metrics.TimedOut || r.Isolated.Metrics.TimedOut || r.Plugin?.Metrics.TimedOut == true),
+            };
+            return comparison;
+        }
+
+        var comparisonNoPlugin = Comparator.CompareScenario(scenarioName, avgBaseline, avgIsolated, bestPairwise);
+        comparisonNoPlugin.PerRunScores = runs.Select(r => Comparator.CompareScenario(scenarioName, r.Baseline, r.Isolated, r.Pairwise).ImprovementScore).ToList();
+        comparisonNoPlugin.SkillActivationIsolated = new SkillActivationInfo(
+            Activated: runs.Any(r => r.IsolatedActivation.Activated),
+            DetectedSkills: runs.SelectMany(r => r.IsolatedActivation.DetectedSkills).Distinct().ToList(),
+            ExtraTools: runs.SelectMany(r => r.IsolatedActivation.ExtraTools).Distinct().ToList(),
+            SkillEventCount: runs.Sum(r => r.IsolatedActivation.SkillEventCount));
+        comparisonNoPlugin.TimedOut = runs.Any(r => r.Baseline.Metrics.TimedOut || r.Isolated.Metrics.TimedOut);
+        return comparisonNoPlugin;
+    }
+
+    private static async Task<JudgeResult> SafeJudge(Task<JudgeResult> task, string label, Action<string>? log)
+    {
+        try
+        {
+            return await task;
+        }
+        catch (Exception error)
+        {
+            log?.Invoke($"⚠️  Judge ({label}) failed, using fallback scores: {error.Message}");
+            return new JudgeResult([], 3, $"Judge failed: {error.Message}");
+        }
+    }
+
+    private static RunResult AverageResults(List<RunResult> runs)
+    {
+        if (runs.Count == 1)
+            return runs[0];
+
+        static double Avg(IEnumerable<double> nums) => nums.Average();
+        static int AvgRound(IEnumerable<int> nums) => (int)Math.Round(nums.Average());
+
+        var avgMetrics = new RunMetrics
+        {
+            TokenEstimate = AvgRound(runs.Select(r => r.Metrics.TokenEstimate)),
+            ToolCallCount = AvgRound(runs.Select(r => r.Metrics.ToolCallCount)),
+            ToolCallBreakdown = runs[0].Metrics.ToolCallBreakdown,
+            TurnCount = AvgRound(runs.Select(r => r.Metrics.TurnCount)),
+            WallTimeMs = (long)Math.Round(runs.Average(r => r.Metrics.WallTimeMs)),
+            ErrorCount = AvgRound(runs.Select(r => r.Metrics.ErrorCount)),
+            TimedOut = runs.Any(r => r.Metrics.TimedOut),
+            AssertionResults = runs[^1].Metrics.AssertionResults,
+            TaskCompleted = runs.Any(r => r.Metrics.TaskCompleted),
+            AgentOutput = runs[^1].Metrics.AgentOutput,
+            Events = runs[^1].Metrics.Events,
+            WorkDir = runs[^1].Metrics.WorkDir,
+        };
+
+        var avgJudge = new JudgeResult(
+            runs[0].JudgeResult.RubricScores.Select((score, i) => new RubricScore(
+                score.Criterion,
+                Math.Round(Avg(runs.Select(r => i < r.JudgeResult.RubricScores.Count ? r.JudgeResult.RubricScores[i].Score : 3)) * 10) / 10,
+                score.Reasoning)).ToList(),
+            Math.Round(Avg(runs.Select(r => r.JudgeResult.OverallScore)) * 10) / 10,
+            runs[^1].JudgeResult.OverallReasoning);
+
+        return new RunResult(avgMetrics, avgJudge);
+    }
+
+    private sealed record RejudgedRun(
+        RunResult Baseline,
+        RunResult Isolated,
+        RunResult? Plugin,
+        PairwiseJudgeResult? Pairwise,
+        bool PairwiseFromPlugin,
+        SkillActivationInfo IsolatedActivation,
+        SkillActivationInfo? PluginActivation);
 }
