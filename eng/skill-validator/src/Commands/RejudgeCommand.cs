@@ -10,7 +10,7 @@ public static class RejudgeCommand
     public static Command Create()
     {
         var resultsDirArg = new Argument<string>("results-dir") { Description = "Path to a timestamped results directory containing sessions.db" };
-        var judgeModelOpt = new Option<string?>("--judge-model") { Description = "Model to use for judging (defaults to original model)" };
+        var judgeModelOpt = new Option<string?>("--judge-model") { Description = "Model to use for judging (defaults to the persisted judge model when available)" };
         var judgeModeOpt = new Option<string>("--judge-mode") { Description = "Judge mode: pairwise, independent, or both", DefaultValueFactory = _ => "pairwise" };
         var judgeTimeoutOpt = new Option<int>("--judge-timeout") { Description = "Judge timeout in seconds", DefaultValueFactory = _ => 300 };
         var verboseOpt = new Option<bool>("--verbose") { Description = "Show detailed output" };
@@ -80,7 +80,14 @@ public static class RejudgeCommand
             return 1;
         }
 
-        var effectiveJudgeModel = judgeModel ?? sessions[0].Model;
+        var schemaInfo = sessionDb.GetSchemaInfo();
+        var persistedJudgeModel = schemaInfo.GetValueOrDefault("judge_model");
+        var effectiveJudgeModel = judgeModel ?? persistedJudgeModel;
+        if (string.IsNullOrWhiteSpace(effectiveJudgeModel))
+        {
+            Console.Error.WriteLine("No persisted judge model found in sessions.db. Re-run with --judge-model to specify the judge explicitly.");
+            return 1;
+        }
 
         try
         {
@@ -147,81 +154,94 @@ public static class RejudgeCommand
                         ? JsonSerializer.Deserialize(pluginSess.MetricsJson, SkillValidatorJsonContext.Default.RunMetrics)
                         : null;
 
-                    var judgeOpts = new JudgeOptions(effectiveJudgeModel, verbose, judgeTimeout, baselineMetrics.WorkDir, firstSession.SkillPath);
-                    var baselineJudge = await SafeJudge(
-                        Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, log),
-                        "baseline",
-                        log);
-                    var isolatedJudge = await SafeJudge(
-                        Judge.JudgeRun(scenario, isolatedMetrics, judgeOpts with { WorkDir = isolatedMetrics.WorkDir }, log),
-                        "isolated",
-                        log);
-                    var pluginJudge = pluginMetrics is not null
-                        ? await SafeJudge(
-                            Judge.JudgeRun(scenario, pluginMetrics, judgeOpts with { WorkDir = pluginMetrics.WorkDir }, log),
-                            "plugin",
-                            log)
-                        : null;
-
-                    sessionDb.SaveJudgeResult(baselineSess.Id, JsonSerializer.Serialize(baselineJudge, SkillValidatorJsonContext.Default.JudgeResult));
-                    sessionDb.SaveJudgeResult(isolatedSess.Id, JsonSerializer.Serialize(isolatedJudge, SkillValidatorJsonContext.Default.JudgeResult));
-                    if (pluginSess is not null && pluginJudge is not null)
+                    var judgeWorkRoot = CreateJudgeWorkDir("rejudge");
+                    try
                     {
-                        sessionDb.SaveJudgeResult(pluginSess.Id, JsonSerializer.Serialize(pluginJudge, SkillValidatorJsonContext.Default.JudgeResult));
+                        var judgeOpts = new JudgeOptions(
+                            effectiveJudgeModel,
+                            verbose,
+                            judgeTimeout,
+                            CreateJudgeWorkDir(judgeWorkRoot, "baseline"),
+                            firstSession.SkillPath);
+                        var baselineJudge = await SafeJudge(
+                            Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, log),
+                            "baseline",
+                            log);
+                        var isolatedJudge = await SafeJudge(
+                            Judge.JudgeRun(scenario, isolatedMetrics, judgeOpts with { WorkDir = CreateJudgeWorkDir(judgeWorkRoot, "isolated") }, log),
+                            "isolated",
+                            log);
+                        var pluginJudge = pluginMetrics is not null
+                            ? await SafeJudge(
+                                Judge.JudgeRun(scenario, pluginMetrics, judgeOpts with { WorkDir = CreateJudgeWorkDir(judgeWorkRoot, "plugin") }, log),
+                                "plugin",
+                                log)
+                            : null;
+
+                        sessionDb.SaveJudgeResult(baselineSess.Id, JsonSerializer.Serialize(baselineJudge, SkillValidatorJsonContext.Default.JudgeResult));
+                        sessionDb.SaveJudgeResult(isolatedSess.Id, JsonSerializer.Serialize(isolatedJudge, SkillValidatorJsonContext.Default.JudgeResult));
+                        if (pluginSess is not null && pluginJudge is not null)
+                        {
+                            sessionDb.SaveJudgeResult(pluginSess.Id, JsonSerializer.Serialize(pluginJudge, SkillValidatorJsonContext.Default.JudgeResult));
+                        }
+
+                        var baselineResult = new RunResult(baselineMetrics, baselineJudge);
+                        var isolatedResult = new RunResult(isolatedMetrics, isolatedJudge);
+                        var pluginResult = pluginMetrics is not null && pluginJudge is not null
+                            ? new RunResult(pluginMetrics, pluginJudge)
+                            : null;
+
+                        PairwiseJudgeResult? pairwise = null;
+                        bool pairwiseFromPlugin = false;
+                        if (usePairwise)
+                        {
+                            try
+                            {
+                                var pairwiseTarget = pluginResult is not null && pluginResult.JudgeResult.OverallScore < isolatedResult.JudgeResult.OverallScore
+                                    ? pluginResult
+                                    : isolatedResult;
+                                pairwiseFromPlugin = ReferenceEquals(pairwiseTarget, pluginResult);
+                                pairwise = await PairwiseJudge.Judge(
+                                    scenario,
+                                    baselineMetrics,
+                                    pairwiseTarget.Metrics,
+                                    new PairwiseJudgeOptions(
+                                        effectiveJudgeModel,
+                                        verbose,
+                                        judgeTimeout,
+                                        CreateJudgeWorkDir(judgeWorkRoot, "pairwise"),
+                                        firstSession.SkillPath,
+                                        CreateJudgeWorkDir(judgeWorkRoot, "pairwise-skilled")),
+                                    log);
+                                sessionDb.SavePairwiseResult(baselineSess.Id, JsonSerializer.Serialize(pairwise, SkillValidatorJsonContext.Default.PairwiseJudgeResult));
+                            }
+                            catch (Exception error)
+                            {
+                                log?.Invoke($"⚠️  Pairwise judge failed: {error.Message}");
+                            }
+                        }
+
+                        var isolatedActivation = MetricsCollector.ExtractSkillActivation(
+                            isolatedMetrics.Events,
+                            baselineMetrics.ToolCallBreakdown,
+                            skillName);
+                        var pluginActivation = pluginMetrics is not null
+                            ? MetricsCollector.ExtractSkillActivation(pluginMetrics.Events, baselineMetrics.ToolCallBreakdown, skillName)
+                            : null;
+
+                        rejudgedRuns.Add(new RejudgedRun(
+                            Baseline: baselineResult,
+                            Isolated: isolatedResult,
+                            Plugin: pluginResult,
+                            Pairwise: pairwise,
+                            PairwiseFromPlugin: pairwiseFromPlugin,
+                            IsolatedActivation: isolatedActivation,
+                            PluginActivation: pluginActivation));
                     }
-
-                    var baselineResult = new RunResult(baselineMetrics, baselineJudge);
-                    var isolatedResult = new RunResult(isolatedMetrics, isolatedJudge);
-                    var pluginResult = pluginMetrics is not null && pluginJudge is not null
-                        ? new RunResult(pluginMetrics, pluginJudge)
-                        : null;
-
-                    PairwiseJudgeResult? pairwise = null;
-                    bool pairwiseFromPlugin = false;
-                    if (usePairwise)
+                    finally
                     {
-                        try
-                        {
-                            var pairwiseTarget = pluginResult is not null && pluginResult.JudgeResult.OverallScore < isolatedResult.JudgeResult.OverallScore
-                                ? pluginResult
-                                : isolatedResult;
-                            pairwiseFromPlugin = ReferenceEquals(pairwiseTarget, pluginResult);
-                            pairwise = await PairwiseJudge.Judge(
-                                scenario,
-                                baselineMetrics,
-                                pairwiseTarget.Metrics,
-                                new PairwiseJudgeOptions(
-                                    effectiveJudgeModel,
-                                    verbose,
-                                    judgeTimeout,
-                                    baselineMetrics.WorkDir,
-                                    firstSession.SkillPath,
-                                    pairwiseTarget.Metrics.WorkDir),
-                                log);
-                            sessionDb.SavePairwiseResult(baselineSess.Id, JsonSerializer.Serialize(pairwise, SkillValidatorJsonContext.Default.PairwiseJudgeResult));
-                        }
-                        catch (Exception error)
-                        {
-                            log?.Invoke($"⚠️  Pairwise judge failed: {error.Message}");
-                        }
+                        TryDeleteDirectory(judgeWorkRoot);
                     }
-
-                    var isolatedActivation = MetricsCollector.ExtractSkillActivation(
-                        isolatedMetrics.Events,
-                        baselineMetrics.ToolCallBreakdown,
-                        skillName);
-                    var pluginActivation = pluginMetrics is not null
-                        ? MetricsCollector.ExtractSkillActivation(pluginMetrics.Events, baselineMetrics.ToolCallBreakdown, skillName)
-                        : null;
-
-                    rejudgedRuns.Add(new RejudgedRun(
-                        Baseline: baselineResult,
-                        Isolated: isolatedResult,
-                        Plugin: pluginResult,
-                        Pairwise: pairwise,
-                        PairwiseFromPlugin: pairwiseFromPlugin,
-                        IsolatedActivation: isolatedActivation,
-                        PluginActivation: pluginActivation));
                 }
 
                 if (rejudgedRuns.Count == 0)
@@ -250,6 +270,32 @@ public static class RejudgeCommand
 
         await AgentRunner.StopAllClients();
         return verdicts.All(v => v.Passed) ? 0 : 1;
+    }
+
+    private static string CreateJudgeWorkDir(string prefix)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"sv-{prefix}-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        return root;
+    }
+
+    private static string CreateJudgeWorkDir(string root, string name)
+    {
+        var path = Path.Combine(root, name);
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+                Directory.Delete(path, true);
+        }
+        catch
+        {
+        }
     }
 
     private static ScenarioComparison BuildScenarioComparison(string scenarioName, List<RejudgedRun> runs)

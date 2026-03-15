@@ -334,6 +334,7 @@ public static class ValidateCommand
             sessionsDir = Path.Combine(timestampedResultsDir, "sessions");
             Directory.CreateDirectory(sessionsDir);
             sessionDb = new SessionDatabase(Path.Combine(timestampedResultsDir, "sessions.db"));
+            sessionDb.SetSchemaInfo("judge_model", config.JudgeModel);
             Console.WriteLine($"Session persistence enabled: {timestampedResultsDir}");
         }
 
@@ -520,11 +521,12 @@ public static class ValidateCommand
                 config.JudgeModel, config.Verbose, config.JudgeTimeout, workDir));
         }
 
+        var skillSha = sessionDb is not null ? SessionDatabase.ComputeDirectorySha(skill.Path) : null;
         bool singleScenario = skill.EvalConfig!.Scenarios.Count == 1;
         using var scenarioLimit = new ConcurrencyLimiter(config.ParallelScenarios);
 
         var scenarioTasks = skill.EvalConfig.Scenarios.Select(scenario =>
-            scenarioLimit.RunAsync(() => ExecuteScenario(scenario, skill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb)));
+            scenarioLimit.RunAsync(() => ExecuteScenario(scenario, skill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha)));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
 
         // Await overfitting result (non-fatal — never blocks an otherwise-successful evaluation)
@@ -608,7 +610,8 @@ public static class ValidateCommand
         bool singleScenario,
         Spinner spinner,
         string? sessionsDir,
-        SessionDatabase? sessionDb)
+        SessionDatabase? sessionDb,
+        string? skillSha)
     {
         var tag = singleScenario ? $"[{skill.Name}]" : $"[{skill.Name}/{scenario.Name}]";
         var scenarioLog = (string msg) => spinner.Log($"{tag} {msg}");
@@ -618,7 +621,7 @@ public static class ValidateCommand
             scenarioLog("📋 Starting scenario");
 
         var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
-            runLimit.RunAsync(() => ExecuteRun(i, scenario, skill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb)));
+            runLimit.RunAsync(() => ExecuteRun(i, scenario, skill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha)));
         var runResults = await Task.WhenAll(runTasks);
 
         scenarioLog($"✓ All {config.Runs} run(s) complete");
@@ -740,7 +743,8 @@ public static class ValidateCommand
         bool singleScenario,
         Spinner spinner,
         string? sessionsDir,
-        SessionDatabase? sessionDb)
+        SessionDatabase? sessionDb,
+        string? skillSha)
     {
         var runTag = config.Runs > 1
             ? (singleScenario ? $"[{skill.Name}/{runIndex + 1}]" : $"[{skill.Name}/{scenario.Name}/{runIndex + 1}]")
@@ -755,8 +759,6 @@ public static class ValidateCommand
         var isolatedSessionId = Guid.NewGuid().ToString("N");
         var pluginSessionId = Guid.NewGuid().ToString("N");
 
-        var skillDir = Path.GetDirectoryName(skill.Path);
-        var skillSha = skillDir is not null ? SessionDatabase.ComputeDirectorySha(skillDir) : null;
         var baselineConfigDir = sessionsDir is not null ? Path.Combine("sessions", baselineSessionId) : null;
         var isolatedConfigDir = sessionsDir is not null ? Path.Combine("sessions", isolatedSessionId) : null;
         var pluginConfigDir = sessionsDir is not null ? Path.Combine("sessions", pluginSessionId) : null;

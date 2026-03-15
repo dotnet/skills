@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 
@@ -26,6 +27,7 @@ public sealed class SessionDatabase : IDisposable
         cmd.CommandText = """
             PRAGMA journal_mode=WAL;
             PRAGMA busy_timeout=5000;
+            PRAGMA foreign_keys=ON;
 
             CREATE TABLE IF NOT EXISTS schema_info (
                 key TEXT PRIMARY KEY,
@@ -75,12 +77,20 @@ public sealed class SessionDatabase : IDisposable
 
         foreach (var relPath in files)
         {
-            sha.AppendData(System.Text.Encoding.UTF8.GetBytes(relPath));
-            sha.AppendData(File.ReadAllBytes(Path.Combine(dirPath, relPath)));
+            AppendLengthPrefixedData(sha, System.Text.Encoding.UTF8.GetBytes(relPath));
+            AppendLengthPrefixedData(sha, File.ReadAllBytes(Path.Combine(dirPath, relPath)));
         }
 
         var hash = sha.GetHashAndReset();
         return Convert.ToHexString(hash)[..12].ToLowerInvariant();
+    }
+
+    private static void AppendLengthPrefixedData(IncrementalHash sha, byte[] data)
+    {
+        Span<byte> lengthPrefix = stackalloc byte[sizeof(int)];
+        BinaryPrimitives.WriteInt32LittleEndian(lengthPrefix, data.Length);
+        sha.AppendData(lengthPrefix);
+        sha.AppendData(data);
     }
 
     public void RegisterSession(string sessionId, string skillName, string skillPath,
@@ -174,8 +184,22 @@ public sealed class SessionDatabase : IDisposable
         finally { _writeLock.Release(); }
     }
 
+    public void SetSchemaInfo(string key, string value)
+    {
+        _writeLock.Wait();
+        try
+        {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = "INSERT INTO schema_info (key, value) VALUES ($key, $value) ON CONFLICT(key) DO UPDATE SET value = excluded.value";
+            cmd.Parameters.AddWithValue("$key", key);
+            cmd.Parameters.AddWithValue("$value", value);
+            cmd.ExecuteNonQuery();
+        }
+        finally { _writeLock.Release(); }
+    }
+
     /// <summary>
-    /// Returns all completed sessions grouped by (skill, scenario, run_index).
+    /// Returns all completed sessions as a flat list ordered by skill, scenario, run index, and role.
     /// </summary>
     public List<SessionRecord> GetCompletedSessions()
     {

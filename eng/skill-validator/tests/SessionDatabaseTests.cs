@@ -180,6 +180,32 @@ public class SessionDatabaseTests : IDisposable
     }
 
     [Fact]
+    public void ComputeDirectorySha_DistinguishesPathAndContentBoundaries()
+    {
+        var dir1 = Path.Combine(Path.GetTempPath(), $"sha-boundary-a-{Guid.NewGuid()}");
+        var dir2 = Path.Combine(Path.GetTempPath(), $"sha-boundary-b-{Guid.NewGuid()}");
+        Directory.CreateDirectory(dir1);
+        Directory.CreateDirectory(dir2);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir1, "a"), "12");
+            File.WriteAllText(Path.Combine(dir1, "b"), "34");
+
+            File.WriteAllText(Path.Combine(dir2, "a1"), "2");
+            File.WriteAllText(Path.Combine(dir2, "b"), "34");
+
+            Assert.NotEqual(
+                SessionDatabase.ComputeDirectorySha(dir1),
+                SessionDatabase.ComputeDirectorySha(dir2));
+        }
+        finally
+        {
+            Directory.Delete(dir1, true);
+            Directory.Delete(dir2, true);
+        }
+    }
+
+    [Fact]
     public void SeparateDbFiles_AreIndependent()
     {
         // Simulates two concurrent eval processes using different result dirs
@@ -217,6 +243,22 @@ public class SessionDatabaseTests : IDisposable
         var info = _db.GetSchemaInfo();
         Assert.Equal("skill-validator", info["type"]);
         Assert.Equal("1", info["version"]);
+    }
+
+    [Fact]
+    public void SchemaInfo_CanPersistJudgeModel()
+    {
+        _db.SetSchemaInfo("judge_model", "claude-opus-4.6");
+
+        var info = _db.GetSchemaInfo();
+        Assert.Equal("claude-opus-4.6", info["judge_model"]);
+    }
+
+    [Fact]
+    public void CompleteSession_RequiresExistingSession()
+    {
+        Assert.Throws<Microsoft.Data.Sqlite.SqliteException>(() =>
+            _db.CompleteSession("missing", "completed", "{}"));
     }
 
     [Fact]
