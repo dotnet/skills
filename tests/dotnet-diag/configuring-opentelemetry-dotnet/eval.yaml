@@ -1,0 +1,40 @@
+scenarios:
+  - name: "Add OpenTelemetry tracing and metrics to an ASP.NET Core API"
+    prompt: |
+      I need to add distributed tracing and custom metrics to my ASP.NET Core 8 API. We use an OTLP-compatible collector (Jaeger). I want to:
+      1. Auto-instrument incoming HTTP requests and outgoing HttpClient calls
+      2. Create custom spans for my order processing business logic using ActivitySource
+      3. Add a custom counter metric for orders processed using System.Diagnostics.Metrics.Meter
+
+      Show me the full setup including package installation, Program.cs configuration, and how to create the custom spans and metrics in my service class. I want to make sure my custom traces and metrics actually show up in Jaeger — last time I tried, the auto-instrumentation worked but my custom spans were invisible.
+    assertions:
+      - type: "output_matches"
+        pattern: "(OpenTelemetry\\.Extensions\\.Hosting|AddOpenTelemetry)"
+      - type: "output_matches"
+        pattern: "(ActivitySource|StartActivity)"
+      - type: "output_matches"
+        pattern: "(AddSource|AddMeter)"
+      - type: "output_matches"
+        pattern: "(Counter|Histogram|CreateCounter|CreateHistogram)"
+    rubric:
+      - "Installed the correct packages: OpenTelemetry.Extensions.Hosting, OpenTelemetry.Instrumentation.AspNetCore, OpenTelemetry.Exporter.OpenTelemetryProtocol"
+      - "Configured AddOpenTelemetry() with .WithTracing() and .WithMetrics() in Program.cs"
+      - "Added AddAspNetCoreInstrumentation() and AddHttpClientInstrumentation() for auto-instrumentation"
+      - "Registered custom ActivitySource names via AddSource() matching the source name used in the service class"
+      - "Created custom spans using ActivitySource.StartActivity() with proper using/dispose pattern"
+      - "Created custom metrics using Meter.CreateCounter() or similar, with the Meter name matching AddMeter()"
+      - "Explicitly warned that ActivitySource/Meter names must match AddSource/AddMeter registrations exactly or custom telemetry will be silently dropped"
+    expect_tools: ["bash"]
+    timeout: 120
+
+  - name: "OpenTelemetry skill should not activate for simple logging question"
+    prompt: "How do I configure Serilog structured logging in my ASP.NET Core app to write to a file and console?"
+    assertions:
+      - type: "output_not_contains"
+        value: "OpenTelemetry"
+      - type: "output_not_matches"
+        pattern: "(ActivitySource|StartActivity|AddOpenTelemetry|OTLP)"
+    rubric:
+      - "Did NOT suggest OpenTelemetry for a Serilog logging question"
+      - "Provided Serilog-specific configuration guidance"
+    timeout: 60
