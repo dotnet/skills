@@ -231,7 +231,12 @@ public sealed class SessionDatabase : IDisposable
     /// </summary>
     public List<SessionRecord> GetCompletedSessions()
     {
-        return GetSessions("WHERE s.status IN ('completed', 'timed_out')");
+        _writeLock.Wait();
+        try
+        {
+            return GetSessions("WHERE s.status IN ('completed', 'timed_out')");
+        }
+        finally { _writeLock.Release(); }
     }
 
     /// <summary>
@@ -239,13 +244,18 @@ public sealed class SessionDatabase : IDisposable
     /// </summary>
     public Dictionary<string, string> GetSchemaInfo()
     {
-        var result = new Dictionary<string, string>();
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = "SELECT key, value FROM schema_info";
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-            result[reader.GetString(0)] = reader.GetString(1);
-        return result;
+        _writeLock.Wait();
+        try
+        {
+            var result = new Dictionary<string, string>();
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = "SELECT key, value FROM schema_info";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                result[reader.GetString(0)] = reader.GetString(1);
+            return result;
+        }
+        finally { _writeLock.Release(); }
     }
 
     private List<SessionRecord> GetSessions(string whereClause)
