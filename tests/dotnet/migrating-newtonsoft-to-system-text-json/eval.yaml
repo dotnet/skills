@@ -1,0 +1,49 @@
+scenarios:
+  - name: "Migrate model with Newtonsoft.Json attributes to System.Text.Json"
+    prompt: |
+      I'm migrating our ASP.NET Core 8 project from Newtonsoft.Json to System.Text.Json. Here's a model class that uses Newtonsoft attributes and a custom converter. Convert this to System.Text.Json:
+
+      ```csharp
+      using Newtonsoft.Json;
+      using Newtonsoft.Json.Converters;
+      using Newtonsoft.Json.Linq;
+
+      public class Order
+      {
+          [JsonProperty("order_id")]
+          public int Id { get; set; }
+
+          [JsonProperty(Required = Required.Always)]
+          public string CustomerName { get; set; }
+
+          [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+          public string? Notes { get; set; }
+
+          [JsonConverter(typeof(StringEnumConverter))]
+          public OrderStatus Status { get; set; }
+
+          [JsonExtensionData]
+          public Dictionary<string, JToken>? AdditionalData { get; set; }
+      }
+      ```
+
+      Also show me how to configure the JSON options globally to match Newtonsoft.Json's default behavior (case insensitivity, trailing commas, number-from-string coercion).
+    assertions:
+      - type: "output_contains"
+        value: "JsonPropertyName"
+      - type: "output_matches"
+        pattern: "(JsonIgnore.*WhenWritingNull|JsonIgnoreCondition)"
+      - type: "output_matches"
+        pattern: "(PropertyNameCaseInsensitive|CamelCase|PropertyNamingPolicy)"
+      - type: "output_matches"
+        pattern: "(JsonElement|JsonNode)"
+    rubric:
+      - "Replaced [JsonProperty(\"order_id\")] with [JsonPropertyName(\"order_id\")]"
+      - "Replaced NullValueHandling.Ignore with [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]"
+      - "Replaced [JsonConverter(typeof(StringEnumConverter))] with System.Text.Json equivalent (JsonStringEnumConverter)"
+      - "Changed [JsonExtensionData] Dictionary value type from JToken to JsonElement (critical difference!)"
+      - "Configured PropertyNameCaseInsensitive = true to match Newtonsoft default case-insensitive behavior"
+      - "Configured AllowTrailingCommas = true and NumberHandling = AllowReadingFromString for Newtonsoft compatibility"
+      - "Warned about behavioral differences (default PascalCase casing in STJ vs camelCase in Newtonsoft, strict parsing)"
+    expect_tools: ["bash"]
+    timeout: 120
