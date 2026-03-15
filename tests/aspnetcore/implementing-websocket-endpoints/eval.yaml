@@ -1,0 +1,125 @@
+scenarios:
+  - name: "Implement WebSocket chat endpoint in ASP.NET Core 8"
+    prompt: |
+      I need to add a WebSocket endpoint to my ASP.NET Core 8 API for a real-time chat feature. Requirements:
+
+      1. WebSocket endpoint at /ws/chat
+      2. Track connected clients and broadcast messages to all when one client sends
+      3. Handle proper connect/disconnect lifecycle
+      4. Authenticate users via a token in the query string (browser WebSocket API doesn't support custom headers)
+      5. Only allow connections from our frontend at https://myapp.com
+
+      I've been looking for something like `app.MapWebSocket("/ws/chat", handler)` but can't find it. How does WebSocket work in ASP.NET Core 8?
+    assertions:
+      - type: "output_matches"
+        pattern: "(UseWebSockets|WebSocketOptions)"
+      - type: "output_matches"
+        pattern: "(AcceptWebSocketAsync)"
+      - type: "output_matches"
+        pattern: "(ReceiveAsync|SendAsync)"
+      - type: "output_matches"
+        pattern: "(AllowedOrigins|Origin)"
+    rubric:
+      - "Explained that MapWebSocket does not exist in ASP.NET Core — WebSockets use UseWebSockets() middleware with manual upgrade via AcceptWebSocketAsync"
+      - "Configured WebSocketOptions with KeepAliveInterval and AllowedOrigins restricted to https://myapp.com for cross-origin protection"
+      - "Implemented a proper receive loop checking EndOfMessage for fragmented messages and CloseStatus for disconnect"
+      - "Used CloseOutputAsync (not CloseAsync) when responding to client-initiated close to avoid deadlock"
+      - "Implemented a thread-safe connection manager using ConcurrentDictionary for tracking and broadcasting to connected clients"
+      - "Handled authentication via query string token since browser WebSocket API cannot send custom headers after handshake"
+    expect_tools: ["bash"]
+    timeout: 120
+
+  - name: "Fix WebSocket CloseAsync deadlock"
+    prompt: |
+      My ASP.NET Core WebSocket endpoint sometimes hangs when clients disconnect. The server stops responding to other WebSocket connections too. Here's my close handling code:
+
+      ```csharp
+      // When receive loop gets a close frame:
+      await webSocket.CloseAsync(
+          result.CloseStatus.Value,
+          result.CloseStatusDescription,
+          CancellationToken.None);
+      ```
+
+      What's wrong?
+    assertions:
+      - type: "output_matches"
+        pattern: "(CloseOutputAsync|CloseAsync)"
+    rubric:
+      - "Identified the root cause: CloseAsync sends a close frame AND waits for the client's response, causing a deadlock when the client already initiated the close"
+      - "Recommended using CloseOutputAsync instead of CloseAsync when responding to a client-initiated close"
+      - "Explained the difference: CloseAsync = initiate close, CloseOutputAsync = respond to close"
+    timeout: 60
+
+  - name: "WebSocket should not be used for server-to-client streaming"
+    prompt: |
+      I need to stream live stock price updates from my server to browser clients in real-time. The clients never send messages back to the server. What's the best approach in ASP.NET Core?
+    expect_activation: false
+    assertions:
+      - type: "output_matches"
+        pattern: "(SSE|Server-Sent Events|EventSource|ServerSentEvents|text/event-stream)"
+    rubric:
+      - "Recommended Server-Sent Events (SSE) over WebSocket for this server-to-client only use case"
+      - "Explained why SSE is simpler: automatic reconnection, built-in browser EventSource API, no need for WebSocket connection management"
+      - "Did NOT suggest WebSocket as the primary recommendation for this unidirectional streaming scenario"
+    timeout: 60
+
+  - name: "Handle fragmented WebSocket messages correctly"
+    prompt: |
+      My ASP.NET Core WebSocket endpoint receives large JSON payloads (up to 1MB) from clients but sometimes the JSON parsing fails with truncated data. My receive code:
+
+      ```csharp
+      var buffer = new byte[4096];
+      var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), ct);
+      var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
+      var data = JsonSerializer.Deserialize<MyData>(json);
+      ```
+
+      What's wrong?
+    setup:
+      files:
+        - path: "WebSocketHandler.cs"
+          content: |
+            using System.Net.WebSockets;
+            using System.Text;
+            using System.Text.Json;
+
+            public class WebSocketHandler
+            {
+                public async Task HandleAsync(WebSocket ws, CancellationToken ct)
+                {
+                    var buffer = new byte[4096];
+                    var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), ct);
+                    var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    var data = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+                    // Process data...
+                }
+            }
+        - path: "WebSocketHandler.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+    assertions:
+      - type: "output_matches"
+        pattern: "(EndOfMessage|endOfMessage)"
+    rubric:
+      - "Identified the root cause: large messages arrive in fragments and EndOfMessage is false for intermediate fragments"
+      - "Showed how to accumulate fragments using MemoryStream or growing buffer until EndOfMessage is true"
+      - "Only deserialize JSON after all fragments have been received"
+      - "Suggested increasing buffer size or using a MemoryStream for accumulation"
+    timeout: 120
+
+  - name: "WebSocket connection drops through reverse proxy"
+    prompt: |
+      My ASP.NET Core WebSocket connections work fine locally but keep dropping after about 60 seconds when deployed behind nginx. The WebSocket connects fine but idle connections get terminated. How do I fix this?
+    assertions:
+      - type: "output_matches"
+        pattern: "(KeepAliveInterval|KeepAlive|ping|pong)"
+    rubric:
+      - "Identified the root cause: nginx has a default idle connection timeout (typically 60s) that kills idle WebSocket connections"
+      - "Configured KeepAliveInterval on WebSocketOptions to send periodic ping frames that keep the connection alive"
+      - "Mentioned setting appropriate nginx proxy_read_timeout and proxy_send_timeout values"
+    timeout: 60
