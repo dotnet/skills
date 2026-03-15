@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
+  <Target Name="GenerateTimestamp" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <TimestampFile>$(IntermediateOutputPath)build-timestamp.txt</TimestampFile>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(TimestampFile)" Lines="Built at: $([System.DateTime]::Now.ToString())" Overwrite="true" />
+  </Target>
+
+  <Target Name="EmbedGitHash" BeforeTargets="CoreCompile">
+    <Exec Command="git rev-parse HEAD" ConsoleToMsBuild="true" IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitHash" />
+    </Exec>
+    <WriteLinesToFile File="$(IntermediateOutputPath)git-hash.g.cs"
+                     Lines="namespace IncrementalBroken { internal static class BuildInfo { public const string GitHash = &quot;$(GitHash)&quot;%3B } }"
+                     Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)git-hash.g.cs" />
+    </ItemGroup>
+  </Target>
+</Project>

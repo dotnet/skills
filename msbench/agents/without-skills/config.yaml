@@ -1,0 +1,12 @@
+# Agent configuration for Copilot CLI without skills (baseline)
+agent:
+  name: "github-copilot-cli"
+  description: "GitHub Copilot CLI baseline — no skills loaded"
+  tags:
+    skills: "disabled"
+
+skills:
+  enabled: false
+
+resources:
+  timeout_sec: 600

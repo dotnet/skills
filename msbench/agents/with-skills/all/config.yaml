@@ -1,0 +1,14 @@
+# Agent configuration for Copilot CLI with all plugins
+agent:
+  name: "github-copilot-cli"
+  description: "GitHub Copilot CLI with all dotnet skills plugins"
+  tags:
+    skills: "enabled"
+    plugin: "all"
+
+skills:
+  enabled: true
+  plugin: "all"
+
+resources:
+  timeout_sec: 600

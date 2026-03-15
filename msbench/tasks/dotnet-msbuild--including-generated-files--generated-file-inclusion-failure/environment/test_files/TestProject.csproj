@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- Inline task to write text file with proper content -->
+  <UsingTask TaskName="WriteCodeFile" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <FilePath ParameterType="System.String" Required="true" />
+      <BuildTime ParameterType="System.String" Required="true" />
+      <MachineName ParameterType="System.String" Required="true" />
+      <ProjectName ParameterType="System.String" Required="true" />
+      <Configuration ParameterType="System.String" Required="true" />
+      <TargetFramework ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs">
+<![CDATA[
+var code = $@"// Auto-generated file - do not edit
+// Generated on: {BuildTime}
+
+namespace TestProject.Generated;
+
+public static class BuildInfo
+{{
+    public const string BuildTime = ""{BuildTime}"";
+    public const string MachineName = ""{MachineName}"";
+    public const string ProjectName = ""{ProjectName}"";
+    public const string Configuration = ""{Configuration}"";
+    public const string TargetFramework = ""{TargetFramework}"";
+}}
+";
+System.IO.File.WriteAllText(FilePath, code);
+]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <!-- Target to generate code file before compilation -->
+  <Target Name="GenerateSampleCode" BeforeTargets="CoreCompile;BeforeCompile">
+    <PropertyGroup>
+      <_GeneratedCodeDir>$(IntermediateOutputPath)Generated\</_GeneratedCodeDir>
+      <_GeneratedFilePath>$(_GeneratedCodeDir)GeneratedInfo.cs</_GeneratedFilePath>
+      <_BuildTime>$([System.DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss'))</_BuildTime>
+    </PropertyGroup>
+
+    <!-- Create the generated code directory -->
+    <MakeDir Directories="$(_GeneratedCodeDir)" />
+
+    <!-- Write the generated C# code file using inline task -->
+    <WriteCodeFile
+      FilePath="$(_GeneratedFilePath)"
+      BuildTime="$(_BuildTime)"
+      MachineName="$([System.Environment]::MachineName)"
+      ProjectName="$(MSBuildProjectName)"
+      Configuration="$(Configuration)"
+      TargetFramework="$(TargetFramework)" />
+
+    <Message Importance="high" Text="Generated code file: $(_GeneratedFilePath)" />
+  </Target>
+
+</Project>

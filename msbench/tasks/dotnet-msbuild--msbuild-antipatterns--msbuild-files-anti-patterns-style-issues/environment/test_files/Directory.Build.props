@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- BUG: TargetFramework is EMPTY during .props evaluation for single-TFM projects.
+       This condition will never match, so GenerateDocumentationFile will never be set.
+       Move TFM-conditional logic to Directory.Build.targets instead. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- BUG: Analyzer package without PrivateAssets — leaks analyzer to downstream consumers.
+       Should use <PrivateAssets>all</PrivateAssets> and <IncludeAssets>... analyzers</IncludeAssets>. -->
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
+  </ItemGroup>
+</Project>

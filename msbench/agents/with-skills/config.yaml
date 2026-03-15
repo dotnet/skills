@@ -1,0 +1,15 @@
+# Agent configuration for Copilot CLI with skills enabled
+agent:
+  name: "github-copilot-cli"
+  description: "GitHub Copilot CLI with dotnet skills loaded via native plugin discovery"
+  tags:
+    skills: "enabled"
+
+skills:
+  enabled: true
+  directories:
+    - "/agent/skills/dotnet"
+    - "/agent/skills/dotnet-msbuild"
+
+resources:
+  timeout_sec: 600

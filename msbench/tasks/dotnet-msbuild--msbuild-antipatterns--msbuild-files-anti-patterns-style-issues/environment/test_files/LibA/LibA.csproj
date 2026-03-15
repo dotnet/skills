@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <OutputPath>C:\builds\output\LibA</OutputPath>
+  </PropertyGroup>
+
+  <!-- BUG: DefineConstants OVERWRITES instead of appending.
+       This kills all existing constants (TRACE, DEBUG from SDK defaults).
+       Should be: <DefineConstants>$(DefineConstants);ENABLE_LOGGING</DefineConstants> -->
+  <PropertyGroup Condition="$(Configuration) == Debug">
+    <DefineConstants>ENABLE_LOGGING</DefineConstants>
+  </PropertyGroup>
+
+  <!-- BUG: Mixing Include and Update for the same item in one ItemGroup.
+       The Include is redundant (SDK auto-includes *.cs) and the Update in the same
+       ItemGroup can have subtle evaluation-order issues. Split into separate ItemGroups
+       or remove the redundant Include entirely. -->
+  <ItemGroup>
+    <Compile Include="Class1.cs" />
+    <Compile Update="Class1.cs" AutoGen="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net6.0\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="PrintVersion" BeforeTargets="Build">
+    <Exec Command="echo Building version 1.0.0" />
+  </Target>
+</Project>

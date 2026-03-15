@@ -1,0 +1,1 @@
+This .NET solution has build performance concerns. Build the solution, establish a build performance baseline, then analyze the project structure and build configuration for optimization opportunities. Provide  specific recommendations to improve build performance.

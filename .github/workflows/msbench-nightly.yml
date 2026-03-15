@@ -1,0 +1,333 @@
+name: msbench-nightly
+
+on:
+  schedule:
+    # Run at 02:00 UTC every day
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      skip-benchmark-run:
+        description: 'Skip the msbench-cli benchmark run (only do sync check + PR)'
+        required: false
+        type: boolean
+        default: false
+      model:
+        description: 'Model for the benchmark run'
+        required: false
+        type: string
+        default: 'claude-opus-4.6'
+
+concurrency:
+  group: msbench-nightly
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  PYTHONUTF8: '1'
+
+jobs:
+  # ────────────────────────────────────────────────────────────
+  # Job 1: Check if Harbor tasks + dataset are in sync with eval.yaml.
+  #         If drifted → regenerate, detect image changes, open a PR.
+  # ────────────────────────────────────────────────────────────
+  sync-check:
+    if: github.repository == 'dotnet/skills'
+    runs-on: ubuntu-latest
+    outputs:
+      is_in_sync: ${{ steps.check.outputs.is_in_sync }}
+      pr_number: ${{ steps.create-pr.outputs.pr_number }}
+      images_changed: ${{ steps.detect-images.outputs.images_changed }}
+      changed_images_list: ${{ steps.detect-images.outputs.changed_images_list }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Check sync status
+        id: check
+        run: |
+          echo "Checking if Harbor tasks are in sync with eval.yaml..."
+          TASKS_SYNC=0
+          DATASET_SYNC=0
+
+          python msbench/scripts/convert_evals.py \
+              --skills-dir plugins/ \
+              --tests-dir tests/ \
+              --output-dir msbench/tasks/ \
+              --check || TASKS_SYNC=1
+
+          python msbench/scripts/generate_dataset.py --check || DATASET_SYNC=1
+
+          python msbench/scripts/generate_dataset.py --unified --output msbench/dataset-all.jsonl --check || DATASET_SYNC=1
+
+          if [ "$TASKS_SYNC" -eq 0 ] && [ "$DATASET_SYNC" -eq 0 ]; then
+            echo "Everything is in sync."
+            echo "is_in_sync=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Drift detected — regeneration needed."
+            echo "is_in_sync=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Regenerate tasks and dataset
+        if: steps.check.outputs.is_in_sync == 'false'
+        run: |
+          echo "Regenerating Harbor tasks from eval.yaml..."
+          python msbench/scripts/convert_evals.py \
+              --skills-dir plugins/ \
+              --tests-dir tests/ \
+              --output-dir msbench/tasks/
+
+          echo "Validating regenerated tasks..."
+          python msbench/scripts/validate_tasks.py \
+              --tasks-dir msbench/tasks/ \
+              --tests-dir tests/ \
+              --skills-dir plugins/
+
+          echo "Regenerating dataset.jsonl..."
+          python msbench/scripts/generate_dataset.py
+
+          echo "Regenerating dataset-all.jsonl..."
+          python msbench/scripts/generate_dataset.py --unified --output msbench/dataset-all.jsonl
+
+      - name: Detect Docker image changes
+        id: detect-images
+        if: steps.check.outputs.is_in_sync == 'false'
+        run: |
+          # Identify which task directories have changes that affect Docker images.
+          # Image-affecting paths: environment/Dockerfile, environment/fixtures/,
+          # environment/test_files/, environment/eval_helpers/
+          CHANGED_IMAGES=""
+          IMAGE_COUNT=0
+
+          for task_dir in msbench/tasks/*/; do
+            task_name=$(basename "$task_dir")
+            # Check if any image-affecting files were modified
+            if ! git diff --quiet HEAD -- \
+                "$task_dir/environment/Dockerfile" \
+                "$task_dir/environment/fixtures/" \
+                "$task_dir/environment/test_files/" \
+                "$task_dir/environment/eval_helpers/" \
+                2>/dev/null; then
+              CHANGED_IMAGES="${CHANGED_IMAGES}${task_name}\n"
+              IMAGE_COUNT=$((IMAGE_COUNT + 1))
+            fi
+          done
+
+          # Also check for entirely new task directories (not yet tracked)
+          for task_dir in msbench/tasks/*/; do
+            task_name=$(basename "$task_dir")
+            if ! git ls-tree -d HEAD -- "$task_dir" > /dev/null 2>&1; then
+              # New task directory — image definitely needs building
+              if ! echo -e "$CHANGED_IMAGES" | grep -q "^${task_name}$"; then
+                CHANGED_IMAGES="${CHANGED_IMAGES}${task_name}\n"
+                IMAGE_COUNT=$((IMAGE_COUNT + 1))
+              fi
+            fi
+          done
+
+          if [ "$IMAGE_COUNT" -gt 0 ]; then
+            echo "images_changed=true" >> "$GITHUB_OUTPUT"
+            # Store the list as a single-line JSON array for the PR body
+            LIST=$(echo -e "$CHANGED_IMAGES" | sed '/^$/d' | jq -R . | jq -s .)
+            echo "changed_images_list<<EOF" >> "$GITHUB_OUTPUT"
+            echo "$LIST" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+            echo "$IMAGE_COUNT image(s) need rebuilding."
+          else
+            echo "images_changed=false" >> "$GITHUB_OUTPUT"
+            echo "changed_images_list=[]" >> "$GITHUB_OUTPUT"
+            echo "No image changes detected."
+          fi
+
+      - name: Create pull request
+        id: create-pr
+        if: steps.check.outputs.is_in_sync == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGES_CHANGED: ${{ steps.detect-images.outputs.images_changed }}
+          CHANGED_IMAGES_LIST: ${{ steps.detect-images.outputs.changed_images_list }}
+        run: |
+          BRANCH="msbench/auto-sync-$(date +%Y%m%d)"
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create branch and commit
+          git checkout -b "$BRANCH"
+          git add msbench/tasks/ msbench/dataset.jsonl msbench/dataset-all.jsonl
+          git diff --cached --quiet && { echo "No changes to commit."; exit 0; }
+
+          git commit -m "msbench: auto-sync Harbor tasks and dataset from eval.yaml
+
+          Nightly sync detected drift between eval.yaml sources and
+          the generated Harbor tasks / dataset.jsonl. This PR regenerates
+          both to bring them back in sync."
+
+          git push origin "$BRANCH" --force
+
+          # Build PR body
+          PR_BODY="## MSBench Auto-Sync
+
+          This PR was automatically created by the **msbench-nightly** workflow because
+          the generated Harbor tasks and/or \`dataset.jsonl\` drifted from the source
+          \`eval.yaml\` files.
+
+          ### What changed
+          - Regenerated Harbor task directories under \`msbench/tasks/\`
+          - Regenerated \`msbench/dataset.jsonl\`
+          "
+
+          if [ "$IMAGES_CHANGED" = "true" ]; then
+            IMAGE_LIST=$(echo "$CHANGED_IMAGES_LIST" | jq -r '.[]' | sed 's/^/- `/' | sed 's/$/`/')
+            PR_BODY="${PR_BODY}
+          ### ⚠️ Docker images need rebuilding
+
+          The following task images have environment changes (Dockerfile, fixtures,
+          test_files, or eval_helpers) and **must be rebuilt and pushed to ACR** before
+          running the benchmark:
+
+          ${IMAGE_LIST}
+
+          To rebuild and push:
+          \`\`\`bash
+          python -m harbor_format_curation publish msbench/dotnetskills.toml --profile prod --overwrite-images
+          \`\`\`
+          "
+          fi
+
+          PR_BODY="${PR_BODY}
+          ### Validation
+          - [x] \`convert_evals.py\` regeneration succeeded
+          - [x] \`validate_tasks.py\` structural validation passed
+          - [x] \`generate_dataset.py\` regeneration succeeded
+          "
+
+          # Check for existing open PR on this branch pattern
+          EXISTING_PR=$(gh pr list --head "msbench/auto-sync-" --state open --json number --jq '.[0].number // empty' || true)
+          if [ -n "$EXISTING_PR" ]; then
+            echo "Closing existing auto-sync PR #${EXISTING_PR}"
+            gh pr close "$EXISTING_PR" --comment "Superseded by new auto-sync PR." || true
+          fi
+
+          PR_URL=$(gh pr create \
+            --title "msbench: auto-sync tasks and dataset ($(date +%Y-%m-%d))" \
+            --body "$PR_BODY" \
+            --label "msbench" \
+            --label "automated" \
+            2>&1)
+
+          PR_NUM=$(echo "$PR_URL" | grep -oP '\d+$' || true)
+          echo "pr_number=${PR_NUM}" >> "$GITHUB_OUTPUT"
+          echo "Created PR: $PR_URL"
+
+  # ────────────────────────────────────────────────────────────
+  # Job 2: Run the "all skills" benchmark (A/B: with vs without)
+  # ────────────────────────────────────────────────────────────
+  benchmark-run:
+    if: >-
+      always() &&
+      github.repository == 'dotnet/skills' &&
+      (github.event_name == 'schedule' || github.event.inputs.skip-benchmark-run != 'true') &&
+      !contains(needs.sync-check.result, 'failure')
+    needs: sync-check
+    # Run even if sync-check created a PR (skipped steps are fine) — the
+    # benchmark uses committed tasks/images from main so it's still valid.
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      MODEL: ${{ github.event.inputs.model || 'claude-opus-4.6' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - name: Install msbench-cli
+        run: |
+          pip install msbench-cli
+
+      - name: Azure Login
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        run: az acr login --name codeexecservice
+
+      - name: Submit with-skills run (all plugins)
+        id: run-with-skills
+        run: |
+          echo "Submitting WITH skills run (all plugins)..."
+          RUN_OUTPUT=$(msbench-cli run \
+            --agent github-copilot-cli \
+            --runner "$(realpath msbench/agents/with-skills/all/runner.sh)" \
+            --model "$MODEL" \
+            --benchmark dotnetskills \
+            --dataset msbench/dataset-all.jsonl \
+            --tag skills=enabled \
+            --tag plugin=all \
+            --tag trigger=nightly \
+            --tag "date=$(date +%Y-%m-%d)" \
+            --no-wait \
+            2>&1) || true
+          echo "$RUN_OUTPUT"
+          RUN_ID=$(echo "$RUN_OUTPUT" | grep -oP 'run[_-]id[:\s]+\K\S+' || echo "$RUN_OUTPUT" | grep -oP 'Run ID:\s*\K\S+' || true)
+          echo "with_skills_run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "With-skills run ID: $RUN_ID"
+
+      - name: Submit without-skills run (baseline)
+        id: run-without-skills
+        run: |
+          echo "Submitting WITHOUT skills run (baseline)..."
+          RUN_OUTPUT=$(msbench-cli run \
+            --agent github-copilot-cli \
+            --runner "$(realpath msbench/agents/without-skills/runner.sh)" \
+            --model "$MODEL" \
+            --benchmark dotnetskills \
+            --dataset msbench/dataset-all.jsonl \
+            --tag skills=disabled \
+            --tag trigger=nightly \
+            --tag "date=$(date +%Y-%m-%d)" \
+            --no-wait \
+            2>&1) || true
+          echo "$RUN_OUTPUT"
+          RUN_ID=$(echo "$RUN_OUTPUT" | grep -oP 'run[_-]id[:\s]+\K\S+' || echo "$RUN_OUTPUT" | grep -oP 'Run ID:\s*\K\S+' || true)
+          echo "without_skills_run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "Without-skills run ID: $RUN_ID"
+
+      - name: Print run summary
+        run: |
+          echo "## MSBench Nightly Run Summary"
+          echo ""
+          echo "| Run | Run ID |"
+          echo "|-----|--------|"
+          echo "| With skills (all) | ${{ steps.run-with-skills.outputs.with_skills_run_id }} |"
+          echo "| Without skills    | ${{ steps.run-without-skills.outputs.without_skills_run_id }} |"
+          echo ""
+          echo "Model: ${{ env.MODEL }}"
+          echo "Date: $(date +%Y-%m-%d)"
+          echo ""
+          echo "Runs submitted with --no-wait. Monitor progress on the MSBench dashboard:"
+          echo "  https://msbenchapp.azurewebsites.net/"

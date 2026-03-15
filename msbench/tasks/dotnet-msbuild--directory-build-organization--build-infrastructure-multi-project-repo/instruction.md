@@ -1,0 +1,1 @@
+This .NET solution has grown organically and the build infrastructure needs attention. Review all project files and suggest how to improve the build organization. Focus on reducing duplication, improving maintainability, and applying MSBuild best practices.
