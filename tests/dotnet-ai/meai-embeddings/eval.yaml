@@ -1,0 +1,28 @@
+scenarios:
+  - name: "Generate embeddings for documents"
+    prompt: "Add embedding generation to this .NET 10 console app. It should generate embeddings for a list of text documents using OpenAI's text-embedding-3-small model."
+    setup:
+      files:
+        - path: "EmbeddingApp/EmbeddingApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>Exe</OutputType>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "EmbeddingApp/Program.cs"
+          content: |
+            Console.WriteLine("Hello, World!");
+    assertions:
+      - type: "output_contains"
+        value: "IEmbeddingGenerator"
+      - type: "output_contains"
+        value: "GenerateAsync"
+      - type: "exit_success"
+    rubric:
+      - "Uses IEmbeddingGenerator from Microsoft.Extensions.AI"
+      - "Configures OpenAI as the embedding provider"
+      - "Uses batch generation for multiple documents (not one at a time)"
+      - "API key loaded from configuration, not hardcoded"
+    timeout: 360
