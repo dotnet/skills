@@ -1,0 +1,55 @@
+scenarios:
+  - name: "Publish an MCP server as a NuGet tool package"
+    prompt: |
+      I have a C# MCP server using stdio transport at src/MyMcpServer/.
+      I want to publish it to NuGet.org so users can install it as a
+      dotnet tool. What do I need to configure?
+    assertions:
+      - type: "output_contains"
+        value: "PackAsTool"
+      - type: "output_contains"
+        value: "dotnet pack"
+      - type: "output_matches"
+        pattern: "(dotnet nuget push|nuget\\.org)"
+    rubric:
+      - "Configures PackAsTool and ToolCommandName in the csproj"
+      - "Shows how to build, pack, and push to NuGet.org"
+      - "Includes local testing with dotnet tool install --global"
+      - "Mentions the dnx tool runner for MCP client configuration"
+    timeout: 120
+  - name: "Deploy an HTTP MCP server to Azure Container Apps"
+    prompt: |
+      I have an HTTP-based C# MCP server that I want to deploy to Azure.
+      It uses environment variables for API keys. What's the best way
+      to containerize and deploy it?
+    assertions:
+      - type: "output_matches"
+        pattern: "(Dockerfile|docker)"
+      - type: "output_matches"
+        pattern: "(Container Apps|containerapp)"
+      - type: "output_matches"
+        pattern: "(secret|Secret|KEY)"
+    rubric:
+      - "Provides a multi-stage Dockerfile with a non-root user"
+      - "Shows Azure Container Apps deployment commands"
+      - "Configures secrets using Container Apps secrets, not environment variables in plain text"
+      - "Includes a health check endpoint"
+    timeout: 120
+  - name: "Publish to the MCP Registry"
+    prompt: |
+      I already published my C# MCP server to NuGet.org. Now I want to
+      register it in the official MCP Registry so it's discoverable.
+      How do I do this?
+    assertions:
+      - type: "output_contains"
+        value: "server.json"
+      - type: "output_contains"
+        value: "mcp-publisher"
+      - type: "output_matches"
+        pattern: "io\\.github\\."
+    rubric:
+      - "Shows the server.json schema with the correct format"
+      - "Uses the mcp-publisher CLI for publishing"
+      - "Explains the naming convention (io.github.<username>/<server>)"
+      - "Emphasizes version consistency between csproj and server.json"
+    timeout: 120
