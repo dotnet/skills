@@ -376,6 +376,7 @@ public sealed record ValidatorConfig
     public string? TestsDir { get; init; }
     public bool OverfittingCheck { get; init; } = true;
     public bool OverfittingFix { get; init; }
+    public bool KeepSessions { get; init; }
     public string? NoiseSkillsDir { get; init; }
     public double NoiseDegradationLimit { get; init; } = 0.2;
     public double NoiseMaxScenarioDegradation { get; init; } = 0.4;
