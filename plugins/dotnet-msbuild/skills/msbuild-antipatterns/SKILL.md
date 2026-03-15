@@ -384,4 +384,4 @@ See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, a
 
 ---
 
-For additional anti-patterns (AP-16 through AP-21) and a quick-reference checklist, see [additional-antipatterns.md](references/additional-antipatterns.md).
+For additional anti-patterns (AP-16 through AP-22) and a quick-reference checklist, see [additional-antipatterns.md](references/additional-antipatterns.md).

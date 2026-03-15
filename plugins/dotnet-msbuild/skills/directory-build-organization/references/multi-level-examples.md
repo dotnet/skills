@@ -103,11 +103,14 @@ Full file examples for a typical multi-level repo layout.
 
 **After — centralized with Directory.Build files:**
 
+Note that `<TargetFramework>` is intentionally NOT centralized — it must stay in each `.csproj` even when every project uses the same TFM (see AP-22 in the `msbuild-antipatterns` skill).
+
 ```xml
 <!-- Directory.Build.props -->
 <Project>
 
   <PropertyGroup>
+    <!-- TargetFramework is deliberately absent — it belongs in each .csproj -->
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

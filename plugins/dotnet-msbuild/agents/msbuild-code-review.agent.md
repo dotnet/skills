@@ -49,6 +49,7 @@ Before starting any review, verify the context is MSBuild-related. If the worksp
 - Are there condition evaluation issues (wrong syntax, always true/false)?
 - Missing `PrivateAssets="all"` on analyzer packages?
 - Are there **property** conditions on `$(TargetFramework)` in `.props` files? (AP-21 — silently fails for single-targeting projects; move to `.targets`). See the AP-21 section in the [msbuild-antipatterns skill](../skills/msbuild-antipatterns/SKILL.md) for the full explanation. **Item and target conditions are NOT affected** and must not be flagged.
+- Is `<TargetFramework>` or `<TargetFrameworks>` set in a `Directory.Build.props` file? (AP-22 — causes inner/outer build collisions when a project sets the other variant). TFMs must always live in each `.csproj`, never in shared `.props` files.
 
 3. **Report**: Produce a structured review organized by severity:
    - 🔴 **Errors**: Things that are likely broken or will cause build failures

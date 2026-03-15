@@ -1,4 +1,4 @@
-﻿<!-- AUTO-GENERATED -- DO NOT EDIT -->
+<!-- AUTO-GENERATED — DO NOT EDIT -->
 
 # MSBuild Anti-Pattern Catalog
 
@@ -431,7 +431,7 @@ See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, a
 
 ---
 
-## AP-16: Using `<Exec>` for String/Path Operations
+For additional anti-patterns (AP-16 through AP-22) and a quick-reference checklist, see ## AP-16: Using `<Exec>` for String/Path Operations
 
 **Smell**: `<Exec Command="echo $(Var) | sed ..." />` or `<Exec Command="powershell -c ..." />` for simple string manipulation.
 
@@ -604,6 +604,58 @@ For a detailed explanation of MSBuild's evaluation and execution phases, see [Bu
 
 ---
 
+## AP-22: Setting `<TargetFramework>` or `<TargetFrameworks>` in Directory.Build.props
+
+**Smell**: `<TargetFramework>` or `<TargetFrameworks>` set in `Directory.Build.props` (at any level) as a "default" TFM.
+
+**Why it's bad**: If `Directory.Build.props` sets the singular `<TargetFramework>` and a project sets the plural `<TargetFrameworks>` (or vice versa), both properties coexist. MSBuild interprets `<TargetFrameworks>` (plural) as a request for an outer build that dispatches inner builds per TFM, while also seeing `<TargetFramework>` (singular) which signals an inner build. The build is simultaneously an inner and outer build — targets run in the wrong order, items appear in the wrong phase, and the build produces corrupt or nonsensical results.
+
+```xml
+<!-- BAD: Directory.Build.props sets a "default" TFM -->
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>  <!-- NEVER DO THIS -->
+  </PropertyGroup>
+</Project>
+
+<!-- A project then tries to multi-target: -->
+<!-- MyLib.csproj -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;netstandard2.0</TargetFrameworks>
+  </PropertyGroup>
+</Project>
+<!-- 💥 BOTH TargetFramework AND TargetFrameworks are set. Build breaks. -->
+
+<!-- GOOD: Each project declares its own TFM -->
+<!-- MyLib.csproj -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+</Project>
+```
+
+To centralize the version string without this problem, define a custom property and reference it:
+
+```xml
+<!-- Directory.Build.props — safe: custom property, not TargetFramework -->
+<Project>
+  <PropertyGroup>
+    <DefaultTargetFramework>net8.0</DefaultTargetFramework>
+  </PropertyGroup>
+</Project>
+
+<!-- MyLib.csproj — project controls singular vs plural -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(DefaultTargetFramework)</TargetFramework>
+  </PropertyGroup>
+</Project>
+```
+
+---
+
 ## Quick-Reference Checklist
 
 When reviewing an MSBuild file, scan for these in order:
@@ -631,6 +683,7 @@ When reviewing an MSBuild file, scan for these in order:
 | AP-17 | Mixed Include/Update in one ItemGroup | 🔵 Subtle bugs |
 | AP-18 | Redundant transitive ProjectReferences | 🔵 Graph noise |
 | AP-20 | Platform-specific Exec without guard | 🔵 Cross-platform |
+| AP-22 | TargetFramework/TargetFrameworks in Directory.Build.props | 🔴 Build collision |
 
 ---
 
@@ -1028,73 +1081,6 @@ After migration, consider enabling modern C# features:
 
 ```xml
 <!-- Option A: WindowsDesktop SDK -->
-<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
-
-<!-- Option B: properties in standard SDK (preferred for .NET 5+) -->
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <UseWPF>true</UseWPF>
-    <!-- or -->
-    <UseWindowsForms>true</UseWindowsForms>
-  </PropertyGroup>
-</Project>
-```
-
-**Test projects:** use the standard SDK with test framework packages:
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <IsPackable>false</IsPackable>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
-    <PackageReference Include="xunit" Version="2.7.0" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7" />
-  </ItemGroup>
-</Project>
-```
-
-## Central Package Management Migration
-
-Centralizes NuGet version management across a multi-project solution. See [https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management) for details.
-
-**Step 1:** Create `Directory.Packages.props` at the repository root with `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>` and `<PackageVersion>` items for all packages.
-
-**Step 2:** Remove `Version` from each project's `PackageReference`:
-
-```xml
-<!-- BEFORE -->
-<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-
-<!-- AFTER -->
-<PackageReference Include="Newtonsoft.Json" />
-```
-
-## Directory.Build Consolidation
-
-Identify properties repeated across multiple `.csproj` files and move them to shared files.
-
-**`Directory.Build.props`** (for properties — placed at repo or src root):
-
-```xml
-<Project>
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Company>Contoso</Company>
-    <Copyright>Copyright © Contoso 2024</Copyright>
-  </PropertyGroup>
-</Project>
-```
-
-**`Directory.Build.targets`** (for targets/tasks — placed at repo or src root):
-
-```xml
-<Project>
-  <Target Name="PrintBuildInfo" Af
+<Project Sdk="Mi
 
 [truncated]
