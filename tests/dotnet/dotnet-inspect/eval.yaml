@@ -1,0 +1,146 @@
+scenarios:
+  - name: "Port app to latest System.CommandLine version"
+    prompt: |
+      Clone https://github.com/richlander/bad-code and look at the ZeroDaySearch project.
+      This app uses a beta version of System.CommandLine. Upgrade it to the latest stable version.
+    assertions:
+      - type: "output_matches"
+        pattern: "(diff|member|type)"
+      - type: "file_contains"
+        path: "**/ZeroDaySearch.csproj"
+        value: "System.CommandLine"
+      - type: "exit_success"
+    expect_tools: ["bash"]
+    rubric:
+      - "Updates the PackageReference to the latest stable System.CommandLine version discovered during the run"
+      - "Correctly migrates Handler.SetHandler calls to the new System.CommandLine API (e.g., SetAction)"
+      - "The project compiles successfully after migration"
+      - "All seven subcommands (list, search, severity, product, platform, date, summary) are preserved"
+    timeout: 600
+
+  - name: "Find types in a NuGet package"
+    prompt: "What's the IChatClient interface in Microsoft.Extensions.AI? Show me its API surface."
+    assertions:
+      - type: "output_matches"
+        pattern: "IChatClient"
+    expect_tools: ["bash"]
+    rubric:
+      - "Shows the 3 members of IChatClient: GetResponseAsync (returns Task<ChatResponse>), GetStreamingResponseAsync (returns IAsyncEnumerable<ChatResponseUpdate>), and GetService (returns object?)"
+      - "Identifies that IChatClient is in the Microsoft.Extensions.AI.Abstractions package (Microsoft.Extensions.AI namespace)"
+      - "Provides a useful summary of the interface's purpose and shape"
+    timeout: 240
+
+  - name: "Find extension methods for a type"
+    prompt: "What extension methods are available for HttpClient in .NET?"
+    assertions:
+      - type: "output_matches"
+        pattern: "(extension|HttpClient)"
+    expect_tools: ["bash"]
+    rubric:
+      - "Lists HttpClient extension methods from System.Net.Http.Json including GetFromJsonAsync, PostAsJsonAsync, PutAsJsonAsync, PatchAsJsonAsync, DeleteFromJsonAsync, and GetFromJsonAsAsyncEnumerable"
+      - "Identifies that these extensions come from HttpClientJsonExtensions in the System.Net.Http.Json library"
+      - "Presents the results clearly, grouped or summarized by source"
+    timeout: 120
+
+  - name: "Find logging and tracing types across platform"
+    prompt: "I'm building an observability layer. Find all the ILogger*, Activity*, and Meter* types in the .NET platform. I need the full picture."
+    assertions:
+      - type: "output_matches"
+        pattern: "(ILogger|Activity|Meter)"
+    expect_tools: ["bash"]
+    rubric:
+      - "Lists types from all three observability families: logging (ILogger*), tracing (Activity*), and metrics (Meter*)"
+      - "Identifies the platform libraries each type comes from (e.g., Microsoft.Extensions.Logging.Abstractions, System.Diagnostics.DiagnosticSource)"
+      - "Results are comprehensive — covers at least 3 types per family, not just the top-level ones"
+    timeout: 120
+
+  - name: "Find implementors of an interface"
+    prompt: "What types implement IHostedService in the .NET platform? I want to know what's built-in."
+    assertions:
+      - type: "output_matches"
+        pattern: "IHostedService"
+    expect_tools: ["bash"]
+    rubric:
+      - "Lists BackgroundService as the primary concrete implementor of IHostedService (in Microsoft.Extensions.Hosting.Abstractions from aspnetcore). IHostedLifecycleService is an interface that extends IHostedService, not a concrete implementor."
+      - "Identifies the library or package each implementor comes from (Microsoft.Extensions.Hosting.Abstractions is the key library)"
+      - "Results are grounded in actual platform data, not fabricated types — the platform only contains BackgroundService and IHostedLifecycleService as public types related to IHostedService"
+    timeout: 120
+
+  - name: "Inspect package dependency chain"
+    prompt: "What are the package dependencies of Microsoft.Extensions.AI? I want to understand what it pulls in."
+    assertions:
+      - type: "output_matches"
+        pattern: "(depend|Microsoft\\.Extensions)"
+    expect_tools: ["bash"]
+    rubric:
+      - "Lists the 5 direct dependencies for net10.0: Microsoft.Extensions.AI.Abstractions, Microsoft.Extensions.Caching.Abstractions, Microsoft.Extensions.DependencyInjection.Abstractions, Microsoft.Extensions.Logging.Abstractions, and System.Numerics.Tensors"
+      - "Provides version information (e.g., AI.Abstractions 10.4.0, other deps at 10.0.4)"
+      - "Shows transitive dependencies or the deeper tree — e.g., Caching.Abstractions pulls in Microsoft.Extensions.Primitives, or for net9.0 there are additional direct deps like System.Text.Json and System.Threading.Channels"
+    timeout: 120
+
+  - name: "Audit package signing and SourceLink"
+    prompt: "Is the Newtonsoft.Json NuGet package signed? Does it support SourceLink? Give me the full metadata."
+    assertions:
+      - type: "output_matches"
+        pattern: "(Newtonsoft|sign|source)"
+    expect_tools: ["bash"]
+    rubric:
+      - "Reports that the Newtonsoft.Json assembly is signed with public key token 11425bc5744002c7"
+      - "Reports that Newtonsoft.Json does NOT have SourceLink (no readable PDB embedded)"
+      - "Includes additional metadata such as version (13.0.4), author (James Newton-King), license (MIT), or target frameworks (net6.0, netstandard2.0, etc.)"
+    timeout: 120
+
+  - name: "Review source for hash collision protection"
+    prompt: "Where is Dictionary's source code in the .NET platform? Get the SourceLink URLs and show me how it handles hash collisions."
+    assertions:
+      - type: "output_matches"
+        pattern: "(Dictionary|hash|collision)"
+    expect_tools: ["bash"]
+    rubric:
+      - "Response includes a URL pointing to Dictionary.cs in the dotnet/dotnet or dotnet/runtime repository with a specific commit SHA in the path"
+      - "Correctly explains that Dictionary uses separate chaining via an Entry struct array with a next field forming an embedded linked list"
+      - "Describes the defensive behavior when excessive collisions are detected with string keys, including switching to a randomized equality comparer"
+    timeout: 180
+
+  - name: "Enumerate Hex1b terminal builder configuration API"
+    prompt: |
+      I need to understand the full configuration API for bootstrapping a Hex1b terminal app
+      (package Hex1b v0.114.0).
+
+      1. What is the main builder class for creating a Hex1b terminal? List ALL of its public methods.
+      2. What parameters does each configuration method accept?
+      3. What is the return type pattern — is it a fluent builder?
+      4. How do you finalize and run the terminal after configuring it?
+    assertions:
+      - type: "output_matches"
+        pattern: "(Hex1b|Terminal|Builder)"
+    expect_tools: ["bash"]
+    rubric:
+      - "Identifies Hex1bTerminalBuilder as the main builder class (not Hex1bApp or Hex1bTerminal directly). It is in the Hex1b namespace."
+      - "Lists at least 15 of the 23 builder methods: WithHex1bApp, WithDimensions, WithHeadless, WithMouse, WithMetrics, WithDiagnostics, WithPresentation, WithProcess, WithPtyProcess, WithReflow, WithScrollback, WithTerminalWidget, WithTimeProvider, WithWorkload, WithWorkloadLogging, WithAsciinemaPlayback, WithAsciinemaRecording, WithHex1bFlow, AddPresentationFilter, AddWorkloadFilter, Build."
+      - "Correctly describes the fluent pattern: all With*/Add* methods return Hex1bTerminalBuilder. Build() returns Hex1bTerminal. This enables method chaining."
+      - "Explains finalization: Build() produces Hex1bTerminal, then call RunAsync() to start the terminal. WithHex1bApp takes a delegate for configuring the UI (Action<Hex1bApp, Hex1bAppOptions> or similar)."
+      - "Correctly reports parameter types for at least 5 methods: WithDimensions(int, int), WithMouse(bool), WithDiagnostics(string?, bool), WithScrollback(int, Action<ScrollbackRowEventArgs>?), WithHeadless has 2 overloads."
+    timeout: 240
+
+  - name: "Map Hex1b charting API and data model"
+    prompt: |
+      I'm building a data visualization TUI with Hex1b (v0.114.0). I need precise details
+      about the charting system:
+
+      1. What chart widget types exist? List them all with their full type names and generic parameters.
+      2. What extension classes create each chart type? How many overloads does each have?
+      3. What is the ChartItem class — what namespace, what properties/constructor?
+      4. What is ChartLayout and what values does it have?
+      5. What is ChartSeriesDef<T> and how is it used?
+    assertions:
+      - type: "output_matches"
+        pattern: "(Chart|Hex1b)"
+    expect_tools: ["bash"]
+    rubric:
+      - "Lists all 5 chart widget types with correct generic signatures: BarChartWidget<T>, BreakdownChartWidget<T>, ColumnChartWidget<T>, ScatterChartWidget<T>, TimeSeriesChartWidget<T> — all in Hex1b.Widgets namespace."
+      - "Identifies corresponding extension classes: BarChartExtensions (6 overloads), BreakdownChartExtensions, ColumnChartExtensions, ScatterChartExtensions, TimeSeriesChartExtensions — all in Hex1b namespace. Each provides factory methods on WidgetContext."
+      - "Describes ChartItem correctly: class in Hex1b.Charts namespace. It is the data record used to feed chart widgets (label + value pairs)."
+      - "Describes ChartLayout as an enum in Hex1b.Charts that controls chart rendering layout."
+      - "Describes ChartSeriesDef<T> as a generic class in Hex1b.Charts for defining chart data series with typed data points."
+    timeout: 240
