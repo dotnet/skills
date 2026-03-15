@@ -1,0 +1,87 @@
+scenarios:
+  - name: "Implement SSE notification endpoint in ASP.NET Core 8 minimal API"
+    prompt: |
+      I need to implement a Server-Sent Events (SSE) endpoint in an ASP.NET Core 8 minimal API project.
+
+      The endpoint should be at GET /api/events/notifications and should:
+      1. Stream real-time notifications to connected clients
+      2. Support named event types (e.g., "message", "alert", "update")
+      3. Include event IDs so clients can reconnect and resume from where they left off
+      4. Handle client disconnection gracefully
+      5. Set a 5-second retry interval for client reconnection
+      6. Work correctly behind reverse proxies like nginx
+
+      The notification data should be JSON objects with properties: Id, Type, Message, Timestamp.
+
+      Use a simple background service that generates a notification every 2 seconds to simulate a real event source. Use Channel<T> to communicate between the background service and the SSE endpoint.
+
+      Create a complete working project with Program.cs and any needed service files.
+    assertions:
+      - type: "output_matches"
+        pattern: "(text/event-stream)"
+      - type: "output_matches"
+        pattern: "(FlushAsync|AutoFlush)"
+      - type: "output_matches"
+        pattern: "(RequestAborted|CancellationToken)"
+    rubric:
+      - "Uses manual SSE protocol (Response.WriteAsync with text/event-stream content type), NOT a non-existent MapSSE() or UseServerSentEvents() helper"
+      - "Sets required SSE headers: Content-Type text/event-stream, Cache-Control no-cache"
+      - "Uses correct SSE format with double newline to terminate each event"
+      - "Calls FlushAsync after each event write so client receives events immediately"
+      - "Uses HttpContext.RequestAborted or CancellationToken to detect client disconnection"
+      - "Includes id: field in SSE events for reconnection support"
+      - "Sets retry: field to control client reconnection interval"
+    timeout: 120
+
+  - name: "SSE should not be used for bidirectional communication"
+    prompt: |
+      I need to build a real-time chat feature where users send and receive messages. Should I use Server-Sent Events for this?
+    expect_activation: false
+    assertions:
+      - type: "output_matches"
+        pattern: "(WebSocket|SignalR|bidirectional)"
+    rubric:
+      - "Identified that SSE is server-to-client only and does not support bidirectional communication"
+      - "Recommended WebSocket or SignalR for bidirectional real-time messaging"
+      - "Did NOT suggest SSE as the primary solution for this use case"
+    timeout: 60
+
+  - name: "Fix SSE events not arriving in browser until connection closes"
+    prompt: |
+      My ASP.NET Core SSE endpoint works — I can see the events in the response body when I curl it — but in the browser, no events arrive until the connection closes. Then they all appear at once. What's wrong?
+    setup:
+      files:
+        - path: "Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            var app = builder.Build();
+
+            app.MapGet("/events", async (HttpContext context) =>
+            {
+                context.Response.ContentType = "text/event-stream";
+                for (int i = 0; i < 10; i++)
+                {
+                    await context.Response.WriteAsync($"data: Event {i}\n\n");
+                    await Task.Delay(1000);
+                }
+            });
+
+            app.Run();
+        - path: "SSEBug.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+    assertions:
+      - type: "output_matches"
+        pattern: "(FlushAsync|Flush)"
+      - type: "output_matches"
+        pattern: "(Cache-Control|no-cache|X-Accel-Buffering)"
+    rubric:
+      - "Identified the root cause: missing FlushAsync() after each WriteAsync — the response is buffered"
+      - "Added Response.Body.FlushAsync() after each event write"
+      - "Added Cache-Control: no-cache header to prevent proxy/browser caching"
+      - "Mentioned X-Accel-Buffering: no for nginx reverse proxy compatibility"
+    timeout: 120
