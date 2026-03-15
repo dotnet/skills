@@ -2,9 +2,10 @@
 name: analyzing-dotnet-performance
 description: >-
   Scans .NET code for ~50 performance anti-patterns across async, memory,
-  strings, collections, LINQ, regex, serialization, and I/O with tiered
-  severity classification. Use when analyzing .NET code for optimization
-  opportunities, reviewing hot paths, or auditing allocation-heavy patterns.
+  strings, collections, LINQ, regex, serialization, I/O with tiered 
+  severity classification, and scalar loops amenable to SIMD vectorization. 
+  Use when analyzing .NET code for optimization opportunities, reviewing 
+  hot paths, or auditing allocation-heavy patterns.
 ---
 
 # .NET Performance Patterns
@@ -38,6 +39,8 @@ Scan C#/.NET code for performance anti-patterns and produce prioritized findings
 
 Try to load `references/critical-patterns.md` and the topic-specific reference files listed below. These contain detailed detection recipes and grep commands.
 
+When scalar loops over contiguous numeric arrays or spans are detected, also load `references/simd-vectorization.md`. This reference provides TensorPrimitives API coverage and cross-platform Vector128/Vector256/Vector512 intrinsic patterns for optimizing hot-path scalar loops.
+
 **If reference files are not found** (e.g., in a sandboxed environment or when the skill is embedded as instructions only), **skip file loading and proceed directly to Step 3** using the scan recipes listed inline below. Do not spend time searching the filesystem for reference files — if they aren't at the expected relative path, they aren't available.
 
 ### Step 2: Detect Code Signals and Select Topic Recipes
@@ -51,6 +54,7 @@ Scan the code for signals that indicate which pattern categories to check. If re
 | `Regex`, `[GeneratedRegex]`, `Regex.Match`, `RegexOptions.Compiled` | Regex patterns |
 | `Dictionary<`, `List<`, `.ToList()`, `.Where(`, `.Select(`, LINQ methods, `static readonly Dictionary<` | Collections & LINQ |
 | `JsonSerializer`, `HttpClient`, `Stream`, `FileStream` | I/O & serialization |
+| `for` / `foreach` loops over `byte[]`, `int[]`, `float[]`, `double[]`, `Span<`, `ReadOnlySpan<` with scalar arithmetic, comparison, or bitwise ops | SIMD vectorization (see `references/simd-vectorization.md`) |
 
 Always check structural patterns (unsealed classes) regardless of signals.
 
