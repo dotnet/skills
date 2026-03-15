@@ -1,0 +1,58 @@
+scenarios:
+  - name: "Inspect framework implementation with ILSpy"
+    prompt: |
+      I want to understand how `System.Text.Json.JsonSerializer` works internally in the .NET runtime.
+      I do not need public API usage guidance; I want to inspect the implementation with ILSpy.
+      How should I do that?
+    assertions:
+      - type: "output_matches"
+        pattern: "(dnx\\s+)?ilspycmd"
+      - type: "output_contains"
+        value: "dotnet --list-runtimes"
+      - type: "output_contains"
+        value: "System.Text.Json.dll"
+      - type: "output_contains"
+        value: "JsonSerializer"
+    rubric:
+      - "Locates the implementation in the shared framework rather than only pointing at docs or reference assemblies"
+      - "Uses type discovery or targeted decompilation for System.Text.Json.JsonSerializer instead of stopping at general guidance"
+      - "Mentions that runtime version matters when explaining framework behavior"
+    timeout: 120
+
+  - name: "Inspect a NuGet package implementation"
+    prompt: |
+      I want to inspect Polly's retry logic from my local NuGet cache with ILSpy instead of cloning the repository.
+      What should I look for and what commands should I run?
+    assertions:
+      - type: "output_contains"
+        value: ".nuget/packages"
+      - type: "output_matches"
+        pattern: "Polly(\\.Core)?\\.dll"
+      - type: "output_matches"
+        pattern: "(dnx\\s+)?ilspycmd"
+      - type: "output_contains"
+        value: "ref/"
+    rubric:
+      - "Directs the user to implementation assemblies under lib/ or runtimes/ and warns that ref/ is not the right place for implementation details"
+      - "Mentions choosing the correct package version or target framework"
+      - "Suggests either targeted decompilation for the relevant type or decompilation to a folder for broader exploration"
+    timeout: 120
+
+  - name: "Compare decompiled C# with IL"
+    prompt: |
+      I have a compiled .NET assembly and I want to understand what the compiler emitted for an async method.
+      Show me how to inspect both the reconstructed C# and the IL with ILSpy.
+    assertions:
+      - type: "output_matches"
+        pattern: "(dnx\\s+)?ilspycmd"
+      - type: "output_matches"
+        pattern: "(-il|IL view|IL code)"
+      - type: "output_matches"
+        pattern: "(state.?machine|async)"
+      - type: "output_matches"
+        pattern: "(decompiled|reconstruct)"
+    rubric:
+      - "Uses normal decompilation first and then switches to IL output or IL view for exact lowering details"
+      - "Explains that IL is useful for async state machines or other compiler-generated behavior"
+      - "Warns that decompiled C# is reconstructed output rather than the exact original source"
+    timeout: 120
