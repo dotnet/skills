@@ -1,0 +1,29 @@
+scenarios:
+  - name: "Add vector search to web API"
+    prompt: "Add vector search to this .NET 10 web API. I want to store document chunks with embeddings and search them by semantic similarity. Use InMemory store for development."
+    setup:
+      files:
+        - path: "SearchApi/SearchApi.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "SearchApi/Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            var app = builder.Build();
+            app.Run();
+    assertions:
+      - type: "output_contains"
+        value: "VectorStoreKey"
+      - type: "output_contains"
+        value: "SearchAsync"
+      - type: "exit_success"
+    rubric:
+      - "Defines a data model with VectorStoreKey, VectorStoreData, and VectorStoreVector attributes"
+      - "Uses InMemoryVectorStore as requested for development"
+      - "Creates a collection and implements search endpoint"
+      - "Sets appropriate vector dimensions matching the embedding model"
+    timeout: 360
