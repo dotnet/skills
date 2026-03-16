@@ -1,7 +1,9 @@
 ---
 name: migrate-mstest-v3-to-v4
 description: >
-  Migrate an MSTest v3 test project to MSTest v4.
+  Migrate an MSTest v3 test project to MSTest v4 (latest). Use when user says
+  "upgrade to MSTest v4", "update to latest MSTest", "MSTest 4 migration", or
+  has build errors after updating MSTest packages from 3.x to 4.x.
   USE FOR: upgrading MSTest packages from 3.x to 4.x, fixing source breaking
   changes (Execute → ExecuteAsync, CallerInfo constructor, ClassCleanupBehavior
   removal, TestContext.Properties IDictionary<string,object>, Assert API changes,
@@ -10,8 +12,7 @@ description: >
   lifecycle exceptions, TestCase.Id changes affecting Azure DevOps test history,
   MSTest.Sdk MTP changes), handling dropped target frameworks
   (net5.0/net6.0/net7.0 dropped — only net8.0, net9.0, net462, uap10.0
-  supported), checking target framework compatibility before upgrading to
-  MSTest v4.
+  supported).
   DO NOT USE FOR: migrating from MSTest v1/v2 to v3 (use migrate-mstest-v1v2-to-v3
   first), migrating between test frameworks, or .NET version upgrades.
 ---

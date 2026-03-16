@@ -1,17 +1,18 @@
 ---
 name: migrate-mstest-v1v2-to-v3
 description: >
-  Migrate an MSTest v1 or v2 test project to MSTest v3.
+  Migrate an MSTest v1 or v2 test project to MSTest v3. Use when user says
+  "upgrade MSTest", "update test framework", "modernize tests", or has build
+  errors after updating MSTest packages from 1.x/2.x.
   USE FOR: upgrading from MSTest v1 assembly references
   (Microsoft.VisualStudio.QualityTools.UnitTestFramework) or MSTest v2 NuGet
   packages (MSTest.TestFramework 1.x–2.x) to MSTest v3, fixing assertion
   overload errors (AreEqual/AreNotEqual with object), updating DataRow
   constructors, replacing .testsettings with .runsettings, resolving timeout
   behavior changes, handling dropped target frameworks (net5.0 dropped — use
-  net6.0+ or netcoreapp3.1), checking target framework compatibility before
-  upgrading, adopting MSTest.Sdk, and enabling in-assembly parallel execution.
-  This is the first step toward MSTest v4 — after completing this migration,
-  use migrate-mstest-v3-to-v4 to reach the latest version.
+  net6.0+ or netcoreapp3.1), adopting MSTest.Sdk, and enabling in-assembly
+  parallel execution. First step toward MSTest v4 — after this, use
+  migrate-mstest-v3-to-v4.
   DO NOT USE FOR: migrating directly to MSTest v4 (use migrate-mstest-v3-to-v4
   after this skill), migrating between test frameworks (MSTest to xUnit/NUnit),
   or .NET version upgrades (use migrate-dotnet*-to-dotnet* skills).
