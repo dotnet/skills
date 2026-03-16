@@ -34,6 +34,10 @@ public static class ValidateCommand
         var noiseSkillsDirOpt = new Option<string?>("--noise-skills-dir") { Description = "Directory containing skills to load as noise. Enables the noise test: re-runs scenarios with all noise skills loaded and measures degradation." };
         var noiseMaxDegradationOpt = new Option<double>("--noise-max-degradation") { Description = "Maximum acceptable average quality degradation (0-1) in noise test (only positive degradations count)", DefaultValueFactory = _ => 0.2 };
         var noiseMaxScenarioDegradationOpt = new Option<double>("--noise-max-scenario-degradation") { Description = "Maximum acceptable quality degradation (0-1) for any single noise-test scenario", DefaultValueFactory = _ => 0.4 };
+        var keepWorkDirsOpt = new Option<bool>("--keep-work-dirs") { Description = "Preserve temporary working directories after the run (paths printed when --verbose is set)" };
+        var workDirBaseOpt = new Option<string?>("--work-dir") { Description = "Base directory for temporary working directories (defaults to system temp)" };
+        var readableWorkDirsOpt = new Option<bool>("--readable-work-dirs") { Description = "Use human-readable directory names (<scenario>/<run-N>/<variant>) instead of GUIDs" };
+        var scenarioOpt = new Option<string[]>("--scenario") { Description = "Run only scenarios whose name contains this substring (case-insensitive). Can be repeated.", AllowMultipleArgumentsPerToken = true };
 
         var command = new RootCommand("Validate that agent skills meaningfully improve agent performance")
         {
@@ -60,6 +64,10 @@ public static class ValidateCommand
             noiseSkillsDirOpt,
             noiseMaxDegradationOpt,
             noiseMaxScenarioDegradationOpt,
+            keepWorkDirsOpt,
+            workDirBaseOpt,
+            readableWorkDirsOpt,
+            scenarioOpt,
         };
 
         command.SetAction(async (parseResult, _) =>
@@ -108,6 +116,10 @@ public static class ValidateCommand
                 NoiseSkillsDir = parseResult.GetValue(noiseSkillsDirOpt),
                 NoiseDegradationLimit = parseResult.GetValue(noiseMaxDegradationOpt),
                 NoiseMaxScenarioDegradation = parseResult.GetValue(noiseMaxScenarioDegradationOpt),
+                KeepWorkDirs = parseResult.GetValue(keepWorkDirsOpt),
+                WorkDirBase = parseResult.GetValue(workDirBaseOpt),
+                ReadableWorkDirs = parseResult.GetValue(readableWorkDirsOpt),
+                ScenarioFilters = parseResult.GetValue(scenarioOpt) ?? [],
             };
 
             return await Run(config);
@@ -127,6 +139,9 @@ public static class ValidateCommand
 
     public static async Task<int> Run(ValidatorConfig config)
     {
+        AgentRunner.SetWorkDirBase(config.WorkDirBase);
+        AgentRunner.SetReadableWorkDirs(config.ReadableWorkDirs);
+
         // Validate model early
         try
         {
@@ -327,7 +342,10 @@ public static class ValidateCommand
         }
 
         await AgentRunner.StopAllClients();
-        await AgentRunner.CleanupWorkDirs();
+        if (config.KeepWorkDirs)
+            Console.WriteLine($"\x1b[33m📂 Keeping {AgentRunner.WorkDirCount} work dir(s). Use --verbose to see paths during the run.\x1b[0m");
+        else
+            await AgentRunner.CleanupWorkDirs();
 
         // Always fail on execution errors, even in --verdict-warn-only mode
         if (rejectionMessages.Count > 0) return 1;
@@ -469,7 +487,21 @@ public static class ValidateCommand
         bool singleScenario = skill.EvalConfig!.Scenarios.Count == 1;
         using var scenarioLimit = new ConcurrencyLimiter(config.ParallelScenarios);
 
-        var scenarioTasks = skill.EvalConfig.Scenarios.Select(scenario =>
+        var scenarios = config.ScenarioFilters.Count > 0
+            ? skill.EvalConfig.Scenarios.Where(s =>
+                config.ScenarioFilters.Any(f => s.Name.Contains(f, StringComparison.OrdinalIgnoreCase))).ToList()
+            : skill.EvalConfig.Scenarios;
+
+        if (scenarios.Count == 0)
+        {
+            log($"⏭  No scenarios match --scenario filter(s): {string.Join(", ", config.ScenarioFilters)}");
+            return null;
+        }
+
+        if (config.ScenarioFilters.Count > 0)
+            log($"🔍 Running {scenarios.Count}/{skill.EvalConfig.Scenarios.Count} scenario(s) matching filter");
+
+        var scenarioTasks = scenarios.Select(scenario =>
             scenarioLimit.RunAsync(() => ExecuteScenario(scenario, skill, config, usePairwise, singleScenario, spinner)));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
 
@@ -697,13 +729,13 @@ public static class ValidateCommand
         var agentTasks = await Task.WhenAll(
             // 1. Baseline: no plugin, no skills — vanilla agent
             AgentRunner.RunAgent(new RunOptions(scenario, null, skill.EvalPath, config.Model, config.Verbose,
-                PluginRoot: null, Log: runLog)),
+                PluginRoot: null, Log: runLog, RunIndex: runIndex)),
             // 2. Skilled-isolated: single skill only (current behavior)
             AgentRunner.RunAgent(new RunOptions(scenario, skill, skill.EvalPath, config.Model, config.Verbose,
-                PluginRoot: null, Log: runLog)),
+                PluginRoot: null, Log: runLog, RunIndex: runIndex)),
             // 3. Skilled-plugin: load entire plugin from plugin root directory
             AgentRunner.RunAgent(new RunOptions(scenario, skill, skill.EvalPath, config.Model, config.Verbose,
-                PluginRoot: pluginRoot, Log: runLog)));
+                PluginRoot: pluginRoot, Log: runLog, RunIndex: runIndex)));
         var baselineMetrics = agentTasks[0];
         var isolatedMetrics = agentTasks[1];
         var pluginMetrics = agentTasks[2];
@@ -914,11 +946,11 @@ public static class ValidateCommand
                     {
                         // Run with target skill only
                         var skillOnlyMetrics = await AgentRunner.RunAgent(new RunOptions(
-                            scenario, targetSkill, targetSkill.EvalPath, config.Model, config.Verbose, Log: scenarioLog));
+                            scenario, targetSkill, targetSkill.EvalPath, config.Model, config.Verbose, Log: scenarioLog, RunIndex: runIndex));
 
                         // Run with all skills loaded
                         var allSkillsMetrics = await AgentRunner.RunAgent(new RunOptions(
-                            scenario, targetSkill, targetSkill.EvalPath, config.Model, config.Verbose, Log: scenarioLog, AdditionalSkills: otherSkills));
+                            scenario, targetSkill, targetSkill.EvalPath, config.Model, config.Verbose, Log: scenarioLog, AdditionalSkills: otherSkills, RunIndex: runIndex));
 
                         // Evaluate assertions on both
                         if (scenario.Assertions is { Count: > 0 })

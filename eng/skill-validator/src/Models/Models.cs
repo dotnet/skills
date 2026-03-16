@@ -378,6 +378,10 @@ public sealed record ValidatorConfig
     public string? NoiseSkillsDir { get; init; }
     public double NoiseDegradationLimit { get; init; } = 0.2;
     public double NoiseMaxScenarioDegradation { get; init; } = 0.4;
+    public bool KeepWorkDirs { get; init; }
+    public string? WorkDirBase { get; init; }
+    public bool ReadableWorkDirs { get; init; }
+    public IReadOnlyList<string> ScenarioFilters { get; init; } = [];
 }
 
 public static class DefaultWeights

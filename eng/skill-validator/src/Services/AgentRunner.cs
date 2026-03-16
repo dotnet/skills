@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using SkillValidator.Models;
 using SkillValidator.Utilities;
 using GitHub.Copilot.SDK;
@@ -16,13 +17,17 @@ public sealed record RunOptions(
     bool Verbose,
     string? PluginRoot = null,
     Action<string>? Log = null,
-    IReadOnlyList<SkillInfo>? AdditionalSkills = null);
+    IReadOnlyList<SkillInfo>? AdditionalSkills = null,
+    int RunIndex = 0);
 
 public static class AgentRunner
 {
     private static readonly ConcurrentDictionary<string, CopilotClient> _pluginClients = new(StringComparer.OrdinalIgnoreCase);
     private static readonly SemaphoreSlim _clientLock = new(1, 1);
     private static readonly ConcurrentBag<string> _workDirs = [];
+    private static string _workDirBase = Path.GetTempPath();
+    private static bool _readableWorkDirs;
+    private static string? _readableTimestamp;
     private static string? _capturedGitHubToken;
     private static bool _tokenCaptured;
 
@@ -100,6 +105,36 @@ public static class AgentRunner
 
     /// <summary>Backward-compatible alias.</summary>
     public static Task StopSharedClient() => StopAllClients();
+
+    /// <summary>Number of tracked temporary working directories.</summary>
+    public static int WorkDirCount => _workDirs.Count;
+
+    /// <summary>Set the base directory for all temporary working directories.</summary>
+    public static void SetWorkDirBase(string? path)
+    {
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            _workDirBase = Path.GetFullPath(path);
+            Directory.CreateDirectory(_workDirBase);
+        }
+    }
+
+    /// <summary>Enable readable, human-friendly work directory names instead of GUIDs.</summary>
+    public static void SetReadableWorkDirs(bool enabled)
+    {
+        _readableWorkDirs = enabled;
+        if (enabled)
+            _readableTimestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+    }
+
+    /// <summary>Slugify a scenario name for use as a directory name.</summary>
+    internal static string Slugify(string name)
+    {
+        var slug = name.ToLowerInvariant().Replace(' ', '-');
+        slug = Regex.Replace(slug, @"[^a-z0-9\-]", "-");
+        slug = Regex.Replace(slug, @"-{2,}", "-");
+        return slug.Trim('-');
+    }
 
     /// <summary>Remove all temporary working directories created during runs.</summary>
     public static Task CleanupWorkDirs()
@@ -213,7 +248,7 @@ public static class AgentRunner
         var skillPath = skill is not null ? Path.GetDirectoryName(skill.Path) : null;
 
         // Create a unique temporary config directory for this session to not share any data
-        var configDir = Path.Combine(Path.GetTempPath(), $"sv-cfg-{Guid.NewGuid():N}");
+        var configDir = Path.Combine(_workDirBase, $"sv-cfg-{Guid.NewGuid():N}");
         Directory.CreateDirectory(configDir);
         _workDirs.Add(configDir);
         if (verbose)
@@ -226,7 +261,7 @@ public static class AgentRunner
         var noiseDirs = new List<string>();
         if (additionalSkills is { Count: > 0 })
         {
-            var stageDir = Path.Combine(Path.GetTempPath(), $"sv-noise-{Guid.NewGuid():N}");
+            var stageDir = Path.Combine(_workDirBase, $"sv-noise-{Guid.NewGuid():N}");
             Directory.CreateDirectory(stageDir);
             _workDirs.Add(stageDir);
 
@@ -306,7 +341,7 @@ public static class AgentRunner
         {
             // Stage the single skill into a temp directory so the SDK discovers
             // only this skill — not every sibling that shares the same parent.
-            var isoStageDir = Path.Combine(Path.GetTempPath(), $"sv-iso-{Guid.NewGuid():N}");
+            var isoStageDir = Path.Combine(_workDirBase, $"sv-iso-{Guid.NewGuid():N}");
             Directory.CreateDirectory(isoStageDir);
             _workDirs.Add(isoStageDir);
 
@@ -387,7 +422,11 @@ public static class AgentRunner
 
     private static async Task<RunMetrics> RunAgentCore(RunOptions options, CancellationToken cancellationToken)
     {
-        var workDir = await SetupWorkDir(options.Scenario, options.Skill?.Path, options.EvalPath);
+        var variant = options.Skill is null ? "baseline"
+            : options.AdditionalSkills is { Count: > 0 } ? "noise-all"
+            : options.PluginRoot is not null ? "plugin"
+            : "isolated";
+        var workDir = await SetupWorkDir(options.Scenario, options.Skill?.Path, options.EvalPath, options.RunIndex, variant);
         if (options.Verbose)
         {
             var write = options.Log ?? (msg => Console.Error.WriteLine(msg));
@@ -534,9 +573,18 @@ public static class AgentRunner
         return metrics;
     }
 
-    private static async Task<string> SetupWorkDir(EvalScenario scenario, string? skillPath, string? evalPath)
+    private static async Task<string> SetupWorkDir(EvalScenario scenario, string? skillPath, string? evalPath, int runIndex = 0, string? variant = null)
     {
-        var workDir = Path.Combine(Path.GetTempPath(), $"sv-{Guid.NewGuid():N}");
+        string workDir;
+        if (_readableWorkDirs && variant is not null && _readableTimestamp is not null)
+        {
+            var slug = Slugify(scenario.Name);
+            workDir = Path.Combine(_workDirBase, _readableTimestamp, slug, $"run-{runIndex + 1}", variant);
+        }
+        else
+        {
+            workDir = Path.Combine(_workDirBase, $"sv-{Guid.NewGuid():N}");
+        }
         Directory.CreateDirectory(workDir);
         _workDirs.Add(workDir);
 
