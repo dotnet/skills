@@ -123,7 +123,7 @@ for (; i < length; i++)
 ### Core SIMD operations
 - **Load/Store:** `Vector128.LoadUnsafe(ref src, offset)` / `.StoreUnsafe(ref dst, offset)`
 - **Arithmetic:** `+`, `-`, `*`, `/` operators on vector types
-- **FMA:** `Vector128.MultiplyAddEstimate(a, b, c)` — fused multiply-add
+- **Multiply-add (approximate):** `Vector128.MultiplyAddEstimate(a, b, c)` — performs a multiply-add with implementation-defined approximation; not guaranteed to be a strict IEEE fused multiply-add. For precise fused semantics, use hardware-specific intrinsics such as `System.Runtime.Intrinsics.X86.Fma.MultiplyAdd` when available.
 - **Comparison:** `Vector128.Equals`, `.LessThan`, `.GreaterThan` — returns mask vector
 - **Mask ops:** `Vector128.All(mask)`, `.Any(mask)`, `.None(mask)`, `.Count(mask)`, `.CountWhereAllBitsSet(mask)`
 - **Horizontal:** `Vector128.Sum(vec)` for reduction; `.Min(a,b)`, `.Max(a,b)` element-wise
