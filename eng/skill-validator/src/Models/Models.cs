@@ -68,7 +68,8 @@ public sealed record EvalScenario(
     IReadOnlyList<string>? RejectTools = null,
     int? MaxTurns = null,
     int? MaxTokens = null,
-    bool ExpectActivation = true);
+    bool ExpectActivation = true,
+    string? Environment = null);
 
 public sealed record EvalConfig(IReadOnlyList<EvalScenario> Scenarios);
 
@@ -382,6 +383,7 @@ public sealed record ValidatorConfig
     public string? WorkDirBase { get; init; }
     public bool ReadableWorkDirs { get; init; }
     public IReadOnlyList<string> ScenarioFilters { get; init; } = [];
+    public string? Environment { get; init; }
 }
 
 public static class DefaultWeights

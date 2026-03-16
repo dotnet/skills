@@ -38,6 +38,7 @@ public static class ValidateCommand
         var workDirBaseOpt = new Option<string?>("--work-dir") { Description = "Base directory for temporary working directories (defaults to system temp)" };
         var readableWorkDirsOpt = new Option<bool>("--readable-work-dirs") { Description = "Use human-readable directory names (<scenario>/<run-N>/<variant>) instead of GUIDs" };
         var scenarioOpt = new Option<string[]>("--scenario") { Description = "Run only scenarios whose name contains this substring (case-insensitive). Can be repeated.", AllowMultipleArgumentsPerToken = true };
+        var environmentOpt = new Option<string?>("--environment") { Description = "Run only scenarios matching this environment (e.g. 'ci', 'local'). Scenarios without an environment always run." };
 
         var command = new RootCommand("Validate that agent skills meaningfully improve agent performance")
         {
@@ -68,6 +69,7 @@ public static class ValidateCommand
             workDirBaseOpt,
             readableWorkDirsOpt,
             scenarioOpt,
+            environmentOpt,
         };
 
         command.SetAction(async (parseResult, _) =>
@@ -120,6 +122,7 @@ public static class ValidateCommand
                 WorkDirBase = parseResult.GetValue(workDirBaseOpt),
                 ReadableWorkDirs = parseResult.GetValue(readableWorkDirsOpt),
                 ScenarioFilters = parseResult.GetValue(scenarioOpt) ?? [],
+                Environment = parseResult.GetValue(environmentOpt),
             };
 
             return await Run(config);
@@ -487,18 +490,34 @@ public static class ValidateCommand
         bool singleScenario = skill.EvalConfig!.Scenarios.Count == 1;
         using var scenarioLimit = new ConcurrencyLimiter(config.ParallelScenarios);
 
-        var scenarios = config.ScenarioFilters.Count > 0
-            ? skill.EvalConfig.Scenarios.Where(s =>
-                config.ScenarioFilters.Any(f => s.Name.Contains(f, StringComparison.OrdinalIgnoreCase))).ToList()
-            : skill.EvalConfig.Scenarios;
+        var scenarios = (IReadOnlyList<EvalScenario>)skill.EvalConfig.Scenarios;
+
+        // Filter by --environment: scenarios with no environment always run;
+        // scenarios with an environment run only when it matches.
+        if (config.Environment is not null)
+        {
+            scenarios = scenarios.Where(s =>
+                s.Environment is null ||
+                s.Environment.Equals(config.Environment, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        // Filter by --scenario name substring
+        if (config.ScenarioFilters.Count > 0)
+        {
+            scenarios = scenarios.Where(s =>
+                config.ScenarioFilters.Any(f => s.Name.Contains(f, StringComparison.OrdinalIgnoreCase))).ToList();
+        }
 
         if (scenarios.Count == 0)
         {
-            log($"⏭  No scenarios match --scenario filter(s): {string.Join(", ", config.ScenarioFilters)}");
+            var filters = new List<string>();
+            if (config.Environment is not null) filters.Add($"--environment {config.Environment}");
+            if (config.ScenarioFilters.Count > 0) filters.Add($"--scenario {string.Join(", ", config.ScenarioFilters)}");
+            log($"⏭  No scenarios match filter(s): {string.Join("; ", filters)}");
             return null;
         }
 
-        if (config.ScenarioFilters.Count > 0)
+        if (scenarios.Count < skill.EvalConfig.Scenarios.Count)
             log($"🔍 Running {scenarios.Count}/{skill.EvalConfig.Scenarios.Count} scenario(s) matching filter");
 
         var scenarioTasks = scenarios.Select(scenario =>
