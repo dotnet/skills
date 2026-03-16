@@ -7,9 +7,11 @@ description: >
   packages (MSTest.TestFramework 1.x–2.x) to MSTest v3, fixing assertion
   overload errors (AreEqual/AreNotEqual with object), updating DataRow
   constructors, replacing .testsettings with .runsettings, resolving timeout
-  behavior changes, adopting MSTest.Sdk, and enabling in-assembly parallel
-  execution. This is the first step toward MSTest v4 — after completing this
-  migration, use migrate-mstest-v3-to-v4 to reach the latest version.
+  behavior changes, handling dropped target frameworks (net5.0 dropped — use
+  net6.0+ or netcoreapp3.1), checking target framework compatibility before
+  upgrading, adopting MSTest.Sdk, and enabling in-assembly parallel execution.
+  This is the first step toward MSTest v4 — after completing this migration,
+  use migrate-mstest-v3-to-v4 to reach the latest version.
   DO NOT USE FOR: migrating directly to MSTest v4 (use migrate-mstest-v3-to-v4
   after this skill), migrating between test frameworks (MSTest to xUnit/NUnit),
   or .NET version upgrades (use migrate-dotnet*-to-dotnet* skills).

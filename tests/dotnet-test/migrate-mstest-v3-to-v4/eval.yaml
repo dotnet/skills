@@ -59,7 +59,8 @@ scenarios:
   - name: "Fix multiple v4 breaking changes: Assert, ClassCleanup, TestContext, Timeout"
     prompt: |
       I upgraded from MSTest 3.8 to MSTest 4.0 and my test project has many compilation errors.
-      Can you help me fix all of them?
+      The errors mention ThrowsException, ClassCleanupBehavior, Contains, TestTimeout, and
+      IsInstanceOfType. Can you review my code and fix all breaking changes?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -177,9 +178,10 @@ scenarios:
   - name: "Understand behavioral changes after MSTest v4 upgrade"
     prompt: |
       I upgraded my MSTest project to v4 and everything compiles, but some tests are
-      behaving differently. Tests that used to pass in Azure DevOps are now showing as
-      new tests, and one test that accesses TestContext.TestName in ClassInitialize
-      is now throwing. What's going on?
+      behaving differently. In Azure DevOps, all of my tests appear as brand new tests
+      with no history. Also, one test that accesses TestContext.TestName inside a
+      [ClassInitialize] method now throws an exception at runtime. Are these known v4
+      changes? What else should I watch out for?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -400,7 +402,7 @@ scenarios:
   - name: "Correctly identify MSTest v3 project and recommend v4 migration"
     prompt: |
       My test project uses MSTest 3.8.0 on net8.0. I want to upgrade to the latest
-      version. What breaking changes should I expect?
+      version. What breaking changes should I expect and how do I fix them?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -411,10 +413,11 @@ scenarios:
       - type: "output_matches"
         pattern: "(v4|4\\.[0-9]+|MSTest 4)"
       - type: "output_matches"
-        pattern: "(ExpectedException|breaking.?change)"
+        pattern: "(ExpectedException|ThrowsExactly)"
     rubric:
-      - "Correctly identifies the project as MSTest v3 (3.8.0) not v1 or v2"
-      - "Recommends upgrading to MSTest v4 as the next step"
-      - "Lists key v4 breaking changes relevant to this project (ExpectedException removal)"
+      - "Correctly identifies the project as MSTest v3 (3.8.0) and recommends MSTest v4"
+      - "Identifies that [ExpectedException] is removed in v4 and shows how to replace with Assert.ThrowsExactly"
+      - "Provides concrete before/after code examples for the ExpectedException migration"
+      - "Mentions other key v4 breaking changes beyond just ExpectedException (e.g., Assert API changes, TestCase.Id changes)"
       - "Does not suggest v1→v3 migration steps since the project is already on v3"
     timeout: 180

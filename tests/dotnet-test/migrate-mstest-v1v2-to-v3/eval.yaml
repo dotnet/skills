@@ -231,11 +231,23 @@ scenarios:
   - name: "Migrate to MSTest.Sdk project style"
     prompt: |
       I have a standard MSTest v2 project and I heard MSTest.Sdk simplifies things.
-      Can you help me convert my project to use MSTest.Sdk?
+      Can you help me convert my project to use MSTest.Sdk? Show me what the new
+      project file should look like.
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v1v2-to-v3/fixtures/v2-nuget/TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <IsPackable>false</IsPackable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
+                <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
+              </ItemGroup>
+            </Project>
         - path: "UserServiceTests.cs"
           source: "../../../../tests/dotnet-test/migrate-mstest-v1v2-to-v3/fixtures/v2-nuget/UserServiceTests.cs"
     assertions:
