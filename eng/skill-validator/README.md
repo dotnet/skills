@@ -140,7 +140,7 @@ scenarios:
         - path: "input.txt"
           content: "file content to create before the run"
         - path: "data.csv"
-          source: "fixtures/sample-data.csv"  # relative to skill dir
+          source: "fixtures/sample-data.csv"  # relative to eval dir, then skill dir
     assertions:
       - type: "output_contains"
         value: "expected text"
