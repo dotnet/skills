@@ -84,8 +84,9 @@ See existing plugins for the expected format.
 
 We are most likely to accept contributions that are:
 
+- Addresses a LLM gap and is clearly motivated by a real use case
+- Likely to be used frequently and is general (not repo-specific)
 - Narrow in scope and easy to review
-- Clearly motivated by a real use case
 - Tool conscious and explicit about assumptions
 - Verifiable with concrete validation steps
 - Written to be durable across repo changes
@@ -100,9 +101,13 @@ We are less likely to accept contributions that:
 
 ## Proposing a new skill
 
+Please review the **What we look for** section and add justification for the skill in your issue and PR.
+
 A skill should be self-contained and:
 
 - Clearly state **what it does** and **when to use it**.
+- Frontmatter (name and description) is small and minimal, just enough for LLM to understand when to use it
+- Keep the SKILL.md body under 500 lines for optimal performance. Split content into separate files when you approach this limit. Use a progressive disclosure pattern, referring to those files from the SKILL.md file where needed.
 - Specify required inputs (repo context, environment, access needs).
 - Prefer concrete checklists and verification steps over vague guidance.
 
@@ -295,6 +300,24 @@ Tests run automatically on pull requests that modify files under `plugins/`. The
 
 - Do not include secrets, tokens, or internal URLs.
 - If you discover a security issue, do not open a public issue with sensitive details. Use the repository or organization security reporting process instead.
+
+### External references
+
+Skills often reference external tools, documentation, and projects — this is
+expected and welcome, including community and third-party resources. To help
+reviewers stay aware of external dependencies, the repository includes an
+automated reference scanner (`eng/reference-scanner/scan.ps1`) that runs in CI.
+
+The scanner treats all of the following as CI-blocking errors:
+- `http://` URLs where `https://` should be used
+- `<script>` tags loading external resources without an `integrity` (SRI) attribute
+- Pipe-to-shell patterns (`curl ... | bash`)
+- URLs pointing to domains not listed in `eng/reference-scanner/known-domains.txt`
+
+Community tools and third-party projects are evaluated on a case-by-case basis
+(see "What we look for" above). If your skill references a new external domain,
+add it to `eng/reference-scanner/known-domains.txt` in the same PR — the reviewer will
+approve it alongside the skill content.
 
 ## Review process
 
