@@ -584,15 +584,19 @@ public static class AgentRunner
                 {
                     await File.WriteAllTextAsync(targetPath, file.Content);
                 }
-                else if (file.Source is not null && skillPath is not null)
+                else if (file.Source is not null)
                 {
-                    var canonicalSkillPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(skillPath));
-                    var sourcePath = Path.GetFullPath(Path.Combine(skillPath, file.Source));
-                    // Prevent path traversal: source must stay inside skillPath
-                    if (!sourcePath.StartsWith(canonicalSkillPath + Path.DirectorySeparatorChar, pathComparison)
-                        && !sourcePath.Equals(canonicalSkillPath, pathComparison))
+                    // Resolve source relative to eval directory (preferred) or skill directory
+                    var baseDir = evalPath is not null ? Path.GetDirectoryName(evalPath)! : skillPath;
+                    if (baseDir is null) continue;
+
+                    var canonicalBaseDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(baseDir));
+                    var sourcePath = Path.GetFullPath(Path.Combine(baseDir, file.Source));
+                    // Prevent path traversal: source must stay inside the base directory
+                    if (!sourcePath.StartsWith(canonicalBaseDir + Path.DirectorySeparatorChar, pathComparison)
+                        && !sourcePath.Equals(canonicalBaseDir, pathComparison))
                     {
-                        Console.Error.WriteLine($"Setup file source escapes skill directory, skipping: {file.Source}");
+                        Console.Error.WriteLine($"Setup file source escapes base directory, skipping: {file.Source}");
                         continue;
                     }
                     File.Copy(sourcePath, targetPath, true);
