@@ -820,20 +820,4 @@ public static class AgentRunner
         foreach (var dir in Directory.GetDirectories(source))
             CopyDirectory(dir, Path.Combine(destination, Path.GetFileName(dir)));
     }
-
-    /// <summary>
-    /// Walks up from <paramref name="startDir"/> to find the repository root
-    /// (a directory containing a <c>.git</c> folder or <c>global.json</c>).
-    /// </summary>
-    private static string? FindRepoRoot(string startDir)
-    {
-        var dir = Path.GetFullPath(startDir);
-        while (dir is not null)
-        {
-            if (Directory.Exists(Path.Combine(dir, ".git")) || File.Exists(Path.Combine(dir, "global.json")))
-                return dir;
-            dir = Path.GetDirectoryName(dir);
-        }
-        return null;
-    }
 }
