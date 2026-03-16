@@ -1,0 +1,97 @@
+scenarios:
+  - name: "Prevent ListView usage in new MAUI app"
+    prompt: |
+      I'm building a new .NET MAUI app and I need to display a list of products.
+      Each product has a name, price, and image. I want to show them in a scrollable
+      list with a search bar at the top. Can you give me the XAML for this?
+    assertions:
+      - type: "output_contains"
+        value: "CollectionView"
+      - type: "output_not_contains"
+        value: "<ListView"
+      - type: "output_matches"
+        pattern: "x:DataType"
+    rubric:
+      - "Uses CollectionView instead of ListView for the product list"
+      - "Declares x:DataType for compiled bindings on DataTemplate or page"
+      - "Does not use any deprecated controls (ListView, TableView, Frame)"
+      - "Uses Grid or VerticalStackLayout as the parent container, not StackLayout wrapping a ScrollView"
+    timeout: 120
+
+  - name: "Correct ScrollView inside StackLayout anti-pattern"
+    prompt: |
+      I have this XAML layout for my .NET MAUI app but scrolling doesn't work right.
+      Can you fix it?
+
+      ```xml
+      <StackLayout>
+        <Label Text="Header" FontSize="24" />
+        <ScrollView>
+          <VerticalStackLayout>
+            <Label Text="Item 1" />
+            <Label Text="Item 2" />
+            <Label Text="Item 3" />
+          </VerticalStackLayout>
+        </ScrollView>
+        <Button Text="Submit" />
+      </StackLayout>
+      ```
+    assertions:
+      - type: "output_contains"
+        value: "Grid"
+      - type: "output_not_contains"
+        value: "<StackLayout>"
+    rubric:
+      - "Identifies that ScrollView inside StackLayout is the problem"
+      - "Replaces StackLayout with Grid as the parent container"
+      - "Explains why ScrollView or CollectionView should never be placed inside StackLayout"
+      - "Preserves the original layout intent (header, scrollable content, footer button)"
+    timeout: 120
+
+  - name: "Replace Frame with Border in card layout"
+    prompt: |
+      I need a card-style UI component for my .NET MAUI app with rounded corners,
+      a border, and some padding. Show me the XAML.
+    assertions:
+      - type: "output_contains"
+        value: "Border"
+      - type: "output_matches"
+        pattern: "(?i)StrokeShape|RoundRectangle"
+    rubric:
+      - "Uses Border instead of Frame for the card component"
+      - "Uses StrokeShape with RoundRectangle for rounded corners"
+      - "If Frame is mentioned at all, it is explicitly called out as legacy"
+      - "Uses Background property instead of BackgroundColor"
+    timeout: 120
+
+  - name: "Handler customization instead of renderer"
+    prompt: |
+      I need to customize the Entry control in my .NET MAUI app to remove the
+      underline/border on both Android and iOS. How do I create a custom renderer
+      for this?
+    assertions:
+      - type: "output_matches"
+        pattern: "(?i)handler|mapper"
+      - type: "output_not_contains"
+        value: "ExportRenderer"
+    rubric:
+      - "Redirects from custom renderer to handler/mapper approach"
+      - "Explains that renderers are a legacy Xamarin.Forms concept not used in MAUI"
+      - "Shows platform-specific code using #if ANDROID / #elif IOS preprocessor directives"
+      - "Uses AppendToMapping, PrependToMapping, or ModifyMapping method"
+    timeout: 120
+
+  - name: "Image reference guidance"
+    prompt: |
+      I'm adding SVG icons to my .NET MAUI app. I've placed logo.svg in
+      Resources/Images/. How do I reference it in XAML?
+    assertions:
+      - type: "output_contains"
+        value: ".png"
+      - type: "output_matches"
+        pattern: "(?i)build|convert|generat"
+    rubric:
+      - "Instructs to reference the image as .png, not .svg"
+      - "Explains that SVGs are converted to PNGs at build time"
+      - "Shows correct Image Source syntax with .png extension"
+    timeout: 120
