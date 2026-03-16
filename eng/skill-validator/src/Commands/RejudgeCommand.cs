@@ -123,11 +123,12 @@ public static class RejudgeCommand
 
         Console.WriteLine($"Found {runGroups.Count} run group(s) across {runGroups.Select(g => g.Key.SkillName).Distinct().Count()} skill(s)\n");
 
+        var firstSession = sessions[0];
         var verdicts = new List<SkillVerdict>();
         foreach (var skillGroup in runGroups.GroupBy(g => g.Key.SkillName))
         {
             var skillName = skillGroup.Key;
-            var firstSession = skillGroup.First().First();
+            var firstSkillSession = skillGroup.First().First();
             Console.WriteLine($"[{skillName}] Rejudging...");
 
             var comparisons = new List<ScenarioComparison>();
@@ -164,7 +165,7 @@ public static class RejudgeCommand
                             verbose,
                             judgeTimeout,
                             CreateJudgeWorkDir(judgeWorkRoot, "baseline"),
-                            firstSession.SkillPath);
+                            firstSkillSession.SkillPath);
                         var baselineJudge = await SafeJudge(
                             Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, log),
                             "baseline",
@@ -212,7 +213,7 @@ public static class RejudgeCommand
                                         verbose,
                                         judgeTimeout,
                                         CreateJudgeWorkDir(judgeWorkRoot, "pairwise"),
-                                        firstSession.SkillPath,
+                                        firstSkillSession.SkillPath,
                                         CreateJudgeWorkDir(judgeWorkRoot, "pairwise-skilled")),
                                     log);
                                 sessionDb.SavePairwiseResult(baselineSess.Id, JsonSerializer.Serialize(pairwise, SkillValidatorJsonContext.Default.PairwiseJudgeResult));
@@ -255,7 +256,7 @@ public static class RejudgeCommand
             if (comparisons.Count == 0)
                 continue;
 
-            var skill = new SkillInfo(skillName, "", firstSession.SkillPath, firstSession.SkillPath, "", null, null);
+            var skill = new SkillInfo(skillName, "", firstSkillSession.SkillPath, firstSkillSession.SkillPath, "", null, null);
             var verdict = Comparator.ComputeVerdict(skill, comparisons, minImprovement, requireCompletion, confidenceLevel);
             Console.WriteLine($"[{skillName}] {(verdict.Passed ? "✅" : "❌")} Score: {verdict.OverallImprovementScore * 100:F1}%");
             verdicts.Add(verdict);
@@ -268,7 +269,7 @@ public static class RejudgeCommand
             new(ReporterType.Markdown),
         };
         await Reporter.ReportResults(verdicts, reporters, verbose,
-            effectiveJudgeModel, effectiveJudgeModel, resultsDir, resultsDir);
+            firstSession.Model, effectiveJudgeModel, resultsDir, resultsDir);
 
         await AgentRunner.StopAllClients();
         return verdicts.All(v => v.Passed) ? 0 : 1;

@@ -324,19 +324,24 @@ public static class ValidateCommand
             Console.WriteLine($"\x1b[33m⚠  Running with {config.Runs} run(s). For statistically significant results, use --runs 5 or higher.\x1b[0m");
 
         bool usePairwise = config.JudgeMode is JudgeMode.Pairwise or JudgeMode.Both;
+        bool effectiveKeepSessions = config.KeepSessions && config.ResultsDir is not null;
 
         string? sessionsDir = null;
         SessionDatabase? sessionDb = null;
         string? timestampedResultsDir = null;
-        if (config.KeepSessions && config.ResultsDir is not null)
+        if (effectiveKeepSessions)
         {
-            timestampedResultsDir = Path.Combine(config.ResultsDir, Reporter.FormatTimestamp(DateTime.Now));
+            timestampedResultsDir = Path.Combine(config.ResultsDir!, Reporter.FormatTimestamp(DateTime.Now));
             Directory.CreateDirectory(timestampedResultsDir);
             sessionsDir = Path.Combine(timestampedResultsDir, "sessions");
             Directory.CreateDirectory(sessionsDir);
             sessionDb = new SessionDatabase(Path.Combine(timestampedResultsDir, "sessions.db"));
             sessionDb.SetSchemaInfo("judge_model", config.JudgeModel);
             Console.WriteLine($"Session persistence enabled: {timestampedResultsDir}");
+        }
+        else if (config.KeepSessions)
+        {
+            Console.WriteLine("\x1b[33m⚠  --keep-sessions was set without --results-dir; sessions will not be persisted.\x1b[0m");
         }
 
         using var spinner = new Spinner();
@@ -380,7 +385,7 @@ public static class ValidateCommand
         }
 
         await AgentRunner.StopAllClients();
-        await AgentRunner.CleanupWorkDirs(config.KeepSessions);
+        await AgentRunner.CleanupWorkDirs(effectiveKeepSessions);
         sessionDb?.Dispose();
 
         // Always fail on execution errors, even in --verdict-warn-only mode
