@@ -23,8 +23,8 @@ scenarios:
       - type: "output_matches"
         pattern: "(Directory\\.Build\\.props|centralize|shared)"
     rubric:
-      - "Adds <OutputType>Exe</OutputType> to Directory.Build.props (not per-project)"
       - "Adds <EnableMSTestRunner>true</EnableMSTestRunner> to Directory.Build.props (not per-project)"
+      - "Mentions OutputType Exe is needed for MTP (either explicitly set in Directory.Build.props or auto-set by EnableMSTestRunner)"
       - "Configures dotnet test integration (TestingPlatformDotnetTestSupport in Directory.Build.props or global.json)"
       - "Explains that --logger trx must change to --report-trx and requires Microsoft.Testing.Extensions.TrxReport package"
       - "Mentions the -- separator requirement on .NET 8 for MTP arguments"

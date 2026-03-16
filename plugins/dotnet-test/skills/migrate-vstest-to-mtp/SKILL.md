@@ -5,12 +5,15 @@ description: >
   Use when user asks to "migrate to MTP", "switch from VSTest", "enable
   Microsoft.Testing.Platform", "use MTP runner", or mentions EnableMSTestRunner,
   EnableNUnitRunner, UseMicrosoftTestingPlatformRunner, or dotnet test exit
-  code 8. Supports MSTest, NUnit, and xUnit.net v2.
+  code 8. Supports MSTest, NUnit, xUnit.net v2 (via YTest.MTP.XUnit2), and
+  xUnit.net v3 (native MTP). Also covers translating xUnit.net v3 MTP filter
+  syntax (--filter-class, --filter-trait, --filter-query).
   Covers runner enablement, CLI argument translation, Directory.Build.props
   and global.json configuration, CI/CD pipeline updates, and MTP extension
   packages. DO NOT USE FOR: migrating between test frameworks
-  (MSTest/xUnit/NUnit), xUnit.net v2 to v3 migration, MSTest version upgrades
-  (use migrate-mstest-* skills), TFM upgrades, or UWP/WinUI test projects.
+  (MSTest/xUnit/NUnit), xUnit.net v2 to v3 API migration, MSTest version
+  upgrades (use migrate-mstest-* skills), TFM upgrades, or UWP/WinUI test
+  projects.
 ---
 
 # VSTest → Microsoft.Testing.Platform Migration
@@ -91,7 +94,7 @@ Each framework has its own opt-in property. Add these in `Directory.Build.props`
 </PropertyGroup>
 ```
 
-Ensure the project references MSTest 3.2.0 or later. Recommend updating to the latest version.
+Ensure the project references MSTest 3.2.0 or later. If the version is already 3.2.0+, no MSTest version upgrade is needed for MTP migration.
 
 **Option B — MSTest.Sdk:**
 
@@ -123,7 +126,19 @@ Add a reference to `YTest.MTP.XUnit2` — this package provides MTP support for 
 <PackageReference Include="YTest.MTP.XUnit2" Version="*" />
 ```
 
-> **Note**: `YTest.MTP.XUnit2` preserves the VSTest `--filter` syntax, so no filter migration is needed for xUnit.net. It also supports `--settings` for runsettings (xunit-specific configurations only), `xunit.runner.json`, TRX reporting via `--report-trx`, and `--treenode-filter`.
+> **Note**: `YTest.MTP.XUnit2` preserves the VSTest `--filter` syntax, so no filter migration is needed for xUnit.net v2. It also supports `--settings` for runsettings (xunit-specific configurations only), `xunit.runner.json`, TRX reporting via `--report-trx`, and `--treenode-filter`.
+
+#### xUnit.net v3
+
+xUnit.net v3 (`xunit.v3` package) has built-in MTP support. Enable it with:
+
+```xml
+<PropertyGroup>
+  <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+</PropertyGroup>
+```
+
+> **Important**: xUnit.net v3 on MTP does NOT support the VSTest `--filter` syntax. You must translate filters to xUnit.net v3's native filter options (see Step 5).
 
 ### Step 4: Configure dotnet test integration
 
@@ -175,7 +190,7 @@ VSTest-specific arguments must be translated to MTP equivalents. Build-related a
 | `--blame-hang-timeout <TIMESPAN>` | `--hangdump-timeout <TIMESPAN>` | Requires HangDump extension |
 | `--collect "Code Coverage;Format=cobertura"` | `--coverage --coverage-output-format cobertura` | Per-extension arguments |
 | `-d\|--diag <LOG_FILE>` | `--diagnostic` | |
-| `--filter <EXPRESSION>` | `--filter <EXPRESSION>` | Same syntax for MSTest, NUnit, and xUnit.net (with `YTest.MTP.XUnit2`) |
+| `--filter <EXPRESSION>` | `--filter <EXPRESSION>` | Same syntax for MSTest, NUnit, and xUnit.net v2 (with `YTest.MTP.XUnit2`). For xUnit.net v3, see filter migration below |
 | `-l\|--logger trx` | `--report-trx` | Requires `Microsoft.Testing.Extensions.TrxReport` NuGet package |
 | `--results-directory <DIR>` | `--results-directory <DIR>` | Same |
 | `-s\|--settings <FILE>` | `--settings <FILE>` | MSTest and NUnit still support `.runsettings` |
@@ -184,7 +199,32 @@ VSTest-specific arguments must be translated to MTP equivalents. Build-related a
 
 #### Filter migration
 
-**MSTest, NUnit, and xUnit.net (with `YTest.MTP.XUnit2`)**: The VSTest `--filter` syntax is identical on both VSTest and MTP. No changes needed.
+**MSTest, NUnit, and xUnit.net v2 (with `YTest.MTP.XUnit2`)**: The VSTest `--filter` syntax is identical on both VSTest and MTP. No changes needed.
+
+**xUnit.net v3 (native MTP)**: xUnit.net v3 does NOT support the VSTest `--filter` syntax on MTP. Translate filters using xUnit.net v3's native options:
+
+| VSTest `--filter` syntax | xUnit.net v3 MTP equivalent | Notes |
+|---|---|---|
+| `FullyQualifiedName~ClassName` | `--filter-class ClassName` | Substring match on class name |
+| `FullyQualifiedName=Ns.Class.Method` | `--filter-method Ns.Class.Method` | Exact match on fully qualified method |
+| `Name=MethodName` | `--filter-method MethodName` | Match on method display name |
+| `Category=Value` (trait) | `--filter-trait "Category=Value"` | Filter by trait name/value pair |
+| Complex `&`/`\|` expressions | `--filter-query "expr"` | Use [xUnit.net query filter language](https://xunit.net/docs/query-filter-language) |
+
+Example translation:
+
+```shell
+# VSTest
+dotnet test --filter "FullyQualifiedName~IntegrationTests&Category=Smoke"
+
+# xUnit.net v3 MTP — using individual filters
+dotnet test -- --filter-class IntegrationTests --filter-trait "Category=Smoke"
+
+# xUnit.net v3 MTP — using query language
+dotnet test -- --filter-query "class~IntegrationTests AND trait('Category', 'Smoke')"
+```
+
+> **Note**: When combining `--filter-class` and `--filter-trait`, both conditions must match (AND behavior). For OR logic or complex expressions, use `--filter-query`.
 
 ### Step 6: Install MTP extension packages (if needed)
 
@@ -318,11 +358,13 @@ Once migration is complete and verified, remove packages that are only needed fo
 | `dotnet test` arguments ignored on .NET 9 and earlier | Use `--` to separate build args from MTP args: `dotnet test -- --report-trx` |
 | `--logger trx` produces no output | Replace with `--report-trx` and install `Microsoft.Testing.Extensions.TrxReport` |
 | `--collect "Code Coverage"` does nothing | Replace with `--coverage` and install `Microsoft.Testing.Extensions.CodeCoverage` |
-| `--filter` fails on xUnit.net | Use `YTest.MTP.XUnit2` which preserves VSTest `--filter` syntax for xUnit.net v2 |
+| `--filter` fails on xUnit.net v2 | Use `YTest.MTP.XUnit2` which preserves VSTest `--filter` syntax for xUnit.net v2 |
+| VSTest `--filter` syntax not working on xUnit.net v3 MTP | xUnit.net v3 uses native filter options: `--filter-class`, `--filter-trait`, `--filter-method`, `--filter-query` (see Step 5) |
 | Exit code 8 on CI without failures | MTP fails when zero tests run; use `--ignore-exit-code 8` or fix test discovery |
 | VSTest task in Azure DevOps fails | Replace `VSTest@3` with `DotNetCoreCLI@2` task |
 | NUnit3TestAdapter < 5.0.0 | MTP requires adapter version 5.0.0 or later |
 | xUnit.net v2 does not support MTP | Add `YTest.MTP.XUnit2` package — provides MTP support for xUnit.net v2 without requiring an upgrade to v3 |
+| xUnit.net v3 filter syntax differs from VSTest | Use `--filter-class`, `--filter-trait`, `--filter-method`, or `--filter-query` instead of VSTest `--filter` |
 | Test Explorer not discovering tests | Update Visual Studio to 17.14+ or use VS Code with C# DevKit |
 | MSTest.Sdk v4 + vstest.console no longer works | MSTest.Sdk v4 no longer adds `Microsoft.NET.Test.Sdk` — add it explicitly or switch to `dotnet test` |
 | Properties set per-project instead of in Directory.Build.props | Centralize in `Directory.Build.props` to avoid inconsistent configuration |
