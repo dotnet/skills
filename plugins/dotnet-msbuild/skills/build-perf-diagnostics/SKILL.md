@@ -68,7 +68,7 @@ description: "Reference knowledge for diagnosing MSBuild build performance issue
 - **Symptoms**: Copy task shows high aggregate time
 - **Root causes**: copying thousands of files, copying across network drives, Copy task unintentionally running once per item (per-file) instead of as a single batch (see dotnet/msbuild#12884)
 - **Fixes**: use hardlinks (`<CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>true</CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>`), reduce CopyToOutputDirectory items, use `<UseCommonOutputDirectory>true</UseCommonOutputDirectory>` when appropriate, set `<SkipCopyUnchangedFiles>true</SkipCopyUnchangedFiles>`, consider `--artifacts-path` (.NET 8+) for centralized output layout
-- **Dev Drive**: On Windows, switching to a Dev Drive (ReFS with copy-on-write and reduced Defender scans) dramatically reduces file I/O overhead. OrchardCore with 7257 Copy tasks shows significant speedup. Enable via https://aka.ms/devdrive — recommend for both dev machines and self-hosted CI agents.
+- **Dev Drive**: On Windows, switching to a Dev Drive (ReFS with copy-on-write and reduced Defender scans) can significantly reduce file I/O overhead for Copy-heavy builds. Recommend for both dev machines and self-hosted CI agents.
 
 ### 5. Evaluation Overhead
 
@@ -82,13 +82,13 @@ description: "Reference knowledge for diagnosing MSBuild build performance issue
 - **Symptoms**: restore runs every build even when unnecessary
 - **Fixes**:
   - Separate restore from build: `dotnet restore` then `dotnet build --no-restore`
-  - Enable static graph evaluation: `<RestoreUseStaticGraphEvaluation>true</RestoreUseStaticGraphEvaluation>` in Directory.Build.props — can save 20s+ in large (~200s) builds
+  - Enable static graph evaluation: `<RestoreUseStaticGraphEvaluation>true</RestoreUseStaticGraphEvaluation>` in Directory.Build.props — can save significant time in large builds (results are workload-dependent)
 
 ### 7. Large Project Count and Graph Shape
 
 - **Symptoms**: many small projects, each takes minimal time but overhead adds up; deep dependency chains serialize the build
 - **Consider**: project consolidation, or use `/graph` mode for better scheduling
-- **Graph shape matters**: a wide dependency graph (few levels, many parallel branches) builds much faster than a deep one (many levels, serialized). Measured improvements: **40% faster clean builds, 20% faster incremental builds** when refactoring from deep to wide.
+- **Graph shape matters**: a wide dependency graph (few levels, many parallel branches) builds faster than a deep one (many levels, serialized). Refactoring from deep to wide can yield significant improvements in both clean and incremental build times.
 - **Actions**: look for unnecessary project dependencies, consider splitting a bottleneck project into two, or merging small leaf projects
 
 ## Using Binlog Replay for Performance Analysis
@@ -133,7 +133,7 @@ Step-by-step workflow using text log replay:
 - [ ] Check for bin/obj clashes (see `check-bin-obj-clash` skill)
 - [ ] Use graph build (`/graph`) for multi-project solutions
 - [ ] Use `--artifacts-path` (.NET 8+) for centralized output layout
-- [ ] Enable Dev Drive (ReFS) on Windows dev machines and self-hosted CI (`https://aka.ms/devdrive`)
+- [ ] Enable Dev Drive (ReFS) on Windows dev machines and self-hosted CI
 
 ## Impact Categorization
 
