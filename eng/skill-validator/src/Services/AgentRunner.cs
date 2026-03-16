@@ -586,26 +586,12 @@ public static class AgentRunner
                 }
                 else if (file.Source is not null)
                 {
-                    // Resolve source relative to eval directory (preferred) or skill directory
-                    var baseDir = evalPath is not null ? Path.GetDirectoryName(evalPath)! : skillPath;
-                    if (baseDir is null) continue;
-
-                    var sourcePath = Path.GetFullPath(Path.Combine(baseDir, file.Source));
-                    // Prevent path traversal: source must stay inside the repository root
-                    var repoRoot = FindRepoRoot(baseDir);
-                    if (repoRoot is null)
+                    var resolvedSource = ResolveSourcePath(file.Source, evalPath, skillPath);
+                    if (resolvedSource is null)
                     {
-                        Console.Error.WriteLine($"Cannot determine repository root from {baseDir}, skipping: {file.Source}");
                         continue;
                     }
-                    var canonicalRepoRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repoRoot));
-                    if (!sourcePath.StartsWith(canonicalRepoRoot + Path.DirectorySeparatorChar, pathComparison)
-                        && !sourcePath.Equals(canonicalRepoRoot, pathComparison))
-                    {
-                        Console.Error.WriteLine($"Setup file source escapes repository root, skipping: {file.Source}");
-                        continue;
-                    }
-                    File.Copy(sourcePath, targetPath, true);
+                    File.Copy(resolvedSource, targetPath, true);
                 }
             }
         }
@@ -662,6 +648,36 @@ public static class AgentRunner
     }
 
     // --- Security: environment scrubbing for child processes ---
+
+    /// <summary>
+    /// Resolves a setup file source path relative to the eval directory (preferred) or skill directory.
+    /// Returns the resolved absolute path, or null if resolution fails (no base directory, or path traversal detected).
+    /// </summary>
+    internal static string? ResolveSourcePath(string source, string? evalPath, string? skillPath)
+    {
+        var baseDir = evalPath is not null ? Path.GetDirectoryName(evalPath)! : skillPath;
+        if (baseDir is null)
+        {
+            Console.Error.WriteLine($"Setup file source '{source}' specified but no eval or skill directory is available, skipping.");
+            return null;
+        }
+
+        var pathComparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        var canonicalBaseDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(baseDir));
+        var sourcePath = Path.GetFullPath(Path.Combine(baseDir, source));
+        // Prevent path traversal: source must stay inside the base directory
+        if (!sourcePath.StartsWith(canonicalBaseDir + Path.DirectorySeparatorChar, pathComparison)
+            && !sourcePath.Equals(canonicalBaseDir, pathComparison))
+        {
+            Console.Error.WriteLine($"Setup file source escapes base directory, skipping: {source}");
+            return null;
+        }
+
+        return sourcePath;
+    }
 
     private static readonly string[] SensitiveEnvKeys =
     [
