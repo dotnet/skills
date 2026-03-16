@@ -24,7 +24,7 @@ scenarios:
         pattern: "(Directory\\.Build\\.props|centralize|shared)"
     rubric:
       - "Adds <EnableMSTestRunner>true</EnableMSTestRunner> to Directory.Build.props (not per-project)"
-      - "Mentions OutputType Exe is needed for MTP (either explicitly set in Directory.Build.props or auto-set by EnableMSTestRunner)"
+      - "Mentions <OutputType>Exe</OutputType> must be set explicitly on test projects (EnableMSTestRunner does NOT auto-set it)"
       - "Configures dotnet test integration (TestingPlatformDotnetTestSupport in Directory.Build.props or global.json)"
       - "Explains that --logger trx must change to --report-trx and requires Microsoft.Testing.Extensions.TrxReport package"
       - "Mentions the -- separator requirement on .NET 8 for MTP arguments"
@@ -325,11 +325,11 @@ scenarios:
       - type: "output_matches"
         pattern: "(filter-class|filter-trait|filter-method|filter-query)"
     rubric:
-      - "Explains that VSTest --filter syntax is not supported for xUnit.net on MTP"
-      - "Translates FullyQualifiedName~IntegrationTests to --filter-class or --filter-query"
+      - "Explains that VSTest --filter syntax is not supported for xUnit.net v3 on MTP"
+      - "Translates FullyQualifiedName~IntegrationTests to --filter-class *IntegrationTests* (with wildcards for substring match) or --filter-query with path-segment syntax"
       - "Translates Category=Smoke to --filter-trait \"Category=Smoke\""
-      - "Mentions --filter-query for complex filter expressions"
-      - "References xUnit.net query filter language documentation"
+      - "Mentions --filter-query uses path-segment syntax (/<assembly>/<namespace>/<class>/<method>[trait=value])"
+      - "References xUnit.net query filter language documentation or provides the link"
     timeout: 360
 
   # ============================================================================
