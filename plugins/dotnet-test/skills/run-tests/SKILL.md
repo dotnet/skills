@@ -295,7 +295,7 @@ dotnet test --filter-namespace "MyApp.Tests.Integration" --filter-trait "Categor
 
 #### MTP filters — TUnit
 
-TUnit uses TUnit uses `--treenode-filter` with a path-based syntax:
+TUnit uses `--treenode-filter` with a path-based syntax:
 
 ```
 --treenode-filter "/<Assembly>/<Namespace>/<ClassName>/<TestName>"
