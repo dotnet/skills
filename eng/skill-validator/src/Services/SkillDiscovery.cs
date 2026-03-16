@@ -33,6 +33,29 @@ public static partial class SkillDiscovery
         return skills;
     }
 
+    /// <summary>
+    /// Recursively discover all skills under a directory tree by finding SKILL.md files.
+    /// </summary>
+    public static async Task<IReadOnlyList<SkillInfo>> DiscoverSkillsRecursive(string targetPath, string? testsDir = null)
+    {
+        if (!Directory.Exists(targetPath))
+            return [];
+
+        var skills = new List<SkillInfo>();
+        foreach (var skillMdPath in Directory.EnumerateFiles(targetPath, "SKILL.md", SearchOption.AllDirectories))
+        {
+            var dirPath = Path.GetDirectoryName(skillMdPath)!;
+            if (Path.GetFileName(dirPath).StartsWith('.'))
+                continue;
+
+            var skill = await DiscoverSkillAt(dirPath, testsDir);
+            if (skill is not null)
+                skills.Add(skill);
+        }
+
+        return skills;
+    }
+
     private static async Task<SkillInfo?> DiscoverSkillAt(string dirPath, string? testsDir)
     {
         var skillMdPath = Path.Combine(dirPath, "SKILL.md");
@@ -49,11 +72,9 @@ public static partial class SkillDiscovery
         string? evalPath = null;
         EvalConfig? evalConfig = null;
 
-        var evalFilePath = testsDir is not null
-            ? Path.Combine(testsDir, Path.GetFileName(dirPath), "eval.yaml")
-            : Path.Combine(dirPath, "tests", "eval.yaml");
+        var evalFilePath = ResolveEvalPath(dirPath, testsDir);
 
-        if (File.Exists(evalFilePath))
+        if (evalFilePath is not null && File.Exists(evalFilePath))
         {
             evalPath = evalFilePath;
             var evalContent = await File.ReadAllTextAsync(evalFilePath);
@@ -105,9 +126,10 @@ public static partial class SkillDiscovery
                         return result.Count > 0 ? result : null;
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
                     // malformed plugin.json — skip
+                    Console.Error.WriteLine($"Failed to parse plugin.json in {dir}: {ex.GetType().Name}: {ex.Message}");
                 }
                 return null;
             }
@@ -116,6 +138,39 @@ public static partial class SkillDiscovery
             if (parent is null || parent == dir) break;
             dir = parent;
         }
+        return null;
+    }
+
+    /// <summary>
+    /// Resolve the eval.yaml path for a skill. Tries flat layout first,
+    /// then searches one level of subdirectories under testsDir.
+    /// </summary>
+    private static string? ResolveEvalPath(string skillDirPath, string? testsDir)
+    {
+        var skillDirName = Path.GetFileName(skillDirPath);
+
+        if (testsDir is null)
+        {
+            var inTree = Path.Combine(skillDirPath, "tests", "eval.yaml");
+            return File.Exists(inTree) ? inTree : null;
+        }
+
+        // Flat: testsDir/<skill-name>/eval.yaml
+        var flat = Path.Combine(testsDir, skillDirName, "eval.yaml");
+        if (File.Exists(flat))
+            return flat;
+
+        // Nested: testsDir/<subdir>/<skill-name>/eval.yaml (e.g., tests/dotnet/csharp-scripts/eval.yaml)
+        if (Directory.Exists(testsDir))
+        {
+            foreach (var subDir in Directory.GetDirectories(testsDir))
+            {
+                var nested = Path.Combine(subDir, skillDirName, "eval.yaml");
+                if (File.Exists(nested))
+                    return nested;
+            }
+        }
+
         return null;
     }
 
@@ -200,7 +255,7 @@ public static partial class SkillDiscovery
         var name = metadata.Name ?? "";
         var description = metadata.Description ?? "";
 
-        return new AgentInfo(name, description, filePath, content, fileName);
+        return new AgentInfo(name, description, filePath, content, fileName, metadata.Tools);
     }
 
     internal static (EvalSchema.RawAgentFrontmatter Metadata, string Body) ParseAgentFrontmatter(string content)
@@ -221,6 +276,67 @@ public static partial class SkillDiscovery
         .Build();
 
     // --- Plugin discovery ---
+
+    /// <summary>
+    /// For a given skill, find its plugin root directory (the directory containing plugin.json).
+    /// Returns the plugin root path and the parsed PluginInfo.
+    /// Returns null if no plugin.json is found or if it is malformed.
+    /// </summary>
+    public static (string PluginRoot, PluginInfo Plugin)? FindPluginContext(SkillInfo skill)
+    {
+        var pluginRoot = FindPluginRoot(skill.Path);
+        if (pluginRoot is null) return null;
+
+        var pluginJsonPath = Path.Combine(pluginRoot, "plugin.json");
+        PluginInfo? plugin;
+        try
+        {
+            plugin = PluginValidator.ParsePluginJson(pluginJsonPath);
+        }
+        catch (JsonException)
+        {
+            // Malformed plugin.json — treated as "no plugin" here;
+            // the later DiscoverPlugins/ValidatePlugin path will surface
+            // the user-friendly error message.
+            return null;
+        }
+        if (plugin is null) return null;
+
+        return (pluginRoot, plugin);
+    }
+
+    /// <summary>
+    /// Groups discovered skills by their parent plugin root.
+    /// Returns a dictionary: pluginRoot -> (PluginInfo, skills[])
+    /// Skills without a plugin are reported as errors and excluded.
+    /// </summary>
+    public static (Dictionary<string, (PluginInfo Plugin, List<SkillInfo> Skills)> Groups, List<string> Errors)
+        GroupSkillsByPlugin(IReadOnlyList<SkillInfo> skills)
+    {
+        var groups = new Dictionary<string, (PluginInfo Plugin, List<SkillInfo> Skills)>(
+            StringComparer.OrdinalIgnoreCase);
+        var errors = new List<string>();
+
+        foreach (var skill in skills)
+        {
+            var context = FindPluginContext(skill);
+            if (context is null)
+            {
+                errors.Add($"Skill '{skill.Name}' at '{skill.Path}' is not inside a plugin directory (no valid plugin.json found: missing or malformed). All skills must belong to a plugin.");
+                continue;
+            }
+
+            var (root, plugin) = context.Value;
+            if (!groups.TryGetValue(root, out var group))
+            {
+                group = (plugin, []);
+                groups[root] = group;
+            }
+            group.Skills.Add(skill);
+        }
+
+        return (groups, errors);
+    }
 
     /// <summary>
     /// Discover plugin.json files from plugin directories reachable from the given paths.

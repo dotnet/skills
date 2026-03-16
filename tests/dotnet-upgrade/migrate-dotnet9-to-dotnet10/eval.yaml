@@ -1,0 +1,628 @@
+scenarios:
+  # --- Scenario 1: Core libraries (AsyncEnumerable, SIGTERM, BufferedStream, trace propagation) ---
+  - name: "Console app with System.Linq.Async, SIGTERM, and BufferedStream"
+    prompt: |
+      I have a .NET 9 console app (no Generic Host) that:
+      - References System.Linq.Async 6.0.1 for IAsyncEnumerable LINQ queries
+      - Uses AppDomain.ProcessExit to flush logs and clean up when SIGTERM is received in Docker
+      - Has a custom stream pipeline that writes byte-by-byte to a BufferedStream and expects automatic flushing when the buffer fills
+      - Uses DistributedContextPropagator for trace context propagation in a custom format (not W3C)
+      What breaks when migrating to .NET 10?
+    assertions:
+      - type: "output_matches"
+        pattern: "(System\\.Linq\\.Async|AsyncEnumerable)"
+      - type: "output_matches"
+        pattern: "(SIGTERM|PosixSignal|signal|ProcessExit)"
+      - type: "output_matches"
+        pattern: "(BufferedStream|WriteByte|[Ff]lush)"
+    rubric:
+      - "Identifies System.Linq.Async conflict with built-in AsyncEnumerable; recommends removing the package, upgrading to v7, or using ExcludeAssets"
+      - "Explains the runtime no longer registers SIGTERM handlers, so AppDomain.ProcessExit won't fire; recommends PosixSignalRegistration.Create"
+      - "Warns that BufferedStream.WriteByte no longer implicitly flushes and recommends adding explicit Flush() calls"
+      - "Mentions the default trace context propagator changed to W3C standard"
+    timeout: 240
+
+  # --- Scenario 2: C# 14 span overloads + Expression trees ---
+  - name: "Expression tree code broken by C# 14 span overload resolution"
+    prompt: |
+      I'm migrating a .NET 9 library to .NET 10. It builds LINQ expression trees that call .Contains() on int[] arrays:
+      ```csharp
+      Expression<Func<int[], int, bool>> expr = (array, num) => array.Contains(num);
+      expr.Compile(preferInterpretation: true)(new[] { 1, 2, 3 }, 2);
+      ```
+      After upgrading to .NET 10 / C# 14, this throws at runtime. What happened and how do I fix it?
+    assertions:
+      - type: "output_matches"
+        pattern: "(span|Span|MemoryExtensions|overload)"
+      - type: "output_matches"
+        pattern: "(IEnumerable|AsEnumerable|Enumerable\\.Contains)"
+    rubric:
+      - "Explains that C# 14 span conversions cause MemoryExtensions.Contains to bind instead of Enumerable.Contains for array.Contains() in expressions"
+      - "Provides at least one concrete fix: casting to IEnumerable<int>, using .AsEnumerable(), or calling Enumerable.Contains explicitly"
+    timeout: 180
+
+  # --- Scenario 3: ASP.NET Core obsoletions + OpenAPI + cookie auth ---
+  - name: "ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers"
+    prompt: |
+      I'm upgrading a .NET 9 ASP.NET Core web API. The codebase:
+      - Uses WebHostBuilder in Program.cs (the legacy hosting model)
+      - Calls .WithOpenApi() on minimal API endpoints
+      - Has <IncludeOpenAPIAnalyzers>true</IncludeOpenAPIAnalyzers> in the csproj
+      - References Microsoft.Extensions.ApiDescription.Client for NSwag code generation
+      - Uses IActionContextAccessor registered as a singleton
+      - Uses IPNetwork in ForwardedHeadersOptions.KnownNetworks
+      - Uses AddRazorRuntimeCompilation() for dev-time Razor editing
+      - Has API endpoints that currently get redirected to the login page on 401
+      What needs to change for .NET 10?
+    assertions:
+      - type: "output_matches"
+        pattern: "(WebHostBuilder|obsolete|WebApplication)"
+      - type: "output_matches"
+        pattern: "(WithOpenApi|deprecated|OpenAPI)"
+      - type: "output_matches"
+        pattern: "(IActionContextAccessor|obsolete)"
+    rubric:
+      - "Identifies WebHostBuilder/IWebHost/WebHost as obsolete; recommends WebApplication.CreateBuilder"
+      - "Notes WithOpenApi() is deprecated"
+      - "Notes IncludeOpenAPIAnalyzers property is deprecated and should be removed"
+      - "Notes Microsoft.Extensions.ApiDescription.Client is deprecated"
+      - "Identifies IActionContextAccessor as obsolete"
+      - "Warns that IPNetwork and ForwardedHeadersOptions.KnownNetworks are obsolete"
+      - "Notes Razor runtime compilation is obsolete; suggests dotnet watch / hot reload"
+      - "Mentions cookie auth no longer redirects API endpoints to login — now returns 401 directly"
+    timeout: 240
+
+  # --- Scenario 3b: Microsoft.OpenApi v2.x breaking API changes in transformers ---
+  - name: "ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs"
+    prompt: |
+      I'm migrating a .NET 9 ASP.NET Core web API to .NET 10. We have custom OpenAPI transformers that manipulate the document. After upgrading Microsoft.AspNetCore.OpenApi to 10.0, we get compilation errors. Here's our code:
+
+      ```csharp
+      using Microsoft.OpenApi.Any;
+      using Microsoft.OpenApi.Models;
+
+      options.AddOperationTransformer((operation, context, ct) =>
+      {
+          var param = operation.Parameters.FirstOrDefault(p => p.Name == "api-version");
+          if (param is not null)
+          {
+              param.Schema.Example = new OpenApiString("1.0");
+          }
+
+          operation.Responses.TryAdd("401", new OpenApiResponse { Description = "Unauthorized" });
+
+          var oAuthScheme = new OpenApiSecurityScheme
+          {
+              Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "oauth2" }
+          };
+          operation.Security = new List<OpenApiSecurityRequirement>
+          {
+              new() { [oAuthScheme] = scopes }
+          };
+
+          return Task.CompletedTask;
+      });
+
+      options.AddSchemaTransformer((schema, context, ct) =>
+      {
+          if (schema.Properties is not null)
+          {
+              foreach (var property in schema.Properties)
+              {
+                  if (schema.Required?.Contains(property.Key) != true)
+                      property.Value.Nullable = false;
+              }
+          }
+          return Task.CompletedTask;
+      });
+      ```
+
+      What changed and how do I fix each piece?
+    assertions:
+      - type: "output_matches"
+        pattern: "(OpenApiString|OpenApiAny|JsonNode|System\\.Text\\.Json)"
+      - type: "output_matches"
+        pattern: "(OpenApiSecurityScheme|Reference|OpenApiSecuritySchemeReference)"
+      - type: "output_matches"
+        pattern: "(Nullable|nullable|removed|schema)"
+    rubric:
+      - "Identifies OpenApiString/OpenApiAny types are removed; recommends using System.Text.Json.Nodes.JsonNode (e.g., JsonNode.Parse)"
+      - "Identifies OpenApiSecurityScheme.Reference pattern is replaced by OpenApiSecuritySchemeReference"
+      - "Warns that operation.Parameters and other collections may now be null; must add null checks or initialize"
+      - "Identifies OpenApiSchema.Nullable is removed in OpenAPI 3.1 / Microsoft.OpenApi v2; schema transformer can be removed or rewritten"
+      - "Notes the namespace changes: Microsoft.OpenApi.Any removed, models moved to Microsoft.OpenApi"
+    timeout: 240
+
+  # --- Scenario 4a: EF Core (Azure SQL JSON, parameterized collections, multi-target tools) ---
+  - name: "EF Core app with Azure SQL JSON columns and parameterized collections"
+    prompt: |
+      I'm migrating a .NET 9 app using EF Core with UseAzureSql. The codebase:
+      - Has primitive collections (string[] Tags) and owned types mapped to JSON columns (currently nvarchar(max))
+      - Uses .Contains() on List<int> in LINQ queries that currently use OPENJSON
+      - The project multi-targets net9.0 and net10.0, and we run `dotnet ef migrations add` without --framework
+      What EF Core 10 breaking changes affect us?
+    assertions:
+      - type: "output_matches"
+        pattern: "(json|nvarchar|data type)"
+      - type: "output_matches"
+        pattern: "(parameterized|multiple parameters|OPENJSON|Contains)"
+      - type: "output_matches"
+        pattern: "(--framework|multi-target)"
+    rubric:
+      - "Warns about json data type replacing nvarchar(max) on Azure SQL and how to mitigate with UseCompatibilityLevel(160)"
+      - "Explains parameterized collections changed from OPENJSON to multiple scalar parameters; provides UseParameterizedCollectionMode mitigation"
+      - "Notes EF tools require --framework for multi-targeted projects"
+    timeout: 240
+
+  # --- Scenario 4b: EF Core (ExecuteUpdate, complex types, diagnostics logger) ---
+  - name: "EF Core app with dynamic ExecuteUpdate and complex types"
+    prompt: |
+      I'm migrating a .NET 9 app using EF Core. Here's the code that builds dynamic ExecuteUpdateAsync calls:
+      ```csharp
+      Expression<Func<SetPropertyCalls<Blog>, SetPropertyCalls<Blog>>> setters =
+          s => s.SetProperty(b => b.Views, 8);
+      if (nameChanged)
+      {
+          var blogParameter = Expression.Parameter(typeof(Blog), "b");
+          setters = Expression.Lambda<Func<SetPropertyCalls<Blog>, SetPropertyCalls<Blog>>>(
+              Expression.Call(
+                  instance: setters.Body,
+                  methodName: nameof(SetPropertyCalls<Blog>.SetProperty),
+                  typeArguments: new[] { typeof(string) },
+                  arguments: new Expression[]
+                  {
+                      Expression.Lambda<Func<Blog, string>>(
+                          Expression.Property(blogParameter, nameof(Blog.Name)), blogParameter),
+                      Expression.Constant("foo")
+                  }),
+              setters.Parameters);
+      }
+      await context.Blogs.ExecuteUpdateAsync(setters);
+      ```
+
+      We also have complex types:
+      ```csharp
+      modelBuilder.Entity<Customer>(b => {
+          b.ComplexProperty(c => c.ShippingAddress);
+          b.ComplexProperty(c => c.BillingAddress);
+      });
+      // Both ShippingAddress and BillingAddress have a Street property
+      // Nested: Order.Payment.BillingAddress.City
+      ```
+
+      And a custom diagnostics logger:
+      ```csharp
+      public class MyLogger : IRelationalCommandDiagnosticsLogger
+      {
+          public InterceptionResult<DbDataReader> CommandReaderExecuting(
+              IRelationalConnection connection, DbCommand command,
+              DbContext context, Guid commandId, Guid connectionId,
+              DateTimeOffset startTime)
+          { /* logging */ }
+      }
+      ```
+      What breaks in EF Core 10 and how do I fix each piece of code?
+    assertions:
+      - type: "output_matches"
+        pattern: "(ExecuteUpdate|expression|lambda|Func)"
+      - type: "output_matches"
+        pattern: "(complex type|column name|uniquif|full path)"
+      - type: "output_matches"
+        pattern: "(logCommandText|diagnostics|logger|parameter)"
+    rubric:
+      - "Identifies that ExecuteUpdateAsync now takes a regular lambda/delegate instead of an expression tree; shows the simplified replacement using a regular lambda with if/else"
+      - "Warns about complex type column name uniquification — Street columns will get a number suffix"
+      - "Warns about nested complex type full-path column naming — BillingAddress_City becomes Payment_BillingAddress_City"
+      - "Identifies the missing logCommandText string parameter in CommandReaderExecuting"
+    timeout: 240
+
+  # --- Scenario 5: Microsoft.Data.Sqlite DateTimeOffset (all 3 high-impact changes) ---
+  - name: "SQLite app with DateTimeOffset timezone handling"
+    prompt: |
+      I have a .NET 9 app using Microsoft.Data.Sqlite. It stores timestamps in TEXT columns without timezone offsets (e.g., '2024-06-15 14:30:00') and reads them back with GetDateTimeOffset(). It also writes DateTimeOffset values to REAL columns and reads timestamps with offsets using GetDateTime(). The app runs on machines in different timezones and we rely on the current local-timezone interpretation. What changes in .NET 10?
+    assertions:
+      - type: "output_matches"
+        pattern: "(UTC|timezone|time zone|offset)"
+      - type: "output_matches"
+        pattern: "(GetDateTimeOffset|GetDateTime|DateTimeOffset)"
+    rubric:
+      - "Explains GetDateTimeOffset without an offset now assumes UTC instead of local timezone"
+      - "Explains writing DateTimeOffset to REAL columns now converts to UTC first"
+      - "Explains GetDateTime with an offset now returns UTC with DateTimeKind.Utc instead of Local"
+      - "Mentions the AppContext switch Microsoft.Data.Sqlite.Pre10TimeZoneHandling as a temporary mitigation"
+      - "Warns that all three changes are high-impact and recommends reviewing all date/time handling code"
+    timeout: 180
+
+  # --- Scenario 6: Extensions obscure details (config null arrays, ProviderAlias assembly, keyed services AnyKey) ---
+  - name: "Worker service with config null array binding and ProviderAlias assembly change"
+    prompt: |
+      I'm upgrading a .NET 9 worker service to .NET 10. I have specific concerns:
+      - My appsettings.json has `"AllowedOrigins": [null, null]` and `"EmptyList": []`. In .NET 9, AllowedOrigins binds as `["", ""]` and EmptyList binds as null. What happens in .NET 10?
+      - I have `"ConnectionString": null` in my JSON config and my class has `public string ConnectionString { get; set; } = "default";` — in .NET 9 this was bound as an empty string. Does this change?
+      - My logging provider uses `[ProviderAlias("custom")]` and I reference it by assembly-qualified name `Microsoft.Extensions.Logging.ProviderAliasAttribute, Microsoft.Extensions.Logging`. Will that still resolve?
+      - I register services with `services.AddKeyedSingleton<ICache, RedisCache>("redis")` and discover them with `provider.GetKeyedServices<ICache>(KeyedService.AnyKey)`. There was a bug in .NET 9 where this didn't work correctly. Is it fixed?
+      - My BackgroundService does database seeding synchronously at the start of ExecuteAsync before the first await, and other services depend on the database being seeded. Will this still work?
+    assertions:
+      - type: "output_matches"
+        pattern: "(null|empty|array|\\[\\]|binding)"
+      - type: "output_matches"
+        pattern: "(ProviderAlias|Abstractions|assembly)"
+      - type: "output_matches"
+        pattern: "(BackgroundService|ExecuteAsync|background thread|StartAsync)"
+    rubric:
+      - "Correctly states AllowedOrigins will bind as [null, null] instead of ['', ''] in .NET 10"
+      - "Correctly states EmptyList will bind as an empty array [] instead of null"
+      - "Correctly states ConnectionString will be overwritten with null, losing the 'default' constructor value"
+      - "Notes ProviderAliasAttribute moved from Microsoft.Extensions.Logging to Microsoft.Extensions.Logging.Abstractions — assembly-qualified name will fail"
+      - "Confirms GetKeyedServices with AnyKey is fixed in .NET 10"
+      - "Warns BackgroundService.ExecuteAsync now runs on a background thread; database seeding will not block startup; recommends StartAsync or IHostedLifecycleService"
+    timeout: 240
+
+  # --- Scenario 7: Cryptography (OpenSSL, certificate validation, ML-DSA, Rfc2898DeriveBytes) ---
+  - name: "Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes"
+    prompt: |
+      I'm migrating a .NET 9 Linux server app to .NET 10. It:
+      - Uses OpenSSL-based crypto and runs on a system with OpenSSL 1.0.2
+      - Also has a macOS build that uses SafeEvpPKeyHandle.OpenSslVersion to check the OpenSSL version
+      - Validates X.509 certificates and parses X500DistinguishedName values that sometimes have unusual formatting
+      - Uses new Rfc2898DeriveBytes(password, salt, iterations) to derive keys
+      - Uses ML-DSA (post-quantum) and accesses the SecretKey property
+      - Sets the DOTNET_SYSTEM_GLOBALIZATION_INVARIANT and old OpenSSL version override environment variables
+      What do I need to change?
+    assertions:
+      - type: "output_matches"
+        pattern: "(OpenSSL|1\\.1\\.1|openssl)"
+      - type: "output_matches"
+        pattern: "(macOS|unsupported)"
+      - type: "output_matches"
+        pattern: "(Rfc2898|SYSLIB0060|Pbkdf2)"
+      - type: "output_matches"
+        pattern: "(SecretKey|PrivateKey|renamed)"
+    rubric:
+      - "Warns that OpenSSL 1.1.1+ is required on Unix — OpenSSL 1.0.2 is no longer supported"
+      - "Notes OpenSSL primitives are not supported on macOS"
+      - "Identifies Rfc2898DeriveBytes constructors as obsolete (SYSLIB0060) and recommends Rfc2898DeriveBytes.Pbkdf2"
+      - "Identifies MLDsa SecretKey renamed to PrivateKey"
+      - "Mentions X500DistinguishedName validation is stricter"
+      - "Mentions DOTNET_OPENSSL_VERSION_OVERRIDE environment variable rename"
+    timeout: 180
+
+  # --- Scenario 8: SDK/NuGet obscure changes (NU1510, PrunePackageReference, deps.json, custom culture) ---
+  - name: "SDK and NuGet obscure tooling changes"
+    prompt: |
+      I'm upgrading a .NET 9 project to .NET 10 and seeing unexpected behavior:
+      - After `dotnet restore`, I get NU1510 warnings saying some of my direct PackageReferences have been "pruned". What does this mean and how do I fix it?
+      - I have a PackageReference to a package that only provides analyzers (no runtime assets). In .NET 9 it appeared in deps.json but now it doesn't. Our deployment script reads deps.json to verify all expected packages are present.
+      - My project uses PrunePackageReference — how does this interact with direct references in .NET 10?
+      - My CI script runs `dotnet new sln --name MySolution` and then parses the resulting .sln file to extract project GUIDs. This broke.
+      - My project has satellite resource assemblies for a custom culture (e.g., "x-custom"). The build behavior seems different.
+      - I have a PackageReference without a Version attribute because we were relying on implicit resolution from a parent. Now restore fails.
+      - Our CI sets NUGET_ENABLE_ENHANCED_HTTP_RETRY=true and uses HTTP (not HTTPS) NuGet sources with `dotnet package list`.
+      What changed?
+    assertions:
+      - type: "output_matches"
+        pattern: "(NU1510|pruned|prune)"
+      - type: "output_matches"
+        pattern: "(deps\\.json|runtime assets)"
+      - type: "output_matches"
+        pattern: "(SLNX|slnx|\\.slnx|sln.*format)"
+      - type: "output_matches"
+        pattern: "(PackageReference|[Vv]ersion|error)"
+    rubric:
+      - "Explains NU1510 means the package is provided by the shared framework and the direct reference was pruned; recommends removing the explicit PackageReference"
+      - "Notes packages with no runtime assets are no longer in deps.json; deployment script must be updated"
+      - "Explains PrunePackageReference now privatizes direct prunable references (PrivateAssets=All)"
+      - "Warns dotnet new sln creates SLNX format; recommends --format sln for CI scripts"
+      - "Notes MSBuild custom culture resource handling has changed"
+      - "Notes PackageReference without a version now raises an error instead of implicitly resolving"
+      - "Notes NUGET_ENABLE_ENHANCED_HTTP_RETRY env var was removed and HTTP sources now cause errors in dotnet package list"
+    timeout: 240
+
+  # --- Scenario 9: Serialization (STJ property name conflict, XmlSerializer, LDAP) ---
+  - name: "JSON polymorphism with conflicting property names and XmlSerializer"
+    prompt: |
+      I'm migrating a .NET 9 app to .NET 10. Here's code that worked before:
+
+      ```csharp
+      [JsonPolymorphic(TypeDiscriminatorPropertyName = "Type")]
+      [JsonDerivedType(typeof(Dog), "dog")]
+      public abstract class Animal
+      {
+          public abstract string Type { get; }
+      }
+
+      public class Dog : Animal
+      {
+          public override string Type => "Dog";
+      }
+
+      // This produced {"Type":"dog","Type":"Dog"} in .NET 9 — broken JSON but it serialized
+      string json = JsonSerializer.Serialize<Animal>(new Dog());
+      ```
+
+      ```csharp
+      public class OrderDto
+      {
+          public int Id { get; set; }
+          [Obsolete("Use ShippingAddress instead")]
+          public string Address { get; set; }
+          public string ShippingAddress { get; set; }
+      }
+      var xml = new XmlSerializer(typeof(OrderDto));
+      // In .NET 9, Address was not included in the serialized output
+      ```
+
+      The app also validates email addresses like `user..name@example.com` with MailAddress, and uses Uri for 10K+ character URLs.
+      What breaks?
+    assertions:
+      - type: "output_matches"
+        pattern: "(property name|conflict|\\$type|discriminator|JsonIgnore|InvalidOperation)"
+      - type: "output_matches"
+        pattern: "(XmlSerializer|Obsolete|XmlIgnore)"
+      - type: "output_matches"
+        pattern: "(MailAddress|consecutive dots)"
+    rubric:
+      - "Identifies the Animal/Dog Type property now throws InvalidOperationException because it conflicts with the discriminator; recommends [JsonIgnore] or renaming"
+      - "Notes the [Obsolete] Address property will now be included in XML serialization; add [XmlIgnore] to exclude it"
+      - "Notes MailAddress now rejects consecutive dots"
+      - "Mentions Uri length limits have been removed"
+    timeout: 180
+
+  # --- Scenario 10: WinForms + WPF combined desktop app ---
+  - name: "WinForms and WPF desktop app with System.Drawing and DynamicResource"
+    prompt: |
+      I'm upgrading a .NET 9 Windows desktop app to .NET 10. Here's code that needs migration:
+
+      ```csharp
+      // Form1.cs
+      var menu = new ContextMenu();
+      menu.MenuItems.Add(new MenuItem("Open", OnOpen));
+      ```
+
+      ```csharp
+      // ImageProcessor.cs
+      try
+      {
+          using var bmp = new Bitmap(path);
+          bmp.SetResolution(300, 300);
+      }
+      catch (OutOfMemoryException ex)
+      {
+          logger.LogError(ex, "Invalid image format");
+      }
+      ```
+
+      ```xml
+      <!-- MainWindow.xaml -->
+      <Grid>
+          <Grid.ColumnDefinitions/>
+          <Grid.RowDefinitions/>
+          <TextBlock Text="{DynamicResource MissingKey}" />
+      </Grid>
+      ```
+
+      The project has both `<UseWindowsForms>true</UseWindowsForms>` and `<UseWPF>true</UseWPF>`.
+      The StatusStrip uses default rendering. TreeView has checkboxes.
+      What do I need to fix in each code snippet?
+    assertions:
+      - type: "output_matches"
+        pattern: "(MenuItem|ContextMenu|disambiguate|ambiguous|fully qualified)"
+      - type: "output_matches"
+        pattern: "(OutOfMemoryException|ExternalException)"
+      - type: "output_matches"
+        pattern: "(ColumnDefinitions|RowDefinitions|empty|disallowed|remove)"
+      - type: "output_matches"
+        pattern: "(DynamicResource|crash)"
+    rubric:
+      - "Identifies MenuItem/ContextMenu ambiguity and shows fix with fully qualified System.Windows.Forms.MenuItem"
+      - "Identifies the catch block must change to catch ExternalException (not ArgumentException, not IOException — specifically ExternalException from System.Runtime.InteropServices)"
+      - "Identifies the empty ColumnDefinitions/RowDefinitions must be removed from XAML"
+      - "Warns the DynamicResource with MissingKey will now crash instead of being silently ignored"
+      - "Mentions StatusStrip default RenderMode change"
+      - "Mentions TreeView checkbox image truncation change"
+    timeout: 180
+
+  # --- Scenario 11: Containers, single-file, and native interop ---
+  - name: "Containerized single-file app with P/Invoke and IDispatchEx"
+    prompt: |
+      I'm migrating a .NET 9 app to .NET 10. Here's what we have:
+
+      ```dockerfile
+      FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+      RUN apt-get update && apt-get install -y libgdiplus libc6-dev
+      FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+      ```
+
+      ```csharp
+      // NativeInterop.cs
+      [DllImport("mylib")]
+      [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+      static extern int ProcessData(byte* input, int length);
+      ```
+
+      ```csharp
+      // ComHelper.cs
+      var dispatchEx = (IDispatchEx)comObject;
+      var reflect = (IReflect)dispatchEx;  // cast to IReflect
+      ```
+
+      ```json
+      // global.json
+      { "sdk": { "version": "9.0.200" } }
+      ```
+
+      The app is published with `dotnet publish -r linux-x64 --self-contained /p:PublishSingleFile=true` and also has a NativeAOT Linux build that relies on rpath.
+      What needs to change for .NET 10?
+    assertions:
+      - type: "output_matches"
+        pattern: "(Ubuntu|Debian|container|aspnet:10)"
+      - type: "output_matches"
+        pattern: "(DllImport|AssemblyDirectory|single-file|System32)"
+      - type: "output_matches"
+        pattern: "(IDispatchEx|IReflect|cast|COM)"
+    rubric:
+      - "Updates the Dockerfile base images to 10.0 and warns that default images are now Ubuntu, not Debian; apt-get commands may need adjustment"
+      - "Identifies the P/Invoke will fail to find mylib in the app directory because DllImportSearchPath.System32 excludes it; recommends adding DllImportSearchPath.AssemblyDirectory"
+      - "Warns the IDispatchEx to IReflect cast now fails in .NET 10"
+      - "Mentions NativeAOT rpath is no longer set automatically"
+      - "Notes global.json should be updated to 10.0.x SDK"
+    timeout: 180
+
+  # --- Scenario 12: SslStream obsoletions + SYSLIB warnings ---
+  - name: "App using SslStream properties and SystemEvents"
+    prompt: |
+      I'm upgrading a .NET 9 app to .NET 10. It:
+      - Reads SslStream.KeyExchangeAlgorithm, SslStream.CipherAlgorithm, SslStream.HashAlgorithm, and their strength properties for TLS connection logging
+      - Registers a callback on SystemEvents.EventsThreadShutdown for cleanup
+      - Uses Queryable.MaxBy with an IComparer<TSource> overload
+      - Has XSLT transforms with XsltSettings.EnableScript = true
+      What warnings or errors will I get?
+    assertions:
+      - type: "output_matches"
+        pattern: "(SYSLIB005[89]|NegotiatedCipherSuite|SslStream)"
+      - type: "output_matches"
+        pattern: "(SYSLIB006[012]|EventsThreadShutdown|MaxBy|EnableScript)"
+    rubric:
+      - "Identifies SYSLIB0058 for SslStream properties; recommends NegotiatedCipherSuite"
+      - "Identifies SYSLIB0059 for SystemEvents.EventsThreadShutdown; recommends AppDomain.ProcessExit"
+      - "Identifies SYSLIB0061 for Queryable.MaxBy/MinBy IComparer<TSource> overloads"
+      - "Identifies SYSLIB0062 for XsltSettings.EnableScript"
+    timeout: 180
+
+  # --- Scenario 13: NuGet restore + transitive auditing + InlineArray ---
+  - name: "Library with NuGet auditing, transitive deps, and InlineArray"
+    prompt: |
+      I'm upgrading a .NET 9 class library to .NET 10. It:
+      - Has an [InlineArray(16)] struct with an explicit [StructLayout(LayoutKind.Explicit, Size = 64)]
+      - Uses DriveInfo.DriveFormat on Linux and compares the result to specific strings
+      - Uses dotnet restore and we're seeing new NU1510 warnings about pruned references
+      - The project has transitive NuGet dependencies that haven't been audited for vulnerabilities
+      - Has FilePatternMatch usage that checks if Stem is null
+      What should we fix?
+    assertions:
+      - type: "output_matches"
+        pattern: "(InlineArray|StructLayout|explicit.*[Ss]ize|disallowed)"
+      - type: "output_matches"
+        pattern: "(NU1510|pruned|transitive|audit)"
+    rubric:
+      - "Warns that InlineArray structs with explicit Size in StructLayout are now disallowed (binary incompatible — won't load)"
+      - "Explains DriveInfo.DriveFormat now returns actual Linux filesystem types instead of generic values"
+      - "Explains NU1510 for pruned references and recommends removing the explicit PackageReference"
+      - "Notes dotnet restore now audits transitive packages for vulnerabilities"
+      - "Mentions FilePatternMatch.Stem is now non-nullable"
+    timeout: 180
+
+  # --- Scenario 14: C# 14 compiler breaking changes (field keyword, extension keyword, scoped, partial, enumerator disposal) ---
+  - name: "C# 14 compiler breaking changes — field keyword, extension keyword, disposal"
+    prompt: |
+      I'm migrating a .NET 9 library to .NET 10 / C# 14 and getting new compiler errors. Here's the code:
+
+      ```csharp
+      // FieldParser.cs
+      public class FieldParser
+      {
+          private readonly JsonElement _payload;
+
+          public string ParsedValue
+          {
+              get
+              {
+                  _payload.TryGetProperty("field", out var field);
+                  return field.GetString() ?? string.Empty;
+              }
+          }
+      }
+      ```
+
+      ```csharp
+      // Extension.cs
+      namespace MyLib.Plugins;
+      public class extension
+      {
+          public string Name { get; set; }
+          public void Load() { }
+      }
+
+      // Used elsewhere:
+      using alias = MyLib.Plugins.extension;
+      ```
+
+      ```csharp
+      // Iteration.cs
+      var enumerator = GetItems().GetEnumerator();
+      enumerator.MoveNext();   // True
+      var first = enumerator.Current;
+      enumerator.Dispose();
+      enumerator.MoveNext();   // returned True in .NET 9, is this still the case?
+      var second = enumerator.Current;
+      ```
+
+      ```csharp
+      // LambdaHelper.cs
+      ref struct scoped { public int Value; }
+      var fn = (scoped scoped s) => s.Value;
+      ```
+
+      What breaks in each case and how do I fix it?
+    assertions:
+      - type: "output_matches"
+        pattern: "(field|CS9272|CS9258|keyword|property accessor)"
+      - type: "output_matches"
+        pattern: "(extension|keyword|contextual|rename|@extension)"
+      - type: "output_matches"
+        pattern: "(enumerator|[Dd]ispos|MoveNext|false)"
+    rubric:
+      - "Identifies 'var field' inside the property accessor as a CS9272 error because 'field' is now a keyword in property accessors; recommends renaming to fieldValue/@field"
+      - "Identifies the class named 'extension' as breaking because extension is a contextual keyword in C# 14; recommends renaming or using @extension"
+      - "Explains the enumerator now returns false from MoveNext() after disposal instead of continuing execution"
+      - "Identifies the scoped type name conflict in the lambda — scoped is treated as a modifier; recommends @scoped for the type name"
+    timeout: 180
+
+  # --- Scenario 15: HTTP streaming, GenericMath shifts, tar entries ---
+  - name: "Blazor WASM app with generic math shift masking and tar operations"
+    prompt: |
+      I'm upgrading a .NET 9 Blazor WebAssembly app to .NET 10. Here's the code:
+
+      ```csharp
+      // GenericShift.cs
+      static T ShiftLeft<T>(T value, int amount) where T : IShiftOperators<T, int, T>
+          => value << amount;
+
+      // Usage: ShiftLeft<byte>(0xFF, 8) returned 0 for byte but we got
+      // inconsistent results with other small types in .NET 9
+      ```
+
+      ```csharp
+      // ApiClient.cs
+      var response = await httpClient.GetAsync(url);
+      var stream = await response.Content.ReadAsStreamAsync();
+      var buffer = new byte[4096];
+      int bytesRead = stream.Read(buffer, 0, buffer.Length);  // synchronous read
+      ```
+
+      ```csharp
+      // Archiver.cs
+      var entry = new PaxTarEntry(TarEntryType.RegularFile, "data.txt");
+      // We expect entry.AccessTime and entry.ChangeTime to be set to now
+      archive.WriteEntry(entry);
+      ```
+
+      ```xml
+      <!-- App.csproj -->
+      <PublishTrimmed>true</PublishTrimmed>
+      ```
+
+      What breaks in each case and how do I fix it? Note: the app also uses HTTP/3 to connect to our backend.
+    assertions:
+      - type: "output_matches"
+        pattern: "(shift|mask|generic math|IShiftOperators|byte|sizeof)"
+      - type: "output_matches"
+        pattern: "(streaming|synchronous|Read|browser|HttpClient|async)"
+      - type: "output_matches"
+        pattern: "(HTTP/3|trim|PublishTrimmed|Http3Support)"
+    rubric:
+      - "Explains that shift operations now consistently mask the shift amount; for byte, 8 & 7 = 0, so shifting by 8 always returns 0"
+      - "Identifies the synchronous stream.Read() now throws because browser streaming is enabled by default; must use ReadAsync or disable streaming"
+      - "Notes PaxTarEntry no longer auto-populates atime/ctime; set them explicitly"
+      - "Notes HTTP/3 is disabled when PublishTrimmed is set; fix by adding <Http3Support>true</Http3Support> — this is NOT a native library issue, it's the trimmer removing HTTP/3 code"
+    timeout: 240

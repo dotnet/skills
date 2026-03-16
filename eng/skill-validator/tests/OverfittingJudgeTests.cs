@@ -349,7 +349,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline" },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = 0.25,
@@ -398,7 +398,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline" },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = 0.25,
@@ -440,7 +440,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline", TokenEstimate = 1000, ToolCallCount = 5, WallTimeMs = 2100 },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled", TokenEstimate = 8000, ToolCallCount = 15, WallTimeMs = 8500 },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = -0.18,
@@ -462,7 +462,7 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("[1]", md);
-        Assert.Contains("Quality improved but weighted score is", md);
+        Assert.Contains("(Isolated) Quality improved but weighted score is", md);
         Assert.Contains("due to:", md);
         // Raw metrics should appear in footnote
         Assert.Contains("tokens (1000", md);
@@ -492,7 +492,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline" },
                             new JudgeResult(new List<RubricScore>(), 3.0, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = 0.35,
@@ -538,7 +538,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline", TokenEstimate = 5000, TaskCompleted = false },
                             new JudgeResult(new List<RubricScore>(), 4.0, "Good")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled", TokenEstimate = 2000, TaskCompleted = true },
                             new JudgeResult(new List<RubricScore>(), 3.0, "OK")),
                         ImprovementScore = 0.14,
@@ -560,7 +560,7 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("[1]", md);
-        Assert.Contains("Quality dropped but weighted score is", md);
+        Assert.Contains("(Isolated) Quality dropped but weighted score is", md);
         Assert.Contains("due to:", md);
         // Raw metrics should appear in footnote
         Assert.Contains("completion", md);
@@ -590,7 +590,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline", TokenEstimate = 1000, ToolCallCount = 5 },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled", TokenEstimate = 3000, ToolCallCount = 5 },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
                         ImprovementScore = -0.10,
@@ -612,7 +612,7 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("[1]", md);
-        Assert.Contains("Quality unchanged but weighted score is", md);
+        Assert.Contains("(Isolated) Quality unchanged but weighted score is", md);
         Assert.Contains("tokens (1000", md);
     }
 
@@ -657,7 +657,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline" },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = 0.25,
@@ -692,7 +692,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline" },
                             new JudgeResult(new List<RubricScore>(), 4.0, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 3.0, "Worse")),
                         ImprovementScore = -0.25,

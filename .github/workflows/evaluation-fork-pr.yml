@@ -2,12 +2,16 @@
 #
 # Fork PRs cannot access repository secrets via the `pull_request` trigger.
 # This workflow uses `issue_comment` so that a maintainer can trigger evaluation
-# by posting "/evaluate" on a fork PR. The workflow YAML always comes from the
-# default branch (enforced by the issue_comment trigger).
+# by posting "/evaluate" on a fork PR.
+#
+# The `pull_request_target` trigger handles initial status posting for fork PRs:
+# it runs discovery (from the base branch, safe) and posts a commit status so
+# the required "evaluation-status" check is never stuck as "Expected".
 #
 # Security model:
-#   - Workflow YAML: always from the default branch (enforced by issue_comment)
-#   - Validator binary: built from the default branch checkout (trusted)
+#   - Workflow YAML: always from the base branch (enforced by issue_comment
+#     and pull_request_target triggers)
+#   - Validator binary: built from the base branch checkout (trusted)
 #   - Skill/test content: checked out from the fork PR (untrusted data, read-only)
 #   - Secret access: only users with write+ permission can trigger evaluation
 name: evaluation (fork PRs)
@@ -15,9 +19,10 @@ name: evaluation (fork PRs)
 on:
   issue_comment:
     types: [created]
+  pull_request_target:
 
 concurrency:
-  group: ${{ startsWith(github.event.comment.body, '/evaluate') && format('eval-fork-{0}', github.event.issue.number) || format('eval-fork-{0}-noop-{1}', github.event.issue.number, github.event.comment.id) }}
+  group: ${{ github.event_name == 'issue_comment' && (startsWith(github.event.comment.body, '/evaluate') && format('eval-fork-{0}', github.event.issue.number) || format('eval-fork-{0}-noop-{1}', github.event.issue.number, github.event.comment.id)) || format('eval-fork-status-{0}', github.event.pull_request.number) }}
   cancel-in-progress: true
 
 # pull-requests: write is required at the workflow level because the reusable
@@ -27,8 +32,67 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write
+  statuses: write
 
 jobs:
+  # Post initial evaluation commit status for fork PRs so the required check
+  # is never stuck as "Expected". Posts success (no skills) or pending (needs /evaluate).
+  # Uses pull_request_target so it runs with base repo permissions.
+  fork-status:
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - name: Checkout base branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+
+      - name: Fetch PR head (metadata only)
+        run: git fetch origin +refs/pull/${{ github.event.pull_request.number }}/head
+
+      - name: Discover changed skills
+        id: discover
+        shell: pwsh
+        run: |
+          $base = "${{ github.event.pull_request.base.sha }}"
+          $head = "FETCH_HEAD"
+          $mergeBase = git merge-base $base $head
+          $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+
+          $hasSkillChanges = $changedFiles |
+            Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
+            Select-Object -First 1
+
+          if ($hasSkillChanges) {
+            echo "has_skills=true" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "has_skills=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Post evaluation commit status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${{ steps.discover.outputs.has_skills }}" == "true" ]]; then
+            STATE="pending"
+            DESC="Fork PR — post /evaluate to trigger evaluation"
+          else
+            STATE="success"
+            DESC="No skills to evaluate"
+          fi
+
+          gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
+            -f state="$STATE" \
+            -f context="evaluation-status" \
+            -f description="$DESC" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
   # Validate the trigger: must be a /evaluate comment on a fork PR from a user
   # with write+ permissions.
   gate:
@@ -91,7 +155,7 @@ jobs:
         run: |
           gh api "repos/${{ github.repository }}/statuses/${{ steps.pr.outputs.head_sha }}" \
             -f state=pending \
-            -f context="evaluation (fork PRs)" \
+            -f context="evaluation-status" \
             -f description="Evaluation in progress..." \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
@@ -105,9 +169,10 @@ jobs:
       has_entries: ${{ steps.find.outputs.has_entries }}
     steps:
       - name: Checkout base branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Fetch PR head
         run: git fetch origin +refs/pull/${{ needs.gate.outputs.pr_number }}/head:refs/remotes/origin/pr-head
@@ -217,7 +282,7 @@ jobs:
           fi
           gh api "repos/${{ github.repository }}/statuses/${{ needs.gate.outputs.head_sha }}" \
             -f state="$STATE" \
-            -f context="evaluation (fork PRs)" \
+            -f context="evaluation-status" \
             -f description="$DESC" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 

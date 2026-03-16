@@ -59,7 +59,7 @@ public static partial class OverfittingJudge
             // No tools needed — all content is passed inline
             OnPermissionRequest = (_, _) => Task.FromResult(new PermissionRequestResult
             {
-                Kind = "denied-by-rules",
+                Kind = PermissionRequestResultKind.DeniedByRules,
             }),
         });
 
@@ -120,7 +120,7 @@ public static partial class OverfittingJudge
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
             OnPermissionRequest = (_, _) => Task.FromResult(new PermissionRequestResult
             {
-                Kind = "denied-by-rules",
+                Kind = PermissionRequestResultKind.DeniedByRules,
             }),
         });
 
