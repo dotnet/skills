@@ -66,7 +66,7 @@ description: "Reference knowledge for diagnosing MSBuild build performance issue
 ### 4. Excessive File I/O (Copy tasks)
 
 - **Symptoms**: Copy task shows high aggregate time
-- **Root causes**: copying thousands of files, copying across network drives, Copy task unintentionally running once per item (per-file) instead of as a single batch — see [dotnet/msbuild#12884](https://github.com/dotnet/msbuild/issues/12884)
+- **Root causes**: copying thousands of files, copying across network drives, Copy task unintentionally running once per item (per-file) instead of as a single batch (see dotnet/msbuild#12884)
 - **Fixes**: use hardlinks (`<CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>true</CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>`), reduce CopyToOutputDirectory items, use `<UseCommonOutputDirectory>true</UseCommonOutputDirectory>` when appropriate, set `<SkipCopyUnchangedFiles>true</SkipCopyUnchangedFiles>`, consider `--artifacts-path` (.NET 8+) for centralized output layout
 - **Dev Drive**: On Windows, switching to a Dev Drive (ReFS with copy-on-write and reduced Defender scans) dramatically reduces file I/O overhead. OrchardCore with 7257 Copy tasks shows significant speedup. Enable via https://aka.ms/devdrive — recommend for both dev machines and self-hosted CI agents.
 

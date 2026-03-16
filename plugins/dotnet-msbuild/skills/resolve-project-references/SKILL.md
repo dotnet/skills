@@ -11,7 +11,7 @@ When reviewing the **Target Performance Summary** from a diagnostic build log, `
 
 ### Why It's Misleading
 
-The reported time for `ResolveProjectReferences` includes **waiting for dependent projects to build** while the MSBuild node is yielded (see [dotnet/msbuild#3135](https://github.com/dotnet/msbuild/issues/3135)). During this wait, the node may be doing useful work on other projects.
+The reported time for `ResolveProjectReferences` includes **waiting for dependent projects to build** while the MSBuild node is yielded (see dotnet/msbuild#3135). During this wait, the node may be doing useful work on other projects.
 
 The target itself does very little work — it just triggers the build of referenced projects and waits for them to complete. The "time" attributed to it is wall-clock wait time, not CPU work.
 
