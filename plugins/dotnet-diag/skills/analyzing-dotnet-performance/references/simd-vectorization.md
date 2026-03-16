@@ -2,67 +2,72 @@
 
 ## Decision Gate
 
-1. **Check for TensorPrimitives first.** If one or more TensorPrimitives methods cover the operation → use them. If the `.csproj` does NOT already reference `System.Numerics.Tensors`, **add the package**, for example: `<PackageReference Include="System.Numerics.Tensors" />` (or use the versioning approach already used by your solution). Then replace the scalar loop with TP calls and stop. See the full API table below. Compose multiple TP calls when needed (e.g., finding both min and max → `TensorPrimitives.Min(span)` + `TensorPrimitives.Max(span)` as two calls). Do NOT write manual Vector128 code for operations TP already handles.
+1. **Check `Span<T>` and `MemoryExtensions` first.** If the operation can be expressed using built-in `Span<T>` methods (e.g., `Contains`, `IndexOf`, `CopyTo`, `SequenceEqual`) or `MemoryExtensions`, use them — no additional dependency is needed and the runtime already vectorizes many of these internally.
 
-2. **Scalar loop over contiguous array/span** of `byte`, `short`, `int`, `long`, `float`, `double`? → Implement with explicit `Vector128<T>` / `Vector256<T>` / `Vector512<T>` intrinsics using the patterns below.
+2. **Check for TensorPrimitives next.** If one or more TensorPrimitives methods cover the operation → use them. If the `.csproj` does NOT already reference `System.Numerics.Tensors`, **add the package**, for example: `<PackageReference Include="System.Numerics.Tensors" />` (or use the versioning approach already used by your solution). Then replace the scalar loop with TP calls and stop. See the full API table below. Compose multiple TP calls when needed (e.g., finding both min and max → `TensorPrimitives.Min(span)` + `TensorPrimitives.Max(span)` as two calls). Do NOT write manual Vector128 code for operations TP already handles.
 
-3. **No contiguous numeric array processing** (dictionary lookups, tree traversals, linked lists, state machines, string formatting, small collections, enum comparisons, recursive algorithms, decimal arithmetic)? → Report `[NO SIMD OPPORTUNITY]` and write a **full paragraph** explaining WHY, referencing the specific code characteristics that prevent vectorization (e.g., "State machines require sequential branching on enum values — there are no contiguous numeric arrays to process in parallel, and each transition depends on the previous state"). This explanation is graded.
+3. **Scalar loop over contiguous array/span** of `byte`, `sbyte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong`, `nint`, `nuint`, `float`, `double` (and `char` via reinterpretation as `ushort`)? → Implement with explicit `Vector128<T>` / `Vector256<T>` / `Vector512<T>` intrinsics using the patterns below.
+
+4. **No contiguous numeric array processing** (dictionary lookups, tree traversals, linked lists, state machines, string formatting, small collections, enum comparisons, recursive algorithms, decimal arithmetic)? → Report `[NO SIMD OPPORTUNITY]` and write a **full paragraph** explaining WHY, referencing the specific code characteristics that prevent vectorization (e.g., "State machines require sequential branching on enum values — there are no contiguous numeric arrays to process in parallel, and each transition depends on the previous state"). This explanation is graded.
 
 ## TensorPrimitives API Reference
 
-Use for any float/double array operation that has a matching API below. If the project doesn't already reference `System.Numerics.Tensors`, add it to the `.csproj`. Replace the entire manual loop with **one or more** `TensorPrimitives` calls as needed (prefer a single call when possible):
+TensorPrimitives APIs are generic and work for any primitive type that satisfies the method's generic constraints — not just `float`/`double`. For example, `Sum` requires `IAdditionOperators<T,T,T>` + `IAdditiveIdentity<T,T>` and works for all primitive numeric types, while `CosineSimilarity` requires `IRootFunctions<T>` and only works for `float`/`double`. Check the constraint column below to determine which types apply. If the project doesn't already reference `System.Numerics.Tensors`, add it to the `.csproj`. Replace the entire manual loop with **one or more** `TensorPrimitives` calls as needed (prefer a single call when possible):
 
 ### Reductions (span → scalar)
-| Operation | API |
-|-----------|-----|
-| Sum | `TensorPrimitives.Sum(span)` |
-| Sum of squares | `TensorPrimitives.SumOfSquares(span)` |
-| Sum of magnitudes (L1 norm) | `TensorPrimitives.SumOfMagnitudes(span)` |
-| L2 norm | `TensorPrimitives.Norm(span)` |
-| Product of all elements | `TensorPrimitives.Product(span)` |
-| Min value | `TensorPrimitives.Min(span)` |
-| Max value | `TensorPrimitives.Max(span)` |
-| Index of max | `TensorPrimitives.IndexOfMax(span)` |
-| Index of min | `TensorPrimitives.IndexOfMin(span)` |
-| Dot product | `TensorPrimitives.Dot(a, b)` |
-| Cosine similarity | `TensorPrimitives.CosineSimilarity(a, b)` |
-| Euclidean distance | `TensorPrimitives.Distance(a, b)` |
+| Operation | API | Constraint | Applicable types |
+|-----------|-----|------------|-----------------|
+| Sum | `TensorPrimitives.Sum(span)` | `IAdditionOperators`, `IAdditiveIdentity` | All primitive numerics |
+| Sum of squares | `TensorPrimitives.SumOfSquares(span)` | `IAdditionOperators`, `IMultiplyOperators` | All primitive numerics |
+| Sum of magnitudes (L1 norm) | `TensorPrimitives.SumOfMagnitudes(span)` | `INumberBase` | All primitive numerics |
+| L2 norm | `TensorPrimitives.Norm(span)` | `IRootFunctions` | `float`, `double` |
+| Product of all elements | `TensorPrimitives.Product(span)` | `IMultiplyOperators`, `IMultiplicativeIdentity` | All primitive numerics |
+| Min value | `TensorPrimitives.Min(span)` | `INumber` | All primitive numerics |
+| Max value | `TensorPrimitives.Max(span)` | `INumber` | All primitive numerics |
+| Index of max | `TensorPrimitives.IndexOfMax(span)` | `INumber` | All primitive numerics |
+| Index of min | `TensorPrimitives.IndexOfMin(span)` | `INumber` | All primitive numerics |
+| Dot product | `TensorPrimitives.Dot(a, b)` | `IAdditionOperators`, `IMultiplyOperators` | All primitive numerics |
+| Cosine similarity | `TensorPrimitives.CosineSimilarity(a, b)` | `IRootFunctions` | `float`, `double` |
+| Euclidean distance | `TensorPrimitives.Distance(a, b)` | `IRootFunctions` | `float`, `double` |
 
 ### Element-wise transforms (span → span)
-| Operation | API |
-|-----------|-----|
-| Negate | `TensorPrimitives.Negate(src, dst)` |
-| Abs | `TensorPrimitives.Abs(src, dst)` |
-| Sqrt | `TensorPrimitives.Sqrt(src, dst)` |
-| Exp | `TensorPrimitives.Exp(src, dst)` |
-| Log | `TensorPrimitives.Log(src, dst)` |
-| Log2 | `TensorPrimitives.Log2(src, dst)` |
-| Tanh | `TensorPrimitives.Tanh(src, dst)` |
-| Sigmoid | `TensorPrimitives.Sigmoid(src, dst)` |
-| SoftMax | `TensorPrimitives.SoftMax(src, dst)` |
-| Sinh | `TensorPrimitives.Sinh(src, dst)` |
-| Cosh | `TensorPrimitives.Cosh(src, dst)` |
-| Round | `TensorPrimitives.Round(src, dst)` |
-| Floor | `TensorPrimitives.Floor(src, dst)` |
-| Ceiling | `TensorPrimitives.Ceiling(src, dst)` |
-| CopySign | `TensorPrimitives.CopySign(src, sign, dst)` |
-| Pow | `TensorPrimitives.Pow(bases, exponents, dst)` |
+| Operation | API | Constraint | Applicable types |
+|-----------|-----|------------|-----------------|
+| Negate | `TensorPrimitives.Negate(src, dst)` | `IUnaryNegationOperators` | All signed numerics, `float`, `double` |
+| Abs | `TensorPrimitives.Abs(src, dst)` | `INumberBase` | All primitive numerics |
+| Sqrt | `TensorPrimitives.Sqrt(src, dst)` | `IRootFunctions` | `float`, `double` |
+| Exp | `TensorPrimitives.Exp(src, dst)` | `IExponentialFunctions` | `float`, `double` |
+| Log | `TensorPrimitives.Log(src, dst)` | `ILogarithmicFunctions` | `float`, `double` |
+| Log2 | `TensorPrimitives.Log2(src, dst)` | `ILogarithmicFunctions` | `float`, `double` |
+| Tanh | `TensorPrimitives.Tanh(src, dst)` | `IHyperbolicFunctions` | `float`, `double` |
+| Sigmoid | `TensorPrimitives.Sigmoid(src, dst)` | `IExponentialFunctions` | `float`, `double` |
+| SoftMax | `TensorPrimitives.SoftMax(src, dst)` | `IExponentialFunctions` | `float`, `double` |
+| Sinh | `TensorPrimitives.Sinh(src, dst)` | `IHyperbolicFunctions` | `float`, `double` |
+| Cosh | `TensorPrimitives.Cosh(src, dst)` | `IHyperbolicFunctions` | `float`, `double` |
+| Round | `TensorPrimitives.Round(src, dst)` | `IFloatingPoint` | `float`, `double` |
+| Floor | `TensorPrimitives.Floor(src, dst)` | `IFloatingPoint` | `float`, `double` |
+| Ceiling | `TensorPrimitives.Ceiling(src, dst)` | `IFloatingPoint` | `float`, `double` |
+| CopySign | `TensorPrimitives.CopySign(src, sign, dst)` | `INumber` | All primitive numerics |
+| Pow | `TensorPrimitives.Pow(bases, exponents, dst)` | `IPowerFunctions` | `float`, `double` |
 
 ### Two-span operations (a, b → dst)
-| Operation | API |
-|-----------|-----|
-| Add | `TensorPrimitives.Add(a, b, dst)` |
-| Subtract | `TensorPrimitives.Subtract(a, b, dst)` |
-| Multiply | `TensorPrimitives.Multiply(a, b, dst)` |
-| Divide | `TensorPrimitives.Divide(a, b, dst)` |
-| Element-wise Min | `TensorPrimitives.Min(a, b, dst)` |
-| Element-wise Max | `TensorPrimitives.Max(a, b, dst)` |
+| Operation | API | Constraint | Applicable types |
+|-----------|-----|------------|-----------------|
+| Add | `TensorPrimitives.Add(a, b, dst)` | `IAdditionOperators` | All primitive numerics |
+| Subtract | `TensorPrimitives.Subtract(a, b, dst)` | `ISubtractionOperators` | All primitive numerics |
+| Multiply | `TensorPrimitives.Multiply(a, b, dst)` | `IMultiplyOperators` | All primitive numerics |
+| Divide | `TensorPrimitives.Divide(a, b, dst)` | `IDivisionOperators` | All primitive numerics |
+| Element-wise Min | `TensorPrimitives.Min(a, b, dst)` | `INumber` | All primitive numerics |
+| Element-wise Max | `TensorPrimitives.Max(a, b, dst)` | `INumber` | All primitive numerics |
 
 ### Three-span fused operations
-| Operation | API |
-|-----------|-----|
-| (a+b)*c | `TensorPrimitives.AddMultiply(a, b, c, dst)` |
-| a*b+c (FMA) | `TensorPrimitives.MultiplyAdd(a, b, c, dst)` |
+| Operation | API | Constraint | Applicable types |
+|-----------|-----|------------|-----------------|
+| (x+y)*z | `TensorPrimitives.AddMultiply(x, y, z, dst)` | `IAdditionOperators`, `IMultiplyOperators` | All primitive numerics |
+| x*y+z | `TensorPrimitives.MultiplyAdd(x, y, z, dst)` | `IAdditionOperators`, `IMultiplyOperators` | All primitive numerics |
+| fma(x,y,z) | `TensorPrimitives.FusedMultiplyAdd(x, y, z, dst)` | `IFloatingPointIeee754` | `float`, `double` |
+
+> `AddMultiply` and `MultiplyAdd` are distinct — they optimize differently depending on whether the dependency chain flows from the addend or the multiplier. `FusedMultiplyAdd` is the IEEE 754 fused form of (x*y)+z with a single rounding step.
 
 ## Manual SIMD with Vector128/Vector256/Vector512
 
@@ -74,10 +79,10 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 ```
-Never use `System.Runtime.Intrinsics.X86` or `.Arm` — cross-platform APIs only.
+Prefer cross-platform APIs (`System.Runtime.Intrinsics`). Only use platform-specific intrinsics (`System.Runtime.Intrinsics.X86`, `.Arm`) when there is a significant performance advantage that justifies the increased code complexity of maintaining separate code paths.
 
 ### Three-tier dispatch pattern
-Always include all three tiers. The `IsHardwareAccelerated` check goes in the outer `if`; the length loop is a `while` inside. JIT eliminates dead paths at compile time. **Do NOT put length checks in the `if` condition** — separate the capability check from the loop:
+Always include all three tiers. Use `if`/`else if` so that small inputs hit only one branch before reaching the scalar fallback — a fallthrough pattern (sequential `if`s) pessimizes the scalar case by requiring up to three not-taken branches that may mispredict. The `IsHardwareAccelerated` checks are JIT-time constants, so dead paths are eliminated at compile time:
 ```csharp
 ref var src = ref MemoryMarshal.GetReference(span);
 uint i = 0;
@@ -93,7 +98,7 @@ if (Vector512.IsHardwareAccelerated && Vector512<T>.IsSupported)
         i += vec512Count;
     }
 }
-if (Vector256.IsHardwareAccelerated && Vector256<T>.IsSupported)
+else if (Vector256.IsHardwareAccelerated && Vector256<T>.IsSupported)
 {
     uint vec256Count = (uint)Vector256<T>.Count;
     while (i + vec256Count <= length)
@@ -103,7 +108,7 @@ if (Vector256.IsHardwareAccelerated && Vector256<T>.IsSupported)
         i += vec256Count;
     }
 }
-if (Vector128.IsHardwareAccelerated && Vector128<T>.IsSupported)
+else if (Vector128.IsHardwareAccelerated && Vector128<T>.IsSupported)
 {
     uint vec128Count = (uint)Vector128<T>.Count;
     while (i + vec128Count <= length)
@@ -113,7 +118,7 @@ if (Vector128.IsHardwareAccelerated && Vector128<T>.IsSupported)
         i += vec128Count;
     }
 }
-// Scalar fallback for remaining elements
+// Scalar fallback for remaining elements (and the only loop hit for small inputs)
 for (; i < length; i++)
 {
     // ... scalar processing ...
@@ -187,5 +192,5 @@ var narrowed = Vector128.Narrow(clamped.AsUInt16(), nextVec.AsUInt16());
 - Preserve original method signature — drop-in replacement
 - Keep scalar code as fallback — never delete it
 - Use `Vector128<T>` / `Vector256<T>` / `Vector512<T>` explicitly — never `Vector<T>`
-- Never use platform-specific intrinsics (`Avx2`, `Sse42`, `AdvSimd`, `Fma`)
+- Prefer portable `Vector128<T>`/`Vector256<T>`/`Vector512<T>` APIs over platform-specific intrinsics (`Avx2`, `Sse42`, `AdvSimd`, `Fma`) unless there is a significant performance advantage
 - Testing: use `dotnet run` (NOT `dotnet test`) — xunit.v3 is an in-process runner
