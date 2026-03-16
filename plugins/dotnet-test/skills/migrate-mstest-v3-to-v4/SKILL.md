@@ -63,20 +63,20 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 **If using the MSTest metapackage:**
 
 ```xml
-<PackageReference Include="MSTest" Version="4.0.2" />
+<PackageReference Include="MSTest" Version="4.1.0" />
 ```
 
 **If using individual packages:**
 
 ```xml
-<PackageReference Include="MSTest.TestFramework" Version="4.0.2" />
-<PackageReference Include="MSTest.TestAdapter" Version="4.0.2" />
+<PackageReference Include="MSTest.TestFramework" Version="4.1.0" />
+<PackageReference Include="MSTest.TestAdapter" Version="4.1.0" />
 ```
 
 **If using MSTest.Sdk:**
 
 ```xml
-<Project Sdk="MSTest.Sdk/4.0.2">
+<Project Sdk="MSTest.Sdk/4.1.0">
 ```
 
 Run `dotnet restore`, then `dotnet build`. Collect all errors for Step 3.

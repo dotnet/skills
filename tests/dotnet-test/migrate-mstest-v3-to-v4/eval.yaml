@@ -11,9 +11,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v3-to-v4/fixtures/v3-custom-testmethod/TestProject.csproj"
+          source: "fixtures/v3-custom-testmethod/TestProject.csproj"
         - path: "PaymentServiceTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v3-to-v4/fixtures/v3-custom-testmethod/PaymentServiceTests.cs"
+          source: "fixtures/v3-custom-testmethod/PaymentServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "ExecuteAsync"
@@ -37,9 +37,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v3-to-v4/fixtures/v3-expected-exception/TestProject.csproj"
+          source: "fixtures/v3-expected-exception/TestProject.csproj"
         - path: "ValidationServiceTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v3-to-v4/fixtures/v3-expected-exception/ValidationServiceTests.cs"
+          source: "fixtures/v3-expected-exception/ValidationServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(ThrowsExactly|Assert\\.Throws)"
@@ -64,9 +64,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v3-to-v4/fixtures/v3-assert-changes/TestProject.csproj"
+          source: "fixtures/v3-assert-changes/TestProject.csproj"
         - path: "CalculatorTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v3-to-v4/fixtures/v3-assert-changes/CalculatorTests.cs"
+          source: "fixtures/v3-assert-changes/CalculatorTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(ThrowsExactly|ThrowsException)"
@@ -94,9 +94,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v3-to-v4/fixtures/v3-dropped-tfm/TestProject.csproj"
+          source: "fixtures/v3-dropped-tfm/TestProject.csproj"
         - path: "SimpleTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v3-to-v4/fixtures/v3-dropped-tfm/SimpleTests.cs"
+          source: "fixtures/v3-dropped-tfm/SimpleTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(net6\\.0|dropped|unsupported|net8\\.0)"
@@ -377,9 +377,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v3-to-v4/fixtures/v3-sdk-project/TestProject.csproj"
+          source: "fixtures/v3-sdk-project/TestProject.csproj"
         - path: "DiagnosticTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v3-to-v4/fixtures/v3-sdk-project/DiagnosticTests.cs"
+          source: "fixtures/v3-sdk-project/DiagnosticTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(ManagedType|FullyQualifiedTestClassName)"
@@ -406,9 +406,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v3-to-v4/fixtures/v3-expected-exception/TestProject.csproj"
+          source: "fixtures/v3-expected-exception/TestProject.csproj"
         - path: "ValidationServiceTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v3-to-v4/fixtures/v3-expected-exception/ValidationServiceTests.cs"
+          source: "fixtures/v3-expected-exception/ValidationServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(v4|4\\.[0-9]+|MSTest 4)"

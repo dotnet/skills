@@ -10,9 +10,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v1v2-to-v3/fixtures/v1-assembly-ref/TestProject.csproj"
+          source: "fixtures/v1-assembly-ref/TestProject.csproj"
         - path: "OrderServiceTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v1v2-to-v3/fixtures/v1-assembly-ref/OrderServiceTests.cs"
+          source: "fixtures/v1-assembly-ref/OrderServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(QualityTools|assembly.?ref|UnitTestFramework)"
@@ -36,9 +36,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v1v2-to-v3/fixtures/v2-nuget/TestProject.csproj"
+          source: "fixtures/v2-nuget/TestProject.csproj"
         - path: "UserServiceTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v1v2-to-v3/fixtures/v2-nuget/UserServiceTests.cs"
+          source: "fixtures/v2-nuget/UserServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(2\\.2\\.10|v2|version 2)"
@@ -249,7 +249,7 @@ scenarios:
               </ItemGroup>
             </Project>
         - path: "UserServiceTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v1v2-to-v3/fixtures/v2-nuget/UserServiceTests.cs"
+          source: "fixtures/v2-nuget/UserServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "MSTest\\.Sdk"
@@ -304,11 +304,11 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v1v2-to-v3/fixtures/v2-complex/TestProject.csproj"
+          source: "fixtures/v2-complex/TestProject.csproj"
         - path: "InventoryServiceTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v1v2-to-v3/fixtures/v2-complex/InventoryServiceTests.cs"
+          source: "fixtures/v2-complex/InventoryServiceTests.cs"
         - path: "local.testsettings"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v1v2-to-v3/fixtures/v2-complex/local.testsettings"
+          source: "fixtures/v2-complex/local.testsettings"
     assertions:
       - type: "output_matches"
         pattern: "(net5\\.0|dropped|unsupported|net8\\.0)"
@@ -338,13 +338,13 @@ scenarios:
     setup:
       files:
         - path: "LegacyTests/TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v1v2-to-v3/fixtures/v1-assembly-ref/TestProject.csproj"
+          source: "fixtures/v1-assembly-ref/TestProject.csproj"
         - path: "LegacyTests/OrderServiceTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v1v2-to-v3/fixtures/v1-assembly-ref/OrderServiceTests.cs"
+          source: "fixtures/v1-assembly-ref/OrderServiceTests.cs"
         - path: "ModernTests/TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v1v2-to-v3/fixtures/v2-nuget/TestProject.csproj"
+          source: "fixtures/v2-nuget/TestProject.csproj"
         - path: "ModernTests/UserServiceTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-mstest-v1v2-to-v3/fixtures/v2-nuget/UserServiceTests.cs"
+          source: "fixtures/v2-nuget/UserServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(QualityTools|assembly.?ref|v1)"

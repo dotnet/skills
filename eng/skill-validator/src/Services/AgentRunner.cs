@@ -590,13 +590,19 @@ public static class AgentRunner
                     var baseDir = evalPath is not null ? Path.GetDirectoryName(evalPath)! : skillPath;
                     if (baseDir is null) continue;
 
-                    var canonicalBaseDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(baseDir));
                     var sourcePath = Path.GetFullPath(Path.Combine(baseDir, file.Source));
-                    // Prevent path traversal: source must stay inside the base directory
-                    if (!sourcePath.StartsWith(canonicalBaseDir + Path.DirectorySeparatorChar, pathComparison)
-                        && !sourcePath.Equals(canonicalBaseDir, pathComparison))
+                    // Prevent path traversal: source must stay inside the repository root
+                    var repoRoot = FindRepoRoot(baseDir);
+                    if (repoRoot is null)
                     {
-                        Console.Error.WriteLine($"Setup file source escapes base directory, skipping: {file.Source}");
+                        Console.Error.WriteLine($"Cannot determine repository root from {baseDir}, skipping: {file.Source}");
+                        continue;
+                    }
+                    var canonicalRepoRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repoRoot));
+                    if (!sourcePath.StartsWith(canonicalRepoRoot + Path.DirectorySeparatorChar, pathComparison)
+                        && !sourcePath.Equals(canonicalRepoRoot, pathComparison))
+                    {
+                        Console.Error.WriteLine($"Setup file source escapes repository root, skipping: {file.Source}");
                         continue;
                     }
                     File.Copy(sourcePath, targetPath, true);
@@ -797,5 +803,21 @@ public static class AgentRunner
             File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), true);
         foreach (var dir in Directory.GetDirectories(source))
             CopyDirectory(dir, Path.Combine(destination, Path.GetFileName(dir)));
+    }
+
+    /// <summary>
+    /// Walks up from <paramref name="startDir"/> to find the repository root
+    /// (a directory containing a <c>.git</c> folder or <c>global.json</c>).
+    /// </summary>
+    private static string? FindRepoRoot(string startDir)
+    {
+        var dir = Path.GetFullPath(startDir);
+        while (dir is not null)
+        {
+            if (Directory.Exists(Path.Combine(dir, ".git")) || File.Exists(Path.Combine(dir, "global.json")))
+                return dir;
+            dir = Path.GetDirectoryName(dir);
+        }
+        return null;
     }
 }
