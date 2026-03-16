@@ -91,31 +91,6 @@ description: "Reference knowledge for diagnosing MSBuild build performance issue
 - **Graph shape matters**: a wide dependency graph (few levels, many parallel branches) builds much faster than a deep one (many levels, serialized). Measured improvements: **40% faster clean builds, 20% faster incremental builds** when refactoring from deep to wide.
 - **Actions**: look for unnecessary project dependencies, consider splitting a bottleneck project into two, or merging small leaf projects
 
-### 7a. MSBuild Server and CLI Caching
-
-- **Symptoms**: small incremental builds from CLI are slower than expected
-- **Fix**: enable MSBuild Server by setting environment variable `MSBUILDUSESERVER=1` — provides better caching for incremental CLI builds
-
-### 7b. Inline Task Overhead
-
-- **Symptoms**: tasks show surprisingly high overhead (>1s) for simple operations
-- **Root cause**: inline tasks (defined in `.targets` files with `<UsingTask TaskFactory="RoslynCodeTaskFactory">`) are compiled at runtime, adding ~1s overhead vs ~3ms for pre-compiled tasks
-- **Fix**: convert frequently-executed inline tasks to compiled task assemblies
-
-### 8. Misleading ResolveProjectReferences Time
-
-- **Symptoms**: ResolveProjectReferences appears as the most expensive target in the performance summary
-- **Root cause**: the reported time includes waiting for dependent projects to build while the node is yielded (see dotnet/msbuild#3135). The node may be doing useful work on other projects during this wait.
-- **Diagnosis**: focus on the **self-time** of actual tasks (Csc, RAR, Copy) rather than the total time of wrapper targets like ResolveProjectReferences. Look at Task Performance Summary instead of Target Performance Summary for a more accurate picture.
-- **Not a fix target**: don't optimize ResolveProjectReferences directly — optimize the targets/tasks it's waiting on.
-
-### 9. Incrementality Anti-patterns
-
-- **Symptoms**: builds take the same time on second run as first, targets never skip even when sources haven't changed
-- **Targets generating Items via Tasks** (see dotnet/msbuild#13206): when a Target with `Inputs`/`Outputs` invokes a Task that generates Items (e.g., `<Output TaskParameter="ExcludedFiles" ItemName="_FilesExcludedFromBundle"/>`), and the target is skipped because outputs are up-to-date, those Items disappear. Downstream targets depending on those Items will fail or behave incorrectly.
-- **Fix**: separate computation (always-run, no Inputs/Outputs) from execution targets. The computation target discovers/lists items; the execution target has Inputs/Outputs and does the actual work.
-- See: `incremental-build` skill for comprehensive guidance
-
 ## Using Binlog Replay for Performance Analysis
 
 Step-by-step workflow using text log replay:
@@ -153,16 +128,12 @@ Step-by-step workflow using text log replay:
 - [ ] Enable static graph restore (`<RestoreUseStaticGraphEvaluation>true</RestoreUseStaticGraphEvaluation>`)
 - [ ] Enable hardlinks for Copy (`<CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>true</CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>`)
 - [ ] Disable analyzers conditionally in dev inner loop (`<RunAnalyzers Condition="'$(ContinuousIntegrationBuild)' != 'true'">false</RunAnalyzers>`)
-- [ ] Enable reference assemblies (`<ProduceReferenceAssembly>true</ProduceReferenceAssembly>`) — especially for older non-SDK-style projects
+- [ ] Enable reference assemblies (`<ProduceReferenceAssembly>true</ProduceReferenceAssembly>`)
 - [ ] Check for broken incremental builds (see `incremental-build` skill)
 - [ ] Check for bin/obj clashes (see `check-bin-obj-clash` skill)
 - [ ] Use graph build (`/graph`) for multi-project solutions
-- [ ] Disable packing for non-package projects (`<IsPackable>false</IsPackable>`)
 - [ ] Use `--artifacts-path` (.NET 8+) for centralized output layout
-- [ ] Set `<Deterministic>true</Deterministic>` as a prerequisite for build caching
 - [ ] Enable Dev Drive (ReFS) on Windows dev machines and self-hosted CI (`https://aka.ms/devdrive`)
-- [ ] Enable MSBuild Server for CLI builds (`MSBUILDUSESERVER=1`)
-- [ ] Run `dotnet build /check` for built-in BuildCheck diagnostics
 
 ## Impact Categorization
 
