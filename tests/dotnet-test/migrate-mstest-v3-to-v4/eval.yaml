@@ -191,7 +191,7 @@ scenarios:
                 <TargetFramework>net8.0</TargetFramework>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="MSTest" Version="4.0.2" />
+                <PackageReference Include="MSTest" Version="4.1.0" />
               </ItemGroup>
             </Project>
         - path: "SetupTests.cs"
@@ -237,13 +237,13 @@ scenarios:
   - name: "Handle MSTest.Sdk and MTP changes in v4"
     prompt: |
       I'm using MSTest.Sdk/3.8.0 with Microsoft.Testing.Platform. After upgrading to
-      MSTest.Sdk/4.0.2, my CI pipeline that uses vstest.console no longer discovers tests.
+      MSTest.Sdk/4.1.0, my CI pipeline that uses vstest.console no longer discovers tests.
       What changed?
     setup:
       files:
         - path: "TestProject.csproj"
           content: |
-            <Project Sdk="MSTest.Sdk/4.0.2">
+            <Project Sdk="MSTest.Sdk/4.1.0">
               <PropertyGroup>
                 <TargetFramework>net8.0</TargetFramework>
               </PropertyGroup>
@@ -373,7 +373,7 @@ scenarios:
     prompt: |
       I have a test project using MSTest.Sdk/3.8.0. The tests use TestContext.ManagedType,
       TestTimeout.Infinite, and TestContext.Properties.Contains. After upgrading to
-      MSTest.Sdk/4.0.2, I get compilation errors. How do I fix them?
+      MSTest.Sdk/4.1.0, I get compilation errors. How do I fix them?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -391,7 +391,7 @@ scenarios:
       - "Identifies that TestContext.ManagedType is removed in v4 and recommends FullyQualifiedTestClassName"
       - "Identifies that TestTimeout.Infinite is removed and recommends int.MaxValue"
       - "Identifies that TestContext.Properties.Contains must become ContainsKey"
-      - "Notes the MSTest.Sdk version should be updated to 4.0.2"
+      - "Notes the MSTest.Sdk version should be updated to 4.1.0"
       - "Mentions that MSTest.Sdk v4 no longer adds Microsoft.NET.Test.Sdk when using MTP"
     timeout: 180
 

@@ -14,7 +14,8 @@ description: >
   (net5.0/net6.0/net7.0 dropped — only net8.0, net9.0, net462, uap10.0
   supported).
   DO NOT USE FOR: migrating from MSTest v1/v2 to v3 (use migrate-mstest-v1v2-to-v3
-  first), migrating between test frameworks, or .NET version upgrades.
+  first), migrating between test frameworks, or general .NET version upgrades
+  unrelated to MSTest (use migrate-dotnet*-to-dotnet* skills).
 ---
 
 # MSTest v3 → v4 Migration

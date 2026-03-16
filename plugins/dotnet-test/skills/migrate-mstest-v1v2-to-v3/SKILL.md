@@ -15,7 +15,8 @@ description: >
   migrate-mstest-v3-to-v4.
   DO NOT USE FOR: migrating directly to MSTest v4 (use migrate-mstest-v3-to-v4
   after this skill), migrating between test frameworks (MSTest to xUnit/NUnit),
-  or .NET version upgrades (use migrate-dotnet*-to-dotnet* skills).
+  or general .NET version upgrades unrelated to MSTest (use
+  migrate-dotnet*-to-dotnet* skills).
 ---
 
 # MSTest v1/v2 → v3 Migration
