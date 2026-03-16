@@ -8,9 +8,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/TestProject.csproj"
+          source: "fixtures/vstest-mstest/TestProject.csproj"
         - path: "OrderServiceTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/OrderServiceTests.cs"
+          source: "fixtures/vstest-mstest/OrderServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"
@@ -27,11 +27,11 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk9/TestProject.csproj"
+          source: "fixtures/mtp-mstest-sdk9/TestProject.csproj"
         - path: "UserAuthTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk9/UserAuthTests.cs"
+          source: "fixtures/mtp-mstest-sdk9/UserAuthTests.cs"
         - path: "global.json"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk9/global.json"
+          source: "fixtures/mtp-mstest-sdk9/global.json"
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"
@@ -51,11 +51,11 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk10/TestProject.csproj"
+          source: "fixtures/mtp-mstest-sdk10/TestProject.csproj"
         - path: "CatalogServiceTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk10/CatalogServiceTests.cs"
+          source: "fixtures/mtp-mstest-sdk10/CatalogServiceTests.cs"
         - path: "global.json"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk10/global.json"
+          source: "fixtures/mtp-mstest-sdk10/global.json"
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"
@@ -77,7 +77,7 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/multi-tfm/TestProject.csproj"
+          source: "fixtures/multi-tfm/TestProject.csproj"
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"
@@ -100,9 +100,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/TestProject.csproj"
+          source: "fixtures/vstest-mstest/TestProject.csproj"
         - path: "OrderServiceTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/OrderServiceTests.cs"
+          source: "fixtures/vstest-mstest/OrderServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "--filter"
@@ -122,9 +122,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-nunit/TestProject.csproj"
+          source: "fixtures/vstest-nunit/TestProject.csproj"
         - path: "ReportServiceTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-nunit/ReportServiceTests.cs"
+          source: "fixtures/vstest-nunit/ReportServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "--filter"
@@ -144,11 +144,11 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-xunit-v3/TestProject.csproj"
+          source: "fixtures/mtp-xunit-v3/TestProject.csproj"
         - path: "ShoppingCartTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-xunit-v3/ShoppingCartTests.cs"
+          source: "fixtures/mtp-xunit-v3/ShoppingCartTests.cs"
         - path: "global.json"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-xunit-v3/global.json"
+          source: "fixtures/mtp-xunit-v3/global.json"
     assertions:
       - type: "output_matches"
         pattern: "--filter-class"
@@ -168,11 +168,11 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-xunit-v3/TestProject.csproj"
+          source: "fixtures/mtp-xunit-v3/TestProject.csproj"
         - path: "ShoppingCartTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-xunit-v3/ShoppingCartTests.cs"
+          source: "fixtures/mtp-xunit-v3/ShoppingCartTests.cs"
         - path: "global.json"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-xunit-v3/global.json"
+          source: "fixtures/mtp-xunit-v3/global.json"
     assertions:
       - type: "output_matches"
         pattern: "--filter-trait"
@@ -192,9 +192,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-tunit/TestProject.csproj"
+          source: "fixtures/mtp-tunit/TestProject.csproj"
         - path: "NotificationTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-tunit/NotificationTests.cs"
+          source: "fixtures/mtp-tunit/NotificationTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "--treenode-filter"
@@ -215,9 +215,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/TestProject.csproj"
+          source: "fixtures/vstest-mstest/TestProject.csproj"
         - path: "OrderServiceTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/OrderServiceTests.cs"
+          source: "fixtures/vstest-mstest/OrderServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "--filter"
@@ -245,11 +245,11 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk9/TestProject.csproj"
+          source: "fixtures/mtp-mstest-sdk9/TestProject.csproj"
         - path: "UserAuthTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk9/UserAuthTests.cs"
+          source: "fixtures/mtp-mstest-sdk9/UserAuthTests.cs"
         - path: "global.json"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk9/global.json"
+          source: "fixtures/mtp-mstest-sdk9/global.json"
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"
@@ -269,11 +269,11 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk10/TestProject.csproj"
+          source: "fixtures/mtp-mstest-sdk10/TestProject.csproj"
         - path: "CatalogServiceTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk10/CatalogServiceTests.cs"
+          source: "fixtures/mtp-mstest-sdk10/CatalogServiceTests.cs"
         - path: "global.json"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk10/global.json"
+          source: "fixtures/mtp-mstest-sdk10/global.json"
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"
@@ -357,9 +357,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/TestProject.csproj"
+          source: "fixtures/vstest-mstest/TestProject.csproj"
         - path: "OrderServiceTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/OrderServiceTests.cs"
+          source: "fixtures/vstest-mstest/OrderServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"

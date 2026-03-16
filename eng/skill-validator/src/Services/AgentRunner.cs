@@ -584,18 +584,14 @@ public static class AgentRunner
                 {
                     await File.WriteAllTextAsync(targetPath, file.Content);
                 }
-                else if (file.Source is not null && skillPath is not null)
+                else if (file.Source is not null)
                 {
-                    var canonicalSkillPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(skillPath));
-                    var sourcePath = Path.GetFullPath(Path.Combine(skillPath, file.Source));
-                    // Prevent path traversal: source must stay inside skillPath
-                    if (!sourcePath.StartsWith(canonicalSkillPath + Path.DirectorySeparatorChar, pathComparison)
-                        && !sourcePath.Equals(canonicalSkillPath, pathComparison))
+                    var resolvedSource = ResolveSourcePath(file.Source, evalPath, skillPath);
+                    if (resolvedSource is null)
                     {
-                        Console.Error.WriteLine($"Setup file source escapes skill directory, skipping: {file.Source}");
                         continue;
                     }
-                    File.Copy(sourcePath, targetPath, true);
+                    File.Copy(resolvedSource, targetPath, true);
                 }
             }
         }
@@ -652,6 +648,36 @@ public static class AgentRunner
     }
 
     // --- Security: environment scrubbing for child processes ---
+
+    /// <summary>
+    /// Resolves a setup file source path relative to the eval directory (preferred) or skill directory.
+    /// Returns the resolved absolute path, or null if resolution fails (no base directory, or path traversal detected).
+    /// </summary>
+    internal static string? ResolveSourcePath(string source, string? evalPath, string? skillPath)
+    {
+        var baseDir = evalPath is not null ? Path.GetDirectoryName(evalPath)! : skillPath;
+        if (baseDir is null)
+        {
+            Console.Error.WriteLine($"Setup file source '{source}' specified but no eval or skill directory is available, skipping.");
+            return null;
+        }
+
+        var pathComparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        var canonicalBaseDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(baseDir));
+        var sourcePath = Path.GetFullPath(Path.Combine(baseDir, source));
+        // Prevent path traversal: source must stay inside the base directory
+        if (!sourcePath.StartsWith(canonicalBaseDir + Path.DirectorySeparatorChar, pathComparison)
+            && !sourcePath.Equals(canonicalBaseDir, pathComparison))
+        {
+            Console.Error.WriteLine($"Setup file source escapes base directory, skipping: {source}");
+            return null;
+        }
+
+        return sourcePath;
+    }
 
     private static readonly string[] SensitiveEnvKeys =
     [
