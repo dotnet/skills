@@ -8,8 +8,8 @@ description: >-
   USE FOR: deprecated API detection, obsolete API replacement, API migration,
   MAUI breaking changes, reviewing or generating MAUI code.
   DO NOT USE FOR: learning new MAUI features (use feature-specific skills),
-  performance optimization (use maui-performance), testing guidance
-  (use maui-unit-testing), or general coding guardrails (use maui-coding-guardrails).
+  performance optimization, testing guidance, or general coding guardrails
+  (use maui-coding-guardrails).
 ---
 
 # .NET MAUI Current APIs
@@ -29,7 +29,6 @@ This skill prevents generating code that uses deprecated, obsolete, or removed A
 - Non-MAUI .NET projects
 - Learning new MAUI features — use feature-specific skills
 - General coding patterns — use `maui-coding-guardrails`
-- Performance optimization — use `maui-performance`
 
 ## Reasoning Framework
 

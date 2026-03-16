@@ -11,6 +11,10 @@ scenarios:
         value: "<ListView"
       - type: "output_matches"
         pattern: "x:DataType"
+      - type: "output_not_contains"
+        value: "<Frame"
+      - type: "output_not_contains"
+        value: "<TableView"
     rubric:
       - "Uses CollectionView instead of ListView for the product list"
       - "Declares x:DataType for compiled bindings on DataTemplate or page"
@@ -40,7 +44,7 @@ scenarios:
       - type: "output_contains"
         value: "Grid"
       - type: "output_not_contains"
-        value: "<StackLayout>"
+        value: "<StackLayout"
     rubric:
       - "Identifies that ScrollView inside StackLayout is the problem"
       - "Replaces StackLayout with Grid as the parent container"
