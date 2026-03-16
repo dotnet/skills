@@ -28,7 +28,7 @@ This repository contains the .NET team's curated set of core skills and custom a
    ```
 3. Install a plugin:
    ```
-   /plugin install <plugin>@dotnet-agent-skills
+   /plugin install @dotnet-agent-skills
    ```
 4. Restart to load the new plugins
 5. View available skills:
