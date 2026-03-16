@@ -1,19 +1,18 @@
 ---
 name: migrate-vstest-to-mtp
 description: >
-  Migrate .NET test projects from VSTest to Microsoft.Testing.Platform (MTP).
-  USE FOR: enabling MTP runners (EnableMSTestRunner, EnableNUnitRunner,
-  UseMicrosoftTestingPlatformRunner), adding OutputType Exe, removing UseVSTest
-  from MSTest.Sdk, upgrading xunit v2 to xunit.v3, upgrading NUnit3TestAdapter
-  to 5.0.0+, translating CLI args (--logger to --report-trx, --collect to
-  --coverage, --blame-crash to --crashdump), migrating xUnit.net --filter to
-  --filter-class/--filter-trait/--filter-query, configuring global.json MTP mode
-  (.NET 10+) or TestingPlatformDotnetTestSupport (.NET 9-), replacing VSTest@3
-  with DotNetCoreCLI@2, installing MTP extension packages (TrxReport, CrashDump,
-  HangDump, CodeCoverage), fixing exit code 8 (--ignore-exit-code 8,
-  TESTINGPLATFORM_EXITCODE_IGNORE). Set properties in Directory.Build.props.
-  DO NOT USE FOR: framework migration (MSTest↔xUnit/NUnit), MSTest version
-  upgrades (use migrate-mstest-* skills), TFM upgrades, UWP/WinUI adapters.
+  Migrates .NET test projects from VSTest to Microsoft.Testing.Platform (MTP).
+  Use when user asks to "migrate to MTP", "switch from VSTest", "enable
+  Microsoft.Testing.Platform", "use MTP runner", or mentions EnableMSTestRunner,
+  EnableNUnitRunner, UseMicrosoftTestingPlatformRunner, or dotnet test exit
+  code 8. Handles MSTest, NUnit, and xUnit.net (including xunit v2 to v3
+  upgrade). Covers runner enablement, OutputType Exe, Directory.Build.props
+  setup, dotnet test CLI argument translation (VSTest to MTP syntax),
+  global.json MTP mode (.NET 10+), CI/CD pipeline updates (VSTest@3 to
+  DotNetCoreCLI@2), and MTP extension packages (TrxReport, CrashDump,
+  HangDump, CodeCoverage). DO NOT USE FOR: migrating between test frameworks
+  (MSTest/xUnit/NUnit), MSTest version upgrades (use migrate-mstest-* skills),
+  TFM upgrades, or UWP/WinUI test projects.
 ---
 
 # VSTest → Microsoft.Testing.Platform Migration
