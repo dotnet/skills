@@ -20,7 +20,7 @@ Prevents generating code that uses deprecated, obsolete, or removed APIs.
 **Before generating MAUI code:** Check the project's `.csproj` for
 `<TargetFramework>` and key `<PackageReference>` versions — API availability
 depends on .NET version (8/9/10) and library versions (CommunityToolkit,
-MauiReactor). If a project targets `net8.0`, don't suggest `.NET 10` APIs like
+MauiReactor). If a project targets `net8.0`, don't suggest .NET 10 APIs like
 `DisplayAlertAsync` or `FadeToAsync`.
 
 ## When to Use
@@ -46,22 +46,89 @@ MauiReactor). If a project targets `net8.0`, don't suggest `.NET 10` APIs like
 6. **Use `*Async` method names in .NET 10+.** Animation and dialog methods were renamed for consistency with async patterns.
 7. **Verify third-party package versions** — CommunityToolkit and MauiReactor break between major versions.
 
-## Top Deprecated APIs — Quick Reference
+---
 
-The most common mistakes. Full tables in `references/deprecated-apis-net10.md`.
+## Deprecated API Tables — .NET MAUI 10
 
-| ❌ Don't Use | ✅ Use Instead | Why |
-|--------------|----------------|-----|
-| `Device.RuntimePlatform` | `DeviceInfo.Platform` | `Device` class is deprecated — split into focused services |
-| `Device.BeginInvokeOnMainThread()` | `MainThread.BeginInvokeOnMainThread()` | Same reason — use `Microsoft.Maui.ApplicationModel.MainThread` |
-| `DependencyService.Get<T>()` | Constructor injection via `builder.Services` | DependencyService is a service locator anti-pattern; DI is testable and explicit |
-| `MessagingCenter` | `WeakReferenceMessenger` (CommunityToolkit.Mvvm) | Made internal in .NET 10 — was leaking subscriptions without weak references |
-| `DisplayAlert()` / `FadeTo()` | `DisplayAlertAsync()` / `FadeToAsync()` | Sync-named methods deprecated in .NET 10 to match async conventions |
-| `ListView` / `TableView` | `CollectionView` / custom layout | Deprecated in .NET 10 — see `maui-coding-guardrails` for details |
+### Controls
+
+| ❌ Deprecated / Removed | ✅ Use Instead | Why |
+|--------------------------|----------------|-----|
+| `ListView` | `CollectionView` | Deprecated in .NET 10 along with all cell types; lacks virtualization improvements |
+| `TableView` | `CollectionView` or custom layout | Deprecated in .NET 10 |
 | `Frame` | `Border` | Legacy control; `Border` supports `StrokeShape` for rounded corners |
-| `Color.FromHex()` | `Color.FromArgb()` | `FromHex` is obsolete |
-| `AutomationProperties.Name` | `SemanticProperties.Description` | `SemanticProperties` is the MAUI-native accessibility approach |
-| `Xamarin.Forms` / `Xamarin.Essentials` | `Microsoft.Maui.Controls` / built-in APIs | Different API surface — won't compile in MAUI projects |
+| `Compatibility.RelativeLayout` | `Grid` | Migration-only; removed from templates in .NET 10 |
+| `Compatibility.StackLayout` | `VerticalStackLayout` / `HorizontalStackLayout` | Uses Xamarin layout logic with subtle measurement differences |
+
+### Gestures & Input
+
+| ❌ Deprecated / Removed | ✅ Use Instead | Why |
+|--------------------------|----------------|-----|
+| `ClickGestureRecognizer` | `TapGestureRecognizer` | Removed in .NET 10 |
+| `Accelerator` | `KeyboardAccelerator` | Removed in .NET 10 |
+
+### Page & Navigation
+
+| ❌ Deprecated / Removed | ✅ Use Instead | Why |
+|--------------------------|----------------|-----|
+| `Page.IsBusy` | `ActivityIndicator` | Obsolete in .NET 10 |
+| `DisplayAlert()` | `DisplayAlertAsync()` | Sync-named versions deprecated for async consistency |
+| `DisplayActionSheet()` | `DisplayActionSheetAsync()` | Same |
+| `MessagingCenter` | `WeakReferenceMessenger` (CommunityToolkit.Mvvm) | Made internal in .NET 10 — was leaking subscriptions without weak references |
+
+### Animation
+
+All animation extension methods renamed to `*Async` in .NET 10:
+
+| ❌ Deprecated | ✅ Use Instead |
+|---------------|----------------|
+| `FadeTo()` | `FadeToAsync()` |
+| `RotateTo()`, `ScaleTo()`, `TranslateTo()` | `RotateToAsync()`, `ScaleToAsync()`, `TranslateToAsync()` |
+| `RelRotateTo()`, `RelScaleTo()`, `LayoutTo()` | `RelRotateToAsync()`, `RelScaleToAsync()`, `LayoutToAsync()` |
+
+### Device & Platform APIs
+
+The `Device` class was a grab-bag of unrelated functionality — it was split into focused services:
+
+| ❌ Deprecated | ✅ Use Instead | Why |
+|---------------|----------------|-----|
+| `Device.RuntimePlatform` | `DeviceInfo.Platform` | `Device` class fully deprecated |
+| `Device.BeginInvokeOnMainThread()` | `MainThread.BeginInvokeOnMainThread()` | Use `Microsoft.Maui.ApplicationModel.MainThread` |
+| `Device.InvokeOnMainThreadAsync()` | `MainThread.InvokeOnMainThreadAsync()` | Same |
+| `Device.OpenUri()` | `Launcher.OpenAsync()` | Use `Microsoft.Maui.ApplicationModel.Launcher` |
+| `Device.StartTimer()` | `Dispatcher.StartTimer()` or `PeriodicTimer` | |
+| `DependencyService` | Constructor injection via `builder.Services` | Service locator anti-pattern; DI is testable and explicit |
+
+### XAML & Markup
+
+| ❌ Deprecated | ✅ Use Instead |
+|---------------|----------------|
+| `Color.FromHex()` | `Color.FromArgb()` |
+
+### Safe Area & Layout
+
+| ❌ Deprecated | ✅ Use Instead | Why |
+|---------------|----------------|-----|
+| `Page.UseSafeArea` (iOS) | `SafeAreaEdges` property | New unified API in .NET 10 |
+| `Layout.IgnoreSafeArea` | `SafeAreaEdges` property | Single API replaces both old approaches |
+
+### Accessibility
+
+| ❌ Deprecated | ✅ Use Instead | Why |
+|---------------|----------------|-----|
+| `AutomationProperties.Name` | `SemanticProperties.Description` | `SemanticProperties` is the MAUI-native approach |
+| `AutomationProperties.HelpText` | `SemanticProperties.Hint` | Same |
+
+### NuGet Packages
+
+| ❌ Deprecated Package | ✅ Use Instead | Why |
+|------------------------|----------------|-----|
+| `Xamarin.Forms` | `Microsoft.Maui.Controls` | Completely different API surface — won't compile |
+| `Xamarin.Essentials` | Built-in MAUI APIs (`Microsoft.Maui.Devices`, etc.) | Essentials merged into MAUI SDK |
+| `Xamarin.CommunityToolkit` | `CommunityToolkit.Maui` | Different namespace and API surface |
+| `Microsoft.Toolkit.Mvvm` | `CommunityToolkit.Mvvm` | Package was renamed |
+
+---
 
 ## MauiReactor-Specific Guidance
 
@@ -91,9 +158,3 @@ MauiReactor v3+ (for .NET MAUI 9/10) differs significantly from v2:
 | v11+ | .NET 10 |
 | v9-10 | .NET 9 |
 | v5-7 | .NET 8 |
-
-## Full API Tables
-
-For the complete deprecated API tables organized by category (controls, gestures,
-navigation, animation, Device APIs, XAML, safe area, accessibility, NuGet packages),
-see `references/deprecated-apis-net10.md`.
