@@ -5,12 +5,10 @@ description: >
   Use when user asks to "migrate to MTP", "switch from VSTest", "enable
   Microsoft.Testing.Platform", "use MTP runner", or mentions EnableMSTestRunner,
   EnableNUnitRunner, UseMicrosoftTestingPlatformRunner, or dotnet test exit
-  code 8. Handles MSTest, NUnit, and xUnit.net (including xunit v2 to v3
-  upgrade). Covers runner enablement, OutputType Exe, Directory.Build.props
-  setup, dotnet test CLI argument translation (VSTest to MTP syntax),
-  global.json MTP mode (.NET 10+), CI/CD pipeline updates (VSTest@3 to
-  DotNetCoreCLI@2), and MTP extension packages (TrxReport, CrashDump,
-  HangDump, CodeCoverage). DO NOT USE FOR: migrating between test frameworks
+  code 8. Supports MSTest, NUnit, and xUnit.net (including v2→v3 upgrade).
+  Covers runner enablement, CLI argument translation, Directory.Build.props
+  and global.json configuration, CI/CD pipeline updates, and MTP extension
+  packages. DO NOT USE FOR: migrating between test frameworks
   (MSTest/xUnit/NUnit), MSTest version upgrades (use migrate-mstest-* skills),
   TFM upgrades, or UWP/WinUI test projects.
 ---
