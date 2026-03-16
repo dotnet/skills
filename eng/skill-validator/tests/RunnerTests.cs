@@ -653,3 +653,96 @@ public class CheckPermissionTests
         Assert.True(result);
     }
 }
+
+public class ResolveSourcePathTests
+{
+    [Fact]
+    public void ResolvesRelativeToEvalDirectory()
+    {
+        // Create a temp directory with a fixture file
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"sv-test-{Guid.NewGuid():N}");
+        var fixturesDir = Path.Combine(tmpDir, "fixtures");
+        Directory.CreateDirectory(fixturesDir);
+        var fixtureFile = Path.Combine(fixturesDir, "test.txt");
+        File.WriteAllText(fixtureFile, "test");
+        try
+        {
+            var evalPath = Path.Combine(tmpDir, "eval.yaml");
+            var result = AgentRunner.ResolveSourcePath("fixtures/test.txt", evalPath, skillPath: null);
+            Assert.NotNull(result);
+            Assert.Equal(Path.GetFullPath(fixtureFile), result);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
+
+    [Fact]
+    public void FallsBackToSkillPathWhenEvalPathIsNull()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"sv-test-{Guid.NewGuid():N}");
+        var fixturesDir = Path.Combine(tmpDir, "fixtures");
+        Directory.CreateDirectory(fixturesDir);
+        var fixtureFile = Path.Combine(fixturesDir, "data.cs");
+        File.WriteAllText(fixtureFile, "// code");
+        try
+        {
+            var result = AgentRunner.ResolveSourcePath("fixtures/data.cs", evalPath: null, skillPath: tmpDir);
+            Assert.NotNull(result);
+            Assert.Equal(Path.GetFullPath(fixtureFile), result);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
+
+    [Fact]
+    public void ReturnsNullWhenBothPathsAreNull()
+    {
+        var result = AgentRunner.ResolveSourcePath("fixtures/test.txt", evalPath: null, skillPath: null);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void RejectsPathTraversal()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"sv-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tmpDir);
+        try
+        {
+            var evalPath = Path.Combine(tmpDir, "eval.yaml");
+            var result = AgentRunner.ResolveSourcePath("../../etc/passwd", evalPath, skillPath: null);
+            Assert.Null(result);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
+
+    [Fact]
+    public void PrefersEvalPathOverSkillPath()
+    {
+        var evalDir = Path.Combine(Path.GetTempPath(), $"sv-eval-{Guid.NewGuid():N}");
+        var skillDir = Path.Combine(Path.GetTempPath(), $"sv-skill-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(evalDir, "fixtures"));
+        Directory.CreateDirectory(Path.Combine(skillDir, "fixtures"));
+        File.WriteAllText(Path.Combine(evalDir, "fixtures", "f.txt"), "eval");
+        File.WriteAllText(Path.Combine(skillDir, "fixtures", "f.txt"), "skill");
+        try
+        {
+            var evalPath = Path.Combine(evalDir, "eval.yaml");
+            var result = AgentRunner.ResolveSourcePath("fixtures/f.txt", evalPath, skillPath: skillDir);
+            Assert.NotNull(result);
+            // Should resolve to eval directory, not skill directory
+            Assert.StartsWith(Path.GetFullPath(evalDir), result);
+        }
+        finally
+        {
+            Directory.Delete(evalDir, true);
+            Directory.Delete(skillDir, true);
+        }
+    }
+}
