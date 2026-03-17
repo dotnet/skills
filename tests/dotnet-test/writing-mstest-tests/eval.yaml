@@ -6,11 +6,7 @@ scenarios:
   - name: "Write unit tests for a service class"
     prompt: "I need to write MSTest unit tests for my OrderService class. Can you help me write comprehensive tests?"
     setup:
-      files:
-        - path: "TestProject.csproj"
-          source: "fixtures/modern-mstest/TestProject.csproj"
-        - path: "OrderService.cs"
-          source: "fixtures/modern-mstest/OrderService.cs"
+      copy_test_files: true
     assertions:
       - type: output_matches
         pattern: "\\[TestClass\\]"
@@ -33,11 +29,7 @@ scenarios:
   - name: "Write data-driven tests for a calculator"
     prompt: "I have a PriceCalculator class with CalculateTotal and ApplyDiscount methods. Help me write data-driven MSTest tests that cover multiple input combinations."
     setup:
-      files:
-        - path: "TestProject.csproj"
-          source: "fixtures/modern-mstest/TestProject.csproj"
-        - path: "PriceCalculator.cs"
-          source: "fixtures/modern-mstest/PriceCalculator.cs"
+      copy_test_files: true
     assertions:
       - type: output_matches
         pattern: "\\[DataRow\\]|\\[DynamicData\\]"
@@ -75,9 +67,7 @@ scenarios:
 
       How should I write MSTest tests for this, especially handling timeouts and cancellation properly?
     setup:
-      files:
-        - path: "TestProject.csproj"
-          source: "fixtures/modern-mstest/TestProject.csproj"
+      copy_test_files: true
     assertions:
       - type: output_matches
         pattern: "async Task"
