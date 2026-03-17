@@ -7,16 +7,15 @@ description: >
   USE FOR: upgrading from MSTest v1 assembly references
   (Microsoft.VisualStudio.QualityTools.UnitTestFramework) or MSTest v2 NuGet
   packages (MSTest.TestFramework 1.x–2.x) to MSTest v3, fixing assertion
-  overload errors (AreEqual/AreNotEqual with object), updating DataRow
-  constructors, replacing .testsettings with .runsettings, resolving timeout
-  behavior changes, handling dropped target frameworks (net5.0 dropped — use
-  net6.0+ or netcoreapp3.1), adopting MSTest.Sdk, and enabling in-assembly
-  parallel execution. First step toward MSTest v4 — after this, use
-  migrate-mstest-v3-to-v4.
+  overload errors (AreEqual/AreNotEqual), updating DataRow constructors,
+  replacing .testsettings with .runsettings, resolving timeout behavior changes,
+  handling dropped TFMs (net5.0 dropped — use net6.0+ or netcoreapp3.1),
+  adopting MSTest.Sdk, and enabling in-assembly parallel execution. First step
+  toward MSTest v4 — after this, use migrate-mstest-v3-to-v4.
   DO NOT USE FOR: migrating directly to MSTest v4 (use migrate-mstest-v3-to-v4
   after this skill), migrating between test frameworks (MSTest to xUnit/NUnit),
-  or general .NET version upgrades unrelated to MSTest (use
-  migrate-dotnet*-to-dotnet* skills).
+  or general .NET upgrades unrelated to MSTest (use migrate-dotnet*-to-dotnet*
+  skills).
 ---
 
 # MSTest v1/v2 → v3 Migration

@@ -6,16 +6,14 @@ description: >
   has build errors after updating MSTest packages from 3.x to 4.x.
   USE FOR: upgrading MSTest packages from 3.x to 4.x, fixing source breaking
   changes (Execute → ExecuteAsync, CallerInfo constructor, ClassCleanupBehavior
-  removal, TestContext.Properties IDictionary<string,object>, Assert API changes,
-  ExpectedExceptionAttribute removal, TestTimeout enum removal), resolving
-  behavioral changes (TreatDiscoveryWarningsAsErrors default, TestContext
-  lifecycle exceptions, TestCase.Id changes affecting Azure DevOps test history,
-  MSTest.Sdk MTP changes), handling dropped target frameworks
-  (net5.0/net6.0/net7.0 dropped — only net8.0, net9.0, net462, uap10.0
-  supported).
+  removal, TestContext.Properties, Assert API changes, ExpectedExceptionAttribute
+  removal, TestTimeout enum removal), resolving behavioral changes
+  (TreatDiscoveryWarningsAsErrors, TestContext lifecycle, TestCase.Id changes,
+  MSTest.Sdk MTP changes), handling dropped TFMs (net5.0–net7.0 dropped — only
+  net8.0+, net462, uap10.0 supported).
   DO NOT USE FOR: migrating from MSTest v1/v2 to v3 (use migrate-mstest-v1v2-to-v3
-  first), migrating between test frameworks, or general .NET version upgrades
-  unrelated to MSTest (use migrate-dotnet*-to-dotnet* skills).
+  first), migrating between test frameworks, or general .NET upgrades unrelated
+  to MSTest (use migrate-dotnet*-to-dotnet* skills).
 ---
 
 # MSTest v3 → v4 Migration
