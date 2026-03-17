@@ -14,13 +14,12 @@
     if (!response.ok) throw new Error(response.statusText);
     plugins = await response.json();
   } catch {
-    document.body.innerHTML = '<h1>No benchmark data available yet.</h1>';
-    return;
+    // No evaluation data – still allow Token Usage tab to work
+    plugins = [];
   }
 
-  if (!Array.isArray(plugins) || plugins.length === 0) {
-    document.body.innerHTML = '<h1>No plugin data found.</h1>';
-    return;
+  if (!Array.isArray(plugins)) {
+    plugins = [];
   }
 
   plugins.sort();
@@ -45,13 +44,36 @@
     tabContentContainer.appendChild(panel);
   });
 
+  // Add Token Usage tab at the end
+  const tokenTabId = '__token-usage__';
+  const noPlugins = plugins.length === 0;
+  const tokenTab = document.createElement('div');
+  tokenTab.className = 'tab' + (noPlugins ? ' active' : '');
+  tokenTab.textContent = '🔢 Token Usage';
+  tokenTab.dataset.plugin = tokenTabId;
+  tokenTab.addEventListener('click', () => switchTab(tokenTabId));
+  tabBar.appendChild(tokenTab);
+
+  const tokenPanel = document.createElement('div');
+  tokenPanel.className = 'tab-content' + (noPlugins ? ' active' : '');
+  tokenPanel.id = `panel-${tokenTabId}`;
+  tokenPanel.innerHTML = '<div id="token-usage-content"><p style="color:#8b949e;text-align:center;padding:2rem;">Loading…</p></div>';
+  tabContentContainer.appendChild(tokenPanel);
+
   async function switchTab(plugin) {
     tabBar.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.plugin === plugin));
     tabContentContainer.querySelectorAll('.tab-content').forEach(p => p.classList.toggle('active', p.id === `panel-${plugin}`));
+    if (plugin === tokenTabId) {
+      if (window.initTokenUsage) window.initTokenUsage();
+      return;
+    }
     if (!loadedPlugins.has(plugin)) {
       await loadPlugin(plugin);
     }
   }
+
+  // If no plugins, auto-init the token usage tab
+  if (noPlugins && window.initTokenUsage) window.initTokenUsage();
 
   async function loadPlugin(plugin) {
     const panel = document.getElementById(`panel-${plugin}`);
@@ -799,6 +821,8 @@
     appendLegendNotes(div, legendFlags);
   }
 
-  // Load first plugin immediately
-  await loadPlugin(plugins[0]);
+  // Load first plugin immediately (skip if no evaluation plugins)
+  if (plugins.length > 0) {
+    await loadPlugin(plugins[0]);
+  }
 })();

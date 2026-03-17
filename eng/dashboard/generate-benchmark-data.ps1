@@ -55,6 +55,16 @@ param(
     [Parameter(ParameterSetName = 'Generate')]
     [string]$CommitJson,
 
+    [Parameter(ParameterSetName = 'Generate')]
+    [ValidateSet('scheduled', 'pr')]
+    [string]$Source = 'scheduled',
+
+    [Parameter(ParameterSetName = 'Generate')]
+    [int]$PRNumber,
+
+    [Parameter(ParameterSetName = 'Generate')]
+    [string]$PRTitle,
+
     [Parameter(Mandatory, ParameterSetName = 'Purge')]
     [switch]$PurgeStaleFiles,
 
@@ -78,9 +88,16 @@ if ($PurgeStaleFiles) {
             $data = Get-Content $file.FullName -Raw | ConvertFrom-Json -AsHashtable
             $hasRecentEntries = $false
             if (-not $data -or -not $data['entries']) { continue }
-            foreach ($category in $data['entries'].Keys) {
-                $data['entries'][$category] = @($data['entries'][$category] | Where-Object { $_.date -ge $cutoffMs })
-                if ($data['entries'][$category].Count -gt 0) { $hasRecentEntries = $true }
+
+            # token-usage.json has a flat entries array; plugin files have categorized entries
+            if ($file.Name -eq 'token-usage.json') {
+                $data['entries'] = @($data['entries'] | Where-Object { $_.date -ge $cutoffMs })
+                if ($data['entries'].Count -gt 0) { $hasRecentEntries = $true }
+            } else {
+                foreach ($category in $data['entries'].Keys) {
+                    $data['entries'][$category] = @($data['entries'][$category] | Where-Object { $_.date -ge $cutoffMs })
+                    if ($data['entries'][$category].Count -gt 0) { $hasRecentEntries = $true }
+                }
             }
             if (-not $hasRecentEntries) {
                 Remove-Item $file.FullName -Force
@@ -410,3 +427,82 @@ Write-Host "[OK] Benchmark $PluginName.json generated: $dataJsonFile"
 Write-Host "   Quality entries: $($qualityBenches.Count)"
 Write-Host "   Efficiency entries: $($efficiencyBenches.Count)"
 Write-Host "   Total data points: $($benchmarkData['entries'][$qualityKey].Count)"
+
+# --- Generate token-usage entries ---
+$tokenUsageEntries = [System.Collections.Generic.List[object]]::new()
+
+foreach ($verdict in $results.verdicts) {
+    $skillName = $verdict.skillName
+
+    foreach ($scenario in $verdict.scenarios) {
+        # Support both old (withSkill) and new (skilledIsolated) JSON schemas
+        $skilled = if ($scenario.PSObject.Properties['skilledIsolated']) { $scenario.skilledIsolated } else { $scenario.withSkill }
+        $plugin = if ($scenario.PSObject.Properties['skilledPlugin']) { $scenario.skilledPlugin } else { $null }
+
+        # Collect token usage from isolated run
+        $runs = @($skilled)
+        if ($null -ne $plugin) { $runs += $plugin }
+
+        foreach ($run in $runs) {
+            $m = $run.metrics
+            if ($null -eq $m) { continue }
+
+            # Use granular fields when available, fall back to tokenEstimate
+            $tokensIn = if ($null -ne $m.inputTokens -and $m.inputTokens -gt 0) { [int]$m.inputTokens } else { [int]$m.tokenEstimate }
+            $tokensOut = if ($null -ne $m.outputTokens) { [int]$m.outputTokens } else { 0 }
+            $cacheRead = if ($null -ne $m.cacheReadTokens) { [int]$m.cacheReadTokens } else { 0 }
+            $cacheWrite = if ($null -ne $m.cacheWriteTokens) { [int]$m.cacheWriteTokens } else { 0 }
+            $totalTokens = $tokensIn + $tokensOut
+
+            $entry = @{
+                date             = $now
+                source           = $Source
+                plugin           = $PluginName
+                skill            = $skillName
+                tokensIn         = $tokensIn
+                tokensOut        = $tokensOut
+                cacheReadTokens  = $cacheRead
+                cacheWriteTokens = $cacheWrite
+                totalTokens      = $totalTokens
+                model            = $model
+            }
+            if ($Source -eq 'pr' -and $PRNumber) {
+                $entry.prNumber = $PRNumber
+                $entry.prTitle = $PRTitle
+            }
+            $tokenUsageEntries.Add($entry)
+        }
+    }
+}
+
+# Load existing token-usage.json or create new structure
+$tokenUsageFile = Join-Path $OutputDir "token-usage.json"
+$tokenUsageData = @{ entries = @() }
+
+if (Test-Path $tokenUsageFile) {
+    try {
+        $tokenUsageData = Get-Content $tokenUsageFile -Raw | ConvertFrom-Json -AsHashtable
+    } catch {
+        Write-Warning "Failed to parse token-usage.json, starting fresh: $_"
+    }
+}
+
+if (-not $tokenUsageData['entries']) {
+    $tokenUsageData['entries'] = @()
+}
+
+$tokenUsageData['entries'] += @($tokenUsageEntries)
+
+# Purge old token-usage entries
+if ($RetentionDays -gt 0) {
+    $cutoffMs = $now - ([long]$RetentionDays * 24 * 60 * 60 * 1000)
+    $before = $tokenUsageData['entries'].Count
+    $tokenUsageData['entries'] = @($tokenUsageData['entries'] | Where-Object { $_.date -ge $cutoffMs })
+    $purged = $before - $tokenUsageData['entries'].Count
+    if ($purged -gt 0) {
+        Write-Host "   Purged $purged token-usage entries older than $RetentionDays days"
+    }
+}
+
+$tokenUsageData | ConvertTo-Json -Depth 5 | Out-File -FilePath $tokenUsageFile -Encoding utf8
+Write-Host "   Token usage entries added: $($tokenUsageEntries.Count) (total: $($tokenUsageData['entries'].Count))"

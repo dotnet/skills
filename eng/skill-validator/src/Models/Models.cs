@@ -142,6 +142,10 @@ public sealed record JudgeResult(
 public sealed class RunMetrics
 {
     public int TokenEstimate { get; set; }
+    public int InputTokens { get; set; }
+    public int OutputTokens { get; set; }
+    public int CacheReadTokens { get; set; }
+    public int CacheWriteTokens { get; set; }
     public int ToolCallCount { get; set; }
     public Dictionary<string, int> ToolCallBreakdown { get; set; } = new();
     public int TurnCount { get; set; }

@@ -1143,6 +1143,10 @@ public static class ValidateCommand
         var avgMetrics = new RunMetrics
         {
             TokenEstimate = AvgRound(runs.Select(r => r.Metrics.TokenEstimate)),
+            InputTokens = AvgRound(runs.Select(r => r.Metrics.InputTokens)),
+            OutputTokens = AvgRound(runs.Select(r => r.Metrics.OutputTokens)),
+            CacheReadTokens = AvgRound(runs.Select(r => r.Metrics.CacheReadTokens)),
+            CacheWriteTokens = AvgRound(runs.Select(r => r.Metrics.CacheWriteTokens)),
             ToolCallCount = AvgRound(runs.Select(r => r.Metrics.ToolCallCount)),
             ToolCallBreakdown = runs[0].Metrics.ToolCallBreakdown,
             TurnCount = AvgRound(runs.Select(r => r.Metrics.TurnCount)),

@@ -304,6 +304,13 @@ jobs:
               CommitJson    = $commitJson
               RetentionDays = $env:DASHBOARD_RETENTION_DAYS
             }
+            if ('${{ github.event_name }}' -eq 'pull_request') {
+              $params.Source = 'pr'
+              $params.PRNumber = ${{ github.event.pull_request.number || 0 }}
+              $params.PRTitle = '${{ github.event.pull_request.title }}'
+            } else {
+              $params.Source = 'scheduled'
+            }
             if ((Test-Path $existingFile) -and (Get-Content $existingFile -Raw -ErrorAction SilentlyContinue)) {
               $params.ExistingDataFile = $existingFile
             }
@@ -313,9 +320,9 @@ jobs:
           # Purge entries older than the configured retention window from plugin data files; delete files left with no remaining entries
           & ./eng/dashboard/generate-benchmark-data.ps1 -PurgeStaleFiles -DataDir "/tmp/gh-pages/data" -RetentionDays $env:DASHBOARD_RETENTION_DAYS
 
-          # Generate components.json manifest
+          # Generate components.json manifest (exclude token-usage.json — it's not a plugin)
           $plugins = Get-ChildItem -Path "/tmp/gh-pages/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -ne "components.json" } |
+            Where-Object { $_.Name -notin @("components.json", "token-usage.json") } |
             ForEach-Object { $_.BaseName }
           @($plugins) | ConvertTo-Json -AsArray | Out-File -FilePath "/tmp/gh-pages/data/components.json" -Encoding utf8
         shell: pwsh
@@ -343,6 +350,7 @@ jobs:
           cp /tmp/gh-pages/data/*.json data/
           cp ${{ github.workspace }}/eng/dashboard/dashboard.html index.html
           cp ${{ github.workspace }}/eng/dashboard/dashboard.js dashboard.js
+          cp ${{ github.workspace }}/eng/dashboard/token-usage.js token-usage.js
 
           git add .
           git diff --cached --quiet && echo "No changes to deploy" && exit 0

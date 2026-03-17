@@ -72,6 +72,10 @@ public static class MetricsCollector
         string workDir)
     {
         int tokenEstimate = 0;
+        int inputTokens = 0;
+        int outputTokens = 0;
+        int cacheReadTokens = 0;
+        int cacheWriteTokens = 0;
         bool hasRealTokenCounts = false;
         int toolCallCount = 0;
         var toolCallBreakdown = new Dictionary<string, int>();
@@ -100,10 +104,16 @@ public static class MetricsCollector
                 {
                     var input = GetIntValue(evt.Data, "inputTokens");
                     var output = GetIntValue(evt.Data, "outputTokens");
+                    var cacheRead = GetIntValue(evt.Data, "cacheReadTokens");
+                    var cacheWrite = GetIntValue(evt.Data, "cacheWriteTokens");
                     if (input > 0 || output > 0)
                     {
                         hasRealTokenCounts = true;
                         tokenEstimate += input + output;
+                        inputTokens += input;
+                        outputTokens += output;
+                        cacheReadTokens += cacheRead;
+                        cacheWriteTokens += cacheWrite;
                     }
                     break;
                 }
@@ -134,6 +144,10 @@ public static class MetricsCollector
         return new RunMetrics
         {
             TokenEstimate = tokenEstimate,
+            InputTokens = inputTokens,
+            OutputTokens = outputTokens,
+            CacheReadTokens = cacheReadTokens,
+            CacheWriteTokens = cacheWriteTokens,
             ToolCallCount = toolCallCount,
             ToolCallBreakdown = toolCallBreakdown,
             TurnCount = turnCount,
