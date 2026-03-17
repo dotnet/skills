@@ -1,9 +1,8 @@
 using System.CommandLine;
 using SkillValidator.Commands;
 
-var rootCommand = new RootCommand("Validate agent skills — use 'check' for static analysis or 'eval' for LLM-based testing");
+var rootCommand = EvaluateCommand.Create();
 rootCommand.Add(CheckCommand.Create());
-rootCommand.Add(EvaluateCommand.Create());
 rootCommand.Add(ConsolidateCommand.Create());
 rootCommand.Add(RejudgeCommand.Create());
 
