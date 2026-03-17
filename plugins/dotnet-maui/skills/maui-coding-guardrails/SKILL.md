@@ -1,14 +1,10 @@
 ---
 name: maui-coding-guardrails
 description: >-
-  Prevents common .NET MAUI architectural mistakes: broken layout patterns,
-  navigation paradigm conflicts, obsolete control usage, and renderer anti-patterns.
-  USE FOR: any MAUI XAML or C# code generation, review, or editing — applies
-  baseline rules that catch the mistakes LLMs make most often with MAUI. Triggers
-  on: ScrollView in StackLayout, ListView, TableView, Frame, BackgroundColor,
-  renderers, Shell mixed with NavigationPage, AndExpand, SVG image references.
-  DO NOT USE FOR: API version/deprecation checks across .NET versions (use
-  maui-current-apis), environment setup or workload issues (use dotnet-maui-doctor).
+  Prevents common .NET MAUI mistakes: broken layouts, obsolete controls, renderer
+  usage. USE FOR: any MAUI code generation or review. DO NOT USE FOR: API
+  deprecation checks (use maui-current-apis), environment setup (use
+  dotnet-maui-doctor).
 ---
 
 # .NET MAUI Coding Guardrails
@@ -86,7 +82,7 @@ flat `Grid` layouts with row/column definitions over nested stack trees.
 
 ## Control Rules
 
-### Use Border instead of Frame
+### ⚠️ DO NOT USE `Frame` — Use `Border` Instead
 
 `Frame` is a Xamarin.Forms holdover with limited styling. `Border` is the MAUI
 replacement — it supports `StrokeShape` for rounded corners, custom strokes, and

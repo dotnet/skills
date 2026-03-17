@@ -13,6 +13,8 @@
 | `ContentView` | Custom control base class | Wrap reusable UI components |
 | `ScrollView` | Scrollable content | Must be inside `Grid`, not `StackLayout` |
 
+> ⚠️ **DO NOT USE `Frame`** — it is a legacy Xamarin.Forms control. Use `Border` for all new code.
+
 ## Input Controls
 
 | Control | Purpose | Notes |

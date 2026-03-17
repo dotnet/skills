@@ -1,15 +1,9 @@
 ---
 name: maui-current-apis
 description: >-
-  Prevents deprecated and removed API usage in .NET MAUI projects. Covers
-  controls, navigation, animation, Device class, accessibility, and NuGet
-  package replacements across .NET 8/9/10, plus MauiReactor and Blazor Hybrid.
-  USE FOR: generating MAUI code, reviewing MAUI code for API currency,
-  migrating between .NET MAUI versions (8→9→10), fixing MAUI deprecation
-  warnings. Triggers on: Device.RuntimePlatform, MessagingCenter, ListView
-  deprecated, DisplayAlert sync, FadeTo, Color.FromHex, Xamarin.Forms namespace,
-  Compatibility namespace, DependencyService, SYSLIB warnings.
-  DO NOT USE FOR: layout/architecture patterns (use maui-coding-guardrails),
+  Prevents deprecated/removed API usage in .NET MAUI 8/9/10, MauiReactor, and
+  Blazor Hybrid. USE FOR: generating or reviewing MAUI code, fixing deprecation
+  warnings. DO NOT USE FOR: layout patterns (use maui-coding-guardrails),
   environment setup (use dotnet-maui-doctor).
 ---
 
