@@ -303,15 +303,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Fetch PR head for fork PRs
-        if: needs.gate.outputs.is_fork == 'true'
+      - name: Fetch PR head
+        if: github.event_name == 'issue_comment'
         run: git fetch origin +refs/pull/${{ needs.gate.outputs.pr_number }}/head:refs/remotes/origin/pr-head
 
       - name: Find skills to evaluate
         if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true'
         id: find
-        env:
-          IS_FORK: ${{ needs.gate.outputs.is_fork }}
         run: |
           $entries = @()
           $plugins = @()
@@ -319,18 +317,11 @@ jobs:
           if ("${{ github.event_name }}" -eq "issue_comment") {
             # /evaluate command: detect individual changed skills using gate outputs
             $base = "${{ needs.gate.outputs.base_sha }}"
+            $head = (git rev-parse origin/pr-head)
 
-            if ($env:IS_FORK -eq "true") {
-              # Fork PR: use fetched PR head
-              $head = (git rev-parse origin/pr-head)
-              # Create worktree for fork content (untrusted, read-only)
-              git worktree add /tmp/pr-content origin/pr-head 2>$null
-              $contentRoot = "/tmp/pr-content"
-            } else {
-              # Same-repo PR: use head SHA directly
-              $head = "${{ needs.gate.outputs.head_sha }}"
-              $contentRoot = "."
-            }
+            # Use a worktree so Test-Path checks are against PR content
+            git worktree add /tmp/pr-content origin/pr-head 2>$null
+            $contentRoot = "/tmp/pr-content"
 
             $mergeBase = git merge-base $base $head
             $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
@@ -381,10 +372,7 @@ jobs:
               $plugins = @($entries | ForEach-Object { $_.plugin } | Sort-Object -Unique)
             }
 
-            # Clean up worktree for fork PRs
-            if ($env:IS_FORK -eq "true") {
-              git worktree remove /tmp/pr-content --force 2>$null
-            }
+            git worktree remove /tmp/pr-content --force 2>$null
           } else {
             # Schedule: evaluate all plugins with skills and tests
             $plugins = @(Get-ChildItem -Path "plugins" -Directory |
@@ -431,12 +419,12 @@ jobs:
     uses: ./.github/workflows/evaluation-run.yml
     with:
       entries: ${{ needs.discover.outputs.entries }}
-      runs: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.ref == 'refs/heads/main' && '5' || '3') }}
+      runs: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.event_name == 'schedule' && '5' || '3') }}
       parallel-skills: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5' }}
       parallel-scenarios: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
       parallel-runs: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
-      # For fork PRs, pass checkout-ref so evaluation-run checks out fork content
-      checkout-ref: ${{ needs.gate.outputs.is_fork == 'true' && needs.gate.outputs.head_sha || '' }}
+      # Always pass PR head SHA so evaluation-run checks out the correct code
+      checkout-ref: ${{ needs.gate.outputs.head_sha || '' }}
       pr-number: ${{ needs.gate.outputs.pr_number || '' }}
     secrets:
       COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
