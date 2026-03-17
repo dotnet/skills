@@ -4,7 +4,7 @@ scenarios:
     setup:
       files:
         - path: "CaseTransformExtensions.cs"
-          source: "../../../../tests/dotnet-diag/analyzing-dotnet-performance/fixtures/inflector-and-regex.cs"
+          source: "fixtures/inflector-and-regex.cs"
     assertions:
       - type: "output_contains"
         value: "Compiled"
@@ -25,7 +25,7 @@ scenarios:
     setup:
       files:
         - path: "WordVocabulary.cs"
-          source: "../../../../tests/dotnet-diag/analyzing-dotnet-performance/fixtures/vocabulary-and-inflections.cs"
+          source: "fixtures/vocabulary-and-inflections.cs"
     assertions:
       - type: "output_contains"
         value: "Ordinal"
@@ -44,7 +44,7 @@ scenarios:
     setup:
       files:
         - path: "NumberConverters.cs"
-          source: "../../../../tests/dotnet-diag/analyzing-dotnet-performance/fixtures/number-converter-farsi-kurdish.cs"
+          source: "fixtures/number-converter-farsi-kurdish.cs"
     assertions:
       - type: "output_contains"
         value: "Dictionary"
@@ -64,7 +64,7 @@ scenarios:
     setup:
       files:
         - path: "GreekConverter.cs"
-          source: "../../../../tests/dotnet-diag/analyzing-dotnet-performance/fixtures/number-converter-greek.cs"
+          source: "fixtures/number-converter-greek.cs"
     assertions:
       - type: "output_contains"
         value: "ToLower"
@@ -84,7 +84,7 @@ scenarios:
     setup:
       files:
         - path: "MultiLocaleConverters.cs"
-          source: "../../../../tests/dotnet-diag/analyzing-dotnet-performance/fixtures/number-converter-multi-locale.cs"
+          source: "fixtures/number-converter-multi-locale.cs"
     assertions:
       - type: "output_contains"
         value: "Ordinal"
@@ -104,7 +104,7 @@ scenarios:
     setup:
       files:
         - path: "MetricNumerals.cs"
-          source: "../../../../tests/dotnet-diag/analyzing-dotnet-performance/fixtures/metric-numeral-extensions.cs"
+          source: "fixtures/metric-numeral-extensions.cs"
     assertions:
       - type: "output_contains"
         value: "Aggregate"
@@ -124,7 +124,7 @@ scenarios:
     setup:
       files:
         - path: "DataSize.cs"
-          source: "../../../../tests/dotnet-diag/analyzing-dotnet-performance/fixtures/byte-size-formatting.cs"
+          source: "fixtures/byte-size-formatting.cs"
     assertions:
       - type: "output_contains"
         value: "Replace"
@@ -141,7 +141,7 @@ scenarios:
     setup:
       files:
         - path: "StringReadability.cs"
-          source: "../../../../tests/dotnet-diag/analyzing-dotnet-performance/fixtures/string-humanize-and-dehumanize.cs"
+          source: "fixtures/string-humanize-and-dehumanize.cs"
     assertions:
       - type: "output_contains"
         value: "LINQ"
@@ -162,7 +162,7 @@ scenarios:
     setup:
       files:
         - path: "TimeSpanFormatting.cs"
-          source: "../../../../tests/dotnet-diag/analyzing-dotnet-performance/fixtures/timespan-and-collection-formatters.cs"
+          source: "fixtures/timespan-and-collection-formatters.cs"
     assertions:
       - type: "output_contains"
         value: "Where"
@@ -180,7 +180,7 @@ scenarios:
     setup:
       files:
         - path: "Truncation.cs"
-          source: "../../../../tests/dotnet-diag/analyzing-dotnet-performance/fixtures/truncation-and-span.cs"
+          source: "fixtures/truncation-and-span.cs"
     assertions:
       - type: "output_contains"
         value: "TrimEnd"
@@ -196,7 +196,7 @@ scenarios:
     setup:
       files:
         - path: "Locales.cs"
-          source: "../../../../tests/dotnet-diag/analyzing-dotnet-performance/fixtures/unsealed-classes.cs"
+          source: "fixtures/unsealed-classes.cs"
     assertions:
       - type: "output_contains"
         value: "sealed"

@@ -7,11 +7,11 @@ scenarios:
     setup:
       files:
         - path: "logs/mt.exe.CLRLoad00.txt"
-          source: "../../../../tests/dotnet-diag/clr-activation-debugging/fixtures/mt-fod-launched.txt"
+          source: "fixtures/mt-fod-launched.txt"
         - path: "logs/link.exe.CLRLoad00.txt"
-          source: "../../../../tests/dotnet-diag/clr-activation-debugging/fixtures/link-fod-suppressed.txt"
+          source: "fixtures/link-fod-suppressed.txt"
         - path: "logs/csc.exe.CLRLoad00.txt"
-          source: "../../../../tests/dotnet-diag/clr-activation-debugging/fixtures/csc-healthy.txt"
+          source: "fixtures/csc-healthy.txt"
     assertions:
       - type: "output_contains"
         value: "mt.exe"
@@ -39,7 +39,7 @@ scenarios:
     setup:
       files:
         - path: "logs/mt.exe.CLRLoad00.txt"
-          source: "../../../../tests/dotnet-diag/clr-activation-debugging/fixtures/mt-fod-suppressed.txt"
+          source: "fixtures/mt-fod-suppressed.txt"
     assertions:
       - type: "output_contains"
         value: "Could have launched"
@@ -66,9 +66,9 @@ scenarios:
     setup:
       files:
         - path: "logs/mt-from-script.CLRLoad00.txt"
-          source: "../../../../tests/dotnet-diag/clr-activation-debugging/fixtures/mt-fod-suppressed.txt"
+          source: "fixtures/mt-fod-suppressed.txt"
         - path: "logs/mt-from-cmdline.CLRLoad00.txt"
-          source: "../../../../tests/dotnet-diag/clr-activation-debugging/fixtures/mt-fod-launched.txt"
+          source: "fixtures/mt-fod-launched.txt"
     assertions:
       - type: "output_contains"
         value: "SEM_FAILCRITICALERRORS"
@@ -89,7 +89,7 @@ scenarios:
     setup:
       files:
         - path: "logs/csc.exe.CLRLoad00.txt"
-          source: "../../../../tests/dotnet-diag/clr-activation-debugging/fixtures/csc-healthy.txt"
+          source: "fixtures/csc-healthy.txt"
     assertions:
       - type: "output_contains"
         value: "v4.0.30319"
@@ -110,7 +110,7 @@ scenarios:
     setup:
       files:
         - path: "logs/link.exe.CLRLoad00.txt"
-          source: "../../../../tests/dotnet-diag/clr-activation-debugging/fixtures/link-multi-activation.txt"
+          source: "fixtures/link-multi-activation.txt"
     assertions:
       - type: "output_contains"
         value: "DllGetClassObject"
@@ -134,7 +134,7 @@ scenarios:
     setup:
       files:
         - path: "logs/tool.exe.CLRLoad00.txt"
-          source: "../../../../tests/dotnet-diag/clr-activation-debugging/fixtures/tool-with-legacy-policy.txt"
+          source: "fixtures/tool-with-legacy-policy.txt"
     assertions:
       - type: "output_contains"
         value: "useLegacyV2RuntimeActivationPolicy"

@@ -1,0 +1,371 @@
+scenarios:
+  # ============================================================================
+  # Goal 1: Migrate MSTest project from VSTest to MTP
+  # ============================================================================
+
+  - name: "Migrate MSTest project from VSTest to Microsoft.Testing.Platform"
+    prompt: |
+      I have a solution with 3 MSTest 3.8.0 test projects that currently run on VSTest.
+      I want to switch all of them to Microsoft.Testing.Platform. We're on .NET 8 SDK
+      and use `dotnet test --logger trx` in CI. What changes do I need to make to each
+      project and to the CI command? I want properties set consistently across all projects.
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-vstest/TestProject.csproj"
+        - path: "CalculatorTests.cs"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-vstest/CalculatorTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(EnableMSTestRunner|MSTest\\.Sdk)"
+      - type: "output_matches"
+        pattern: "(OutputType|Exe)"
+      - type: "output_matches"
+        pattern: "(Directory\\.Build\\.props|centralize|shared)"
+    rubric:
+      - "Adds <EnableMSTestRunner>true</EnableMSTestRunner> to Directory.Build.props (not per-project)"
+      - "Mentions <OutputType>Exe</OutputType> must be set explicitly on test projects (EnableMSTestRunner does NOT auto-set it)"
+      - "Configures dotnet test integration (TestingPlatformDotnetTestSupport in Directory.Build.props or global.json)"
+      - "Explains that --logger trx must change to --report-trx and requires Microsoft.Testing.Extensions.TrxReport package"
+      - "Mentions the -- separator requirement on .NET 8 for MTP arguments"
+      - "Does not suggest upgrading MSTest version (3.2.0+ is sufficient, 3.8.0 qualifies)"
+    timeout: 360
+
+  # ============================================================================
+  # Goal 2: Migrate NUnit project from VSTest to MTP
+  # ============================================================================
+
+  - name: "Migrate NUnit project from VSTest to Microsoft.Testing.Platform"
+    prompt: |
+      My NUnit test project uses NUnit3TestAdapter 4.6.0 and Microsoft.NET.Test.Sdk
+      on VSTest. I want to migrate to Microsoft.Testing.Platform. What do I need to change?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/nunit-vstest/TestProject.csproj"
+        - path: "CalculatorTests.cs"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/nunit-vstest/CalculatorTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(EnableNUnitRunner|NUnit.*runner)"
+      - type: "output_matches"
+        pattern: "(NUnit3TestAdapter|5\\.0\\.0|adapter.*5)"
+      - type: "output_matches"
+        pattern: "(OutputType|Exe)"
+    rubric:
+      - "Identifies that NUnit3TestAdapter must be upgraded to 5.0.0 or later for MTP support"
+      - "Adds <EnableNUnitRunner>true</EnableNUnitRunner>"
+      - "Adds <OutputType>Exe</OutputType>"
+      - "Mentions configuring dotnet test integration"
+      - "Recommends using Directory.Build.props for MTP properties"
+    timeout: 360
+
+  # ============================================================================
+  # Goal 3: Migrate xUnit.net project from VSTest to MTP
+  # ============================================================================
+
+  - name: "Migrate xUnit.net v2 project from VSTest to Microsoft.Testing.Platform"
+    prompt: |
+      My xUnit.net project uses xunit 2.9.3 with xunit.runner.visualstudio on VSTest.
+      I want to switch to Microsoft.Testing.Platform. What should I do?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/xunit-vstest/TestProject.csproj"
+        - path: "CalculatorTests.cs"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/xunit-vstest/CalculatorTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(YTest\\.MTP\\.XUnit2|MTP.*xunit)"
+      - type: "output_matches"
+        pattern: "(PackageReference|package)"
+    rubric:
+      - "Recommends adding the YTest.MTP.XUnit2 package to enable MTP support for xUnit.net v2"
+      - "Does NOT require upgrading to xunit.v3 — YTest.MTP.XUnit2 works with xUnit.net v2"
+      - "Mentions that VSTest --filter syntax is preserved with YTest.MTP.XUnit2 (no filter migration needed)"
+      - "Mentions configuring dotnet test integration (TestingPlatformDotnetTestSupport or global.json)"
+      - "Optionally mentions that xunit.runner.visualstudio and Microsoft.NET.Test.Sdk can be removed once VSTest compat is no longer needed"
+    timeout: 360
+
+  # ============================================================================
+  # Goal 4: Update Azure DevOps CI pipeline for MTP
+  # ============================================================================
+
+  - name: "Update Azure DevOps pipeline from VSTest task to MTP"
+    prompt: |
+      Our CI pipeline uses the VSTest@3 task to run MSTest tests. We're migrating
+      to Microsoft.Testing.Platform. We also produce TRX reports and collect code
+      coverage. How do we update the pipeline?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-ci-pipeline/TestProject.csproj"
+        - path: "ServiceTests.cs"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-ci-pipeline/ServiceTests.cs"
+        - path: "azure-pipelines.yml"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-ci-pipeline/azure-pipelines.yml"
+    assertions:
+      - type: "output_matches"
+        pattern: "(DotNetCoreCLI|dotnet test)"
+      - type: "output_matches"
+        pattern: "(VSTest@3|replace|remove)"
+      - type: "output_matches"
+        pattern: "(report-trx|TrxReport)"
+    rubric:
+      - "Identifies that VSTest@3 task must be replaced with DotNetCoreCLI@2 task"
+      - "Shows the updated pipeline YAML using DotNetCoreCLI@2 with command 'test'"
+      - "Translates --logger trx to --report-trx and mentions Microsoft.Testing.Extensions.TrxReport package"
+      - "Translates code coverage collection to --coverage and mentions CodeCoverage extension package"
+      - "Explains the -- separator needed for MTP arguments on .NET 9 and earlier"
+    timeout: 300
+
+  # ============================================================================
+  # Goal 5: MSTest.Sdk project with UseVSTest
+  # ============================================================================
+
+  - name: "Migrate MSTest.Sdk project that explicitly uses VSTest"
+    prompt: |
+      My project uses MSTest.Sdk/3.8.0 with <UseVSTest>true</UseVSTest>. I want
+      to switch to Microsoft.Testing.Platform. What do I need to change?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-sdk-vstest/TestProject.csproj"
+        - path: "AppTests.cs"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-sdk-vstest/AppTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(UseVSTest|remove|delete)"
+      - type: "output_matches"
+        pattern: "(MSTest\\.Sdk|MTP.*default)"
+    rubric:
+      - "Identifies that MSTest.Sdk uses MTP by default and UseVSTest opts out of it"
+      - "Recommends removing <UseVSTest>true</UseVSTest> to enable MTP"
+      - "Notes that MSTest.Sdk automatically sets EnableMSTestRunner and OutputType Exe — no additional properties needed"
+      - "Mentions configuring dotnet test integration (TestingPlatformDotnetTestSupport or global.json)"
+    timeout: 360
+
+  # ============================================================================
+  # Goal 6: Translate dotnet test arguments
+  # ============================================================================
+
+  - name: "Translate dotnet test VSTest arguments to MTP equivalents"
+    prompt: |
+      Our CI runs `dotnet test --filter "Category=Integration" --logger trx --collect "Code Coverage;Format=cobertura" --blame-crash --blame-hang --blame-hang-timeout 5m`.
+      We're switching to Microsoft.Testing.Platform on .NET 8. What should the
+      new command look like?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-vstest/TestProject.csproj"
+        - path: "CalculatorTests.cs"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-vstest/CalculatorTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(report-trx|--report-trx)"
+      - type: "output_matches"
+        pattern: "(--coverage|CodeCoverage)"
+      - type: "output_matches"
+        pattern: "(crashdump|--crashdump)"
+      - type: "output_matches"
+        pattern: "(hangdump|--hangdump)"
+    rubric:
+      - "Translates --logger trx to --report-trx"
+      - "Translates --collect \"Code Coverage;Format=cobertura\" to --coverage --coverage-output-format cobertura"
+      - "Translates --blame-crash to --crashdump"
+      - "Translates --blame-hang to --hangdump"
+      - "Translates --blame-hang-timeout 5m to --hangdump-timeout 5m"
+      - "Mentions the -- separator needed on .NET 8 (pre-.NET 10)"
+      - "Lists the required NuGet extension packages (TrxReport, CrashDump, HangDump, CodeCoverage)"
+    timeout: 300
+
+  # ============================================================================
+  # Goal 7: Handle zero-test exit code behavioral change
+  # ============================================================================
+
+  - name: "Handle exit code 8 when migrating from VSTest to MTP"
+    prompt: |
+      We migrated our test project from VSTest to Microsoft.Testing.Platform.
+      Now our CI pipeline fails with exit code 8 even though no tests actually
+      failed. Some test assemblies have conditional compilation and produce zero
+      tests on certain configurations. With VSTest this was fine. How do I fix
+      this behavioral difference?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <OutputType>Exe</OutputType>
+                <EnableMSTestRunner>true</EnableMSTestRunner>
+                <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="MSTest" Version="3.8.0" />
+              </ItemGroup>
+            </Project>
+        - path: "ConditionalTests.cs"
+          content: |
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+            namespace MyApp.Tests;
+
+            #if INCLUDE_SLOW_TESTS
+            [TestClass]
+            public class SlowIntegrationTests
+            {
+                [TestMethod]
+                public void LongRunning_Succeeds()
+                {
+                    Assert.IsTrue(true);
+                }
+            }
+            #endif
+    assertions:
+      - type: "output_matches"
+        pattern: "(exit.?code.?8|ignore-exit-code|zero.?test)"
+    rubric:
+      - "Explains that MTP fails with exit code 8 when zero tests are discovered (unlike VSTest which succeeds)"
+      - "Recommends --ignore-exit-code 8 as a command-line option"
+      - "Shows how to set it via TestingPlatformCommandLineArguments MSBuild property"
+      - "Mentions TESTINGPLATFORM_EXITCODE_IGNORE environment variable as an alternative"
+    timeout: 360
+
+  # ============================================================================
+  # Goal 8: Configure global.json for .NET 10 native MTP mode
+  # ============================================================================
+
+  - name: "Configure dotnet test MTP mode on .NET 10 SDK"
+    prompt: |
+      We're on .NET 10 SDK and migrating to Microsoft.Testing.Platform. I read
+      that .NET 10 has native MTP support in dotnet test. How do I set it up?
+      Do I still need TestingPlatformDotnetTestSupport?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <OutputType>Exe</OutputType>
+                <EnableMSTestRunner>true</EnableMSTestRunner>
+                <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="MSTest" Version="3.8.0" />
+              </ItemGroup>
+            </Project>
+        - path: "global.json"
+          content: |
+            {
+              "sdk": {
+                "version": "10.0.100"
+              }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "(global\\.json|test.*runner)"
+      - type: "output_matches"
+        pattern: "(Microsoft\\.Testing\\.Platform|MTP)"
+    rubric:
+      - "Shows how to add the test.runner section to global.json"
+      - "Explains that TestingPlatformDotnetTestSupport is no longer needed on .NET 10 with native MTP mode"
+      - "Explains that the -- separator is no longer needed in .NET 10 native MTP mode"
+      - "Recommends using the native MTP mode for .NET 10+ instead of the VSTest bridge"
+    timeout: 240
+
+  # ============================================================================
+  # Goal 9: xUnit.net filter migration
+  # ============================================================================
+
+  - name: "Migrate xUnit.net VSTest filter syntax to MTP"
+    prompt: |
+      My CI uses `dotnet test --filter "FullyQualifiedName~IntegrationTests&Category=Smoke"` 
+      with xUnit.net v2. I'm upgrading to xunit.v3 with MTP. The --filter no longer
+      works the same way. How do I translate the filter?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <OutputType>Exe</OutputType>
+                <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="xunit.v3" Version="1.0.1" />
+              </ItemGroup>
+            </Project>
+        - path: "IntegrationTests.cs"
+          content: |
+            using Xunit;
+
+            namespace MyApp.Tests;
+
+            [Trait("Category", "Smoke")]
+            public class IntegrationTests
+            {
+                [Fact]
+                public void HealthEndpoint_ReturnsOk()
+                {
+                    Assert.True(true);
+                }
+
+                [Theory]
+                [InlineData("api/v1")]
+                [InlineData("api/v2")]
+                public void ApiEndpoint_ReturnsOk(string path)
+                {
+                    Assert.False(string.IsNullOrEmpty(path));
+                }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "(filter-class|filter-trait|filter-method|filter-query)"
+    rubric:
+      - "Explains that VSTest --filter syntax is not supported for xUnit.net v3 on MTP"
+      - "Translates FullyQualifiedName~IntegrationTests to --filter-class *IntegrationTests* (with wildcards for substring match) or --filter-query with path-segment syntax"
+      - "Translates Category=Smoke to --filter-trait \"Category=Smoke\""
+      - "Mentions --filter-query uses path-segment syntax (/<assembly>/<namespace>/<class>/<method>[trait=value])"
+      - "References xUnit.net query filter language documentation or provides the link"
+    timeout: 360
+
+  # ============================================================================
+  # Goal 10: Full end-to-end migration with multiple projects
+  # ============================================================================
+
+  - name: "Full VSTest to MTP migration plan for MSTest solution"
+    prompt: |
+      I have a solution with 5 MSTest test projects all using VSTest (MSTest.TestFramework 3.8.0,
+      MSTest.TestAdapter 3.8.0, Microsoft.NET.Test.Sdk 17.13.0). We use Azure DevOps
+      with the VSTest@3 task, TRX reporting, and code coverage. We're on .NET 8 SDK.
+      I want a complete migration plan to Microsoft.Testing.Platform.
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-vstest/TestProject.csproj"
+        - path: "CalculatorTests.cs"
+          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-vstest/CalculatorTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(EnableMSTestRunner|MSTest.*runner)"
+      - type: "output_matches"
+        pattern: "(OutputType|Exe)"
+      - type: "output_matches"
+        pattern: "(Directory\\.Build\\.props|centralize)"
+      - type: "output_matches"
+        pattern: "(DotNetCoreCLI|VSTest@3|pipeline)"
+      - type: "output_matches"
+        pattern: "(TrxReport|report-trx)"
+    rubric:
+      - "Recommends creating or updating Directory.Build.props with OutputType, EnableMSTestRunner, and TestingPlatformDotnetTestSupport"
+      - "Explains the properties should be set centrally, not per-project"
+      - "Covers replacing VSTest@3 task with DotNetCoreCLI@2"
+      - "Covers TRX reporting migration (--report-trx and TrxReport NuGet package)"
+      - "Covers code coverage migration (--coverage and CodeCoverage NuGet package)"
+      - "Mentions the -- separator requirement on .NET 8"
+      - "Includes verification steps (build, test, compare counts, check CI artifacts)"
+      - "Mentions possibility of exit code 8 for zero-test assemblies"
+    timeout: 300
