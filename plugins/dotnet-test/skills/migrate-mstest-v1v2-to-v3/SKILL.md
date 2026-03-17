@@ -1,42 +1,39 @@
 ---
 name: migrate-mstest-v1v2-to-v3
 description: >
-  Migrate an MSTest v1 or v2 test project to MSTest v3. Use when user says
+  Migrate MSTest v1 or v2 test project to MSTest v3. Use when user says
   "upgrade MSTest", "update test framework", "modernize tests", or has build
   errors after updating MSTest packages from 1.x/2.x.
   USE FOR: upgrading from MSTest v1 assembly references
   (Microsoft.VisualStudio.QualityTools.UnitTestFramework) or MSTest v2 NuGet
-  packages (MSTest.TestFramework 1.x–2.x) to MSTest v3, fixing assertion
-  overload errors (AreEqual/AreNotEqual), updating DataRow constructors,
-  replacing .testsettings with .runsettings, resolving timeout behavior changes,
-  handling dropped TFMs (net5.0 dropped — use net6.0+ or netcoreapp3.1),
-  adopting MSTest.Sdk, and enabling in-assembly parallel execution. First step
-  toward MSTest v4 — after this, use migrate-mstest-v3-to-v4.
-  DO NOT USE FOR: migrating directly to MSTest v4 (use migrate-mstest-v3-to-v4
-  after this skill), migrating between test frameworks (MSTest to xUnit/NUnit),
-  or general .NET upgrades unrelated to MSTest (use migrate-dotnet*-to-dotnet*
-  skills).
+  (MSTest.TestFramework 1.x–2.x) to MSTest v3, fixing assertion overload
+  errors (AreEqual/AreNotEqual), updating DataRow constructors, replacing
+  .testsettings with .runsettings, timeout behavior changes, target framework
+  compatibility (net5.0 unsupported — use net6.0+; .NET Fx < 4.6.2
+  unsupported), adopting MSTest.Sdk, parallel execution. First step toward
+  MSTest v4 — after this, use migrate-mstest-v3-to-v4.
+  DO NOT USE FOR: migrating to MSTest v4 (use migrate-mstest-v3-to-v4),
+  migrating between frameworks (MSTest to xUnit/NUnit), or general .NET
+  upgrades unrelated to MSTest.
 ---
 
 # MSTest v1/v2 → v3 Migration
 
-Migrate a test project from MSTest v1 (assembly references) or MSTest v2 (NuGet packages 1.x–2.x) to MSTest v3. MSTest v3 is **not binary compatible** with v1 or v2 — any library compiled against v1/v2 must be recompiled against v3. The outcome is a project using MSTest v3 that builds cleanly, passes tests, and leverages the improved defaults, security fixes, and performance optimizations in MSTest v3.
+Migrate a test project from MSTest v1 (assembly references) or MSTest v2 (NuGet 1.x–2.x) to MSTest v3. MSTest v3 is **not binary compatible** with v1/v2 — libraries compiled against v1/v2 must be recompiled.
 
 ## When to Use
 
-- Project references `Microsoft.VisualStudio.QualityTools.UnitTestFramework.dll` directly (MSTest v1 via assembly reference)
-- Project uses `MSTest.TestFramework` NuGet package with version 1.x or 2.x
-- Project uses `MSTest.TestAdapter` NuGet package with version 1.x or 2.x
-- Resolving build errors after updating MSTest NuGet packages from v1/v2 to v3
-- Replacing a `.testsettings` file with `.runsettings`
-- Adopting modern MSTest features like in-assembly parallel execution or MSTest.Sdk
+- Project references `Microsoft.VisualStudio.QualityTools.UnitTestFramework.dll` (MSTest v1)
+- Project uses `MSTest.TestFramework` / `MSTest.TestAdapter` NuGet 1.x or 2.x
+- Resolving build errors after updating MSTest packages from v1/v2 to v3
+- Replacing `.testsettings` with `.runsettings`
+- Adopting MSTest.Sdk or in-assembly parallel execution
 
 ## When Not to Use
 
-- The project already uses MSTest v3 (3.x packages) — migration is done
-- Upgrading from MSTest v3 to v4 — use the `migrate-mstest-v3-to-v4` skill
-- Migrating between test frameworks (e.g., MSTest to xUnit or NUnit) — different effort entirely
-- The project does not use MSTest at all
+- Project already uses MSTest v3 (3.x packages)
+- Upgrading v3 to v4 — use `migrate-mstest-v3-to-v4`
+- Migrating between frameworks (MSTest to xUnit/NUnit)
 
 ## Inputs
 
@@ -46,6 +43,22 @@ Migrate a test project from MSTest v1 (assembly references) or MSTest v2 (NuGet 
 | Build command | No | How to build (e.g., `dotnet build`, a repo build script). Auto-detect if not provided |
 | Test command | No | How to run tests (e.g., `dotnet test`). Auto-detect if not provided |
 
+## Breaking Changes Summary
+
+MSTest v3 introduces these breaking changes from v1/v2. Address only the ones relevant to the project:
+
+| Breaking Change | Impact | Fix |
+|---|---|---|
+| `Assert.AreEqual(object, object)` overload removed | Compile error on untyped assertions | Add generic type: `Assert.AreEqual<T>(expected, actual)`. Same for `AreNotEqual`, `AreSame`, `AreNotSame` |
+| `DataRow` strict type matching | Runtime/compile errors when argument types don't match parameter types exactly | Change literals to exact types: `1` for int, `1L` for long, `1.0f` for float |
+| `DataRow` max 16 constructor parameters | Compile error if >16 args | Refactor test or wrap extra params in array |
+| `.testsettings` / `<LegacySettings>` no longer supported | Settings silently ignored | Delete `.testsettings`, create `.runsettings` with equivalent config |
+| Timeout behavior unified across .NET Core / Framework | Tests with `[Timeout]` may behave differently | Verify timeout values; adjust if needed |
+| Dropped target frameworks: .NET 5, .NET Fx < 4.6.2, netstandard1.0, UWP < 16299, WinUI < 18362 | Build error | Update TFM: net5.0 → net6.0+, netfx → net462+, netstandard1.0 → netstandard2.0 |
+| Not binary compatible with v1/v2 | Libraries compiled against v1/v2 must be recompiled | Recompile all dependencies against v3 |
+
+When the user asks about breaking changes or what to expect, present the relevant rows from this table concisely—do not walk through the entire workflow.
+
 ## Workflow
 
 ### Step 1: Assess the project
@@ -54,12 +67,7 @@ Migrate a test project from MSTest v1 (assembly references) or MSTest v2 (NuGet 
    - **Assembly reference**: Look for `Microsoft.VisualStudio.QualityTools.UnitTestFramework` in project references → MSTest v1
    - **NuGet packages**: Check `MSTest.TestFramework` and `MSTest.TestAdapter` package versions → v1 if 1.x, v2 if 2.x
 2. Check if the project uses a `.testsettings` file (indicated by `<LegacySettings>` in test configuration)
-3. Record the current target framework(s) — MSTest v3 dropped support for:
-   - .NET Framework below 4.6.2
-   - .NET Standard 1.0 (use 2.0)
-   - UWP before build 16299
-   - WinUI before build 18362
-   - .NET 5 (use .NET Core 3.1 or .NET 6+)
+3. Check if the target framework is dropped in v3 (see Step 4)
 4. Run a clean build to establish a baseline of existing errors/warnings
 
 ### Step 2: Remove v1 assembly references (if applicable)
@@ -83,58 +91,18 @@ Remove individual `MSTest.TestFramework` and `MSTest.TestAdapter` package refere
 <PackageReference Include="MSTest" Version="3.8.0" />
 ```
 
-Also ensure `Microsoft.NET.Test.Sdk` is referenced:
+Also ensure `Microsoft.NET.Test.Sdk` is referenced (or update individual `MSTest.TestFramework` + `MSTest.TestAdapter` packages to 3.8.0 if you prefer not using the metapackage).
 
-```xml
-<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-```
+**Option B — Use MSTest.Sdk (SDK-style projects only):**
 
-**Option B — Update individual packages:**
+Change `<Project Sdk="Microsoft.NET.Sdk">` to `<Project Sdk="MSTest.Sdk/3.8.0">`. MSTest.Sdk automatically provides MSTest.TestFramework, MSTest.TestAdapter, MSTest.Analyzers, and Microsoft.NET.Test.Sdk.
 
-```xml
-<PackageReference Include="MSTest.TestFramework" Version="3.8.0" />
-<PackageReference Include="MSTest.TestAdapter" Version="3.8.0" />
-<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-```
+> **Important**: MSTest.Sdk defaults to Microsoft.Testing.Platform (MTP) instead of VSTest. For VSTest compatibility (e.g., `vstest.console` in CI), add `<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />`.
 
-**Option C — Use MSTest.Sdk (SDK-style projects only):**
+When switching to MSTest.Sdk, remove these (SDK provides them automatically):
 
-Change the project SDK to MSTest.Sdk. This produces the simplest possible project file because MSTest.Sdk automatically provides MSTest.TestFramework, MSTest.TestAdapter, MSTest.Analyzers, and Microsoft.NET.Test.Sdk — no explicit package references needed.
-
-> **Important**: MSTest.Sdk defaults to using Microsoft.Testing.Platform (MTP) as the test runner instead of VSTest. This means `dotnet test` uses MTP by default. If you need VSTest compatibility (e.g., for `vstest.console` in CI), add `<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />` explicitly.
-
-**Before (v2 with individual packages):**
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <IsPackable>false</IsPackable>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
-    <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
-  </ItemGroup>
-</Project>
-```
-
-**After (MSTest.Sdk):**
-
-```xml
-<Project Sdk="MSTest.Sdk/3.8.0">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-  </PropertyGroup>
-</Project>
-```
-
-When switching to MSTest.Sdk, remove the following — the SDK provides them automatically:
-
-- **Packages to remove**: `MSTest`, `MSTest.TestFramework`, `MSTest.TestAdapter`, `MSTest.Analyzers`, `Microsoft.NET.Test.Sdk`
-- **Properties to remove**: `<EnableMSTestRunner>`, `<OutputType>Exe</OutputType>`, `<IsPackable>false</IsPackable>`, `<IsTestProject>true</IsTestProject>`
-
-The resulting `.csproj` should contain only `TargetFramework` and any project-specific references.
+- **Packages**: `MSTest`, `MSTest.TestFramework`, `MSTest.TestAdapter`, `MSTest.Analyzers`, `Microsoft.NET.Test.Sdk`
+- **Properties**: `<EnableMSTestRunner>`, `<OutputType>Exe</OutputType>`, `<IsPackable>false</IsPackable>`, `<IsTestProject>true</IsTestProject>`
 
 ### Step 4: Update target frameworks if needed
 
@@ -150,89 +118,42 @@ If the project targets a dropped framework version, update to a supported one:
 
 ### Step 5: Resolve build errors and breaking changes
 
-Run `dotnet build` and address errors. Common breaking changes:
+Run `dotnet build` and fix errors using the Breaking Changes Summary above. Key fixes:
 
-#### Assertion overloads (AreEqual / AreNotEqual / AreSame / AreNotSame)
-
-MSTest v3 removed the `Assert.AreEqual(object, object)` and `Assert.AreNotEqual(object, object)` overloads. If these assertions now fail to compile, add explicit generic type parameters:
+**Assertion overloads** — MSTest v3 removed `Assert.AreEqual(object, object)` and `Assert.AreNotEqual(object, object)`. Add explicit generic type parameters:
 
 ```csharp
-// Before (v1/v2) — compiled against object overload
-Assert.AreEqual(expectedObject, actualObject);
-
-// After (v3) — use explicit generic typing
-Assert.AreEqual<MyType>(expectedObject, actualObject);
+// Before (v1/v2)                           // After (v3)
+Assert.AreEqual(expected, actual);        → Assert.AreEqual<MyType>(expected, actual);
+Assert.AreNotEqual(a, b);                → Assert.AreNotEqual<MyType>(a, b);
+Assert.AreSame(expected, actual);         → Assert.AreSame<MyType>(expected, actual);
 ```
 
-Similarly, `Assert.AreSame` and `Assert.AreNotSame` now use generic overloads:
+**DataRow strict type matching** — argument types must exactly match parameter types. Implicit conversions that worked in v2 fail in v3:
 
 ```csharp
-Assert.AreSame<MyType>(expected, actual);
-Assert.AreNotSame<MyType>(expected, actual);
+// Error: 1L (long) won't convert to int parameter → fix: use 1 (int)
+// Error: 1.0 (double) won't convert to float parameter → fix: use 1.0f (float)
 ```
 
-#### DataRow constructor changes
+Maximum 16 `DataRow` constructor parameters. For more, wrap in array or refactor.
 
-MSTest v3 simplified `DataRowAttribute` constructors to enforce strict type matching. DataRow argument types must precisely match the test method parameter types — implicit conversions that worked in v2 now fail at runtime or compile time:
-
-```csharp
-// Correct in v3: types match exactly
-[DataRow(1, "test")]
-public void MyTest(int number, string text) { }
-
-// Error in v3: long (1L) won't auto-convert to int parameter
-[DataRow(1L, "test")]
-public void MyTest(int number, string text) { }
-
-// Error in v3: double (1.0) won't auto-convert to float parameter
-[DataRow(1.0, "test")]
-public void MyTest(float number, string text) { }
-```
-
-**Fix**: Update each `[DataRow(...)]` literal to match the exact parameter type. Use `1` for `int`, `1L` for `long`, `1.0f` for `float`, etc.
-
-Also, `DataRowAttribute` now supports a maximum of 16 constructor parameters. If you have more than 16, wrap parameters in an array or refactor the test.
-
-#### Timeout behavior changes
-
-MSTest v3 unified timeout handling across .NET Core and .NET Framework. Tests with `[Timeout]` attributes may behave differently — verify timeout values are still appropriate:
-
-```csharp
-[TestMethod]
-[Timeout(2000)] // Verify this value still works under MSTest v3
-public async Task TestMethod() { }
-```
+**Timeout behavior** — unified across .NET Core and .NET Framework. Verify `[Timeout]` values still work.
 
 ### Step 6: Replace .testsettings with .runsettings
 
-The `.testsettings` file and `<LegacySettings>` are no longer supported in MSTest v3. **Delete the `.testsettings` file** and create a new `.runsettings` file — do not keep both files side by side.
+The `.testsettings` file and `<LegacySettings>` are no longer supported in MSTest v3. **Delete the `.testsettings` file** and create a `.runsettings` file — do not keep both.
 
-Map `.testsettings` configuration to `.runsettings`:
+Key mappings:
 
-| .testsettings element | .runsettings equivalent |
+| .testsettings | .runsettings equivalent |
 |---|---|
-| `<Properties><Property name="TestTimeout" value="30000" /></Properties>` | `<MSTest><TestTimeout>30000</TestTimeout></MSTest>` |
-| `<Execution><TestTypeSpecific>` deployment config | `<MSTest><DeploymentEnabled>true</DeploymentEnabled></MSTest>` or remove if unnecessary |
-| Assembly resolution / load context settings | Generally not needed in modern .NET — remove |
+| `TestTimeout` property | `<MSTest><TestTimeout>30000</TestTimeout></MSTest>` |
+| Deployment config | `<MSTest><DeploymentEnabled>true</DeploymentEnabled></MSTest>` or remove |
+| Assembly resolution settings | Remove — not needed in modern .NET |
 | Data collectors | `<DataCollectionRunSettings><DataCollectors>` section |
 
-```xml
-<!-- .runsettings -->
-<RunSettings>
-  <RunConfiguration>
-    <MaxCpuCount>-1</MaxCpuCount> <!-- Uses all available processors -->
-  </RunConfiguration>
-  <MSTest>
-    <TestTimeout>30000</TestTimeout> <!-- Per-test timeout in ms (replaces .testsettings TestTimeout) -->
-    <Parallelize>
-      <Workers>0</Workers> <!-- 0 = number of processors -->
-      <Scope>MethodLevel</Scope>
-    </Parallelize>
-  </MSTest>
-</RunSettings>
-```
-
-> **Important**: Map `.testsettings` timeout values to `<MSTest><TestTimeout>` (per-test timeout), **not** to `<TestSessionTimeout>` (which is a session-wide limit). The `<LegacySettings>` element is not a valid transitional bridge — remove it entirely and recreate the needed settings in `.runsettings`.
+> **Important**: Map timeout to `<MSTest><TestTimeout>` (per-test), **not** `<TestSessionTimeout>` (session-wide). Remove `<LegacySettings>` entirely.
 
 ### Step 7: Verify
 
@@ -243,27 +164,18 @@ Map `.testsettings` configuration to `.runsettings`:
 
 ## Validation
 
-- [ ] All MSTest v1/v2 assembly references or NuGet packages are removed
-- [ ] MSTest v3 packages (or MSTest.Sdk) are correctly referenced
+- [ ] MSTest v3 packages (or MSTest.Sdk) correctly referenced; v1/v2 references removed
 - [ ] Project builds with zero errors
-- [ ] All tests pass with `dotnet test`
-- [ ] `.testsettings` file replaced with `.runsettings` (if applicable)
-- [ ] Timeout behavior verified for time-sensitive tests
-- [ ] No tests were lost during migration (compare test counts)
+- [ ] All tests pass (`dotnet test`) — compare pass/fail counts to pre-migration baseline
+- [ ] `.testsettings` replaced with `.runsettings` (if applicable)
 
-## Next Step: Migrate to MSTest v4
+## Next Step
 
-After completing this migration to MSTest v3, proceed to the `migrate-mstest-v3-to-v4` skill to upgrade to MSTest v4 (the latest version). MSTest v4 introduces additional breaking changes (async TestMethodAttribute, ClassCleanupBehavior removal, Assert API changes, ExpectedException removal, dropped .NET < 8 support) that are covered in that skill.
+After v3 migration, use `migrate-mstest-v3-to-v4` for MSTest v4.
 
 ## Common Pitfalls
 
 | Pitfall | Solution |
 |---------|----------|
-| `Assert.AreEqual(obj, obj)` no longer compiles | Add explicit generic type: `Assert.AreEqual<T>(expected, actual)` |
-| DataRow with > 16 parameters fails | Refactor to use fewer parameters or wrap in an array |
-| DataRow implicit type conversions fail | Match DataRow argument types exactly to method parameter types |
-| `.testsettings` ignored silently | Delete `.testsettings` and migrate to `.runsettings` — legacy settings are not supported; do not keep both files |
-| Tests with tight timeouts fail | MSTest v3 unified timeout handling; adjust values if needed |
-| Target framework no longer supported | Update to minimum supported version (e.g., net462, netstandard2.0) |
 | Missing `Microsoft.NET.Test.Sdk` | Add package reference — required for test discovery with VSTest |
-| MSTest.Sdk tests not found by vstest.console | MSTest.Sdk defaults to Microsoft.Testing.Platform; add explicit `Microsoft.NET.Test.Sdk` reference for VSTest compatibility |
+| MSTest.Sdk tests not found by `vstest.console` | MSTest.Sdk defaults to Microsoft.Testing.Platform; add explicit `Microsoft.NET.Test.Sdk` for VSTest compatibility |
