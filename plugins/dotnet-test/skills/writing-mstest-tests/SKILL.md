@@ -251,7 +251,9 @@ public sealed class RepositoryTests
 
 1. `[AssemblyInitialize]` — once per assembly
 2. `[ClassInitialize]` — once per class
-3. Constructor → set `TestContext` property → `[TestInitialize]` — per test
+3. Per test:
+   - With `TestContext` property injection: Constructor → set `TestContext` property → `[TestInitialize]`
+   - With constructor injection of `TestContext`: Constructor (receives `TestContext`) → `[TestInitialize]`
 4. Test method
 5. `[TestCleanup]` → `DisposeAsync` → `Dispose` — per test
 6. `[ClassCleanup]` — once per class
