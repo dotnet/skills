@@ -9,149 +9,77 @@ description: >-
 
 # .NET MAUI Coding Guardrails
 
-Always-active guardrail that prevents common .NET MAUI mistakes. These rules
-apply to **every** MAUI code generation or editing task regardless of which
-other skills are active.
-
-For deprecated API replacements across .NET versions, see `maui-current-apis`.
-
-## When to Use
-
-- Any time you generate, edit, or review .NET MAUI XAML or C# code
-- When scaffolding new pages, views, or controls
-- When suggesting layout structures or control choices
-
-## When Not to Use
-
-- Non-MAUI .NET projects (ASP.NET, Blazor Server, WPF, WinForms)
-- Checking API currency across .NET versions — use `maui-current-apis`
-- Environment setup and workload troubleshooting — use `dotnet-maui-doctor`
+Always-active guardrail for every MAUI code generation or editing task.
+For deprecated API replacements, see `maui-current-apis`.
 
 ## Layout Rules
 
-### Don't put ScrollView or CollectionView inside StackLayout
-
-StackLayout measures children with **infinite height** — it asks "how tall do you
-want to be?" ScrollView answers "infinite" and never thinks it needs to scroll.
-CollectionView loses virtualization for the same reason. Grid constrains children
-to available space, which is what scrollable views need.
+**Don't put ScrollView or CollectionView inside StackLayout.**
+StackLayout measures children with infinite height, so ScrollView never scrolls
+and CollectionView loses virtualization. Use Grid instead.
 
 ```xml
-<!-- ❌ StackLayout gives infinite height — ScrollView never scrolls -->
+<!-- ❌ StackLayout gives infinite height -->
 <StackLayout>
-    <ScrollView>
-        <VerticalStackLayout>...</VerticalStackLayout>
-    </ScrollView>
+    <ScrollView>...</ScrollView>
 </StackLayout>
 
-<!-- ✅ Grid constrains height — ScrollView knows when to scroll -->
+<!-- ✅ Grid constrains height -->
 <Grid RowDefinitions="Auto,*,Auto">
     <Label Text="Header" />
-    <ScrollView Grid.Row="1">
-        <VerticalStackLayout>...</VerticalStackLayout>
-    </ScrollView>
+    <ScrollView Grid.Row="1">...</ScrollView>
     <Button Grid.Row="2" Text="Submit" />
 </Grid>
 ```
 
-### Prefer specific layout controls over StackLayout
+**Use `VerticalStackLayout`/`HorizontalStackLayout` over `StackLayout`.**
+They skip the legacy Orientation check on every measure pass — faster.
 
-MAUI simplified layout by splitting `StackLayout` into `VerticalStackLayout` and
-`HorizontalStackLayout`. These skip the legacy `Orientation` property check on
-every measure pass, so they're faster. Avoid the generic `StackLayout`.
+**Don't use `AndExpand` layout options.** They're no-ops in MAUI — silently do
+nothing. Use Grid with row/column definitions for expansion.
 
-| Scenario | Use |
-|----------|-----|
-| Complex multi-area layout | `Grid` |
-| Simple vertical stacking | `VerticalStackLayout` |
-| Simple horizontal row | `HorizontalStackLayout` |
-| Wrapping content | `FlexLayout` |
-
-### Don't use AndExpand layout options
-
-MAUI redesigned the layout engine from Xamarin.Forms. The `AndExpand` suffix
-(`FillAndExpand`, `CenterAndExpand`, etc.) has no defined behavior in MAUI —
-it's a no-op that silently does nothing. Use `Grid` with row/column definitions
-for expansion control.
-
-### Flatten deeply nested layouts
-
-Every nesting level adds a measure/arrange pass. A `Grid` inside a
-`VerticalStackLayout` inside another `Grid` forces three layout cycles. Prefer
-flat `Grid` layouts with row/column definitions over nested stack trees.
+**Flatten nested layouts.** Each nesting level adds a measure/arrange pass.
+Prefer flat Grid layouts over nested stack trees.
 
 ## Control Rules
 
 ### ⚠️ DO NOT USE `Frame` — Use `Border` Instead
 
-`Frame` is a Xamarin.Forms holdover with limited styling. `Border` is the MAUI
-replacement — it supports `StrokeShape` for rounded corners, custom strokes, and
-clipping. The only reason to keep `Frame` is the `HasShadow` property, which
-`Border` doesn't have.
+`Frame` is a Xamarin.Forms holdover. `Border` replaces it with `StrokeShape`
+for rounded corners and custom strokes. Only keep `Frame` for `HasShadow`.
 
 ```xml
-<!-- ✅ Border with rounded corners -->
-<Border StrokeShape="RoundRectangle 10"
-        Stroke="Gray"
-        StrokeThickness="1"
-        Padding="12">
+<Border StrokeShape="RoundRectangle 10" Stroke="Gray" StrokeThickness="1" Padding="12">
     <Label Text="Content" />
 </Border>
 ```
 
-### Use CollectionView instead of ListView
+**Use `CollectionView` over `ListView`.** ListView and all cell types (TextCell,
+ViewCell, etc.) are deprecated in .NET 10. For ≤20 static items, use
+`BindableLayout` instead.
 
-`ListView` is deprecated in .NET 10 along with all its cell types (`TextCell`,
-`ViewCell`, `ImageCell`, etc.). It also lacks features that `CollectionView`
-provides: horizontal layouts, multi-selection, snap points, and incremental
-loading. For small static lists (≤ 20 items), use `BindableLayout` on any layout
-container instead.
+**Use `Background` over `BackgroundColor`.** `Background` accepts both Color and
+Brush (gradients, images) — strictly more capable.
 
-### Use Background instead of BackgroundColor
-
-`BackgroundColor` only accepts `Color` values. `Background` accepts both `Color`
-and `Brush` (gradients, images), making it strictly more capable. MAUI is
-standardizing on `Background` across controls.
-
-### Reference images as .png, not .svg
-
-SVG files in `Resources/Images/` are converted to PNG at build time. The `.svg`
-file doesn't exist in the app bundle at runtime — referencing it causes a missing
-image. Always use the `.png` extension.
-
-```xml
-<!-- ✅ Correct — references the build output -->
-<Image Source="logo.png" />
-
-<!-- ❌ Fails at runtime — .svg doesn't exist in the bundle -->
-<Image Source="logo.svg" />
-```
+**Reference images as `.png`, not `.svg`.** SVGs convert to PNG at build time;
+`.svg` doesn't exist at runtime.
 
 ## Navigation Rules
 
-### Don't mix Shell with NavigationPage, TabbedPage, or FlyoutPage
+**Don't mix Shell with NavigationPage/TabbedPage/FlyoutPage.** Shell has its own
+navigation stack; wrapping in NavigationPage creates two competing stacks causing
+corruption and double headers. Pick one paradigm at startup.
 
-Shell maintains its own navigation stack internally. Wrapping a Shell page inside
-`NavigationPage` creates two competing navigation stacks — one managed by Shell
-and one by NavigationPage — leading to corruption, double headers, and undefined
-back-button behavior. Pick one navigation paradigm at app startup.
-
-### Set MainPage once
-
-Set `App.MainPage` once during startup. After that, use Shell routing
-(`GoToAsync`) or `NavigationPage.PushAsync` for navigation. Changing `MainPage`
-mid-lifecycle can leak pages and handlers.
+**Set `App.MainPage` once.** Use Shell routing or NavigationPage.PushAsync after
+that. Changing MainPage mid-lifecycle leaks pages and handlers.
 
 ## Handler Architecture
 
-Use **handlers** and `Mapper` methods instead of custom renderers. Renderers are
-a Xamarin.Forms concept that doesn't exist in MAUI. Handlers are the MAUI
-replacement — they're lighter, composable, and support platform-specific
-customization without subclassing.
+Use **handlers** and Mapper methods, not renderers. Renderers are a Xamarin.Forms
+concept that doesn't exist in MAUI.
 
 ```csharp
-// In MauiProgram.cs — customize Entry to remove border
-Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("NoBorder", (handler, view) =>
+EntryHandler.Mapper.AppendToMapping("NoBorder", (handler, view) =>
 {
 #if ANDROID
     handler.PlatformView.SetBackgroundColor(Android.Graphics.Color.Transparent);
@@ -161,15 +89,13 @@ Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("NoBorder", (handler
 });
 ```
 
-- `AppendToMapping` — runs **after** the default property mapping
-- `PrependToMapping` — runs **before** the default mapping
-- `ModifyMapping` — wraps or replaces a specific property mapping
+`AppendToMapping` runs after defaults, `PrependToMapping` before, `ModifyMapping`
+wraps a specific property.
 
 ## Compiled Bindings
 
-Always declare `x:DataType` on pages and DataTemplates. Without it, bindings use
-runtime reflection which is 8–20× slower than compiled bindings. Compiled bindings
-also catch typos at build time instead of failing silently at runtime.
+Declare `x:DataType` on pages and DataTemplates — without it, bindings use
+runtime reflection (8–20× slower) and typos fail silently at runtime.
 
 ```xml
 <ContentPage x:DataType="viewmodels:MainViewModel">
@@ -185,13 +111,12 @@ also catch typos at build time instead of failing silently at runtime.
 
 ## Common Pitfalls
 
-| Pitfall | Why it happens | Fix |
-|---------|---------------|-----|
-| Gesture recognizers on both parent and child | Parent intercepts touch events before child sees them | Set `InputTransparent="True"` on overlay, or restructure so only one element owns the gesture |
-| Unsubscribed event handlers | Pages stay in memory because handler references pin them | Unsubscribe in `OnDisappearing` or use `WeakReferenceMessenger` from CommunityToolkit.Mvvm |
-| Testing only on emulators | Emulators don't surface real-device issues like gesture timing, GPU rendering, and thermal throttling | Always validate on physical devices before shipping |
+| Pitfall | Fix |
+|---------|-----|
+| Gesture on parent and child — parent intercepts | `InputTransparent="True"` on overlay, or restructure ownership |
+| Unsubscribed event handlers — pages leak | Unsubscribe in `OnDisappearing` or use `WeakReferenceMessenger` |
+| Testing only on emulators | Validate on physical devices — emulators hide perf/gesture issues |
 
 ## Additional Reference
 
-For a complete control quick-reference (layout, input, list, and display
-controls with usage notes), see `references/control-reference.md`.
+See `references/control-reference.md` for full control quick-reference.
