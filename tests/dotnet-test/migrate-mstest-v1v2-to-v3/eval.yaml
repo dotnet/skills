@@ -1,0 +1,359 @@
+scenarios:
+  # ============================================================================
+  # Goal 1: Recognizing MSTest v1 assembly reference projects
+  # ============================================================================
+
+  - name: "Migrate MSTest v1 project with assembly reference"
+    prompt: |
+      I have an old .NET Framework test project that references MSTest via assembly reference.
+      I want to upgrade to MSTest v3. What do I need to change?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          source: "fixtures/v1-assembly-ref/TestProject.csproj"
+        - path: "OrderServiceTests.cs"
+          source: "fixtures/v1-assembly-ref/OrderServiceTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(QualityTools|assembly.?ref|UnitTestFramework)"
+      - type: "output_matches"
+        pattern: "(MSTest|MSTest\\.TestFramework|MSTest\\.Sdk)"
+    rubric:
+      - "Identifies the project as MSTest v1 via the QualityTools assembly reference"
+      - "Recommends removing the assembly reference to Microsoft.VisualStudio.QualityTools.UnitTestFramework"
+      - "Recommends adding MSTest v3 NuGet packages (MSTest metapackage, MSTest.TestFramework+TestAdapter, or MSTest.Sdk)"
+      - "Mentions the Assert.AreEqual(object, object) overload removal and suggests adding generic type parameters"
+    timeout: 180
+
+  # ============================================================================
+  # Goal 2: Migrating MSTest v2 NuGet packages
+  # ============================================================================
+
+  - name: "Migrate MSTest v2 NuGet project to v3"
+    prompt: |
+      My test project uses MSTest.TestFramework 2.2.10 and MSTest.TestAdapter 2.2.10 on .NET 6.
+      I want to upgrade to MSTest v3. What breaking changes should I expect?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          source: "fixtures/v2-nuget/TestProject.csproj"
+        - path: "UserServiceTests.cs"
+          source: "fixtures/v2-nuget/UserServiceTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(2\\.2\\.10|v2|version 2)"
+      - type: "output_matches"
+        pattern: "(3\\.[0-9]+|v3|version 3)"
+    rubric:
+      - "Identifies the project as MSTest v2 from the 2.2.10 package versions"
+      - "Recommends updating MSTest packages to 3.x or switching to the MSTest metapackage"
+      - "Warns about Assert.AreEqual/AreNotEqual object overload removal"
+      - "Mentions DataRow constructor changes and strict type matching"
+      - "Mentions timeout behavior unification across .NET Core and .NET Framework"
+    timeout: 240
+
+  # ============================================================================
+  # Goal 3: Handling assertion overload changes
+  # ============================================================================
+
+  - name: "Fix Assert.AreEqual object overload errors after v3 upgrade"
+    prompt: |
+      I just upgraded to MSTest v3 and I'm getting compilation errors like:
+      "error CS1503: Argument 1: cannot convert from 'object' to 'string'"
+      on Assert.AreEqual calls. My tests compare objects. How do I fix this?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="MSTest" Version="3.8.0" />
+              </ItemGroup>
+            </Project>
+        - path: "ComparisonTests.cs"
+          content: |
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+            namespace MyApp.Tests;
+
+            [TestClass]
+            public class ComparisonTests
+            {
+                [TestMethod]
+                public void CompareObjects_AreEqual()
+                {
+                    object expected = GetExpected();
+                    object actual = GetActual();
+                    Assert.AreEqual(expected, actual);
+                }
+
+                [TestMethod]
+                public void CompareObjects_AreNotEqual()
+                {
+                    object a = "hello";
+                    object b = "world";
+                    Assert.AreNotEqual(a, b);
+                }
+
+                [TestMethod]
+                public void CompareReferences_AreSame()
+                {
+                    object obj = new object();
+                    Assert.AreSame(obj, obj);
+                }
+
+                private static object GetExpected() => 42;
+                private static object GetActual() => 42;
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "(generic|AreEqual<|<T>|type.?param)"
+    rubric:
+      - "Explains that MSTest v3 removed the Assert.AreEqual(object, object) overload"
+      - "Recommends adding explicit generic type parameters: Assert.AreEqual<T>(expected, actual)"
+      - "Applies the same fix pattern to AreNotEqual, AreSame, and AreNotSame"
+      - "Does not suggest downgrading to MSTest v2 as a solution"
+    timeout: 180
+
+  # ============================================================================
+  # Goal 4: Replacing .testsettings with .runsettings
+  # ============================================================================
+
+  - name: "Migrate from .testsettings to .runsettings"
+    prompt: |
+      My MSTest project has a .testsettings file that configures test deployment and timeout.
+      After upgrading to MSTest v3, it seems to be ignored. How do I migrate?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="MSTest" Version="3.8.0" />
+              </ItemGroup>
+            </Project>
+        - path: "local.testsettings"
+          content: |
+            <?xml version="1.0" encoding="UTF-8"?>
+            <TestSettings name="Local">
+              <Execution>
+                <TestTypeSpecific>
+                  <UnitTestRunConfig testTypeId="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b">
+                    <AssemblyResolution>
+                      <TestDirectory useLoadContext="true" />
+                    </AssemblyResolution>
+                  </UnitTestRunConfig>
+                </TestTypeSpecific>
+              </Execution>
+              <Properties>
+                <Property name="TestTimeout" value="30000" />
+              </Properties>
+            </TestSettings>
+    assertions:
+      - type: "output_matches"
+        pattern: "(runsettings|\\.runsettings)"
+      - type: "output_matches"
+        pattern: "(testsettings|legacy|no longer supported)"
+    rubric:
+      - "Explains that .testsettings and LegacySettings are no longer supported in MSTest v3"
+      - "Provides guidance on creating a .runsettings file as a replacement"
+      - "Shows how to configure timeout and other settings in .runsettings XML format"
+      - "Does not suggest keeping the .testsettings file alongside .runsettings"
+    timeout: 180
+
+  # ============================================================================
+  # Goal 5: Handling DataRow constructor changes
+  # ============================================================================
+
+  - name: "Fix DataRow type mismatch errors after v3 upgrade"
+    prompt: |
+      After upgrading to MSTest v3, many of my data-driven tests fail to compile with errors
+      about DataRow constructors. I have tests with lots of parameters and some implicit
+      type conversions. What changed and how do I fix it?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="MSTest" Version="3.8.0" />
+              </ItemGroup>
+            </Project>
+        - path: "DataDrivenTests.cs"
+          content: |
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+            namespace MyApp.Tests;
+
+            [TestClass]
+            public class DataDrivenTests
+            {
+                [TestMethod]
+                [DataRow(1L, "Alice", true)]
+                [DataRow(2L, "Bob", false)]
+                public void ProcessUser(int id, string name, bool active)
+                {
+                    Assert.IsNotNull(name);
+                }
+
+                [TestMethod]
+                [DataRow(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17)]
+                public void ManyParameters(int a, int b, int c, int d, int e, int f,
+                    int g, int h, int i, int j, int k, int l, int m, int n, int o,
+                    int p, int q)
+                {
+                    Assert.IsTrue(true);
+                }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "(DataRow|type.?match|constructor|16|param)"
+    rubric:
+      - "Explains that MSTest v3 requires DataRow values to match parameter types exactly"
+      - "Identifies the 1L (long) vs int mismatch and recommends fixing to 1 (int)"
+      - "Explains the 16-parameter limit on DataRow constructors and suggests refactoring or wrapping in an array"
+      - "Does not suggest downgrading as a fix"
+    timeout: 240
+
+  # ============================================================================
+  # Goal 6: Adopting MSTest.Sdk
+  # ============================================================================
+
+  - name: "Migrate to MSTest.Sdk project style"
+    prompt: |
+      I have a standard MSTest v2 project and I heard MSTest.Sdk simplifies things.
+      Can you help me convert my project to use MSTest.Sdk? Show me what the new
+      project file should look like.
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <IsPackable>false</IsPackable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
+                <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
+              </ItemGroup>
+            </Project>
+        - path: "UserServiceTests.cs"
+          source: "fixtures/v2-nuget/UserServiceTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "MSTest\\.Sdk"
+    rubric:
+      - "Recommends changing the project SDK to MSTest.Sdk"
+      - "Shows the simplified project file format with MSTest.Sdk"
+      - "Mentions that MSTest.Sdk eliminates the need for explicit MSTest and Microsoft.NET.Test.Sdk package references"
+      - "Notes that MSTest.Sdk defaults to Microsoft.Testing.Platform"
+    timeout: 240
+
+  # ============================================================================
+  # Goal 7: Target framework compatibility
+  # ============================================================================
+
+  - name: "Handle dropped target framework during v3 migration"
+    prompt: |
+      My test project targets .NET 5.0 and uses MSTest v2. I want to upgrade to MSTest v3.
+      Will there be any framework compatibility issues?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net5.0</TargetFramework>
+                <IsPackable>false</IsPackable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
+                <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
+              </ItemGroup>
+            </Project>
+    assertions:
+      - type: "output_matches"
+        pattern: "(net5\\.0|dropped|unsupported|net6\\.0|net8\\.0)"
+    rubric:
+      - "Identifies that .NET 5.0 is no longer supported by MSTest v3"
+      - "Recommends upgrading to .NET 6.0 or later (preferably .NET 8.0 as a current LTS)"
+      - "Does not suggest staying on .NET 5.0 with MSTest v3"
+    timeout: 180
+
+  # ============================================================================
+  # Goal 8: Complex v2 project with multiple breaking changes
+  # ============================================================================
+
+  - name: "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM"
+    prompt: |
+      I have an MSTest v2 project on .NET 5.0 that uses a .testsettings file, data-driven
+      tests with implicit type conversions, and Assert.AreEqual on objects. I want to
+      migrate to MSTest v3. What's the full list of changes I need to make?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          source: "fixtures/v2-complex/TestProject.csproj"
+        - path: "InventoryServiceTests.cs"
+          source: "fixtures/v2-complex/InventoryServiceTests.cs"
+        - path: "local.testsettings"
+          source: "fixtures/v2-complex/local.testsettings"
+    assertions:
+      - type: "output_matches"
+        pattern: "(net5\\.0|dropped|unsupported|net8\\.0)"
+      - type: "output_matches"
+        pattern: "(AreEqual|generic|<T>|object)"
+      - type: "output_matches"
+        pattern: "(DataRow|type.?match|long|int)"
+      - type: "output_matches"
+        pattern: "(testsettings|runsettings|legacy)"
+    rubric:
+      - "Identifies that .NET 5.0 is dropped in MSTest v3 and recommends upgrading to net8.0"
+      - "Identifies the Assert.AreEqual/AreNotEqual/AreSame object overload removal and recommends generic type parameters"
+      - "Identifies the DataRow 1L (long) to int type mismatch and recommends exact type matching"
+      - "Identifies the DataRow 17-parameter test exceeds the 16-parameter limit"
+      - "Recommends migrating the .testsettings file to .runsettings"
+      - "Recommends updating MSTest packages from 2.2.10 to 3.x"
+    timeout: 240
+
+  # ============================================================================
+  # Goal 9: Version detection — distinguish v1 from v2
+  # ============================================================================
+
+  - name: "Correctly identify MSTest v1 vs v2 and recommend different migration paths"
+    prompt: |
+      I have two test projects. One uses QualityTools assembly references and the other
+      uses MSTest.TestFramework 2.2.10 NuGet. Are the migration steps the same for both?
+    setup:
+      files:
+        - path: "LegacyTests/TestProject.csproj"
+          source: "fixtures/v1-assembly-ref/TestProject.csproj"
+        - path: "LegacyTests/OrderServiceTests.cs"
+          source: "fixtures/v1-assembly-ref/OrderServiceTests.cs"
+        - path: "ModernTests/TestProject.csproj"
+          source: "fixtures/v2-nuget/TestProject.csproj"
+        - path: "ModernTests/UserServiceTests.cs"
+          source: "fixtures/v2-nuget/UserServiceTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(QualityTools|assembly.?ref|v1)"
+      - type: "output_matches"
+        pattern: "(2\\.2\\.10|v2|NuGet)"
+    rubric:
+      - "Correctly identifies the first project as MSTest v1 (assembly reference to QualityTools)"
+      - "Correctly identifies the second project as MSTest v2 (NuGet packages 2.2.10)"
+      - "Explains that v1 requires an extra step: removing the assembly reference before adding NuGet packages"
+      - "Notes that v2 migration is simpler — just update the package versions"
+      - "Recommends both projects end up on MSTest v3 with the same final package references"
+    timeout: 180

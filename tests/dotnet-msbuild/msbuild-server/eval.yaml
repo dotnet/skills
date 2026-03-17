@@ -1,0 +1,15 @@
+scenarios:
+  - name: "Recommend MSBuild Server for slow CLI incremental builds"
+    prompt: "A developer reports that CLI builds with 'dotnet build' are slow for incremental builds, even when nothing has changed. Visual Studio builds the same project almost instantly. Review the project and developer report, then suggest how to improve CLI build performance for the dev inner loop."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(MSBUILDUSESERVER|MSBuild.?[Ss]erver|build.?server)"
+    rubric:
+      - "Identified that CLI builds start a fresh MSBuild process each time, unlike VS which reuses a long-lived process"
+      - "Recommended setting MSBUILDUSESERVER=1 to enable the MSBuild Server for persistent caching"
+      - "Explained that the MSBuild Server caches evaluation results across builds, reducing startup overhead"
+      - "Provided the correct syntax for setting the environment variable"
+      - "Mentioned limitations or troubleshooting (e.g., dotnet build-server shutdown if builds misbehave)"
+    timeout: 120

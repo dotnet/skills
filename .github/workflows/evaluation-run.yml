@@ -192,7 +192,7 @@ jobs:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
         run: |
-          ARGS="--require-evals --verdict-warn-only --verbose"
+          ARGS="--verdict-warn-only --verbose"
           ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
           ARGS="$ARGS --model ${{ inputs.model }}"
           ARGS="$ARGS --judge-model ${{ inputs.judge-model }}"

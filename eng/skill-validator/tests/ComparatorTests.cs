@@ -42,9 +42,7 @@ public class CompareScenarioTests
         Description: "A test skill",
         Path: "/test",
         SkillMdPath: "/test/SKILL.md",
-        SkillMdContent: "# Test",
-        EvalPath: "/test/tests/eval.yaml",
-        EvalConfig: new EvalConfig([]));
+        SkillMdContent: "# Test");
 
     [Fact]
     public void ShowsImprovementWhenSkillReducesTokensAndImprovesQuality()
@@ -114,9 +112,7 @@ public class ComputeVerdictTests
         Description: "A test skill",
         Path: "/test",
         SkillMdPath: "/test/SKILL.md",
-        SkillMdContent: "# Test",
-        EvalPath: "/test/tests/eval.yaml",
-        EvalConfig: new EvalConfig([]));
+        SkillMdContent: "# Test");
 
     [Fact]
     public void PassesWhenImprovementScoreMeetsThreshold()

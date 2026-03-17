@@ -1,0 +1,504 @@
+scenarios:
+  # ============================================================================
+  # Goal 1: Suggesting hot reload setup for MTP projects
+  # ============================================================================
+
+  - name: "Suggest hot reload for failing test in MTP project (SDK 9)"
+    prompt: "I have a failing test in ProcessPayment_NegativeAmount_ThrowsException and I want to iterate on the fix quickly without rebuilding each time. What's the fastest workflow?"
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net9.0</TargetFramework>
+                <IsPackable>false</IsPackable>
+                <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+                <PackageReference Include="MSTest" Version="3.8.0" />
+              </ItemGroup>
+            </Project>
+        - path: "PaymentProcessorTests.cs"
+          content: |
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+            namespace Contoso.Payments.Tests;
+
+            [TestClass]
+            public class PaymentProcessorTests
+            {
+                [TestMethod]
+                public void ProcessPayment_ValidAmount_Succeeds()
+                {
+                    var result = ProcessPayment(100.00m);
+                    Assert.IsTrue(result);
+                }
+
+                [TestMethod]
+                public void ProcessPayment_ZeroAmount_ThrowsException()
+                {
+                    Assert.ThrowsException<ArgumentException>(() => ProcessPayment(0));
+                }
+
+                [TestMethod]
+                public void ProcessPayment_NegativeAmount_ThrowsException()
+                {
+                    // BUG: This test is failing because ProcessPayment doesn't validate negative amounts
+                    Assert.ThrowsException<ArgumentException>(() => ProcessPayment(-50.00m));
+                }
+
+                private static bool ProcessPayment(decimal amount)
+                {
+                    if (amount == 0) throw new ArgumentException("Amount cannot be zero");
+                    // Missing: validation for negative amounts
+                    return true;
+                }
+            }
+        - path: "global.json"
+          content: |
+            {
+              "sdk": {
+                "version": "9.0.200"
+              }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "Microsoft\\.Testing\\.Extensions\\.HotReload"
+      - type: "output_matches"
+        pattern: "TESTINGPLATFORM_HOTRELOAD_ENABLED"
+      - type: "output_matches"
+        pattern: "dotnet run"
+    rubric:
+      - "Detects this is an MTP project (TestingPlatformDotnetTestSupport=true in csproj)"
+      - "Suggests installing the Microsoft.Testing.Extensions.HotReload NuGet package"
+      - "Instructs setting TESTINGPLATFORM_HOTRELOAD_ENABLED=1 environment variable"
+      - "Uses 'dotnet run --project' to run the test host, not 'dotnet test'"
+      - "Explains the iterative workflow: edit code, hot reload picks up changes, re-runs tests"
+    expect_tools: ["bash"]
+    timeout: 180
+
+  - name: "Suggest hot reload for failing test in MTP project (SDK 10)"
+    prompt: "My RemoveStock_ExceedsAvailable_ThrowsException test is failing. I want to iterate fixes rapidly. How can I set up hot reload for this test project?"
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <IsPackable>false</IsPackable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="MSTest" Version="3.8.0" />
+              </ItemGroup>
+            </Project>
+        - path: "InventoryServiceTests.cs"
+          content: |
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+            namespace Contoso.Inventory.Tests;
+
+            [TestClass]
+            public class InventoryServiceTests
+            {
+                [TestMethod]
+                public void AddStock_ValidQuantity_IncreasesCount()
+                {
+                    var service = new InventoryService();
+                    service.AddStock("SKU-001", 10);
+                    Assert.AreEqual(10, service.GetStock("SKU-001"));
+                }
+
+                [TestMethod]
+                public void RemoveStock_ExceedsAvailable_ThrowsException()
+                {
+                    var service = new InventoryService();
+                    service.AddStock("SKU-001", 5);
+                    Assert.ThrowsException<InvalidOperationException>(() => service.RemoveStock("SKU-001", 10));
+                }
+
+                [TestMethod]
+                public void GetStock_UnknownSku_ReturnsZero()
+                {
+                    var service = new InventoryService();
+                    Assert.AreEqual(0, service.GetStock("UNKNOWN"));
+                }
+            }
+
+            public class InventoryService
+            {
+                private readonly Dictionary<string, int> _stock = new();
+                public void AddStock(string sku, int quantity) =>
+                    _stock[sku] = _stock.GetValueOrDefault(sku) + quantity;
+                public void RemoveStock(string sku, int quantity) =>
+                    _stock[sku] = _stock.GetValueOrDefault(sku) - quantity;
+                public int GetStock(string sku) =>
+                    _stock.GetValueOrDefault(sku);
+            }
+        - path: "global.json"
+          content: |
+            {
+              "sdk": {
+                "version": "10.0.100"
+              },
+              "test": {
+                "runner": "Microsoft.Testing.Platform"
+              }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "Microsoft\\.Testing\\.Extensions\\.HotReload"
+      - type: "output_matches"
+        pattern: "TESTINGPLATFORM_HOTRELOAD_ENABLED"
+      - type: "output_matches"
+        pattern: "dotnet run"
+    rubric:
+      - "Detects MTP via global.json runner setting (Microsoft.Testing.Platform) on SDK 10"
+      - "Suggests installing the Microsoft.Testing.Extensions.HotReload NuGet package"
+      - "Instructs setting TESTINGPLATFORM_HOTRELOAD_ENABLED=1"
+      - "Uses 'dotnet run' to start the test host in console mode"
+      - "Mentions that hot reload works in console mode only, not Test Explorer"
+    expect_tools: ["bash"]
+    timeout: 180
+
+  # ============================================================================
+  # Goal 2: Using hot reload when package is already installed
+  # ============================================================================
+
+  - name: "Enable hot reload when package already installed"
+    prompt: "I have a test project with some failing tests. I see Microsoft.Testing.Extensions.HotReload is already in the project. How do I use it to quickly iterate on fixes?"
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net9.0</TargetFramework>
+                <IsPackable>false</IsPackable>
+                <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+                <PackageReference Include="MSTest" Version="3.8.0" />
+                <PackageReference Include="Microsoft.Testing.Extensions.HotReload" Version="1.5.3" />
+              </ItemGroup>
+            </Project>
+        - path: "EmailValidatorTests.cs"
+          content: |
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+            namespace Contoso.Validation.Tests;
+
+            [TestClass]
+            public class EmailValidatorTests
+            {
+                [TestMethod]
+                public void Validate_ValidEmail_ReturnsTrue()
+                {
+                    Assert.IsTrue(IsValidEmail("user@example.com"));
+                }
+
+                [TestMethod]
+                public void Validate_MissingAtSign_ReturnsFalse()
+                {
+                    Assert.IsFalse(IsValidEmail("userexample.com"));
+                }
+
+                [TestMethod]
+                public void Validate_EmptyString_ReturnsFalse()
+                {
+                    Assert.IsFalse(IsValidEmail(""));
+                }
+
+                private static bool IsValidEmail(string email)
+                {
+                    return !string.IsNullOrEmpty(email);
+                }
+            }
+        - path: "global.json"
+          content: |
+            {
+              "sdk": {
+                "version": "9.0.200"
+              }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "TESTINGPLATFORM_HOTRELOAD_ENABLED"
+      - type: "output_matches"
+        pattern: "dotnet run"
+      - type: "output_not_matches"
+        pattern: "dotnet add.*package.*HotReload"
+    rubric:
+      - "Recognizes that Microsoft.Testing.Extensions.HotReload is already installed"
+      - "Does NOT suggest installing the package again"
+      - "Instructs setting TESTINGPLATFORM_HOTRELOAD_ENABLED=1 to activate hot reload"
+      - "Uses 'dotnet run --project' to run in console mode"
+      - "Describes the iterative workflow: make changes, tests re-run automatically"
+    expect_tools: ["bash"]
+    timeout: 180
+
+  - name: "Suggest launchSettings.json configuration for hot reload"
+    prompt: "I want to set up hot reload for my test project so it's always enabled when I run from the command line. I don't want to set the environment variable every time."
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net9.0</TargetFramework>
+                <IsPackable>false</IsPackable>
+                <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+                <PackageReference Include="MSTest" Version="3.8.0" />
+              </ItemGroup>
+            </Project>
+        - path: "PaymentProcessorTests.cs"
+          content: |
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+            namespace Contoso.Payments.Tests;
+
+            [TestClass]
+            public class PaymentProcessorTests
+            {
+                [TestMethod]
+                public void ProcessPayment_ValidAmount_Succeeds()
+                {
+                    Assert.IsTrue(true);
+                }
+
+                [TestMethod]
+                public void ProcessPayment_NegativeAmount_ThrowsException()
+                {
+                    Assert.ThrowsException<ArgumentException>(() => throw new InvalidOperationException());
+                }
+            }
+        - path: "global.json"
+          content: |
+            {
+              "sdk": {
+                "version": "9.0.200"
+              }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "launchSettings\\.json"
+      - type: "output_matches"
+        pattern: "TESTINGPLATFORM_HOTRELOAD_ENABLED"
+      - type: "output_matches"
+        pattern: "Microsoft\\.Testing\\.Extensions\\.HotReload"
+    rubric:
+      - "Suggests creating or updating Properties/launchSettings.json"
+      - "Shows the correct launchSettings.json structure with TESTINGPLATFORM_HOTRELOAD_ENABLED=1"
+      - "Includes the Microsoft.Testing.Extensions.HotReload package installation step"
+      - "Explains that launchSettings.json makes the setting persistent across runs"
+    expect_tools: ["bash"]
+    timeout: 180
+
+  # ============================================================================
+  # Goal 3: Correct usage — dotnet run, not dotnet test
+  # ============================================================================
+
+  - name: "Use dotnet run not dotnet test for hot reload"
+    prompt: "I installed the hot reload package and set the environment variable. Should I use 'dotnet test' or 'dotnet run' to benefit from hot reload?"
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net9.0</TargetFramework>
+                <IsPackable>false</IsPackable>
+                <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+                <PackageReference Include="MSTest" Version="3.8.0" />
+                <PackageReference Include="Microsoft.Testing.Extensions.HotReload" Version="1.5.3" />
+              </ItemGroup>
+            </Project>
+        - path: "EmailValidatorTests.cs"
+          content: |
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+            namespace Contoso.Validation.Tests;
+
+            [TestClass]
+            public class EmailValidatorTests
+            {
+                [TestMethod]
+                public void Validate_ValidEmail_ReturnsTrue()
+                {
+                    Assert.IsTrue(IsValidEmail("user@example.com"));
+                }
+
+                [TestMethod]
+                public void Validate_MissingAtSign_ReturnsFalse()
+                {
+                    Assert.IsFalse(IsValidEmail("userexample.com"));
+                }
+
+                private static bool IsValidEmail(string email)
+                {
+                    return !string.IsNullOrEmpty(email);
+                }
+            }
+        - path: "global.json"
+          content: |
+            {
+              "sdk": {
+                "version": "9.0.200"
+              }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "dotnet run"
+      - type: "output_matches"
+        pattern: "console mode"
+    rubric:
+      - "Clearly states that 'dotnet run' must be used, not 'dotnet test'"
+      - "Explains that hot reload works in console mode only"
+      - "Mentions there is no Test Explorer support for MTP hot reload"
+      - "Shows the correct command: dotnet run --project <path>"
+    expect_tools: ["bash"]
+    timeout: 180
+
+  # ============================================================================
+  # Goal 4: Negative — VSTest project cannot use MTP hot reload
+  # ============================================================================
+
+  - name: "Negative: VSTest project cannot use MTP hot reload"
+    prompt: "I have some failing tests and want to use hot reload to iterate faster. Can you set it up for me?"
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <IsPackable>false</IsPackable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+                <PackageReference Include="MSTest.TestAdapter" Version="3.6.3" />
+                <PackageReference Include="MSTest.TestFramework" Version="3.6.3" />
+              </ItemGroup>
+            </Project>
+        - path: "ShippingCalculatorTests.cs"
+          content: |
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+            namespace Contoso.Shipping.Tests;
+
+            [TestClass]
+            public class ShippingCalculatorTests
+            {
+                [TestMethod]
+                public void CalculateShipping_StandardDelivery_Returns5()
+                {
+                    Assert.AreEqual(5.00m, CalculateShipping("standard", 1.0));
+                }
+
+                [TestMethod]
+                public void CalculateShipping_ExpressDelivery_Returns15()
+                {
+                    Assert.AreEqual(15.00m, CalculateShipping("express", 1.0));
+                }
+
+                private static decimal CalculateShipping(string method, double weightKg)
+                {
+                    return method switch
+                    {
+                        "standard" => 5.00m,
+                        "express" => 10.00m,
+                        _ => throw new ArgumentException("Unknown shipping method")
+                    };
+                }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "(VSTest|not.*MTP|not.*Microsoft\\.Testing\\.Platform|migrate|upgrade)"
+      - type: "output_not_matches"
+        pattern: "TESTINGPLATFORM_HOTRELOAD_ENABLED"
+    rubric:
+      - "Detects the project uses VSTest (Microsoft.NET.Test.Sdk + MSTest.TestAdapter, no MTP signals)"
+      - "Explains that MTP hot reload is NOT available for VSTest projects"
+      - "Does NOT suggest setting TESTINGPLATFORM_HOTRELOAD_ENABLED for a VSTest project"
+      - "Suggests either migrating to MTP or using Visual Studio Test Explorer hot reload as alternatives"
+    expect_tools: ["bash"]
+    timeout: 180
+
+  # ============================================================================
+  # Goal 5: Filtering tests with hot reload
+  # ============================================================================
+
+  - name: "Run specific failing test with hot reload filter"
+    prompt: "I only want to hot-reload iterate on the ProcessPayment_NegativeAmount_ThrowsException test. How do I filter to just that test while using hot reload?"
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net9.0</TargetFramework>
+                <IsPackable>false</IsPackable>
+                <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+                <PackageReference Include="MSTest" Version="3.8.0" />
+              </ItemGroup>
+            </Project>
+        - path: "PaymentProcessorTests.cs"
+          content: |
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+            namespace Contoso.Payments.Tests;
+
+            [TestClass]
+            public class PaymentProcessorTests
+            {
+                [TestMethod]
+                public void ProcessPayment_ValidAmount_Succeeds()
+                {
+                    var result = ProcessPayment(100.00m);
+                    Assert.IsTrue(result);
+                }
+
+                [TestMethod]
+                public void ProcessPayment_ZeroAmount_ThrowsException()
+                {
+                    Assert.ThrowsException<ArgumentException>(() => ProcessPayment(0));
+                }
+
+                [TestMethod]
+                public void ProcessPayment_NegativeAmount_ThrowsException()
+                {
+                    Assert.ThrowsException<ArgumentException>(() => ProcessPayment(-50.00m));
+                }
+
+                private static bool ProcessPayment(decimal amount)
+                {
+                    if (amount == 0) throw new ArgumentException("Amount cannot be zero");
+                    return true;
+                }
+            }
+        - path: "global.json"
+          content: |
+            {
+              "sdk": {
+                "version": "9.0.200"
+              }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "dotnet run"
+      - type: "output_matches"
+        pattern: "--filter"
+      - type: "output_matches"
+        pattern: "ProcessPayment_NegativeAmount"
+    rubric:
+      - "Uses 'dotnet run --project <path>' with filter arguments after '--'"
+      - "Applies the correct MSTest filter syntax for the specific test name"
+      - "Includes the TESTINGPLATFORM_HOTRELOAD_ENABLED environment variable setup"
+      - "Shows how to pass the filter: dotnet run --project <path> -- --filter FullyQualifiedName~ProcessPayment_NegativeAmount"
+    expect_tools: ["bash"]
+    timeout: 180

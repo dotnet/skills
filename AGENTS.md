@@ -11,3 +11,7 @@ pwsh agentic-workflows/<plugin>/build.ps1
 ```
 
 This validates skill frontmatter and recompiles knowledge lock files. Always commit the regenerated lock files together with your changes.
+
+## Skill-Validator
+
+Don't care much about backwards-compatibility for this tool. Consumers understand that the shape is constantly changing.

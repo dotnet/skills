@@ -8,10 +8,10 @@ namespace SkillValidator.Services;
 
 public static partial class SkillDiscovery
 {
-    public static async Task<IReadOnlyList<SkillInfo>> DiscoverSkills(string targetPath, string? testsDir = null)
+    public static async Task<IReadOnlyList<SkillInfo>> DiscoverSkills(string targetPath)
     {
         // Check if the target itself is a skill
-        var directSkill = await DiscoverSkillAt(targetPath, testsDir);
+        var directSkill = await DiscoverSkillAt(targetPath);
         if (directSkill is not null)
             return [directSkill];
 
@@ -25,7 +25,7 @@ public static partial class SkillDiscovery
             if (Path.GetFileName(dir).StartsWith('.'))
                 continue;
 
-            var skill = await DiscoverSkillAt(dir, testsDir);
+            var skill = await DiscoverSkillAt(dir);
             if (skill is not null)
                 skills.Add(skill);
         }
@@ -36,7 +36,7 @@ public static partial class SkillDiscovery
     /// <summary>
     /// Recursively discover all skills under a directory tree by finding SKILL.md files.
     /// </summary>
-    public static async Task<IReadOnlyList<SkillInfo>> DiscoverSkillsRecursive(string targetPath, string? testsDir = null)
+    public static async Task<IReadOnlyList<SkillInfo>> DiscoverSkillsRecursive(string targetPath)
     {
         if (!Directory.Exists(targetPath))
             return [];
@@ -48,7 +48,7 @@ public static partial class SkillDiscovery
             if (Path.GetFileName(dirPath).StartsWith('.'))
                 continue;
 
-            var skill = await DiscoverSkillAt(dirPath, testsDir);
+            var skill = await DiscoverSkillAt(dirPath);
             if (skill is not null)
                 skills.Add(skill);
         }
@@ -56,7 +56,55 @@ public static partial class SkillDiscovery
         return skills;
     }
 
-    private static async Task<SkillInfo?> DiscoverSkillAt(string dirPath, string? testsDir)
+    /// <summary>
+    /// Discover skills within a plugin root directory.
+    /// Uses plugin.json to determine the skills path.
+    /// </summary>
+    public static async Task<IReadOnlyList<SkillInfo>> DiscoverSkillsInPlugin(string pluginRoot)
+    {
+        var pluginJsonPath = Path.Combine(pluginRoot, "plugin.json");
+        if (!File.Exists(pluginJsonPath))
+            return [];
+
+        var plugin = PluginValidator.ParsePluginJson(pluginJsonPath);
+        if (plugin is null || string.IsNullOrWhiteSpace(plugin.SkillsPath))
+            return [];
+
+        if (!PluginValidator.TryGetSafeSubdirectory(pluginRoot, plugin.SkillsPath, out var skillsDir, out _))
+            return [];
+
+        return await DiscoverSkills(skillsDir!);
+    }
+
+    /// <summary>
+    /// Enrich a list of discovered skills with eval-specific data (eval.yaml, MCP servers).
+    /// </summary>
+    public static async Task<IReadOnlyList<EvalSkillInfo>> LoadEvalData(IReadOnlyList<SkillInfo> skills, string? testsDir)
+    {
+        var result = new List<EvalSkillInfo>();
+        foreach (var skill in skills)
+        {
+            string? evalPath = null;
+            EvalConfig? evalConfig = null;
+
+            var evalFilePath = ResolveEvalPath(skill.Path, testsDir);
+            if (evalFilePath is not null && File.Exists(evalFilePath))
+            {
+                evalPath = evalFilePath;
+                var evalContent = await File.ReadAllTextAsync(evalFilePath);
+                evalConfig = EvalSchema.ParseEvalConfig(evalContent);
+            }
+
+            result.Add(new EvalSkillInfo(
+                Skill: skill,
+                EvalPath: evalPath,
+                EvalConfig: evalConfig,
+                McpServers: await FindPluginMcpServers(skill.Path)));
+        }
+        return result;
+    }
+
+    private static async Task<SkillInfo?> DiscoverSkillAt(string dirPath)
     {
         var skillMdPath = Path.Combine(dirPath, "SKILL.md");
         if (!File.Exists(skillMdPath))
@@ -69,27 +117,12 @@ public static partial class SkillDiscovery
         var description = metadata.Description ?? "";
         var compatibility = metadata.Compatibility;
 
-        string? evalPath = null;
-        EvalConfig? evalConfig = null;
-
-        var evalFilePath = ResolveEvalPath(dirPath, testsDir);
-
-        if (evalFilePath is not null && File.Exists(evalFilePath))
-        {
-            evalPath = evalFilePath;
-            var evalContent = await File.ReadAllTextAsync(evalFilePath);
-            evalConfig = EvalSchema.ParseEvalConfig(evalContent);
-        }
-
         return new SkillInfo(
             Name: name,
             Description: description,
             Path: dirPath,
             SkillMdPath: skillMdPath,
             SkillMdContent: skillMdContent,
-            EvalPath: evalPath,
-            EvalConfig: evalConfig,
-            McpServers: await FindPluginMcpServers(dirPath),
             Compatibility: compatibility);
     }
 
@@ -213,34 +246,50 @@ public static partial class SkillDiscovery
 
         var agents = new List<AgentInfo>();
         foreach (var root in pluginRoots)
+            agents.AddRange(await DiscoverAgentsInPlugin(root));
+
+        return agents;
+    }
+
+    /// <summary>
+    /// Discover agent files (.agent.md) within a plugin root directory.
+    /// Uses plugin.json to determine the agents path.
+    /// </summary>
+    public static async Task<IReadOnlyList<AgentInfo>> DiscoverAgentsInPlugin(string pluginRoot)
+    {
+        var pluginJsonPath = Path.Combine(pluginRoot, "plugin.json");
+        if (!File.Exists(pluginJsonPath))
+            return [];
+
+        var plugin = PluginValidator.ParsePluginJson(pluginJsonPath);
+        if (plugin is null)
+            return [];
+
+        var agentsPath = !string.IsNullOrWhiteSpace(plugin.AgentsPath)
+            ? plugin.AgentsPath
+            : "agents";
+
+        if (!PluginValidator.TryGetSafeSubdirectory(pluginRoot, agentsPath, out var agentsDir, out _))
+            return [];
+
+        return await DiscoverAgentsInDirectory(agentsDir!);
+    }
+
+    /// <summary>
+    /// Discover agent files (.agent.md) directly in the given directory.
+    /// </summary>
+    public static async Task<IReadOnlyList<AgentInfo>> DiscoverAgentsInDirectory(string agentsDir)
+    {
+        if (!Directory.Exists(agentsDir))
+            return [];
+
+        var agents = new List<AgentInfo>();
+        foreach (var file in Directory.GetFiles(agentsDir, "*.agent.md"))
         {
-            var pluginJsonPath = Path.Combine(root, "plugin.json");
-            if (!File.Exists(pluginJsonPath))
-                continue;
-
-            var plugin = PluginValidator.ParsePluginJson(pluginJsonPath);
-            if (plugin is null)
-                continue;
-
-            var agentsPath = !string.IsNullOrWhiteSpace(plugin.AgentsPath)
-                ? plugin.AgentsPath
-                : "agents";
-
-            // Validate the agents path stays within the plugin root.
-            if (!PluginValidator.TryGetSafeSubdirectory(root, agentsPath, out var agentsDir, out _))
-                continue;
-
-            if (!Directory.Exists(agentsDir!))
-                continue;
-
-            foreach (var file in Directory.GetFiles(agentsDir!, "*.agent.md"))
-            {
-                var agent = await DiscoverAgentAt(file);
-                if (agent is not null)
-                    agents.Add(agent);
-            }
+            var agent = await DiscoverAgentAt(file);
+            if (agent is not null)
+                agents.Add(agent);
         }
-
         return agents;
     }
 
@@ -381,76 +430,6 @@ public static partial class SkillDiscovery
             if (parent is null || parent == dir) break;
             dir = parent;
         }
-        return null;
-    }
-
-    // --- Orphaned test directory detection ---
-
-    /// <summary>
-    /// Find test directories under tests/ that don't correspond to any plugin or skill.
-    /// Convention: tests/{plugin}/{skill}/ must match plugins/{plugin}/skills/{skill}/.
-    /// </summary>
-    public static IReadOnlyList<string> FindOrphanedTestDirectories(string repoRoot)
-    {
-        var orphans = new List<string>();
-        var testsRoot = Path.Combine(repoRoot, "tests");
-        var pluginsRoot = Path.Combine(repoRoot, "plugins");
-
-        if (!Directory.Exists(testsRoot) || !Directory.Exists(pluginsRoot))
-            return orphans;
-
-        foreach (var testPluginDir in Directory.GetDirectories(testsRoot))
-        {
-            var pluginName = Path.GetFileName(testPluginDir);
-            if (pluginName.StartsWith('.'))
-                continue;
-
-            var correspondingPluginDir = Path.Combine(pluginsRoot, pluginName);
-            if (!Directory.Exists(correspondingPluginDir))
-            {
-                orphans.Add($"Test directory 'tests/{pluginName}/' has no matching plugin directory 'plugins/{pluginName}/'.");
-                continue;
-            }
-
-            // Check skill-level: each tests/{plugin}/{skill}/ should have plugins/{plugin}/skills/{skill}/
-            foreach (var testSkillDir in Directory.GetDirectories(testPluginDir))
-            {
-                var skillName = Path.GetFileName(testSkillDir);
-                if (skillName.StartsWith('.'))
-                    continue;
-
-                var correspondingSkillDir = Path.Combine(correspondingPluginDir, "skills", skillName);
-                if (!Directory.Exists(correspondingSkillDir))
-                {
-                    orphans.Add($"Test directory 'tests/{pluginName}/{skillName}/' has no matching skill directory 'plugins/{pluginName}/skills/{skillName}/'.");
-                }
-            }
-        }
-
-        return orphans;
-    }
-
-    /// <summary>
-    /// Infer the repository root from the given skill paths by finding the parent of the 'plugins/' directory.
-    /// Returns null if no plugins/ parent can be determined.
-    /// </summary>
-    internal static string? FindRepoRoot(IReadOnlyList<string> skillPaths)
-    {
-        foreach (var path in skillPaths)
-        {
-            var pluginRoot = FindPluginRoot(path);
-            if (pluginRoot is null)
-                continue;
-
-            // Plugin root is plugins/{name}, so repo root is its parent's parent
-            // e.g., plugins/dotnet/skills -> plugins/dotnet -> plugins -> repo root
-            var pluginsDir = Directory.GetParent(pluginRoot)?.FullName;
-            if (pluginsDir is not null && Path.GetFileName(pluginsDir).Equals("plugins", StringComparison.OrdinalIgnoreCase))
-            {
-                return Directory.GetParent(pluginsDir)?.FullName;
-            }
-        }
-
         return null;
     }
 }
