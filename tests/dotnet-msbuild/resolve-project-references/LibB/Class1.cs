@@ -1,2 +1,6 @@
 namespace LibB;
-public class ServiceB { public LibA.ServiceA Dep => new(); }
+
+public class ServiceB
+{
+    public LibA.ServiceA Dep => new();
+}

@@ -24,7 +24,7 @@ The target itself does very little work — it just triggers the build of refere
 ### How to Get Task Performance Summary
 
 ```bash
-dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
+dotnet msbuild build.binlog -noconlog -fl "-flp:v=diag;logfile=full.log;performancesummary"
 grep "Task Performance Summary" -A 50 full.log
 ```
 
