@@ -7,19 +7,19 @@ using GitHub.Copilot.SDK;
 
 namespace SkillValidator.Commands;
 
-public static class ValidateCommand
+public static class EvaluateCommand
 {
     public static RootCommand Create()
     {
         var pathsArg = new Argument<string[]>("paths") { Description = "Paths to skill directories or parent directories", Arity = ArgumentArity.OneOrMore };
         var minImprovementOpt = new Option<double>("--min-improvement") { Description = "Minimum improvement score to pass (0-1)", DefaultValueFactory = _ => 0.1 };
         var requireCompletionOpt = new Option<bool>("--require-completion") { Description = "Fail if skill regresses task completion", DefaultValueFactory = _ => true };
-        var requireEvalsOpt = new Option<bool>("--require-evals") { Description = "Fail if skill has no tests/eval.yaml" };
-        var verdictWarnOnlyOpt = new Option<bool>("--verdict-warn-only") { Description = "Treat verdict failures as warnings (exit 0). Execution errors, --require-evals, and spec conformance violations still fail." };
+        var verdictWarnOnlyOpt = new Option<bool>("--verdict-warn-only") { Description = "Treat verdict failures as warnings (exit 0). Execution errors still fail." };
         var verboseOpt = new Option<bool>("--verbose") { Description = "Show detailed per-scenario breakdowns" };
         var modelOpt = new Option<string>("--model") { Description = "Model to use for agent runs", DefaultValueFactory = _ => "claude-opus-4.6" };
         var judgeModelOpt = new Option<string?>("--judge-model") { Description = "Model to use for judging (defaults to --model)" };
-        var judgeModeOpt = new Option<string>("--judge-mode") { Description = "Judge mode: pairwise, independent, or both", DefaultValueFactory = _ => "pairwise" };
+        var judgeModeOpt = new Option<string>("--judge-mode") { Description = "Judge mode: pairwise, independent, or both", DefaultValueFactory = _ => "pairwise" }
+            .AcceptOnlyFromAmong("pairwise", "independent", "both");
         var runsOpt = new Option<int>("--runs") { Description = "Number of runs per scenario for averaging", DefaultValueFactory = _ => 5 };
         var parallelSkillsOpt = new Option<int>("--parallel-skills") { Description = "Max concurrent skills to evaluate", DefaultValueFactory = _ => 1 };
         var parallelScenariosOpt = new Option<int>("--parallel-scenarios") { Description = "Max concurrent scenarios per skill", DefaultValueFactory = _ => 1 };
@@ -31,16 +31,16 @@ public static class ValidateCommand
         var reporterOpt = new Option<string[]>("--reporter") { Description = "Reporter (console, json, junit, markdown). Can be repeated.", AllowMultipleArgumentsPerToken = true };
         var noOverfittingCheckOpt = new Option<bool>("--no-overfitting-check") { Description = "Disable LLM-based overfitting analysis (on by default)" };
         var overfittingFixOpt = new Option<bool>("--overfitting-fix") { Description = "Generate a fixed eval.yaml with improved rubric items/assertions" };
+        var keepSessionsOpt = new Option<bool>("--keep-sessions") { Description = "Preserve agent session data in the results directory for later rejudging" };
         var noiseSkillsDirOpt = new Option<string?>("--noise-skills-dir") { Description = "Directory containing skills to load as noise. Enables the noise test: re-runs scenarios with all noise skills loaded and measures degradation." };
         var noiseMaxDegradationOpt = new Option<double>("--noise-max-degradation") { Description = "Maximum acceptable average quality degradation (0-1) in noise test (only positive degradations count)", DefaultValueFactory = _ => 0.2 };
         var noiseMaxScenarioDegradationOpt = new Option<double>("--noise-max-scenario-degradation") { Description = "Maximum acceptable quality degradation (0-1) for any single noise-test scenario", DefaultValueFactory = _ => 0.4 };
 
-        var command = new RootCommand("Validate that agent skills meaningfully improve agent performance")
+        var command = new RootCommand("Evaluate agent skills via LLM-based testing")
         {
             pathsArg,
             minImprovementOpt,
             requireCompletionOpt,
-            requireEvalsOpt,
             verdictWarnOnlyOpt,
             verboseOpt,
             modelOpt,
@@ -57,6 +57,7 @@ public static class ValidateCommand
             reporterOpt,
             noOverfittingCheckOpt,
             overfittingFixOpt,
+            keepSessionsOpt,
             noiseSkillsDirOpt,
             noiseMaxDegradationOpt,
             noiseMaxScenarioDegradationOpt,
@@ -87,7 +88,6 @@ public static class ValidateCommand
             {
                 MinImprovement = parseResult.GetValue(minImprovementOpt),
                 RequireCompletion = parseResult.GetValue(requireCompletionOpt),
-                RequireEvals = parseResult.GetValue(requireEvalsOpt),
                 Verbose = parseResult.GetValue(verboseOpt),
                 Model = parseResult.GetValue(modelOpt) ?? "claude-opus-4.6",
                 JudgeModel = parseResult.GetValue(judgeModelOpt) ?? parseResult.GetValue(modelOpt) ?? "claude-opus-4.6",
@@ -102,9 +102,10 @@ public static class ValidateCommand
                 Reporters = reporters,
                 SkillPaths = paths,
                 ResultsDir = parseResult.GetValue(resultsDirOpt),
-                TestsDir = parseResult.GetValue(testsDirOpt),
+                TestsDir = parseResult.GetValue(testsDirOpt) ?? throw new InvalidOperationException("--tests-dir is required"),
                 OverfittingCheck = !parseResult.GetValue(noOverfittingCheckOpt),
                 OverfittingFix = parseResult.GetValue(overfittingFixOpt),
+                KeepSessions = parseResult.GetValue(keepSessionsOpt),
                 NoiseSkillsDir = parseResult.GetValue(noiseSkillsDirOpt),
                 NoiseDegradationLimit = parseResult.GetValue(noiseMaxDegradationOpt),
                 NoiseMaxScenarioDegradation = parseResult.GetValue(noiseMaxScenarioDegradationOpt),
@@ -164,119 +165,79 @@ public static class ValidateCommand
             Console.WriteLine($"Results dir: {config.ResultsDir}");
 
         // Discover skills
-        var allSkills = new List<SkillInfo>();
+        var discoveredSkills = new List<SkillInfo>();
         foreach (var path in config.SkillPaths)
         {
-            var skills = await SkillDiscovery.DiscoverSkills(path, config.TestsDir);
-            allSkills.AddRange(skills);
+            var skills = await SkillDiscovery.DiscoverSkills(path);
+            discoveredSkills.AddRange(skills);
         }
 
-        if (allSkills.Count == 0)
+        if (discoveredSkills.Count == 0)
         {
             var searched = string.Join(", ", config.SkillPaths.Select(p => $"\"{Path.GetFullPath(p)}\""));
             Console.Error.WriteLine($"No skills found in the specified paths: {searched}");
             return 1;
         }
 
-        Console.WriteLine($"Found {allSkills.Count} skill(s)\n");
+        Console.WriteLine($"Found {discoveredSkills.Count} skill(s)\n");
 
         // Discover noise skills when --noise-skills-dir is provided
-        var noiseSkills = new List<SkillInfo>();
+        var noiseEvalSkills = new List<EvalSkillInfo>();
         if (config.NoiseSkillsDir is not null)
         {
-            noiseSkills.AddRange(await SkillDiscovery.DiscoverSkillsRecursive(config.NoiseSkillsDir, config.TestsDir));
-            Console.WriteLine($"Noise test enabled: discovered {noiseSkills.Count} noise skill(s) from {config.NoiseSkillsDir}");
+            var noiseSkills = await SkillDiscovery.DiscoverSkillsRecursive(config.NoiseSkillsDir);
+            noiseEvalSkills.AddRange(await SkillDiscovery.LoadEvalData(noiseSkills, config.TestsDir));
+            Console.WriteLine($"Noise test enabled: discovered {noiseEvalSkills.Count} noise skill(s) from {config.NoiseSkillsDir}");
         }
 
-        // Check per-plugin aggregate description size
-        var aggregateFailures = CheckAggregateDescriptionLimits(allSkills);
-        if (aggregateFailures.Count > 0)
+        // Group skills by their plugin — standalone skills are errors
+        var (_, pluginErrors) = SkillDiscovery.GroupSkillsByPlugin(discoveredSkills);
+        foreach (var error in pluginErrors)
+            Console.Error.WriteLine($"\x1b[31m❌ {error}\x1b[0m");
+        if (pluginErrors.Count > 0)
         {
-            foreach (var failure in aggregateFailures)
-                Console.Error.WriteLine($"\x1b[31m❌ {failure}\x1b[0m");
-            return 1;
-        }
-
-        // Validate plugins (plugin.json) reachable from the given paths
-        IReadOnlyList<PluginInfo> plugins;
-        try
-        {
-            plugins = SkillDiscovery.DiscoverPlugins(config.SkillPaths);
-        }
-        catch (JsonException ex)
-        {
-            Console.Error.WriteLine($"\x1b[31m❌ Malformed plugin.json: {ex.Message}\x1b[0m");
-            return 1;
-        }
-        bool hasPluginErrors = false;
-        foreach (var plugin in plugins)
-        {
-            var result = PluginValidator.ValidatePlugin(plugin);
-            foreach (var warning in result.Warnings)
-                Console.WriteLine($"\x1b[33m⚠  [plugin:{result.Name}] {warning}\x1b[0m");
-            foreach (var error in result.Errors)
+            if (discoveredSkills.Count == pluginErrors.Count)
             {
-                Console.Error.WriteLine($"\x1b[31m❌ [plugin:{result.Name}] {error}\x1b[0m");
-                hasPluginErrors = true;
+                Console.Error.WriteLine("\x1b[31mAll skills are standalone (no valid plugin.json found) — nothing to evaluate.\x1b[0m");
+                return 1;
             }
-        }
-        if (plugins.Count > 0)
-            Console.WriteLine($"Validated {plugins.Count} plugin(s)");
-
-        // Validate agents (.agent.md) reachable from the given paths
-        var agents = await SkillDiscovery.DiscoverAgents(config.SkillPaths);
-        bool hasAgentErrors = false;
-        foreach (var agent in agents)
-        {
-            var profile = AgentProfiler.AnalyzeAgent(agent);
-            foreach (var warning in profile.Warnings)
-                Console.WriteLine($"\x1b[33m⚠  [agent:{profile.Name}] {warning}\x1b[0m");
-            foreach (var error in profile.Errors)
-            {
-                Console.Error.WriteLine($"\x1b[31m❌ [agent:{profile.Name}] {error}\x1b[0m");
-                hasAgentErrors = true;
-            }
-        }
-        if (agents.Count > 0)
-            Console.WriteLine($"Validated {agents.Count} agent(s)\n");
-
-        if (hasPluginErrors || hasAgentErrors)
-        {
-            Console.Error.WriteLine("\x1b[31mAgent/plugin spec conformance failures — fix the errors above.\x1b[0m");
-            return 1;
+            discoveredSkills = discoveredSkills.Where(s => SkillDiscovery.FindPluginRoot(s.Path) is not null).ToList();
         }
 
-        // Check for orphaned test directories (tests/ entries with no matching plugin/skill)
-        var repoRoot = SkillDiscovery.FindRepoRoot(config.SkillPaths);
-        bool hasOrphanErrors = false;
-        if (repoRoot is not null)
-        {
-            var orphans = SkillDiscovery.FindOrphanedTestDirectories(repoRoot);
-            foreach (var orphan in orphans)
-            {
-                Console.Error.WriteLine($"\x1b[31m❌ {orphan}\x1b[0m");
-                hasOrphanErrors = true;
-            }
-        }
-
-        if (hasOrphanErrors)
-        {
-            Console.Error.WriteLine("\x1b[31mOrphaned test directories found — remove them or create the matching plugin/skill.\x1b[0m");
-            return 1;
-        }
+        // Load eval data (eval.yaml, MCP servers)
+        var allSkills = await SkillDiscovery.LoadEvalData(discoveredSkills, config.TestsDir);
 
         if (config.Runs < 5)
             Console.WriteLine($"\x1b[33m⚠  Running with {config.Runs} run(s). For statistically significant results, use --runs 5 or higher.\x1b[0m");
 
         bool usePairwise = config.JudgeMode is JudgeMode.Pairwise or JudgeMode.Both;
+        bool effectiveKeepSessions = config.KeepSessions && config.ResultsDir is not null;
+
+        string? sessionsDir = null;
+        SessionDatabase? sessionDb = null;
+        string? timestampedResultsDir = null;
+        if (effectiveKeepSessions)
+        {
+            timestampedResultsDir = Path.Combine(config.ResultsDir!, Reporter.FormatTimestamp(DateTime.Now));
+            Directory.CreateDirectory(timestampedResultsDir);
+            sessionsDir = Path.Combine(timestampedResultsDir, "sessions");
+            Directory.CreateDirectory(sessionsDir);
+            sessionDb = new SessionDatabase(Path.Combine(timestampedResultsDir, "sessions.db"));
+            sessionDb.SetSchemaInfo("judge_model", config.JudgeModel);
+            Console.WriteLine($"Session persistence enabled: {timestampedResultsDir}");
+        }
+        else if (config.KeepSessions)
+        {
+            Console.WriteLine("\x1b[33m⚠  --keep-sessions was set without --results-dir; sessions will not be persisted.\x1b[0m");
+        }
 
         using var spinner = new Spinner();
         using var skillLimit = new ConcurrencyLimiter(config.ParallelSkills);
 
         // Evaluate skills
         spinner.Start($"Evaluating {allSkills.Count} skill(s)...");
-        var skillTasks = allSkills.Select(skill =>
-            skillLimit.RunAsync(() => EvaluateSkill(skill, config, usePairwise, spinner, noiseSkills)));
+        var skillTasks = allSkills.Select(evalSkill =>
+            skillLimit.RunAsync(() => EvaluateSkill(evalSkill, config, usePairwise, spinner, noiseEvalSkills, sessionsDir, sessionDb)));
         var settled = await Task.WhenAll(skillTasks.Select(async t =>
         {
             try { return (Result: await t, Error: (Exception?)null); }
@@ -299,7 +260,7 @@ public static class ValidateCommand
         }
 
         await Reporter.ReportResults(verdicts, config.Reporters, config.Verbose,
-            config.Model, config.JudgeModel, config.ResultsDir,
+            config.Model, config.JudgeModel, config.ResultsDir, timestampedResultsDir,
             rejectedCount: rejectionMessages.Count);
 
         if (rejectionMessages.Count > 0)
@@ -310,8 +271,9 @@ public static class ValidateCommand
             Console.Error.WriteLine();
         }
 
-        await AgentRunner.StopSharedClient();
-        await AgentRunner.CleanupWorkDirs();
+        await AgentRunner.StopAllClients();
+        await AgentRunner.CleanupWorkDirs(effectiveKeepSessions);
+        sessionDb?.Dispose();
 
         // Always fail on execution errors, even in --verdict-warn-only mode
         if (rejectionMessages.Count > 0) return 1;
@@ -319,93 +281,34 @@ public static class ValidateCommand
         var allPassed = verdicts.All(v => v.Passed);
         if (config.VerdictWarnOnly && !allPassed)
         {
-            // In --verdict-warn-only mode, suppress verdict failures except missing_eval
-            // (which is controlled by --require-evals and should remain fatal) and
-            // spec_conformance_failure (structural violation that must always block).
-            var onlyWarnableFailures = verdicts.All(
-                v => v.Passed || (v.FailureKind != "missing_eval" && v.FailureKind != "spec_conformance_failure"));
-            if (onlyWarnableFailures) return 0;
+            // In --verdict-warn-only mode, suppress verdict failures.
+            // Execution errors are already fatal (above).
+            return 0;
         }
 
         return allPassed ? 0 : 1;
     }
 
-    /// <summary>
-    /// Groups skills by plugin (derived from path) and checks that the aggregate
-    /// description length per plugin does not exceed the limit.
-    /// </summary>
-    internal static List<string> CheckAggregateDescriptionLimits(IReadOnlyList<SkillInfo> skills)
-    {
-        var failures = new List<string>();
-
-        // Group by plugin: convention is plugins/{plugin}/skills/{skill}/
-        // Derive plugin name by finding the "skills" ancestor directory.
-        var pluginGroups = skills
-            .GroupBy(s => DerivePluginName(s.Path))
-            .Where(g => g.Key is not null);
-
-        foreach (var group in pluginGroups)
-        {
-            int totalChars = group.Sum(s => s.Description.Length);
-            if (totalChars > SkillProfiler.MaxAggregateDescriptionLength)
-            {
-                failures.Add(
-                    $"Plugin '{group.Key}' aggregate description size is {totalChars:N0} characters — " +
-                    $"maximum is {SkillProfiler.MaxAggregateDescriptionLength:N0}.");
-            }
-        }
-
-        return failures;
-    }
-
-    /// <summary>
-    /// Derives the plugin name from a skill path by walking up to find the
-    /// "skills" directory and returning its parent directory name.
-    /// e.g. "plugins/dotnet-msbuild/skills/build-perf" → "dotnet-msbuild"
-    /// </summary>
-    internal static string? DerivePluginName(string skillPath)
-    {
-        var fullPath = Path.GetFullPath(skillPath);
-        var dir = new DirectoryInfo(fullPath);
-        while (dir is not null)
-        {
-            if (string.Equals(dir.Name, "skills", StringComparison.OrdinalIgnoreCase) && dir.Parent is not null)
-                return dir.Parent.Name;
-            dir = dir.Parent;
-        }
-        return null;
-    }
-
     private static async Task<SkillVerdict?> EvaluateSkill(
-        SkillInfo skill,
+        EvalSkillInfo evalSkill,
         ValidatorConfig config,
         bool usePairwise,
         Spinner spinner,
-        IReadOnlyList<SkillInfo> noiseSkills)
+        IReadOnlyList<EvalSkillInfo> noiseSkills,
+        string? sessionsDir,
+        SessionDatabase? sessionDb)
     {
+        var skill = evalSkill.Skill;
         var prefix = $"[{skill.Name}]";
         var log = (string msg) => spinner.Log($"{prefix} {msg}");
 
-        if (skill.EvalConfig is null)
+        if (evalSkill.EvalConfig is null)
         {
-            if (config.RequireEvals)
-            {
-                return new SkillVerdict
-                {
-                    SkillName = skill.Name,
-                    SkillPath = skill.Path,
-                    Passed = false,
-                    Scenarios = [],
-                    OverallImprovementScore = 0,
-                    Reason = "No tests/eval.yaml found (required by --require-evals)",
-                    FailureKind = "missing_eval",
-                };
-            }
             log("⏭  Skipping (no tests/eval.yaml)");
             return null;
         }
 
-        if (skill.EvalConfig.Scenarios.Count == 0)
+        if (evalSkill.EvalConfig.Scenarios.Count == 0)
         {
             log("⏭  Skipping (eval.yaml has no scenarios)");
             return null;
@@ -413,7 +316,7 @@ public static class ValidateCommand
 
         log("🔍 Evaluating...");
 
-        var profile = SkillProfiler.AnalyzeSkill(skill);
+        var profile = SkillProfiler.AnalyzeSkill(skill, evalSkill.EvalConfig);
         log($"📊 {SkillProfiler.FormatProfileLine(profile)}");
         foreach (var error in profile.Errors)
             log($"   ❌ {error}");
@@ -437,24 +340,25 @@ public static class ValidateCommand
         // --- Noise-only path: skip normal baseline-vs-skill eval, run only skill-only vs all-skills ---
         if (config.NoiseSkillsDir is not null && noiseSkills.Count > 0)
         {
-            return await EvaluateSkillNoise(skill, noiseSkills, config, profile, spinner);
+            return await EvaluateSkillNoise(evalSkill, noiseSkills, config, profile, spinner);
         }
 
         // Launch overfitting check in parallel with scenario execution
         var workDir = Path.GetTempPath();
         Task<OverfittingResult?> overfittingTask = Task.FromResult<OverfittingResult?>(null);
-        if (config.OverfittingCheck && skill.EvalConfig is not null)
+        if (config.OverfittingCheck && evalSkill.EvalConfig is not null)
         {
             log("🔍 Running overfitting check (parallel)...");
-            overfittingTask = Services.OverfittingJudge.Analyze(skill, new OverfittingJudgeOptions(
+            overfittingTask = Services.OverfittingJudge.Analyze(evalSkill, new OverfittingJudgeOptions(
                 config.JudgeModel, config.Verbose, config.JudgeTimeout, workDir));
         }
 
-        bool singleScenario = skill.EvalConfig!.Scenarios.Count == 1;
+        var skillSha = sessionDb is not null ? SessionDatabase.ComputeDirectorySha(skill.Path) : null;
+        bool singleScenario = evalSkill.EvalConfig!.Scenarios.Count == 1;
         using var scenarioLimit = new ConcurrencyLimiter(config.ParallelScenarios);
 
-        var scenarioTasks = skill.EvalConfig.Scenarios.Select(scenario =>
-            scenarioLimit.RunAsync(() => ExecuteScenario(scenario, skill, config, usePairwise, singleScenario, spinner)));
+        var scenarioTasks = evalSkill.EvalConfig.Scenarios.Select(scenario =>
+            scenarioLimit.RunAsync(() => ExecuteScenario(scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha)));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
 
         // Await overfitting result (non-fatal — never blocks an otherwise-successful evaluation)
@@ -479,7 +383,7 @@ public static class ValidateCommand
         {
             try
             {
-                await Services.OverfittingJudge.GenerateFix(skill, overfittingResult, new OverfittingJudgeOptions(
+                await Services.OverfittingJudge.GenerateFix(evalSkill, overfittingResult, new OverfittingJudgeOptions(
                     config.JudgeModel, config.Verbose, config.JudgeTimeout, workDir));
                 log("📝 Generated eval.fixed.yaml with suggested improvements");
             }
@@ -489,11 +393,10 @@ public static class ValidateCommand
             }
         }
 
-        var notActivated = comparisons.Where(c => c.SkillActivation is { Activated: false }).ToList();
-        // Separate unexpected non-activations (expect_activation defaulting to true)
-        // from expected ones (negative tests with expect_activation: false).
-        var unexpectedNotActivated = notActivated.Where(c => c.ExpectActivation).ToList();
-        var expectedNotActivated = notActivated.Where(c => !c.ExpectActivation).ToList();
+        var notActivatedIsolated = comparisons.Where(c => c.SkillActivationIsolated is { Activated: false } && c.ExpectActivation).ToList();
+        var notActivatedPlugin = comparisons.Where(c => c.SkillActivationPlugin is { Activated: false } && c.ExpectActivation).ToList();
+        var expectedNotActivated = comparisons.Where(c =>
+            (c.SkillActivationIsolated is { Activated: false } || c.SkillActivationPlugin is { Activated: false }) && !c.ExpectActivation).ToList();
 
         if (expectedNotActivated.Count > 0)
         {
@@ -501,14 +404,23 @@ public static class ValidateCommand
             log($"\x1b[36mℹ️  Skill correctly NOT activated in negative-test scenario(s): {names}\x1b[0m");
         }
 
-        if (unexpectedNotActivated.Count > 0)
+        if (notActivatedIsolated.Count > 0)
         {
-            var names = string.Join(", ", unexpectedNotActivated.Select(c => c.ScenarioName));
-            log($"\x1b[33m\u26a0\ufe0f  Skill was NOT activated in scenario(s): {names}\x1b[0m");
+            var names = string.Join(", ", notActivatedIsolated.Select(c => c.ScenarioName));
+            log($"\x1b[33m⚠️  Skill NOT activated (isolated) in: {names}\x1b[0m");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
             verdict.FailureKind = "skill_not_activated";
-            verdict.Reason += $" [SKILL NOT ACTIVATED in {unexpectedNotActivated.Count} scenario(s): {names}]";
+            verdict.Reason += $" [NOT ACTIVATED (isolated) in {notActivatedIsolated.Count} scenario(s)]";
+        }
+        if (notActivatedPlugin.Count > 0)
+        {
+            var names = string.Join(", ", notActivatedPlugin.Select(c => c.ScenarioName));
+            log($"\x1b[33m⚠️  Skill NOT activated (plugin) in: {names}\x1b[0m");
+            verdict.SkillNotActivated = true;
+            verdict.Passed = false;
+            verdict.FailureKind = "skill_not_activated";
+            verdict.Reason += $" [NOT ACTIVATED (plugin) in {notActivatedPlugin.Count} scenario(s)]";
         }
 
         var timedOutScenarios = comparisons.Where(c => c.TimedOut).ToList();
@@ -524,12 +436,16 @@ public static class ValidateCommand
 
     private static async Task<ScenarioComparison> ExecuteScenario(
         EvalScenario scenario,
-        SkillInfo skill,
+        EvalSkillInfo evalSkill,
         ValidatorConfig config,
         bool usePairwise,
         bool singleScenario,
-        Spinner spinner)
+        Spinner spinner,
+        string? sessionsDir,
+        SessionDatabase? sessionDb,
+        string? skillSha)
     {
+        var skill = evalSkill.Skill;
         var tag = singleScenario ? $"[{skill.Name}]" : $"[{skill.Name}/{scenario.Name}]";
         var scenarioLog = (string msg) => spinner.Log($"{tag} {msg}");
         using var runLimit = new ConcurrencyLimiter(config.ParallelRuns);
@@ -538,40 +454,103 @@ public static class ValidateCommand
             scenarioLog("📋 Starting scenario");
 
         var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
-            runLimit.RunAsync(() => ExecuteRun(i, scenario, skill, config, usePairwise, singleScenario, spinner)));
+            runLimit.RunAsync(() => ExecuteRun(i, scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha)));
         var runResults = await Task.WhenAll(runTasks);
 
         scenarioLog($"✓ All {config.Runs} run(s) complete");
 
         var baselineRuns = runResults.Select(r => r.Baseline).ToList();
-        var withSkillRuns = runResults.Select(r => r.WithSkill).ToList();
+        var isolatedRuns = runResults.Select(r => r.SkilledIsolated).ToList();
+        var pluginRuns = runResults.Select(r => r.SkilledPlugin).ToList();
         var perRunPairwise = runResults.Select(r => r.Pairwise).ToList();
 
-        var perRunScores = new List<double>();
+        // Per-run improvement scores — effective score is min(isolated, plugin)
+        // Pairwise result is generated against the worse-scoring run (isolated
+        // or plugin).  Apply it only to that matching comparison so it does not
+        // skew the other one.
+        var perRunIsolatedScores = new List<double>();
+        var perRunPluginScores = new List<double>();
         for (int i = 0; i < baselineRuns.Count; i++)
         {
-            var runComparison = Comparator.CompareScenario(scenario.Name, baselineRuns[i], withSkillRuns[i], perRunPairwise[i]);
-            perRunScores.Add(runComparison.ImprovementScore);
+            var pw = perRunPairwise[i];
+            bool pairwiseFromPlugin = runResults[i].PairwiseFromPlugin;
+            var isoComp = Comparator.CompareScenario(scenario.Name, baselineRuns[i], isolatedRuns[i],
+                pairwiseFromPlugin ? null : pw);
+            var plgComp = Comparator.CompareScenario(scenario.Name, baselineRuns[i], pluginRuns[i],
+                pairwiseFromPlugin ? pw : null);
+            perRunIsolatedScores.Add(isoComp.ImprovementScore);
+            perRunPluginScores.Add(plgComp.ImprovementScore);
         }
 
-        var avgBaseline = AverageResults(baselineRuns);
-        var avgWithSkill = AverageResults(withSkillRuns);
-        var bestPairwise = perRunPairwise.FirstOrDefault(pw => pw?.PositionSwapConsistent == true)
-            ?? perRunPairwise.FirstOrDefault();
+        var perRunScores = perRunIsolatedScores
+            .Zip(perRunPluginScores, (iso, plg) => Math.Min(iso, plg))
+            .ToList();
 
-        var comparison = Comparator.CompareScenario(scenario.Name, avgBaseline, avgWithSkill, bestPairwise);
+        var avgBaseline = AverageResults(baselineRuns);
+        var avgIsolated = AverageResults(isolatedRuns);
+        var avgPlugin = AverageResults(pluginRuns);
+        // Select the best pairwise result and track which run it came from
+        int bestPairwiseIdx = -1;
+        for (int i = 0; i < perRunPairwise.Count; i++)
+        {
+            if (perRunPairwise[i]?.PositionSwapConsistent == true) { bestPairwiseIdx = i; break; }
+        }
+        if (bestPairwiseIdx < 0)
+        {
+            for (int i = 0; i < perRunPairwise.Count; i++)
+            {
+                if (perRunPairwise[i] is not null) { bestPairwiseIdx = i; break; }
+            }
+        }
+        var bestPairwise = bestPairwiseIdx >= 0 ? perRunPairwise[bestPairwiseIdx] : null;
+
+        // Two comparisons — apply pairwise only to the matching one,
+        // using the source run's flag (not any-run) to avoid misattribution.
+        bool aggPairwiseFromPlugin = bestPairwiseIdx >= 0 && runResults[bestPairwiseIdx].PairwiseFromPlugin;
+        var isoComparison = Comparator.CompareScenario(scenario.Name, avgBaseline, avgIsolated,
+            aggPairwiseFromPlugin ? null : bestPairwise);
+        var plgComparison = Comparator.CompareScenario(scenario.Name, avgBaseline, avgPlugin,
+            aggPairwiseFromPlugin ? bestPairwise : null);
+
+        // Build the combined ScenarioComparison
+        var comparison = new ScenarioComparison
+        {
+            ScenarioName = scenario.Name,
+            Baseline = avgBaseline,
+            SkilledIsolated = avgIsolated,
+            SkilledPlugin = avgPlugin,
+            ImprovementScore = Math.Min(isoComparison.ImprovementScore, plgComparison.ImprovementScore),
+            IsolatedImprovementScore = isoComparison.ImprovementScore,
+            PluginImprovementScore = plgComparison.ImprovementScore,
+            Breakdown = isoComparison.ImprovementScore <= plgComparison.ImprovementScore
+                ? isoComparison.Breakdown : plgComparison.Breakdown,
+            IsolatedBreakdown = isoComparison.Breakdown,
+            PluginBreakdown = plgComparison.Breakdown,
+            PairwiseResult = bestPairwise,
+        };
         comparison.PerRunScores = perRunScores;
 
-        // Aggregate skill activation info
-        var allActivations = runResults.Select(r => r.SkillActivation).ToList();
-        comparison.SkillActivation = new SkillActivationInfo(
-            Activated: allActivations.Any(a => a.Activated),
-            DetectedSkills: allActivations.SelectMany(a => a.DetectedSkills).Distinct().ToList(),
-            ExtraTools: allActivations.SelectMany(a => a.ExtraTools).Distinct().ToList(),
-            SkillEventCount: allActivations.Sum(a => a.SkillEventCount));
+        // Aggregate skill activation — BOTH skilled runs independently
+        var allIsoActivations = runResults.Select(r => r.SkillActivationIsolated).ToList();
+        var allPlgActivations = runResults.Select(r => r.SkillActivationPlugin).ToList();
+
+        comparison.SkillActivationIsolated = new SkillActivationInfo(
+            Activated: allIsoActivations.Any(a => a.Activated),
+            DetectedSkills: allIsoActivations.SelectMany(a => a.DetectedSkills).Distinct().ToList(),
+            ExtraTools: allIsoActivations.SelectMany(a => a.ExtraTools).Distinct().ToList(),
+            SkillEventCount: allIsoActivations.Sum(a => a.SkillEventCount));
+
+        comparison.SkillActivationPlugin = new SkillActivationInfo(
+            Activated: allPlgActivations.Any(a => a.Activated),
+            DetectedSkills: allPlgActivations.SelectMany(a => a.DetectedSkills).Distinct().ToList(),
+            ExtraTools: allPlgActivations.SelectMany(a => a.ExtraTools).Distinct().ToList(),
+            SkillEventCount: allPlgActivations.Sum(a => a.SkillEventCount));
 
         // Propagate timeout info from any run
-        comparison.TimedOut = runResults.Any(r => r.WithSkill.Metrics.TimedOut || r.Baseline.Metrics.TimedOut);
+        comparison.TimedOut = runResults.Any(r =>
+            r.Baseline.Metrics.TimedOut ||
+            r.SkilledIsolated.Metrics.TimedOut ||
+            r.SkilledPlugin.Metrics.TimedOut);
 
         // Propagate expect_activation from scenario config
         comparison.ExpectActivation = scenario.ExpectActivation;
@@ -581,19 +560,26 @@ public static class ValidateCommand
 
     private sealed record RunExecutionResult(
         RunResult Baseline,
-        RunResult WithSkill,
+        RunResult SkilledIsolated,
+        RunResult SkilledPlugin,
         PairwiseJudgeResult? Pairwise,
-        SkillActivationInfo SkillActivation);
+        bool PairwiseFromPlugin,
+        SkillActivationInfo SkillActivationIsolated,
+        SkillActivationInfo SkillActivationPlugin);
 
     private static async Task<RunExecutionResult> ExecuteRun(
         int runIndex,
         EvalScenario scenario,
-        SkillInfo skill,
+        EvalSkillInfo evalSkill,
         ValidatorConfig config,
         bool usePairwise,
         bool singleScenario,
-        Spinner spinner)
+        Spinner spinner,
+        string? sessionsDir,
+        SessionDatabase? sessionDb,
+        string? skillSha)
     {
+        var skill = evalSkill.Skill;
         var runTag = config.Runs > 1
             ? (singleScenario ? $"[{skill.Name}/{runIndex + 1}]" : $"[{skill.Name}/{scenario.Name}/{runIndex + 1}]")
             : (singleScenario ? $"[{skill.Name}]" : $"[{skill.Name}/{scenario.Name}]");
@@ -602,81 +588,120 @@ public static class ValidateCommand
         if (config.Verbose)
             runLog("running agents...");
 
-        var agentTasks = await Task.WhenAll(
-            AgentRunner.RunAgent(new RunOptions(scenario, null, skill.EvalPath, config.Model, config.Verbose, runLog)),
-            AgentRunner.RunAgent(new RunOptions(scenario, skill, skill.EvalPath, config.Model, config.Verbose, runLog)));
-        var baselineMetrics = agentTasks[0];
-        var withSkillMetrics = agentTasks[1];
+        var pluginRoot = SkillDiscovery.FindPluginRoot(skill.Path);
+        var baselineSessionId = Guid.NewGuid().ToString("N");
+        var isolatedSessionId = Guid.NewGuid().ToString("N");
+        var pluginSessionId = Guid.NewGuid().ToString("N");
 
-        // Evaluate assertions
+        var baselineConfigDir = sessionsDir is not null ? Path.Combine("sessions", baselineSessionId) : null;
+        var isolatedConfigDir = sessionsDir is not null ? Path.Combine("sessions", isolatedSessionId) : null;
+        var pluginConfigDir = sessionsDir is not null ? Path.Combine("sessions", pluginSessionId) : null;
+        var rubricJson = JsonSerializer.Serialize(scenario.Rubric?.ToArray() ?? [], SkillValidatorJsonContext.Default.StringArray);
+
+        sessionDb?.RegisterSession(baselineSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
+            "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, skillSha, rubricJson);
+        sessionDb?.RegisterSession(isolatedSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
+            "with-skill-isolated", config.Model, isolatedConfigDir, null, scenario.Prompt, skillSha, rubricJson);
+        sessionDb?.RegisterSession(pluginSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
+            "with-skill-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, skillSha, rubricJson);
+
+        var agentTasks = await Task.WhenAll(
+            // 1. Baseline: no plugin, no skills — vanilla agent
+            AgentRunner.RunAgent(new RunOptions(scenario, null, evalSkill.EvalPath, config.Model, config.Verbose,
+                PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId)),
+            // 2. Skilled-isolated: single skill only (current behavior)
+            AgentRunner.RunAgent(new RunOptions(scenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
+                PluginRoot: null, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir, SessionId: isolatedSessionId)),
+            // 3. Skilled-plugin: load entire plugin from plugin root directory
+            AgentRunner.RunAgent(new RunOptions(scenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
+                PluginRoot: pluginRoot, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir, SessionId: pluginSessionId)));
+        var baselineMetrics = agentTasks[0];
+        var isolatedMetrics = agentTasks[1];
+        var pluginMetrics = agentTasks[2];
+
+        if (sessionDb is not null)
+        {
+            var baselineStatus = baselineMetrics.TimedOut ? "timed_out" : "completed";
+            var isolatedStatus = isolatedMetrics.TimedOut ? "timed_out" : "completed";
+            var pluginStatus = pluginMetrics.TimedOut ? "timed_out" : "completed";
+            sessionDb.CompleteSession(baselineSessionId, baselineStatus, JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
+            sessionDb.CompleteSession(isolatedSessionId, isolatedStatus, JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
+            sessionDb.CompleteSession(pluginSessionId, pluginStatus, JsonSerializer.Serialize(pluginMetrics, SkillValidatorJsonContext.Default.RunMetrics));
+        }
+
+        // Evaluate assertions on all three runs
         if (scenario.Assertions is { Count: > 0 })
         {
             baselineMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, baselineMetrics.AgentOutput, baselineMetrics.WorkDir);
-            withSkillMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, withSkillMetrics.AgentOutput, withSkillMetrics.WorkDir);
+            isolatedMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, isolatedMetrics.AgentOutput, isolatedMetrics.WorkDir);
+            pluginMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, pluginMetrics.AgentOutput, pluginMetrics.WorkDir);
         }
 
-        // Evaluate constraints
+        // Evaluate constraints on all three runs
         var baselineConstraints = AssertionEvaluator.EvaluateConstraints(scenario, baselineMetrics);
-        var withSkillConstraints = AssertionEvaluator.EvaluateConstraints(scenario, withSkillMetrics);
+        var isolatedConstraints = AssertionEvaluator.EvaluateConstraints(scenario, isolatedMetrics);
+        var pluginConstraints = AssertionEvaluator.EvaluateConstraints(scenario, pluginMetrics);
         baselineMetrics.AssertionResults = [..baselineMetrics.AssertionResults, ..baselineConstraints];
-        withSkillMetrics.AssertionResults = [..withSkillMetrics.AssertionResults, ..withSkillConstraints];
+        isolatedMetrics.AssertionResults = [..isolatedMetrics.AssertionResults, ..isolatedConstraints];
+        pluginMetrics.AssertionResults = [..pluginMetrics.AssertionResults, ..pluginConstraints];
 
-        // Task completion
+        // Task completion for all three
         if (scenario.Assertions is { Count: > 0 } || baselineConstraints.Count > 0)
         {
             baselineMetrics.TaskCompleted = baselineMetrics.AssertionResults.All(a => a.Passed);
-            withSkillMetrics.TaskCompleted = withSkillMetrics.AssertionResults.All(a => a.Passed);
+            isolatedMetrics.TaskCompleted = isolatedMetrics.AssertionResults.All(a => a.Passed);
+            pluginMetrics.TaskCompleted = pluginMetrics.AssertionResults.All(a => a.Passed);
         }
         else
         {
             baselineMetrics.TaskCompleted = baselineMetrics.ErrorCount == 0;
-            withSkillMetrics.TaskCompleted = withSkillMetrics.ErrorCount == 0;
+            isolatedMetrics.TaskCompleted = isolatedMetrics.ErrorCount == 0;
+            pluginMetrics.TaskCompleted = pluginMetrics.ErrorCount == 0;
         }
 
-        // Judge — failures are non-fatal so a single timeout doesn't kill the whole evaluation.
-        // Await each judge independently so a failure in one doesn't discard the other's result.
+        // Judge all three runs independently (failures are non-fatal)
         var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path);
 
-        var baselineJudgeTask = Services.Judge.JudgeRun(scenario, baselineMetrics, judgeOpts);
-        var withSkillJudgeTask = Services.Judge.JudgeRun(
-            scenario, withSkillMetrics, judgeOpts with { WorkDir = withSkillMetrics.WorkDir });
+        var baselineJudgeTask = Services.Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, runLog);
+        var isolatedJudgeTask = Services.Judge.JudgeRun(
+            scenario, isolatedMetrics, judgeOpts with { WorkDir = isolatedMetrics.WorkDir }, runLog);
+        var pluginJudgeTask = Services.Judge.JudgeRun(
+            scenario, pluginMetrics, judgeOpts with { WorkDir = pluginMetrics.WorkDir }, runLog);
 
-        JudgeResult baselineJudge;
-        try
-        {
-            baselineJudge = await baselineJudgeTask;
-        }
-        catch (Exception error)
-        {
-            var shortMsg = SanitizeErrorMessage(error.Message);
-            runLog($"\x1b[33m⚠️  Judge (baseline) failed, using fallback scores: {shortMsg}\x1b[0m");
-            baselineJudge = new JudgeResult([], 3, $"Judge failed: {shortMsg}");
-        }
+        var baselineJudge = await SafeJudge(baselineJudgeTask, "baseline", runLog);
+        var isolatedJudge = await SafeJudge(isolatedJudgeTask, "isolated", runLog);
+        var pluginJudge = await SafeJudge(pluginJudgeTask, "plugin", runLog);
 
-        JudgeResult withSkillJudge;
-        try
+        if (sessionDb is not null)
         {
-            withSkillJudge = await withSkillJudgeTask;
-        }
-        catch (Exception error)
-        {
-            var shortMsg = SanitizeErrorMessage(error.Message);
-            runLog($"\x1b[33m⚠️  Judge (with skill) failed, using fallback scores: {shortMsg}\x1b[0m");
-            withSkillJudge = new JudgeResult([], 3, $"Judge failed: {shortMsg}");
+            sessionDb.SaveJudgeResult(baselineSessionId, JsonSerializer.Serialize(baselineJudge, SkillValidatorJsonContext.Default.JudgeResult));
+            sessionDb.SaveJudgeResult(isolatedSessionId, JsonSerializer.Serialize(isolatedJudge, SkillValidatorJsonContext.Default.JudgeResult));
+            sessionDb.SaveJudgeResult(pluginSessionId, JsonSerializer.Serialize(pluginJudge, SkillValidatorJsonContext.Default.JudgeResult));
         }
 
-        var baseline = new RunResult(baselineMetrics, baselineJudge);
-        var withSkillResult = new RunResult(withSkillMetrics, withSkillJudge);
+        var baselineResult = new RunResult(baselineMetrics, baselineJudge);
+        var isolatedResult = new RunResult(isolatedMetrics, isolatedJudge);
+        var pluginResult = new RunResult(pluginMetrics, pluginJudge);
 
-        // Pairwise judging
+        // Pairwise judging — compare baseline vs worse-scoring skilled run
+        // Track which run the pairwise result corresponds to.
         PairwiseJudgeResult? pairwise = null;
+        bool pairwiseFromPlugin = false;
         if (usePairwise)
         {
+            pairwiseFromPlugin = pluginJudge.OverallScore < isolatedJudge.OverallScore;
+            var worseSkilled = pairwiseFromPlugin
+                ? pluginMetrics : isolatedMetrics;
             try
             {
                 pairwise = await Services.PairwiseJudge.Judge(
-                    scenario, baselineMetrics, withSkillMetrics,
-                    new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path));
+                    scenario, baselineMetrics, worseSkilled,
+                    new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path, worseSkilled.WorkDir),
+                    runLog);
+                if (sessionDb is not null && pairwise is not null)
+                {
+                    sessionDb.SavePairwiseResult(baselineSessionId, JsonSerializer.Serialize(pairwise, SkillValidatorJsonContext.Default.PairwiseJudgeResult));
+                }
             }
             catch (Exception error)
             {
@@ -684,43 +709,59 @@ public static class ValidateCommand
             }
         }
 
-        // Skill activation
-        var skillActivation = MetricsCollector.ExtractSkillActivation(withSkillMetrics.Events, baselineMetrics.ToolCallBreakdown);
+        // Skill activation — check both skilled runs independently
+        // Pass the target skill name so that in plugin runs only the skill under
+        // test counts towards activation (prevents sibling-skill false positives).
+        var isolatedActivation = MetricsCollector.ExtractSkillActivation(
+            isolatedMetrics.Events, baselineMetrics.ToolCallBreakdown, skill.Name);
+        var pluginActivation = MetricsCollector.ExtractSkillActivation(
+            pluginMetrics.Events, baselineMetrics.ToolCallBreakdown, skill.Name);
 
-        if (skillActivation.Activated)
-        {
-            var parts = new List<string>();
-            if (skillActivation.DetectedSkills.Count > 0) parts.Add($"skills: {string.Join(", ", skillActivation.DetectedSkills)}");
-            if (skillActivation.ExtraTools.Count > 0) parts.Add($"extra tools: {string.Join(", ", skillActivation.ExtraTools)}");
-            runLog($"🔌 Skill activated ({string.Join("; ", parts)})");
-        }
-        else
-        {
-            runLog("\x1b[33m⚠️  Skill was NOT activated during this run\x1b[0m");
-        }
+        runLog(isolatedActivation.Activated
+            ? $"🔌 Skill activated (isolated): skills={string.Join(", ", isolatedActivation.DetectedSkills)}"
+            : "⚠️  Skill NOT activated (isolated)");
+        runLog(pluginActivation.Activated
+            ? $"🔌 Skill activated (plugin): skills={string.Join(", ", pluginActivation.DetectedSkills)}"
+            : "⚠️  Skill NOT activated (plugin)");
 
         if (config.Verbose)
             runLog("✓ complete");
 
-        return new RunExecutionResult(baseline, withSkillResult, pairwise, skillActivation);
+        return new RunExecutionResult(baselineResult, isolatedResult, pluginResult, pairwise,
+            pairwiseFromPlugin, isolatedActivation, pluginActivation);
+    }
+
+    private static async Task<JudgeResult> SafeJudge(Task<JudgeResult> task, string label, Action<string> runLog)
+    {
+        try
+        {
+            return await task;
+        }
+        catch (Exception error)
+        {
+            var shortMsg = SanitizeErrorMessage(error.Message);
+            runLog($"\x1b[33m⚠️  Judge ({label}) failed, using fallback scores: {shortMsg}\x1b[0m");
+            return new JudgeResult([], 3, $"Judge failed: {shortMsg}");
+        }
     }
 
     // --- Noise-only evaluation: skill-only vs all-skills (no pure-agent baseline) ---
 
     private static async Task<SkillVerdict> EvaluateSkillNoise(
-        SkillInfo skill,
-        IReadOnlyList<SkillInfo> noiseSkills,
+        EvalSkillInfo evalSkill,
+        IReadOnlyList<EvalSkillInfo> noiseEvalSkills,
         ValidatorConfig config,
         SkillProfile profile,
         Spinner spinner)
     {
+        var skill = evalSkill.Skill;
         var prefix = $"[{skill.Name}]";
         var log = (string msg) => spinner.Log($"{prefix} {msg}");
 
         NoiseTestResult noiseResult;
         try
         {
-            noiseResult = await ExecuteNoiseTest(skill, noiseSkills, config, spinner);
+            noiseResult = await ExecuteNoiseTest(evalSkill, noiseEvalSkills, config, spinner);
         }
         catch (Exception ex)
         {
@@ -774,15 +815,19 @@ public static class ValidateCommand
     // --- Noise test: run scenarios with all discovered skills loaded ---
 
     private static async Task<NoiseTestResult> ExecuteNoiseTest(
-        SkillInfo targetSkill,
-        IReadOnlyList<SkillInfo> allSkills,
+        EvalSkillInfo targetEvalSkill,
+        IReadOnlyList<EvalSkillInfo> allEvalSkills,
         ValidatorConfig config,
         Spinner spinner)
     {
+        var targetSkill = targetEvalSkill.Skill;
         var prefix = $"[{targetSkill.Name}/noise]";
         var log = (string msg) => spinner.Log($"{prefix} {msg}");
 
-        var otherSkills = allSkills.Where(s => !string.Equals(s.Path, targetSkill.Path, StringComparison.OrdinalIgnoreCase)).ToList();
+        var otherSkills = allEvalSkills
+            .Where(s => !string.Equals(s.Skill.Path, targetSkill.Path, StringComparison.OrdinalIgnoreCase))
+            .Select(s => s.Skill)
+            .ToList();
         int totalLoaded = otherSkills.Count + 1; // target + others
 
         log($"🔊 Running noise test with {totalLoaded} skills loaded...");
@@ -790,7 +835,7 @@ public static class ValidateCommand
         var noiseScenarios = new List<NoiseScenarioResult>();
         using var scenarioLimit = new ConcurrencyLimiter(config.ParallelScenarios);
 
-        var tasks = targetSkill.EvalConfig!.Scenarios
+        var tasks = targetEvalSkill.EvalConfig!.Scenarios
             .Where(s => s.ExpectActivation) // only test positive scenarios
             .Select(scenario => scenarioLimit.RunAsync(async () =>
             {
@@ -806,11 +851,13 @@ public static class ValidateCommand
                     {
                         // Run with target skill only
                         var skillOnlyMetrics = await AgentRunner.RunAgent(new RunOptions(
-                            scenario, targetSkill, targetSkill.EvalPath, config.Model, config.Verbose, scenarioLog));
+                            scenario, targetSkill, targetEvalSkill.EvalPath, config.Model, config.Verbose,
+                            Log: scenarioLog, McpServers: targetEvalSkill.McpServers));
 
                         // Run with all skills loaded
                         var allSkillsMetrics = await AgentRunner.RunAgent(new RunOptions(
-                            scenario, targetSkill, targetSkill.EvalPath, config.Model, config.Verbose, scenarioLog, AdditionalSkills: otherSkills));
+                            scenario, targetSkill, targetEvalSkill.EvalPath, config.Model, config.Verbose,
+                            Log: scenarioLog, AdditionalSkills: otherSkills, McpServers: targetEvalSkill.McpServers));
 
                         // Evaluate assertions on both
                         if (scenario.Assertions is { Count: > 0 })
@@ -837,7 +884,7 @@ public static class ValidateCommand
                         JudgeResult skillOnlyJudge, allSkillsJudge;
                         try
                         {
-                            skillOnlyJudge = await Services.Judge.JudgeRun(scenario, skillOnlyMetrics, judgeOpts);
+                            skillOnlyJudge = await Services.Judge.JudgeRun(scenario, skillOnlyMetrics, judgeOpts, log);
                         }
                         catch
                         {
@@ -846,7 +893,7 @@ public static class ValidateCommand
                         try
                         {
                             allSkillsJudge = await Services.Judge.JudgeRun(scenario, allSkillsMetrics,
-                                judgeOpts with { WorkDir = allSkillsMetrics.WorkDir });
+                                judgeOpts with { WorkDir = allSkillsMetrics.WorkDir }, log);
                         }
                         catch
                         {

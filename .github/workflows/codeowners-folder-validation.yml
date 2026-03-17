@@ -21,7 +21,9 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Find missing CODEOWNERS folder entries
         id: audit
@@ -172,7 +174,7 @@ jobs:
 
       - name: Create or update issue for validation failures
         if: (steps.audit.outputs.has_missing == 'true' || steps.audit.outputs.has_insufficient_owners == 'true') && github.event_name != 'pull_request'
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           MISSING_JSON: ${{ steps.audit.outputs.missing_json }}
           INSUFFICIENT_OWNERS_JSON: ${{ steps.audit.outputs.insufficient_owners_json }}

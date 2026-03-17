@@ -292,7 +292,9 @@ public class OverfittingJudgeTests
             Description: "A test skill",
             Path: "/skills/test-skill",
             SkillMdPath: "/skills/test-skill/SKILL.md",
-            SkillMdContent: "# Test Skill\nThis teaches something.",
+            SkillMdContent: "# Test Skill\nThis teaches something.");
+        var evalSkill = new EvalSkillInfo(
+            Skill: skill,
             EvalPath: null,
             EvalConfig: new EvalConfig(new List<EvalScenario>
             {
@@ -300,7 +302,7 @@ public class OverfittingJudgeTests
                     Rubric: new List<string> { "Did the thing correctly" })
             }));
 
-        var prompt = await OverfittingJudge.BuildUserPromptAsync(skill);
+        var prompt = await OverfittingJudge.BuildUserPromptAsync(evalSkill);
 
         Assert.Contains("SKILL_CONTENT_START", prompt);
         Assert.Contains("SKILL_CONTENT_END", prompt);
@@ -319,11 +321,13 @@ public class OverfittingJudgeTests
             Description: "A large skill",
             Path: "/skills/large-skill",
             SkillMdPath: "/skills/large-skill/SKILL.md",
-            SkillMdContent: largeContent,
+            SkillMdContent: largeContent);
+        var evalSkill = new EvalSkillInfo(
+            Skill: skill,
             EvalPath: null,
             EvalConfig: new EvalConfig(new List<EvalScenario>()));
 
-        var prompt = await OverfittingJudge.BuildUserPromptAsync(skill);
+        var prompt = await OverfittingJudge.BuildUserPromptAsync(evalSkill);
 
         Assert.Contains("TRUNCATED", prompt);
         Assert.Contains("large-skill/SKILL.md", prompt);
@@ -349,7 +353,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline" },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = 0.25,
@@ -398,7 +402,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline" },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = 0.25,
@@ -440,7 +444,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline", TokenEstimate = 1000, ToolCallCount = 5, WallTimeMs = 2100 },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled", TokenEstimate = 8000, ToolCallCount = 15, WallTimeMs = 8500 },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = -0.18,
@@ -462,7 +466,7 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("[1]", md);
-        Assert.Contains("Quality improved but weighted score is", md);
+        Assert.Contains("(Isolated) Quality improved but weighted score is", md);
         Assert.Contains("due to:", md);
         // Raw metrics should appear in footnote
         Assert.Contains("tokens (1000", md);
@@ -492,7 +496,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline" },
                             new JudgeResult(new List<RubricScore>(), 3.0, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = 0.35,
@@ -538,7 +542,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline", TokenEstimate = 5000, TaskCompleted = false },
                             new JudgeResult(new List<RubricScore>(), 4.0, "Good")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled", TokenEstimate = 2000, TaskCompleted = true },
                             new JudgeResult(new List<RubricScore>(), 3.0, "OK")),
                         ImprovementScore = 0.14,
@@ -560,7 +564,7 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("[1]", md);
-        Assert.Contains("Quality dropped but weighted score is", md);
+        Assert.Contains("(Isolated) Quality dropped but weighted score is", md);
         Assert.Contains("due to:", md);
         // Raw metrics should appear in footnote
         Assert.Contains("completion", md);
@@ -590,7 +594,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline", TokenEstimate = 1000, ToolCallCount = 5 },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled", TokenEstimate = 3000, ToolCallCount = 5 },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
                         ImprovementScore = -0.10,
@@ -612,7 +616,7 @@ public class OverfittingJudgeTests
         var md = Reporter.GenerateMarkdownSummary(verdicts);
 
         Assert.Contains("[1]", md);
-        Assert.Contains("Quality unchanged but weighted score is", md);
+        Assert.Contains("(Isolated) Quality unchanged but weighted score is", md);
         Assert.Contains("tokens (1000", md);
     }
 
@@ -657,7 +661,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline" },
                             new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
                         ImprovementScore = 0.25,
@@ -692,7 +696,7 @@ public class OverfittingJudgeTests
                         Baseline = new RunResult(
                             new RunMetrics { AgentOutput = "baseline" },
                             new JudgeResult(new List<RubricScore>(), 4.0, "OK")),
-                        WithSkill = new RunResult(
+                        SkilledIsolated = new RunResult(
                             new RunMetrics { AgentOutput = "skilled" },
                             new JudgeResult(new List<RubricScore>(), 3.0, "Worse")),
                         ImprovementScore = -0.25,
@@ -720,7 +724,9 @@ public class OverfittingJudgeTests
             Description: "Migration skill",
             Path: "/skills/migrate-dotnet10-to-dotnet11",
             SkillMdPath: "/skills/migrate-dotnet10-to-dotnet11/SKILL.md",
-            SkillMdContent: "# Migration Skill",
+            SkillMdContent: "# Migration Skill");
+        var evalSkill = new EvalSkillInfo(
+            Skill: skill,
             EvalPath: null,
             EvalConfig: new EvalConfig(new List<EvalScenario>
             {
@@ -728,7 +734,7 @@ public class OverfittingJudgeTests
                     "Use the migrate-dotnet10-to-dotnet11 skill to help me migrate my .NET 10 console app to .NET 11."),
             }));
 
-        var assessments = OverfittingJudge.DetectPromptOverfitting(skill);
+        var assessments = OverfittingJudge.DetectPromptOverfitting(evalSkill);
 
         Assert.Single(assessments);
         Assert.Equal("explicit_skill_reference", assessments[0].Issue);
@@ -744,7 +750,9 @@ public class OverfittingJudgeTests
             Description: "Migration skill",
             Path: "/skills/migrate-dotnet10-to-dotnet11",
             SkillMdPath: "/skills/migrate-dotnet10-to-dotnet11/SKILL.md",
-            SkillMdContent: "# Migration Skill",
+            SkillMdContent: "# Migration Skill");
+        var evalSkill = new EvalSkillInfo(
+            Skill: skill,
             EvalPath: null,
             EvalConfig: new EvalConfig(new List<EvalScenario>
             {
@@ -756,7 +764,7 @@ public class OverfittingJudgeTests
                     "Use the migrate-dotnet10-to-dotnet11 skill to help me with EF Core Cosmos DB."),
             }));
 
-        var assessments = OverfittingJudge.DetectPromptOverfitting(skill);
+        var assessments = OverfittingJudge.DetectPromptOverfitting(evalSkill);
 
         Assert.Equal(3, assessments.Count);
         Assert.All(assessments, a => Assert.Equal("explicit_skill_reference", a.Issue));
@@ -770,7 +778,9 @@ public class OverfittingJudgeTests
             Description: "P/Invoke skill",
             Path: "/skills/dotnet-pinvoke",
             SkillMdPath: "/skills/dotnet-pinvoke/SKILL.md",
-            SkillMdContent: "# P/Invoke Skill",
+            SkillMdContent: "# P/Invoke Skill");
+        var evalSkill = new EvalSkillInfo(
+            Skill: skill,
             EvalPath: null,
             EvalConfig: new EvalConfig(new List<EvalScenario>
             {
@@ -778,7 +788,7 @@ public class OverfittingJudgeTests
                     "Use the pinvoke skill to help me create a P/Invoke binding."),
             }));
 
-        var assessments = OverfittingJudge.DetectPromptOverfitting(skill);
+        var assessments = OverfittingJudge.DetectPromptOverfitting(evalSkill);
 
         Assert.Single(assessments);
         Assert.Equal("skill_instruction", assessments[0].Issue);
@@ -793,7 +803,9 @@ public class OverfittingJudgeTests
             Description: "Migration skill",
             Path: "/skills/migrate-dotnet10-to-dotnet11",
             SkillMdPath: "/skills/migrate-dotnet10-to-dotnet11/SKILL.md",
-            SkillMdContent: "# Migration Skill",
+            SkillMdContent: "# Migration Skill");
+        var evalSkill = new EvalSkillInfo(
+            Skill: skill,
             EvalPath: null,
             EvalConfig: new EvalConfig(new List<EvalScenario>
             {
@@ -801,7 +813,7 @@ public class OverfittingJudgeTests
                     "I need to migrate my .NET 10 console app to .NET 11. What breaks?"),
             }));
 
-        var assessments = OverfittingJudge.DetectPromptOverfitting(skill);
+        var assessments = OverfittingJudge.DetectPromptOverfitting(evalSkill);
 
         Assert.Empty(assessments);
     }
@@ -814,7 +826,9 @@ public class OverfittingJudgeTests
             Description: "Migration skill",
             Path: "/skills/migrate-dotnet10-to-dotnet11",
             SkillMdPath: "/skills/migrate-dotnet10-to-dotnet11/SKILL.md",
-            SkillMdContent: "# Migration Skill",
+            SkillMdContent: "# Migration Skill");
+        var evalSkill = new EvalSkillInfo(
+            Skill: skill,
             EvalPath: null,
             EvalConfig: new EvalConfig(new List<EvalScenario>
             {
@@ -822,7 +836,7 @@ public class OverfittingJudgeTests
                     "Use the migrate-dotnet10-to-dotnet11 skill to help me."),
             }));
 
-        var assessments = OverfittingJudge.DetectPromptOverfitting(skill);
+        var assessments = OverfittingJudge.DetectPromptOverfitting(evalSkill);
 
         Assert.Single(assessments);
         Assert.Equal("explicit_skill_reference", assessments[0].Issue);
@@ -836,11 +850,13 @@ public class OverfittingJudgeTests
             Description: "Test",
             Path: "/skills/test-skill",
             SkillMdPath: "/skills/test-skill/SKILL.md",
-            SkillMdContent: "# Test",
+            SkillMdContent: "# Test");
+        var evalSkill = new EvalSkillInfo(
+            Skill: skill,
             EvalPath: null,
             EvalConfig: null);
 
-        var assessments = OverfittingJudge.DetectPromptOverfitting(skill);
+        var assessments = OverfittingJudge.DetectPromptOverfitting(evalSkill);
 
         Assert.Empty(assessments);
     }

@@ -16,8 +16,13 @@ public abstract class Animal
 {
     public abstract string Type { get; }  // Conflicts with "Type" discriminator
 }
+```
 
-// Fix: Rename the property, or add [JsonIgnore]:
+**Fix:** rename the conflicting property, or suppress it with `[JsonIgnore]`:
+
+```csharp
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "Type")]
+[JsonDerivedType(typeof(Dog), "dog")]
 public abstract class Animal
 {
     [JsonIgnore]

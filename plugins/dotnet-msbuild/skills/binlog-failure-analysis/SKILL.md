@@ -1,6 +1,6 @@
 ---
 name: binlog-failure-analysis
-description: "Skill for .NET/MSBuild *.binlog files and complicated build failures. Only activate in MSBuild/.NET build context. This skill uses binary log replay to text logs for comprehensive build failure analysis."
+description: "Analyze MSBuild binary logs to diagnose build failures by replaying binlogs to searchable text logs. Only activate in MSBuild/.NET build context. USE FOR: build errors that are unclear from console output, diagnosing cascading failures across multi-project builds, tracing MSBuild target execution order, investigating common errors like CS0246 (type not found), MSB4019 (imported project not found), NU1605 (package downgrade), MSB3277 (version conflicts), and ResolveProjectReferences failures. Requires an existing .binlog file. DO NOT USE FOR: generating binlogs (use binlog-generation), build performance analysis (use build-perf-diagnostics), non-MSBuild build systems. INVOKES: dotnet msbuild binlog replay, grep, cat, head, tail for log analysis."
 ---
 
 # Analyzing MSBuild Failures with Binary Logs
