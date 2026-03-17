@@ -2,8 +2,9 @@
 name: migrate-mstest-v3-to-v4
 description: >
   Migrate an MSTest v3 test project to MSTest v4 (latest). Use when user says
-  "upgrade to MSTest v4", "update to latest MSTest", "MSTest 4 migration", or
-  has build errors after updating MSTest packages from 3.x to 4.x.
+  "upgrade to MSTest v4", "migrate to MSTest v4", "update to latest MSTest",
+  "MSTest 4 migration", "MSTest v4 breaking changes", "MSTest v4 compatibility",
+  or has build errors after updating MSTest packages from 3.x to 4.x.
   USE FOR: upgrading MSTest packages from 3.x to 4.x, fixing source breaking
   changes (Execute → ExecuteAsync, CallerInfo constructor, ClassCleanupBehavior
   removal, TestContext.Properties, Assert API changes, ExpectedExceptionAttribute
@@ -42,6 +43,13 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 | Project or solution path | Yes | The `.csproj`, `.sln`, or `.slnx` entry point containing MSTest test projects |
 | Build command | No | How to build (e.g., `dotnet build`, a repo build script). Auto-detect if not provided |
 | Test command | No | How to run tests (e.g., `dotnet test`). Auto-detect if not provided |
+
+## Response Guidelines
+
+- **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking changes from Step 3. Do not walk through the entire migration workflow.
+- **"What to expect" questions** (user asks about breaking changes before upgrading): Present the relevant rows from the Step 3 quick-lookup table concisely. Mention behavioral changes from Step 4 briefly.
+- **Full migration requests** (user wants complete migration): Follow the complete workflow below.
+- **Explanatory questions** (user asks "is this a known change?", "what else should I watch out for?"): Explain the relevant changes and advise — do not prescribe a full migration procedure.
 
 ## Workflow
 

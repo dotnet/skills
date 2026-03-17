@@ -2,8 +2,10 @@
 name: migrate-mstest-v1v2-to-v3
 description: >
   Migrate MSTest v1 or v2 test project to MSTest v3. Use when user says
-  "upgrade MSTest", "update test framework", "modernize tests", or has build
-  errors after updating MSTest packages from 1.x/2.x.
+  "upgrade MSTest", "upgrade to MSTest v3", "migrate to MSTest v3",
+  "update test framework", "modernize tests", "MSTest v3 migration",
+  "MSTest compatibility", "MSTest v2 to v3", or has build errors after
+  updating MSTest packages from 1.x/2.x to 3.x.
   USE FOR: upgrading from MSTest v1 assembly references
   (Microsoft.VisualStudio.QualityTools.UnitTestFramework) or MSTest v2 NuGet
   (MSTest.TestFramework 1.x–2.x) to MSTest v3, fixing assertion overload
@@ -57,7 +59,19 @@ MSTest v3 introduces these breaking changes from v1/v2. Address only the ones re
 | Dropped target frameworks: .NET 5, .NET Fx < 4.6.2, netstandard1.0, UWP < 16299, WinUI < 18362 | Build error | Update TFM: net5.0 → net6.0+, netfx → net462+, netstandard1.0 → netstandard2.0 |
 | Not binary compatible with v1/v2 | Libraries compiled against v1/v2 must be recompiled | Recompile all dependencies against v3 |
 
-When the user asks about breaking changes or what to expect, present the relevant rows from this table concisely—do not walk through the entire workflow.
+## Response Guidelines
+
+- **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking change from the table above. Do not walk through the full migration workflow.
+- **"What to expect" questions** (user asks about breaking changes before upgrading): Present only the relevant rows from the Breaking Changes Summary table concisely. Do not walk through the full workflow.
+- **Full migration requests** (user wants complete migration): Follow the complete workflow below.
+- **Comparison questions** (user asks about v1 vs v2 differences): Explain concisely — v1 uses assembly references and requires removing them first; v2 uses NuGet and just needs a version bump. Both converge on the same v3 packages and breaking changes.
+
+## Migration Paths
+
+- **MSTest v1 (assembly reference to QualityTools)**: Remove the assembly reference (Step 2), add v3 NuGet packages (Step 3), fix breaking changes (Step 5).
+- **MSTest v2 (NuGet packages 1.x–2.x)**: Update package versions to 3.x (Step 3), fix breaking changes (Step 5). No assembly reference removal needed.
+
+Both paths converge at Step 3 — the same v3 packages and breaking changes apply regardless of starting version.
 
 ## Workflow
 
