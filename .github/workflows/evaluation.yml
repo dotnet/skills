@@ -433,6 +433,8 @@ jobs:
       parallel-runs: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
       # Always pass PR head SHA so evaluation-run checks out the correct code
       checkout-ref: ${{ needs.gate.outputs.head_sha || '' }}
+      # Fork PRs build the validator from the base branch (untrusted code).
+      is-fork: ${{ needs.gate.outputs.is_fork == 'true' }}
       pr-number: ${{ needs.gate.outputs.pr_number || '' }}
     secrets:
       COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}

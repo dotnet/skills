@@ -14,6 +14,11 @@ on:
         required: false
         type: string
         default: ''
+      is-fork:
+        description: 'Whether this is a fork PR. When true, the validator is built from the base branch instead of checkout-ref to prevent untrusted code from modifying tooling.'
+        required: false
+        type: boolean
+        default: false
       model:
         description: 'Copilot model to use'
         required: false
@@ -78,12 +83,13 @@ jobs:
     permissions:
       contents: read
     steps:
-      # Always checkout the default ref (base branch) for building the validator.
-      # The caller's checkout-ref input is only used for skill content, not for
-      # building trusted tooling.
+      # For same-repo PRs (trusted), build from checkout-ref so skill-validator
+      # changes are tested. For fork PRs (untrusted), always build from the
+      # base branch to prevent untrusted code from modifying tooling.
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          ref: ${{ !inputs.is-fork && inputs.checkout-ref || '' }}
           persist-credentials: false
 
       - name: Setup .NET SDK
