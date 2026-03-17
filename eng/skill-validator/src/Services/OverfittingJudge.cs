@@ -11,9 +11,9 @@ public static partial class OverfittingJudge
     private const int MaxRetries = 2;
     private const int MaxSkillContentChars = 48_000; // ~12K tokens
 
-    public static async Task<OverfittingResult?> Analyze(SkillInfo skill, OverfittingJudgeOptions options)
+    public static async Task<OverfittingResult?> Analyze(EvalSkillInfo evalSkill, OverfittingJudgeOptions options)
     {
-        if (skill.EvalConfig is null || skill.EvalPath is null)
+        if (evalSkill.EvalConfig is null || evalSkill.EvalPath is null)
             return null;
 
         Exception? lastError = null;
@@ -23,8 +23,8 @@ public static partial class OverfittingJudge
             try
             {
                 if (attempt > 0)
-                    Console.Error.WriteLine($"      🔄 Overfitting judge retry {attempt}/{MaxRetries} for \"{skill.Name}\"");
-                return await AnalyzeOnce(skill, options);
+                    Console.Error.WriteLine($"      🔄 Overfitting judge retry {attempt}/{MaxRetries} for \"{evalSkill.Skill.Name}\"");
+                return await AnalyzeOnce(evalSkill, options);
             }
             catch (Exception error)
             {
@@ -34,14 +34,14 @@ public static partial class OverfittingJudge
         }
 
         throw new InvalidOperationException(
-            $"Overfitting judge failed for \"{skill.Name}\" after {MaxRetries + 1} attempts: {lastError}");
+            $"Overfitting judge failed for \"{evalSkill.Skill.Name}\" after {MaxRetries + 1} attempts: {lastError}");
     }
 
-    private static async Task<OverfittingResult> AnalyzeOnce(SkillInfo skill, OverfittingJudgeOptions options)
+    private static async Task<OverfittingResult> AnalyzeOnce(EvalSkillInfo evalSkill, OverfittingJudgeOptions options)
     {
         // Run deterministic prompt checks first — these are high-confidence signals
         // that don't need LLM judgment.
-        var deterministicPromptAssessments = DetectPromptOverfitting(skill);
+        var deterministicPromptAssessments = DetectPromptOverfitting(evalSkill);
 
         var client = await AgentRunner.GetSharedClient(options.Verbose);
 
@@ -63,7 +63,7 @@ public static partial class OverfittingJudge
             }),
         });
 
-        var userPrompt = await BuildUserPromptAsync(skill);
+        var userPrompt = await BuildUserPromptAsync(evalSkill);
 
         using var cts = new CancellationTokenSource(options.Timeout);
         using var timer = new Timer(_ =>
@@ -101,9 +101,9 @@ public static partial class OverfittingJudge
         throw new InvalidOperationException("Overfitting judge returned no content");
     }
 
-    public static async Task GenerateFix(SkillInfo skill, OverfittingResult result, OverfittingJudgeOptions options)
+    public static async Task GenerateFix(EvalSkillInfo evalSkill, OverfittingResult result, OverfittingJudgeOptions options)
     {
-        if (skill.EvalPath is null) return;
+        if (evalSkill.EvalPath is null) return;
 
         var client = await AgentRunner.GetSharedClient(options.Verbose);
 
@@ -124,7 +124,7 @@ public static partial class OverfittingJudge
             }),
         });
 
-        var evalYaml = await File.ReadAllTextAsync(skill.EvalPath);
+        var evalYaml = await File.ReadAllTextAsync(evalSkill.EvalPath);
         var fixPrompt = BuildFixUserPrompt(evalYaml, result);
 
         using var cts = new CancellationTokenSource(options.Timeout);
@@ -154,7 +154,7 @@ public static partial class OverfittingJudge
         {
             // Extract YAML from response (might be in a code block)
             var yaml = ExtractYaml(content);
-            var fixedPath = Path.Combine(Path.GetDirectoryName(skill.EvalPath)!, "eval.fixed.yaml");
+            var fixedPath = Path.Combine(Path.GetDirectoryName(evalSkill.EvalPath)!, "eval.fixed.yaml");
             await File.WriteAllTextAsync(fixedPath, yaml);
         }
     }
@@ -336,25 +336,25 @@ public static partial class OverfittingJudge
     /// that bias the evaluation. These patterns are unambiguously overfitted — they
     /// give the skilled agent a direct advantage by name-dropping the skill.
     /// </summary>
-    internal static IReadOnlyList<PromptOverfitAssessment> DetectPromptOverfitting(SkillInfo skill)
+    internal static IReadOnlyList<PromptOverfitAssessment> DetectPromptOverfitting(EvalSkillInfo evalSkill)
     {
         var assessments = new List<PromptOverfitAssessment>();
-        if (skill.EvalConfig is null || string.IsNullOrWhiteSpace(skill.Name))
+        if (evalSkill.EvalConfig is null || string.IsNullOrWhiteSpace(evalSkill.Skill.Name))
             return assessments;
 
-        foreach (var scenario in skill.EvalConfig.Scenarios)
+        foreach (var scenario in evalSkill.EvalConfig.Scenarios)
         {
             var prompt = scenario.Prompt;
             if (string.IsNullOrWhiteSpace(prompt)) continue;
 
             // Check 1: Prompt explicitly contains the skill name (e.g., "migrate-dotnet10-to-dotnet11")
-            if (prompt.Contains(skill.Name, StringComparison.OrdinalIgnoreCase))
+            if (prompt.Contains(evalSkill.Skill.Name, StringComparison.OrdinalIgnoreCase))
             {
                 assessments.Add(new PromptOverfitAssessment(
                     scenario.Name,
                     "explicit_skill_reference",
                     1.0,
-                    $"Prompt explicitly mentions skill name '{skill.Name}' — this directly tells the skilled agent which skill to activate and disadvantages the baseline agent."));
+                    $"Prompt explicitly mentions skill name '{evalSkill.Skill.Name}' — this directly tells the skilled agent which skill to activate and disadvantages the baseline agent."));
                 continue; // One assessment per scenario is enough
             }
 
@@ -577,27 +577,27 @@ public static partial class OverfittingJudge
         Respond ONLY with JSON. No markdown, no commentary outside the JSON.
         """;
 
-    internal static async Task<string> BuildUserPromptAsync(SkillInfo skill)
+    internal static async Task<string> BuildUserPromptAsync(EvalSkillInfo evalSkill)
     {
         // Prepare skill content (truncate if needed)
-        var skillContent = skill.SkillMdContent;
+        var skillContent = evalSkill.Skill.SkillMdContent;
         if (skillContent.Length > MaxSkillContentChars)
         {
             skillContent = skillContent[..MaxSkillContentChars] +
-                $"\n\n[TRUNCATED — skill document was {skillContent.Length} characters, showing first {MaxSkillContentChars}.\n Full document at: {skill.SkillMdPath}]";
+                $"\n\n[TRUNCATED — skill document was {skillContent.Length} characters, showing first {MaxSkillContentChars}.\n Full document at: {evalSkill.Skill.SkillMdPath}]";
         }
 
         // Read raw eval YAML
         string evalYaml = "(eval.yaml not available)";
-        if (skill.EvalPath is not null && File.Exists(skill.EvalPath))
+        if (evalSkill.EvalPath is not null && File.Exists(evalSkill.EvalPath))
         {
-            evalYaml = await File.ReadAllTextAsync(skill.EvalPath);
+            evalYaml = await File.ReadAllTextAsync(evalSkill.EvalPath);
         }
 
         return $$"""
             Assess the following skill and its eval definition for overfitting.
 
-            === SKILL DOCUMENT (from: {{skill.SkillMdPath}}) ===
+            === SKILL DOCUMENT (from: {{evalSkill.Skill.SkillMdPath}}) ===
             <<<SKILL_CONTENT_START>>>
             {{skillContent}}
             <<<SKILL_CONTENT_END>>>

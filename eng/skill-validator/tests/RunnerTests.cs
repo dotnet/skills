@@ -13,10 +13,7 @@ public class BuildSessionConfigTests
         Description: "A test skill",
         Path: Path.Combine("C:", "home", "user", "skills", "test-skill"),
         SkillMdPath: Path.Combine("C:", "home", "user", "skills", "test-skill", "SKILL.md"),
-        SkillMdContent: "# Test",
-        EvalPath: null,
-        EvalConfig: null,
-        McpServers: null);
+        SkillMdContent: "# Test");
 
     [Fact]
     public void SetsSkillDirectoriesToStagedIsolationDir()
@@ -50,9 +47,9 @@ public class BuildSessionConfigTests
         {
             var additionalSkills = new[]
             {
-                new SkillInfo("skill-a", "A", skillADir, Path.Combine(skillADir, "SKILL.md"), "# A", null, null),
-                new SkillInfo("skill-b", "B", skillBDir, Path.Combine(skillBDir, "SKILL.md"), "# B", null, null),
-                new SkillInfo("no-skill", "None", noSkillDir, Path.Combine(noSkillDir, "SKILL.md"), "", null, null),
+                new SkillInfo("skill-a", "A", skillADir, Path.Combine(skillADir, "SKILL.md"), "# A"),
+                new SkillInfo("skill-b", "B", skillBDir, Path.Combine(skillBDir, "SKILL.md"), "# B"),
+                new SkillInfo("no-skill", "None", noSkillDir, Path.Combine(noSkillDir, "SKILL.md"), ""),
             };
 
             var config = AgentRunner.BuildSessionConfig(MockSkill, pluginRoot: null, "gpt-4.1", "C:\\tmp\\work",

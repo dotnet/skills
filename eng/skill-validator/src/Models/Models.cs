@@ -80,10 +80,17 @@ public sealed record SkillInfo(
     string Path,
     string SkillMdPath,
     string SkillMdContent,
+    string? Compatibility = null);
+
+/// <summary>
+/// Extends SkillInfo with evaluation-specific data (eval.yaml config, MCP servers).
+/// Used only by the eval command and its supporting services.
+/// </summary>
+public sealed record EvalSkillInfo(
+    SkillInfo Skill,
     string? EvalPath,
     EvalConfig? EvalConfig,
-    IReadOnlyDictionary<string, MCPServerDef>? McpServers = null,
-    string? Compatibility = null);
+    IReadOnlyDictionary<string, MCPServerDef>? McpServers = null);
 
 // --- Agent info ---
 
@@ -344,6 +351,15 @@ public sealed record NoiseTestResult(
 
 // --- Config ---
 
+public sealed record CheckConfig
+{
+    public IReadOnlyList<string> PluginPaths { get; init; } = [];
+    public IReadOnlyList<string> SkillPaths { get; init; } = [];
+    public IReadOnlyList<string> AgentPaths { get; init; } = [];
+    public string? AllowedExternalDepsFile { get; init; }
+    public bool Verbose { get; init; }
+}
+
 public sealed record ReporterSpec(ReporterType Type);
 
 public enum ReporterType
@@ -358,7 +374,6 @@ public sealed record ValidatorConfig
 {
     public double MinImprovement { get; init; } = 0.1;
     public bool RequireCompletion { get; init; } = true;
-    public bool RequireEvals { get; init; }
     public bool Verbose { get; init; }
     public string Model { get; init; } = "claude-opus-4.6";
     public string JudgeModel { get; init; } = "claude-opus-4.6";
