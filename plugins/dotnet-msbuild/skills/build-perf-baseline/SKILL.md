@@ -1,6 +1,6 @@
 ---
 name: build-perf-baseline
-description: "Establish build performance baselines and apply systematic optimization techniques. Only activate in MSBuild/.NET build context. Use when diagnosing slow builds, establishing before/after measurements, or applying advanced optimization strategies like MSBuild Server, static graph builds, artifacts output, and dependency graph trimming. Start here before diving into specific optimizations from build-perf-diagnostics, incremental-build, or build-parallelism skills. DO NOT use for non-MSBuild build systems."
+description: "Establish build performance baselines and apply systematic optimization techniques. Only activate in MSBuild/.NET build context. USE FOR: diagnosing slow builds by establishing 3-scenario baselines (cold build, warm build, no-op build), before/after measurement methodology, applying the 8-step optimization framework (MSBuild Server, Artifacts Output, Deterministic Builds, Dependency Graph Trimming, Static Graph /graph, Parallel Build Tuning). Thresholds: no-op build should be <5s (small repos), <30s (large repos); no-op >30s indicates broken incremental build. Start here before diving into build-perf-diagnostics, incremental-build, or build-parallelism. DO NOT USE FOR: non-MSBuild build systems, detailed bottleneck analysis (use build-perf-diagnostics after baselining). INVOKES: dotnet build with /bl, dotnet build-server commands."
 ---
 
 # Build Performance Baseline & Optimization
