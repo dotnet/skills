@@ -8,64 +8,64 @@
 
 3. **Scalar loop over contiguous array/span** of `byte`, `sbyte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong`, `nint`, `nuint`, `float`, `double` (and `char` via reinterpretation as `ushort`)? → Implement with explicit `Vector128<T>` / `Vector256<T>` / `Vector512<T>` intrinsics using the patterns below.
 
-4. **No contiguous numeric array processing** (dictionary lookups, tree traversals, linked lists, state machines, string formatting, small collections, enum comparisons, recursive algorithms, decimal arithmetic)? → Report `[NO SIMD OPPORTUNITY]` and write a **full paragraph** explaining WHY, referencing the specific code characteristics that prevent vectorization (e.g., "State machines require sequential branching on enum values — there are no contiguous numeric arrays to process in parallel, and each transition depends on the previous state"). This explanation is graded.
+4. **No contiguous numeric arrays to process** (dictionary lookups, tree traversals, linked lists, state machines, string formatting, small collections, enum comparisons, recursive algorithms, decimal arithmetic)? → Report `[NO SIMD OPPORTUNITY]` and write a **full paragraph** explaining WHY, referencing the specific code characteristics that prevent vectorization (e.g., "State machines require sequential branching on enum values — there are no contiguous numeric arrays to process in parallel, and each transition depends on the previous state"). This explanation is graded.
 
 ## TensorPrimitives API Reference
 
-TensorPrimitives APIs are generic and work for any primitive type that satisfies the method's generic constraints — not just `float`/`double`. For example, `Sum` requires `IAdditionOperators<T,T,T>` + `IAdditiveIdentity<T,T>` and works for all primitive numeric types, while `CosineSimilarity` requires `IRootFunctions<T>` and only works for `float`/`double`. Check the constraint column below to determine which types apply. If the project doesn't already reference `System.Numerics.Tensors`, add it to the `.csproj`. Replace the entire manual loop with **one or more** `TensorPrimitives` calls as needed (prefer a single call when possible):
+TensorPrimitives APIs are generic and work for any primitive type that satisfies the method's generic constraints — not just `float`/`double`. For example, `Sum` requires `IAdditionOperators<T,T,T>` + `IAdditiveIdentity<T,T>` and works for all primitive numeric types, while `CosineSimilarity` requires `IRootFunctions<T>` and only works for `float`/`double`. If the project doesn't already reference `System.Numerics.Tensors`, add it to the `.csproj`. Replace the entire manual loop with **one or more** `TensorPrimitives` calls as needed (prefer a single call when possible):
 
 ### Reductions (span → scalar)
-| Operation | API | Constraint | Applicable types |
-|-----------|-----|------------|-----------------|
-| Sum | `TensorPrimitives.Sum(span)` | `IAdditionOperators`, `IAdditiveIdentity` | All primitive numerics |
-| Sum of squares | `TensorPrimitives.SumOfSquares(span)` | `IAdditionOperators`, `IMultiplyOperators` | All primitive numerics |
-| Sum of magnitudes (L1 norm) | `TensorPrimitives.SumOfMagnitudes(span)` | `INumberBase` | All primitive numerics |
-| L2 norm | `TensorPrimitives.Norm(span)` | `IRootFunctions` | `float`, `double` |
-| Product of all elements | `TensorPrimitives.Product(span)` | `IMultiplyOperators`, `IMultiplicativeIdentity` | All primitive numerics |
-| Min value | `TensorPrimitives.Min(span)` | `INumber` | All primitive numerics |
-| Max value | `TensorPrimitives.Max(span)` | `INumber` | All primitive numerics |
-| Index of max | `TensorPrimitives.IndexOfMax(span)` | `INumber` | All primitive numerics |
-| Index of min | `TensorPrimitives.IndexOfMin(span)` | `INumber` | All primitive numerics |
-| Dot product | `TensorPrimitives.Dot(a, b)` | `IAdditionOperators`, `IMultiplyOperators` | All primitive numerics |
-| Cosine similarity | `TensorPrimitives.CosineSimilarity(a, b)` | `IRootFunctions` | `float`, `double` |
-| Euclidean distance | `TensorPrimitives.Distance(a, b)` | `IRootFunctions` | `float`, `double` |
+| Operation | API |
+|-----------|-----|
+| Sum | `TensorPrimitives.Sum(span)` |
+| Sum of squares | `TensorPrimitives.SumOfSquares(span)` |
+| Sum of magnitudes (L1 norm) | `TensorPrimitives.SumOfMagnitudes(span)` |
+| L2 norm | `TensorPrimitives.Norm(span)` |
+| Product of all elements | `TensorPrimitives.Product(span)` |
+| Min value | `TensorPrimitives.Min(span)` |
+| Max value | `TensorPrimitives.Max(span)` |
+| Index of max | `TensorPrimitives.IndexOfMax(span)` |
+| Index of min | `TensorPrimitives.IndexOfMin(span)` |
+| Dot product | `TensorPrimitives.Dot(a, b)` |
+| Cosine similarity | `TensorPrimitives.CosineSimilarity(a, b)` |
+| Euclidean distance | `TensorPrimitives.Distance(a, b)` |
 
 ### Element-wise transforms (span → span)
-| Operation | API | Constraint | Applicable types |
-|-----------|-----|------------|-----------------|
-| Negate | `TensorPrimitives.Negate(src, dst)` | `IUnaryNegationOperators` | All signed numerics, `float`, `double` |
-| Abs | `TensorPrimitives.Abs(src, dst)` | `INumberBase` | All primitive numerics |
-| Sqrt | `TensorPrimitives.Sqrt(src, dst)` | `IRootFunctions` | `float`, `double` |
-| Exp | `TensorPrimitives.Exp(src, dst)` | `IExponentialFunctions` | `float`, `double` |
-| Log | `TensorPrimitives.Log(src, dst)` | `ILogarithmicFunctions` | `float`, `double` |
-| Log2 | `TensorPrimitives.Log2(src, dst)` | `ILogarithmicFunctions` | `float`, `double` |
-| Tanh | `TensorPrimitives.Tanh(src, dst)` | `IHyperbolicFunctions` | `float`, `double` |
-| Sigmoid | `TensorPrimitives.Sigmoid(src, dst)` | `IExponentialFunctions` | `float`, `double` |
-| SoftMax | `TensorPrimitives.SoftMax(src, dst)` | `IExponentialFunctions` | `float`, `double` |
-| Sinh | `TensorPrimitives.Sinh(src, dst)` | `IHyperbolicFunctions` | `float`, `double` |
-| Cosh | `TensorPrimitives.Cosh(src, dst)` | `IHyperbolicFunctions` | `float`, `double` |
-| Round | `TensorPrimitives.Round(src, dst)` | `IFloatingPoint` | `float`, `double` |
-| Floor | `TensorPrimitives.Floor(src, dst)` | `IFloatingPoint` | `float`, `double` |
-| Ceiling | `TensorPrimitives.Ceiling(src, dst)` | `IFloatingPoint` | `float`, `double` |
-| CopySign | `TensorPrimitives.CopySign(src, sign, dst)` | `INumber` | All primitive numerics |
-| Pow | `TensorPrimitives.Pow(bases, exponents, dst)` | `IPowerFunctions` | `float`, `double` |
+| Operation | API |
+|-----------|-----|
+| Negate | `TensorPrimitives.Negate(src, dst)` |
+| Abs | `TensorPrimitives.Abs(src, dst)` |
+| Sqrt | `TensorPrimitives.Sqrt(src, dst)` |
+| Exp | `TensorPrimitives.Exp(src, dst)` |
+| Log | `TensorPrimitives.Log(src, dst)` |
+| Log2 | `TensorPrimitives.Log2(src, dst)` |
+| Tanh | `TensorPrimitives.Tanh(src, dst)` |
+| Sigmoid | `TensorPrimitives.Sigmoid(src, dst)` |
+| SoftMax | `TensorPrimitives.SoftMax(src, dst)` |
+| Sinh | `TensorPrimitives.Sinh(src, dst)` |
+| Cosh | `TensorPrimitives.Cosh(src, dst)` |
+| Round | `TensorPrimitives.Round(src, dst)` |
+| Floor | `TensorPrimitives.Floor(src, dst)` |
+| Ceiling | `TensorPrimitives.Ceiling(src, dst)` |
+| CopySign | `TensorPrimitives.CopySign(src, sign, dst)` |
+| Pow | `TensorPrimitives.Pow(bases, exponents, dst)` |
 
 ### Two-span operations (a, b → dst)
-| Operation | API | Constraint | Applicable types |
-|-----------|-----|------------|-----------------|
-| Add | `TensorPrimitives.Add(a, b, dst)` | `IAdditionOperators` | All primitive numerics |
-| Subtract | `TensorPrimitives.Subtract(a, b, dst)` | `ISubtractionOperators` | All primitive numerics |
-| Multiply | `TensorPrimitives.Multiply(a, b, dst)` | `IMultiplyOperators` | All primitive numerics |
-| Divide | `TensorPrimitives.Divide(a, b, dst)` | `IDivisionOperators` | All primitive numerics |
-| Element-wise Min | `TensorPrimitives.Min(a, b, dst)` | `INumber` | All primitive numerics |
-| Element-wise Max | `TensorPrimitives.Max(a, b, dst)` | `INumber` | All primitive numerics |
+| Operation | API |
+|-----------|-----|
+| Add | `TensorPrimitives.Add(a, b, dst)` |
+| Subtract | `TensorPrimitives.Subtract(a, b, dst)` |
+| Multiply | `TensorPrimitives.Multiply(a, b, dst)` |
+| Divide | `TensorPrimitives.Divide(a, b, dst)` |
+| Element-wise Min | `TensorPrimitives.Min(a, b, dst)` |
+| Element-wise Max | `TensorPrimitives.Max(a, b, dst)` |
 
 ### Three-span fused operations
-| Operation | API | Constraint | Applicable types |
-|-----------|-----|------------|-----------------|
-| (x+y)*z | `TensorPrimitives.AddMultiply(x, y, z, dst)` | `IAdditionOperators`, `IMultiplyOperators` | All primitive numerics |
-| x*y+z | `TensorPrimitives.MultiplyAdd(x, y, z, dst)` | `IAdditionOperators`, `IMultiplyOperators` | All primitive numerics |
-| fma(x,y,z) | `TensorPrimitives.FusedMultiplyAdd(x, y, z, dst)` | `IFloatingPointIeee754` | `float`, `double` |
+| Operation | API |
+|-----------|-----|
+| (x+y)*z | `TensorPrimitives.AddMultiply(x, y, z, dst)` |
+| x*y+z | `TensorPrimitives.MultiplyAdd(x, y, z, dst)` |
+| fma(x,y,z) | `TensorPrimitives.FusedMultiplyAdd(x, y, z, dst)` |
 
 > `AddMultiply` and `MultiplyAdd` are distinct — they optimize differently depending on whether the dependency chain flows from the addend or the multiplier. `FusedMultiplyAdd` is the IEEE 754 fused form of (x*y)+z with a single rounding step.
 
@@ -128,7 +128,7 @@ for (; i < length; i++)
 ### Core SIMD operations
 - **Load/Store:** `Vector128.LoadUnsafe(ref src, offset)` / `.StoreUnsafe(ref dst, offset)`
 - **Arithmetic:** `+`, `-`, `*`, `/` operators on vector types
-- **Multiply-add (approximate):** `Vector128.MultiplyAddEstimate(a, b, c)` — performs a multiply-add with implementation-defined approximation; not guaranteed to be a strict IEEE fused multiply-add. For precise fused semantics, use hardware-specific intrinsics such as `System.Runtime.Intrinsics.X86.Fma.MultiplyAdd` when available.
+- **Multiply-add (approximate):** `Vector128.MultiplyAddEstimate(a, b, c)` — performs a multiply-add with implementation-defined approximation; not guaranteed to be a strict IEEE fused multiply-add. For precise fused semantics, use `Vector128.FusedMultiplyAdd(a, b, c)`.
 - **Comparison:** `Vector128.Equals`, `.LessThan`, `.GreaterThan` — returns mask vector
 - **Mask ops:** `Vector128.All(mask)`, `.Any(mask)`, `.None(mask)`, `.Count(mask)`, `.CountWhereAllBitsSet(mask)`
 - **Horizontal:** `Vector128.Sum(vec)` for reduction; `.Min(a,b)`, `.Max(a,b)` element-wise
