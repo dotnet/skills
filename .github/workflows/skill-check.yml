@@ -26,10 +26,9 @@ jobs:
 
       - name: Run skill-validator check
         run: |
-          for plugin in plugins/*/; do
-            dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- \
-              check \
-              --plugin "$plugin" \
-              --allowed-external-deps eng/skill-validator/allowed-external-deps.txt
-          done
+          plugin_args=$(for d in plugins/*/; do echo "--plugin $d"; done)
+          dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- \
+            check \
+            $plugin_args \
+            --allowed-external-deps eng/skill-validator/allowed-external-deps.txt
 
