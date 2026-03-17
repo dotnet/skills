@@ -255,7 +255,7 @@ setup:
     - path: "input.txt"
       content: "inline file content"
     - path: "data.csv"
-      source: "fixtures/sample-data.csv"  # relative to eval directory, then skill directory
+      source: "fixtures/sample-data.csv"  # relative to skill directory
 ```
 
 See the [skill-validator README](eng/skill-validator/README.md) for the full list of assertion types, constraints, and rubric options.
