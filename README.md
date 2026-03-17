@@ -15,7 +15,7 @@ This repository contains the .NET team's curated set of core skills and custom a
 | [dotnet-upgrade](plugins/dotnet-upgrade/) | Skills for migrating and upgrading .NET projects across framework versions, language features, and compatibility targets. |
 | [dotnet-maui](plugins/dotnet-maui/) | Skills for .NET MAUI development: environment setup, diagnostics, and troubleshooting. |
 | [dotnet-ai](plugins/dotnet-ai/) | AI and ML skills for .NET: technology selection, LLM integration, agentic workflows, RAG pipelines, MCP, and classic ML with ML.NET. |
-| [dotnet-test](plugins/dotnet-test/) | Skills for running and diagnosing .NET tests: test execution, filtering, platform detection, and MSTest workflows. |
+| [dotnet-test](plugins/dotnet-test/) | Skills for running, diagnosing, and migrating .NET tests: test execution, filtering, platform detection, and MSTest workflows. |
 
 ## Installation
 
