@@ -68,7 +68,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Discover changed skills
+      - name: Discover changes requiring evaluation
         id: discover
         shell: pwsh
         run: |
@@ -81,17 +81,21 @@ jobs:
             Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
             Select-Object -First 1
 
-          if ($hasSkillChanges) {
-            echo "has_skills=true" >> $env:GITHUB_OUTPUT
+          $hasInfraChanges = $changedFiles |
+            Where-Object { $_ -match '^(\.github/workflows/evaluation(-run)?\.yml$|eng/skill-validator/)' } |
+            Select-Object -First 1
+
+          if ($hasSkillChanges -or $hasInfraChanges) {
+            echo "needs_eval=true" >> $env:GITHUB_OUTPUT
           } else {
-            echo "has_skills=false" >> $env:GITHUB_OUTPUT
+            echo "needs_eval=false" >> $env:GITHUB_OUTPUT
           }
 
       - name: Post evaluation commit status
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ "${{ steps.discover.outputs.has_skills }}" == "true" ]]; then
+          if [[ "${{ steps.discover.outputs.needs_eval }}" == "true" ]]; then
             STATE="pending"
             DESC="Post /evaluate to trigger evaluation"
           else
@@ -125,7 +129,7 @@ jobs:
       - name: Fetch PR head (metadata only)
         run: git fetch origin +refs/pull/${{ github.event.pull_request.number }}/head
 
-      - name: Discover changed skills
+      - name: Discover changes requiring evaluation
         id: discover
         shell: pwsh
         run: |
@@ -138,17 +142,21 @@ jobs:
             Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
             Select-Object -First 1
 
-          if ($hasSkillChanges) {
-            echo "has_skills=true" >> $env:GITHUB_OUTPUT
+          $hasInfraChanges = $changedFiles |
+            Where-Object { $_ -match '^(\.github/workflows/evaluation(-run)?\.yml$|eng/skill-validator/)' } |
+            Select-Object -First 1
+
+          if ($hasSkillChanges -or $hasInfraChanges) {
+            echo "needs_eval=true" >> $env:GITHUB_OUTPUT
           } else {
-            echo "has_skills=false" >> $env:GITHUB_OUTPUT
+            echo "needs_eval=false" >> $env:GITHUB_OUTPUT
           }
 
       - name: Post evaluation commit status
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ "${{ steps.discover.outputs.has_skills }}" == "true" ]]; then
+          if [[ "${{ steps.discover.outputs.needs_eval }}" == "true" ]]; then
             STATE="pending"
             DESC="Fork PR — post /evaluate to trigger evaluation"
           else
