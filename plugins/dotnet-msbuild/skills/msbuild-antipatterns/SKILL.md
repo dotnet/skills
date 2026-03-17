@@ -1,6 +1,6 @@
 ---
 name: msbuild-antipatterns
-description: "Catalog of MSBuild anti-patterns with detection rules and fix recipes. Only activate in MSBuild/.NET build context. USE FOR: reviewing, auditing, or cleaning up .csproj, .vbproj, .fsproj, .props, .targets, or .proj files. Detects patterns like <Exec Command=\"mkdir/copy/del\"> instead of built-in tasks, unquoted conditions, hardcoded absolute paths, restating SDK defaults, manual file listing in SDK-style projects, missing PrivateAssets on analyzer packages, copy-pasted properties across projects, scattered package versions. Each anti-pattern has a symptom, explanation, and concrete BAD→GOOD transformation. DO NOT USE FOR: non-MSBuild build systems (npm, Maven, CMake, etc.), project migration to SDK-style (use msbuild-modernization). INVOKES: no tools — pure knowledge skill."
+description: "Catalog of MSBuild anti-patterns with detection rules and fix recipes. Only activate in MSBuild/.NET build context. USE FOR: reviewing, auditing, or cleaning up .csproj, .vbproj, .fsproj, .props, .targets, or .proj files. Each anti-pattern has a symptom, explanation, and concrete BAD→GOOD transformation. Covers Exec-instead-of-built-in-task, unquoted conditions, hardcoded paths, restating SDK defaults, scattered package versions, and more. DO NOT USE FOR: non-MSBuild build systems (npm, Maven, CMake, etc.), project migration to SDK-style (use msbuild-modernization)."
 ---
 
 # MSBuild Anti-Pattern Catalog
