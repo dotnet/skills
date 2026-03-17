@@ -1,6 +1,6 @@
 ## Build Performance Report
 
-We profiled our solution and found that `ResolveProjectReferences` dominates the
+We profiled our project and found that `ResolveProjectReferences` dominates the
 Target Performance Summary, consuming ~70% of the total build time for the App project.
 
 The team is considering ways to optimize or eliminate this target. Some ideas

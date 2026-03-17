@@ -41,7 +41,7 @@ description: "Reference knowledge for diagnosing MSBuild build performance issue
 - **Fixes**: reduce reference count, use `<DesignTimeBuild>false</DesignTimeBuild>` for RAR-heavy analysis, set `<ResolveAssemblyReferencesSilent>true</ResolveAssemblyReferencesSilent>` for diagnostic
 - **Advanced**: `<DesignTimeBuild>` and `<ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>`
 - **Key insight**: RAR runs unconditionally even on incremental builds because users may have installed targeting packs or GACed assemblies (see dotnet/msbuild#2015). With .NET Core micro-assemblies, the reference count is often very high.
-- **Reduce transitive references**: Set `<DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>` to avoid pulling in the full transitive closure. Use `ReferenceOutputAssembly="false"` on ProjectReferences that are only needed at build time (not API surface). Trim unused PackageReferences.
+- **Reduce transitive references**: Set `<DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>` to avoid pulling in the full transitive closure (note: projects may need to add direct references for any types they consume). Use `ReferenceOutputAssembly="false"` on ProjectReferences that are only needed at build time (not API surface). Trim unused PackageReferences.
 
 ### 2. Roslyn Analyzers and Source Generators
 
@@ -127,7 +127,7 @@ Step-by-step workflow using text log replay:
 - [ ] Separate restore from build (`dotnet restore` then `dotnet build --no-restore`)
 - [ ] Enable static graph restore (`<RestoreUseStaticGraphEvaluation>true</RestoreUseStaticGraphEvaluation>`)
 - [ ] Enable hardlinks for Copy (`<CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>true</CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>`)
-- [ ] Disable analyzers conditionally in dev inner loop (`<RunAnalyzers Condition="'$(ContinuousIntegrationBuild)' != 'true'">false</RunAnalyzers>`)
+- [ ] Disable analyzers conditionally in dev inner loop: `<RunAnalyzers Condition="'$(ContinuousIntegrationBuild)' != 'true'">false</RunAnalyzers>`
 - [ ] Enable reference assemblies (`<ProduceReferenceAssembly>true</ProduceReferenceAssembly>`)
 - [ ] Check for broken incremental builds (see `incremental-build` skill)
 - [ ] Check for bin/obj clashes (see `check-bin-obj-clash` skill)
