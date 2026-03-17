@@ -17,13 +17,16 @@ public sealed record RunOptions(
     string? PluginRoot = null,
     Action<string>? Log = null,
     IReadOnlyList<SkillInfo>? AdditionalSkills = null,
-    IReadOnlyDictionary<string, MCPServerDef>? McpServers = null);
+    IReadOnlyDictionary<string, MCPServerDef>? McpServers = null,
+    string? SessionsDir = null,
+    string? SessionId = null);
 
 public static class AgentRunner
 {
     private static readonly ConcurrentDictionary<string, CopilotClient> _pluginClients = new(StringComparer.OrdinalIgnoreCase);
     private static readonly SemaphoreSlim _clientLock = new(1, 1);
     private static readonly ConcurrentBag<string> _workDirs = [];
+    private static readonly ConcurrentBag<string> _configDirs = [];
     private static string? _capturedGitHubToken;
     private static bool _tokenCaptured;
 
@@ -100,11 +103,16 @@ public static class AgentRunner
     }
 
     /// <summary>Remove all temporary working directories created during runs.</summary>
-    public static Task CleanupWorkDirs()
+    public static Task CleanupWorkDirs(bool keepSessions = false)
     {
         var dirs = _workDirs.ToArray();
         _workDirs.Clear();
-        return Task.WhenAll(dirs.Select(dir =>
+
+        var configDirsToClean = keepSessions ? [] : _configDirs.ToArray();
+        _configDirs.Clear();
+
+        var allDirs = dirs.Concat(configDirsToClean);
+        return Task.WhenAll(allDirs.Select(dir =>
         {
             try { Directory.Delete(dir, true); } catch { }
             return Task.CompletedTask;
@@ -204,16 +212,29 @@ public static class AgentRunner
         IReadOnlyDictionary<string, MCPServerDef>? mcpServers = null,
         IReadOnlyList<SkillInfo>? additionalSkills = null,
         Action<string>? log = null,
-        bool verbose = false)
+        bool verbose = false,
+        string? sessionsDir = null,
+        string? sessionId = null)
     {
         // The SDK expects SkillDirectories entries to be parent directories that
         // it scans for child folders containing SKILL.md.
         var skillPath = skill is not null ? Path.GetDirectoryName(skill.Path) : null;
 
-        // Create a unique temporary config directory for this session to not share any data
-        var configDir = Path.Combine(Path.GetTempPath(), $"sv-cfg-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(configDir);
-        _workDirs.Add(configDir);
+        string configDir;
+        if (sessionsDir is not null)
+        {
+            // Persistent session dir — use sessionId as folder name for DB linkage
+            var dirName = sessionId ?? Guid.NewGuid().ToString("N");
+            configDir = Path.Combine(sessionsDir, dirName);
+            Directory.CreateDirectory(configDir);
+            _configDirs.Add(configDir);
+        }
+        else
+        {
+            configDir = Path.Combine(Path.GetTempPath(), $"sv-cfg-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(configDir);
+            _configDirs.Add(configDir);
+        }
         if (verbose)
             log?.Invoke($"      📂 Config dir: {configDir} ({(skill is not null ? "skilled" : "baseline")})");
 
@@ -404,7 +425,7 @@ public static class AgentRunner
             var client = await GetPluginClient(options.PluginRoot, options.Verbose);
 
             await using var session = await client.CreateSessionAsync(
-                BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.McpServers, options.AdditionalSkills, options.Log, options.Verbose));
+                BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.McpServers, options.AdditionalSkills, options.Log, options.Verbose, options.SessionsDir, options.SessionId));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
@@ -582,18 +603,14 @@ public static class AgentRunner
                 {
                     await File.WriteAllTextAsync(targetPath, file.Content);
                 }
-                else if (file.Source is not null && skillPath is not null)
+                else if (file.Source is not null)
                 {
-                    var canonicalSkillPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(skillPath));
-                    var sourcePath = Path.GetFullPath(Path.Combine(skillPath, file.Source));
-                    // Prevent path traversal: source must stay inside skillPath
-                    if (!sourcePath.StartsWith(canonicalSkillPath + Path.DirectorySeparatorChar, pathComparison)
-                        && !sourcePath.Equals(canonicalSkillPath, pathComparison))
+                    var resolvedSource = ResolveSourcePath(file.Source, evalPath, skillPath);
+                    if (resolvedSource is null)
                     {
-                        Console.Error.WriteLine($"Setup file source escapes skill directory, skipping: {file.Source}");
                         continue;
                     }
-                    File.Copy(sourcePath, targetPath, true);
+                    File.Copy(resolvedSource, targetPath, true);
                 }
             }
         }
@@ -650,6 +667,36 @@ public static class AgentRunner
     }
 
     // --- Security: environment scrubbing for child processes ---
+
+    /// <summary>
+    /// Resolves a setup file source path relative to the eval directory (preferred) or skill directory.
+    /// Returns the resolved absolute path, or null if resolution fails (no base directory, or path traversal detected).
+    /// </summary>
+    internal static string? ResolveSourcePath(string source, string? evalPath, string? skillPath)
+    {
+        var baseDir = evalPath is not null ? Path.GetDirectoryName(evalPath)! : skillPath;
+        if (baseDir is null)
+        {
+            Console.Error.WriteLine($"Setup file source '{source}' specified but no eval or skill directory is available, skipping.");
+            return null;
+        }
+
+        var pathComparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        var canonicalBaseDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(baseDir));
+        var sourcePath = Path.GetFullPath(Path.Combine(baseDir, source));
+        // Prevent path traversal: source must stay inside the base directory
+        if (!sourcePath.StartsWith(canonicalBaseDir + Path.DirectorySeparatorChar, pathComparison)
+            && !sourcePath.Equals(canonicalBaseDir, pathComparison))
+        {
+            Console.Error.WriteLine($"Setup file source escapes base directory, skipping: {source}");
+            return null;
+        }
+
+        return sourcePath;
+    }
 
     private static readonly string[] SensitiveEnvKeys =
     [

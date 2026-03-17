@@ -5,6 +5,7 @@ var rootCommand = new RootCommand("Validate agent skills — use 'check' for sta
 rootCommand.Add(CheckCommand.Create());
 rootCommand.Add(EvaluateCommand.Create());
 rootCommand.Add(ConsolidateCommand.Create());
+rootCommand.Add(RejudgeCommand.Create());
 
 var parseResult = rootCommand.Parse(args);
 return await parseResult.InvokeAsync();
