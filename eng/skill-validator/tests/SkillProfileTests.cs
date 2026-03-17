@@ -13,9 +13,7 @@ public class AnalyzeSkillTests
             Description: description,
             Path: path ?? $"/tmp/{name}",
             SkillMdPath: $"{path ?? $"/tmp/{name}"}/SKILL.md",
-            SkillMdContent: content,
-            EvalPath: null,
-            EvalConfig: null);
+            SkillMdContent: content);
     }
 
     [Fact]
@@ -117,16 +115,16 @@ public class AnalyzeSkillTests
         Assert.Empty(profile.Warnings);
     }
 
-    private static SkillInfo MakeSkillWithEval(string content, string name, List<EvalScenario> scenarios)
+    private static (SkillInfo Skill, EvalConfig EvalConfig) MakeSkillWithEval(string content, string name, List<EvalScenario> scenarios)
     {
-        return new SkillInfo(
+        var skill = new SkillInfo(
             Name: name,
             Description: "Test skill",
             Path: "/tmp/test-skill",
             SkillMdPath: "/tmp/test-skill/SKILL.md",
-            SkillMdContent: content,
-            EvalPath: "/tmp/test-skill/eval.yaml",
-            EvalConfig: new EvalConfig(scenarios));
+            SkillMdContent: content);
+        var evalConfig = new EvalConfig(scenarios);
+        return (skill, evalConfig);
     }
 
     [Fact]
@@ -137,8 +135,8 @@ public class AnalyzeSkillTests
         {
             new("basic", "Use the migrate-app skill to help me migrate my project")
         };
-        var skill = MakeSkillWithEval(content, "migrate-app", scenarios);
-        var profile = SkillProfiler.AnalyzeSkill(skill);
+        var (skill, evalConfig) = MakeSkillWithEval(content, "migrate-app", scenarios);
+        var profile = SkillProfiler.AnalyzeSkill(skill, evalConfig);
         Assert.Contains(profile.Errors, e => e.Contains("mentions skill name") && e.Contains("migrate-app"));
         Assert.DoesNotContain(profile.Warnings, w => w.Contains("mentions skill name"));
     }
@@ -151,8 +149,8 @@ public class AnalyzeSkillTests
         {
             new("basic", "Help me migrate my project to the latest framework")
         };
-        var skill = MakeSkillWithEval(content, "migrate-app", scenarios);
-        var profile = SkillProfiler.AnalyzeSkill(skill);
+        var (skill, evalConfig) = MakeSkillWithEval(content, "migrate-app", scenarios);
+        var profile = SkillProfiler.AnalyzeSkill(skill, evalConfig);
         Assert.DoesNotContain(profile.Errors, e => e.Contains("mentions skill name"));
     }
 
@@ -164,8 +162,8 @@ public class AnalyzeSkillTests
         {
             new("basic", "Help me migrate my project")
         };
-        var skill = MakeSkillWithEval(content, "", scenarios);
-        var profile = SkillProfiler.AnalyzeSkill(skill);
+        var (skill, evalConfig) = MakeSkillWithEval(content, "", scenarios);
+        var profile = SkillProfiler.AnalyzeSkill(skill, evalConfig);
         Assert.DoesNotContain(profile.Errors, e => e.Contains("mentions skill name"));
     }
 
@@ -287,7 +285,7 @@ public class AnalyzeSkillTests
     {
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
         var skill = new SkillInfo("test-skill", "desc", "/tmp/test-skill", "/tmp/test-skill/SKILL.md",
-            content, null, null, Compatibility: new string('a', 501));
+            content, Compatibility: new string('a', 501));
         var profile = SkillProfiler.AnalyzeSkill(skill);
         Assert.Contains(profile.Errors, e => e.Contains("Compatibility") && e.Contains("500"));
     }
@@ -297,7 +295,7 @@ public class AnalyzeSkillTests
     {
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
         var skill = new SkillInfo("test-skill", "desc", "/tmp/test-skill", "/tmp/test-skill/SKILL.md",
-            content, null, null, Compatibility: new string('a', 500));
+            content, Compatibility: new string('a', 500));
         var profile = SkillProfiler.AnalyzeSkill(skill);
         Assert.DoesNotContain(profile.Errors, e => e.Contains("Compatibility"));
     }
@@ -307,7 +305,7 @@ public class AnalyzeSkillTests
     {
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
         var skill = new SkillInfo("test-skill", "desc", "/tmp/test-skill", "/tmp/test-skill/SKILL.md",
-            content, null, null, Compatibility: string.Empty);
+            content, Compatibility: string.Empty);
         var profile = SkillProfiler.AnalyzeSkill(skill);
         Assert.Contains(profile.Errors, e => e.Contains("Compatibility"));
     }
@@ -397,7 +395,7 @@ public class FormatProfileLineTests
     private static SkillInfo MakeSkill(string content, string name = "test-skill", string description = "Test skill")
     {
         return new SkillInfo(name, description, "/tmp/test-skill",
-            "/tmp/test-skill/SKILL.md", content, null, null);
+            "/tmp/test-skill/SKILL.md", content);
     }
 
     [Fact]
@@ -417,7 +415,7 @@ public class FormatDiagnosisHintsTests
     private static SkillInfo MakeSkill(string content, string description = "Test skill")
     {
         return new SkillInfo("test-skill", description, "/tmp/test-skill",
-            "/tmp/test-skill/SKILL.md", content, null, null);
+            "/tmp/test-skill/SKILL.md", content);
     }
 
     [Fact]
@@ -443,82 +441,3 @@ public class FormatDiagnosisHintsTests
     }
 }
 
-public class AggregateDescriptionLimitTests
-{
-    private static SkillInfo MakeSkill(string name, string description, string pluginName = "test-plugin")
-    {
-        var path = Path.Combine("/tmp", "plugins", pluginName, "skills", name);
-        return new SkillInfo(name, description, path,
-            Path.Combine(path, "SKILL.md"), "---\nname: " + name + "\n---\n# Title", null, null);
-    }
-
-    [Fact]
-    public void SkillsUnderAggregateLimit_NoFailures()
-    {
-        var skills = new[]
-        {
-            MakeSkill("skill-a", new string('a', 500)),
-            MakeSkill("skill-b", new string('b', 400)),
-        };
-        var failures = ValidateCommand.CheckAggregateDescriptionLimits(skills);
-        Assert.Empty(failures);
-    }
-
-    [Fact]
-    public void SkillsExactlyAtAggregateLimit_NoFailures()
-    {
-        // Two skills summing to exactly MaxAggregateDescriptionLength
-        var half = SkillProfiler.MaxAggregateDescriptionLength / 2;
-        var remainder = SkillProfiler.MaxAggregateDescriptionLength - half;
-        var skills = new[]
-        {
-            MakeSkill("skill-a", new string('a', half)),
-            MakeSkill("skill-b", new string('b', remainder)),
-        };
-        var failures = ValidateCommand.CheckAggregateDescriptionLimits(skills);
-        Assert.Empty(failures);
-    }
-
-    [Fact]
-    public void SkillsOverAggregateLimit_ReportsFailure()
-    {
-        var half = SkillProfiler.MaxAggregateDescriptionLength / 2;
-        var skills = new[]
-        {
-            MakeSkill("skill-a", new string('a', half + 1)),
-            MakeSkill("skill-b", new string('b', half + 1)),
-        };
-        var failures = ValidateCommand.CheckAggregateDescriptionLimits(skills);
-        Assert.Single(failures);
-        Assert.Contains("test-plugin", failures[0]);
-        Assert.Contains("maximum", failures[0]);
-    }
-
-    [Fact]
-    public void MultiplePlugins_OnlyViolatingPluginFails()
-    {
-        var skills = new[]
-        {
-            MakeSkill("skill-a", new string('a', 100), "good-plugin"),
-            MakeSkill("skill-b", new string('b', SkillProfiler.MaxAggregateDescriptionLength + 1), "bad-plugin"),
-        };
-        var failures = ValidateCommand.CheckAggregateDescriptionLimits(skills);
-        Assert.Single(failures);
-        Assert.Contains("bad-plugin", failures[0]);
-        Assert.DoesNotContain("good-plugin", failures[0]);
-    }
-
-    [Fact]
-    public void DerivePluginName_StandardLayout()
-    {
-        var name = ValidateCommand.DerivePluginName("/repo/plugins/dotnet-msbuild/skills/build-perf");
-        Assert.Equal("dotnet-msbuild", name);
-    }
-
-    [Fact]
-    public void DerivePluginName_NoSkillsAncestor_ReturnsNull()
-    {
-        var name = ValidateCommand.DerivePluginName("/tmp/some-path/my-skill");
-        Assert.Null(name);
-    }
-}

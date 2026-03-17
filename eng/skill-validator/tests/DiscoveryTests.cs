@@ -14,8 +14,6 @@ public class DiscoverSkillsTests
         Assert.Single(skills);
         Assert.Equal("sample-skill", skills[0].Name);
         Assert.Contains("greeting", skills[0].Description);
-        Assert.NotNull(skills[0].EvalConfig);
-        Assert.Equal(2, skills[0].EvalConfig!.Scenarios.Count);
     }
 
     [Fact]
@@ -33,8 +31,6 @@ public class DiscoverSkillsTests
     {
         var skills = await SkillDiscovery.DiscoverSkills(Path.Combine(FixturesPath, "no-eval-skill"));
         Assert.Single(skills);
-        Assert.Null(skills[0].EvalConfig);
-        Assert.Null(skills[0].EvalPath);
     }
 
     [Fact]
@@ -183,10 +179,11 @@ public class DiscoverSkillsTests
             await File.WriteAllTextAsync(Path.Combine(skillDir, "SKILL.md"), "---\nname: my-skill\ndescription: test\n---\nBody", TestContext.Current.CancellationToken);
             await File.WriteAllTextAsync(Path.Combine(evalDir, "eval.yaml"), "scenarios:\n  - name: test\n    prompt: hi\n    assertions:\n      - type: exit_success", TestContext.Current.CancellationToken);
 
-            var skills = await SkillDiscovery.DiscoverSkills(skillDir, testsDir);
-            Assert.Single(skills);
-            Assert.NotNull(skills[0].EvalPath);
-            Assert.Contains("my-plugin", skills[0].EvalPath!);
+            var skills = await SkillDiscovery.DiscoverSkills(skillDir);
+            var evalSkills = await SkillDiscovery.LoadEvalData(skills, testsDir);
+            Assert.Single(evalSkills);
+            Assert.NotNull(evalSkills[0].EvalPath);
+            Assert.Contains("my-plugin", evalSkills[0].EvalPath!);
         }
         finally
         {
@@ -212,11 +209,12 @@ public class DiscoverSkillsTests
             await File.WriteAllTextAsync(Path.Combine(flatEvalDir, "eval.yaml"), "scenarios:\n  - name: test\n    prompt: hi\n    assertions:\n      - type: exit_success", TestContext.Current.CancellationToken);
             await File.WriteAllTextAsync(Path.Combine(nestedEvalDir, "eval.yaml"), "scenarios:\n  - name: test\n    prompt: hi\n    assertions:\n      - type: exit_success", TestContext.Current.CancellationToken);
 
-            var skills = await SkillDiscovery.DiscoverSkills(skillDir, testsDir);
-            Assert.Single(skills);
-            Assert.NotNull(skills[0].EvalPath);
+            var skills = await SkillDiscovery.DiscoverSkills(skillDir);
+            var evalSkills = await SkillDiscovery.LoadEvalData(skills, testsDir);
+            Assert.Single(evalSkills);
+            Assert.NotNull(evalSkills[0].EvalPath);
             // Flat path should win
-            Assert.DoesNotContain("some-plugin", skills[0].EvalPath!);
+            Assert.DoesNotContain("some-plugin", evalSkills[0].EvalPath!);
         }
         finally
         {
@@ -242,8 +240,8 @@ public class GroupSkillsByPluginTests
 
             var skills = new[]
             {
-                new SkillInfo("skill-a", "A", skillDir1, Path.Combine(skillDir1, "SKILL.md"), "# A", null, null, null),
-                new SkillInfo("skill-b", "B", skillDir2, Path.Combine(skillDir2, "SKILL.md"), "# B", null, null, null),
+                new SkillInfo("skill-a", "A", skillDir1, Path.Combine(skillDir1, "SKILL.md"), "# A"),
+                new SkillInfo("skill-b", "B", skillDir2, Path.Combine(skillDir2, "SKILL.md"), "# B"),
             };
 
             var (groups, errors) = SkillDiscovery.GroupSkillsByPlugin(skills);
@@ -266,7 +264,7 @@ public class GroupSkillsByPluginTests
         try
         {
             // No plugin.json in parents
-            var skill = new SkillInfo("orphan", "O", tmpDir, Path.Combine(tmpDir, "SKILL.md"), "# O", null, null, null);
+            var skill = new SkillInfo("orphan", "O", tmpDir, Path.Combine(tmpDir, "SKILL.md"), "# O");
             var (groups, errors) = SkillDiscovery.GroupSkillsByPlugin([skill]);
             Assert.Empty(groups);
             Assert.Single(errors);
@@ -285,7 +283,7 @@ public class GroupSkillsByPluginTests
         Directory.CreateDirectory(tmpDir);
         try
         {
-            var skill = new SkillInfo("test", "T", tmpDir, Path.Combine(tmpDir, "SKILL.md"), "# T", null, null, null);
+            var skill = new SkillInfo("test", "T", tmpDir, Path.Combine(tmpDir, "SKILL.md"), "# T");
             var result = SkillDiscovery.FindPluginContext(skill);
             Assert.Null(result);
         }
@@ -305,7 +303,7 @@ public class GroupSkillsByPluginTests
         try
         {
             File.WriteAllText(Path.Combine(pluginDir, "plugin.json"), """{ "name": "my-plugin" }""");
-            var skill = new SkillInfo("test-skill", "T", skillDir, Path.Combine(skillDir, "SKILL.md"), "# T", null, null, null);
+            var skill = new SkillInfo("test-skill", "T", skillDir, Path.Combine(skillDir, "SKILL.md"), "# T");
             var result = SkillDiscovery.FindPluginContext(skill);
             Assert.NotNull(result);
             Assert.Equal(pluginDir, result!.Value.PluginRoot);

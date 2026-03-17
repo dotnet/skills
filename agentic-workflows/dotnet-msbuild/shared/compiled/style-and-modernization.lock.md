@@ -1,4 +1,4 @@
-﻿<!-- AUTO-GENERATED -- DO NOT EDIT -->
+<!-- AUTO-GENERATED — DO NOT EDIT -->
 
 # MSBuild Anti-Pattern Catalog
 
@@ -431,7 +431,7 @@ See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, a
 
 ---
 
-## AP-16: Using `<Exec>` for String/Path Operations
+For additional anti-patterns (AP-16 through AP-21) and a quick-reference checklist, see ## AP-16: Using `<Exec>` for String/Path Operations
 
 **Smell**: `<Exec Command="echo $(Var) | sed ..." />` or `<Exec Command="powershell -c ..." />` for simple string manipulation.
 
@@ -630,7 +630,7 @@ When reviewing an MSBuild file, scan for these in order:
 | AP-16 | `<Exec>` for string operations | 🔵 Preference |
 | AP-17 | Mixed Include/Update in one ItemGroup | 🔵 Subtle bugs |
 | AP-18 | Redundant transitive ProjectReferences | 🔵 Graph noise |
-| AP-20 | Platform-specific Exec without guard | 🔵 Cross-platform |
+| AP-20 | Platform-specific Exec without guard | 🔵 Cross-platform |.
 
 ---
 
@@ -1091,10 +1091,6 @@ Identify properties repeated across multiple `.csproj` files and move them to sh
 </Project>
 ```
 
-**`Directory.Build.targets`** (for targets/tasks — placed at repo or src root):
-
-```xml
-<Project>
-  <Target Name="PrintBuildInfo" Af
+**`Directory.Build.targets`** (for targets/t
 
 [truncated]

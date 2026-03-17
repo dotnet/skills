@@ -1,0 +1,14 @@
+scenarios:
+  - name: "Explain misleading ResolveProjectReferences time"
+    prompt: "Our team found that ResolveProjectReferences is the most expensive target in our build. Review the project structure and the performance report, then advise whether this is a real bottleneck and what we should actually optimize."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(Task Performance Summary|task.?self.?time|wall.?clock|wait)"
+    rubric:
+      - "Explained that ResolveProjectReferences time is misleading because it includes wait time for dependent project builds"
+      - "Recommended using Task Performance Summary instead of Target Performance Summary for accurate profiling"
+      - "Identified that the real bottlenecks are in actual tasks like Csc, RAR, or Copy — not ResolveProjectReferences itself"
+      - "Advised against trying to optimize or skip ResolveProjectReferences directly"
+    timeout: 120
