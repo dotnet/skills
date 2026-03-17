@@ -205,7 +205,7 @@ jobs:
             ARGS="$ARGS --verbose"
           fi
 
-          artifacts/publish/SkillValidator/release/skill-validator evaluate $ARGS --tests-dir ./tests/${{ matrix.entry.plugin }} ./${{ matrix.entry.skills_path }}
+          artifacts/publish/SkillValidator/release/skill-validator $ARGS --tests-dir ./tests/${{ matrix.entry.plugin }} ./${{ matrix.entry.skills_path }}
 
       - name: Upload results
         if: always()

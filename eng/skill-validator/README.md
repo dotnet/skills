@@ -79,31 +79,31 @@ skill-validator check --verbose --plugin ./plugins/my-plugin
 
 ```bash
 # Show evaluate help
-skill-validator evaluate --help
+skill-validator --help
 
 # Evaluate a skill (--tests-dir is required)
-skill-validator evaluate --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills/my-skill
+skill-validator --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills/my-skill
 
 # Verbose output with per-scenario breakdowns
-skill-validator evaluate --verbose --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
+skill-validator --verbose --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Custom model and threshold
-skill-validator evaluate --model claude-sonnet-4.5 --min-improvement 0.2 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
+skill-validator --model claude-sonnet-4.5 --min-improvement 0.2 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Use a different model for judging vs agent runs
-skill-validator evaluate --model gpt-5.3-codex --judge-model claude-opus-4.6-fast --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
+skill-validator --model gpt-5.3-codex --judge-model claude-opus-4.6-fast --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Multiple runs for stability
-skill-validator evaluate --runs 5 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
+skill-validator --runs 5 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Override the default results directory (.skill-validator-results)
-skill-validator evaluate --results-dir ./my-results --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
+skill-validator --results-dir ./my-results --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # File reporters can also be specified explicitly.
-skill-validator evaluate --reporter junit --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
+skill-validator --reporter junit --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Verdict-warn-only mode (verdict failures return exit 0, execution errors still fail)
-skill-validator evaluate --verdict-warn-only --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
+skill-validator --verdict-warn-only --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 ```
 
 ## `check` flags

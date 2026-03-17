@@ -91,7 +91,17 @@ public static class CheckCommand
                 return 1;
             }
 
-            var plugin = PluginValidator.ParsePluginJson(pluginJsonPath);
+            PluginInfo? plugin;
+            try
+            {
+                plugin = PluginValidator.ParsePluginJson(pluginJsonPath);
+            }
+            catch (JsonException ex)
+            {
+                Console.Error.WriteLine($"\x1b[31m❌ Malformed plugin.json in '{pluginDir}': {ex.Message}\x1b[0m");
+                return 1;
+            }
+
             if (plugin is null)
             {
                 Console.Error.WriteLine($"\x1b[31m❌ Failed to parse plugin.json in '{pluginDir}'\x1b[0m");
