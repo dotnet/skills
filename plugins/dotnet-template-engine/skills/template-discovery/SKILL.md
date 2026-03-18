@@ -15,7 +15,7 @@ description: >
 
 # Template Discovery
 
-This skill helps an agent find, inspect, and select the right `dotnet new` template for a given task. It uses template tools for search, inspection, and intent resolution — providing richer results than raw `dotnet new list` or `dotnet new search` commands.
+This skill helps an agent find, inspect, and select the right `dotnet new` template for a given task using `dotnet new` CLI commands for search, listing, and parameter inspection.
 
 ## When to Use
 
@@ -42,42 +42,49 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 
 ### Step 1: Resolve intent to template candidates
 
-Use `template_from_intent` with the user's natural-language description. This maps 70+ keywords to template + parameter combinations offline (no LLM round-trip needed).
+Map the user's natural-language description to template short names using these common keyword mappings:
 
+| User Intent | Template | Suggested Parameters |
+|-------------|----------|---------------------|
+| web API, REST API | `webapi` | `--auth Individual --use-controllers` if auth requested |
+| web app, website | `webapp` | |
+| Blazor, interactive web | `blazor` | |
+| console app, CLI tool | `console` | |
+| class library, shared code | `classlib` | |
+| worker service, background job | `worker` | |
+| gRPC service | `grpc` | |
+| MAUI app, mobile app | `maui` | |
+| test project, unit tests | `xunit`, `mstest`, or `nunit` | |
+
+### Step 2: Search for templates
+
+Use `dotnet new search` to find templates by keyword across both locally installed templates and NuGet.org:
+
+```bash
+dotnet new search blazor
 ```
-template_from_intent("web API with authentication and controllers")
-→ webapi + auth=Individual + UseControllers=true
+
+Use `dotnet new list` to show only installed templates, with optional filters:
+
+```bash
+dotnet new list --language C# --type project
+dotnet new list web
 ```
-
-If the intent is too vague, fall back to `template_search` with keywords.
-
-### Step 2: Search for additional matches
-
-Use `template_search` to find templates by keyword across both locally installed templates and NuGet.org. Results are ranked with local templates first.
-
-```
-template_search("blazor")
-→ ranked list of Blazor templates (local + NuGet)
-```
-
-Use `template_list` to show only installed templates with optional language, type, or classification filters.
 
 ### Step 3: Inspect template details
 
-Use `template_inspect` to get full metadata for a specific template: parameters (names, types, defaults, choices), constraints, post-actions, and classifications.
+Use `dotnet new <template> --help` to get full parameter details for a specific template — parameter names, types, defaults, and allowed values:
 
-```
-template_inspect("webapi")
-→ parameters: Framework, auth, UseControllers, EnableOpenAPI, ...
+```bash
+dotnet new webapi --help
 ```
 
 ### Step 4: Preview output
 
-Use `template_dry_run` to show what files and directories a template would create without writing anything to disk.
+Use `dotnet new <template> --dry-run` to show what files and directories a template would create without writing anything to disk:
 
-```
-template_dry_run("webapi", name="MyApi", parametersJson={"auth": "Individual"})
-→ list of files that would be created
+```bash
+dotnet new webapi --name MyApi --auth Individual --dry-run
 ```
 
 ### Step 5: Present findings
@@ -98,9 +105,9 @@ Summarize the best template match with:
 
 | Pitfall | Solution |
 |---------|----------|
-| Using `dotnet new list` instead of template tools | Template tools provide richer metadata, NuGet search, and intent resolution. Prefer `template_search` and `template_from_intent` when available; fall back to `dotnet new list` / `dotnet new search` otherwise. |
-| Not checking template constraints | Some templates require specific SDKs or workloads. Use `template_inspect` to surface constraints before recommending. |
-| Recommending a template without previewing output | Always use `template_dry_run` to confirm the template produces what the user expects. |
+| Not searching NuGet for templates | If `dotnet new list` shows no matches, use `dotnet new search <keyword>` to find installable templates on NuGet.org. |
+| Not checking template constraints | Some templates require specific SDKs or workloads. Use `dotnet new <template> --help` to surface constraints before recommending. |
+| Recommending a template without previewing output | Always use `dotnet new <template> --dry-run` to confirm the template produces what the user expects. |
 
 ## More Info
 

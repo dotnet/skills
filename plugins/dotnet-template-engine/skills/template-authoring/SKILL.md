@@ -14,7 +14,7 @@ description: >
 
 # Template Authoring
 
-This skill helps an agent create and validate custom `dotnet new` templates. It bootstraps templates from existing projects and validates `template.json` files for authoring issues before publishing.
+This skill helps an agent create and validate custom `dotnet new` templates. It guides bootstrapping templates from existing projects and validates `template.json` files for authoring issues before publishing.
 
 ## When to Use
 
@@ -41,32 +41,62 @@ This skill helps an agent create and validate custom `dotnet new` templates. It 
 
 ### Step 1: Bootstrap from existing project
 
-Use `template_create_from_existing` to analyze a `.csproj` and generate a reusable template that preserves the project's exact conventions:
+Analyze the source `.csproj` and create a `.template.config/template.json` that preserves the project's conventions:
 
-```
-template_create_from_existing(projectPath="src/MyLib/MyLib.csproj",
-  templateName="My Library Template", shortName="mylib")
+1. Create the `.template.config` directory next to the project
+2. Generate `template.json` with:
+   - `identity` in reverse-DNS format (e.g., `MyOrg.Templates.MyLib`)
+   - `name` as the human-readable template name
+   - `shortName` for `dotnet new <shortname>` usage
+   - `sourceName` set to the project name (enables name replacement)
+   - `classifications` for discoverability (e.g., `["Library"]`)
+   - `tags` with language and type
+
+Example generated `template.json`:
+```json
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "MyOrg",
+  "classifications": ["Library"],
+  "identity": "MyOrg.Templates.MyLib",
+  "name": "My Library Template",
+  "shortName": "mylib",
+  "sourceName": "MyLib",
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "symbols": {
+    "Framework": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "net9.0",
+      "choices": [
+        { "choice": "net9.0" },
+        { "choice": "net10.0" }
+      ],
+      "replaces": "net9.0"
+    }
+  }
+}
 ```
 
-This generates:
-- `.template.config/template.json` with correct identity, parameters, and metadata
-- Preserves SDK type, package references with metadata (PrivateAssets, IncludeAssets)
-- Preserves properties (OutputType, TreatWarningsAsErrors)
-- Detects Central Package Management and shared compiles
+Preserve from the source project:
+- SDK type, package references with metadata (PrivateAssets, IncludeAssets)
+- Properties (OutputType, TreatWarningsAsErrors)
+- Central Package Management and shared compile patterns
 
 ### Step 2: Validate template.json
 
-Manually review the `template.json` for common authoring issues:
+Read and review the `template.json` for common authoring issues:
 
 Validation checks to perform:
 - **Required fields** — verify `identity`, `name`, and `shortName` are present
 - **Identity format** — use reverse-DNS format (e.g., `MyOrg.Templates.WebApi`)
 - **Parameter issues** — check datatypes are valid (`string`, `bool`, `choice`, `int`, `float`), choices have defaults, descriptions are present
-- **ShortName conflicts** — avoid names that collide with built-in CLI commands (`build`, `run`, `test`, `publish`)
+- **ShortName conflicts** — avoid names that collide with built-in CLI commands (`build`, `run`, `test`, `publish`). Check with `dotnet new list` to see if the name is already taken
 - **Post-action completeness** — verify post-actions have all required configuration
 - **Tags** — ensure language, type, and classification tags are set for discoverability
-
-Use `template_inspect` on the installed template to verify the metadata is parsed correctly.
 
 ### Step 3: Refine the template
 
@@ -85,12 +115,13 @@ Based on validation results and user requirements:
    dotnet new install ./path/to/template/root
    ```
 2. Run a dry-run to verify the output:
-   ```
-   template_dry_run("mylib", name="TestProject")
+   ```bash
+   dotnet new mylib --name TestProject --dry-run
    ```
 3. Create a test project and verify it builds:
-   ```
-   template_instantiate("mylib", name="TestProject", outputPath="./test-output")
+   ```bash
+   dotnet new mylib --name TestProject --output ./test-output
+   dotnet build ./test-output/TestProject
    ```
 4. Verify all parameters produce the expected output
 
@@ -120,7 +151,7 @@ Based on validation results and user requirements:
 | Identity format issues | Use reverse-DNS format (e.g., `MyOrg.Templates.WebApi`). Avoid spaces or special characters. |
 | ShortName conflicts with CLI commands | Avoid names like `build`, `run`, `test`, `publish`. Check by running `dotnet new list` to see if the name is already taken. |
 | Missing parameter descriptions | Every parameter should have a `description` and `displayName` for discoverability. |
-| Not testing all parameter combinations | Use `template_dry_run` with different parameter values to verify conditional content works correctly. |
+| Not testing all parameter combinations | Use `dotnet new <template> --dry-run` with different parameter values to verify conditional content works correctly. |
 | Hardcoded versions in template | Use `sourceName` replacement for project names and consider parameterizing framework versions. |
 | Not setting classifications | Add appropriate `classifications` (e.g., `["Web", "API"]`) for template discovery. |
 

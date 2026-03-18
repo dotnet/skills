@@ -14,7 +14,7 @@ description: >
 
 # Template Instantiation
 
-This skill creates .NET projects from templates. It provides validated parameter handling, automatic Central Package Management adaptation, latest NuGet version resolution, and multi-template composition — capabilities beyond raw `dotnet new` commands.
+This skill creates .NET projects from templates using `dotnet new` CLI commands, with guidance for parameter validation, Central Package Management adaptation, and multi-project composition.
 
 ## When to Use
 
@@ -36,15 +36,15 @@ This skill creates .NET projects from templates. It provides validated parameter
 | Template name or intent | Yes | Template short name (e.g., `webapi`) or natural-language description |
 | Project name | Yes | Name for the created project |
 | Output path | Recommended | Directory where the project should be created |
-| Parameters | No | Template-specific parameters (e.g., `Framework`, `auth`, `EnableAot`) |
+| Parameters | No | Template-specific parameters (e.g., `--framework`, `--auth`, `--aot`) |
 
 ## Workflow
 
 ### Step 1: Resolve template and parameters
 
-If the user provides a natural-language description, use `template_from_intent` first to resolve it to a template and parameters. If they provide a template name, proceed directly.
+If the user provides a natural-language description, map it to a template short name (see the keyword table in the `template-discovery` skill). If they provide a template name, proceed directly.
 
-Use `template_inspect` to review parameter defaults and types for any parameters the user did not specify.
+Use `dotnet new <template> --help` to review available parameters, defaults, and types for any parameters the user did not specify.
 
 ### Step 2: Analyze the workspace
 
@@ -57,42 +57,44 @@ This ensures the new project is consistent with the workspace.
 
 ### Step 3: Preview the creation
 
-Use `template_dry_run` to show the user what files would be created. Confirm before proceeding.
+Use `dotnet new <template> --dry-run` to show the user what files would be created. Confirm before proceeding.
 
-```
-template_dry_run("webapi", name="MyApi", parametersJson={"Framework": "net10.0"})
+```bash
+dotnet new webapi --name MyApi --framework net10.0 --dry-run
 ```
 
 ### Step 4: Create the project
 
-Use `template_instantiate` with all parameters. It automatically:
-- **Validates parameters** and reports errors with "did you mean?" suggestions
-- **Auto-resolves from NuGet** if the template is not installed
-- **Adapts to CPM** — detects `Directory.Packages.props`, strips versions from `.csproj`, adds `<PackageVersion>` entries
-- **Resolves latest NuGet versions** — replaces template-hardcoded package versions with latest stable releases
+Use `dotnet new` with the template name and all parameters:
 
+```bash
+dotnet new webapi --name MyApi --output ./src/MyApi --framework net10.0 --auth Individual
 ```
-template_instantiate("webapi", name="MyApi", outputPath="./src/MyApi",
-  parametersJson={"Framework": "net10.0", "auth": "Individual"})
-```
+
+After creation, if the workspace uses CPM:
+1. Check `.csproj` for inline `<PackageReference>` versions
+2. Move version attributes to `Directory.Packages.props` as `<PackageVersion>` entries
+3. Remove `Version` attributes from the `.csproj`
 
 ### Step 5: Multi-project composition (optional)
 
-For complex structures, create each project sequentially with `template_instantiate` and wire them together:
+For complex structures, create each project sequentially and wire them together:
 
+```bash
+dotnet new webapi --name MyApi --output ./src/MyApi
+dotnet new xunit --name MyApi.Tests --output ./tests/MyApi.Tests
+dotnet add ./tests/MyApi.Tests reference ./src/MyApi
+dotnet sln add ./src/MyApi ./tests/MyApi.Tests
 ```
-template_instantiate("webapi", name="MyApi", outputPath="./src/MyApi")
-template_instantiate("xunit", name="MyApi.Tests", outputPath="./tests/MyApi.Tests")
-```
-
-Then add project references and solution entries as needed.
 
 ### Step 6: Template package management
 
-- **Install**: `template_install("Microsoft.DotNet.Web.ProjectTemplates.10.0")`
-- **Uninstall**: `template_uninstall("Microsoft.DotNet.Web.ProjectTemplates.10.0")`
+Install or uninstall template packages:
 
-Both operations are idempotent. Install supports upgrade detection.
+```bash
+dotnet new install Microsoft.DotNet.Web.ProjectTemplates.10.0
+dotnet new uninstall Microsoft.DotNet.Web.ProjectTemplates.10.0
+```
 
 ### Step 7: Post-creation verification
 
@@ -112,10 +114,10 @@ Both operations are idempotent. Install supports upgrade detection.
 
 | Pitfall | Solution |
 |---------|----------|
-| Using `dotnet new` directly instead of `template_instantiate` | `template_instantiate` validates parameters, adapts to CPM, and resolves latest NuGet versions. Prefer it when available; fall back to `dotnet new` with manual CPM adjustment otherwise. |
-| Not checking for CPM before creating a project | If `Directory.Packages.props` exists, a raw `dotnet new` creates projects with inline versions that conflict. `template_instantiate` handles this automatically. |
+| Not checking for CPM before creating a project | If `Directory.Packages.props` exists, `dotnet new` creates projects with inline versions that conflict. After creation, move versions to `Directory.Packages.props` and remove them from `.csproj`. |
 | Creating projects without specifying the framework | Always specify `--framework` when the template supports multiple TFMs to avoid defaulting to an older version. |
 | Not adding the project to the solution | After creation, run `dotnet sln add` to include the project in the solution. |
+| Not verifying the project builds | Always run `dotnet build` after creation to catch missing dependencies or parameter issues early. |
 
 ## More Info
 
