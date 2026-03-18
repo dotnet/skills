@@ -29,6 +29,79 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public async Task IsolationStageCopiesReferencesAndScripts()
+    {
+        // Create a real skill directory with references/ and scripts/ subdirectories
+        var tmpBase = Path.Combine(Path.GetTempPath(), $"sv-test-{Guid.NewGuid():N}");
+        var skillDir = Path.Combine(tmpBase, "skills", "my-skill");
+        var refsDir = Path.Combine(skillDir, "references");
+        var scriptsDir = Path.Combine(skillDir, "scripts");
+        Directory.CreateDirectory(refsDir);
+        Directory.CreateDirectory(scriptsDir);
+        File.WriteAllText(Path.Combine(skillDir, "SKILL.md"), "# My Skill");
+        File.WriteAllText(Path.Combine(refsDir, "patterns.md"), "# Patterns");
+        File.WriteAllText(Path.Combine(scriptsDir, "Run.ps1"), "Write-Host 'hi'");
+
+        try
+        {
+            var skill = new SkillInfo("my-skill", "A skill", skillDir,
+                Path.Combine(skillDir, "SKILL.md"), "# My Skill (transformed)");
+
+            var config = AgentRunner.BuildSessionConfig(skill, null, "gpt-4.1", "C:\\tmp\\work");
+
+            var stageDir = config.SkillDirectories![0];
+            var stagedSkillDir = Path.Combine(stageDir, "my-skill");
+
+            // SKILL.md should use in-memory content (may be transformed)
+            Assert.Equal("# My Skill (transformed)", File.ReadAllText(Path.Combine(stagedSkillDir, "SKILL.md")));
+            // references/ and scripts/ should be copied
+            Assert.True(File.Exists(Path.Combine(stagedSkillDir, "references", "patterns.md")));
+            Assert.Equal("# Patterns", File.ReadAllText(Path.Combine(stagedSkillDir, "references", "patterns.md")));
+            Assert.True(File.Exists(Path.Combine(stagedSkillDir, "scripts", "Run.ps1")));
+        }
+        finally
+        {
+            try { Directory.Delete(tmpBase, true); } catch { }
+            try { await AgentRunner.CleanupWorkDirs(); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task AdditionalSkillsStageCopiesReferencesDir()
+    {
+        // Create a noise skill with references
+        var tmpBase = Path.Combine(Path.GetTempPath(), $"sv-test-{Guid.NewGuid():N}");
+        var noiseSkillDir = Path.Combine(tmpBase, "plugin-x", "skills", "noise-skill");
+        var refsDir = Path.Combine(noiseSkillDir, "references");
+        Directory.CreateDirectory(refsDir);
+        File.WriteAllText(Path.Combine(noiseSkillDir, "SKILL.md"), "# Noise");
+        File.WriteAllText(Path.Combine(refsDir, "guide.md"), "# Guide");
+
+        try
+        {
+            var additionalSkills = new[]
+            {
+                new SkillInfo("noise-skill", "Noise", noiseSkillDir,
+                    Path.Combine(noiseSkillDir, "SKILL.md"), "# Noise"),
+            };
+
+            var config = AgentRunner.BuildSessionConfig(MockSkill, pluginRoot: null, "gpt-4.1", "C:\\tmp\\work",
+                additionalSkills: additionalSkills);
+
+            var noiseStageDir = config.SkillDirectories![1];
+            var stagedNoiseSkill = Path.Combine(noiseStageDir, "noise-skill");
+            Assert.True(File.Exists(Path.Combine(stagedNoiseSkill, "SKILL.md")));
+            Assert.True(File.Exists(Path.Combine(stagedNoiseSkill, "references", "guide.md")));
+            Assert.Equal("# Guide", File.ReadAllText(Path.Combine(stagedNoiseSkill, "references", "guide.md")));
+        }
+        finally
+        {
+            try { Directory.Delete(tmpBase, true); } catch { }
+            try { await AgentRunner.CleanupWorkDirs(); } catch { }
+        }
+    }
+
+    [Fact]
     public async Task AdditionalSkillsStageOnlyVerifiedSkillDirs()
     {
         // Create real temp directories with SKILL.md so the staging logic finds them
@@ -569,6 +642,16 @@ public class CheckPermissionTests
     {
         var filePath = Path.Combine(SkillDir, "SKILL.md");
         var result = AgentRunner.CheckPermission(MakePathRequest(filePath), WorkDir, SkillDir, log: null);
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ApprovesPathsInsideAdditionalAllowedDirs()
+    {
+        var stagingDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "sv-iso-abc123", "my-skill"));
+        var refPath = Path.Combine(stagingDir, "references", "guide.md");
+        var result = AgentRunner.CheckPermission(MakePathRequest(refPath), WorkDir, null, log: null,
+            additionalAllowedDirs: [stagingDir]);
         Assert.True(result);
     }
 

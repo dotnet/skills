@@ -240,8 +240,10 @@ public static class AgentRunner
 
         // Build additional noise skill directories when noise testing is active.
         // For additional skills we stage a temp directory with copies of each
-        // skill's SKILL.md so the SDK discovers exactly those skills — not
+        // skill's content so the SDK discovers exactly those skills — not
         // every sibling that happens to share the same parent directory.
+        // We copy the full directory tree (references/, scripts/, etc.) so that
+        // relative links inside SKILL.md continue to resolve.
         var noiseDirs = new List<string>();
         if (additionalSkills is { Count: > 0 })
         {
@@ -256,8 +258,7 @@ public static class AgentRunner
                     continue;
 
                 var stagedSkillDir = Path.Combine(stageDir, Path.GetFileName(s.Path));
-                Directory.CreateDirectory(stagedSkillDir);
-                File.Copy(skillMdPath, Path.Combine(stagedSkillDir, "SKILL.md"));
+                CopyDirectory(s.Path, stagedSkillDir);
             }
 
             noiseDirs.Add(stageDir);
@@ -325,12 +326,20 @@ public static class AgentRunner
         {
             // Stage the single skill into a temp directory so the SDK discovers
             // only this skill — not every sibling that shares the same parent.
+            // Copy the full directory tree (references/, scripts/, etc.) so that
+            // relative links inside SKILL.md continue to resolve.
             var isoStageDir = Path.Combine(Path.GetTempPath(), $"sv-iso-{Guid.NewGuid():N}");
             Directory.CreateDirectory(isoStageDir);
             _workDirs.Add(isoStageDir);
 
             var stagedSkillDir = Path.Combine(isoStageDir, Path.GetFileName(skill.Path));
-            Directory.CreateDirectory(stagedSkillDir);
+            if (Directory.Exists(skill.Path))
+                CopyDirectory(skill.Path, stagedSkillDir);
+            else
+                Directory.CreateDirectory(stagedSkillDir);
+
+            // Always write SKILL.md from the in-memory content (may differ from
+            // the on-disk version when the validator applies transformations).
             File.WriteAllText(Path.Combine(stagedSkillDir, "SKILL.md"), skill.SkillMdContent);
 
             skillDirs = [isoStageDir];
@@ -352,7 +361,14 @@ public static class AgentRunner
             OnPermissionRequest = (request, _) =>
             {
                 var runLabel = skill is not null ? "skilled" : "baseline";
-                var result = CheckPermission(request, workDir, skillPath, verbose ? log : null, runLabel, pluginRoot);
+                // Allow access to the staged skill directories so the agent can
+                // read references, scripts, and other companion files that were
+                // copied alongside SKILL.md.
+                var additionalAllowed = skillDirs
+                    .Concat(noiseDirs)
+                    .Where(d => !string.IsNullOrEmpty(d))
+                    .ToList();
+                var result = CheckPermission(request, workDir, skillPath, verbose ? log : null, runLabel, pluginRoot, additionalAllowed);
                 return Task.FromResult(new PermissionRequestResult
                 {
                     Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,
