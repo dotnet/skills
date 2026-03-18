@@ -1,13 +1,47 @@
+# Unified evaluation workflow for all PRs (same-repo and fork) and scheduled runs.
+#
+# IMPORTANT: The /evaluate command uses the `issue_comment` trigger, which
+# ALWAYS runs the workflow YAML from the default branch (main), NOT from the
+# PR branch. Changes to this file in a PR will not take effect until merged.
+# The skill-validator binary IS built from the PR branch for same-repo PRs,
+# so eng/skill-validator/ changes are tested before merge.
+#
+# For PRs (same-repo and fork):
+#   - On PR open/sync, the `pr-status` job posts an initial commit status:
+#     - "success" if no skills changed (required check passes immediately)
+#     - "pending" if skills changed (maintainer must post /evaluate to trigger)
+#   - When a maintainer posts "/evaluate" on the PR, the `gate` job validates
+#     permissions and triggers the full evaluation pipeline.
+#
+# For scheduled runs:
+#   - Runs daily, evaluates all plugins with skills and tests.
+#
+# Security model for fork PRs:
+#   - Workflow YAML: always from the default branch (enforced by issue_comment
+#     and pull_request_target triggers)
+#   - Validator binary: built from the default branch (fork PRs) or PR branch
+#     (same-repo PRs, via the is-fork input to evaluation-run)
+#   - Skill/test content: checked out from the fork PR (untrusted data, read-only)
+#   - Secret access: only users with write+ permission can trigger evaluation
 name: evaluation
 
 on:
+  # Same-repo PRs: post initial status
   pull_request:
 
+  # Fork PRs: post initial status (runs from base branch for security)
+  pull_request_target:
+
+  # /evaluate command trigger
+  issue_comment:
+    types: [created]
+
+  # Daily scheduled evaluation
   schedule:
-    - cron: '0 8 * * *'  # Once daily at 08:00 UTC (reduced from every 3h)
+    - cron: '0 8 * * *'  # Once daily at 08:00 UTC
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'issue_comment' && (startsWith(github.event.comment.body, '/evaluate') && format('eval-{0}', github.event.issue.number) || format('eval-noop-{0}-{1}', github.event.issue.number, github.event.comment.id)) || (github.event_name == 'pull_request' && format('eval-status-{0}', github.event.pull_request.number) || (github.event_name == 'pull_request_target' && format('eval-fork-status-{0}', github.event.pull_request.number) || github.run_id)) }}
   cancel-in-progress: true
 
 env:
@@ -16,15 +50,218 @@ env:
 permissions:
   contents: write
   pull-requests: write
+  statuses: write
 
 jobs:
-  discover:
-    # Skip fork PRs (handled by evaluation-fork-pr.yml) and scheduled runs
-    # outside the canonical repo. The schedule guard uses an explicit repo
-    # name (not just the fork flag) because evaluation requires
-    # COPILOT_GITHUB_TOKEN* secrets that only exist in dotnet/skills.
+  # ==========================================================================
+  # PR STATUS JOBS
+  # Post initial commit status so the required check is never stuck as "Expected".
+  # Posts success (no skills) or pending (needs /evaluate).
+  # ==========================================================================
+
+  # Same-repo PRs: use pull_request trigger (has direct access to PR content)
+  pr-status:
     if: >-
-      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Discover changes requiring evaluation
+        id: discover
+        shell: pwsh
+        run: |
+          $base = "${{ github.event.pull_request.base.sha }}"
+          $head = "${{ github.event.pull_request.head.sha }}"
+          $mergeBase = git merge-base $base $head
+          $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+
+          $hasSkillChanges = $changedFiles |
+            Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
+            Select-Object -First 1
+
+          # Skill-validator changes need evaluation. Workflow YAML changes don't
+          # require /evaluate because the issue_comment trigger always runs from
+          # main anyway — workflow changes are only effective after merge.
+          $hasInfraChanges = $changedFiles |
+            Where-Object { $_ -match '^eng/skill-validator/' } |
+            Select-Object -First 1
+
+          if ($hasSkillChanges -or $hasInfraChanges) {
+            echo "needs_eval=true" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "needs_eval=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Post evaluation commit status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${{ steps.discover.outputs.needs_eval }}" == "true" ]]; then
+            STATE="pending"
+            DESC="Post /evaluate to trigger evaluation"
+          else
+            STATE="success"
+            DESC="No skills to evaluate"
+          fi
+
+          gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
+            -f state="$STATE" \
+            -f context="evaluation-status" \
+            -f description="$DESC" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  # Fork PRs: use pull_request_target (runs from base branch, fetches PR metadata safely)
+  fork-pr-status:
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - name: Checkout base branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch PR head for diff
+        run: git fetch origin +refs/pull/${{ github.event.pull_request.number }}/head
+
+      - name: Discover changes requiring evaluation
+        id: discover
+        shell: pwsh
+        run: |
+          $base = "${{ github.event.pull_request.base.sha }}"
+          $head = "FETCH_HEAD"
+          $mergeBase = git merge-base $base $head
+          $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+
+          $hasSkillChanges = $changedFiles |
+            Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
+            Select-Object -First 1
+
+          $hasInfraChanges = $changedFiles |
+            Where-Object { $_ -match '^eng/skill-validator/' } |
+            Select-Object -First 1
+
+          if ($hasSkillChanges -or $hasInfraChanges) {
+            echo "needs_eval=true" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "needs_eval=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Post evaluation commit status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${{ steps.discover.outputs.needs_eval }}" == "true" ]]; then
+            STATE="pending"
+            DESC="Fork PR — post /evaluate to trigger evaluation"
+          else
+            STATE="success"
+            DESC="No skills to evaluate"
+          fi
+
+          gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
+            -f state="$STATE" \
+            -f context="evaluation-status" \
+            -f description="$DESC" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  # ==========================================================================
+  # GATE JOB
+  # Validate /evaluate command: must be on a PR from a user with write+ permissions.
+  # ==========================================================================
+  gate:
+    if: >-
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/evaluate')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+      issues: write
+    outputs:
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      base_sha: ${{ steps.pr.outputs.base_sha }}
+      pr_number: ${{ steps.pr.outputs.pr_number }}
+      is_fork: ${{ steps.pr.outputs.is_fork }}
+    steps:
+      - name: Check commenter permissions
+        id: perms
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PERMISSION=$(gh api "repos/${{ github.repository }}/collaborators/${{ github.event.comment.user.login }}/permission" --jq '.permission')
+          echo "Commenter ${{ github.event.comment.user.login }} has permission: $PERMISSION"
+          if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "write" && "$PERMISSION" != "maintain" ]]; then
+            echo "::error::User does not have write access"
+            exit 1
+          fi
+
+      - name: Get PR details
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER=${{ github.event.issue.number }}
+          PR_DATA=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}")
+          HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
+          HEAD_REPO=$(echo "$PR_DATA" | jq -r '.head.repo.full_name')
+          BASE_REPO=$(echo "$PR_DATA" | jq -r '.base.repo.full_name')
+          BASE_SHA=$(echo "$PR_DATA" | jq -r '.base.sha')
+
+          if [[ "$HEAD_REPO" != "$BASE_REPO" ]]; then
+            echo "is_fork=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_fork=false" >> $GITHUB_OUTPUT
+          fi
+
+          echo "PR #${PR_NUMBER}: head=${HEAD_SHA} base=${BASE_SHA} fork=$([[ "$HEAD_REPO" != "$BASE_REPO" ]] && echo true || echo false)"
+          echo "head_sha=${HEAD_SHA}" >> $GITHUB_OUTPUT
+          echo "base_sha=${BASE_SHA}" >> $GITHUB_OUTPUT
+          echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+
+      - name: Add reaction to comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            -X POST -f content='eyes' || true
+
+      - name: Set pending commit status
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/${{ steps.pr.outputs.head_sha }}" \
+            -f state=pending \
+            -f context="evaluation-status" \
+            -f description="Evaluation in progress..." \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  # ==========================================================================
+  # DISCOVER JOB
+  # Find skills to evaluate based on changed files.
+  # ==========================================================================
+  discover:
+    needs: gate
+    if: >-
+      always() &&
+      (needs.gate.result == 'success' || github.event_name == 'schedule') &&
       (github.event_name != 'schedule' || github.repository == 'dotnet/skills')
     runs-on: ubuntu-latest
     permissions:
@@ -51,11 +288,7 @@ jobs:
           fi
 
           # Determine whether a new evaluation is needed by inspecting the most
-          # recent completed scheduled run.  We key off the *latest* completed
-          # run (not just the latest successful one) so that a transient failure
-          # at the current SHA still triggers a retry on the next schedule.
-          # All API calls are non-fatal: if anything fails, fall back to
-          # running the evaluation (has_changes=true).
+          # recent completed scheduled run.
           LATEST=$(gh api "repos/${{ github.repository }}/actions/workflows/evaluation.yml/runs?event=schedule&status=completed&per_page=1" \
             --jq '(.workflow_runs[0] // empty) | "\(.head_sha) \(.conclusion)"' 2>/dev/null) || LATEST=""
 
@@ -74,7 +307,6 @@ jobs:
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
             if [ "$LAST_SHA" != "$CURRENT_SHA" ]; then
-              # Best-effort: log commit count but don't fail if the compare call errors
               COUNT=$(gh api "repos/${{ github.repository }}/compare/${LAST_SHA}...${CURRENT_SHA}" --jq '.total_commits' 2>/dev/null) || COUNT="unknown"
               echo "$COUNT new commit(s) since last evaluation ($LAST_SHA)"
             else
@@ -90,6 +322,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Fetch PR head
+        if: github.event_name == 'issue_comment'
+        run: git fetch origin +refs/pull/${{ needs.gate.outputs.pr_number }}/head:refs/remotes/origin/pr-head
+
       - name: Find skills to evaluate
         if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true'
         id: find
@@ -97,30 +333,37 @@ jobs:
           $entries = @()
           $plugins = @()
 
-          if ("${{ github.event_name }}" -eq "pull_request") {
-            # PR: detect individual changed skills
-            $base = "${{ github.event.pull_request.base.sha }}"
-            $head = "${{ github.event.pull_request.head.sha }}"
+          if ("${{ github.event_name }}" -eq "issue_comment") {
+            # /evaluate command: detect individual changed skills using gate outputs
+            $base = "${{ needs.gate.outputs.base_sha }}"
+            $head = (git rev-parse origin/pr-head)
+
+            # Use a worktree so Test-Path checks are against PR content
+            git worktree add /tmp/pr-content origin/pr-head 2>$null
+            $contentRoot = "/tmp/pr-content"
+
             $mergeBase = git merge-base $base $head
             $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
-            # Check if any changed files are in infrastructure paths (evaluation workflows or eng/skill-validator/)
+            # Check if any changed files are in infrastructure paths
             $hasInfraChanges = $changedFiles |
-              Where-Object { $_ -match '^(\.github/workflows/evaluation(-run|-fork-pr)?\.yml$|eng/skill-validator/)' } |
+              Where-Object { $_ -match '^(\.github/workflows/evaluation(-run)?\.yml$|eng/skill-validator/)' } |
               Select-Object -First 1
 
             if ($hasInfraChanges) {
-              # Infra changes can affect any evaluation — evaluate all plugins
               Write-Host "Infrastructure changes detected, evaluating all plugins"
               echo "is_infra=true" >> $env:GITHUB_OUTPUT
-              $plugins = @(Get-ChildItem -Path "plugins" -Directory |
-                Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) } |
+              $plugins = @(Get-ChildItem -Path (Join-Path $contentRoot "plugins") -Directory -ErrorAction SilentlyContinue |
+                Where-Object {
+                  (Test-Path (Join-Path $_.FullName "skills")) -and
+                  (Test-Path (Join-Path $contentRoot "tests" $_.Name))
+                } |
                 Select-Object -ExpandProperty Name)
               $entries = @($plugins | ForEach-Object {
                 @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
               })
             } else {
-              # Extract unique plugin/skill pairs from changed files under plugins/*/skills/*/ or tests/*/*/
+              # Extract unique plugin/skill pairs from changed files
               $changedPairs = @($changedFiles |
                 Where-Object { $_ -match '^(?:plugins/([^/]+)/skills|tests/([^/]+))/([^/]+)/' } |
                 ForEach-Object {
@@ -134,8 +377,8 @@ jobs:
                 $parts = $_ -split '/'
                 $plugin = $parts[0]
                 $skill = $parts[1]
-                $skillMd = Join-Path "plugins" $plugin "skills" $skill "SKILL.md"
-                $testsDir = Join-Path "tests" $plugin
+                $skillMd = Join-Path $contentRoot "plugins" $plugin "skills" $skill "SKILL.md"
+                $testsDir = Join-Path $contentRoot "tests" $plugin
                 if ((Test-Path $skillMd) -and (Test-Path $testsDir)) {
                   @{
                     name = "$plugin--$skill"
@@ -147,6 +390,8 @@ jobs:
 
               $plugins = @($entries | ForEach-Object { $_.plugin } | Sort-Object -Unique)
             }
+
+            git worktree remove /tmp/pr-content --force 2>$null
           } else {
             # Schedule: evaluate all plugins with skills and tests
             $plugins = @(Get-ChildItem -Path "plugins" -Directory |
@@ -180,19 +425,28 @@ jobs:
           }
         shell: pwsh
 
+  # ==========================================================================
+  # RUN EVALUATION
+  # ==========================================================================
   run-evaluation:
-    needs: discover
-    if: needs.discover.outputs.has_entries == 'true'
+    needs: [gate, discover]
+    if: >-
+      always() &&
+      needs.discover.outputs.has_entries == 'true' &&
+      needs.discover.result == 'success' &&
+      (needs.gate.result == 'success' || github.event_name == 'schedule')
     uses: ./.github/workflows/evaluation-run.yml
     with:
       entries: ${{ needs.discover.outputs.entries }}
-      runs: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.ref == 'refs/heads/main' && '5' || '3') }}
-      # Infra changes and scheduled runs evaluate all plugins in parallel — reduce
-      # per-job concurrency to avoid API rate limits and timeouts from contention.
+      runs: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.event_name == 'schedule' && '5' || '3') }}
       parallel-skills: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5' }}
       parallel-scenarios: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
       parallel-runs: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
-      pr-number: ${{ github.event.pull_request.number || '' }}
+      # Always pass PR head SHA so evaluation-run checks out the correct code
+      checkout-ref: ${{ needs.gate.outputs.head_sha || '' }}
+      # Fork PRs build the validator from the base branch (untrusted code).
+      is-fork: ${{ needs.gate.outputs.is_fork == 'true' }}
+      pr-number: ${{ needs.gate.outputs.pr_number || '' }}
     secrets:
       COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
       COPILOT_GITHUB_TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
@@ -203,37 +457,74 @@ jobs:
       COPILOT_GITHUB_TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
       COPILOT_GITHUB_TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
 
-  # Plain check-run job that can be required in the GitHub ruleset.
-  # For fork PRs, discover is skipped (fork guard) so this job is also skipped;
-  # the fork-status job in evaluation-fork-pr.yml posts a commit status instead.
-  evaluation-status:
-    needs: [discover, run-evaluation]
-    if: always() && github.event_name == 'pull_request' && needs.discover.result != 'skipped'
+  # ==========================================================================
+  # REPORT STATUS
+  # Post final evaluation status via commit status API.
+  # ==========================================================================
+  report-status:
+    needs: [gate, discover, run-evaluation]
+    if: always() && github.event_name == 'issue_comment' && needs.gate.result == 'success'
     runs-on: ubuntu-latest
-    permissions: {}
+    permissions:
+      statuses: write
+      pull-requests: write
+      issues: write
     steps:
-      - name: Check evaluation result
+      - name: Remove eyes reaction from trigger comment
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          DISCOVER_RESULT="${{ needs.discover.result }}"
-          HAS_ENTRIES="${{ needs.discover.outputs.has_entries }}"
-          EVAL_RESULT="${{ needs.run-evaluation.result }}"
-
-          if [[ "$DISCOVER_RESULT" != "success" ]]; then
-            echo "::error::Discovery failed ($DISCOVER_RESULT)"
-            exit 1
-          elif [[ "$HAS_ENTRIES" != "true" ]]; then
-            echo "No skills to evaluate"
-          elif [[ "$EVAL_RESULT" == "success" ]]; then
-            echo "Evaluation passed"
-          else
-            echo "::error::Evaluation did not pass ($EVAL_RESULT)"
-            exit 1
+          REACTION_ID=$(gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            --jq '.[] | select(.content == "eyes" and .user.login == "github-actions[bot]") | .id' | head -1 || echo "")
+          if [[ -n "$REACTION_ID" && "$REACTION_ID" != "null" ]]; then
+            gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions/${REACTION_ID}" \
+              -X DELETE || true
           fi
 
+      - name: Set final commit status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${{ needs.run-evaluation.result }}" == "success" ]]; then
+            STATE="success"
+            DESC="Evaluation passed"
+          elif [[ "${{ needs.run-evaluation.result }}" == "skipped" && "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
+            STATE="success"
+            DESC="No skills to evaluate"
+          elif [[ "${{ needs.run-evaluation.result }}" == "failure" ]]; then
+            STATE="failure"
+            DESC="Evaluation failed"
+          else
+            STATE="error"
+            DESC="Evaluation did not complete (run-evaluation: ${{ needs.run-evaluation.result }}, discover: ${{ needs.discover.result }})"
+          fi
+          gh api "repos/${{ github.repository }}/statuses/${{ needs.gate.outputs.head_sha }}" \
+            -f state="$STATE" \
+            -f context="evaluation-status" \
+            -f description="$DESC" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Post completion comment for skipped evaluation
+        if: needs.run-evaluation.result == 'skipped'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER=${{ needs.gate.outputs.pr_number }}
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [[ "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
+            BODY="⏭️ No skills to evaluate — no changed skills with tests were found in this PR. [View workflow run](${RUN_URL})"
+          else
+            BODY="❌ Evaluation did not complete (upstream job failed or was skipped). [View workflow run](${RUN_URL})"
+          fi
+          gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
+
+  # ==========================================================================
+  # PUBLISH BENCHMARK (scheduled runs only)
+  # ==========================================================================
   publish-benchmark:
     needs: [discover, run-evaluation]
-    # Use !cancelled() so that benchmark data from successful plugins is still
-    # published even when one or more evaluate matrix legs fail (e.g. OOM).
     if: >-
       !cancelled() &&
       github.ref == 'refs/heads/main' &&
@@ -256,8 +547,6 @@ jobs:
           pattern: skill-validator-results-*
           path: all-results/
           merge-multiple: false
-        # Tolerate missing artifacts only when some evaluate legs failed (OOM,
-        # timeout). When all legs succeeded, a download failure is a real error.
         continue-on-error: ${{ needs.run-evaluation.result != 'success' }}
 
       - name: Fetch existing benchmark data
@@ -310,7 +599,7 @@ jobs:
             & ./eng/dashboard/generate-benchmark-data.ps1 @params
           }
 
-          # Purge entries older than the configured retention window from plugin data files; delete files left with no remaining entries
+          # Purge entries older than the configured retention window
           & ./eng/dashboard/generate-benchmark-data.ps1 -PurgeStaleFiles -DataDir "/tmp/gh-pages/data" -RetentionDays $env:DASHBOARD_RETENTION_DAYS
 
           # Generate components.json manifest

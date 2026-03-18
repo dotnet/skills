@@ -1,7 +1,8 @@
 using System.CommandLine;
 using SkillValidator.Commands;
 
-var rootCommand = EvaluateCommand.Create();
+var rootCommand = new RootCommand("Validate that agent skills meaningfully improve agent performance");
+rootCommand.Add(EvaluateCommand.Create());
 rootCommand.Add(CheckCommand.Create());
 rootCommand.Add(ConsolidateCommand.Create());
 rootCommand.Add(RejudgeCommand.Create());
