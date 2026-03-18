@@ -114,13 +114,13 @@ public static class EvalSchema
                     throw new InvalidOperationException($"Assertion '{raw.Type}' requires 'command_to_run'");
 
                 if (raw.ExpectedExitCode is null &&
-                    string.IsNullOrWhiteSpace(raw.ExpectedStdOutput) &&
-                    string.IsNullOrWhiteSpace(raw.ExpectedStdError))
+                    string.IsNullOrWhiteSpace(raw.ExpectedStdOutputContains) &&
+                    string.IsNullOrWhiteSpace(raw.ExpectedStdErrorContains))
                     throw new InvalidOperationException($"Assertion '{raw.Type}' requires one or more of 'expected_exit_code', 'expected_std_output', or 'expected_std_error'");
                 break;
         }
 
-        return new Assertion(type, raw.Path, raw.Value, raw.Pattern, raw.CommandToRun, raw.CommandArguments, raw.ExpectedExitCode, raw.ExpectedStdOutput, raw.ExpectedStdError);
+        return new Assertion(type, raw.Path, raw.Value, raw.Pattern, raw.CommandToRun, raw.CommandArguments, raw.ExpectedExitCode, raw.ExpectedStdOutputContains, raw.ExpectedStdErrorContains);
     }
 
     // Raw YAML deserialization models
@@ -190,7 +190,7 @@ public static class EvalSchema
         public string? CommandToRun { get; set; }
         public string? CommandArguments { get; set; }
         public int? ExpectedExitCode { get; set; }
-        public string? ExpectedStdOutput { get; set; }
-        public string? ExpectedStdError { get; set; }
+        public string? ExpectedStdOutputContains { get; set; }
+        public string? ExpectedStdErrorContains { get; set; }
     }
 }

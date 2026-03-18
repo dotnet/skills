@@ -268,7 +268,9 @@ public static class AssertionEvaluator
                 errBuilder.AppendLine(e.Data);
         };
 
-        process.WaitForExit();
+        // 3 minutes timeout is an arbitrary timeout.
+        // We can adjust it in future if needed, or make it customizable.
+        process.WaitForExit(TimeSpan.FromMinutes(3));
 
         var actualExitCode = process.ExitCode;
         if (a.ExpectedExitCode.HasValue && a.ExpectedExitCode.Value != actualExitCode)
@@ -276,19 +278,19 @@ public static class AssertionEvaluator
             return new AssertionResult(a, false, $"Command exited with code {actualExitCode} but expected {a.ExpectedExitCode.Value}");
         }
 
-        if (a.ExpectedStdOut is not null)
+        if (a.ExpectedStdOutContains is not null)
         {
             var actualStdOut = outBuilder.ToString();
-            if (!actualStdOut.Contains(a.ExpectedStdOut, StringComparison.Ordinal))
+            if (!actualStdOut.Contains(a.ExpectedStdOutContains, StringComparison.Ordinal))
             {
                 return new AssertionResult(a, false, $"Command stdout did not contain expected value. Stdout: {actualStdOut}");
             }
         }
 
-        if (a.ExpectedStdError is not null)
+        if (a.ExpectedStdErrorContains is not null)
         {
             var actualStdErr = errBuilder.ToString();
-            if (!actualStdErr.Contains(a.ExpectedStdError, StringComparison.Ordinal))
+            if (!actualStdErr.Contains(a.ExpectedStdErrorContains, StringComparison.Ordinal))
             {
                 return new AssertionResult(a, false, $"Command stderr did not contain expected value. Stderr: {actualStdErr}");
             }

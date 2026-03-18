@@ -31,8 +31,8 @@ public sealed record Assertion(
     string? CommandToRun = null,
     string? CommandArguments = null,
     int? ExpectedExitCode = null,
-    string? ExpectedStdOut = null,
-    string? ExpectedStdError = null);
+    string? ExpectedStdOutContains = null,
+    string? ExpectedStdErrorContains = null);
 
 public sealed record AssertionResult(
     Assertion Assertion,
