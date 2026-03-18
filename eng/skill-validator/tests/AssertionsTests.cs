@@ -327,3 +327,181 @@ public class EvaluateConstraintsTests
         Assert.True(results[2].Passed);   // create_file: used
     }
 }
+
+public class RunCommandAndAssertTests : IDisposable
+{
+    private readonly string _tmpDir;
+
+    public RunCommandAndAssertTests()
+    {
+        _tmpDir = Path.Combine(Path.GetTempPath(), $"run-cmd-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_tmpDir);
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_tmpDir, true); } catch { }
+    }
+
+    private static string Shell => OperatingSystem.IsWindows() ? "cmd" : "/bin/sh";
+
+    private static string ShellArgs(string command) =>
+        OperatingSystem.IsWindows()
+            ? $"/c {command}"
+            : $"-c \"{command}\"";
+
+    [Fact]
+    public async Task PassesWhenExitCodeMatches()
+    {
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.RunCommandAndAssert,
+                CommandToRun: Shell,
+                CommandArguments: ShellArgs("exit 0"),
+                ExpectedExitCode: 0)],
+            "", _tmpDir);
+        Assert.True(results[0].Passed);
+    }
+
+    [Fact]
+    public async Task FailsWhenExitCodeDoesNotMatch()
+    {
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.RunCommandAndAssert,
+                CommandToRun: Shell,
+                CommandArguments: ShellArgs("exit 1"),
+                ExpectedExitCode: 0)],
+            "", _tmpDir);
+        Assert.False(results[0].Passed);
+        Assert.Contains("exited with code 1 but expected 0", results[0].Message);
+    }
+
+    [Fact]
+    public async Task PassesWithNonZeroExpectedExitCode()
+    {
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.RunCommandAndAssert,
+                CommandToRun: Shell,
+                CommandArguments: ShellArgs("exit 42"),
+                ExpectedExitCode: 42)],
+            "", _tmpDir);
+        Assert.True(results[0].Passed);
+    }
+
+    [Fact]
+    public async Task PassesWhenStdOutContainsExpectedValue()
+    {
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.RunCommandAndAssert,
+                CommandToRun: Shell,
+                CommandArguments: ShellArgs("echo hello_world"),
+                ExpectedStdOutContains: "hello_world")],
+            "", _tmpDir);
+        Assert.True(results[0].Passed);
+    }
+
+    [Fact]
+    public async Task FailsWhenStdOutDoesNotContainExpectedValue()
+    {
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.RunCommandAndAssert,
+                CommandToRun: Shell,
+                CommandArguments: ShellArgs("echo hello"),
+                ExpectedStdOutContains: "goodbye")],
+            "", _tmpDir);
+        Assert.False(results[0].Passed);
+        Assert.Contains("stdout did not contain expected value", results[0].Message);
+    }
+
+    [Fact]
+    public async Task PassesWhenStdErrContainsExpectedValue()
+    {
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.RunCommandAndAssert,
+                CommandToRun: Shell,
+                CommandArguments: ShellArgs("echo error_marker 1>&2"),
+                ExpectedStdErrorContains: "error_marker")],
+            "", _tmpDir);
+        Assert.True(results[0].Passed);
+    }
+
+    [Fact]
+    public async Task FailsWhenStdErrDoesNotContainExpectedValue()
+    {
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.RunCommandAndAssert,
+                CommandToRun: Shell,
+                CommandArguments: ShellArgs("echo some_error 1>&2"),
+                ExpectedStdErrorContains: "different_error")],
+            "", _tmpDir);
+        Assert.False(results[0].Passed);
+        Assert.Contains("stderr did not contain expected value", results[0].Message);
+    }
+
+    [Fact]
+    public async Task PassesWhenAllChecksPass()
+    {
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.RunCommandAndAssert,
+                CommandToRun: Shell,
+                CommandArguments: ShellArgs("echo stdout_text && echo stderr_text 1>&2"),
+                ExpectedExitCode: 0,
+                ExpectedStdOutContains: "stdout_text",
+                ExpectedStdErrorContains: "stderr_text")],
+            "", _tmpDir);
+        Assert.True(results[0].Passed);
+    }
+
+    [Fact]
+    public async Task ExitCodeFailureShortCircuitsOtherChecks()
+    {
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.RunCommandAndAssert,
+                CommandToRun: Shell,
+                CommandArguments: ShellArgs("echo hello && exit 1"),
+                ExpectedExitCode: 0,
+                ExpectedStdOutContains: "hello")],
+            "", _tmpDir);
+        Assert.False(results[0].Passed);
+        Assert.Contains("exited with code 1 but expected 0", results[0].Message);
+    }
+
+    [Fact]
+    public async Task StdOutFailureShortCircuitsStdErrCheck()
+    {
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.RunCommandAndAssert,
+                CommandToRun: Shell,
+                CommandArguments: ShellArgs("echo wrong && echo expected_error 1>&2"),
+                ExpectedStdOutContains: "expected_output",
+                ExpectedStdErrorContains: "expected_error")],
+            "", _tmpDir);
+        Assert.False(results[0].Passed);
+        Assert.Contains("stdout did not contain expected value", results[0].Message);
+    }
+
+    [Fact]
+    public async Task IgnoresExitCodeWhenNotSpecified()
+    {
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.RunCommandAndAssert,
+                CommandToRun: Shell,
+                CommandArguments: ShellArgs("echo output_text && exit 1"),
+                ExpectedStdOutContains: "output_text")],
+            "", _tmpDir);
+        Assert.True(results[0].Passed);
+    }
+
+    [Fact]
+    public async Task UsesWorkDirAsProcessWorkingDirectory()
+    {
+        File.WriteAllText(Path.Combine(_tmpDir, "marker.txt"), "test_content");
+        var catCmd = OperatingSystem.IsWindows() ? "type marker.txt" : "cat marker.txt";
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.RunCommandAndAssert,
+                CommandToRun: Shell,
+                CommandArguments: ShellArgs(catCmd),
+                ExpectedStdOutContains: "test_content")],
+            "", _tmpDir);
+        Assert.True(results[0].Passed);
+    }
+}
