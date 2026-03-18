@@ -253,11 +253,9 @@ public static class AssertionEvaluator
 
         var process = Process.Start(processStartInfo);
 
-        process!.BeginOutputReadLine();
-        process.BeginErrorReadLine();
         var outBuilder = new StringBuilder();
         var errBuilder = new StringBuilder();
-        process.OutputDataReceived += (_, e) =>
+        process!.OutputDataReceived += (_, e) =>
         {
             if (e.Data is not null)
                 outBuilder.AppendLine(e.Data);
@@ -267,6 +265,8 @@ public static class AssertionEvaluator
             if (e.Data is not null)
                 errBuilder.AppendLine(e.Data);
         };
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
 
         // 3 minutes timeout is an arbitrary timeout.
         // We can adjust it in future if needed, or make it customizable.
