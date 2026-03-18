@@ -16,6 +16,7 @@ public enum AssertionType
     OutputMatches,
     OutputNotMatches,
     ExitSuccess,
+    RunCommandAndAssert,
     ExpectTools,
     RejectTools,
     MaxTurns,
@@ -26,7 +27,12 @@ public sealed record Assertion(
     AssertionType Type,
     string? Path = null,
     string? Value = null,
-    string? Pattern = null);
+    string? Pattern = null,
+    string? CommandToRun = null,
+    string? CommandArguments = null,
+    int? ExpectedExitCode = null,
+    string? ExpectedStdOut = null,
+    string? ExpectedStdError = null);
 
 public sealed record AssertionResult(
     Assertion Assertion,

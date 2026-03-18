@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
@@ -97,6 +99,7 @@ public static class AssertionEvaluator
             AssertionType.OutputMatches => EvalOutputMatches(assertion, agentOutput),
             AssertionType.OutputNotMatches => EvalOutputNotMatches(assertion, agentOutput),
             AssertionType.ExitSuccess => EvalExitSuccess(assertion, agentOutput),
+            AssertionType.RunCommandAndAssert => EvalRunCommandAndAssert(assertion, workDir),
             _ => new AssertionResult(assertion, false, $"Unknown assertion type: {assertion.Type}"),
         };
     }
@@ -234,6 +237,64 @@ public static class AssertionEvaluator
             success
                 ? "Agent completed successfully"
                 : "Agent produced no output");
+    }
+
+    private static AssertionResult EvalRunCommandAndAssert(Assertion a, string workDir)
+    {
+        var command = a.CommandToRun ?? throw new UnreachableException();
+
+        var processStartInfo = new ProcessStartInfo(command, a.CommandArguments ?? string.Empty)
+        {
+            WorkingDirectory = workDir,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+
+        var process = Process.Start(processStartInfo);
+
+        process!.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        var outBuilder = new StringBuilder();
+        var errBuilder = new StringBuilder();
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data is not null)
+                outBuilder.AppendLine(e.Data);
+        };
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data is not null)
+                errBuilder.AppendLine(e.Data);
+        };
+
+        process.WaitForExit();
+
+        var actualExitCode = process.ExitCode;
+        if (a.ExpectedExitCode.HasValue && a.ExpectedExitCode.Value != actualExitCode)
+        {
+            return new AssertionResult(a, false, $"Command exited with code {actualExitCode} but expected {a.ExpectedExitCode.Value}");
+        }
+
+        if (a.ExpectedStdOut is not null)
+        {
+            var actualStdOut = outBuilder.ToString();
+            if (!actualStdOut.Contains(a.ExpectedStdOut, StringComparison.Ordinal))
+            {
+                return new AssertionResult(a, false, $"Command stdout did not contain expected value. Stdout: {actualStdOut}");
+            }
+        }
+
+        if (a.ExpectedStdError is not null)
+        {
+            var actualStdErr = errBuilder.ToString();
+            if (!actualStdErr.Contains(a.ExpectedStdError, StringComparison.Ordinal))
+            {
+                return new AssertionResult(a, false, $"Command stderr did not contain expected value. Stderr: {actualStdErr}");
+            }
+        }
+
+        return new AssertionResult(a, true, string.Empty);
     }
 
     private static Task<bool> FileExistsGlob(string pattern, string workDir)

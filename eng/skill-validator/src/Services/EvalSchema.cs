@@ -84,6 +84,7 @@ public static class EvalSchema
             "output_matches" => AssertionType.OutputMatches,
             "output_not_matches" => AssertionType.OutputNotMatches,
             "exit_success" => AssertionType.ExitSuccess,
+            "run_command_and_assert" => AssertionType.RunCommandAndAssert,
             _ => throw new InvalidOperationException($"Unknown assertion type: {raw.Type}"),
         };
 
@@ -108,9 +109,18 @@ public static class EvalSchema
                 if (string.IsNullOrWhiteSpace(raw.Pattern))
                     throw new InvalidOperationException($"Assertion '{raw.Type}' requires 'pattern'");
                 break;
+            case AssertionType.RunCommandAndAssert:
+                if (string.IsNullOrWhiteSpace(raw.CommandToRun))
+                    throw new InvalidOperationException($"Assertion '{raw.Type}' requires 'command_to_run'");
+
+                if (raw.ExpectedExitCode is null &&
+                    string.IsNullOrWhiteSpace(raw.ExpectedStdOutput) &&
+                    string.IsNullOrWhiteSpace(raw.ExpectedStdError))
+                    throw new InvalidOperationException($"Assertion '{raw.Type}' requires one or more of 'expected_exit_code', 'expected_std_output', or 'expected_std_error'");
+                break;
         }
 
-        return new Assertion(type, raw.Path, raw.Value, raw.Pattern);
+        return new Assertion(type, raw.Path, raw.Value, raw.Pattern, raw.CommandToRun, raw.CommandArguments, raw.ExpectedExitCode, raw.ExpectedStdOutput, raw.ExpectedStdError);
     }
 
     // Raw YAML deserialization models
@@ -176,5 +186,11 @@ public static class EvalSchema
         public string? Path { get; set; }
         public string? Value { get; set; }
         public string? Pattern { get; set; }
+
+        public string? CommandToRun { get; set; }
+        public string? CommandArguments { get; set; }
+        public int? ExpectedExitCode { get; set; }
+        public string? ExpectedStdOutput { get; set; }
+        public string? ExpectedStdError { get; set; }
     }
 }
