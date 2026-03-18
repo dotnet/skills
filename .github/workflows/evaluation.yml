@@ -1,5 +1,11 @@
 # Unified evaluation workflow for all PRs (same-repo and fork) and scheduled runs.
 #
+# IMPORTANT: The /evaluate command uses the `issue_comment` trigger, which
+# ALWAYS runs the workflow YAML from the default branch (main), NOT from the
+# PR branch. Changes to this file in a PR will not take effect until merged.
+# The skill-validator binary IS built from the PR branch for same-repo PRs,
+# so eng/skill-validator/ changes are tested before merge.
+#
 # For PRs (same-repo and fork):
 #   - On PR open/sync, the `pr-status` job posts an initial commit status:
 #     - "success" if no skills changed (required check passes immediately)
