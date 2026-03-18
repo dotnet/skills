@@ -17,6 +17,7 @@ public sealed record RunOptions(
     string? PluginRoot = null,
     Action<string>? Log = null,
     IReadOnlyList<SkillInfo>? AdditionalSkills = null,
+    IReadOnlyDictionary<string, MCPServerDef>? McpServers = null,
     string? SessionsDir = null,
     string? SessionId = null);
 
@@ -100,9 +101,6 @@ public static class AgentRunner
         }
         _pluginClients.Clear();
     }
-
-    /// <summary>Backward-compatible alias.</summary>
-    public static Task StopSharedClient() => StopAllClients();
 
     /// <summary>Remove all temporary working directories created during runs.</summary>
     public static Task CleanupWorkDirs(bool keepSessions = false)
@@ -427,7 +425,7 @@ public static class AgentRunner
             var client = await GetPluginClient(options.PluginRoot, options.Verbose);
 
             await using var session = await client.CreateSessionAsync(
-                BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.Skill?.McpServers, options.AdditionalSkills, options.Log, options.Verbose, options.SessionsDir, options.SessionId));
+                BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.McpServers, options.AdditionalSkills, options.Log, options.Verbose, options.SessionsDir, options.SessionId));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;

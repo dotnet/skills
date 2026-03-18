@@ -34,66 +34,110 @@ To execute skill-validator without .NET installed, download the .tar.gz archive 
 With .NET 10+, you can run skill-validator without permanently installing it using `dnx` (dotnet execute). Download the RID-agnostic `.nupkg` from the [`skill-validator-nightly` release](https://github.com/dotnet/skills/releases/tag/skill-validator-nightly), then point `dnx` at it:
 
 ```bash
-# Run directly from the downloaded nupkg
-dnx Microsoft.DotNet.SkillValidator --source ./path/to/downloaded/ ./path/to/skills/
+# Run check directly from the downloaded nupkg
+dnx Microsoft.DotNet.SkillValidator --source ./path/to/downloaded/ check --plugin ./path/to/plugin/
+
+# Run evaluate directly from the downloaded nupkg
+dnx Microsoft.DotNet.SkillValidator --source ./path/to/downloaded/ evaluate --tests-dir ./tests/my-plugin ./path/to/skills/
 ```
 
 ## Usage
 
+The tool has several subcommands:
+
+- **`evaluate`** — LLM-based evaluation testing (requires a Copilot token)
+- **`check`** — Static analysis of skills, plugins, and agents (no LLM, no token required)
+- **`consolidate`** — Merge results from matrix jobs into a single summary
+- **`rejudge`** — Re-run judging on previously saved sessions
+
 All examples below use the `skill-validator` binary directly. If running from source, replace `skill-validator` with `dotnet run --project eng/skill-validator/src --`:
 
+### LLM evaluation (`evaluate`)
+
 ```bash
-# Show help and all available options
-skill-validator --help
+# Show evaluate help
+skill-validator evaluate --help
 
-# Validate all skills in a directory
-skill-validator ./path/to/skills/
-
-# Validate a single skill
-skill-validator ./path/to/my-skill/
+# Evaluate a skill (--tests-dir is required)
+skill-validator evaluate --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills/my-skill
 
 # Verbose output with per-scenario breakdowns
-skill-validator --verbose ./skills/
+skill-validator evaluate --verbose --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Custom model and threshold
-skill-validator --model claude-sonnet-4.5 --min-improvement 0.2 ./skills/
+skill-validator evaluate --model claude-sonnet-4.5 --min-improvement 0.2 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Use a different model for judging vs agent runs
-skill-validator --model gpt-5.3-codex --judge-model claude-opus-4.6-fast ./skills/
+skill-validator evaluate --model gpt-5.3-codex --judge-model claude-opus-4.6-fast --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Multiple runs for stability
-skill-validator --runs 5 ./skills/
+skill-validator evaluate --runs 5 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Override the default results directory (.skill-validator-results)
-skill-validator --results-dir ./my-results ./skills/
+skill-validator evaluate --results-dir ./my-results --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # File reporters can also be specified explicitly.
-skill-validator --reporter junit ./skills/
-
-# Require all skills to have evals
-skill-validator --require-evals ./skills/
+skill-validator evaluate --reporter junit --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Verdict-warn-only mode (verdict failures return exit 0, execution errors still fail)
-skill-validator --verdict-warn-only --require-evals ./skills/
+skill-validator evaluate --verdict-warn-only --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 ```
 
-## CLI flags
+### Static analysis (`check`)
+
+```bash
+# Show check help
+skill-validator check --help
+
+# Check an entire plugin (recommended — validates skills, agents, plugin.json)
+skill-validator check --plugin ./plugins/my-plugin
+
+# Check multiple plugins
+skill-validator check --plugin ./plugins/my-plugin --plugin ./plugins/other-plugin
+
+# Check only skills
+skill-validator check --skills ./plugins/my-plugin/skills
+
+# Check only agents
+skill-validator check --agents ./plugins/my-plugin/agents
+
+# Check with external dependency allow list
+skill-validator check --plugin ./plugins/my-plugin --allowed-external-deps ./eng/skill-validator/allowed-external-deps.txt
+
+# Verbose output
+skill-validator check --verbose --plugin ./plugins/my-plugin
+```
+
+## `check` flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--plugin <paths...>` | | Plugin directories to check — discovers skills, agents, plugin.json (recommended) |
+| `--skills <paths...>` | | Skill directories to check (skills only) |
+| `--agents <paths...>` | | Agent directories to check (agents only) |
+| `--allowed-external-deps <path>` | *(none)* | Path to allowed-external-deps.txt; when omitted the external-deps check is skipped |
+| `--verbose` | `false` | Show detailed output |
+
+> Exactly one of `--plugin`, `--skills`, or `--agents` must be provided.
+
+## `evaluate` flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `<paths...>` | *(required)* | Paths to skill directories or parent directories |
+| `--tests-dir <path>` | *(required)* | Directory containing test subdirectories |
 | `--model <name>` | `claude-opus-4.6` | Model for agent runs |
 | `--judge-model <name>` | same as `--model` | Model for LLM judge (can be different) |
 | `--judge-mode <mode>` | `pairwise` | Judge mode: `pairwise`, `independent`, or `both` |
 | `--min-improvement <n>` | `0.1` | Minimum improvement score (0–1) |
 | `--runs <n>` | `5` | Runs per scenario (averaged for stability) |
-| `--parallel-skills <n>` | `1` | Max concurrent skills to evaluate |
-| `--parallel-scenarios <n>` | `1` | Max concurrent scenarios per skill |
-| `--parallel-runs <n>` | `1` | Max concurrent runs per scenario |
+| `--parallel-skills <n>` | `3` | Max concurrent skills to evaluate |
+| `--parallel-scenarios <n>` | `3` | Max concurrent scenarios per skill |
+| `--parallel-runs <n>` | `3` | Max concurrent runs per scenario |
 | `--confidence-level <n>` | `0.95` | Confidence level for statistical intervals (0–1) |
 | `--judge-timeout <n>` | `300` | Judge LLM timeout in seconds |
 | `--require-completion` | `true` | Fail if skill regresses task completion |
-| `--require-evals` | `false` | Fail if skill has no tests/eval.yaml |
-| `--verdict-warn-only` | `false` | Treat verdict failures as warnings (exit 0). Execution errors and `--require-evals` still fail. |
+| `--verdict-warn-only` | `false` | Treat verdict failures as warnings (exit 0). Execution errors still fail. |
 | `--no-overfitting-check` | `false` | Disable the LLM-based overfitting analysis (on by default) |
 | `--overfitting-fix` | `false` | Generate `eval.fixed.yaml` with improved rubric items/assertions |
 | `--verbose` | `false` | Show tool calls and agent events during runs |

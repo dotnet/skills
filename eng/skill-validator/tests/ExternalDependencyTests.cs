@@ -18,7 +18,7 @@ public class ExternalDependencyCheckerTests
         var skillMdPath = Path.Combine(path, "SKILL.md");
         File.WriteAllText(skillMdPath, content);
 
-        return new SkillInfo(name, description, path, skillMdPath, content, null, null);
+        return new SkillInfo(name, description, path, skillMdPath, content);
     }
 
     private static AgentInfo MakeAgent(
