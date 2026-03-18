@@ -6,7 +6,7 @@ scenarios:
       - type: "output_contains"
         value: "MyConsoleApp"
       - type: "file_exists"
-        path: "./test-output/MyConsoleApp/MyConsoleApp.csproj"
+        path: "test-output/MyConsoleApp/MyConsoleApp.csproj"
     rubric:
       - "The agent used the template-instantiation skill or dotnet new to create the project"
       - "The agent specified the correct output path"
@@ -22,9 +22,9 @@ scenarios:
       - type: "output_contains"
         value: "net9.0"
       - type: "file_exists"
-        path: "./test-output/MyLib/MyLib.csproj"
+        path: "test-output/MyLib/MyLib.csproj"
       - type: "file_contains"
-        path: "./test-output/MyLib/MyLib.csproj"
+        path: "test-output/MyLib/MyLib.csproj"
         value: "net9.0"
     rubric:
       - "The agent used the template-instantiation skill or dotnet new classlib to create the project"
