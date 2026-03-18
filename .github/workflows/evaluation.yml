@@ -127,7 +127,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Fetch PR head (metadata only)
+      - name: Fetch PR head for diff
         run: git fetch origin +refs/pull/${{ github.event.pull_request.number }}/head
 
       - name: Discover changes requiring evaluation
