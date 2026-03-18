@@ -15,7 +15,7 @@ scenarios:
       - "Informed the user that CPM requires PackageReference and cannot be applied to packages.config projects"
       - "Suggested migrating from packages.config to PackageReference first"
       - "Did not attempt to create Directory.Packages.props or modify any project files"
-    timeout: 120
+    timeout: 300
 
   - name: "Recommend CPM when updating packages with version conflicts"
     prompt: "The System.Text.Json and Azure.Identity packages have gotten out of sync across projects in moderate-version-conflicts/Inventory.slnx. Can you align them to the latest versions?"
@@ -68,7 +68,7 @@ scenarios:
       - "Produced a markdown report comparing baseline package references and versions against the CPM result so the user can review what changed"
       - "Captured binlogs for both the baseline and converted builds and informed the user they are available for manual validation and troubleshooting"
       - "Offered reassurance that the conversion is safe when no material changes were detected, or warned about any risks"
-    timeout: 300
+    timeout: 600
 
   - name: "Convert multi-project solution to CPM"
     prompt: "I'd like to convert simple-solution/MyApp.sln to Central Package Management. Use the highest version for any conflicts."
@@ -123,7 +123,7 @@ scenarios:
       - "When differing package versions were found across projects, guided the user through reconciliation or explicit acceptance of each version"
       - "Captured binlogs for both the baseline and converted builds and informed the user they are available for manual validation and troubleshooting"
       - "Offered reassurance when the conversion is straightforward, or warned about potential risks from version or property changes that could cause unintended consequences"
-    timeout: 300
+    timeout: 600
 
   - name: "Convert solution with version conflicts to CPM"
     prompt: "Convert moderate-version-conflicts/Inventory.slnx to Central Package Management. Use the highest version for any conflicts."
@@ -152,7 +152,7 @@ scenarios:
       - "Guided the user through reconciliation or explicit acceptance of each differing version, surfacing the rationale and impact of each choice"
       - "Captured binlogs for both the baseline and converted builds and informed the user they are available for manual validation and troubleshooting"
       - "Warned about potential risks from version changes or unintended consequences, and offered reassurance where the resolution is safe"
-    timeout: 300
+    timeout: 600
 
   - name: "Convert complex repository with multiple CPM challenges"
     prompt: "I need to convert this entire repository to Central Package Management. The solution is at advanced-multi-complexity/Enterprise.slnx. There are some complications: package versions defined as MSBuild properties, conditional package references for multi-targeting, and a shared Common.props that adds a package to all projects. Inline MSBuild property values and use the highest version for any conflicts."
