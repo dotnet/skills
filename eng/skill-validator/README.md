@@ -131,9 +131,9 @@ skill-validator check --verbose --plugin ./plugins/my-plugin
 | `--judge-mode <mode>` | `pairwise` | Judge mode: `pairwise`, `independent`, or `both` |
 | `--min-improvement <n>` | `0.1` | Minimum improvement score (0–1) |
 | `--runs <n>` | `5` | Runs per scenario (averaged for stability) |
-| `--parallel-skills <n>` | `1` | Max concurrent skills to evaluate |
-| `--parallel-scenarios <n>` | `1` | Max concurrent scenarios per skill |
-| `--parallel-runs <n>` | `1` | Max concurrent runs per scenario |
+| `--parallel-skills <n>` | `3` | Max concurrent skills to evaluate |
+| `--parallel-scenarios <n>` | `3` | Max concurrent scenarios per skill |
+| `--parallel-runs <n>` | `3` | Max concurrent runs per scenario |
 | `--confidence-level <n>` | `0.95` | Confidence level for statistical intervals (0–1) |
 | `--judge-timeout <n>` | `300` | Judge LLM timeout in seconds |
 | `--require-completion` | `true` | Fail if skill regresses task completion |
