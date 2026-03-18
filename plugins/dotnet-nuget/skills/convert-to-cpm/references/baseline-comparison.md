@@ -69,19 +69,15 @@ If there are no changes at all, state that the conversion is fully version-neutr
 
 ## Binlog artifacts
 
-MSBuild binary logs (binlogs) capture the full structured build event stream, including every resolved package reference, property evaluation, and target execution. They are produced alongside the package list captures as supplementary artifacts. Inform the user they are available for manual review:
+MSBuild binary logs (binlogs) are captured alongside the package list snapshots as supplementary artifacts. Inform the user they are available for manual validation and troubleshooting if needed:
 
 - `baseline.binlog` — Build state before CPM conversion
 - `after-cpm.binlog` — Build state after CPM conversion
 
-The user can open these `.binlog` files in the [MSBuild Structured Log Viewer](https://msbuildlog.com/) for detailed inspection of the full build tree, including target execution, property evaluation, and item resolution.
-
-```bash
-# Install the viewer on Windows
-winget install KirillOsenkov.MSBuildStructuredLogViewer
-
-# Or download from https://msbuildlog.com/
-```
+The user can learn more about MSBuild binary logs from:
+- [Troubleshoot and create logs for MSBuild problems](https://learn.microsoft.com/visualstudio/ide/msbuild-logs?view=visualstudio#provide-msbuild-binary-logs-for-investigation)
+- [Obtaining Build Logs with MSBuild](https://learn.microsoft.com/visualstudio/msbuild/obtaining-build-logs-with-msbuild?view=visualstudio#save-a-binary-log)
+- https://github.com/dotnet/msbuild/blob/main/documentation/wiki/Binary-Log.md
 
 ## When comparison reveals unexpected differences
 

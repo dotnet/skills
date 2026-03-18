@@ -66,7 +66,7 @@ scenarios:
       - "Removed Version attributes from PackageReference items in the .csproj"
       - "Ran dotnet restore and dotnet build to validate the conversion"
       - "Produced a markdown report comparing baseline package references and versions against the CPM result so the user can review what changed"
-      - "Captured binlogs for both the baseline and converted builds, and guided the user on how to compare them to verify no unintended build behavior changes"
+      - "Captured binlogs for both the baseline and converted builds and informed the user they are available for manual validation and troubleshooting"
       - "Offered reassurance that the conversion is safe when no material changes were detected, or warned about any risks"
     timeout: 300
 
@@ -90,7 +90,7 @@ scenarios:
       - "Ran dotnet restore and dotnet build to validate the conversion"
       - "Produced a markdown report summarizing all package references and versions across projects, comparing baseline state against the CPM result"
       - "When differing package versions were found across projects, guided the user through reconciliation or explicit acceptance of each version"
-      - "Captured binlogs for both the baseline and converted builds, and guided the user on how to compare them to investigate any differences"
+      - "Captured binlogs for both the baseline and converted builds and informed the user they are available for manual validation and troubleshooting"
       - "Offered reassurance when the conversion is straightforward, or warned about potential risks from version changes that could cause unintended consequences"
     timeout: 600
 
@@ -121,7 +121,7 @@ scenarios:
       - "Ran dotnet restore and dotnet build to validate the conversion"
       - "Produced a markdown report summarizing all package references and versions across projects, comparing baseline state against the CPM result"
       - "When differing package versions were found across projects, guided the user through reconciliation or explicit acceptance of each version"
-      - "Captured binlogs for both the baseline and converted builds, and guided the user on how to compare them to review the impact of property and version changes"
+      - "Captured binlogs for both the baseline and converted builds and informed the user they are available for manual validation and troubleshooting"
       - "Offered reassurance when the conversion is straightforward, or warned about potential risks from version or property changes that could cause unintended consequences"
     timeout: 300
 
@@ -150,7 +150,7 @@ scenarios:
       - "Ran dotnet restore and dotnet build to validate the conversion"
       - "Produced a markdown report summarizing all package references and resolved versions across projects, comparing baseline state against the CPM result"
       - "Guided the user through reconciliation or explicit acceptance of each differing version, surfacing the rationale and impact of each choice"
-      - "Captured binlogs for both the baseline and converted builds, and guided the user on how to compare them to verify the version conflict resolutions"
+      - "Captured binlogs for both the baseline and converted builds and informed the user they are available for manual validation and troubleshooting"
       - "Warned about potential risks from version changes or unintended consequences, and offered reassurance where the resolution is safe"
     timeout: 300
 
@@ -188,6 +188,6 @@ scenarios:
       - "Ran dotnet restore and dotnet build to validate the conversion"
       - "Produced a markdown report summarizing all package references, resolved versions, and decisions across projects, comparing baseline state against the CPM result"
       - "Guided the user through reconciliation or explicit acceptance of each differing version, including version conflicts, property-based versions, and conditional references"
-      - "Captured binlogs for both the baseline and converted builds, and guided the user on how to compare them to review the cumulative impact of version changes, property removals, and conditional adjustments"
+      - "Captured binlogs for both the baseline and converted builds and informed the user they are available for manual validation and troubleshooting"
       - "Warned about potential risks from version changes, property removals, or conditional reference adjustments, and offered reassurance where outcomes are safe and expected"
     timeout: 600

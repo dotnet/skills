@@ -144,7 +144,7 @@ Present follow-up items as a numbered checklist so the user can track them.
 
 List the artifacts produced during conversion and explain how to use them:
 
-- **`baseline.binlog`** and **`after-cpm.binlog`** — MSBuild binary logs capturing the complete structured build event stream before and after conversion. These record every property evaluation, item resolution, target execution, and package reference resolution that MSBuild performed. Open them in the [MSBuild Structured Log Viewer](https://msbuildlog.com/) (`winget install KirillOsenkov.MSBuildStructuredLogViewer` on Windows) to inspect a searchable tree of the full build — including how each `PackageReference` was resolved, which properties contributed to version selection, and the complete dependency graph. Comparing the two binlogs lets the user verify exactly how package references and other MSBuild details are processed before and after conversion.
+- **`baseline.binlog`** and **`after-cpm.binlog`** — MSBuild binary logs captured before and after conversion. These are available for manual validation and troubleshooting if needed.
 - **`baseline-packages.json`** and **`after-cpm-packages.json`** — Machine-readable snapshots of resolved package versions per project, used to produce the comparison tables above.
 - **`convert-to-cpm.md`** — This report file, suitable for use as a pull request description or team review artifact.
 
