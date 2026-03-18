@@ -12,7 +12,7 @@ public static class EvaluateCommand
     public static Command Create()
     {
         var pathsArg = new Argument<string[]>("paths") { Description = "Paths to skill directories or parent directories", Arity = ArgumentArity.OneOrMore };
-        var testsDirArg = new Argument<string>("tests-dir") { Description = "Directory containing test subdirectories" };
+        var testsDirOpt = new Option<string>("--tests-dir") { Description = "Directory containing test subdirectories", Required = true };
         var minImprovementOpt = new Option<double>("--min-improvement") { Description = "Minimum improvement score to pass (0-1)", DefaultValueFactory = _ => 0.1 };
         var requireCompletionOpt = new Option<bool>("--require-completion") { Description = "Fail if skill regresses task completion", DefaultValueFactory = _ => true };
         var verdictWarnOnlyOpt = new Option<bool>("--verdict-warn-only") { Description = "Treat verdict failures as warnings (exit 0). Execution errors still fail." };
@@ -39,7 +39,7 @@ public static class EvaluateCommand
         var command = new Command("evaluate", "Evaluate agent skills via LLM-based testing")
         {
             pathsArg,
-            testsDirArg,
+            testsDirOpt,
             minImprovementOpt,
             requireCompletionOpt,
             verdictWarnOnlyOpt,
@@ -102,7 +102,7 @@ public static class EvaluateCommand
                 Reporters = reporters,
                 SkillPaths = paths,
                 ResultsDir = parseResult.GetValue(resultsDirOpt),
-                TestsDir = parseResult.GetValue(testsDirArg)!,
+                TestsDir = parseResult.GetValue(testsDirOpt)!,
                 OverfittingCheck = !parseResult.GetValue(noOverfittingCheckOpt),
                 OverfittingFix = parseResult.GetValue(overfittingFixOpt),
                 KeepSessions = parseResult.GetValue(keepSessionsOpt),

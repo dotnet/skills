@@ -38,7 +38,7 @@ With .NET 10+, you can run skill-validator without permanently installing it usi
 dnx Microsoft.DotNet.SkillValidator --source ./path/to/downloaded/ check --plugin ./path/to/plugin/
 
 # Run evaluate directly from the downloaded nupkg
-dnx Microsoft.DotNet.SkillValidator --source ./path/to/downloaded/ evaluate ./path/to/skills/ ./tests/my-plugin
+dnx Microsoft.DotNet.SkillValidator --source ./path/to/downloaded/ evaluate --tests-dir ./tests/my-plugin ./path/to/skills/
 ```
 
 ## Usage
@@ -58,29 +58,29 @@ All examples below use the `skill-validator` binary directly. If running from so
 # Show evaluate help
 skill-validator evaluate --help
 
-# Evaluate a skill (tests-dir is a required argument)
-skill-validator evaluate ./plugins/my-plugin/skills/my-skill ./tests/my-plugin
+# Evaluate a skill (--tests-dir is required)
+skill-validator evaluate --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills/my-skill
 
 # Verbose output with per-scenario breakdowns
-skill-validator evaluate --verbose ./plugins/my-plugin/skills ./tests/my-plugin
+skill-validator evaluate --verbose --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Custom model and threshold
-skill-validator evaluate --model claude-sonnet-4.5 --min-improvement 0.2 ./plugins/my-plugin/skills ./tests/my-plugin
+skill-validator evaluate --model claude-sonnet-4.5 --min-improvement 0.2 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Use a different model for judging vs agent runs
-skill-validator evaluate --model gpt-5.3-codex --judge-model claude-opus-4.6-fast ./plugins/my-plugin/skills ./tests/my-plugin
+skill-validator evaluate --model gpt-5.3-codex --judge-model claude-opus-4.6-fast --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Multiple runs for stability
-skill-validator evaluate --runs 5 ./plugins/my-plugin/skills ./tests/my-plugin
+skill-validator evaluate --runs 5 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Override the default results directory (.skill-validator-results)
-skill-validator evaluate --results-dir ./my-results ./plugins/my-plugin/skills ./tests/my-plugin
+skill-validator evaluate --results-dir ./my-results --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # File reporters can also be specified explicitly.
-skill-validator evaluate --reporter junit ./plugins/my-plugin/skills ./tests/my-plugin
+skill-validator evaluate --reporter junit --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
 # Verdict-warn-only mode (verdict failures return exit 0, execution errors still fail)
-skill-validator evaluate --verdict-warn-only ./plugins/my-plugin/skills ./tests/my-plugin
+skill-validator evaluate --verdict-warn-only --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 ```
 
 ### Static analysis (`check`)
@@ -125,7 +125,7 @@ skill-validator check --verbose --plugin ./plugins/my-plugin
 | Flag | Default | Description |
 |------|---------|-------------|
 | `<paths...>` | *(required)* | Paths to skill directories or parent directories |
-| `<tests-dir>` | *(required)* | Directory containing test subdirectories |
+| `--tests-dir <path>` | *(required)* | Directory containing test subdirectories |
 | `--model <name>` | `claude-opus-4.6` | Model for agent runs |
 | `--judge-model <name>` | same as `--model` | Model for LLM judge (can be different) |
 | `--judge-mode <mode>` | `pairwise` | Judge mode: `pairwise`, `independent`, or `both` |
