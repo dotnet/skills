@@ -139,7 +139,10 @@ jobs:
           if-no-files-found: ignore
 
   release:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.create_release)
+    if: >-
+      always() &&
+      needs.build.result == 'success' &&
+      (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.create_release))
     needs: build
     runs-on: ubuntu-latest
     permissions:
