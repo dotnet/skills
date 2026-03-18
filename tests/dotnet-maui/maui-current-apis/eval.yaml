@@ -1,52 +1,25 @@
 scenarios:
-  - name: "Detect and replace deprecated Device class APIs"
+  - name: "Replace deprecated Device class APIs"
     prompt: |
-      I have this code in my .NET MAUI app targeting net10.0. Can you review it
-      and fix any deprecated APIs?
+      I'm getting deprecation warnings in my .NET MAUI 10 app:
 
       ```csharp
-      public class SettingsViewModel
-      {
-          public void CheckPlatform()
-          {
-              if (Device.RuntimePlatform == Device.Android)
-              {
-                  Device.BeginInvokeOnMainThread(() =>
-                  {
-                      StatusMessage = "Running on Android";
-                  });
-              }
+      Device.BeginInvokeOnMainThread(() => UpdateUI());
 
-              Device.StartTimer(TimeSpan.FromSeconds(5), () =>
-              {
-                  RefreshData();
-                  return true;
-              });
-          }
-
-          public async Task OpenLink()
-          {
-              Device.OpenUri(new Uri("https://learn.microsoft.com"));
-          }
-      }
+      if (Device.RuntimePlatform == Device.Android)
+          ConfigureForAndroid();
       ```
+
+      What are the correct replacements?
     assertions:
       - type: "output_contains"
-        value: "DeviceInfo.Platform"
-      - type: "output_contains"
         value: "MainThread.BeginInvokeOnMainThread"
-      - type: "output_not_contains"
-        value: "Device.BeginInvokeOnMainThread"
-      - type: "output_matches"
-        pattern: "(?i)Launcher|OpenAsync"
-      - type: "output_matches"
-        pattern: "(?i)Dispatcher|PeriodicTimer"
+      - type: "output_contains"
+        value: "DeviceInfo.Platform"
     rubric:
-      - "Replaces Device.RuntimePlatform with DeviceInfo.Platform"
       - "Replaces Device.BeginInvokeOnMainThread with MainThread.BeginInvokeOnMainThread"
-      - "Replaces Device.StartTimer with Dispatcher.StartTimer or PeriodicTimer"
-      - "Replaces Device.OpenUri with Launcher.OpenAsync"
-      - "Explains that the entire Device class is deprecated in .NET MAUI"
+      - "Replaces Device.RuntimePlatform with DeviceInfo.Platform"
+      - "Explains that the Device class is deprecated and split into focused services"
     timeout: 120
 
   - name: "Fix deprecated animation methods for .NET 10"
@@ -65,71 +38,82 @@ scenarios:
       - "Mentions RelRotateToAsync, RelScaleToAsync, or LayoutToAsync as part of the same pattern"
     timeout: 120
 
-  - name: "Prevent Xamarin.Forms namespace usage"
+  - name: "Replace Xamarin patterns with MAUI dependency injection"
     prompt: |
-      I'm following an older tutorial to build a .NET MAUI app. The tutorial says
-      to add 'using Xamarin.Forms' and use DependencyService to register platform
-      services. How do I do this in my MAUI project?
+      I'm migrating code from a Xamarin.Forms tutorial. It uses:
+
+      ```csharp
+      using Xamarin.Forms;
+
+      public interface IFileService { void SaveFile(string content); }
+
+      // Registration
+      DependencyService.Register<FileService>();
+
+      // Usage
+      var service = DependencyService.Get<IFileService>();
+      ```
+
+      How do I do this in .NET MAUI?
     assertions:
       - type: "output_not_contains"
         value: "using Xamarin.Forms"
+      - type: "output_contains"
+        value: "builder.Services"
       - type: "output_matches"
-        pattern: "(?i)constructor injection|IServiceProvider|builder\\.Services"
+        pattern: "(?i)AddSingleton|AddTransient|AddScoped"
+      - type: "output_matches"
+        pattern: "(?i)constructor|inject"
     rubric:
       - "Explains that Xamarin.Forms namespaces do not exist in .NET MAUI"
-      - "Replaces DependencyService with constructor injection via IServiceProvider"
-      - "Shows how to register services in MauiProgram.cs using builder.Services"
-      - "Does not suggest using Compatibility namespace for new code"
+      - "Shows service registration via builder.Services.Add* in MauiProgram.cs"
+      - "Shows constructor injection to consume the service"
+      - "Does not suggest DependencyService or Compatibility namespace"
     timeout: 120
 
-  - name: "Detect project TFM before generating code"
+  - name: "Use SafeAreaEdges instead of UseSafeArea"
     prompt: |
-      I have a .NET MAUI project. Here is my csproj:
+      I'm updating my .NET MAUI 10 iOS app. My page currently uses the iOS
+      platform-specific UseSafeArea to handle the iPhone notch area:
 
       ```xml
-      <Project Sdk="Microsoft.NET.Sdk">
-        <PropertyGroup>
-          <TargetFrameworks>net8.0-android;net8.0-ios</TargetFrameworks>
-          <UseMaui>true</UseMaui>
-        </PropertyGroup>
-        <ItemGroup>
-          <PackageReference Include="CommunityToolkit.Maui" Version="5.3.0" />
-          <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1" />
-        </ItemGroup>
-      </Project>
+      <ContentPage xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific"
+                   ios:Page.UseSafeArea="True">
       ```
 
-      I want to add a page that displays an alert and fades in an image. Show me
-      the code.
+      The compiler shows a deprecation warning. What's the new approach?
     assertions:
       - type: "output_contains"
-        value: "DisplayAlert"
-      - type: "output_contains"
-        value: "FadeTo"
-      - type: "output_not_contains"
-        value: "DisplayAlertAsync"
-      - type: "output_not_contains"
-        value: "FadeToAsync"
+        value: "SafeAreaEdges"
+      - type: "output_matches"
+        pattern: "(?i)deprecat|obsolete|replaced|new"
     rubric:
-      - "Uses net8.0-compatible APIs (not .NET 10 APIs like DisplayAlertAsync or FadeToAsync)"
-      - "Recognizes the project targets .NET 8, not .NET 10"
-      - "Does not suggest APIs that require CommunityToolkit.Maui v11+ (project uses v5.3.0)"
-      - "Uses the correct method names for the detected .NET version"
+      - "Recommends SafeAreaEdges property as the replacement for UseSafeArea"
+      - "Explains that UseSafeArea and IgnoreSafeArea are deprecated in .NET 10"
+      - "Shows how to set SafeAreaEdges in XAML or code-behind"
+      - "Explains SafeAreaEdges provides more granular control per edge"
     timeout: 120
 
   - name: "Replace MessagingCenter with WeakReferenceMessenger"
     prompt: |
-      My .NET MAUI 10 app uses MessagingCenter.Send and MessagingCenter.Subscribe
-      for communication between ViewModels. The compiler shows it's deprecated.
-      How do I replace it?
+      My .NET MAUI 10 app won't compile. It says MessagingCenter is inaccessible:
+
+      ```csharp
+      MessagingCenter.Send(this, "Refresh");
+      MessagingCenter.Subscribe<MainPage>(this, "Refresh", (sender) => Reload());
+      ```
+
+      What happened and how do I fix it?
     assertions:
       - type: "output_contains"
         value: "WeakReferenceMessenger"
       - type: "output_matches"
-        pattern: "CommunityToolkit\\.Mvvm|CommunityToolkit\\.Mvvm\\.Messaging"
+        pattern: "(?i)internal|inaccessible|removed|no longer public"
+      - type: "output_contains"
+        value: "CommunityToolkit.Mvvm"
     rubric:
-      - "Recommends WeakReferenceMessenger from CommunityToolkit.Mvvm as the replacement"
-      - "Shows the Send/Register pattern with the new messenger API"
-      - "Explains that MessagingCenter was made internal in .NET MAUI 10"
-      - "Mentions the CommunityToolkit.Mvvm NuGet package if not already referenced"
+      - "Explains MessagingCenter was made internal (not just deprecated) in .NET 10"
+      - "Recommends WeakReferenceMessenger from CommunityToolkit.Mvvm"
+      - "Shows the Send and Register pattern with the new API"
+      - "Mentions adding the CommunityToolkit.Mvvm NuGet package"
     timeout: 120

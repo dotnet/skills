@@ -22,34 +22,30 @@ scenarios:
       - "Uses Grid or VerticalStackLayout as the parent container, not StackLayout wrapping a ScrollView"
     timeout: 120
 
-  - name: "Correct ScrollView inside StackLayout anti-pattern"
+  - name: "Fix AndExpand layout that does nothing"
     prompt: |
-      I have this XAML layout for my .NET MAUI app but scrolling doesn't work right.
-      Can you fix it?
+      My .NET MAUI button isn't expanding to fill the remaining space at the
+      bottom of the screen. I tried this but it doesn't work:
 
       ```xml
-      <StackLayout>
-        <Label Text="Header" FontSize="24" />
-        <ScrollView>
-          <VerticalStackLayout>
-            <Label Text="Item 1" />
-            <Label Text="Item 2" />
-            <Label Text="Item 3" />
-          </VerticalStackLayout>
-        </ScrollView>
-        <Button Text="Submit" />
-      </StackLayout>
+      <VerticalStackLayout>
+        <Label Text="Title" FontSize="24" />
+        <Entry Placeholder="Enter text" />
+        <Button Text="Submit" VerticalOptions="FillAndExpand" />
+      </VerticalStackLayout>
       ```
+
+      Why doesn't the button fill the rest of the screen?
     assertions:
       - type: "output_contains"
         value: "Grid"
-      - type: "output_not_contains"
-        value: "<StackLayout"
+      - type: "output_matches"
+        pattern: "(?i)no.op|does nothing|ignored|no effect|doesn.t work|not supported|undefined"
     rubric:
-      - "Identifies that ScrollView inside StackLayout is the problem"
-      - "Replaces StackLayout with Grid as the parent container"
-      - "Explains why ScrollView or CollectionView should never be placed inside StackLayout"
-      - "Preserves the original layout intent (header, scrollable content, footer button)"
+      - "Explains that AndExpand/FillAndExpand is a no-op in MAUI (silently does nothing)"
+      - "Recommends Grid with star-sized rows as the correct approach"
+      - "Shows a working Grid example with RowDefinitions"
+      - "Does not suggest VerticalOptions alone will solve the problem"
     timeout: 120
 
   - name: "Replace Frame with Border in card layout"
@@ -70,32 +66,43 @@ scenarios:
 
   - name: "Handler customization instead of renderer"
     prompt: |
-      I need to customize the Entry control in my .NET MAUI app to remove the
-      underline/border on both Android and iOS. How do I create a custom renderer
-      for this?
+      I need to customize the Picker control in my .NET MAUI app to change the
+      dropdown arrow color on Android and remove the underline on iOS. My colleague
+      said I need a custom renderer with [assembly: ExportRenderer]. Show me how.
     assertions:
       - type: "output_matches"
         pattern: "(?i)handler|mapper"
       - type: "output_not_contains"
         value: "ExportRenderer"
+      - type: "output_matches"
+        pattern: "AppendToMapping|PrependToMapping|ModifyMapping"
     rubric:
       - "Redirects from custom renderer to handler/mapper approach"
-      - "Explains that renderers are a legacy Xamarin.Forms concept not used in MAUI"
+      - "Explains that ExportRenderer/renderers don't exist in MAUI"
       - "Shows platform-specific code using #if ANDROID / #elif IOS preprocessor directives"
       - "Uses AppendToMapping, PrependToMapping, or ModifyMapping method"
     timeout: 120
 
-  - name: "Image reference guidance"
+  - name: "Image reference and Background property guidance"
     prompt: |
-      I'm adding SVG icons to my .NET MAUI app. I've placed logo.svg in
-      Resources/Images/. How do I reference it in XAML?
+      I'm adding a logo to my .NET MAUI app. I put logo.svg in Resources/Images/.
+      Also, I want the containing layout to have a light blue background:
+
+      ```xml
+      <VerticalStackLayout BackgroundColor="LightBlue">
+        <Image Source="logo.svg" />
+      </VerticalStackLayout>
+      ```
+
+      Is this correct?
     assertions:
       - type: "output_contains"
         value: ".png"
       - type: "output_matches"
-        pattern: "(?i)build|convert|generat"
+        pattern: "(?i)Background(?!Color)"
     rubric:
       - "Instructs to reference the image as .png, not .svg"
       - "Explains that SVGs are converted to PNGs at build time"
-      - "Shows correct Image Source syntax with .png extension"
+      - "Recommends Background property over BackgroundColor"
+      - "Explains Background accepts both Color and Brush (gradients, images)"
     timeout: 120
