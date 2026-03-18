@@ -109,11 +109,12 @@ public class BuildSessionConfigTests
             Assert.False(Directory.Exists(stagedSiblingDir));
 
             // Permission check should deny access to the original skill directory
+            var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
             var originalSkillFilePath = Path.Combine(targetSkillDir, "SKILL.md");
             var escaped = originalSkillFilePath.Replace("\\", "\\\\");
             var req = System.Text.Json.JsonSerializer.Deserialize<GitHub.Copilot.SDK.PermissionRequest>(
                 $"{{\"kind\":\"read\",\"path\":\"{escaped}\"}}")!;
-            var denied = AgentRunner.CheckPermission(req, "C:\\tmp\\work", null, log: null);
+            var denied = AgentRunner.CheckPermission(req, workDir, null, log: null);
             Assert.False(denied);
         }
         finally
