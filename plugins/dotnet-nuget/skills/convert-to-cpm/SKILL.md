@@ -48,7 +48,7 @@ Migrate .NET projects from per-project package versioning to NuGet Central Packa
 
 If the scope is unclear, ask the user.
 
-**Guard: Check for packages.config projects.** Before proceeding, check whether any project in scope uses `packages.config` instead of `PackageReference`. Look for `packages.config` files alongside project files, and check whether the project files use legacy non-SDK format (e.g., `<Project ToolsVersion="..." xmlns="...">` instead of `<Project Sdk="...">`). If any `packages.config` usage is detected, **stop and do not proceed with the conversion**. Inform the user that CPM requires SDK-style projects with `PackageReference` format and that they must first migrate from `packages.config` to `PackageReference` (e.g., using Visual Studio's built-in migration or the `dotnet migrate` tooling). This skill cannot perform that migration.
+**Guard: Check for packages.config projects.** Before proceeding, check whether any project in scope uses `packages.config` instead of `PackageReference`. Look for `packages.config` files alongside project files. If any `packages.config` usage is detected, **stop and do not proceed with the conversion**. Inform the user that CPM requires projects with `PackageReference` format and that they must first migrate from `packages.config` to `PackageReference` (e.g., using Visual Studio's built-in migration or the `dotnet migrate` tooling). This skill cannot perform that migration.
 
 ### Step 2: Establish baseline build
 
