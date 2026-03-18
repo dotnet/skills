@@ -102,6 +102,34 @@
     }
     .footer a { color: var(--skilled); text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
+    /* Token usage table */
+    .token-table {
+      width: 100%; border-collapse: separate; border-spacing: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden;
+    }
+    .token-table th {
+      text-align: left; padding: 12px 16px; background: var(--surface);
+      border-bottom: 2px solid var(--border); color: var(--text-muted);
+      font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .token-table th.num { text-align: right; }
+    .token-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
+    .token-table td.num {
+      text-align: right;
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 13px;
+    }
+    .token-table tr:last-child td { border-bottom: none; }
+    .token-table tr.level-0 { font-weight: 600; }
+    .token-table tr.level-0 td { background: rgba(88,166,255,0.03); }
+    .token-table tr.level-1 td:first-child { padding-left: 40px; }
+    .token-table tr.level-2 td:first-child { padding-left: 64px; }
+    .token-table tr.level-2 td { color: var(--text-muted); }
+    .token-table tr.expandable { cursor: pointer; }
+    .token-table tr.expandable:hover td { background: rgba(88,166,255,0.06); }
+    .expand-icon { display: inline-block; width: 20px; font-size: 10px; transition: transform 0.2s; }
+    .expand-icon.expanded { transform: rotate(90deg); }
     @media (max-width: 600px) {
       .charts-grid { grid-template-columns: 1fr; }
     }
@@ -119,5 +147,6 @@
   </div>
 
   <script src="dashboard.js"></script>
+  <script src="token-usage.js"></script>
 </body>
 </html>

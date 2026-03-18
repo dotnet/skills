@@ -521,15 +521,22 @@ jobs:
           gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
 
   # ==========================================================================
-  # PUBLISH BENCHMARK (scheduled runs only)
+  # PUBLISH BENCHMARK & TOKEN DATA
+  # Scheduled runs: full benchmark data + token usage → gh-pages
+  # PR evaluations: token usage only → gh-pages
   # ==========================================================================
+
   publish-benchmark:
-    needs: [discover, run-evaluation]
+    needs: [gate, discover, run-evaluation]
     if: >-
+      always() &&
       !cancelled() &&
-      github.ref == 'refs/heads/main' &&
+      needs.discover.result == 'success' &&
       needs.discover.outputs.has_plugins == 'true' &&
-      needs.discover.result == 'success'
+      (
+        github.ref == 'refs/heads/main' ||
+        (github.event_name == 'issue_comment' && needs.gate.result == 'success')
+      )
     concurrency:
       group: publish-benchmark-deploy
       cancel-in-progress: false
@@ -549,13 +556,57 @@ jobs:
           merge-multiple: false
         continue-on-error: ${{ needs.run-evaluation.result != 'success' }}
 
-      - name: Fetch existing benchmark data
+      - name: Fetch existing data from GitHub Pages
         run: |
           git fetch origin gh-pages:gh-pages 2>/dev/null || true
           mkdir -p /tmp/gh-pages/data
           git checkout gh-pages -- data/ 2>/dev/null && cp -r data/* /tmp/gh-pages/data/ && git checkout HEAD -- . || true
 
+      # --- PR evaluation: collect token-usage data only ---
+      - name: Get PR title
+        if: github.event_name == 'issue_comment'
+        id: pr-info
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_TITLE=$(gh api "repos/${{ github.repository }}/pulls/${{ needs.gate.outputs.pr_number }}" --jq '.title')
+          echo "pr_title=${PR_TITLE}" >> $GITHUB_OUTPUT
+
+      - name: Collect PR Token Usage
+        if: github.event_name == 'issue_comment'
+        env:
+          PR_TITLE: ${{ steps.pr-info.outputs.pr_title }}
+        run: |
+          $plugins = '${{ needs.discover.outputs.plugins }}' | ConvertFrom-Json
+          foreach ($plugin in $plugins) {
+            $artifactDir = "all-results/skill-validator-results-$plugin"
+            $runDir = Get-ChildItem -Path $artifactDir -Directory -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
+              Sort-Object Name -Descending |
+              Select-Object -First 1
+            if (-not $runDir) {
+              Write-Warning "No run results found for $plugin, skipping"
+              continue
+            }
+
+            $resultsFile = Join-Path $runDir.FullName "results.json"
+            Write-Host "`n=== Collecting token usage for: $plugin ==="
+            $params = @{
+              ResultsFile   = $resultsFile
+              PluginName    = $plugin
+              OutputDir     = "/tmp/gh-pages/data"
+              Source        = 'pr'
+              PRNumber      = ${{ needs.gate.outputs.pr_number }}
+              PRTitle       = $env:PR_TITLE
+              RetentionDays = $env:DASHBOARD_RETENTION_DAYS
+            }
+            & ./eng/dashboard/generate-benchmark-data.ps1 @params
+          }
+        shell: pwsh
+
+      # --- Scheduled runs: full benchmark data + token usage ---
       - name: Generate Benchmark Data
+        if: github.ref == 'refs/heads/main'
         run: |
           $sha = "${{ github.sha }}"
           $commitMsg = git log -1 --format='%s' $sha
@@ -592,6 +643,7 @@ jobs:
               OutputDir     = "/tmp/gh-pages/data"
               CommitJson    = $commitJson
               RetentionDays = $env:DASHBOARD_RETENTION_DAYS
+              Source        = 'scheduled'
             }
             if ((Test-Path $existingFile) -and (Get-Content $existingFile -Raw -ErrorAction SilentlyContinue)) {
               $params.ExistingDataFile = $existingFile
@@ -602,9 +654,9 @@ jobs:
           # Purge entries older than the configured retention window
           & ./eng/dashboard/generate-benchmark-data.ps1 -PurgeStaleFiles -DataDir "/tmp/gh-pages/data" -RetentionDays $env:DASHBOARD_RETENTION_DAYS
 
-          # Generate components.json manifest
+          # Generate components.json manifest (exclude token-usage.json — it's not a plugin)
           $plugins = Get-ChildItem -Path "/tmp/gh-pages/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -ne "components.json" } |
+            Where-Object { $_.Name -notin @("components.json", "token-usage.json") } |
             ForEach-Object { $_.BaseName }
           @($plugins) | ConvertTo-Json -AsArray | Out-File -FilePath "/tmp/gh-pages/data/components.json" -Encoding utf8
         shell: pwsh
@@ -630,10 +682,20 @@ jobs:
 
           mkdir -p data
           cp /tmp/gh-pages/data/*.json data/
-          cp ${{ github.workspace }}/eng/dashboard/dashboard.html index.html
-          cp ${{ github.workspace }}/eng/dashboard/dashboard.js dashboard.js
+
+          # Only deploy dashboard HTML/JS on main (they come from the source tree)
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            cp ${{ github.workspace }}/eng/dashboard/dashboard.html index.html
+            cp ${{ github.workspace }}/eng/dashboard/dashboard.js dashboard.js
+            cp ${{ github.workspace }}/eng/dashboard/token-usage.js token-usage.js
+          fi
 
           git add .
           git diff --cached --quiet && echo "No changes to deploy" && exit 0
-          git commit -m "Update benchmark data"
+
+          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+            git commit -m "Update PR token usage data"
+          else
+            git commit -m "Update benchmark data"
+          fi
           git push origin gh-pages

@@ -668,9 +668,14 @@ public static class EvaluateCommand
         var pluginJudgeTask = Services.Judge.JudgeRun(
             scenario, pluginMetrics, judgeOpts with { WorkDir = pluginMetrics.WorkDir }, runLog);
 
-        var baselineJudge = await SafeJudge(baselineJudgeTask, "baseline", runLog);
-        var isolatedJudge = await SafeJudge(isolatedJudgeTask, "isolated", runLog);
-        var pluginJudge = await SafeJudge(pluginJudgeTask, "plugin", runLog);
+        var (baselineJudge, baselineJudgeTokens) = await SafeJudge(baselineJudgeTask, "baseline", runLog);
+        var (isolatedJudge, isolatedJudgeTokens) = await SafeJudge(isolatedJudgeTask, "isolated", runLog);
+        var (pluginJudge, pluginJudgeTokens) = await SafeJudge(pluginJudgeTask, "plugin", runLog);
+
+        // Accumulate judge tokens into each run's metrics
+        AccumulateJudgeTokens(baselineMetrics, baselineJudgeTokens);
+        AccumulateJudgeTokens(isolatedMetrics, isolatedJudgeTokens);
+        AccumulateJudgeTokens(pluginMetrics, pluginJudgeTokens);
 
         if (sessionDb is not null)
         {
@@ -694,10 +699,14 @@ public static class EvaluateCommand
                 ? pluginMetrics : isolatedMetrics;
             try
             {
-                pairwise = await Services.PairwiseJudge.Judge(
+                var (pairwiseResult, pairwiseTokens) = await Services.PairwiseJudge.Judge(
                     scenario, baselineMetrics, worseSkilled,
                     new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path, worseSkilled.WorkDir),
                     runLog);
+                pairwise = pairwiseResult;
+                // Attribute pairwise judge tokens to both the baseline and the compared run
+                AccumulateJudgeTokens(baselineMetrics, pairwiseTokens);
+                AccumulateJudgeTokens(worseSkilled, pairwiseTokens);
                 if (sessionDb is not null && pairwise is not null)
                 {
                     sessionDb.SavePairwiseResult(baselineSessionId, JsonSerializer.Serialize(pairwise, SkillValidatorJsonContext.Default.PairwiseJudgeResult));
@@ -731,7 +740,7 @@ public static class EvaluateCommand
             pairwiseFromPlugin, isolatedActivation, pluginActivation);
     }
 
-    private static async Task<JudgeResult> SafeJudge(Task<JudgeResult> task, string label, Action<string> runLog)
+    private static async Task<(JudgeResult Result, TokenUsage Tokens)> SafeJudge(Task<(JudgeResult Result, TokenUsage Tokens)> task, string label, Action<string> runLog)
     {
         try
         {
@@ -741,7 +750,7 @@ public static class EvaluateCommand
         {
             var shortMsg = SanitizeErrorMessage(error.Message);
             runLog($"\x1b[33m⚠️  Judge ({label}) failed, using fallback scores: {shortMsg}\x1b[0m");
-            return new JudgeResult([], 3, $"Judge failed: {shortMsg}");
+            return (new JudgeResult([], 3, $"Judge failed: {shortMsg}"), TokenUsage.Zero);
         }
     }
 
@@ -884,7 +893,9 @@ public static class EvaluateCommand
                         JudgeResult skillOnlyJudge, allSkillsJudge;
                         try
                         {
-                            skillOnlyJudge = await Services.Judge.JudgeRun(scenario, skillOnlyMetrics, judgeOpts, log);
+                            var (result, tokens) = await Services.Judge.JudgeRun(scenario, skillOnlyMetrics, judgeOpts, log);
+                            skillOnlyJudge = result;
+                            AccumulateJudgeTokens(skillOnlyMetrics, tokens);
                         }
                         catch
                         {
@@ -892,8 +903,10 @@ public static class EvaluateCommand
                         }
                         try
                         {
-                            allSkillsJudge = await Services.Judge.JudgeRun(scenario, allSkillsMetrics,
+                            var (result, tokens) = await Services.Judge.JudgeRun(scenario, allSkillsMetrics,
                                 judgeOpts with { WorkDir = allSkillsMetrics.WorkDir }, log);
+                            allSkillsJudge = result;
+                            AccumulateJudgeTokens(allSkillsMetrics, tokens);
                         }
                         catch
                         {
@@ -968,6 +981,14 @@ public static class EvaluateCommand
         return new NoiseTestResult(noiseScenarios, overallDegradation, passed, reason, totalLoaded);
     }
 
+    private static void AccumulateJudgeTokens(RunMetrics metrics, TokenUsage tokens)
+    {
+        metrics.JudgeInputTokens += tokens.InputTokens;
+        metrics.JudgeOutputTokens += tokens.OutputTokens;
+        metrics.JudgeCacheReadTokens += tokens.CacheReadTokens;
+        metrics.JudgeCacheWriteTokens += tokens.CacheWriteTokens;
+    }
+
     private static RunResult AverageResults(List<RunResult> runs)
     {
         if (runs.Count == 1) return runs[0];
@@ -978,6 +999,14 @@ public static class EvaluateCommand
         var avgMetrics = new RunMetrics
         {
             TokenEstimate = AvgRound(runs.Select(r => r.Metrics.TokenEstimate)),
+            InputTokens = AvgRound(runs.Select(r => r.Metrics.InputTokens)),
+            OutputTokens = AvgRound(runs.Select(r => r.Metrics.OutputTokens)),
+            CacheReadTokens = AvgRound(runs.Select(r => r.Metrics.CacheReadTokens)),
+            CacheWriteTokens = AvgRound(runs.Select(r => r.Metrics.CacheWriteTokens)),
+            JudgeInputTokens = AvgRound(runs.Select(r => r.Metrics.JudgeInputTokens)),
+            JudgeOutputTokens = AvgRound(runs.Select(r => r.Metrics.JudgeOutputTokens)),
+            JudgeCacheReadTokens = AvgRound(runs.Select(r => r.Metrics.JudgeCacheReadTokens)),
+            JudgeCacheWriteTokens = AvgRound(runs.Select(r => r.Metrics.JudgeCacheWriteTokens)),
             ToolCallCount = AvgRound(runs.Select(r => r.Metrics.ToolCallCount)),
             ToolCallBreakdown = runs[0].Metrics.ToolCallBreakdown,
             TurnCount = AvgRound(runs.Select(r => r.Metrics.TurnCount)),

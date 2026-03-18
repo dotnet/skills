@@ -485,6 +485,8 @@ public static class AgentRunner
                     case AssistantUsageEvent usage:
                         agentEvent.Data["inputTokens"] = JsonValue.Create(usage.Data.InputTokens);
                         agentEvent.Data["outputTokens"] = JsonValue.Create(usage.Data.OutputTokens);
+                        agentEvent.Data["cacheReadTokens"] = JsonValue.Create(usage.Data.CacheReadTokens);
+                        agentEvent.Data["cacheWriteTokens"] = JsonValue.Create(usage.Data.CacheWriteTokens);
                         agentEvent.Data["model"] = JsonValue.Create(usage.Data.Model);
                         break;
                     case UserMessageEvent userMsg:

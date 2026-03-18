@@ -15,7 +15,7 @@ public sealed record JudgeOptions(
 
 public static class Judge
 {
-    public static Task<JudgeResult> JudgeRun(
+    public static Task<(JudgeResult Result, TokenUsage Tokens)> JudgeRun(
         EvalScenario scenario,
         RunMetrics metrics,
         JudgeOptions options,
@@ -26,7 +26,7 @@ public static class Judge
             $"Judge for \"{scenario.Name}\"");
     }
 
-    private static async Task<JudgeResult> JudgeRunOnce(
+    private static async Task<(JudgeResult Result, TokenUsage Tokens)> JudgeRunOnce(
         EvalScenario scenario,
         RunMetrics metrics,
         IReadOnlyList<string> rubric,
@@ -72,6 +72,7 @@ public static class Judge
 
         var done = new TaskCompletionSource<string>();
         string responseContent = "";
+        int inputTokens = 0, outputTokens = 0, cacheReadTokens = 0, cacheWriteTokens = 0;
 
         session.On(evt =>
         {
@@ -79,6 +80,12 @@ public static class Judge
             {
                 case AssistantMessageEvent msg:
                     responseContent = msg.Data.Content ?? "";
+                    break;
+                case AssistantUsageEvent usage:
+                    inputTokens += (int)(usage.Data.InputTokens ?? 0);
+                    outputTokens += (int)(usage.Data.OutputTokens ?? 0);
+                    cacheReadTokens += (int)(usage.Data.CacheReadTokens ?? 0);
+                    cacheWriteTokens += (int)(usage.Data.CacheWriteTokens ?? 0);
                     break;
                 case SessionIdleEvent:
                     done.TrySetResult(responseContent);
@@ -93,8 +100,9 @@ public static class Judge
 
         var content = await done.Task.WaitAsync(perAttemptCts.Token);
 
+        var tokens = new TokenUsage(inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens);
         if (!string.IsNullOrEmpty(content))
-            return ParseJudgeResponse(content, rubric);
+            return (ParseJudgeResponse(content, rubric), tokens);
 
         throw new InvalidOperationException("Judge returned no content");
     }

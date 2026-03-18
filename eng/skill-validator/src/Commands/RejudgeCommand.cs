@@ -179,19 +179,36 @@ public static class RejudgeCommand
                                 Judge.JudgeRun(scenario, pluginMetrics, judgeOpts with { WorkDir = CreateJudgeWorkDir(judgeWorkRoot, "plugin") }, log),
                                 "plugin",
                                 log)
-                            : null;
+                            : ((JudgeResult Result, TokenUsage Tokens)?)null;
 
-                        sessionDb.SaveJudgeResult(baselineSess.Id, JsonSerializer.Serialize(baselineJudge, SkillValidatorJsonContext.Default.JudgeResult));
-                        sessionDb.SaveJudgeResult(isolatedSess.Id, JsonSerializer.Serialize(isolatedJudge, SkillValidatorJsonContext.Default.JudgeResult));
-                        if (pluginSess is not null && pluginJudge is not null)
+                        // Accumulate judge tokens into metrics
+                        baselineMetrics.JudgeInputTokens += baselineJudge.Tokens.InputTokens;
+                        baselineMetrics.JudgeOutputTokens += baselineJudge.Tokens.OutputTokens;
+                        baselineMetrics.JudgeCacheReadTokens += baselineJudge.Tokens.CacheReadTokens;
+                        baselineMetrics.JudgeCacheWriteTokens += baselineJudge.Tokens.CacheWriteTokens;
+                        isolatedMetrics.JudgeInputTokens += isolatedJudge.Tokens.InputTokens;
+                        isolatedMetrics.JudgeOutputTokens += isolatedJudge.Tokens.OutputTokens;
+                        isolatedMetrics.JudgeCacheReadTokens += isolatedJudge.Tokens.CacheReadTokens;
+                        isolatedMetrics.JudgeCacheWriteTokens += isolatedJudge.Tokens.CacheWriteTokens;
+                        if (pluginMetrics is not null && pluginJudge is not null)
                         {
-                            sessionDb.SaveJudgeResult(pluginSess.Id, JsonSerializer.Serialize(pluginJudge, SkillValidatorJsonContext.Default.JudgeResult));
+                            pluginMetrics.JudgeInputTokens += pluginJudge.Value.Tokens.InputTokens;
+                            pluginMetrics.JudgeOutputTokens += pluginJudge.Value.Tokens.OutputTokens;
+                            pluginMetrics.JudgeCacheReadTokens += pluginJudge.Value.Tokens.CacheReadTokens;
+                            pluginMetrics.JudgeCacheWriteTokens += pluginJudge.Value.Tokens.CacheWriteTokens;
                         }
 
-                        var baselineResult = new RunResult(baselineMetrics, baselineJudge);
-                        var isolatedResult = new RunResult(isolatedMetrics, isolatedJudge);
+                        sessionDb.SaveJudgeResult(baselineSess.Id, JsonSerializer.Serialize(baselineJudge.Result, SkillValidatorJsonContext.Default.JudgeResult));
+                        sessionDb.SaveJudgeResult(isolatedSess.Id, JsonSerializer.Serialize(isolatedJudge.Result, SkillValidatorJsonContext.Default.JudgeResult));
+                        if (pluginSess is not null && pluginJudge is not null)
+                        {
+                            sessionDb.SaveJudgeResult(pluginSess.Id, JsonSerializer.Serialize(pluginJudge.Value.Result, SkillValidatorJsonContext.Default.JudgeResult));
+                        }
+
+                        var baselineResult = new RunResult(baselineMetrics, baselineJudge.Result);
+                        var isolatedResult = new RunResult(isolatedMetrics, isolatedJudge.Result);
                         var pluginResult = pluginMetrics is not null && pluginJudge is not null
-                            ? new RunResult(pluginMetrics, pluginJudge)
+                            ? new RunResult(pluginMetrics, pluginJudge.Value.Result)
                             : null;
 
                         PairwiseJudgeResult? pairwise = null;
@@ -204,7 +221,7 @@ public static class RejudgeCommand
                                     ? pluginResult
                                     : isolatedResult;
                                 pairwiseFromPlugin = ReferenceEquals(pairwiseTarget, pluginResult);
-                                pairwise = await PairwiseJudge.Judge(
+                                var (pairwiseResult, _) = await PairwiseJudge.Judge(
                                     scenario,
                                     baselineMetrics,
                                     pairwiseTarget.Metrics,
@@ -216,6 +233,7 @@ public static class RejudgeCommand
                                         firstSkillSession.SkillPath,
                                         CreateJudgeWorkDir(judgeWorkRoot, "pairwise-skilled")),
                                     log);
+                                pairwise = pairwiseResult;
                                 sessionDb.SavePairwiseResult(baselineSess.Id, JsonSerializer.Serialize(pairwise, SkillValidatorJsonContext.Default.PairwiseJudgeResult));
                             }
                             catch (Exception error)
@@ -406,7 +424,7 @@ public static class RejudgeCommand
         }
     }
 
-    private static async Task<JudgeResult> SafeJudge(Task<JudgeResult> task, string label, Action<string>? log)
+    private static async Task<(JudgeResult Result, TokenUsage Tokens)> SafeJudge(Task<(JudgeResult Result, TokenUsage Tokens)> task, string label, Action<string>? log)
     {
         try
         {
@@ -415,7 +433,7 @@ public static class RejudgeCommand
         catch (Exception error)
         {
             log?.Invoke($"⚠️  Judge ({label}) failed, using fallback scores: {error.Message}");
-            return new JudgeResult([], 3, $"Judge failed: {error.Message}");
+            return (new JudgeResult([], 3, $"Judge failed: {error.Message}"), TokenUsage.Zero);
         }
     }
 
@@ -430,6 +448,14 @@ public static class RejudgeCommand
         var avgMetrics = new RunMetrics
         {
             TokenEstimate = AvgRound(runs.Select(r => r.Metrics.TokenEstimate)),
+            InputTokens = AvgRound(runs.Select(r => r.Metrics.InputTokens)),
+            OutputTokens = AvgRound(runs.Select(r => r.Metrics.OutputTokens)),
+            CacheReadTokens = AvgRound(runs.Select(r => r.Metrics.CacheReadTokens)),
+            CacheWriteTokens = AvgRound(runs.Select(r => r.Metrics.CacheWriteTokens)),
+            JudgeInputTokens = AvgRound(runs.Select(r => r.Metrics.JudgeInputTokens)),
+            JudgeOutputTokens = AvgRound(runs.Select(r => r.Metrics.JudgeOutputTokens)),
+            JudgeCacheReadTokens = AvgRound(runs.Select(r => r.Metrics.JudgeCacheReadTokens)),
+            JudgeCacheWriteTokens = AvgRound(runs.Select(r => r.Metrics.JudgeCacheWriteTokens)),
             ToolCallCount = AvgRound(runs.Select(r => r.Metrics.ToolCallCount)),
             ToolCallBreakdown = runs[0].Metrics.ToolCallBreakdown,
             TurnCount = AvgRound(runs.Select(r => r.Metrics.TurnCount)),

@@ -20,7 +20,7 @@ public static class PairwiseJudge
     /// Run a pairwise comparison with position-swap bias mitigation.
     /// Calls the judge twice (A-then-B and B-then-A) and checks consistency.
     /// </summary>
-    public static async Task<PairwiseJudgeResult> Judge(
+    public static async Task<(PairwiseJudgeResult Result, TokenUsage Tokens)> Judge(
         EvalScenario scenario,
         RunMetrics baselineMetrics,
         RunMetrics withSkillMetrics,
@@ -30,13 +30,14 @@ public static class PairwiseJudge
         var results = await Task.WhenAll(
             JudgeOnce(scenario, baselineMetrics, withSkillMetrics, options, "forward", log),
             JudgeOnce(scenario, withSkillMetrics, baselineMetrics, options, "reverse", log));
-        var forwardResult = results[0];
-        var reverseResult = results[1];
+        var (forwardResult, forwardTokens) = results[0];
+        var (reverseResult, reverseTokens) = results[1];
+        var totalTokens = forwardTokens + reverseTokens;
 
         bool consistent = forwardResult.OverallWinner == reverseResult.OverallWinner;
 
         if (consistent)
-            return forwardResult with { PositionSwapConsistent = true };
+            return (forwardResult with { PositionSwapConsistent = true }, totalTokens);
 
         if (options.Verbose)
         {
@@ -45,10 +46,10 @@ public static class PairwiseJudge
                 $"(forward: {forwardResult.OverallWinner}, reverse: {reverseResult.OverallWinner})");
         }
 
-        return MergeInconsistentResults(forwardResult, reverseResult);
+        return (MergeInconsistentResults(forwardResult, reverseResult), totalTokens);
     }
 
-    private static Task<PairwiseJudgeResult> JudgeOnce(
+    private static Task<(PairwiseJudgeResult Result, TokenUsage Tokens)> JudgeOnce(
         EvalScenario scenario,
         RunMetrics metricsA,
         RunMetrics metricsB,
@@ -61,7 +62,7 @@ public static class PairwiseJudge
             $"Pairwise judge ({direction}) for \"{scenario.Name}\"");
     }
 
-    private static async Task<PairwiseJudgeResult> JudgeCall(
+    private static async Task<(PairwiseJudgeResult Result, TokenUsage Tokens)> JudgeCall(
         EvalScenario scenario,
         RunMetrics metricsA,
         RunMetrics metricsB,
@@ -107,6 +108,7 @@ public static class PairwiseJudge
 
         var done = new TaskCompletionSource<string>();
         string responseContent = "";
+        int inputTokens = 0, outputTokens = 0, cacheReadTokens = 0, cacheWriteTokens = 0;
 
         session.On(evt =>
         {
@@ -114,6 +116,12 @@ public static class PairwiseJudge
             {
                 case AssistantMessageEvent msg:
                     responseContent = msg.Data.Content ?? "";
+                    break;
+                case AssistantUsageEvent usage:
+                    inputTokens += (int)(usage.Data.InputTokens ?? 0);
+                    outputTokens += (int)(usage.Data.OutputTokens ?? 0);
+                    cacheReadTokens += (int)(usage.Data.CacheReadTokens ?? 0);
+                    cacheWriteTokens += (int)(usage.Data.CacheWriteTokens ?? 0);
                     break;
                 case SessionIdleEvent:
                     done.TrySetResult(responseContent);
@@ -127,8 +135,9 @@ public static class PairwiseJudge
         await session.SendAsync(new MessageOptions { Prompt = userPrompt });
         var content = await done.Task.WaitAsync(perAttemptCts.Token);
 
+        var tokens = new TokenUsage(inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens);
         if (!string.IsNullOrEmpty(content))
-            return ParsePairwiseResponse(content, rubric, direction);
+            return (ParsePairwiseResponse(content, rubric, direction), tokens);
 
         throw new InvalidOperationException($"Pairwise judge returned no content ({direction})");
     }

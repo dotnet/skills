@@ -144,11 +144,31 @@ public sealed record JudgeResult(
     double OverallScore,
     string OverallReasoning);
 
+/// <summary>Lightweight token counter returned by judge helpers.</summary>
+public sealed record TokenUsage(int InputTokens, int OutputTokens, int CacheReadTokens, int CacheWriteTokens)
+{
+    public static TokenUsage Zero { get; } = new(0, 0, 0, 0);
+
+    public static TokenUsage operator +(TokenUsage a, TokenUsage b) =>
+        new(a.InputTokens + b.InputTokens,
+            a.OutputTokens + b.OutputTokens,
+            a.CacheReadTokens + b.CacheReadTokens,
+            a.CacheWriteTokens + b.CacheWriteTokens);
+}
+
 // --- Run metrics ---
 
 public sealed class RunMetrics
 {
     public int TokenEstimate { get; set; }
+    public int InputTokens { get; set; }
+    public int OutputTokens { get; set; }
+    public int CacheReadTokens { get; set; }
+    public int CacheWriteTokens { get; set; }
+    public int JudgeInputTokens { get; set; }
+    public int JudgeOutputTokens { get; set; }
+    public int JudgeCacheReadTokens { get; set; }
+    public int JudgeCacheWriteTokens { get; set; }
     public int ToolCallCount { get; set; }
     public Dictionary<string, int> ToolCallBreakdown { get; set; } = new();
     public int TurnCount { get; set; }
