@@ -67,6 +67,63 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public async Task IsolatedStagingDoesNotExposeOriginalOrSiblingSkills()
+    {
+        // Create a skills root with a target skill and a sibling skill
+        var tmpBase = Path.Combine(Path.GetTempPath(), $"sv-iso-test-{Guid.NewGuid():N}");
+        var skillsRoot = Path.Combine(tmpBase, "skills");
+        var targetSkillDir = Path.Combine(skillsRoot, "my-skill");
+        var siblingSkillDir = Path.Combine(skillsRoot, "sibling-skill");
+
+        Directory.CreateDirectory(targetSkillDir);
+        Directory.CreateDirectory(siblingSkillDir);
+
+        File.WriteAllText(Path.Combine(targetSkillDir, "SKILL.md"), "# My Skill");
+        File.WriteAllText(Path.Combine(siblingSkillDir, "SKILL.md"), "# Sibling Skill");
+
+        try
+        {
+            var skill = new SkillInfo(
+                "my-skill",
+                "A skill",
+                targetSkillDir,
+                Path.Combine(targetSkillDir, "SKILL.md"),
+                "# My Skill (transformed)");
+
+            var config = AgentRunner.BuildSessionConfig(skill, null, "gpt-4.1", "C:\\tmp\\work");
+
+            // Only a staged isolation directory should be exposed.
+            Assert.NotNull(config.SkillDirectories);
+            Assert.Single(config.SkillDirectories!);
+
+            var stageDir = config.SkillDirectories![0];
+            Assert.StartsWith(Path.GetTempPath(), stageDir);
+
+            var stagedTargetDir = Path.Combine(stageDir, "my-skill");
+            var stagedSiblingDir = Path.Combine(stageDir, "sibling-skill");
+
+            // The target skill should be available in the staged directory.
+            Assert.True(Directory.Exists(stagedTargetDir));
+
+            // The sibling skill from the original skills root must not be exposed in isolation.
+            Assert.False(Directory.Exists(stagedSiblingDir));
+
+            // Permission check should deny access to the original skill directory
+            var originalSkillFilePath = Path.Combine(targetSkillDir, "SKILL.md");
+            var escaped = originalSkillFilePath.Replace("\\", "\\\\");
+            var req = System.Text.Json.JsonSerializer.Deserialize<GitHub.Copilot.SDK.PermissionRequest>(
+                $"{{\"kind\":\"read\",\"path\":\"{escaped}\"}}")!;
+            var denied = AgentRunner.CheckPermission(req, "C:\\tmp\\work", null, log: null);
+            Assert.False(denied);
+        }
+        finally
+        {
+            try { Directory.Delete(tmpBase, true); } catch { }
+            try { await AgentRunner.CleanupWorkDirs(); } catch { }
+        }
+    }
+
+    [Fact]
     public async Task AdditionalSkillsStageCopiesReferencesDir()
     {
         // Create a noise skill with references

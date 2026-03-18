@@ -349,6 +349,18 @@ public static class AgentRunner
             skillDirs = [];
         }
 
+        // Precompute the additional allowed directories once so we don't
+        // allocate on every permission request (the set is fixed per session).
+        var additionalAllowedDirs = skillDirs
+            .Concat(noiseDirs)
+            .Where(d => !string.IsNullOrEmpty(d))
+            .ToList();
+
+        // In isolated runs the agent should only access the staged copies, not
+        // the original skill tree (which includes sibling skills).  Pass null
+        // for skillPath so the original location is NOT in the allowlist.
+        var effectiveSkillPath = pluginRoot is not null ? skillPath : null;
+
         return new SessionConfig
         {
             Model = model,
@@ -361,14 +373,7 @@ public static class AgentRunner
             OnPermissionRequest = (request, _) =>
             {
                 var runLabel = skill is not null ? "skilled" : "baseline";
-                // Allow access to the staged skill directories so the agent can
-                // read references, scripts, and other companion files that were
-                // copied alongside SKILL.md.
-                var additionalAllowed = skillDirs
-                    .Concat(noiseDirs)
-                    .Where(d => !string.IsNullOrEmpty(d))
-                    .ToList();
-                var result = CheckPermission(request, workDir, skillPath, verbose ? log : null, runLabel, pluginRoot, additionalAllowed);
+                var result = CheckPermission(request, workDir, effectiveSkillPath, verbose ? log : null, runLabel, pluginRoot, additionalAllowedDirs);
                 return Task.FromResult(new PermissionRequestResult
                 {
                     Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,
@@ -847,12 +852,50 @@ public static class AgentRunner
         return args;
     }
 
+    /// <summary>
+    /// Recursively copies a directory tree, skipping symlinks and reparse
+    /// points so that staging cannot pull in content from outside the
+    /// source root.
+    /// </summary>
     private static void CopyDirectory(string source, string destination)
     {
+        var sourceRoot = Path.GetFullPath(source);
+        if (!Path.EndsInDirectorySeparator(sourceRoot))
+            sourceRoot += Path.DirectorySeparatorChar;
+        CopyDirectoryCore(source, destination, sourceRoot);
+    }
+
+    private static void CopyDirectoryCore(string source, string destination, string sourceRoot)
+    {
         Directory.CreateDirectory(destination);
-        foreach (var file in Directory.GetFiles(source))
-            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), true);
-        foreach (var dir in Directory.GetDirectories(source))
-            CopyDirectory(dir, Path.Combine(destination, Path.GetFileName(dir)));
+
+        foreach (var entry in Directory.EnumerateFileSystemEntries(source))
+        {
+            var attributes = File.GetAttributes(entry);
+
+            // Skip symlinks / reparse points to avoid copying data outside the skill tree.
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+                continue;
+
+            var name = Path.GetFileName(entry);
+            var destPath = Path.Combine(destination, name);
+
+            if ((attributes & FileAttributes.Directory) != 0)
+            {
+                var entryFull = Path.GetFullPath(entry);
+                if (!Path.EndsInDirectorySeparator(entryFull))
+                    entryFull += Path.DirectorySeparatorChar;
+
+                // Guard against junctions that resolve outside the source root.
+                if (!entryFull.StartsWith(sourceRoot, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                CopyDirectoryCore(entryFull.TrimEnd(Path.DirectorySeparatorChar), destPath, sourceRoot);
+            }
+            else
+            {
+                File.Copy(entry, destPath, overwrite: true);
+            }
+        }
     }
 }
