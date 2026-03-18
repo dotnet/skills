@@ -19,7 +19,6 @@ This repository contains the .NET team's curated set of core skills and custom a
 | [dotnet-template-engine](plugins/dotnet-template-engine/) | .NET Template Engine skills: template discovery, project scaffolding, and template authoring. |
 | [dotnet-test](plugins/dotnet-test/) | Skills for running, diagnosing, and migrating .NET tests: test execution, filtering, platform detection, and MSTest workflows. |
 
-
 ## Installation
 
 ### 🚀 Plugins - Copilot CLI / Claude Code

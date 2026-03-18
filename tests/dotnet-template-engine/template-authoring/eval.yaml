@@ -18,8 +18,13 @@ scenarios:
               }
             }
     assertions:
+      - type: "exit_success"
       - type: "output_contains"
         value: "identity"
+      - type: "output_contains"
+        value: "shortName"
+      - type: "output_contains"
+        value: "datatype"
     rubric:
       - "The agent reviewed the template.json for authoring issues"
       - "The agent identified the missing identity field"
