@@ -6,7 +6,7 @@ Verify the CPM conversion is version-neutral by comparing resolved package versi
 
 Use `dotnet package list` to snapshot resolved versions. Always build from a clean state first to ensure accurate resolution.
 
-### Baseline (before conversion, step 2)
+### Baseline (before conversion)
 
 ```bash
 dotnet clean
@@ -14,7 +14,7 @@ dotnet build -bl:baseline.binlog
 dotnet package list --format json > baseline-packages.json
 ```
 
-### Post-conversion (after all changes, step 8)
+### Post-conversion (after all changes)
 
 ```bash
 dotnet clean
