@@ -12,7 +12,6 @@ public static class EvaluateCommand
     public static Command Create()
     {
         var pathsArg = new Argument<string[]>("paths") { Description = "Paths to skill directories or parent directories", Arity = ArgumentArity.OneOrMore };
-        var testsDirOpt = new Option<string>("--tests-dir") { Description = "Directory containing test subdirectories", Required = true };
         var minImprovementOpt = new Option<double>("--min-improvement") { Description = "Minimum improvement score to pass (0-1)", DefaultValueFactory = _ => 0.1 };
         var requireCompletionOpt = new Option<bool>("--require-completion") { Description = "Fail if skill regresses task completion", DefaultValueFactory = _ => true };
         var verdictWarnOnlyOpt = new Option<bool>("--verdict-warn-only") { Description = "Treat verdict failures as warnings (exit 0). Execution errors still fail." };
@@ -28,6 +27,7 @@ public static class EvaluateCommand
         var judgeTimeoutOpt = new Option<int>("--judge-timeout") { Description = "Judge timeout in seconds", DefaultValueFactory = _ => 300 };
         var confidenceLevelOpt = new Option<double>("--confidence-level") { Description = "Confidence level for statistical intervals (0-1)", DefaultValueFactory = _ => 0.95 };
         var resultsDirOpt = new Option<string>("--results-dir") { Description = "Directory to save results to", DefaultValueFactory = _ => ".skill-validator-results" };
+        var testsDirOpt = new Option<string>("--tests-dir") { Description = "Directory containing test subdirectories", Required = true };
         var reporterOpt = new Option<string[]>("--reporter") { Description = "Reporter (console, json, junit, markdown). Can be repeated.", AllowMultipleArgumentsPerToken = true };
         var noOverfittingCheckOpt = new Option<bool>("--no-overfitting-check") { Description = "Disable LLM-based overfitting analysis (on by default)" };
         var overfittingFixOpt = new Option<bool>("--overfitting-fix") { Description = "Generate a fixed eval.yaml with improved rubric items/assertions" };
@@ -39,7 +39,6 @@ public static class EvaluateCommand
         var command = new Command("evaluate", "Evaluate agent skills via LLM-based testing")
         {
             pathsArg,
-            testsDirOpt,
             minImprovementOpt,
             requireCompletionOpt,
             verdictWarnOnlyOpt,
@@ -54,6 +53,7 @@ public static class EvaluateCommand
             judgeTimeoutOpt,
             confidenceLevelOpt,
             resultsDirOpt,
+            testsDirOpt,
             reporterOpt,
             noOverfittingCheckOpt,
             overfittingFixOpt,
