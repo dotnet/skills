@@ -367,66 +367,74 @@ $efficiencyEntry = @{
 $qualityKey = "Quality"
 $efficiencyKey = "Efficiency"
 
-# Load existing data or create new structure
-$benchmarkData = @{
-    lastUpdate = $now
-    repoUrl    = ""
-    entries    = @{
-        $qualityKey    = @()
-        $efficiencyKey = @()
-    }
-}
-
-if ($ExistingDataFile -and (Test-Path $ExistingDataFile)) {
-    $existingContent = Get-Content $ExistingDataFile -Raw
-    try {
-        $benchmarkData = $existingContent | ConvertFrom-Json -AsHashtable
-        $benchmarkData['lastUpdate'] = $now
-    } catch {
-        Write-Warning "Failed to parse existing data file, starting fresh: $_"
-    }
-}
-
-# Append new entries
-if (-not $benchmarkData['entries']) {
-    $benchmarkData['entries'] = @{}
-}
-if (-not $benchmarkData['entries'][$qualityKey]) {
-    $benchmarkData['entries'][$qualityKey] = @()
-}
-if (-not $benchmarkData['entries'][$efficiencyKey]) {
-    $benchmarkData['entries'][$efficiencyKey] = @()
-}
-
-$benchmarkData['entries'][$qualityKey] += @($qualityEntry)
-$benchmarkData['entries'][$efficiencyKey] += @($efficiencyEntry)
-
-# Purge entries older than the retention window
-if ($RetentionDays -gt 0) {
-    $cutoffMs = $now - ([long]$RetentionDays * 24 * 60 * 60 * 1000)
-
-    foreach ($key in @($qualityKey, $efficiencyKey)) {
-        $before = $benchmarkData['entries'][$key].Count
-        $benchmarkData['entries'][$key] = @($benchmarkData['entries'][$key] | Where-Object {
-            $_.date -ge $cutoffMs
-        })
-        $purged = $before - $benchmarkData['entries'][$key].Count
-        if ($purged -gt 0) {
-            Write-Host "   Purged $purged $key entries older than $RetentionDays days"
+# PR evaluations only collect token-usage data — skip benchmark history so PR
+# runs don't contaminate the nightly benchmark results in <PluginName>.json.
+if ($Source -ne 'pr') {
+    # Load existing data or create new structure
+    $benchmarkData = @{
+        lastUpdate = $now
+        repoUrl    = ""
+        entries    = @{
+            $qualityKey    = @()
+            $efficiencyKey = @()
         }
     }
+
+    if ($ExistingDataFile -and (Test-Path $ExistingDataFile)) {
+        $existingContent = Get-Content $ExistingDataFile -Raw
+        try {
+            $benchmarkData = $existingContent | ConvertFrom-Json -AsHashtable
+            $benchmarkData['lastUpdate'] = $now
+        } catch {
+            Write-Warning "Failed to parse existing data file, starting fresh: $_"
+        }
+    }
+
+    # Append new entries
+    if (-not $benchmarkData['entries']) {
+        $benchmarkData['entries'] = @{}
+    }
+    if (-not $benchmarkData['entries'][$qualityKey]) {
+        $benchmarkData['entries'][$qualityKey] = @()
+    }
+    if (-not $benchmarkData['entries'][$efficiencyKey]) {
+        $benchmarkData['entries'][$efficiencyKey] = @()
+    }
+
+    $benchmarkData['entries'][$qualityKey] += @($qualityEntry)
+    $benchmarkData['entries'][$efficiencyKey] += @($efficiencyEntry)
+
+    # Purge entries older than the retention window
+    if ($RetentionDays -gt 0) {
+        $cutoffMs = $now - ([long]$RetentionDays * 24 * 60 * 60 * 1000)
+
+        foreach ($key in @($qualityKey, $efficiencyKey)) {
+            $before = $benchmarkData['entries'][$key].Count
+            $benchmarkData['entries'][$key] = @($benchmarkData['entries'][$key] | Where-Object {
+                $_.date -ge $cutoffMs
+            })
+            $purged = $before - $benchmarkData['entries'][$key].Count
+            if ($purged -gt 0) {
+                Write-Host "   Purged $purged $key entries older than $RetentionDays days"
+            }
+        }
+    }
+
+    # Write <PluginName>.json
+    New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+    $dataJson = $benchmarkData | ConvertTo-Json -Depth 10
+    $dataJsonFile = Join-Path $OutputDir "$PluginName.json"
+    $dataJson | Out-File -FilePath $dataJsonFile -Encoding utf8
+
+    Write-Host "[OK] Benchmark $PluginName.json generated: $dataJsonFile"
+    Write-Host "   Quality entries: $($qualityBenches.Count)"
+    Write-Host "   Efficiency entries: $($efficiencyBenches.Count)"
+    Write-Host "   Total data points: $($benchmarkData['entries'][$qualityKey].Count)"
+} else {
+    # Ensure OutputDir exists even in PR mode (needed for token-usage.json)
+    New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+    Write-Host "[OK] PR mode — skipping benchmark $PluginName.json generation, collecting token usage only"
 }
-
-# Write <PluginName>.json
-New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
-$dataJson = $benchmarkData | ConvertTo-Json -Depth 10
-$dataJsonFile = Join-Path $OutputDir "$PluginName.json"
-$dataJson | Out-File -FilePath $dataJsonFile -Encoding utf8
-
-Write-Host "[OK] Benchmark $PluginName.json generated: $dataJsonFile"
-Write-Host "   Quality entries: $($qualityBenches.Count)"
-Write-Host "   Efficiency entries: $($efficiencyBenches.Count)"
-Write-Host "   Total data points: $($benchmarkData['entries'][$qualityKey].Count)"
 
 # --- Generate token-usage entries ---
 $tokenUsageEntries = [System.Collections.Generic.List[object]]::new()
@@ -447,12 +455,20 @@ foreach ($verdict in $results.verdicts) {
             $m = $run.metrics
             if ($null -eq $m) { continue }
 
-            # Use granular fields when available, fall back to tokenEstimate
-            $tokensIn = if ($null -ne $m.inputTokens -and $m.inputTokens -gt 0) { [int]$m.inputTokens } else { [int]$m.tokenEstimate }
-            $tokensOut = if ($null -ne $m.outputTokens) { [int]$m.outputTokens } else { 0 }
+            # Use granular fields when available; fall back to tokenEstimate
+            # as a *total* (input+output) since that's how skill-validator computes it.
             $cacheRead = if ($null -ne $m.cacheReadTokens) { [int]$m.cacheReadTokens } else { 0 }
             $cacheWrite = if ($null -ne $m.cacheWriteTokens) { [int]$m.cacheWriteTokens } else { 0 }
-            $totalTokens = $tokensIn + $tokensOut
+            if ($null -ne $m.inputTokens -and $m.inputTokens -gt 0) {
+                $tokensIn = [int]$m.inputTokens
+                $tokensOut = if ($null -ne $m.outputTokens) { [int]$m.outputTokens } else { 0 }
+                $totalTokens = $tokensIn + $tokensOut
+            } else {
+                # tokenEstimate = input + output; use it as total, derive in/out
+                $tokensOut = if ($null -ne $m.outputTokens) { [int]$m.outputTokens } else { 0 }
+                $totalTokens = [int]$m.tokenEstimate
+                $tokensIn = [Math]::Max(0, $totalTokens - $tokensOut)
+            }
 
             # Judge token fields (0 for older results without judge tracking)
             $judgeIn = if ($null -ne $m.judgeInputTokens) { [int]$m.judgeInputTokens } else { 0 }

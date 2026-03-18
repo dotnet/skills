@@ -64,9 +64,10 @@
     const pluginSet = new Set();
 
     entries.forEach(e => {
-      totals.tokens += e.totalTokens;
-      totals.tokensIn += e.tokensIn;
-      totals.tokensOut += e.tokensOut;
+      const total = e.totalTokens || 0;
+      totals.tokens += total;
+      totals.tokensIn += (e.tokensIn || 0);
+      totals.tokensOut += (e.tokensOut || 0);
       totals.cacheRead += (e.cacheReadTokens || 0);
       totals.cacheWrite += (e.cacheWriteTokens || 0);
       totals.judgeIn += (e.judgeTokensIn || 0);
@@ -74,10 +75,13 @@
       totals.judgeTotal += (e.judgeTotalTokens || 0);
       totals.judgeCacheRead += (e.judgeCacheRead || 0);
       totals.judgeCacheWrite += (e.judgeCacheWrite || 0);
-      bySource[e.source].tokens += e.totalTokens;
-      bySource[e.source].runs += 1;
-      daySet.add(dayKey(e.date));
-      pluginSet.add(e.plugin);
+      const src = (e.source === 'scheduled' || e.source === 'pr') ? e.source : null;
+      if (src) {
+        bySource[src].tokens += total;
+        bySource[src].runs += 1;
+      }
+      if (e.date) daySet.add(dayKey(e.date));
+      if (e.plugin) pluginSet.add(e.plugin);
     });
 
     const days = [...daySet].sort();
@@ -170,10 +174,11 @@
     days.forEach(d => { schedByDay[d] = 0; prByDay[d] = 0; inByDay[d] = 0; outByDay[d] = 0; crByDay[d] = 0; cwByDay[d] = 0; judgeByDay[d] = 0; });
     entries.forEach(e => {
       const d = dayKey(e.date);
-      if (e.source === 'scheduled') schedByDay[d] += e.totalTokens;
-      else prByDay[d] += e.totalTokens;
-      inByDay[d] += e.tokensIn;
-      outByDay[d] += e.tokensOut;
+      const total = e.totalTokens || 0;
+      if (e.source === 'pr') prByDay[d] += total;
+      else schedByDay[d] += total; // default bucket for missing/unknown source
+      inByDay[d] += (e.tokensIn || 0);
+      outByDay[d] += (e.tokensOut || 0);
       crByDay[d] += (e.cacheReadTokens || 0);
       cwByDay[d] += (e.cacheWriteTokens || 0);
       judgeByDay[d] += (e.judgeTotalTokens || 0);
@@ -244,8 +249,9 @@
       days.forEach(d => { schedByDay[d] = 0; prByDay[d] = 0; });
       pe.forEach(e => {
         const d = dayKey(e.date);
-        if (e.source === 'scheduled') schedByDay[d] += e.totalTokens;
-        else prByDay[d] += e.totalTokens;
+        const total = e.totalTokens || 0;
+        if (e.source === 'pr') prByDay[d] += total;
+        else schedByDay[d] += total;
       });
 
       const div = document.createElement('div');
@@ -314,10 +320,11 @@
     };
 
     entries.forEach(e => {
-      const s = e.source;
-      srcTotals[s].ti += e.tokensIn;
-      srcTotals[s].to += e.tokensOut;
-      srcTotals[s].tt += e.totalTokens;
+      const s = (e.source === 'pr') ? 'pr' : 'scheduled'; // default bucket for missing/unknown
+      const ti = e.tokensIn || 0, to = e.tokensOut || 0, tt = e.totalTokens || 0;
+      srcTotals[s].ti += ti;
+      srcTotals[s].to += to;
+      srcTotals[s].tt += tt;
       srcTotals[s].cr += (e.cacheReadTokens || 0);
       srcTotals[s].cw += (e.cacheWriteTokens || 0);
       srcTotals[s].jt += (e.judgeTotalTokens || 0);
@@ -326,9 +333,9 @@
       if (!tree[s][e.plugin]) tree[s][e.plugin] = {};
       const sk = tree[s][e.plugin];
       if (!sk[e.skill]) sk[e.skill] = { ti: 0, to: 0, tt: 0, cr: 0, cw: 0, jt: 0, runs: 0 };
-      sk[e.skill].ti += e.tokensIn;
-      sk[e.skill].to += e.tokensOut;
-      sk[e.skill].tt += e.totalTokens;
+      sk[e.skill].ti += ti;
+      sk[e.skill].to += to;
+      sk[e.skill].tt += tt;
       sk[e.skill].cr += (e.cacheReadTokens || 0);
       sk[e.skill].cw += (e.cacheWriteTokens || 0);
       sk[e.skill].jt += (e.judgeTotalTokens || 0);
@@ -442,5 +449,12 @@
         collapseChildren(wrap, c.dataset.toggle);
       }
     });
+  }
+
+  // Auto-init when the token usage tab is already active (e.g., no-plugins case
+  // where dashboard.js runs before this script and can't call initTokenUsage yet)
+  const tokenPanel = document.getElementById('panel-__token-usage__');
+  if (tokenPanel && tokenPanel.classList.contains('active')) {
+    window.initTokenUsage();
   }
 })();

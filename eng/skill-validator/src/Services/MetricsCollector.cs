@@ -109,7 +109,10 @@ public static class MetricsCollector
                     if (input > 0 || output > 0 || cacheRead > 0 || cacheWrite > 0)
                     {
                         hasRealTokenCounts = true;
-                        tokenEstimate += input + output;
+                        // When a provider reports cache activity without populating
+                        // inputTokens, fall back to cacheRead so the estimate isn't
+                        // zeroed-out.
+                        tokenEstimate += (input > 0 ? input : cacheRead) + output;
                         inputTokens += input;
                         outputTokens += output;
                         cacheReadTokens += cacheRead;

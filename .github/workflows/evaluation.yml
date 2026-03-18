@@ -38,7 +38,7 @@ on:
 
   # Daily scheduled evaluation
   schedule:
-    - cron: '0 8 * * *'  # Once daily at 08:00 UTC
+    - cron: '0 0 * * *'  # Once daily at midnight UTC
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'issue_comment' && (startsWith(github.event.comment.body, '/evaluate') && format('eval-{0}', github.event.issue.number) || format('eval-noop-{0}-{1}', github.event.issue.number, github.event.comment.id)) || (github.event_name == 'pull_request' && format('eval-status-{0}', github.event.pull_request.number) || (github.event_name == 'pull_request_target' && format('eval-fork-status-{0}', github.event.pull_request.number) || github.run_id)) }}

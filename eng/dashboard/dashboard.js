@@ -72,8 +72,8 @@
     }
   }
 
-  // If no plugins, auto-init the token usage tab
-  if (noPlugins && window.initTokenUsage) window.initTokenUsage();
+  // Token usage auto-init is handled by token-usage.js itself (it checks
+  // whether the tab is already active after it loads).
 
   async function loadPlugin(plugin) {
     const panel = document.getElementById(`panel-${plugin}`);
