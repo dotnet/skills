@@ -1,29 +1,26 @@
 ---
 name: maui-current-apis
 description: >-
-  Prevents deprecated/removed API usage in .NET MAUI 8/9/10, MauiReactor, and
-  Blazor Hybrid. USE FOR: generating or reviewing MAUI code, fixing deprecation
-  warnings. DO NOT USE FOR: layout patterns (use maui-coding-guardrails),
-  environment setup (use dotnet-maui-doctor).
+  Tracks deprecated/removed APIs in .NET MAUI 8/9/10, MauiReactor, Blazor
+  Hybrid. USE FOR: generating/reviewing MAUI code, fixing deprecation warnings.
+  NOT FOR: layout patterns (maui-coding-guardrails) or setup (dotnet-maui-doctor).
 ---
 
 # .NET MAUI Current APIs
 
-Prevents generating code with deprecated, obsolete, or removed APIs.
+Prevents generating code with deprecated or removed APIs.
 
-**Before generating MAUI code:** Check `.csproj` for `<TargetFramework>` and
-`<PackageReference>` versions. API availability varies by .NET version (8/9/10)
-and library versions. Don't suggest .NET 10 APIs for `net8.0` projects.
+**Before generating:** Read `.csproj` TFM and package versions. API availability varies by .NET version; don't suggest .NET 10 APIs for `net8.0`.
 
 ## Key Rules
 
-1. **Read `.csproj` first.** Don't assume the target version.
-2. **Prefer newer APIs.** If two ways exist, the newer one is correct.
-3. **`Xamarin.*` namespaces don't exist in MAUI** — won't compile.
-4. **Avoid `Compatibility.*` in new projects** — maps to Xamarin.Forms layout logic with subtle measurement differences. Migration aid only.
-5. **`Device` class is fully deprecated** — split into focused services (see table).
-6. **Use `*Async` names in .NET 10+** — animation/dialog methods renamed.
-7. **Check third-party package versions** — CommunityToolkit/MauiReactor break between majors.
+1. **Read `.csproj` first**; don't assume target version.
+2. **Prefer newer APIs** available for the detected version.
+3. **`Xamarin.*` don't exist in MAUI** — won't compile.
+4. **Avoid `Compatibility.*`** — Xamarin.Forms layout logic, migration aid only.
+5. **`Device` class deprecated** — split into services (see table).
+6. **Use `*Async` in .NET 10+** — animation/dialog methods renamed.
+7. **Check package versions** — CommunityToolkit/MauiReactor break between majors.
 
 ---
 
@@ -33,7 +30,7 @@ and library versions. Don't suggest .NET 10 APIs for `net8.0` projects.
 
 | ❌ Deprecated | ✅ Replacement | Why |
 |---------------|----------------|-----|
-| `ListView` | `CollectionView` | Deprecated with all cell types in .NET 10 |
+| `ListView` | `CollectionView` | Deprecated in .NET 10 with all cell types |
 | `TableView` | `CollectionView` or custom layout | Deprecated in .NET 10 |
 | `Frame` | `Border` | Legacy; Border supports StrokeShape |
 | `Compatibility.RelativeLayout` | `Grid` | Migration-only |
@@ -50,10 +47,10 @@ and library versions. Don't suggest .NET 10 APIs for `net8.0` projects.
 
 | ❌ Deprecated | ✅ Replacement | Why |
 |---------------|----------------|-----|
-| `Page.IsBusy` | `ActivityIndicator` | Obsolete in .NET 10 |
+| `Page.IsBusy` | `ActivityIndicator` | Obsolete .NET 10 |
 | `DisplayAlert()` | `DisplayAlertAsync()` | Async rename |
 | `DisplayActionSheet()` | `DisplayActionSheetAsync()` | Same |
-| `MessagingCenter` | `WeakReferenceMessenger` (CommunityToolkit.Mvvm) | Internal in .NET 10; leaked subscriptions |
+| `MessagingCenter` | `WeakReferenceMessenger` (CommunityToolkit.Mvvm) | Internal .NET 10; leaked subscriptions |
 
 ### Animation (*Async renames in .NET 10)
 
@@ -93,15 +90,15 @@ and library versions. Don't suggest .NET 10 APIs for `net8.0` projects.
 
 ## MauiReactor v3+ (.NET MAUI 9/10)
 
-- **Hot reload**: Feature switch in `.csproj`, not v2's `EnableMauiReactorHotReload()`.
+- **Hot reload**: feature switch in `.csproj`, not v2 `EnableMauiReactorHotReload()`.
 - **State**: `State<T>`/`Props<T>`, not `RxComponent`.
-- **Navigation**: Built-in MauiReactor nav, don't mix Shell `GoToAsync`.
+- **Navigation**: use MauiReactor nav; avoid mixing Shell `GoToAsync`.
 
 ## Blazor Hybrid
 
-- Use `BlazorWebView`, not `WebView`.
-- JS interop: `IJSRuntime.InvokeAsync<T>()` — sync patterns deadlock on mobile.
-- Safe areas: CSS `env(safe-area-inset-*)` — don't combine with XAML SafeAreaEdges.
+- Prefer `BlazorWebView`, not `WebView`.
+- JS interop: `IJSRuntime.InvokeAsync<T>()` — sync deadlocks on mobile.
+- Safe areas: CSS `env(safe-area-inset-*)`; don't combine with XAML `SafeAreaEdges`.
 
 ## Version Detection
 

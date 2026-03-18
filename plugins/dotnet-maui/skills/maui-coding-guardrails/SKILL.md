@@ -1,22 +1,19 @@
 ---
 name: maui-coding-guardrails
 description: >-
-  Prevents common .NET MAUI mistakes: broken layouts, obsolete controls, renderer
-  usage. USE FOR: any MAUI code generation or review. DO NOT USE FOR: API
-  deprecation checks (use maui-current-apis), environment setup (use
-  dotnet-maui-doctor).
+  Guardrails for .NET MAUI layouts, controls, and handlers. USE FOR: any MAUI
+  code generation/review. NOT FOR: API deprecations (maui-current-apis) or
+  environment setup (dotnet-maui-doctor).
 ---
 
 # .NET MAUI Coding Guardrails
 
-Always-active guardrail for every MAUI code generation or editing task.
-For deprecated API replacements, see `maui-current-apis`.
+Apply to all MAUI code generation and editing. For API replacements, use `maui-current-apis`.
 
 ## Layout Rules
 
-**Don't put ScrollView or CollectionView inside StackLayout.**
-StackLayout measures children with infinite height, so ScrollView never scrolls
-and CollectionView loses virtualization. Use Grid instead.
+**Don't put ScrollView/CollectionView inside StackLayout.**
+StackLayout gives children infinite height — ScrollView won't scroll, CollectionView loses virtualization. Use Grid.
 
 ```xml
 <!-- ❌ StackLayout gives infinite height -->
@@ -32,21 +29,17 @@ and CollectionView loses virtualization. Use Grid instead.
 </Grid>
 ```
 
-**Use `VerticalStackLayout`/`HorizontalStackLayout` over `StackLayout`.**
-They skip the legacy Orientation check on every measure pass — faster.
+**Prefer `VerticalStackLayout`/`HorizontalStackLayout` over `StackLayout`** — avoids legacy Orientation check each measure pass.
 
-**Don't use `AndExpand` layout options.** They're no-ops in MAUI — silently do
-nothing. Use Grid with row/column definitions for expansion.
+**Don't use `AndExpand` options.** No-ops in MAUI; use Grid row/column sizing.
 
-**Flatten nested layouts.** Each nesting level adds a measure/arrange pass.
-Prefer flat Grid layouts over nested stack trees.
+**Flatten nested layouts.** Each nesting level adds measure/arrange cost; prefer flat Grids.
 
 ## Control Rules
 
 ### ⚠️ DO NOT USE `Frame` — Use `Border` Instead
 
-`Frame` is a Xamarin.Forms holdover. `Border` replaces it with `StrokeShape`
-for rounded corners and custom strokes. Only keep `Frame` for `HasShadow`.
+`Frame` is Xamarin.Forms legacy. `Border` supports `StrokeShape`, custom strokes. Keep `Frame` only for `HasShadow`.
 
 ```xml
 <Border StrokeShape="RoundRectangle 10" Stroke="Gray" StrokeThickness="1" Padding="12">
@@ -54,29 +47,21 @@ for rounded corners and custom strokes. Only keep `Frame` for `HasShadow`.
 </Border>
 ```
 
-**Use `CollectionView` over `ListView`.** ListView and all cell types (TextCell,
-ViewCell, etc.) are deprecated in .NET 10. For ≤20 static items, use
-`BindableLayout` instead.
+**Use `CollectionView` over `ListView`.** ListView and all cell types deprecated in .NET 10. For ≤20 items, use `BindableLayout`.
 
-**Use `Background` over `BackgroundColor`.** `Background` accepts both Color and
-Brush (gradients, images) — strictly more capable.
+**Use `Background` over `BackgroundColor`.** Accepts Color and Brush (gradients, images).
 
-**Reference images as `.png`, not `.svg`.** SVGs convert to PNG at build time;
-`.svg` doesn't exist at runtime.
+**Reference images as `.png`, not `.svg`.** SVGs compile to PNG; `.svg` fails at runtime.
 
 ## Navigation Rules
 
-**Don't mix Shell with NavigationPage/TabbedPage/FlyoutPage.** Shell has its own
-navigation stack; wrapping in NavigationPage creates two competing stacks causing
-corruption and double headers. Pick one paradigm at startup.
+**Don't mix Shell with NavigationPage/TabbedPage/FlyoutPage.** Shell has its own stack; wrapping in NavigationPage creates competing stacks, corruption, double headers. Pick one paradigm.
 
-**Set `App.MainPage` once.** Use Shell routing or NavigationPage.PushAsync after
-that. Changing MainPage mid-lifecycle leaks pages and handlers.
+**Set `App.MainPage` once.** Use Shell routing or `NavigationPage.PushAsync` after. Changing MainPage leaks pages/handlers.
 
 ## Handler Architecture
 
-Use **handlers** and Mapper methods, not renderers. Renderers are a Xamarin.Forms
-concept that doesn't exist in MAUI.
+Use **handlers** and Mapper methods, not renderers. Renderers are Xamarin.Forms-only.
 
 ```csharp
 EntryHandler.Mapper.AppendToMapping("NoBorder", (handler, view) =>
@@ -89,13 +74,11 @@ EntryHandler.Mapper.AppendToMapping("NoBorder", (handler, view) =>
 });
 ```
 
-`AppendToMapping` runs after defaults, `PrependToMapping` before, `ModifyMapping`
-wraps a specific property.
+`AppendToMapping` runs after defaults, `PrependToMapping` before, `ModifyMapping` wraps one property.
 
 ## Compiled Bindings
 
-Declare `x:DataType` on pages and DataTemplates — without it, bindings use
-runtime reflection (8–20× slower) and typos fail silently at runtime.
+Declare `x:DataType` on pages and DataTemplates — without it, bindings use slow reflection (8–20×) and typos fail silently.
 
 ```xml
 <ContentPage x:DataType="viewmodels:MainViewModel">
@@ -113,10 +96,6 @@ runtime reflection (8–20× slower) and typos fail silently at runtime.
 
 | Pitfall | Fix |
 |---------|-----|
-| Gesture on parent and child — parent intercepts | `InputTransparent="True"` on overlay, or restructure ownership |
-| Unsubscribed event handlers — pages leak | Unsubscribe in `OnDisappearing` or use `WeakReferenceMessenger` |
-| Testing only on emulators | Validate on physical devices — emulators hide perf/gesture issues |
-
-## Additional Reference
-
-See `references/control-reference.md` for full control quick-reference.
+| Gesture on parent+child — parent intercepts | `InputTransparent="True"` on overlay or restructure ownership |
+| Unsubscribed events — pages leak | Unsubscribe in `OnDisappearing` or use `WeakReferenceMessenger` |
+| Only testing on emulators | Test on physical devices — emulators hide perf/gesture issues |
