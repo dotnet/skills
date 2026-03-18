@@ -359,7 +359,21 @@ public static class AgentRunner
         // In isolated runs the agent should only access the staged copies, not
         // the original skill tree (which includes sibling skills).  Pass null
         // for skillPath so the original location is NOT in the allowlist.
-        var effectiveSkillPath = pluginRoot is not null ? skillPath : null;
+        // In plugin mode, validate that skillPath is under pluginRoot before
+        // allowlisting it; otherwise fall back to pluginRoot coverage alone.
+        string? effectiveSkillPath = null;
+        if (pluginRoot is not null && skillPath is not null)
+        {
+            var normalizedSkill = Path.GetFullPath(skillPath);
+            var normalizedPlugin = Path.GetFullPath(pluginRoot);
+            if (!Path.EndsInDirectorySeparator(normalizedPlugin))
+                normalizedPlugin += Path.DirectorySeparatorChar;
+            var cmp = OperatingSystem.IsWindows()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+            if (normalizedSkill.StartsWith(normalizedPlugin, cmp))
+                effectiveSkillPath = skillPath;
+        }
 
         return new SessionConfig
         {
@@ -887,7 +901,10 @@ public static class AgentRunner
                     entryFull += Path.DirectorySeparatorChar;
 
                 // Guard against junctions that resolve outside the source root.
-                if (!entryFull.StartsWith(sourceRoot, StringComparison.OrdinalIgnoreCase))
+                var pathComparison = OperatingSystem.IsWindows()
+                    ? StringComparison.OrdinalIgnoreCase
+                    : StringComparison.Ordinal;
+                if (!entryFull.StartsWith(sourceRoot, pathComparison))
                     continue;
 
                 CopyDirectoryCore(entryFull.TrimEnd(Path.DirectorySeparatorChar), destPath, sourceRoot);
