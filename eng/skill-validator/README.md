@@ -43,12 +43,45 @@ dnx Microsoft.DotNet.SkillValidator --source ./path/to/downloaded/ evaluate --te
 
 ## Usage
 
-The tool has two main subcommands:
+The tool has several subcommands:
 
-- **`check`** — Static analysis of skills, plugins, and agents (no LLM, no token required)
 - **`evaluate`** — LLM-based evaluation testing (requires a Copilot token)
+- **`check`** — Static analysis of skills, plugins, and agents (no LLM, no token required)
+- **`consolidate`** — Merge results from matrix jobs into a single summary
+- **`rejudge`** — Re-run judging on previously saved sessions
 
 All examples below use the `skill-validator` binary directly. If running from source, replace `skill-validator` with `dotnet run --project eng/skill-validator/src --`:
+
+### LLM evaluation (`evaluate`)
+
+```bash
+# Show evaluate help
+skill-validator evaluate --help
+
+# Evaluate a skill (--tests-dir is required)
+skill-validator evaluate --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills/my-skill
+
+# Verbose output with per-scenario breakdowns
+skill-validator evaluate --verbose --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
+
+# Custom model and threshold
+skill-validator evaluate --model claude-sonnet-4.5 --min-improvement 0.2 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
+
+# Use a different model for judging vs agent runs
+skill-validator evaluate --model gpt-5.3-codex --judge-model claude-opus-4.6-fast --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
+
+# Multiple runs for stability
+skill-validator evaluate --runs 5 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
+
+# Override the default results directory (.skill-validator-results)
+skill-validator evaluate --results-dir ./my-results --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
+
+# File reporters can also be specified explicitly.
+skill-validator evaluate --reporter junit --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
+
+# Verdict-warn-only mode (verdict failures return exit 0, execution errors still fail)
+skill-validator evaluate --verdict-warn-only --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
+```
 
 ### Static analysis (`check`)
 
@@ -75,37 +108,6 @@ skill-validator check --plugin ./plugins/my-plugin --allowed-external-deps ./eng
 skill-validator check --verbose --plugin ./plugins/my-plugin
 ```
 
-### LLM evaluation (`evaluate`)
-
-```bash
-# Show evaluate help
-skill-validator --help
-
-# Evaluate a skill (--tests-dir is required)
-skill-validator --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills/my-skill
-
-# Verbose output with per-scenario breakdowns
-skill-validator --verbose --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
-
-# Custom model and threshold
-skill-validator --model claude-sonnet-4.5 --min-improvement 0.2 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
-
-# Use a different model for judging vs agent runs
-skill-validator --model gpt-5.3-codex --judge-model claude-opus-4.6-fast --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
-
-# Multiple runs for stability
-skill-validator --runs 5 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
-
-# Override the default results directory (.skill-validator-results)
-skill-validator --results-dir ./my-results --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
-
-# File reporters can also be specified explicitly.
-skill-validator --reporter junit --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
-
-# Verdict-warn-only mode (verdict failures return exit 0, execution errors still fail)
-skill-validator --verdict-warn-only --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
-```
-
 ## `check` flags
 
 | Flag | Default | Description |
@@ -129,9 +131,9 @@ skill-validator --verdict-warn-only --tests-dir ./tests/my-plugin ./plugins/my-p
 | `--judge-mode <mode>` | `pairwise` | Judge mode: `pairwise`, `independent`, or `both` |
 | `--min-improvement <n>` | `0.1` | Minimum improvement score (0–1) |
 | `--runs <n>` | `5` | Runs per scenario (averaged for stability) |
-| `--parallel-skills <n>` | `1` | Max concurrent skills to evaluate |
-| `--parallel-scenarios <n>` | `1` | Max concurrent scenarios per skill |
-| `--parallel-runs <n>` | `1` | Max concurrent runs per scenario |
+| `--parallel-skills <n>` | `3` | Max concurrent skills to evaluate |
+| `--parallel-scenarios <n>` | `3` | Max concurrent scenarios per skill |
+| `--parallel-runs <n>` | `3` | Max concurrent runs per scenario |
 | `--confidence-level <n>` | `0.95` | Confidence level for statistical intervals (0–1) |
 | `--judge-timeout <n>` | `300` | Judge LLM timeout in seconds |
 | `--require-completion` | `true` | Fail if skill regresses task completion |

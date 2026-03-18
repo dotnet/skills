@@ -266,19 +266,19 @@ Prerequisites: .NET 10 SDK or later and `gh auth login`.
 
 ```bash
 # Run tests for a single plugin
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
 
 # Run tests for a single skill (pass the skill directory directly)
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills/common-build-errors
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills/common-build-errors
 
 # Fewer runs for faster iteration (default is 5)
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --runs 3 --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --runs 3 --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
 
 # Use a specific model
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --model claude-opus-4.6 --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --model claude-opus-4.6 --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
 
 # Run with verbose logging
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills --verbose
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --verbose --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
 ```
 
 > [!WARNING]  

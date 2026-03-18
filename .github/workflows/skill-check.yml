@@ -24,11 +24,13 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Build skill-validator
+        run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
+
       - name: Run skill-validator check
         run: |
           plugin_args=$(for d in plugins/*/; do echo "--plugin $d"; done)
-          dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- \
-            check \
+          artifacts/publish/SkillValidator/release/skill-validator check \
             $plugin_args \
             --allowed-external-deps eng/skill-validator/allowed-external-deps.txt
 
