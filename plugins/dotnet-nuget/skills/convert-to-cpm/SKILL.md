@@ -52,7 +52,7 @@ If the scope is unclear, ask the user.
 
 ### Step 2: Establish baseline build
 
-Before making any changes, verify the scope builds successfully and capture a baseline binlog and package list. Run `dotnet clean`, then `dotnet build -bl:baseline.binlog`, then `dotnet package list --format json > baseline-packages.json`. See [baseline-comparison.md](references/baseline-comparison.md) for the full procedure and fallback options. If the baseline build fails, stop and inform the user — the scope must build cleanly before conversion. Do not delete `baseline.binlog` or `baseline-packages.json` — they are needed for the post-conversion comparison and report.
+Before making any changes, verify the scope builds successfully and capture a baseline binlog and package list. Run `dotnet clean`, then `dotnet build -bl:baseline.binlog`, then `dotnet package list --format json > baseline-packages.json`. Read [baseline-comparison.md](references/baseline-comparison.md) for the full procedure and fallback options. If the baseline build fails, stop and inform the user — the scope must build cleanly before conversion. Do not delete `baseline.binlog` or `baseline-packages.json` — they are needed for the post-conversion comparison and report.
 
 ### Step 3: Check for existing CPM
 
@@ -62,17 +62,17 @@ Search for any existing `Directory.Packages.props` in scope or ancestor director
 
 Run `dotnet package list --format json` to get the resolved package references across all in-scope projects. Also scan `<Import>` elements to discover shared `.props`/`.targets` files containing package references.
 
-Check for complexities: version conflicts, MSBuild property-based versions, conditional references, security advisories, and existing `VersionOverride` usage. See [audit-complexities.md](references/audit-complexities.md) for the full checklist.
+Check for complexities: version conflicts, MSBuild property-based versions, conditional references, security advisories, and existing `VersionOverride` usage. Read [audit-complexities.md](references/audit-complexities.md) for the full checklist.
 
 Present audit results to the user before proceeding, including:
 - A table of each package, its version(s), and which projects use it
 - Any version conflicts, security advisories, or complexities requiring decisions
 
-When version conflicts exist, present each one individually with the affected projects, the distinct versions found, and the resolution options (align to highest, use `VersionOverride`, etc.) with their trade-offs. Do not upgrade any package beyond the highest version already in use across the scope — this avoids introducing version incompatibilities or breaking changes that are unrelated to the CPM conversion itself. Note any known security advisories or other upgrade opportunities as follow-up items for the user to address after the conversion is complete. Ask the user to decide on each conflict before proceeding. See [audit-complexities.md § Same package with different versions](references/audit-complexities.md) for the resolution workflow and presentation format.
+When version conflicts exist, present each one individually with the affected projects, the distinct versions found, and the resolution options (align to highest, use `VersionOverride`, etc.) with their trade-offs. Do not upgrade any package beyond the highest version already in use across the scope — this avoids introducing version incompatibilities or breaking changes that are unrelated to the CPM conversion itself. Note any known security advisories or other upgrade opportunities as follow-up items for the user to address after the conversion is complete. Ask the user to decide on each conflict before proceeding. Read [audit-complexities.md § Same package with different versions](references/audit-complexities.md) for the resolution workflow and presentation format.
 
 ### Step 5: Create or update Directory.Packages.props
 
-Create the file with `dotnet new packagesprops` (.NET 8+) or manually. Add a `<PackageVersion>` entry for each unique package sorted alphabetically. For conditional versions or `VersionOverride` patterns, see [directory-packages-props.md](references/directory-packages-props.md).
+Create the file with `dotnet new packagesprops` (.NET 8+) or manually. Add a `<PackageVersion>` entry for each unique package sorted alphabetically. For conditional versions or `VersionOverride` patterns, read [directory-packages-props.md](references/directory-packages-props.md).
 
 ### Step 6: Update project files
 
@@ -85,11 +85,11 @@ Remove the `Version` attribute from every `<PackageReference>` that now has a co
 
 ### Step 7: Handle MSBuild version properties
 
-For `PackageReference` items that used MSBuild properties for versions, determine whether to inline the resolved value or keep the property reference in `Directory.Packages.props`. After validation succeeds in step 8, remove inlined version properties from `Directory.Build.props` or other files, verifying they have no remaining references. See [msbuild-property-handling.md](references/msbuild-property-handling.md) for the decision workflow, import order requirements, and cleanup procedure.
+For `PackageReference` items that used MSBuild properties for versions, determine whether to inline the resolved value or keep the property reference in `Directory.Packages.props`. After validation succeeds in step 8, remove inlined version properties from `Directory.Build.props` or other files, verifying they have no remaining references. Read [msbuild-property-handling.md](references/msbuild-property-handling.md) for the decision workflow, import order requirements, and cleanup procedure.
 
 ### Step 8: Restore and validate
 
-Run a clean restore and build, capturing a post-conversion binlog and package list. Run `dotnet clean`, then `dotnet build -bl:after-cpm.binlog`, then `dotnet package list --format json > after-cpm-packages.json`. See [baseline-comparison.md](references/baseline-comparison.md) for the full procedure. If errors occur, see [validation-and-errors.md](references/validation-and-errors.md) for NuGet error codes and multi-TFM guidance.
+Run a clean restore and build, capturing a post-conversion binlog and package list. Run `dotnet clean`, then `dotnet build -bl:after-cpm.binlog`, then `dotnet package list --format json > after-cpm-packages.json`. Read [baseline-comparison.md](references/baseline-comparison.md) for the full procedure. If errors occur, read [validation-and-errors.md](references/validation-and-errors.md) for NuGet error codes and multi-TFM guidance.
 
 **Do not delete or clean up any artifacts** (`baseline.binlog`, `after-cpm.binlog`, `baseline-packages.json`, `after-cpm-packages.json`). These files must be preserved for the user to inspect after the conversion. They are deliverables, not temporary files.
 
