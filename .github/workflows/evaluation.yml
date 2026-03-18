@@ -88,8 +88,11 @@ jobs:
             Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
             Select-Object -First 1
 
+          # Skill-validator changes need evaluation. Workflow YAML changes don't
+          # require /evaluate because the issue_comment trigger always runs from
+          # main anyway — workflow changes are only effective after merge.
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^(\.github/workflows/evaluation(-run)?\.yml$|eng/skill-validator/)' } |
+            Where-Object { $_ -match '^eng/skill-validator/' } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -150,7 +153,7 @@ jobs:
             Select-Object -First 1
 
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^(\.github/workflows/evaluation(-run)?\.yml$|eng/skill-validator/)' } |
+            Where-Object { $_ -match '^eng/skill-validator/' } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
