@@ -48,6 +48,8 @@ Migrate .NET projects from per-project package versioning to NuGet Central Packa
 
 If the scope is unclear, ask the user.
 
+**Guard: Check for packages.config projects.** Before proceeding, check whether any project in scope uses `packages.config` instead of `PackageReference`. Look for `packages.config` files alongside project files, and check whether the project files use legacy non-SDK format (e.g., `<Project ToolsVersion="..." xmlns="...">` instead of `<Project Sdk="...">`). If any `packages.config` usage is detected, **stop and do not proceed with the conversion**. Inform the user that CPM requires SDK-style projects with `PackageReference` format and that they must first migrate from `packages.config` to `PackageReference` (e.g., using Visual Studio's built-in migration or the `dotnet migrate` tooling). This skill cannot perform that migration.
+
 ### Step 2: Establish baseline build
 
 Before making any changes, verify the scope builds successfully and capture a baseline binlog and package list. Run `dotnet clean`, then `dotnet build -bl:baseline.binlog`, then `dotnet package list --format json > baseline-packages.json`. See [baseline-comparison.md](references/baseline-comparison.md) for the full procedure and fallback options. If the baseline build fails, stop and inform the user — the scope must build cleanly before conversion. Do not delete `baseline.binlog` or `baseline-packages.json` — they are needed for the post-conversion comparison and report.
