@@ -131,7 +131,7 @@ jobs:
           global-json-file: global.json
 
       - name: Download built validator
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: skill-validator-dist.tar.gz
 
@@ -225,7 +225,7 @@ jobs:
     steps:
       - name: Download all result artifacts
         if: needs.evaluate.result != 'skipped'
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: skill-validator-results-*
           path: all-results/
@@ -234,7 +234,7 @@ jobs:
 
       - name: Download built validator
         if: needs.evaluate.result != 'skipped'
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: skill-validator-dist.tar.gz
         continue-on-error: ${{ needs.evaluate.result != 'success' }}
