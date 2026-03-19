@@ -155,7 +155,7 @@ Assertions are hard pass/fail checks. Use them for objective, binary-verifiable 
 
 ### Step 6: Write rubric items
 
-Rubric items are evaluated by an LLM judge using pairwise comparison (baseline vs. skill-enhanced). They carry the most weight in skill evaluation scoring (70% of quality metrics).
+Rubric items are evaluated by an LLM judge using pairwise comparison (baseline vs. skill-enhanced). Quality metrics (rubric-based at 40% weight plus overall judgment at 30%) together dominate the composite improvement score.
 
 #### The three rubric classifications (and how to stay in "outcome")
 
@@ -213,9 +213,9 @@ Many skills have clear boundaries — situations where the skill should recogniz
 
 When a scenario has `expect_activation: false`:
 
-1. **The evaluator runs the agent without the skill** (baseline only). If the skill is not activated for this prompt, the evaluator reports it as `ℹ️ not activated (expected)` instead of treating it as a failure.
-2. **The scenario is excluded from the noise test** — the multi-skill activation test only runs positive (`expect_activation: true`) scenarios.
-3. **Assertions and rubric still apply** to the baseline agent output, verifying the agent handles the situation correctly even without the skill.
+1. **All three runs still execute** (baseline, skilled-isolated, skilled-plugin) and assertions are evaluated on each. The flag does not change which runs are performed.
+2. **Activation verdict is inverted** — if the skill is not activated for this prompt, the evaluator reports it as `ℹ️ not activated (expected)` instead of treating it as a failure.
+3. **The scenario is excluded from the noise test** — the multi-skill activation test only runs positive (`expect_activation: true`) scenarios.
 
 #### When to use non-activation scenarios
 
