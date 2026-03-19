@@ -1,10 +1,16 @@
-namespace AnalyzerHeavy;
+using Microsoft.Extensions.Logging;
 
-/// <summary>
-/// A class with enough code to make analyzers do meaningful work.
-/// </summary>
-public class HeavyClass
+namespace Contoso.WebApi;
+
+public class DataService
 {
+    private readonly ILogger<DataService> _logger;
+
+    public DataService(ILogger<DataService> logger)
+    {
+        _logger = logger;
+    }
+
     private readonly Dictionary<string, List<int>> _data = new();
 
     public void AddValues(string key, params int[] values)
@@ -28,6 +34,7 @@ public class HeavyClass
 
     public string GenerateReport()
     {
+        _logger.LogInformation("Generating report for {Count} keys", _data.Count);
         var sb = new System.Text.StringBuilder();
         foreach (var (key, values) in _data)
         {
