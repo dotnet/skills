@@ -46,10 +46,11 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 
 ## Response Guidelines
 
-- **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking changes from Step 3. Do not walk through the entire migration workflow.
-- **"What to expect" questions** (user asks about breaking changes before upgrading): Present the relevant rows from the Step 3 quick-lookup table concisely. Mention behavioral changes from Step 4 briefly.
+- **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking changes from Step 3. Show concrete before/after code using the user's actual types and method names. Mention any related analyzer that could have caught this earlier (e.g., MSTEST0006 for ExpectedException). Do not walk through the entire migration workflow.
+- **"What to expect" questions** (user asks about breaking changes before upgrading): Present ALL major breaking changes from the Step 3 quick-lookup table — not just the ones visible in the current code. For each, provide a one-line fix summary. Also mention key behavioral changes from Step 4 (especially TestCase.Id history impact and TreatDiscoveryWarningsAsErrors default). If project code is available, highlight which changes apply directly.
 - **Full migration requests** (user wants complete migration): Follow the complete workflow below.
-- **Explanatory questions** (user asks "is this a known change?", "what else should I watch out for?"): Explain the relevant changes and advise — do not prescribe a full migration procedure.
+- **Behavioral/runtime symptom reports** (user describes test execution differences without build errors): Match described symptoms to the behavioral changes table in Step 4. Provide targeted, symptom-specific advice. Mention other behavioral changes the user should watch for. Do not walk through source breaking changes unless the user also has build errors.
+- **Explanatory questions** (user asks "is this a known change?", "what else should I watch out for?"): Explain the relevant changes and advise. Mention related changes the user might encounter next. Do not prescribe a full migration procedure.
 
 ## Workflow
 
@@ -272,6 +273,49 @@ public void TestMethod()
     Assert.ThrowsExactly<InvalidOperationException>(() => MyCall());
 }
 ```
+
+**When the test has setup code before the throwing call**, wrap only the throwing call in the lambda — keep Arrange/Act separation clear:
+
+```csharp
+// Before (v3)
+[ExpectedException(typeof(ArgumentNullException))]
+[TestMethod]
+public void Validate_NullInput_Throws()
+{
+    var service = new ValidationService();
+    service.Validate(null);  // throws here
+}
+
+// After (v4)
+[TestMethod]
+public void Validate_NullInput_Throws()
+{
+    var service = new ValidationService();
+    Assert.ThrowsExactly<ArgumentNullException>(() => service.Validate(null));
+}
+```
+
+**For async test methods**, use `Assert.ThrowsExactlyAsync`:
+
+```csharp
+// Before (v3)
+[ExpectedException(typeof(HttpRequestException))]
+[TestMethod]
+public async Task FetchData_BadUrl_Throws()
+{
+    await client.GetAsync("http://invalid");
+}
+
+// After (v4)
+[TestMethod]
+public async Task FetchData_BadUrl_Throws()
+{
+    await Assert.ThrowsExactlyAsync<HttpRequestException>(
+        () => client.GetAsync("http://invalid"));
+}
+```
+
+**If `[ExpectedException]` used the `AllowDerivedTypes` property**, use `Assert.ThrowsAsync<T>` (base type matching) instead of `Assert.ThrowsExactlyAsync<T>` (exact type matching).
 
 #### 3.9 Dropped target frameworks
 

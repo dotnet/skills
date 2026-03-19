@@ -4,7 +4,7 @@ description: >
   Migrate MSTest v1 or v2 test project to MSTest v3. Use when user says
   "upgrade MSTest", "upgrade to MSTest v3", "migrate to MSTest v3",
   "update test framework", "modernize tests", "MSTest v3 migration",
-  "MSTest compatibility", "MSTest v2 to v3", or has build errors after
+  "MSTest compatibility", "MSTest v2 to v3", or build errors after
   updating MSTest packages from 1.x/2.x to 3.x.
   USE FOR: upgrading from MSTest v1 assembly references
   (Microsoft.VisualStudio.QualityTools.UnitTestFramework) or MSTest v2 NuGet
