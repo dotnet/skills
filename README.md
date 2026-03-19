@@ -72,12 +72,6 @@ Install individual skills using `$skill-installer` with the GitHub URL:
 $skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<plugin>/skills/<skill-name>
 ```
 
-For example, to install the `check-bin-obj-clash` skill:
-
-```
-$skill-installer install https://github.com/dotnet/skills/tree/main/plugins/dotnet-msbuild/skills/check-bin-obj-clash
-```
-
 ### ⚡ Agentic Workflows
 
 Some plugins include [GitHub Agentic Workflow](https://github.com/github/gh-aw) templates for CI/CD automation:
