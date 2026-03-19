@@ -60,10 +60,16 @@ public static class PluginValidator
 
         // --- Agents path validation (optional, but warn if specified and missing) ---
         // agents can be an array of directory/file paths or a single string directory.
-        if (plugin.AgentPaths is { Count: > 0 })
+        if (plugin.AgentPaths is not null)
         {
             foreach (var agentPath in plugin.AgentPaths)
             {
+                if (string.IsNullOrWhiteSpace(agentPath))
+                {
+                    warnings.Add("Plugin agents entry is empty or whitespace and will be ignored.");
+                    continue;
+                }
+
                 if (!TryGetSafeSubdirectory(plugin.DirectoryPath, agentPath, out var resolved, out var agentPathError))
                 {
                     warnings.Add($"Plugin agent path is invalid: {agentPathError}");

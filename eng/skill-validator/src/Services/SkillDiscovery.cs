@@ -268,11 +268,14 @@ public static partial class SkillDiscovery
 
         // Prefer the array form (Claude Code schema).
         // Each entry may be a directory (discover all .agent.md in it) or a file.
-        if (plugin.AgentPaths is { Count: > 0 })
+        if (plugin.AgentPaths is not null)
         {
             var agents = new List<AgentInfo>();
             foreach (var relativePath in plugin.AgentPaths)
             {
+                if (string.IsNullOrWhiteSpace(relativePath))
+                    continue;
+
                 if (!PluginValidator.TryGetSafeSubdirectory(pluginRoot, relativePath, out var fullPath, out _))
                     continue;
                 if (Directory.Exists(fullPath!))
