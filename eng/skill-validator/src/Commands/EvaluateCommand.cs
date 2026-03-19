@@ -359,9 +359,6 @@ public static class EvaluateCommand
         var effectiveParallelScenarios = evalSkill.EvalConfig.MaxParallelScenarios.HasValue
             ? Math.Min(config.ParallelScenarios, evalSkill.EvalConfig.MaxParallelScenarios.Value)
             : config.ParallelScenarios;
-        var effectiveParallelRuns = evalSkill.EvalConfig.MaxParallelRuns.HasValue
-            ? Math.Min(config.ParallelRuns, evalSkill.EvalConfig.MaxParallelRuns.Value)
-            : config.ParallelRuns;
 
         using var scenarioLimit = new ConcurrencyLimiter(effectiveParallelScenarios);
 
