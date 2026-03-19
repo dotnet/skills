@@ -287,7 +287,7 @@ public static partial class SkillDiscovery
 
         // Prefer the array form (Claude Code schema).
         // Each entry may be a directory (discover all .agent.md in it) or a file.
-        if (plugin.AgentPaths is not null)
+        if (plugin.AgentPaths is { Count: > 0 })
         {
             var agents = new List<AgentInfo>();
             foreach (var relativePath in plugin.AgentPaths)
