@@ -253,7 +253,8 @@ public static partial class SkillDiscovery
 
     /// <summary>
     /// Discover agent files (.agent.md) within a plugin root directory.
-    /// Uses plugin.json to determine the agents path.
+    /// Uses plugin.json to determine the agents: prefers the array form,
+    /// falls back to the string path, then to the "agents" directory by convention.
     /// </summary>
     public static async Task<IReadOnlyList<AgentInfo>> DiscoverAgentsInPlugin(string pluginRoot)
     {
@@ -265,6 +266,22 @@ public static partial class SkillDiscovery
         if (plugin is null)
             return [];
 
+        // Prefer the array form (Claude Code schema).
+        if (plugin.AgentPaths is { Count: > 0 })
+        {
+            var agents = new List<AgentInfo>();
+            foreach (var relativePath in plugin.AgentPaths)
+            {
+                if (!PluginValidator.TryGetSafeSubdirectory(pluginRoot, relativePath, out var fullPath, out _))
+                    continue;
+                var agent = await DiscoverAgentAt(fullPath!);
+                if (agent is not null)
+                    agents.Add(agent);
+            }
+            return agents;
+        }
+
+        // Fall back to string path or "agents" directory convention.
         var agentsPath = !string.IsNullOrWhiteSpace(plugin.AgentsPath)
             ? plugin.AgentsPath
             : "agents";

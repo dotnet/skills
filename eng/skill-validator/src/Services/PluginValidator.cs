@@ -59,7 +59,21 @@ public static class PluginValidator
         }
 
         // --- Agents path validation (optional, but warn if specified and missing) ---
-        if (!string.IsNullOrWhiteSpace(plugin.AgentsPath))
+        if (plugin.AgentPaths is { Count: > 0 })
+        {
+            foreach (var agentPath in plugin.AgentPaths)
+            {
+                if (!TryGetSafeSubdirectory(plugin.DirectoryPath, agentPath, out var agentFile, out var agentPathError))
+                {
+                    warnings.Add($"Plugin agent path is invalid: {agentPathError}");
+                }
+                else if (!File.Exists(agentFile!))
+                {
+                    warnings.Add($"Plugin agent path '{agentPath}' does not exist at '{agentFile}'.");
+                }
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(plugin.AgentsPath))
         {
             if (!TryGetSafeSubdirectory(plugin.DirectoryPath, plugin.AgentsPath, out var agentsDir, out var agentsPathError))
             {
@@ -130,20 +144,28 @@ public static class PluginValidator
         var version = doc.TryGetProperty("version", out var v) ? v.GetString() : null;
         var description = doc.TryGetProperty("description", out var d) ? d.GetString() : null;
         var skills = doc.TryGetProperty("skills", out var s) ? s.GetString() : null;
-        // agents can be a string path (legacy) or an array of strings (Claude Code schema).
-        // Accept both; fall back to convention-based discovery when absent or unrecognized.
-        string? agents = null;
+        // agents can be an array of strings (Claude Code schema, preferred) or a
+        // string path (legacy). Read the array first, fall back to string.
+        string? agentsPath = null;
+        IReadOnlyList<string>? agentPaths = null;
         if (doc.TryGetProperty("agents", out var a))
         {
-            if (a.ValueKind == JsonValueKind.String)
-                agents = a.GetString();
-            // Array or other types are silently ignored; the validator and
-            // discovery code fall back to the "agents" directory by convention.
+            if (a.ValueKind == JsonValueKind.Array)
+            {
+                agentPaths = a.EnumerateArray()
+                    .Where(e => e.ValueKind == JsonValueKind.String)
+                    .Select(e => e.GetString()!)
+                    .ToList();
+            }
+            else if (a.ValueKind == JsonValueKind.String)
+            {
+                agentsPath = a.GetString();
+            }
         }
 
         var dirPath = Path.GetDirectoryName(Path.GetFullPath(pluginJsonPath))!;
         var dirName = Path.GetFileName(dirPath);
 
-        return new PluginInfo(name ?? "", version, description, skills, agents, dirPath, dirName);
+        return new PluginInfo(name ?? "", version, description, skills, agentsPath, dirPath, dirName, agentPaths);
     }
 }
