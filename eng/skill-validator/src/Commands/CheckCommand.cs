@@ -111,9 +111,8 @@ public static class CheckCommand
             allPlugins.Add(plugin);
 
             // Resolve skills path from plugin.json and discover skills per plugin
-            // Prefer the array form, fall back to string.
             var skillsDirs = new List<string>();
-            if (plugin?.SkillPaths is { Count: > 0 })
+            if (plugin is not null)
             {
                 foreach (var sp in plugin.SkillPaths)
                 {
@@ -121,12 +120,6 @@ public static class CheckCommand
                         && Directory.Exists(dir))
                         skillsDirs.Add(dir!);
                 }
-            }
-            else if (!string.IsNullOrWhiteSpace(plugin?.SkillsPath)
-                && PluginValidator.TryGetSafeSubdirectory(fullPath, plugin.SkillsPath, out var skillsDir, out _)
-                && Directory.Exists(skillsDir))
-            {
-                skillsDirs.Add(skillsDir!);
             }
 
             foreach (var dir in skillsDirs)

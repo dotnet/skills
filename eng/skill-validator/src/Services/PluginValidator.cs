@@ -45,8 +45,11 @@ public static class PluginValidator
         }
 
         // --- Skills path validation ---
-        // skills can be an array of directory paths or a single string directory.
-        if (plugin.SkillPaths is { Count: > 0 })
+        if (plugin.SkillPaths.Count == 0)
+        {
+            errors.Add("plugin.json has no 'skills' field — required.");
+        }
+        else
         {
             foreach (var skillPath in plugin.SkillPaths)
             {
@@ -60,50 +63,23 @@ public static class PluginValidator
                 }
             }
         }
-        else if (string.IsNullOrWhiteSpace(plugin.SkillsPath))
-        {
-            errors.Add("plugin.json has no 'skills' field — required.");
-        }
-        else if (!TryGetSafeSubdirectory(plugin.DirectoryPath, plugin.SkillsPath, out var skillsDir, out var skillsPathError))
-        {
-            errors.Add($"Plugin skills path is invalid: {skillsPathError}");
-        }
-        else if (!Directory.Exists(skillsDir!))
-        {
-            errors.Add($"Plugin skills path '{plugin.SkillsPath}' does not exist at '{skillsDir}'.");
-        }
 
         // --- Agents path validation (optional, but warn if specified and missing) ---
-        // agents can be an array of directory/file paths or a single string directory.
-        if (plugin.AgentPaths is { Count: > 0 })
+        foreach (var agentPath in plugin.AgentPaths)
         {
-            foreach (var agentPath in plugin.AgentPaths)
+            if (string.IsNullOrWhiteSpace(agentPath))
             {
-                if (string.IsNullOrWhiteSpace(agentPath))
-                {
-                    warnings.Add("Plugin agents entry is empty or whitespace and will be ignored.");
-                    continue;
-                }
+                warnings.Add("Plugin agents entry is empty or whitespace and will be ignored.");
+                continue;
+            }
 
-                if (!TryGetSafeSubdirectory(plugin.DirectoryPath, agentPath, out var resolved, out var agentPathError))
-                {
-                    warnings.Add($"Plugin agent path is invalid: {agentPathError}");
-                }
-                else if (!Directory.Exists(resolved!) && !File.Exists(resolved!))
-                {
-                    warnings.Add($"Plugin agent path '{agentPath}' does not exist at '{resolved}'.");
-                }
-            }
-        }
-        else if (!string.IsNullOrWhiteSpace(plugin.AgentsPath))
-        {
-            if (!TryGetSafeSubdirectory(plugin.DirectoryPath, plugin.AgentsPath, out var agentsDir, out var agentsPathError))
+            if (!TryGetSafeSubdirectory(plugin.DirectoryPath, agentPath, out var resolved, out var agentPathError))
             {
-                warnings.Add($"Plugin agents path is invalid: {agentsPathError}");
+                warnings.Add($"Plugin agent path is invalid: {agentPathError}");
             }
-            else if (!Directory.Exists(agentsDir!))
+            else if (!Directory.Exists(resolved!) && !File.Exists(resolved!))
             {
-                warnings.Add($"Plugin agents path '{plugin.AgentsPath}' does not exist at '{agentsDir}'.");
+                warnings.Add($"Plugin agent path '{agentPath}' does not exist at '{resolved}'.");
             }
         }
 
@@ -166,9 +142,8 @@ public static class PluginValidator
         var version = doc.TryGetProperty("version", out var v) ? v.GetString() : null;
         var description = doc.TryGetProperty("description", out var d) ? d.GetString() : null;
         // skills and agents can be an array of strings (Claude Code schema, preferred)
-        // or a string path (legacy). Read the array first, fall back to string.
-        string? skillsPath = null;
-        IReadOnlyList<string>? skillPaths = null;
+        // or a string path (legacy). Normalize both into the array form.
+        IReadOnlyList<string> skillPaths = [];
         if (doc.TryGetProperty("skills", out var s))
         {
             if (s.ValueKind == JsonValueKind.Array)
@@ -178,14 +153,13 @@ public static class PluginValidator
                     .Select(e => e.GetString()!)
                     .ToList();
             }
-            else if (s.ValueKind == JsonValueKind.String)
+            else if (s.ValueKind == JsonValueKind.String && s.GetString() is { } sv)
             {
-                skillsPath = s.GetString();
+                skillPaths = [sv];
             }
         }
 
-        string? agentsPath = null;
-        IReadOnlyList<string>? agentPaths = null;
+        IReadOnlyList<string> agentPaths = [];
         if (doc.TryGetProperty("agents", out var a))
         {
             if (a.ValueKind == JsonValueKind.Array)
@@ -195,15 +169,15 @@ public static class PluginValidator
                     .Select(e => e.GetString()!)
                     .ToList();
             }
-            else if (a.ValueKind == JsonValueKind.String)
+            else if (a.ValueKind == JsonValueKind.String && a.GetString() is { } av)
             {
-                agentsPath = a.GetString();
+                agentPaths = [av];
             }
         }
 
         var dirPath = Path.GetDirectoryName(Path.GetFullPath(pluginJsonPath))!;
         var dirName = Path.GetFileName(dirPath);
 
-        return new PluginInfo(name ?? "", version, description, skillsPath, agentsPath, dirPath, dirName, agentPaths, skillPaths);
+        return new PluginInfo(name ?? "", version, description, skillPaths, agentPaths, dirPath, dirName);
     }
 }

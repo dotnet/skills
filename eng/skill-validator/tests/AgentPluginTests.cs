@@ -180,7 +180,7 @@ public class PluginValidatorTests
             Directory.CreateDirectory(Path.Combine(pluginDir, "agents"));
             var dirName = Path.GetFileName(pluginDir);
 
-            var plugin = new PluginInfo(dirName, "1.0.0", "A test plugin.", "./skills/", "./agents/", pluginDir, dirName);
+            var plugin = new PluginInfo(dirName, "1.0.0", "A test plugin.", ["./skills/"], ["./agents/"], pluginDir, dirName);
             var result = PluginValidator.ValidatePlugin(plugin);
             Assert.Empty(result.Errors);
             Assert.Empty(result.Warnings);
@@ -194,7 +194,7 @@ public class PluginValidatorTests
     [Fact]
     public void MissingNameErrors()
     {
-        var plugin = new PluginInfo("", "1.0.0", "desc", "./skills/", null, "/tmp/test", "test");
+        var plugin = new PluginInfo("", "1.0.0", "desc", ["./skills/"], [], "/tmp/test", "test");
         var result = PluginValidator.ValidatePlugin(plugin);
         Assert.Contains(result.Errors, e => e.Contains("name"));
     }
@@ -202,7 +202,7 @@ public class PluginValidatorTests
     [Fact]
     public void NameNotMatchingDirectoryErrors()
     {
-        var plugin = new PluginInfo("wrong-name", "1.0.0", "desc", "./skills/", null, "/tmp/my-plugin", "my-plugin");
+        var plugin = new PluginInfo("wrong-name", "1.0.0", "desc", ["./skills/"], [], "/tmp/my-plugin", "my-plugin");
         var result = PluginValidator.ValidatePlugin(plugin);
         Assert.Contains(result.Errors, e => e.Contains("does not match directory"));
     }
@@ -210,7 +210,7 @@ public class PluginValidatorTests
     [Fact]
     public void MissingVersionErrors()
     {
-        var plugin = new PluginInfo("test", null, "desc", "./skills/", null, "/tmp/test", "test");
+        var plugin = new PluginInfo("test", null, "desc", ["./skills/"], [], "/tmp/test", "test");
         var result = PluginValidator.ValidatePlugin(plugin);
         Assert.Contains(result.Errors, e => e.Contains("version"));
     }
@@ -218,7 +218,7 @@ public class PluginValidatorTests
     [Fact]
     public void MissingDescriptionErrors()
     {
-        var plugin = new PluginInfo("test", "1.0.0", null, "./skills/", null, "/tmp/test", "test");
+        var plugin = new PluginInfo("test", "1.0.0", null, ["./skills/"], [], "/tmp/test", "test");
         var result = PluginValidator.ValidatePlugin(plugin);
         Assert.Contains(result.Errors, e => e.Contains("description"));
     }
@@ -227,7 +227,7 @@ public class PluginValidatorTests
     public void DescriptionOverLimitErrors()
     {
         var desc = new string('a', 1025);
-        var plugin = new PluginInfo("test", "1.0.0", desc, "./skills/", null, "/tmp/test", "test");
+        var plugin = new PluginInfo("test", "1.0.0", desc, ["./skills/"], [], "/tmp/test", "test");
         var result = PluginValidator.ValidatePlugin(plugin);
         Assert.Contains(result.Errors, e => e.Contains("maximum"));
     }
@@ -235,7 +235,7 @@ public class PluginValidatorTests
     [Fact]
     public void MissingSkillsPathErrors()
     {
-        var plugin = new PluginInfo("test", "1.0.0", "desc", null, null, "/tmp/test", "test");
+        var plugin = new PluginInfo("test", "1.0.0", "desc", [], [], "/tmp/test", "test");
         var result = PluginValidator.ValidatePlugin(plugin);
         Assert.Contains(result.Errors, e => e.Contains("skills"));
     }
@@ -243,7 +243,7 @@ public class PluginValidatorTests
     [Fact]
     public void NonexistentSkillsPathErrors()
     {
-        var plugin = new PluginInfo("test", "1.0.0", "desc", "./nonexistent/", null, "/tmp/test", "test");
+        var plugin = new PluginInfo("test", "1.0.0", "desc", ["./nonexistent/"], [], "/tmp/test", "test");
         var result = PluginValidator.ValidatePlugin(plugin);
         Assert.Contains(result.Errors, e => e.Contains("does not exist"));
     }
@@ -258,7 +258,7 @@ public class PluginValidatorTests
             Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
             var dirName = Path.GetFileName(pluginDir);
 
-            var plugin = new PluginInfo(dirName, "1.0.0", "desc", "./skills/", "./nonexistent/", pluginDir, dirName);
+            var plugin = new PluginInfo(dirName, "1.0.0", "desc", ["./skills/"], ["./nonexistent/"], pluginDir, dirName);
             var result = PluginValidator.ValidatePlugin(plugin);
             Assert.Empty(result.Errors);
             Assert.Contains(result.Warnings, w => w.Contains("does not exist"));
@@ -279,8 +279,7 @@ public class PluginValidatorTests
             Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
             var dirName = Path.GetFileName(pluginDir);
 
-            var plugin = new PluginInfo(dirName, "1.0.0", "desc", "./skills/", null, pluginDir, dirName,
-                AgentPaths: ["./agents/"]);
+            var plugin = new PluginInfo(dirName, "1.0.0", "desc", ["./skills/"], ["./agents/"], pluginDir, dirName);
             var result = PluginValidator.ValidatePlugin(plugin);
             Assert.Empty(result.Errors);
             Assert.Contains(result.Warnings, w => w.Contains("does not exist"));
@@ -303,8 +302,7 @@ public class PluginValidatorTests
             File.WriteAllText(Path.Combine(pluginDir, "agents", "test.agent.md"), "---\nname: test\ndescription: test\n---\n# Test\n");
             var dirName = Path.GetFileName(pluginDir);
 
-            var plugin = new PluginInfo(dirName, "1.0.0", "desc", "./skills/", null, pluginDir, dirName,
-                AgentPaths: ["./agents/"]);
+            var plugin = new PluginInfo(dirName, "1.0.0", "desc", ["./skills/"], ["./agents/"], pluginDir, dirName);
             var result = PluginValidator.ValidatePlugin(plugin);
             Assert.Empty(result.Errors);
             Assert.Empty(result.Warnings);
@@ -325,8 +323,7 @@ public class PluginValidatorTests
             Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
             var dirName = Path.GetFileName(pluginDir);
 
-            var plugin = new PluginInfo(dirName, "1.0.0", "desc", null, null, pluginDir, dirName,
-                SkillPaths: ["./skills/"]);
+            var plugin = new PluginInfo(dirName, "1.0.0", "desc", ["./skills/"], [], pluginDir, dirName);
             var result = PluginValidator.ValidatePlugin(plugin);
             Assert.Empty(result.Errors);
         }
@@ -345,8 +342,7 @@ public class PluginValidatorTests
             Directory.CreateDirectory(pluginDir);
             var dirName = Path.GetFileName(pluginDir);
 
-            var plugin = new PluginInfo(dirName, "1.0.0", "desc", null, null, pluginDir, dirName,
-                SkillPaths: ["./nonexistent/"]);
+            var plugin = new PluginInfo(dirName, "1.0.0", "desc", ["./nonexistent/"], [], pluginDir, dirName);
             var result = PluginValidator.ValidatePlugin(plugin);
             Assert.Contains(result.Errors, e => e.Contains("does not exist"));
         }
@@ -359,7 +355,7 @@ public class PluginValidatorTests
     [Fact]
     public void NameFormatErrors()
     {
-        var plugin = new PluginInfo("My_Plugin", "1.0.0", "desc", "./skills/", null, "/tmp/My_Plugin", "My_Plugin");
+        var plugin = new PluginInfo("My_Plugin", "1.0.0", "desc", ["./skills/"], [], "/tmp/My_Plugin", "My_Plugin");
         var result = PluginValidator.ValidatePlugin(plugin);
         Assert.Contains(result.Errors, e => e.Contains("invalid characters"));
     }
@@ -367,7 +363,7 @@ public class PluginValidatorTests
     [Fact]
     public void ErrorMessagesSayPluginNotSkill()
     {
-        var plugin = new PluginInfo("My_Plugin", "1.0.0", "desc", "./skills/", null, "/tmp/My_Plugin", "My_Plugin");
+        var plugin = new PluginInfo("My_Plugin", "1.0.0", "desc", ["./skills/"], [], "/tmp/My_Plugin", "My_Plugin");
         var result = PluginValidator.ValidatePlugin(plugin);
         Assert.Contains(result.Errors, e => e.StartsWith("Plugin name"));
         Assert.DoesNotContain(result.Errors, e => e.StartsWith("Skill name"));
@@ -395,12 +391,8 @@ public class PluginValidatorTests
             Assert.Equal("my-plugin", plugin.Name);
             Assert.Equal("0.1.0", plugin.Version);
             Assert.Equal("A plugin.", plugin.Description);
-            Assert.Null(plugin.SkillsPath);
-            Assert.NotNull(plugin.SkillPaths);
             Assert.Single(plugin.SkillPaths);
             Assert.Equal("./skills/", plugin.SkillPaths[0]);
-            Assert.Null(plugin.AgentsPath);
-            Assert.NotNull(plugin.AgentPaths);
             Assert.Single(plugin.AgentPaths);
             Assert.Equal("./agents/", plugin.AgentPaths[0]);
         }
@@ -411,7 +403,7 @@ public class PluginValidatorTests
     }
 
     [Fact]
-    public void ParsePluginJsonParsesAgentsString()
+    public void ParsePluginJsonNormalizesStringToArray()
     {
         var dir = Path.Combine(Path.GetTempPath(), "parse-test-" + Guid.NewGuid().ToString("N"));
         try
@@ -422,10 +414,10 @@ public class PluginValidatorTests
 
             var plugin = PluginValidator.ParsePluginJson(jsonPath);
             Assert.NotNull(plugin);
-            Assert.Equal("./skills/", plugin.SkillsPath);
-            Assert.Null(plugin.SkillPaths);
-            Assert.Equal("./agents/", plugin.AgentsPath);
-            Assert.Null(plugin.AgentPaths);
+            Assert.Single(plugin.SkillPaths);
+            Assert.Equal("./skills/", plugin.SkillPaths[0]);
+            Assert.Single(plugin.AgentPaths);
+            Assert.Equal("./agents/", plugin.AgentPaths[0]);
         }
         finally
         {
@@ -445,8 +437,7 @@ public class PluginValidatorTests
 
             var plugin = PluginValidator.ParsePluginJson(jsonPath);
             Assert.NotNull(plugin);
-            Assert.Null(plugin.AgentsPath);
-            Assert.Null(plugin.AgentPaths);
+            Assert.Empty(plugin.AgentPaths);
         }
         finally
         {
@@ -475,7 +466,7 @@ public class PluginValidatorTests
     [Fact]
     public void AbsoluteSkillsPathErrors()
     {
-        var plugin = new PluginInfo("test", "1.0.0", "desc", "/etc/skills/", null, "/tmp/test", "test");
+        var plugin = new PluginInfo("test", "1.0.0", "desc", ["/etc/skills/"], [], "/tmp/test", "test");
         var result = PluginValidator.ValidatePlugin(plugin);
         Assert.Contains(result.Errors, e => e.Contains("invalid") && e.Contains("absolute"));
     }
@@ -488,7 +479,7 @@ public class PluginValidatorTests
         {
             Directory.CreateDirectory(pluginDir);
             var dirName = Path.GetFileName(pluginDir);
-            var plugin = new PluginInfo(dirName, "1.0.0", "desc", "../../../etc/", null, pluginDir, dirName);
+            var plugin = new PluginInfo(dirName, "1.0.0", "desc", ["../../../etc/"], [], pluginDir, dirName);
             var result = PluginValidator.ValidatePlugin(plugin);
             Assert.Contains(result.Errors, e => e.Contains("invalid") && e.Contains("outside"));
         }
@@ -501,7 +492,7 @@ public class PluginValidatorTests
     [Fact]
     public void MissingNameFallsBackToDirectoryName()
     {
-        var plugin = new PluginInfo("", "1.0.0", "desc", "./skills/", null, "/tmp/my-plugin", "my-plugin");
+        var plugin = new PluginInfo("", "1.0.0", "desc", ["./skills/"], [], "/tmp/my-plugin", "my-plugin");
         var result = PluginValidator.ValidatePlugin(plugin);
         Assert.Equal("my-plugin", result.Name);
     }

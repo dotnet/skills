@@ -114,12 +114,10 @@ public sealed record PluginInfo(
     string Name,
     string? Version,
     string? Description,
-    string? SkillsPath,
-    string? AgentsPath,
+    IReadOnlyList<string> SkillPaths,
+    IReadOnlyList<string> AgentPaths,
     string DirectoryPath,
-    string DirectoryName,
-    IReadOnlyList<string>? AgentPaths = null,
-    IReadOnlyList<string>? SkillPaths = null);
+    string DirectoryName);
 
 public sealed record PluginValidationResult(
     string Name,
