@@ -59,17 +59,18 @@ public static class PluginValidator
         }
 
         // --- Agents path validation (optional, but warn if specified and missing) ---
+        // agents can be an array of directory/file paths or a single string directory.
         if (plugin.AgentPaths is { Count: > 0 })
         {
             foreach (var agentPath in plugin.AgentPaths)
             {
-                if (!TryGetSafeSubdirectory(plugin.DirectoryPath, agentPath, out var agentFile, out var agentPathError))
+                if (!TryGetSafeSubdirectory(plugin.DirectoryPath, agentPath, out var resolved, out var agentPathError))
                 {
                     warnings.Add($"Plugin agent path is invalid: {agentPathError}");
                 }
-                else if (!File.Exists(agentFile!))
+                else if (!Directory.Exists(resolved!) && !File.Exists(resolved!))
                 {
-                    warnings.Add($"Plugin agent path '{agentPath}' does not exist at '{agentFile}'.");
+                    warnings.Add($"Plugin agent path '{agentPath}' does not exist at '{resolved}'.");
                 }
             }
         }

@@ -280,7 +280,7 @@ public class PluginValidatorTests
             var dirName = Path.GetFileName(pluginDir);
 
             var plugin = new PluginInfo(dirName, "1.0.0", "desc", "./skills/", null, pluginDir, dirName,
-                AgentPaths: ["./agents/missing.agent.md"]);
+                AgentPaths: ["./agents/"]);
             var result = PluginValidator.ValidatePlugin(plugin);
             Assert.Empty(result.Errors);
             Assert.Contains(result.Warnings, w => w.Contains("does not exist"));
@@ -304,7 +304,7 @@ public class PluginValidatorTests
             var dirName = Path.GetFileName(pluginDir);
 
             var plugin = new PluginInfo(dirName, "1.0.0", "desc", "./skills/", null, pluginDir, dirName,
-                AgentPaths: ["./agents/test.agent.md"]);
+                AgentPaths: ["./agents/"]);
             var result = PluginValidator.ValidatePlugin(plugin);
             Assert.Empty(result.Errors);
             Assert.Empty(result.Warnings);
@@ -347,7 +347,7 @@ public class PluginValidatorTests
         {
             Directory.CreateDirectory(dir);
             var jsonPath = Path.Combine(dir, "plugin.json");
-            File.WriteAllText(jsonPath, """{"name":"my-plugin","version":"0.1.0","description":"A plugin.","skills":"./skills/","agents":["./agents/a.agent.md","./agents/b.agent.md"]}""");
+            File.WriteAllText(jsonPath, """{"name":"my-plugin","version":"0.1.0","description":"A plugin.","skills":"./skills/","agents":["./agents/"]}""");
 
             var plugin = PluginValidator.ParsePluginJson(jsonPath);
             Assert.NotNull(plugin);
@@ -357,9 +357,8 @@ public class PluginValidatorTests
             Assert.Equal("./skills/", plugin.SkillsPath);
             Assert.Null(plugin.AgentsPath);
             Assert.NotNull(plugin.AgentPaths);
-            Assert.Equal(2, plugin.AgentPaths.Count);
-            Assert.Equal("./agents/a.agent.md", plugin.AgentPaths[0]);
-            Assert.Equal("./agents/b.agent.md", plugin.AgentPaths[1]);
+            Assert.Single(plugin.AgentPaths);
+            Assert.Equal("./agents/", plugin.AgentPaths[0]);
         }
         finally
         {

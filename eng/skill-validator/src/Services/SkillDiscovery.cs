@@ -267,6 +267,7 @@ public static partial class SkillDiscovery
             return [];
 
         // Prefer the array form (Claude Code schema).
+        // Each entry may be a directory (discover all .agent.md in it) or a file.
         if (plugin.AgentPaths is { Count: > 0 })
         {
             var agents = new List<AgentInfo>();
@@ -274,9 +275,16 @@ public static partial class SkillDiscovery
             {
                 if (!PluginValidator.TryGetSafeSubdirectory(pluginRoot, relativePath, out var fullPath, out _))
                     continue;
-                var agent = await DiscoverAgentAt(fullPath!);
-                if (agent is not null)
-                    agents.Add(agent);
+                if (Directory.Exists(fullPath!))
+                {
+                    agents.AddRange(await DiscoverAgentsInDirectory(fullPath!));
+                }
+                else
+                {
+                    var agent = await DiscoverAgentAt(fullPath!);
+                    if (agent is not null)
+                        agents.Add(agent);
+                }
             }
             return agents;
         }
