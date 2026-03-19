@@ -70,7 +70,10 @@ public sealed record EvalScenario(
     int? MaxTokens = null,
     bool ExpectActivation = true);
 
-public sealed record EvalConfig(IReadOnlyList<EvalScenario> Scenarios);
+public sealed record EvalConfig(
+    IReadOnlyList<EvalScenario> Scenarios,
+    int? MaxParallelScenarios = null,
+    int? MaxParallelRuns = null);
 
 // --- Skill info ---
 

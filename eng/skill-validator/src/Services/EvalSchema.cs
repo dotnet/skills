@@ -21,7 +21,10 @@ public static class EvalSchema
         if (scenarios is not { Count: > 0 })
             throw new InvalidOperationException("Eval config must have at least one scenario");
 
-        return new EvalConfig(scenarios);
+        return new EvalConfig(
+            scenarios,
+            MaxParallelScenarios: raw.Config?.MaxParallelScenarios,
+            MaxParallelRuns: raw.Config?.MaxParallelRuns);
     }
 
     public static (bool Success, EvalConfig? Data, IReadOnlyList<string>? Errors) ValidateEvalConfig(string yamlContent)
@@ -128,7 +131,14 @@ public static class EvalSchema
 
     internal sealed class RawEvalConfig
     {
+        public RawEvalSettings? Config { get; set; }
         public List<RawScenario>? Scenarios { get; set; }
+    }
+
+    internal sealed class RawEvalSettings
+    {
+        public int? MaxParallelScenarios { get; set; }
+        public int? MaxParallelRuns { get; set; }
     }
 
     internal sealed class RawScenario
