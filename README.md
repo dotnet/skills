@@ -61,6 +61,23 @@ This repository contains the .NET team's curated set of core skills and custom a
 
 Once configured, type `/plugins` in Copilot Chat or use the `@agentPlugins` filter in Extensions to browse and install plugins from the marketplace.
 
+### Codex CLI
+
+Skills in this repository follow the [agentskills.io](https://agentskills.io) open standard
+and are compatible with [OpenAI Codex](https://developers.openai.com/codex/skills).
+
+Install individual skills using `$skill-installer` with the GitHub URL:
+
+```
+$skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<plugin>/skills/<skill-name>
+```
+
+For example, to install the `check-bin-obj-clash` skill:
+
+```
+$skill-installer install https://github.com/dotnet/skills/tree/main/plugins/dotnet-msbuild/skills/check-bin-obj-clash
+```
+
 ### ⚡ Agentic Workflows
 
 Some plugins include [GitHub Agentic Workflow](https://github.com/github/gh-aw) templates for CI/CD automation:
