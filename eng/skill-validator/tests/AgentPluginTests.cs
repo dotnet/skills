@@ -301,7 +301,7 @@ public class PluginValidatorTests
         {
             Directory.CreateDirectory(dir);
             var jsonPath = Path.Combine(dir, "plugin.json");
-            File.WriteAllText(jsonPath, """{"name":"my-plugin","version":"0.1.0","description":"A plugin.","skills":"./skills/","agents":"./agents/"}""");
+            File.WriteAllText(jsonPath, """{"name":"my-plugin","version":"0.1.0","description":"A plugin.","skills":"./skills/"}""");
 
             var plugin = PluginValidator.ParsePluginJson(jsonPath);
             Assert.NotNull(plugin);
@@ -309,7 +309,47 @@ public class PluginValidatorTests
             Assert.Equal("0.1.0", plugin.Version);
             Assert.Equal("A plugin.", plugin.Description);
             Assert.Equal("./skills/", plugin.SkillsPath);
+            Assert.Null(plugin.AgentsPath);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void ParsePluginJsonParsesAgentsString()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "parse-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(dir);
+            var jsonPath = Path.Combine(dir, "plugin.json");
+            File.WriteAllText(jsonPath, """{"name":"my-plugin","version":"0.1.0","description":"A plugin.","skills":"./skills/","agents":"./agents/"}""");
+
+            var plugin = PluginValidator.ParsePluginJson(jsonPath);
+            Assert.NotNull(plugin);
             Assert.Equal("./agents/", plugin.AgentsPath);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void ParsePluginJsonIgnoresAgentsArray()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "parse-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(dir);
+            var jsonPath = Path.Combine(dir, "plugin.json");
+            File.WriteAllText(jsonPath, """{"name":"my-plugin","version":"0.1.0","description":"A plugin.","skills":"./skills/","agents":["./agents/agent.md"]}""");
+
+            var plugin = PluginValidator.ParsePluginJson(jsonPath);
+            Assert.NotNull(plugin);
+            Assert.Null(plugin.AgentsPath);
         }
         finally
         {

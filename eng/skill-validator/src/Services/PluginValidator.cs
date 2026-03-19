@@ -130,7 +130,16 @@ public static class PluginValidator
         var version = doc.TryGetProperty("version", out var v) ? v.GetString() : null;
         var description = doc.TryGetProperty("description", out var d) ? d.GetString() : null;
         var skills = doc.TryGetProperty("skills", out var s) ? s.GetString() : null;
-        var agents = doc.TryGetProperty("agents", out var a) ? a.GetString() : null;
+        // agents can be a string path (legacy) or an array of strings (Claude Code schema).
+        // Accept both; fall back to convention-based discovery when absent or unrecognized.
+        string? agents = null;
+        if (doc.TryGetProperty("agents", out var a))
+        {
+            if (a.ValueKind == JsonValueKind.String)
+                agents = a.GetString();
+            // Array or other types are silently ignored; the validator and
+            // discovery code fall back to the "agents" directory by convention.
+        }
 
         var dirPath = Path.GetDirectoryName(Path.GetFullPath(pluginJsonPath))!;
         var dirName = Path.GetFileName(dirPath);
