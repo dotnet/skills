@@ -118,7 +118,8 @@ public sealed record PluginInfo(
     string? AgentsPath,
     string DirectoryPath,
     string DirectoryName,
-    IReadOnlyList<string>? AgentPaths = null);
+    IReadOnlyList<string>? AgentPaths = null,
+    IReadOnlyList<string>? SkillPaths = null);
 
 public sealed record PluginValidationResult(
     string Name,

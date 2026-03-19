@@ -415,7 +415,24 @@ public static class AgentRunner
             // without extra skill directories; validation surfaces the real error.
             return [];
         }
-        if (pluginInfo?.SkillsPath is null) return [];
+        if (pluginInfo is null) return [];
+
+        // Prefer the array form (Claude Code schema).
+        if (pluginInfo.SkillPaths is { Count: > 0 })
+        {
+            var dirs = new List<string>();
+            foreach (var relativePath in pluginInfo.SkillPaths)
+            {
+                if (!PluginValidator.TryGetSafeSubdirectory(pluginRoot, relativePath, out var fullPath, out _))
+                    continue;
+                if (Directory.Exists(fullPath!))
+                    dirs.Add(fullPath!);
+            }
+            return dirs.ToArray();
+        }
+
+        // Fall back to string path.
+        if (pluginInfo.SkillsPath is null) return [];
 
         if (!PluginValidator.TryGetSafeSubdirectory(
                 pluginRoot, pluginInfo.SkillsPath, out var skillsDir, out _))

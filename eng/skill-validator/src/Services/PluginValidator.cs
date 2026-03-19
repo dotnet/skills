@@ -45,7 +45,22 @@ public static class PluginValidator
         }
 
         // --- Skills path validation ---
-        if (string.IsNullOrWhiteSpace(plugin.SkillsPath))
+        // skills can be an array of directory paths or a single string directory.
+        if (plugin.SkillPaths is { Count: > 0 })
+        {
+            foreach (var skillPath in plugin.SkillPaths)
+            {
+                if (!TryGetSafeSubdirectory(plugin.DirectoryPath, skillPath, out var resolved, out var skillPathError))
+                {
+                    errors.Add($"Plugin skills path is invalid: {skillPathError}");
+                }
+                else if (!Directory.Exists(resolved!) && !File.Exists(resolved!))
+                {
+                    errors.Add($"Plugin skills path '{skillPath}' does not exist at '{resolved}'.");
+                }
+            }
+        }
+        else if (string.IsNullOrWhiteSpace(plugin.SkillsPath))
         {
             errors.Add("plugin.json has no 'skills' field — required.");
         }
@@ -150,9 +165,25 @@ public static class PluginValidator
         var name = doc.TryGetProperty("name", out var n) ? n.GetString() : null;
         var version = doc.TryGetProperty("version", out var v) ? v.GetString() : null;
         var description = doc.TryGetProperty("description", out var d) ? d.GetString() : null;
-        var skills = doc.TryGetProperty("skills", out var s) ? s.GetString() : null;
-        // agents can be an array of strings (Claude Code schema, preferred) or a
-        // string path (legacy). Read the array first, fall back to string.
+        // skills and agents can be an array of strings (Claude Code schema, preferred)
+        // or a string path (legacy). Read the array first, fall back to string.
+        string? skillsPath = null;
+        IReadOnlyList<string>? skillPaths = null;
+        if (doc.TryGetProperty("skills", out var s))
+        {
+            if (s.ValueKind == JsonValueKind.Array)
+            {
+                skillPaths = s.EnumerateArray()
+                    .Where(e => e.ValueKind == JsonValueKind.String)
+                    .Select(e => e.GetString()!)
+                    .ToList();
+            }
+            else if (s.ValueKind == JsonValueKind.String)
+            {
+                skillsPath = s.GetString();
+            }
+        }
+
         string? agentsPath = null;
         IReadOnlyList<string>? agentPaths = null;
         if (doc.TryGetProperty("agents", out var a))
@@ -173,6 +204,6 @@ public static class PluginValidator
         var dirPath = Path.GetDirectoryName(Path.GetFullPath(pluginJsonPath))!;
         var dirName = Path.GetFileName(dirPath);
 
-        return new PluginInfo(name ?? "", version, description, skills, agentsPath, dirPath, dirName, agentPaths);
+        return new PluginInfo(name ?? "", version, description, skillsPath, agentsPath, dirPath, dirName, agentPaths, skillPaths);
     }
 }

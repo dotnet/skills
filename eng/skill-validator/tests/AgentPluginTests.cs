@@ -316,6 +316,47 @@ public class PluginValidatorTests
     }
 
     [Fact]
+    public void ValidSkillPathsArrayProducesNoErrors()
+    {
+        var pluginDir = Path.Combine(Path.GetTempPath(), "plugin-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(pluginDir);
+            Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
+            var dirName = Path.GetFileName(pluginDir);
+
+            var plugin = new PluginInfo(dirName, "1.0.0", "desc", null, null, pluginDir, dirName,
+                SkillPaths: ["./skills/"]);
+            var result = PluginValidator.ValidatePlugin(plugin);
+            Assert.Empty(result.Errors);
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [Fact]
+    public void NonexistentSkillPathInArrayErrors()
+    {
+        var pluginDir = Path.Combine(Path.GetTempPath(), "plugin-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(pluginDir);
+            var dirName = Path.GetFileName(pluginDir);
+
+            var plugin = new PluginInfo(dirName, "1.0.0", "desc", null, null, pluginDir, dirName,
+                SkillPaths: ["./nonexistent/"]);
+            var result = PluginValidator.ValidatePlugin(plugin);
+            Assert.Contains(result.Errors, e => e.Contains("does not exist"));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [Fact]
     public void NameFormatErrors()
     {
         var plugin = new PluginInfo("My_Plugin", "1.0.0", "desc", "./skills/", null, "/tmp/My_Plugin", "My_Plugin");
@@ -347,14 +388,17 @@ public class PluginValidatorTests
         {
             Directory.CreateDirectory(dir);
             var jsonPath = Path.Combine(dir, "plugin.json");
-            File.WriteAllText(jsonPath, """{"name":"my-plugin","version":"0.1.0","description":"A plugin.","skills":"./skills/","agents":["./agents/"]}""");
+            File.WriteAllText(jsonPath, """{"name":"my-plugin","version":"0.1.0","description":"A plugin.","skills":["./skills/"],"agents":["./agents/"]}""");
 
             var plugin = PluginValidator.ParsePluginJson(jsonPath);
             Assert.NotNull(plugin);
             Assert.Equal("my-plugin", plugin.Name);
             Assert.Equal("0.1.0", plugin.Version);
             Assert.Equal("A plugin.", plugin.Description);
-            Assert.Equal("./skills/", plugin.SkillsPath);
+            Assert.Null(plugin.SkillsPath);
+            Assert.NotNull(plugin.SkillPaths);
+            Assert.Single(plugin.SkillPaths);
+            Assert.Equal("./skills/", plugin.SkillPaths[0]);
             Assert.Null(plugin.AgentsPath);
             Assert.NotNull(plugin.AgentPaths);
             Assert.Single(plugin.AgentPaths);
@@ -378,6 +422,8 @@ public class PluginValidatorTests
 
             var plugin = PluginValidator.ParsePluginJson(jsonPath);
             Assert.NotNull(plugin);
+            Assert.Equal("./skills/", plugin.SkillsPath);
+            Assert.Null(plugin.SkillPaths);
             Assert.Equal("./agents/", plugin.AgentsPath);
             Assert.Null(plugin.AgentPaths);
         }

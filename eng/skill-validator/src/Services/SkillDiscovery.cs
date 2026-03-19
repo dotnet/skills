@@ -58,7 +58,8 @@ public static partial class SkillDiscovery
 
     /// <summary>
     /// Discover skills within a plugin root directory.
-    /// Uses plugin.json to determine the skills path.
+    /// Uses plugin.json to determine the skills path: prefers the array form,
+    /// falls back to the string path.
     /// </summary>
     public static async Task<IReadOnlyList<SkillInfo>> DiscoverSkillsInPlugin(string pluginRoot)
     {
@@ -67,7 +68,25 @@ public static partial class SkillDiscovery
             return [];
 
         var plugin = PluginValidator.ParsePluginJson(pluginJsonPath);
-        if (plugin is null || string.IsNullOrWhiteSpace(plugin.SkillsPath))
+        if (plugin is null)
+            return [];
+
+        // Prefer the array form (Claude Code schema).
+        if (plugin.SkillPaths is { Count: > 0 })
+        {
+            var skills = new List<SkillInfo>();
+            foreach (var relativePath in plugin.SkillPaths)
+            {
+                if (!PluginValidator.TryGetSafeSubdirectory(pluginRoot, relativePath, out var fullPath, out _))
+                    continue;
+                if (Directory.Exists(fullPath!))
+                    skills.AddRange(await DiscoverSkills(fullPath!));
+            }
+            return skills;
+        }
+
+        // Fall back to string path.
+        if (string.IsNullOrWhiteSpace(plugin.SkillsPath))
             return [];
 
         if (!PluginValidator.TryGetSafeSubdirectory(pluginRoot, plugin.SkillsPath, out var skillsDir, out _))
