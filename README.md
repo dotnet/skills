@@ -66,10 +66,10 @@ Once configured, type `/plugins` in Copilot Chat or use the `@agentPlugins` filt
 Skills in this repository follow the [agentskills.io](https://agentskills.io) open standard
 and are compatible with [OpenAI Codex](https://developers.openai.com/codex/skills).
 
-Install individual skills using `$skill-installer` with the GitHub URL:
+Install individual skills using the `skill-installer` CLI with the GitHub URL:
 
-```
-$skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<plugin>/skills/<skill-name>
+```bash
+$ skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<plugin>/skills/<skill-name>
 ```
 
 ### ⚡ Agentic Workflows
