@@ -104,7 +104,7 @@ Analyze the target source files to determine cyclomatic complexity per method. C
 | `do...while` | `do { } while (cond)` |
 | `catch` (each) | `catch (Exception ex)` |
 | `&&` | `if (a && b)` |
-| `\|\|` | `if (a \|\| b)` |
+| `\|\|` (OR) | `if (a \|\| b)` |
 | `??` | `value ?? fallback` |
 | `?.` | `obj?.Method()` |
 | `? :` (ternary) | `x > 0 ? a : b` |
@@ -175,7 +175,9 @@ Calculate the **coverage needed** to bring a method below a CRAP threshold of 15
 
 $$\text{cov}_{\text{needed}} = 1 - \left(\frac{15 - \text{comp}}{\text{comp}^2}\right)^{1/3}$$
 
-Report this as: "To bring `ProcessOrder` (complexity 12) below CRAP 15, increase coverage from 45% to at least 72%."
+This formula only applies when $\text{comp} < 15$. When $\text{comp} \geq 15$, the minimum possible CRAP score (at 100% coverage) is $\text{comp}$ itself, which already meets or exceeds the threshold. In that case, **coverage alone cannot bring the CRAP score below the threshold** — the method must be refactored to reduce its cyclomatic complexity first.
+
+Report this as: "To bring `ProcessOrder` (complexity 12) below CRAP 15, increase coverage from 45% to at least 72%." For methods where complexity alone exceeds the threshold, report: "`ComplexMethod` (complexity 18) cannot reach CRAP < 15 through testing alone — reduce complexity by extracting sub-methods."
 
 ## Validation
 

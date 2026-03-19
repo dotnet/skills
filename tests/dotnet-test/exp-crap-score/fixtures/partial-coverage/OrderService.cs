@@ -11,7 +11,7 @@ public class OrderService
         _paymentGateway = paymentGateway;
     }
 
-    // Complexity: 10 (if, if, &&, for, if, ||, if, ??, if)
+    // Complexity: 10 (if, if, ||, for, if, ||, ??, if, if)
     public OrderResult ProcessOrder(Order order)
     {
         if (order == null)
@@ -45,7 +45,7 @@ public class OrderService
         return new OrderResult { Success = true, OrderId = order.Id, Total = total };
     }
 
-    // Complexity: 4 (if, foreach, if)
+    // Complexity: 6 (if, ||, foreach, if, &&)
     public decimal CalculateTotal(List<OrderItem> items)
     {
         if (items == null || items.Count == 0)
@@ -60,7 +60,7 @@ public class OrderService
         return total;
     }
 
-    // Complexity: 7 (if, switch with 4 cases, if, ?:)
+    // Complexity: 7 (if, 4 switch arms [_ default excluded], ?:)
     public string GetOrderStatus(int orderId)
     {
         var order = _repository.GetById(orderId);
@@ -77,7 +77,7 @@ public class OrderService
         };
     }
 
-    // Complexity: 2 (if)
+    // Complexity: 3 (if, &&)
     public void CancelOrder(int orderId)
     {
         var order = _repository.GetById(orderId);

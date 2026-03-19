@@ -9,7 +9,7 @@ public class OrderService
         _repository = repository;
     }
 
-    // Complexity: 6
+    // Complexity: 7 (if, if, ||, foreach, if, if)
     public OrderResult ProcessOrder(Order order)
     {
         if (order == null)
