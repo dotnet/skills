@@ -77,7 +77,7 @@
       totals.judgeCacheWrite += (e.judgeCacheWrite || 0);
       const src = (e.source === 'scheduled' || e.source === 'pr') ? e.source : null;
       if (src) {
-        bySource[src].tokens += total;
+        bySource[src].tokens += total + (e.judgeTotalTokens || 0);
         bySource[src].runs += 1;
       }
       if (e.date) daySet.add(dayKey(e.date));
@@ -107,12 +107,12 @@
   // ── Summary cards ───────────────────────────────────────────────────
   function renderSummaryCards(totals, bySource, dayCount, pluginCount, runCount) {
     const div = document.getElementById('token-summary');
+    const grandTotal = totals.tokens + totals.judgeTotal;
     const pctIn = totals.tokens ? (totals.tokensIn / totals.tokens * 100).toFixed(0) : 0;
     const pctOut = totals.tokens ? (totals.tokensOut / totals.tokens * 100).toFixed(0) : 0;
-    const pctSched = totals.tokens ? (bySource.scheduled.tokens / totals.tokens * 100).toFixed(0) : 0;
-    const pctPr = totals.tokens ? (bySource.pr.tokens / totals.tokens * 100).toFixed(0) : 0;
+    const pctSched = grandTotal ? (bySource.scheduled.tokens / grandTotal * 100).toFixed(0) : 0;
+    const pctPr = grandTotal ? (bySource.pr.tokens / grandTotal * 100).toFixed(0) : 0;
     const cacheHitRate = totals.tokensIn ? (totals.cacheRead / totals.tokensIn * 100).toFixed(0) : 0;
-    const grandTotal = totals.tokens + totals.judgeTotal;
     const pctJudge = grandTotal ? (totals.judgeTotal / grandTotal * 100).toFixed(0) : 0;
 
     div.innerHTML = `
@@ -171,17 +171,20 @@
     const crByDay = {};
     const cwByDay = {};
     const judgeByDay = {};
-    days.forEach(d => { schedByDay[d] = 0; prByDay[d] = 0; inByDay[d] = 0; outByDay[d] = 0; crByDay[d] = 0; cwByDay[d] = 0; judgeByDay[d] = 0; });
+    const schedJudgeByDay = {};
+    const prJudgeByDay = {};
+    days.forEach(d => { schedByDay[d] = 0; prByDay[d] = 0; inByDay[d] = 0; outByDay[d] = 0; crByDay[d] = 0; cwByDay[d] = 0; judgeByDay[d] = 0; schedJudgeByDay[d] = 0; prJudgeByDay[d] = 0; });
     entries.forEach(e => {
       const d = dayKey(e.date);
       const total = e.totalTokens || 0;
-      if (e.source === 'pr') prByDay[d] += total;
-      else schedByDay[d] += total; // default bucket for missing/unknown source
+      const judge = e.judgeTotalTokens || 0;
+      if (e.source === 'pr') { prByDay[d] += total; prJudgeByDay[d] += judge; }
+      else { schedByDay[d] += total; schedJudgeByDay[d] += judge; } // default bucket for missing/unknown source
       inByDay[d] += (e.tokensIn || 0);
       outByDay[d] += (e.tokensOut || 0);
       crByDay[d] += (e.cacheReadTokens || 0);
       cwByDay[d] += (e.cacheWriteTokens || 0);
-      judgeByDay[d] += (e.judgeTotalTokens || 0);
+      judgeByDay[d] += judge;
     });
 
     // Chart 1: Scheduled vs PR
@@ -194,8 +197,8 @@
       data: {
         labels: days.map(dayLabel),
         datasets: [
-          { label: 'Scheduled', data: days.map(d => schedByDay[d] / 1000), backgroundColor: '#3fb95080', borderColor: '#3fb950', borderWidth: 1 },
-          { label: 'PR', data: days.map(d => prByDay[d] / 1000), backgroundColor: '#f0883e80', borderColor: '#f0883e', borderWidth: 1 }
+          { label: 'Scheduled', data: days.map(d => (schedByDay[d] + schedJudgeByDay[d]) / 1000), backgroundColor: '#3fb95080', borderColor: '#3fb950', borderWidth: 1 },
+          { label: 'PR', data: days.map(d => (prByDay[d] + prJudgeByDay[d]) / 1000), backgroundColor: '#f0883e80', borderColor: '#f0883e', borderWidth: 1 }
         ]
       },
       options: chartOpts(true)
@@ -249,7 +252,7 @@
       days.forEach(d => { schedByDay[d] = 0; prByDay[d] = 0; });
       pe.forEach(e => {
         const d = dayKey(e.date);
-        const total = e.totalTokens || 0;
+        const total = (e.totalTokens || 0) + (e.judgeTotalTokens || 0);
         if (e.source === 'pr') prByDay[d] += total;
         else schedByDay[d] += total;
       });
@@ -366,6 +369,7 @@
 
     sources.forEach(([src, label]) => {
       const st = srcTotals[src];
+      if (st.runs === 0) return; // skip empty sections
       const sid = `src-${src}`;
 
       html += row(0, sid, null, label, st);
