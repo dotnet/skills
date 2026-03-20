@@ -51,9 +51,11 @@ Detect the test platform and framework, run tests, and apply filters using `dotn
 
 ### Step 1: Detect the test platform and framework
 
-Follow the detection procedure in [references/platform-detection.md](references/platform-detection.md) to determine:
-- **Test framework**: MSTest, xUnit, NUnit, or TUnit
-- **Test platform**: VSTest or Microsoft.Testing.Platform (MTP)
+1. Run `dotnet --version` to determine the .NET SDK version
+2. Read `global.json`, `.csproj`, `Directory.Build.props`, and `Directory.Packages.props`
+3. Follow the detection procedure in [references/platform-detection.md](references/platform-detection.md) to determine:
+   - **Test framework**: MSTest, xUnit, NUnit, or TUnit
+   - **Test platform**: VSTest or Microsoft.Testing.Platform (MTP)
 
 ### Step 2: Run tests
 

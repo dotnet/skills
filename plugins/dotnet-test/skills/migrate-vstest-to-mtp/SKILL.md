@@ -43,7 +43,7 @@ Migrate a .NET test solution from VSTest to Microsoft.Testing.Platform (MTP). Th
 
 ### Step 1: Assess the solution
 
-1. Identify the test framework for each test project — see [../run-tests/references/platform-detection.md](../run-tests/references/platform-detection.md) for the package-to-framework mapping. Key indicators:
+1. Identify the test framework for each test project — see [references/platform-detection.md](references/platform-detection.md) for the package-to-framework mapping. Key indicators:
    - **MSTest**: References `MSTest` or `MSTest.TestAdapter`, or uses `MSTest.Sdk` (with `<IsTestApplication>` not set to `false`). Note: `MSTest.TestFramework` alone is a library dependency, not a test project.
    - **NUnit**: References `NUnit3TestAdapter`
    - **xUnit.net**: References `xunit` and `xunit.runner.visualstudio`
@@ -188,7 +188,7 @@ VSTest-specific arguments must be translated to MTP equivalents. Build-related a
 
 **MSTest, NUnit, and xUnit.net v2 (with `YTest.MTP.XUnit2`)**: The VSTest `--filter` syntax is identical on both VSTest and MTP. No changes needed.
 
-**xUnit.net v3 (native MTP)**: xUnit.net v3 does NOT support the VSTest `--filter` syntax on MTP. See the **VSTest → MTP filter translation** section in [../run-tests/references/filter-syntax.md](../run-tests/references/filter-syntax.md) for the complete translation table. Key translation example:
+**xUnit.net v3 (native MTP)**: xUnit.net v3 does NOT support the VSTest `--filter` syntax on MTP. See the **VSTest → MTP filter translation** section in [references/filter-syntax.md](references/filter-syntax.md) for the complete translation table. Key translation example:
 
 ```shell
 # VSTest
