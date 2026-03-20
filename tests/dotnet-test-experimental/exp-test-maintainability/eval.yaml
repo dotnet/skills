@@ -1,168 +1,155 @@
 scenarios:
-  - name: "Identify duplicated test setup and recommend builder extraction"
+  - name: "Selectively recommend changes in mixed-quality test suite"
     prompt: |
-      I want to improve the maintainability of these tests. There's a lot of repetitive
-      setup and I find myself copying blocks of code whenever I add a new test.
-      Can you assess the maintainability and suggest improvements?
+      Can you assess the maintainability of these two test classes and tell me
+      what's worth improving and what's fine as-is?
 
       ```csharp
+      // File 1: UserServiceTests.cs
       using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-      namespace Checkout.Tests;
+      namespace App.Tests;
 
       [TestClass]
-      public sealed class OrderProcessorTests
+      public sealed class UserServiceTests
       {
           [TestMethod]
-          public void ProcessOrder_StandardShipping_CalculatesCorrectTotal()
+          public void CreateUser_ValidInput_ReturnsUser()
           {
-              var customer = new Customer
-              {
-                  Id = 1,
-                  Name = "Alice Smith",
-                  Email = "alice@example.com",
-                  MembershipTier = "Gold",
-                  IsActive = true
-              };
-              var order = new Order
-              {
-                  CustomerId = customer.Id,
-                  Items = new List<OrderItem>
-                  {
-                      new OrderItem { ProductId = 101, Name = "Widget", Price = 29.99m, Quantity = 2 },
-                      new OrderItem { ProductId = 102, Name = "Gadget", Price = 49.99m, Quantity = 1 }
-                  },
-                  ShippingMethod = "Standard"
-              };
-              var processor = new OrderProcessor(new FakeTaxService(), new FakeInventory());
+              var db = new InMemoryDb();
+              var emailSvc = new FakeEmailService();
+              var logger = new FakeLogger();
+              var config = new ServiceConfig { MaxUsers = 100, RequireEmailVerification = true };
+              var service = new UserService(db, emailSvc, logger, config);
 
-              var result = processor.Process(order, customer);
+              var user = service.Create("alice@example.com", "Alice");
 
-              Assert.AreEqual(109.97m, result.Subtotal);
-              Assert.AreEqual("Standard", result.ShippingMethod);
+              Assert.IsNotNull(user);
+              Assert.AreEqual("alice@example.com", user.Email);
           }
 
           [TestMethod]
-          public void ProcessOrder_ExpressShipping_AddsExpressFee()
+          public void CreateUser_DuplicateEmail_Throws()
           {
-              var customer = new Customer
-              {
-                  Id = 1,
-                  Name = "Alice Smith",
-                  Email = "alice@example.com",
-                  MembershipTier = "Gold",
-                  IsActive = true
-              };
-              var order = new Order
-              {
-                  CustomerId = customer.Id,
-                  Items = new List<OrderItem>
-                  {
-                      new OrderItem { ProductId = 101, Name = "Widget", Price = 29.99m, Quantity = 2 },
-                      new OrderItem { ProductId = 102, Name = "Gadget", Price = 49.99m, Quantity = 1 }
-                  },
-                  ShippingMethod = "Express"
-              };
-              var processor = new OrderProcessor(new FakeTaxService(), new FakeInventory());
+              var db = new InMemoryDb();
+              var emailSvc = new FakeEmailService();
+              var logger = new FakeLogger();
+              var config = new ServiceConfig { MaxUsers = 100, RequireEmailVerification = true };
+              var service = new UserService(db, emailSvc, logger, config);
+              service.Create("alice@example.com", "Alice");
 
-              var result = processor.Process(order, customer);
-
-              Assert.IsTrue(result.Total > 109.97m);
-              Assert.AreEqual("Express", result.ShippingMethod);
+              Assert.ThrowsException<DuplicateEmailException>(
+                  () => service.Create("alice@example.com", "Bob"));
           }
 
           [TestMethod]
-          public void ProcessOrder_GoldMember_AppliesDiscount()
+          public void CreateUser_MaxUsersReached_Throws()
           {
-              var customer = new Customer
-              {
-                  Id = 2,
-                  Name = "Bob Jones",
-                  Email = "bob@example.com",
-                  MembershipTier = "Gold",
-                  IsActive = true
-              };
-              var order = new Order
-              {
-                  CustomerId = customer.Id,
-                  Items = new List<OrderItem>
-                  {
-                      new OrderItem { ProductId = 201, Name = "Premium Widget", Price = 99.99m, Quantity = 1 }
-                  },
-                  ShippingMethod = "Standard"
-              };
-              var processor = new OrderProcessor(new FakeTaxService(), new FakeInventory());
+              var db = new InMemoryDb();
+              var emailSvc = new FakeEmailService();
+              var logger = new FakeLogger();
+              var config = new ServiceConfig { MaxUsers = 100, RequireEmailVerification = true };
+              var service = new UserService(db, emailSvc, logger, config);
+              for (int i = 0; i < 100; i++)
+                  service.Create($"user{i}@example.com", $"User{i}");
 
-              var result = processor.Process(order, customer);
-
-              Assert.IsTrue(result.DiscountApplied);
-              Assert.IsTrue(result.Total < 99.99m);
+              Assert.ThrowsException<CapacityExceededException>(
+                  () => service.Create("overflow@example.com", "Overflow"));
           }
 
           [TestMethod]
-          public void ProcessOrder_InactiveCustomer_Throws()
+          public void DeleteUser_ExistingUser_RemovesAndNotifies()
           {
-              var customer = new Customer
-              {
-                  Id = 3,
-                  Name = "Charlie Brown",
-                  Email = "charlie@example.com",
-                  MembershipTier = "Silver",
-                  IsActive = false
-              };
-              var order = new Order
-              {
-                  CustomerId = customer.Id,
-                  Items = new List<OrderItem>
-                  {
-                      new OrderItem { ProductId = 101, Name = "Widget", Price = 29.99m, Quantity = 1 }
-                  },
-                  ShippingMethod = "Standard"
-              };
-              var processor = new OrderProcessor(new FakeTaxService(), new FakeInventory());
+              var db = new InMemoryDb();
+              var emailSvc = new FakeEmailService();
+              var logger = new FakeLogger();
+              var config = new ServiceConfig { MaxUsers = 100, RequireEmailVerification = true };
+              var service = new UserService(db, emailSvc, logger, config);
+              var user = service.Create("alice@example.com", "Alice");
 
-              Assert.ThrowsException<InvalidOperationException>(
-                  () => processor.Process(order, customer));
+              service.Delete(user.Id);
+
+              Assert.IsNull(db.FindById(user.Id));
+              Assert.AreEqual(1, emailSvc.SentCount);
           }
 
           [TestMethod]
-          public void ProcessOrder_EmptyCart_Throws()
+          public void UpdateUser_ChangesName()
           {
-              var customer = new Customer
-              {
-                  Id = 1,
-                  Name = "Alice Smith",
-                  Email = "alice@example.com",
-                  MembershipTier = "Gold",
-                  IsActive = true
-              };
-              var order = new Order
-              {
-                  CustomerId = customer.Id,
-                  Items = new List<OrderItem>(),
-                  ShippingMethod = "Standard"
-              };
-              var processor = new OrderProcessor(new FakeTaxService(), new FakeInventory());
+              var db = new InMemoryDb();
+              var emailSvc = new FakeEmailService();
+              var logger = new FakeLogger();
+              var config = new ServiceConfig { MaxUsers = 100, RequireEmailVerification = true };
+              var service = new UserService(db, emailSvc, logger, config);
+              var user = service.Create("alice@example.com", "Alice");
 
-              Assert.ThrowsException<ArgumentException>(
-                  () => processor.Process(order, customer));
+              service.UpdateName(user.Id, "Alicia");
+
+              Assert.AreEqual("Alicia", db.FindById(user.Id).Name);
+          }
+      }
+      ```
+
+      ```csharp
+      // File 2: PermissionCheckerTests.cs
+      using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+      namespace App.Tests;
+
+      [TestClass]
+      public sealed class PermissionCheckerTests
+      {
+          private static PermissionChecker CreateChecker(params string[] roles)
+          {
+              return new PermissionChecker(new FakeRoleProvider(roles));
+          }
+
+          [TestMethod]
+          [DataRow("admin", true, DisplayName = "Admin can access dashboard")]
+          [DataRow("editor", true, DisplayName = "Editor can access dashboard")]
+          [DataRow("viewer", false, DisplayName = "Viewer cannot access dashboard")]
+          [DataRow("guest", false, DisplayName = "Guest cannot access dashboard")]
+          public void CanAccessDashboard_ChecksRolePermission(string role, bool expected)
+          {
+              var checker = CreateChecker(role);
+
+              Assert.AreEqual(expected, checker.CanAccess("dashboard"));
+          }
+
+          [TestMethod]
+          public void CanAccessAdmin_RequiresAdminRole()
+          {
+              var checker = CreateChecker("admin");
+              Assert.IsTrue(checker.CanAccess("admin-panel"));
+          }
+
+          [TestMethod]
+          public void CanAccessAdmin_NonAdmin_Denied()
+          {
+              var checker = CreateChecker("editor");
+              Assert.IsFalse(checker.CanAccess("admin-panel"));
+          }
+
+          [TestMethod]
+          public void MultipleRoles_HighestPrivilegeWins()
+          {
+              var checker = CreateChecker("viewer", "admin");
+              Assert.IsTrue(checker.CanAccess("admin-panel"));
           }
       }
       ```
     assertions:
       - type: "output_matches"
-        pattern: "(builder|factory|helper|Create.*Customer|Create.*Order|Build)"
+        pattern: "(duplicat|repeat|setup|boilerplate|factory|helper|extract)"
       - type: "output_matches"
-        pattern: "(duplicat|repeat|copied|boilerplate|identical)"
-      - type: "output_matches"
-        pattern: "(before|after|refactor)"
+        pattern: "(good|well|clean|already|no.*(change|issue)|fine)"
       - type: "exit_success"
     rubric:
-      - "Identified that Customer and Order construction is duplicated across all 5 tests with minor variations"
-      - "Suggested extracting a builder or factory method to centralize object construction"
-      - "Showed concrete before/after refactored code that reduces per-test boilerplate"
-      - "Demonstrated that adding a new test case becomes significantly shorter after the refactoring"
-      - "Did not recommend unnecessary abstractions for the simple OrderProcessor or FakeTaxService construction"
+      - "Identified that UserServiceTests has a 5-line setup block duplicated across all 5 tests and recommended extracting a helper or using TestInitialize"
+      - "Recognized that PermissionCheckerTests is already well-maintained with a helper method and data-driven patterns, and does NOT need significant changes"
+      - "Showed concrete refactored code for UserServiceTests"
+      - "Did not recommend unnecessary changes to PermissionCheckerTests (e.g., did not suggest consolidating the two admin-panel tests into DataRow when they test different things)"
+      - "Correctly prioritized: UserServiceTests needs work, PermissionCheckerTests is fine as-is"
     timeout: 120
 
   - name: "Recommend data-driven patterns with display names for unclear parameters"
@@ -357,90 +344,134 @@ scenarios:
       - "If any suggestions were made, they were minor and clearly labeled as optional polish"
     timeout: 120
 
-  - name: "Identify oversized tests that test multiple concerns"
+  - name: "Identify oversized test among well-sized tests without over-recommending"
     prompt: |
-      I'd like to improve the maintainability of this test class. The tests are hard to
-      read and modify — can you suggest how to restructure them for better readability
-      and easier maintenance?
+      Can you review these tests for maintainability? I want to know what's
+      worth refactoring and what I should leave alone.
 
       ```csharp
       using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-      namespace Reporting.Tests;
+      namespace Billing.Tests;
 
       [TestClass]
-      public sealed class ReportGeneratorTests
+      public sealed class InvoiceServiceTests
       {
           [TestMethod]
-          public void GenerateMonthlyReport_ProducesCorrectOutput()
+          public void CreateInvoice_SingleItem_ReturnsCorrectTotal()
           {
-              // Setup database
-              var db = new InMemoryDatabase();
-              db.AddUser(new User(1, "Alice", "Engineering"));
-              db.AddUser(new User(2, "Bob", "Engineering"));
-              db.AddUser(new User(3, "Charlie", "Sales"));
-              db.AddTimeEntry(new TimeEntry(1, new DateTime(2025, 1, 5), 8));
-              db.AddTimeEntry(new TimeEntry(1, new DateTime(2025, 1, 6), 7.5));
-              db.AddTimeEntry(new TimeEntry(2, new DateTime(2025, 1, 5), 8));
-              db.AddTimeEntry(new TimeEntry(2, new DateTime(2025, 1, 7), 6));
-              db.AddTimeEntry(new TimeEntry(3, new DateTime(2025, 1, 5), 8));
-              db.AddTimeEntry(new TimeEntry(3, new DateTime(2025, 1, 8), 9));
-              db.AddProject(new Project(1, "Alpha", "Engineering"));
-              db.AddProject(new Project(2, "Beta", "Sales"));
-              db.AddProjectAssignment(1, 1); // Alice -> Alpha
-              db.AddProjectAssignment(2, 1); // Bob -> Alpha
-              db.AddProjectAssignment(3, 2); // Charlie -> Beta
+              var service = new InvoiceService(new FakeTaxCalculator(0.1m));
 
-              // Generate report
-              var generator = new ReportGenerator(db, new FakeEmailSender());
-              var report = generator.GenerateMonthlyReport(2025, 1);
+              var invoice = service.CreateInvoice("C-001",
+                  new[] { new LineItem("Widget", 100m, 2) });
 
-              // Verify report metadata
-              Assert.AreEqual("January 2025", report.Title);
-              Assert.AreEqual(2025, report.Year);
-              Assert.AreEqual(1, report.Month);
+              Assert.AreEqual(220m, invoice.Total);
+          }
 
-              // Verify department summaries
-              Assert.AreEqual(2, report.DepartmentSummaries.Count);
-              var engineering = report.DepartmentSummaries.First(d => d.Name == "Engineering");
-              Assert.AreEqual(29.5, engineering.TotalHours);
-              Assert.AreEqual(2, engineering.EmployeeCount);
-              var sales = report.DepartmentSummaries.First(d => d.Name == "Sales");
-              Assert.AreEqual(17.0, sales.TotalHours);
-              Assert.AreEqual(1, sales.EmployeeCount);
+          [TestMethod]
+          public void CreateInvoice_NoItems_ThrowsArgumentException()
+          {
+              var service = new InvoiceService(new FakeTaxCalculator(0.1m));
 
-              // Verify individual entries
-              Assert.AreEqual(3, report.EmployeeDetails.Count);
-              var alice = report.EmployeeDetails.First(e => e.Name == "Alice");
-              Assert.AreEqual(15.5, alice.TotalHours);
-              Assert.AreEqual(2, alice.DaysWorked);
-              var bob = report.EmployeeDetails.First(e => e.Name == "Bob");
-              Assert.AreEqual(14.0, bob.TotalHours);
-              var charlie = report.EmployeeDetails.First(e => e.Name == "Charlie");
-              Assert.AreEqual(17.0, charlie.TotalHours);
+              Assert.ThrowsException<ArgumentException>(
+                  () => service.CreateInvoice("C-001", Array.Empty<LineItem>()));
+          }
 
-              // Verify project allocation
-              Assert.AreEqual(2, report.ProjectSummaries.Count);
-              Assert.IsTrue(report.ProjectSummaries.Any(p => p.Name == "Alpha"));
-              Assert.IsTrue(report.ProjectSummaries.Any(p => p.Name == "Beta"));
+          [TestMethod]
+          [DataRow(0.0, 100.0, DisplayName = "Zero tax")]
+          [DataRow(0.1, 110.0, DisplayName = "10% tax")]
+          [DataRow(0.25, 125.0, DisplayName = "25% tax")]
+          public void CreateInvoice_TaxRates_AppliedCorrectly(double taxRate, double expectedTotal)
+          {
+              var service = new InvoiceService(new FakeTaxCalculator((decimal)taxRate));
 
-              // Verify email was sent
-              var emailSender = (FakeEmailSender)generator.EmailSender;
-              Assert.AreEqual(1, emailSender.SentEmails.Count);
-              Assert.IsTrue(emailSender.SentEmails[0].Subject.Contains("January 2025"));
+              var invoice = service.CreateInvoice("C-001",
+                  new[] { new LineItem("Widget", 100m, 1) });
+
+              Assert.AreEqual((decimal)expectedTotal, invoice.Total);
+          }
+
+          [TestMethod]
+          public void GenerateAndSendMonthlyInvoiceBatch_FullWorkflow()
+          {
+              // Setup customers
+              var db = new InMemoryCustomerDb();
+              db.Add(new Customer("C-001", "Alice Corp", "alice@corp.com", "Enterprise", true));
+              db.Add(new Customer("C-002", "Bob LLC", "bob@llc.com", "Starter", true));
+              db.Add(new Customer("C-003", "Charlie Inc", "charlie@inc.com", "Enterprise", false));
+
+              // Setup usage records
+              var usageDb = new InMemoryUsageDb();
+              usageDb.Add(new UsageRecord("C-001", "API Calls", 10000, 0.01m));
+              usageDb.Add(new UsageRecord("C-001", "Storage GB", 500, 0.10m));
+              usageDb.Add(new UsageRecord("C-001", "Bandwidth GB", 200, 0.05m));
+              usageDb.Add(new UsageRecord("C-002", "API Calls", 5000, 0.02m));
+              usageDb.Add(new UsageRecord("C-002", "Storage GB", 100, 0.10m));
+
+              // Setup services
+              var taxCalc = new FakeTaxCalculator(0.08m);
+              var emailSender = new FakeEmailSender();
+              var pdfGenerator = new FakePdfGenerator();
+              var discountEngine = new FakeDiscountEngine();
+              discountEngine.AddDiscount("Enterprise", 0.15m);
+              var auditLog = new FakeAuditLog();
+              var service = new InvoiceService(taxCalc);
+              var batchProcessor = new InvoiceBatchProcessor(
+                  service, db, usageDb, emailSender, pdfGenerator, discountEngine, auditLog);
+
+              // Execute
+              var results = batchProcessor.ProcessMonthlyBatch(2025, 3);
+
+              // Verify batch results
+              Assert.AreEqual(2, results.ProcessedCount);
+              Assert.AreEqual(0, results.ErrorCount);
+              Assert.AreEqual(1, results.SkippedCount);
+
+              // Verify Alice (Enterprise with discount)
+              var aliceInvoice = results.Invoices.First(i => i.CustomerId == "C-001");
+              Assert.AreEqual(3, aliceInvoice.LineItems.Count);
+              Assert.IsTrue(aliceInvoice.DiscountApplied);
+              Assert.AreEqual(0.15m, aliceInvoice.DiscountRate);
+              var expectedAliceSubtotal = 10000 * 0.01m + 500 * 0.10m + 200 * 0.05m;
+              var expectedAliceAfterDiscount = expectedAliceSubtotal * (1 - 0.15m);
+              var expectedAliceTotal = expectedAliceAfterDiscount * 1.08m;
+              Assert.AreEqual(expectedAliceTotal, aliceInvoice.Total);
+
+              // Verify Bob (Starter, no discount)
+              var bobInvoice = results.Invoices.First(i => i.CustomerId == "C-002");
+              Assert.AreEqual(2, bobInvoice.LineItems.Count);
+              Assert.IsFalse(bobInvoice.DiscountApplied);
+              var expectedBobSubtotal = 5000 * 0.02m + 100 * 0.10m;
+              var expectedBobTotal = expectedBobSubtotal * 1.08m;
+              Assert.AreEqual(expectedBobTotal, bobInvoice.Total);
+
+              // Verify Charlie skipped (inactive)
+              Assert.IsFalse(results.Invoices.Any(i => i.CustomerId == "C-003"));
+
+              // Verify emails sent
+              Assert.AreEqual(2, emailSender.SentEmails.Count);
+              Assert.IsTrue(emailSender.SentEmails.Any(e => e.To == "alice@corp.com"));
+              Assert.IsTrue(emailSender.SentEmails.Any(e => e.To == "bob@llc.com"));
+
+              // Verify PDFs generated
+              Assert.AreEqual(2, pdfGenerator.GeneratedPdfs.Count);
+
+              // Verify audit log
+              Assert.AreEqual(2, auditLog.Entries.Count);
+              Assert.IsTrue(auditLog.Entries.All(e => e.Action == "InvoiceGenerated"));
           }
       }
       ```
     assertions:
       - type: "output_matches"
-        pattern: "(too (large|long|big)|oversized|multi.?concern|multiple.*(behavior|thing|concern)|split|break.*(up|apart|into))"
+        pattern: "(too (large|long|big)|oversized|multi.?concern|split|break.*(up|apart|into)|mega|god)"
       - type: "output_matches"
-        pattern: "(helper|factory|builder|Create.*|Setup.*|Build)"
+        pattern: "(fine|good|clean|well|no.*(change|issue)|leave|already|maintainable)"
       - type: "exit_success"
     rubric:
-      - "Identified that the test is too large and verifies multiple independent concerns (metadata, departments, employees, projects, email)"
-      - "Recommended splitting into focused tests that each verify one aspect of the report"
-      - "Recommended extracting a helper for the complex database setup so it can be shared across the split tests"
-      - "Showed concrete refactored code or a clear outline of what the split tests would look like"
-      - "Explained why splitting the test would make failures more diagnostic and the test less fragile"
+      - "Identified that GenerateAndSendMonthlyInvoiceBatch_FullWorkflow is too large and tests multiple concerns (batch processing, discounts, invoicing, email, PDF, audit)"
+      - "Recognized that the first three tests (SingleItem, NoItems, TaxRates) are well-structured and do NOT need changes"
+      - "Recommended splitting the oversized test into focused tests while leaving the good tests alone"
+      - "Recommended extracting a helper for the complex setup in the oversized test"
+      - "Did not recommend changes to the already-good DataRow parameterized test or the simple focused tests"
     timeout: 120
