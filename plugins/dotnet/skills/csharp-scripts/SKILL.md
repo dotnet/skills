@@ -43,7 +43,7 @@ Console.WriteLine($"Sum: {numbers.Sum()}");
 Guidelines:
 
 - Use top-level statements (no `Main` method, class, or namespace boilerplate)
-- Place `using` directives at the top of the file (after any `#:` directives if present)
+- Place `using` directives at the top of the file (after the `#!` line and any `#:` directives if present)
 - Place type declarations (classes, records, enums) after all top-level statements
 
 ### Step 3: Run the script
