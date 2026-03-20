@@ -43,7 +43,7 @@ Console.WriteLine($"Sum: {numbers.Sum()}");
 Guidelines:
 
 - Use top-level statements (no `Main` method, class, or namespace boilerplate)
-- Place `using` directives at the top of the file
+- Place `using` directives at the top of the file (after any `#:` directives if present)
 - Place type declarations (classes, records, enums) after all top-level statements
 
 ### Step 3: Run the script
@@ -60,7 +60,7 @@ dotnet hello.cs -- arg1 arg2 "multi word arg"
 
 ### Step 4: Add directives (if needed)
 
-Place directives at the top of the file, before any C# code. All directives start with `#:`.
+Place directives at the top of the file (immediately after an optional shebang line), before any `using` directives or other C# code. All directives start with `#:`.
 
 #### `#:package` — NuGet package references
 
@@ -203,7 +203,7 @@ Replace the generated `Program.cs` with the script content and run with `dotnet 
 | `.cs` file is inside a directory with a `.csproj` | Move the script outside the project directory, or use `dotnet run --file file.cs` |
 | `#:package` without a version | Specify a version: `#:package PackageName@1.2.3` or `@*` for latest |
 | `#:property` with wrong syntax | Use `PropertyName=Value` with no spaces around `=` and no quotes: `#:property AllowUnsafeBlocks=true` |
-| Directives placed after C# code | All `#:` directives must appear at the very top of the file, before any C# statements or `using` directives |
+| Directives placed after C# code | All `#:` directives must appear immediately after an optional shebang line (if present) and before any `using` directives or other C# statements |
 | Reflection-based JSON serialization fails | Use source-generated JSON with `JsonSerializerContext` (see [Source-generated JSON](#source-generated-json)) |
 | Unexpected build behavior or version errors | File-based apps inherit `global.json`, `Directory.Build.props`, `Directory.Build.targets`, and `nuget.config` from parent directories. Move the script to an isolated directory if the inherited settings conflict |
 
