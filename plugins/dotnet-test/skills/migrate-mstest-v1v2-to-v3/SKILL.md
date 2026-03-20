@@ -12,7 +12,7 @@ description: >
   errors (AreEqual/AreNotEqual), updating DataRow constructors, replacing
   .testsettings with .runsettings, timeout behavior changes, target framework
   compatibility (.NET 5 dropped — use .NET 6+; .NET Fx < 4.6.2 dropped),
-  adopting MSTest.Sdk, parallel execution, framework compatibility issues.
+  adopting MSTest.Sdk.
   First step toward MSTest v4 — after this, use migrate-mstest-v3-to-v4.
   DO NOT USE FOR: migrating to MSTest v4 (use migrate-mstest-v3-to-v4),
   migrating between frameworks (MSTest to xUnit/NUnit), or general .NET
