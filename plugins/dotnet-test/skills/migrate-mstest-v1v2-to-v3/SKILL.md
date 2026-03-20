@@ -53,7 +53,7 @@ MSTest v3 introduces these breaking changes from v1/v2. Address only the ones re
 |---|---|---|
 | `Assert.AreEqual(object, object)` overload removed | Compile error on untyped assertions | Add generic type: `Assert.AreEqual<T>(expected, actual)`. Same for `AreNotEqual`, `AreSame`, `AreNotSame` |
 | `DataRow` strict type matching | Runtime/compile errors when argument types don't match parameter types exactly | Change literals to exact types: `1` for int, `1L` for long, `1.0f` for float |
-| `DataRow` max 16 constructor parameters | Compile error if >16 args | Refactor test or wrap extra params in array |
+| `DataRow` max 16 constructor parameters (early v3) | Compile error if >16 args; fixed in later v3 versions | Update to latest 3.x, or refactor test / wrap extra params in array |
 | `.testsettings` / `<LegacySettings>` no longer supported | Settings silently ignored | Delete `.testsettings`, create `.runsettings` with equivalent config |
 | Timeout behavior unified across .NET Core / Framework | Tests with `[Timeout]` may behave differently | Verify timeout values; adjust if needed |
 | Dropped target frameworks: .NET 5, .NET Fx < 4.6.2, netstandard1.0, UWP < 16299, WinUI < 18362 | Build error | Update TFM: .NET 5 → net8.0 (LTS) or net6.0+, netfx → net462+, netstandard1.0 → netstandard2.0. Note: net6.0, net8.0, net9.0 are all supported |
@@ -152,8 +152,6 @@ Assert.AreSame(expected, actual);         → Assert.AreSame<MyType>(expected, a
 // Error: 1L (long) won't convert to int parameter → fix: use 1 (int)
 // Error: 1.0 (double) won't convert to float parameter → fix: use 1.0f (float)
 ```
-
-Maximum 16 `DataRow` constructor parameters. For more, wrap in array or refactor.
 
 **Timeout behavior** — unified across .NET Core and .NET Framework. Verify `[Timeout]` values still work.
 
