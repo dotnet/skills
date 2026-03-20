@@ -270,7 +270,15 @@ public static class AssertionEvaluator
 
         // 3 minutes timeout is an arbitrary timeout.
         // We can adjust it in future if needed, or make it customizable.
-        process.WaitForExit(TimeSpan.FromMinutes(3));
+        if (!process.WaitForExit(TimeSpan.FromMinutes(3)))
+        {
+            process.Kill();
+            return new AssertionResult(a, false, "Command timed out after 3 minutes");
+        }
+
+        // The parameterless WaitForExit() ensures that all async output event handlers
+        // have completed processing. Without this, stdout/stderr may not be fully captured.
+        process.WaitForExit();
 
         var actualExitCode = process.ExitCode;
         if (a.ExpectedExitCode.HasValue && a.ExpectedExitCode.Value != actualExitCode)
