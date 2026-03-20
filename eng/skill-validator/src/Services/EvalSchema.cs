@@ -118,7 +118,7 @@ public static class EvalSchema
                     string.IsNullOrWhiteSpace(raw.ExpectedStdErrorContains) &&
                     string.IsNullOrWhiteSpace(raw.ExpectedStdOutputMatches) &&
                     string.IsNullOrWhiteSpace(raw.ExpectedStdErrorMatches))
-                    throw new InvalidOperationException($"Assertion '{raw.Type}' requires one or more of 'expected_exit_code', 'expected_std_output', 'expected_std_error', 'expected_std_output_matches', or 'expected_std_error_matches'");
+                    throw new InvalidOperationException($"Assertion '{raw.Type}' requires one or more of 'expected_exit_code', 'expected_std_output_contains', 'expected_std_error_contains', 'expected_std_output_matches', or 'expected_std_error_matches'");
                 break;
         }
 

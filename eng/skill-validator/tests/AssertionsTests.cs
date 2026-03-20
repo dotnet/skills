@@ -538,7 +538,7 @@ public class RunCommandAndAssertTests : IDisposable
     public async Task UsesCustomTimeoutFromAssertion()
     {
         // Use a very short timeout (1 second) so a long-running command times out
-        var sleepCmd = OperatingSystem.IsWindows() ? "ping -n 10 127.0.0.1 >nul" : "sleep 10";
+        var sleepCmd = OperatingSystem.IsWindows() ? "timeout /t 10 /nobreak >nul" : "sleep 10";
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs(sleepCmd), expectedExitCode: 0, timeout: 1)],
             "", _tmpDir);
@@ -550,7 +550,7 @@ public class RunCommandAndAssertTests : IDisposable
     public async Task FallsBackToScenarioTimeout()
     {
         // Pass a short scenario timeout (1 second) - the command should time out
-        var sleepCmd = OperatingSystem.IsWindows() ? "ping -n 10 127.0.0.1 >nul" : "sleep 10";
+        var sleepCmd = OperatingSystem.IsWindows() ? "timeout /t 10 /nobreak >nul" : "sleep 10";
         var results = await AssertionEvaluator.EvaluateAssertions(
             [CmdAssertion(commandArguments: ShellArgs(sleepCmd), expectedExitCode: 0)],
             "", _tmpDir, scenarioTimeoutSeconds: 1);

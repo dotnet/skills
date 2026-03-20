@@ -177,6 +177,70 @@ public class ParseEvalConfigTests
         Assert.Equal(2, config.MaxParallelScenarios);
         Assert.Null(config.MaxParallelRuns);
     }
+
+    [Fact]
+    public void ParsesRunCommandAndAssertAssertion()
+    {
+        var yaml = """
+            scenarios:
+              - name: "Build check"
+                prompt: "Build the project"
+                assertions:
+                  - type: "run_command_and_assert"
+                    command_to_run: "dotnet"
+                    command_arguments: "build"
+                    expected_exit_code: 0
+                    expected_std_output_contains: "Build succeeded"
+                    expected_std_error_contains: "warning"
+                    expected_std_output_matches: "Build \\w+"
+                    expected_std_error_matches: "warn.*"
+                    command_timeout: 60
+            """;
+        var config = EvalSchema.ParseEvalConfig(yaml);
+        var assertion = config.Scenarios[0].Assertions![0];
+        Assert.Equal(AssertionType.RunCommandAndAssert, assertion.Type);
+        Assert.NotNull(assertion.CommandArgs);
+        var cmd = assertion.CommandArgs!;
+        Assert.Equal("dotnet", cmd.CommandToRun);
+        Assert.Equal("build", cmd.CommandArguments);
+        Assert.Equal(0, cmd.ExpectedExitCode);
+        Assert.Equal("Build succeeded", cmd.ExpectedStdOutContains);
+        Assert.Equal("warning", cmd.ExpectedStdErrorContains);
+        Assert.Equal("Build \\w+", cmd.ExpectedStdOutMatches);
+        Assert.Equal("warn.*", cmd.ExpectedStdErrorMatches);
+        Assert.Equal(60, cmd.Timeout);
+    }
+
+    [Fact]
+    public void RejectsRunCommandAndAssertWithoutCommandToRun()
+    {
+        var yaml = """
+            scenarios:
+              - name: "Test"
+                prompt: "Do it"
+                assertions:
+                  - type: "run_command_and_assert"
+                    expected_exit_code: 0
+            """;
+        var ex = Assert.Throws<InvalidOperationException>(() => EvalSchema.ParseEvalConfig(yaml));
+        Assert.Contains("command_to_run", ex.Message);
+    }
+
+    [Fact]
+    public void RejectsRunCommandAndAssertWithoutAnyExpectedChecks()
+    {
+        var yaml = """
+            scenarios:
+              - name: "Test"
+                prompt: "Do it"
+                assertions:
+                  - type: "run_command_and_assert"
+                    command_to_run: "dotnet"
+            """;
+        var ex = Assert.Throws<InvalidOperationException>(() => EvalSchema.ParseEvalConfig(yaml));
+        Assert.Contains("expected_exit_code", ex.Message);
+        Assert.Contains("expected_std_output_contains", ex.Message);
+    }
 }
 
 public class ValidateEvalConfigTests
