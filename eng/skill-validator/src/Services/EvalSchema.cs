@@ -125,17 +125,20 @@ public static class EvalSchema
         CommandAssertionArgs? commandArgs = type == AssertionType.RunCommandAndAssert
             ? new CommandAssertionArgs(
                 raw.CommandToRun!,
-                raw.CommandArguments,
+                NullIfWhiteSpace(raw.CommandArguments),
                 raw.ExpectedExitCode,
-                raw.ExpectedStdOutputContains,
-                raw.ExpectedStdErrorContains,
-                raw.ExpectedStdOutputMatches,
-                raw.ExpectedStdErrorMatches,
+                NullIfWhiteSpace(raw.ExpectedStdOutputContains),
+                NullIfWhiteSpace(raw.ExpectedStdErrorContains),
+                NullIfWhiteSpace(raw.ExpectedStdOutputMatches),
+                NullIfWhiteSpace(raw.ExpectedStdErrorMatches),
                 raw.CommandTimeout)
             : null;
 
         return new Assertion(type, raw.Path, raw.Value, raw.Pattern, commandArgs);
     }
+
+    private static string? NullIfWhiteSpace(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value;
 
     // Raw YAML deserialization models
 
