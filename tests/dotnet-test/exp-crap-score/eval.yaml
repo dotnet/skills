@@ -58,8 +58,8 @@ scenarios:
       - type: "output_matches"
         pattern: "coverage"
     rubric:
-      - "Recognizes that coverage data needs to be collected first"
-      - "Runs dotnet test with code coverage collection enabled"
-      - "Locates the generated Cobertura XML file"
-      - "Computes CRAP scores after coverage is available"
+      - "Runs dotnet test with code coverage collection to generate Cobertura data before analysis"
+      - "Extracts per-method coverage from the generated Cobertura XML"
+      - "Computes CRAP scores using both cyclomatic complexity and code coverage for each method in OrderService"
+      - "Provides risk categorization and actionable recommendations for the riskiest methods"
     timeout: 360

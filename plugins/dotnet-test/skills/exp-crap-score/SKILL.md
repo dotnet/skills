@@ -58,36 +58,13 @@ A method with 100% coverage has CRAP = complexity (the minimum). A method with 0
 
 ### Step 1: Collect code coverage data
 
-Run tests with Cobertura coverage collection enabled.
+Check the test project's `.csproj` for the coverage package, then run the appropriate command:
 
-#### For VSTest projects
-
-```bash
-dotnet test --collect:"XPlat Code Coverage" --results-directory ./TestResults
-```
-
-#### For MTP projects (.NET SDK 8/9)
-
-```bash
-dotnet test -- --coverage --coverage-output-format cobertura --coverage-output ./TestResults
-```
-
-#### For MTP projects (.NET SDK 10+)
-
-```bash
-dotnet test --coverage --coverage-output-format cobertura --coverage-output ./TestResults
-```
-
-If using `coverlet.collector` (common in older projects), the Cobertura XML will be in `TestResults/*/coverage.cobertura.xml`.
-
-If using `Microsoft.Testing.Extensions.CodeCoverage`, the output location depends on the `--coverage-output` argument.
-
-Locate the generated `coverage.cobertura.xml` file:
-
-```bash
-# Find the most recent coverage file
-Get-ChildItem -Recurse -Filter "coverage.cobertura.xml" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-```
+| Coverage Package | Command | Output Location |
+|---|---|---|
+| `coverlet.collector` | `dotnet test --collect:"XPlat Code Coverage" --results-directory ./TestResults` | `TestResults/<guid>/coverage.cobertura.xml` |
+| `Microsoft.Testing.Extensions.CodeCoverage` (.NET 9) | `dotnet test -- --coverage --coverage-output-format cobertura --coverage-output ./TestResults` | `--coverage-output` path |
+| `Microsoft.Testing.Extensions.CodeCoverage` (.NET 10+) | `dotnet test --coverage --coverage-output-format cobertura --coverage-output ./TestResults` | `--coverage-output` path |
 
 ### Step 2: Compute cyclomatic complexity
 
@@ -116,30 +93,11 @@ When analyzing, read the source file and count these constructs per method. Repo
 
 ### Step 3: Extract per-method coverage from Cobertura XML
 
-Parse the Cobertura XML to extract line coverage for each method in scope:
-
-```xml
-<!-- Example Cobertura structure -->
-<package name="MyApp">
-  <classes>
-    <class name="MyApp.OrderService" filename="OrderService.cs" line-rate="0.85">
-      <methods>
-        <method name="ProcessOrder" signature="..." line-rate="0.75" branch-rate="0.60">
-          <lines>
-            <line number="15" hits="3"/>
-            <line number="16" hits="3"/>
-            <line number="17" hits="0"/>
-          </lines>
-        </method>
-      </methods>
-    </class>
-  </classes>
-</package>
-```
-
-For each method, use the `line-rate` attribute as the coverage ratio. If `line-rate` is not available at method level, compute it as:
+Parse the Cobertura XML to find each method's `line-rate` attribute under the target `<class>` element. If `line-rate` is not available at method level, compute it from the `<lines>` elements:
 
 $$\text{cov}(m) = \frac{\text{lines with hits} > 0}{\text{total lines}}$$
+
+Method names in Cobertura may differ from source (async methods, lambdas). Match by line ranges when names don't align.
 
 ### Step 4: Calculate CRAP scores
 
@@ -190,6 +148,4 @@ Report this as: "To bring `ProcessOrder` (complexity 12) below CRAP 15, increase
 
 - **Stale coverage data**: Always regenerate coverage before computing CRAP scores. Old coverage files will produce misleading results.
 - **Method name mismatches**: Cobertura XML may use mangled/compiler-generated names for async methods, lambdas, or local functions. Match by line ranges when names don't align.
-- **Partial classes**: Coverage may be split across multiple entries. Aggregate coverage for partial class methods.
 - **Generated code**: Exclude auto-generated files (e.g., `*.Designer.cs`, `*.g.cs`) from analysis unless explicitly requested.
-- **Expression-bodied members**: These have complexity 1 and are almost always low-CRAP. Don't spend time analyzing them unless specifically asked.
