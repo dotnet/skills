@@ -1,0 +1,37 @@
+scenarios:
+  - name: "Format specific files after editing"
+    prompt: |
+      I just refactored two C# files and the indentation is all messed up:
+      - src/Services/OrderService.cs
+      - src/Models/Order.cs
+
+      I don't have a solution file in the current directory. Can you fix the whitespace formatting?
+    assertions:
+      - type: "output_contains"
+        value: "dotnet format whitespace"
+      - type: "output_contains"
+        value: "--folder"
+      - type: "output_matches"
+        pattern: "--include"
+    rubric:
+      - "Uses `dotnet format whitespace` specifically, not `dotnet format` without a subcommand or `dotnet format style`"
+      - "Uses --folder mode to avoid loading the MSBuild workspace"
+      - "Uses --include to target the specific files rather than formatting the entire directory"
+    timeout: 120
+
+  - name: "Verify whitespace formatting without modifying files"
+    prompt: |
+      I just ran `dotnet format whitespace` on some files in my repo but I want to
+      double-check that `src/Services/PaymentService.cs` is now correctly formatted.
+      Can you verify the formatting without modifying the file? I don't have a .sln
+      file in this directory.
+    assertions:
+      - type: "output_contains"
+        value: "dotnet format whitespace"
+      - type: "output_contains"
+        value: "--verify-no-changes"
+    rubric:
+      - "Uses `dotnet format whitespace` with `--verify-no-changes` to verify without modifying the file"
+      - "Uses --folder mode since there is no solution file available"
+      - "Uses --include to target the specific file rather than checking the entire directory"
+    timeout: 120
