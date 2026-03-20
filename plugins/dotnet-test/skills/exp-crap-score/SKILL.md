@@ -6,8 +6,8 @@ description: >
   untested code, compute CRAP scores, or evaluate whether complex methods have
   sufficient test coverage. Requires code coverage data (Cobertura XML) and
   cyclomatic complexity analysis.
-  DO NOT USE FOR: writing tests, running tests, or general code coverage
-  reporting without CRAP context.
+  DO NOT USE FOR: writing tests, general test execution unrelated to coverage/CRAP
+  analysis, or general code coverage reporting without CRAP context.
 ---
 
 # CRAP Score Analysis
@@ -62,7 +62,7 @@ Check the test project's `.csproj` for the coverage package, then run the approp
 
 | Coverage Package | Command | Output Location |
 |---|---|---|
-| `coverlet.collector` | `dotnet test --collect:"XPlat Code Coverage" --results-directory ./TestResults` | `TestResults/<guid>/coverage.cobertura.xml` |
+| `coverlet.collector` | `dotnet test --collect:"XPlat Code Coverage" --results-directory ./TestResults` | Typically under `TestResults/<guid>/coverage.cobertura.xml`. Search recursively under the results directory (for example, `TestResults/**/coverage.cobertura.xml`) or use any explicit coverage path the user provides. |
 | `Microsoft.Testing.Extensions.CodeCoverage` (.NET 9) | `dotnet test -- --coverage --coverage-output-format cobertura --coverage-output ./TestResults` | `--coverage-output` path |
 | `Microsoft.Testing.Extensions.CodeCoverage` (.NET 10+) | `dotnet test --coverage --coverage-output-format cobertura --coverage-output ./TestResults` | `--coverage-output` path |
 
