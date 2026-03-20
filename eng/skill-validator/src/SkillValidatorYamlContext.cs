@@ -7,6 +7,7 @@ namespace SkillValidator;
 [YamlSerializable(typeof(EvalSchema.RawFrontmatter))]
 [YamlSerializable(typeof(EvalSchema.RawAgentFrontmatter))]
 [YamlSerializable(typeof(EvalSchema.RawEvalConfig))]
+[YamlSerializable(typeof(EvalSchema.RawEvalSettings))]
 [YamlSerializable(typeof(EvalSchema.RawScenario))]
 [YamlSerializable(typeof(EvalSchema.RawSetup))]
 [YamlSerializable(typeof(EvalSchema.RawSetupFile))]

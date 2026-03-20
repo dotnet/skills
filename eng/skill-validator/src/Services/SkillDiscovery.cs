@@ -58,7 +58,7 @@ public static partial class SkillDiscovery
 
     /// <summary>
     /// Discover skills within a plugin root directory.
-    /// Uses plugin.json to determine the skills path.
+    /// Uses plugin.json to determine the skills paths.
     /// </summary>
     public static async Task<IReadOnlyList<SkillInfo>> DiscoverSkillsInPlugin(string pluginRoot)
     {
@@ -67,13 +67,18 @@ public static partial class SkillDiscovery
             return [];
 
         var plugin = PluginValidator.ParsePluginJson(pluginJsonPath);
-        if (plugin is null || string.IsNullOrWhiteSpace(plugin.SkillsPath))
+        if (plugin is null || plugin.SkillPaths.Count == 0)
             return [];
 
-        if (!PluginValidator.TryGetSafeSubdirectory(pluginRoot, plugin.SkillsPath, out var skillsDir, out _))
-            return [];
-
-        return await DiscoverSkills(skillsDir!);
+        var skills = new List<SkillInfo>();
+        foreach (var relativePath in plugin.SkillPaths)
+        {
+            if (!PluginValidator.TryGetSafeSubdirectory(pluginRoot, relativePath, out var fullPath, out _))
+                continue;
+            if (Directory.Exists(fullPath!))
+                skills.AddRange(await DiscoverSkills(fullPath!));
+        }
+        return skills;
     }
 
     /// <summary>
@@ -253,7 +258,8 @@ public static partial class SkillDiscovery
 
     /// <summary>
     /// Discover agent files (.agent.md) within a plugin root directory.
-    /// Uses plugin.json to determine the agents path.
+    /// Uses plugin.json to determine the agents paths; falls back to
+    /// the "agents" directory by convention when none are specified.
     /// </summary>
     public static async Task<IReadOnlyList<AgentInfo>> DiscoverAgentsInPlugin(string pluginRoot)
     {
@@ -265,14 +271,31 @@ public static partial class SkillDiscovery
         if (plugin is null)
             return [];
 
-        var agentsPath = !string.IsNullOrWhiteSpace(plugin.AgentsPath)
-            ? plugin.AgentsPath
-            : "agents";
+        // Use declared paths; fall back to "agents" directory convention.
+        var paths = plugin.AgentPaths.Count > 0
+            ? plugin.AgentPaths
+            : (IReadOnlyList<string>)["agents"];
 
-        if (!PluginValidator.TryGetSafeSubdirectory(pluginRoot, agentsPath, out var agentsDir, out _))
-            return [];
+        var agents = new List<AgentInfo>();
+        foreach (var relativePath in paths)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath))
+                continue;
 
-        return await DiscoverAgentsInDirectory(agentsDir!);
+            if (!PluginValidator.TryGetSafeSubdirectory(pluginRoot, relativePath, out var fullPath, out _))
+                continue;
+            if (Directory.Exists(fullPath!))
+            {
+                agents.AddRange(await DiscoverAgentsInDirectory(fullPath!));
+            }
+            else
+            {
+                var agent = await DiscoverAgentAt(fullPath!);
+                if (agent is not null)
+                    agents.Add(agent);
+            }
+        }
+        return agents;
     }
 
     /// <summary>

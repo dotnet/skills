@@ -39,7 +39,7 @@ public class ExternalDependencyCheckerTests
         var json = extraJson ?? $@"{{""name"":""{name}"",""version"":""0.1.0"",""description"":""Test."",""skills"":""./skills/""}}";
         File.WriteAllText(Path.Combine(dir, "plugin.json"), json);
 
-        var plugin = new PluginInfo(name, "0.1.0", "Test.", "./skills/", null, dir, Path.GetFileName(dir));
+        var plugin = new PluginInfo(name, "0.1.0", "Test.", ["./skills/"], [], dir, Path.GetFileName(dir));
         return (plugin, dir);
     }
 

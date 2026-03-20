@@ -355,7 +355,12 @@ public static class EvaluateCommand
 
         var skillSha = sessionDb is not null ? SessionDatabase.ComputeDirectorySha(skill.Path) : null;
         bool singleScenario = evalSkill.EvalConfig!.Scenarios.Count == 1;
-        using var scenarioLimit = new ConcurrencyLimiter(config.ParallelScenarios);
+
+        var effectiveParallelScenarios = evalSkill.EvalConfig.MaxParallelScenarios.HasValue
+            ? Math.Min(config.ParallelScenarios, evalSkill.EvalConfig.MaxParallelScenarios.Value)
+            : config.ParallelScenarios;
+
+        using var scenarioLimit = new ConcurrencyLimiter(effectiveParallelScenarios);
 
         var scenarioTasks = evalSkill.EvalConfig.Scenarios.Select(scenario =>
             scenarioLimit.RunAsync(() => ExecuteScenario(scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha)));
@@ -448,7 +453,11 @@ public static class EvaluateCommand
         var skill = evalSkill.Skill;
         var tag = singleScenario ? $"[{skill.Name}]" : $"[{skill.Name}/{scenario.Name}]";
         var scenarioLog = (string msg) => spinner.Log($"{tag} {msg}");
-        using var runLimit = new ConcurrencyLimiter(config.ParallelRuns);
+
+        var effectiveParallelRuns = evalSkill.EvalConfig?.MaxParallelRuns.HasValue == true
+            ? Math.Min(config.ParallelRuns, evalSkill.EvalConfig.MaxParallelRuns.Value)
+            : config.ParallelRuns;
+        using var runLimit = new ConcurrencyLimiter(effectiveParallelRuns);
 
         if (!singleScenario)
             scenarioLog("📋 Starting scenario");
@@ -842,7 +851,15 @@ public static class EvaluateCommand
         log($"🔊 Running noise test with {totalLoaded} skills loaded...");
 
         var noiseScenarios = new List<NoiseScenarioResult>();
-        using var scenarioLimit = new ConcurrencyLimiter(config.ParallelScenarios);
+
+        var effectiveParallelScenarios = targetEvalSkill.EvalConfig!.MaxParallelScenarios.HasValue
+            ? Math.Min(config.ParallelScenarios, targetEvalSkill.EvalConfig.MaxParallelScenarios.Value)
+            : config.ParallelScenarios;
+        var effectiveParallelRuns = targetEvalSkill.EvalConfig.MaxParallelRuns.HasValue
+            ? Math.Min(config.ParallelRuns, targetEvalSkill.EvalConfig.MaxParallelRuns.Value)
+            : config.ParallelRuns;
+
+        using var scenarioLimit = new ConcurrencyLimiter(effectiveParallelScenarios);
 
         var tasks = targetEvalSkill.EvalConfig!.Scenarios
             .Where(s => s.ExpectActivation) // only test positive scenarios
@@ -853,7 +870,7 @@ public static class EvaluateCommand
 
                 scenarioLog($"running skill-only vs all-skills ({config.Runs} run(s))...");
 
-                using var runLimit = new ConcurrencyLimiter(config.ParallelRuns);
+                using var runLimit = new ConcurrencyLimiter(effectiveParallelRuns);
 
                 var runResults = await Task.WhenAll(Enumerable.Range(0, config.Runs).Select(runIndex =>
                     runLimit.RunAsync(async () =>

@@ -45,29 +45,41 @@ public static class PluginValidator
         }
 
         // --- Skills path validation ---
-        if (string.IsNullOrWhiteSpace(plugin.SkillsPath))
+        if (plugin.SkillPaths.Count == 0)
         {
             errors.Add("plugin.json has no 'skills' field — required.");
         }
-        else if (!TryGetSafeSubdirectory(plugin.DirectoryPath, plugin.SkillsPath, out var skillsDir, out var skillsPathError))
+        else
         {
-            errors.Add($"Plugin skills path is invalid: {skillsPathError}");
-        }
-        else if (!Directory.Exists(skillsDir!))
-        {
-            errors.Add($"Plugin skills path '{plugin.SkillsPath}' does not exist at '{skillsDir}'.");
+            foreach (var skillPath in plugin.SkillPaths)
+            {
+                if (!TryGetSafeSubdirectory(plugin.DirectoryPath, skillPath, out var resolved, out var skillPathError))
+                {
+                    errors.Add($"Plugin skills path is invalid: {skillPathError}");
+                }
+                else if (!Directory.Exists(resolved!) && !File.Exists(resolved!))
+                {
+                    errors.Add($"Plugin skills path '{skillPath}' does not exist at '{resolved}'.");
+                }
+            }
         }
 
         // --- Agents path validation (optional, but warn if specified and missing) ---
-        if (!string.IsNullOrWhiteSpace(plugin.AgentsPath))
+        foreach (var agentPath in plugin.AgentPaths)
         {
-            if (!TryGetSafeSubdirectory(plugin.DirectoryPath, plugin.AgentsPath, out var agentsDir, out var agentsPathError))
+            if (string.IsNullOrWhiteSpace(agentPath))
             {
-                warnings.Add($"Plugin agents path is invalid: {agentsPathError}");
+                warnings.Add("Plugin agents entry is empty or whitespace and will be ignored.");
+                continue;
             }
-            else if (!Directory.Exists(agentsDir!))
+
+            if (!TryGetSafeSubdirectory(plugin.DirectoryPath, agentPath, out var resolved, out var agentPathError))
             {
-                warnings.Add($"Plugin agents path '{plugin.AgentsPath}' does not exist at '{agentsDir}'.");
+                warnings.Add($"Plugin agent path is invalid: {agentPathError}");
+            }
+            else if (!Directory.Exists(resolved!) && !File.Exists(resolved!))
+            {
+                warnings.Add($"Plugin agent path '{agentPath}' does not exist at '{resolved}'.");
             }
         }
 
@@ -129,12 +141,43 @@ public static class PluginValidator
         var name = doc.TryGetProperty("name", out var n) ? n.GetString() : null;
         var version = doc.TryGetProperty("version", out var v) ? v.GetString() : null;
         var description = doc.TryGetProperty("description", out var d) ? d.GetString() : null;
-        var skills = doc.TryGetProperty("skills", out var s) ? s.GetString() : null;
-        var agents = doc.TryGetProperty("agents", out var a) ? a.GetString() : null;
+        // skills and agents can be an array of strings (Claude Code schema, preferred)
+        // or a string path (legacy). Normalize both into the array form.
+        IReadOnlyList<string> skillPaths = [];
+        if (doc.TryGetProperty("skills", out var s))
+        {
+            if (s.ValueKind == JsonValueKind.Array)
+            {
+                skillPaths = s.EnumerateArray()
+                    .Where(e => e.ValueKind == JsonValueKind.String)
+                    .Select(e => e.GetString()!)
+                    .ToList();
+            }
+            else if (s.ValueKind == JsonValueKind.String && s.GetString() is { } sv)
+            {
+                skillPaths = [sv];
+            }
+        }
+
+        IReadOnlyList<string> agentPaths = [];
+        if (doc.TryGetProperty("agents", out var a))
+        {
+            if (a.ValueKind == JsonValueKind.Array)
+            {
+                agentPaths = a.EnumerateArray()
+                    .Where(e => e.ValueKind == JsonValueKind.String)
+                    .Select(e => e.GetString()!)
+                    .ToList();
+            }
+            else if (a.ValueKind == JsonValueKind.String && a.GetString() is { } av)
+            {
+                agentPaths = [av];
+            }
+        }
 
         var dirPath = Path.GetDirectoryName(Path.GetFullPath(pluginJsonPath))!;
         var dirName = Path.GetFileName(dirPath);
 
-        return new PluginInfo(name ?? "", version, description, skills, agents, dirPath, dirName);
+        return new PluginInfo(name ?? "", version, description, skillPaths, agentPaths, dirPath, dirName);
     }
 }

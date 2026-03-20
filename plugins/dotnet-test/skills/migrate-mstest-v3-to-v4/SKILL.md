@@ -388,6 +388,11 @@ Review and fix any new warnings, or suppress them in `.editorconfig` if intentio
 - [ ] Behavioral changes reviewed and addressed
 - [ ] No tests were lost during migration (compare test counts)
 
+## Related Skills
+
+- `writing-mstest-tests` — for modern MSTest v4 assertion APIs and test authoring best practices
+- `run-tests` — for running tests after migration
+
 ## Common Pitfalls
 
 | Pitfall | Solution |

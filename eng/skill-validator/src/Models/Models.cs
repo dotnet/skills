@@ -70,7 +70,10 @@ public sealed record EvalScenario(
     int? MaxTokens = null,
     bool ExpectActivation = true);
 
-public sealed record EvalConfig(IReadOnlyList<EvalScenario> Scenarios);
+public sealed record EvalConfig(
+    IReadOnlyList<EvalScenario> Scenarios,
+    int? MaxParallelScenarios = null,
+    int? MaxParallelRuns = null);
 
 // --- Skill info ---
 
@@ -114,8 +117,8 @@ public sealed record PluginInfo(
     string Name,
     string? Version,
     string? Description,
-    string? SkillsPath,
-    string? AgentsPath,
+    IReadOnlyList<string> SkillPaths,
+    IReadOnlyList<string> AgentPaths,
     string DirectoryPath,
     string DirectoryName);
 

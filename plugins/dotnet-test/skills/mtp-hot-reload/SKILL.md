@@ -44,13 +44,9 @@ Set up and use Microsoft Testing Platform hot reload to rapidly iterate fixes on
 
 Hot reload requires MTP. It does **not** work with VSTest.
 
-Check the same detection signals as the `run-tests` skill:
+Follow the detection procedure in [references/platform-detection.md](references/platform-detection.md) to determine the test platform.
 
-- **SDK 10+**: `global.json` → `"test": { "runner": "Microsoft.Testing.Platform" }`
-- **SDK 8/9**: `<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>` in `.csproj`, `Directory.Build.props`, or `Directory.Packages.props`
-- **Other signals**: `<Sdk Name="MSTest.Sdk">`, `<EnableMSTestRunner>true</EnableMSTestRunner>`, TUnit package reference
-
-If the project uses VSTest, inform the user that MTP hot reload is not available and suggest migrating to MTP first, or using Visual Studio's built-in Test Explorer hot reload feature instead.
+If the project uses VSTest, inform the user that MTP hot reload is not available and suggest migrating to MTP first (see `migrate-vstest-to-mtp`), or using Visual Studio's built-in Test Explorer hot reload feature instead.
 
 ### Step 2: Add the hot reload NuGet package
 
@@ -101,7 +97,7 @@ Run the test project directly (not through `dotnet test`) to use hot reload in c
 dotnet run --project <project-path>
 ```
 
-To filter to specific failing tests, pass the filter after `--`:
+To filter to specific failing tests, pass the filter after `--`. The syntax depends on the test framework — see [references/filter-syntax.md](references/filter-syntax.md) for full details. Quick examples:
 
 | Framework | Filter syntax |
 |-----------|--------------|

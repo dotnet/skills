@@ -415,15 +415,17 @@ public static class AgentRunner
             // without extra skill directories; validation surfaces the real error.
             return [];
         }
-        if (pluginInfo?.SkillsPath is null) return [];
+        if (pluginInfo is null || pluginInfo.SkillPaths.Count == 0) return [];
 
-        if (!PluginValidator.TryGetSafeSubdirectory(
-                pluginRoot, pluginInfo.SkillsPath, out var skillsDir, out _))
-            return [];
-
-        if (!Directory.Exists(skillsDir!)) return [];
-
-        return [skillsDir!];
+        var dirs = new List<string>();
+        foreach (var relativePath in pluginInfo.SkillPaths)
+        {
+            if (!PluginValidator.TryGetSafeSubdirectory(pluginRoot, relativePath, out var fullPath, out _))
+                continue;
+            if (Directory.Exists(fullPath!))
+                dirs.Add(fullPath!);
+        }
+        return dirs.ToArray();
     }
 
     public static async Task<RunMetrics> RunAgent(RunOptions options)

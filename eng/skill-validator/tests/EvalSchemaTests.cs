@@ -129,6 +129,54 @@ public class ParseEvalConfigTests
         Assert.Equal(2, setup.Commands!.Count);
         Assert.Equal("dotnet build /bl:build.binlog", setup.Commands[0]);
     }
+
+    [Fact]
+    public void ParsesConfigSection()
+    {
+        var yaml = """
+            config:
+              max_parallel_scenarios: 1
+              max_parallel_runs: 2
+            scenarios:
+              - name: "Test"
+                prompt: "Do it"
+            """;
+        var config = EvalSchema.ParseEvalConfig(yaml);
+
+        Assert.Equal(1, config.MaxParallelScenarios);
+        Assert.Equal(2, config.MaxParallelRuns);
+        Assert.Single(config.Scenarios);
+    }
+
+    [Fact]
+    public void ConfigSectionIsOptional()
+    {
+        var yaml = """
+            scenarios:
+              - name: "Test"
+                prompt: "Do it"
+            """;
+        var config = EvalSchema.ParseEvalConfig(yaml);
+
+        Assert.Null(config.MaxParallelScenarios);
+        Assert.Null(config.MaxParallelRuns);
+    }
+
+    [Fact]
+    public void ParsesPartialConfigSection()
+    {
+        var yaml = """
+            config:
+              max_parallel_scenarios: 2
+            scenarios:
+              - name: "Test"
+                prompt: "Do it"
+            """;
+        var config = EvalSchema.ParseEvalConfig(yaml);
+
+        Assert.Equal(2, config.MaxParallelScenarios);
+        Assert.Null(config.MaxParallelRuns);
+    }
 }
 
 public class ValidateEvalConfigTests

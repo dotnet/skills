@@ -174,6 +174,29 @@ skill-validator consolidate --output summary.md $(find ./all-results/ -name resu
 
 Each skill can include a `tests/eval.yaml`:
 
+### Per-eval configuration
+
+An optional top-level `config` section lets you override parallelism settings for a specific eval file. This is useful for resource-intensive evaluations (e.g., skills that spawn heavy child processes like ML.NET model training) where the default concurrency would exceed runner memory limits.
+
+```yaml
+config:
+  max_parallel_scenarios: 1   # cap concurrent scenarios (default: use CLI value)
+  max_parallel_runs: 2        # cap concurrent runs per scenario (default: use CLI value)
+
+scenarios:
+  - name: "Heavy scenario"
+    prompt: "..."
+```
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `max_parallel_scenarios` | `int` (optional) | Maximum concurrent scenarios for this eval. The effective value is `min(--parallel-scenarios, this value)`. |
+| `max_parallel_runs` | `int` (optional) | Maximum concurrent runs per scenario for this eval. The effective value is `min(--parallel-runs, this value)`. |
+
+Both settings are optional. When omitted, the CLI defaults (`--parallel-scenarios`, `--parallel-runs`) apply unchanged. The override can only *reduce* parallelism (via `Math.Min`), never increase it beyond the CLI value.
+
+### Scenarios
+
 ```yaml
 scenarios:
   - name: "Descriptive name of the scenario"

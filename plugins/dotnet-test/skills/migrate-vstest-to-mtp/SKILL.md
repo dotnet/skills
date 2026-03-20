@@ -43,7 +43,7 @@ Migrate a .NET test solution from VSTest to Microsoft.Testing.Platform (MTP). Th
 
 ### Step 1: Assess the solution
 
-1. Identify the test framework for each test project:
+1. Identify the test framework for each test project — see [references/platform-detection.md](references/platform-detection.md) for the package-to-framework mapping. Key indicators:
    - **MSTest**: References `MSTest` or `MSTest.TestAdapter`, or uses `MSTest.Sdk` (with `<IsTestApplication>` not set to `false`). Note: `MSTest.TestFramework` alone is a library dependency, not a test project.
    - **NUnit**: References `NUnit3TestAdapter`
    - **xUnit.net**: References `xunit` and `xunit.runner.visualstudio`
@@ -188,23 +188,7 @@ VSTest-specific arguments must be translated to MTP equivalents. Build-related a
 
 **MSTest, NUnit, and xUnit.net v2 (with `YTest.MTP.XUnit2`)**: The VSTest `--filter` syntax is identical on both VSTest and MTP. No changes needed.
 
-**xUnit.net v3 (native MTP)**: xUnit.net v3 does NOT support the VSTest `--filter` syntax on MTP. Translate filters using xUnit.net v3's native options:
-
-| VSTest `--filter` syntax | xUnit.net v3 MTP equivalent | Notes |
-|---|---|---|
-| `FullyQualifiedName~ClassName` | `--filter-class *ClassName*` | Wildcards required for substring match |
-| `FullyQualifiedName=Ns.Class.Method` | `--filter-method Ns.Class.Method` | Exact match on fully qualified method |
-| `Name=MethodName` | `--filter-method *MethodName*` | Wildcards for substring match |
-| `Category=Value` (trait) | `--filter-trait "Category=Value"` | Filter by trait name/value pair |
-| Complex expressions | `--filter-query "expr"` | Uses [xUnit.net query filter language](https://xunit.net/docs/query-filter-language) |
-
-`--filter-query` uses a path-segment syntax with four segments and an optional trait filter:
-
-```
-/<assemblyFilter>/<namespaceFilter>/<classFilter>/<methodFilter>[traitName=traitValue]
-```
-
-Each segment matches against: assembly name, namespace, class name, method name. Use `*` for "match all" in any segment. Documentation: https://xunit.net/docs/query-filter-language
+**xUnit.net v3 (native MTP)**: xUnit.net v3 does NOT support the VSTest `--filter` syntax on MTP. See the **VSTest → MTP filter translation** section in [references/filter-syntax.md](references/filter-syntax.md) for the complete translation table. Key translation example:
 
 ```shell
 # VSTest
@@ -321,6 +305,11 @@ Once migration is complete and verified, remove packages that are only needed fo
 | Exit code 8 on CI without failures | MTP fails when zero tests run; use `--ignore-exit-code 8` or fix test discovery |
 | MSTest.Sdk v4 + vstest.console no longer works | MSTest.Sdk v4 no longer adds `Microsoft.NET.Test.Sdk` — add it explicitly or switch to `dotnet test` |
 | Missing `<OutputType>Exe</OutputType>` | Required for all setups except MSTest.Sdk (which sets it automatically) |
+
+## Next Steps
+
+- Use `run-tests` for running tests on the new MTP platform
+- Use `mtp-hot-reload` for iterative test fixing with hot reload on MTP
 
 ## More Info
 
