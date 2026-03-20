@@ -50,6 +50,7 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 - **"What to expect" questions** (user asks about breaking changes before upgrading): Present ALL major breaking changes from the Step 3 quick-lookup table — not just the ones visible in the current code. For each, provide a one-line fix summary. Also mention key behavioral changes from Step 4 (especially TestCase.Id history impact and TreatDiscoveryWarningsAsErrors default). If project code is available, highlight which changes apply directly.
 - **Full migration requests** (user wants complete migration): Follow the complete workflow below.
 - **Behavioral/runtime symptom reports** (user describes test execution differences without build errors): Match described symptoms to the behavioral changes table in Step 4. Provide targeted, symptom-specific advice. Mention other behavioral changes the user should watch for. Do not walk through source breaking changes unless the user also has build errors.
+- **CI/test-discovery issues** (tests not discovered, vstest.console stopped working, CI pipeline failures after upgrading): Focus on §4.5 (MSTest.Sdk defaults to MTP mode, which does not include Microsoft.NET.Test.Sdk — needed for vstest.console) and §4.4 (TreatDiscoveryWarningsAsErrors). Explain the root cause clearly and give both fix options (add Microsoft.NET.Test.Sdk package or switch to `dotnet test`). Do not walk through the full migration workflow.
 - **Explanatory questions** (user asks "is this a known change?", "what else should I watch out for?"): Explain the relevant changes and advise. Mention related changes the user might encounter next. Do not prescribe a full migration procedure.
 
 ## Workflow
@@ -303,7 +304,7 @@ public void Validate_NullInput_Throws()
 [TestMethod]
 public async Task FetchData_BadUrl_Throws()
 {
-    await client.GetAsync("http://invalid");
+    await client.GetAsync("https://localhost:0");
 }
 
 // After (v4)
@@ -311,7 +312,7 @@ public async Task FetchData_BadUrl_Throws()
 public async Task FetchData_BadUrl_Throws()
 {
     await Assert.ThrowsExactlyAsync<HttpRequestException>(
-        () => client.GetAsync("http://invalid"));
+        () => client.GetAsync("https://localhost:0"));
 }
 ```
 
@@ -359,7 +360,7 @@ These changes won't cause build errors but may affect test runtime behavior.
 | `TestContext.TestName` throws in `[ClassInitialize]` | v4 enforces lifecycle scope (§4.2) | Move access to `[TestInitialize]` or test methods |
 | Tests not discovered / discovery failures | `TreatDiscoveryWarningsAsErrors` now true (§4.4) | Fix warnings, or set to false in .runsettings |
 | Tests hang that didn't before | AppDomain disabled by default in MTP (§4.1) | Set `DisableAppDomain` to false in .runsettings |
-| vstest.console can't find tests with MSTest.Sdk | SDK no longer adds `Microsoft.NET.Test.Sdk` (§4.5) | Add explicit package reference or switch to `dotnet test` |
+| vstest.console can't find tests with MSTest.Sdk | MSTest.Sdk defaults to MTP; `Microsoft.NET.Test.Sdk` only added in VSTest mode (§4.5) | Add explicit package reference or switch to `dotnet test` |
 | New warnings from analyzers | Analyzer severities upgraded (§4.6) | Fix warnings or suppress in .editorconfig |
 
 #### 4.1 DisableAppDomain defaults to true (MTP only)
@@ -402,13 +403,24 @@ v4 uses stricter defaults. Discovery warnings are now treated as errors, which m
 
 > **Recommended**: Fix the underlying discovery warnings rather than suppressing this setting.
 
-#### 4.5 MSTest.Sdk no longer adds Microsoft.NET.Test.Sdk for MTP
+#### 4.5 MSTest.Sdk and vstest.console compatibility
 
-If using MSTest.Sdk with Microsoft.Testing.Platform (the default), the SDK no longer adds a reference to `Microsoft.NET.Test.Sdk`. If you still need VSTest support (e.g., for `vstest.console`), manually add:
+MSTest.Sdk defaults to Microsoft.Testing.Platform (MTP) mode. In MTP mode, MSTest.Sdk does **not** add a reference to `Microsoft.NET.Test.Sdk` — it only adds it in VSTest mode. This is not a v4-specific change; it applies to MSTest.Sdk v3 as well. Without `Microsoft.NET.Test.Sdk`, `vstest.console` cannot discover or run tests and will silently find zero tests. This commonly surfaces during migration when a CI pipeline uses `vstest.console` but the project uses MSTest.Sdk in its default MTP mode.
+
+**Option A — Switch to VSTest mode**: Set the `UseVSTest` property. MSTest.Sdk will then automatically add `Microsoft.NET.Test.Sdk`:
 
 ```xml
-<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+<Project Sdk="MSTest.Sdk/4.1.0">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <UseVSTest>true</UseVSTest>
+  </PropertyGroup>
+</Project>
 ```
+
+**Option B — Switch CI to `dotnet test`**: Replace `vstest.console` invocations in your CI pipeline with `dotnet test`. This works natively with MTP and is the recommended long-term approach for MSTest.Sdk projects.
+
+If you need VSTest during a transition period, Option A works without changing CI pipelines.
 
 #### 4.6 Analyzer severity changes
 
