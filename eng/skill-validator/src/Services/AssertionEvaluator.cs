@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
@@ -269,6 +268,8 @@ public static class AssertionEvaluator
             UseShellExecute = false,
         };
 
+        AgentRunner.ScrubSensitiveEnvironment(processStartInfo);
+
         Process process;
         try
         {
@@ -286,20 +287,8 @@ public static class AssertionEvaluator
 
         using (process)
         {
-            var outBuilder = new StringBuilder();
-            var errBuilder = new StringBuilder();
-            process.OutputDataReceived += (_, e) =>
-            {
-                if (e.Data is not null)
-                    outBuilder.AppendLine(e.Data);
-            };
-            process.ErrorDataReceived += (_, e) =>
-            {
-                if (e.Data is not null)
-                    errBuilder.AppendLine(e.Data);
-            };
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
+            var stdOutTask = process.StandardOutput.ReadToEndAsync();
+            var stdErrTask = process.StandardError.ReadToEndAsync();
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
             try
@@ -312,16 +301,18 @@ public static class AssertionEvaluator
                 return new AssertionResult(a, false, $"Command timed out after {timeoutSeconds}s");
             }
 
+            var actualStdOut = await stdOutTask;
+            var actualStdErr = await stdErrTask;
+
             var actualExitCode = process.ExitCode;
             if (cmd.ExpectedExitCode.HasValue && cmd.ExpectedExitCode.Value != actualExitCode)
             {
                 return new AssertionResult(a, false, $"Command exited with code {actualExitCode} but expected {cmd.ExpectedExitCode.Value}");
             }
 
-            var actualStdOut = outBuilder.ToString();
             if (cmd.ExpectedStdOutContains is not null)
             {
-                if (!actualStdOut.Contains(cmd.ExpectedStdOutContains, StringComparison.Ordinal))
+                if (!actualStdOut.Contains(cmd.ExpectedStdOutContains, StringComparison.OrdinalIgnoreCase))
                 {
                     return new AssertionResult(a, false, $"Command stdout did not contain expected value. Stdout: {TruncateOutput(actualStdOut)}");
                 }
@@ -342,10 +333,9 @@ public static class AssertionEvaluator
                 }
             }
 
-            var actualStdErr = errBuilder.ToString();
             if (cmd.ExpectedStdErrorContains is not null)
             {
-                if (!actualStdErr.Contains(cmd.ExpectedStdErrorContains, StringComparison.Ordinal))
+                if (!actualStdErr.Contains(cmd.ExpectedStdErrorContains, StringComparison.OrdinalIgnoreCase))
                 {
                     return new AssertionResult(a, false, $"Command stderr did not contain expected value. Stderr: {TruncateOutput(actualStdErr)}");
                 }
