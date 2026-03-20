@@ -115,12 +115,26 @@ public static class EvalSchema
 
                 if (raw.ExpectedExitCode is null &&
                     string.IsNullOrWhiteSpace(raw.ExpectedStdOutputContains) &&
-                    string.IsNullOrWhiteSpace(raw.ExpectedStdErrorContains))
-                    throw new InvalidOperationException($"Assertion '{raw.Type}' requires one or more of 'expected_exit_code', 'expected_std_output', or 'expected_std_error'");
+                    string.IsNullOrWhiteSpace(raw.ExpectedStdErrorContains) &&
+                    string.IsNullOrWhiteSpace(raw.ExpectedStdOutputMatches) &&
+                    string.IsNullOrWhiteSpace(raw.ExpectedStdErrorMatches))
+                    throw new InvalidOperationException($"Assertion '{raw.Type}' requires one or more of 'expected_exit_code', 'expected_std_output', 'expected_std_error', 'expected_std_output_matches', or 'expected_std_error_matches'");
                 break;
         }
 
-        return new Assertion(type, raw.Path, raw.Value, raw.Pattern, raw.CommandToRun, raw.CommandArguments, raw.ExpectedExitCode, raw.ExpectedStdOutputContains, raw.ExpectedStdErrorContains);
+        CommandAssertionArgs? commandArgs = type == AssertionType.RunCommandAndAssert
+            ? new CommandAssertionArgs(
+                raw.CommandToRun!,
+                raw.CommandArguments,
+                raw.ExpectedExitCode,
+                raw.ExpectedStdOutputContains,
+                raw.ExpectedStdErrorContains,
+                raw.ExpectedStdOutputMatches,
+                raw.ExpectedStdErrorMatches,
+                raw.CommandTimeout)
+            : null;
+
+        return new Assertion(type, raw.Path, raw.Value, raw.Pattern, commandArgs);
     }
 
     // Raw YAML deserialization models
@@ -192,5 +206,8 @@ public static class EvalSchema
         public int? ExpectedExitCode { get; set; }
         public string? ExpectedStdOutputContains { get; set; }
         public string? ExpectedStdErrorContains { get; set; }
+        public string? ExpectedStdOutputMatches { get; set; }
+        public string? ExpectedStdErrorMatches { get; set; }
+        public int? CommandTimeout { get; set; }
     }
 }

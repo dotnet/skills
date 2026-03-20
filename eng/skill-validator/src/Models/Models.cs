@@ -23,16 +23,22 @@ public enum AssertionType
     MaxTokens,
 }
 
+public sealed record CommandAssertionArgs(
+    string CommandToRun,
+    string? CommandArguments = null,
+    int? ExpectedExitCode = null,
+    string? ExpectedStdOutContains = null,
+    string? ExpectedStdErrorContains = null,
+    string? ExpectedStdOutMatches = null,
+    string? ExpectedStdErrorMatches = null,
+    int? Timeout = null);
+
 public sealed record Assertion(
     AssertionType Type,
     string? Path = null,
     string? Value = null,
     string? Pattern = null,
-    string? CommandToRun = null,
-    string? CommandArguments = null,
-    int? ExpectedExitCode = null,
-    string? ExpectedStdOutContains = null,
-    string? ExpectedStdErrorContains = null);
+    CommandAssertionArgs? CommandArgs = null);
 
 public sealed record AssertionResult(
     Assertion Assertion,

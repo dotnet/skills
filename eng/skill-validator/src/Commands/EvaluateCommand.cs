@@ -641,9 +641,9 @@ public static class EvaluateCommand
         // Evaluate assertions on all three runs
         if (scenario.Assertions is { Count: > 0 })
         {
-            baselineMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, baselineMetrics.AgentOutput, baselineMetrics.WorkDir);
-            isolatedMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, isolatedMetrics.AgentOutput, isolatedMetrics.WorkDir);
-            pluginMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, pluginMetrics.AgentOutput, pluginMetrics.WorkDir);
+            baselineMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, baselineMetrics.AgentOutput, baselineMetrics.WorkDir, scenario.Timeout);
+            isolatedMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, isolatedMetrics.AgentOutput, isolatedMetrics.WorkDir, scenario.Timeout);
+            pluginMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, pluginMetrics.AgentOutput, pluginMetrics.WorkDir, scenario.Timeout);
         }
 
         // Evaluate constraints on all three runs
@@ -889,9 +889,9 @@ public static class EvaluateCommand
                         if (scenario.Assertions is { Count: > 0 })
                         {
                             skillOnlyMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(
-                                scenario.Assertions, skillOnlyMetrics.AgentOutput, skillOnlyMetrics.WorkDir);
+                                scenario.Assertions, skillOnlyMetrics.AgentOutput, skillOnlyMetrics.WorkDir, scenario.Timeout);
                             allSkillsMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(
-                                scenario.Assertions, allSkillsMetrics.AgentOutput, allSkillsMetrics.WorkDir);
+                                scenario.Assertions, allSkillsMetrics.AgentOutput, allSkillsMetrics.WorkDir, scenario.Timeout);
                         }
                         var soConstraints = AssertionEvaluator.EvaluateConstraints(scenario, skillOnlyMetrics);
                         var asConstraints = AssertionEvaluator.EvaluateConstraints(scenario, allSkillsMetrics);

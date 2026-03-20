@@ -12,12 +12,13 @@ public static class AssertionEvaluator
     public static async Task<List<AssertionResult>> EvaluateAssertions(
         IReadOnlyList<Assertion> assertions,
         string agentOutput,
-        string workDir)
+        string workDir,
+        int scenarioTimeoutSeconds = 120)
     {
         var results = new List<AssertionResult>();
         foreach (var assertion in assertions)
         {
-            var result = await EvaluateAssertion(assertion, agentOutput, workDir);
+            var result = await EvaluateAssertion(assertion, agentOutput, workDir, scenarioTimeoutSeconds);
             results.Add(result);
         }
         return results;
@@ -86,7 +87,8 @@ public static class AssertionEvaluator
     private static async Task<AssertionResult> EvaluateAssertion(
         Assertion assertion,
         string agentOutput,
-        string workDir)
+        string workDir,
+        int scenarioTimeoutSeconds)
     {
         return assertion.Type switch
         {
@@ -99,7 +101,7 @@ public static class AssertionEvaluator
             AssertionType.OutputMatches => EvalOutputMatches(assertion, agentOutput),
             AssertionType.OutputNotMatches => EvalOutputNotMatches(assertion, agentOutput),
             AssertionType.ExitSuccess => EvalExitSuccess(assertion, agentOutput),
-            AssertionType.RunCommandAndAssert => EvalRunCommandAndAssert(assertion, workDir),
+            AssertionType.RunCommandAndAssert => EvalRunCommandAndAssert(assertion, workDir, scenarioTimeoutSeconds),
             _ => new AssertionResult(assertion, false, $"Unknown assertion type: {assertion.Type}"),
         };
     }
@@ -239,11 +241,13 @@ public static class AssertionEvaluator
                 : "Agent produced no output");
     }
 
-    private static AssertionResult EvalRunCommandAndAssert(Assertion a, string workDir)
+    private static AssertionResult EvalRunCommandAndAssert(Assertion a, string workDir, int scenarioTimeoutSeconds)
     {
-        var command = a.CommandToRun ?? throw new UnreachableException();
+        var cmd = a.CommandArgs ?? throw new UnreachableException();
+        var command = cmd.CommandToRun;
+        var timeoutSeconds = cmd.Timeout ?? scenarioTimeoutSeconds;
 
-        var processStartInfo = new ProcessStartInfo(command, a.CommandArguments ?? string.Empty)
+        var processStartInfo = new ProcessStartInfo(command, cmd.CommandArguments ?? string.Empty)
         {
             WorkingDirectory = workDir,
             RedirectStandardOutput = true,
@@ -268,12 +272,10 @@ public static class AssertionEvaluator
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        // 3 minutes timeout is an arbitrary timeout.
-        // We can adjust it in future if needed, or make it customizable.
-        if (!process.WaitForExit(TimeSpan.FromMinutes(3)))
+        if (!process.WaitForExit(TimeSpan.FromSeconds(timeoutSeconds)))
         {
             process.Kill();
-            return new AssertionResult(a, false, "Command timed out after 3 minutes");
+            return new AssertionResult(a, false, $"Command timed out after {timeoutSeconds}s");
         }
 
         // The parameterless WaitForExit() ensures that all async output event handlers
@@ -281,26 +283,56 @@ public static class AssertionEvaluator
         process.WaitForExit();
 
         var actualExitCode = process.ExitCode;
-        if (a.ExpectedExitCode.HasValue && a.ExpectedExitCode.Value != actualExitCode)
+        if (cmd.ExpectedExitCode.HasValue && cmd.ExpectedExitCode.Value != actualExitCode)
         {
-            return new AssertionResult(a, false, $"Command exited with code {actualExitCode} but expected {a.ExpectedExitCode.Value}");
+            return new AssertionResult(a, false, $"Command exited with code {actualExitCode} but expected {cmd.ExpectedExitCode.Value}");
         }
 
-        if (a.ExpectedStdOutContains is not null)
+        var actualStdOut = outBuilder.ToString();
+        if (cmd.ExpectedStdOutContains is not null)
         {
-            var actualStdOut = outBuilder.ToString();
-            if (!actualStdOut.Contains(a.ExpectedStdOutContains, StringComparison.Ordinal))
+            if (!actualStdOut.Contains(cmd.ExpectedStdOutContains, StringComparison.Ordinal))
             {
                 return new AssertionResult(a, false, $"Command stdout did not contain expected value. Stdout: {actualStdOut}");
             }
         }
 
-        if (a.ExpectedStdErrorContains is not null)
+        if (cmd.ExpectedStdOutMatches is not null)
         {
-            var actualStdErr = errBuilder.ToString();
-            if (!actualStdErr.Contains(a.ExpectedStdErrorContains, StringComparison.Ordinal))
+            try
+            {
+                if (!Regex.IsMatch(actualStdOut, cmd.ExpectedStdOutMatches, RegexOptions.IgnoreCase, RegexTimeout))
+                {
+                    return new AssertionResult(a, false, $"Command stdout did not match pattern '{cmd.ExpectedStdOutMatches}'. Stdout: {actualStdOut}");
+                }
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                return new AssertionResult(a, false, $"Regex pattern '{cmd.ExpectedStdOutMatches}' timed out after {RegexTimeout.TotalSeconds}s");
+            }
+        }
+
+        var actualStdErr = errBuilder.ToString();
+        if (cmd.ExpectedStdErrorContains is not null)
+        {
+            if (!actualStdErr.Contains(cmd.ExpectedStdErrorContains, StringComparison.Ordinal))
             {
                 return new AssertionResult(a, false, $"Command stderr did not contain expected value. Stderr: {actualStdErr}");
+            }
+        }
+
+        if (cmd.ExpectedStdErrorMatches is not null)
+        {
+            try
+            {
+                if (!Regex.IsMatch(actualStdErr, cmd.ExpectedStdErrorMatches, RegexOptions.IgnoreCase, RegexTimeout))
+                {
+                    return new AssertionResult(a, false, $"Command stderr did not match pattern '{cmd.ExpectedStdErrorMatches}'. Stderr: {actualStdErr}");
+                }
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                return new AssertionResult(a, false, $"Regex pattern '{cmd.ExpectedStdErrorMatches}' timed out after {RegexTimeout.TotalSeconds}s");
             }
         }
 
