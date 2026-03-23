@@ -201,6 +201,12 @@ public sealed record SkillActivationInfo(
     IReadOnlyList<string> ExtraTools,
     int SkillEventCount);
 
+// --- Subagent (custom agent) activation ---
+
+public sealed record SubagentActivationInfo(
+    IReadOnlyList<string> InvokedAgents,
+    int SubagentEventCount);
+
 // --- Comparison ---
 
 public sealed record MetricBreakdown(
@@ -233,6 +239,8 @@ public sealed class ScenarioComparison
     public IReadOnlyList<double>? PerRunScores { get; set; }
     public SkillActivationInfo? SkillActivationIsolated { get; set; }
     public SkillActivationInfo? SkillActivationPlugin { get; set; }
+    public SubagentActivationInfo? SubagentActivationIsolated { get; set; }
+    public SubagentActivationInfo? SubagentActivationPlugin { get; set; }
     public bool TimedOut { get; set; }
     /// <summary>When false, non-activation is expected (negative test) and should not flag the verdict.</summary>
     public bool ExpectActivation { get; set; } = true;

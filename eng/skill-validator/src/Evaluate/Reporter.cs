@@ -261,6 +261,10 @@ public static class Reporter
             ReportActivation(saPlug, "Plugin", scenario.ExpectActivation);
         }
 
+        // Subagent (custom agent) activation info
+        ReportSubagentActivation(scenario.SubagentActivationIsolated, "Isolated");
+        ReportSubagentActivation(scenario.SubagentActivationPlugin, "Plugin");
+
         Console.WriteLine();
 
         var bj = scenario.Baseline.JudgeResult;
@@ -397,6 +401,13 @@ public static class Reporter
         }
     }
 
+    private static void ReportSubagentActivation(SubagentActivationInfo? sa, string label)
+    {
+        if (sa is null || sa.InvokedAgents.Count == 0)
+            return;
+        Console.WriteLine($"      \x1b[2mAgents invoked ({label}):\x1b[0m \x1b[34m{string.Join(", ", sa.InvokedAgents)}\x1b[0m ({sa.SubagentEventCount} event(s))");
+    }
+
     /// <summary>Formats a metric value with a percentage delta from baseline, e.g. "800 (-33%)".</summary>
     private static string FormatMetricWithDelta(double value, double baseline, bool lowerIsBetter)
     {
@@ -460,6 +471,9 @@ public static class Reporter
         var footnotes = new List<string>();
         var tableRows = new List<string>();
         bool anyPluginRun = verdicts.Any(v => v.Scenarios.Any(s => s.SkilledPlugin is not null));
+        bool anyAgentsInvoked = verdicts.Any(v => v.Scenarios.Any(s =>
+            (s.SubagentActivationIsolated is { } sai && sai.InvokedAgents.Count > 0) ||
+            (s.SubagentActivationPlugin is { } sap && sap.InvokedAgents.Count > 0)));
 
         foreach (var v in verdicts)
         {
@@ -503,6 +517,14 @@ public static class Reporter
                     skillsCol += $" / {plugActivation}";
                 }
 
+                // Agents invoked column — show subagent activations
+                string agentsCol = FormatSubagentCell(s.SubagentActivationIsolated);
+                if (anyPluginRun && s.SubagentActivationPlugin is { } saPlugAgent)
+                {
+                    string plugAgents = FormatSubagentCell(saPlugAgent);
+                    agentsCol += $" / {plugAgents}";
+                }
+
                 var footnote = BuildVerdictFootnote(s, qualityDelta);
                 string verdictCol = icon;
                 if (footnote is not null)
@@ -512,24 +534,27 @@ public static class Reporter
                     verdictCol = $"{icon} <a href=\"#user-content-fn-{n}\" id=\"ref-{n}\">[{n}]</a>";
                 }
 
+                string agentsSegment = anyAgentsInvoked ? $" | {agentsCol}" : "";
                 var row = anyPluginRun
-                    ? $"| {v.SkillName} | {s.ScenarioName} | {isoQualityCol} | {plugQualityCol} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {verdictCol} |"
-                    : $"| {v.SkillName} | {s.ScenarioName} | {isoQualityCol} | {skillsCol} | {FormatOverfitCell(v.OverfittingResult)} | {verdictCol} |";
+                    ? $"| {v.SkillName} | {s.ScenarioName} | {isoQualityCol} | {plugQualityCol} | {skillsCol}{agentsSegment} | {FormatOverfitCell(v.OverfittingResult)} | {verdictCol} |"
+                    : $"| {v.SkillName} | {s.ScenarioName} | {isoQualityCol} | {skillsCol}{agentsSegment} | {FormatOverfitCell(v.OverfittingResult)} | {verdictCol} |";
                 tableRows.Add(row);
             }
         }
 
         if (tableRows.Count > 0)
         {
+            string agentsHeader = anyAgentsInvoked ? " Agents Invoked |" : "";
+            string agentsSep = anyAgentsInvoked ? "----------------|" : "";
             if (anyPluginRun)
             {
-                sb.AppendLine("| Skill | Scenario | Quality (Isolated) | Quality (Plugin) | Skills Loaded | Overfit | Verdict |");
-                sb.AppendLine("|-------|----------|--------------------|------------------|---------------|---------|---------|");
+                sb.AppendLine($"| Skill | Scenario | Quality (Isolated) | Quality (Plugin) | Skills Loaded |{agentsHeader} Overfit | Verdict |");
+                sb.AppendLine($"|-------|----------|--------------------|------------------|---------------|{agentsSep}---------|---------|"  );
             }
             else
             {
-                sb.AppendLine("| Skill | Scenario | Quality | Skills Loaded | Overfit | Verdict |");
-                sb.AppendLine("|-------|----------|---------|---------------|---------|---------|");
+                sb.AppendLine($"| Skill | Scenario | Quality | Skills Loaded |{agentsHeader} Overfit | Verdict |");
+                sb.AppendLine($"|-------|----------|---------|---------------|{agentsSep}---------|---------|"  );
             }
             foreach (var row in tableRows)
                 sb.AppendLine(row);
@@ -804,6 +829,14 @@ public static class Reporter
             return parts.Count > 0 ? "✅ " + string.Join("; ", parts) : "✅";
         }
         return expectActivation ? "⚠️ NOT ACTIVATED" : "ℹ️ not activated (expected)";
+    }
+
+    /// <summary>Formats a subagent activation info object into a markdown cell string.</summary>
+    internal static string FormatSubagentCell(SubagentActivationInfo? sa)
+    {
+        if (sa is null || sa.InvokedAgents.Count == 0)
+            return "—";
+        return string.Join(", ", sa.InvokedAgents);
     }
 
     /// <summary>

@@ -27,6 +27,7 @@ namespace SkillValidator;
 [JsonSerializable(typeof(PairwiseJudgeResult))]
 [JsonSerializable(typeof(PairwiseRubricResult))]
 [JsonSerializable(typeof(SkillActivationInfo))]
+[JsonSerializable(typeof(SubagentActivationInfo))]
 [JsonSerializable(typeof(OverfittingResult))]
 [JsonSerializable(typeof(RubricOverfitAssessment))]
 [JsonSerializable(typeof(AssertionOverfitAssessment))]

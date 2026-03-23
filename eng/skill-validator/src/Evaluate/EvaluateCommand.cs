@@ -553,6 +553,18 @@ public static class EvaluateCommand
             ExtraTools: allPlgActivations.SelectMany(a => a.ExtraTools).Distinct().ToList(),
             SkillEventCount: allPlgActivations.Sum(a => a.SkillEventCount));
 
+        // Aggregate subagent activation across runs
+        var allIsoSubagents = runResults.Select(r => r.SubagentActivationIsolated).ToList();
+        var allPlgSubagents = runResults.Select(r => r.SubagentActivationPlugin).ToList();
+
+        comparison.SubagentActivationIsolated = new SubagentActivationInfo(
+            InvokedAgents: allIsoSubagents.SelectMany(a => a.InvokedAgents).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            SubagentEventCount: allIsoSubagents.Sum(a => a.SubagentEventCount));
+
+        comparison.SubagentActivationPlugin = new SubagentActivationInfo(
+            InvokedAgents: allPlgSubagents.SelectMany(a => a.InvokedAgents).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            SubagentEventCount: allPlgSubagents.Sum(a => a.SubagentEventCount));
+
         // Propagate timeout info from any run
         comparison.TimedOut = runResults.Any(r =>
             r.Baseline.Metrics.TimedOut ||
@@ -572,7 +584,9 @@ public static class EvaluateCommand
         PairwiseJudgeResult? Pairwise,
         bool PairwiseFromPlugin,
         SkillActivationInfo SkillActivationIsolated,
-        SkillActivationInfo SkillActivationPlugin);
+        SkillActivationInfo SkillActivationPlugin,
+        SubagentActivationInfo SubagentActivationIsolated,
+        SubagentActivationInfo SubagentActivationPlugin);
 
     private static async Task<RunExecutionResult> ExecuteRun(
         int runIndex,
@@ -740,11 +754,20 @@ public static class EvaluateCommand
             ? $"🔌 Skill activated (plugin): skills={string.Join(", ", pluginActivation.DetectedSkills)}"
             : "⚠️  Skill NOT activated (plugin)");
 
+        // Subagent activation — detect custom agent invocations in both runs
+        var isolatedSubagent = MetricsCollector.ExtractSubagentActivation(isolatedMetrics.Events);
+        var pluginSubagent = MetricsCollector.ExtractSubagentActivation(pluginMetrics.Events);
+
+        if (isolatedSubagent.InvokedAgents.Count > 0)
+            runLog($"🤖 Subagents invoked (isolated): {string.Join(", ", isolatedSubagent.InvokedAgents)}");
+        if (pluginSubagent.InvokedAgents.Count > 0)
+            runLog($"🤖 Subagents invoked (plugin): {string.Join(", ", pluginSubagent.InvokedAgents)}");
+
         if (config.Verbose)
             runLog("✓ complete");
 
         return new RunExecutionResult(baselineResult, isolatedResult, pluginResult, pairwise,
-            pairwiseFromPlugin, isolatedActivation, pluginActivation);
+            pairwiseFromPlugin, isolatedActivation, pluginActivation, isolatedSubagent, pluginSubagent);
     }
 
     private static async Task<(JudgeResult Result, TokenUsage Tokens)> SafeJudge(Task<(JudgeResult Result, TokenUsage Tokens)> task, string label, Action<string> runLog)
