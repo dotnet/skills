@@ -1,6 +1,6 @@
 ---
 name: writing-mstest-tests
-description: "Best practices for writing MSTest 3.x/4.x unit tests. Use when the user needs to write, improve, or review MSTest tests, including modern assertions, data-driven tests, test lifecycle, and common anti-patterns. Covers MSTest.Sdk, sealed classes, Assert.Throws, DynamicData with ValueTuples, TestContext, and conditional execution."
+description: "Best practices for writing MSTest 3.x/4.x unit tests. Use when the user needs to write, improve, fix, or review MSTest tests, including modern assertions, data-driven tests, test lifecycle, and common anti-patterns. Also use when fixing test issues like swapped Assert.AreEqual arguments, incorrect assertion usage, or modernizing legacy test code. Covers MSTest.Sdk, sealed classes, Assert.Throws, DynamicData with ValueTuples, TestContext, and conditional execution."
 ---
 
 # Writing MSTest Tests
