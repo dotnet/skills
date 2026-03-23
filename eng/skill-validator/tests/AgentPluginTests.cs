@@ -178,9 +178,10 @@ public class PluginValidatorTests
             Directory.CreateDirectory(pluginDir);
             Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
             Directory.CreateDirectory(Path.Combine(pluginDir, "agents"));
+            File.WriteAllText(Path.Combine(pluginDir, "agents", "test.agent.md"), "---\nname: test\ndescription: test\n---\n# Test\n");
             var dirName = Path.GetFileName(pluginDir);
 
-            var plugin = new PluginInfo(dirName, "1.0.0", "A test plugin.", ["./skills/"], ["./agents/"], pluginDir, dirName);
+            var plugin = new PluginInfo(dirName, "1.0.0", "A test plugin.", ["./skills/"], ["./agents/test.agent.md"], pluginDir, dirName);
             var result = PluginValidator.ValidatePlugin(plugin);
             Assert.Empty(result.Errors);
             Assert.Empty(result.Warnings);
@@ -249,7 +250,7 @@ public class PluginValidatorTests
     }
 
     [Fact]
-    public void NonexistentAgentsPathWarns()
+    public void NonexistentAgentsPathErrors()
     {
         var pluginDir = Path.Combine(Path.GetTempPath(), "plugin-test-" + Guid.NewGuid().ToString("N"));
         try
@@ -258,10 +259,9 @@ public class PluginValidatorTests
             Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
             var dirName = Path.GetFileName(pluginDir);
 
-            var plugin = new PluginInfo(dirName, "1.0.0", "desc", ["./skills/"], ["./nonexistent/"], pluginDir, dirName);
+            var plugin = new PluginInfo(dirName, "1.0.0", "desc", ["./skills/"], ["./nonexistent.agent.md"], pluginDir, dirName);
             var result = PluginValidator.ValidatePlugin(plugin);
-            Assert.Empty(result.Errors);
-            Assert.Contains(result.Warnings, w => w.Contains("does not exist"));
+            Assert.Contains(result.Errors, e => e.Contains("does not exist"));
         }
         finally
         {
@@ -270,7 +270,7 @@ public class PluginValidatorTests
     }
 
     [Fact]
-    public void NonexistentAgentPathInArrayWarns()
+    public void NonexistentAgentFilePathErrors()
     {
         var pluginDir = Path.Combine(Path.GetTempPath(), "plugin-test-" + Guid.NewGuid().ToString("N"));
         try
@@ -279,10 +279,31 @@ public class PluginValidatorTests
             Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
             var dirName = Path.GetFileName(pluginDir);
 
+            var plugin = new PluginInfo(dirName, "1.0.0", "desc", ["./skills/"], ["./agents/missing.agent.md"], pluginDir, dirName);
+            var result = PluginValidator.ValidatePlugin(plugin);
+            Assert.Contains(result.Errors, e => e.Contains("does not exist"));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [Fact]
+    public void AgentDirectoryPathErrors()
+    {
+        var pluginDir = Path.Combine(Path.GetTempPath(), "plugin-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(pluginDir);
+            Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
+            Directory.CreateDirectory(Path.Combine(pluginDir, "agents"));
+            File.WriteAllText(Path.Combine(pluginDir, "agents", "test.agent.md"), "---\nname: test\ndescription: test\n---\n# Test\n");
+            var dirName = Path.GetFileName(pluginDir);
+
             var plugin = new PluginInfo(dirName, "1.0.0", "desc", ["./skills/"], ["./agents/"], pluginDir, dirName);
             var result = PluginValidator.ValidatePlugin(plugin);
-            Assert.Empty(result.Errors);
-            Assert.Contains(result.Warnings, w => w.Contains("does not exist"));
+            Assert.Contains(result.Errors, e => e.Contains("is a directory") && e.Contains("explicit file paths"));
         }
         finally
         {
@@ -302,7 +323,7 @@ public class PluginValidatorTests
             File.WriteAllText(Path.Combine(pluginDir, "agents", "test.agent.md"), "---\nname: test\ndescription: test\n---\n# Test\n");
             var dirName = Path.GetFileName(pluginDir);
 
-            var plugin = new PluginInfo(dirName, "1.0.0", "desc", ["./skills/"], ["./agents/"], pluginDir, dirName);
+            var plugin = new PluginInfo(dirName, "1.0.0", "desc", ["./skills/"], ["./agents/test.agent.md"], pluginDir, dirName);
             var result = PluginValidator.ValidatePlugin(plugin);
             Assert.Empty(result.Errors);
             Assert.Empty(result.Warnings);
