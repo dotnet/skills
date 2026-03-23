@@ -136,9 +136,8 @@ public class AnalyzeSkillTests
             new("basic", "Use the migrate-app skill to help me migrate my project")
         };
         var (skill, evalConfig) = MakeSkillWithEval(content, "migrate-app", scenarios);
-        var profile = SkillProfiler.AnalyzeSkill(skill, evalConfig);
-        Assert.Contains(profile.Errors, e => e.Contains("mentions skill name") && e.Contains("migrate-app"));
-        Assert.DoesNotContain(profile.Warnings, w => w.Contains("mentions skill name"));
+        var errors = EvaluateCommand.ValidateEvalPrompts(skill, evalConfig);
+        Assert.Contains(errors, e => e.Contains("mentions skill name") && e.Contains("migrate-app"));
     }
 
     [Fact]
@@ -150,8 +149,8 @@ public class AnalyzeSkillTests
             new("basic", "Help me migrate my project to the latest framework")
         };
         var (skill, evalConfig) = MakeSkillWithEval(content, "migrate-app", scenarios);
-        var profile = SkillProfiler.AnalyzeSkill(skill, evalConfig);
-        Assert.DoesNotContain(profile.Errors, e => e.Contains("mentions skill name"));
+        var errors = EvaluateCommand.ValidateEvalPrompts(skill, evalConfig);
+        Assert.DoesNotContain(errors, e => e.Contains("mentions skill name"));
     }
 
     [Fact]
@@ -163,8 +162,8 @@ public class AnalyzeSkillTests
             new("basic", "Help me migrate my project")
         };
         var (skill, evalConfig) = MakeSkillWithEval(content, "", scenarios);
-        var profile = SkillProfiler.AnalyzeSkill(skill, evalConfig);
-        Assert.DoesNotContain(profile.Errors, e => e.Contains("mentions skill name"));
+        var errors = EvaluateCommand.ValidateEvalPrompts(skill, evalConfig);
+        Assert.DoesNotContain(errors, e => e.Contains("mentions skill name"));
     }
 
     [Fact]

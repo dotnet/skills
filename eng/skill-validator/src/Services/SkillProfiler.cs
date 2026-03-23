@@ -16,7 +16,6 @@ public sealed record SkillProfile(
     bool HasFrontmatter,
     bool HasWhenToUse,
     bool HasWhenNotToUse,
-    int ResourceFileCount,
     IReadOnlyList<string> Errors,
     IReadOnlyList<string> Warnings);
 
@@ -37,7 +36,7 @@ public static partial class SkillProfiler
     private const int MaxCompatibilityLength = 500;
     private const int MaxBodyLines = 500;
 
-    public static SkillProfile AnalyzeSkill(SkillInfo skill, EvalConfig? evalConfig = null)
+    public static SkillProfile AnalyzeSkill(SkillInfo skill)
     {
         var content = skill.SkillMdContent;
         int chars4TokenCount = (int)Math.Ceiling(content.Length / 4.0);
@@ -63,9 +62,6 @@ public static partial class SkillProfiler
             <= 5000 => "standard",
             _ => "comprehensive",
         };
-
-        int resourceFileCount = evalConfig?.Scenarios
-            .Sum(s => s.Setup?.Files?.Count ?? 0) ?? 0;
 
         var errors = new List<string>();
         var warnings = new List<string>();
@@ -168,23 +164,6 @@ public static partial class SkillProfiler
         if (!hasFrontmatter)
             warnings.Add("No YAML frontmatter — agents use name/description for skill discovery.");
 
-        // Eval prompts that explicitly reference the skill by name bias baseline runs
-        // (agent wastes time searching) and force activation instead of testing organic
-        // discovery. This is a hard error.
-        if (evalConfig is not null && !string.IsNullOrWhiteSpace(skill.Name))
-        {
-            // Boundary-aware match: skill name must appear as a standalone token,
-            // not as part of a larger word or hyphenated identifier.
-            var escapedName = Regex.Escape(skill.Name.Trim());
-            var namePattern = new Regex($@"(?<![\w-]){escapedName}(?![\w-])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-            foreach (var scenario in evalConfig.Scenarios)
-            {
-                if (namePattern.IsMatch(scenario.Prompt))
-                    errors.Add($"Eval scenario '{scenario.Name}' prompt mentions skill name '{skill.Name}' — remove skill name from prompt to avoid biasing baseline runs.");
-            }
-        }
-
         return new SkillProfile(
             Name: skill.Name,
             Chars4TokenCount: chars4TokenCount,
@@ -197,7 +176,6 @@ public static partial class SkillProfiler
             HasFrontmatter: hasFrontmatter,
             HasWhenToUse: hasWhenToUse,
             HasWhenNotToUse: hasWhenNotToUse,
-            ResourceFileCount: resourceFileCount,
             Errors: errors,
             Warnings: warnings);
     }

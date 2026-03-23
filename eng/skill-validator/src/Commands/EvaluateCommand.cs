@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using SkillValidator.Models;
 using SkillValidator.Services;
 using SkillValidator.Utilities;
@@ -316,15 +317,13 @@ public static class EvaluateCommand
 
         log("🔍 Evaluating...");
 
-        var profile = SkillProfiler.AnalyzeSkill(skill, evalSkill.EvalConfig);
-        log($"📊 {SkillProfiler.FormatProfileLine(profile)}");
-        foreach (var error in profile.Errors)
-            log($"   ❌ {error}");
-        foreach (var warning in SkillProfiler.FormatProfileWarnings(profile))
-            log(warning);
-
-        if (profile.Errors.Count > 0)
+        // Eval-specific static check: reject prompts that mention the skill name,
+        // because that biases baseline runs. Other static checks are in `check`.
+        var promptErrors = ValidateEvalPrompts(skill, evalSkill.EvalConfig);
+        if (promptErrors.Count > 0)
         {
+            foreach (var error in promptErrors)
+                log($"   ❌ {error}");
             return new SkillVerdict
             {
                 SkillName = skill.Name,
@@ -332,7 +331,7 @@ public static class EvaluateCommand
                 Passed = false,
                 Scenarios = [],
                 OverallImprovementScore = 0,
-                Reason = string.Join(" ", profile.Errors),
+                Reason = string.Join(" ", promptErrors),
                 FailureKind = "spec_conformance_failure",
             };
         }
@@ -340,7 +339,7 @@ public static class EvaluateCommand
         // --- Noise-only path: skip normal baseline-vs-skill eval, run only skill-only vs all-skills ---
         if (config.NoiseSkillsDir is not null && noiseSkills.Count > 0)
         {
-            return await EvaluateSkillNoise(evalSkill, noiseSkills, config, profile, spinner);
+            return await EvaluateSkillNoise(evalSkill, noiseSkills, config, spinner);
         }
 
         // Launch overfitting check in parallel with scenario execution
@@ -380,7 +379,6 @@ public static class EvaluateCommand
         }
 
         var verdict = Comparator.ComputeVerdict(skill, comparisons, config.MinImprovement, config.RequireCompletion, config.ConfidenceLevel);
-        verdict.ProfileWarnings = profile.Warnings;
         verdict.OverfittingResult = overfittingResult;
 
         // Optional: generate fixed eval.yaml
@@ -769,7 +767,6 @@ public static class EvaluateCommand
         EvalSkillInfo evalSkill,
         IReadOnlyList<EvalSkillInfo> noiseEvalSkills,
         ValidatorConfig config,
-        SkillProfile profile,
         Spinner spinner)
     {
         var skill = evalSkill.Skill;
@@ -793,7 +790,6 @@ public static class EvaluateCommand
                 OverallImprovementScore = 0,
                 Reason = $"Noise test execution failed: {ex.Message}",
                 FailureKind = "noise_degradation",
-                ProfileWarnings = profile.Warnings,
             };
         }
 
@@ -806,7 +802,6 @@ public static class EvaluateCommand
             OverallImprovementScore = 0,
             Reason = noiseResult.Reason,
             FailureKind = noiseResult.Passed ? null : "noise_degradation",
-            ProfileWarnings = profile.Warnings,
             NoiseTestResult = noiseResult,
         };
 
@@ -1057,5 +1052,30 @@ public static class EvaluateCommand
         var raw = message ?? "unknown error";
         var singleLine = raw.ReplaceLineEndings(" ");
         return singleLine.Length > 150 ? singleLine[..150] + "…" : singleLine;
+    }
+
+    /// <summary>
+    /// Eval-specific static check: reject prompts that mention the skill name,
+    /// because that biases baseline runs (agent wastes time searching) and forces
+    /// activation instead of testing organic discovery.
+    /// </summary>
+    internal static List<string> ValidateEvalPrompts(SkillInfo skill, EvalConfig? evalConfig)
+    {
+        var errors = new List<string>();
+        if (evalConfig is null || string.IsNullOrWhiteSpace(skill.Name))
+            return errors;
+
+        var escapedName = Regex.Escape(skill.Name.Trim());
+        var namePattern = new Regex(
+            $@"(?<![\w-]){escapedName}(?![\w-])",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        foreach (var scenario in evalConfig.Scenarios)
+        {
+            if (namePattern.IsMatch(scenario.Prompt))
+                errors.Add($"Eval scenario '{scenario.Name}' prompt mentions skill name '{skill.Name}' — remove skill name from prompt to avoid biasing baseline runs.");
+        }
+
+        return errors;
     }
 }
