@@ -108,32 +108,35 @@ public class RetryHelperTests
     [Fact]
     public async Task ExponentialBackoff_DelaysIncrease()
     {
-        var timestamps = new List<long>();
+        // Uses injected clock/delay to avoid real-time sensitivity on Windows
+        // where JIT/scheduler jitter can inflate the first measured gap (see dotnet/skills#288).
         var callCount = 0;
+        var fakeTimeMs = 0L;
+        var recordedDelays = new List<int>();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            RetryHelper.ExecuteWithRetry<int>(
+            RetryHelper.ExecuteWithRetryCore<int>(
                 (_) =>
                 {
-                    timestamps.Add(Environment.TickCount64);
                     callCount++;
+                    fakeTimeMs += 5; // simulate 5ms per attempt
                     throw new InvalidOperationException("fail");
                 },
                 "test",
                 maxRetries: 2,
                 baseDelayMs: 200,
-                cancellationToken: TestContext.Current.CancellationToken));
+                totalTimeoutMs: 60_000,
+                cancellationToken: TestContext.Current.CancellationToken,
+                clock: () => fakeTimeMs,
+                delayFunc: (ms, _) => { recordedDelays.Add(ms); fakeTimeMs += ms; return Task.CompletedTask; }));
 
         Assert.Equal(3, callCount);
-        // Second gap should be roughly double the first (with some tolerance).
-        // Using 200ms base so that OS scheduling jitter doesn't dominate.
-        if (timestamps.Count == 3)
-        {
-            var gap1 = timestamps[1] - timestamps[0];
-            var gap2 = timestamps[2] - timestamps[1];
-            // gap2 should be larger than gap1 (exponential)
-            Assert.True(gap2 > gap1, $"Expected exponential increase: gap1={gap1}ms, gap2={gap2}ms");
-        }
+        // With baseDelayMs=200, expected delays are: 200ms (attempt 1), 400ms (attempt 2)
+        Assert.Equal(2, recordedDelays.Count);
+        Assert.True(recordedDelays[1] > recordedDelays[0],
+            $"Expected exponential increase: delay1={recordedDelays[0]}ms, delay2={recordedDelays[1]}ms");
+        Assert.Equal(200, recordedDelays[0]); // baseDelayMs * 2^0
+        Assert.Equal(400, recordedDelays[1]); // baseDelayMs * 2^1
     }
 
     [Fact]
