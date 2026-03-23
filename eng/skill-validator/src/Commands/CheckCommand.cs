@@ -13,6 +13,7 @@ public static class CheckCommand
         var skillsOpt = new Option<string[]>("--skills") { Description = "Skill directories to check (skills only)", AllowMultipleArgumentsPerToken = true };
         var agentsOpt = new Option<string[]>("--agents") { Description = "Agent directories to check (agents only)", AllowMultipleArgumentsPerToken = true };
         var allowedExternalDepsOpt = new Option<string?>("--allowed-external-deps") { Description = "Path to allowed-external-deps.txt allow list file" };
+        var knownDomainsOpt = new Option<string?>("--known-domains") { Description = "Path to known-domains.txt for reference scanning" };
         var verboseOpt = new Option<bool>("--verbose") { Description = "Show detailed output" };
 
         var command = new Command("check", "Run static analysis checks on skills, plugins, and agents (no LLM required). Use --plugin to check an entire plugin directory (recommended).")
@@ -21,6 +22,7 @@ public static class CheckCommand
             skillsOpt,
             agentsOpt,
             allowedExternalDepsOpt,
+            knownDomainsOpt,
             verboseOpt,
         };
 
@@ -48,6 +50,7 @@ public static class CheckCommand
                 SkillPaths = skillPaths,
                 AgentPaths = agentPaths,
                 AllowedExternalDepsFile = parseResult.GetValue(allowedExternalDepsOpt),
+                KnownDomainsFile = parseResult.GetValue(knownDomainsOpt),
                 Verbose = parseResult.GetValue(verboseOpt),
             };
             return await Run(config);
@@ -189,6 +192,10 @@ public static class CheckCommand
         // Check for external dependencies (plugin-level check includes all three)
         CheckExternalDeps(config.AllowedExternalDepsFile, allSkillsList, allAgents, allPlugins);
 
+        // Run reference scanner if known-domains file is provided
+        if (RunReferenceScanner(config.KnownDomainsFile, config.PluginPaths))
+            return 1;
+
         if (skillResult != 0 || agentResult != 0)
             return 1;
 
@@ -205,6 +212,10 @@ public static class CheckCommand
         if (result != 0)
             return result;
 
+        // Run reference scanner on skill directories
+        if (RunReferenceScanner(config.KnownDomainsFile, config.SkillPaths))
+            return 1;
+
         Console.WriteLine($"\x1b[32m✅ All checks passed ({skills.Count} skill(s))\x1b[0m");
         return 0;
     }
@@ -217,6 +228,10 @@ public static class CheckCommand
             return 1; // error already printed
         if (result != 0)
             return result;
+
+        // Run reference scanner on agent directories
+        if (RunReferenceScanner(config.KnownDomainsFile, config.AgentPaths))
+            return 1;
 
         Console.WriteLine($"\x1b[32m✅ All checks passed ({agents.Count} agent(s))\x1b[0m");
         return 0;
@@ -351,5 +366,29 @@ public static class CheckCommand
         }
         if (hasExternalDeps)
             Console.WriteLine();
+    }
+
+    // Run the reference scanner on discovered files. Returns true if errors were found.
+    private static bool RunReferenceScanner(string? knownDomainsFile, IReadOnlyList<string> directories)
+    {
+        if (knownDomainsFile is null)
+            return false;
+
+        var knownDomains = ReferenceScanner.LoadKnownDomains(knownDomainsFile);
+        var files = ReferenceScanner.DiscoverFiles(directories);
+        var findings = ReferenceScanner.ScanFiles(files, Environment.CurrentDirectory, knownDomains);
+
+        if (findings.Count > 0)
+        {
+            Console.Error.WriteLine($"\n  {findings.Count} reference error(s):\n");
+            foreach (var f in findings)
+                Console.Error.WriteLine($"  \x1b[31m❌ {f.Path}:{f.LineNum} [{f.Code}] {f.Message}\x1b[0m");
+            Console.Error.WriteLine();
+            Console.Error.WriteLine($"\x1b[31m--- Reference scan: {files.Count} file(s) scanned, {findings.Count} error(s) ---\x1b[0m");
+            return true;
+        }
+
+        Console.WriteLine($"--- Reference scan: {files.Count} file(s) scanned, 0 error(s) ---");
+        return false;
     }
 }

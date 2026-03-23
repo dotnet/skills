@@ -392,6 +392,7 @@ public sealed record CheckConfig
     public IReadOnlyList<string> SkillPaths { get; init; } = [];
     public IReadOnlyList<string> AgentPaths { get; init; } = [];
     public string? AllowedExternalDepsFile { get; init; }
+    public string? KnownDomainsFile { get; init; }
     public bool Verbose { get; init; }
 }
 

@@ -102,7 +102,7 @@ skill-validator check --skills ./plugins/my-plugin/skills
 skill-validator check --agents ./plugins/my-plugin/agents
 
 # Check with external dependency allow list
-skill-validator check --plugin ./plugins/my-plugin --allowed-external-deps ./eng/skill-validator/allowed-external-deps.txt
+skill-validator check --plugin ./plugins/my-plugin --allowed-external-deps ./eng/allowed-external-deps.txt
 
 # Verbose output
 skill-validator check --verbose --plugin ./plugins/my-plugin
@@ -116,6 +116,7 @@ skill-validator check --verbose --plugin ./plugins/my-plugin
 | `--skills <paths...>` | | Skill directories to check (skills only) |
 | `--agents <paths...>` | | Agent directories to check (agents only) |
 | `--allowed-external-deps <path>` | *(none)* | Path to allowed-external-deps.txt; when omitted the external-deps check is skipped |
+| `--known-domains <path>` | *(none)* | Path to known-domains.txt for reference scanning; when omitted the reference scan is skipped |
 | `--verbose` | `false` | Show detailed output |
 
 > Exactly one of `--plugin`, `--skills`, or `--agents` must be provided.

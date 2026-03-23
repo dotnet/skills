@@ -7,8 +7,9 @@ namespace SkillValidator.Services;
 /// Detects structural external dependencies in skills, agents, and plugins.
 /// Flags scripts, non-built-in tool references, and MCP servers for human
 /// review. URL scanning is handled separately by the reference scanner
-/// (eng/reference-scanner/scan.ps1). Findings are advisory — authors should
-/// make an intentional decision to keep or remove each flagged dependency.
+/// (the ReferenceScanner service). Findings are advisory —
+/// authors should make an intentional decision to keep or remove each flagged
+/// dependency.
 /// </summary>
 public static partial class ExternalDependencyChecker
 {
