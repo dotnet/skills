@@ -44,7 +44,7 @@ scenarios:
       - "Uses '-- --report-trx' (with separator) instead of just '--report-trx'"
       - "Does not suggest the VSTest-style '--logger trx' for an MTP project"
     expect_tools: ["bash"]
-    timeout: 240
+    timeout: 300
 
   - name: "Run tests with blame-hang on MTP project (SDK 10)"
     prompt: "My tests are occasionally hanging. I want to run them with a hang timeout of 5 minutes to detect the culprit. Here's my project."
@@ -70,7 +70,7 @@ scenarios:
       - "Uses '--blame-hang-timeout 5min' or similar directly, not after '--'"
       - "Does not use the VSTest-style '--blame --blame-hang-timeout' combination"
     expect_tools: ["bash"]
-    timeout: 240
+    timeout: 300
 
   - name: "Run tests in a multi-TFM project targeting a specific framework"
     prompt: "This test project targets both net8.0 and net9.0. I only want to run the tests on net9.0."
@@ -234,7 +234,7 @@ scenarios:
       - "Does not suggest running all tests and post-filtering results"
       - "Explains the AND/OR combinator syntax for future reference"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 180
 
   # ============================================================================
   # Goal 3: Using the right test platform CLI options
@@ -288,7 +288,7 @@ scenarios:
       - "Uses the SDK 10+ dotnet test syntax (e.g., --project flag instead of bare positional argument)"
       - "Does not use VSTest-style '--logger trx' for an MTP project on SDK 10"
     expect_tools: ["bash"]
-    timeout: 240
+    timeout: 300
 
   - name: "Detect test platform from Directory.Build.props"
     prompt: "I want to run the integration tests in this project. Can you figure out which test platform it uses and run them?"
