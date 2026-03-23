@@ -315,7 +315,6 @@ public sealed class SkillVerdict
     public required string Reason { get; set; }
     /// <summary>Categorizes why the verdict failed, if it did.</summary>
     public string? FailureKind { get; set; }
-    public IReadOnlyList<string>? ProfileWarnings { get; set; }
     public bool SkillNotActivated { get; set; }
     public OverfittingResult? OverfittingResult { get; set; }
     public NoiseTestResult? NoiseTestResult { get; set; }

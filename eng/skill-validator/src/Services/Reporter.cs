@@ -82,13 +82,6 @@ public static class Reporter
             Console.WriteLine(scoreLine);
             Console.WriteLine($"  \x1b[2m{verdict.Reason}\x1b[0m");
 
-            if (!verdict.Passed && verdict.ProfileWarnings is { Count: > 0 })
-            {
-                Console.WriteLine();
-                Console.WriteLine("  \x1b[33mPossible causes from skill analysis:\x1b[0m");
-                foreach (var warning in verdict.ProfileWarnings)
-                    Console.WriteLine($"    \x1b[2m•\x1b[0m \x1b[2m{warning}\x1b[0m");
-            }
             if (verdict.SkillNotActivated)
             {
                 Console.WriteLine();
