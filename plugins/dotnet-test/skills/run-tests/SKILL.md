@@ -133,6 +133,7 @@ These flags apply to MTP on both SDK versions. On SDK 8/9, pass after `--`; on S
 |------|-------------|
 | `--no-build` | Skip build, use previously built output |
 | `--framework <TFM>` | Target a specific framework in multi-TFM projects |
+| `--results-directory <DIR>` | Directory for test result output |
 | `--diagnostic` | Enable diagnostic logging for the test platform |
 | `--diagnostic-output-directory <DIR>` | Directory for diagnostic log output |
 
@@ -193,4 +194,4 @@ See [references/filter-syntax.md](references/filter-syntax.md) for the complete 
 | Using `--` for MTP args on .NET SDK 10+ | On .NET 10+, MTP args are passed directly: `dotnet test --report-trx` (using `--` still works but is unnecessary) |
 | Multi-TFM project runs tests for all frameworks | Use `--framework <TFM>` to target a specific framework |
 | `global.json` runner setting ignored | Requires .NET 10+ SDK. On older SDKs, use `<TestingPlatformDotnetTestSupport>` MSBuild property instead |
-| TUnit `--treenode-filter` not recognized | TUnit is MTP-only and requires `dotnet run`, not `dotnet test` with VSTest |
+| TUnit `--treenode-filter` not recognized | TUnit is MTP-only. On .NET SDK 10+ use `dotnet test`; on older SDKs use `dotnet run` since VSTest-mode `dotnet test` does not support TUnit |

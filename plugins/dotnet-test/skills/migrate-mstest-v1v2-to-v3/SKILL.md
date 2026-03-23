@@ -11,7 +11,7 @@ description: >
   (MSTest.TestFramework 1.x-2.x) to MSTest v3, fixing assertion overload
   errors (AreEqual/AreNotEqual), updating DataRow constructors, replacing
   .testsettings with .runsettings, timeout behavior changes, target framework
-  compatibility (.NET 5 dropped -- use .NET 6+; .NET Fx < 4.6.2 dropped),
+  compatibility (.NET 5 dropped -- use .NET 6+; .NET Fx older than 4.6.2 dropped),
   adopting MSTest.Sdk.
   First step toward MSTest v4 -- after this, use migrate-mstest-v3-to-v4.
   DO NOT USE FOR: migrating to MSTest v4 (use migrate-mstest-v3-to-v4),

@@ -282,6 +282,8 @@ public async Task FetchData_ReturnsWithinTimeout()
 
 #### Retry flaky tests (MSTest 3.9+)
 
+Use only for genuinely flaky external dependencies (network, file system), not to paper over race conditions or shared state issues.
+
 ```csharp
 [TestMethod]
 [Retry(3)]

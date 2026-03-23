@@ -36,23 +36,23 @@ Analyze .NET test code for anti-patterns, code smells, and quality issues that u
 
 Read the test files the user wants reviewed. If the user points to a directory or project, scan for all test files (files containing `[TestClass]`, `[TestMethod]`, `[Fact]`, `[Test]`, or `[Theory]` attributes).
 
-If production code is available, read it too — this is critical for detecting tests that are coupled to implementation details rather than behavior.
+If production code is available, read it too -- this is critical for detecting tests that are coupled to implementation details rather than behavior.
 
 ### Step 2: Scan for anti-patterns
 
 Check each test file against the anti-pattern catalog below. Report findings grouped by severity.
 
-#### Critical — Tests that give false confidence
+#### Critical -- Tests that give false confidence
 
 | Anti-Pattern | What to Look For |
 |---|---|
 | **No assertions** | Test methods that execute code but never assert anything. A passing test without assertions proves nothing. |
 | **Swallowed exceptions** | `try { ... } catch { }` or `catch (Exception)` without rethrowing or asserting. Failures are silently hidden. |
-| **Assert in catch block only** | `try { Act(); } catch (Exception ex) { Assert.Fail(ex.Message); }` — use `Assert.ThrowsException` or equivalent instead. The test passes when no exception is thrown even if the result is wrong. |
+| **Assert in catch block only** | `try { Act(); } catch (Exception ex) { Assert.Fail(ex.Message); }` -- use `Assert.ThrowsException` or equivalent instead. The test passes when no exception is thrown even if the result is wrong. |
 | **Always-true assertions** | `Assert.IsTrue(true)`, `Assert.AreEqual(x, x)`, or conditions that can never fail. |
 | **Commented-out assertions** | Assertions that were disabled but the test still runs, giving the illusion of coverage. |
 
-#### High — Tests likely to cause pain
+#### High -- Tests likely to cause pain
 
 | Anti-Pattern | What to Look For |
 |---|---|
@@ -62,18 +62,18 @@ Check each test file against the anti-pattern catalog below. Report findings gro
 | **Implementation coupling** | Testing private methods via reflection, asserting on internal state, verifying exact method call counts on collaborators instead of observable behavior. |
 | **Broad exception assertions** | `Assert.ThrowsException<Exception>(...)` instead of the specific exception type. Also: `[ExpectedException(typeof(Exception))]`. |
 
-#### Medium — Maintainability and clarity issues
+#### Medium -- Maintainability and clarity issues
 
 | Anti-Pattern | What to Look For |
 |---|---|
 | **Poor naming** | Test names like `Test1`, `TestMethod`, names that don't describe the scenario or expected outcome. Good: `Add_NegativeNumber_ThrowsArgumentException`. |
-| **Magic values** | Unexplained numbers or strings in arrange/assert: `Assert.AreEqual(42, result)` — what does 42 mean? |
-| **Duplicate tests** | Three or more test methods with near-identical bodies that differ only in a single input value. Should be data-driven (`[DataRow]`, `[Theory]`, `[TestCase]`). Note: Two tests covering distinct boundary conditions (e.g., zero vs. negative) are NOT duplicates — separate tests for different edge cases provide clearer failure diagnostics and are a valid practice. |
+| **Magic values** | Unexplained numbers or strings in arrange/assert: `Assert.AreEqual(42, result)` -- what does 42 mean? |
+| **Duplicate tests** | Three or more test methods with near-identical bodies that differ only in a single input value. Should be data-driven (`[DataRow]`, `[Theory]`, `[TestCase]`). Note: Two tests covering distinct boundary conditions (e.g., zero vs. negative) are NOT duplicates -- separate tests for different edge cases provide clearer failure diagnostics and are a valid practice. |
 | **Giant tests** | Test methods exceeding ~30 lines or testing multiple behaviors at once. Hard to diagnose when they fail. |
 | **Assertion messages that repeat the assertion** | `Assert.AreEqual(expected, actual, "Expected and actual are not equal")` adds no information. Messages should describe the business meaning. |
 | **Missing AAA separation** | Arrange, Act, Assert phases are interleaved or indistinguishable. |
 
-#### Low — Style and hygiene
+#### Low -- Style and hygiene
 
 | Anti-Pattern | What to Look For |
 |---|---|
@@ -87,7 +87,7 @@ Check each test file against the anti-pattern catalog below. Report findings gro
 Before reporting, re-check each finding against these severity rules:
 
 - **Critical/High**: Only for issues that cause tests to give false confidence or be unreliable. A test that always passes regardless of correctness is Critical. Flaky shared state is High.
-- **Medium**: Only for issues that actively harm maintainability — 5+ nearly-identical tests, truly meaningless names like `Test1`.
+- **Medium**: Only for issues that actively harm maintainability -- 5+ nearly-identical tests, truly meaningless names like `Test1`.
 - **Low**: Cosmetic naming mismatches, minor style preferences, assertion messages that could be better. When in doubt, rate Low.
 - **Not an issue**: Separate tests for distinct boundary conditions (zero vs. negative vs. null). Explicit per-test setup instead of `[TestInitialize]` (this *improves* isolation). Tests that are short and clear but could theoretically be consolidated.
 
@@ -97,22 +97,22 @@ IMPORTANT: If the tests are well-written, say so clearly up front. Do not inflat
 
 Present findings in this structure:
 
-1. **Summary** — Total issues found, broken down by severity (Critical / High / Medium / Low). If tests are well-written, lead with that assessment.
-2. **Critical and High findings** — List each with:
+1. **Summary** -- Total issues found, broken down by severity (Critical / High / Medium / Low). If tests are well-written, lead with that assessment.
+2. **Critical and High findings** -- List each with:
    - The anti-pattern name
    - The specific location (file, method name, line)
    - A brief explanation of why it's a problem
    - A concrete fix (show before/after code when helpful)
-3. **Medium and Low findings** — Summarize in a table unless the user wants full detail
-4. **Positive observations** — Call out things the tests do well (sealed class, specific exception types, data-driven tests, clear AAA structure, proper use of fakes, good naming). Don't only report negatives.
+3. **Medium and Low findings** -- Summarize in a table unless the user wants full detail
+4. **Positive observations** -- Call out things the tests do well (sealed class, specific exception types, data-driven tests, clear AAA structure, proper use of fakes, good naming). Don't only report negatives.
 
-### Step 4: Prioritize recommendations
+### Step 5: Prioritize recommendations
 
 If there are many findings, recommend which to fix first:
 
-1. **Critical** — Fix immediately, these tests may be giving false confidence
-2. **High** — Fix soon, these cause flakiness or maintenance burden
-3. **Medium/Low** — Fix opportunistically during related edits
+1. **Critical** -- Fix immediately, these tests may be giving false confidence
+2. **High** -- Fix soon, these cause flakiness or maintenance burden
+3. **Medium/Low** -- Fix opportunistically during related edits
 
 ## Validation
 
@@ -127,10 +127,10 @@ If there are many findings, recommend which to fix first:
 | Pitfall | Solution |
 |---------|----------|
 | Reporting style issues as critical | Naming and formatting are Medium/Low, never Critical |
-| Suggesting rewrites instead of targeted fixes | Show minimal diffs — change the assertion, not the whole test |
+| Suggesting rewrites instead of targeted fixes | Show minimal diffs -- change the assertion, not the whole test |
 | Flagging intentional design choices | If `Thread.Sleep` is in an integration test testing actual timing, that's not an anti-pattern. Consider context. |
 | Inventing false positives on clean code | If tests follow best practices, say so. A review finding "0 Critical, 0 High, 1 Low" is perfectly valid. Don't inflate findings to justify the review. |
 | Flagging separate boundary tests as duplicates | Two tests for zero and negative inputs test different edge cases. Only flag as duplicates when 3+ tests have truly identical bodies differing by a single value. |
-| Rating cosmetic issues as Medium | Naming mismatches (e.g., method name says `ArgumentException` but asserts `ArgumentOutOfRangeException`) are Low, not Medium — the test still works correctly. |
-| Ignoring the test framework | xUnit uses `[Fact]`/`[Theory]`, NUnit uses `[Test]`/`[TestCase]`, MSTest uses `[TestMethod]`/`[DataRow]` — use correct terminology |
+| Rating cosmetic issues as Medium | Naming mismatches (e.g., method name says `ArgumentException` but asserts `ArgumentOutOfRangeException`) are Low, not Medium -- the test still works correctly. |
+| Ignoring the test framework | xUnit uses `[Fact]`/`[Theory]`, NUnit uses `[Test]`/`[TestCase]`, MSTest uses `[TestMethod]`/`[DataRow]` -- use correct terminology |
 | Missing the forest for the trees | If 80% of tests have no assertions, lead with that systemic issue rather than listing every instance |
