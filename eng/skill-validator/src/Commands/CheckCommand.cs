@@ -384,7 +384,7 @@ public static class CheckCommand
 
         var knownDomains = ReferenceScanner.LoadKnownDomains(knownDomainsFile);
         var files = ReferenceScanner.DiscoverFiles(directories);
-        var findings = ReferenceScanner.ScanFiles(files, Environment.CurrentDirectory, knownDomains, knownDomainsFile);
+        var findings = ReferenceScanner.ScanFiles(files, knownDomains, knownDomainsFile);
 
         if (findings.Count > 0)
         {

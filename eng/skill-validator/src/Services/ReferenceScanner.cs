@@ -92,21 +92,10 @@ public static partial class ReferenceScanner
     /// <summary>
     /// Scan a single file for reference issues. Returns findings (errors).
     /// </summary>
-    public static IReadOnlyList<RefFinding> ScanFile(string filePath, string repoRoot, IReadOnlyList<string> knownDomains, string? knownDomainsFilePath = null)
+    public static IReadOnlyList<RefFinding> ScanFile(string filePath, IReadOnlyList<string> knownDomains, string? knownDomainsFilePath = null)
     {
         var knownDomainsLabel = knownDomainsFilePath ?? "the known-domains file";
         var findings = new List<RefFinding>();
-
-        string relPath;
-        try
-        {
-            relPath = System.IO.Path.GetRelativePath(repoRoot, filePath);
-        }
-        catch
-        {
-            relPath = filePath;
-        }
-        relPath = relPath.TrimStart('\\', '/').Replace('\\', '/');
 
         string[] lines;
         try
@@ -115,7 +104,7 @@ public static partial class ReferenceScanner
         }
         catch (Exception ex)
         {
-            findings.Add(new RefFinding(relPath, 0, "FILE-READ-ERROR", $"Failed to read file: {ex.Message}"));
+            findings.Add(new RefFinding(filePath, 0, "FILE-READ-ERROR", $"Failed to read file: {ex.Message}"));
             return findings;
         }
 
@@ -139,7 +128,7 @@ public static partial class ReferenceScanner
                 // checks still apply via the line-by-line URL scan below.
                 if (!hasSri && (scriptUrl is null || !IsLocalUrl(scriptUrl)))
                 {
-                    findings.Add(new RefFinding(relPath, tagLineNum, "SCRIPT-NO-SRI",
+                    findings.Add(new RefFinding(filePath, tagLineNum, "SCRIPT-NO-SRI",
                         "External script tag without integrity (SRI) attribute"));
                 }
             }
@@ -185,7 +174,7 @@ public static partial class ReferenceScanner
 
                 if (!isPipeAllowed)
                 {
-                    findings.Add(new RefFinding(relPath, lineNum, "PIPE-TO-SHELL",
+                    findings.Add(new RefFinding(filePath, lineNum, "PIPE-TO-SHELL",
                         "Pipe-to-shell pattern: content is downloaded and piped directly to a shell interpreter"));
                 }
             }
@@ -206,7 +195,7 @@ public static partial class ReferenceScanner
                     // Inside fenced code blocks: skip HTTP-not-HTTPS but still check external domains
                     if (!IsKnownDomain(url, knownDomains) && !IsLocalUrl(url))
                     {
-                        findings.Add(new RefFinding(relPath, lineNum, "EXTERNAL-DOMAIN",
+                        findings.Add(new RefFinding(filePath, lineNum, "EXTERNAL-DOMAIN",
                             $"Domain not in known-domains file -- add it to {knownDomainsLabel} if this reference is intentional: {url}"));
                     }
                     continue;
@@ -214,12 +203,12 @@ public static partial class ReferenceScanner
 
                 if (IsHttpNotHttps(url))
                 {
-                    findings.Add(new RefFinding(relPath, lineNum, "HTTP-NOT-HTTPS",
+                    findings.Add(new RefFinding(filePath, lineNum, "HTTP-NOT-HTTPS",
                         $"Insecure http:// URL (use https://): {url}"));
                 }
                 else if (!IsKnownDomain(url, knownDomains) && !IsLocalUrl(url))
                 {
-                    findings.Add(new RefFinding(relPath, lineNum, "EXTERNAL-DOMAIN",
+                    findings.Add(new RefFinding(filePath, lineNum, "EXTERNAL-DOMAIN",
                         $"Domain not in known-domains file -- add it to {knownDomainsLabel} if this reference is intentional: {url}"));
                 }
             }
@@ -265,12 +254,12 @@ public static partial class ReferenceScanner
     /// <summary>
     /// Scan all provided files and return aggregated findings.
     /// </summary>
-    public static IReadOnlyList<RefFinding> ScanFiles(IReadOnlyList<string> filePaths, string repoRoot, IReadOnlyList<string> knownDomains, string? knownDomainsFilePath = null)
+    public static IReadOnlyList<RefFinding> ScanFiles(IReadOnlyList<string> filePaths, IReadOnlyList<string> knownDomains, string? knownDomainsFilePath = null)
     {
         var allFindings = new List<RefFinding>();
         foreach (var file in filePaths)
         {
-            var results = ScanFile(file, repoRoot, knownDomains, knownDomainsFilePath);
+            var results = ScanFile(file, knownDomains, knownDomainsFilePath);
             allFindings.AddRange(results);
         }
         return allFindings;
