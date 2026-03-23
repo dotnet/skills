@@ -92,8 +92,9 @@ public static partial class ReferenceScanner
     /// <summary>
     /// Scan a single file for reference issues. Returns findings (errors).
     /// </summary>
-    public static IReadOnlyList<RefFinding> ScanFile(string filePath, string repoRoot, IReadOnlyList<string> knownDomains)
+    public static IReadOnlyList<RefFinding> ScanFile(string filePath, string repoRoot, IReadOnlyList<string> knownDomains, string? knownDomainsFilePath = null)
     {
+        var knownDomainsLabel = knownDomainsFilePath ?? "the known-domains file";
         var findings = new List<RefFinding>();
 
         string relPath;
@@ -120,7 +121,6 @@ public static partial class ReferenceScanner
 
         // Multi-line <script> tag detection for SRI checks
         var fullContent = string.Join("\n", lines);
-        var sriProtectedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (Match m in ScriptTagMultiLineRegex().Matches(fullContent))
         {
@@ -135,12 +135,9 @@ public static partial class ReferenceScanner
                 if (srcMatch.Success)
                     scriptUrl = srcMatch.Groups[1].Value;
 
-                if (hasSri)
-                {
-                    if (scriptUrl is not null)
-                        sriProtectedUrls.Add(scriptUrl);
-                }
-                else if (scriptUrl is null || !IsLocalUrl(scriptUrl))
+                // SRI suppresses the SCRIPT-NO-SRI error only; domain/HTTPS
+                // checks still apply via the line-by-line URL scan below.
+                if (!hasSri && (scriptUrl is null || !IsLocalUrl(scriptUrl)))
                 {
                     findings.Add(new RefFinding(relPath, tagLineNum, "SCRIPT-NO-SRI",
                         "External script tag without integrity (SRI) attribute"));
@@ -207,11 +204,10 @@ public static partial class ReferenceScanner
                 if (inFencedBlock)
                 {
                     // Inside fenced code blocks: skip HTTP-not-HTTPS but still check external domains
-                    if (!IsKnownDomain(url, knownDomains) && !IsLocalUrl(url) &&
-                        !sriProtectedUrls.Contains(url))
+                    if (!IsKnownDomain(url, knownDomains) && !IsLocalUrl(url))
                     {
                         findings.Add(new RefFinding(relPath, lineNum, "EXTERNAL-DOMAIN",
-                            $"Domain not in known-domains.txt -- add it to eng/known-domains.txt if this reference is intentional: {url}"));
+                            $"Domain not in known-domains file -- add it to {knownDomainsLabel} if this reference is intentional: {url}"));
                     }
                     continue;
                 }
@@ -221,11 +217,10 @@ public static partial class ReferenceScanner
                     findings.Add(new RefFinding(relPath, lineNum, "HTTP-NOT-HTTPS",
                         $"Insecure http:// URL (use https://): {url}"));
                 }
-                else if (!IsKnownDomain(url, knownDomains) && !IsLocalUrl(url) &&
-                         !sriProtectedUrls.Contains(url))
+                else if (!IsKnownDomain(url, knownDomains) && !IsLocalUrl(url))
                 {
                     findings.Add(new RefFinding(relPath, lineNum, "EXTERNAL-DOMAIN",
-                        $"Domain not in known-domains.txt -- add it to eng/known-domains.txt if this reference is intentional: {url}"));
+                        $"Domain not in known-domains file -- add it to {knownDomainsLabel} if this reference is intentional: {url}"));
                 }
             }
         }
@@ -235,7 +230,9 @@ public static partial class ReferenceScanner
 
     /// <summary>
     /// Discover scannable files under given directories (SKILL.md, *.agent.md,
-    /// references/*.md, agentic-workflows/**/*.md, eng/**/*.html).
+    /// Discover scannable files under given directories (SKILL.md, *.agent.md,
+    /// references/*.md) and, when repoRoot is provided, repo-level paths
+    /// (.agents/**/*.md, agentic-workflows/**/*.md, eng/**/*.html, README.md).
     /// </summary>
     public static IReadOnlyList<string> DiscoverFiles(IReadOnlyList<string> pluginDirs, string? repoRoot = null)
     {
@@ -263,9 +260,18 @@ public static partial class ReferenceScanner
             }
         }
 
-        // Also scan agentic-workflows and eng HTML if repoRoot is provided
+        // Scan repo-level paths when repoRoot is provided
         if (repoRoot is not null)
         {
+            // .agents/**/*.md
+            var agentsDir = Path.Combine(repoRoot, ".agents");
+            if (Directory.Exists(agentsDir))
+            {
+                foreach (var f in Directory.GetFiles(agentsDir, "*.md", SearchOption.AllDirectories))
+                    files.Add(f);
+            }
+
+            // agentic-workflows/**/*.md
             var awDir = Path.Combine(repoRoot, "agentic-workflows");
             if (Directory.Exists(awDir))
             {
@@ -273,6 +279,7 @@ public static partial class ReferenceScanner
                     files.Add(f);
             }
 
+            // eng/**/*.html
             var engDir = Path.Combine(repoRoot, "eng");
             if (Directory.Exists(engDir))
             {
@@ -280,6 +287,7 @@ public static partial class ReferenceScanner
                     files.Add(f);
             }
 
+            // README.md
             var readme = Path.Combine(repoRoot, "README.md");
             if (File.Exists(readme))
                 files.Add(readme);
@@ -291,12 +299,12 @@ public static partial class ReferenceScanner
     /// <summary>
     /// Scan all provided files and return aggregated findings.
     /// </summary>
-    public static IReadOnlyList<RefFinding> ScanFiles(IReadOnlyList<string> filePaths, string repoRoot, IReadOnlyList<string> knownDomains)
+    public static IReadOnlyList<RefFinding> ScanFiles(IReadOnlyList<string> filePaths, string repoRoot, IReadOnlyList<string> knownDomains, string? knownDomainsFilePath = null)
     {
         var allFindings = new List<RefFinding>();
         foreach (var file in filePaths)
         {
-            var results = ScanFile(file, repoRoot, knownDomains);
+            var results = ScanFile(file, repoRoot, knownDomains, knownDomainsFilePath);
             allFindings.AddRange(results);
         }
         return allFindings;

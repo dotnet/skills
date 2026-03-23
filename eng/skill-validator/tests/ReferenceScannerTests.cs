@@ -226,14 +226,15 @@ public class ReferenceScannerTests
     }
 
     [Fact]
-    public void ScanFile_ScriptTagWithSRI_NoError()
+    public void ScanFile_ScriptTagWithSRI_StillChecksDomain()
     {
-        var content = "<script src=\"https://cdn.example.com/lib.js\" integrity=\"sha384-abc123\"></script>";
+        var content = "<script src=\"https://cdn.unknown.com/lib.js\" integrity=\"sha384-abc123\"></script>";
         var file = CreateTempFile(content, ".html");
         try
         {
             var findings = ReferenceScanner.ScanFile(file, Path.GetDirectoryName(file)!, ["cdn.example.com"]);
             Assert.DoesNotContain(findings, f => f.Code == "SCRIPT-NO-SRI");
+            Assert.Contains(findings, f => f.Code == "EXTERNAL-DOMAIN");
         }
         finally { CleanupFile(file); }
     }
@@ -262,6 +263,22 @@ public class ReferenceScannerTests
         {
             var files = ReferenceScanner.DiscoverFiles([Path.Combine(root, "plugin")]);
             Assert.Equal(3, files.Count);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public void DiscoverFiles_WithRepoRoot_FindsDotAgentsDir()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "discover-" + Guid.NewGuid().ToString("N"));
+        var dotAgentsDir = Path.Combine(root, ".agents");
+        Directory.CreateDirectory(dotAgentsDir);
+        File.WriteAllText(Path.Combine(dotAgentsDir, "my-agent.md"), "# Agent");
+
+        try
+        {
+            var files = ReferenceScanner.DiscoverFiles([], root);
+            Assert.Contains(files, f => f.EndsWith("my-agent.md"));
         }
         finally { Directory.Delete(root, true); }
     }

@@ -374,9 +374,19 @@ public static class CheckCommand
         if (knownDomainsFile is null)
             return false;
 
+        if (!File.Exists(knownDomainsFile))
+        {
+            Console.Error.WriteLine($"\x1b[31m❌ Known-domains file not found: '{knownDomainsFile}'\x1b[0m");
+            return true;
+        }
+
+        // Derive repoRoot from the known-domains file location (expected under eng/)
+        var engDir = Path.GetDirectoryName(Path.GetFullPath(knownDomainsFile));
+        var repoRoot = engDir is not null ? Path.GetDirectoryName(engDir) ?? Environment.CurrentDirectory : Environment.CurrentDirectory;
+
         var knownDomains = ReferenceScanner.LoadKnownDomains(knownDomainsFile);
-        var files = ReferenceScanner.DiscoverFiles(directories);
-        var findings = ReferenceScanner.ScanFiles(files, Environment.CurrentDirectory, knownDomains);
+        var files = ReferenceScanner.DiscoverFiles(directories, repoRoot);
+        var findings = ReferenceScanner.ScanFiles(files, repoRoot, knownDomains, knownDomainsFile);
 
         if (findings.Count > 0)
         {
