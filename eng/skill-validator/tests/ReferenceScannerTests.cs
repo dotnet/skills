@@ -66,7 +66,6 @@ public class ReferenceScannerTests
     [InlineData("http://localhost:5000", true)]
     [InlineData("https://localhost/api", true)]
     [InlineData("http://127.0.0.1:8080", true)]
-    [InlineData("http://[::1]:3000", true)]
     [InlineData("http://+:80", true)]
     [InlineData("http://*:443", true)]
     [InlineData("https://example.com", false)]
@@ -126,6 +125,18 @@ public class ReferenceScannerTests
         {
             var findings = ReferenceScanner.ScanFile(file, ["evil.com"]);
             Assert.Contains(findings, f => f.Code == "PIPE-TO-SHELL");
+        }
+        finally { CleanupFile(file); }
+    }
+
+    [Fact]
+    public void ScanFile_MixedCaseAllowedPipeUrl_NoError()
+    {
+        var file = CreateTempFile("curl -sSL HTTPS://DOT.NET/v1/dotnet-install.sh | bash");
+        try
+        {
+            var findings = ReferenceScanner.ScanFile(file, ["dot.net"]);
+            Assert.DoesNotContain(findings, f => f.Code == "PIPE-TO-SHELL");
         }
         finally { CleanupFile(file); }
     }

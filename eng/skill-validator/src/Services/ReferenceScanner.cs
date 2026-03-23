@@ -69,7 +69,6 @@ public static partial class ReferenceScanner
         var lower = url.ToLowerInvariant();
         return LocalhostRegex().IsMatch(lower) ||
                LoopbackRegex().IsMatch(lower) ||
-               Ipv6LoopbackRegex().IsMatch(lower) ||
                WildcardListenRegex().IsMatch(lower);
     }
 
@@ -170,7 +169,8 @@ public static partial class ReferenceScanner
             if (PipeToShellRegex().IsMatch(line))
             {
                 bool isPipeAllowed = AllowedPipeUrls.Any(allowed =>
-                    Regex.IsMatch(line, Regex.Escape(allowed) + @"(\s|['""|]|$)"));
+                    Regex.IsMatch(line, Regex.Escape(allowed) + @"(\s|['""|]|$)",
+                        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
 
                 if (!isPipeAllowed)
                 {
@@ -316,9 +316,6 @@ public static partial class ReferenceScanner
 
     [GeneratedRegex(@"^https?://127\.0\.0\.1([:/]|$)")]
     private static partial Regex LoopbackRegex();
-
-    [GeneratedRegex(@"^https?://\[::1\]([:/]|$)")]
-    private static partial Regex Ipv6LoopbackRegex();
 
     [GeneratedRegex(@"^https?://[+*]([:/]|$)")]
     private static partial Regex WildcardListenRegex();
