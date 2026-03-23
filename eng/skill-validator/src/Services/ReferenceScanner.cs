@@ -219,8 +219,7 @@ public static partial class ReferenceScanner
 
     /// <summary>
     /// Discover scannable files under the given directories. Finds SKILL.md,
-    /// *.agent.md, and references/*.md files recursively. For broader scans,
-    /// pass additional directories (or individual files) to <see cref="ScanFiles"/>.
+    /// *.agent.md, and references/*.md files recursively.
     /// </summary>
     public static IReadOnlyList<string> DiscoverFiles(IReadOnlyList<string> directories)
     {
@@ -285,10 +284,10 @@ public static partial class ReferenceScanner
 
     // --- Regex patterns ---
 
-    [GeneratedRegex(@"https?://[^\s\)\]""'<>;]+")]
+    [GeneratedRegex(@"https?://[^\s\)\]""'<>;]+", RegexOptions.IgnoreCase)]
     private static partial Regex UrlRegex();
 
-    [GeneratedRegex(@"curl\s[^|]*\|\s*(ba)?sh\b|wget\s[^|]*\|\s*(ba)?sh\b")]
+    [GeneratedRegex(@"curl\s[^|]*\|\s*(ba)?sh\b|wget\s[^|]*\|\s*(ba)?sh\b", RegexOptions.IgnoreCase)]
     private static partial Regex PipeToShellRegex();
 
     [GeneratedRegex(@"(?i)integrity\s*=")]

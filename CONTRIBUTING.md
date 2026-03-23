@@ -306,7 +306,8 @@ Tests run automatically on pull requests that modify files under `plugins/`. The
 Skills often reference external tools, documentation, and projects — this is
 expected and welcome, including community and third-party resources. To help
 reviewers stay aware of external dependencies, the repository includes an
-automated reference scanner (integrated into `skill-validator check`) that runs in CI.
+automated reference scanner (integrated into `skill-validator check`) that runs
+in CI against plugin content (SKILL.md, agent files, and reference docs).
 
 The scanner treats all of the following as CI-blocking errors:
 - `http://` URLs where `https://` should be used
