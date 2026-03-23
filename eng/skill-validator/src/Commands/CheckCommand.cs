@@ -368,7 +368,9 @@ public static class CheckCommand
             Console.WriteLine();
     }
 
-    // Run the reference scanner on discovered files. Returns true if errors were found.
+    /// <summary>
+    /// Run the reference scanner on discovered files. Returns true if errors were found.
+    /// </summary>
     private static bool RunReferenceScanner(string? knownDomainsFile, IReadOnlyList<string> directories)
     {
         if (knownDomainsFile is null)
@@ -380,13 +382,9 @@ public static class CheckCommand
             return true;
         }
 
-        // Derive repoRoot from the known-domains file location (expected under eng/)
-        var engDir = Path.GetDirectoryName(Path.GetFullPath(knownDomainsFile));
-        var repoRoot = engDir is not null ? Path.GetDirectoryName(engDir) ?? Environment.CurrentDirectory : Environment.CurrentDirectory;
-
         var knownDomains = ReferenceScanner.LoadKnownDomains(knownDomainsFile);
-        var files = ReferenceScanner.DiscoverFiles(directories, repoRoot);
-        var findings = ReferenceScanner.ScanFiles(files, repoRoot, knownDomains, knownDomainsFile);
+        var files = ReferenceScanner.DiscoverFiles(directories);
+        var findings = ReferenceScanner.ScanFiles(files, Environment.CurrentDirectory, knownDomains, knownDomainsFile);
 
         if (findings.Count > 0)
         {

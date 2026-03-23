@@ -229,16 +229,15 @@ public static partial class ReferenceScanner
     }
 
     /// <summary>
-    /// Discover scannable files under given directories (SKILL.md, *.agent.md,
-    /// Discover scannable files under given directories (SKILL.md, *.agent.md,
-    /// references/*.md) and, when repoRoot is provided, repo-level paths
-    /// (.agents/**/*.md, agentic-workflows/**/*.md, eng/**/*.html, README.md).
+    /// Discover scannable files under the given directories. Finds SKILL.md,
+    /// *.agent.md, and references/*.md files recursively. For broader scans,
+    /// pass additional directories (or individual files) to <see cref="ScanFiles"/>.
     /// </summary>
-    public static IReadOnlyList<string> DiscoverFiles(IReadOnlyList<string> pluginDirs, string? repoRoot = null)
+    public static IReadOnlyList<string> DiscoverFiles(IReadOnlyList<string> directories)
     {
         var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var dir in pluginDirs)
+        foreach (var dir in directories)
         {
             var fullPath = Path.GetFullPath(dir);
             if (!Directory.Exists(fullPath))
@@ -252,45 +251,12 @@ public static partial class ReferenceScanner
             foreach (var f in Directory.GetFiles(fullPath, "*.agent.md", SearchOption.AllDirectories))
                 files.Add(f);
 
-            // references/*.md files
+            // *.md files directly inside any references/ subdirectory
             foreach (var refDir in Directory.GetDirectories(fullPath, "references", SearchOption.AllDirectories))
             {
                 foreach (var f in Directory.GetFiles(refDir, "*.md"))
                     files.Add(f);
             }
-        }
-
-        // Scan repo-level paths when repoRoot is provided
-        if (repoRoot is not null)
-        {
-            // .agents/**/*.md
-            var agentsDir = Path.Combine(repoRoot, ".agents");
-            if (Directory.Exists(agentsDir))
-            {
-                foreach (var f in Directory.GetFiles(agentsDir, "*.md", SearchOption.AllDirectories))
-                    files.Add(f);
-            }
-
-            // agentic-workflows/**/*.md
-            var awDir = Path.Combine(repoRoot, "agentic-workflows");
-            if (Directory.Exists(awDir))
-            {
-                foreach (var f in Directory.GetFiles(awDir, "*.md", SearchOption.AllDirectories))
-                    files.Add(f);
-            }
-
-            // eng/**/*.html
-            var engDir = Path.Combine(repoRoot, "eng");
-            if (Directory.Exists(engDir))
-            {
-                foreach (var f in Directory.GetFiles(engDir, "*.html", SearchOption.AllDirectories))
-                    files.Add(f);
-            }
-
-            // README.md
-            var readme = Path.Combine(repoRoot, "README.md");
-            if (File.Exists(readme))
-                files.Add(readme);
         }
 
         return files.OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();

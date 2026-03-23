@@ -268,17 +268,17 @@ public class ReferenceScannerTests
     }
 
     [Fact]
-    public void DiscoverFiles_WithRepoRoot_FindsDotAgentsDir()
+    public void DiscoverFiles_FindsAgentMdInPassedDirs()
     {
         var root = Path.Combine(Path.GetTempPath(), "discover-" + Guid.NewGuid().ToString("N"));
-        var dotAgentsDir = Path.Combine(root, ".agents");
-        Directory.CreateDirectory(dotAgentsDir);
-        File.WriteAllText(Path.Combine(dotAgentsDir, "my-agent.md"), "# Agent");
+        var agentsDir = Path.Combine(root, "my-agents");
+        Directory.CreateDirectory(agentsDir);
+        File.WriteAllText(Path.Combine(agentsDir, "my-agent.agent.md"), "# Agent");
 
         try
         {
-            var files = ReferenceScanner.DiscoverFiles([], root);
-            Assert.Contains(files, f => f.EndsWith("my-agent.md"));
+            var files = ReferenceScanner.DiscoverFiles([agentsDir]);
+            Assert.Contains(files, f => f.EndsWith("my-agent.agent.md"));
         }
         finally { Directory.Delete(root, true); }
     }
