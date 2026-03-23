@@ -81,43 +81,9 @@ Apply these judgment rules before reporting:
 - **Don't recommend builders for simple objects.** `new Calculator()` or `new User(1, "Alice")` doesn't need a factory.
 - **Respect intentional verbosity.** Some teams prefer explicit per-test setup over shared helpers for readability. If each test reads clearly on its own, that's valid.
 - **Display names matter most for non-obvious values.** `[DataRow("Gold", 100.0, 90.0)]` is self-explanatory. `[DataRow(3, 7, 42)]` is not.
+- **Prefer `[DataRow]` with `DisplayName` over `[DynamicData]`** when all values are compile-time constants. `[DataRow]` is simpler and `DisplayName` keeps test output readable. Reserve `[DynamicData]` for cases that genuinely need computed or complex values.
 - **If the tests are already well-maintained, say so.** A review that finds only minor polish opportunities is perfectly valid.
 
 ### Step 4: Report findings
 
-Present findings in this structure:
-
-1. **Summary** — Overall maintainability assessment. If tests are well-structured, lead with that.
-2. **Refactoring opportunities** — For each finding:
-   - What the problem is (e.g., "5 tests repeat identical 8-line arrangement")
-   - Where it occurs (specific methods/files)
-   - A concrete refactoring with before/after code
-   - Expected benefit (e.g., "eliminates 32 lines of duplication, new test cases become 3-line methods")
-3. **Positive observations** — What the tests already do well for maintainability.
-4. **Priority** — Which refactorings give the most impact for the least effort. Lead with high-duplication items.
-
-### Step 5: Show concrete refactored code
-
-For each recommended refactoring, show:
-- **Before**: The duplicated/verbose original (abbreviated if many instances)
-- **After**: The refactored version with helpers, builders, or data-driven patterns
-- **How to add new tests**: Demonstrate that adding a new test case is now trivial (one line for data-driven, one method call for builders)
-
-## Validation
-
-- [ ] Every finding includes specific locations and occurrence counts
-- [ ] Every refactoring includes before/after code
-- [ ] Findings are proportionate — don't recommend builders for trivial objects
-- [ ] Positive observations are included
-- [ ] Priority ordering reflects impact-to-effort ratio
-
-## Common Pitfalls
-
-| Pitfall | Solution |
-|---------|----------|
-| Recommending builders for simple objects | Only extract when construction is 3+ lines AND repeated 3+ times |
-| Flagging explicit per-test setup as duplication | If each test reads clearly, explicit setup is a valid style choice |
-| Ignoring display names on obvious values | `[DataRow("hello")]` doesn't need a display name. `[DataRow(0x1F)]` does |
-| Suggesting TestInitialize for shared state | If only half the tests need the setup, a helper method is better than TestInitialize |
-| Over-abstracting | If the extracted helper is harder to understand than the duplicated code, it's not an improvement |
-| Missing the benefit statement | Always quantify: "eliminates N lines" or "new test cases become M-line methods" |
+For each finding, show where it occurs, what to change, and concrete before/after code. Lead with high-duplication items. Include positive observations about what the tests already do well. Quantify benefits (e.g., "eliminates N lines", "new test cases become M-line methods").
