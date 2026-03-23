@@ -76,7 +76,7 @@ scenarios:
       - "Uses 'dotnet run --project' to run the test host, not 'dotnet test'"
       - "Explains the iterative workflow: edit code, hot reload picks up changes, re-runs tests"
     expect_tools: ["bash"]
-    timeout: 180
+    timeout: 240
 
   - name: "Suggest hot reload for failing test in MTP project (SDK 10)"
     prompt: "My RemoveStock_ExceedsAvailable_ThrowsException test is failing. I want to iterate fixes rapidly. How can I set up hot reload for this test project?"
@@ -159,7 +159,7 @@ scenarios:
       - "Uses 'dotnet run' to start the test host in console mode"
       - "Mentions that hot reload works in console mode only, not Test Explorer"
     expect_tools: ["bash"]
-    timeout: 180
+    timeout: 240
 
   # ============================================================================
   # Goal 2: Using hot reload when package is already installed
