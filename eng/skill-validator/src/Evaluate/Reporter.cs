@@ -832,11 +832,54 @@ public static class Reporter
     }
 
     /// <summary>Formats a subagent activation info object into a markdown cell string.</summary>
+    /// <remarks>
+    /// Agent names may originate from plugin content; we sanitize them to avoid breaking
+    /// markdown table formatting or enabling injection via characters like '|' or newlines.
+    /// </remarks>
     internal static string FormatSubagentCell(SubagentActivationInfo? sa)
     {
         if (sa is null || sa.InvokedAgents.Count == 0)
             return "—";
-        return string.Join(", ", sa.InvokedAgents);
+
+        var sanitized = new List<string>(sa.InvokedAgents.Count);
+        foreach (var agent in sa.InvokedAgents)
+        {
+            if (string.IsNullOrEmpty(agent))
+                continue;
+            sanitized.Add(SanitizeMarkdownTableCell(agent));
+        }
+
+        return sanitized.Count > 0 ? string.Join(", ", sanitized) : "—";
+    }
+
+    /// <summary>
+    /// Sanitizes text for inclusion in a markdown table cell by escaping table delimiters
+    /// and replacing line breaks with spaces.
+    /// </summary>
+    internal static string SanitizeMarkdownTableCell(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        var builder = new System.Text.StringBuilder(value.Length);
+        foreach (var ch in value)
+        {
+            switch (ch)
+            {
+                case '\r':
+                case '\n':
+                    builder.Append(' ');
+                    break;
+                case '|':
+                    builder.Append("\\|");
+                    break;
+                default:
+                    builder.Append(ch);
+                    break;
+            }
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>

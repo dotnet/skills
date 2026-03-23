@@ -6,7 +6,9 @@ public static class MetricsCollector
 {
     /// <summary>
     /// Analyse events from a "with-skill" run to detect which custom subagents
-    /// (plugin-defined agents) were invoked via SubagentStarted/SubagentCompleted events.
+    /// (plugin-defined agents) were invoked. Counts any event whose type contains
+    /// "subagent" (Started, Completed, Failed, Selected, Deselected) and extracts
+    /// unique agent names from the event data.
     /// </summary>
     public static SubagentActivationInfo ExtractSubagentActivation(
         IReadOnlyList<AgentEvent> events)
