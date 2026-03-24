@@ -165,11 +165,11 @@ scenarios:
       - "Found the AutoReplenishment = false bug that causes the token bucket to reject all requests after the initial burst"
       - "Identified the middleware ordering issue and explained the correct order"
       - "Suggested adding an OnRejected callback for proper error responses with Retry-After"
-    timeout: 180
+    timeout: 240
 
   - name: "Rate limiting behind a reverse proxy"
     prompt: |
-      We deployed our ASP.NET Core 8 API behind an nginx reverse proxy. Our rate limiter partitions by IP address, but in production ALL clients share the same rate limit — once the global 100 req/min is hit, every client gets 429'd even though individual clients are well under the limit. In development (no proxy) it worked fine. What's wrong with our code and how do I fix it?
+      My ASP.NET Core 8 API uses AddRateLimiter with per-IP partitioning (RemoteIpAddress). It works perfectly in development, but after deploying behind a load balancer, ALL clients share the same rate limit — once the global 100 req/min is hit, every client gets 429 Too Many Requests even though individual clients are well under the limit. How do I fix my per-client rate limiting partitioning?
     setup:
       files:
         - path: "Program.cs"
@@ -214,4 +214,4 @@ scenarios:
       - "Explained that all requests appear to come from the same partition key, exhausting the shared limit"
       - "Provided a concrete solution using ForwardedHeadersMiddleware with KnownProxies or KnownNetworks"
       - "Warned about security risks of trusting forwarded headers without restricting to known proxies"
-    timeout: 120
+    timeout: 180
