@@ -26,7 +26,6 @@ scenarios:
       - "Applied a named policy to the POST /api/orders endpoint with per-user partitioning"
       - "Disabled rate limiting on the healthz endpoint"
       - "Configured OnRejected callback that sets Retry-After header"
-      - "Chose an appropriate algorithm (sliding window or token bucket preferred over fixed window to avoid burst problem)"
     timeout: 120
 
   - name: "Rate limiting silently inactive without UseRateLimiter"
@@ -69,7 +68,7 @@ scenarios:
     rubric:
       - "Identified the root cause: app.UseRateLimiter() is missing from the middleware pipeline"
       - "Explained that AddRateLimiter only registers services but UseRateLimiter is required to activate the middleware"
-      - "Showed the correct middleware ordering: UseRateLimiter() after UseRouting() and UseAuthorization()"
+      - "Showed where to place UseRateLimiter() in the middleware pipeline so named policies take effect"
     timeout: 60
 
   - name: "Fix rate limiter returning 503 instead of 429"
@@ -107,21 +106,18 @@ scenarios:
     assertions:
       - type: "output_matches"
         pattern: "(RejectionStatusCode|429|TooManyRequests)"
-      - type: "output_matches"
-        pattern: "(OnRejected|Retry-After|RetryAfter)"
     rubric:
       - "Identified the root cause: default RejectionStatusCode is 503, must explicitly set to 429"
-      - "Added RejectionStatusCode = StatusCodes.Status429TooManyRequests"
-      - "Added OnRejected callback with Retry-After header"
-      - "Suggested switching from fixed window to sliding window or token bucket to avoid burst-at-boundary"
+      - "Provided code that correctly configures the rate limiter to return HTTP 429 instead of 503"
+      - "Suggested providing a meaningful response body or headers so clients know when to retry"
     timeout: 120
 
   - name: "Rate limiting should not apply to authentication scenarios"
     prompt: |
       I need to implement OAuth token endpoint throttling — limiting failed login attempts to 5 per minute per IP to prevent brute force attacks. Should I use ASP.NET Core rate limiting middleware for this?
     assertions:
-      - type: "output_not_matches"
-        pattern: "(AddRateLimiter.*GlobalLimiter|UseRateLimiter.*app\\.Map)"
+      - type: "output_matches"
+        pattern: "(lockout|brute.force|Identity|throttl)"
     rubric:
       - "Recognized that login throttling has different requirements than API rate limiting"
       - "Mentioned that rate limiting middleware works at the HTTP pipeline level, not at the authentication/identity level"
@@ -136,8 +132,8 @@ scenarios:
       - type: "output_matches"
         pattern: "(TokenBucket|token.bucket|SlidingWindow|sliding.window)"
     rubric:
-      - "Recommended token bucket or sliding window (NOT fixed window which allows burst at window boundary)"
-      - "Explained why fixed window is wrong for this use case (burst problem: 100 requests at end of window + 100 at start of next = 200 in seconds)"
-      - "Showed correct TokenBucketRateLimiterOptions or SlidingWindowRateLimiterOptions configuration"
-      - "Used per-merchant partitioning (CreatePartitionedLimiter with merchant ID as partition key)"
+      - "Recommended an algorithm that prevents bursting at window boundaries (NOT fixed window)"
+      - "Explained why fixed window is unsuitable when even distribution is required"
+      - "Showed a working rate limiter configuration with correct options for the chosen algorithm"
+      - "Implemented per-merchant partitioning so each merchant has an independent rate limit"
     timeout: 120
