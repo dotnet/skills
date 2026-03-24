@@ -209,7 +209,7 @@ public static class AgentRunner
         return anyAllowed;
     }
 
-    internal static SessionConfig BuildSessionConfig(
+    internal static async Task<SessionConfig> BuildSessionConfig(
         SkillInfo? skill,
         string? pluginRoot,
         string model,
@@ -394,7 +394,7 @@ public static class AgentRunner
         if (pluginRoot is not null)
         {
             // Plugin run: discover and register all agents in the plugin
-            var pluginAgents = AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot).GetAwaiter().GetResult();
+            var pluginAgents = await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot);
             if (pluginAgents.Count > 0)
             {
                 customAgents = pluginAgents.Select(a => BuildCustomAgentConfig(a)).ToList();
@@ -445,7 +445,10 @@ public static class AgentRunner
             {
                 OnPreToolUse = (input, invocation) =>
                 {
-                    var runLabel = skill is not null ? "skilled" : "baseline";
+                    var runLabel =
+                        agent is not null
+                            ? (pluginRoot is not null ? "agent-plugin" : "agent-isolated")
+                            : (skill is not null ? "skilled" : "baseline");
                     var reqPath = ExtractPathFromToolArgs(input);
                     var allowed = CheckPermission(reqPath, workDir, effectiveSkillPath, verbose ? log : null, runLabel, pluginRoot, additionalAllowedDirs);
                     return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
@@ -544,7 +547,7 @@ public static class AgentRunner
             var client = await GetPluginClient(options.PluginRoot, options.Verbose);
 
             await using var session = await client.CreateSessionAsync(
-                BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.McpServers,
+                await BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.McpServers,
                     options.AdditionalSkills, options.Log, options.Verbose, options.SessionsDir, options.SessionId,
                     options.Agent, options.AdditionalAgents));
 

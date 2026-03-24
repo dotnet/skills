@@ -82,11 +82,11 @@ public static class PairwiseJudge
             timeoutLabel: $"Pairwise judge ({direction})",
             onPermissionRequest: (request, invocation) =>
             {
-                // Pairwise judge sessions: approve all — sandboxing is best-effort
-                // and the judge doesn't execute tool calls in the workspace.
+                // Pairwise judge sessions: deny all tool permissions. The judge
+                // should operate purely on the provided text — no tool execution.
                 return Task.FromResult(new PermissionRequestResult
                 {
-                    Kind = PermissionRequestResultKind.Approved,
+                    Kind = PermissionRequestResultKind.DeniedByRules,
                 });
             },
             cancellationToken: cancellationToken);

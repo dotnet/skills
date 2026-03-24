@@ -43,11 +43,11 @@ public static class Judge
             timeoutLabel: "Judge — try --judge-timeout with a higher value, or check --verbose for stuck permission requests",
             onPermissionRequest: (request, invocation) =>
             {
-                // Judge sessions: approve all — sandboxing is best-effort
-                // and the judge doesn't execute tool calls in the workspace.
+                // Judge sessions: deny all tool permissions. Judging should be a
+                // pure LLM task — no file access or tool execution needed.
                 return Task.FromResult(new PermissionRequestResult
                 {
-                    Kind = PermissionRequestResultKind.Approved,
+                    Kind = PermissionRequestResultKind.DeniedByRules,
                 });
             },
             cancellationToken: cancellationToken);

@@ -170,7 +170,7 @@ public class ValidateEvalPromptsTests
         };
         var (skill, evalConfig) = MakeSkillWithEval(content, "migrate-app", scenarios);
         var errors = EvaluateCommand.ValidateEvalPrompts(skill, evalConfig);
-        Assert.Contains(errors, e => e.Contains("mentions skill name") && e.Contains("migrate-app"));
+        Assert.Contains(errors, e => e.Contains("mentions target name") && e.Contains("migrate-app"));
     }
 
     [Fact]
@@ -183,7 +183,7 @@ public class ValidateEvalPromptsTests
         };
         var (skill, evalConfig) = MakeSkillWithEval(content, "migrate-app", scenarios);
         var errors = EvaluateCommand.ValidateEvalPrompts(skill, evalConfig);
-        Assert.DoesNotContain(errors, e => e.Contains("mentions skill name"));
+        Assert.DoesNotContain(errors, e => e.Contains("mentions target name"));
     }
 
     [Fact]
@@ -196,7 +196,7 @@ public class ValidateEvalPromptsTests
         };
         var (skill, evalConfig) = MakeSkillWithEval(content, "", scenarios);
         var errors = EvaluateCommand.ValidateEvalPrompts(skill, evalConfig);
-        Assert.DoesNotContain(errors, e => e.Contains("mentions skill name"));
+        Assert.DoesNotContain(errors, e => e.Contains("mentions target name"));
     }
 }
 

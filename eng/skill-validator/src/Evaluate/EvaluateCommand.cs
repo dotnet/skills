@@ -1118,13 +1118,23 @@ public static class EvaluateCommand
         sessionDb?.RegisterSession(pluginSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
             "with-skill-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, skillSha, rubricJson);
 
+        // Resolve additional_required_skills/agents for the isolated skill run
+        IReadOnlyList<SkillInfo>? additionalSkills = null;
+        IReadOnlyList<AgentInfo>? additionalAgents = null;
+        if (scenario.Setup is not null && pluginRoot is not null)
+        {
+            additionalSkills = await ResolveAdditionalSkills(scenario.Setup.AdditionalRequiredSkills, pluginRoot);
+            additionalAgents = await ResolveAdditionalAgents(scenario.Setup.AdditionalRequiredAgents, pluginRoot);
+        }
+
         var agentTasks = await Task.WhenAll(
             // 1. Baseline: no plugin, no skills — vanilla agent
             AgentRunner.RunAgent(new RunOptions(scenario, null, evalSkill.EvalPath, config.Model, config.Verbose,
                 PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId)),
-            // 2. Skilled-isolated: single skill only (current behavior)
+            // 2. Skilled-isolated: target skill + declared dependencies
             AgentRunner.RunAgent(new RunOptions(scenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
-                PluginRoot: null, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir, SessionId: isolatedSessionId)),
+                PluginRoot: null, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir,
+                SessionId: isolatedSessionId, AdditionalSkills: additionalSkills, AdditionalAgents: additionalAgents)),
             // 3. Skilled-plugin: load entire plugin from plugin root directory
             AgentRunner.RunAgent(new RunOptions(scenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
                 PluginRoot: pluginRoot, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir, SessionId: pluginSessionId)));
@@ -1704,7 +1714,7 @@ public static class EvaluateCommand
         foreach (var scenario in evalConfig.Scenarios)
         {
             if (namePattern.IsMatch(scenario.Prompt))
-                errors.Add($"Eval scenario '{scenario.Name}' prompt mentions skill name '{targetName}' — remove skill name from prompt to avoid biasing baseline runs.");
+                errors.Add($"Eval scenario '{scenario.Name}' prompt mentions target name '{targetName}' (skill or agent) — remove the target name from the prompt to avoid biasing baseline runs.");
         }
 
         return errors;
@@ -1774,7 +1784,9 @@ public static class EvaluateCommand
             if (match is not null)
                 resolved.Add(match);
             else
-                Console.Error.WriteLine($"{Ansi.Yellow}⚠  additional_required_skills: '{name}' not found in plugin at '{pluginRoot}'{Ansi.Reset}");
+                throw new InvalidOperationException(
+                    $"additional_required_skills: '{name}' not found in plugin at '{pluginRoot}'. "
+                    + "Check that the skill name matches a skill directory under the plugin's skills/ folder.");
         }
 
         return resolved.Count > 0 ? resolved : null;
@@ -1799,7 +1811,9 @@ public static class EvaluateCommand
             if (match is not null)
                 resolved.Add(match);
             else
-                Console.Error.WriteLine($"{Ansi.Yellow}⚠  additional_required_agents: '{name}' not found in plugin at '{pluginRoot}'{Ansi.Reset}");
+                throw new InvalidOperationException(
+                    $"additional_required_agents: '{name}' not found in plugin at '{pluginRoot}'. "
+                    + "Check that the agent name matches an .agent.md file under the plugin's agents/ folder.");
         }
 
         return resolved.Count > 0 ? resolved : null;
