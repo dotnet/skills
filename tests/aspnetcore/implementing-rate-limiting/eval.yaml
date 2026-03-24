@@ -101,3 +101,94 @@ scenarios:
       - "Showed a working rate limiter configuration with correct options for the chosen algorithm"
       - "Implemented per-merchant partitioning so each merchant has an independent rate limit"
     timeout: 120
+
+  - name: "Diagnose multiple interacting rate limiting bugs"
+    prompt: |
+      My ASP.NET Core 8 API has rate limiting configured but it's completely broken. When I test it:
+      - Named policy endpoints are never rate limited (unlimited requests succeed)
+      - The global limiter DOES trigger, but returns 503 instead of 429
+      - When rate limited, there's no Retry-After header or error body
+
+      Can you look at my Program.cs and tell me everything that's wrong?
+    setup:
+      files:
+        - path: "Program.cs"
+          content: |
+            using Microsoft.AspNetCore.RateLimiting;
+            using System.Threading.RateLimiting;
+
+            var builder = WebApplication.CreateBuilder(args);
+
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 100,
+                            Window = TimeSpan.FromMinutes(1)
+                        }));
+
+                options.AddTokenBucketLimiter("api", tokenOptions =>
+                {
+                    tokenOptions.TokenLimit = 20;
+                    tokenOptions.ReplenishmentPeriod = TimeSpan.FromSeconds(10);
+                    tokenOptions.TokensPerPeriod = 5;
+                    tokenOptions.AutoReplenishment = false;
+                    tokenOptions.QueueLimit = 0;
+                });
+            });
+
+            var app = builder.Build();
+            app.UseAuthorization();
+            app.UseRouting();
+            app.UseRateLimiter();
+
+            app.MapGet("/api/data", () => "Hello!").RequireRateLimiting("api");
+            app.MapGet("/api/health", () => "OK");
+            app.Run();
+        - path: "BrokenRateLimiting.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+    assertions:
+      - type: "output_matches"
+        pattern: "(RejectionStatusCode|429)"
+      - type: "output_matches"
+        pattern: "(AutoReplenishment|auto.replenish)"
+    rubric:
+      - "Identified that RejectionStatusCode is not set, causing the default 503 response"
+      - "Found the AutoReplenishment = false bug that causes the token bucket to reject all requests after the initial burst"
+      - "Identified the middleware ordering issue and explained the correct order"
+      - "Suggested adding an OnRejected callback for proper error responses with Retry-After"
+    timeout: 180
+
+  - name: "Rate limiting behind a reverse proxy"
+    prompt: |
+      We deployed our ASP.NET Core 8 API behind an nginx reverse proxy. Our rate limiter partitions by IP address using RemoteIpAddress, but in production ALL clients share the same rate limit — once the global 100 req/min is hit, every client gets 429'd even though individual clients are well under the limit. In development (no proxy) it worked fine. What's happening and how do I fix it?
+    assertions:
+      - type: "output_matches"
+        pattern: "(ForwardedHeaders|RemoteIpAddress|X-Forwarded-For|proxy)"
+    rubric:
+      - "Identified that behind a reverse proxy, RemoteIpAddress is the proxy's IP, not the client's"
+      - "Explained that all requests appear to come from the same IP, causing shared rate limits"
+      - "Provided a concrete solution involving ForwardedHeadersMiddleware or equivalent configuration"
+      - "Warned about security implications of trusting forwarded headers without proper configuration"
+    timeout: 120
+
+  - name: "Concurrency limiter vs rate limiter confusion"
+    prompt: |
+      My ASP.NET Core 8 API generates PDF reports that take 10-30 seconds each. I need to limit this to 3 simultaneous report generations to protect the server. I tried AddFixedWindowLimiter with PermitLimit=3 but it only allows 3 reports per minute total, not 3 at a time. After 3 reports in a minute, all subsequent requests fail even though the server is idle. What's the right approach?
+    assertions:
+      - type: "output_matches"
+        pattern: "(ConcurrencyLimiter|AddConcurrencyLimiter|concurrency)"
+    rubric:
+      - "Identified that fixed window limiter counts requests per time window, not concurrent requests"
+      - "Recommended the concurrency limiter as the correct algorithm for limiting simultaneous in-flight requests"
+      - "Provided a working ConcurrencyLimiter configuration with appropriate PermitLimit and QueueLimit"
+      - "Explained the difference between rate-based and concurrency-based limiting"
+    timeout: 120
