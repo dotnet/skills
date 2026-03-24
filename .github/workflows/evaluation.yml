@@ -571,6 +571,8 @@ jobs:
           echo "pr_title=${PR_TITLE}" >> $GITHUB_OUTPUT
 
       - name: Generate token usage data
+        env:
+          PR_TITLE: ${{ steps.pr-info.outputs.pr_title }}
         run: |
           $source = if ("${{ github.event_name }}" -eq "issue_comment") { "pr" } else { "scheduled" }
           $plugins = '${{ needs.discover.outputs.plugins }}' | ConvertFrom-Json
@@ -596,7 +598,7 @@ jobs:
             }
             if ($source -eq "pr") {
               $params.PRNumber = ${{ needs.gate.outputs.pr_number }}
-              $params.PRTitle = '${{ steps.pr-info.outputs.pr_title }}'
+              $params.PRTitle = $env:PR_TITLE
             }
             # Script also writes <plugin>.json to OutputDir — we ignore it,
             # only token-usage.json is pushed to the branch.
@@ -622,6 +624,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           mkdir -p data
+          # Ensure token-usage.json exists; create an empty fallback if missing
+          if [ ! -f /tmp/token-data/data/token-usage.json ]; then
+            mkdir -p /tmp/token-data/data
+            printf '{ "entries": [] }\n' > /tmp/token-data/data/token-usage.json
+          fi
           cp /tmp/token-data/data/token-usage.json data/
 
           git add data/token-usage.json

@@ -34,6 +34,10 @@
 .PARAMETER DataDir
     Directory containing plugin JSON files to purge. Required with -PurgeStaleFiles.
 
+.PARAMETER SkipTokenUsage
+    When set, skips generation of token-usage.json entries. Use this when only
+    benchmark data (<PluginName>.json) is needed, such as in the publish-eval-data job.
+
 .PARAMETER RetentionDays
     Number of days of data to retain. Entries older than this are purged. Required for the
     Purge parameter set; optional for the Generate parameter set (no default value).
