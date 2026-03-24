@@ -20,7 +20,7 @@
 #   - Workflow YAML: always from the default branch (enforced by issue_comment
 #     and pull_request_target triggers)
 #   - Validator binary: built from the default branch (fork PRs) or PR branch
-#     (same-repo PRs, via the is-fork flag on the build-validator job)
+#     (same-repo PRs, selected via needs.gate.outputs.is_fork in the ref: expression)
 #   - Skill/test content: checked out from the fork PR (untrusted data, read-only)
 #   - Secret access: only users with write+ permission can trigger evaluation
 name: evaluation
@@ -485,7 +485,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        entry: ${{ fromJson(needs.discover.outputs.entries) }}
+        entry: ${{ fromJson(needs.discover.outputs.entries || '[]') }}
 
     steps:
       - name: Checkout skills content
