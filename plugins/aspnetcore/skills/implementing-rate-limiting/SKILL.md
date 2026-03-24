@@ -48,10 +48,10 @@ builder.Services.AddRateLimiter(options =>
     // Global rate limiter: sliding window (avoids fixed window burst problem)
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
-        // Use X-Forwarded-For behind a reverse proxy, fall back to RemoteIpAddress
-        var ipAddress = context.Request.Headers["X-Forwarded-For"].FirstOrDefault()
-            ?? context.Connection.RemoteIpAddress?.ToString()
-            ?? "unknown";
+        // Use the resolved remote IP. If behind a reverse proxy, configure
+        // ForwardedHeadersOptions (KnownProxies/KnownNetworks) so RemoteIpAddress
+        // reflects the real client IP. Do NOT trust X-Forwarded-For directly.
+        var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
         return RateLimitPartition.GetSlidingWindowLimiter(
             partitionKey: ipAddress,
@@ -95,11 +95,9 @@ builder.Services.AddRateLimiter(options =>
     // Custom response for rejected requests
     options.OnRejected = async (context, cancellationToken) =>
     {
-        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-
         if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
         {
-            context.HttpContext.Response.Headers.RetryAfter =
+            context.HttpContext.Response.Headers["Retry-After"] =
                 ((int)retryAfter.TotalSeconds).ToString();
         }
 
@@ -191,7 +189,7 @@ options.AddPolicy("per-user", context =>
 | Missing `RequireRateLimiting()` on endpoints | Global limiter works but named policies do nothing | Apply policies to endpoints explicitly |
 | `AutoReplenishment = false` on token bucket | Tokens never replenish, all requests rejected after initial burst | Set `AutoReplenishment = true` (or use a background timer) |
 | `QueueLimit > 0` without timeout | Requests queue indefinitely under sustained overload | Set `QueueLimit = 0` to reject immediately, or impose a timeout |
-| Partitioning by `RemoteIpAddress` behind proxy | All requests share one IP (the proxy) | Partition by `X-Forwarded-For` header (as shown in Step 2 global limiter) or authenticated user |
+| Partitioning by `RemoteIpAddress` behind proxy | All requests share one IP (the proxy) | Configure `ForwardedHeadersMiddleware` with `KnownProxies`/`KnownNetworks` so `RemoteIpAddress` reflects the real client IP, or partition by authenticated user |
 | Not setting `Retry-After` header | Clients don't know when to retry | Use `OnRejected` callback with `MetadataName.RetryAfter` |
 
 ## Validation
@@ -200,7 +198,7 @@ options.AddPolicy("per-user", context =>
 - [ ] `UseRateLimiter()` called after `UseRouting()`
 - [ ] Named policies applied to endpoints via `RequireRateLimiting()`
 - [ ] Correct algorithm chosen for the use case (sliding window for smooth limits, token bucket for burst tolerance)
-- [ ] Partitioning accounts for proxies (not just `RemoteIpAddress`)
+- [ ] Partitioning accounts for proxies (`ForwardedHeadersMiddleware` configured so `RemoteIpAddress` is correct)
 - [ ] `OnRejected` returns proper error response with `Retry-After` header
 - [ ] Health check and monitoring endpoints excluded from rate limiting
 

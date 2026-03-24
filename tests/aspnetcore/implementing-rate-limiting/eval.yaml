@@ -16,7 +16,9 @@ scenarios:
       - type: "output_matches"
         pattern: "(RequireRateLimiting|EnableRateLimiting)"
       - type: "output_matches"
-        pattern: "(DisableRateLimiting|healthz)"
+        pattern: "DisableRateLimiting"
+      - type: "output_matches"
+        pattern: "/healthz"
     rubric:
       - "Set RejectionStatusCode to 429 (NOT the default 503) — this is critical"
       - "Placed UseRateLimiter() AFTER UseRouting() in the middleware pipeline"
@@ -25,7 +27,6 @@ scenarios:
       - "Disabled rate limiting on the healthz endpoint"
       - "Configured OnRejected callback that sets Retry-After header"
       - "Chose an appropriate algorithm (sliding window or token bucket preferred over fixed window to avoid burst problem)"
-    expect_tools: ["bash"]
     timeout: 120
 
   - name: "Rate limiting silently inactive without UseRateLimiter"
