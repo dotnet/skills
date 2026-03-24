@@ -167,8 +167,12 @@ public static class Reporter
             s.Baseline.Metrics.TimedOut || s.SkilledIsolated.Metrics.TimedOut || (s.SkilledPlugin?.Metrics.TimedOut == true)));
         if (anyTimeout)
         {
+            var timeoutValues = verdicts.SelectMany(v => v.Scenarios)
+                .Where(s => s.Baseline.Metrics.TimedOut || s.SkilledIsolated.Metrics.TimedOut || (s.SkilledPlugin?.Metrics.TimedOut == true))
+                .Select(s => s.TimeoutSeconds).Distinct().OrderBy(t => t)
+                .Select(t => $"{t}s");
             Console.WriteLine();
-            Console.WriteLine("{Ansi.Yellow}⏰ timeout — run hit the scenario timeout limit; scoring may be impacted by aborting model execution before it could produce its full output (increase via 'timeout' in eval.yaml; default: 120s){Ansi.Reset}");
+            Console.WriteLine($"{Ansi.Yellow}⏰ timeout — run hit the scenario timeout limit ({string.Join(", ", timeoutValues)}); scoring may be impacted by aborting model execution before it could produce its full output (increase via 'timeout' in eval.yaml){Ansi.Reset}");
         }
 
         Console.WriteLine();
@@ -570,7 +574,13 @@ public static class Reporter
         bool anyTimeout = verdicts.Any(v => v.Scenarios.Any(s =>
             (s.Baseline?.Metrics?.TimedOut == true) || (s.SkilledIsolated?.Metrics?.TimedOut == true) || (s.SkilledPlugin?.Metrics?.TimedOut == true)));
         if (anyTimeout)
-            sb.AppendLine("\n> ⏰ **timeout** — run hit the scenario timeout limit; scoring may be impacted by aborting model execution before it could produce its full output (increase via `timeout` in eval.yaml; default: 120s)");
+        {
+            var timeoutValues = verdicts.SelectMany(v => v.Scenarios)
+                .Where(s => (s.Baseline?.Metrics?.TimedOut == true) || (s.SkilledIsolated?.Metrics?.TimedOut == true) || (s.SkilledPlugin?.Metrics?.TimedOut == true))
+                .Select(s => s.TimeoutSeconds).Distinct().OrderBy(t => t)
+                .Select(t => $"{t}s");
+            sb.AppendLine($"\n> ⏰ **timeout** — run hit the scenario timeout limit ({string.Join(", ", timeoutValues)}); scoring may be impacted by aborting model execution before it could produce its full output (increase via `timeout` in eval.yaml)");
+        }
 
         // Noise test results
         var withNoise = verdicts.Where(v => v.NoiseTestResult is not null).ToList();
