@@ -1,5 +1,5 @@
 ---
-name: exp-crap-score
+name: crap-score
 description: >
   Calculates CRAP (Change Risk Anti-Patterns) score for .NET methods, classes,
   or files. Use when the user asks to assess test quality, identify risky

@@ -1,5 +1,5 @@
 ---
-name: exp-test-anti-patterns
+name: test-anti-patterns
 description: "Detects anti-patterns and code smells in .NET test suites. Use when the user asks to review test quality, find test smells, identify flaky test indicators, or audit tests for common mistakes. Covers assertion quality, test isolation, naming, flakiness indicators, over-mocking, and structural problems. Works with MSTest, xUnit, NUnit, and TUnit."
 ---
 
