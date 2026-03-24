@@ -167,12 +167,17 @@ public static class Reporter
             s.Baseline.Metrics.TimedOut || s.SkilledIsolated.Metrics.TimedOut || (s.SkilledPlugin?.Metrics.TimedOut == true)));
         if (anyTimeout)
         {
+            // TimeoutSeconds is null for comparator/rejudge code paths that don't have eval.yaml config;
+            // skip those and only show known timeout values in the parenthetical.
             var timeoutValues = verdicts.SelectMany(v => v.Scenarios)
                 .Where(s => s.Baseline.Metrics.TimedOut || s.SkilledIsolated.Metrics.TimedOut || (s.SkilledPlugin?.Metrics.TimedOut == true))
-                .Select(s => s.TimeoutSeconds).Distinct().OrderBy(t => t)
-                .Select(t => $"{t}s");
+                .Select(s => s.TimeoutSeconds).OfType<int>().Distinct().OrderBy(t => t)
+                .Select(t => $"{t}s").ToList();
+            var limitClause = timeoutValues.Count > 0
+                ? $"({string.Join(", ", timeoutValues)}) "
+                : "";
             Console.WriteLine();
-            Console.WriteLine($"{Ansi.Yellow}⏰ timeout — run hit the scenario timeout limit ({string.Join(", ", timeoutValues)}); scoring may be impacted by aborting model execution before it could produce its full output (increase via 'timeout' in eval.yaml){Ansi.Reset}");
+            Console.WriteLine($"{Ansi.Yellow}⏰ timeout — run(s) hit the {limitClause}scenario timeout limit; scoring may be impacted by aborting model execution before it could produce its full output (increase via 'timeout' in eval.yaml){Ansi.Reset}");
         }
 
         Console.WriteLine();
@@ -233,7 +238,7 @@ public static class Reporter
             if (b.TimedOut) parts.Add("baseline");
             if (s.TimedOut) parts.Add("isolated");
             if (p?.TimedOut == true) parts.Add("plugin");
-            Console.WriteLine($"      {Ansi.BoldRed}⏰ TIMEOUT{Ansi.Reset} — {string.Join(" and ", parts)} run(s) hit the {scenario.TimeoutSeconds}s scenario timeout limit (increase via 'timeout' in eval.yaml)");
+            Console.WriteLine($"      {Ansi.BoldRed}⏰ TIMEOUT{Ansi.Reset} — {string.Join(" and ", parts)} run(s) hit the {(scenario.TimeoutSeconds.HasValue ? $"{scenario.TimeoutSeconds}s " : "")}scenario timeout limit (increase via 'timeout' in eval.yaml)");
         }
 
         foreach (var (label, baseline, isolated, plugin) in metricRows)
@@ -575,11 +580,16 @@ public static class Reporter
             (s.Baseline?.Metrics?.TimedOut == true) || (s.SkilledIsolated?.Metrics?.TimedOut == true) || (s.SkilledPlugin?.Metrics?.TimedOut == true)));
         if (anyTimeout)
         {
+            // TimeoutSeconds is null for comparator/rejudge code paths that don't have eval.yaml config;
+            // skip those and only show known timeout values in the parenthetical.
             var timeoutValues = verdicts.SelectMany(v => v.Scenarios)
                 .Where(s => (s.Baseline?.Metrics?.TimedOut == true) || (s.SkilledIsolated?.Metrics?.TimedOut == true) || (s.SkilledPlugin?.Metrics?.TimedOut == true))
-                .Select(s => s.TimeoutSeconds).Distinct().OrderBy(t => t)
-                .Select(t => $"{t}s");
-            sb.AppendLine($"\n> ⏰ **timeout** — run hit the scenario timeout limit ({string.Join(", ", timeoutValues)}); scoring may be impacted by aborting model execution before it could produce its full output (increase via `timeout` in eval.yaml)");
+                .Select(s => s.TimeoutSeconds).OfType<int>().Distinct().OrderBy(t => t)
+                .Select(t => $"{t}s").ToList();
+            var limitClause = timeoutValues.Count > 0
+                ? $"({string.Join(", ", timeoutValues)}) "
+                : "";
+            sb.AppendLine($"\n> ⏰ **timeout** — run(s) hit the {limitClause}scenario timeout limit; scoring may be impacted by aborting model execution before it could produce its full output (increase via `timeout` in eval.yaml)");
         }
 
         // Noise test results

@@ -66,7 +66,7 @@ public sealed record EvalScenario(
     SetupConfig? Setup = null,
     IReadOnlyList<Assertion>? Assertions = null,
     IReadOnlyList<string>? Rubric = null,
-    int Timeout = 120,
+    int Timeout = EvalSchema.DefaultScenarioTimeoutSeconds,
     IReadOnlyList<string>? ExpectTools = null,
     IReadOnlyList<string>? RejectTools = null,
     int? MaxTurns = null,
@@ -242,8 +242,8 @@ public sealed class ScenarioComparison
     public SubagentActivationInfo? SubagentActivationIsolated { get; set; }
     public SubagentActivationInfo? SubagentActivationPlugin { get; set; }
     public bool TimedOut { get; set; }
-    /// <summary>The scenario timeout in seconds (from eval.yaml or the 120s default).</summary>
-    public int TimeoutSeconds { get; set; } = 120;
+    /// <summary>The scenario timeout in seconds, if known (e.g., from eval.yaml or persisted session data).</summary>
+    public int? TimeoutSeconds { get; set; }
     /// <summary>When false, non-activation is expected (negative test) and should not flag the verdict.</summary>
     public bool ExpectActivation { get; set; } = true;
 

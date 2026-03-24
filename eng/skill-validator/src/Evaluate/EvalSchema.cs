@@ -2,6 +2,9 @@ namespace SkillValidator.Evaluate;
 
 public static class EvalSchema
 {
+    /// <summary>Default scenario timeout in seconds when not specified in eval.yaml.</summary>
+    public const int DefaultScenarioTimeoutSeconds = 120;
+
     public static EvalConfig ParseEvalConfig(string yamlContent)
     {
         var raw = SkillValidatorYamlContext.UnderscoredDeserializer.Deserialize<RawEvalConfig>(yamlContent)
@@ -54,7 +57,7 @@ public static class EvalSchema
             Setup: setup,
             Assertions: assertions,
             Rubric: raw.Rubric,
-            Timeout: raw.Timeout ?? 120,
+            Timeout: raw.Timeout ?? DefaultScenarioTimeoutSeconds,
             ExpectTools: raw.ExpectTools,
             RejectTools: raw.RejectTools,
             MaxTurns: raw.MaxTurns,

@@ -11,7 +11,7 @@ public static class AssertionEvaluator
         IReadOnlyList<Assertion> assertions,
         string agentOutput,
         string workDir,
-        int scenarioTimeoutSeconds = 120)
+        int scenarioTimeoutSeconds = EvalSchema.DefaultScenarioTimeoutSeconds)
     {
         var results = new List<AssertionResult>();
         foreach (var assertion in assertions)
