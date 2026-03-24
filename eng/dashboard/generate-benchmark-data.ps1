@@ -34,6 +34,10 @@
 .PARAMETER DataDir
     Directory containing plugin JSON files to purge. Required with -PurgeStaleFiles.
 
+.PARAMETER SkipBenchmarkData
+    When set, skips generation of benchmark <PluginName>.json entries. Use this when
+    only token-usage data is needed, such as in the publish-token-data job.
+
 .PARAMETER SkipTokenUsage
     When set, skips generation of token-usage.json entries. Use this when only
     benchmark data (<PluginName>.json) is needed, such as in the publish-eval-data job.
@@ -68,6 +72,9 @@ param(
 
     [Parameter(ParameterSetName = 'Generate')]
     [string]$PRTitle,
+
+    [Parameter(ParameterSetName = 'Generate')]
+    [switch]$SkipBenchmarkData,
 
     [Parameter(ParameterSetName = 'Generate')]
     [switch]$SkipTokenUsage,
@@ -376,7 +383,8 @@ $efficiencyKey = "Efficiency"
 
 # PR evaluations only collect token-usage data — skip benchmark history so PR
 # runs don't contaminate the nightly benchmark results in <PluginName>.json.
-if ($Source -ne 'pr') {
+# -SkipBenchmarkData also skips this section (used by publish-token-data).
+if ($Source -ne 'pr' -and -not $SkipBenchmarkData) {
     # Load existing data or create new structure
     $benchmarkData = @{
         lastUpdate = $now
@@ -440,7 +448,7 @@ if ($Source -ne 'pr') {
 } else {
     # Ensure OutputDir exists even in PR mode (needed for token-usage.json)
     New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
-    Write-Host "[OK] PR mode — skipping benchmark $PluginName.json generation, collecting token usage only"
+    Write-Host "[OK] Skipping benchmark $PluginName.json generation, collecting token usage only"
 }
 
 # --- Generate token-usage entries ---

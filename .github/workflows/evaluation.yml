@@ -805,8 +805,7 @@ jobs:
               $params.PRNumber = ${{ needs.gate.outputs.pr_number }}
               $params.PRTitle = $env:PR_TITLE
             }
-            # Script also writes <plugin>.json to OutputDir — we ignore it,
-            # only token-usage.json is pushed to the branch.
+            $params.SkipBenchmarkData = $true
             & ./eng/dashboard/generate-benchmark-data.ps1 @params
           }
         shell: pwsh
@@ -828,6 +827,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Remove any stale files so this branch stays token-only
+          git rm -rf data/ --ignore-unmatch --quiet 2>/dev/null || true
           mkdir -p data
           # Ensure token-usage.json exists; create an empty fallback if missing
           if [ ! -f /tmp/token-data/data/token-usage.json ]; then
@@ -956,6 +957,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Remove stale files so this branch only contains current eval data
+          git rm -rf data/ --ignore-unmatch --quiet 2>/dev/null || true
           mkdir -p data
           # Copy only eval data files (not token-usage.json)
           cp /tmp/eval-data/data/components.json data/
