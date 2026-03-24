@@ -23,7 +23,7 @@
 #
 # Automatically warn about and close pull requests that have been open for more than 30 days with no recent activity.
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"26c29da8563f50fa88b69cd7b52eab22106b8f2241b02078f3ca1ba7683caefe","compiler_version":"v0.59.0","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"f67eaac1209744cbaaff884133820e2cf3c3c1eb835cd689372dff342e22f316","compiler_version":"v0.59.0","strict":true}
 
 name: "Close Stale Pull Requests"
 "on":
@@ -41,6 +41,7 @@ run-name: "Close Stale Pull Requests"
 
 jobs:
   activation:
+    if: ${{ !(github.event_name == 'schedule' && github.event.repository.fork) }}
     runs-on: ubuntu-slim
     permissions:
       contents: read

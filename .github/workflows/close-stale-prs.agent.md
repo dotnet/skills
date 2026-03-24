@@ -4,6 +4,12 @@ description: "Automatically warn about and close pull requests that have been op
 on:
   schedule: weekly on monday
   workflow_dispatch: # Allow manual triggering
+
+# Don't run scheduled triggers on forked repositories — forks lack the
+# secrets and context required, and scheduled runs would consume the
+# fork owner's minutes.
+if: ${{ !(github.event_name == 'schedule' && github.event.repository.fork) }}
+
 safe-outputs:
   close-pull-request:
     max: 25
