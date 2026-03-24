@@ -5,6 +5,35 @@ namespace SkillValidator.Evaluate;
 public static class MetricsCollector
 {
     /// <summary>
+    /// Analyse events from a "with-skill" run to detect which custom subagents
+    /// (plugin-defined agents) were invoked. Counts any event whose type contains
+    /// "subagent" (Started, Completed, Failed, Selected, Deselected) and extracts
+    /// unique agent names from the event data.
+    /// </summary>
+    public static SubagentActivationInfo ExtractSubagentActivation(
+        IReadOnlyList<AgentEvent> events)
+    {
+        var invokedAgents = new List<string>();
+        int subagentEventCount = 0;
+
+        foreach (var evt in events)
+        {
+            var t = evt.Type.ToLowerInvariant();
+            if (t.Contains("subagent"))
+            {
+                subagentEventCount++;
+                var name = GetStringValue(evt.Data, "agentName") ?? "";
+                if (name.Length > 0 && !invokedAgents.Contains(name, StringComparer.OrdinalIgnoreCase))
+                    invokedAgents.Add(name);
+            }
+        }
+
+        return new SubagentActivationInfo(
+            InvokedAgents: invokedAgents,
+            SubagentEventCount: subagentEventCount);
+    }
+
+    /// <summary>
     /// Analyse events from a "with-skill" run to determine whether the skill was activated.
     /// When <paramref name="targetSkillName"/> is set, only counts as "Activated" if the
     /// target skill was specifically detected — prevents false positives in plugin runs

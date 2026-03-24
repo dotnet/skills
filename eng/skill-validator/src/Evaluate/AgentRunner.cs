@@ -518,6 +518,44 @@ public static class AgentRunner
                             write($"      📘 Skill invoked: {skillInvoked.Data.Name}");
                         }
                         break;
+                    case SubagentStartedEvent subagentStarted:
+                        agentEvent.Data["agentName"] = JsonValue.Create(subagentStarted.Data.AgentName);
+                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentStarted.Data.AgentDisplayName);
+                        agentEvent.Data["agentDescription"] = JsonValue.Create(subagentStarted.Data.AgentDescription);
+                        agentEvent.Data["toolCallId"] = JsonValue.Create(subagentStarted.Data.ToolCallId);
+                        if (options.Verbose)
+                        {
+                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                            write($"      🤖 Subagent started: {subagentStarted.Data.AgentName}");
+                        }
+                        break;
+                    case SubagentCompletedEvent subagentCompleted:
+                        agentEvent.Data["agentName"] = JsonValue.Create(subagentCompleted.Data.AgentName);
+                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentCompleted.Data.AgentDisplayName);
+                        agentEvent.Data["toolCallId"] = JsonValue.Create(subagentCompleted.Data.ToolCallId);
+                        if (options.Verbose)
+                        {
+                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                            write($"      ✅ Subagent completed: {subagentCompleted.Data.AgentName}");
+                        }
+                        break;
+                    case SubagentFailedEvent subagentFailed:
+                        agentEvent.Data["agentName"] = JsonValue.Create(subagentFailed.Data.AgentName);
+                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentFailed.Data.AgentDisplayName);
+                        agentEvent.Data["toolCallId"] = JsonValue.Create(subagentFailed.Data.ToolCallId);
+                        agentEvent.Data["error"] = JsonValue.Create(subagentFailed.Data.Error);
+                        if (options.Verbose)
+                        {
+                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                            write($"      ❌ Subagent failed: {subagentFailed.Data.AgentName}");
+                        }
+                        break;
+                    case SubagentSelectedEvent subagentSelected:
+                        agentEvent.Data["agentName"] = JsonValue.Create(subagentSelected.Data.AgentName);
+                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentSelected.Data.AgentDisplayName);
+                        break;
+                    case SubagentDeselectedEvent:
+                        break;
                     case AssistantUsageEvent usage:
                         agentEvent.Data["inputTokens"] = JsonValue.Create(usage.Data.InputTokens);
                         agentEvent.Data["outputTokens"] = JsonValue.Create(usage.Data.OutputTokens);

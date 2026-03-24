@@ -20,7 +20,7 @@
 #   - Workflow YAML: always from the default branch (enforced by issue_comment
 #     and pull_request_target triggers)
 #   - Validator binary: built from the default branch (fork PRs) or PR branch
-#     (same-repo PRs, via the is-fork input to evaluation-run)
+#     (same-repo PRs, selected via needs.gate.outputs.is_fork in the ref: expression)
 #   - Skill/test content: checked out from the fork PR (untrusted data, read-only)
 #   - Secret access: only users with write+ permission can trigger evaluation
 name: evaluation
@@ -46,6 +46,8 @@ concurrency:
 
 env:
   DASHBOARD_RETENTION_DAYS: 14
+  MODEL: claude-opus-4.6
+  JUDGE_MODEL: claude-opus-4.6
 
 permissions:
   contents: write
@@ -347,7 +349,7 @@ jobs:
 
             # Check if any changed files are in infrastructure paths
             $hasInfraChanges = $changedFiles |
-              Where-Object { $_ -match '^(\.github/workflows/evaluation(-run)?\.yml$|eng/skill-validator/)' } |
+              Where-Object { $_ -match '^(\.github/workflows/evaluation\.yml$|eng/skill-validator/)' } |
               Select-Object -First 1
 
             if ($hasInfraChanges) {
@@ -426,43 +428,243 @@ jobs:
         shell: pwsh
 
   # ==========================================================================
-  # RUN EVALUATION
+  # BUILD VALIDATOR
+  # Build the skill-validator from the appropriate ref.
   # ==========================================================================
-  run-evaluation:
+  build-validator:
     needs: [gate, discover]
     if: >-
       always() &&
       needs.discover.outputs.has_entries == 'true' &&
       needs.discover.result == 'success' &&
       (needs.gate.result == 'success' || github.event_name == 'schedule')
-    uses: ./.github/workflows/evaluation-run.yml
-    with:
-      entries: ${{ needs.discover.outputs.entries }}
-      runs: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.event_name == 'schedule' && '5' || '3') }}
-      parallel-skills: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5' }}
-      parallel-scenarios: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
-      parallel-runs: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
-      # Always pass PR head SHA so evaluation-run checks out the correct code
-      checkout-ref: ${{ needs.gate.outputs.head_sha || '' }}
-      # Fork PRs build the validator from the base branch (untrusted code).
-      is-fork: ${{ needs.gate.outputs.is_fork == 'true' }}
-      pr-number: ${{ needs.gate.outputs.pr_number || '' }}
-    secrets:
-      COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-      COPILOT_GITHUB_TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
-      COPILOT_GITHUB_TOKEN_3: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
-      COPILOT_GITHUB_TOKEN_4: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
-      COPILOT_GITHUB_TOKEN_5: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
-      COPILOT_GITHUB_TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
-      COPILOT_GITHUB_TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
-      COPILOT_GITHUB_TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # For same-repo PRs (trusted), build from the PR branch so skill-validator
+      # changes are tested. For fork PRs (untrusted), always build from the
+      # base branch to prevent untrusted code from modifying tooling.
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ needs.gate.outputs.is_fork != 'true' && needs.gate.outputs.head_sha || '' }}
+          persist-credentials: false
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Build skill-validator
+        run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
+
+      - name: Create validator archive
+        run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
+
+      - name: Upload built validator
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: skill-validator-dist.tar.gz
+          path: skill-validator-dist.tar.gz
+          archive: false
+          retention-days: 1
+
+  # ==========================================================================
+  # EVALUATE
+  # Run skill-validator across changed skills (matrix).
+  # ==========================================================================
+  evaluate:
+    needs: [gate, discover, build-validator]
+    if: needs.build-validator.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 180
+    name: evaluate (${{ matrix.entry.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJson(needs.discover.outputs.entries || '[]') }}
+
+    steps:
+      - name: Checkout skills content
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ needs.gate.outputs.head_sha || '' }}
+          persist-credentials: false
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Download built validator
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: skill-validator-dist.tar.gz
+
+      - name: Extract validator
+        run: |
+          mkdir -p artifacts/publish/SkillValidator/release
+          tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
+
+      - name: Select random Copilot token
+        id: select-token
+        env:
+          TOKEN_1: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+          TOKEN_3: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+          TOKEN_4: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
+          TOKEN_5: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
+          TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
+          TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
+          TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
+        run: |
+          # Collect all non-empty token secrets
+          TOKENS=()
+          NAMES=()
+          for i in 1 2 3 4 5 6 7 8; do
+            var="TOKEN_$i"
+            val="${!var}"
+            if [ -n "$val" ]; then
+              TOKENS+=("$val")
+              if [ "$i" -eq 1 ]; then
+                NAMES+=("COPILOT_GITHUB_TOKEN")
+              else
+                NAMES+=("COPILOT_GITHUB_TOKEN_$i")
+              fi
+            fi
+          done
+
+          if [ ${#TOKENS[@]} -eq 0 ]; then
+            echo "::error::No COPILOT_GITHUB_TOKEN secrets are configured"
+            exit 1
+          fi
+
+          # Assign token deterministically by matrix job index to avoid collisions.
+          # Falls back to RANDOM if strategy.job-index is unavailable.
+          JOB_INDEX="${{ strategy.job-index }}"
+          if [ -n "$JOB_INDEX" ]; then
+            IDX=$(( JOB_INDEX % ${#TOKENS[@]} ))
+          else
+            IDX=$((RANDOM % ${#TOKENS[@]}))
+          fi
+          echo "Selected ${NAMES[$IDX]} (1 of ${#TOKENS[@]} available tokens, job-index=${JOB_INDEX:-random})"
+
+          # Mask the value so it won't appear in logs, then export
+          echo "::add-mask::${TOKENS[$IDX]}"
+          echo "token=${TOKENS[$IDX]}" >> $GITHUB_OUTPUT
+
+      - name: Run skill-validator
+        env:
+          GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
+          RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
+          RUNS: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.event_name == 'schedule' && '5' || '3') }}
+          PARALLEL_SKILLS: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5' }}
+          PARALLEL_SCENARIOS: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
+          PARALLEL_RUNS: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
+        run: |
+          ARGS="--verdict-warn-only --verbose"
+          ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
+          ARGS="$ARGS --model ${{ env.MODEL }}"
+          ARGS="$ARGS --judge-model ${{ env.JUDGE_MODEL }}"
+          ARGS="$ARGS --runs $RUNS"
+          ARGS="$ARGS --parallel-skills $PARALLEL_SKILLS"
+          ARGS="$ARGS --parallel-scenarios $PARALLEL_SCENARIOS"
+          ARGS="$ARGS --parallel-runs $PARALLEL_RUNS"
+
+          artifacts/publish/SkillValidator/release/skill-validator evaluate $ARGS --tests-dir ./tests/${{ matrix.entry.plugin }} ./${{ matrix.entry.skills_path }}
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: skill-validator-results-${{ matrix.entry.name }}
+          path: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}/
+          include-hidden-files: true
+          retention-days: 30
+
+  # ==========================================================================
+  # COMMENT ON PR
+  # Post consolidated evaluation results as a PR comment.
+  # ==========================================================================
+  comment-on-pr:
+    needs: [gate, discover, evaluate]
+    if: >-
+      always() &&
+      needs.evaluate.result != 'cancelled' &&
+      needs.gate.outputs.pr_number != '' &&
+      needs.discover.outputs.has_entries == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Download all result artifacts
+        if: needs.evaluate.result != 'skipped'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: skill-validator-results-*
+          path: all-results/
+          merge-multiple: false
+        continue-on-error: ${{ needs.evaluate.result != 'success' }}
+
+      - name: Download built validator
+        if: needs.evaluate.result != 'skipped'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: skill-validator-dist.tar.gz
+        continue-on-error: ${{ needs.evaluate.result != 'success' }}
+
+      - name: Extract validator
+        if: needs.evaluate.result != 'skipped' && hashFiles('skill-validator-dist.tar.gz') != ''
+        run: |
+          mkdir -p artifacts/publish/SkillValidator/release
+          tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
+
+      - name: Consolidate and post results
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER=${{ needs.gate.outputs.pr_number }}
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # If results exist, consolidate them into a summary comment
+          JSON_FILES=$(find all-results/ -name results.json 2>/dev/null || true)
+          VALIDATOR="artifacts/publish/SkillValidator/release/skill-validator"
+          if [ -n "$JSON_FILES" ] && [ -x "$VALIDATOR" ]; then
+            "$VALIDATOR" evaluate consolidate \
+              --output summary-body.md \
+              $JSON_FILES
+
+            {
+              cat summary-body.md
+              echo ""
+              echo "[Full results]($RUN_URL)"
+            } > consolidated-comment.md
+
+            cat consolidated-comment.md >> $GITHUB_STEP_SUMMARY
+
+            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+              -X POST -F "body=@consolidated-comment.md"
+          else
+            # No results — evaluate was skipped or failed before producing artifacts
+            if [[ "${{ needs.evaluate.result }}" == "skipped" ]]; then
+              BODY="❌ Evaluation did not complete (upstream job failed or was skipped). [View workflow run](${RUN_URL})"
+            else
+              BODY="❌ Evaluation failed. [View workflow run](${RUN_URL})"
+            fi
+
+            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
+          fi
 
   # ==========================================================================
   # REPORT STATUS
   # Post final evaluation status via commit status API.
   # ==========================================================================
   report-status:
-    needs: [gate, discover, run-evaluation]
+    needs: [gate, discover, build-validator, evaluate]
     if: always() && github.event_name == 'issue_comment' && needs.gate.result == 'success'
     runs-on: ubuntu-latest
     permissions:
@@ -485,18 +687,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ "${{ needs.run-evaluation.result }}" == "success" ]]; then
+          if [[ "${{ needs.evaluate.result }}" == "success" ]]; then
             STATE="success"
             DESC="Evaluation passed"
-          elif [[ "${{ needs.run-evaluation.result }}" == "skipped" && "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
+          elif [[ "${{ needs.evaluate.result }}" == "skipped" && "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
             STATE="success"
             DESC="No skills to evaluate"
-          elif [[ "${{ needs.run-evaluation.result }}" == "failure" ]]; then
+          elif [[ "${{ needs.build-validator.result }}" == "failure" ]]; then
+            STATE="failure"
+            DESC="Validator build failed"
+          elif [[ "${{ needs.evaluate.result }}" == "failure" ]]; then
             STATE="failure"
             DESC="Evaluation failed"
           else
             STATE="error"
-            DESC="Evaluation did not complete (run-evaluation: ${{ needs.run-evaluation.result }}, discover: ${{ needs.discover.result }})"
+            DESC="Evaluation did not complete (build: ${{ needs.build-validator.result }}, evaluate: ${{ needs.evaluate.result }}, discover: ${{ needs.discover.result }})"
           fi
           gh api "repos/${{ github.repository }}/statuses/${{ needs.gate.outputs.head_sha }}" \
             -f state="$STATE" \
@@ -505,7 +710,7 @@ jobs:
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Post completion comment for skipped evaluation
-        if: needs.run-evaluation.result == 'skipped'
+        if: needs.evaluate.result == 'skipped'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -525,7 +730,7 @@ jobs:
   # Both scheduled and PR runs: generate token-usage data → dashboard-token-data
   # ==========================================================================
   publish-token-data:
-    needs: [gate, discover, run-evaluation]
+    needs: [gate, discover, evaluate]
     if: >-
       always() &&
       !cancelled() &&
@@ -551,7 +756,7 @@ jobs:
           pattern: skill-validator-results-*
           path: all-results/
           merge-multiple: false
-        continue-on-error: ${{ needs.run-evaluation.result != 'success' }}
+        continue-on-error: ${{ needs.evaluate.result != 'success' }}
 
       - name: Fetch existing token data from dashboard-token-data
         run: |
@@ -646,7 +851,7 @@ jobs:
   # Scheduled runs only: generate benchmark data → dashboard-eval-data
   # ==========================================================================
   publish-eval-data:
-    needs: [gate, discover, run-evaluation]
+    needs: [gate, discover, evaluate]
     if: >-
       always() &&
       !cancelled() &&
@@ -669,7 +874,7 @@ jobs:
           pattern: skill-validator-results-*
           path: all-results/
           merge-multiple: false
-        continue-on-error: ${{ needs.run-evaluation.result != 'success' }}
+        continue-on-error: ${{ needs.evaluate.result != 'success' }}
 
       - name: Fetch existing eval data from dashboard-eval-data
         run: |

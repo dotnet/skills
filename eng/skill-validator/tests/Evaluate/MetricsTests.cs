@@ -509,3 +509,156 @@ public class CollectMetricsTests
         Assert.Equal(2, result.ErrorCount);
     }
 }
+
+public class ExtractSubagentActivationTests
+{
+    private static AgentEvent MakeEvent(string type, Dictionary<string, JsonNode?>? data = null)
+    {
+        return new AgentEvent(type, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), data ?? new Dictionary<string, JsonNode?>());
+    }
+
+    private static Dictionary<string, JsonNode?> D(params (string Key, JsonNode? Value)[] entries)
+    {
+        var dict = new Dictionary<string, JsonNode?>();
+        foreach (var (key, value) in entries)
+            dict[key] = value;
+        return dict;
+    }
+
+    [Fact]
+    public void DetectsSubagentFromStartedEvent()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("subagent.started", D(("agentName", JsonValue.Create("build-perf")), ("agentDisplayName", JsonValue.Create("Build Perf")))),
+            MakeEvent("subagent.completed", D(("agentName", JsonValue.Create("build-perf")))),
+        };
+
+        var result = MetricsCollector.ExtractSubagentActivation(events);
+
+        Assert.Equal(["build-perf"], result.InvokedAgents);
+        Assert.Equal(2, result.SubagentEventCount);
+    }
+
+    [Fact]
+    public void DeduplicatesAgentNames()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("subagent.started", D(("agentName", JsonValue.Create("build-perf")))),
+            MakeEvent("subagent.completed", D(("agentName", JsonValue.Create("build-perf")))),
+            MakeEvent("subagent.started", D(("agentName", JsonValue.Create("build-perf")))),
+            MakeEvent("subagent.completed", D(("agentName", JsonValue.Create("build-perf")))),
+        };
+
+        var result = MetricsCollector.ExtractSubagentActivation(events);
+
+        Assert.Single(result.InvokedAgents);
+        Assert.Equal("build-perf", result.InvokedAgents[0]);
+        Assert.Equal(4, result.SubagentEventCount);
+    }
+
+    [Fact]
+    public void DetectsMultipleDistinctSubagents()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("subagent.started", D(("agentName", JsonValue.Create("build-perf")))),
+            MakeEvent("subagent.started", D(("agentName", JsonValue.Create("msbuild-code-review")))),
+            MakeEvent("subagent.completed", D(("agentName", JsonValue.Create("build-perf")))),
+        };
+
+        var result = MetricsCollector.ExtractSubagentActivation(events);
+
+        Assert.Equal(2, result.InvokedAgents.Count);
+        Assert.Contains("build-perf", result.InvokedAgents);
+        Assert.Contains("msbuild-code-review", result.InvokedAgents);
+        Assert.Equal(3, result.SubagentEventCount);
+    }
+
+    [Fact]
+    public void ReturnsEmptyWhenNoSubagentEvents()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
+            MakeEvent("assistant.message", D(("content", JsonValue.Create("done")))),
+        };
+
+        var result = MetricsCollector.ExtractSubagentActivation(events);
+
+        Assert.Empty(result.InvokedAgents);
+        Assert.Equal(0, result.SubagentEventCount);
+    }
+
+    [Fact]
+    public void HandlesEmptyEventsArray()
+    {
+        var result = MetricsCollector.ExtractSubagentActivation([]);
+
+        Assert.Empty(result.InvokedAgents);
+        Assert.Equal(0, result.SubagentEventCount);
+    }
+
+    [Fact]
+    public void HandlesSubagentEventWithEmptyName()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("subagent.started", D(("agentName", JsonValue.Create("")))),
+            MakeEvent("subagent.selected", D(("agentName", JsonValue.Create("build-perf")))),
+        };
+
+        var result = MetricsCollector.ExtractSubagentActivation(events);
+
+        Assert.Single(result.InvokedAgents);
+        Assert.Equal("build-perf", result.InvokedAgents[0]);
+        Assert.Equal(2, result.SubagentEventCount);
+    }
+
+    [Fact]
+    public void HandlesSubagentFailedEvent()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("subagent.started", D(("agentName", JsonValue.Create("build-perf")))),
+            MakeEvent("subagent.failed", D(("agentName", JsonValue.Create("build-perf")), ("error", JsonValue.Create("timeout")))),
+        };
+
+        var result = MetricsCollector.ExtractSubagentActivation(events);
+
+        Assert.Equal(["build-perf"], result.InvokedAgents);
+        Assert.Equal(2, result.SubagentEventCount);
+    }
+
+    [Fact]
+    public void CaseInsensitiveDeduplication()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("subagent.started", D(("agentName", JsonValue.Create("Build-Perf")))),
+            MakeEvent("subagent.completed", D(("agentName", JsonValue.Create("build-perf")))),
+        };
+
+        var result = MetricsCollector.ExtractSubagentActivation(events);
+
+        Assert.Single(result.InvokedAgents);
+        Assert.Equal(2, result.SubagentEventCount);
+    }
+
+    [Fact]
+    public void IgnoresNonSubagentEvents()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("skill.invoked", D(("name", JsonValue.Create("my-skill")))),
+            MakeEvent("tool.execution_start", D(("toolName", JsonValue.Create("bash")))),
+            MakeEvent("assistant.message", D(("content", JsonValue.Create("done")))),
+        };
+
+        var result = MetricsCollector.ExtractSubagentActivation(events);
+
+        Assert.Empty(result.InvokedAgents);
+        Assert.Equal(0, result.SubagentEventCount);
+    }
+}
