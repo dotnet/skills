@@ -590,8 +590,12 @@ jobs:
   # Post consolidated evaluation results as a PR comment.
   # ==========================================================================
   comment-on-pr:
-    needs: [gate, evaluate]
-    if: always() && needs.evaluate.result != 'cancelled' && needs.gate.outputs.pr_number != ''
+    needs: [gate, discover, evaluate]
+    if: >-
+      always() &&
+      needs.evaluate.result != 'cancelled' &&
+      needs.gate.outputs.pr_number != '' &&
+      needs.discover.outputs.has_entries == 'true'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -630,7 +634,7 @@ jobs:
           JSON_FILES=$(find all-results/ -name results.json 2>/dev/null || true)
           VALIDATOR="artifacts/publish/SkillValidator/release/skill-validator"
           if [ -n "$JSON_FILES" ] && [ -x "$VALIDATOR" ]; then
-            "$VALIDATOR" consolidate \
+            "$VALIDATOR" evaluate consolidate \
               --output summary-body.md \
               $JSON_FILES
 
@@ -660,7 +664,7 @@ jobs:
   # Post final evaluation status via commit status API.
   # ==========================================================================
   report-status:
-    needs: [gate, discover, evaluate]
+    needs: [gate, discover, build-validator, evaluate]
     if: always() && github.event_name == 'issue_comment' && needs.gate.result == 'success'
     runs-on: ubuntu-latest
     permissions:
@@ -689,12 +693,15 @@ jobs:
           elif [[ "${{ needs.evaluate.result }}" == "skipped" && "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
             STATE="success"
             DESC="No skills to evaluate"
+          elif [[ "${{ needs.build-validator.result }}" == "failure" ]]; then
+            STATE="failure"
+            DESC="Validator build failed"
           elif [[ "${{ needs.evaluate.result }}" == "failure" ]]; then
             STATE="failure"
             DESC="Evaluation failed"
           else
             STATE="error"
-            DESC="Evaluation did not complete (evaluate: ${{ needs.evaluate.result }}, discover: ${{ needs.discover.result }})"
+            DESC="Evaluation did not complete (build: ${{ needs.build-validator.result }}, evaluate: ${{ needs.evaluate.result }}, discover: ${{ needs.discover.result }})"
           fi
           gh api "repos/${{ github.repository }}/statuses/${{ needs.gate.outputs.head_sha }}" \
             -f state="$STATE" \
