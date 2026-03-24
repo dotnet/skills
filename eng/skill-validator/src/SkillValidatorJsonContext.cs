@@ -1,7 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using SkillValidator.Models;
+using SkillValidator.Evaluate;
+using SkillValidator.Shared;
 
 namespace SkillValidator;
 

@@ -263,7 +263,7 @@ jobs:
           JSON_FILES=$(find all-results/ -name results.json 2>/dev/null || true)
           VALIDATOR="artifacts/publish/SkillValidator/release/skill-validator"
           if [ -n "$JSON_FILES" ] && [ -x "$VALIDATOR" ]; then
-            "$VALIDATOR" consolidate \
+            "$VALIDATOR" evaluate consolidate \
               --output summary-body.md \
               $JSON_FILES
 
