@@ -112,6 +112,17 @@ public sealed class SessionDatabase : IDisposable
         return Convert.ToHexString(hash)[..12].ToLowerInvariant();
     }
 
+    /// <summary>
+    /// Computes a SHA-256 hash over a single file.
+    /// Returns the first 12 hex characters. Used for agent files (*.agent.md).
+    /// </summary>
+    public static string ComputeFileSha(string filePath)
+    {
+        var fileBytes = File.ReadAllBytes(filePath);
+        var hash = System.Security.Cryptography.SHA256.HashData(fileBytes);
+        return Convert.ToHexString(hash)[..12].ToLowerInvariant();
+    }
+
     private static void AppendLengthPrefixedData(IncrementalHash sha, byte[] data)
     {
         Span<byte> lengthPrefix = stackalloc byte[sizeof(int)];

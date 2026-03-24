@@ -18,7 +18,9 @@ public sealed record RunOptions(
     IReadOnlyList<SkillInfo>? AdditionalSkills = null,
     IReadOnlyDictionary<string, MCPServerDef>? McpServers = null,
     string? SessionsDir = null,
-    string? SessionId = null);
+    string? SessionId = null,
+    AgentInfo? Agent = null,
+    IReadOnlyList<AgentInfo>? AdditionalAgents = null);
 
 public static class AgentRunner
 {
@@ -118,28 +120,32 @@ public static class AgentRunner
         }));
     }
 
-    public static bool CheckPermission(PermissionRequest request, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
+    /// <summary>
+    /// Extracts a file path from PreToolUseHookInput.ToolArgs for permission sandboxing.
+    /// Checks common arg keys: path, fileName, fullCommandText.
+    /// </summary>
+    internal static string? ExtractPathFromToolArgs(PreToolUseHookInput input)
     {
-        string? reqPath = null;
-        if (request.ExtensionData is { } data)
+        if (input.ToolArgs is not JsonElement args || args.ValueKind != JsonValueKind.Object)
+            return null;
+
+        foreach (var key in new[] { "path", "fileName", "fullCommandText" })
         {
-            if (data.TryGetValue("path", out var pathVal) && pathVal is JsonElement pathEl && pathEl.ValueKind == JsonValueKind.String)
-                reqPath = pathEl.GetString() ?? "";
-            else if (data.TryGetValue("fileName", out var fileVal) && fileVal is JsonElement fileEl && fileEl.ValueKind == JsonValueKind.String)
-                reqPath = fileEl.GetString() ?? "";
-            else if (data.TryGetValue("fullCommandText", out var cmdVal) && cmdVal is JsonElement cmdEl && cmdEl.ValueKind == JsonValueKind.String)
-                reqPath = cmdEl.GetString() ?? "";
+            if (args.TryGetProperty(key, out var val) && val.ValueKind == JsonValueKind.String)
+                return val.GetString();
         }
 
+        return null;
+    }
+
+    public static bool CheckPermission(string? reqPath, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
+    {
         var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
 
-        // Allow-by-default: if no path/fileName/fullCommandText can be extracted, allow the request.
-        // The above fields cover file system access and are best effort.
+        // Allow-by-default: if no path can be extracted, allow the request.
         // Deny-by-default isn't feasible as we would need to whitelist all kinds of tool calls.
         if (string.IsNullOrEmpty(reqPath))
         {
-            log?.Invoke($"      Allowing permission request with no path/command json entry{labelSuffix}: "
-                + string.Join(", ", request.ExtensionData?.Select(kv => $"{kv.Key}={kv.Value}") ?? []));
             return true;
         }
 
@@ -213,8 +219,15 @@ public static class AgentRunner
         Action<string>? log = null,
         bool verbose = false,
         string? sessionsDir = null,
-        string? sessionId = null)
+        string? sessionId = null,
+        AgentInfo? agent = null,
+        IReadOnlyList<AgentInfo>? additionalAgents = null)
     {
+        // Runtime guard: Skill and Agent are mutually exclusive targets.
+        // (additionalSkills/additionalAgents are cross-dependencies and may co-exist with either target.)
+        if (skill is not null && agent is not null)
+            throw new InvalidOperationException("BuildSessionConfig cannot have both Skill and Agent set.");
+
         // The SDK expects SkillDirectories entries to be parent directories that
         // it scans for child folders containing SKILL.md.
         var skillPath = skill is not null ? Path.GetDirectoryName(skill.Path) : null;
@@ -374,6 +387,41 @@ public static class AgentRunner
                 effectiveSkillPath = skillPath;
         }
 
+        // Build CustomAgents list for agent evaluation.
+        // In plugin mode: register all plugin agents. In isolated mode: register
+        // only the target agent (+ additional declared agents). In baseline: none.
+        List<CustomAgentConfig>? customAgents = null;
+        if (pluginRoot is not null)
+        {
+            // Plugin run: discover and register all agents in the plugin
+            var pluginAgents = AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot).GetAwaiter().GetResult();
+            if (pluginAgents.Count > 0)
+            {
+                customAgents = pluginAgents.Select(a => BuildCustomAgentConfig(a)).ToList();
+                if (verbose)
+                    log?.Invoke($"      🤖 Registered {customAgents.Count} plugin agent(s): {string.Join(", ", customAgents.Select(a => a.Name))}");
+            }
+        }
+        else if (agent is not null)
+        {
+            // Isolated agent run: register only the target agent + declared dependencies
+            customAgents = [BuildCustomAgentConfig(agent)];
+            if (additionalAgents is { Count: > 0 })
+            {
+                foreach (var dep in additionalAgents)
+                    customAgents.Add(BuildCustomAgentConfig(dep));
+            }
+            if (verbose)
+                log?.Invoke($"      🤖 Registered agent(s) (isolated): {string.Join(", ", customAgents.Select(a => a.Name))}");
+        }
+        else if (additionalAgents is { Count: > 0 })
+        {
+            // Skill isolated run with declared agent dependencies
+            customAgents = additionalAgents.Select(a => BuildCustomAgentConfig(a)).ToList();
+            if (verbose)
+                log?.Invoke($"      🤖 Registered additional agent(s): {string.Join(", ", customAgents.Select(a => a.Name))}");
+        }
+
         return new SessionConfig
         {
             Model = model,
@@ -382,19 +430,49 @@ public static class AgentRunner
             SkillDirectories = [..skillDirs, ..noiseDirs],
             ConfigDir = configDir,
             McpServers = sdkMcp,
+            CustomAgents = customAgents,
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
             OnPermissionRequest = (request, _) =>
             {
-                var runLabel = skill is not null ? "skilled" : "baseline";
-                var result = CheckPermission(request, workDir, effectiveSkillPath, verbose ? log : null, runLabel, pluginRoot, additionalAllowedDirs);
+                // SDK 0.2.0: PermissionRequest only has Kind, no path data.
+                // Permission sandboxing is handled via Hooks.OnPreToolUse instead.
                 return Task.FromResult(new PermissionRequestResult
                 {
-                    Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,
+                    Kind = PermissionRequestResultKind.Approved,
                 });
+            },
+            Hooks = new SessionHooks
+            {
+                OnPreToolUse = (input, invocation) =>
+                {
+                    var runLabel = skill is not null ? "skilled" : "baseline";
+                    var reqPath = ExtractPathFromToolArgs(input);
+                    var allowed = CheckPermission(reqPath, workDir, effectiveSkillPath, verbose ? log : null, runLabel, pluginRoot, additionalAllowedDirs);
+                    return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
+                    {
+                        PermissionDecision = allowed ? "allow" : "deny",
+                        PermissionDecisionReason = allowed ? null : "Path outside allowed directories",
+                    });
+                },
             },
         };
     }
 
+    /// <summary>
+    /// Builds a CustomAgentConfig from an AgentInfo, stripping frontmatter from the prompt body.
+    /// </summary>
+    internal static CustomAgentConfig BuildCustomAgentConfig(AgentInfo agent)
+    {
+        var (_, body) = FrontmatterParser.SplitFrontmatter(agent.AgentMdContent);
+        return new CustomAgentConfig
+        {
+            Name = agent.Name,
+            DisplayName = agent.Name,
+            Description = agent.Description,
+            Prompt = body,
+            Tools = agent.Tools?.ToList(),
+        };
+    }
     /// <summary>
     /// Resolves the skill directories for a plugin by reading its plugin.json
     /// and returning the resolved skills path. The SDK scans this directory
@@ -429,8 +507,13 @@ public static class AgentRunner
 
     public static async Task<RunMetrics> RunAgent(RunOptions options)
     {
-        var runType = options.Skill is null ? "baseline"
-            : options.PluginRoot is not null ? "skilled-plugin"
+        // Validate mutual exclusivity
+        if (options.Skill is not null && options.Agent is not null)
+            throw new InvalidOperationException("RunOptions cannot have both Skill and Agent set.");
+
+        var runType = options.Skill is null && options.Agent is null ? "baseline"
+            : options.PluginRoot is not null ? (options.Agent is not null ? "agent-plugin" : "skilled-plugin")
+            : options.Agent is not null ? "agent-isolated"
             : "skilled-isolated";
         return await RetryHelper.ExecuteWithRetry(
             async ct => await RunAgentCore(options, ct),
@@ -461,7 +544,9 @@ public static class AgentRunner
             var client = await GetPluginClient(options.PluginRoot, options.Verbose);
 
             await using var session = await client.CreateSessionAsync(
-                BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.McpServers, options.AdditionalSkills, options.Log, options.Verbose, options.SessionsDir, options.SessionId));
+                BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.McpServers,
+                    options.AdditionalSkills, options.Log, options.Verbose, options.SessionsDir, options.SessionId,
+                    options.Agent, options.AdditionalAgents));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
@@ -470,6 +555,8 @@ public static class AgentRunner
             cts.Token.Register(() =>
                 done.TrySetException(new TimeoutException($"Scenario timed out after {effectiveTimeout}s")));
 
+            // Register event handler BEFORE SelectAsync so SubagentSelectedEvent
+            // from the agent selection is captured in the events list.
             session.On(evt =>
             {
                 var agentEvent = new AgentEvent(
@@ -577,6 +664,18 @@ public static class AgentRunner
 
                 events.Add(agentEvent);
             });
+
+            // For agent evaluation: explicitly select the agent as primary persona.
+            // Must happen after CreateSessionAsync and event handler setup, before SendAsync.
+            if (options.Agent is not null)
+            {
+                await session.Rpc.Agent.SelectAsync(options.Agent.Name);
+                if (options.Verbose)
+                {
+                    var write = options.Log ?? (msg => Console.Error.WriteLine(msg));
+                    write($"      🤖 Agent selected: {options.Agent.Name}");
+                }
+            }
 
             await session.SendAsync(new MessageOptions { Prompt = options.Scenario.Prompt });
             await done.Task;

@@ -209,6 +209,10 @@ scenarios:
           content: "file content to create before the run"
         - path: "data.csv"
           source: "fixtures/sample-data.csv"  # relative to skill dir
+      additional_required_skills:       # skills needed by the target in isolated runs
+        - binlog-failure-analysis
+      additional_required_agents:        # agents needed by the target in isolated runs
+        - build-perf
     assertions:
       - type: "output_contains"
         value: "expected text"
@@ -254,6 +258,9 @@ scenarios:
 |--------|-------------|
 | `copy_test_files` | When `true`, copies all files from the eval directory (except `eval.yaml`) into the agent working directory before each run. Useful when test fixtures live alongside the eval file. |
 | `files` | Explicit list of files to create in the working directory. Each entry has a `path` and either inline `content` or a `source` path (relative to the skill directory). Applied after `copy_test_files`. |
+| `commands` | Shell commands to run in the work directory before the agent starts (e.g. `dotnet build -bl:build.binlog`). |
+| `additional_required_skills` | List of skill names (from the same plugin) to load in the **isolated** run alongside the target. Useful when an agent routes to specific skills or a skill depends on sibling skills. Does not affect baseline (nothing loaded) or plugin (everything loaded) runs. |
+| `additional_required_agents` | List of agent names (from the same plugin) to register in the **isolated** run alongside the target. Same semantics as `additional_required_skills` but for agents. |
 
 ### Scenario constraints
 

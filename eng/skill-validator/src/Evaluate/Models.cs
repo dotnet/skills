@@ -56,7 +56,9 @@ public sealed record SetupFile(
 public sealed record SetupConfig(
     bool CopyTestFiles = false,
     IReadOnlyList<SetupFile>? Files = null,
-    IReadOnlyList<string>? Commands = null);
+    IReadOnlyList<string>? Commands = null,
+    IReadOnlyList<string>? AdditionalRequiredSkills = null,
+    IReadOnlyList<string>? AdditionalRequiredAgents = null);
 
 // --- Scenario ---
 
@@ -87,6 +89,23 @@ public sealed record EvalSkillInfo(
     string? EvalPath,
     EvalConfig? EvalConfig,
     IReadOnlyDictionary<string, MCPServerDef>? McpServers = null);
+
+/// <summary>
+/// Unified eval target — either a skill or an agent.
+/// Most of the evaluation pipeline operates on this generically.
+/// </summary>
+public enum EvalTargetKind { Skill, Agent }
+
+public sealed record EvalTargetInfo(
+    string Name,
+    string Path,
+    EvalTargetKind Kind,
+    SkillInfo? Skill,
+    AgentInfo? Agent,
+    string? EvalPath,
+    EvalConfig? EvalConfig,
+    string? PluginRoot,
+    IReadOnlyDictionary<string, MCPServerDef>? McpServers);
 
 // --- Agent events ---
 

@@ -1,0 +1,36 @@
+scenarios:
+  - name: "Triage a build failure and route to appropriate analysis"
+    prompt: >-
+      My .NET project is failing to build. I see errors when I run dotnet build
+      but I'm not sure how to diagnose the issue. Can you help me figure out
+      what's going wrong and how to fix it?
+    setup:
+      copy_test_files: true
+      additional_required_skills:
+        - binlog-failure-analysis
+        - binlog-generation
+    assertions:
+      - type: "output_contains"
+        value: "NU1101"
+    rubric:
+      - "Correctly identified the build failure is caused by a missing NuGet package reference (NU1101 for Devdiv.Utils)"
+      - "Attempted to build the project to reproduce the error"
+      - "Suggested removing or replacing the invalid PackageReference with a valid package"
+    timeout: 180
+
+  - name: "Advise on project file organization"
+    prompt: >-
+      I have a solution with several .NET projects and I'm wondering if there's
+      a better way to organize my shared build properties. Right now I'm
+      duplicating settings like TargetFramework and common PackageReferences
+      across all my project files.
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "Directory\\.Build\\.props|Directory\\.Build\\.targets"
+    rubric:
+      - "Recommended using Directory.Build.props for shared properties like TargetFramework"
+      - "Explained how Directory.Build.props works (automatic import by MSBuild for all projects in the directory tree)"
+      - "Suggested moving duplicated PackageReferences or common properties into the shared file"
+    timeout: 180

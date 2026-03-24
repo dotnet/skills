@@ -31,24 +31,35 @@ This skill helps you scaffold evaluation tests (`eval.yaml`) for agent skills, e
 
 ## Workflow
 
-### Step 1: Locate the skill and determine the test directory
+### Step 1: Locate the target and determine the test directory
 
 Tests live at:
 
 ```
+# For skills:
 tests/<plugin>/<skill-name>/eval.yaml
+
+# For agents (agent. prefix convention):
+tests/<plugin>/agent.<agent-name>/eval.yaml
 ```
 
-Verify the skill exists at `plugins/<plugin>/skills/<skill-name>/SKILL.md`. Read the skill content to understand what it teaches — this is critical for writing non-overfitted rubric items.
+For skills, verify the skill exists at `plugins/<plugin>/skills/<skill-name>/SKILL.md`. For agents, verify the agent exists at `plugins/<plugin>/agents/<agent-name>.agent.md`. Read the target content to understand what it does — this is critical for writing non-overfitted rubric items.
 
 ### Step 2: Create the test directory and eval.yaml
 
 Create the directory and file:
 
 ```
+# For skills:
 tests/<plugin>/<skill-name>/
 └── eval.yaml
+
+# For agents:
+tests/<plugin>/agent.<agent-name>/
+└── eval.yaml
 ```
+
+The `agent.` prefix disambiguates agent test directories from skill test directories that might share the same name.
 
 ### Step 3: Write scenarios
 
@@ -128,6 +139,24 @@ setup:
   commands:
     - "dotnet build -bl:build.binlog"
 ```
+
+#### Scenario dependencies (optional)
+
+Some agents route to specific skills, or some skills depend on sibling agents. In the **isolated** run, only the target is loaded — so the scenario must declare its dependencies using `additional_required_skills` and/or `additional_required_agents`:
+
+```yaml
+setup:
+  copy_test_files: true
+  additional_required_skills:
+    - binlog-failure-analysis    # loaded in isolated run alongside the target
+  additional_required_agents:
+    - build-perf                 # registered in isolated run alongside the target
+```
+
+- Names are resolved from the same plugin's `skills/` or `agents/` directory.
+- These only affect the **isolated** run. The **plugin** run already loads everything; the **baseline** loads nothing.
+- Different scenarios of the same target can declare different dependencies (per-scenario granularity).
+- If a declared name cannot be resolved, the validator fails with an error.
 
 ### Step 5: Write assertions
 
@@ -303,10 +332,17 @@ dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- check --pl
 Then run evaluation (at least 3 runs for reliable results):
 
 ```bash
+# For skills:
 dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate \
   --runs 3 \
   --tests-dir tests/<plugin> \
   plugins/<plugin>/skills/<skill-name>
+
+# For agents:
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate \
+  --runs 3 \
+  --tests-dir tests/<plugin> \
+  plugins/<plugin>/agents/<agent-name>.agent.md
 ```
 
 ## eval.yaml Template
@@ -348,14 +384,15 @@ scenarios:
 
 After creating a test, verify:
 
-- [ ] Test directory matches `tests/<plugin>/<skill-name>/`
-- [ ] Skill exists at `plugins/<plugin>/skills/<skill-name>/SKILL.md`
+- [ ] Test directory matches `tests/<plugin>/<skill-name>/` for skills or `tests/<plugin>/agent.<agent-name>/` for agents
+- [ ] Target exists at `plugins/<plugin>/skills/<skill-name>/SKILL.md` (skill) or `plugins/<plugin>/agents/<agent-name>.agent.md` (agent)
 - [ ] Every scenario has `name`, `prompt`, at least one assertion, and rubric items
-- [ ] Prompts are written as natural developer requests (no skill references)
+- [ ] Prompts are written as natural developer requests (no skill/agent name references)
 - [ ] Assertions are broad enough that multiple valid approaches pass
 - [ ] Rubric items test outcomes, not specific techniques or vocabulary
 - [ ] Fixture files are present when `copy_test_files: true` is used
 - [ ] `source` paths in setup files point to existing fixture files
+- [ ] `additional_required_skills`/`additional_required_agents` names exist in the same plugin
 - [ ] Timeouts are reasonable for the scenario complexity
 - [ ] Non-activation scenarios use `expect_activation: false` and verify recognition, restraint, and redirection
 - [ ] `dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- check` passes
@@ -365,6 +402,7 @@ After creating a test, verify:
 | Pitfall | Solution |
 |---------|----------|
 | Prompt mentions the skill by name | Rewrite as a natural developer request describing the problem |
+| Prompt mentions the agent by name | Same as above — agent name in prompts biases the baseline |
 | Rubric tests a specific diagnostic command | Rewrite to test the finding or outcome that command produces |
 | Assertion gates on syntax the LLM already knows | Use a broader pattern or test the result instead |
 | All rubric items test the same aspect | Diversify: test identification, fix quality, and error avoidance |
@@ -373,3 +411,4 @@ After creating a test, verify:
 | Single scenario covers the entire skill | Break into focused scenarios testing different aspects |
 | Compound rubric items testing multiple things | Split into separate, independently-evaluable items |
 | No non-activation scenarios for skill with clear boundaries | Add `expect_activation: false` scenarios for each "When Not to Use" case |
+| Agent test missing `additional_required_skills` | If the agent routes to specific skills, declare them so the isolated run loads them |

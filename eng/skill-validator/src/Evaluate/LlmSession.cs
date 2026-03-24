@@ -30,7 +30,7 @@ internal static class LlmSession
         int timeoutMs,
         bool verbose,
         string timeoutLabel = "LLM",
-        Func<PermissionRequest, Task<PermissionRequestResult>>? onPermissionRequest = null,
+        PermissionRequestHandler? onPermissionRequest = null,
         CancellationToken cancellationToken = default)
     {
         var client = await AgentRunner.GetSharedClient(verbose);
@@ -46,12 +46,10 @@ internal static class LlmSession
                 Content = systemPrompt,
             },
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
-            OnPermissionRequest = onPermissionRequest is { } handler
-                ? (request, _) => handler(request)
-                : (_, _) => Task.FromResult(new PermissionRequestResult
-                {
-                    Kind = PermissionRequestResultKind.DeniedByRules,
-                }),
+            OnPermissionRequest = onPermissionRequest ?? ((_, _) => Task.FromResult(new PermissionRequestResult
+            {
+                Kind = PermissionRequestResultKind.DeniedByRules,
+            })),
         });
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

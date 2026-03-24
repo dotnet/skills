@@ -165,22 +165,46 @@ public static class EvaluateCommand
         if (config.Verbose)
             Console.WriteLine($"Results dir: {config.ResultsDir}");
 
-        // Discover skills
+        // Discover skills and agents from paths
         var discoveredSkills = new List<SkillInfo>();
+        var discoveredAgents = new List<AgentInfo>();
         foreach (var path in config.SkillPaths)
         {
-            var skills = await SkillDiscovery.DiscoverSkills(path);
-            discoveredSkills.AddRange(skills);
+            if (path.EndsWith(".agent.md", StringComparison.OrdinalIgnoreCase))
+            {
+                // Single agent file
+                var agents = await AgentDiscovery.DiscoverAgentsInDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+                var match = agents.FirstOrDefault(a =>
+                    string.Equals(Path.GetFullPath(a.Path), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase));
+                if (match is not null)
+                    discoveredAgents.Add(match);
+            }
+            else if (Directory.Exists(path) && Directory.GetFiles(path, "*.agent.md").Length > 0 && !File.Exists(Path.Combine(path, "SKILL.md")))
+            {
+                // Directory containing agent files (e.g. plugins/dotnet-msbuild/agents/)
+                var agents = await AgentDiscovery.DiscoverAgentsInDirectory(path);
+                discoveredAgents.AddRange(agents);
+            }
+            else
+            {
+                // Skill directory or parent directory
+                var skills = await SkillDiscovery.DiscoverSkills(path);
+                discoveredSkills.AddRange(skills);
+            }
         }
 
-        if (discoveredSkills.Count == 0)
+        if (discoveredSkills.Count == 0 && discoveredAgents.Count == 0)
         {
             var searched = string.Join(", ", config.SkillPaths.Select(p => $"\"{Path.GetFullPath(p)}\""));
-            Console.Error.WriteLine($"No skills found in the specified paths: {searched}");
+            Console.Error.WriteLine($"No skills or agents found in the specified paths: {searched}");
             return 1;
         }
 
-        Console.WriteLine($"Found {discoveredSkills.Count} skill(s)\n");
+        if (discoveredSkills.Count > 0)
+            Console.WriteLine($"Found {discoveredSkills.Count} skill(s)");
+        if (discoveredAgents.Count > 0)
+            Console.WriteLine($"Found {discoveredAgents.Count} agent(s)");
+        Console.WriteLine();
 
         // Discover noise skills when --noise-skills-dir is provided
         var noiseEvalSkills = new List<EvalSkillInfo>();
@@ -197,7 +221,7 @@ public static class EvaluateCommand
             Console.Error.WriteLine($"{Ansi.Red}❌ {error}{Ansi.Reset}");
         if (pluginErrors.Count > 0)
         {
-            if (discoveredSkills.Count == pluginErrors.Count)
+            if (discoveredSkills.Count == pluginErrors.Count && discoveredAgents.Count == 0)
             {
                 Console.Error.WriteLine("{Ansi.Red}All skills are standalone (no valid plugin.json found) — nothing to evaluate.{Ansi.Reset}");
                 return 1;
@@ -205,8 +229,60 @@ public static class EvaluateCommand
             discoveredSkills = discoveredSkills.Where(s => PluginDiscovery.FindPluginRoot(s.Path) is not null).ToList();
         }
 
+        // Validate agents have a plugin root
+        var validAgents = new List<AgentInfo>();
+        foreach (var agent in discoveredAgents)
+        {
+            var pluginRoot = PluginDiscovery.FindPluginRoot(agent.Path);
+            if (pluginRoot is null)
+            {
+                Console.Error.WriteLine($"{Ansi.Red}❌ Agent '{agent.Name}' at '{agent.Path}' is not inside a plugin directory (no valid plugin.json found).{Ansi.Reset}");
+                continue;
+            }
+            validAgents.Add(agent);
+        }
+
         // Load eval data (eval paths, MCP servers) and parse eval configs
         var allSkills = await LoadAndParseEvalData(discoveredSkills, config.TestsDir);
+
+        // Load eval data for agents
+        var allTargets = new List<EvalTargetInfo>();
+        foreach (var evalSkill in allSkills)
+        {
+            var pluginRoot = PluginDiscovery.FindPluginRoot(evalSkill.Skill.Path);
+            allTargets.Add(new EvalTargetInfo(
+                Name: evalSkill.Skill.Name,
+                Path: evalSkill.Skill.Path,
+                Kind: EvalTargetKind.Skill,
+                Skill: evalSkill.Skill,
+                Agent: null,
+                EvalPath: evalSkill.EvalPath,
+                EvalConfig: evalSkill.EvalConfig,
+                PluginRoot: pluginRoot,
+                McpServers: evalSkill.McpServers));
+        }
+        foreach (var agent in validAgents)
+        {
+            var pluginRoot = PluginDiscovery.FindPluginRoot(agent.Path);
+            var evalPath = ResolveAgentEvalPath(agent.Name, config.TestsDir);
+            EvalConfig? evalConfig = null;
+            if (evalPath is not null && File.Exists(evalPath))
+            {
+                var content = await File.ReadAllTextAsync(evalPath);
+                evalConfig = EvalSchema.ParseEvalConfig(content);
+            }
+            var mcpServers = await FindPluginMcpServers(agent.Path);
+            allTargets.Add(new EvalTargetInfo(
+                Name: agent.Name,
+                Path: agent.Path,
+                Kind: EvalTargetKind.Agent,
+                Skill: null,
+                Agent: agent,
+                EvalPath: evalPath,
+                EvalConfig: evalConfig,
+                PluginRoot: pluginRoot,
+                McpServers: mcpServers));
+        }
 
         if (config.Runs < 5)
             Console.WriteLine($"{Ansi.Yellow}⚠  Running with {config.Runs} run(s). For statistically significant results, use --runs 5 or higher.{Ansi.Reset}");
@@ -235,10 +311,10 @@ public static class EvaluateCommand
         using var spinner = new Spinner();
         using var skillLimit = new ConcurrencyLimiter(config.ParallelSkills);
 
-        // Evaluate skills
-        spinner.Start($"Evaluating {allSkills.Count} skill(s)...");
-        var skillTasks = allSkills.Select(evalSkill =>
-            skillLimit.RunAsync(() => EvaluateSkill(evalSkill, config, usePairwise, spinner, noiseEvalSkills, sessionsDir, sessionDb)));
+        // Evaluate all targets (skills and agents)
+        spinner.Start($"Evaluating {allTargets.Count} target(s)...");
+        var skillTasks = allTargets.Select(target =>
+            skillLimit.RunAsync(() => EvaluateTarget(target, config, usePairwise, spinner, noiseEvalSkills, sessionsDir, sessionDb)));
         var settled = await Task.WhenAll(skillTasks.Select(async t =>
         {
             try { return (Result: await t, Error: (Exception?)null); }
@@ -288,6 +364,422 @@ public static class EvaluateCommand
         }
 
         return allPassed ? 0 : 1;
+    }
+
+    /// <summary>
+    /// Evaluates an EvalTargetInfo (skill or agent) by dispatching to the appropriate path.
+    /// For skills, wraps into EvalSkillInfo and calls EvaluateSkill.
+    /// For agents, handles similar three-way comparison with agent selection.
+    /// </summary>
+    private static async Task<SkillVerdict?> EvaluateTarget(
+        EvalTargetInfo target,
+        ValidatorConfig config,
+        bool usePairwise,
+        Spinner spinner,
+        IReadOnlyList<EvalSkillInfo> noiseSkills,
+        string? sessionsDir,
+        SessionDatabase? sessionDb)
+    {
+        if (target.Kind == EvalTargetKind.Skill && target.Skill is not null)
+        {
+            var evalSkill = new EvalSkillInfo(target.Skill, target.EvalPath, target.EvalConfig, target.McpServers);
+            return await EvaluateSkill(evalSkill, config, usePairwise, spinner, noiseSkills, sessionsDir, sessionDb);
+        }
+        else if (target.Kind == EvalTargetKind.Agent && target.Agent is not null)
+        {
+            return await EvaluateAgent(target, config, usePairwise, spinner, sessionsDir, sessionDb);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Evaluates a custom agent using the same three-way comparison pattern as skills:
+    /// baseline (no agent), agent-isolated (agent selected), agent-plugin (full plugin + agent selected).
+    /// </summary>
+    private static async Task<SkillVerdict?> EvaluateAgent(
+        EvalTargetInfo target,
+        ValidatorConfig config,
+        bool usePairwise,
+        Spinner spinner,
+        string? sessionsDir,
+        SessionDatabase? sessionDb)
+    {
+        var agent = target.Agent!;
+        var prefix = $"[{agent.Name}]";
+        var log = (string msg) => spinner.Log($"{prefix} {msg}");
+
+        if (target.EvalConfig is null)
+        {
+            log("⏭  Skipping (no tests/eval.yaml)");
+            return null;
+        }
+
+        if (target.EvalConfig.Scenarios.Count == 0)
+        {
+            log("⏭  Skipping (eval.yaml has no scenarios)");
+            return null;
+        }
+
+        log("🔍 Evaluating agent...");
+
+        // Validate eval prompts don't mention the agent name (biases baseline)
+        var promptErrors = ValidateEvalPrompts(agent.Name, target.EvalConfig);
+        if (promptErrors.Count > 0)
+        {
+            foreach (var error in promptErrors)
+                log($"   ❌ {error}");
+            return new SkillVerdict
+            {
+                SkillName = agent.Name,
+                SkillPath = agent.Path,
+                Passed = false,
+                Scenarios = [],
+                OverallImprovementScore = 0,
+                Reason = string.Join(" ", promptErrors),
+                FailureKind = "spec_conformance_failure",
+            };
+        }
+
+        var targetSha = sessionDb is not null ? SessionDatabase.ComputeFileSha(agent.Path) : null;
+        bool singleScenario = target.EvalConfig.Scenarios.Count == 1;
+
+        var effectiveParallelScenarios = target.EvalConfig.MaxParallelScenarios.HasValue
+            ? Math.Min(config.ParallelScenarios, target.EvalConfig.MaxParallelScenarios.Value)
+            : config.ParallelScenarios;
+
+        using var scenarioLimit = new ConcurrencyLimiter(effectiveParallelScenarios);
+
+        var scenarioTasks = target.EvalConfig.Scenarios.Select(scenario =>
+            scenarioLimit.RunAsync(() => ExecuteAgentScenario(scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha)));
+        var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
+
+        var verdict = Comparator.ComputeVerdict(
+            new SkillInfo(agent.Name, agent.Description, agent.Path, agent.Path, agent.AgentMdContent),
+            comparisons, config.MinImprovement, config.RequireCompletion, config.ConfidenceLevel);
+
+        // Check agent activation via SubagentSelectedEvent (not SkillInvokedEvent)
+        var notActivatedIsolated = comparisons.Where(c =>
+            c.SubagentActivationIsolated is { } sa && !sa.InvokedAgents.Any(n => n.Equals(agent.Name, StringComparison.OrdinalIgnoreCase))
+            && c.ExpectActivation).ToList();
+        var notActivatedPlugin = comparisons.Where(c =>
+            c.SubagentActivationPlugin is { } sa && !sa.InvokedAgents.Any(n => n.Equals(agent.Name, StringComparison.OrdinalIgnoreCase))
+            && c.ExpectActivation).ToList();
+
+        if (notActivatedIsolated.Count > 0)
+        {
+            var names = string.Join(", ", notActivatedIsolated.Select(c => c.ScenarioName));
+            log($"{Ansi.Yellow}⚠️  Agent NOT activated (isolated) in: {names}{Ansi.Reset}");
+            verdict.SkillNotActivated = true;
+            verdict.Passed = false;
+            verdict.FailureKind = "skill_not_activated";
+            verdict.Reason += $" [AGENT NOT ACTIVATED (isolated) in {notActivatedIsolated.Count} scenario(s)]";
+        }
+        if (notActivatedPlugin.Count > 0)
+        {
+            var names = string.Join(", ", notActivatedPlugin.Select(c => c.ScenarioName));
+            log($"{Ansi.Yellow}⚠️  Agent NOT activated (plugin) in: {names}{Ansi.Reset}");
+            verdict.SkillNotActivated = true;
+            verdict.Passed = false;
+            verdict.FailureKind = "skill_not_activated";
+            verdict.Reason += $" [AGENT NOT ACTIVATED (plugin) in {notActivatedPlugin.Count} scenario(s)]";
+        }
+
+        log($"{(verdict.Passed ? "✅" : "❌")} Done (score: {verdict.OverallImprovementScore * 100:F1}%)");
+        return verdict;
+    }
+
+    /// <summary>
+    /// Execute a single scenario for an agent evaluation (three-way: baseline, agent-isolated, agent-plugin).
+    /// </summary>
+    private static async Task<ScenarioComparison> ExecuteAgentScenario(
+        EvalScenario scenario,
+        EvalTargetInfo target,
+        ValidatorConfig config,
+        bool usePairwise,
+        bool singleScenario,
+        Spinner spinner,
+        string? sessionsDir,
+        SessionDatabase? sessionDb,
+        string? targetSha)
+    {
+        var agent = target.Agent!;
+        var tag = singleScenario ? $"[{agent.Name}]" : $"[{agent.Name}/{scenario.Name}]";
+        var scenarioLog = (string msg) => spinner.Log($"{tag} {msg}");
+
+        var effectiveParallelRuns = target.EvalConfig?.MaxParallelRuns.HasValue == true
+            ? Math.Min(config.ParallelRuns, target.EvalConfig.MaxParallelRuns.Value)
+            : config.ParallelRuns;
+        using var runLimit = new ConcurrencyLimiter(effectiveParallelRuns);
+
+        if (!singleScenario)
+            scenarioLog("📋 Starting scenario");
+
+        var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
+            runLimit.RunAsync(() => ExecuteAgentRun(i, scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha)));
+        var runResults = await Task.WhenAll(runTasks);
+
+        scenarioLog($"✓ All {config.Runs} run(s) complete");
+
+        var baselineRuns = runResults.Select(r => r.Baseline).ToList();
+        var isolatedRuns = runResults.Select(r => r.SkilledIsolated).ToList();
+        var pluginRuns = runResults.Select(r => r.SkilledPlugin).ToList();
+        var perRunPairwise = runResults.Select(r => r.Pairwise).ToList();
+
+        var perRunIsolatedScores = new List<double>();
+        var perRunPluginScores = new List<double>();
+        for (int i = 0; i < baselineRuns.Count; i++)
+        {
+            var pw = perRunPairwise[i];
+            bool pairwiseFromPlugin = runResults[i].PairwiseFromPlugin;
+            var isoComp = Comparator.CompareScenario(scenario.Name, baselineRuns[i], isolatedRuns[i],
+                pairwiseFromPlugin ? null : pw);
+            var plgComp = Comparator.CompareScenario(scenario.Name, baselineRuns[i], pluginRuns[i],
+                pairwiseFromPlugin ? pw : null);
+            perRunIsolatedScores.Add(isoComp.ImprovementScore);
+            perRunPluginScores.Add(plgComp.ImprovementScore);
+        }
+
+        var perRunScores = perRunIsolatedScores
+            .Zip(perRunPluginScores, (iso, plg) => Math.Min(iso, plg))
+            .ToList();
+
+        var avgBaseline = AverageResults(baselineRuns);
+        var avgIsolated = AverageResults(isolatedRuns);
+        var avgPlugin = AverageResults(pluginRuns);
+
+        int bestPairwiseIdx = -1;
+        for (int i = 0; i < perRunPairwise.Count; i++)
+        {
+            if (perRunPairwise[i]?.PositionSwapConsistent == true) { bestPairwiseIdx = i; break; }
+        }
+        if (bestPairwiseIdx < 0)
+        {
+            for (int i = 0; i < perRunPairwise.Count; i++)
+            {
+                if (perRunPairwise[i] is not null) { bestPairwiseIdx = i; break; }
+            }
+        }
+        var bestPairwise = bestPairwiseIdx >= 0 ? perRunPairwise[bestPairwiseIdx] : null;
+        bool aggPairwiseFromPlugin = bestPairwiseIdx >= 0 && runResults[bestPairwiseIdx].PairwiseFromPlugin;
+
+        var isoComparison = Comparator.CompareScenario(scenario.Name, avgBaseline, avgIsolated,
+            aggPairwiseFromPlugin ? null : bestPairwise);
+        var plgComparison = Comparator.CompareScenario(scenario.Name, avgBaseline, avgPlugin,
+            aggPairwiseFromPlugin ? bestPairwise : null);
+
+        var comparison = new ScenarioComparison
+        {
+            ScenarioName = scenario.Name,
+            Baseline = avgBaseline,
+            SkilledIsolated = avgIsolated,
+            SkilledPlugin = avgPlugin,
+            ImprovementScore = Math.Min(isoComparison.ImprovementScore, plgComparison.ImprovementScore),
+            IsolatedImprovementScore = isoComparison.ImprovementScore,
+            PluginImprovementScore = plgComparison.ImprovementScore,
+            Breakdown = isoComparison.ImprovementScore <= plgComparison.ImprovementScore
+                ? isoComparison.Breakdown : plgComparison.Breakdown,
+            IsolatedBreakdown = isoComparison.Breakdown,
+            PluginBreakdown = plgComparison.Breakdown,
+            PairwiseResult = bestPairwise,
+        };
+        comparison.PerRunScores = perRunScores;
+
+        // Aggregate subagent activation across runs (primary activation signal for agents)
+        var allIsoSubagents = runResults.Select(r => r.SubagentActivationIsolated).ToList();
+        var allPlgSubagents = runResults.Select(r => r.SubagentActivationPlugin).ToList();
+
+        comparison.SubagentActivationIsolated = new SubagentActivationInfo(
+            InvokedAgents: allIsoSubagents.SelectMany(a => a.InvokedAgents).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            SubagentEventCount: allIsoSubagents.Sum(a => a.SubagentEventCount));
+
+        comparison.SubagentActivationPlugin = new SubagentActivationInfo(
+            InvokedAgents: allPlgSubagents.SelectMany(a => a.InvokedAgents).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            SubagentEventCount: allPlgSubagents.Sum(a => a.SubagentEventCount));
+
+        // Also aggregate skill activation (agents may route to skills)
+        var allIsoActivations = runResults.Select(r => r.SkillActivationIsolated).ToList();
+        var allPlgActivations = runResults.Select(r => r.SkillActivationPlugin).ToList();
+
+        comparison.SkillActivationIsolated = new SkillActivationInfo(
+            Activated: allIsoActivations.Any(a => a.Activated),
+            DetectedSkills: allIsoActivations.SelectMany(a => a.DetectedSkills).Distinct().ToList(),
+            ExtraTools: allIsoActivations.SelectMany(a => a.ExtraTools).Distinct().ToList(),
+            SkillEventCount: allIsoActivations.Sum(a => a.SkillEventCount));
+
+        comparison.SkillActivationPlugin = new SkillActivationInfo(
+            Activated: allPlgActivations.Any(a => a.Activated),
+            DetectedSkills: allPlgActivations.SelectMany(a => a.DetectedSkills).Distinct().ToList(),
+            ExtraTools: allPlgActivations.SelectMany(a => a.ExtraTools).Distinct().ToList(),
+            SkillEventCount: allPlgActivations.Sum(a => a.SkillEventCount));
+
+        comparison.TimedOut = runResults.Any(r =>
+            r.Baseline.Metrics.TimedOut || r.SkilledIsolated.Metrics.TimedOut || r.SkilledPlugin.Metrics.TimedOut);
+        comparison.ExpectActivation = scenario.ExpectActivation;
+
+        return comparison;
+    }
+
+    /// <summary>
+    /// Execute a single run of baseline + agent-isolated + agent-plugin for one scenario.
+    /// </summary>
+    private static async Task<RunExecutionResult> ExecuteAgentRun(
+        int runIndex,
+        EvalScenario scenario,
+        EvalTargetInfo target,
+        ValidatorConfig config,
+        bool usePairwise,
+        bool singleScenario,
+        Spinner spinner,
+        string? sessionsDir,
+        SessionDatabase? sessionDb,
+        string? targetSha)
+    {
+        var agent = target.Agent!;
+        var runTag = config.Runs > 1
+            ? (singleScenario ? $"[{agent.Name}/{runIndex + 1}]" : $"[{agent.Name}/{scenario.Name}/{runIndex + 1}]")
+            : (singleScenario ? $"[{agent.Name}]" : $"[{agent.Name}/{scenario.Name}]");
+        var runLog = (string msg) => spinner.Log($"{runTag} {msg}");
+
+        if (config.Verbose)
+            runLog("running agents...");
+
+        var pluginRoot = target.PluginRoot;
+        var baselineSessionId = Guid.NewGuid().ToString("N");
+        var isolatedSessionId = Guid.NewGuid().ToString("N");
+        var pluginSessionId = Guid.NewGuid().ToString("N");
+
+        var baselineConfigDir = sessionsDir is not null ? Path.Combine("sessions", baselineSessionId) : null;
+        var isolatedConfigDir = sessionsDir is not null ? Path.Combine("sessions", isolatedSessionId) : null;
+        var pluginConfigDir = sessionsDir is not null ? Path.Combine("sessions", pluginSessionId) : null;
+        var rubricJson = JsonSerializer.Serialize(scenario.Rubric?.ToArray() ?? [], SkillValidatorJsonContext.Default.StringArray);
+
+        sessionDb?.RegisterSession(baselineSessionId, agent.Name, agent.Path, scenario.Name, runIndex,
+            "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, targetSha, rubricJson);
+        sessionDb?.RegisterSession(isolatedSessionId, agent.Name, agent.Path, scenario.Name, runIndex,
+            "with-agent-isolated", config.Model, isolatedConfigDir, null, scenario.Prompt, targetSha, rubricJson);
+        sessionDb?.RegisterSession(pluginSessionId, agent.Name, agent.Path, scenario.Name, runIndex,
+            "with-agent-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, targetSha, rubricJson);
+
+        // Resolve additional_required_skills/agents for the isolated run
+        IReadOnlyList<SkillInfo>? additionalSkills = null;
+        IReadOnlyList<AgentInfo>? additionalAgents = null;
+        if (scenario.Setup is not null && pluginRoot is not null)
+        {
+            additionalSkills = await ResolveAdditionalSkills(scenario.Setup.AdditionalRequiredSkills, pluginRoot);
+            additionalAgents = await ResolveAdditionalAgents(scenario.Setup.AdditionalRequiredAgents, pluginRoot);
+        }
+
+        var agentTasks = await Task.WhenAll(
+            // 1. Baseline: no agent, no skills — vanilla
+            AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
+                PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId)),
+            // 2. Agent-isolated: target agent only (+ scenario deps)
+            AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
+                PluginRoot: null, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
+                SessionId: isolatedSessionId, Agent: agent, AdditionalSkills: additionalSkills, AdditionalAgents: additionalAgents)),
+            // 3. Agent-plugin: full plugin context + agent selected
+            AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
+                PluginRoot: pluginRoot, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
+                SessionId: pluginSessionId, Agent: agent)));
+        var baselineMetrics = agentTasks[0];
+        var isolatedMetrics = agentTasks[1];
+        var pluginMetrics = agentTasks[2];
+
+        if (sessionDb is not null)
+        {
+            sessionDb.CompleteSession(baselineSessionId, baselineMetrics.TimedOut ? "timed_out" : "completed",
+                JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
+            sessionDb.CompleteSession(isolatedSessionId, isolatedMetrics.TimedOut ? "timed_out" : "completed",
+                JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
+            sessionDb.CompleteSession(pluginSessionId, pluginMetrics.TimedOut ? "timed_out" : "completed",
+                JsonSerializer.Serialize(pluginMetrics, SkillValidatorJsonContext.Default.RunMetrics));
+        }
+
+        // Assertions, constraints, task completion, judging — same as skills
+        if (scenario.Assertions is { Count: > 0 })
+        {
+            baselineMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, baselineMetrics.AgentOutput, baselineMetrics.WorkDir, scenario.Timeout);
+            isolatedMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, isolatedMetrics.AgentOutput, isolatedMetrics.WorkDir, scenario.Timeout);
+            pluginMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, pluginMetrics.AgentOutput, pluginMetrics.WorkDir, scenario.Timeout);
+        }
+
+        var baselineConstraints = AssertionEvaluator.EvaluateConstraints(scenario, baselineMetrics);
+        var isolatedConstraints = AssertionEvaluator.EvaluateConstraints(scenario, isolatedMetrics);
+        var pluginConstraints = AssertionEvaluator.EvaluateConstraints(scenario, pluginMetrics);
+        baselineMetrics.AssertionResults = [..baselineMetrics.AssertionResults, ..baselineConstraints];
+        isolatedMetrics.AssertionResults = [..isolatedMetrics.AssertionResults, ..isolatedConstraints];
+        pluginMetrics.AssertionResults = [..pluginMetrics.AssertionResults, ..pluginConstraints];
+
+        if (scenario.Assertions is { Count: > 0 } || baselineConstraints.Count > 0)
+        {
+            baselineMetrics.TaskCompleted = baselineMetrics.AssertionResults.All(a => a.Passed);
+            isolatedMetrics.TaskCompleted = isolatedMetrics.AssertionResults.All(a => a.Passed);
+            pluginMetrics.TaskCompleted = pluginMetrics.AssertionResults.All(a => a.Passed);
+        }
+        else
+        {
+            baselineMetrics.TaskCompleted = baselineMetrics.ErrorCount == 0;
+            isolatedMetrics.TaskCompleted = isolatedMetrics.ErrorCount == 0;
+            pluginMetrics.TaskCompleted = pluginMetrics.ErrorCount == 0;
+        }
+
+        var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, agent.Path);
+
+        var (baselineJudge, baselineJudgeTokens) = await SafeJudge(Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, runLog), "baseline", runLog);
+        var (isolatedJudge, isolatedJudgeTokens) = await SafeJudge(Judge.JudgeRun(
+            scenario, isolatedMetrics, judgeOpts with { WorkDir = isolatedMetrics.WorkDir }, runLog), "isolated", runLog);
+        var (pluginJudge, pluginJudgeTokens) = await SafeJudge(Judge.JudgeRun(
+            scenario, pluginMetrics, judgeOpts with { WorkDir = pluginMetrics.WorkDir }, runLog), "plugin", runLog);
+
+        AccumulateJudgeTokens(baselineMetrics, baselineJudgeTokens);
+        AccumulateJudgeTokens(isolatedMetrics, isolatedJudgeTokens);
+        AccumulateJudgeTokens(pluginMetrics, pluginJudgeTokens);
+
+        var baselineResult = new RunResult(baselineMetrics, baselineJudge);
+        var isolatedResult = new RunResult(isolatedMetrics, isolatedJudge);
+        var pluginResult = new RunResult(pluginMetrics, pluginJudge);
+
+        // Pairwise judging
+        PairwiseJudgeResult? pairwise = null;
+        bool pairwiseFromPlugin = false;
+        if (usePairwise)
+        {
+            pairwiseFromPlugin = pluginJudge.OverallScore < isolatedJudge.OverallScore;
+            var worseSkilled = pairwiseFromPlugin ? pluginMetrics : isolatedMetrics;
+            try
+            {
+                var (pairwiseResult, pairwiseTokens) = await PairwiseJudge.Judge(
+                    scenario, baselineMetrics, worseSkilled,
+                    new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, agent.Path, worseSkilled.WorkDir),
+                    runLog);
+                pairwise = pairwiseResult;
+                AccumulateJudgeTokens(baselineMetrics, pairwiseTokens);
+                AccumulateJudgeTokens(worseSkilled, pairwiseTokens);
+            }
+            catch (Exception error)
+            {
+                runLog($"⚠️  Pairwise judge failed: {error}");
+            }
+        }
+
+        // Subagent activation — primary signal for agent eval
+        var isolatedSubagent = MetricsCollector.ExtractSubagentActivation(isolatedMetrics.Events);
+        var pluginSubagent = MetricsCollector.ExtractSubagentActivation(pluginMetrics.Events);
+
+        // Also check skill activation (agents may trigger skills)
+        var isolatedActivation = MetricsCollector.ExtractSkillActivation(isolatedMetrics.Events, baselineMetrics.ToolCallBreakdown);
+        var pluginActivation = MetricsCollector.ExtractSkillActivation(pluginMetrics.Events, baselineMetrics.ToolCallBreakdown);
+
+        if (isolatedSubagent.InvokedAgents.Count > 0)
+            runLog($"🤖 Agent activated (isolated): {string.Join(", ", isolatedSubagent.InvokedAgents)}");
+        if (pluginSubagent.InvokedAgents.Count > 0)
+            runLog($"🤖 Agent activated (plugin): {string.Join(", ", pluginSubagent.InvokedAgents)}");
+
+        if (config.Verbose)
+            runLog("✓ complete");
+
+        return new RunExecutionResult(baselineResult, isolatedResult, pluginResult, pairwise,
+            pairwiseFromPlugin, isolatedActivation, pluginActivation, isolatedSubagent, pluginSubagent);
     }
 
     private static async Task<SkillVerdict?> EvaluateSkill(
@@ -1192,11 +1684,19 @@ public static class EvaluateCommand
     /// </summary>
     internal static List<string> ValidateEvalPrompts(SkillInfo skill, EvalConfig? evalConfig)
     {
+        return ValidateEvalPrompts(skill.Name, evalConfig);
+    }
+
+    /// <summary>
+    /// Generalized prompt validation: rejects prompts mentioning the target name (skill or agent).
+    /// </summary>
+    internal static List<string> ValidateEvalPrompts(string targetName, EvalConfig? evalConfig)
+    {
         var errors = new List<string>();
-        if (evalConfig is null || string.IsNullOrWhiteSpace(skill.Name))
+        if (evalConfig is null || string.IsNullOrWhiteSpace(targetName))
             return errors;
 
-        var escapedName = Regex.Escape(skill.Name.Trim());
+        var escapedName = Regex.Escape(targetName.Trim());
         var namePattern = new Regex(
             $@"(?<![\w-]){escapedName}(?![\w-])",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
@@ -1204,10 +1704,105 @@ public static class EvaluateCommand
         foreach (var scenario in evalConfig.Scenarios)
         {
             if (namePattern.IsMatch(scenario.Prompt))
-                errors.Add($"Eval scenario '{scenario.Name}' prompt mentions skill name '{skill.Name}' — remove skill name from prompt to avoid biasing baseline runs.");
+                errors.Add($"Eval scenario '{scenario.Name}' prompt mentions skill name '{targetName}' — remove skill name from prompt to avoid biasing baseline runs.");
         }
 
         return errors;
+    }
+
+    /// <summary>
+    /// Resolve the eval.yaml path for an agent. Tries "agent." prefix convention first,
+    /// then falls back to plain name. Searches flat and nested layouts.
+    /// </summary>
+    internal static string? ResolveAgentEvalPath(string agentName, string? testsDir)
+    {
+        if (testsDir is null)
+            return null;
+
+        // 1. Preferred: testsDir/agent.<name>/eval.yaml
+        var agentPrefixed = Path.Combine(testsDir, $"agent.{agentName}", "eval.yaml");
+        if (File.Exists(agentPrefixed))
+            return agentPrefixed;
+
+        // 2. Fallback: testsDir/<name>/eval.yaml (when no clash exists)
+        var flat = Path.Combine(testsDir, agentName, "eval.yaml");
+        if (File.Exists(flat))
+            return flat;
+
+        // 3. Nested: testsDir/<subdir>/agent.<name>/eval.yaml
+        if (Directory.Exists(testsDir))
+        {
+            foreach (var subDir in Directory.GetDirectories(testsDir))
+            {
+                var nestedPrefixed = Path.Combine(subDir, $"agent.{agentName}", "eval.yaml");
+                if (File.Exists(nestedPrefixed))
+                    return nestedPrefixed;
+
+                var nested = Path.Combine(subDir, agentName, "eval.yaml");
+                if (File.Exists(nested))
+                    return nested;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Resolve declared additional_required_skills from the same plugin.
+    /// These are author-declared names in eval.yaml that must map to skills in the plugin.
+    /// </summary>
+    internal static async Task<IReadOnlyList<SkillInfo>?> ResolveAdditionalSkills(
+        IReadOnlyList<string>? skillNames, string pluginRoot)
+    {
+        if (skillNames is not { Count: > 0 })
+            return null;
+
+        var pluginSkillDirs = AgentRunner.ResolvePluginSkillDirectories(pluginRoot);
+        var allSkills = new List<SkillInfo>();
+        foreach (var dir in pluginSkillDirs)
+        {
+            var skills = await SkillDiscovery.DiscoverSkills(dir);
+            allSkills.AddRange(skills);
+        }
+
+        var resolved = new List<SkillInfo>();
+        foreach (var name in skillNames)
+        {
+            var match = allSkills.FirstOrDefault(s =>
+                s.Name.Equals(name, StringComparison.OrdinalIgnoreCase)
+                || Path.GetFileName(s.Path).Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+                resolved.Add(match);
+            else
+                Console.Error.WriteLine($"{Ansi.Yellow}⚠  additional_required_skills: '{name}' not found in plugin at '{pluginRoot}'{Ansi.Reset}");
+        }
+
+        return resolved.Count > 0 ? resolved : null;
+    }
+
+    /// <summary>
+    /// Resolve declared additional_required_agents from the same plugin.
+    /// These are author-declared names in eval.yaml that must map to agents in the plugin.
+    /// </summary>
+    internal static async Task<IReadOnlyList<AgentInfo>?> ResolveAdditionalAgents(
+        IReadOnlyList<string>? agentNames, string pluginRoot)
+    {
+        if (agentNames is not { Count: > 0 })
+            return null;
+
+        var allAgents = await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot);
+        var resolved = new List<AgentInfo>();
+        foreach (var name in agentNames)
+        {
+            var match = allAgents.FirstOrDefault(a =>
+                a.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+                resolved.Add(match);
+            else
+                Console.Error.WriteLine($"{Ansi.Yellow}⚠  additional_required_agents: '{name}' not found in plugin at '{pluginRoot}'{Ansi.Reset}");
+        }
+
+        return resolved.Count > 0 ? resolved : null;
     }
 
     internal static (Dictionary<string, (PluginInfo Plugin, List<SkillInfo> Skills)> Groups, List<string> Errors)

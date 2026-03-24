@@ -41,12 +41,13 @@ public static class Judge
             timeoutMs: options.Timeout,
             verbose: options.Verbose,
             timeoutLabel: "Judge — try --judge-timeout with a higher value, or check --verbose for stuck permission requests",
-            onPermissionRequest: request =>
+            onPermissionRequest: (request, invocation) =>
             {
-                var result = AgentRunner.CheckPermission(request, options.WorkDir, options.SkillPath, options.Verbose ? log : null, "judge");
+                // Judge sessions: approve all — sandboxing is best-effort
+                // and the judge doesn't execute tool calls in the workspace.
                 return Task.FromResult(new PermissionRequestResult
                 {
-                    Kind = result ? PermissionRequestResultKind.Approved : PermissionRequestResultKind.DeniedByRules,
+                    Kind = PermissionRequestResultKind.Approved,
                 });
             },
             cancellationToken: cancellationToken);
