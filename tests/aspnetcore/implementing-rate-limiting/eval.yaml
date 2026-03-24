@@ -69,7 +69,7 @@ scenarios:
       - "Identified the root cause: app.UseRateLimiter() is missing from the middleware pipeline"
       - "Explained that AddRateLimiter only registers services but UseRateLimiter is required to activate the middleware"
       - "Showed where to place UseRateLimiter() in the middleware pipeline so named policies take effect"
-    timeout: 60
+    timeout: 120
 
   - name: "Fix rate limiter returning 503 instead of 429"
     prompt: |
@@ -110,20 +110,27 @@ scenarios:
       - "Identified the root cause: default RejectionStatusCode is 503, must explicitly set to 429"
       - "Provided code that correctly configures the rate limiter to return HTTP 429 instead of 503"
       - "Suggested providing a meaningful response body or headers so clients know when to retry"
-    timeout: 120
+    timeout: 180
 
-  - name: "Rate limiting should not apply to authentication scenarios"
+  - name: "Combine rate limiting with authentication-aware partitioning"
     prompt: |
-      I need to implement OAuth token endpoint throttling — limiting failed login attempts to 5 per minute per IP to prevent brute force attacks. Should I use ASP.NET Core rate limiting middleware for this?
+      My ASP.NET Core 8 API has two concerns:
+      1. Public endpoints (/api/products, /api/search) need per-IP rate limiting at 60 req/min
+      2. Authenticated endpoints (/api/orders, /api/account) need per-user rate limiting at 30 req/min
+      3. The login endpoint (/api/auth/login) needs brute-force protection — max 5 failed attempts per IP per minute
+
+      How should I configure rate limiting to handle all three cases? Should I use the built-in rate limiting middleware for all of them, or do some need a different approach?
     assertions:
       - type: "output_matches"
-        pattern: "(lockout|brute.force|Identity|throttl)"
+        pattern: "(AddRateLimiter|UseRateLimiter)"
+      - type: "output_matches"
+        pattern: "(per-user|per.user|ClaimTypes|NameIdentifier|User\\.Find)"
     rubric:
-      - "Recognized that login throttling has different requirements than API rate limiting"
-      - "Mentioned that rate limiting middleware works at the HTTP pipeline level, not at the authentication/identity level"
-      - "Suggested alternatives or complementary approaches (e.g., Identity lockout, custom middleware, or combining rate limiting with auth-aware partitioning)"
-      - "Did NOT suggest a naive global rate limiter as the complete solution for brute force protection"
-    timeout: 60
+      - "Configured per-IP rate limiting for public endpoints"
+      - "Configured per-authenticated-user rate limiting for protected endpoints using claims-based partitioning"
+      - "Recognized that brute-force login protection has different requirements than API rate limiting"
+      - "Explained the tradeoffs of using rate limiting middleware vs. Identity lockout or custom logic for login throttling"
+    timeout: 120
 
   - name: "Choose correct rate limiting algorithm"
     prompt: |
