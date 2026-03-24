@@ -169,26 +169,49 @@ scenarios:
 
   - name: "Rate limiting behind a reverse proxy"
     prompt: |
-      We deployed our ASP.NET Core 8 API behind an nginx reverse proxy. Our rate limiter partitions by IP address using RemoteIpAddress, but in production ALL clients share the same rate limit — once the global 100 req/min is hit, every client gets 429'd even though individual clients are well under the limit. In development (no proxy) it worked fine. What's happening and how do I fix it?
-    assertions:
-      - type: "output_matches"
-        pattern: "(ForwardedHeaders|RemoteIpAddress|X-Forwarded-For|proxy)"
-    rubric:
-      - "Identified that behind a reverse proxy, RemoteIpAddress is the proxy's IP, not the client's"
-      - "Explained that all requests appear to come from the same IP, causing shared rate limits"
-      - "Provided a concrete solution involving ForwardedHeadersMiddleware or equivalent configuration"
-      - "Warned about security implications of trusting forwarded headers without proper configuration"
-    timeout: 120
+      We deployed our ASP.NET Core 8 API behind an nginx reverse proxy. Our rate limiter partitions by IP address, but in production ALL clients share the same rate limit — once the global 100 req/min is hit, every client gets 429'd even though individual clients are well under the limit. In development (no proxy) it worked fine. What's wrong with our code and how do I fix it?
+    setup:
+      files:
+        - path: "Program.cs"
+          content: |
+            using Microsoft.AspNetCore.RateLimiting;
+            using System.Threading.RateLimiting;
 
-  - name: "Concurrency limiter vs rate limiter confusion"
-    prompt: |
-      My ASP.NET Core 8 API generates PDF reports that take 10-30 seconds each. I need to limit this to 3 simultaneous report generations to protect the server. I tried AddFixedWindowLimiter with PermitLimit=3 but it only allows 3 reports per minute total, not 3 at a time. After 3 reports in a minute, all subsequent requests fail even though the server is idle. What's the right approach?
+            var builder = WebApplication.CreateBuilder(args);
+
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+                {
+                    var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    return RateLimitPartition.GetSlidingWindowLimiter(ip, _ => new SlidingWindowRateLimiterOptions
+                    {
+                        PermitLimit = 100,
+                        Window = TimeSpan.FromMinutes(1),
+                        SegmentsPerWindow = 6
+                    });
+                });
+            });
+
+            var app = builder.Build();
+            app.UseRouting();
+            app.UseRateLimiter();
+            app.MapGet("/api/data", () => "Hello!");
+            app.Run();
+        - path: "ProxyBug.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
     assertions:
       - type: "output_matches"
-        pattern: "(ConcurrencyLimiter|AddConcurrencyLimiter|concurrency)"
+        pattern: "(ForwardedHeaders|KnownProxies|KnownNetworks|UseForwardedHeaders)"
     rubric:
-      - "Identified that fixed window limiter counts requests per time window, not concurrent requests"
-      - "Recommended the concurrency limiter as the correct algorithm for limiting simultaneous in-flight requests"
-      - "Provided a working ConcurrencyLimiter configuration with appropriate PermitLimit and QueueLimit"
-      - "Explained the difference between rate-based and concurrency-based limiting"
+      - "Identified that behind a reverse proxy, RemoteIpAddress returns the proxy's IP, not the client's"
+      - "Explained that all requests appear to come from the same partition key, exhausting the shared limit"
+      - "Provided a concrete solution using ForwardedHeadersMiddleware with KnownProxies or KnownNetworks"
+      - "Warned about security risks of trusting forwarded headers without restricting to known proxies"
     timeout: 120
