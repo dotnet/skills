@@ -65,6 +65,9 @@ param(
     [Parameter(ParameterSetName = 'Generate')]
     [string]$PRTitle,
 
+    [Parameter(ParameterSetName = 'Generate')]
+    [switch]$SkipTokenUsage,
+
     [Parameter(Mandatory, ParameterSetName = 'Purge')]
     [switch]$PurgeStaleFiles,
 
@@ -437,6 +440,7 @@ if ($Source -ne 'pr') {
 }
 
 # --- Generate token-usage entries ---
+if (-not $SkipTokenUsage) {
 $tokenUsageEntries = [System.Collections.Generic.List[object]]::new()
 
 foreach ($verdict in $results.verdicts) {
@@ -534,3 +538,4 @@ if ($RetentionDays -gt 0) {
 
 $tokenUsageData | ConvertTo-Json -Depth 5 | Out-File -FilePath $tokenUsageFile -Encoding utf8
 Write-Host "   Token usage entries added: $($tokenUsageEntries.Count) (total: $($tokenUsageData['entries'].Count))"
+} # end if (-not $SkipTokenUsage)

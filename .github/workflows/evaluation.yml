@@ -414,7 +414,7 @@ jobs:
             echo "has_entries=true" >> $env:GITHUB_OUTPUT
           }
 
-          # Output plugins for publish-benchmark
+          # Output plugins for publish jobs
           if (-not $plugins -or $plugins.Count -eq 0) {
             echo "plugins=[]" >> $env:GITHUB_OUTPUT
             echo "has_plugins=false" >> $env:GITHUB_OUTPUT
@@ -521,12 +521,10 @@ jobs:
           gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
 
   # ==========================================================================
-  # PUBLISH BENCHMARK & TOKEN DATA
-  # Scheduled runs: full benchmark data + token usage → gh-pages
-  # PR evaluations: token usage only → gh-pages
+  # PUBLISH TOKEN DATA
+  # Both scheduled and PR runs: generate token-usage data → dashboard-token-data
   # ==========================================================================
-
-  publish-benchmark:
+  publish-token-data:
     needs: [gate, discover, run-evaluation]
     if: >-
       always() &&
@@ -538,10 +536,9 @@ jobs:
         (github.event_name == 'issue_comment' && needs.gate.result == 'success')
       )
     concurrency:
-      group: publish-benchmark-deploy
+      group: publish-token-data
       cancel-in-progress: false
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -556,13 +553,14 @@ jobs:
           merge-multiple: false
         continue-on-error: ${{ needs.run-evaluation.result != 'success' }}
 
-      - name: Fetch existing data from GitHub Pages
+      - name: Fetch existing token data from dashboard-token-data
         run: |
-          git fetch origin gh-pages:gh-pages 2>/dev/null || true
-          mkdir -p /tmp/gh-pages/data
-          git checkout gh-pages -- data/ 2>/dev/null && cp -r data/* /tmp/gh-pages/data/ && git checkout HEAD -- . || true
+          git fetch origin dashboard-token-data:dashboard-token-data 2>/dev/null || true
+          mkdir -p /tmp/token-data/data
+          git checkout dashboard-token-data -- data/token-usage.json 2>/dev/null && \
+            cp data/token-usage.json /tmp/token-data/data/ && \
+            git checkout HEAD -- . || true
 
-      # --- PR evaluation: collect token-usage data only ---
       - name: Get PR title
         if: github.event_name == 'issue_comment'
         id: pr-info
@@ -572,11 +570,9 @@ jobs:
           PR_TITLE=$(gh api "repos/${{ github.repository }}/pulls/${{ needs.gate.outputs.pr_number }}" --jq '.title')
           echo "pr_title=${PR_TITLE}" >> $GITHUB_OUTPUT
 
-      - name: Collect PR Token Usage
-        if: github.event_name == 'issue_comment'
-        env:
-          PR_TITLE: ${{ steps.pr-info.outputs.pr_title }}
+      - name: Generate token usage data
         run: |
+          $source = if ("${{ github.event_name }}" -eq "issue_comment") { "pr" } else { "scheduled" }
           $plugins = '${{ needs.discover.outputs.plugins }}' | ConvertFrom-Json
           foreach ($plugin in $plugins) {
             $artifactDir = "all-results/skill-validator-results-$plugin"
@@ -594,19 +590,89 @@ jobs:
             $params = @{
               ResultsFile   = $resultsFile
               PluginName    = $plugin
-              OutputDir     = "/tmp/gh-pages/data"
-              Source        = 'pr'
-              PRNumber      = ${{ needs.gate.outputs.pr_number }}
-              PRTitle       = $env:PR_TITLE
+              OutputDir     = "/tmp/token-data/data"
+              Source        = $source
               RetentionDays = $env:DASHBOARD_RETENTION_DAYS
             }
+            if ($source -eq "pr") {
+              $params.PRNumber = ${{ needs.gate.outputs.pr_number }}
+              $params.PRTitle = '${{ steps.pr-info.outputs.pr_title }}'
+            }
+            # Script also writes <plugin>.json to OutputDir — we ignore it,
+            # only token-usage.json is pushed to the branch.
             & ./eng/dashboard/generate-benchmark-data.ps1 @params
           }
         shell: pwsh
 
-      # --- Scheduled runs: full benchmark data + token usage ---
-      - name: Generate Benchmark Data
-        if: github.ref == 'refs/heads/main'
+      - name: Push to dashboard-token-data branch
+        run: |
+          cd /tmp
+          REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+          if git ls-remote --exit-code --heads "$REPO_URL" dashboard-token-data > /dev/null 2>&1; then
+            git clone --branch dashboard-token-data --single-branch "$REPO_URL" token-deploy
+          else
+            mkdir token-deploy && cd token-deploy && git init && git checkout -b dashboard-token-data
+            git remote add origin "$REPO_URL"
+            cd /tmp
+          fi
+
+          cd /tmp/token-deploy
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          mkdir -p data
+          cp /tmp/token-data/data/token-usage.json data/
+
+          git add data/token-usage.json
+          git diff --cached --quiet && echo "No changes to deploy" && exit 0
+
+          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+            git commit -m "Update PR token usage data (PR #${{ needs.gate.outputs.pr_number }})"
+          else
+            git commit -m "Update scheduled token usage data"
+          fi
+          git push origin dashboard-token-data
+
+  # ==========================================================================
+  # PUBLISH EVAL DATA
+  # Scheduled runs only: generate benchmark data → dashboard-eval-data
+  # ==========================================================================
+  publish-eval-data:
+    needs: [gate, discover, run-evaluation]
+    if: >-
+      always() &&
+      !cancelled() &&
+      needs.discover.result == 'success' &&
+      needs.discover.outputs.has_plugins == 'true' &&
+      github.ref == 'refs/heads/main'
+    concurrency:
+      group: publish-eval-data
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Download evaluation artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: skill-validator-results-*
+          path: all-results/
+          merge-multiple: false
+        continue-on-error: ${{ needs.run-evaluation.result != 'success' }}
+
+      - name: Fetch existing eval data from dashboard-eval-data
+        run: |
+          git fetch origin dashboard-eval-data:dashboard-eval-data 2>/dev/null || true
+          mkdir -p /tmp/eval-data/data
+          git checkout dashboard-eval-data -- data/ 2>/dev/null && \
+            cp -r data/* /tmp/eval-data/data/ && \
+            git checkout HEAD -- . || true
+
+      - name: Generate benchmark data
         run: |
           $sha = "${{ github.sha }}"
           $commitMsg = git log -1 --format='%s' $sha
@@ -621,7 +687,6 @@ jobs:
             author    = @{ name = $commitAuthor; username = "${{ github.actor }}" }
           } | ConvertTo-Json -Compress
 
-          # Process each plugin's results
           $plugins = '${{ needs.discover.outputs.plugins }}' | ConvertFrom-Json
           foreach ($plugin in $plugins) {
             $artifactDir = "all-results/skill-validator-results-$plugin"
@@ -630,20 +695,21 @@ jobs:
               Sort-Object Name -Descending |
               Select-Object -First 1
             if (-not $runDir) {
-              Write-Warning "No run results found for $plugin, skipping benchmark generation"
+              Write-Warning "No run results found for $plugin, skipping"
               continue
             }
 
             $resultsFile = Join-Path $runDir.FullName "results.json"
             Write-Host "`n=== Generating benchmark data for: $plugin ==="
-            $existingFile = "/tmp/gh-pages/data/$plugin.json"
+            $existingFile = "/tmp/eval-data/data/$plugin.json"
             $params = @{
-              ResultsFile   = $resultsFile
-              PluginName = $plugin
-              OutputDir     = "/tmp/gh-pages/data"
-              CommitJson    = $commitJson
-              RetentionDays = $env:DASHBOARD_RETENTION_DAYS
-              Source        = 'scheduled'
+              ResultsFile    = $resultsFile
+              PluginName     = $plugin
+              OutputDir      = "/tmp/eval-data/data"
+              CommitJson     = $commitJson
+              RetentionDays  = $env:DASHBOARD_RETENTION_DAYS
+              Source         = 'scheduled'
+              SkipTokenUsage = $true
             }
             if ((Test-Path $existingFile) -and (Get-Content $existingFile -Raw -ErrorAction SilentlyContinue)) {
               $params.ExistingDataFile = $existingFile
@@ -651,15 +717,83 @@ jobs:
             & ./eng/dashboard/generate-benchmark-data.ps1 @params
           }
 
-          # Purge entries older than the configured retention window
-          & ./eng/dashboard/generate-benchmark-data.ps1 -PurgeStaleFiles -DataDir "/tmp/gh-pages/data" -RetentionDays $env:DASHBOARD_RETENTION_DAYS
+          # Purge entries older than retention window
+          & ./eng/dashboard/generate-benchmark-data.ps1 -PurgeStaleFiles -DataDir "/tmp/eval-data/data" -RetentionDays $env:DASHBOARD_RETENTION_DAYS
 
-          # Generate components.json manifest (exclude token-usage.json — it's not a plugin)
-          $plugins = Get-ChildItem -Path "/tmp/gh-pages/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |
+          # Generate components.json manifest (exclude token-usage.json if present)
+          $plugins = Get-ChildItem -Path "/tmp/eval-data/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -notin @("components.json", "token-usage.json") } |
             ForEach-Object { $_.BaseName }
-          @($plugins) | ConvertTo-Json -AsArray | Out-File -FilePath "/tmp/gh-pages/data/components.json" -Encoding utf8
+          @($plugins) | ConvertTo-Json -AsArray | Out-File -FilePath "/tmp/eval-data/data/components.json" -Encoding utf8
         shell: pwsh
+
+      - name: Push to dashboard-eval-data branch
+        run: |
+          cd /tmp
+          REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+          if git ls-remote --exit-code --heads "$REPO_URL" dashboard-eval-data > /dev/null 2>&1; then
+            git clone --branch dashboard-eval-data --single-branch "$REPO_URL" eval-deploy
+          else
+            mkdir eval-deploy && cd eval-deploy && git init && git checkout -b dashboard-eval-data
+            git remote add origin "$REPO_URL"
+            cd /tmp
+          fi
+
+          cd /tmp/eval-deploy
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          mkdir -p data
+          # Copy only eval data files (not token-usage.json)
+          cp /tmp/eval-data/data/components.json data/
+          for f in /tmp/eval-data/data/*.json; do
+            fname=$(basename "$f")
+            [ "$fname" = "token-usage.json" ] && continue
+            cp "$f" "data/$fname"
+          done
+
+          git add data/
+          git diff --cached --quiet && echo "No changes to deploy" && exit 0
+          git commit -m "Update benchmark data"
+          git push origin dashboard-eval-data
+
+  # ==========================================================================
+  # DEPLOY DASHBOARD
+  # Scheduled runs only: assemble data from both branches + UI → gh-pages
+  # No data generation — pure copy and deploy.
+  # ==========================================================================
+  deploy-dashboard:
+    needs: [discover, publish-token-data, publish-eval-data]
+    if: >-
+      always() &&
+      !cancelled() &&
+      needs.discover.result == 'success' &&
+      needs.discover.outputs.has_plugins == 'true' &&
+      github.ref == 'refs/heads/main'
+    concurrency:
+      group: deploy-dashboard
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (for dashboard UI files)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Fetch eval data from dashboard-eval-data branch
+        run: |
+          mkdir -p /tmp/gh-pages/data
+          git fetch origin dashboard-eval-data:dashboard-eval-data 2>/dev/null || true
+          git checkout dashboard-eval-data -- data/ 2>/dev/null && \
+            cp -r data/* /tmp/gh-pages/data/ && \
+            git checkout HEAD -- . || true
+
+      - name: Fetch token data from dashboard-token-data branch
+        run: |
+          git fetch origin dashboard-token-data:dashboard-token-data 2>/dev/null || true
+          git show dashboard-token-data:data/token-usage.json > /tmp/gh-pages/data/token-usage.json 2>/dev/null || \
+            echo '{"entries":[]}' > /tmp/gh-pages/data/token-usage.json
 
       - name: Deploy to GitHub Pages
         run: |
@@ -680,22 +814,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Copy data from both branches
           mkdir -p data
           cp /tmp/gh-pages/data/*.json data/
 
-          # Only deploy dashboard HTML/JS on main (they come from the source tree)
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            cp ${{ github.workspace }}/eng/dashboard/dashboard.html index.html
-            cp ${{ github.workspace }}/eng/dashboard/dashboard.js dashboard.js
-            cp ${{ github.workspace }}/eng/dashboard/token-usage.js token-usage.js
-          fi
+          # Copy dashboard UI from source tree
+          cp ${{ github.workspace }}/eng/dashboard/dashboard.html index.html
+          cp ${{ github.workspace }}/eng/dashboard/dashboard.js dashboard.js
+          cp ${{ github.workspace }}/eng/dashboard/token-usage.js token-usage.js
 
           git add .
           git diff --cached --quiet && echo "No changes to deploy" && exit 0
-
-          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
-            git commit -m "Update PR token usage data"
-          else
-            git commit -m "Update benchmark data"
-          fi
+          git commit -m "Update dashboard"
           git push origin gh-pages
