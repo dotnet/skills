@@ -396,8 +396,11 @@ jobs:
             git worktree remove /tmp/pr-content --force 2>$null
           } else {
             # Schedule: evaluate all plugins with skills and tests
+            # Exclude experimental plugins from scheduled runs — they are
+            # evaluated only on-demand via /evaluate on PRs.
+            $excludeFromSchedule = @('dotnet-experimental')
             $plugins = @(Get-ChildItem -Path "plugins" -Directory |
-              Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) } |
+              Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) -and ($_.Name -notin $excludeFromSchedule) } |
               Select-Object -ExpandProperty Name)
             $entries = @($plugins | ForEach-Object {
               @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
