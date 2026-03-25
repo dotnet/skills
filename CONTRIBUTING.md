@@ -55,6 +55,7 @@ Skills are grouped into domain-specific plugins. When proposing a new skill, pla
 | `dotnet-data` | Data access and Entity Framework |
 | `dotnet-msbuild` | MSBuild and project system |
 | `dotnet-ai` | AI and ML: technology selection, LLM integration, agentic workflows, RAG pipelines, and classic ML |
+| `dotnet-experimental` | Experimental skills under active evaluation (see below) |
 
 If your skill does not fit any existing plugin, consider creating a new one. The following plugin names are reserved for future use and are good candidates for new skills in those areas:
 
@@ -62,6 +63,18 @@ If your skill does not fit any existing plugin, consider creating a new one. The
 - `dotnet-wpf` — WPF
 - `dotnet-winforms` — Windows Forms (WinForms)
 - `dotnet-maui` — .NET MAUI
+
+### The `dotnet-experimental` plugin
+
+Use `dotnet-experimental` when you want to try out a skill idea but are not yet confident it belongs in a stable plugin — for example, when the skill is outside your usual area of responsibility, the approach is unproven, or you want community feedback before committing to a long-term home.
+
+Skills in `dotnet-experimental`:
+
+- May change, be reworked, or be removed without notice.
+- Are held to the same quality and testing standards as any other skill (frontmatter, `eval.yaml`, etc.).
+- Should eventually graduate to a stable plugin or be retired. When a skill has proven itself, move it to the appropriate domain plugin and update tests accordingly.
+
+Place experimental skills under `plugins/dotnet-experimental/skills/` with matching tests in `tests/dotnet-experimental/`.
 
 To create a new plugin:
 
