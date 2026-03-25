@@ -63,14 +63,14 @@ Each verdict contains:
 
 ### Scenario structure
 
-Each scenario contains three runs and their comparison:
+Each scenario includes two runs (baseline + isolated) plus an optional plugin run, and their comparison:
 
 | Field | Description |
 |-------|-------------|
 | `scenarioName` | Human-readable scenario name |
 | `baseline` | Run without the skill |
 | `skilledIsolated` | Run with only this skill loaded |
-| `skilledPlugin` | Run with the full plugin loaded |
+| `skilledPlugin` | Run with the full plugin loaded (present only when plugin runs are enabled) |
 | `timedOut` | Whether any run hit the timeout |
 | `isolatedImprovementScore` | Weighted improvement (isolated vs baseline) |
 | `pluginImprovementScore` | Weighted improvement (plugin vs baseline) |
