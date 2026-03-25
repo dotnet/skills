@@ -74,8 +74,11 @@
 /tests/dotnet-test/ @dotnet/dotnet-testing
 
 # dotnet-experimental (skills under active evaluation)
-/plugins/dotnet-experimental/ @JanKrivanek @ViktorHofer @Evangelink @ManishJayaswal @AbhitejJohn
-/tests/dotnet-experimental/ @JanKrivanek @ViktorHofer @Evangelink @ManishJayaswal @AbhitejJohn
+/plugins/dotnet-experimental/plugin.json @JanKrivanek @ViktorHofer @Evangelink @ManishJayaswal @AbhitejJohn
+
+# dotnet-experimental-tests (everything experimental test related)
+/plugins/dotnet-experimental/skills/exp-test-tagging/ @dotnet/dotnet-testing
+/tests/dotnet-experimental/exp-test-tagging/ @dotnet/dotnet-testing
 
 # dotnet-maui
 /plugins/dotnet-maui/ @Redth @jfversluis
