@@ -41,3 +41,4 @@ setx MSBUILDUSESERVER 1
 - The server process persists in the background — uses some memory
 - If builds behave unexpectedly, try `dotnet build-server shutdown` to reset
 - Not all MSBuild features are compatible with server mode
+
