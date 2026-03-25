@@ -644,8 +644,7 @@ jobs:
             # Create a simplified table for the PR comment by stripping
             # "Quality (Plugin)" and "Agents Invoked" columns (GH UI concern).
             # The full table is preserved in the workflow step summary.
-            python3 -c "
-          import sys
+            python3 - <<'PY'
           lines = open('summary-body.md').read().split('\n')
           result, remove, prev = [], set(), False
           for line in lines:
@@ -662,7 +661,7 @@ jobs:
                   result.append(line)
               prev = is_tbl
           open('simplified-body.md', 'w').write('\n'.join(result))
-          "
+          PY
 
             {
               cat simplified-body.md
@@ -678,11 +677,7 @@ jobs:
               fi
             } > consolidated-comment.md
 
-            {
-              cat summary-body.md
-              echo ""
-              echo "[Full results]($RUN_URL)"
-            } >> $GITHUB_STEP_SUMMARY
+            cat consolidated-comment.md >> "$GITHUB_STEP_SUMMARY"
 
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
               -X POST -F "body=@consolidated-comment.md"
