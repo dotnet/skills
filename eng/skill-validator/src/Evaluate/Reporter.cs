@@ -450,8 +450,7 @@ public static class Reporter
     public static string GenerateMarkdownSummary(
         IReadOnlyList<SkillVerdict> verdicts,
         string? model = null,
-        string? judgeModel = null,
-        bool simplified = false)
+        string? judgeModel = null)
     {
         var sb = new StringBuilder();
         sb.AppendLine("## Skill Validation Results");
@@ -544,10 +543,8 @@ public static class Reporter
                     verdictCol = $"{icon} <a href=\"#user-content-fn-{n}\" id=\"ref-{n}\">[{n}]</a>";
                 }
 
-                bool showAgents = anyAgentsInvoked && !simplified;
-                bool showPluginQuality = anyPluginRun && !simplified;
-                string agentsSegment = showAgents ? $" | {agentsCol}" : "";
-                var row = showPluginQuality
+                string agentsSegment = anyAgentsInvoked ? $" | {agentsCol}" : "";
+                var row = anyPluginRun
                     ? $"| {v.SkillName} | {s.ScenarioName} | {isoQualityCol} | {plugQualityCol} | {skillsCol}{agentsSegment} | {FormatOverfitCell(v.OverfittingResult)} | {verdictCol} |"
                     : $"| {v.SkillName} | {s.ScenarioName} | {isoQualityCol} | {skillsCol}{agentsSegment} | {FormatOverfitCell(v.OverfittingResult)} | {verdictCol} |";
                 tableRows.Add(row);
@@ -556,11 +553,9 @@ public static class Reporter
 
         if (tableRows.Count > 0)
         {
-            bool showAgents = anyAgentsInvoked && !simplified;
-            bool showPluginQuality = anyPluginRun && !simplified;
-            string agentsHeader = showAgents ? " Agents Invoked |" : "";
-            string agentsSep = showAgents ? "----------------|" : "";
-            if (showPluginQuality)
+            string agentsHeader = anyAgentsInvoked ? " Agents Invoked |" : "";
+            string agentsSep = anyAgentsInvoked ? "----------------|" : "";
+            if (anyPluginRun)
             {
                 sb.AppendLine($"| Skill | Scenario | Quality (Isolated) | Quality (Plugin) | Skills Loaded |{agentsHeader} Overfit | Verdict |");
                 sb.AppendLine($"|-------|----------|--------------------|------------------|---------------|{agentsSep}---------|---------|"  );
