@@ -81,7 +81,7 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 | `pairwiseResult` | Judge's rubric-by-rubric comparison |
 | `perRunScores` | Per-run improvement scores as a flat array of numbers (one per run); when a plugin run is present, each value is `min(isolated, plugin)` for that run; when no plugin run is present (`skilledPlugin` is null), each value is the isolated improvement score for that run |
 
-> **Note:** Scenarios do not have a `passed` field. To determine pass/fail for an individual scenario, check whether `isolatedImprovementScore >= 0` (or `pluginImprovementScore` when a plugin run is present; the effective score is the min of both). The `passed` field exists only at the verdict level (per-skill).
+> **Note:** Scenarios do not have a `passed` field. To determine pass/fail for an individual scenario, check whether `improvementScore >= 0`. This is the effective score: when no plugin run is present it equals `isolatedImprovementScore`; when a plugin run is present it is the min of isolated and plugin scores. The `passed` field exists only at the verdict level (per-skill).
 
 ### Breakdown fields
 
@@ -124,8 +124,8 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 
 | Option | Description |
 |--------|-------------|
-| `timeout` | Maximum wall-clock time per run in seconds. Default varies by eval. Increase when skilled runs time out. |
-| `reject_tools` | Array of tool names the agent is not allowed to use (e.g., `["bash", "edit"]`). Use to force the agent to explain rather than explore/build, leveling the playing field between baseline and skilled runs. |
+| `timeout` | Maximum wall-clock time per run in seconds. Default is 120 seconds if omitted. Increase when skilled runs time out. |
+| `reject_tools` | Array of tool names that will cause the run to fail if they are used (e.g., `["bash", "edit"]`). This is enforced as a post-run assertion in the validator (it does not sandbox or block the tool calls), and is useful to force the agent to explain rather than explore/build, leveling the playing field between baseline and skilled runs. |
 | `setup.files` | Array of files to create before the run. Gives the agent concrete code to work with, reducing variance from different scaffolding strategies. |
 
 ## Common failure patterns
@@ -238,7 +238,7 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 **Cause:** The model already knows this topic well from training data. The skill can't improve on an already-excellent answer, and the overhead of loading the skill (extra tokens, tool calls) causes a net regression.
 
 **Fixes:**
-- **Add `reject_tools`** (e.g., `["bash", "edit"]`) to prevent the skilled agent from doing extra work that the baseline skips — this levels the comparison
+- **Add a `reject_tools` constraint** (e.g., `["bash", "edit"]`) so the eval fails if either baseline or skilled agent uses those tools — this keeps the comparison focused on answer quality instead of tool-induced overhead
 - **Make the scenario harder** so the baseline struggles — add complexity, edge cases, or constraints that require the skill's specific knowledge
 - **Rewrite the prompt** to be purely diagnostic (e.g., "Don't modify any files — just explain the root cause") to prevent the agent from spending time on tool calls
 - **Remove the scenario** if the model consistently scores 5.0/5 without the skill — it isn't testing the skill's value
@@ -287,12 +287,12 @@ def analyze(path):
             sk_metrics = scenario['skilledIsolated']['metrics']
             bl_quality = scenario['baseline'].get('judgeResult', {}).get('overallScore', '?')
             sk_quality = scenario['skilledIsolated'].get('judgeResult', {}).get('overallScore', '?')
-            iso_score = scenario.get('isolatedImprovementScore', 0)
+            improvement = scenario.get('improvementScore', 0)
             print(f"\n--- {name} ---")
             print(f"  Quality: baseline={bl_quality}/5, skilled={sk_quality}/5")
             print(f"  Baseline: timedOut={bl_metrics['timedOut']}, tokens={bl_metrics.get('tokenEstimate', 0)}")
             print(f"  Skilled:  timedOut={sk_metrics['timedOut']}, tokens={sk_metrics.get('tokenEstimate', 0)}")
-            print(f"  Isolated improvement: {iso_score:.1%}")
+            print(f"  Improvement: {improvement:.1%}")
 
             # perRunScores is a flat list of numbers (one per run)
             per_run = scenario.get('perRunScores', [])
