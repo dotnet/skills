@@ -81,7 +81,7 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 | `pairwiseResult` | Judge's rubric-by-rubric comparison |
 | `perRunScores` | Per-run improvement scores as a flat array of numbers (one per run); when a plugin run is present, each value is `min(isolated, plugin)` for that run; when no plugin run is present (`skilledPlugin` is null), each value is the isolated improvement score for that run |
 
-> **Note:** Scenarios do not have a `passed` field. To determine pass/fail for an individual scenario, check whether `improvementScore >= 0` (this field is already the effective score — the min of isolated and plugin when both exist). The `passed` field exists only at the verdict level (per-skill).
+> **Note:** Scenarios do not have a `passed` field. To determine pass/fail for an individual scenario, check whether `isolatedImprovementScore >= 0` (or `pluginImprovementScore` when a plugin run is present; the effective score is the min of both). The `passed` field exists only at the verdict level (per-skill).
 
 ### Breakdown fields
 
@@ -117,6 +117,16 @@ Each of `baseline`, `skilledIsolated`, and `skilledPlugin` contains a `metrics` 
 | `agentOutput` | The agent's final text output |
 
 > **Note:** The quality scores shown in the summary table (e.g., "4.0/5") come from `baseline.judgeResult.overallScore`, `skilledIsolated.judgeResult.overallScore`, etc. — they are on the run result object, not inside `metrics`. When parsing `results.json`, look for `judgeResult.overallScore` alongside `metrics` on each run.
+
+### eval.yaml scenario options
+
+Several scenario-level options in `eval.yaml` are relevant when diagnosing failures:
+
+| Option | Description |
+|--------|-------------|
+| `timeout` | Maximum wall-clock time per run in seconds. Default varies by eval. Increase when skilled runs time out. |
+| `reject_tools` | Array of tool names the agent is not allowed to use (e.g., `["bash", "edit"]`). Use to force the agent to explain rather than explore/build, leveling the playing field between baseline and skilled runs. |
+| `setup.files` | Array of files to create before the run. Gives the agent concrete code to work with, reducing variance from different scaffolding strategies. |
 
 ## Common failure patterns
 
@@ -217,6 +227,22 @@ Each of `baseline`, `skilledIsolated`, and `skilledPlugin` contains a `metrics` 
 - This is usually noise — re-run the eval to see if it persists
 - If it consistently happens, improve the skill to produce clearly differentiated output
 
+### 8. Baseline already good (no headroom)
+
+**Symptoms:**
+- Baseline scores are high (4.5–5.0/5)
+- Skilled scores are similar or slightly lower
+- `perRunScores` are consistently negative (e.g., `[-0.42, -0.73, -0.47]`)
+- Breakdown shows negative `tokenReduction` and `toolCallReduction` (skill overhead) but no quality gain
+
+**Cause:** The model already knows this topic well from training data. The skill can't improve on an already-excellent answer, and the overhead of loading the skill (extra tokens, tool calls) causes a net regression.
+
+**Fixes:**
+- **Add `reject_tools`** (e.g., `["bash", "edit"]`) to prevent the skilled agent from doing extra work that the baseline skips — this levels the comparison
+- **Make the scenario harder** so the baseline struggles — add complexity, edge cases, or constraints that require the skill's specific knowledge
+- **Rewrite the prompt** to be purely diagnostic (e.g., "Don't modify any files — just explain the root cause") to prevent the agent from spending time on tool calls
+- **Remove the scenario** if the model consistently scores 5.0/5 without the skill — it isn't testing the skill's value
+
 ## When multiple patterns apply
 
 Most failing scenarios match 2–3 patterns simultaneously (e.g., timeout + token overhead + high variance). Fix them in this priority order:
@@ -224,9 +250,10 @@ Most failing scenarios match 2–3 patterns simultaneously (e.g., timeout + toke
 1. **Timeouts (#1)** — if the model can't finish, nothing else matters. Increase timeout first.
 2. **Skill not activated (#5)** — if the skill never loaded, fix the description before tuning anything else.
 3. **Baseline already bad (#2)** — if the baseline scores ≤2.0/5, the scenario may need simplification regardless of the skill.
-4. **High variance (#3)** — if `perRunScores` are unstable, a single eval run is unreliable. Re-run before concluding the skill is broken.
-5. **Rubric/judgment issues (#6, #7)** — once the runs are stable, tune the rubric.
-6. **Token overhead (#4)** — only optimize if quality is already good but the weighted score is marginally negative.
+4. **Baseline already good (#8)** — if the baseline scores ≥4.5/5, consider adding `reject_tools`, making the scenario harder, or removing it.
+5. **High variance (#3)** — if `perRunScores` are unstable, a single eval run is unreliable. Re-run before concluding the skill is broken.
+6. **Rubric/judgment issues (#6, #7)** — once the runs are stable, tune the rubric.
+7. **Token overhead (#4)** — only optimize if quality is already good but the weighted score is marginally negative.
 
 ## Analyzing results with an AI agent
 
@@ -240,8 +267,11 @@ The `results.json` file is designed to be machine-readable. An AI agent can:
 6. **Examine `perRunScores`** to assess variance
 7. **Look at `toolCallBreakdown`** to understand what the model spent time on
 8. **Cross-reference `isolatedBreakdown`** to see which metrics drove the score
+9. **Review `overfittingResult`** if present — check `rubricAssessments` for items classified as `"technique"` (the rubric enforces a specific approach rather than testing an outcome). These are candidates for broadening. Also check `crossScenarioIssues` for systemic concerns about the eval design.
 
 ### Example analysis script
+
+> **Note:** Save this as a `.py` file rather than running via `python -c "..."` — the nested quotes in f-string dictionary access are difficult to escape on the command line.
 
 ```python
 import json
@@ -257,12 +287,12 @@ def analyze(path):
             sk_metrics = scenario['skilledIsolated']['metrics']
             bl_quality = scenario['baseline'].get('judgeResult', {}).get('overallScore', '?')
             sk_quality = scenario['skilledIsolated'].get('judgeResult', {}).get('overallScore', '?')
-            improvement = scenario.get('improvementScore', 0)
+            iso_score = scenario.get('isolatedImprovementScore', 0)
             print(f"\n--- {name} ---")
             print(f"  Quality: baseline={bl_quality}/5, skilled={sk_quality}/5")
             print(f"  Baseline: timedOut={bl_metrics['timedOut']}, tokens={bl_metrics.get('tokenEstimate', 0)}")
             print(f"  Skilled:  timedOut={sk_metrics['timedOut']}, tokens={sk_metrics.get('tokenEstimate', 0)}")
-            print(f"  Improvement: {improvement:.1%}")
+            print(f"  Isolated improvement: {iso_score:.1%}")
 
             # perRunScores is a flat list of numbers (one per run)
             per_run = scenario.get('perRunScores', [])
