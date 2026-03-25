@@ -1,0 +1,33 @@
+scenarios:
+  - name: "Validate a template.json file"
+    prompt: "Validate the template.json file at .template.config/template.json and tell me if there are any issues"
+    setup:
+      files:
+        - path: ".template.config/template.json"
+          content: |
+            {
+              "author": "Test",
+              "classifications": ["Test"],
+              "name": "Test Template",
+              "shortName": "build",
+              "symbols": {
+                "myParam": {
+                  "type": "parameter",
+                  "datatype": "invalid-type"
+                }
+              }
+            }
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: "identity"
+      - type: "output_contains"
+        value: "shortName"
+      - type: "output_contains"
+        value: "datatype"
+    rubric:
+      - "The agent reviewed the template.json for authoring issues"
+      - "The agent identified the missing identity field"
+      - "The agent flagged the shortName conflict with the built-in 'build' command"
+      - "The agent reported the invalid datatype"
+    timeout: 120

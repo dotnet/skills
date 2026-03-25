@@ -3,6 +3,9 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>skill-validator</AssemblyName>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
 
     <!-- Packaging -->
     <PackageId>Microsoft.DotNet.SkillValidator</PackageId>
@@ -16,9 +19,6 @@
     <!-- Publishing -->
     <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-arm64</RuntimeIdentifiers>
     <PublishAot>true</PublishAot>
-
-    <!-- dotnet run args for local invocation -->
-    <RunArguments>--results-dir &quot;$([MSBuild]::NormalizePath('$(ArtifactsPath)', 'TestResults', '$(AssemblyName)'))&quot; --parallel-skills 3 --parallel-scenarios 3 --parallel-runs 3</RunArguments>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,10 +30,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.3" />
-    <PackageReference Include="System.CommandLine" Version="2.0.3" />
+    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.5" />
+    <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
+    <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.0.0" />
+    <PackageReference Include="System.CommandLine" Version="2.0.5" />
     <!-- external -->
-    <PackageReference Include="GitHub.Copilot.SDK" Version="0.1.30" />
+    <PackageReference Include="GitHub.Copilot.SDK" Version="0.2.0" />
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
     <PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="16.3.0" />
   </ItemGroup>

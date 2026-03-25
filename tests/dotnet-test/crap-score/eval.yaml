@@ -1,0 +1,65 @@
+scenarios:
+  - name: "Calculate CRAP score for a single method with partial coverage"
+    prompt: "Calculate the CRAP score for the ProcessOrder method in OrderService.cs. I already have coverage data in TestResults/coverage.cobertura.xml."
+    setup:
+      files:
+        - path: "OrderService.cs"
+          source: "fixtures/partial-coverage/OrderService.cs"
+        - path: "TestResults/coverage.cobertura.xml"
+          source: "fixtures/partial-coverage/coverage.cobertura.xml"
+        - path: "OrderServiceTests.csproj"
+          source: "fixtures/partial-coverage/OrderServiceTests.csproj"
+    assertions:
+      - type: "output_matches"
+        pattern: "CRAP"
+      - type: "output_matches"
+        pattern: "complexity|cyclomatic"
+    rubric:
+      - "Reads the source file to compute cyclomatic complexity of ProcessOrder"
+      - "Parses the Cobertura XML to extract coverage data for the method"
+      - "Applies the CRAP formula correctly: comp^2 * (1 - cov)^3 + comp"
+      - "Identifies ProcessOrder as high risk due to moderate complexity and low coverage"
+      - "Provides a recommendation to add tests or reduce complexity"
+    timeout: 180
+
+  - name: "Identify riskiest methods across a file"
+    prompt: "Which methods in OrderService.cs are the riskiest? I want to know where to focus my testing effort. Coverage data is in TestResults/coverage.cobertura.xml."
+    setup:
+      files:
+        - path: "OrderService.cs"
+          source: "fixtures/partial-coverage/OrderService.cs"
+        - path: "TestResults/coverage.cobertura.xml"
+          source: "fixtures/partial-coverage/coverage.cobertura.xml"
+        - path: "OrderServiceTests.csproj"
+          source: "fixtures/partial-coverage/OrderServiceTests.csproj"
+    assertions:
+      - type: "output_matches"
+        pattern: "CRAP"
+    rubric:
+      - "Analyzes all methods in the file, not just one"
+      - "Produces a sorted table or ranking by CRAP score"
+      - "Correctly identifies the most complex and least-covered methods as highest risk"
+      - "Suggests specific actions for the top offenders"
+    timeout: 180
+
+  - name: "Generate coverage then compute CRAP score"
+    prompt: "I want to know the CRAP scores for my OrderService class. I haven't run coverage yet."
+    setup:
+      files:
+        - path: "OrderService.cs"
+          source: "fixtures/no-coverage/OrderService.cs"
+        - path: "OrderServiceTests.cs"
+          source: "fixtures/no-coverage/OrderServiceTests.cs"
+        - path: "TestProject.csproj"
+          source: "fixtures/no-coverage/TestProject.csproj"
+    assertions:
+      - type: "output_matches"
+        pattern: "dotnet test"
+      - type: "output_matches"
+        pattern: "coverage"
+    rubric:
+      - "Runs dotnet test with code coverage collection to generate Cobertura data before analysis"
+      - "Extracts per-method coverage from the generated Cobertura XML"
+      - "Computes CRAP scores using both cyclomatic complexity and code coverage for each method in OrderService"
+      - "Provides risk categorization and actionable recommendations for the riskiest methods"
+    timeout: 360

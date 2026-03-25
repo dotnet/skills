@@ -10,6 +10,11 @@ on:
     - cron: "0 6 * * *"  # 06:00 UTC daily (3h after health check)
   workflow_dispatch:
 
+# Don't run scheduled triggers on forked repositories — forks lack the
+# secrets and context required, and scheduled runs would consume the
+# fork owner's minutes.
+if: ${{ !(github.event_name == 'schedule' && github.event.repository.fork) }}
+
 permissions:
   contents: read
   actions: read
@@ -157,7 +162,7 @@ Additionally, in the **📌 Existing Findings** section, if any finding that was
 
 ### 4.4 Write the Updated Issue Body
 
-Now that both Step 3 (linking investigation results) and Step 4 (marking resolved findings) have been applied to the in-memory issue body, make a **single** `update-issue` call with the combined changes.
+Now that both Step 3 (linking investigation results) and Step 4 (marking resolved findings) have been applied to the in-memory issue body, make a **single** `update-issue` call with the combined changes. You **MUST** set `operation: "replace"` so the body is overwritten (the default operation is `append`, which would duplicate the entire body).
 
 **Before calling `update-issue`**, run the body-length sanity check (see Guidelines). If the check fails, **abort the entire workflow** — skip `update-issue`, skip Step 5 (hide comments), and call `noop` with the error.
 
@@ -223,6 +228,7 @@ If changes were made, the summary is implicit in the safe-output calls. Do NOT c
 
 ## Guidelines
 
+- **CRITICAL — Use `operation: "replace"`**: When calling `update-issue`, you **MUST** set `operation: "replace"`. The default operation is `append`, which adds the body after the existing content and will duplicate the entire issue. Since you are providing the complete updated body, always use `replace`.
 - **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **complete, literal issue body text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. The body must be passed directly as the string value.
 - **CRITICAL — Body length sanity check**: Before calling `update-issue`, verify the new body is at least 80% the length of the original body. If it is significantly shorter, something went wrong — **stop immediately**: do NOT call `update-issue`, do NOT call `hide-comment`, and call `noop` with an error message describing the length mismatch. This check runs before any safe-output calls, so `noop` is always safe here. The health check body is typically 3000–8000 characters.
 - **Minimal edits only**: You are a groomer, not a rewriter. Only change: (a) investigation table rows (status + link), (b) resolved-finding annotations. Copy all other sections **byte-for-byte** from the original body. Do not reformat, re-wrap, or reorganize sections you are not changing.

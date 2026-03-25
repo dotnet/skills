@@ -1,0 +1,704 @@
+scenarios:
+  # --- Scenario 1: Obscure runtime changes — empty env vars, ZipArchive UTF-8 flag, keyed services ---
+  - name: "App with empty environment variables, ZIP encoding, and keyed DI services"
+    expect_activation: false
+    setup:
+      files:
+        - path: "App.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "EnvVarCheck.cs"
+          content: |
+            class EnvVarCheck
+            {
+                void CheckFlag()
+                {
+                    // On Linux, set via: export MY_FLAG=""
+                    var val = Environment.GetEnvironmentVariable("MY_FLAG");
+                    if (val == null)
+                    {
+                        Console.WriteLine("MY_FLAG not set, using default");
+                    }
+                }
+            }
+        - path: "ZipCreator.cs"
+          content: |
+            using System.IO.Compression;
+            class ZipCreator
+            {
+                void CreateArchive()
+                {
+                    using var archive = ZipFile.Open("data.zip", ZipArchiveMode.Create);
+                    archive.CreateEntry("レポート/月次.csv");  // Japanese path
+                    archive.CreateEntry("données/résumé.txt"); // French accented
+                }
+            }
+        - path: "Startup.cs"
+          content: |
+            using Microsoft.Extensions.DependencyInjection;
+            class Startup
+            {
+                void Configure(IServiceCollection services)
+                {
+                    services.AddSingleton<ICache, RedisCache>();
+                    // Controller expects [FromKeyedServices("cache")] ICache
+                }
+            }
+            interface ICache { }
+            class RedisCache : ICache { }
+    prompt: |
+      Migrate this .NET 8 app to .NET 9 and fix all breaking changes.
+      On our Linux servers, we set empty environment variables (export MY_FLAG="") to
+      distinguish between "not set" and "explicitly empty".
+      The ZIP archives are consumed by a legacy Java system that reads filenames in Shift-JIS.
+      A controller uses [FromKeyedServices("cache")] ICache but the service is registered as non-keyed.
+      Identify all breaking changes and provide the exact fixes.
+    assertions:
+      - type: "output_matches"
+        pattern: "(empty.*env|null.*empty|SetEnvironmentVariable|string\\.IsNullOrEmpty)"
+      - type: "output_matches"
+        pattern: "(ZipArchive|UTF.?8|encoding|Shift.?JIS|flag)"
+      - type: "output_matches"
+        pattern: "(keyed|non-keyed|FromKeyedServices|InvalidOperationException|fallback)"
+    rubric:
+      - "Correctly identifies empty environment variables on Unix now return empty string instead of null in .NET 9; recommends string.IsNullOrEmpty check"
+      - "Warns about ZipArchiveEntry names/comments now respecting UTF-8 bit flag; explains that explicit entryNameEncoding may be overridden"
+      - "Identifies FromKeyedServicesAttribute no longer falls back to non-keyed service registration; throws InvalidOperationException"
+    timeout: 420
+
+  # --- Scenario 2: C# 13 compiler breaking changes ---
+  - name: "C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions"
+    expect_activation: false
+    prompt: |
+      I'm migrating a .NET 8 library to .NET 9 / C# 13 and getting compiler errors. Here's the code:
+
+      ```csharp
+      // Buffer.cs
+      [System.Runtime.CompilerServices.InlineArray(10)]
+      record struct Buffer()
+      {
+          private int _element0;
+      }
+      ```
+
+      ```csharp
+      // Generator.cs
+      unsafe class DataGenerator
+      {
+          IEnumerable<int> Generate()
+          {
+              yield return 1;
+              Process();
+              void Process()
+              {
+                  int* p = stackalloc int[10];
+                  // ... work with pointer
+              }
+          }
+      }
+      ```
+
+      ```csharp
+      // Resolver.cs
+      class Resolver
+      {
+          static void Process(ReadOnlySpan<int> ros) {}
+          static void Process(Span<object> s) {}
+
+          static void Main()
+          {
+              Process([]);  // this compiled in .NET 8
+          }
+      }
+      ```
+
+      Migrate this code to .NET 9 / C# 13. What breaks in each case and how do I fix it?
+    assertions:
+      - type: "output_matches"
+        pattern: "(InlineArray|record struct|CS9259|struct)"
+      - type: "output_matches"
+        pattern: "(iterator|safe context|unsafe|local function)"
+      - type: "output_matches"
+        pattern: "(collection expression|overload|\\[\\]|ambig)"
+    rubric:
+      - "Identifies InlineArray on record struct is disallowed (CS9259); recommends changing to a plain struct"
+      - "Identifies iterator safe context breaks unsafe code in nested local functions; recommends adding unsafe modifier to local function"
+      - "Identifies collection expression overload resolution change for empty [] — no longer uses span to tiebreak"
+    timeout: 420
+
+  # --- Scenario 3: ASP.NET Core — HostBuilder validation, forwarded headers, HttpClientFactory ---
+  - name: "ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting"
+    expect_activation: false
+    setup:
+      files:
+        - path: "WebApi.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddSingleton<ICacheService>(sp =>
+                new CacheService(sp.GetRequiredService<IUserService>()));
+            builder.Services.AddHttpClient("api")
+                .ConfigureHttpMessageHandlerBuilder(b =>
+                {
+                    ((HttpClientHandler)b.PrimaryHandler).UseCookies = false;
+                });
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor;
+            });
+            var app = builder.Build();
+            app.UseForwardedHeaders();
+            app.Run();
+    prompt: |
+      Migrate this .NET 8 ASP.NET Core web API to .NET 9.
+      The app runs behind a reverse proxy, has Trace-level logging to debug HTTP request headers,
+      and uses dotnet watch for development.
+      Identify all breaking changes and provide the exact fixes.
+    assertions:
+      - type: "output_matches"
+        pattern: "(ValidateOnBuild|ValidateScopes|development|DI|scope)"
+      - type: "output_matches"
+        pattern: "(ForwardedHeaders|KnownProxies|unknown prox)"
+      - type: "output_matches"
+        pattern: "(SocketsHttpHandler|HttpClientHandler|InvalidCastException|primary handler)"
+    rubric:
+      - "Identifies ValidateOnBuild/ValidateScopes now enabled in development — scoped-into-singleton will throw at startup"
+      - "Warns about ForwardedHeadersMiddleware ignoring headers from unknown proxies; recommends adding proxy to KnownProxies"
+      - "Identifies HttpClientFactory now uses SocketsHttpHandler; casting to HttpClientHandler throws InvalidCastException"
+      - "Mentions header values are redacted by default in HttpClientFactory logging"
+    timeout: 420
+
+  # --- Scenario 4: EF Core — Pending migrations, explicit transactions, Cosmos discriminator ---
+  - name: "EF Core app with migration patterns and Cosmos DB discriminator"
+    expect_activation: false
+    setup:
+      files:
+        - path: "EfApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
+                <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0" PrivateAssets="all" />
+              </ItemGroup>
+            </Project>
+        - path: "AppDbContext.cs"
+          content: |
+            using Microsoft.EntityFrameworkCore;
+            class AppDbContext : DbContext
+            {
+                public DbSet<Order> Orders => Set<Order>();
+                protected override void OnModelCreating(ModelBuilder modelBuilder)
+                {
+                    modelBuilder.Entity<Order>().HasData(
+                        new Order { Id = 1, CreatedAt = DateTime.UtcNow });
+                }
+            }
+            class Order { public int Id { get; set; } public DateTime CreatedAt { get; set; } }
+        - path: "MigrationRunner.cs"
+          content: |
+            using Microsoft.EntityFrameworkCore;
+            class MigrationRunner
+            {
+                void ApplyMigrations(AppDbContext db)
+                {
+                    var strategy = db.Database.CreateExecutionStrategy();
+                    strategy.Execute(() =>
+                    {
+                        using var transaction = db.Database.BeginTransaction();
+                        db.Database.Migrate();
+                        transaction.Commit();
+                    });
+                }
+            }
+    prompt: |
+      Migrate this EF Core app to .NET 9 / EF Core 9.
+      The app also uses the Cosmos DB provider in a separate project with existing documents
+      using "Discriminator" property, and has synchronous Cosmos DB queries.
+      Identify all breaking changes and provide the exact fixes.
+    assertions:
+      - type: "output_matches"
+        pattern: "(explicit transaction|MigrateAsync|BeginTransaction)"
+      - type: "output_matches"
+        pattern: "(pending.*model|HasData|DateTime|non-deterministic)"
+      - type: "output_matches"
+        pattern: "(\\$type|Discriminator|discriminator)"
+    rubric:
+      - "Identifies Migrate/MigrateAsync inside explicit transaction now throws; recommends removing external transaction"
+      - "Identifies DateTime.UtcNow in HasData causes pending model changes exception; recommends static values"
+      - "Identifies Cosmos DB discriminator renamed from 'Discriminator' to '$type'; shows HasDiscriminator mitigation"
+      - "Warns that sync I/O on Cosmos DB provider now throws; must use async equivalents"
+      - "Mentions Microsoft.EntityFrameworkCore.Design may not be found; shows Publish=true workaround"
+    timeout: 420
+
+  # --- Scenario 5: Cosmos DB id format change and HasIndex removal ---
+  - name: "EF Core Cosmos DB app with existing documents and composite id format"
+    expect_activation: false
+    setup:
+      files:
+        - path: "CosmosApi.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.EntityFrameworkCore.Cosmos" Version="8.0.0" />
+              </ItemGroup>
+            </Project>
+        - path: "ProductContext.cs"
+          content: |
+            using Microsoft.EntityFrameworkCore;
+            class ProductContext : DbContext
+            {
+                public DbSet<Product> Products => Set<Product>();
+                protected override void OnModelCreating(ModelBuilder modelBuilder)
+                {
+                    modelBuilder.Entity<Product>().HasIndex(p => p.Sku);
+                    modelBuilder.Entity<Product>().ToContainer("Products");
+                }
+            }
+            class Product { public int Id { get; set; } public string Sku { get; set; } }
+        - path: "CosmosQuery.cs"
+          content: |
+            class CosmosQuery
+            {
+                void FindProducts(ProductContext ctx)
+                {
+                    // Direct Cosmos SQL
+                    var sql = "SELECT * FROM c WHERE c.Discriminator = 'Product' AND c.Sku = @sku";
+                    // Also uses sync APIs
+                    var products = ctx.Products.Where(p => p.Sku == "ABC").ToList();
+                }
+            }
+    prompt: |
+      Migrate this EF Core Cosmos DB app to .NET 9.
+      Our existing Cosmos DB container has 500K documents. They were written by EF Core 8 and have
+      a "Discriminator" property and id values in format "Product|123".
+      We run direct SQL queries against the container that reference c.Discriminator.
+      Identify all breaking changes — especially around data compatibility with existing documents.
+    assertions:
+      - type: "output_matches"
+        pattern: "(\\$type|Discriminator|discriminator.*renamed|HasDiscriminator)"
+      - type: "output_matches"
+        pattern: "(id.*format|Product\\|123|composite|no longer contain)"
+      - type: "output_matches"
+        pattern: "(HasIndex|throws|not supported|Cosmos)"
+    rubric:
+      - "Identifies discriminator property renamed from 'Discriminator' to '$type'; shows HasDiscriminator('Discriminator') to preserve compatibility with existing docs"
+      - "Identifies id property no longer embeds discriminator — new documents will use '123' format not 'Product|123'; explains data migration implications"
+      - "Warns that HasIndex now throws on Cosmos (was silently ignored); must remove it"
+      - "Warns that SQL queries using c.Discriminator need updating to c.$type"
+      - "Identifies sync I/O (ToList) now throws on Cosmos provider; must use ToListAsync"
+    timeout: 420
+
+  # --- Scenario 6: Serialization — JsonDocument null, BinaryFormatter, JSON metadata ---
+  - name: "App with JsonDocument null deserialization and BinaryFormatter fallback"
+    expect_activation: false
+    setup:
+      files:
+        - path: "SerializationApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "NullDocHandler.cs"
+          content: |
+            using System.Text.Json;
+            class NullDocHandler
+            {
+                void Handle()
+                {
+                    var doc = JsonSerializer.Deserialize<JsonDocument>("null");
+                    if (doc is null)
+                    {
+                        Console.WriteLine("Got null document");
+                        return;
+                    }
+                    Console.WriteLine(doc.RootElement);
+                }
+            }
+        - path: "CacheService.cs"
+          content: |
+            using System.Runtime.Serialization.Formatters.Binary;
+            class CacheService
+            {
+                void Save(Stream stream, object sessionData)
+                {
+                    AppContext.SetSwitch("System.Runtime.Serialization.EnableUnsafeBinaryFormatterSerialization", true);
+                    var formatter = new BinaryFormatter();
+                    formatter.Serialize(stream, sessionData);
+                }
+            }
+        - path: "ApiClient.cs"
+          content: |
+            using System.Net;
+            class ApiClient
+            {
+                void LogAgent(HttpListenerRequest request)
+                {
+                    Console.WriteLine("UA length: " + request.UserAgent.Length);
+                }
+            }
+    prompt: |
+      Migrate this .NET 8 app to .NET 9 and fix all breaking changes in the code.
+    assertions:
+      - type: "output_matches"
+        pattern: "(JsonDocument|null|JsonValueKind\\.Null|non-null)"
+      - type: "output_matches"
+        pattern: "(BinaryFormatter|NotSupportedException|always throws)"
+      - type: "output_matches"
+        pattern: "(UserAgent|nullable|null check|string\\?)"
+    rubric:
+      - "Identifies JsonDocument deserialization of 'null' now returns non-null document instead of null; code path changes"
+      - "Identifies BinaryFormatter always throws even with the AppContext switch; switch is removed"
+      - "Identifies HttpListenerRequest.UserAgent is now nullable; .Length without null check may throw"
+    timeout: 420
+
+  # --- Scenario 7: SDK/MSBuild — Terminal Logger, version requirements, warnings ---
+  - name: "CI pipeline with Terminal Logger parsing and version constraints"
+    expect_activation: false
+    setup:
+      files:
+        - path: "MultiTarget.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFrameworks>net7.0;net8.0;netstandard1.6</TargetFrameworks>
+              </PropertyGroup>
+            </Project>
+        - path: "global.json"
+          content: |
+            { "sdk": { "version": "8.0.300" } }
+        - path: "ci-build.sh"
+          content: |
+            #!/bin/bash
+            output=$(dotnet build 2>&1)
+            if echo "$output" | grep -q "warning CS"; then
+              echo "Build has warnings"
+            fi
+            dotnet workload list | grep "maui" && echo "MAUI workload installed"
+    prompt: |
+      Migrate this CI/CD pipeline and multi-targeted library to .NET 9 SDK.
+      Our developers use Visual Studio 2022 17.11.
+      We use `dotnet watch` for local development while targeting net8.0.
+      Identify all issues and provide the exact fixes.
+    assertions:
+      - type: "output_matches"
+        pattern: "(Terminal Logger|--tl|MSBUILDTERMINALLOGGER|console.*output)"
+      - type: "output_matches"
+        pattern: "(17\\.12|17\\.11|Visual Studio|NETSDK1223)"
+      - type: "output_matches"
+        pattern: "(net7\\.0|warning|.NET Standard|netstandard)"
+    rubric:
+      - "Identifies Terminal Logger changes build output format; recommends --tl:off for CI scripts"
+      - "Warns that VS 17.11 cannot target net9.0; requires 17.12+"
+      - "Notes net7.0 targets produce warnings since .NET 7 is out of support"
+      - "Notes netstandard1.x targets produce warnings"
+      - "Mentions dotnet workload output format changed"
+      - "Mentions dotnet watch incompatibility with Hot Reload for older frameworks"
+    timeout: 420
+
+  # --- Scenario 8: WinForms — Security analyzers, StatusStrip, PictureBox ---
+  - name: "WinForms app with custom UserControls and PictureBox URL loading"
+    expect_activation: false
+    setup:
+      files:
+        - path: "WinFormsApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>WinExe</OutputType>
+                <TargetFramework>net8.0-windows</TargetFramework>
+                <UseWindowsForms>true</UseWindowsForms>
+              </PropertyGroup>
+            </Project>
+        - path: "MyControl.cs"
+          content: |
+            using System.Windows.Forms;
+            public class MyControl : UserControl
+            {
+                public string DisplayName { get; set; }
+                public int MaxItems { get; set; }
+            }
+        - path: "ImageLoader.cs"
+          content: |
+            using System.Net;
+            using System.Windows.Forms;
+            class ImageLoader
+            {
+                void LoadImage(PictureBox pictureBox, string url)
+                {
+                    try { pictureBox.Load(url); }
+                    catch (WebException ex) { Console.WriteLine("Failed: " + ex.Message); }
+                }
+            }
+    prompt: |
+      Migrate this .NET 8 WinForms app to .NET 9 and fix all breaking changes.
+      The app also has StatusStrip controls with default rendering,
+      code that calls IWindowsFormsEditorService.DropDownControl passing null sometimes,
+      and references COM components with P/Invoke to native libraries.
+    assertions:
+      - type: "output_matches"
+        pattern: "(WFO1000|security analyz|serialization|DesignerSerializationVisibility)"
+      - type: "output_matches"
+        pattern: "(PictureBox|HttpRequestException|WebException)"
+      - type: "output_matches"
+        pattern: "(StatusStrip|render|default)"
+    rubric:
+      - "Identifies WFO1000 security analyzer errors for properties without serialization configuration"
+      - "Warns PictureBox now throws HttpRequestException instead of WebException"
+      - "Mentions StatusStrip default renderer changed"
+      - "Identifies DropDownControl parameter is now non-nullable — passing null will warn"
+      - "Mentions CET support may affect P/Invoke with incompatible native libraries"
+    timeout: 420
+
+  # --- Scenario 9: Containers and deployment — zlib, env var precedence, Monitor images ---
+  - name: "Containerized app with zlib dependency and runtime configuration"
+    expect_activation: false
+    setup:
+      files:
+        - path: "ContainerApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "Dockerfile"
+          content: |
+            FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+            # Our image processing library depends on system zlib
+            FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+            COPY . .
+            RUN dotnet publish -c Release -o /app
+            FROM base
+            COPY --from=build /app .
+            ENTRYPOINT ["dotnet", "ContainerApp.dll"]
+        - path: "runtimeconfig.template.json"
+          content: |
+            {
+              "configProperties": {
+                "System.GC.Server": true,
+                "System.Threading.ThreadPool.MinThreads": 50
+              }
+            }
+        - path: "global.json"
+          content: |
+            { "sdk": { "version": "8.0.300" } }
+    prompt: |
+      Migrate this containerized .NET 8 app to .NET 9.
+      In our Kubernetes deployment, we set DOTNET_gcServer=0 (to reduce memory on small pods)
+      and DOTNET_ThreadPool_MinThreads=4. In .NET 8, the runtimeconfig.json values took precedence.
+      The app uses .NET Monitor with specific image tags.
+      Identify all breaking changes and provide the exact fixes.
+    assertions:
+      - type: "output_matches"
+        pattern: "(zlib|no longer install|apt-get|zlib1g)"
+      - type: "output_matches"
+        pattern: "(environment variable|precedence|runtimeconfig|override)"
+      - type: "output_matches"
+        pattern: "(global\\.json|SDK|9\\.0)"
+    rubric:
+      - "Identifies zlib is no longer installed in .NET 9 images; recommends adding apt-get install"
+      - "Explains environment variables now take precedence over runtimeconfig.json — GC and ThreadPool settings will use env var values"
+      - "Warns about .NET Monitor image tag format changes"
+      - "Notes global.json should be updated to 9.0.x SDK"
+    timeout: 420
+
+  # --- Scenario 10: EF Core Cosmos DB — comprehensive Cosmos changes ---
+  - name: "EF Core Cosmos DB app with discriminator and sync I/O"
+    expect_activation: false
+    setup:
+      files:
+        - path: "CosmosApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.EntityFrameworkCore.Cosmos" Version="8.0.0" />
+              </ItemGroup>
+            </Project>
+        - path: "BlogContext.cs"
+          content: |
+            using Microsoft.EntityFrameworkCore;
+            class BlogContext : DbContext
+            {
+                public DbSet<Blog> Blogs => Set<Blog>();
+                protected override void OnModelCreating(ModelBuilder modelBuilder)
+                {
+                    modelBuilder.Entity<Blog>().HasIndex(b => b.Name);
+                }
+            }
+            class Blog { public string Id { get; set; } public string Name { get; set; } }
+        - path: "SyncJob.cs"
+          content: |
+            class SyncJob
+            {
+                void Run(BlogContext context)
+                {
+                    var blogs = context.Blogs.ToList();
+                    foreach (var b in blogs) { b.Name = b.Name.Trim(); }
+                    context.SaveChanges();
+                }
+            }
+    prompt: |
+      Migrate this EF Core Cosmos DB app to .NET 9.
+      The app has existing documents in Cosmos DB with a "Discriminator" property,
+      documents with id in format "Blog|1" (discriminator + key),
+      and raw SQL queries like `SELECT * FROM c WHERE c.Discriminator = 'Blog'`.
+      Identify all breaking changes and provide the exact fixes.
+    assertions:
+      - type: "output_matches"
+        pattern: "(\\$type|Discriminator|discriminator.*renamed)"
+      - type: "output_matches"
+        pattern: "(sync|synchronous|SaveChanges|ToList|async)"
+      - type: "output_matches"
+        pattern: "(HasIndex|throws|ignored)"
+    rubric:
+      - "Identifies discriminator property renamed from 'Discriminator' to '$type'; shows HasDiscriminator('Discriminator') mitigation"
+      - "Identifies id property no longer contains discriminator — existing documents have 'Blog|1' format but new ones will be '1'"
+      - "Identifies sync I/O throws — SaveChanges must become SaveChangesAsync, ToList must become ToListAsync"
+      - "Identifies HasIndex now throws instead of being silently ignored"
+      - "Warns that SQL queries using c.Discriminator need updating to c.$type or use VALUE projection"
+    timeout: 420
+
+  # --- Scenario 11: Mixed — String.Trim removal, keyed services, InlineArray size ---
+  - name: "Library with String.Trim span overload, keyed services, and InlineArray"
+    expect_activation: false
+    setup:
+      files:
+        - path: "MyLib.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "StringUtils.cs"
+          content: |
+            using System.Runtime.CompilerServices;
+            using System.Runtime.InteropServices;
+            // NOTE: This file was compiled against .NET 9 RC2 which had
+            // String.Trim(params ReadOnlySpan<char>) overloads that were
+            // removed in GA. Recompiling against GA will change overload resolution.
+            class StringUtils
+            {
+                public string CleanInput(string input)
+                {
+                    ReadOnlySpan<char> trimChars = [' ', '\t', '\n'];
+                    return input.Trim(trimChars);
+                }
+            }
+            [InlineArray(1048577)]
+            struct LargeBuffer { private byte _element0; }
+        - path: "ApiController.cs"
+          content: |
+            using Microsoft.Extensions.DependencyInjection;
+            using System.Net;
+            class ApiController
+            {
+                public ApiController([FromKeyedServices("cache")] ICache cache) { }
+                void LogAgent(HttpListenerRequest request)
+                {
+                    Console.WriteLine(request.UserAgent.Length);
+                }
+            }
+            interface ICache { }
+    prompt: |
+      Migrate this .NET 8 library and web API to .NET 9. It was compiled against .NET 9 RC2.
+      The ICache service is only registered as a non-keyed service.
+      Identify all breaking changes and provide the exact fixes.
+    assertions:
+      - type: "output_matches"
+        pattern: "(Trim|ReadOnlySpan|char\\[\\]|removed|MissingMethodException)"
+      - type: "output_matches"
+        pattern: "(keyed|non-keyed|FromKeyedServices|InvalidOperationException)"
+      - type: "output_matches"
+        pattern: "(InlineArray|size|1 MiB|limit)"
+    rubric:
+      - "Identifies String.Trim(ReadOnlySpan<char>) overloads were removed in GA; RC2-compiled code may get MissingMethodException at runtime or changed overload resolution when recompiled"
+      - "Identifies FromKeyedServicesAttribute no longer falls back to non-keyed service; throws InvalidOperationException"
+      - "Warns about InlineArray struct size limit enforcement (1 MiB)"
+      - "Identifies HttpListenerRequest.UserAgent is now nullable"
+    timeout: 420
+
+  # --- Scenario 12: Runtime config + container changes combined ---
+  - name: "Containerized app with env var precedence reversal and zlib removal"
+    expect_activation: false
+    setup:
+      files:
+        - path: "WebApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "Dockerfile"
+          content: |
+            FROM mcr.microsoft.com/dotnet/aspnet:8.0
+            COPY publish/ .
+            ENTRYPOINT ["dotnet", "WebApp.dll"]
+        - path: "runtimeconfig.template.json"
+          content: |
+            {
+              "configProperties": {
+                "System.GC.Server": true,
+                "System.GC.Concurrent": true,
+                "System.Threading.ThreadPool.MinThreads": 25
+              }
+            }
+        - path: "ImageProcessor.cs"
+          content: |
+            class ImageProcessor
+            {
+                void Process()
+                {
+                    // Uses SkiaSharp which depends on system libz/zlib
+                    var image = LoadImage("input.png");
+                    var compressed = Compress(image);
+                }
+                object LoadImage(string path) => null;
+                byte[] Compress(object img) => null;
+            }
+    prompt: |
+      Migrate this containerized .NET 8 app to .NET 9.
+      Our Kubernetes deployment sets these env vars:
+        DOTNET_gcServer=0 (save memory on small pods)
+        DOTNET_gcConcurrent=0
+        DOTNET_ThreadPool_MinThreads=4
+      In .NET 8, the runtimeconfig.json values (Server=true, Concurrent=true, MinThreads=25)
+      took precedence and our app used server GC with 25 min threads.
+      The app uses SkiaSharp for image processing which depends on system zlib.
+      Identify all breaking changes and their exact impact on this deployment.
+    assertions:
+      - type: "output_matches"
+        pattern: "(environment variable|precedence|runtimeconfig|DOTNET_gcServer)"
+      - type: "output_matches"
+        pattern: "(zlib|no longer install|apt-get|zlib1g|SkiaSharp)"
+      - type: "output_matches"
+        pattern: "(workstation|server GC|GC.*mode|MinThreads.*4)"
+    rubric:
+      - "Correctly states environment variables now take precedence in .NET 9 — all three settings (GC Server, Concurrent, ThreadPool) will use env var values instead of runtimeconfig"
+      - "Explains the concrete impact: app switches from server GC to workstation GC, concurrent GC disabled, min threads drop from 25 to 4"
+      - "Identifies zlib no longer installed in .NET 9 container images; SkiaSharp/image processing will fail; recommends adding apt-get install zlib1g"
+      - "Recommends either removing conflicting env vars or updating runtimeconfig to match desired values"
+    timeout: 420

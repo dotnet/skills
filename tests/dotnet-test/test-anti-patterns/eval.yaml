@@ -1,0 +1,444 @@
+scenarios:
+  - name: "Detect mixed severity anti-patterns in repository service tests"
+    prompt: |
+      We just had a prod incident traced back to tests that were passing but not actually verifying anything.
+      Can you audit this test class and flag anything suspicious?
+
+      ```csharp
+      using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+      namespace UserRepo.Tests;
+
+      [TestClass]
+      public class UserRepositoryTests
+      {
+          private static readonly HttpClient _client = new();
+
+          [TestMethod]
+          public void GetUser_ExistingId_ReturnsUser()
+          {
+              var repo = new UserRepository();
+              repo.Add(new User(1, "Alice"));
+              var user = repo.GetById(1);
+              Assert.IsNotNull(user);
+          }
+
+          [TestMethod]
+          public void GetUser_NonExistentId_ReturnsNull()
+          {
+              var repo = new UserRepository();
+              var user = repo.GetById(999);
+              // should be null
+          }
+
+          [TestMethod]
+          public void AddUser_DuplicateId_ThrowsException()
+          {
+              var repo = new UserRepository();
+              repo.Add(new User(1, "Alice"));
+              try
+              {
+                  repo.Add(new User(1, "Bob"));
+                  // If we get here, no exception was thrown
+              }
+              catch (Exception)
+              {
+                  return; // test passes
+              }
+          }
+
+          [TestMethod]
+          public void DeleteUser_RemovesFromRepository()
+          {
+              var repo = new UserRepository();
+              repo.Add(new User(1, "Alice"));
+              repo.Delete(1);
+              Assert.AreEqual(repo.Count, repo.Count);
+          }
+
+          [TestMethod]
+          public void UpdateUser_ChangesName()
+          {
+              var repo = new UserRepository();
+              repo.Add(new User(1, "Alice"));
+              repo.Update(1, "Alicia");
+              var user = repo.GetById(1);
+              Assert.IsTrue(user.Name != "Alice");
+          }
+
+          [TestMethod]
+          public void GetAllUsers_ReturnsCorrectCount()
+          {
+              var repo = new UserRepository();
+              repo.Add(new User(1, "Alice"));
+              repo.Add(new User(2, "Bob"));
+              repo.Add(new User(3, "Charlie"));
+              var all = repo.GetAll();
+              Assert.AreEqual(3, all.Count);
+              Assert.IsTrue(all.Any(u => u.Name == "Alice"));
+              Assert.IsTrue(all.Any(u => u.Name == "Bob"));
+              Assert.IsTrue(all.Any(u => u.Name == "Charlie"));
+          }
+
+          [TestMethod]
+          public void AddUser_NullUser_ThrowsArgumentNullException()
+          {
+              var repo = new UserRepository();
+              Assert.ThrowsException<Exception>(() => repo.Add(null!));
+          }
+
+          [TestMethod]
+          public void SearchUsers_ByPartialName_FindsMatches()
+          {
+              var repo = new UserRepository();
+              repo.Add(new User(1, "Alice"));
+              repo.Add(new User(2, "Alicia"));
+              repo.Add(new User(3, "Bob"));
+              var results = repo.Search("Ali");
+              Assert.IsTrue(results.Count == 2);
+              Console.WriteLine($"Found {results.Count} users matching 'Ali'");
+          }
+      }
+      ```
+
+      ```csharp
+      namespace UserRepo;
+
+      public record User(int Id, string Name);
+
+      public class UserRepository
+      {
+          private readonly Dictionary<int, User> _users = new();
+
+          public void Add(User user)
+          {
+              ArgumentNullException.ThrowIfNull(user);
+              if (_users.ContainsKey(user.Id))
+                  throw new InvalidOperationException($"User {user.Id} already exists");
+              _users[user.Id] = user;
+          }
+
+          public User? GetById(int id) => _users.GetValueOrDefault(id);
+          public void Delete(int id) => _users.Remove(id);
+          public void Update(int id, string name) => _users[id] = _users[id] with { Name = name };
+          public List<User> GetAll() => _users.Values.ToList();
+          public List<User> Search(string partial) => _users.Values.Where(u => u.Name.Contains(partial)).ToList();
+          public int Count => _users.Count;
+      }
+      ```
+    assertions:
+      - type: "output_matches"
+        pattern: "(no assertion|missing assertion|never assert|does.?n.?t assert|no.*verif)"
+      - type: "output_matches"
+        pattern: "(swallow|catch.*return|exception.*silent|pass.*without)"
+      - type: "output_matches"
+        pattern: "(Assert\\.AreEqual.*itself|self.compar|always.pass|compare.*to itself)"
+      - type: "output_matches"
+        pattern: "(Assert\\.ThrowsException.*<Exception>|broad.*exception|specific.*exception)"
+      - type: "exit_success"
+    rubric:
+      - "Identified that GetUser_NonExistentId_ReturnsNull has no assertion — it checks nothing about the null result"
+      - "Identified that AddUser_DuplicateId catches the exception and returns without ever asserting, and also silently passes when NO exception is thrown"
+      - "Identified that DeleteUser compares repo.Count to itself (always passes regardless of whether the delete worked)"
+      - "Identified that UpdateUser uses a negative assertion (not equal to old value) instead of asserting the expected new value"
+      - "Identified that AddUser_NullUser uses broad Assert.ThrowsException<Exception> instead of the specific ArgumentNullException"
+      - "Identified that the static HttpClient field is never disposed and appears unused"
+      - "Provided concrete fixes for the critical and high severity findings"
+    timeout: 120
+
+  - name: "Detect flakiness indicators and test coupling"
+    prompt: |
+      I have a test suite that sometimes passes and sometimes fails depending on test execution order.
+      Can you look at the test code and figure out what's going on?
+
+      ```csharp
+      // OrderServiceTests.cs
+      using Microsoft.VisualStudio.TestTools.UnitTesting;
+      using System.Reflection;
+
+      namespace FlakyCoupled.Tests;
+
+      [TestClass]
+      public class OrderServiceTests
+      {
+          private static List<string> _processedOrders = new();
+
+          [TestInitialize]
+          public void Setup()
+          {
+              // Note: _processedOrders is never cleared between tests
+          }
+
+          [TestMethod]
+          public void Test1()
+          {
+              var service = new OrderService();
+              var order = service.CreateOrder("item-1", 2);
+              _processedOrders.Add(order.Id);
+              Assert.IsNotNull(order);
+          }
+
+          [TestMethod]
+          public void Test2()
+          {
+              Assert.AreEqual(1, _processedOrders.Count);
+              var service = new OrderService();
+              service.ProcessOrder(_processedOrders[0]);
+          }
+
+          [TestMethod]
+          public void ProcessOrder_SetsTimestamp()
+          {
+              var service = new OrderService();
+              var order = service.CreateOrder("item-2", 1);
+              service.ProcessOrder(order.Id);
+
+              Thread.Sleep(2000);
+
+              var processed = service.GetOrder(order.Id);
+              Assert.IsTrue(processed.ProcessedAt.Value.Day == DateTime.Now.Day);
+          }
+
+          [TestMethod]
+          public void CreateOrder_InternalState_IsCorrect()
+          {
+              var service = new OrderService();
+              var order = service.CreateOrder("item-3", 5);
+
+              var field = typeof(OrderService).GetField("_orders", BindingFlags.NonPublic | BindingFlags.Instance);
+              var orders = (Dictionary<string, Order>)field.GetValue(service);
+              Assert.AreEqual(1, orders.Count);
+          }
+
+          [TestMethod]
+          public void CreateOrder_MultipleItems_Test()
+          {
+              var service = new OrderService();
+              var order1 = service.CreateOrder("item-a", 1);
+              Assert.IsNotNull(order1);
+              Assert.IsNotNull(order1.Id);
+              var order2 = service.CreateOrder("item-b", 2);
+              Assert.IsNotNull(order2);
+              Assert.IsNotNull(order2.Id);
+              var order3 = service.CreateOrder("item-c", 3);
+              Assert.IsNotNull(order3);
+              Assert.IsNotNull(order3.Id);
+              Assert.AreNotEqual(order1.Id, order2.Id);
+              Assert.AreNotEqual(order2.Id, order3.Id);
+              Assert.AreNotEqual(order1.Id, order3.Id);
+              var all = service.GetAllOrders();
+              Assert.AreEqual(3, all.Count);
+              Assert.IsTrue(all.Any(o => o.ItemName == "item-a"));
+              Assert.IsTrue(all.Any(o => o.ItemName == "item-b"));
+              Assert.IsTrue(all.Any(o => o.ItemName == "item-c"));
+              Assert.IsTrue(all.All(o => o.Quantity > 0));
+              Assert.IsTrue(all.Sum(o => o.Quantity) == 6);
+              Console.WriteLine($"Created {all.Count} orders successfully");
+          }
+
+          [TestMethod]
+          public void ProcessOrder_InvalidId_Throws()
+          {
+              var service = new OrderService();
+              Assert.ThrowsException<Exception>(() => service.ProcessOrder("nonexistent"));
+          }
+      }
+      ```
+    assertions:
+      - type: "output_matches"
+        pattern: "(static.*shared|shared.*state|_processedOrders|ordering|order.depend)"
+      - type: "output_matches"
+        pattern: "(Thread\\.Sleep|flak|timing|time.depend)"
+      - type: "output_matches"
+        pattern: "(reflect|private|internal.*state|implementation.*detail|coupling)"
+      - type: "exit_success"
+    rubric:
+      - "Identified that Test2 depends on Test1 running first due to shared static state"
+      - "Identified that _processedOrders is never cleared between tests, causing ordering dependency"
+      - "Identified Thread.Sleep and DateTime.Now as flakiness risks in ProcessOrder_SetsTimestamp"
+      - "Identified reflection-based access to private _orders field as implementation coupling"
+      - "Recognized that CreateOrder_MultipleItems_Test is too large and tests multiple concerns"
+      - "Flagged the broad exception type in Assert.ThrowsException<Exception>"
+    timeout: 120
+
+  - name: "Detect duplicated tests and magic values"
+    prompt: |
+      I feel like my tests are hard to maintain and there's a lot of repetition.
+      Can you take a look and suggest improvements?
+
+      ```csharp
+      using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+      namespace DuplicateMagic.Tests;
+
+      [TestClass]
+      public class DiscountServiceTests
+      {
+          [TestMethod]
+          public void ApplyDiscount_Gold_10Percent()
+          {
+              var service = new DiscountService();
+              var result = service.ApplyDiscount(100.0m, "Gold");
+              Assert.AreEqual(90.0m, result);
+          }
+
+          [TestMethod]
+          public void ApplyDiscount_Gold_200()
+          {
+              var service = new DiscountService();
+              var result = service.ApplyDiscount(200.0m, "Gold");
+              Assert.AreEqual(180.0m, result);
+          }
+
+          [TestMethod]
+          public void ApplyDiscount_Gold_50()
+          {
+              var service = new DiscountService();
+              var result = service.ApplyDiscount(50.0m, "Gold");
+              Assert.AreEqual(45.0m, result);
+          }
+
+          [TestMethod]
+          public void ApplyDiscount_Silver_5Percent()
+          {
+              var service = new DiscountService();
+              var result = service.ApplyDiscount(100.0m, "Silver");
+              Assert.AreEqual(95.0m, result);
+          }
+
+          [TestMethod]
+          public void ApplyDiscount_Silver_200()
+          {
+              var service = new DiscountService();
+              var result = service.ApplyDiscount(200.0m, "Silver");
+              Assert.AreEqual(190.0m, result);
+          }
+
+          [TestMethod]
+          public void ApplyDiscount_Silver_50()
+          {
+              var service = new DiscountService();
+              var result = service.ApplyDiscount(50.0m, "Silver");
+              Assert.AreEqual(47.5m, result);
+          }
+
+          [TestMethod]
+          public void CalculateShipping_ShouldWork()
+          {
+              var service = new DiscountService();
+              var result = service.CalculateShipping(42, 7, 3);
+              Assert.AreEqual(882.0m, result);
+          }
+
+          [TestMethod]
+          public void CalculateShipping_ShouldWorkForHeavy()
+          {
+              var service = new DiscountService();
+              var result = service.CalculateShipping(150, 7, 3);
+              Assert.AreEqual(3150.0m, result);
+          }
+
+          [TestMethod]
+          public void TestTaxCalculation()
+          {
+              var svc = new DiscountService();
+              Assert.AreEqual(108.0m, svc.ApplyTax(100.0m, 0.08m));
+              Assert.AreEqual(216.0m, svc.ApplyTax(200.0m, 0.08m));
+              Assert.AreEqual(112.5m, svc.ApplyTax(100.0m, 0.125m));
+              Assert.AreEqual(225.0m, svc.ApplyTax(200.0m, 0.125m));
+              Assert.AreEqual(100.0m, svc.ApplyTax(100.0m, 0.0m));
+          }
+      }
+      ```
+    assertions:
+      - type: "output_matches"
+        pattern: "(duplicat|repetit|data.?driven|DataRow|parameteriz)"
+      - type: "output_matches"
+        pattern: "(magic|unexplained|42|7|hard.?coded|unclear)"
+      - type: "exit_success"
+    rubric:
+      - "Identified that the six ApplyDiscount tests are duplicates that should be consolidated into data-driven tests"
+      - "Identified magic numbers in CalculateShipping tests (42, 7, 3) that lack explanation"
+      - "Identified that TestTaxCalculation packs multiple scenarios into a single test, making failures hard to diagnose"
+      - "Suggested using DataRow or DynamicData to parameterize the discount tests"
+      - "Called out at least something the tests do correctly (e.g., specific assertions, clear expected values, good coverage of tiers)"
+    timeout: 120
+
+  - name: "Recognize well-written tests without inventing false positives"
+    prompt: |
+      I'm worried these tests might have problems. Can you check for any anti-patterns or issues?
+
+      ```csharp
+      using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+      namespace Payments.Tests;
+
+      [TestClass]
+      public sealed class PaymentProcessorTests
+      {
+          [TestMethod]
+          public void ProcessPayment_ValidAmount_ReturnsSuccess()
+          {
+              var processor = new PaymentProcessor(new FakeGateway());
+
+              var result = processor.Process(new Payment("order-1", 99.99m));
+
+              Assert.AreEqual(PaymentStatus.Approved, result.Status);
+              Assert.AreEqual("order-1", result.OrderId);
+          }
+
+          [TestMethod]
+          public void ProcessPayment_ZeroAmount_ThrowsArgumentException()
+          {
+              var processor = new PaymentProcessor(new FakeGateway());
+
+              Assert.ThrowsException<ArgumentOutOfRangeException>(
+                  () => processor.Process(new Payment("order-2", 0m)));
+          }
+
+          [TestMethod]
+          public void ProcessPayment_NegativeAmount_ThrowsArgumentException()
+          {
+              var processor = new PaymentProcessor(new FakeGateway());
+
+              Assert.ThrowsException<ArgumentOutOfRangeException>(
+                  () => processor.Process(new Payment("order-3", -10m)));
+          }
+
+          [TestMethod]
+          [DataRow("USD", DisplayName = "US Dollar")]
+          [DataRow("EUR", DisplayName = "Euro")]
+          [DataRow("GBP", DisplayName = "British Pound")]
+          public void ProcessPayment_SupportedCurrencies_Succeeds(string currency)
+          {
+              var processor = new PaymentProcessor(new FakeGateway());
+
+              var result = processor.Process(new Payment("order-4", 50m, currency));
+
+              Assert.AreEqual(PaymentStatus.Approved, result.Status);
+          }
+
+          [TestMethod]
+          public void ProcessPayment_GatewayDeclines_ReturnsDeclinedStatus()
+          {
+              var processor = new PaymentProcessor(new FakeGateway(alwaysDecline: true));
+
+              var result = processor.Process(new Payment("order-5", 100m));
+
+              Assert.AreEqual(PaymentStatus.Declined, result.Status);
+              Assert.IsNotNull(result.DeclineReason);
+          }
+      }
+      ```
+    assertions:
+      - type: "output_matches"
+        pattern: "(no (major|significant|critical|serious)|well.?written|good (shape|quality|structure)|clean|looks good|solid|few issues|minor)"
+      - type: "output_not_contains"
+        value: "no assertion"
+      - type: "exit_success"
+    rubric:
+      - "Recognized that these tests are generally well-structured and do not have critical or high-severity anti-patterns"
+      - "Did not invent false positives or flag correct practices as problems"
+      - "Acknowledged positive patterns present in the tests (sealed class, specific exception types, data-driven tests, clear AAA structure, proper use of fakes)"
+      - "If any suggestions were made, they were minor and correctly categorized as low severity"
+    timeout: 120
