@@ -1,6 +1,6 @@
 scenarios:
   - name: "Parse .NET frames and locate dSYMs from an iOS crash log"
-    prompt: "I have an iOS .ips crash log at ios_crash.ips from a crashed .NET MAUI app. Please parse the crash log, identify the .NET runtime frames that need symbolication, and help me locate the dSYM files I need to resolve them."
+    prompt: "I have an iOS .ips crash log at ios_crash.ips from a crashed .NET MAUI app. Parse the crash log, identify the .NET runtime frames that need symbolication, locate the dSYM debug symbols, and show me the atos commands to symbolicate them."
     setup:
       copy_test_files: true
     assertions:
@@ -11,11 +11,11 @@ scenarios:
       - type: "output_matches"
         pattern: "(SIGABRT|EXC_CRASH)"
     rubric:
-      - "Identified that the crash log contains CoreCLR .NET runtime frames and extracted the unsymbolicated frame addresses"
-      - "Extracted UUIDs for the .NET libraries (e.g., libcoreclr) and explained that each library needs a UUID-matched dSYM"
-      - "Provided specific dSYM search paths (SDK packs, NuGet cache, or build output) for the .NET runtime libraries"
-      - "Generated correct atos commands with proper load addresses and frame offsets for the user to run on macOS"
-      - "Identified all .NET binary images in the crash log (not just the crashed thread) with their UUIDs and base load addresses, and named the correct NuGet runtime package (e.g., Microsoft.NETCore.App.Runtime.ios-arm64)"
+      - "Correctly handled the .ips two-part JSON format — line 1 is a metadata header and the remaining lines are a separate crash body JSON — and extracted usedImages, threads, and exception information"
+      - "Identified all .NET binary images by filtering usedImages for libcoreclr and libSystem.* BCL native components (not just the crashing thread), listing their UUIDs and base load addresses"
+      - "Provided .NET-specific dSYM search paths: build output, SDK packs ($DOTNET_ROOT/packs/), NuGet cache (~/.nuget/packages/), or the Microsoft symbol server"
+      - "Generated correct atos commands where -o points inside the .dSYM bundle (Contents/Resources/DWARF/<binary>), -l is the base load address from usedImages, and -arch matches the crash log architecture"
+      - "Explained UUID verification with dwarfdump --uuid and named the correct NuGet runtime package for the platform (e.g., Microsoft.NETCore.App.Runtime.ios-arm64)"
     timeout: 300
 
   - name: "Investigate root cause of a .NET MAUI iOS crash"
