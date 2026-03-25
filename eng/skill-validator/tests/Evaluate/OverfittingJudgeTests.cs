@@ -714,6 +714,154 @@ public class OverfittingJudgeTests
         Assert.DoesNotContain("### ❌ Skill validation errors", md);
     }
 
+    // --- Simplified markdown table tests ---
+
+    [Fact]
+    public void MarkdownTable_Simplified_OmitsPluginQualityColumn()
+    {
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "test-skill",
+                SkillPath = "/test",
+                Passed = true,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "sc1",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 3.0, "OK")),
+                        SkilledIsolated = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled-iso" },
+                            new JudgeResult(new List<RubricScore>(), 4.0, "Good")),
+                        SkilledPlugin = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled-plug" },
+                            new JudgeResult(new List<RubricScore>(), 4.5, "Great")),
+                        ImprovementScore = 0.25,
+                        IsolatedImprovementScore = 0.2,
+                        PluginImprovementScore = 0.25,
+                        Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+                    }
+                },
+                OverallImprovementScore = 0.25,
+                Reason = "Pass",
+            }
+        };
+
+        // Full table should include both quality columns
+        var fullMd = Reporter.GenerateMarkdownSummary(verdicts);
+        Assert.Contains("Quality (Isolated)", fullMd);
+        Assert.Contains("Quality (Plugin)", fullMd);
+
+        // Simplified table should omit plugin quality column
+        var simplifiedMd = Reporter.GenerateMarkdownSummary(verdicts, simplified: true);
+        Assert.Contains("Quality", simplifiedMd);
+        Assert.DoesNotContain("Quality (Plugin)", simplifiedMd);
+        Assert.DoesNotContain("Quality (Isolated)", simplifiedMd);
+    }
+
+    [Fact]
+    public void MarkdownTable_Simplified_OmitsAgentsInvokedColumn()
+    {
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "test-skill",
+                SkillPath = "/test",
+                Passed = true,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "sc1",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 3.0, "OK")),
+                        SkilledIsolated = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled" },
+                            new JudgeResult(new List<RubricScore>(), 4.0, "Good")),
+                        ImprovementScore = 0.25,
+                        Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+                        SubagentActivationIsolated = new SubagentActivationInfo(
+                            new List<string> { "test-agent" }, 1),
+                    }
+                },
+                OverallImprovementScore = 0.25,
+                Reason = "Pass",
+            }
+        };
+
+        // Full table should include agents column
+        var fullMd = Reporter.GenerateMarkdownSummary(verdicts);
+        Assert.Contains("Agents Invoked", fullMd);
+        Assert.Contains("test-agent", fullMd);
+
+        // Simplified table should omit agents column
+        var simplifiedMd = Reporter.GenerateMarkdownSummary(verdicts, simplified: true);
+        Assert.DoesNotContain("Agents Invoked", simplifiedMd);
+        Assert.DoesNotContain("test-agent", simplifiedMd);
+    }
+
+    [Fact]
+    public void MarkdownTable_Simplified_OmitsBothPluginQualityAndAgentsColumns()
+    {
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "test-skill",
+                SkillPath = "/test",
+                Passed = true,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "sc1",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 3.0, "OK")),
+                        SkilledIsolated = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled-iso" },
+                            new JudgeResult(new List<RubricScore>(), 4.0, "Good")),
+                        SkilledPlugin = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled-plug" },
+                            new JudgeResult(new List<RubricScore>(), 4.5, "Great")),
+                        ImprovementScore = 0.25,
+                        IsolatedImprovementScore = 0.2,
+                        PluginImprovementScore = 0.25,
+                        Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+                        SubagentActivationIsolated = new SubagentActivationInfo(
+                            new List<string> { "my-agent" }, 1),
+                        SubagentActivationPlugin = new SubagentActivationInfo(
+                            new List<string> { "my-agent" }, 1),
+                    }
+                },
+                OverallImprovementScore = 0.25,
+                Reason = "Pass",
+            }
+        };
+
+        // Full table should include both columns
+        var fullMd = Reporter.GenerateMarkdownSummary(verdicts);
+        Assert.Contains("Quality (Plugin)", fullMd);
+        Assert.Contains("Agents Invoked", fullMd);
+
+        // Simplified table should omit both columns
+        var simplifiedMd = Reporter.GenerateMarkdownSummary(verdicts, simplified: true);
+        Assert.DoesNotContain("Quality (Plugin)", simplifiedMd);
+        Assert.DoesNotContain("Quality (Isolated)", simplifiedMd);
+        Assert.DoesNotContain("Agents Invoked", simplifiedMd);
+        // But should still have the core columns
+        Assert.Contains("Quality", simplifiedMd);
+        Assert.Contains("Skills Loaded", simplifiedMd);
+        Assert.Contains("Overfit", simplifiedMd);
+        Assert.Contains("Verdict", simplifiedMd);
+    }
+
     // --- Prompt overfitting detection tests ---
 
     [Fact]

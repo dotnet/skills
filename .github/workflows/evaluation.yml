@@ -639,12 +639,13 @@ jobs:
           if [ -n "$JSON_FILES" ] && [ -x "$VALIDATOR" ]; then
             "$VALIDATOR" evaluate consolidate \
               --output summary-body.md \
+              --summary-output full-summary.md \
               $JSON_FILES
 
             {
               cat summary-body.md
               echo ""
-              echo "[Full results]($RUN_URL)"
+              echo "[🔍 Full results — includes quality and agent details]($RUN_URL)"
               # If any skill failed, add a copy-paste prompt for AI-assisted investigation
               if jq -se '[.[].verdicts[] | select(.passed == false)] | length > 0' $JSON_FILES > /dev/null 2>&1; then
                 RUN_ID="${{ github.run_id }}"
@@ -655,7 +656,11 @@ jobs:
               fi
             } > consolidated-comment.md
 
-            cat consolidated-comment.md >> $GITHUB_STEP_SUMMARY
+            {
+              cat full-summary.md
+              echo ""
+              echo "[Full results]($RUN_URL)"
+            } >> $GITHUB_STEP_SUMMARY
 
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
               -X POST -F "body=@consolidated-comment.md"

@@ -8,24 +8,27 @@ public static class ConsolidateCommand
     {
         var filesArg = new Argument<string[]>("files") { Description = "Paths to results.json files to merge" };
         var outputOpt = new Option<string>("--output") { Description = "Output file path for the consolidated markdown", Required = true };
+        var summaryOutputOpt = new Option<string?>("--summary-output") { Description = "Optional output file path for the full (non-simplified) markdown summary" };
 
         var command = new Command("consolidate", "Consolidate multiple results.json files into a single markdown summary")
         {
             filesArg,
             outputOpt,
+            summaryOutputOpt,
         };
 
         command.SetAction(async (parseResult, _) =>
         {
             var files = parseResult.GetValue(filesArg) ?? [];
             var output = parseResult.GetValue(outputOpt)!;
-            return await Consolidate(files, output);
+            var summaryOutput = parseResult.GetValue(summaryOutputOpt);
+            return await Consolidate(files, output, summaryOutput);
         });
 
         return command;
     }
 
-    private static async Task<int> Consolidate(string[] files, string outputPath)
+    private static async Task<int> Consolidate(string[] files, string outputPath, string? summaryOutputPath)
     {
         if (files.Length == 0)
         {
@@ -56,9 +59,17 @@ public static class ConsolidateCommand
             }
         }
 
-        var output = Reporter.GenerateMarkdownSummary(allVerdicts, model, judgeModel);
+        var output = Reporter.GenerateMarkdownSummary(allVerdicts, model, judgeModel, simplified: true);
         await File.WriteAllTextAsync(outputPath, output);
         Console.WriteLine($"Consolidated {files.Length} result file(s) into {outputPath}");
+
+        if (summaryOutputPath is not null)
+        {
+            var fullOutput = Reporter.GenerateMarkdownSummary(allVerdicts, model, judgeModel, simplified: false);
+            await File.WriteAllTextAsync(summaryOutputPath, fullOutput);
+            Console.WriteLine($"Full summary written to {summaryOutputPath}");
+        }
+
         return 0;
     }
 }
