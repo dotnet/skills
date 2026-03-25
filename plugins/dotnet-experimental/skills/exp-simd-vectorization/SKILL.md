@@ -1,17 +1,17 @@
+---
+name: exp-simd-vectorization
+description: "Optimizes hot-path scalar loops in .NET 8+ with cross-platform Vector128/Vector256/Vector512 SIMD intrinsics, or replaces manual math loops with single TensorPrimitives API calls. Covers byte-range validation, character counting, bulk bitwise ops, cross-type conversion, fused multi-array computations, and float/double math operations."
+---
+
 # SIMD Vectorization
 
 ## Decision Gate
-
 1. **Check `Span<T>` and `MemoryExtensions` first.** If the operation can be expressed using built-in `Span<T>` methods (e.g., `Contains`, `IndexOf`, `CopyTo`, `SequenceEqual`) or `MemoryExtensions`, use them — no additional dependency is needed and the runtime already vectorizes many of these internally.
-
 2. **Check for TensorPrimitives next.** If one or more TensorPrimitives methods cover the operation → use them. If the `.csproj` does NOT already reference `System.Numerics.Tensors`, **add the package**, for example: `<PackageReference Include="System.Numerics.Tensors" />` (or use the versioning approach already used by your solution). Then replace the scalar loop with TP calls and stop. See the full API table below. Compose multiple TP calls when needed (e.g., finding both min and max → `TensorPrimitives.Min(span)` + `TensorPrimitives.Max(span)` as two calls). Do NOT write manual Vector128 code for operations TP already handles.
-
 3. **Scalar loop over contiguous array/span** of `byte`, `sbyte`, `short`, `ushort`, `int`, `uint`, `long`, `ulong`, `nint`, `nuint`, `float`, `double` (and `char` via reinterpretation as `ushort`)? → Implement with explicit `Vector128<T>` / `Vector256<T>` / `Vector512<T>` intrinsics using the patterns below.
-
 4. **No contiguous numeric arrays to process** (dictionary lookups, tree traversals, linked lists, state machines, string formatting, small collections, enum comparisons, recursive algorithms, decimal arithmetic)? → Report `[NO SIMD OPPORTUNITY]` and write a **full paragraph** explaining WHY, referencing the specific code characteristics that prevent vectorization (e.g., "State machines require sequential branching on enum values — there are no contiguous numeric arrays to process in parallel, and each transition depends on the previous state"). This explanation is graded.
 
 ## TensorPrimitives API Reference
-
 TensorPrimitives APIs are generic and work for any primitive type that satisfies the method's generic constraints — not just `float`/`double`. For example, `Sum` requires `IAdditionOperators<T,T,T>` + `IAdditiveIdentity<T,T>` and works for all primitive numeric types, while `CosineSimilarity` requires `IRootFunctions<T>` and only works for `float`/`double`. If the project doesn't already reference `System.Numerics.Tensors`, add it to the `.csproj`. Replace the entire manual loop with **one or more** `TensorPrimitives` calls as needed (prefer a single call when possible):
 
 ### Reductions (span → scalar)
