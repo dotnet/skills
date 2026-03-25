@@ -47,7 +47,7 @@ Each file contains a top-level object with:
 |-------|-------------|
 | `model` | Model used for agent runs |
 | `judgeModel` | Model used for judging |
-| `timestamp` | When the run started |
+| `timestamp` | When the results were written (UTC) |
 | `verdicts[]` | Array of per-skill results |
 
 ### Verdict structure
