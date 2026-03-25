@@ -175,7 +175,7 @@ Each of `baseline`, `skilledIsolated`, and `skilledPlugin` contains a `metrics` 
 
 **Symptoms:**
 - Skills Loaded column shows `⚠️ NOT ACTIVATED`
-- `skillActivation` fields in results.json show `activated: false`
+- `skillActivationIsolated` and/or `skillActivationPlugin` fields in results.json show `activated: false` (or the legacy `skillActivation` alias)
 - `detectedSkills` is empty or `skillEventCount` is 0
 - The skilled run metrics look similar to baseline (the agent ran normally but without the skill's guidance)
 
