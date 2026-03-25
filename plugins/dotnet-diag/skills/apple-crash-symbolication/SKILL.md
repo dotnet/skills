@@ -15,7 +15,108 @@ Resolves native backtrace frames from .NET MAUI and Mono app crashes on Apple pl
 
 ## Workflow
 
-### Step 1: Retrieve the Crash Log
+### Step 1: Parse the .ips Crash Log
+
+The `.ips` file is **two-part JSON**: line 1 is a metadata header; the remaining lines are a separate JSON crash body. Parse them separately:
+
+```python
+lines = open('crash.ips').readlines()
+metadata = json.loads(lines[0])           # app_name, bundleID, os_version, slice_uuid
+crash    = json.loads(''.join(lines[1:])) # Full crash report
+```
+
+Key fields in the crash body:
+- `usedImages[N]` has `name`, `base` (load address), `uuid`, `arch` for each loaded binary
+- `threads[N].frames[M]` has `imageOffset`, `imageIndex`; frame address = `usedImages[imageIndex].base + imageOffset`
+- `exception.type`, `exception.signal` (e.g., `EXC_CRASH` / `SIGABRT`)
+- `asi` (Application Specific Information) often contains the managed exception message
+- `lastExceptionBacktrace` has frames from the exception that triggered the crash
+- `faultingThread` is the index into the `threads` array
+
+**Parsing gotcha:** Some .ips files have case-conflicting duplicate keys (`vmRegionInfo` / `vmregioninfo`). Pre-process the raw JSON to rename the lowercase duplicate before parsing. The `asi` field may be absent.
+
+### Step 2: Identify .NET Runtime Libraries
+
+Filter `usedImages` to .NET runtime libraries:
+
+| Library | Runtime |
+|---------|---------|
+| `libcoreclr` | CoreCLR runtime |
+| `libmonosgen-2.0` | Mono runtime |
+| `libSystem.Native` | .NET BCL native component |
+| `libSystem.Globalization.Native` | .NET BCL globalization |
+| `libSystem.Security.Cryptography.Native.Apple` | .NET BCL crypto |
+| `libSystem.IO.Compression.Native` | .NET BCL compression |
+| `libSystem.Net.Security.Native` | .NET BCL net security |
+
+On Apple platforms these ship as `.framework` bundles, so image names may omit `.dylib`. Match using substring (e.g., `libcoreclr` not `libcoreclr.dylib`). The app binary may appear **twice** in `usedImages` with different UUIDs.
+
+**Key bridge functions** in the app binary: `xamarin_process_managed_exception` (managed exception bridged to ObjC NSException), `xamarin_main`, `mono_jit_exec`, `coreclr_execute_assembly`.
+
+**NativeAOT:** Runtime is statically linked into the app binary. `libSystem.*` BCL libraries remain separate. The app binary needs its own dSYM from the build output.
+
+Skip `libsystem_kernel.dylib`, `UIKitCore`, and other Apple system frameworks unless specifically asked.
+
+### Step 3: Interpret the Crash
+
+**Start with `asi`** (Application Specific Information) — for .NET crashes, it often contains the managed exception type and message (e.g., `XamlParseException`, `NullReferenceException`). The root cause may already be visible here.
+
+Then examine the **faulting thread** (`threads[faultingThread]`). Explain what frames #0 and #1 mean before examining other threads. Cross-thread context (GC state, thread pool) is useful for validation but not evidence of causation.
+
+Also check `lastExceptionBacktrace` for the managed exception path through bridge functions like `xamarin_process_managed_exception`.
+
+The .NET runtime version can be extracted from image paths in `usedImages` (e.g., `.../Microsoft.NETCore.App/10.0.4/libcoreclr.dylib`).
+
+### Step 4: Locate dSYMs
+
+For each .NET library needing symbolication, locate a UUID-matched dSYM:
+
+1. **Microsoft symbol server** (automatic): Download `.dwarf` via `https://msdl.microsoft.com/download/symbols/_.dwarf/mach-uuid-sym-{UUID}/_.dwarf` (UUID lowercase, no dashes). Convert to `.dSYM` bundle:
+   ```bash
+   mkdir -p libcoreclr.dylib.dSYM/Contents/Resources/DWARF
+   cp libcoreclr.dylib.dwarf libcoreclr.dylib.dSYM/Contents/Resources/DWARF/libcoreclr.dylib
+   ```
+2. **Build output**: `bin/Debug/net*-ios/ios-arm64/<App>.app.dSYM/`
+3. **SDK packs**: `$DOTNET_ROOT/packs/Microsoft.NETCore.App.Runtime.<rid>/<version>/runtimes/<rid>/native/`
+4. **NuGet cache**: `~/.nuget/packages/microsoft.netcore.app.runtime.<rid>/<version>/runtimes/<rid>/native/`
+5. **`dotnet-symbol`**: `dotnet-symbol --symbols -o symbols-out <path-to-binary.dylib>`
+
+Always verify: `dwarfdump --uuid <dsym>` must match the UUID from the crash log exactly.
+
+### Step 5: Symbolicate with atos
+
+```bash
+atos -arch arm64 -o <path.dSYM/Contents/Resources/DWARF/binary_name> -l <load_address> <frame_addresses...>
+```
+
+- `-o` points to the DWARF binary **inside** the `.dSYM` bundle (`Contents/Resources/DWARF/`), not the bundle itself
+- `-l` is the load address from `usedImages[N].base`
+- Use the `arch` from `usedImages[N].arch` (usually `arm64`, may be `arm64e`)
+- Pass multiple addresses per invocation for batch symbolication
+
+```bash
+# Example: symbolicate libcoreclr frames
+atos -arch arm64 -o libcoreclr.dSYM/Contents/Resources/DWARF/libcoreclr -l 0x104000000 0x104522098 0x1043c0014
+```
+
+Strip the `/__w/1/s/` CI workspace prefix from output — meaningful paths start at `src/runtime/`, mapping to the [dotnet/dotnet](https://github.com/dotnet/dotnet) VMR.
+
+### Automation Script
+
+[scripts/Symbolicate-Crash.ps1](scripts/Symbolicate-Crash.ps1) automates the full workflow (parsing, dSYM lookup, symbol download, and symbolication). Resolve the path relative to this SKILL.md file.
+
+```powershell
+# $SKILL_DIR is the directory containing this SKILL.md
+pwsh "$SKILL_DIR/scripts/Symbolicate-Crash.ps1" -CrashFile MyApp-2026-02-25.ips
+```
+
+Start with `-ParseOnly` for a fast overview without requiring `atos`. The script automatically downloads symbols from the Microsoft symbol server when local dSYMs are missing.
+
+Flags: `-CrashingThreadOnly`, `-OutputFile path`, `-ParseOnly`, `-SkipVersionLookup`, `-SkipSymbolDownload`, `-SymbolCacheDir path`, `-DsymSearchPaths path1,path2`.
+
+---
+
+## Retrieving Crash Logs
 
 Pull crash logs from a connected iOS device using `idevicecrashreport` (from [libimobiledevice](https://libimobiledevice.org/)):
 
@@ -24,51 +125,7 @@ idevicecrashreport -e /tmp/crashlogs/
 find /tmp/crashlogs/ -iname '*MyApp*' -name '*.ips'
 ```
 
-If `idevicecrashreport` is unavailable, crash logs can also be found in **Xcode → Window → Devices and Simulators → View Device Logs**, or at `~/Library/Logs/CrashReporter/` for Mac Catalyst and macOS apps: `~/Library/Logs/DiagnosticReports/`.
-
-### Step 2: Run the Automation Script
-
-[scripts/Symbolicate-Crash.ps1](scripts/Symbolicate-Crash.ps1) automates parsing, dSYM lookup, and symbolication. The script is located in this skill's `scripts/` directory — resolve the path relative to this SKILL.md file (do **not** search the filesystem with `find` or `locate`).
-
-```powershell
-# $SKILL_DIR is the directory containing this SKILL.md
-pwsh "$SKILL_DIR/scripts/Symbolicate-Crash.ps1" -CrashFile MyApp-2026-02-25.ips
-```
-
-**Start with `-ParseOnly`** to get a fast overview of libraries, UUIDs, addresses, and **.NET runtime version** without requiring `atos` or dSYMs. The script extracts the version directly from image paths in the crash log (e.g., `.../Microsoft.NETCore.App/10.0.4/libcoreclr.dylib`). Present those results to the user first. Only proceed to full symbolication if `atos` is available and dSYMs are found.
-
-The script **automatically downloads symbols** from the Microsoft symbol server when local dSYMs are missing. It uses Mach-O UUIDs to fetch `.dwarf` files via `https://msdl.microsoft.com/download/symbols/`, converts them to `.dSYM` bundles, and caches them in a temp directory. No manual symbol acquisition needed for published .NET runtime releases.
-
-Flags: `-CrashingThreadOnly` (limit to faulting thread), `-OutputFile path` (write to file), `-ParseOnly` (report libraries/UUIDs/addresses without symbolicating), `-SkipVersionLookup` (skip runtime version identification), `-SkipSymbolDownload` (skip automatic symbol server download), `-SymbolCacheDir path` (override symbol cache location), `-DsymSearchPaths path1,path2` (additional dSYM search directories).
-
-The script searches for dSYMs in SDK packs (`$DOTNET_ROOT/packs/`), NuGet cache (`~/.nuget/packages/`), and user-provided paths across all Apple platform RIDs (`ios-arm64`, `tvos-arm64`, `maccatalyst-arm64/x64`, `osx-arm64/x64`). Do **not** run broad filesystem searches (`find /`, `find ~`) for dSYMs — if the script's built-in search paths don't find them, report the missing UUIDs and let the user provide the paths.
-
-The script requires `.ips` JSON format (iOS 15+ / macOS 12+). Legacy `.crash` text files are not supported.
-
-### Step 3: Interpret Results
-
-The script outputs a symbolicated backtrace with function names and source locations. **Start with the faulting mechanism** — explain what frames #0 and #1 on the crashing thread mean before examining other threads. Cross-thread context (e.g., GC state, thread pool activity) is useful for validation but is not evidence of causation.
-
-Check the output for:
-
-- **`asi` (Application Specific Information)**: Often contains the managed exception message (e.g., `XamlParseException`). The root cause may already be visible here — check before diving into frames.
-- **Runtime version**: The script identifies the .NET version and source commit from `.nuspec` metadata. Use the commit link to browse runtime source at the exact revision.
-- **Unsymbolicated frames**: If dSYMs were not found, the script outputs raw addresses with UUIDs. Help the user locate dSYMs — see Step 4.
-
-Strip the `/__w/1/s/` CI workspace prefix from resolved paths — meaningful paths start at `src/runtime/`.
-
-### Step 4: Locate Missing dSYMs
-
-The script automatically downloads symbols from the Microsoft symbol server for any .NET libraries where local dSYMs are not found. Downloaded `.dwarf` files are cached in a temp directory (`$TMPDIR/dotnet-crash-symbols/`) and converted to `.dSYM` bundles automatically.
-
-If automatic download fails (e.g., symbols not yet published, air-gapped machine), the script prints manual fallback commands. You can also:
-
-1. **Build output**: Check the app's build directory (e.g., `bin/Debug/net*-ios/ios-arm64/<App>.app.dSYM/`)
-2. **`dotnet-symbol`**: `dotnet-symbol --symbols -o symbols-out <path-to-binary.dylib>` fetches `.dwarf` from the symbol server
-3. **NuGet.org**: Download `Microsoft.NETCore.App.Runtime.<rid>.symbols` package (macOS) or the main runtime package (iOS/tvOS/MacCatalyst)
-4. **User-provided paths**: Re-run with `-DsymSearchPaths` pointing to the dSYM location
-
-Always verify UUID match with `dwarfdump --uuid <dsym>` before symbolicating. For **NativeAOT** apps, the runtime is in the app binary itself — its dSYM comes from the build output.
+Also available in **Xcode > Window > Devices and Simulators > View Device Logs**, or at `~/Library/Logs/CrashReporter/` (Mac Catalyst), `~/Library/Logs/DiagnosticReports/` (macOS).
 
 ---
 
@@ -81,10 +138,10 @@ Always verify UUID match with `dwarfdump --uuid <dsym>` before symbolicating. Fo
 ## Stop Signals
 
 - **No .NET frames found**: Report parsed frames and stop.
-- **All frames resolved**: Present symbolicated backtrace with brief crash analysis (faulting thread, exception type, likely area). If the user asks for deeper investigation (runtime source tracing, issue triage, recent commit analysis), proceed — do not refuse.
+- **All frames resolved**: Present symbolicated backtrace with brief crash analysis (faulting thread, exception type, likely area). If the user asks for deeper investigation, proceed.
 - **dSYM not available / UUID mismatch**: Report unsymbolicated frames with UUIDs and addresses. Suggest locating the original build artifacts.
-- **atos not available**: Run with `-ParseOnly` and present the manual `atos` commands for the user to run. Do not install Xcode. `atos` ships with Xcode Command Line Tools (`xcode-select --install`).
+- **atos not available**: Present the manual `atos` commands for the user to run. Do not install Xcode. `atos` ships with Xcode Command Line Tools (`xcode-select --install`).
 
 ## References
 
-- **IPS format & manual symbolication**: See [references/ips-crash-format.md](references/ips-crash-format.md) for .ips file structure, .NET runtime library table, dSYM search paths, and manual `atos` usage.
+- **IPS format details**: See [references/ips-crash-format.md](references/ips-crash-format.md) for additional .ips parsing details and macOS symbol package differences.
