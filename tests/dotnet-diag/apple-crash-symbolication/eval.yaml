@@ -35,7 +35,7 @@ scenarios:
     timeout: 300
 
   - name: "Reject Android tombstone passed as iOS crash log"
-    prompt: "I have a crash file at crash_android.txt from a crashed app. Please use the iOS crash symbolication skill to symbolicate the .NET runtime frames."
+    prompt: "I have a crash file at crash_android.txt from a crashed .NET app. Please parse this crash log, identify the .NET runtime frames, and help me symbolicate them."
     expect_activation: false
     setup:
       copy_test_files: true
