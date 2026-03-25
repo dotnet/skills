@@ -63,19 +63,19 @@ Each verdict contains:
 
 ### Scenario structure
 
-Each scenario includes two runs (baseline + isolated) plus an optional plugin run, and their comparison:
+Each scenario includes two required runs (baseline + isolated). It may also include an optional plugin run, and their comparison:
 
 | Field | Description |
 |-------|-------------|
 | `scenarioName` | Human-readable scenario name |
 | `baseline` | Run without the skill |
 | `skilledIsolated` | Run with only this skill loaded |
-| `skilledPlugin` | Run with the full plugin loaded (present only when plugin runs are enabled) |
+| `skilledPlugin` | Optional run with the full plugin loaded (may be null when plugin runs are disabled) |
 | `timedOut` | Whether any run hit the timeout |
 | `isolatedImprovementScore` | Weighted improvement (isolated vs baseline) |
-| `pluginImprovementScore` | Weighted improvement (plugin vs baseline) |
+| `pluginImprovementScore` | Weighted improvement (plugin vs baseline); optional and only computed when a plugin run is present |
 | `isolatedBreakdown` | Per-metric contribution to the score (see below) |
-| `pluginBreakdown` | Per-metric contribution to the score (see below) |
+| `pluginBreakdown` | Per-metric contribution to the score (see below); optional and only populated when a plugin run is present |
 | `pairwiseResult` | Judge's rubric-by-rubric comparison |
 | `perRunScores` | Individual run scores (shows variance) |
 
@@ -175,8 +175,9 @@ Each of `baseline`, `skilledIsolated`, and `skilledPlugin` contains a `metrics` 
 
 **Symptoms:**
 - Skills Loaded column shows `⚠️ NOT ACTIVATED`
-- Skilled run has near-zero tokens (e.g., <100), 0 turns, 0 tools
-- The `turnCount` being 0 is the clearest signal — a small token count with 0 turns indicates the skill was loaded but the agent never ran
+- `skillActivation` fields in results.json show `activated: false`
+- `detectedSkills` is empty or `skillEventCount` is 0
+- The skilled run metrics look similar to baseline (the agent ran normally but without the skill's guidance)
 
 **Cause:** The agent runtime didn't select the skill for this prompt. The skill's frontmatter `description` didn't match.
 

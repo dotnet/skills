@@ -643,12 +643,12 @@ jobs:
               echo ""
               echo "[Full results]($RUN_URL)"
               # If any skill failed, add a copy-paste prompt for AI-assisted investigation
-              if grep -q '❌' summary-body.md; then
+              if jq -se '[.[].verdicts[] | select(.passed == false)] | length > 0' $JSON_FILES > /dev/null 2>&1; then
                 RUN_ID="${{ github.run_id }}"
                 echo ""
                 echo "> **To investigate failures**, paste this to your AI coding agent:"
                 echo ">"
-                echo "> _Download eval artifacts with \`gh run download ${RUN_ID} --repo ${{ github.repository }} --dir /tmp/eval-results\`, then fetch https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/eng/skill-validator/InvestigatingResults.md and follow it to analyze the results.json files. Diagnose each failure, suggest fixes to the eval.yaml and skill content, and tell me what to fix first._"
+                echo "> _Download eval artifacts with \`gh run download ${RUN_ID} --repo ${{ github.repository }} --dir /tmp/eval-results\`, then fetch https://raw.githubusercontent.com/${{ github.repository }}/${{ needs.gate.outputs.head_sha }}/eng/skill-validator/InvestigatingResults.md and follow it to analyze the results.json files. Diagnose each failure, suggest fixes to the eval.yaml and skill content, and tell me what to fix first._"
               fi
             } > consolidated-comment.md
 
