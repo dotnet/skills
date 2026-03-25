@@ -1,7 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using SkillValidator.Models;
+using SkillValidator.Evaluate;
+using SkillValidator.Shared;
 
 namespace SkillValidator;
 
@@ -26,6 +27,7 @@ namespace SkillValidator;
 [JsonSerializable(typeof(PairwiseJudgeResult))]
 [JsonSerializable(typeof(PairwiseRubricResult))]
 [JsonSerializable(typeof(SkillActivationInfo))]
+[JsonSerializable(typeof(SubagentActivationInfo))]
 [JsonSerializable(typeof(OverfittingResult))]
 [JsonSerializable(typeof(RubricOverfitAssessment))]
 [JsonSerializable(typeof(AssertionOverfitAssessment))]

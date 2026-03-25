@@ -2,16 +2,18 @@
 name: migrate-mstest-v1v2-to-v3
 description: >
   Migrate MSTest v1 or v2 test project to MSTest v3. Use when user says
-  "upgrade MSTest", "update test framework", "modernize tests", or has build
-  errors after updating MSTest packages from 1.x/2.x.
+  "upgrade MSTest", "upgrade to MSTest v3", "migrate to MSTest v3",
+  "update test framework", "modernize tests", "MSTest v3 migration",
+  "MSTest compatibility", "MSTest v2 to v3", or build errors after
+  updating MSTest packages from 1.x/2.x to 3.x.
   USE FOR: upgrading from MSTest v1 assembly references
   (Microsoft.VisualStudio.QualityTools.UnitTestFramework) or MSTest v2 NuGet
   (MSTest.TestFramework 1.x–2.x) to MSTest v3, fixing assertion overload
   errors (AreEqual/AreNotEqual), updating DataRow constructors, replacing
   .testsettings with .runsettings, timeout behavior changes, target framework
-  compatibility (net5.0 unsupported — use net6.0+; .NET Fx < 4.6.2
-  unsupported), adopting MSTest.Sdk, parallel execution. First step toward
-  MSTest v4 — after this, use migrate-mstest-v3-to-v4.
+  compatibility (.NET 5 dropped — use .NET 6+; .NET Fx < 4.6.2 dropped),
+  adopting MSTest.Sdk.
+  First step toward MSTest v4 — after this, use migrate-mstest-v3-to-v4.
   DO NOT USE FOR: migrating to MSTest v4 (use migrate-mstest-v3-to-v4),
   migrating between frameworks (MSTest to xUnit/NUnit), or general .NET
   upgrades unrelated to MSTest.
@@ -51,13 +53,26 @@ MSTest v3 introduces these breaking changes from v1/v2. Address only the ones re
 |---|---|---|
 | `Assert.AreEqual(object, object)` overload removed | Compile error on untyped assertions | Add generic type: `Assert.AreEqual<T>(expected, actual)`. Same for `AreNotEqual`, `AreSame`, `AreNotSame` |
 | `DataRow` strict type matching | Runtime/compile errors when argument types don't match parameter types exactly | Change literals to exact types: `1` for int, `1L` for long, `1.0f` for float |
-| `DataRow` max 16 constructor parameters | Compile error if >16 args | Refactor test or wrap extra params in array |
+| `DataRow` max 16 constructor parameters (early v3) | Compile error if >16 args; fixed in later v3 versions | Update to latest 3.x, or refactor test / wrap extra params in array |
 | `.testsettings` / `<LegacySettings>` no longer supported | Settings silently ignored | Delete `.testsettings`, create `.runsettings` with equivalent config |
 | Timeout behavior unified across .NET Core / Framework | Tests with `[Timeout]` may behave differently | Verify timeout values; adjust if needed |
-| Dropped target frameworks: .NET 5, .NET Fx < 4.6.2, netstandard1.0, UWP < 16299, WinUI < 18362 | Build error | Update TFM: net5.0 → net6.0+, netfx → net462+, netstandard1.0 → netstandard2.0 |
+| Dropped target frameworks: .NET 5, .NET Fx < 4.6.2, netstandard1.0, UWP < 16299, WinUI < 18362 | Build error | Update TFM: .NET 5 → net8.0 (LTS) or net6.0+, netfx → net462+, netstandard1.0 → netstandard2.0. Note: net6.0, net8.0, net9.0 are all supported |
 | Not binary compatible with v1/v2 | Libraries compiled against v1/v2 must be recompiled | Recompile all dependencies against v3 |
 
-When the user asks about breaking changes or what to expect, present the relevant rows from this table concisely—do not walk through the entire workflow.
+## Response Guidelines
+
+- **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking change from the table above. Show a concise before/after fix. Do not walk through the full migration workflow.
+- **Specific feature migration** (user asks about one aspect like .testsettings, DataRow, or assertions): Address only that specific aspect with a concrete fix. Do not walk through the entire migration workflow or unrelated breaking changes.
+- **"What to expect" questions** (user asks about breaking changes before upgrading): Present only the breaking changes that are clearly relevant to the user's visible code and configuration. For each, give a one-line fix summary. Do not include every possible breaking change — only the ones that apply. Do not walk through the full workflow.
+- **Full migration requests** (user wants complete migration): Follow the complete workflow below.
+- **Comparison questions** (user asks about v1 vs v2 differences): Explain concisely — v1 uses assembly references and requires removing them first; v2 uses NuGet and just needs a version bump. Both converge on the same v3 packages and breaking changes.
+
+## Migration Paths
+
+- **MSTest v1 (assembly reference to QualityTools)**: Remove the assembly reference (Step 2), add v3 NuGet packages (Step 3), fix breaking changes (Step 5).
+- **MSTest v2 (NuGet packages 1.x–2.x)**: Update package versions to 3.x (Step 3), fix breaking changes (Step 5). No assembly reference removal needed.
+
+Both paths converge at Step 3 — the same v3 packages and breaking changes apply regardless of starting version.
 
 ## Workflow
 
@@ -106,15 +121,17 @@ When switching to MSTest.Sdk, remove these (SDK provides them automatically):
 
 ### Step 4: Update target frameworks if needed
 
-If the project targets a dropped framework version, update to a supported one:
+MSTest v3 supports .NET 6+, .NET Core 3.1, .NET Framework 4.6.2+, .NET Standard 2.0, UWP 16299+, and WinUI 18362+. If the project targets a dropped framework version, update to a supported one:
 
-| Dropped | Minimum supported |
-|---------|-------------------|
+| Dropped | Recommended replacement |
+|---------|------------------------|
+| .NET 5 | .NET 8.0 (current LTS) or .NET 6+ |
 | .NET Framework < 4.6.2 | .NET Framework 4.6.2 |
 | .NET Standard 1.0 | .NET Standard 2.0 |
 | UWP < 16299 | UWP 16299 |
 | WinUI < 18362 | WinUI 18362 |
-| .NET 5 | .NET Core 3.1 or .NET 6+ |
+
+> **Note**: .NET 6, .NET 8, and .NET 9 are all supported by MSTest v3. Do not change TFMs that are already supported.
 
 ### Step 5: Resolve build errors and breaking changes
 
@@ -135,8 +152,6 @@ Assert.AreSame(expected, actual);         → Assert.AreSame<MyType>(expected, a
 // Error: 1L (long) won't convert to int parameter → fix: use 1 (int)
 // Error: 1.0 (double) won't convert to float parameter → fix: use 1.0f (float)
 ```
-
-Maximum 16 `DataRow` constructor parameters. For more, wrap in array or refactor.
 
 **Timeout behavior** — unified across .NET Core and .NET Framework. Verify `[Timeout]` values still work.
 

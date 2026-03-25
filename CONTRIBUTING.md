@@ -55,6 +55,7 @@ Skills are grouped into domain-specific plugins. When proposing a new skill, pla
 | `dotnet-data` | Data access and Entity Framework |
 | `dotnet-msbuild` | MSBuild and project system |
 | `dotnet-ai` | AI and ML: technology selection, LLM integration, agentic workflows, RAG pipelines, and classic ML |
+| `dotnet-experimental` | Experimental skills under active evaluation (see below) |
 
 If your skill does not fit any existing plugin, consider creating a new one. The following plugin names are reserved for future use and are good candidates for new skills in those areas:
 
@@ -62,6 +63,18 @@ If your skill does not fit any existing plugin, consider creating a new one. The
 - `dotnet-wpf` — WPF
 - `dotnet-winforms` — Windows Forms (WinForms)
 - `dotnet-maui` — .NET MAUI
+
+### The `dotnet-experimental` plugin
+
+Use `dotnet-experimental` when you want to try out a skill idea but are not yet confident it belongs in a stable plugin — for example, when the skill is outside your usual area of responsibility, the approach is unproven, or you want community feedback before committing to a long-term home.
+
+Skills in `dotnet-experimental`:
+
+- May change, be reworked, or be removed without notice.
+- Are held to the same quality and testing standards as any other skill (frontmatter, `eval.yaml`, etc.).
+- Should eventually graduate to a stable plugin or be retired. When a skill has proven itself, move it to the appropriate domain plugin and update tests accordingly.
+
+Place experimental skills under `plugins/dotnet-experimental/skills/` with matching tests in `tests/dotnet-experimental/`.
 
 To create a new plugin:
 
@@ -288,6 +301,8 @@ dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate -
 
 Tests run automatically on pull requests that modify files under `plugins/`. The evaluation workflow discovers changed plugins and runs the skill-validator for each one. Results are posted as a PR comment and uploaded as build artifacts.
 
+If a scenario fails or regresses, see [Investigating Results](eng/skill-validator/InvestigatingResults.md) for how to download artifacts, interpret `results.json`, and diagnose common failure patterns.
+
 ## Writing style
 
 - Be concise and specific.
@@ -306,17 +321,18 @@ Tests run automatically on pull requests that modify files under `plugins/`. The
 Skills often reference external tools, documentation, and projects — this is
 expected and welcome, including community and third-party resources. To help
 reviewers stay aware of external dependencies, the repository includes an
-automated reference scanner (`eng/reference-scanner/scan.ps1`) that runs in CI.
+automated reference scanner (integrated into `skill-validator check`) that runs
+in CI against plugin content (SKILL.md, agent files, and reference docs).
 
 The scanner treats all of the following as CI-blocking errors:
 - `http://` URLs where `https://` should be used
 - `<script>` tags loading external resources without an `integrity` (SRI) attribute
 - Pipe-to-shell patterns (`curl ... | bash`)
-- URLs pointing to domains not listed in `eng/reference-scanner/known-domains.txt`
+- URLs pointing to domains not listed in `eng/known-domains.txt`
 
 Community tools and third-party projects are evaluated on a case-by-case basis
 (see "What we look for" above). If your skill references a new external domain,
-add it to `eng/reference-scanner/known-domains.txt` in the same PR — the reviewer will
+add it to `eng/known-domains.txt` in the same PR — the reviewer will
 approve it alongside the skill content.
 
 ## Review process

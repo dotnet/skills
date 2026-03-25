@@ -21,8 +21,8 @@ public class UserServiceTests
     }
 
     [TestMethod]
-    [DataRow(1, "Alice")]
-    [DataRow(2, "Bob")]
+    [DataRow(1L, "Alice")]
+    [DataRow(2L, "Bob")]
     public void GetUserName_ReturnsCorrectName(int id, string expectedName)
     {
         Assert.IsNotNull(expectedName);

@@ -1,6 +1,6 @@
 ---
 name: writing-mstest-tests
-description: "Best practices for writing MSTest 3.x/4.x unit tests. Use when the user needs to write, improve, or review MSTest tests, including modern assertions, data-driven tests, test lifecycle, and common anti-patterns. Covers MSTest.Sdk, sealed classes, Assert.Throws, DynamicData with ValueTuples, TestContext, and conditional execution."
+description: "Best practices for writing MSTest 3.x/4.x unit tests. Use when the user needs to write, improve, fix, or review MSTest tests, including modern assertions, data-driven tests, test lifecycle, and common anti-patterns. Also use when fixing test issues like swapped Assert.AreEqual arguments, incorrect assertion usage, or modernizing legacy test code. Covers MSTest.Sdk, sealed classes, Assert.Throws, DynamicData with ValueTuples, TestContext, and conditional execution."
 ---
 
 # Writing MSTest Tests
@@ -139,7 +139,10 @@ Assert.DoesNotContain(unexpectedItem, collection);
 var single = Assert.ContainsSingle(collection);  // Returns the single element
 Assert.HasCount(3, collection);
 Assert.IsEmpty(collection);
+Assert.IsNotEmpty(collection);
 ```
+
+Replace `Assert.IsTrue(x != null)` with `Assert.IsNotNull(x)` — specialized assertions give better failure messages than generic `Assert.IsTrue`.
 
 #### String assertions
 
@@ -311,7 +314,7 @@ public sealed class DatabaseIntegrationTests { }
 
 | Pitfall | Solution |
 |---------|----------|
-| `Assert.AreEqual(actual, expected)` — swapped arguments | Always put expected first: `Assert.AreEqual(expected, actual)` |
+| `Assert.AreEqual(actual, expected)` — swapped arguments | Always put expected first: `Assert.AreEqual(expected, actual)`. Failure messages show "Expected: X, Actual: Y" so wrong order makes messages confusing |
 | `[ExpectedException]` — obsolete, cannot assert message | Use `Assert.Throws<T>` or `Assert.ThrowsExactly<T>` |
 | `items.Single()` — unclear exception on failure | Use `Assert.ContainsSingle(items)` for better failure messages |
 | Hard cast `(MyType)result` — unclear exception | Use `Assert.IsInstanceOfType<MyType>(result)` |

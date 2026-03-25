@@ -102,7 +102,7 @@ skill-validator check --skills ./plugins/my-plugin/skills
 skill-validator check --agents ./plugins/my-plugin/agents
 
 # Check with external dependency allow list
-skill-validator check --plugin ./plugins/my-plugin --allowed-external-deps ./eng/skill-validator/allowed-external-deps.txt
+skill-validator check --plugin ./plugins/my-plugin --allowed-external-deps ./eng/allowed-external-deps.txt
 
 # Verbose output
 skill-validator check --verbose --plugin ./plugins/my-plugin
@@ -116,6 +116,7 @@ skill-validator check --verbose --plugin ./plugins/my-plugin
 | `--skills <paths...>` | | Skill directories to check (skills only) |
 | `--agents <paths...>` | | Agent directories to check (agents only) |
 | `--allowed-external-deps <path>` | *(none)* | Path to allowed-external-deps.txt; when omitted the external-deps check is skipped |
+| `--known-domains <path>` | *(none)* | Path to known-domains.txt for reference scanning; when omitted the reference scan is skipped |
 | `--verbose` | `false` | Show detailed output |
 
 > Exactly one of `--plugin`, `--skills`, or `--agents` must be provided.
@@ -153,6 +154,8 @@ Results are displayed in the console with color-coded scores and metric deltas. 
 - `json` — `results.json` with model, timestamp, and all verdicts
 - `junit` — `results.xml` with JUnit XML test results
 - `markdown` — `summary.md` with a results table, plus per-skill directories with per-scenario judge reports
+
+See [Investigating Results](InvestigatingResults.md) for how to diagnose poor scores, download artifacts, and interpret `results.json`.
 
 ### Consolidating results across matrix jobs
 
@@ -208,6 +211,10 @@ scenarios:
           content: "file content to create before the run"
         - path: "data.csv"
           source: "fixtures/sample-data.csv"  # relative to skill dir
+      additional_required_skills:       # skills needed by the target in isolated runs
+        - binlog-failure-analysis
+      additional_required_agents:        # agents needed by the target in isolated runs
+        - build-perf
     assertions:
       - type: "output_contains"
         value: "expected text"
@@ -253,6 +260,9 @@ scenarios:
 |--------|-------------|
 | `copy_test_files` | When `true`, copies all files from the eval directory (except `eval.yaml`) into the agent working directory before each run. Useful when test fixtures live alongside the eval file. |
 | `files` | Explicit list of files to create in the working directory. Each entry has a `path` and either inline `content` or a `source` path (relative to the skill directory). Applied after `copy_test_files`. |
+| `commands` | Shell commands to run in the work directory before the agent starts (e.g. `dotnet build -bl:build.binlog`). |
+| `additional_required_skills` | List of skill names (from the same plugin) to load in the **isolated** run alongside the target. Useful when an agent routes to specific skills or a skill depends on sibling skills. Does not affect baseline (nothing loaded) or plugin (everything loaded) runs. |
+| `additional_required_agents` | List of agent names (from the same plugin) to register in the **isolated** run alongside the target. Same semantics as `additional_required_skills` but for agents. |
 
 ### Scenario constraints
 

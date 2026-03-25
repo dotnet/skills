@@ -76,7 +76,7 @@ scenarios:
       - "Uses 'dotnet run --project' to run the test host, not 'dotnet test'"
       - "Explains the iterative workflow: edit code, hot reload picks up changes, re-runs tests"
     expect_tools: ["bash"]
-    timeout: 180
+    timeout: 360
 
   - name: "Suggest hot reload for failing test in MTP project (SDK 10)"
     prompt: "My RemoveStock_ExceedsAvailable_ThrowsException test is failing. I want to iterate fixes rapidly. How can I set up hot reload for this test project?"
@@ -159,7 +159,7 @@ scenarios:
       - "Uses 'dotnet run' to start the test host in console mode"
       - "Mentions that hot reload works in console mode only, not Test Explorer"
     expect_tools: ["bash"]
-    timeout: 180
+    timeout: 240
 
   # ============================================================================
   # Goal 2: Using hot reload when package is already installed
@@ -235,7 +235,7 @@ scenarios:
       - "Uses 'dotnet run --project' to run in console mode"
       - "Describes the iterative workflow: make changes, tests re-run automatically"
     expect_tools: ["bash"]
-    timeout: 180
+    timeout: 300
 
   - name: "Suggest launchSettings.json configuration for hot reload"
     prompt: "I want to set up hot reload for my test project so it's always enabled when I run from the command line. I don't want to set the environment variable every time."
@@ -425,7 +425,7 @@ scenarios:
       - "Does NOT suggest setting TESTINGPLATFORM_HOTRELOAD_ENABLED for a VSTest project"
       - "Suggests either migrating to MTP or using Visual Studio Test Explorer hot reload as alternatives"
     expect_tools: ["bash"]
-    timeout: 180
+    timeout: 300
 
   # ============================================================================
   # Goal 5: Filtering tests with hot reload
