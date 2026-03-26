@@ -139,7 +139,7 @@ Also available in **Xcode > Window > Devices and Simulators > View Device Logs**
 
 ## Stop Signals
 
-- **Wrong file format**: If the file is not `.ips` JSON (e.g., Android tombstone, legacy `.crash` text format), report the format mismatch and suggest appropriate alternatives. Do not proceed with iOS symbolication.
+- **Wrong file format**: If the file is not `.ips` JSON (e.g., Android tombstone with `#NN pc` stack frames, legacy `.crash` text format), report the format mismatch and do not proceed with iOS symbolication. For Android tombstones, suggest `ndk-stack`, `addr2line`, or the android-tombstone-symbolication skill instead.
 - **No .NET frames found**: Report parsed frames and stop.
 - **All frames resolved**: Present symbolicated backtrace with brief crash analysis (faulting thread, exception type, likely area). If the user asks for deeper investigation, proceed.
 - **dSYM not available / UUID mismatch**: Report unsymbolicated frames with UUIDs and addresses. Suggest locating the original build artifacts.

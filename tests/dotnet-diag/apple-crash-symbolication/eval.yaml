@@ -38,10 +38,9 @@ scenarios:
     prompt: "I have a crash file at crash_android.txt from a crashed .NET app. Please parse this crash log, identify the .NET runtime frames, and help me symbolicate them."
     expect_activation: false
     setup:
-      copy_test_files: true
-      extra_files:
-        - source: "../android-tombstone-symbolication/tombstone_sample.txt"
-          dest: "crash_android.txt"
+      files:
+        - path: "crash_android.txt"
+          source: "tombstone_sample.txt"
     assertions:
       - type: "output_matches"
         pattern: "(Android|tombstone|not.*(iOS|.ips)|wrong.*(format|type)|different.*(format|process))"
