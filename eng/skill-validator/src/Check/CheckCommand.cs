@@ -164,6 +164,10 @@ public static class CheckCommand
             Console.WriteLine($"Found {allSkillsList.Count} skill(s)");
             if (ValidateSkillProfiles(allSkillsList, config.Verbose))
                 skillResult = 1;
+
+            // Check for duplicate skill names across all skills
+            if (CheckDuplicateSkillNames(allSkillsList))
+                skillResult = 1;
         }
 
         // Validate agents
@@ -257,10 +261,14 @@ public static class CheckCommand
 
         Console.WriteLine($"Found {allSkills.Count} skill(s)");
 
+        bool hasErrors = false;
         if (ValidateSkillProfiles(allSkills, verbose))
-            return (allSkills, 1);
+            hasErrors = true;
 
-        return (allSkills, 0);
+        if (CheckDuplicateSkillNames(allSkills))
+            hasErrors = true;
+
+        return (allSkills, hasErrors ? 1 : 0);
     }
 
     private static async Task<(IReadOnlyList<AgentInfo> Agents, int Result)> RunAgentsCheckCore(IReadOnlyList<string> agentPaths)
@@ -305,6 +313,27 @@ public static class CheckCommand
         }
 
         return (allAgents, 0);
+    }
+
+    private static bool CheckDuplicateSkillNames(IReadOnlyList<SkillInfo> skills)
+    {
+        var seenNames = new Dictionary<string, string>(StringComparer.Ordinal); // name -> first path
+        bool hasDuplicates = false;
+
+        foreach (var skill in skills)
+        {
+            if (seenNames.TryGetValue(skill.Name, out var firstPath))
+            {
+                Console.Error.WriteLine($"{Ansi.Red}❌ Duplicate skill name '{skill.Name}' found in '{skill.Path}' (first seen in '{firstPath}'){Ansi.Reset}");
+                hasDuplicates = true;
+            }
+            else
+            {
+                seenNames[skill.Name] = skill.Path;
+            }
+        }
+
+        return hasDuplicates;
     }
 
     private static bool ValidateSkillProfiles(IReadOnlyList<SkillInfo> skills, bool verbose)
