@@ -78,11 +78,11 @@ public static partial class SkillProfiler
         {
             errors.Add($"Skill description is {skill.Description.Length:N0} characters — maximum is {MaxDescriptionLength:N0}. Shorten the description in SKILL.md frontmatter.");
         }
-        else if (skill.Description.Length == 0 && hasFrontmatter)
+        else if (string.IsNullOrWhiteSpace(skill.Description) && hasFrontmatter)
         {
-            errors.Add("YAML frontmatter has no description — required by spec. Agents use description for skill discovery.");
+            errors.Add("YAML frontmatter has no description \u2014 required by spec. Agents use description for skill discovery.");
         }
-        else if (skill.Description.Length > 0 && skill.Description.Length < MinDescriptionLength)
+        else if (!string.IsNullOrWhiteSpace(skill.Description) && skill.Description.Length < MinDescriptionLength)
         {
             errors.Add($"Skill description is only {skill.Description.Length} characters — minimum is {MinDescriptionLength}. Provide a meaningful description for agent discovery.");
         }
@@ -148,21 +148,36 @@ public static partial class SkillProfiler
         foreach (var assetDirName in assetDirs)
         {
             var assetDir = Path.Combine(skill.Path, assetDirName);
-            if (Directory.Exists(assetDir))
+            if (!Directory.Exists(assetDir))
+                continue;
+
+            IEnumerable<string> files;
+            try
             {
-                foreach (var file in Directory.GetFiles(assetDir, "*", SearchOption.AllDirectories))
+                files = Directory.EnumerateFiles(assetDir, "*", new EnumerationOptions
                 {
-                    try
+                    RecurseSubdirectories = true,
+                    IgnoreInaccessible = true,
+                });
+            }
+            catch
+            {
+                // Directory became inaccessible between Exists check and enumeration — skip.
+                continue;
+            }
+
+            foreach (var file in files)
+            {
+                try
+                {
+                    var fileInfo = new FileInfo(file);
+                    if (fileInfo.Length > MaxAssetFileSize)
                     {
-                        var fileInfo = new FileInfo(file);
-                        if (fileInfo.Length > MaxAssetFileSize)
-                        {
-                            var relativePath = Path.GetRelativePath(skill.Path, file).Replace('\\', '/');
-                            errors.Add($"Bundled asset '{relativePath}' is {fileInfo.Length / (1024.0 * 1024.0):F2} MB — maximum is 5 MB.");
-                        }
+                        var relativePath = Path.GetRelativePath(skill.Path, file).Replace('\\', '/');
+                        errors.Add($"Bundled asset '{relativePath}' is {fileInfo.Length / (1024.0 * 1024.0):F2} MB — maximum is 5 MB.");
                     }
-                    catch { /* inaccessible files are not fatal */ }
                 }
+                catch { /* inaccessible files are not fatal */ }
             }
         }
 

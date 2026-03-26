@@ -174,35 +174,32 @@ public class DuplicateSkillNameTests
     [Fact]
     public async Task DuplicateSkillNames_Fails()
     {
-        // Create two skill directories with different folder names but the same skill name in frontmatter
-        var root = Path.Combine(Path.GetTempPath(), $"dup-test-{Guid.NewGuid():N}");
-        var pluginDir = Path.Combine(root, "test-plugin");
-        var skillsDir = Path.Combine(pluginDir, "skills");
-
-        Directory.CreateDirectory(skillsDir);
-
-        File.WriteAllText(Path.Combine(pluginDir, "plugin.json"),
-            """{"name":"test-plugin","version":"1.0.0","description":"Test plugin.","skills":"./skills/"}""");
-
-        // First skill — name matches directory
-        var skill1Dir = Path.Combine(skillsDir, "my-skill");
-        Directory.CreateDirectory(skill1Dir);
-        File.WriteAllText(Path.Combine(skill1Dir, "SKILL.md"),
-            "---\nname: my-skill\ndescription: First skill with this name.\n---\n# my-skill\n\nContent.\n");
-
-        // Second skill — DIFFERENT directory but SAME name in frontmatter
-        var skill2Dir = Path.Combine(skillsDir, "my-skill-copy");
-        Directory.CreateDirectory(skill2Dir);
-        File.WriteAllText(Path.Combine(skill2Dir, "SKILL.md"),
-            "---\nname: my-skill\ndescription: Duplicate skill name here.\n---\n# my-skill\n\nContent.\n");
+        // Create two different plugins that each define a skill with the same (valid) name.
+        // This isolates the duplicate-name check — neither skill has a name/directory mismatch.
+        var root1 = CreatePluginFixture("plugin-one",
+            ("shared-skill", "First definition of shared skill."));
+        var root2 = CreatePluginFixture("plugin-two",
+            ("shared-skill", "Second definition of shared skill."));
 
         try
         {
-            var config = new CheckConfig { PluginPaths = [pluginDir] };
+            var config = new CheckConfig
+            {
+                PluginPaths =
+                [
+                    Path.Combine(root1, "plugin-one"),
+                    Path.Combine(root2, "plugin-two")
+                ]
+            };
+
             var result = await CheckCommand.Run(config);
-            // Should fail because of duplicate name (and also name/dir mismatch on second skill)
+            // Should fail specifically because the same skill name appears more than once
             Assert.Equal(1, result);
         }
-        finally { Directory.Delete(root, true); }
+        finally
+        {
+            Directory.Delete(root1, true);
+            Directory.Delete(root2, true);
+        }
     }
 }
