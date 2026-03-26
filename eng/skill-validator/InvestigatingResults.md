@@ -255,6 +255,32 @@ Most failing scenarios match 2–3 patterns simultaneously (e.g., timeout + toke
 6. **Rubric/judgment issues (#6, #7)** — once the runs are stable, tune the rubric.
 7. **Token overhead (#4)** — only optimize if quality is already good but the weighted score is marginally negative.
 
+## Improving the skill vs. gaming the eval
+
+When investigating failures, the goal is to **make the skill more useful to users** — not simply to make the eval score go up. Score improvement should be *evidence* of a better skill, not an end in itself.
+
+### Legitimate fixes (improve the skill)
+
+- Better skill content, structure, or examples
+- Better frontmatter `description` so the skill activates on relevant prompts
+- Removing a scenario where the baseline already scores perfectly (the skill genuinely adds no value)
+- Adding `setup.files` so the scenario tests what was intended rather than scaffolding ability
+
+### Illegitimate fixes (game the eval)
+
+- Relaxing rubric criteria so both runs score higher for less
+- Rewriting rubric items to match what the skill *happens* to produce rather than what a good answer *should* contain
+- Softening prompt expectations to avoid exposing a real skill weakness
+- Adding `reject_tools` to hide behavioral divergences between baseline and skilled runs (e.g., baseline explains while skilled run edits files — constraining tools makes the scores converge but doesn't fix the underlying issue)
+
+### Gray area (use judgment)
+
+- **Tightening a prompt** to reduce ambiguity is legitimate if the prompt is genuinely unclear, but illegitimate if done to steer toward the skill's strengths
+- **Broadening a rubric** to accept multiple valid approaches (#6 above) is legitimate; broadening it to accept *wrong* approaches is not
+- **Removing a scenario** because the baseline already aces it is an honest admission; removing it because the skill makes things worse is hiding a problem
+
+When in doubt, ask: *"Would this change make the skill more useful to a real user, or does it just make the number go up?"*
+
 ## Analyzing results with an AI agent
 
 The `results.json` file is designed to be machine-readable. An AI agent can:
