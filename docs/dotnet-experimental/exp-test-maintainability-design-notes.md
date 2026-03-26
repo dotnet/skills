@@ -28,6 +28,35 @@
   rule: "Prefer `[DataRow]` with `DisplayName` over `[DynamicData]` when values are
   compile-time constants."
 
+### Round 3 — After re-adding DataRow calibration rule
+
+| Scenario | Baseline | Isolated | Plugin | Verdict |
+| --- | --- | --- | --- | --- |
+| Selectively recommend changes | 5.0/5 | 5.0/5 | 5.0/5 | ❌ ⁴ |
+| Data-driven patterns + display names | 4.0/5 | 4.3/5 | 4.3/5 | ❌ ⁵ |
+| Well-maintained recognition | 4.7/5 | 5.0/5 | 5.0/5 | ❌ ⁶ |
+
+⁴ Quality unchanged, weighted -11.0% due to tokens (13388 → 35555), tool calls (0 → 2), time (16.9s → 34.6s).
+⁵ Quality improved 4.0→4.3 but weighted -4.2% due to tokens (13148 → 30114), tool calls (0 → 1), time (15.7s → 33.6s).
+⁶ Quality improved 4.7→5.0 but weighted -15.0% due to tokens (12736 → 37977), tool calls (0 → 2), time (17.3s → 30.4s).
+
+### Round 4 — Aggressive trim to calibration rules only
+
+Removed: When to Use, When Not to Use (covered by frontmatter description),
+Inputs table, Step 1 (gather code), Step 2 detection tables (model handles
+detection natively at ceiling quality), Step 4 (report format). Kept only
+the heading, one-line workflow, and the 6 calibration rules that encode
+the skill's unique judgment value. Cuts ~75% of skill tokens.
+
+| Scenario | Baseline | Isolated | Plugin | Verdict |
+| --- | --- | --- | --- | --- |
+| Selectively recommend changes | 5.0/5 | 5.0/5 | 5.0/5 | ❌ ⁷ |
+| Data-driven patterns + display names | 4.0/5 | 5.0/5 | 4.0/5 | ❌ ⁸ |
+| Well-maintained recognition | 4.3/5 | 5.0/5 | 5.0/5 | ✅ |
+
+⁷ Baseline at ceiling — same problem as "Oversized tests". Removed from eval.
+⁸ Isolated improved but plugin didn't. Weighted -9.4% from token overhead.
+
 ## Key Insight
 
 The baseline LLM already excels at refactoring recommendations (extracting builders,
@@ -43,10 +72,10 @@ Baseline scores 5.0/5 — there is zero quality delta for the skill to contribut
 non-zero token overhead makes the weighted score negative. This scenario cannot pass
 regardless of how much we trim the skill.
 
-### Kept: "Selectively recommend changes" eval scenario
+### Removed: "Selectively recommend changes" eval scenario
 
-Baseline scores 4.7/5 vs plugin 5.0/5 — there IS a +0.3 quality uplift. Trimming the
-skill's token footprint may allow the quality delta to outweigh the overhead penalty.
+Baseline hit ceiling at 5.0/5 after Round 2 trimming. Same problem as "Oversized tests" —
+zero quality delta means token overhead always produces a negative weighted score.
 
 ### Trimmed: SKILL.md output formatting and pitfalls sections
 
