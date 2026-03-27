@@ -61,3 +61,48 @@ scenarios:
     rubric:
       - "Response focuses on JSON validation (e.g., model binding, FluentValidation, data annotations) and does NOT suggest magic bytes or file upload patterns"
     timeout: 60
+
+  - name: "Review file upload endpoint for security issues"
+    prompt: |
+      Please review this file upload endpoint for security issues and fix any problems you find.
+    setup:
+      files:
+        - path: "Program.cs"
+          content: |
+            using Microsoft.AspNetCore.Http;
+
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddAntiforgery();
+            var app = builder.Build();
+            app.UseAntiforgery();
+
+            app.MapPost("/api/upload", async (IFormFile file) =>
+            {
+                var allowedTypes = new[] { "image/jpeg", "image/png" };
+                if (!allowedTypes.Contains(file.ContentType))
+                    return Results.BadRequest("Invalid file type");
+
+                var uploadPath = Path.Combine("uploads", file.FileName);
+                Directory.CreateDirectory("uploads");
+                using var stream = File.Create(uploadPath);
+                await file.CopyToAsync(stream);
+
+                return Results.Ok(new { file.FileName, file.Length });
+            });
+
+            app.Run();
+        - path: "UploadApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+    assertions:
+      - type: "output_matches"
+        pattern: "(path traversal|safe.?name|Guid|sanitiz)"
+    rubric:
+      - "Identified that using file.FileName directly for the save path allows path traversal attacks"
+      - "Identified that checking only ContentType is insufficient because it can be spoofed by the client"
+      - "Identified that the antiforgery middleware will reject API upload requests with a 400 error"
+    timeout: 180
