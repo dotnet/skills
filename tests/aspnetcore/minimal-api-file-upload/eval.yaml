@@ -10,33 +10,34 @@ scenarios:
         pattern: "(IFormFile|IFormFileCollection)"
       - type: "output_matches"
         pattern: "(Guid\\.NewGuid|Path\\.GetRandomFileName)"
-      - type: "output_matches"
-        pattern: "(ContentType|image/jpeg|image/png)"
     rubric:
-      - "Configures BOTH Kestrel MaxRequestBodySize AND FormOptions.MultipartBodyLengthLimit"
-      - "Uses .DisableAntiforgery() on the file upload endpoint to prevent automatic 400 errors"
-      - "Generates a safe filename (Guid.NewGuid or similar) instead of using user-provided IFormFile.FileName directly"
-      - "Validates file content beyond just checking file extension — checks ContentType or magic bytes"
-      - "Correctly uses IFormFile parameter binding in the minimal API endpoint"
+      - "Configures both the Kestrel request body size limit and the form multipart body length limit — not just one of them"
+      - "Handles the antiforgery middleware that would otherwise reject the upload with a 400 error"
+      - "Does not save to disk using the original user-provided filename — generates a safe name to prevent path traversal"
+      - "Verifies the actual file content (e.g., magic bytes or file signatures), not just the Content-Type header which can be spoofed"
     timeout: 180
 
-  - name: "Fix file upload returning 400 Bad Request"
+  - name: "Fix large file uploads failing despite increasing Kestrel limit"
     prompt: |
-      My ASP.NET Core 8 minimal API file upload endpoint returns 400 Bad Request with no error details. The endpoint works fine when I remove UseAntiforgery() from Program.cs. What's going on?
+      I'm trying to upload 50MB files in my ASP.NET Core minimal API. I increased the
+      Kestrel request body size limit to 100MB but uploads still fail with a
+      "Request body too large" error. What am I missing?
     setup:
       files:
         - path: "Program.cs"
           content: |
             var builder = WebApplication.CreateBuilder(args);
-            builder.Services.AddAntiforgery();
+            builder.WebHost.ConfigureKestrel(options =>
+            {
+                options.Limits.MaxRequestBodySize = 100 * 1024 * 1024;
+            });
             var app = builder.Build();
-            app.UseAntiforgery();
             app.MapPost("/upload", (IFormFile file) =>
             {
                 return Results.Ok(new { file.FileName, file.Length });
             });
             app.Run();
-        - path: "UploadBug.csproj"
+        - path: "UploadApp.csproj"
           content: |
             <Project Sdk="Microsoft.NET.Sdk.Web">
               <PropertyGroup>
@@ -45,23 +46,18 @@ scenarios:
             </Project>
     assertions:
       - type: "output_matches"
-        pattern: "(DisableAntiforgery|antiforgery|anti-forgery)"
+        pattern: "(MultipartBodyLengthLimit|FormOptions)"
     rubric:
-      - "Identified the root cause: UseAntiforgery() middleware rejects file upload requests that lack an antiforgery token"
-      - "Recommended using .DisableAntiforgery() on the file upload endpoint"
-      - "Explained that minimal API file upload endpoints typically need antiforgery disabled since the token cannot be included in multipart form uploads from API clients"
+      - "Identified that there is a second, separate size limit (the multipart form body length limit) that also needs to be increased"
+      - "Provided a concrete fix that configures the form options multipart limit in addition to the Kestrel limit"
+      - "Explained why configuring only the Kestrel limit is insufficient — the form parser has its own independent limit"
     timeout: 180
 
-  - name: "Upload multiple files with metadata in minimal API"
+  - name: "File upload should not use magic bytes for JSON API"
+    expect_activation: false
     prompt: |
-      I need to upload multiple files along with a description string in a single request to my ASP.NET Core 8 minimal API. How do I bind both the files and the form field?
-    assertions:
-      - type: "output_matches"
-        pattern: "(IFormFileCollection|IFormFile)"
-      - type: "output_matches"
-        pattern: "(FromForm|\\[FromForm\\])"
+      I'm building a REST API in ASP.NET Core that accepts JSON payloads.
+      How do I validate the request body schema?
     rubric:
-      - "Used IFormFileCollection for multiple files"
-      - "Used [FromForm] attribute on parameters when mixing files with other form fields"
-      - "Showed correct multipart/form-data binding pattern"
-    timeout: 180
+      - "Response focuses on JSON validation (e.g., model binding, FluentValidation, data annotations) and does NOT suggest magic bytes or file upload patterns"
+    timeout: 60
