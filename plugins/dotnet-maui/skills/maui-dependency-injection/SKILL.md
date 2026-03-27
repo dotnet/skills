@@ -9,7 +9,8 @@ description: >
   "AddScoped", "service registration", "constructor injection", "IServiceProvider",
   "MauiProgram DI", "register services", "BindingContext injection".
   DO NOT USE FOR: data binding (use maui-data-binding), Shell route configuration
-  (use maui-shell-navigation), unit-test mocking frameworks (use maui-unit-testing).
+  (use maui-shell-navigation), unit-test mocking frameworks (use standard xUnit
+  and NSubstitute patterns).
 ---
 
 # Dependency Injection in .NET MAUI

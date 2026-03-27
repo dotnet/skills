@@ -9,9 +9,9 @@ description: >-
   "keyboard avoidance", "notch insets", "status bar overlap", "iOS safe area",
   "Android edge-to-edge", "content behind status bar", "UseSafeArea migration",
   "soft input keyboard", "IgnoreSafeArea replacement".
-  DO NOT USE FOR: general layout or grid design (use maui-collectionview),
+  DO NOT USE FOR: general layout or grid design (use Grid and StackLayout),
   app lifecycle handling (use maui-app-lifecycle), theming or styling
-  (use maui-bootstrap-theme), or Shell navigation structure.
+  (use maui-theming), or Shell navigation structure.
 ---
 
 # Safe Area & Edge-to-Edge Layout (.NET 10+)

@@ -8,9 +8,9 @@ description: >-
   Use when: setting up Shell navigation, adding tabs or flyout menus, navigating between
   pages with GoToAsync, passing parameters between pages, registering routes, customizing
   back button behavior, or guarding navigation with confirmation dialogs.
-  Do not use for: deep linking from external URLs (use maui-deep-linking), data binding
-  on pages (use maui-data-binding), dependency injection setup (use maui-dependency-injection),
-  or NavigationPage-only apps that don't use Shell.
+  Do not use for: deep linking from external URLs (see .NET MAUI deep linking
+  documentation), data binding on pages (use maui-data-binding), dependency injection
+  setup (use maui-dependency-injection), or NavigationPage-only apps that don't use Shell.
 ---
 
 # .NET MAUI Shell Navigation

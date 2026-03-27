@@ -10,7 +10,7 @@ description: >-
   "ConfigureLifecycleEvents", "platform lifecycle hooks".
   DO NOT USE FOR: navigation events (use maui-shell-navigation),
   dependency injection setup (use maui-dependency-injection),
-  platform API invocation (use maui-platform-invoke).
+  platform API invocation (use conditional compilation and partial classes).
 ---
 
 # .NET MAUI App Lifecycle

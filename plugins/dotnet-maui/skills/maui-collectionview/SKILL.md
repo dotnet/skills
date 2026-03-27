@@ -9,8 +9,8 @@ description: >
   "swipe actions", "empty view", "selection mode", "scroll to item",
   displaying scrollable data, replacing ListView.
   DO NOT USE FOR: simple static layouts without scrollable data (use Grid or
-  StackLayout), map pin lists (use maui-maps), table-based data entry forms,
-  or non-MAUI list controls.
+  StackLayout), map pin lists (use Microsoft.Maui.Controls.Maps), table-based
+  data entry forms, or non-MAUI list controls.
 ---
 
 # CollectionView — .NET MAUI

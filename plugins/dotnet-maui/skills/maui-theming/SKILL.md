@@ -7,10 +7,11 @@ description: >-
   Use when: "dark mode", "light mode", "theming", "AppThemeBinding",
   "theme switching", "ResourceDictionary theme", "dynamic resources",
   "system theme detection", "color scheme", "app theme", "DynamicResource".
-  Do not use for: localization or language switching (use maui-localization),
-  accessibility visual adjustments (use maui-accessibility), app icons or splash
-  screens (use maui-app-icons-splash), or Bootstrap-style class theming
-  (use maui-bootstrap-theme).
+  Do not use for: localization or language switching (see .NET MAUI localization
+  documentation), accessibility visual adjustments (see .NET MAUI accessibility
+  documentation), app icons or splash screens (see .NET MAUI app icons
+  documentation), or Bootstrap-style class theming (see Plugin.Maui.BootstrapTheme
+  NuGet package).
 ---
 
 # .NET MAUI Theming

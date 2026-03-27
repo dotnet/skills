@@ -12,7 +12,7 @@ description: >-
   DO NOT USE FOR: CollectionView item templates and layouts (use
   maui-collectionview), Shell navigation data passing (use
   maui-shell-navigation), dependency injection (use maui-dependency-injection),
-  or animations triggered by property changes (use maui-animations).
+  or animations triggered by property changes (use .NET MAUI animation APIs).
 ---
 
 # .NET MAUI Data Binding
