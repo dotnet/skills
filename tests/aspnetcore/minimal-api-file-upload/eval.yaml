@@ -19,9 +19,10 @@ scenarios:
 
   - name: "Fix large file uploads failing despite increasing Kestrel limit"
     prompt: |
-      I'm trying to upload 50MB files in my ASP.NET Core minimal API. I increased the
-      Kestrel request body size limit to 100MB but uploads still fail with a
-      "Request body too large" error. What am I missing?
+      I'm trying to upload 50MB files in my ASP.NET Core 8 minimal API. I already
+      increased the Kestrel request body size limit to 100MB, but uploads still fail
+      with a "Request body too large" error when using IFormFile. Here's my Program.cs.
+      What am I missing?
     setup:
       files:
         - path: "Program.cs"
@@ -64,7 +65,9 @@ scenarios:
 
   - name: "Review file upload endpoint for security issues"
     prompt: |
-      Please review this file upload endpoint for security issues and fix any problems you find.
+      I have an ASP.NET Core 8 minimal API with a file upload endpoint that accepts
+      image uploads. Please review the code in Program.cs for security issues and
+      suggest fixes. The endpoint uses IFormFile to receive uploaded files.
     setup:
       files:
         - path: "Program.cs"
@@ -105,4 +108,4 @@ scenarios:
       - "Identified that using file.FileName directly for the save path allows path traversal attacks"
       - "Identified that checking only ContentType is insufficient because it can be spoofed by the client"
       - "Identified that the antiforgery middleware will reject API upload requests with a 400 error"
-    timeout: 180
+    timeout: 240
