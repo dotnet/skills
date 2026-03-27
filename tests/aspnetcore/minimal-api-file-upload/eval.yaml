@@ -26,11 +26,13 @@ scenarios:
       - "Response focuses on JSON validation (e.g., model binding, FluentValidation, data annotations) and does NOT suggest magic bytes or file upload patterns"
     timeout: 60
 
-  - name: "Review file upload endpoint for security issues"
+  - name: "Fix broken file upload endpoint in ASP.NET Core minimal API"
     prompt: |
-      I have an ASP.NET Core 8 minimal API with a file upload endpoint that accepts
-      image uploads. Please review the code in Program.cs for security issues and
-      suggest fixes. The endpoint uses IFormFile to receive uploaded files.
+      My ASP.NET Core 8 minimal API file upload endpoint has several problems.
+      It's supposed to accept JPEG and PNG image uploads via IFormFile but it
+      doesn't work correctly in production — uploads fail, and I'm worried the
+      file handling isn't safe. Can you fix the file upload implementation in
+      Program.cs?
     setup:
       files:
         - path: "Program.cs"
