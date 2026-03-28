@@ -146,9 +146,11 @@ function Read-IpsCrashLog([string]$path) {
 
     try {
         # Some .ips files contain case-variant duplicate keys (e.g. vmRegionInfo
-        # and vmregioninfo) which ConvertFrom-Json rejects. Remove the lowercase
+        # and vmregioninfo) which ConvertFrom-Json rejects. Rename the lowercase
         # duplicate so parsing succeeds while preserving the camelCase variant.
-        $bodyJson = $bodyJson -replace '"vmregioninfo"\s*:', '"_vmregioninfo_dup":'
+        if ($bodyJson -match '"vmRegionInfo"\s*:' -and $bodyJson -match '"vmregioninfo"\s*:') {
+            $bodyJson = $bodyJson -creplace '"vmregioninfo"\s*:', '"_vmregioninfo_dup":'
+        }
         $body = $bodyJson | ConvertFrom-Json
     }
     catch {
@@ -731,7 +733,7 @@ Write-Verbose "Symbol cache: $SymbolCacheDir"
 
 # Search for dSYMs for each .NET library
 $dsymMap = @{} # UUID -> dSYM DWARF path
-$uniqueLibs = $dotnetFrames | Select-Object ImageName, ImagePath, ImageUuid -Unique
+$uniqueLibs = $dotnetFrames | Sort-Object ImageName, ImagePath, ImageUuid -Unique
 
 Write-Host "Searching for dSYM debug symbols..." -ForegroundColor Cyan
 foreach ($lib in $uniqueLibs) {
@@ -848,7 +850,7 @@ if ($missingDsymLibs.Count -gt 0 -and $versionMap.Count -gt 0) {
         Write-Host "   Manual acquisition fallback:" -ForegroundColor Yellow
         if ($isOsx) {
             Write-Host "     dotnet-symbol: curl -Lo runtime.nupkg https://www.nuget.org/api/v2/package/$runtimePackBase/$anyVersion && unzip -q runtime.nupkg -d runtime-extracted && dotnet-symbol --symbols -o symbols-out runtime-extracted/runtimes/$crashRid/native/*.dylib" -ForegroundColor DarkYellow
-            Write-Host "     Then convert .dwarf to .dSYM: mkdir -p <lib>.dSYM/Contents/Resources/DWARF && cp symbols-out/<lib>.dwarf <lib>.dSYM/Contents/Resources/DWARF/<lib>" -ForegroundColor DarkYellow
+            Write-Host "     Then convert .dwarf to .dSYM: mkdir -p symbols-out/<lib>.dSYM/Contents/Resources/DWARF && cp symbols-out/<lib>.dwarf symbols-out/<lib>.dSYM/Contents/Resources/DWARF/<lib>" -ForegroundColor DarkYellow
             Write-Host "     Re-run with: -DsymSearchPaths ./symbols-out" -ForegroundColor DarkYellow
         }
         else {
