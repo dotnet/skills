@@ -122,7 +122,10 @@ builder.Logging.AddOpenTelemetry(logging =>
 {
     logging.IncludeScopes = true;
     logging.IncludeFormattedMessage = true;
-    logging.AddOtlpExporter();
+    logging.AddOtlpExporter(options =>
+    {
+        options.Endpoint = new Uri("http://localhost:4317");
+    });
 });
 ```
 
@@ -132,6 +135,7 @@ builder.Logging.AddOpenTelemetry(logging =>
 
 ```csharp
 using System.Diagnostics;
+using OpenTelemetry.Trace;
 
 public class OrderService
 {
@@ -262,7 +266,8 @@ var parentContext = propagator.Extract(default, carrier,
     (dict, key) => dict.TryGetValue(key, out var value) ? new[] { value } : Array.Empty<string>());
 
 Baggage.Current = parentContext.Baggage;
-using var activity = ActivitySource.StartActivity("ProcessMessage",
+var messageSource = new ActivitySource("MyOrderService.Messaging");
+using var activity = messageSource.StartActivity("ProcessMessage",
     ActivityKind.Consumer,
     parentContext.ActivityContext);  // Links to parent trace!
 ```
@@ -283,7 +288,7 @@ using var activity = ActivitySource.StartActivity("ProcessMessage",
 |---------|----------|
 | `ActivitySource.StartActivity` returns null | Source name doesn't match any `AddSource()` — names must match exactly |
 | Traces not appearing in exporter | Check OTLP endpoint: gRPC uses port 4317, HTTP uses 4318 |
-| Missing HTTP client spans | `AddHttpClientInstrumentation()` only works with `HttpClient` instances created via `IHttpClientFactory` or DI |
+| Missing HTTP client spans | Ensure `AddHttpClientInstrumentation()` is registered; it works for both `IHttpClientFactory`/DI and `new HttpClient()` (use `IHttpClientFactory` for lifetime management) |
 | High cardinality tags | Don't use user IDs, request IDs, or UUIDs as metric tags — explodes storage |
 | OTLP gRPC vs HTTP mismatch | Default is gRPC (port 4317); if collector only accepts HTTP, set `OtlpExportProtocol.HttpProtobuf` |
 | Static `Meter` instead of `IMeterFactory` | Prefer `IMeterFactory` from DI for proper lifetime management and testability |
