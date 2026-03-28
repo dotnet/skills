@@ -32,12 +32,12 @@ description: Configure OpenTelemetry distributed tracing, metrics, and logging i
 **There are many OpenTelemetry NuGet packages. Install exactly these:**
 
 ```bash
-# Core SDK + ASP.NET Core instrumentation
+# Core SDK + ASP.NET Core instrumentation + logging integration
 dotnet add package OpenTelemetry.Extensions.Hosting
 dotnet add package OpenTelemetry.Instrumentation.AspNetCore
 dotnet add package OpenTelemetry.Instrumentation.Http
 
-# Exporter (pick one or more)
+# Exporter (pick one or more — also used by logging in Step 3)
 dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol  # OTLP (recommended)
 dotnet add package OpenTelemetry.Exporter.Console                # Dev/debugging
 ```
@@ -266,6 +266,7 @@ var parentContext = propagator.Extract(default, carrier,
     (dict, key) => dict.TryGetValue(key, out var value) ? new[] { value } : Array.Empty<string>());
 
 Baggage.Current = parentContext.Baggage;
+// Remember to register this source via .AddSource("MyOrderService.Messaging") in Step 2
 var messageSource = new ActivitySource("MyOrderService.Messaging");
 using var activity = messageSource.StartActivity("ProcessMessage",
     ActivityKind.Consumer,
