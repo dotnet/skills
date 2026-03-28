@@ -1,4 +1,3 @@
-```skill
 ---
 name: configuring-opentelemetry-dotnet
 description: Configure OpenTelemetry distributed tracing, metrics, and logging in ASP.NET Core using the .NET OpenTelemetry SDK. Use when adding observability, setting up OTLP exporters, creating custom metrics/spans, or troubleshooting distributed trace correlation.
@@ -41,16 +40,22 @@ dotnet add package OpenTelemetry.Instrumentation.Http
 # Exporter (pick one or more)
 dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol  # OTLP (recommended)
 dotnet add package OpenTelemetry.Exporter.Console                # Dev/debugging
-
-# Optional: additional auto-instrumentation
-dotnet add package OpenTelemetry.Instrumentation.SqlClient       # SQL Server
-dotnet add package OpenTelemetry.Instrumentation.EntityFrameworkCore  # EF Core
-dotnet add package OpenTelemetry.Instrumentation.GrpcNetClient   # gRPC
 ```
 
 **Do NOT install `OpenTelemetry` alone** — you need `OpenTelemetry.Extensions.Hosting` for proper DI integration.
 
-### Step 2: Configure tracing in Program.cs
+#### Optional: additional auto-instrumentation packages
+
+Install only the packages that match the libraries your application uses:
+
+```bash
+dotnet add package OpenTelemetry.Instrumentation.SqlClient           # SQL Server queries
+dotnet add package OpenTelemetry.Instrumentation.EntityFrameworkCore  # EF Core
+dotnet add package OpenTelemetry.Instrumentation.GrpcNetClient       # gRPC calls
+dotnet add package OpenTelemetry.Instrumentation.Runtime             # GC, thread pool metrics
+```
+
+### Step 2: Configure tracing and metrics in Program.cs
 
 ```csharp
 using OpenTelemetry.Resources;
@@ -80,11 +85,12 @@ builder.Services.AddOpenTelemetry()
             // Enrich outgoing HTTP spans with request/response details
             options.RecordException = true;
         })
-        .AddSqlClientInstrumentation(options =>
-        {
-            options.SetDbStatementForText = true;   // Capture SQL text
-            options.RecordException = true;
-        })
+        // Optional: add SQL instrumentation if using SqlClient directly
+        // .AddSqlClientInstrumentation(options =>
+        // {
+        //     options.SetDbStatementForText = true;
+        //     options.RecordException = true;
+        // })
         // Custom activity sources (for your own spans)
         .AddSource("MyOrderService.Orders")
         .AddSource("MyOrderService.Payments")
@@ -98,7 +104,8 @@ builder.Services.AddOpenTelemetry()
     .WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
-        .AddRuntimeInstrumentation()  // GC, thread pool metrics
+        // Optional: .AddRuntimeInstrumentation() for GC and thread pool metrics
+        //   (requires OpenTelemetry.Instrumentation.Runtime package)
         // Custom meters
         .AddMeter("MyOrderService.Metrics")
         .AddOtlpExporter());
@@ -154,6 +161,8 @@ public class OrderService
                 await ProcessPaymentAsync(request);
             }
 
+            var order = new Order { Id = Guid.NewGuid(), CustomerId = request.CustomerId, Status = "Completed" };
+
             activity?.SetTag("order.status", "completed");
             activity?.SetStatus(ActivityStatusCode.Ok);
 
@@ -174,33 +183,35 @@ public class OrderService
 
 ### Step 5: Create custom metrics
 
+Use `IMeterFactory` (injected via DI) to create meters — this ensures proper lifetime management and testability.
+
 ```csharp
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 
 public class OrderMetrics
 {
     // Meter name must match AddMeter("...") in configuration
-    private static readonly Meter Meter = new("MyOrderService.Metrics");
+    private readonly Counter<long> _ordersProcessed;
+    private readonly Histogram<double> _orderProcessingDuration;
+    private readonly UpDownCounter<int> _activeOrders;
 
-    // Counter — use for things that only go up
-    private static readonly Counter<long> OrdersProcessed =
-        Meter.CreateCounter<long>("orders.processed", "orders",
-            "Total orders successfully processed");
+    public OrderMetrics(IMeterFactory meterFactory)
+    {
+        var meter = meterFactory.Create("MyOrderService.Metrics");
 
-    // Histogram — use for measuring distributions (latency, sizes)
-    private static readonly Histogram<double> OrderProcessingDuration =
-        Meter.CreateHistogram<double>("orders.processing_duration", "ms",
-            "Time to process an order");
+        // Counter — use for things that only go up
+        _ordersProcessed = meter.CreateCounter<long>(
+            "orders.processed", "orders", "Total orders successfully processed");
 
-    // UpDownCounter — use for things that go up AND down
-    private static readonly UpDownCounter<int> ActiveOrders =
-        Meter.CreateUpDownCounter<int>("orders.active", "orders",
-            "Currently processing orders");
+        // Histogram — use for measuring distributions (latency, sizes)
+        _orderProcessingDuration = meter.CreateHistogram<double>(
+            "orders.processing_duration", "ms", "Time to process an order");
 
-    // ObservableGauge — use for point-in-time values (queue depth, etc.)
-    // Note: registered once, callback invoked on each collection
-    private static readonly ObservableGauge<int> QueueDepth =
-        Meter.CreateObservableGauge("orders.queue_depth", () => GetQueueDepth());
+        // UpDownCounter — use for things that go up AND down
+        _activeOrders = meter.CreateUpDownCounter<int>(
+            "orders.active", "orders", "Currently processing orders");
+    }
 
     public void RecordOrderProcessed(string region, double durationMs)
     {
@@ -211,10 +222,16 @@ public class OrderMetrics
             { "order.type", "standard" }
         };
 
-        OrdersProcessed.Add(1, tags);
-        OrderProcessingDuration.Record(durationMs, tags);
+        _ordersProcessed.Add(1, tags);
+        _orderProcessingDuration.Record(durationMs, tags);
     }
 }
+```
+
+Register `OrderMetrics` in DI:
+
+```csharp
+builder.Services.AddSingleton<OrderMetrics>();
 ```
 
 ### Step 6: Configure context propagation for distributed scenarios
@@ -222,10 +239,16 @@ public class OrderMetrics
 Trace context propagation is automatic for HTTP calls when using `AddHttpClientInstrumentation()`. For non-HTTP scenarios:
 
 ```csharp
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using OpenTelemetry.Context.Propagation;
+
 // Manual context propagation (e.g., across message queues)
 // On the SENDING side:
 var propagator = Propagators.DefaultTextMapPropagator;
-var context = new PropagationContext(Activity.Current!.Context, Baggage.Current);
+var activityContext = Activity.Current?.Context ?? default;
+var context = new PropagationContext(activityContext, Baggage.Current);
 var carrier = new Dictionary<string, string>();
 
 propagator.Inject(context, carrier, (dict, key, value) => dict[key] = value);
@@ -257,8 +280,8 @@ using var activity = ActivitySource.StartActivity("ProcessMessage",
 |---------|----------|
 | `ActivitySource.StartActivity` returns null | Source name doesn't match any `AddSource()` — names must match exactly |
 | Traces not appearing in exporter | Check OTLP endpoint: gRPC uses port 4317, HTTP uses 4318 |
-| Missing HTTP client spans | `AddHttpClientInstrumentation()` only works with `IHttpClientFactory`-created clients |
+| Missing HTTP client spans | `AddHttpClientInstrumentation()` only works with `HttpClient` instances created via `IHttpClientFactory` or DI |
 | High cardinality tags | Don't use user IDs, request IDs, or UUIDs as metric tags — explodes storage |
 | OTLP gRPC vs HTTP mismatch | Default is gRPC (port 4317); if collector only accepts HTTP, set `OtlpExportProtocol.HttpProtobuf` |
-| `Meter` and `ActivitySource` not static | Must be static — creating per-request wastes memory and may lose data |
-```
+| Static `Meter` instead of `IMeterFactory` | Prefer `IMeterFactory` from DI for proper lifetime management and testability |
+| `Meter` and `ActivitySource` not static | `ActivitySource` should be static; `Meter` should be created via `IMeterFactory` in DI |

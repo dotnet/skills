@@ -1,12 +1,7 @@
 scenarios:
   - name: "Add OpenTelemetry tracing and metrics to an ASP.NET Core API"
     prompt: |
-      I need to add distributed tracing and custom metrics to my ASP.NET Core 8 API. We use an OTLP-compatible collector (Jaeger). I want to:
-      1. Auto-instrument incoming HTTP requests and outgoing HttpClient calls
-      2. Create custom spans for my order processing business logic using ActivitySource
-      3. Add a custom counter metric for orders processed using System.Diagnostics.Metrics.Meter
-
-      Show me the full setup including package installation, Program.cs configuration, and how to create the custom spans and metrics in my service class. I want to make sure my custom traces and metrics actually show up in Jaeger — last time I tried, the auto-instrumentation worked but my custom spans were invisible.
+      Please enable telemetry for my ASP.NET Core 8 app. I want distributed tracing with custom spans for order processing, a counter metric for orders processed, and OTLP export to Jaeger. My custom traces weren't showing up last time I tried.
     assertions:
       - type: "output_matches"
         pattern: "(OpenTelemetry\\.Extensions\\.Hosting|AddOpenTelemetry)"
@@ -17,7 +12,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(Counter|Histogram|CreateCounter|CreateHistogram)"
     rubric:
-      - "Installed the correct packages: OpenTelemetry.Extensions.Hosting, OpenTelemetry.Instrumentation.AspNetCore, OpenTelemetry.Exporter.OpenTelemetryProtocol"
+      - "Installed the correct packages: OpenTelemetry.Extensions.Hosting, OpenTelemetry.Instrumentation.AspNetCore, OpenTelemetry.Instrumentation.Http, OpenTelemetry.Exporter.OpenTelemetryProtocol"
       - "Configured AddOpenTelemetry() with .WithTracing() and .WithMetrics() in Program.cs"
       - "Added AddAspNetCoreInstrumentation() and AddHttpClientInstrumentation() for auto-instrumentation"
       - "Registered custom ActivitySource names via AddSource() matching the source name used in the service class"
