@@ -38,7 +38,7 @@ dotnet add package OpenTelemetry.Instrumentation.AspNetCore
 dotnet add package OpenTelemetry.Instrumentation.Http
 
 # Exporter (pick one or more — also used by logging in Step 3)
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol  # OTLP (recommended)
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol  # OTLP exporter for traces, metrics, AND logs
 dotnet add package OpenTelemetry.Exporter.Console                # Dev/debugging
 ```
 
@@ -62,6 +62,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Logs;
+using OpenTelemetry.Exporter;  // for OtlpExportProtocol
 
 var builder = WebApplication.CreateBuilder(args);
 
