@@ -67,7 +67,7 @@ Then examine the **faulting thread** (`threads[faultingThread]`). Explain what f
 
 Also check `lastExceptionBacktrace` for the managed exception path through bridge functions like `xamarin_process_managed_exception`.
 
-The .NET runtime version can be extracted from image paths in `usedImages` (e.g., `.../Microsoft.NETCore.App/10.0.4/libcoreclr.dylib`).
+Sometimes the .NET runtime version is visible in image paths in `usedImages`, particularly on macOS when using shared-framework installs or NuGet-pack-style layouts (e.g., `.../Microsoft.NETCore.App/10.0.4/libcoreclr.dylib`). On iOS, however, image paths are typically inside the app bundle (for example, `.../Frameworks/libcoreclr.framework/libcoreclr`) and do not embed the runtime version, so you usually need to infer it via the Mach-O UUID by matching against SDK packs or symbol-server downloads rather than relying on the path alone.
 
 ### Step 4: Locate dSYMs
 

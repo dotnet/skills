@@ -788,11 +788,15 @@ if ($missingAfterLocal.Count -gt 0 -and -not $SkipSymbolDownload) {
                     # Remove the .dSYM bundle and cached .dwarf to prevent repeated mismatch
                     try {
                         # Walk up from DWARF file to .dSYM bundle root
+                        # Path is: <cache>/<name>.dSYM/Contents/Resources/DWARF/<name>
                         $dsymBundlePath = $null
-                        $dsymDir = Split-Path -LiteralPath $dsymPath -Parent
-                        $candidateBundle = Split-Path -LiteralPath $dsymDir -Parent
-                        if ($candidateBundle -like '*.dSYM') {
-                            $dsymBundlePath = $candidateBundle
+                        $candidate = Split-Path -LiteralPath $dsymPath -Parent
+                        while ($candidate -and $candidate -ne (Split-Path -LiteralPath $candidate -Parent)) {
+                            if ($candidate -like '*.dSYM') {
+                                $dsymBundlePath = $candidate
+                                break
+                            }
+                            $candidate = Split-Path -LiteralPath $candidate -Parent
                         }
 
                         if ($dsymBundlePath -and (Test-Path -LiteralPath $dsymBundlePath)) {
