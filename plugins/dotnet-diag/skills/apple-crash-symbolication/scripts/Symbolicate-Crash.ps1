@@ -406,13 +406,13 @@ function Resolve-Frames([string]$dsymPath, [string]$arch, [uint64]$loadAddress, 
         $output = & $atosPath -arch $arch -o $dsymPath -l $loadHex @addrArgs 2>$null
         if ($LASTEXITCODE -ne 0 -or -not $output) { return @() }
 
-        $results = @()
+        $results = [System.Collections.Generic.List[object]]::new()
         $lines = @($output)
         for ($i = 0; $i -lt [Math]::Min($lines.Count, $addresses.Count); $i++) {
             $line = $lines[$i].Trim()
             # atos returns "0xADDRESS" for unresolved frames
             if ($line -match '^0x[0-9a-fA-F]+$') {
-                $results += $null
+                $results.Add($null)
             }
             else {
                 # Parse: "functionName (in libraryName) (sourcefile:line)"
@@ -427,13 +427,13 @@ function Resolve-Frames([string]$dsymPath, [string]$arch, [uint64]$loadAddress, 
                 elseif ($line -match '^(.+?)\s+\(in\s+.+?\)$') {
                     $funcName = $Matches[1]
                 }
-                $results += [PSCustomObject]@{
+                $results.Add([PSCustomObject]@{
                     Function = $funcName
                     Source   = $source
-                }
+                })
             }
         }
-        return $results
+        return ,$results
     }
     catch {
         Write-Verbose "atos failed: $_"
