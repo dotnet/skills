@@ -43,7 +43,7 @@ scenarios:
           source: "tombstone_sample.txt"
     assertions:
       - type: "output_matches"
-        pattern: "(Android|tombstone|not.*(iOS|.ips)|wrong.*(format|type)|different.*(format|process))"
+        pattern: "(Android|tombstone|not.*(iOS|\.ips)|wrong.*(format|type)|different.*(format|process))"
     rubric:
       - "Recognized that this is an Android tombstone, not an iOS .ips crash log"
       - "Did NOT attempt to apply the iOS crash symbolication workflow"

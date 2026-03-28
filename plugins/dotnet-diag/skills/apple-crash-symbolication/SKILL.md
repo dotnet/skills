@@ -73,10 +73,10 @@ The .NET runtime version can be extracted from image paths in `usedImages` (e.g.
 
 For each .NET library needing symbolication, locate a UUID-matched dSYM:
 
-1. **Microsoft symbol server** (automatic): Download `.dwarf` via `https://msdl.microsoft.com/download/symbols/_.dwarf/mach-uuid-sym-{UUID}/_.dwarf` (UUID lowercase, no dashes). Convert to `.dSYM` bundle:
+1. **Microsoft symbol server** (automatic): Download `.dwarf` via `https://msdl.microsoft.com/download/symbols/_.dwarf/mach-uuid-sym-{UUID}/_.dwarf` (UUID lowercase, no dashes). Convert to `.dSYM` bundle (use the image name from `usedImages[].name`, e.g., `libcoreclr`):
    ```bash
-   mkdir -p libcoreclr.dylib.dSYM/Contents/Resources/DWARF
-   cp libcoreclr.dylib.dwarf libcoreclr.dylib.dSYM/Contents/Resources/DWARF/libcoreclr.dylib
+   mkdir -p libcoreclr.dSYM/Contents/Resources/DWARF
+   cp _.dwarf libcoreclr.dSYM/Contents/Resources/DWARF/libcoreclr
    ```
 2. **Build output**: `bin/Debug/net*-ios/ios-arm64/<App>.app.dSYM/`
 3. **SDK packs**: `$DOTNET_ROOT/packs/Microsoft.NETCore.App.Runtime.<rid>/<version>/runtimes/<rid>/native/`

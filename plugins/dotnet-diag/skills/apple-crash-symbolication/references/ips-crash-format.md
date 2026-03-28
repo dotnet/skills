@@ -17,7 +17,7 @@ The `Symbolicate-Crash.ps1` script automatically downloads `.dwarf` files from t
 URL pattern: https://msdl.microsoft.com/download/symbols/_.dwarf/mach-uuid-sym-{UUID}/_.dwarf
 ```
 
-The UUID is extracted from the crash log's binary image list (already lowercase, no dashes). The server returns HTTP 302 on hit, 404 on miss. Downloaded files are cached in `$TMPDIR/dotnet-crash-symbols/` and converted to `.dSYM` bundles automatically.
+The UUID is extracted from the crash log's binary image list and normalized by lowercasing and removing dashes before constructing the symbol server URL. The server returns HTTP 302 on hit, 404 on miss. Downloaded files are cached in `$TMPDIR/dotnet-crash-symbols/` and converted to `.dSYM` bundles automatically.
 
 ### Manual fallback: `.symbols` NuGet package
 

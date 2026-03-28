@@ -101,7 +101,11 @@ $dotnetLibraries = @(
 # All Apple platform RIDs to search for dSYMs and runtime packs
 $appleRids = @(
     'ios-arm64'
+    'iossimulator-arm64'
+    'iossimulator-x64'
     'tvos-arm64'
+    'tvossimulator-arm64'
+    'tvossimulator-x64'
     'maccatalyst-arm64'
     'maccatalyst-x64'
     'osx-arm64'
@@ -187,10 +191,13 @@ function Get-ThreadFrames($thread, $images) {
     $frames = @()
     if (-not $thread.frames) { return $frames }
 
+    $imageMap = @{}
+    foreach ($img in $images) { $imageMap[$img.Index] = $img }
+
     foreach ($f in $thread.frames) {
         $imgIdx = [int]$f.imageIndex
         $offset = [uint64]$f.imageOffset
-        $img = $images | Where-Object { $_.Index -eq $imgIdx } | Select-Object -First 1
+        $img = $imageMap[$imgIdx]
 
         if ($img) {
             $address = $img.Base + $offset
@@ -309,7 +316,7 @@ function Get-DebugSymbols([string]$uuid, [string]$cacheDir, [string]$serverUrl) 
     $savedProgressPreference = $ProgressPreference
     try {
         $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $url -OutFile $dwarfFile -UseBasicParsing -TimeoutSec 120
+        Invoke-WebRequest -Uri $url -OutFile $dwarfFile -TimeoutSec 120
 
         # Verify the download is a Mach-O file (64-bit LE magic: CF FA ED FE)
         $stream = [System.IO.File]::OpenRead($dwarfFile)
@@ -342,10 +349,12 @@ function Get-DebugSymbols([string]$uuid, [string]$cacheDir, [string]$serverUrl) 
 }
 
 # Convert a raw .dwarf file into a .dSYM bundle that atos can consume
-function Convert-DwarfToDsym([string]$dwarfFile, [string]$libraryName, [string]$cacheDir) {
-    $dsymBundle = Join-Path $cacheDir "$libraryName.dSYM"
+function Convert-DwarfToDsym([string]$dwarfFile, [string]$libraryName, [string]$uuid, [string]$cacheDir) {
+    # Sanitize library name to prevent path traversal
+    $safeName = [System.IO.Path]::GetFileName($libraryName)
+    $dsymBundle = Join-Path $cacheDir "$safeName-$uuid.dSYM"
     $dwarfDir = Join-Path $dsymBundle 'Contents/Resources/DWARF'
-    $targetFile = Join-Path $dwarfDir $libraryName
+    $targetFile = Join-Path $dwarfDir $safeName
 
     if (Test-Path $targetFile) {
         Write-Verbose "Using cached dSYM bundle for $libraryName"
@@ -428,8 +437,8 @@ function Get-RuntimeVersionFromPath([string]$imagePath) {
     # Pattern: .../shared/Microsoft.NETCore.App/<version>/... or .../host/fxr/<version>/...
     # Version pattern: digits.digits.digits with optional pre-release suffix
     $patterns = @(
-        '(?:shared|packs)/Microsoft\.NETCore\.App(?:\.Runtime\.[^/]+)?/([0-9]+\.[0-9]+\.[0-9]+[^/]*?)/'
-        'host/fxr/([0-9]+\.[0-9]+\.[0-9]+[^/]*?)/'
+        '(?:shared|packs)/Microsoft\.NETCore\.App(?:\.Runtime\.[^/]+)?/([0-9]+\.[0-9]+\.[0-9]+[^/]*)/'
+        'host/fxr/([0-9]+\.[0-9]+\.[0-9]+[^/]*)/'
     )
 
     foreach ($pat in $patterns) {
@@ -562,7 +571,7 @@ if (-not (Test-Path $CrashFile)) {
 # Detect file format: .ips JSON (iOS 15+) vs older .crash text
 $firstLine = (Get-Content $CrashFile -TotalCount 1).Trim()
 if (-not $firstLine.StartsWith('{')) {
-    Write-Error "Unsupported crash log format. This script requires the .ips JSON format (iOS 15+). The file appears to be in the older text-based .crash format."
+    Write-Error "Unsupported crash log format. This script requires the .ips JSON format (iOS 15+). The file is not JSON — it may be a legacy .crash text format, an Android tombstone, or another non-.ips format."
     exit 1
 }
 
@@ -653,7 +662,8 @@ if (-not $ParseOnly) {
     $atosCmd = Get-Command $Atos -ErrorAction SilentlyContinue
     if (-not $atosCmd) {
         # Try xcrun atos
-        $xcrunAtos = & xcrun --find atos 2>$null
+        $xcrunCmd = Get-Command xcrun -ErrorAction SilentlyContinue
+        $xcrunAtos = if ($xcrunCmd) { & xcrun --find atos 2>$null } else { $null }
         if ($xcrunAtos -and (Test-Path $xcrunAtos)) {
             $Atos = $xcrunAtos
             $atosCmd = Get-Command $Atos -ErrorAction SilentlyContinue
@@ -750,7 +760,7 @@ if ($missingAfterLocal.Count -gt 0 -and -not $SkipSymbolDownload) {
         Write-Host "  $($lib.ImageName) (UUID: $uuid)" -ForegroundColor DarkGray
         $dwarfFile = Get-DebugSymbols $uuid $SymbolCacheDir $SymbolServerUrl
         if ($dwarfFile) {
-            $dsymPath = Convert-DwarfToDsym $dwarfFile $lib.ImageName $SymbolCacheDir
+            $dsymPath = Convert-DwarfToDsym $dwarfFile $lib.ImageName $uuid $SymbolCacheDir
             if ($dsymPath) {
                 # Verify the UUID matches what the crash expects
                 $downloadedUuid = Get-DsymUuid $dsymPath
@@ -838,6 +848,8 @@ if ($missingDsymLibs.Count -gt 0 -and $versionMap.Count -gt 0) {
         Write-Host "   Manual acquisition fallback:" -ForegroundColor Yellow
         if ($isOsx) {
             Write-Host "     dotnet-symbol: curl -Lo runtime.nupkg https://www.nuget.org/api/v2/package/$runtimePackBase/$anyVersion && unzip -q runtime.nupkg -d runtime-extracted && dotnet-symbol --symbols -o symbols-out runtime-extracted/runtimes/$crashRid/native/*.dylib" -ForegroundColor DarkYellow
+            Write-Host "     Then convert .dwarf to .dSYM: mkdir -p <lib>.dSYM/Contents/Resources/DWARF && cp symbols-out/<lib>.dwarf <lib>.dSYM/Contents/Resources/DWARF/<lib>" -ForegroundColor DarkYellow
+            Write-Host "     Re-run with: -DsymSearchPaths ./symbols-out" -ForegroundColor DarkYellow
         }
         else {
             # iOS/tvOS/MacCatalyst: dSYM bundles ship in the main runtime package
