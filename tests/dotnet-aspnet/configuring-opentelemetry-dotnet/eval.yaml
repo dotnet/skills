@@ -14,7 +14,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(AddOtlpExporter|OtlpExporter|OpenTelemetryProtocol)"
     rubric:
-      - "Installed the correct packages: OpenTelemetry.Extensions.Hosting, OpenTelemetry.Instrumentation.AspNetCore, OpenTelemetry.Instrumentation.Http, OpenTelemetry.Exporter.OpenTelemetryProtocol"
+      - "Installed the correct packages: OpenTelemetry.Extensions.Hosting, OpenTelemetry.Instrumentation.AspNetCore, OpenTelemetry.Instrumentation.Http, OpenTelemetry.Exporter.OpenTelemetryProtocol (also provides logging OTLP export)"
       - "Configured AddOpenTelemetry() with .WithTracing() and .WithMetrics() in Program.cs"
       - "Added AddAspNetCoreInstrumentation() and AddHttpClientInstrumentation() for auto-instrumentation"
       - "Registered custom ActivitySource names via AddSource() matching the source name used in the service class"

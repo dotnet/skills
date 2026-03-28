@@ -109,6 +109,9 @@ builder.Services.AddOpenTelemetry()
         //   (requires OpenTelemetry.Instrumentation.Runtime package)
         // Custom meters
         .AddMeter("MyOrderService.Metrics")
+        // Note: Jaeger is traces-only. For metrics, export to an OTel Collector or
+        // Prometheus-compatible backend. Here we use the same OTLP endpoint assuming
+        // an OTel Collector that routes traces and metrics to appropriate backends.
         .AddOtlpExporter(options =>
         {
             options.Endpoint = new Uri("http://localhost:4317"); // gRPC endpoint (metrics)
@@ -116,6 +119,8 @@ builder.Services.AddOpenTelemetry()
 ```
 
 ### Step 3: Add OpenTelemetry logging integration
+
+No additional packages are needed — `AddOpenTelemetry()` comes from the `OpenTelemetry` package (a transitive dependency of `OpenTelemetry.Extensions.Hosting`), and `AddOtlpExporter()` comes from `OpenTelemetry.Exporter.OpenTelemetryProtocol`, both already installed in Step 1.
 
 ```csharp
 // Connect ILogger to OpenTelemetry
