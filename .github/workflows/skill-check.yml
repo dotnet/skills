@@ -32,5 +32,6 @@ jobs:
           plugin_args=$(for d in plugins/*/; do echo "--plugin $d"; done)
           artifacts/publish/SkillValidator/release/skill-validator check \
             $plugin_args \
-            --allowed-external-deps eng/skill-validator/allowed-external-deps.txt
+            --allowed-external-deps eng/allowed-external-deps.txt \
+            --known-domains eng/known-domains.txt
 

@@ -22,6 +22,20 @@
 /plugins/dotnet/skills/nuget-trusted-publishing/ @lewing @kartheekp-ms
 /tests/dotnet/nuget-trusted-publishing/ @lewing @kartheekp-ms
 
+/plugins/dotnet/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel
+
+/plugins/dotnet-ai/skills/mcp-csharp-create/ @leslierichardson95 @artl93
+/tests/dotnet-ai/mcp-csharp-create/ @leslierichardson95 @artl93
+
+/plugins/dotnet-ai/skills/mcp-csharp-debug/ @leslierichardson95 @artl93
+/tests/dotnet-ai/mcp-csharp-debug/ @leslierichardson95 @artl93
+
+/plugins/dotnet-ai/skills/mcp-csharp-publish/ @leslierichardson95 @artl93
+/tests/dotnet-ai/mcp-csharp-publish/ @leslierichardson95 @artl93
+
+/plugins/dotnet-ai/skills/mcp-csharp-test/ @leslierichardson95 @artl93
+/tests/dotnet-ai/mcp-csharp-test/ @leslierichardson95 @artl93
+
 # dotnet-upgrade (migrating and upgrading .NET projects)
 /plugins/dotnet-upgrade/skills/thread-abort-migration/ @dotnet/appmodel
 /tests/dotnet-upgrade/thread-abort-migration/ @dotnet/appmodel
@@ -73,9 +87,18 @@
 /plugins/dotnet-test/ @dotnet/dotnet-testing
 /tests/dotnet-test/ @dotnet/dotnet-testing
 
-# dotnet-test-experimental (experimental test quality skills)
-/plugins/dotnet-test-experimental/ @dotnet/dotnet-testing
-/tests/dotnet-test-experimental/ @dotnet/dotnet-testing
+# dotnet-experimental (skills under active evaluation)
+/plugins/dotnet-experimental/plugin.json @JanKrivanek @ViktorHofer @Evangelink @ManishJayaswal @AbhitejJohn
+
+# dotnet-experimental-tests (everything experimental test related)
+/plugins/dotnet-experimental/skills/exp-test-tagging/ @dotnet/dotnet-testing
+/tests/dotnet-experimental/exp-test-tagging/ @dotnet/dotnet-testing
+
+/plugins/dotnet-experimental/skills/exp-test-maintainability/ @dotnet/dotnet-testing
+/tests/dotnet-experimental/exp-test-maintainability/ @dotnet/dotnet-testing
+
+/plugins/dotnet-experimental/skills/exp-simd-vectorization/ @jeffschw @artl93
+/tests/dotnet-experimental/exp-simd-vectorization/ @jeffschw @artl93
 
 # dotnet-maui
 /plugins/dotnet-maui/ @Redth @jfversluis

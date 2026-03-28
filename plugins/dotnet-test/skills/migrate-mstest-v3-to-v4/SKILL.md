@@ -2,8 +2,10 @@
 name: migrate-mstest-v3-to-v4
 description: >
   Migrate an MSTest v3 test project to MSTest v4 (latest). Use when user says
-  "upgrade to MSTest v4", "update to latest MSTest", "MSTest 4 migration", or
-  has build errors after updating MSTest packages from 3.x to 4.x.
+  "upgrade to MSTest v4", "update to latest MSTest", "MSTest 4 migration",
+  "MSTest v4 breaking changes", "MSTest v4 compatibility", or has build errors
+  after updating MSTest packages from 3.x to 4.x. Also use for target
+  framework compatibility (e.g. net6.0/net7.0 support with MSTest v4).
   USE FOR: upgrading MSTest packages from 3.x to 4.x, fixing source breaking
   changes (Execute → ExecuteAsync, CallerInfo constructor, ClassCleanupBehavior
   removal, TestContext.Properties, Assert API changes, ExpectedExceptionAttribute
@@ -13,7 +15,7 @@ description: >
   net8.0+, net462, uap10.0 supported).
   DO NOT USE FOR: migrating from MSTest v1/v2 to v3 (use migrate-mstest-v1v2-to-v3
   first), migrating between test frameworks, or general .NET upgrades unrelated
-  to MSTest (use migrate-dotnet*-to-dotnet* skills).
+  to MSTest.
 ---
 
 # MSTest v3 → v4 Migration
@@ -43,6 +45,15 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 | Build command | No | How to build (e.g., `dotnet build`, a repo build script). Auto-detect if not provided |
 | Test command | No | How to run tests (e.g., `dotnet test`). Auto-detect if not provided |
 
+## Response Guidelines
+
+- **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking changes from Step 3. Show concrete before/after code using the user's actual types and method names. Mention any related analyzer that could have caught this earlier (e.g., MSTEST0006 for ExpectedException). Do not walk through the entire migration workflow.
+- **"What to expect" questions** (user asks about breaking changes before upgrading): Present ALL major breaking changes from the Step 3 quick-lookup table — not just the ones visible in the current code. For each, provide a one-line fix summary. Also mention key behavioral changes from Step 4 (especially TestCase.Id history impact and TreatDiscoveryWarningsAsErrors default). If project code is available, highlight which changes apply directly.
+- **Full migration requests** (user wants complete migration): Follow the complete workflow below.
+- **Behavioral/runtime symptom reports** (user describes test execution differences without build errors): Match described symptoms to the behavioral changes table in Step 4. Provide targeted, symptom-specific advice. Mention other behavioral changes the user should watch for. Do not walk through source breaking changes unless the user also has build errors.
+- **CI/test-discovery issues** (tests not discovered, vstest.console stopped working, CI pipeline failures after upgrading): Focus on §4.5 (MSTest.Sdk defaults to MTP mode, which does not include Microsoft.NET.Test.Sdk — needed for vstest.console) and §4.4 (TreatDiscoveryWarningsAsErrors). Explain the root cause clearly and give both fix options (add Microsoft.NET.Test.Sdk package or switch to `dotnet test`). Do not walk through the full migration workflow.
+- **Explanatory questions** (user asks "is this a known change?", "what else should I watch out for?"): Explain the relevant changes and advise. Mention related changes the user might encounter next. Do not prescribe a full migration procedure.
+
 ## Workflow
 
 > **Commit strategy:** Commit at each logical boundary — after updating packages (Step 2), after resolving source breaking changes (Step 3), after addressing behavioral changes (Step 4). This keeps each commit focused and reviewable.
@@ -51,7 +62,7 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 
 1. Identify the current MSTest version by checking package references for `MSTest`, `MSTest.TestFramework`, `MSTest.TestAdapter`, or `MSTest.Sdk` in `.csproj`, `Directory.Build.props`, or `Directory.Packages.props`.
 2. Confirm the project is on MSTest v3 (3.x). If on v1 or v2, use `migrate-mstest-v1v2-to-v3` first.
-3. Check target framework(s) — MSTest v4 drops support for .NET Core 3.1 through .NET 7. Supported target frameworks are: **net8.0**, **net9.0**, **net462** (.NET Framework 4.6.2+), and **uap10.0**.
+3. Check target framework(s) — MSTest v4 drops support for .NET Core 3.1 through .NET 7. Supported target frameworks are: **net8.0**, **net9.0**, **net462** (.NET Framework 4.6.2+), **uap10.0.16299** (UWP), **net9.0-windows10.0.17763.0** (modern UWP), and **net8.0-windows10.0.18362.0** (WinUI).
 4. Check for custom `TestMethodAttribute` subclasses — these require changes in v4.
 5. Check for usages of `ExpectedExceptionAttribute` — removed in v4 (deprecated since v3 with analyzer MSTEST0006).
 6. Check for usages of `Assert.ThrowsException` (deprecated) — removed in v4.
@@ -93,7 +104,7 @@ Work through compilation errors systematically. Use this quick-lookup table to i
 | `[Timeout(TestTimeout.Infinite)]` | `TestTimeout` enum removed | Replace with `[Timeout(int.MaxValue)]` (§3.5) |
 | `TestContext.ManagedType` | Property removed | Use `FullyQualifiedTestClassName` (§3.6) |
 | `Assert.AreEqual(a, b, "msg {0}", arg)` | Message+params overloads removed | Use string interpolation: `$"msg {arg}"` (§3.7) |
-| `Assert.ThrowsException<T>(...)` | Deprecated API removed | Replace with `Assert.ThrowsExactly<T>(...)` (§3.7) |
+| `Assert.ThrowsException<T>(...)` | Renamed | Replace with `Assert.ThrowsExactly<T>(...)` or `Assert.Throws<T>(...)` (§3.7) |
 | `Assert.IsInstanceOfType<T>(obj, out var t)` | Out parameter removed | Use `var t = Assert.IsInstanceOfType<T>(obj)` (§3.7) |
 | `[ExpectedException(typeof(T))]` | Attribute removed | Move assertion into test body: `Assert.ThrowsExactly<T>(() => ...)` (§3.8) |
 | Project targets net5.0, net6.0, or net7.0 | TFM dropped | Change to net8.0 or net9.0 (§3.9) |
@@ -168,7 +179,7 @@ public class MyTestMethodAttribute : TestMethodAttribute
 
 #### 3.3 ClassCleanupBehavior enum removed
 
-The `ClassCleanupBehavior` enum is removed. Class cleanup now always runs at end of class (the behavior most users expected). Remove the enum argument:
+The `ClassCleanupBehavior` enum is removed. In v3, this enum controlled whether class cleanup ran at end of class (`EndOfClass`) or end of assembly (`EndOfAssembly`). In v4, class cleanup always runs at end of class. Remove the enum argument:
 
 ```csharp
 // Before (v3)
@@ -222,14 +233,17 @@ Assert.AreEqual(expected, actual, "Expected {0} but got {1}", expected, actual);
 Assert.AreEqual(expected, actual, $"Expected {expected} but got {actual}");
 ```
 
-- **Assert.ThrowsException removed**: The deprecated `Assert.ThrowsException` APIs are removed. Use `Assert.ThrowsExactly` instead:
+- **Assert.ThrowsException renamed**: The `Assert.ThrowsException` APIs are renamed. Use `Assert.ThrowsExactly` (strict type match) or `Assert.Throws` (accepts derived exception types):
 
 ```csharp
 // Before (v3)
 Assert.ThrowsException<InvalidOperationException>(() => DoSomething());
 
-// After (v4)
+// After (v4) — exact type match (same behavior as old ThrowsException)
 Assert.ThrowsExactly<InvalidOperationException>(() => DoSomething());
+
+// After (v4) — also catches derived exception types
+Assert.Throws<InvalidOperationException>(() => DoSomething());
 ```
 
 - **Assert.IsInstanceOfType out parameter changed**: `Assert.IsInstanceOfType<T>(x, out var t)` changes to `var t = Assert.IsInstanceOfType<T>(x)`:
@@ -265,9 +279,52 @@ public void TestMethod()
 }
 ```
 
+**When the test has setup code before the throwing call**, wrap only the throwing call in the lambda — keep Arrange/Act separation clear:
+
+```csharp
+// Before (v3)
+[ExpectedException(typeof(ArgumentNullException))]
+[TestMethod]
+public void Validate_NullInput_Throws()
+{
+    var service = new ValidationService();
+    service.Validate(null);  // throws here
+}
+
+// After (v4)
+[TestMethod]
+public void Validate_NullInput_Throws()
+{
+    var service = new ValidationService();
+    Assert.ThrowsExactly<ArgumentNullException>(() => service.Validate(null));
+}
+```
+
+**For async test methods**, use `Assert.ThrowsExactlyAsync`:
+
+```csharp
+// Before (v3)
+[ExpectedException(typeof(HttpRequestException))]
+[TestMethod]
+public async Task FetchData_BadUrl_Throws()
+{
+    await client.GetAsync("https://localhost:0");
+}
+
+// After (v4)
+[TestMethod]
+public async Task FetchData_BadUrl_Throws()
+{
+    await Assert.ThrowsExactlyAsync<HttpRequestException>(
+        () => client.GetAsync("https://localhost:0"));
+}
+```
+
+**If `[ExpectedException]` used the `AllowDerivedTypes` property**, use `Assert.ThrowsAsync<T>` (base type matching) instead of `Assert.ThrowsExactlyAsync<T>` (exact type matching).
+
 #### 3.9 Dropped target frameworks
 
-MSTest v4 supports: **net8.0**, **net9.0**, **net462** (.NET Framework 4.6.2+), and **uap10.0**. All other frameworks are dropped — including net5.0, net6.0, net7.0, and netcoreapp3.1.
+MSTest v4 supports: **net8.0**, **net9.0**, **net462** (.NET Framework 4.6.2+), **uap10.0.16299** (UWP), **net9.0-windows10.0.17763.0** (modern UWP), and **net8.0-windows10.0.18362.0** (WinUI). All other frameworks are dropped — including net5.0, net6.0, net7.0, and netcoreapp3.1.
 
 If the test project targets an unsupported framework, update `TargetFramework`:
 
@@ -306,23 +363,21 @@ These changes won't cause build errors but may affect test runtime behavior.
 | Tests show as new in Azure DevOps / test history lost | `TestCase.Id` generation changed (§4.3) | No code fix; history will re-baseline |
 | `TestContext.TestName` throws in `[ClassInitialize]` | v4 enforces lifecycle scope (§4.2) | Move access to `[TestInitialize]` or test methods |
 | Tests not discovered / discovery failures | `TreatDiscoveryWarningsAsErrors` now true (§4.4) | Fix warnings, or set to false in .runsettings |
-| Tests hang that didn't before | AppDomain disabled by default in MTP (§4.1) | Set `DisableAppDomain` to false in .runsettings |
-| vstest.console can't find tests with MSTest.Sdk | SDK no longer adds `Microsoft.NET.Test.Sdk` (§4.5) | Add explicit package reference or switch to `dotnet test` |
+| Tests hang that didn't before | AppDomain disabled by default (§4.1) | Set `DisableAppDomain` to false in .runsettings `RunConfiguration` |
+| vstest.console can't find tests with MSTest.Sdk | MSTest.Sdk defaults to MTP; `Microsoft.NET.Test.Sdk` only added in VSTest mode (§4.5) | Add explicit package reference or switch to `dotnet test` |
 | New warnings from analyzers | Analyzer severities upgraded (§4.6) | Fix warnings or suppress in .editorconfig |
 
-#### 4.1 DisableAppDomain defaults to true (MTP only)
+#### 4.1 DisableAppDomain defaults to true
 
-When running under Microsoft.Testing.Platform, AppDomains are disabled by default in v4 (up to 30% faster). If you need AppDomain isolation, add to `.runsettings`:
+AppDomains are disabled by default. On .NET Framework, when running inside testhost (the default for `dotnet test` and VS), MSTest re-enables AppDomains automatically. If you need to explicitly control AppDomain isolation, set it via `.runsettings`:
 
 ```xml
 <RunSettings>
-  <MSTest>
+  <RunConfiguration>
     <DisableAppDomain>false</DisableAppDomain>
-  </MSTest>
+  </RunConfiguration>
 </RunSettings>
 ```
-
-> **Warning**: When AppDomain isolation is enabled, MSTest unloads the AppDomain after tests finish, aborting associated threads. If you have foreground threads that ran forever in v3, they will now cause hangs in v4.
 
 #### 4.2 TestContext throws when used incorrectly
 
@@ -350,13 +405,24 @@ v4 uses stricter defaults. Discovery warnings are now treated as errors, which m
 
 > **Recommended**: Fix the underlying discovery warnings rather than suppressing this setting.
 
-#### 4.5 MSTest.Sdk no longer adds Microsoft.NET.Test.Sdk for MTP
+#### 4.5 MSTest.Sdk and vstest.console compatibility
 
-If using MSTest.Sdk with Microsoft.Testing.Platform (the default), the SDK no longer adds a reference to `Microsoft.NET.Test.Sdk`. If you still need VSTest support (e.g., for `vstest.console`), manually add:
+MSTest.Sdk defaults to Microsoft.Testing.Platform (MTP) mode. In MTP mode, MSTest.Sdk does **not** add a reference to `Microsoft.NET.Test.Sdk` — it only adds it in VSTest mode. This is not a v4-specific change; it applies to MSTest.Sdk v3 as well. Without `Microsoft.NET.Test.Sdk`, `vstest.console` cannot discover or run tests and will silently find zero tests. This commonly surfaces during migration when a CI pipeline uses `vstest.console` but the project uses MSTest.Sdk in its default MTP mode.
+
+**Option A — Switch to VSTest mode**: Set the `UseVSTest` property. MSTest.Sdk will then automatically add `Microsoft.NET.Test.Sdk`:
 
 ```xml
-<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+<Project Sdk="MSTest.Sdk/4.1.0">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <UseVSTest>true</UseVSTest>
+  </PropertyGroup>
+</Project>
 ```
+
+**Option B — Switch CI to `dotnet test`**: Replace `vstest.console` invocations in your CI pipeline with `dotnet test`. This works natively with MTP and is the recommended long-term approach for MSTest.Sdk projects.
+
+If you need VSTest during a transition period, Option A works without changing CI pipelines.
 
 #### 4.6 Analyzer severity changes
 
@@ -381,10 +447,10 @@ Review and fix any new warnings, or suppress them in `.editorconfig` if intentio
 - [ ] All tests pass with `dotnet test`
 - [ ] Custom `TestMethodAttribute` subclasses updated for `ExecuteAsync` and CallerInfo
 - [ ] `ExpectedExceptionAttribute` replaced with `Assert.ThrowsExactly`
-- [ ] `Assert.ThrowsException` replaced with `Assert.ThrowsExactly`
+- [ ] `Assert.ThrowsException` replaced with `Assert.ThrowsExactly` (or `Assert.Throws`)
 - [ ] `ClassCleanupBehavior` enum usages removed
 - [ ] `TestContext.Properties.Contains` updated to `ContainsKey`
-- [ ] All target frameworks are net8.0+, net9.0, net462+, or uap10.0
+- [ ] All target frameworks are net8.0+, net9.0, net462+, uap10.0.16299, or WinUI
 - [ ] Behavioral changes reviewed and addressed
 - [ ] No tests were lost during migration (compare test counts)
 
@@ -399,12 +465,12 @@ Review and fix any new warnings, or suppress them in `.editorconfig` if intentio
 |---------|----------|
 | Custom `TestMethodAttribute` still overrides `Execute` | Change to `ExecuteAsync` returning `Task<TestResult[]>` |
 | `TestMethodAttribute("display name")` no longer compiles | Use `TestMethodAttribute(DisplayName = "display name")` |
-| `ClassCleanupBehavior` enum not found | Remove the enum argument; `[ClassCleanup]` now always runs at end of class |
+| `ClassCleanupBehavior` enum not found | Remove the enum argument; `[ClassCleanup]` now always runs at end of class. For end-of-assembly cleanup, use `[AssemblyCleanup]` |
 | `TestContext.Properties.Contains` missing | Use `ContainsKey` — `Properties` is now `IDictionary<string, object>` |
 | `ExpectedException` attribute not found | Replace with `Assert.ThrowsExactly<T>(() => ...)` inside the test body |
-| `Assert.ThrowsException` not found | Replace with `Assert.ThrowsExactly` |
+| `Assert.ThrowsException` not found | Replace with `Assert.ThrowsExactly` (or `Assert.Throws` for derived types) |
 | `Assert.AreEqual` with format string args fails | Use string interpolation: `$"message {value}"` |
-| Tests hang that didn't before | AppDomain is disabled by default in MTP; foreground threads no longer aborted |
+| Tests hang that didn't before | AppDomain is disabled by default; on .NET Fx in testhost it is re-enabled automatically |
 | Azure DevOps test history breaks | Expected — `TestCase.Id` generation changed; no code fix, results will re-baseline |
 | Discovery warnings now fail the run | `TreatDiscoveryWarningsAsErrors` is true by default; fix the discovery warnings |
-| Net6.0/net7.0 targets don't compile | Update to net8.0 — MSTest v4 supports net8.0, net9.0, net462, and uap10.0 |
+| Net6.0/net7.0 targets don't compile | Update to net8.0 — MSTest v4 supports net8.0, net9.0, net462, uap10.0.16299, modern UWP, and WinUI |

@@ -24,7 +24,7 @@ scenarios:
       - "Tests both success and failure paths (e.g., null input, empty items)"
       - "Uses Assert.ThrowsExactly or Assert.Throws for exception testing instead of [ExpectedException]"
       - "Uses Assert.AreEqual with expected as first argument and actual as second"
-    timeout: 120
+    timeout: 180
 
   - name: "Write data-driven tests for a calculator"
     prompt: "I have a PriceCalculator class with CalculateTotal and ApplyDiscount methods. Help me write data-driven MSTest tests that cover multiple input combinations."
@@ -44,7 +44,7 @@ scenarios:
       - "Seals the test class"
       - "Uses Assert.ThrowsExactly or Assert.Throws for testing invalid argument scenarios"
       - "Does not use manual foreach loops to iterate test data — uses proper data-driven attributes instead"
-    timeout: 120
+    timeout: 180
 
   - name: "Write async tests with cancellation"
     prompt: |
@@ -148,7 +148,7 @@ scenarios:
       - "Improves test naming to be descriptive (replaces 'Test1', 'TestNegativeQuantity')"
       - "Replaces hard cast with Assert.IsInstanceOfType"
       - "Replaces manual foreach test data loop with [DataRow] or [DynamicData] attributes"
-    timeout: 120
+    timeout: 180
 
   - name: "Replace ExpectedException with Assert.Throws"
     prompt: |

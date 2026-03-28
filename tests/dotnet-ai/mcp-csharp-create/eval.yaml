@@ -1,0 +1,56 @@
+scenarios:
+  - name: "Implement MCP tools with proper attributes and DI"
+    prompt: |
+      I have a new C# MCP server project. I need to implement a tool class that
+      wraps a REST API using HttpClient. The tools should follow MCP SDK conventions
+      with proper attributes for LLM discovery. Show me the tool class, Program.cs
+      with stdio transport, and explain how DI works for MCP tools.
+    assertions:
+      - type: "output_matches"
+        pattern: "\\[McpServerTool[\\],\\(]"
+      - type: "output_matches"
+        pattern: "(AddHttpClient|HttpClient)"
+    rubric:
+      - "Shows a tool class with [McpServerTool] attributes"
+      - "Injects HttpClient via DI (constructor injection or method parameter injection)"
+      - "Includes [Description] attributes on both the method and all parameters"
+      - "Configures Program.cs with AddMcpServer, WithStdioServerTransport, and logging to stderr"
+    timeout: 360
+  - name: "Create an HTTP MCP server with tools and resources"
+    prompt: |
+      I need to create a C# MCP server that uses HTTP transport for deployment
+      as a web service. It should expose both tools and resources (for example,
+      a resource that returns configuration data). Show me how to set up the
+      HTTP transport with MapMcp and implement a resource.
+    assertions:
+      - type: "output_contains"
+        value: "MapMcp"
+      - type: "output_matches"
+        pattern: "(WithHttpTransport|ModelContextProtocol\\.AspNetCore)"
+      - type: "output_matches"
+        pattern: "(McpServerResource|McpServerResourceType)"
+    rubric:
+      - "Configures HTTP transport with WithHttpTransport() and references ModelContextProtocol.AspNetCore"
+      - "Includes MapMcp() in the endpoint configuration"
+      - "Shows a resource class with [McpServerResourceType] and [McpServerResource] attributes including UriTemplate"
+      - "Shows how to register tools and resources with WithTools<T> or similar DI registration"
+    timeout: 360
+  - name: "Create an MCP server with tools, prompts, and proper logging"
+    prompt: |
+      I'm building a C# MCP server using stdio transport. I need to add a tool
+      that calls an external API using HttpClient (injected via DI), and a prompt
+      template for summarization. Make sure logging doesn't interfere with the
+      stdio JSON-RPC protocol.
+    assertions:
+      - type: "output_matches"
+        pattern: "\\[McpServerTool[\\]T,\\(]"
+      - type: "output_matches"
+        pattern: "(McpServerPrompt|McpServerPromptType)"
+      - type: "output_matches"
+        pattern: "(LogToStandardErrorThreshold|stderr)"
+    rubric:
+      - "Shows a tool class with [McpServerTool] and HttpClient injected via DI"
+      - "Shows a prompt class with [McpServerPromptType] and [McpServerPrompt] returning ChatMessage"
+      - "Configures logging to stderr (LogToStandardErrorThreshold) to avoid corrupting stdio transport"
+      - "Adds [Description] attributes on tools, parameters, and prompts for LLM discoverability"
+    timeout: 360
