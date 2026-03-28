@@ -8,7 +8,7 @@ description: Configure OpenTelemetry distributed tracing, metrics, and logging i
 ## When to Use
 
 - Adding distributed tracing to an ASP.NET Core application
-- Setting up OpenTelemetry exporters (OTLP, Jaeger, Prometheus)
+- Setting up OpenTelemetry exporters (OTLP is the primary protocol shown; Jaeger and Prometheus accept OTLP natively)
 - Creating custom metrics or trace spans for business operations
 - Troubleshooting distributed trace context propagation across services
 
@@ -23,7 +23,7 @@ description: Configure OpenTelemetry distributed tracing, metrics, and logging i
 | Input | Required | Description |
 |-------|----------|-------------|
 | ASP.NET Core project | Yes | The application to instrument |
-| Observability backend | No | Where to export: Jaeger, Prometheus, OTLP collector, Aspire |
+| Observability backend | No | Where to export: OTLP collector, Aspire dashboard, Jaeger, Prometheus (all accept OTLP) |
 
 ## Workflow
 
@@ -195,6 +195,7 @@ Use `IMeterFactory` (injected via DI) to create meters — this ensures proper l
 ```csharp
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using Microsoft.Extensions.Diagnostics.Metrics;
 
 public class OrderMetrics
 {
