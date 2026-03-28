@@ -33,8 +33,10 @@ public static partial class SkillProfiler
     private static readonly Lazy<TiktokenTokenizer> s_bpeTokenizer = new(() => TiktokenTokenizer.CreateForModel("gpt-4"));
     internal const int MaxAggregateDescriptionLength = 15_000;
     private const int MaxNameLength = 64;
+    internal const int MinDescriptionLength = 10;
     private const int MaxCompatibilityLength = 500;
     private const int MaxBodyLines = 500;
+    private const long MaxAssetFileSize = 5 * 1024 * 1024; // 5 MB
 
     public static SkillProfile AnalyzeSkill(SkillInfo skill)
     {
@@ -76,9 +78,13 @@ public static partial class SkillProfiler
         {
             errors.Add($"Skill description is {skill.Description.Length:N0} characters — maximum is {MaxDescriptionLength:N0}. Shorten the description in SKILL.md frontmatter.");
         }
-        else if (skill.Description.Length == 0 && hasFrontmatter)
+        else if (string.IsNullOrWhiteSpace(skill.Description) && hasFrontmatter)
         {
-            errors.Add("YAML frontmatter has no description — required by spec. Agents use description for skill discovery.");
+            errors.Add("YAML frontmatter has no description \u2014 required by spec. Agents use description for skill discovery.");
+        }
+        else if (!string.IsNullOrWhiteSpace(skill.Description) && skill.Description.Length < MinDescriptionLength)
+        {
+            errors.Add($"Skill description is only {skill.Description.Length} characters — minimum is {MinDescriptionLength}. Provide a meaningful description for agent discovery.");
         }
 
         // --- agentskills.io spec: compatibility field ---
@@ -133,6 +139,45 @@ public static partial class SkillProfiler
             if (dirDepth > 1) // e.g. "references/deep/file.md" = dirDepth 2
             {
                 errors.Add($"File reference '{refMatch.Groups[1].Value}' is {dirDepth} directories deep — maximum is 1 level from SKILL.md.");
+            }
+        }
+
+        // --- Bundled asset file size check ---
+        // Aligned with awesome-copilot's 5 MB limit per bundled asset.
+        var assetDirs = new[] { "references", "assets", "scripts" };
+        foreach (var assetDirName in assetDirs)
+        {
+            var assetDir = Path.Combine(skill.Path, assetDirName);
+            if (!Directory.Exists(assetDir))
+                continue;
+
+            IEnumerable<string> files;
+            try
+            {
+                files = Directory.EnumerateFiles(assetDir, "*", new EnumerationOptions
+                {
+                    RecurseSubdirectories = true,
+                    IgnoreInaccessible = true,
+                });
+            }
+            catch
+            {
+                // Directory became inaccessible between Exists check and enumeration — skip.
+                continue;
+            }
+
+            foreach (var file in files)
+            {
+                try
+                {
+                    var fileInfo = new FileInfo(file);
+                    if (fileInfo.Length > MaxAssetFileSize)
+                    {
+                        var relativePath = Path.GetRelativePath(skill.Path, file).Replace('\\', '/');
+                        errors.Add($"Bundled asset '{relativePath}' is {fileInfo.Length / (1024.0 * 1024.0):F2} MB — maximum is 5 MB.");
+                    }
+                }
+                catch { /* inaccessible files are not fatal */ }
             }
         }
 
@@ -220,6 +265,9 @@ public static partial class SkillProfiler
             errors.Add($"{kind} has no description — required.");
             return;
         }
+
+        if (description.Length < MinDescriptionLength)
+            errors.Add($"{kind} description is only {description.Length} characters — minimum is {MinDescriptionLength}. Provide a meaningful description for agent discovery.");
 
         if (description.Length > MaxDescriptionLength)
             errors.Add($"{kind} description is {description.Length:N0} characters — maximum is {MaxDescriptionLength:N0}.");

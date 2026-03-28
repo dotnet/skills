@@ -323,7 +323,7 @@ public class PluginProfilerTests
             File.WriteAllText(Path.Combine(pluginDir, "agents", "test.agent.md"), "---\nname: test\ndescription: test\n---\n# Test\n");
             var dirName = Path.GetFileName(pluginDir);
 
-            var plugin = new PluginInfo(dirName, "1.0.0", "desc", ["./skills/"], ["./agents/test.agent.md"], pluginDir, dirName);
+            var plugin = new PluginInfo(dirName, "1.0.0", "A test plugin.", ["./skills/"], ["./agents/test.agent.md"], pluginDir, dirName);
             var result = PluginProfiler.ValidatePlugin(plugin);
             Assert.Empty(result.Errors);
             Assert.Empty(result.Warnings);
@@ -344,7 +344,7 @@ public class PluginProfilerTests
             Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
             var dirName = Path.GetFileName(pluginDir);
 
-            var plugin = new PluginInfo(dirName, "1.0.0", "desc", ["./skills/"], [], pluginDir, dirName);
+            var plugin = new PluginInfo(dirName, "1.0.0", "A test plugin.", ["./skills/"], [], pluginDir, dirName);
             var result = PluginProfiler.ValidatePlugin(plugin);
             Assert.Empty(result.Errors);
         }

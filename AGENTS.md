@@ -15,3 +15,5 @@ This validates skill frontmatter and recompiles knowledge lock files. Always com
 ## Skill-Validator
 
 Don't care much about backwards-compatibility for this tool. Consumers understand that the shape is constantly changing.
+
+When modifying the evaluation pipeline (`evaluation.yml`), results JSON schema (`Models.cs`), or the skill-validator evaluation logic, review and update `eng/skill-validator/InvestigatingResults.md` to keep the failure investigation guidance, schema documentation, and example scripts in sync.

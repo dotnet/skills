@@ -155,6 +155,8 @@ Results are displayed in the console with color-coded scores and metric deltas. 
 - `junit` — `results.xml` with JUnit XML test results
 - `markdown` — `summary.md` with a results table, plus per-skill directories with per-scenario judge reports
 
+See [Investigating Results](InvestigatingResults.md) for how to diagnose poor scores, download artifacts, and interpret `results.json`.
+
 ### Consolidating results across matrix jobs
 
 When evaluating multiple plugins in parallel CI matrix jobs, use the `consolidate` subcommand to merge individual `results.json` files into a single markdown summary:

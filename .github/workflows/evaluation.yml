@@ -93,8 +93,9 @@ jobs:
           # Skill-validator changes need evaluation. Workflow YAML changes don't
           # require /evaluate because the issue_comment trigger always runs from
           # main anyway — workflow changes are only effective after merge.
+          # InvestigatingResults.md is documentation only and doesn't affect evaluation.
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^eng/skill-validator/' } |
+            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -ne 'eng/skill-validator/InvestigatingResults.md' } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -155,7 +156,7 @@ jobs:
             Select-Object -First 1
 
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^eng/skill-validator/' } |
+            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -ne 'eng/skill-validator/InvestigatingResults.md' } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -396,8 +397,11 @@ jobs:
             git worktree remove /tmp/pr-content --force 2>$null
           } else {
             # Schedule: evaluate all plugins with skills and tests
+            # Exclude experimental plugins from scheduled runs — they are
+            # evaluated only on-demand via /evaluate on PRs.
+            $excludeFromSchedule = @('dotnet-experimental')
             $plugins = @(Get-ChildItem -Path "plugins" -Directory |
-              Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) } |
+              Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) -and ($_.Name -notin $excludeFromSchedule) } |
               Select-Object -ExpandProperty Name)
             $entries = @($plugins | ForEach-Object {
               @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
@@ -638,13 +642,43 @@ jobs:
               --output summary-body.md \
               $JSON_FILES
 
+            # Create a simplified table for the PR comment by stripping
+            # "Quality (Plugin)" and "Agents Invoked" columns (GH UI concern).
+            # The full table is preserved in the workflow step summary.
+            python3 - <<'PY'
+          lines = open('summary-body.md').read().split('\n')
+          result, remove, prev = [], set(), False
+          for line in lines:
+              is_tbl = line.startswith('|')
+              if is_tbl and not prev:
+                  parts = line.split('|')
+                  remove = {i for i, p in enumerate(parts) if p.strip() in ('Quality (Plugin)', 'Agents Invoked')}
+                  parts = [p.replace('Quality (Isolated)', 'Quality') for p in parts]
+                  result.append('|'.join(p for i, p in enumerate(parts) if i not in remove))
+              elif is_tbl:
+                  parts = line.split('|')
+                  result.append('|'.join(p for i, p in enumerate(parts) if i not in remove))
+              else:
+                  result.append(line)
+              prev = is_tbl
+          open('simplified-body.md', 'w').write('\n'.join(result))
+          PY
+
             {
-              cat summary-body.md
+              cat simplified-body.md
               echo ""
-              echo "[Full results]($RUN_URL)"
+              echo "[🔍 Full results — includes quality and agent details]($RUN_URL)"
+              # If any skill failed, add a copy-paste prompt for AI-assisted investigation
+              if jq -se '[.[].verdicts[] | select(.passed == false)] | length > 0' $JSON_FILES > /dev/null 2>&1; then
+                RUN_ID="${{ github.run_id }}"
+                echo ""
+                echo "> **To investigate failures**, paste this to your AI coding agent:"
+                echo ">"
+                echo "> _For PR ${PR_NUMBER} in ${{ github.repository }}, download eval artifacts with \`gh run download ${RUN_ID} --repo ${{ github.repository }} --pattern \"skill-validator-results-*\" --dir ./eval-results\`, then fetch https://raw.githubusercontent.com/${{ github.repository }}/${{ needs.gate.outputs.head_sha }}/eng/skill-validator/InvestigatingResults.md and follow it to analyze the results.json files. Diagnose each failure, suggest fixes to the eval.yaml and skill content, and tell me what to fix first._"
+              fi
             } > consolidated-comment.md
 
-            cat consolidated-comment.md >> $GITHUB_STEP_SUMMARY
+            cat consolidated-comment.md >> "$GITHUB_STEP_SUMMARY"
 
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
               -X POST -F "body=@consolidated-comment.md"

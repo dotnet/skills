@@ -390,3 +390,137 @@ public class FormatDiagnosisHintsTests
     }
 }
 
+public class MinDescriptionLengthTests
+{
+    private static SkillInfo MakeSkill(string content, string name = "test-skill", string description = "Test skill", string? path = null)
+    {
+        return new SkillInfo(
+            Name: name,
+            Description: description,
+            Path: path ?? $"/tmp/{name}",
+            SkillMdPath: $"{path ?? $"/tmp/{name}"}/SKILL.md",
+            SkillMdContent: content);
+    }
+
+    [Fact]
+    public void DescriptionTooShortErrors()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, description: "Short"));
+        Assert.Contains(profile.Errors, e => e.Contains("minimum is 10"));
+    }
+
+    [Fact]
+    public void DescriptionAtMinimumNoError()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, description: "1234567890"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("minimum"));
+    }
+
+    [Fact]
+    public void DescriptionOneCharErrors()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, description: "X"));
+        Assert.Contains(profile.Errors, e => e.Contains("minimum is 10"));
+    }
+
+    [Fact]
+    public void ValidateDescription_TooShort_Errors()
+    {
+        var errors = new List<string>();
+        SkillProfiler.ValidateDescription("Short", "Agent", errors);
+        Assert.Contains(errors, e => e.Contains("minimum is 10"));
+    }
+
+    [Fact]
+    public void ValidateDescription_AtMinimum_NoError()
+    {
+        var errors = new List<string>();
+        SkillProfiler.ValidateDescription("1234567890", "Agent", errors);
+        Assert.DoesNotContain(errors, e => e.Contains("minimum"));
+    }
+}
+
+public class BundledAssetSizeTests : IDisposable
+{
+    private readonly string _root;
+
+    public BundledAssetSizeTests()
+    {
+        _root = Path.Combine(Path.GetTempPath(), $"asset-test-{Guid.NewGuid():N}");
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_root))
+            Directory.Delete(_root, true);
+    }
+
+    private SkillInfo MakeSkillWithAsset(string assetDirName, string fileName, long fileSize)
+    {
+        var skillDir = Path.Combine(_root, "test-skill");
+        var assetDir = Path.Combine(skillDir, assetDirName);
+        Directory.CreateDirectory(assetDir);
+
+        var filePath = Path.Combine(assetDir, fileName);
+        using (var fs = new FileStream(filePath, FileMode.Create))
+        {
+            fs.SetLength(fileSize);
+        }
+
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var skillMdPath = Path.Combine(skillDir, "SKILL.md");
+        File.WriteAllText(skillMdPath, content);
+
+        return new SkillInfo(
+            Name: "test-skill",
+            Description: "Valid test skill description",
+            Path: skillDir,
+            SkillMdPath: skillMdPath,
+            SkillMdContent: content);
+    }
+
+    [Theory]
+    [InlineData("references")]
+    [InlineData("assets")]
+    [InlineData("scripts")]
+    public void AssetOverSizeLimit_Errors(string assetDir)
+    {
+        var skill = MakeSkillWithAsset(assetDir, "large-file.bin", 6 * 1024 * 1024);
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.Contains(profile.Errors, e => e.Contains("large-file.bin") && e.Contains("5 MB"));
+    }
+
+    [Fact]
+    public void AssetUnderSizeLimit_NoError()
+    {
+        var skill = MakeSkillWithAsset("references", "small-file.md", 1024);
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("Bundled asset"));
+    }
+
+    [Fact]
+    public void AssetAtExactLimit_NoError()
+    {
+        var skill = MakeSkillWithAsset("references", "exact.bin", 5 * 1024 * 1024);
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("Bundled asset"));
+    }
+
+    [Fact]
+    public void NoAssetDirs_NoError()
+    {
+        var skillDir = Path.Combine(_root, "no-assets-skill");
+        Directory.CreateDirectory(skillDir);
+        var content = "---\nname: no-assets-skill\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var skillMdPath = Path.Combine(skillDir, "SKILL.md");
+        File.WriteAllText(skillMdPath, content);
+
+        var skill = new SkillInfo("no-assets-skill", "Valid test description", skillDir, skillMdPath, content);
+        var profile = SkillProfiler.AnalyzeSkill(skill);
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("Bundled asset"));
+    }
+}
+

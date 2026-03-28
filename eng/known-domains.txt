@@ -6,7 +6,8 @@
 # alongside the skill content.
 #
 # Format: one domain per line. Lines starting with # are comments.
-# For GitHub, use github.com/<org>/<repo> to scope to a specific repo.
+# Entries containing a slash match URLs with that exact prefix followed by
+# '/', '?', '#', or end-of-URL. Entries without a slash match the domain and all its subdomains.
 
 # Standards
 dot.net
@@ -20,6 +21,7 @@ libimobiledevice.org
 download.sysinternals.com
 msdl.microsoft.com
 nuget.org
+nugettest.org
 dotnetcli.blob.core.windows.net
 
 # Platforms
@@ -46,7 +48,18 @@ github.com/microsoft/perfview
 github.com/microsoftdocs/visualstudio-docs
 github.com/NuGet/docs.microsoft.com-nuget
 
+# MCP ecosystem
+code.visualstudio.com
+github.com/modelcontextprotocol
+github.com/open-telemetry/semantic-conventions
+
+# Example paths used in skill documentation
+github.com/yourusername
+github.com/username
+
 # Community
+fluentassertions.com
+npmjs.com/package/@modelcontextprotocol
 ollama.com
 stackoverflow.com
 xunit.net
