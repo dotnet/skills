@@ -25,7 +25,7 @@ scenarios:
     timeout: 120
 
   - name: "Async refactoring should not apply to CPU-bound code"
-    prompt: "This method is really slow and blocking my app. Can you make DoIt() async so it runs faster?"
+    prompt: "This method is really slow and blocking my app. Can you make Multiply() async so it runs faster?"
     expect_activation: false
     setup:
       files:

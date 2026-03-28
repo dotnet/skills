@@ -190,7 +190,7 @@ Use `Task` by default. Use `ValueTask`/`ValueTask<T>` only for hot-path methods 
 | `task.Result` or `task.Wait()` | Blocks thread, risks deadlock | `await task` |
 | `async void` methods | Exceptions crash the process | `async Task` (except event handlers) |
 | `Task.Run` wrapping async I/O | Wastes a thread pool thread | Call async method directly |
-| Missing `ConfigureAwait(false)` in libraries | Can deadlock in Winforms/WPF/ASP.NET sync contexts | Add `.ConfigureAwait(false)` to every `await` in library code; omit in ASP.NET Core app code (no SynchronizationContext) |
+| Missing `ConfigureAwait(false)` in libraries | Can deadlock in WinForms/WPF/ASP.NET sync contexts | Add `.ConfigureAwait(false)` to every `await` in library code; omit in ASP.NET Core app code (no SynchronizationContext) |
 | Fire-and-forget without error handling | Swallows exceptions silently | `await` or use `_ = Task.Run(async () => { try... })` |
 
 ## Validation
