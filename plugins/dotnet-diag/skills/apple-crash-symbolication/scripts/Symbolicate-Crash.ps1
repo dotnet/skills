@@ -361,7 +361,7 @@ function Convert-DwarfToDsym([string]$dwarfFile, [string]$libraryName, [string]$
     if (Test-Path $targetFile) {
         # Verify that the cached dSYM matches the requested UUID
         $cachedUuid = Get-DsymUuid $targetFile
-        if ($cachedUuid -and $cachedUuid -eq $uuid) {
+        if ($cachedUuid -and (Format-Uuid $cachedUuid) -eq $uuid) {
             Write-Verbose "Using cached dSYM bundle for $libraryName"
             return $targetFile
         }
@@ -785,14 +785,33 @@ if ($missingAfterLocal.Count -gt 0 -and -not $SkipSymbolDownload) {
                 }
                 else {
                     Write-Warning "    UUID mismatch for $($lib.ImageName) — expected $uuid, got $(Format-Uuid $downloadedUuid)"
-                    if (Test-Path -LiteralPath $dsymPath) {
-                        try {
+                    # Remove the .dSYM bundle and cached .dwarf to prevent repeated mismatch
+                    try {
+                        # Walk up from DWARF file to .dSYM bundle root
+                        $dsymBundlePath = $null
+                        $dsymDir = Split-Path -LiteralPath $dsymPath -Parent
+                        $candidateBundle = Split-Path -LiteralPath $dsymDir -Parent
+                        if ($candidateBundle -like '*.dSYM') {
+                            $dsymBundlePath = $candidateBundle
+                        }
+
+                        if ($dsymBundlePath -and (Test-Path -LiteralPath $dsymBundlePath)) {
+                            Remove-Item -LiteralPath $dsymBundlePath -Recurse -Force -ErrorAction Stop
+                            Write-Host "    Removed cached dSYM bundle at '$dsymBundlePath' due to UUID mismatch; it will be re-fetched on next run." -ForegroundColor DarkYellow
+                        }
+                        elseif (Test-Path -LiteralPath $dsymPath) {
                             Remove-Item -LiteralPath $dsymPath -Recurse -Force -ErrorAction Stop
                             Write-Host "    Removed cached dSYM at '$dsymPath' due to UUID mismatch; it will be re-fetched on next run." -ForegroundColor DarkYellow
                         }
-                        catch {
-                            Write-Warning "    Failed to remove cached mismatched dSYM at '${dsymPath}': $($_.Exception.Message)"
+
+                        # Also remove the cached .dwarf file so it won't be reused on next run
+                        if ($dwarfFile -and (Test-Path -LiteralPath $dwarfFile)) {
+                            Remove-Item -LiteralPath $dwarfFile -Force -ErrorAction Stop
+                            Write-Host "    Removed cached DWARF file at '$dwarfFile' due to UUID mismatch." -ForegroundColor DarkYellow
                         }
+                    }
+                    catch {
+                        Write-Warning "    Failed to remove cached mismatched dSYM/DWARF artifacts: $($_.Exception.Message)"
                     }
                 }
             }
