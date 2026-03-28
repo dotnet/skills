@@ -700,7 +700,7 @@ if ($ParseOnly) {
     Write-Host "Total frames: $($allFrames.Count)"
     Write-Host ".NET frames: $($dotnetFrames.Count)"
 
-    Write-Host "`n--- .NET Libraries ---"
+    Write-Host "`n--- .NET Libraries (with frames to symbolicate) ---"
     $libGroups = $dotnetFrames | Group-Object ImageName
     foreach ($g in $libGroups) {
         $sample = $g.Group | Select-Object -First 1
