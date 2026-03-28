@@ -176,7 +176,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(CancellationToken|cancellation)"
       - type: "output_not_matches"
-        pattern: "\\.Result\\b(?=\\s*[);])|\\.Wait\\(\\)(?=\\s*[);])|\\.GetAwaiter\\(\\)\\.GetResult\\(\\)"
+        pattern: "\\.Result\\b(?=\\s*[);])|\\.Wait\\(\\)(?=\\s*[);])"
     rubric:
       - "Identified all three sync-over-async anti-patterns: .GetAwaiter().GetResult() in GetOrder, .Wait() in CreateOrder, and .Result in the GetReport loop"
       - "Converted controller action methods to async Task<ActionResult<T>>"

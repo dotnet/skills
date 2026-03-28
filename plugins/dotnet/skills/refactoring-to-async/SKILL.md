@@ -68,7 +68,7 @@ public string GetUserData(int userId)
 ```csharp
 public async Task<string> GetUserDataAsync(int userId, CancellationToken ct = default)
 {
-    var response = await _httpClient.GetAsync($"/users/{userId}", ct);
+    using var response = await _httpClient.GetAsync($"/users/{userId}", ct);
     response.EnsureSuccessStatusCode();
     return await response.Content.ReadAsStringAsync(ct);
 }
@@ -103,7 +103,7 @@ public async Task<List<Order>> GetOrdersAsync(
     int userId,
     CancellationToken ct = default)   // Always provide a default
 {
-    var response = await _client.GetAsync($"/orders?user={userId}", ct);
+    using var response = await _client.GetAsync($"/orders?user={userId}", ct);
     var json = await response.Content.ReadAsStringAsync(ct);
     return JsonSerializer.Deserialize<List<Order>>(json);
 }
