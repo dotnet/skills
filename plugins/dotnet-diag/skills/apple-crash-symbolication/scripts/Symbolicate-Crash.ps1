@@ -359,8 +359,20 @@ function Convert-DwarfToDsym([string]$dwarfFile, [string]$libraryName, [string]$
     $targetFile = Join-Path $dwarfDir $safeName
 
     if (Test-Path $targetFile) {
-        Write-Verbose "Using cached dSYM bundle for $libraryName"
-        return $targetFile
+        # Verify that the cached dSYM matches the requested UUID
+        $cachedUuid = Get-DsymUuid $targetFile
+        if ($cachedUuid -and $cachedUuid -eq $uuid) {
+            Write-Verbose "Using cached dSYM bundle for $libraryName"
+            return $targetFile
+        }
+
+        Write-Warning "Cached dSYM bundle for $libraryName has incorrect or unreadable UUID; recreating"
+        try {
+            Remove-Item $dsymBundle -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        catch {
+            Write-Warning "Failed to remove invalid cached dSYM bundle for ${libraryName}: $_"
+        }
     }
 
     try {
@@ -773,6 +785,15 @@ if ($missingAfterLocal.Count -gt 0 -and -not $SkipSymbolDownload) {
                 }
                 else {
                     Write-Warning "    UUID mismatch for $($lib.ImageName) — expected $uuid, got $(Format-Uuid $downloadedUuid)"
+                    if (Test-Path -LiteralPath $dsymPath) {
+                        try {
+                            Remove-Item -LiteralPath $dsymPath -Recurse -Force -ErrorAction Stop
+                            Write-Host "    Removed cached dSYM at '$dsymPath' due to UUID mismatch; it will be re-fetched on next run." -ForegroundColor DarkYellow
+                        }
+                        catch {
+                            Write-Warning "    Failed to remove cached mismatched dSYM at '${dsymPath}': $($_.Exception.Message)"
+                        }
+                    }
                 }
             }
         }
