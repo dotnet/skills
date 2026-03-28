@@ -24,7 +24,6 @@
 - `plugins/dotnet-diag/skills/apple-crash-symbolication/SKILL.md` — Step 4, Validation, Stop Signals
 - `plugins/dotnet-diag/skills/apple-crash-symbolication/references/ips-crash-format.md` — macOS symbols, JSON gotchas
 - `plugins/dotnet-diag/skills/apple-crash-symbolication/scripts/Symbolicate-Crash.ps1` — 2 bug fixes
-- `.github/skills/apple-crash-symbolication/SKILL.md` — synced with canonical
 
 ### Key Learnings
 
