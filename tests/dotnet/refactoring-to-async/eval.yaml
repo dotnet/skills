@@ -8,6 +8,8 @@ scenarios:
         pattern: "(async|await|Task<)"
       - type: "output_matches"
         pattern: "(CancellationToken|cancellation)"
+      - type: "output_matches"
+        pattern: "(await using|IAsyncDisposable)"
       - type: "output_not_matches"
         pattern: "\\.Result\\b(?=\\s*[);])|\\.Wait\\(\\)(?=\\s*[);])"
     rubric:
@@ -16,6 +18,7 @@ scenarios:
       - "Changed method signatures to return Task or Task<T> with Async suffix"
       - "Added CancellationToken parameter propagation throughout the call chain"
       - "Updated interfaces to match the async method signatures"
+      - "Converted using var to await using var for IAsyncDisposable types (e.g., SqlConnection, SqlCommand)"
       - "Did not introduce async void methods (except event handlers)"
       - "Verified the code compiles after conversion with dotnet build"
     expect_tools: ["bash"]
@@ -74,7 +77,7 @@ scenarios:
 
   - name: "Refactor sync-over-async in ASP.NET Core controller"
     prompt: |
-      This ASP.NET Core controller has performance issues under load. Some methods use .GetAwaiter().GetResult() and others mix sync and async patterns. Can you fix the async anti-patterns and convert it properly?
+      This controller has performance issues under load. Several endpoints are blocking threads and we're seeing thread pool starvation in production. Can you fix the performance problems?
     setup:
       files:
         - path: "OrderController.cs"
@@ -172,12 +175,14 @@ scenarios:
         pattern: "(async Task<ActionResult|async Task<IActionResult)"
       - type: "output_matches"
         pattern: "(CancellationToken|cancellation)"
+      - type: "output_not_matches"
+        pattern: "\\.Result\\b(?=\\s*[);])|\\.Wait\\(\\)(?=\\s*[);])|\\.GetAwaiter\\(\\)\\.GetResult\\(\\)"
     rubric:
       - "Identified all three sync-over-async anti-patterns: .GetAwaiter().GetResult() in GetOrder, .Wait() in CreateOrder, and .Result in the GetReport loop"
       - "Converted controller action methods to async Task<ActionResult<T>>"
       - "Replaced .GetAwaiter().GetResult(), .Wait(), and .Result with await"
       - "Added CancellationToken parameter to async actions to support request cancellation"
-      - "Used Task.WhenAll or sequential awaits instead of blocking .Result in the loop"
+      - "Used sequential awaits (preferred) or Task.WhenAll with concurrency caveats instead of blocking .Result in the loop"
     timeout: 120
 
   - name: "Convert file I/O operations to async"

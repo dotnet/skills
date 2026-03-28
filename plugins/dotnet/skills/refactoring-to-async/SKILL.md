@@ -1,13 +1,10 @@
 ---
 name: refactoring-to-async
 description: >
-  Convert synchronous .NET code to async/await, including proper Task propagation,
-  cancellation support, and avoiding common async anti-patterns.
-  USE FOR: converting blocking I/O calls (database, HTTP, file, stream) to async,
-  fixing thread pool starvation from .Result/.Wait()/.GetAwaiter().GetResult(),
-  modernizing sync-over-async code, adding CancellationToken support.
-  DO NOT USE FOR: CPU-bound computation (use Parallel.For or Task.Run instead),
-  code with no I/O operations, parallelizing work rather than making it async.
+  Convert synchronous .NET code to async/await with proper Task propagation,
+  CancellationToken support, and async anti-pattern removal.
+  USE FOR: converting blocking I/O to async, fixing sync-over-async patterns.
+  DO NOT USE FOR: CPU-bound computation, code with no I/O.
 ---
 
 # Refactoring to Async
@@ -26,11 +23,14 @@ description: >
 
 ### Step 1: Identify blocking I/O calls
 
-Search for synchronous I/O patterns in the codebase:
+Look for these synchronous I/O methods and blocking patterns in the codebase:
 
-```bash
-grep -rnE '\.Result\b|\.Wait\(\)|\.GetAwaiter\(\)\.GetResult\(\)|ReadToEnd\(\)|\.Read\(|\.Write\(' --include='*.cs' .
-```
+- `.Result`, `.Wait()`, `.GetAwaiter().GetResult()` — sync-over-async blocking
+- `stream.Read`, `stream.Write`, `reader.ReadToEnd` — synchronous stream I/O
+- `File.ReadAllText`, `File.WriteAllBytes`, `File.ReadAllLines` — synchronous file I/O
+- `connection.Open`, `command.ExecuteReader`, `command.ExecuteNonQuery` — synchronous database calls
+- `HttpClient.Send`, `WebClient.Download*` — synchronous HTTP calls
+- `Thread.Sleep` — thread-blocking delay
 
 Common blocking patterns to convert:
 
@@ -111,7 +111,19 @@ public async Task<List<Order>> GetOrdersAsync(
 
 ASP.NET Core automatically supplies a `CancellationToken` that fires when the client disconnects.
 
-### Step 5: Update interfaces
+### Step 5: Convert disposables to async
+
+Types that implement `IAsyncDisposable` (e.g., `SqlConnection`, `DbContext`, `Stream`, `StreamReader/Writer`) should use `await using` instead of `using`:
+
+```csharp
+// Before
+using var connection = new SqlConnection(connectionString);
+
+// After
+await using var connection = new SqlConnection(connectionString);
+```
+
+### Step 6: Update interfaces
 
 ```csharp
 // Before
@@ -129,7 +141,7 @@ public interface IUserRepository
 }
 ```
 
-### Step 6: Build and fix
+### Step 7: Build and fix
 
 ```bash
 dotnet build
@@ -144,15 +156,32 @@ Common errors after async refactoring:
 | `CS0127`: Method returns `Task` but body returns value | Change return type to `Task<T>` |
 | `CS1998`: Async method lacks `await` | Remove `async` if no awaits are needed, or the method is genuinely sync |
 
-### Step 7: Verify no anti-patterns remain
+### Step 8: Verify no anti-patterns remain
 
-Search for remaining issues:
+Search for remaining `.Result`, `.Wait()`, or `.GetAwaiter().GetResult()` calls in the refactored code paths. There should be none.
 
-```bash
-grep -rnE '\.Result\b|\.Wait\(\)|\.GetAwaiter\(\)\.GetResult\(\)' --include='*.cs' .
+## Additional Async Patterns
+
+### `IAsyncEnumerable<T>` / `await foreach`
+
+When a method returns `IEnumerable<T>` and each element involves I/O, convert to `IAsyncEnumerable<T>`:
+
+```csharp
+// Before
+public IEnumerable<User> GetUsers() { /* yields with sync I/O */ }
+
+// After
+public async IAsyncEnumerable<User> GetUsersAsync(
+    [EnumeratorCancellation] CancellationToken ct = default)
+{
+    await foreach (var row in queryAsync(ct))
+        yield return MapUser(row);
+}
 ```
 
-This should return zero results in the refactored code paths.
+### `ValueTask` vs `Task`
+
+Use `Task` by default. Use `ValueTask`/`ValueTask<T>` only for hot-path methods that frequently complete synchronously (e.g., reading from a buffered stream). `ValueTask` limitations: cannot be awaited multiple times, cannot be stored or cached, cannot use `.Result` or `.GetAwaiter().GetResult()` after the first consumption.
 
 ## Anti-Patterns to Avoid
 
@@ -161,7 +190,7 @@ This should return zero results in the refactored code paths.
 | `task.Result` or `task.Wait()` | Blocks thread, risks deadlock | `await task` |
 | `async void` methods | Exceptions crash the process | `async Task` (except event handlers) |
 | `Task.Run` wrapping async I/O | Wastes a thread pool thread | Call async method directly |
-| Missing `ConfigureAwait(false)` in libraries | Can deadlock in UI/ASP.NET sync contexts | Add `.ConfigureAwait(false)` to every `await` in library code; omit in ASP.NET Core app code (no SynchronizationContext) |
+| Missing `ConfigureAwait(false)` in libraries | Can deadlock in Winforms/WPF/ASP.NET sync contexts | Add `.ConfigureAwait(false)` to every `await` in library code; omit in ASP.NET Core app code (no SynchronizationContext) |
 | Fire-and-forget without error handling | Swallows exceptions silently | `await` or use `_ = Task.Run(async () => { try... })` |
 
 ## Validation
