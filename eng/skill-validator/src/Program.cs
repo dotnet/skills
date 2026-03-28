@@ -1,8 +1,10 @@
 using System.CommandLine;
-using SkillValidator.Commands;
+using SkillValidator.Check;
+using SkillValidator.Evaluate;
 
-var rootCommand = ValidateCommand.Create();
-rootCommand.Add(ConsolidateCommand.Create());
+var rootCommand = new RootCommand("Validate that agent skills meaningfully improve agent performance");
+rootCommand.Add(EvaluateCommand.Create());
+rootCommand.Add(CheckCommand.Create());
 
 var parseResult = rootCommand.Parse(args);
 return await parseResult.InvokeAsync();

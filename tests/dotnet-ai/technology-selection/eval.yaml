@@ -1,0 +1,253 @@
+config:
+  max_parallel_scenarios: 1
+  max_parallel_runs: 2
+
+scenarios:
+  - name: "ML.NET classification on tabular data"
+    prompt: "Add a support ticket classifier to this .NET 10 Web API. Tickets have a Subject (string), Description (string), Priority (int 1-3), and Category should be predicted as one of: Billing, Technical, General. Use the provided training data CSV. Show me the full implementation including model training, evaluation metrics, and a prediction endpoint."
+    setup:
+      files:
+        - path: "TicketClassifier/TicketClassifier.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+            </Project>
+        - path: "TicketClassifier/Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddControllers();
+            var app = builder.Build();
+            app.MapControllers();
+            app.Run();
+        - path: "TicketClassifier/Data/tickets.csv"
+          content: |
+            Subject,Description,Priority,Category
+            "Cannot login","I am unable to login to my account",1,Technical
+            "Billing error","I was charged twice for my subscription",2,Billing
+            "How to reset password","I need help resetting my password",3,General
+            "Server down","The API server is returning 500 errors",1,Technical
+            "Refund request","I would like a refund for last month",2,Billing
+            "Feature question","Does the product support SSO?",3,General
+    assertions:
+      - type: "output_contains"
+        value: "MLContext"
+      - type: "output_contains"
+        value: "new MLContext(seed:"
+      - type: "output_contains"
+        value: "TrainTestSplit"
+      - type: "exit_success"
+    rubric:
+      - "Uses ML.NET (Microsoft.ML) for classification — does NOT use an LLM for this structured data task"
+      - "Sets a random seed on MLContext for reproducibility"
+      - "Splits data into train/test sets and evaluates on held-out test data"
+      - "Logs or reports evaluation metrics appropriate for multiclass classification (e.g., MicroAccuracy, MacroAccuracy, LogLoss)"
+      - "Uses PredictionEnginePool in the ASP.NET Core endpoint — not a singleton PredictionEngine"
+    timeout: 360
+
+  - name: "LLM integration with MEAI abstraction"
+    prompt: "Add a document summarization endpoint to this .NET 10 Web API. The endpoint should accept a document text and return a concise summary."
+    setup:
+      files:
+        - path: "DocSummary/DocSummary.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+            </Project>
+        - path: "DocSummary/Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddControllers();
+            var app = builder.Build();
+            app.MapControllers();
+            app.Run();
+        - path: "DocSummary/appsettings.json"
+          content: |
+            {
+              "Logging": {
+                "LogLevel": {
+                  "Default": "Information"
+                }
+              }
+            }
+    assertions:
+      - type: "output_contains"
+        value: "IChatClient"
+      - type: "output_contains"
+        value: "Temperature"
+      - type: "output_not_contains"
+        value: "sk-"
+      - type: "output_not_contains"
+        value: "apiKey = \""
+      - type: "exit_success"
+    rubric:
+      - "Uses Microsoft.Extensions.AI (IChatClient) as the abstraction layer — does not call Azure.AI.OpenAI or OpenAI SDK directly in business logic"
+      - "Registers the AI client via dependency injection using AddChatClient"
+      - "Sets Temperature and MaxOutputTokens explicitly in ChatOptions"
+      - "Implements retry logic (e.g., RetryingChatClient or Polly-based)"
+      - "Loads API keys from configuration or environment — not hardcoded in source"
+      - "Pins to a specific dated model version (e.g., gpt-4o-2024-08-06) rather than an unversioned alias"
+    timeout: 360
+
+  - name: "Reject LLM for tabular classification"
+    prompt: "I have a .NET 10 project with a CSV of customer data (Age, Income, Region, PurchaseHistory columns). I want to predict whether a customer will churn (yes/no)."
+    setup:
+      files:
+        - path: "ChurnPredictor/ChurnPredictor.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+            </Project>
+        - path: "ChurnPredictor/Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            var app = builder.Build();
+            app.MapGet("/", () => "Hello");
+            app.Run();
+        - path: "ChurnPredictor/Data/customers.csv"
+          content: |
+            Age,Income,Region,PurchaseHistory,Churned
+            25,45000,East,12,No
+            45,80000,West,3,Yes
+            35,60000,North,8,No
+            55,90000,South,1,Yes
+            30,50000,East,15,No
+    assertions:
+      - type: "output_contains"
+        value: "ML.NET"
+      - type: "exit_success"
+    rubric:
+      - "Redirects the user away from using GPT-4/LLM for this tabular classification task"
+      - "Recommends ML.NET as the appropriate technology with a clear rationale (faster, cheaper, deterministic)"
+      - "Provides an ML.NET-based binary classification implementation instead"
+      - "Follows the decision tree from the skill: structured tabular data → ML.NET"
+    timeout: 360
+
+  - name: "Agentic workflow with guardrails"
+    prompt: "Build a .NET 10 console app that uses an AI agent to research a topic by searching the web, then summarize findings. The agent should have access to a web search tool and a note-taking tool."
+    setup:
+      files:
+        - path: "ResearchAgent/ResearchAgent.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <OutputType>Exe</OutputType>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.Agents.AI" Version="1.*-*" />
+                <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="9.*" />
+                <PackageReference Include="OpenAI" Version="2.*" />
+              </ItemGroup>
+            </Project>
+        - path: "ResearchAgent/Program.cs"
+          content: |
+            Console.WriteLine("Research Agent Starting...");
+    assertions:
+      - type: "output_contains"
+        value: "MaximumIterations"
+      - type: "output_contains"
+        value: "Microsoft.Agents.AI"
+      - type: "output_contains"
+        value: "Microsoft.Extensions.AI"
+      - type: "exit_success"
+    rubric:
+      - "Uses Microsoft Agent Framework (Microsoft.Agents.AI) for orchestration — not raw LLM calls in a loop"
+      - "Builds on top of Microsoft.Extensions.AI (IChatClient) as the foundation layer"
+      - "Sets MaximumIterations to cap the agentic loop and prevent runaway execution"
+      - "Defines explicit tool/function schemas with descriptions for each tool"
+      - "Implements observability by logging agent steps (tool selected, input, output)"
+      - "Mentions or implements a cost ceiling or token budget"
+    timeout: 360
+
+  - name: "Natural-language scenario decomposition — RAG chatbot"
+    prompt: "I want to build a web-based LLM driven chatbot using C# that allows customers to get help with our internal product PDF documentation and Blazor. I want to use Postgres for data storage along with just a file folder for our documentation. Show me your plan before continuing with the implementation."
+    setup:
+      files:
+        - path: "HelpChatbot/HelpChatbot.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+            </Project>
+        - path: "HelpChatbot/Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            var app = builder.Build();
+            app.Run();
+        - path: "HelpChatbot/Docs/product-guide.pdf"
+          content: "(placeholder PDF content)"
+    assertions:
+      - type: "output_contains"
+        value: "Microsoft.Extensions.AI"
+      - type: "exit_success"
+    rubric:
+      - "Presents a plan or architecture breakdown before diving into code — decomposes the vague request into identifiable capability needs (chat, document ingestion, vector search, embedding, UI)"
+      - "Selects Microsoft.Extensions.AI (MEAI) as the abstraction layer and identifies a concrete LLM provider (e.g., OpenAI, Azure.AI.OpenAI, or Azure.AI.Inference)"
+      - "Identifies the need for document ingestion and chunking of PDF files — references Microsoft.Extensions.AI.DataIngestion or implements equivalent parsing/chunking"
+      - "Selects Microsoft.Extensions.VectorData.Abstractions with a pgvector connector for PostgreSQL-based vector storage"
+      - "Uses Blazor for the web UI as requested — does not substitute a different frontend framework"
+      - "Reads documents from a file folder as specified — does not require a cloud blob store or other infrastructure the user did not ask for"
+      - "Does not hallucinate NuGet package names — uses real, existing packages for the selected providers"
+    timeout: 360
+
+  - name: "RAG pipeline with vector search"
+    prompt: "I need to add a RAG-based Q&A feature to a .NET 10 Web API. The app has a collection of product documentation markdown files. Users should be able to ask questions and get answers grounded in the documentation. I need document ingestion with chunking and a query endpoint. Show me your plan and architecture only — do not write any code."
+    setup:
+      files:
+        - path: "ProductQA/ProductQA.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+            </Project>
+        - path: "ProductQA/Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Services.AddControllers();
+            var app = builder.Build();
+            app.MapControllers();
+            app.Run();
+        - path: "ProductQA/Docs/getting-started.md"
+          content: |
+            # Getting Started
+            To install the product, run `dotnet tool install --global product-cli`.
+            The minimum requirement is .NET 10.0 SDK.
+        - path: "ProductQA/Docs/configuration.md"
+          content: |
+            # Configuration
+            Configuration is done via appsettings.json or environment variables.
+            Set `PRODUCT_API_KEY` to authenticate with the service.
+    assertions:
+      - type: "output_contains"
+        value: "chunk"
+      - type: "output_contains"
+        value: "embedding"
+      - type: "exit_success"
+    rubric:
+      - "Describes a chunking strategy for documents (semantic or paragraph-based, not naive fixed-size)"
+      - "Selects Microsoft.Extensions.VectorData or a vector database for storing and querying embeddings"
+      - "Mentions setting a minimum similarity score threshold to filter out irrelevant results"
+      - "Includes source attribution in the design — tracks which document chunks contributed to the answer"
+      - "Plans to cache embeddings rather than re-embedding content on every query"
+      - "Selects Microsoft.Extensions.AI (IEmbeddingGenerator) for the embedding abstraction layer"
+    timeout: 360

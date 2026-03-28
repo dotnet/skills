@@ -1,0 +1,38 @@
+name: Fork Infrastructure Check
+
+# Only run on PR creation (opened), never on subsequent pushes/edits,
+# so we post at most one comment per PR.
+on:
+  pull_request_target:
+    types: [opened]
+    paths:
+      - 'eng/**'
+      - '.github/**'
+
+permissions:
+  pull-requests: write
+
+jobs:
+  check-fork-infra:
+    name: Check fork PRs touching infrastructure
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Post advisory comment
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: [
+                '> [!NOTE]',
+                '> **This PR is from a fork and modifies infrastructure files** (`eng/` or `.github/`).',
+                '>',
+                '> Changes to infrastructure typically need to be submitted from a branch in `dotnet/skills` (not a fork) so that CI workflows run with the correct permissions and secrets.',
+                '>',
+                '> Please consider recreating this PR from an upstream branch. If you don\'t have push access to `dotnet/skills`, ask a maintainer to push your branch for you.'
+              ].join('\n')
+            });

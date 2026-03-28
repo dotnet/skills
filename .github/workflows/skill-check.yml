@@ -1,0 +1,37 @@
+name: skill-check
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Build skill-validator
+        run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
+
+      - name: Run skill-validator check
+        run: |
+          plugin_args=$(for d in plugins/*/; do echo "--plugin $d"; done)
+          artifacts/publish/SkillValidator/release/skill-validator check \
+            $plugin_args \
+            --allowed-external-deps eng/allowed-external-deps.txt \
+            --known-domains eng/known-domains.txt
+
