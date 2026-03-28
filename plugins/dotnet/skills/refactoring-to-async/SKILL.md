@@ -104,7 +104,7 @@ public async Task<List<Order>> GetOrdersAsync(
 {
     using var response = await _client.GetAsync($"/orders?user={userId}", ct);
     var json = await response.Content.ReadAsStringAsync(ct);
-    return JsonSerializer.Deserialize<List<Order>>(json);
+    return JsonSerializer.Deserialize<List<Order>>(json) ?? [];
 }
 ```
 
@@ -112,7 +112,7 @@ ASP.NET Core automatically supplies a `CancellationToken` that fires when the cl
 
 ### Step 5: Convert disposables to async
 
-Types that implement `IAsyncDisposable` (e.g., `SqlConnection`, `DbContext`, `Stream`, `StreamReader/Writer`) should use `await using` instead of `using`:
+Types that implement `IAsyncDisposable` (e.g., `SqlConnection`, `DbContext`, `Stream`) should use `await using` instead of `using`:
 
 ```csharp
 // Before

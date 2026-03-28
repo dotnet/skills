@@ -20,3 +20,4 @@ Prerequisites:
 - csharp-scripts
 - dotnet-pinvoke
 - nuget-trusted-publishing
+- refactoring-to-async

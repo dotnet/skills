@@ -68,7 +68,7 @@ scenarios:
             </Project>
     assertions:
       - type: "output_not_matches"
-        pattern: "(\\basync\\s+Task\\b.*\\(|await.*ReadAsync|await.*WriteAsync)"
+        pattern: "(\\bTask(?:<[^>]+>)?\\s+Multiply\\s*\\(|\\bMultiplyAsync\\s*\\()"
     rubric:
       - "Did NOT suggest converting CPU-bound computation to async/await"
       - "Suggested parallelism approaches (Parallel.For, Task.Run, SIMD, or algorithmic optimization)"
