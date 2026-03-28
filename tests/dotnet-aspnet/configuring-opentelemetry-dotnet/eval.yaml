@@ -1,7 +1,7 @@
 scenarios:
   - name: "Add OpenTelemetry tracing and metrics to an ASP.NET Core API"
     prompt: |
-      Please enable telemetry for my ASP.NET Core 8 app. I want distributed tracing with custom spans for order processing, a counter metric for orders processed, and OTLP export to Jaeger. My custom traces weren't showing up last time I tried.
+      Show me the code changes needed to add OpenTelemetry to my ASP.NET Core 8 app. I need distributed tracing with custom spans for order processing, a counter metric for orders processed, and OTLP export. My custom traces weren't showing up last time I tried — what did I likely get wrong? Don't create or modify any files, just explain with code snippets.
     assertions:
       - type: "output_matches"
         pattern: "(OpenTelemetry\\.Extensions\\.Hosting|AddOpenTelemetry)"
@@ -14,15 +14,14 @@ scenarios:
       - type: "output_matches"
         pattern: "(AddOtlpExporter|OtlpExporter|OpenTelemetryProtocol)"
     rubric:
-      - "Installed the correct packages: OpenTelemetry.Extensions.Hosting, OpenTelemetry.Instrumentation.AspNetCore, OpenTelemetry.Instrumentation.Http, OpenTelemetry.Exporter.OpenTelemetryProtocol (also provides logging OTLP export)"
-      - "Configured AddOpenTelemetry() with .WithTracing() and .WithMetrics() in Program.cs"
-      - "Added AddAspNetCoreInstrumentation() and AddHttpClientInstrumentation() for auto-instrumentation"
-      - "Registered custom ActivitySource names via AddSource() matching the source name used in the service class"
-      - "Created custom spans using ActivitySource.StartActivity() with proper using/dispose pattern"
-      - "Created custom metrics using Meter.CreateCounter() or similar, with the Meter name matching AddMeter()"
-      - "Explicitly warned that ActivitySource/Meter names must match AddSource/AddMeter registrations exactly or custom telemetry will be silently dropped"
-    expect_tools: ["bash"]
-    timeout: 120
+      - "Listed the correct NuGet packages: OpenTelemetry.Extensions.Hosting, OpenTelemetry.Instrumentation.AspNetCore, OpenTelemetry.Instrumentation.Http, OpenTelemetry.Exporter.OpenTelemetryProtocol"
+      - "Showed AddOpenTelemetry() configuration with .WithTracing() and .WithMetrics()"
+      - "Included AddAspNetCoreInstrumentation() and/or AddHttpClientInstrumentation() for auto-instrumentation"
+      - "Showed how to register custom ActivitySource names via AddSource() and create spans with StartActivity()"
+      - "Showed how to create custom metrics using CreateCounter() or similar, with the Meter name registered via AddMeter()"
+      - "Warned that ActivitySource/Meter names must match AddSource/AddMeter registrations exactly or custom telemetry will be silently dropped"
+    reject_tools: ["bash", "edit"]
+    timeout: 360
 
   - name: "OpenTelemetry skill should not activate for simple logging question"
     prompt: "How do I configure Serilog structured logging in my ASP.NET Core app to write to a file and console?"
@@ -34,5 +33,6 @@ scenarios:
     rubric:
       - "Did NOT suggest OpenTelemetry for a Serilog logging question"
       - "Provided Serilog-specific configuration guidance"
+    reject_tools: ["bash", "edit"]
     timeout: 60
     expect_activation: false
