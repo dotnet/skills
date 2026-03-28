@@ -69,7 +69,7 @@ public string GetUserData(int userId)
 ```csharp
 public async Task<string> GetUserDataAsync(int userId, CancellationToken ct = default)
 {
-    using var response = await _httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, $"/users/{userId}"), ct);
+    using var response = await _httpClient.GetAsync($"/users/{userId}", ct);
     return await response.Content.ReadAsStringAsync(ct);
 }
 ```
