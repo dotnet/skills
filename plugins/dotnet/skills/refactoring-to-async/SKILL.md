@@ -44,6 +44,7 @@ Common blocking patterns to convert:
 | `client.Send(request)` | `await client.SendAsync(request, ct)` |
 | `connection.Open()` | `await connection.OpenAsync(ct)` |
 | `command.ExecuteReader()` | `await command.ExecuteReaderAsync(ct)` |
+| `command.ExecuteNonQuery()` | `await command.ExecuteNonQueryAsync(ct)` |
 | `Thread.Sleep(ms)` | `await Task.Delay(ms, ct)` |
 | `task.Result` | `await task` |
 | `task.Wait()` | `await task` |
