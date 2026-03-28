@@ -108,7 +108,10 @@ builder.Services.AddOpenTelemetry()
         //   (requires OpenTelemetry.Instrumentation.Runtime package)
         // Custom meters
         .AddMeter("MyOrderService.Metrics")
-        .AddOtlpExporter());
+        .AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri("http://localhost:4317"); // gRPC endpoint (metrics)
+        }));
 ```
 
 ### Step 3: Add OpenTelemetry logging integration
