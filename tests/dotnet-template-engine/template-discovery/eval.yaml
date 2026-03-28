@@ -1,0 +1,28 @@
+scenarios:
+  - name: "Find template for web API project"
+    prompt: "I need to create a web API project with authentication. What template should I use?"
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: "webapi"
+    rubric:
+      - "The agent used the template-discovery skill to find suitable templates"
+      - "The agent identified the webapi template as the best match"
+      - "The agent mentioned authentication-related parameters"
+    expect_tools:
+      - skill
+    timeout: 120
+
+  - name: "Inspect template parameters"
+    prompt: "Show me all the parameters available for the webapi template"
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: "Framework"
+    rubric:
+      - "The agent retrieved the webapi template metadata via the template-discovery skill or dotnet new webapi --help"
+      - "The agent listed parameters with their types and defaults"
+      - "The agent included the Framework parameter"
+    expect_tools:
+      - skill
+    timeout: 120

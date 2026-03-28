@@ -1,0 +1,298 @@
+scenarios:
+  # ============================================================================
+  # Goal 1: Writing new MSTest tests from scratch
+  # ============================================================================
+
+  - name: "Write unit tests for a service class"
+    prompt: "I need to write MSTest unit tests for my OrderService class. Can you help me write comprehensive tests?"
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: output_matches
+        pattern: "\\[TestClass\\]"
+      - type: output_matches
+        pattern: "\\[TestMethod\\]"
+      - type: output_matches
+        pattern: "\\bsealed\\b"
+      - type: output_matches
+        pattern: "Assert\\.ThrowsExactly|Assert\\.Throws"
+    rubric:
+      - "Uses [TestClass] and [TestMethod] attributes correctly"
+      - "Seals the test class with the 'sealed' keyword"
+      - "Follows Arrange-Act-Assert (AAA) pattern with comments or clear structure"
+      - "Names tests descriptively using MethodName_Scenario_ExpectedBehavior or similar convention"
+      - "Tests both success and failure paths (e.g., null input, empty items)"
+      - "Uses Assert.ThrowsExactly or Assert.Throws for exception testing instead of [ExpectedException]"
+      - "Uses Assert.AreEqual with expected as first argument and actual as second"
+    timeout: 180
+
+  - name: "Write data-driven tests for a calculator"
+    prompt: "I have a PriceCalculator class with CalculateTotal and ApplyDiscount methods. Help me write data-driven MSTest tests that cover multiple input combinations."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: output_matches
+        pattern: "\\[DataRow\\]|\\[DynamicData\\]"
+      - type: output_matches
+        pattern: "\\bsealed\\b"
+      - type: output_matches
+        pattern: "Assert\\.ThrowsExactly|Assert\\.Throws"
+    rubric:
+      - "Uses [DataRow] for simple inline test data or [DynamicData] for complex data"
+      - "If using DynamicData, prefers ValueTuple return type over IEnumerable<object[]>"
+      - "Covers edge cases like zero values, boundary conditions, and invalid inputs"
+      - "Seals the test class"
+      - "Uses Assert.ThrowsExactly or Assert.Throws for testing invalid argument scenarios"
+      - "Does not use manual foreach loops to iterate test data — uses proper data-driven attributes instead"
+    timeout: 180
+
+  - name: "Write async tests with cancellation"
+    prompt: |
+      I have this async service that I need to test:
+
+      ```csharp
+      public sealed class DataFetcher
+      {
+          private readonly HttpClient _client;
+          public DataFetcher(HttpClient client) => _client = client;
+
+          public async Task<string> FetchAsync(string url, CancellationToken cancellationToken = default)
+          {
+              var response = await _client.GetAsync(url, cancellationToken);
+              response.EnsureSuccessStatusCode();
+              return await response.Content.ReadAsStringAsync(cancellationToken);
+          }
+      }
+      ```
+
+      How should I write MSTest tests for this, especially handling timeouts and cancellation properly?
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: output_matches
+        pattern: "async Task"
+      - type: output_matches
+        pattern: "\\[Timeout\\]"
+      - type: output_matches
+        pattern: "CancellationToken"
+    rubric:
+      - "Uses async Task test methods (not async void)"
+      - "Uses TestContext.CancellationToken or mentions its importance for cooperative timeout"
+      - "Uses [Timeout] attribute for tests that could hang"
+      - "Uses Assert.ThrowsExactlyAsync or Assert.ThrowsAsync for async exception testing"
+      - "Does not use CancellationToken.None when TestContext.CancellationToken is available"
+      - "Seals the test class"
+    timeout: 120
+
+  # ============================================================================
+  # Goal 2: Fixing anti-patterns in existing tests
+  # ============================================================================
+
+  - name: "Fix swapped Assert.AreEqual arguments"
+    prompt: |
+      Something seems off about my test assertions. Can you review these tests and fix any issues?
+
+      ```csharp
+      [TestClass]
+      public class MathTests
+      {
+          [TestMethod]
+          public void Add_TwoNumbers_ReturnsSum()
+          {
+              var result = Calculator.Add(2, 3);
+              Assert.AreEqual(result, 5);
+          }
+
+          [TestMethod]
+          public void Multiply_ByZero_ReturnsZero()
+          {
+              var result = Calculator.Multiply(42, 0);
+              Assert.AreEqual(result, 0);
+          }
+      }
+      ```
+    assertions:
+      - type: output_matches
+        pattern: "Assert\\.AreEqual\\(5"
+      - type: output_matches
+        pattern: "Assert\\.AreEqual\\(0"
+    rubric:
+      - "Identifies the swapped arguments in Assert.AreEqual — expected should be first, actual second"
+      - "Fixes to Assert.AreEqual(5, result) and Assert.AreEqual(0, result)"
+      - "Explains why argument order matters (failure messages show 'Expected: X, Actual: Y')"
+    timeout: 120
+
+  - name: "Modernize legacy test patterns"
+    prompt: "Can you review these tests and modernize them to use current MSTest best practices?"
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          source: "fixtures/legacy-antipatterns/TestProject.csproj"
+        - path: "PriceCalculatorTests.cs"
+          source: "fixtures/legacy-antipatterns/PriceCalculatorTests.cs"
+        - path: "PriceCalculator.cs"
+          source: "fixtures/legacy-antipatterns/PriceCalculator.cs"
+    assertions:
+      - type: output_matches
+        pattern: "\\bsealed\\b"
+      - type: output_matches
+        pattern: "Assert\\.ThrowsExactly|Assert\\.Throws"
+      - type: output_matches
+        pattern: "IsInstanceOfType"
+    rubric:
+      - "Seals the test class (adds 'sealed' keyword)"
+      - "Replaces [ExpectedException] with Assert.ThrowsExactly or Assert.Throws"
+      - "Fixes the swapped Assert.AreEqual arguments (expected first, actual second)"
+      - "Moves synchronous setup from [TestInitialize] into the constructor, enabling readonly fields and satisfying nullability analyzers"
+      - "Removes nullable annotation from TestContext property or switches to constructor injection"
+      - "Improves test naming to be descriptive (replaces 'Test1', 'TestNegativeQuantity')"
+      - "Replaces hard cast with Assert.IsInstanceOfType"
+      - "Replaces manual foreach test data loop with [DataRow] or [DynamicData] attributes"
+    timeout: 180
+
+  - name: "Replace ExpectedException with Assert.Throws"
+    prompt: |
+      I have this test that uses [ExpectedException]. How should I modernize it?
+
+      ```csharp
+      [TestMethod]
+      [ExpectedException(typeof(ArgumentNullException))]
+      public void CreateUser_NullEmail_ThrowsException()
+      {
+          var service = new UserService();
+          service.CreateUser(null, "John");
+      }
+      ```
+    assertions:
+      - type: output_matches
+        pattern: "Assert\\.ThrowsExactly|Assert\\.Throws"
+      - type: output_not_contains
+        value: "[ExpectedException]"
+    rubric:
+      - "Replaces [ExpectedException] with Assert.ThrowsExactly<ArgumentNullException> or Assert.Throws<ArgumentNullException>"
+      - "Wraps the call in a lambda: Assert.ThrowsExactly<ArgumentNullException>(() => service.CreateUser(null, \"John\"))"
+      - "Mentions that Assert.Throws/ThrowsExactly allows asserting on the exception properties (message, param name)"
+      - "Explains the difference between Throws (matches derived types) and ThrowsExactly (exact type only)"
+    timeout: 120
+
+  # ============================================================================
+  # Goal 3: Using correct assertion methods
+  # ============================================================================
+
+  - name: "Use proper collection assertions"
+    prompt: |
+      I'm testing a method that returns a list. What's the best way to assert on collections in MSTest? Here's what I have:
+
+      ```csharp
+      [TestMethod]
+      public void GetActiveUsers_ReturnsOnlyActiveUsers()
+      {
+          var service = new UserService();
+          var users = service.GetActiveUsers();
+
+          Assert.IsTrue(users.Count > 0);
+          Assert.IsTrue(users.All(u => u.IsActive));
+          Assert.IsTrue(users.Count() == 3);
+          var admin = users.Single(u => u.Role == "Admin");
+          Assert.IsTrue(admin != null);
+      }
+      ```
+    assertions:
+      - type: output_matches
+        pattern: "Assert\\.HasCount|Assert\\.AreEqual\\(3"
+      - type: output_matches
+        pattern: "ContainsSingle|Assert\\.IsNotNull"
+    rubric:
+      - "Replaces Assert.IsTrue(users.Count > 0) with Assert.IsNotEmpty(users) or similar"
+      - "Replaces Assert.IsTrue(users.Count() == 3) with Assert.HasCount(3, users)"
+      - "Replaces users.Single() with Assert.ContainsSingle for better failure messages"
+      - "Uses Assert.IsNotNull instead of Assert.IsTrue(x != null)"
+      - "Uses Assert.Contains for checking specific items in collections"
+      - "Explains that specialized assertions give better failure messages than generic Assert.IsTrue"
+    timeout: 120
+
+  - name: "Use proper type assertions instead of casts"
+    prompt: |
+      I'm testing a factory method. Is there a better way to check the returned type?
+
+      ```csharp
+      [TestMethod]
+      public void Create_ReturnsCorrectHandler()
+      {
+          var factory = new HandlerFactory();
+          var result = factory.Create("email");
+
+          var handler = (EmailHandler)result;
+          Assert.IsNotNull(handler);
+          Assert.AreEqual("email", handler.Type);
+      }
+      ```
+    assertions:
+      - type: output_matches
+        pattern: "IsInstanceOfType"
+    rubric:
+      - "Replaces hard cast (EmailHandler)result with Assert.IsInstanceOfType<EmailHandler>(result)"
+      - "Shows how to use the typed result from IsInstanceOfType for further assertions"
+      - "Explains that IsInstanceOfType provides a clear failure message showing actual vs expected type"
+      - "Distinguishes MSTest 3.x (out parameter) vs 4.x (direct return) syntax"
+    timeout: 120
+
+  # ============================================================================
+  # Goal 4: Test lifecycle and setup
+  # ============================================================================
+
+  - name: "Set up test lifecycle correctly"
+    prompt: |
+      I need to set up my test class with both synchronous and asynchronous initialization. I also need to inject TestContext. What's the recommended way to do this in modern MSTest?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          source: "fixtures/modern-mstest/TestProject.csproj"
+    assertions:
+      - type: output_matches
+        pattern: "constructor|\\bctor\\b"
+      - type: output_matches
+        pattern: "TestContext"
+      - type: output_matches
+        pattern: "\\[TestInitialize\\]|TestInitialize"
+    rubric:
+      - "Always initializes in the constructor — enables readonly fields and satisfies nullability analyzers (fields guaranteed non-null after construction)"
+      - "Uses [TestInitialize] only for async initialization, combined with constructor for sync parts"
+      - "Injects TestContext via constructor parameter (MSTest 3.6+) rather than property"
+      - "Mentions the execution order: Constructor → TestContext property → [TestInitialize] → Test → [TestCleanup] → Dispose"
+      - "Seals the test class"
+      - "If TestContext property is used, does not add nullable annotation or = null! initializer"
+    timeout: 120
+
+  - name: "Use DynamicData with ValueTuples over object arrays"
+    prompt: |
+      I have this data-driven test using object arrays. Is there a better way?
+
+      ```csharp
+      [TestMethod]
+      [DynamicData(nameof(TestData))]
+      public void Validate_ReturnsExpected(string input, bool expected)
+      {
+          var result = Validator.IsValid(input);
+          Assert.AreEqual(expected, result);
+      }
+
+      public static IEnumerable<object[]> TestData =>
+      [
+          ["valid@email.com", true],
+          ["invalid", false],
+          ["", false],
+      ];
+      ```
+    assertions:
+      - type: output_matches
+        pattern: "ValueTuple|\\(string.*bool\\)"
+      - type: output_matches
+        pattern: "IEnumerable<\\("
+    rubric:
+      - "Recommends switching from IEnumerable<object[]> to IEnumerable<(string input, bool expected)> ValueTuples"
+      - "Explains that ValueTuples provide compile-time type safety"
+      - "Shows the correct ValueTuple syntax with named elements"
+      - "Mentions TestDataRow<T> as an option when custom DisplayName or metadata is needed"
+      - "Notes this requires MSTest 3.7+"
+    timeout: 120

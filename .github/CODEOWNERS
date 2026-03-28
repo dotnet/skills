@@ -10,8 +10,8 @@
 /tests/dotnet-msbuild/ @ViktorHofer @JanKrivanek
 /agentic-workflows/dotnet-msbuild/ @ViktorHofer @JanKrivanek
 
-/plugins/dotnet/skills/analyzing-dotnet-performance/ @dotnet/dotnet-diag
-/tests/dotnet/analyzing-dotnet-performance/ @dotnet/dotnet-diag
+# dotnet (common everyday C#/.NET)
+/plugins/dotnet/lsp.json @dotnet/roslyn-ide
 
 /plugins/dotnet/skills/csharp-scripts/ @dotnet/roslyn
 /tests/dotnet/csharp-scripts/ @dotnet/roslyn
@@ -19,37 +19,99 @@
 /plugins/dotnet/skills/dotnet-pinvoke/ @dotnet/appmodel
 /tests/dotnet/dotnet-pinvoke/ @dotnet/appmodel
 
-/plugins/dotnet/skills/dump-collect/ @dotnet/dotnet-diag
-/tests/dotnet/dump-collect/ @dotnet/dotnet-diag
-
-/plugins/dotnet/skills/dotnet-trace-collect/ @brianrob
-/tests/dotnet/dotnet-trace-collect/ @brianrob
-
-/plugins/dotnet/skills/optimizing-ef-core-queries/ @dotnet/efteam
-/tests/dotnet/optimizing-ef-core-queries/ @dotnet/efteam
-
-/plugins/dotnet/skills/thread-abort-migration/ @dotnet/appmodel
-/tests/dotnet/thread-abort-migration/ @dotnet/appmodel
-
-/plugins/dotnet/skills/migrate-nullable-references/ @danmoseley
-/tests/dotnet/migrate-nullable-references/ @danmoseley
-
-/plugins/dotnet/skills/android-tombstone-symbolication/ @dotnet/dotnet-diag 
-/tests/dotnet/android-tombstone-symbolication/ @dotnet/dotnet-diag 
-
-/plugins/dotnet/skills/clr-activation-debugging/ @marklio @ChrisAhna
-/tests/dotnet/clr-activation-debugging/ @marklio @ChrisAhna
-
-/plugins/dotnet/skills/microbenchmarking/ @dotnet/dotnet-perf-team
-/tests/dotnet/microbenchmarking/ @dotnet/dotnet-perf-team
-
 /plugins/dotnet/skills/nuget-trusted-publishing/ @lewing @kartheekp-ms
 /tests/dotnet/nuget-trusted-publishing/ @lewing @kartheekp-ms
 
-/plugins/dotnet/skills/dotnet-aot-compat/ @agocke @dotnet/appmodel
-/tests/dotnet/dotnet-aot-compat/ @agocke @dotnet/appmodel
+/plugins/dotnet/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel
+
+/plugins/dotnet-ai/skills/mcp-csharp-create/ @leslierichardson95 @artl93
+/tests/dotnet-ai/mcp-csharp-create/ @leslierichardson95 @artl93
+
+/plugins/dotnet-ai/skills/mcp-csharp-debug/ @leslierichardson95 @artl93
+/tests/dotnet-ai/mcp-csharp-debug/ @leslierichardson95 @artl93
+
+/plugins/dotnet-ai/skills/mcp-csharp-publish/ @leslierichardson95 @artl93
+/tests/dotnet-ai/mcp-csharp-publish/ @leslierichardson95 @artl93
+
+/plugins/dotnet-ai/skills/mcp-csharp-test/ @leslierichardson95 @artl93
+/tests/dotnet-ai/mcp-csharp-test/ @leslierichardson95 @artl93
+
+# dotnet-upgrade (migrating and upgrading .NET projects)
+/plugins/dotnet-upgrade/skills/thread-abort-migration/ @dotnet/appmodel
+/tests/dotnet-upgrade/thread-abort-migration/ @dotnet/appmodel
+
+/plugins/dotnet-upgrade/skills/migrate-nullable-references/ @danmoseley @agocke
+/tests/dotnet-upgrade/migrate-nullable-references/ @danmoseley @agocke
+
+/plugins/dotnet-upgrade/skills/dotnet-aot-compat/ @agocke @dotnet/appmodel
+/tests/dotnet-upgrade/dotnet-aot-compat/ @agocke @dotnet/appmodel
+
+/plugins/dotnet-upgrade/skills/migrate-dotnet9-to-dotnet10/ @danmoseley @dotnet/compat
+/tests/dotnet-upgrade/migrate-dotnet9-to-dotnet10/ @danmoseley @dotnet/compat
+/plugins/dotnet-upgrade/skills/migrate-dotnet10-to-dotnet11/ @danmoseley @dotnet/compat
+/tests/dotnet-upgrade/migrate-dotnet10-to-dotnet11/ @danmoseley @dotnet/compat
+/plugins/dotnet-upgrade/skills/migrate-dotnet8-to-dotnet9/ @danmoseley @dotnet/compat
+/tests/dotnet-upgrade/migrate-dotnet8-to-dotnet9/ @danmoseley @dotnet/compat
+
+# dotnet-diag (perf investigations, debugging, incident analysis)
+/plugins/dotnet-diag/skills/analyzing-dotnet-performance/ @dotnet/dotnet-diag
+/tests/dotnet-diag/analyzing-dotnet-performance/ @dotnet/dotnet-diag
+
+/plugins/dotnet-diag/skills/dump-collect/ @dotnet/dotnet-diag
+/tests/dotnet-diag/dump-collect/ @dotnet/dotnet-diag
+
+/plugins/dotnet-diag/skills/dotnet-trace-collect/ @brianrob @noahfalk
+/tests/dotnet-diag/dotnet-trace-collect/ @brianrob @noahfalk
+
+/plugins/dotnet-diag/skills/android-tombstone-symbolication/ @dotnet/dotnet-diag
+/tests/dotnet-diag/android-tombstone-symbolication/ @dotnet/dotnet-diag
+
+/plugins/dotnet-diag/skills/clr-activation-debugging/ @marklio @ChrisAhna
+/tests/dotnet-diag/clr-activation-debugging/ @marklio @ChrisAhna
+
+/plugins/dotnet-diag/skills/microbenchmarking/ @dotnet/dotnet-perf-team
+/tests/dotnet-diag/microbenchmarking/ @dotnet/dotnet-perf-team
+
+/plugins/dotnet-diag/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel
 
 /plugins/dotnet/skills/migrating-newtonsoft-to-system-text-json/ @mrsharm
 /tests/dotnet/migrating-newtonsoft-to-system-text-json/ @mrsharm
 
 /plugins/dotnet/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel
+
+/plugins/dotnet-ai/skills/technology-selection/ @luisquintanilla @artl93
+/tests/dotnet-ai/technology-selection/ @luisquintanilla @artl93
+
+# dotnet-data (data access, Entity Framework)
+/plugins/dotnet-data/skills/optimizing-ef-core-queries/ @dotnet/efteam
+/tests/dotnet-data/optimizing-ef-core-queries/ @dotnet/efteam
+
+# dotnet-test (everything testing related)
+/plugins/dotnet-test/ @dotnet/dotnet-testing
+/tests/dotnet-test/ @dotnet/dotnet-testing
+
+# dotnet-experimental (skills under active evaluation)
+/plugins/dotnet-experimental/plugin.json @JanKrivanek @ViktorHofer @Evangelink @ManishJayaswal @AbhitejJohn
+
+# dotnet-experimental-tests (everything experimental test related)
+/plugins/dotnet-experimental/skills/exp-test-tagging/ @dotnet/dotnet-testing
+/tests/dotnet-experimental/exp-test-tagging/ @dotnet/dotnet-testing
+
+/plugins/dotnet-experimental/skills/exp-test-maintainability/ @dotnet/dotnet-testing
+/tests/dotnet-experimental/exp-test-maintainability/ @dotnet/dotnet-testing
+
+/plugins/dotnet-experimental/skills/exp-simd-vectorization/ @jeffschw @artl93
+/tests/dotnet-experimental/exp-simd-vectorization/ @jeffschw @artl93
+
+# dotnet-maui
+/plugins/dotnet-maui/ @Redth @jfversluis
+/tests/dotnet-maui/ @Redth @jfversluis
+
+# dotnet-template-engine
+/plugins/dotnet-template-engine/ @YuliiaKovalova @JanKrivanek
+/tests/dotnet-template-engine/ @YuliiaKovalova @JanKrivanek
+
+# dotnet-nuget (package and dependency management)
+/plugins/dotnet-nuget/ @dotnet/area-infrastructure-libraries @kartheekp-ms
+/tests/dotnet-nuget/ @dotnet/area-infrastructure-libraries @kartheekp-ms
+

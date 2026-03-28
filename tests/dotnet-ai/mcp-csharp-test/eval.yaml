@@ -1,0 +1,51 @@
+scenarios:
+  - name: "Write unit and integration tests for an MCP server"
+    prompt: |
+      I have a C# MCP server with tools that call an external REST API.
+      I want to write tests that verify the tools work correctly without
+      calling the real API. How do I structure the test project?
+    assertions:
+      - type: "output_contains"
+        value: "xunit"
+      - type: "output_matches"
+        pattern: "(Mock|Fake|mock|fake|HttpMessageHandler)"
+      - type: "output_matches"
+        pattern: "(CallToolAsync|McpClient)"
+    rubric:
+      - "Creates a test project with xUnit and references the server project"
+      - "Shows how to mock HttpClient or external dependencies"
+      - "Demonstrates an integration test using McpClient to call tools in-memory"
+      - "Separates unit tests from integration tests using traits or folders"
+    timeout: 120
+  - name: "Test an HTTP MCP server with WebApplicationFactory"
+    prompt: |
+      I have an HTTP-based C# MCP server built with ASP.NET Core.
+      How do I write integration tests that test the full MCP protocol
+      over HTTP without spinning up a real server?
+    assertions:
+      - type: "output_contains"
+        value: "WebApplicationFactory"
+      - type: "output_matches"
+        pattern: "(initialize|MCP|jsonrpc)"
+    rubric:
+      - "Uses WebApplicationFactory<Program> for in-process HTTP testing"
+      - "Shows how to send an MCP initialize request to verify the server responds"
+      - "Mentions InternalsVisibleTo or making Program public for test access"
+      - "Tests tool invocation through the HTTP endpoint"
+    timeout: 120
+  - name: "Create evaluations for an MCP server"
+    prompt: |
+      I have a C# MCP server that provides tools for querying a product catalog.
+      I want to create evaluations to measure how well an LLM uses the tools.
+      What format should I use and what makes a good evaluation question?
+    assertions:
+      - type: "output_matches"
+        pattern: "(evaluation|qa_pair|question.*answer)"
+      - type: "output_matches"
+        pattern: "(read.only|non.destructive|deterministic|verifiable)"
+    rubric:
+      - "Shows the XML evaluation format with qa_pair elements"
+      - "Explains that questions should require multiple tool calls and reasoning"
+      - "Emphasizes that questions must be read-only with deterministic answers"
+      - "Provides example evaluation questions appropriate for a product catalog"
+    timeout: 120
