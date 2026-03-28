@@ -875,10 +875,23 @@ if ($missingDsymLibs.Count -gt 0 -and $versionMap.Count -gt 0) {
     if (-not $crashRid) {
         $osVer = if ($metadata.os_version) { $metadata.os_version } else { '' }
         $cpuType = if ($body.cpuType) { $body.cpuType } else { '' }
-        $archSuffix = if ($cpuType -eq 'ARM-64' -or $cpuType -eq 'arm64') { 'arm64' } else { 'x64' }
+        $archSuffix = if ($cpuType -eq 'ARM-64' -or $cpuType -eq 'arm64' -or $cpuType -eq 'arm64e') { 'arm64' } else { 'x64' }
+
+        # Detect simulator vs device from image paths (CoreSimulator present = simulator)
+        $isSimulator = $false
+        if ($usedImages) {
+            foreach ($img in $usedImages) {
+                if ($img.path -like '*CoreSimulator*') { $isSimulator = $true; break }
+            }
+        }
+
         if ($osVer -match 'macOS|Mac OS') { $crashRid = "osx-$archSuffix" }
-        elseif ($osVer -match 'iPhone OS|iOS') { $crashRid = "ios-arm64" }
-        elseif ($osVer -match 'tvOS') { $crashRid = "tvos-arm64" }
+        elseif ($osVer -match 'iPhone OS|iOS') {
+            $crashRid = if ($isSimulator) { "iossimulator-$archSuffix" } else { "ios-arm64" }
+        }
+        elseif ($osVer -match 'tvOS') {
+            $crashRid = if ($isSimulator) { "tvossimulator-$archSuffix" } else { "tvos-arm64" }
+        }
         elseif ($osVer -match 'Mac Catalyst') { $crashRid = "maccatalyst-$archSuffix" }
     }
 
