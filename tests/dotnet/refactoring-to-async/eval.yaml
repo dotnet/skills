@@ -11,7 +11,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(await using|IAsyncDisposable)"
       - type: "output_not_matches"
-        pattern: "\\.Result\\b(?=\\s*[);])|\\.Wait\\(\\)(?=\\s*[);])"
+        pattern: "\\.Result\\b(?=\\s*[);])|\\.Wait\\(\\)(?=\\s*[);])|\\.GetAwaiter\\(\\)\\.GetResult\\(\\)(?=\\s*[);])"
     rubric:
       - "Identified all synchronous blocking I/O patterns (.Result, .Wait(), synchronous Read/Write calls)"
       - "Converted methods bottom-up starting from the lowest-level I/O calls"
