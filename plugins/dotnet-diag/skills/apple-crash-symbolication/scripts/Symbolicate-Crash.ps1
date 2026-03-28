@@ -433,7 +433,7 @@ function Resolve-Frames([string]$dsymPath, [string]$arch, [uint64]$loadAddress, 
                 })
             }
         }
-        return ,$results
+        return $results.ToArray()
     }
     catch {
         Write-Verbose "atos failed: $_"
@@ -879,8 +879,8 @@ if ($missingDsymLibs.Count -gt 0 -and $versionMap.Count -gt 0) {
 
         # Detect simulator vs device from image paths (CoreSimulator present = simulator)
         $isSimulator = $false
-        if ($usedImages) {
-            foreach ($img in $usedImages) {
+        if ($body.usedImages) {
+            foreach ($img in $body.usedImages) {
                 if ($img.path -like '*CoreSimulator*') { $isSimulator = $true; break }
             }
         }
