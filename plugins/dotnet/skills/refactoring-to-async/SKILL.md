@@ -68,8 +68,7 @@ public string GetUserData(int userId)
 ```csharp
 public async Task<string> GetUserDataAsync(int userId, CancellationToken ct = default)
 {
-    using var response = await _httpClient.GetAsync($"/users/{userId}", ct);
-    response.EnsureSuccessStatusCode();
+    using var response = await _httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, $"/users/{userId}"), ct);
     return await response.Content.ReadAsStringAsync(ct);
 }
 ```
@@ -174,7 +173,7 @@ public IEnumerable<User> GetUsers() { /* yields with sync I/O */ }
 public async IAsyncEnumerable<User> GetUsersAsync(
     [EnumeratorCancellation] CancellationToken ct = default)
 {
-    await foreach (var row in queryAsync(ct))
+    await foreach (var row in db.QueryAsync("SELECT ...", ct))
         yield return MapUser(row);
 }
 ```
