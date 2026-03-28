@@ -251,6 +251,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using OpenTelemetry.Context.Propagation;
 
+// ActivitySource should be static — register via .AddSource("MyOrderService.Messaging") in Step 2
+private static readonly ActivitySource MessageSource = new("MyOrderService.Messaging");
+
 // Manual context propagation (e.g., across message queues)
 // On the SENDING side:
 var propagator = Propagators.DefaultTextMapPropagator;
@@ -266,9 +269,7 @@ var parentContext = propagator.Extract(default, carrier,
     (dict, key) => dict.TryGetValue(key, out var value) ? new[] { value } : Array.Empty<string>());
 
 Baggage.Current = parentContext.Baggage;
-// Remember to register this source via .AddSource("MyOrderService.Messaging") in Step 2
-var messageSource = new ActivitySource("MyOrderService.Messaging");
-using var activity = messageSource.StartActivity("ProcessMessage",
+using var activity = MessageSource.StartActivity("ProcessMessage",
     ActivityKind.Consumer,
     parentContext.ActivityContext);  // Links to parent trace!
 ```
