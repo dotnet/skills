@@ -23,7 +23,7 @@ description: Configure OpenTelemetry distributed tracing, metrics, and logging i
 | Input | Required | Description |
 |-------|----------|-------------|
 | ASP.NET Core project | Yes | The application to instrument |
-| Observability backend | No | Where to export: OTLP collector, Aspire dashboard, Jaeger, Prometheus (all accept OTLP) |
+| Observability backend | No | Where to export: OTLP collector, Aspire dashboard, Jaeger (accepts OTLP natively) |
 
 ## Workflow
 

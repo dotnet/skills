@@ -11,6 +11,8 @@ scenarios:
         pattern: "(AddSource|AddMeter)"
       - type: "output_matches"
         pattern: "(Counter|Histogram|CreateCounter|CreateHistogram)"
+      - type: "output_matches"
+        pattern: "(AddOtlpExporter|OtlpExporter|OpenTelemetryProtocol)"
     rubric:
       - "Installed the correct packages: OpenTelemetry.Extensions.Hosting, OpenTelemetry.Instrumentation.AspNetCore, OpenTelemetry.Instrumentation.Http, OpenTelemetry.Exporter.OpenTelemetryProtocol"
       - "Configured AddOpenTelemetry() with .WithTracing() and .WithMetrics() in Program.cs"
