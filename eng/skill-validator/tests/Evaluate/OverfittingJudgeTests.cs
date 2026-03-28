@@ -714,6 +714,106 @@ public class OverfittingJudgeTests
         Assert.DoesNotContain("### ❌ Skill validation errors", md);
     }
 
+    [Fact]
+    public void MarkdownTable_SkillsLoaded_NoDuplicateWhenIsolatedAndPluginIdentical()
+    {
+        var activation = new SkillActivationInfo(
+            Activated: true,
+            DetectedSkills: new List<string> { "my-skill" },
+            ExtraTools: new List<string> { "report_intent", "skill" },
+            SkillEventCount: 1);
+
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "my-skill",
+                SkillPath = "/test",
+                Passed = true,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "sc1",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
+                        SkilledIsolated = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled" },
+                            new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
+                        SkilledPlugin = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled-plugin" },
+                            new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
+                        ImprovementScore = 0.25,
+                        Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+                        SkillActivationIsolated = activation,
+                        SkillActivationPlugin = activation,
+                    }
+                },
+                OverallImprovementScore = 0.25,
+                Reason = "Pass",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        // Skills loaded cell should contain the activation info exactly once (no " / " separator)
+        Assert.DoesNotContain("my-skill; tools: report_intent, skill / ✅ my-skill", md);
+        Assert.Contains("✅ my-skill; tools: report_intent, skill", md);
+    }
+
+    [Fact]
+    public void MarkdownTable_SkillsLoaded_ShowsBothWhenIsolatedAndPluginDiffer()
+    {
+        var isolatedActivation = new SkillActivationInfo(
+            Activated: true,
+            DetectedSkills: new List<string> { "my-skill" },
+            ExtraTools: new List<string> { "report_intent" },
+            SkillEventCount: 1);
+        var pluginActivation = new SkillActivationInfo(
+            Activated: true,
+            DetectedSkills: new List<string> { "my-skill" },
+            ExtraTools: new List<string> { "report_intent", "skill" },
+            SkillEventCount: 1);
+
+        var verdicts = new List<SkillVerdict>
+        {
+            new()
+            {
+                SkillName = "my-skill",
+                SkillPath = "/test",
+                Passed = true,
+                Scenarios = new List<ScenarioComparison>
+                {
+                    new()
+                    {
+                        ScenarioName = "sc1",
+                        Baseline = new RunResult(
+                            new RunMetrics { AgentOutput = "baseline" },
+                            new JudgeResult(new List<RubricScore>(), 3.5, "OK")),
+                        SkilledIsolated = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled" },
+                            new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
+                        SkilledPlugin = new RunResult(
+                            new RunMetrics { AgentOutput = "skilled-plugin" },
+                            new JudgeResult(new List<RubricScore>(), 4.5, "Good")),
+                        ImprovementScore = 0.25,
+                        Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+                        SkillActivationIsolated = isolatedActivation,
+                        SkillActivationPlugin = pluginActivation,
+                    }
+                },
+                OverallImprovementScore = 0.25,
+                Reason = "Pass",
+            }
+        };
+
+        var md = Reporter.GenerateMarkdownSummary(verdicts);
+
+        // Both activation entries should appear separated by " / "
+        Assert.Contains("✅ my-skill; tools: report_intent / ✅ my-skill; tools: report_intent, skill", md);
+    }
+
     // --- Prompt overfitting detection tests ---
 
     [Fact]

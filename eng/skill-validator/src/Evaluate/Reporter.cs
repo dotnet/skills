@@ -523,7 +523,8 @@ public static class Reporter
                 if (anyPluginRun && s.SkillActivationPlugin is { } saPlug)
                 {
                     string plugActivation = FormatActivationCell(saPlug, s.ExpectActivation);
-                    skillsCol += $" / {plugActivation}";
+                    if (plugActivation != skillsCol)
+                        skillsCol += $" / {plugActivation}";
                 }
 
                 // Agents invoked column — show subagent activations
@@ -531,7 +532,8 @@ public static class Reporter
                 if (anyPluginRun && s.SubagentActivationPlugin is { } saPlugAgent)
                 {
                     string plugAgents = FormatSubagentCell(saPlugAgent);
-                    agentsCol += $" / {plugAgents}";
+                    if (plugAgents != agentsCol)
+                        agentsCol += $" / {plugAgents}";
                 }
 
                 var footnote = BuildVerdictFootnote(s, qualityDelta);
