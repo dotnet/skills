@@ -184,8 +184,11 @@ app.MapPost("/upload-stream",
     if (contentType == null)
         return Results.BadRequest("Missing Content-Type");
 
-    var boundary = HeaderUtilities.RemoveQuotes(
-        MediaTypeHeaderValue.Parse(contentType).Boundary).Value;
+    // Safely parse the Content-Type header to avoid FormatException from MediaTypeHeaderValue.Parse
+    if (!MediaTypeHeaderValue.TryParse(contentType, out var mediaType))
+        return Results.BadRequest("Invalid Content-Type");
+
+    var boundary = HeaderUtilities.RemoveQuotes(mediaType.Boundary).Value;
     if (string.IsNullOrWhiteSpace(boundary))
         return Results.BadRequest("Not a multipart request");
 
