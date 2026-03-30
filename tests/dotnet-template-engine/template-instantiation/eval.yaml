@@ -37,7 +37,7 @@ scenarios:
     timeout: 180
 
   - name: "Preview project creation with dry run"
-    prompt: "Before creating anything, show me exactly what files would be generated if I create a Blazor Web App called MyBlazorApp with interactive server rendering. Don't actually create the project yet."
+    prompt: "Before creating anything, show me exactly what files would be generated if I create a Blazor Web App called MyBlazorApp in ./test-output with interactive server rendering. Don't actually create the project yet."
     assertions:
       - type: "exit_success"
       - type: "output_contains"

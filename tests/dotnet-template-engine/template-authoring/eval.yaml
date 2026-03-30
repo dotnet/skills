@@ -30,6 +30,8 @@ scenarios:
       - "The agent identified the missing identity field"
       - "The agent flagged the shortName conflict with the built-in 'build' command"
       - "The agent reported the invalid datatype"
+    expect_tools:
+      - skill
     timeout: 180
 
   - name: "Create template from existing project"
@@ -57,6 +59,8 @@ scenarios:
             </Project>
         - path: "test-output/MyTests/UnitTest1.cs"
           content: |
+            using Xunit;
+
             namespace MyTests;
             public class UnitTest1
             {
