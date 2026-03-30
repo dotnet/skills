@@ -125,7 +125,7 @@ app.MapPost("/upload", async (IFormFile file) =>
     // Allow only JPEG/PNG by default. To support more (e.g., GIF),
     // add the MIME type here AND validate its magic bytes below.
     var allowedTypes = new[] { "image/jpeg", "image/png" };
-    if (!allowedTypes.Contains(file.ContentType))
+    if (!allowedTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
         return Results.BadRequest("File type not allowed");
 
     // CRITICAL: Check magic bytes for file type verification
@@ -134,35 +134,33 @@ app.MapPost("/upload", async (IFormFile file) =>
     var bytesRead = await stream.ReadAsync(header, 0, header.Length);
     if (bytesRead < 4)
         return Results.BadRequest("File content is too short or invalid");
-    stream.Position = 0;
 
     // JPEG: FF D8 FF
     // PNG: 89 50 4E 47
     var isJpeg = header[0] == 0xFF && header[1] == 0xD8 && header[2] == 0xFF;
     var isPng = header[0] == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47;
 
-    if (!isJpeg && !isPng)
-        return Results.BadRequest("File content doesn't match declared type");
+    // Determine the actual content type from magic bytes
+    string? detectedContentType = isJpeg ? "image/jpeg" : isPng ? "image/png" : null;
+    if (detectedContentType is null)
+        return Results.BadRequest("File content is not a supported image format (only JPEG and PNG are allowed).");
+
+    // Ensure the declared Content-Type matches what the magic bytes detected
+    if (!string.Equals(file.ContentType, detectedContentType, StringComparison.OrdinalIgnoreCase))
+        return Results.BadRequest("File content type does not match the declared ContentType header.");
 
     // CRITICAL: Never use the user-provided filename directly for the save path — it can
     // contain path traversal characters (e.g., "../../../etc/passwd").
-    //
-    // Option A (recommended): Generate a completely safe filename from the validated content
-    var extension = isJpeg ? ".jpg" : ".png";
+    // Generate a safe filename; derive the extension from validated content, not user input.
+    var extension = detectedContentType == "image/jpeg" ? ".jpg" : ".png";
     var safeFileName = $"{Guid.NewGuid()}{extension}";
-    //
-    // Option B: If retaining the original filename matters (e.g., user-facing downloads),
-    // sanitize it first: strip path components, remove dangerous characters, and validate.
-    // var sanitized = Path.GetFileName(file.FileName);               // strips directory parts
-    // sanitized = Regex.Replace(sanitized, @"[^\w.\-]", "_");       // allow only safe chars
-    // var safeFileName = $"{Guid.NewGuid()}_{sanitized}";            // prefix with GUID for uniqueness
-    //
     // NEVER: var path = Path.Combine("uploads", file.FileName);     // Path traversal!
 
     var filePath = Path.Combine("uploads", safeFileName);
     Directory.CreateDirectory("uploads");
+    stream.Position = 0;
     using var fileStream = File.Create(filePath);
-    await file.CopyToAsync(fileStream);
+    await stream.CopyToAsync(fileStream);
 
     return Results.Ok(new { FileName = safeFileName, file.Length });
 });
@@ -171,9 +169,11 @@ app.MapPost("/upload", async (IFormFile file) =>
 ### Step 5: CRITICAL — Streaming Large Files Without Buffering
 
 ```csharp
-// CRITICAL: IFormFile uses multipart form parsing that buffers with a memory threshold
-// and spills to temp files. For very large uploads this can consume significant
-// memory and disk. Use MultipartReader for streaming without buffering.
+// CRITICAL: IFormFile relies on multipart form parsing that buffers content in memory
+// (up to a threshold) then spills to temp files on disk. For very large uploads,
+// this overhead is unnecessary if you can process the data in chunks.
+// Use MultipartReader to stream directly — e.g., to a final storage location —
+// without buffering the entire file first.
 
 app.MapPost("/upload-stream",
     [DisableRequestSizeLimit]
@@ -207,7 +207,7 @@ app.MapPost("/upload-stream",
             // Sanitize the user-provided filename to prevent path traversal
             var originalFileName = contentDisposition.FileName.Value ?? string.Empty;
             var sanitizedFileName = Path.GetFileName(originalFileName.Trim('"'));
-            var safeFile = $"{Guid.NewGuid()}{Path.GetExtension(sanitizedFileName)}";
+            var safeFile = $"{Guid.NewGuid()}";
 
             // CRITICAL: Stream directly to disk — avoids buffering in memory
             Directory.CreateDirectory("uploads");
@@ -228,7 +228,7 @@ app.MapPost("/upload-stream",
 
 1. **Only configuring one size limit**: Must configure BOTH Kestrel `MaxRequestBodySize` AND `FormOptions.MultipartBodyLengthLimit`.
 2. **400 errors from anti-forgery**: In .NET 8+, `UseAntiforgery()` auto-validates form uploads. Use `.DisableAntiforgery()` for API endpoints (safe for JWT/unauthenticated; do NOT disable for cookie-authenticated endpoints).
-3. **Trusting file.FileName**: User-provided filename can contain path traversal. Either generate a safe filename with `Guid.NewGuid()`, or sanitize the original name by stripping path components (`Path.GetFileName`) and removing dangerous characters before use.
+3. **Trusting file.FileName**: User-provided filename can contain path traversal. Generate a safe filename with `Guid.NewGuid()` and derive the extension from validated content.
 4. **Trusting Content-Type only**: Content type is client-spoofable. Always check magic bytes for actual file type verification.
-5. **Using IFormFile for very large files**: Multipart form parsing buffers with a memory threshold and spills to temp files. Use `MultipartReader` for streaming directly to storage.
+5. **Using IFormFile for very large files**: Multipart form parsing buffers with a memory threshold and spills to temp files. Use `MultipartReader` to stream data in chunks directly to storage without buffering the entire file.
 6. **Deriving file extension from user input**: Prefer deriving the extension from the validated content type or magic bytes rather than `Path.GetExtension(file.FileName)`. If the original extension must be preserved, validate it against the detected content type.
