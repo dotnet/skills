@@ -480,7 +480,7 @@ jobs:
   # ==========================================================================
   evaluate:
     needs: [gate, discover, build-validator]
-    if: needs.build-validator.result == 'success'
+    if: always() && !cancelled() && needs.build-validator.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
