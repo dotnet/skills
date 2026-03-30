@@ -83,9 +83,9 @@ For each symbol in the `symbols` object:
     - WARNING if optional (not `isRequired`) and no `defaultValue` — users get unexpected behavior
   - If `datatype: "bool"`:
     - ERROR if `defaultValue` is not a valid boolean
-  - If `datatype: "integer"`:
+  - If `datatype: "int"`:
     - ERROR if `defaultValue` is not a valid integer
-  - Valid datatypes: `string`, `bool`, `choice`, `int`/`integer`, `float`, `hex`, `text`
+  - Valid datatypes: `string`, `bool`, `choice`, `int`, `float`, `hex`, `text`
   - ERROR if datatype is not in the valid list
 - For `type: "computed"`:
   - ERROR if missing `value` expression

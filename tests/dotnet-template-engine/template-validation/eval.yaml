@@ -27,7 +27,7 @@ scenarios:
                 },
                 "maxRetries": {
                   "type": "parameter",
-                  "datatype": "integer",
+                  "datatype": "int",
                   "defaultValue": "abc"
                 },
                 "computed1": {
@@ -97,9 +97,9 @@ scenarios:
     assertions:
       - type: "exit_success"
       - type: "output_matches"
-        pattern: "(?i)(valid|no error|looks good|ready|correct|well.formed|no issue)"
+        pattern: "(?i)(no errors?\b|0 errors?\b|template (is|looks) (valid|good)|ready to publish|no issues? (found|identified)?)"
       - type: "output_matches"
-        pattern: "(?i)(identity|shortName|required field)"
+        pattern: "(?i)\b(identity|shortName|name)\b"
     rubric:
       - "The agent confirmed the template has no errors"
       - "The agent verified all required fields (identity, name, shortName) are present"
