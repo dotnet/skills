@@ -4,23 +4,67 @@ scenarios:
     assertions:
       - type: "output_contains"
         value: "MyConsoleApp"
+      - type: "file_exists"
+        path: "test-output/**/MyConsoleApp.csproj"
     rubric:
-      - "The agent used template_instantiate to create the project"
-      - "The agent specified the correct output path"
+      - "The agent used template_instantiate (or template_from_intent + template_instantiate) to create the project"
+      - "The agent specified the correct output path ./test-output"
       - "The agent verified the project was created successfully"
     expect_tools:
       - template_instantiate
     timeout: 180
 
-  - name: "Create project with specific framework"
-    prompt: "Create a new class library targeting net9.0 called MyLib in ./test-output"
+  - name: "Create web API with authentication and AOT"
+    prompt: "Create a new ASP.NET Core web API called SecureApi in ./test-output with Individual authentication and native AOT publishing enabled. Use the template tools, not dotnet new directly."
     assertions:
       - type: "output_contains"
-        value: "net9.0"
+        value: "SecureApi"
+      - type: "file_exists"
+        path: "test-output/**/*.csproj"
+      - type: "output_matches"
+        pattern: "(?i)individual"
+      - type: "output_matches"
+        pattern: "(?i)(aot|PublishAot)"
     rubric:
-      - "The agent used template_instantiate with the classlib template"
-      - "The agent passed the Framework parameter as net9.0"
-      - "The agent confirmed successful creation"
+      - "The agent used template_from_intent or template_instantiate to create the project"
+      - "The agent passed the auth parameter set to Individual"
+      - "The agent enabled native AOT publishing via the PublishAot parameter"
+      - "The agent used template tools instead of raw dotnet new"
+      - "The agent verified or previewed the creation"
     expect_tools:
       - template_instantiate
+    timeout: 180
+
+  - name: "Preview project creation with dry run"
+    prompt: "Before creating anything, show me exactly what files would be generated if I create a Blazor Web App called MyBlazorApp with interactive server rendering. Don't actually create the project yet."
+    assertions:
+      - type: "output_contains"
+        value: "MyBlazorApp"
+      - type: "file_not_exists"
+        path: "test-output/**/MyBlazorApp.csproj"
+      - type: "output_matches"
+        pattern: "(?i)(Program\\.cs|App\\.razor|\\.csproj)"
+    rubric:
+      - "The agent used template_dry_run to preview the output without writing to disk"
+      - "The agent listed the files and directories that would be created"
+      - "The agent did NOT actually create the project"
+      - "The agent explained what key generated files are for"
+    expect_tools:
+      - template_dry_run
+    timeout: 180
+
+  - name: "Search for and install a template package"
+    prompt: "Search for .NET templates related to gRPC services. What template packages are available on NuGet? Show me the best option and how to install it."
+    assertions:
+      - type: "output_matches"
+        pattern: "(?i)grpc"
+      - type: "output_matches"
+        pattern: "(?i)(package|nupkg|dotnet new)"
+    rubric:
+      - "The agent used template_search to find gRPC templates on NuGet"
+      - "The agent identified relevant template packages"
+      - "The agent provided the package name and installation instructions"
+      - "The agent described what templates the package provides"
+    expect_tools:
+      - template_search
     timeout: 180

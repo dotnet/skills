@@ -1,26 +1,67 @@
 scenarios:
   - name: "Find template for web API project"
-    prompt: "I need to create a web API project with authentication. What template should I use?"
+    prompt: "I need to create a web API project with authentication. What template should I use and what are the authentication options?"
     assertions:
       - type: "output_contains"
         value: "webapi"
+      - type: "output_matches"
+        pattern: "(?i)(individual|windows|none)"
     rubric:
-      - "The agent used template_from_intent to find templates"
+      - "The agent used template_from_intent or template_search to find templates"
       - "The agent identified the webapi template as the best match"
-      - "The agent mentioned authentication-related parameters"
+      - "The agent explained available authentication options (Individual, None, Windows, etc.)"
+      - "The agent mentioned how to set the auth parameter"
     expect_tools:
       - template_from_intent
-    timeout: 120
+    timeout: 180
 
-  - name: "Inspect template parameters"
-    prompt: "Show me all the parameters available for the webapi template"
+  - name: "Inspect template parameters and compare choices"
+    prompt: "I'm choosing between the 'webapi' and 'webapp' templates. Compare their parameters side by side — which one supports authentication? Which one supports AOT? Show me the details."
     assertions:
       - type: "output_contains"
         value: "Framework"
+      - type: "output_matches"
+        pattern: "(?i)webapi"
+      - type: "output_matches"
+        pattern: "(?i)webapp"
     rubric:
-      - "The agent used template_inspect to retrieve template metadata"
-      - "The agent listed parameters with their types and defaults"
-      - "The agent included the Framework parameter"
+      - "The agent used template_inspect on both the webapi and webapp templates"
+      - "The agent compared parameters between the two templates"
+      - "The agent identified which template supports authentication parameters"
+      - "The agent identified AOT-related parameters where available"
+      - "The agent presented a clear comparison rather than just listing parameters"
     expect_tools:
       - template_inspect
-    timeout: 120
+    timeout: 180
+
+  - name: "Search NuGet for specialized template"
+    prompt: "I need a template for creating gRPC services in .NET. Search for available gRPC templates — both installed locally and on NuGet.org. Tell me which package to install."
+    assertions:
+      - type: "output_matches"
+        pattern: "(?i)grpc"
+      - type: "output_contains"
+        value: "template"
+    rubric:
+      - "The agent used template_search to find gRPC templates"
+      - "The agent searched both local and NuGet.org sources"
+      - "The agent identified the grpc template or a relevant NuGet package"
+      - "The agent provided the package name and install instructions"
+    expect_tools:
+      - template_search
+    timeout: 180
+
+  - name: "Resolve ambiguous project intent to multiple candidates"
+    prompt: "I want to build a real-time collaborative dashboard where users can see live updates. What .NET project templates could work? I need you to search available templates and show me the top 3 options with their key parameters."
+    assertions:
+      - type: "output_matches"
+        pattern: "(?i)blazor"
+      - type: "output_matches"
+        pattern: "(?i)(server|webassembly|wasm|interactive)"
+    rubric:
+      - "The agent used template_from_intent or template_search to find matching templates"
+      - "The agent presented at least 2-3 template options"
+      - "The agent explained the trade-offs between different approaches (Blazor Server vs WebAssembly, SignalR, etc.)"
+      - "The agent showed key parameters for the recommended templates"
+    expect_tools:
+      - template_from_intent
+    timeout: 180
