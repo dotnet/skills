@@ -806,7 +806,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PR_TITLE=$(gh api "repos/${{ github.repository }}/pulls/${{ needs.gate.outputs.pr_number }}" --jq '.title')
+          PR_TITLE=$(gh api "repos/${{ github.repository }}/pulls/${{ needs.gate.outputs.pr_number }}" --jq '.title' 2>/dev/null) || PR_TITLE=""
           echo "pr_title=${PR_TITLE}" >> $GITHUB_OUTPUT
 
       - name: Generate token usage data
