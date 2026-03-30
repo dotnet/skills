@@ -93,8 +93,12 @@ jobs:
           # Skill-validator changes need evaluation. Workflow YAML changes don't
           # require /evaluate because the issue_comment trigger always runs from
           # main anyway — workflow changes are only effective after merge.
-          # InvestigatingResults.md and README.md are documentation only and don't affect evaluation.
-          $docOnlyFiles = @('eng/skill-validator/InvestigatingResults.md', 'eng/skill-validator/README.md')
+          # InvestigatingResults.md, README.md, and OverfittingDetection.md are documentation only and don't affect evaluation.
+          $docOnlyFiles = @(
+            'eng/skill-validator/InvestigatingResults.md',
+            'eng/skill-validator/README.md',
+            'eng/skill-validator/OverfittingDetection.md'
+          )
           $hasInfraChanges = $changedFiles |
             Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notin $docOnlyFiles } |
             Select-Object -First 1
