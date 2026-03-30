@@ -58,6 +58,8 @@ A method with 100% coverage has CRAP = complexity (the minimum). A method with 0
 
 ### Step 1: Collect code coverage data
 
+If no coverage data exists yet (no Cobertura XML available), **always run `dotnet test` with coverage collection first** and mention the exact command in your response. Do not skip this step -- CRAP scores require coverage data.
+
 Check the test project's `.csproj` for the coverage package, then run the appropriate command:
 
 | Coverage Package | Command | Output Location |

@@ -142,7 +142,15 @@ Assert.IsEmpty(collection);
 Assert.IsNotEmpty(collection);
 ```
 
-Replace `Assert.IsTrue(x != null)` with `Assert.IsNotNull(x)` -- specialized assertions give better failure messages than generic `Assert.IsTrue`.
+Replace generic `Assert.IsTrue` with specialized assertions -- they give better failure messages:
+
+| Instead of | Use |
+|---|---|
+| `Assert.IsTrue(list.Count > 0)` | `Assert.IsNotEmpty(list)` |
+| `Assert.IsTrue(list.Count() == 3)` | `Assert.HasCount(3, list)` |
+| `Assert.IsTrue(x != null)` | `Assert.IsNotNull(x)` |
+| `list.Single(predicate)` + `Assert.IsNotNull` | `Assert.ContainsSingle(list)` |
+| `Assert.IsTrue(list.Contains(item))` | `Assert.Contains(item, list)` |
 
 #### String assertions
 

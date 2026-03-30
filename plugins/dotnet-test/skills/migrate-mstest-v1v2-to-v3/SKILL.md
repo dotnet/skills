@@ -61,6 +61,7 @@ MSTest v3 introduces these breaking changes from v1/v2. Address only the ones re
 
 ## Response Guidelines
 
+- **Always identify the current version first**: Before recommending any migration steps, explicitly state the current MSTest version detected in the project (e.g., "Your project uses MSTest v2 (2.2.10)" or "This is an MSTest v1 project using QualityTools assembly references"). This grounds the migration advice and confirms you've read the project files.
 - **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking change from the table above. Show a concise before/after fix. Do not walk through the full migration workflow.
 - **Specific feature migration** (user asks about one aspect like .testsettings, DataRow, or assertions): Address only that specific aspect with a concrete fix. Do not walk through the entire migration workflow or unrelated breaking changes.
 - **"What to expect" questions** (user asks about breaking changes before upgrading): Present only the breaking changes that are clearly relevant to the user's visible code and configuration. For each, give a one-line fix summary. Do not include every possible breaking change -- only the ones that apply. Do not walk through the full workflow.

@@ -111,6 +111,7 @@ scenarios:
           }
       }
       ```
+    reject_tools: ["bash", "edit", "create"]
     assertions:
       - type: output_matches
         pattern: "Assert\\.AreEqual\\(5"
@@ -163,6 +164,7 @@ scenarios:
           service.CreateUser(null, "John");
       }
       ```
+    reject_tools: ["bash", "edit", "create"]
     assertions:
       - type: output_matches
         pattern: "Assert\\.ThrowsExactly|Assert\\.Throws"
@@ -197,6 +199,7 @@ scenarios:
           Assert.IsTrue(admin != null);
       }
       ```
+    reject_tools: ["bash", "edit", "create"]
     assertions:
       - type: output_matches
         pattern: "Assert\\.HasCount|Assert\\.AreEqual\\(3"
@@ -227,6 +230,7 @@ scenarios:
           Assert.AreEqual("email", handler.Type);
       }
       ```
+    reject_tools: ["bash", "edit", "create"]
     assertions:
       - type: output_matches
         pattern: "IsInstanceOfType"
