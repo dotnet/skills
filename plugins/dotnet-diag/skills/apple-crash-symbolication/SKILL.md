@@ -17,7 +17,7 @@ Resolves native backtrace frames from .NET MAUI and Mono app crashes on Apple pl
 
 ### Step 1: Parse the .ips Crash Log
 
-**Format check:** Before proceeding, verify the file is `.ips` JSON format. The first line must be valid JSON. If the file is plain text (e.g., Android tombstone with `#NN pc` frame lines, or legacy Apple `.crash` text format), stop immediately — this workflow does not apply. Report the format mismatch and suggest the appropriate tool.
+**Format check:** Before proceeding, verify the file is `.ips` JSON format. The first line must be valid JSON. If the file is plain text (e.g., Android tombstone with `#NN pc` frame lines, or legacy Apple `.crash` text format), **stop immediately** — this workflow does not apply. Report the format mismatch to the user and do not attempt any symbolication.
 
 The `.ips` file is **two-part JSON**: line 1 is a metadata header; the remaining lines are a separate JSON crash body. Parse them separately:
 
@@ -139,7 +139,7 @@ Also available in **Xcode > Window > Devices and Simulators > View Device Logs**
 
 ## Stop Signals
 
-- **Wrong file format**: If the file is not `.ips` JSON (e.g., Android tombstone with `#NN pc` stack frames, legacy `.crash` text format), report the format mismatch and do not proceed with iOS symbolication. For Android tombstones, suggest `ndk-stack`, `addr2line`, or the android-tombstone-symbolication skill instead.
+- **Wrong file format**: If the file is not `.ips` JSON (e.g., Android tombstone with `#NN pc` stack frames, legacy `.crash` text format), **stop immediately** — report the format mismatch to the user and do not proceed with any symbolication. Do not attempt to symbolicate using other tools or workflows.
 - **No .NET frames found**: Report parsed frames and stop.
 - **All frames resolved**: Present symbolicated backtrace with brief crash analysis (faulting thread, exception type, likely area). If the user asks for deeper investigation, proceed.
 - **dSYM not available / UUID mismatch**: Report unsymbolicated frames with UUIDs and addresses. Suggest locating the original build artifacts.
