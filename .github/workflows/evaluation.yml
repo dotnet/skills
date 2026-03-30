@@ -816,31 +816,42 @@ jobs:
           $source = if ("${{ github.event_name }}" -eq "issue_comment") { "pr" } else { "scheduled" }
           $plugins = '${{ needs.discover.outputs.plugins }}' | ConvertFrom-Json
           foreach ($plugin in $plugins) {
-            $artifactDir = "all-results/skill-validator-results-$plugin"
-            $runDir = Get-ChildItem -Path $artifactDir -Directory -ErrorAction SilentlyContinue |
-              Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
-              Sort-Object Name -Descending |
-              Select-Object -First 1
-            if (-not $runDir) {
-              Write-Warning "No run results found for $plugin, skipping"
+            # For scheduled runs and infra-change PRs, artifacts are named
+            # skill-validator-results-$plugin. For individual skill-change PRs,
+            # artifacts are named skill-validator-results-${plugin}--${skill}.
+            # Search for both patterns so token data is captured in all cases.
+            $artifactDirs = @(Get-ChildItem -Path "all-results" -Directory -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -eq "skill-validator-results-$plugin" -or $_.Name -like "skill-validator-results-$plugin--*" })
+            if ($artifactDirs.Count -eq 0) {
+              Write-Warning "No artifacts found for $plugin, skipping"
               continue
             }
+            foreach ($artifactDir in $artifactDirs) {
+              $runDir = Get-ChildItem -Path $artifactDir.FullName -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
+                Sort-Object Name -Descending |
+                Select-Object -First 1
+              if (-not $runDir) {
+                Write-Warning "No run results found in $($artifactDir.Name), skipping"
+                continue
+              }
 
-            $resultsFile = Join-Path $runDir.FullName "results.json"
-            Write-Host "`n=== Collecting token usage for: $plugin ==="
-            $params = @{
-              ResultsFile   = $resultsFile
-              PluginName    = $plugin
-              OutputDir     = "/tmp/token-data/data"
-              Source        = $source
-              RetentionDays = $env:DASHBOARD_RETENTION_DAYS
+              $resultsFile = Join-Path $runDir.FullName "results.json"
+              Write-Host "`n=== Collecting token usage for: $plugin (from $($artifactDir.Name)) ==="
+              $params = @{
+                ResultsFile   = $resultsFile
+                PluginName    = $plugin
+                OutputDir     = "/tmp/token-data/data"
+                Source        = $source
+                RetentionDays = $env:DASHBOARD_RETENTION_DAYS
+              }
+              if ($source -eq "pr") {
+                $params.PRNumber = ${{ needs.gate.outputs.pr_number }}
+                $params.PRTitle = $env:PR_TITLE
+              }
+              $params.SkipBenchmarkData = $true
+              & ./eng/dashboard/generate-benchmark-data.ps1 @params
             }
-            if ($source -eq "pr") {
-              $params.PRNumber = ${{ needs.gate.outputs.pr_number }}
-              $params.PRTitle = $env:PR_TITLE
-            }
-            $params.SkipBenchmarkData = $true
-            & ./eng/dashboard/generate-benchmark-data.ps1 @params
           }
         shell: pwsh
 
@@ -892,7 +903,7 @@ jobs:
       !cancelled() &&
       needs.discover.result == 'success' &&
       needs.discover.outputs.has_plugins == 'true' &&
-      github.ref == 'refs/heads/main'
+      github.event_name == 'schedule'
     concurrency:
       group: publish-eval-data
       cancel-in-progress: false
