@@ -42,8 +42,8 @@ scenarios:
       - type: "exit_success"
       - type: "output_matches"
         pattern: "(?i)grpc"
-      - type: "output_contains"
-        value: "template"
+      - type: "output_matches"
+        pattern: "(?i)(Microsoft\\.Grpc|grpc.*service|ASP\\.NET.*gRPC)"
     rubric:
       - "The agent used the template-discovery skill to search for gRPC templates"
       - "The agent searched both local and NuGet.org sources"

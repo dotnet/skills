@@ -69,10 +69,10 @@ scenarios:
             }
     assertions:
       - type: "exit_success"
-      - type: "output_matches"
-        pattern: "(?i)(template|created|generated)"
       - type: "output_contains"
         value: "Team Test Project"
+      - type: "output_matches"
+        pattern: "(?i)(template\\.json|sourceName|\\.template\\.config)"
     rubric:
       - "The agent used the template-authoring skill to generate the template"
       - "The agent preserved the project conventions (TreatWarningsAsErrors, package references with PrivateAssets)"

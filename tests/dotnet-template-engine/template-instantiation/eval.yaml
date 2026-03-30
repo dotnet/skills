@@ -55,19 +55,21 @@ scenarios:
       - skill
     timeout: 180
 
-  - name: "Search for a worker service template"
-    prompt: "I want to create a long-running background service in .NET. Search for available worker service templates and show me what parameters they support."
+  - name: "Create multi-project solution structure"
+    prompt: "I need a solution with two projects: an ASP.NET Core web API called OrdersApi and an xUnit test project called OrdersApi.Tests, both in ./test-output. Create them and make sure the test project references the API project."
     assertions:
       - type: "exit_success"
+      - type: "file_exists"
+        path: "test-output/**/OrdersApi.csproj"
+      - type: "file_exists"
+        path: "test-output/**/OrdersApi.Tests.csproj"
       - type: "output_matches"
-        pattern: "(?i)worker"
-      - type: "output_contains"
-        value: "Framework"
+        pattern: "(?i)(reference|ProjectReference)"
     rubric:
-      - "The agent used template skills to find worker service templates"
-      - "The agent identified the worker template"
-      - "The agent listed available parameters for the worker template"
-      - "The agent explained what a worker service is and when to use it"
+      - "The agent created both projects (API and test) in the correct location"
+      - "The agent set up a project reference from the test project to the API project"
+      - "The agent used the correct templates (webapi and xunit)"
+      - "The agent verified both projects were created successfully"
     expect_tools:
       - skill
     timeout: 180

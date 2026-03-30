@@ -48,9 +48,9 @@ scenarios:
       - type: "output_contains"
         value: "identity"
       - type: "output_matches"
-        pattern: "(?i)restore"
+        pattern: "(?i)shortName.*(restore|conflict|reserved|CLI)"
       - type: "output_matches"
-        pattern: "(?i)(net7\\.0|default.*not in|choice)"
+        pattern: "(?i)(net7\\.0|default.*not in|not.*valid.*choice)"
     rubric:
       - "The agent identified the missing 'identity' field (required)"
       - "The agent flagged 'restore' as a shortName that conflicts with a dotnet CLI command"
@@ -97,9 +97,9 @@ scenarios:
     assertions:
       - type: "exit_success"
       - type: "output_matches"
-        pattern: "(?i)(valid|no error|looks good|ready|correct|pass)"
-      - type: "output_not_contains"
-        value: "missing required"
+        pattern: "(?i)(valid|no error|looks good|ready|correct|well.formed|no issue)"
+      - type: "output_matches"
+        pattern: "(?i)(identity|shortName|required field)"
     rubric:
       - "The agent confirmed the template has no errors"
       - "The agent verified all required fields (identity, name, shortName) are present"
