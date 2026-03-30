@@ -144,11 +144,20 @@ app.MapPost("/upload", async (IFormFile file) =>
     if (!isJpeg && !isPng)
         return Results.BadRequest("File content doesn't match declared type");
 
-    // CRITICAL: Generate a safe filename — never use user-provided filename directly
-    // Derive the extension from the validated content type, not from user input
+    // CRITICAL: Never use the user-provided filename directly for the save path — it can
+    // contain path traversal characters (e.g., "../../../etc/passwd").
+    //
+    // Option A (recommended): Generate a completely safe filename from the validated content
     var extension = isJpeg ? ".jpg" : ".png";
     var safeFileName = $"{Guid.NewGuid()}{extension}";
-    // NEVER: var path = Path.Combine("uploads", file.FileName);  // Path traversal!
+    //
+    // Option B: If retaining the original filename matters (e.g., user-facing downloads),
+    // sanitize it first: strip path components, remove dangerous characters, and validate.
+    // var sanitized = Path.GetFileName(file.FileName);               // strips directory parts
+    // sanitized = Regex.Replace(sanitized, @"[^\w.\-]", "_");       // allow only safe chars
+    // var safeFileName = $"{Guid.NewGuid()}_{sanitized}";            // prefix with GUID for uniqueness
+    //
+    // NEVER: var path = Path.Combine("uploads", file.FileName);     // Path traversal!
 
     var filePath = Path.Combine("uploads", safeFileName);
     Directory.CreateDirectory("uploads");
@@ -216,7 +225,7 @@ app.MapPost("/upload-stream",
 
 1. **Only configuring one size limit**: Must configure BOTH Kestrel `MaxRequestBodySize` AND `FormOptions.MultipartBodyLengthLimit`.
 2. **400 errors from anti-forgery**: In .NET 8+, `UseAntiforgery()` auto-validates form uploads. Use `.DisableAntiforgery()` for API endpoints (safe for JWT/unauthenticated; do NOT disable for cookie-authenticated endpoints).
-3. **Trusting file.FileName**: User-provided filename can contain path traversal. Always generate a safe filename with `Guid.NewGuid()`.
+3. **Trusting file.FileName**: User-provided filename can contain path traversal. Either generate a safe filename with `Guid.NewGuid()`, or sanitize the original name by stripping path components (`Path.GetFileName`) and removing dangerous characters before use.
 4. **Trusting Content-Type only**: Content type is client-spoofable. Always check magic bytes for actual file type verification.
 5. **Using IFormFile for very large files**: Multipart form parsing buffers with a memory threshold and spills to temp files. Use `MultipartReader` for streaming directly to storage.
-6. **Deriving file extension from user input**: Use the validated content type or magic bytes to determine the extension, not `Path.GetExtension(file.FileName)`.
+6. **Deriving file extension from user input**: Prefer deriving the extension from the validated content type or magic bytes rather than `Path.GetExtension(file.FileName)`. If the original extension must be preserved, validate it against the detected content type.

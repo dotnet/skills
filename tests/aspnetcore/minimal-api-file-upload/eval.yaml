@@ -17,60 +17,35 @@ scenarios:
       - "Verifies the actual file content (e.g., magic bytes or file signatures), not just the Content-Type header which can be spoofed"
     timeout: 180
 
-  - name: "File upload should not use magic bytes for JSON API"
-    expect_activation: false
+  - name: "Upload multiple files with metadata in minimal API"
     prompt: |
-      I'm building a REST API in ASP.NET Core that accepts JSON payloads.
-      How do I validate the request body schema?
-    rubric:
-      - "Response focuses on JSON validation (e.g., model binding, FluentValidation, data annotations) and does NOT suggest magic bytes or file upload patterns"
-    timeout: 60
-
-  - name: "Fix broken file upload endpoint in ASP.NET Core minimal API"
-    prompt: |
-      My ASP.NET Core 8 minimal API file upload endpoint has several problems.
-      It's supposed to accept JPEG and PNG image uploads via IFormFile but it
-      doesn't work correctly in production — uploads fail, and I'm worried the
-      file handling isn't safe. Can you fix the file upload implementation in
-      Program.cs?
-    setup:
-      files:
-        - path: "Program.cs"
-          content: |
-            using Microsoft.AspNetCore.Http;
-
-            var builder = WebApplication.CreateBuilder(args);
-            builder.Services.AddAntiforgery();
-            var app = builder.Build();
-            app.UseAntiforgery();
-
-            app.MapPost("/api/upload", async (IFormFile file) =>
-            {
-                var allowedTypes = new[] { "image/jpeg", "image/png" };
-                if (!allowedTypes.Contains(file.ContentType))
-                    return Results.BadRequest("Invalid file type");
-
-                var uploadPath = Path.Combine("uploads", file.FileName);
-                Directory.CreateDirectory("uploads");
-                using var stream = File.Create(uploadPath);
-                await file.CopyToAsync(stream);
-
-                return Results.Ok(new { file.FileName, file.Length });
-            });
-
-            app.Run();
-        - path: "UploadApp.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk.Web">
-              <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
-              </PropertyGroup>
-            </Project>
+      Show me how to add a file upload endpoint to an ASP.NET Core 8 minimal API
+      that accepts multiple image files along with a text description field from
+      the same form submission. The total size can be up to 50MB. Just show me
+      the code — I don't need a full project.
     assertions:
       - type: "output_matches"
-        pattern: "(path traversal|safe.?name|Guid|sanitiz)"
+        pattern: "(IFormFileCollection|IFormFile|List<IFormFile>)"
+      - type: "output_matches"
+        pattern: "(MaxRequestBodySize|MultipartBodyLengthLimit)"
     rubric:
-      - "Identified that using file.FileName directly for the save path allows path traversal attacks"
-      - "Identified that checking only ContentType is insufficient because it can be spoofed by the client"
-      - "Identified that the antiforgery middleware will reject API upload requests with a 400 error"
-    timeout: 240
+      - "Configures both the Kestrel request body size limit and the form multipart body length limit for the 50MB requirement"
+      - "Uses [FromForm] correctly when mixing file parameters with non-file form fields like description"
+      - "Does not save uploaded files using the original user-provided filenames"
+    timeout: 180
+
+  - name: "Stream very large file uploads without buffering"
+    prompt: |
+      I need to accept uploads of video files up to 2GB in my ASP.NET Core 8 minimal API.
+      Using IFormFile crashes with out-of-memory errors for files over 500MB.
+      How do I stream large uploads directly to disk without buffering the whole file?
+    assertions:
+      - type: "output_matches"
+        pattern: "(MultipartReader|ReadNextSectionAsync)"
+      - type: "output_matches"
+        pattern: "(DisableRequestSizeLimit|MaxRequestBodySize)"
+    rubric:
+      - "Uses MultipartReader to stream upload sections directly to disk instead of buffering via IFormFile"
+      - "Disables or increases the request size limit to accommodate 2GB files"
+      - "Does not use the user-provided filename directly when saving streamed sections to disk"
+    timeout: 180
