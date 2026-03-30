@@ -81,7 +81,7 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 | `pairwiseResult` | Judge's rubric-by-rubric comparison |
 | `perRunScores` | Per-run improvement scores as a flat array of numbers (one per run); when a plugin run is present, each value is `min(isolated, plugin)` for that run; when no plugin run is present (`skilledPlugin` is null), each value is the isolated improvement score for that run |
 
-> **Note:** Scenarios do not have a `passed` field. To determine pass/fail for an individual scenario, check whether `improvementScore >= 0` (this field is already the effective score — the min of isolated and plugin when both exist). The `passed` field exists only at the verdict level (per-skill).
+> **Note:** Scenarios do not have a `passed` field. To determine pass/fail for an individual scenario, check whether `improvementScore >= 0`. This is the effective score: when no plugin run is present it equals `isolatedImprovementScore`; when a plugin run is present it is the min of isolated and plugin scores. The `passed` field exists only at the verdict level (per-skill).
 
 ### Breakdown fields
 
@@ -117,6 +117,16 @@ Each of `baseline`, `skilledIsolated`, and `skilledPlugin` contains a `metrics` 
 | `agentOutput` | The agent's final text output |
 
 > **Note:** The quality scores shown in the summary table (e.g., "4.0/5") come from `baseline.judgeResult.overallScore`, `skilledIsolated.judgeResult.overallScore`, etc. — they are on the run result object, not inside `metrics`. When parsing `results.json`, look for `judgeResult.overallScore` alongside `metrics` on each run.
+
+### eval.yaml scenario options
+
+Several scenario-level options in `eval.yaml` are relevant when diagnosing failures:
+
+| Option | Description |
+|--------|-------------|
+| `timeout` | Maximum wall-clock time per run in seconds. Default is 120 seconds if omitted. Increase when skilled runs time out. |
+| `reject_tools` | Array of tool names that will cause the run to fail if they are used (e.g., `["bash", "edit"]`). This is enforced as a post-run assertion in the validator (it does not sandbox or block the tool calls), and is useful to force the agent to explain rather than explore/build, leveling the playing field between baseline and skilled runs. |
+| `setup.files` | Array of files to create before the run. Gives the agent concrete code to work with, reducing variance from different scaffolding strategies. |
 
 ## Common failure patterns
 
@@ -217,6 +227,22 @@ Each of `baseline`, `skilledIsolated`, and `skilledPlugin` contains a `metrics` 
 - This is usually noise — re-run the eval to see if it persists
 - If it consistently happens, improve the skill to produce clearly differentiated output
 
+### 8. Baseline already good (no headroom)
+
+**Symptoms:**
+- Baseline scores are high (4.5–5.0/5)
+- Skilled scores are similar or slightly lower
+- `perRunScores` are consistently negative (e.g., `[-0.42, -0.73, -0.47]`)
+- Breakdown shows negative `tokenReduction` and `toolCallReduction` (skill overhead) but no quality gain
+
+**Cause:** The model already knows this topic well from training data. The skill can't improve on an already-excellent answer, and the overhead of loading the skill (extra tokens, tool calls) causes a net regression.
+
+**Fixes:**
+- **Add a `reject_tools` constraint** (e.g., `["bash", "edit"]`) so the eval fails if either baseline or skilled agent uses those tools — this keeps the comparison focused on answer quality instead of tool-induced overhead
+- **Make the scenario harder** so the baseline struggles — add complexity, edge cases, or constraints that require the skill's specific knowledge
+- **Rewrite the prompt** to be purely diagnostic (e.g., "Don't modify any files — just explain the root cause") to prevent the agent from spending time on tool calls
+- **Remove the scenario** if the model consistently scores 5.0/5 without the skill — it isn't testing the skill's value
+
 ## When multiple patterns apply
 
 Most failing scenarios match 2–3 patterns simultaneously (e.g., timeout + token overhead + high variance). Fix them in this priority order:
@@ -224,9 +250,36 @@ Most failing scenarios match 2–3 patterns simultaneously (e.g., timeout + toke
 1. **Timeouts (#1)** — if the model can't finish, nothing else matters. Increase timeout first.
 2. **Skill not activated (#5)** — if the skill never loaded, fix the description before tuning anything else.
 3. **Baseline already bad (#2)** — if the baseline scores ≤2.0/5, the scenario may need simplification regardless of the skill.
-4. **High variance (#3)** — if `perRunScores` are unstable, a single eval run is unreliable. Re-run before concluding the skill is broken.
-5. **Rubric/judgment issues (#6, #7)** — once the runs are stable, tune the rubric.
-6. **Token overhead (#4)** — only optimize if quality is already good but the weighted score is marginally negative.
+4. **Baseline already good (#8)** — if the baseline scores ≥4.5/5, consider adding `reject_tools`, making the scenario harder, or removing it.
+5. **High variance (#3)** — if `perRunScores` are unstable, a single eval run is unreliable. Re-run before concluding the skill is broken.
+6. **Rubric/judgment issues (#6, #7)** — once the runs are stable, tune the rubric.
+7. **Token overhead (#4)** — only optimize if quality is already good but the weighted score is marginally negative.
+
+## Improving the skill vs. gaming the eval
+
+When investigating failures, the goal is to **make the skill more useful to users** — not simply to make the eval score go up. Score improvement should be *evidence* of a better skill, not an end in itself.
+
+### Legitimate fixes (improve the skill)
+
+- Better skill content, structure, or examples
+- Better frontmatter `description` so the skill activates on relevant prompts
+- Removing a scenario where the baseline already scores perfectly (the skill genuinely adds no value)
+- Adding `setup.files` so the scenario tests what was intended rather than scaffolding ability
+
+### Illegitimate fixes (game the eval)
+
+- Relaxing rubric criteria so both runs score higher for less
+- Rewriting rubric items to match what the skill *happens* to produce rather than what a good answer *should* contain
+- Softening prompt expectations to avoid exposing a real skill weakness
+- Adding `reject_tools` to hide behavioral divergences between baseline and skilled runs (e.g., baseline explains while skilled run edits files — constraining tools makes the scores converge but doesn't fix the underlying issue)
+
+### Gray area (use judgment)
+
+- **Tightening a prompt** to reduce ambiguity is legitimate if the prompt is genuinely unclear, but illegitimate if done to steer toward the skill's strengths
+- **Broadening a rubric** to accept multiple valid approaches (#6 above) is legitimate; broadening it to accept *wrong* approaches is not
+- **Removing a scenario** because the baseline already aces it is an honest admission; removing it because the skill makes things worse is hiding a problem
+
+When in doubt, ask: *"Would this change make the skill more useful to a real user, or does it just make the number go up?"*
 
 ## Analyzing results with an AI agent
 
@@ -240,8 +293,11 @@ The `results.json` file is designed to be machine-readable. An AI agent can:
 6. **Examine `perRunScores`** to assess variance
 7. **Look at `toolCallBreakdown`** to understand what the model spent time on
 8. **Cross-reference `isolatedBreakdown`** to see which metrics drove the score
+9. **Review `overfittingResult`** if present — check `rubricAssessments` for items classified as `"technique"` (the rubric enforces a specific approach rather than testing an outcome). These are candidates for broadening. Also check `crossScenarioIssues` for systemic concerns about the eval design.
 
 ### Example analysis script
+
+> **Note:** Save this as a `.py` file rather than running via `python -c "..."` — the nested quotes in f-string dictionary access are difficult to escape on the command line.
 
 ```python
 import json

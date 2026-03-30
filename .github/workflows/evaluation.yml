@@ -93,8 +93,9 @@ jobs:
           # Skill-validator changes need evaluation. Workflow YAML changes don't
           # require /evaluate because the issue_comment trigger always runs from
           # main anyway — workflow changes are only effective after merge.
+          # InvestigatingResults.md is documentation only and doesn't affect evaluation.
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^eng/skill-validator/' } |
+            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -ne 'eng/skill-validator/InvestigatingResults.md' } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -155,7 +156,7 @@ jobs:
             Select-Object -First 1
 
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^eng/skill-validator/' } |
+            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -ne 'eng/skill-validator/InvestigatingResults.md' } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -673,7 +674,7 @@ jobs:
                 echo ""
                 echo "> **To investigate failures**, paste this to your AI coding agent:"
                 echo ">"
-                echo "> _Download eval artifacts with \`gh run download ${RUN_ID} --repo ${{ github.repository }} --pattern \"skill-validator-results-*\" --dir ./eval-results\`, then fetch https://raw.githubusercontent.com/${{ github.repository }}/${{ needs.gate.outputs.head_sha }}/eng/skill-validator/InvestigatingResults.md and follow it to analyze the results.json files. Diagnose each failure, suggest fixes to the eval.yaml and skill content, and tell me what to fix first._"
+                echo "> _For PR ${PR_NUMBER} in ${{ github.repository }}, download eval artifacts with \`gh run download ${RUN_ID} --repo ${{ github.repository }} --pattern \"skill-validator-results-*\" --dir ./eval-results\`, then fetch https://raw.githubusercontent.com/${{ github.repository }}/${{ needs.gate.outputs.head_sha }}/eng/skill-validator/InvestigatingResults.md and follow it to analyze the results.json files. Diagnose each failure, suggest fixes to the eval.yaml and skill content, and tell me what to fix first._"
               fi
             } > consolidated-comment.md
 
