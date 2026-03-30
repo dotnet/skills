@@ -358,7 +358,7 @@ jobs:
             # InvestigatingResults.md and README.md are documentation only and don't affect evaluation.
             $docOnlyFiles = @('eng/skill-validator/InvestigatingResults.md', 'eng/skill-validator/README.md')
             $hasInfraChanges = $changedFiles |
-              Where-Object { $_ -match '^(\.github/workflows/evaluation\.yml$|eng/skill-validator/)' -and $_ -notin $docOnlyFiles } |
+              Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notin $docOnlyFiles } |
               Select-Object -First 1
 
             if ($hasInfraChanges) {
