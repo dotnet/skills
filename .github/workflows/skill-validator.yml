@@ -38,7 +38,7 @@ jobs:
           $head = "${{ github.event.pull_request.head.sha }}"
           $mergeBase = git merge-base $base $head
           $changed = git diff --name-only $mergeBase $head |
-            Where-Object { $_ -match '^(eng/skill-validator/|\.github/workflows/skill-validator\.yml$)' -and $_ -ne 'eng/skill-validator/InvestigatingResults.md' } |
+            Where-Object { $_ -match '^(eng/skill-validator/|\.github/workflows/skill-validator\.yml$)' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
             Select-Object -First 1
           if ($changed) {
             echo "has_changes=true" >> $env:GITHUB_OUTPUT

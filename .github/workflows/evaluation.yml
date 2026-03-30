@@ -93,14 +93,9 @@ jobs:
           # Skill-validator changes need evaluation. Workflow YAML changes don't
           # require /evaluate because the issue_comment trigger always runs from
           # main anyway — workflow changes are only effective after merge.
-          # InvestigatingResults.md, README.md, and OverfittingDetection.md are documentation only and don't affect evaluation.
-          $docOnlyFiles = @(
-            'eng/skill-validator/InvestigatingResults.md',
-            'eng/skill-validator/README.md',
-            'eng/skill-validator/OverfittingDetection.md'
-          )
+          # Documentation files don't affect evaluation.
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notin $docOnlyFiles } |
+            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -160,9 +155,8 @@ jobs:
             Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
             Select-Object -First 1
 
-          $docOnlyFiles = @('eng/skill-validator/InvestigatingResults.md', 'eng/skill-validator/README.md')
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notin $docOnlyFiles } |
+            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -355,10 +349,9 @@ jobs:
             $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
             # Check if any changed files are in infrastructure paths
-            # InvestigatingResults.md and README.md are documentation only and don't affect evaluation.
-            $docOnlyFiles = @('eng/skill-validator/InvestigatingResults.md', 'eng/skill-validator/README.md')
+            # Documentation files under src/ don't affect evaluation.
             $hasInfraChanges = $changedFiles |
-              Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notin $docOnlyFiles } |
+              Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
               Select-Object -First 1
 
             if ($hasInfraChanges) {
@@ -676,7 +669,7 @@ jobs:
             # If any skill failed, build a copy-paste prompt for AI-assisted investigation
             if jq -se '[.[].verdicts[] | select(.passed == false)] | length > 0' $JSON_FILES > /dev/null 2>&1; then
               RUN_ID="${{ github.run_id }}"
-              INVESTIGATE_PROMPT=$(printf '\n> **To investigate failures**, paste this to your AI coding agent:\n>\n> _For PR %s in %s, download eval artifacts with `gh run download %s --repo %s --pattern "skill-validator-results-*" --dir ./eval-results`, then fetch https://raw.githubusercontent.com/%s/%s/eng/skill-validator/InvestigatingResults.md and follow it to analyze the results.json files. Diagnose each failure, suggest fixes to the eval.yaml and skill content, and tell me what to fix first._' \
+              INVESTIGATE_PROMPT=$(printf '\n> **To investigate failures**, paste this to your AI coding agent:\n>\n> _For PR %s in %s, download eval artifacts with `gh run download %s --repo %s --pattern "skill-validator-results-*" --dir ./eval-results`, then fetch https://raw.githubusercontent.com/%s/%s/eng/skill-validator/src/docs/InvestigatingResults.md and follow it to analyze the results.json files. Diagnose each failure, suggest fixes to the eval.yaml and skill content, and tell me what to fix first._' \
                 "${PR_NUMBER}" "${{ github.repository }}" "${RUN_ID}" "${{ github.repository }}" "${{ github.repository }}" "${{ needs.gate.outputs.head_sha }}")
             fi
 

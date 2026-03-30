@@ -1,10 +1,10 @@
 # Overfitting Detection — Implementation Plan
 
+A LLM-based overfitting judge that gives skill authors actionable feedback when their eval tests memorization instead of genuine improvement.
+
 ## 1. Problem Statement
 
 The eval system judges whether a skill meaningfully improves agent performance by comparing "with-skill" runs against "baseline" runs. But the eval definitions themselves can be overfitted — testing whether the agent parrots the skill's specific phrasing or tests for knowledge the LLM already has, rather than testing whether the skill teaches something genuinely new that produces better outcomes.
-
-The [overfitting analysis](../../eval-overfitting-analysis.md) identified concrete patterns:
 
 | Pattern | Severity | Example |
 |---------|----------|---------|
@@ -12,8 +12,6 @@ The [overfitting analysis](../../eval-overfitting-analysis.md) identified concre
 | Rubric items testing skill-specific vocabulary labels | Moderate | "Measured three build scenarios: cold, warm, no-op" |
 | Repeated rubric items inflating niche patterns | Moderate | "params overload without 1-arg fast path" across 2 scenarios |
 | Diagnostic-method testing vs. conclusion testing | Low | "Mentioned building twice to verify incrementality" |
-
-**Goal:** Add an LLM-based overfitting judge to the eval pipeline that produces a per-skill overfitting score, surfaces it in the results table and dashboard, and gives skill authors actionable feedback when their eval tests memorization instead of genuine improvement.
 
 ---
 

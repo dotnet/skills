@@ -335,6 +335,5 @@ analyze('results.json')
 
 ## See also
 
-- [skill-validator README](README.md) — CLI usage, eval file format, scoring weights
+- [skill-validator README](../README.md) — CLI usage, eval file format, scoring weights
 - [Overfitting detection](OverfittingDetection.md) — how overfitting scores are computed
-- [CONTRIBUTING.md](../../CONTRIBUTING.md) — writing eval files and running tests locally

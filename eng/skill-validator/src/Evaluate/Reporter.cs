@@ -633,7 +633,7 @@ public static class Reporter
 
         bool anyFailure = verdicts.Any(v => !v.Passed);
         if (anyFailure)
-            sb.AppendLine("\n> 📖 See [InvestigatingResults.md](eng/skill-validator/InvestigatingResults.md) for how to diagnose failures. Additional debugging guidance may be provided by your workflow.");
+            sb.AppendLine("\n> 📖 See [InvestigatingResults.md](eng/skill-validator/src/docs/InvestigatingResults.md) for how to diagnose failures. Additional debugging guidance may be provided by your workflow.");
 
         return sb.ToString();
     }
