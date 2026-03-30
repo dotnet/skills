@@ -672,21 +672,31 @@ jobs:
           open('simplified-body.md', 'w').write('\n'.join(result))
           PY
 
+            INVESTIGATE_PROMPT=""
+            # If any skill failed, build a copy-paste prompt for AI-assisted investigation
+            if jq -se '[.[].verdicts[] | select(.passed == false)] | length > 0' $JSON_FILES > /dev/null 2>&1; then
+              RUN_ID="${{ github.run_id }}"
+              INVESTIGATE_PROMPT=$(printf '\n> **To investigate failures**, paste this to your AI coding agent:\n>\n> _For PR %s in %s, download eval artifacts with `gh run download %s --repo %s --pattern "skill-validator-results-*" --dir ./eval-results`, then fetch https://raw.githubusercontent.com/%s/%s/eng/skill-validator/InvestigatingResults.md and follow it to analyze the results.json files. Diagnose each failure, suggest fixes to the eval.yaml and skill content, and tell me what to fix first._' \
+                "${PR_NUMBER}" "${{ github.repository }}" "${RUN_ID}" "${{ github.repository }}" "${{ github.repository }}" "${{ needs.gate.outputs.head_sha }}")
+            fi
+
+            # PR comment: simplified table + "Full results" link + investigation prompt
             {
               cat simplified-body.md
               echo ""
               echo "[🔍 Full results — includes quality and agent details]($RUN_URL)"
-              # If any skill failed, add a copy-paste prompt for AI-assisted investigation
-              if jq -se '[.[].verdicts[] | select(.passed == false)] | length > 0' $JSON_FILES > /dev/null 2>&1; then
-                RUN_ID="${{ github.run_id }}"
-                echo ""
-                echo "> **To investigate failures**, paste this to your AI coding agent:"
-                echo ">"
-                echo "> _For PR ${PR_NUMBER} in ${{ github.repository }}, download eval artifacts with \`gh run download ${RUN_ID} --repo ${{ github.repository }} --pattern \"skill-validator-results-*\" --dir ./eval-results\`, then fetch https://raw.githubusercontent.com/${{ github.repository }}/${{ needs.gate.outputs.head_sha }}/eng/skill-validator/InvestigatingResults.md and follow it to analyze the results.json files. Diagnose each failure, suggest fixes to the eval.yaml and skill content, and tell me what to fix first._"
+              if [ -n "$INVESTIGATE_PROMPT" ]; then
+                echo "$INVESTIGATE_PROMPT"
               fi
             } > consolidated-comment.md
 
-            cat consolidated-comment.md >> "$GITHUB_STEP_SUMMARY"
+            # Action summary: full table (all columns) + investigation prompt (no "Full results" link)
+            {
+              cat summary-body.md
+              if [ -n "$INVESTIGATE_PROMPT" ]; then
+                echo "$INVESTIGATE_PROMPT"
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
 
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
               -X POST -F "body=@consolidated-comment.md"
