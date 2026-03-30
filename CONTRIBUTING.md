@@ -45,24 +45,8 @@ Every plugin must have a plugin.json file in the plugin root that is linked to f
 
 ### Plugin organization
 
-Skills are grouped into domain-specific plugins. When proposing a new skill, place it in the plugin that best matches its domain:
-
-| Plugin | Domain |
-|--------|--------|
-| `dotnet` | Common everyday C#/.NET coding tasks useful to all .NET developers |
-| `dotnet-upgrade` | Migrating and upgrading .NET projects across framework versions, language features, and compatibility targets |
-| `dotnet-diag` | Performance investigations, debugging, and incident analysis |
-| `dotnet-data` | Data access and Entity Framework |
-| `dotnet-msbuild` | MSBuild and project system |
-| `dotnet-ai` | AI and ML: technology selection, LLM integration, agentic workflows, RAG pipelines, and classic ML |
-| `dotnet-experimental` | Experimental skills under active evaluation (see below) |
-
+Skills are grouped into domain-specific plugins. When proposing a new skill, place it in the plugin that best matches its domain. See [README.md](README.md) for the current list of plugins.
 If your skill does not fit any existing plugin, consider creating a new one. The following plugin names are reserved for future use and are good candidates for new skills in those areas:
-
-- `dotnet-aspnet` — ASP.NET
-- `dotnet-wpf` — WPF
-- `dotnet-winforms` — Windows Forms (WinForms)
-- `dotnet-maui` — .NET MAUI
 
 ### The `dotnet-experimental` plugin
 
