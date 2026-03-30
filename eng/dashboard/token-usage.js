@@ -179,7 +179,7 @@
     const prJudgeByDay = {};
     days.forEach(d => { schedByDay[d] = 0; prByDay[d] = 0; inByDay[d] = 0; outByDay[d] = 0; crByDay[d] = 0; cwByDay[d] = 0; judgeByDay[d] = 0; schedJudgeByDay[d] = 0; prJudgeByDay[d] = 0; });
     entries.forEach(e => {
-      if (!e.date) return; // skip entries without a valid date
+      if (e.date == null) return; // skip entries without a valid date
       const d = dayKey(e.date);
       if (!(d in schedByDay)) return; // skip if day not in known set
       const total = e.totalTokens || 0;
