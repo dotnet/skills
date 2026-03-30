@@ -680,17 +680,14 @@ jobs:
                 "${PR_NUMBER}" "${{ github.repository }}" "${RUN_ID}" "${{ github.repository }}" "${{ github.repository }}" "${{ needs.gate.outputs.head_sha }}")
             fi
 
-            # PR comment: simplified table + "Full results" link + investigation prompt
+            # PR comment: simplified table + "Full results" link
             {
               cat simplified-body.md
               echo ""
-              echo "[🔍 Full results — includes quality and agent details]($RUN_URL)"
-              if [ -n "$INVESTIGATE_PROMPT" ]; then
-                echo "$INVESTIGATE_PROMPT"
-              fi
+              echo "[🔍 Full Results - additional metrics and failure investigation steps]($RUN_URL)"
             } > consolidated-comment.md
 
-            # Action summary: full table (all columns) + investigation prompt (no "Full results" link)
+            # Action summary: full table (all columns) + investigation prompt
             {
               cat summary-body.md
               if [ -n "$INVESTIGATE_PROMPT" ]; then
