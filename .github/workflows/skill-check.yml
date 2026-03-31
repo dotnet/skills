@@ -19,13 +19,32 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Cache validator archive
+        id: cache-validator
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: skill-validator-dist.tar.gz
+          key: skill-validator-${{ runner.os }}-${{ hashFiles('eng/skill-validator/src/**', 'eng/skill-validator/Directory.Build.props', 'global.json') }}
+
       - name: Setup .NET SDK
+        if: steps.cache-validator.outputs.cache-hit != 'true'
         uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
         with:
           global-json-file: global.json
 
       - name: Build skill-validator
+        if: steps.cache-validator.outputs.cache-hit != 'true'
         run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
+
+      - name: Create validator archive
+        if: steps.cache-validator.outputs.cache-hit != 'true'
+        run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
+
+      - name: Extract validator
+        if: steps.cache-validator.outputs.cache-hit == 'true'
+        run: |
+          mkdir -p artifacts/publish/SkillValidator/release
+          tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
 
       - name: Run skill-validator check
         run: |

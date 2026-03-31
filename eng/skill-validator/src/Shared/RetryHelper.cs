@@ -23,6 +23,12 @@ public static class RetryHelper
     public const int MaxSingleDelayMs = 60_000;
 
     /// <summary>
+    /// Maximum jitter factor applied to retry delays (25% of computed delay).
+    /// Jitter prevents thundering-herd when many concurrent operations retry simultaneously.
+    /// </summary>
+    internal const double JitterFactor = 0.25;
+
+    /// <summary>
     /// Executes <paramref name="action"/> with retries and exponential backoff.
     /// A linked <see cref="CancellationToken"/> that honours both <paramref name="cancellationToken"/>
     /// and <paramref name="totalTimeoutMs"/> is passed into the action so that in-progress async
@@ -46,12 +52,13 @@ public static class RetryHelper
         CancellationToken cancellationToken = default)
     {
         return ExecuteWithRetryCore(action, label, maxRetries, baseDelayMs, totalTimeoutMs,
-            cancellationToken, clock: null, delayFunc: null);
+            cancellationToken, clock: null, delayFunc: null, jitterFunc: null);
     }
 
     /// <summary>
-    /// Internal overload with injectable <paramref name="clock"/> and <paramref name="delayFunc"/>
-    /// seams so that tests can run without real wall-clock timing.
+    /// Internal overload with injectable <paramref name="clock"/>, <paramref name="delayFunc"/>,
+    /// and <paramref name="jitterFunc"/> seams so that tests can run without real wall-clock
+    /// timing or randomness.
     /// </summary>
     internal static async Task<T> ExecuteWithRetryCore<T>(
         Func<CancellationToken, Task<T>> action,
@@ -61,10 +68,12 @@ public static class RetryHelper
         int totalTimeoutMs,
         CancellationToken cancellationToken,
         Func<long>? clock,
-        Func<int, CancellationToken, Task>? delayFunc)
+        Func<int, CancellationToken, Task>? delayFunc,
+        Func<double>? jitterFunc)
     {
         var getClock = clock ?? (() => Environment.TickCount64);
         var doDelay = delayFunc ?? Task.Delay;
+        var getJitter = jitterFunc ?? Random.Shared.NextDouble;
 
         // Linked CTS fires when either the caller-supplied token is cancelled
         // or the total retry budget expires — whichever comes first.
@@ -96,7 +105,12 @@ public static class RetryHelper
                     var rawDelay = (long)baseDelayMs * (1L << (attempt - 1));
                     var remaining = totalTimeoutMs - (getClock() - overallStart);
                     // Clamp: cap to MaxSingleDelayMs and remaining budget so we don't overshoot.
-                    var delay = (int)Math.Min(rawDelay, Math.Min(MaxSingleDelayMs, Math.Max(0, remaining)));
+                    var clampedDelay = (int)Math.Min(rawDelay, Math.Min(MaxSingleDelayMs, Math.Max(0, remaining)));
+                    // Apply jitter: ±JitterFactor of the computed delay to spread out concurrent retries.
+                    var jitterRange = (int)(clampedDelay * JitterFactor);
+                    var jitterOffset = jitterRange > 0 ? (int)((getJitter() * 2 - 1) * jitterRange) : 0;
+                    // Re-clamp after jitter so we never exceed the remaining budget or MaxSingleDelayMs.
+                    var delay = (int)Math.Min(Math.Max(0, clampedDelay + jitterOffset), Math.Min(MaxSingleDelayMs, Math.Max(0, remaining)));
                     Console.Error.WriteLine($"      🔄 {label}: retry {attempt}/{maxRetries} (waiting {delay / 1000}s)");
                     await doDelay(delay, budgetCts.Token);
                 }

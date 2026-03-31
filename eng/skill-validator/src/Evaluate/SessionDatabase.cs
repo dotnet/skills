@@ -6,12 +6,14 @@ namespace SkillValidator.Evaluate;
 
 /// <summary>
 /// Tracks eval sessions in a SQLite database for crash recovery and rejudging.
-/// Thread-safe for concurrent scenario/run execution.
+/// Thread-safe for concurrent scenario/run execution. A lock protects the shared
+/// SqliteConnection (which is not thread-safe) while WAL mode and busy_timeout
+/// handle write contention at the SQLite level.
 /// </summary>
 public sealed class SessionDatabase : IDisposable
 {
     private readonly SqliteConnection _connection;
-    private readonly SemaphoreSlim _writeLock = new(1, 1);
+    private readonly Lock _lock = new();
 
     public SessionDatabase(string dbPath)
     {
@@ -135,8 +137,7 @@ public sealed class SessionDatabase : IDisposable
         string scenarioName, int runIndex, string role, string model,
         string? configDir, string? workDir, string? prompt = null, string? skillSha = null, string? rubric = null)
     {
-        _writeLock.Wait();
-        try
+        lock (_lock)
         {
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
@@ -158,13 +159,11 @@ public sealed class SessionDatabase : IDisposable
             cmd.Parameters.AddWithValue("$started_at", DateTimeOffset.UtcNow.ToString("o"));
             cmd.ExecuteNonQuery();
         }
-        finally { _writeLock.Release(); }
     }
 
     public void CompleteSession(string sessionId, string status, string metricsJson)
     {
-        _writeLock.Wait();
-        try
+        lock (_lock)
         {
             using var transaction = _connection.BeginTransaction();
 
@@ -192,13 +191,11 @@ public sealed class SessionDatabase : IDisposable
 
             transaction.Commit();
         }
-        finally { _writeLock.Release(); }
     }
 
     public void SaveJudgeResult(string sessionId, string judgeJson)
     {
-        _writeLock.Wait();
-        try
+        lock (_lock)
         {
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = "UPDATE run_results SET judge_json = $judge_json WHERE session_id = $session_id";
@@ -206,13 +203,11 @@ public sealed class SessionDatabase : IDisposable
             cmd.Parameters.AddWithValue("$judge_json", judgeJson);
             cmd.ExecuteNonQuery();
         }
-        finally { _writeLock.Release(); }
     }
 
     public void SavePairwiseResult(string baselineSessionId, string pairwiseJson)
     {
-        _writeLock.Wait();
-        try
+        lock (_lock)
         {
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = "UPDATE run_results SET pairwise_json = $pairwise_json WHERE session_id = $session_id";
@@ -220,13 +215,11 @@ public sealed class SessionDatabase : IDisposable
             cmd.Parameters.AddWithValue("$pairwise_json", pairwiseJson);
             cmd.ExecuteNonQuery();
         }
-        finally { _writeLock.Release(); }
     }
 
     public void SetSchemaInfo(string key, string value)
     {
-        _writeLock.Wait();
-        try
+        lock (_lock)
         {
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = "INSERT INTO schema_info (key, value) VALUES ($key, $value) ON CONFLICT(key) DO UPDATE SET value = excluded.value";
@@ -234,7 +227,6 @@ public sealed class SessionDatabase : IDisposable
             cmd.Parameters.AddWithValue("$value", value);
             cmd.ExecuteNonQuery();
         }
-        finally { _writeLock.Release(); }
     }
 
     /// <summary>
@@ -242,12 +234,10 @@ public sealed class SessionDatabase : IDisposable
     /// </summary>
     public List<SessionRecord> GetCompletedSessions()
     {
-        _writeLock.Wait();
-        try
+        lock (_lock)
         {
             return GetSessions("WHERE s.status IN ('completed', 'timed_out')");
         }
-        finally { _writeLock.Release(); }
     }
 
     /// <summary>
@@ -255,8 +245,7 @@ public sealed class SessionDatabase : IDisposable
     /// </summary>
     public Dictionary<string, string> GetSchemaInfo()
     {
-        _writeLock.Wait();
-        try
+        lock (_lock)
         {
             var result = new Dictionary<string, string>();
             using var cmd = _connection.CreateCommand();
@@ -266,7 +255,6 @@ public sealed class SessionDatabase : IDisposable
                 result[reader.GetString(0)] = reader.GetString(1);
             return result;
         }
-        finally { _writeLock.Release(); }
     }
 
     private List<SessionRecord> GetSessions(string whereClause)
@@ -309,7 +297,6 @@ public sealed class SessionDatabase : IDisposable
     public void Dispose()
     {
         _connection.Dispose();
-        _writeLock.Dispose();
     }
 }
 

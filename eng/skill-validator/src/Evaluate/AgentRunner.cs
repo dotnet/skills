@@ -508,7 +508,7 @@ public static class AgentRunner
         return dirs.ToArray();
     }
 
-    public static async Task<RunMetrics> RunAgent(RunOptions options)
+    public static async Task<RunMetrics> RunAgent(RunOptions options, CancellationToken cancellationToken = default)
     {
         // Validate mutual exclusivity
         if (options.Skill is not null && options.Agent is not null)
@@ -523,7 +523,8 @@ public static class AgentRunner
             label: $"RunAgent({options.Scenario.Name}, {runType})",
             maxRetries: 2,
             baseDelayMs: 5_000,
-            totalTimeoutMs: (options.Scenario.Timeout + 60) * 1000);
+            totalTimeoutMs: (options.Scenario.Timeout + 60) * 1000,
+            cancellationToken: cancellationToken);
     }
 
     private static async Task<RunMetrics> RunAgentCore(RunOptions options, CancellationToken cancellationToken)

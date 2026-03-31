@@ -241,6 +241,11 @@ public static class Reporter
             Console.WriteLine($"      {Ansi.BoldRed}⏰ TIMEOUT{Ansi.Reset} — {string.Join(" and ", parts)} run(s) hit the {(scenario.TimeoutSeconds.HasValue ? $"{scenario.TimeoutSeconds}s " : "")}scenario timeout limit (increase via 'timeout' in eval.yaml)");
         }
 
+        if (scenario.HighVariance)
+        {
+            Console.WriteLine($"      {Ansi.Yellow}⚠️  HIGH VARIANCE{Ansi.Reset} — CV={scenario.VarianceCV:F2} across runs; results may be unreliable. Consider re-running with --runs 5 or tightening the eval prompt.");
+        }
+
         foreach (var (label, baseline, isolated, plugin) in metricRows)
         {
             var line = $"      {Ansi.Dim}{label,-20}{Ansi.Reset} baseline: {Ansi.Dim}{baseline,-12}{Ansi.Reset} isolated: {isolated,-20}";
@@ -459,7 +464,7 @@ public static class Reporter
         // Show validation/spec errors for skills that failed before evaluation ran
         var failedVerdicts = verdicts
             .Where(v => !v.Passed
-                        && !string.IsNullOrEmpty(v.FailureKind)
+                        && v.FailureKind is not null
                         && v.Scenarios.Count == 0)
             .ToArray();
         if (failedVerdicts.Length > 0)
@@ -630,10 +635,6 @@ public static class Reporter
         }
 
         sb.AppendLine($"\nModel: {model ?? "unknown"} | Judge: {judgeModel ?? "unknown"}");
-
-        bool anyFailure = verdicts.Any(v => !v.Passed);
-        if (anyFailure)
-            sb.AppendLine("\n> 📖 See docs/InvestigatingResults.md for how to diagnose failures. Additional debugging guidance may be provided by your workflow.");
 
         return sb.ToString();
     }
@@ -914,15 +915,25 @@ public static class Reporter
     /// </summary>
     internal static string? BuildVerdictFootnote(ScenarioComparison s, double? qualityDelta)
     {
-        // No footnote for neutral verdicts (🟡) or when quality delta is unknown
-        if (s.ImprovementScore == 0 || !qualityDelta.HasValue)
-            return null;
+        var parts = new List<string>();
 
+        if (s.HighVariance)
+            parts.Add($"⚠️ High run-to-run variance (CV={s.VarianceCV:F2}) — consider re-running with `--runs 5`");
+
+        // No quality-direction footnote for neutral verdicts (🟡) or when quality delta is unknown
+        if (s.ImprovementScore != 0 && qualityDelta.HasValue)
+        {
+            var qualityFootnote = BuildQualityFootnote(s, qualityDelta.Value);
+            if (qualityFootnote is not null)
+                parts.Add(qualityFootnote);
+        }
+
+        return parts.Count > 0 ? string.Join(". ", parts) : null;
+    }
+
+    private static string? BuildQualityFootnote(ScenarioComparison s, double delta)
+    {
         bool verdictPositive = s.ImprovementScore > 0;
-
-        // Use the raw quality delta to determine direction, matching the comparison
-        // used in FormatQualityCell (which shows arrows based on unrounded scores).
-        double delta = qualityDelta.Value;
 
         bool qualityPositive = delta > 0;
         bool qualityNegative = delta < 0;
