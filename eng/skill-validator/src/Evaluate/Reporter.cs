@@ -429,8 +429,8 @@ public static class Reporter
         double pctChange = (value - baseline) / baseline * 100;
         var sign = pctChange > 0 ? "+" : "";
         bool isGood = lowerIsBetter ? pctChange < 0 : pctChange > 0;
-        var color = isGood ? $"{Ansi.Green}" : pctChange == 0 ? "" : $"{Ansi.Red}";
-        var reset = string.IsNullOrEmpty(color) ? "" : $"{Ansi.Reset}";
+        var color = isGood ? Ansi.Green : pctChange == 0 ? "" : Ansi.Red;
+        var reset = string.IsNullOrEmpty(color) ? "" : Ansi.Reset;
         return $"{value} {color}({sign}{pctChange:F0}%){reset}";
     }
 
@@ -441,8 +441,8 @@ public static class Reporter
         double pctChange = (value - baseline) / baseline * 100;
         var sign = pctChange > 0 ? "+" : "";
         bool isGood = lowerIsBetter ? pctChange < 0 : pctChange > 0;
-        var color = isGood ? $"{Ansi.Green}" : pctChange == 0 ? "" : $"{Ansi.Red}";
-        var reset = string.IsNullOrEmpty(color) ? "" : $"{Ansi.Reset}";
+        var color = isGood ? Ansi.Green : pctChange == 0 ? "" : Ansi.Red;
+        var reset = string.IsNullOrEmpty(color) ? "" : Ansi.Reset;
         return $" {color}({sign}{pctChange:F0}%){reset}";
     }
 
