@@ -88,13 +88,17 @@
     const plugins = [...pluginSet].sort();
     const totalRuns = entries.length;
 
+    const periodLabel = days.length
+      ? `${dayLabel(days[0])} – ${dayLabel(days[days.length - 1])} (${days.length} days)`
+      : 'no data';
+
     container.innerHTML = `
       <div class="summary-cards" id="token-summary"></div>
       <h2 class="section-title">Daily Token Usage</h2>
       <div class="charts-grid" id="daily-charts-grid" style="margin-bottom:24px"></div>
       <h2 class="section-title">Token Usage by Plugin</h2>
       <div class="charts-grid" id="token-plugin-charts"></div>
-      <h2 class="section-title">Token Usage Breakdown</h2>
+      <h2 class="section-title">Token Usage Breakdown <span style="font-weight:normal;font-size:14px;color:var(--text-muted)">(${escapeHtml(periodLabel)})</span></h2>
       <div id="token-table-container" style="margin-bottom:32px"></div>
     `;
 
@@ -175,7 +179,9 @@
     const prJudgeByDay = {};
     days.forEach(d => { schedByDay[d] = 0; prByDay[d] = 0; inByDay[d] = 0; outByDay[d] = 0; crByDay[d] = 0; cwByDay[d] = 0; judgeByDay[d] = 0; schedJudgeByDay[d] = 0; prJudgeByDay[d] = 0; });
     entries.forEach(e => {
+      if (e.date == null) return; // skip entries without a valid date
       const d = dayKey(e.date);
+      if (!(d in schedByDay)) return; // skip if day not in known set
       const total = e.totalTokens || 0;
       const judge = e.judgeTotalTokens || 0;
       if (e.source === 'pr') { prByDay[d] += total; prJudgeByDay[d] += judge; }
@@ -251,7 +257,9 @@
       const prByDay = {};
       days.forEach(d => { schedByDay[d] = 0; prByDay[d] = 0; });
       pe.forEach(e => {
+        if (!e.date) return;
         const d = dayKey(e.date);
+        if (!(d in schedByDay)) return;
         const total = (e.totalTokens || 0) + (e.judgeTotalTokens || 0);
         if (e.source === 'pr') prByDay[d] += total;
         else schedByDay[d] += total;

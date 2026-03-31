@@ -93,9 +93,9 @@ jobs:
           # Skill-validator changes need evaluation. Workflow YAML changes don't
           # require /evaluate because the issue_comment trigger always runs from
           # main anyway — workflow changes are only effective after merge.
-          # InvestigatingResults.md is documentation only and doesn't affect evaluation.
+          # Documentation files don't affect evaluation.
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -ne 'eng/skill-validator/InvestigatingResults.md' } |
+            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -156,7 +156,7 @@ jobs:
             Select-Object -First 1
 
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -ne 'eng/skill-validator/InvestigatingResults.md' } |
+            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -349,8 +349,9 @@ jobs:
             $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
             # Check if any changed files are in infrastructure paths
+            # Documentation files under src/ don't affect evaluation.
             $hasInfraChanges = $changedFiles |
-              Where-Object { $_ -match '^(\.github/workflows/evaluation\.yml$|eng/skill-validator/)' } |
+              Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
               Select-Object -First 1
 
             if ($hasInfraChanges) {
@@ -480,7 +481,7 @@ jobs:
   # ==========================================================================
   evaluate:
     needs: [gate, discover, build-validator]
-    if: needs.build-validator.result == 'success'
+    if: always() && !cancelled() && needs.build-validator.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -664,21 +665,28 @@ jobs:
           open('simplified-body.md', 'w').write('\n'.join(result))
           PY
 
+            INVESTIGATE_PROMPT=""
+            # If any skill failed, build a copy-paste prompt for AI-assisted investigation
+            if jq -se '[.[].verdicts[] | select(.passed == false)] | length > 0' $JSON_FILES > /dev/null 2>&1; then
+              RUN_ID="${{ github.run_id }}"
+              INVESTIGATE_PROMPT=$(printf '\n> **To investigate failures**, paste this to your AI coding agent:\n>\n> _For PR %s in %s, download eval artifacts with `gh run download %s --repo %s --pattern "skill-validator-results-*" --dir ./eval-results`, then fetch https://raw.githubusercontent.com/%s/%s/eng/skill-validator/src/docs/InvestigatingResults.md and follow it to analyze the results.json files. Diagnose each failure, suggest fixes to the eval.yaml and skill content, and tell me what to fix first._' \
+                "${PR_NUMBER}" "${{ github.repository }}" "${RUN_ID}" "${{ github.repository }}" "${{ github.repository }}" "${{ needs.gate.outputs.head_sha }}")
+            fi
+
+            # PR comment: simplified table + "Full results" link
             {
               cat simplified-body.md
               echo ""
-              echo "[🔍 Full results — includes quality and agent details]($RUN_URL)"
-              # If any skill failed, add a copy-paste prompt for AI-assisted investigation
-              if jq -se '[.[].verdicts[] | select(.passed == false)] | length > 0' $JSON_FILES > /dev/null 2>&1; then
-                RUN_ID="${{ github.run_id }}"
-                echo ""
-                echo "> **To investigate failures**, paste this to your AI coding agent:"
-                echo ">"
-                echo "> _For PR ${PR_NUMBER} in ${{ github.repository }}, download eval artifacts with \`gh run download ${RUN_ID} --repo ${{ github.repository }} --pattern \"skill-validator-results-*\" --dir ./eval-results\`, then fetch https://raw.githubusercontent.com/${{ github.repository }}/${{ needs.gate.outputs.head_sha }}/eng/skill-validator/InvestigatingResults.md and follow it to analyze the results.json files. Diagnose each failure, suggest fixes to the eval.yaml and skill content, and tell me what to fix first._"
-              fi
+              echo "[🔍 Full Results - additional metrics and failure investigation steps]($RUN_URL)"
             } > consolidated-comment.md
 
-            cat consolidated-comment.md >> "$GITHUB_STEP_SUMMARY"
+            # Action summary: full table (all columns) + investigation prompt
+            {
+              cat summary-body.md
+              if [ -n "$INVESTIGATE_PROMPT" ]; then
+                echo "$INVESTIGATE_PROMPT"
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
 
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
               -X POST -F "body=@consolidated-comment.md"
@@ -806,7 +814,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PR_TITLE=$(gh api "repos/${{ github.repository }}/pulls/${{ needs.gate.outputs.pr_number }}" --jq '.title')
+          PR_TITLE=$(gh api "repos/${{ github.repository }}/pulls/${{ needs.gate.outputs.pr_number }}" --jq '.title' 2>/dev/null) || PR_TITLE=""
           echo "pr_title=${PR_TITLE}" >> $GITHUB_OUTPUT
 
       - name: Generate token usage data
@@ -816,31 +824,42 @@ jobs:
           $source = if ("${{ github.event_name }}" -eq "issue_comment") { "pr" } else { "scheduled" }
           $plugins = '${{ needs.discover.outputs.plugins }}' | ConvertFrom-Json
           foreach ($plugin in $plugins) {
-            $artifactDir = "all-results/skill-validator-results-$plugin"
-            $runDir = Get-ChildItem -Path $artifactDir -Directory -ErrorAction SilentlyContinue |
-              Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
-              Sort-Object Name -Descending |
-              Select-Object -First 1
-            if (-not $runDir) {
-              Write-Warning "No run results found for $plugin, skipping"
+            # For scheduled runs and infra-change PRs, artifacts are named
+            # skill-validator-results-$plugin. For individual skill-change PRs,
+            # artifacts are named skill-validator-results-${plugin}--${skill}.
+            # Search for both patterns so token data is captured in all cases.
+            $artifactDirs = @(Get-ChildItem -Path "all-results" -Directory -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -eq "skill-validator-results-$plugin" -or $_.Name -like "skill-validator-results-$plugin--*" })
+            if ($artifactDirs.Count -eq 0) {
+              Write-Warning "No artifacts found for $plugin, skipping"
               continue
             }
+            foreach ($artifactDir in $artifactDirs) {
+              $runDir = Get-ChildItem -Path $artifactDir.FullName -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
+                Sort-Object Name -Descending |
+                Select-Object -First 1
+              if (-not $runDir) {
+                Write-Warning "No run results found in $($artifactDir.Name), skipping"
+                continue
+              }
 
-            $resultsFile = Join-Path $runDir.FullName "results.json"
-            Write-Host "`n=== Collecting token usage for: $plugin ==="
-            $params = @{
-              ResultsFile   = $resultsFile
-              PluginName    = $plugin
-              OutputDir     = "/tmp/token-data/data"
-              Source        = $source
-              RetentionDays = $env:DASHBOARD_RETENTION_DAYS
+              $resultsFile = Join-Path $runDir.FullName "results.json"
+              Write-Host "`n=== Collecting token usage for: $plugin (from $($artifactDir.Name)) ==="
+              $params = @{
+                ResultsFile   = $resultsFile
+                PluginName    = $plugin
+                OutputDir     = "/tmp/token-data/data"
+                Source        = $source
+                RetentionDays = $env:DASHBOARD_RETENTION_DAYS
+              }
+              if ($source -eq "pr") {
+                $params.PRNumber = ${{ needs.gate.outputs.pr_number }}
+                $params.PRTitle = $env:PR_TITLE
+              }
+              $params.SkipBenchmarkData = $true
+              & ./eng/dashboard/generate-benchmark-data.ps1 @params
             }
-            if ($source -eq "pr") {
-              $params.PRNumber = ${{ needs.gate.outputs.pr_number }}
-              $params.PRTitle = $env:PR_TITLE
-            }
-            $params.SkipBenchmarkData = $true
-            & ./eng/dashboard/generate-benchmark-data.ps1 @params
           }
         shell: pwsh
 
@@ -892,7 +911,7 @@ jobs:
       !cancelled() &&
       needs.discover.result == 'success' &&
       needs.discover.outputs.has_plugins == 'true' &&
-      github.ref == 'refs/heads/main'
+      github.event_name == 'schedule'
     concurrency:
       group: publish-eval-data
       cancel-in-progress: false

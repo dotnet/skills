@@ -4,7 +4,7 @@ This guide is intended primarily for AI agents investigating skill evaluation fa
 
 ## Using this guide with an AI agent
 
-This document is designed to be read by AI coding agents. When a skill evaluation has failures, the PR comment includes a ready-to-use prompt — just copy and paste it to your AI agent. The agent will download the artifacts, read this guide, analyze the results, and suggest fixes.
+This document is designed to be read by AI coding agents. When a skill evaluation has failures, the workflow summary includes a ready-to-use prompt — just copy and paste it to your AI agent. The agent will download the artifacts, read this guide, analyze the results, and suggest fixes.
 
 If you need to run the investigation manually, follow the [Quick start](#quick-start) below.
 
@@ -335,6 +335,5 @@ analyze('results.json')
 
 ## See also
 
-- [skill-validator README](README.md) — CLI usage, eval file format, scoring weights
+- [skill-validator README](../README.md) — CLI usage, eval file format, scoring weights
 - [Overfitting detection](OverfittingDetection.md) — how overfitting scores are computed
-- [CONTRIBUTING.md](../../CONTRIBUTING.md) — writing eval files and running tests locally

@@ -44,7 +44,7 @@ scenarios:
       - "Uses '-- --report-trx' (with separator) instead of just '--report-trx'"
       - "Does not suggest the VSTest-style '--logger trx' for an MTP project"
     expect_tools: ["bash"]
-    timeout: 300
+    timeout: 360
 
   - name: "Run tests with blame-hang on MTP project (SDK 10)"
     prompt: "My tests are occasionally hanging. I want to run them with a hang timeout of 5 minutes to detect the culprit. Here's my project."

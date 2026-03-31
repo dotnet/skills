@@ -22,7 +22,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\README.md" Pack="true" PackagePath="/" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="README.md" Pack="true" PackagePath="/" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="docs\*.md" Pack="true" PackagePath="/docs" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\..\LICENSE" Pack="false" CopyToPublishDirectory="PreserveNewest" Link="LICENSE" />
   </ItemGroup>
 
   <ItemGroup>

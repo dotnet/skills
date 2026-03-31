@@ -155,7 +155,7 @@ Results are displayed in the console with color-coded scores and metric deltas. 
 - `junit` — `results.xml` with JUnit XML test results
 - `markdown` — `summary.md` with a results table, plus per-skill directories with per-scenario judge reports
 
-See [Investigating Results](InvestigatingResults.md) for how to diagnose poor scores, download artifacts, and interpret `results.json`.
+See [Investigating Results](docs/InvestigatingResults.md) for how to diagnose poor scores, download artifacts, and interpret `results.json`.
 
 ### Consolidating results across matrix jobs
 
@@ -264,6 +264,39 @@ scenarios:
 | `additional_required_skills` | List of skill names (from the same plugin) to load in the **isolated** run alongside the target. Useful when an agent routes to specific skills or a skill depends on sibling skills. Does not affect baseline (nothing loaded) or plugin (everything loaded) runs. |
 | `additional_required_agents` | List of agent names (from the same plugin) to register in the **isolated** run alongside the target. Same semantics as `additional_required_skills` but for agents. |
 
+#### Test fixture files
+
+If a scenario requires files in the agent's working directory (e.g. `.csproj`, `.sln`, `.cs` files), place them alongside `eval.yaml` and opt into auto-copy:
+
+```text
+tests/<plugin>/<skill-name>/
+  eval.yaml
+  MyProject.csproj
+  Program.cs
+```
+
+```yaml
+scenarios:
+  - name: "Diagnose build failure"
+    prompt: "Why does this project fail to build?"
+    setup:
+      copy_test_files: true    # copies MyProject.csproj, Program.cs into work dir
+    assertions:
+      - type: "output_matches"
+        pattern: "CS\\d{4}"
+```
+
+You can also create files inline or reference files from the skill directory:
+
+```yaml
+setup:
+  files:
+    - path: "input.txt"
+      content: "inline file content"
+    - path: "data.csv"
+      source: "fixtures/sample-data.csv"  # relative to skill directory
+```
+
 ### Scenario constraints
 
 Constraints are declarative checks against run metrics — no regex or globs needed:
@@ -350,7 +383,7 @@ The per-element classifications are combined into a 0–1 score (✅ low ≤ 0.2
 
 Use `--overfitting-fix` to generate an `eval.fixed.yaml` with suggested outcome-focused replacements for flagged items. Disable the check entirely with `--no-overfitting-check`.
 
-See [OverfittingDetection.md](OverfittingDetection.md) for the full design.
+See [OverfittingDetection.md](docs/OverfittingDetection.md) for the full design.
 
 ### Statistical confidence
 

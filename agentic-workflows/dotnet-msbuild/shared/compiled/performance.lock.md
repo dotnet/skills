@@ -449,6 +449,8 @@ Is your no-op build slow (> 10s per project)?
 - **Root causes**: too many assembly references, network-based reference paths, large assembly search paths
 - **Fixes**: reduce reference count, use `<DesignTimeBuild>false</DesignTimeBuild>` for RAR-heavy analysis, set `<ResolveAssemblyReferencesSilent>true</ResolveAssemblyReferencesSilent>` for diagnostic
 - **Advanced**: `<DesignTimeBuild>` and `<ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>`
+- **Key insight**: RAR runs unconditionally even on incremental builds because users may have installed targeting packs or GACed assemblies (see dotnet/msbuild#2015). With .NET Core micro-assemblies, the reference count is often very high.
+- **Reduce transitive references**: Set `<DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>` to avoid pulling in the full transitive closure (note: projects may need to add direct references for any types they consume). Use `ReferenceOutputAssembly="false"` on ProjectReferences that are only needed at build time (not API surface). Trim unused PackageReferences.
 
 ### 2. Roslyn Analyzers and Source Generators
 
@@ -473,23 +475,30 @@ Is your no-op build slow (> 10s per project)?
 ### 4. Excessive File I/O (Copy tasks)
 
 - **Symptoms**: Copy task shows high aggregate time
-- **Root causes**: copying thousands of files, copying across network drives
-- **Fixes**: use hardlinks (`<CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>true</CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>`), reduce CopyToOutputDirectory items, use `<UseCommonOutputDirectory>true</UseCommonOutputDirectory>` when appropriate
+- **Root causes**: copying thousands of files, copying across network drives, Copy task unintentionally running once per item (per-file) instead of as a single batch (see dotnet/msbuild#12884)
+- **Fixes**: use hardlinks (`<CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>true</CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>`), reduce CopyToOutputDirectory items, use `<UseCommonOutputDirectory>true</UseCommonOutputDirectory>` when appropriate, set `<SkipCopyUnchangedFiles>true</SkipCopyUnchangedFiles>`, consider `--artifacts-path` (.NET 8+) for centralized output layout
+- **Dev Drive**: On Windows, switching to a Dev Drive (ReFS with copy-on-write and reduced Defender scans) can significantly reduce file I/O overhead for Copy-heavy builds. Recommend for both dev machines and self-hosted CI agents.
 
 ### 5. Evaluation Overhead
 
 - **Symptoms**: build starts slow before any compilation
+- **Root causes**: complex Directory.Build.props, wildcard globs scanning large directories, NuGetSdkResolver overhead (adds 180-400ms per project evaluation even when restored — see dotnet/msbuild#4025)
+- **Fixes**: reduce Directory.Build.props complexity, use `<EnableDefaultItems>false</EnableDefaultItems>` for legacy projects with explicit file lists, avoid NuGet-based SDK resolvers if possible
 - See: `eval-performance` skill for detailed guidance
 
 ### 6. NuGet Restore in Build
 
 - **Symptoms**: restore runs every build even when unnecessary
-- **Fix**: separate restore from build: `dotnet restore` then `dotnet build --no-restore`
+- **Fixes**:
+  - Separate restore from build: `dotnet restore` then `dotnet build --no-restore`
+  - Enable static graph evaluation: `<RestoreUseStaticGraphEvaluation>true</RestoreUseStaticGraphEvaluation>` in Directory.Build.props — can save significant time in large builds (results are workload-dependent)
 
-### 7. Large Project Count
+### 7. Large Project Count and Graph Shape
 
-- **Symptoms**: many small projects, each takes minimal time but overhead adds up
+- **Symptoms**: many small projects, each takes minimal time but overhead adds up; deep dependency chains serialize the build
 - **Consider**: project consolidation, or use `/graph` mode for better scheduling
+- **Graph shape matters**: a wide dependency graph (few levels, many parallel branches) builds faster than a deep one (many levels, serialized). Refactoring from deep to wide can yield significant improvements in both clean and incremental build times.
+- **Actions**: look for unnecessary project dependencies, consider splitting a bottleneck project into two, or merging small leaf projects
 
 ## Using Binlog Replay for Performance Analysis
 
@@ -524,12 +533,24 @@ Step-by-step workflow using text log replay:
 ## Quick Wins Checklist
 
 - [ ] Use `/maxcpucount` (or `-m`) for parallel builds
-- [ ] Separate restore from build (`--no-restore`)
-- [ ] Enable hardlinks for Copy
-- [ ] Disable analyzers in dev inner loop
+- [ ] Separate restore from build (`dotnet restore` then `dotnet build --no-restore`)
+- [ ] Enable static graph restore (`<RestoreUseStaticGraphEvaluation>true</RestoreUseStaticGraphEvaluation>`)
+- [ ] Enable hardlinks for Copy (`<CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>true</CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>`)
+- [ ] Disable analyzers conditionally in dev inner loop: `<RunAnalyzers Condition="'$(ContinuousIntegrationBuild)' != 'true'">false</RunAnalyzers>`
+- [ ] Enable reference assemblies (`<ProduceReferenceAssembly>true</ProduceReferenceAssembly>`)
 - [ ] Check for broken incremental builds (see `incremental-build` skill)
 - [ ] Check for bin/obj clashes (see `check-bin-obj-clash` skill)
 - [ ] Use graph build (`/graph`) for multi-project solutions
+- [ ] Use `--artifacts-path` (.NET 8+) for centralized output layout
+- [ ] Enable Dev Drive (ReFS) on Windows dev machines and self-hosted CI
+
+## Impact Categorization
+
+When reporting findings, categorize by impact to help prioritize fixes:
+
+- 🔴 **HIGH IMPACT** (do first): Items consuming >10% of total build time, or a single target >50% of build time
+- 🟡 **MEDIUM IMPACT**: Items consuming 2-10% of build time
+- 🟢 **QUICK WINS**: Easy changes with modest impact (e.g., property flags in Directory.Build.props)
 
 ---
 
@@ -814,6 +835,8 @@ Step-by-step:
 
 ---
 
+## eval-performance
+
 ## MSBuild Evaluation Phases
 
 For a comprehensive overview of MSBuild's evaluation and execution model, see [Build process overview](https://learn.microsoft.com/en-us/visualstudio/msbuild/build-process-overview).
@@ -868,31 +891,6 @@ Key insight: evaluation happens BEFORE any targets run. Slow evaluation = slow b
 ## Multiple Evaluations
 
 - A project evaluated multiple times = wasted work
-- Common causes: referenced from multiple other projects with different global properties
-- Each unique set of global properties = separate evaluation
-- Diagnosis: `grep 'Evaluation started.*ProjectName' full.log` → if count > 1, check for differing global properties
-- Fix: normalize global properties, use graph build (`/graph`)
+- Common causes: referenced from multiple other projects 
 
-## TreatAsLocalProperty
-
-- Prevents property values from flowing to child projects via MSBuild task
-- Overuse: declaring many TreatAsLocalProperty entries adds evaluation overhead
-- Correct use: only when you genuinely need to override an inherited property
-
-## Property Function Cost
-
-- Property functions execute during evaluation
-- Most are cheap (string operations)
-- Expensive: `$([System.IO.File]::ReadAllText(...))` during evaluation — reads file on every evaluation
-- Expensive: network calls, heavy computation
-- Rule: property functions should be fast and side-effect-free
-
-## Optimization Checklist
-
-- [ ] Check preprocessed output size: `dotnet msbuild -pp:full.xml`
-- [ ] Verify evaluation count: should be 1 per project per TFM
-- [ ] Exclude large directories from globs
-- [ ] Avoid file I/O in property functions during evaluation
-- [ ] Minimize import depth
-- [ ] Use graph build to reduce redundant evaluations
-- [ ] Check for unnecessary UsingTask declarations
+[truncated]

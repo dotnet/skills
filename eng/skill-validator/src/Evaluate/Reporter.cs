@@ -523,7 +523,8 @@ public static class Reporter
                 if (anyPluginRun && s.SkillActivationPlugin is { } saPlug)
                 {
                     string plugActivation = FormatActivationCell(saPlug, s.ExpectActivation);
-                    skillsCol += $" / {plugActivation}";
+                    if (plugActivation != skillsCol)
+                        skillsCol += $" / {plugActivation}";
                 }
 
                 // Agents invoked column — show subagent activations
@@ -531,7 +532,8 @@ public static class Reporter
                 if (anyPluginRun && s.SubagentActivationPlugin is { } saPlugAgent)
                 {
                     string plugAgents = FormatSubagentCell(saPlugAgent);
-                    agentsCol += $" / {plugAgents}";
+                    if (plugAgents != agentsCol)
+                        agentsCol += $" / {plugAgents}";
                 }
 
                 var footnote = BuildVerdictFootnote(s, qualityDelta);
@@ -631,7 +633,7 @@ public static class Reporter
 
         bool anyFailure = verdicts.Any(v => !v.Passed);
         if (anyFailure)
-            sb.AppendLine("\n> 📖 See [InvestigatingResults.md](eng/skill-validator/InvestigatingResults.md) for how to diagnose failures. Additional debugging guidance may be provided by your workflow.");
+            sb.AppendLine("\n> 📖 See docs/InvestigatingResults.md for how to diagnose failures. Additional debugging guidance may be provided by your workflow.");
 
         return sb.ToString();
     }

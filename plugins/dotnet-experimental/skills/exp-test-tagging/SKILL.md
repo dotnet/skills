@@ -46,7 +46,7 @@ Use exactly these trait names and values. Do not invent new trait values outside
 | `security` | Verifies authentication, authorization, input sanitization, or secrets handling | Tests for SQL injection, XSS, CSRF, unauthorized access, token validation, permission checks |
 | `concurrency` | Validates thread safety, parallelism, or async correctness | Uses `Task.WhenAll`, locks, `Parallel.ForEach`, `SemaphoreSlim`, reproduces race conditions |
 | `resilience` | Tests retry logic, timeouts, circuit breakers, or graceful degradation | Asserts behavior under transient failures, network drops, or service unavailability (e.g., Polly policies) |
-| `destructive` | Mutates shared or external state that is hard to roll back | Deletes records, drops resources, modifies global config — useful for CI isolation decisions |
+| `destructive` | Mutates shared or external state that is hard to roll back | Deletes records, drops resources, modifies global config -- useful for CI isolation decisions |
 | `configuration` | Verifies settings loading, defaults, environment behavior | Tests missing config keys, invalid values, environment variable fallbacks, options validation |
 | `flaky` | Known to intermittently fail (meta-tag for test health tracking) | Mark tests the team knows are unreliable; used to quarantine or prioritize stabilization |
 
@@ -80,23 +80,23 @@ Record which tests already have tags to avoid duplication.
 
 For each test method without traits, analyze:
 
-1. **Method name** — names containing `Invalid`, `Fail`, `Error`, `Throw`, `Reject`, `BadInput`, `Null`, `Negative` suggest `negative`
-2. **Assertion type** — `Assert.ThrowsException`, `Assert.Throws`, `Should().Throw()` suggest `negative`
-3. **Input values** — `null`, `""`, `0`, `-1`, `int.MaxValue`, `int.MinValue`, empty collections suggest `boundary`
-4. **Setup complexity** — minimal setup with basic assertions suggests `smoke`; external dependencies suggest `integration`
-5. **Comments and names** — references to issue numbers or "regression" / "bug" / "fix for #..." suggest `regression`
-6. **Timing assertions** — `Stopwatch`, `BenchmarkDotNet`, elapsed-time checks suggest `performance`
-7. **Feature centrality** — tests on primary public API entry points or critical user workflows suggest `critical-path`
-8. **Security patterns** — validates auth, checks permissions, sanitizes input, tests for injection, handles tokens/secrets suggest `security`
-9. **Parallel/async constructs** — `Task.WhenAll`, `Parallel.ForEach`, locks, `SemaphoreSlim`, `ConcurrentDictionary`, race condition names suggest `concurrency`
-10. **Fault injection** — simulates failures, tests retries, timeouts, or circuit breakers suggest `resilience`
-11. **State mutation** — deletes external records, drops resources, modifies shared/global state suggest `destructive`
-12. **Full-stack flow** — test spans entry point through data layer to final response, covering a complete user scenario suggest `end-to-end`
-13. **Config/settings** — loads configuration, tests missing keys, validates options, checks environment variables suggest `configuration`
-14. **Known instability** — test has `[Ignore]`/`[Skip]` comments about flakiness, or names contain "flaky"/"intermittent" suggest `flaky`
-15. **Default** — if the test verifies a normal success path, tag `positive`
+1. **Method name** -- names containing `Invalid`, `Fail`, `Error`, `Throw`, `Reject`, `BadInput`, `Null`, `Negative` suggest `negative`
+2. **Assertion type** -- `Assert.ThrowsException`, `Assert.Throws`, `Should().Throw()` suggest `negative`
+3. **Input values** -- `null`, `""`, `0`, `-1`, `int.MaxValue`, `int.MinValue`, empty collections suggest `boundary`
+4. **Setup complexity** -- minimal setup with basic assertions suggests `smoke`; external dependencies suggest `integration`
+5. **Comments and names** -- references to issue numbers or "regression" / "bug" / "fix for #..." suggest `regression`
+6. **Timing assertions** -- `Stopwatch`, `BenchmarkDotNet`, elapsed-time checks suggest `performance`
+7. **Feature centrality** -- tests on primary public API entry points or critical user workflows suggest `critical-path`
+8. **Security patterns** -- validates auth, checks permissions, sanitizes input, tests for injection, handles tokens/secrets suggest `security`
+9. **Parallel/async constructs** -- `Task.WhenAll`, `Parallel.ForEach`, locks, `SemaphoreSlim`, `ConcurrentDictionary`, race condition names suggest `concurrency`
+10. **Fault injection** -- simulates failures, tests retries, timeouts, or circuit breakers suggest `resilience`
+11. **State mutation** -- deletes external records, drops resources, modifies shared/global state suggest `destructive`
+12. **Full-stack flow** -- test spans entry point through data layer to final response, covering a complete user scenario suggest `end-to-end`
+13. **Config/settings** -- loads configuration, tests missing keys, validates options, checks environment variables suggest `configuration`
+14. **Known instability** -- test has `[Ignore]`/`[Skip]` comments about flakiness, or names contain "flaky"/"intermittent" suggest `flaky`
+15. **Default** -- if the test verifies a normal success path, tag `positive`
 
-When in doubt between `positive` and `negative`, read the assertion: if it asserts success → `positive`; if it asserts failure → `negative`.
+When in doubt between `positive` and `negative`, read the assertion: if it asserts success -> `positive`; if it asserts failure -> `negative`.
 
 ### Step 4: Apply trait attributes
 
@@ -151,7 +151,7 @@ After tagging, produce a summary table:
 | destructive   |     1 |       1.3% |
 | configuration |     2 |       2.6% |
 | flaky         |     1 |       1.3% |
-| **Total tests** | **78** | — |
+| **Total tests** | **78** | -- |
 
 Note: Percentages exceed 100% because tests can have multiple traits.
 ```
@@ -174,7 +174,7 @@ Include observations such as:
 | Pitfall | Solution |
 |---------|----------|
 | Guessing traits without reading the test body | Always read assertions and setup to classify accurately |
-| Tagging a test only as `boundary` without `positive`/`negative` | Every test should also be `positive` or `negative` — `boundary` is additive |
+| Tagging a test only as `boundary` without `positive`/`negative` | Every test should also be `positive` or `negative` -- `boundary` is additive |
 | Using `TestCategory` syntax in an xUnit project | Match the attribute style to the detected framework |
 | Duplicating an existing category attribute | Check for pre-existing traits in Step 2 before adding |
 | Over-tagging as `critical-path` | Reserve for tests on primary public entry points, not every helper |

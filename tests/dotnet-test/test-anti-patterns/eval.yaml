@@ -144,6 +144,7 @@ scenarios:
       - "Identified that AddUser_NullUser uses broad Assert.ThrowsException<Exception> instead of the specific ArgumentNullException"
       - "Identified that the static HttpClient field is never disposed and appears unused"
       - "Provided concrete fixes for the critical and high severity findings"
+    reject_tools: ["bash", "edit", "create"]
     timeout: 120
 
   - name: "Detect flakiness indicators and test coupling"
