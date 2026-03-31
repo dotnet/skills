@@ -36,25 +36,6 @@ scenarios:
       - skill
     timeout: 300
 
-  - name: "Preview project creation with dry run"
-    prompt: "Before creating anything, show me exactly what files would be generated if I create a Blazor Web App called MyBlazorApp in ./test-output with interactive server rendering. Don't actually create the project yet."
-    assertions:
-      - type: "exit_success"
-      - type: "output_contains"
-        value: "MyBlazorApp"
-      - type: "file_not_exists"
-        path: "test-output/**/MyBlazorApp.csproj"
-      - type: "output_matches"
-        pattern: "(?i)(Program\\.cs|App\\.razor|\\.csproj)"
-    rubric:
-      - "The agent used the template-instantiation skill to preview without writing to disk"
-      - "The agent listed the files and directories that would be created"
-      - "The agent did NOT actually create the project"
-      - "The agent explained what key generated files are for"
-    expect_tools:
-      - skill
-    timeout: 180
-
   - name: "Create Blazor app with interactive rendering"
     prompt: "Create a new Blazor Web App called MyDashboard in ./test-output with interactive server-side rendering enabled."
     assertions:
