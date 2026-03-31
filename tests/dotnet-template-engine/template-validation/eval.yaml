@@ -105,9 +105,9 @@ scenarios:
     assertions:
       - type: "exit_success"
       - type: "output_matches"
-        pattern: "(?i)(no errors?\b|0 errors?\b|template (is|looks) (valid|good)|ready to publish|no issues? (found|identified)?)"
+        pattern: '(?i)(no errors?\b|0 errors?\b|template (is|looks) (valid|good)|ready to publish|no issues? (found|identified)?)'
       - type: "output_matches"
-        pattern: "(?i)\b(identity|shortName|name)\b"
+        pattern: '(?i)\b(identity|shortName|name)\b'
     rubric:
       - "The agent confirmed the template has no errors"
       - "The agent verified all required fields (identity, name, shortName) are present"

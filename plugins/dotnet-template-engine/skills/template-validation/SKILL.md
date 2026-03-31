@@ -157,6 +157,6 @@ Include the total: "X error(s), Y warning(s), Z suggestion(s)"
 ## More Info
 
 - [template.json reference](https://github.com/dotnet/templating/wiki/Reference-for-template.json) — full schema
-- [Available Symbols Generators](https://github.com/dotnet/templating/wiki/Available-Symbols-Generators) — generator types
+- [Available Symbol Generators](https://github.com/dotnet/templating/wiki/Available-Symbols-Generators) — generator types
 - [Post-action registry](https://github.com/dotnet/templating/wiki/Post-Action-Registry) — action IDs
 - [Constraints](https://github.com/dotnet/templating/wiki/Constraints) — constraint types
