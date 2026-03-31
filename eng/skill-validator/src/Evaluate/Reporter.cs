@@ -133,7 +133,7 @@ public static class Reporter
             {
                 Console.WriteLine();
                 var noiseIcon = noiseResult.Passed ? "✅" : "⚠️";
-                var noiseColor = noiseResult.Passed ? $"{Ansi.Green}" : $"{Ansi.Yellow}";
+                var noiseColor = noiseResult.Passed ? Ansi.Green : Ansi.Yellow;
                 Console.WriteLine($"  🔊 Noise test ({noiseResult.TotalSkillsLoaded} skills loaded): {noiseColor}{noiseResult.OverallDegradation * 100:F1}% avg degradation{Ansi.Reset} {noiseIcon}");
                 Console.WriteLine($"  {Ansi.Dim}{noiseResult.Reason}{Ansi.Reset}");
 
