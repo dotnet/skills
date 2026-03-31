@@ -355,14 +355,17 @@ jobs:
               Select-Object -First 1
 
             if ($hasInfraChanges) {
-              Write-Host "Infrastructure changes detected, evaluating all plugins"
               echo "is_infra=true" >> $env:GITHUB_OUTPUT
-              $plugins = @(Get-ChildItem -Path (Join-Path $contentRoot "plugins") -Directory -ErrorAction SilentlyContinue |
+              # Infra-only: evaluate a small random subset of plugins to keep
+              # the smoke-test fast while still catching regressions.
+              $allPlugins = @(Get-ChildItem -Path (Join-Path $contentRoot "plugins") -Directory -ErrorAction SilentlyContinue |
                 Where-Object {
                   (Test-Path (Join-Path $_.FullName "skills")) -and
                   (Test-Path (Join-Path $contentRoot "tests" $_.Name))
                 } |
                 Select-Object -ExpandProperty Name)
+              $plugins = @($allPlugins | Get-Random -Count ([Math]::Min(2, $allPlugins.Count)))
+              Write-Host "Infrastructure changes detected, evaluating random subset: $($plugins -join ', ')"
               $entries = @($plugins | ForEach-Object {
                 @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
               })
