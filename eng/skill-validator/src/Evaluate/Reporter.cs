@@ -307,7 +307,7 @@ public static class Reporter
             Console.WriteLine();
             foreach (var rs in bj.RubricScores)
             {
-                var scoreColor = rs.Score >= 4 ? $"{Ansi.Green}" : rs.Score >= 3 ? $"{Ansi.Yellow}" : $"{Ansi.Red}";
+                var scoreColor = rs.Score >= 4 ? Ansi.Green : rs.Score >= 3 ? Ansi.Yellow : Ansi.Red;
                 Console.WriteLine($"        {scoreColor}{Ansi.Bold}{rs.Score}/5{Ansi.Reset}  {Ansi.Bold}{rs.Criterion}{Ansi.Reset}");
                 if (!string.IsNullOrEmpty(rs.Reasoning))
                     Console.WriteLine($"              {Ansi.Dim}{rs.Reasoning}{Ansi.Reset}");
