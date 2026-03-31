@@ -98,10 +98,10 @@ public static class Reporter
                 };
                 var severityColor = overfitResult.Severity switch
                 {
-                    OverfittingSeverity.Low => $"{Ansi.Green}",
-                    OverfittingSeverity.Moderate => $"{Ansi.Yellow}",
-                    OverfittingSeverity.High => $"{Ansi.Red}",
-                    _ => $"{Ansi.Dim}",
+                    OverfittingSeverity.Low => Ansi.Green,
+                    OverfittingSeverity.Moderate => Ansi.Yellow,
+                    OverfittingSeverity.High => Ansi.Red,
+                    _ => Ansi.Dim,
                 };
                 Console.WriteLine($"  🔍 Overfitting: {severityColor}{overfitResult.Score:F2} ({overfitResult.Severity.ToString().ToLowerInvariant()}){Ansi.Reset} {overfitIcon}");
 
