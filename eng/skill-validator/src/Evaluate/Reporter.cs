@@ -57,7 +57,7 @@ public static class Reporter
     private static void ReportConsole(IReadOnlyList<SkillVerdict> verdicts, bool verbose, int rejectedCount = 0)
     {
         Console.WriteLine();
-        Console.WriteLine("{Ansi.Bold}═══ Skill Validation Results ═══{Ansi.Reset}");
+        Console.WriteLine($"{Ansi.Bold}═══ Skill Validation Results ═══{Ansi.Reset}");
         Console.WriteLine();
 
         foreach (var verdict in verdicts)
@@ -84,7 +84,7 @@ public static class Reporter
             if (verdict.SkillNotActivated)
             {
                 Console.WriteLine();
-                Console.WriteLine("  {Ansi.BoldRed}⚠️  SKILL NOT ACTIVATED{Ansi.Reset} — the tested skill was not loaded or invoked by the agent");
+                Console.WriteLine($"  {Ansi.BoldRed}⚠️  SKILL NOT ACTIVATED{Ansi.Reset} — the tested skill was not loaded or invoked by the agent");
             }
             if (verdict.OverfittingResult is { } overfitResult)
             {
@@ -385,13 +385,13 @@ public static class Reporter
         if (verbose)
         {
             Console.WriteLine();
-            Console.WriteLine("      {Ansi.Dim}Baseline output:{Ansi.Reset}");
+            Console.WriteLine($"      {Ansi.Dim}Baseline output:{Ansi.Reset}");
             Console.WriteLine(IndentBlock(scenario.Baseline.Metrics.AgentOutput.Length > 0 ? scenario.Baseline.Metrics.AgentOutput : "(no output)", 8));
-            Console.WriteLine("      {Ansi.Dim}With-skill output (isolated):{Ansi.Reset}");
+            Console.WriteLine($"      {Ansi.Dim}With-skill output (isolated):{Ansi.Reset}");
             Console.WriteLine(IndentBlock(scenario.SkilledIsolated.Metrics.AgentOutput.Length > 0 ? scenario.SkilledIsolated.Metrics.AgentOutput : "(no output)", 8));
             if (scenario.SkilledPlugin is { } pluginRun)
             {
-                Console.WriteLine("      {Ansi.Dim}With-skill output (plugin):{Ansi.Reset}");
+                Console.WriteLine($"      {Ansi.Dim}With-skill output (plugin):{Ansi.Reset}");
                 Console.WriteLine(IndentBlock(pluginRun.Metrics.AgentOutput.Length > 0 ? pluginRun.Metrics.AgentOutput : "(no output)", 8));
             }
         }
