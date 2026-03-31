@@ -439,7 +439,7 @@ public static class EvaluateCommand
                 Scenarios = [],
                 OverallImprovementScore = 0,
                 Reason = string.Join(" ", promptErrors),
-                FailureKind = "spec_conformance_failure",
+                FailureKind = FailureKind.SpecConformanceFailure,
             };
         }
 
@@ -474,7 +474,7 @@ public static class EvaluateCommand
             log($"{Ansi.Yellow}⚠️  Agent NOT activated (isolated) in: {names}{Ansi.Reset}");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
-            verdict.FailureKind = "skill_not_activated";
+            verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [AGENT NOT ACTIVATED (isolated) in {notActivatedIsolated.Count} scenario(s)]";
         }
         if (notActivatedPlugin.Count > 0)
@@ -483,7 +483,7 @@ public static class EvaluateCommand
             log($"{Ansi.Yellow}⚠️  Agent NOT activated (plugin) in: {names}{Ansi.Reset}");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
-            verdict.FailureKind = "skill_not_activated";
+            verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [AGENT NOT ACTIVATED (plugin) in {notActivatedPlugin.Count} scenario(s)]";
         }
 
@@ -587,6 +587,8 @@ public static class EvaluateCommand
             PairwiseResult = bestPairwise,
         };
         comparison.PerRunScores = perRunScores;
+        comparison.VarianceCV = Statistics.CoefficientOfVariation(perRunScores);
+        comparison.HighVariance = comparison.VarianceCV is > 0.5;
 
         // Aggregate subagent activation across runs (primary activation signal for agents)
         var allIsoSubagents = runResults.Select(r => r.SubagentActivationIsolated).ToList();
@@ -830,7 +832,7 @@ public static class EvaluateCommand
                 Scenarios = [],
                 OverallImprovementScore = 0,
                 Reason = string.Join(" ", promptErrors),
-                FailureKind = "spec_conformance_failure",
+                FailureKind = FailureKind.SpecConformanceFailure,
             };
         }
 
@@ -911,7 +913,7 @@ public static class EvaluateCommand
             log($"{Ansi.Yellow}⚠️  Skill NOT activated (isolated) in: {names}{Ansi.Reset}");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
-            verdict.FailureKind = "skill_not_activated";
+            verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [NOT ACTIVATED (isolated) in {notActivatedIsolated.Count} scenario(s)]";
         }
         if (notActivatedPlugin.Count > 0)
@@ -920,7 +922,7 @@ public static class EvaluateCommand
             log($"{Ansi.Yellow}⚠️  Skill NOT activated (plugin) in: {names}{Ansi.Reset}");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
-            verdict.FailureKind = "skill_not_activated";
+            verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [NOT ACTIVATED (plugin) in {notActivatedPlugin.Count} scenario(s)]";
         }
 
@@ -1035,6 +1037,8 @@ public static class EvaluateCommand
             PairwiseResult = bestPairwise,
         };
         comparison.PerRunScores = perRunScores;
+        comparison.VarianceCV = Statistics.CoefficientOfVariation(perRunScores);
+        comparison.HighVariance = comparison.VarianceCV is > 0.5;
 
         // Aggregate skill activation — BOTH skilled runs independently
         var allIsoActivations = runResults.Select(r => r.SkillActivationIsolated).ToList();
@@ -1324,7 +1328,7 @@ public static class EvaluateCommand
                 Scenarios = [],
                 OverallImprovementScore = 0,
                 Reason = $"Noise test execution failed: {ex.Message}",
-                FailureKind = "noise_degradation",
+                FailureKind = FailureKind.NoiseDegradation,
             };
         }
 
@@ -1336,7 +1340,7 @@ public static class EvaluateCommand
             Scenarios = [],
             OverallImprovementScore = 0,
             Reason = noiseResult.Reason,
-            FailureKind = noiseResult.Passed ? null : "noise_degradation",
+            FailureKind = noiseResult.Passed ? null : FailureKind.NoiseDegradation,
             NoiseTestResult = noiseResult,
         };
 
