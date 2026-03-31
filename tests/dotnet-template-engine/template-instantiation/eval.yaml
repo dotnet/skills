@@ -37,7 +37,7 @@ scenarios:
     timeout: 300
 
   - name: "Preview project creation with dry run"
-    prompt: "I want to preview a Blazor Web App template before creating it. Show me what files a Blazor Web App called MyBlazorApp would generate in ./test-output with interactive server rendering, but do NOT create it."
+    prompt: "Before creating anything, show me exactly what files would be generated if I create a Blazor Web App called MyBlazorApp in ./test-output with interactive server rendering. Don't actually create the project yet."
     assertions:
       - type: "exit_success"
       - type: "output_contains"
@@ -55,20 +55,20 @@ scenarios:
       - skill
     timeout: 180
 
-  - name: "Create project with specific framework"
-    prompt: "Create a new xUnit test project targeting net8.0 called MyTests in ./test-output"
+  - name: "Create Blazor app with interactive rendering"
+    prompt: "Create a new Blazor Web App called MyDashboard in ./test-output with interactive server-side rendering enabled."
     assertions:
       - type: "exit_success"
       - type: "output_contains"
-        value: "MyTests"
+        value: "MyDashboard"
       - type: "file_exists"
-        path: "test-output/**/MyTests.csproj"
-      - type: "file_contains"
-        path: "test-output/**/MyTests.csproj"
-        value: "net8.0"
+        path: "test-output/**/MyDashboard.csproj"
+      - type: "output_matches"
+        pattern: "(?i)(server|interactive|render)"
     rubric:
-      - "The agent created the xUnit test project with the correct framework"
-      - "The agent passed the Framework parameter as net8.0"
+      - "The agent created the Blazor Web App with correct rendering mode"
+      - "The agent chose the blazor template (not blazorserver or blazorwasm)"
+      - "The agent set the interactivity parameter appropriately"
       - "The agent confirmed successful creation"
     expect_tools:
       - skill
