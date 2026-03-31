@@ -23,10 +23,11 @@ scenarios:
         value: "SecureApi"
       - type: "file_exists"
         path: "test-output/**/SecureApi.csproj"
+      - type: "file_contains"
+        path: "test-output/**/SecureApi.csproj"
+        value: "PublishAot"
       - type: "output_matches"
         pattern: "(?i)individual"
-      - type: "output_matches"
-        pattern: "(?i)(aot|PublishAot)"
     rubric:
       - "The agent created the project with the correct parameters"
       - "The agent passed the auth parameter set to Individual"
