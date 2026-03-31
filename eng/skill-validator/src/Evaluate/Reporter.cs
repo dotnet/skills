@@ -157,7 +157,7 @@ public static class Reporter
 
         int passed = verdicts.Count(v => v.Passed);
         int total = verdicts.Count + rejectedCount;
-        var summaryColor = (passed == total) ? $"{Ansi.Green}" : $"{Ansi.Red}";
+        var summaryColor = (passed == total) ? Ansi.Green : Ansi.Red;
         var summaryText = $"{passed}/{total} skills passed validation";
         if (rejectedCount > 0)
             summaryText += $" ({rejectedCount} rejected due to execution errors)";
