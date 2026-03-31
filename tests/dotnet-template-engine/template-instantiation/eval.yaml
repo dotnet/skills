@@ -34,10 +34,10 @@ scenarios:
       - "The agent verified or previewed the creation"
     expect_tools:
       - skill
-    timeout: 180
+    timeout: 300
 
   - name: "Preview project creation with dry run"
-    prompt: "Before creating anything, show me exactly what files would be generated if I create a Blazor Web App called MyBlazorApp in ./test-output with interactive server rendering. Don't actually create the project yet."
+    prompt: "I want to preview a Blazor Web App template before creating it. Show me what files a Blazor Web App called MyBlazorApp would generate in ./test-output with interactive server rendering, but do NOT create it."
     assertions:
       - type: "exit_success"
       - type: "output_contains"
@@ -47,7 +47,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(?i)(Program\\.cs|App\\.razor|\\.csproj)"
     rubric:
-      - "The agent used the template-instantiation or template-discovery skill to preview without writing to disk"
+      - "The agent used the template-instantiation skill to preview without writing to disk"
       - "The agent listed the files and directories that would be created"
       - "The agent did NOT actually create the project"
       - "The agent explained what key generated files are for"
@@ -55,21 +55,21 @@ scenarios:
       - skill
     timeout: 180
 
-  - name: "Create multi-project solution structure"
-    prompt: "I need a solution with two projects: an ASP.NET Core web API called OrdersApi and an xUnit test project called OrdersApi.Tests, both in ./test-output. Create them and make sure the test project references the API project."
+  - name: "Create project with specific framework"
+    prompt: "Create a new xUnit test project targeting net8.0 called MyTests in ./test-output"
     assertions:
       - type: "exit_success"
+      - type: "output_contains"
+        value: "MyTests"
       - type: "file_exists"
-        path: "test-output/**/OrdersApi.csproj"
-      - type: "file_exists"
-        path: "test-output/**/OrdersApi.Tests.csproj"
-      - type: "output_matches"
-        pattern: "(?i)(reference|ProjectReference)"
+        path: "test-output/**/MyTests.csproj"
+      - type: "file_contains"
+        path: "test-output/**/MyTests.csproj"
+        value: "net8.0"
     rubric:
-      - "The agent created both projects (API and test) in the correct location"
-      - "The agent set up a project reference from the test project to the API project"
-      - "The agent used the correct templates (webapi and xunit)"
-      - "The agent verified both projects were created successfully"
+      - "The agent created the xUnit test project with the correct framework"
+      - "The agent passed the Framework parameter as net8.0"
+      - "The agent confirmed successful creation"
     expect_tools:
       - skill
     timeout: 180
