@@ -293,7 +293,7 @@ public static class Reporter
         if (pj is not null)
         {
             double scoreDeltaPlug = pj.OverallScore - bj.OverallScore;
-            var pTimeout = p!.TimedOut ? " {Ansi.Red}⏰ timeout{Ansi.Reset}" : "";
+            var pTimeout = p!.TimedOut ? $" {Ansi.Red}⏰ timeout{Ansi.Reset}" : "";
             overallLine += $"  plugin: {pj.OverallScore:F1}{pTimeout} ({FormatColorDelta(scoreDeltaPlug)})";
         }
         Console.WriteLine(overallLine);
@@ -338,7 +338,7 @@ public static class Reporter
         // With-skill judge (Plugin) — only if plugin run exists
         if (pj is not null)
         {
-            var pTimeout = p!.TimedOut ? " {Ansi.Red}⏰ timeout{Ansi.Reset}" : "";
+            var pTimeout = p!.TimedOut ? $" {Ansi.Red}⏰ timeout{Ansi.Reset}" : "";
             Console.WriteLine($"      {Ansi.Green}─── With-Skill Judge (Plugin){Ansi.Reset} \x1b[32;1m{pj.OverallScore:F1}/5{Ansi.Reset}{pTimeout} {Ansi.Green}───{Ansi.Reset}");
             Console.WriteLine($"      {Ansi.Dim}{pj.OverallReasoning}{Ansi.Reset}");
             if (pj.RubricScores.Count > 0)
