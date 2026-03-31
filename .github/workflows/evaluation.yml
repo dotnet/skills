@@ -447,7 +447,7 @@ jobs:
     permissions:
       contents: read
     outputs:
-      cache-key: ${{ steps.cache-validator.outputs.cache-primary-key }}
+      cache-key: ${{ steps.compute-key.outputs.cache-key }}
     steps:
       # For same-repo PRs (trusted), build from the PR branch so skill-validator
       # changes are tested. For fork PRs (untrusted), always build from the
@@ -458,12 +458,16 @@ jobs:
           ref: ${{ needs.gate.outputs.is_fork != 'true' && needs.gate.outputs.head_sha || '' }}
           persist-credentials: false
 
+      - name: Compute cache key
+        id: compute-key
+        run: echo "cache-key=skill-validator-${{ runner.os }}-${{ hashFiles('eng/skill-validator/src/**', 'eng/skill-validator/Directory.Build.props', 'global.json') }}" >> "$GITHUB_OUTPUT"
+
       - name: Cache validator archive
         id: cache-validator
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         with:
           path: skill-validator-dist.tar.gz
-          key: skill-validator-${{ runner.os }}-${{ hashFiles('eng/skill-validator/src/**', 'eng/skill-validator/Directory.Build.props', 'global.json') }}
+          key: ${{ steps.compute-key.outputs.cache-key }}
 
       - name: Setup .NET SDK
         if: steps.cache-validator.outputs.cache-hit != 'true'
