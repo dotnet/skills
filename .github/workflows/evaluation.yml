@@ -90,12 +90,13 @@ jobs:
             Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
             Select-Object -First 1
 
-          # Skill-validator changes need evaluation. Workflow YAML changes don't
-          # require /evaluate because the issue_comment trigger always runs from
-          # main anyway — workflow changes are only effective after merge.
-          # Documentation files don't affect evaluation.
+          # Skill-validator and evaluation pipeline changes need evaluation.
+          # Documentation files under src/ don't affect evaluation.
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
+            Where-Object {
+              ($_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)') -or
+              $_ -match '^\.github/workflows/evaluation\.yml$'
+            } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -156,7 +157,10 @@ jobs:
             Select-Object -First 1
 
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
+            Where-Object {
+              ($_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)') -or
+              $_ -match '^\.github/workflows/evaluation\.yml$'
+            } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -351,10 +355,18 @@ jobs:
             # Check if any changed files are in infrastructure paths
             # Documentation files under src/ don't affect evaluation.
             $hasInfraChanges = $changedFiles |
-              Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
+              Where-Object {
+                ($_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)') -or
+                $_ -match '^\.github/workflows/evaluation\.yml$'
+              } |
               Select-Object -First 1
 
-            if ($hasInfraChanges) {
+            # Also check for skill/test changes so we don't lose them
+            $hasSkillChanges = $changedFiles |
+              Where-Object { $_ -match '^(?:plugins/([^/]+)/skills|tests/([^/]+))/([^/]+)/' } |
+              Select-Object -First 1
+
+            if ($hasInfraChanges -and -not $hasSkillChanges) {
               echo "is_infra=true" >> $env:GITHUB_OUTPUT
               # Infra-only: evaluate a small random subset of plugins to keep
               # the smoke-test fast while still catching regressions.
