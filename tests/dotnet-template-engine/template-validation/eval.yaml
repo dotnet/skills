@@ -52,13 +52,15 @@ scenarios:
       - type: "output_matches"
         pattern: "(?i)(net7\\.0|default.*not in|not.*valid.*choice)"
       - type: "output_matches"
-        pattern: "(?i)(enableLogging|yes).*(bool|boolean|not\\s+valid)"
+        pattern: '(?i)((enableLogging|yes).*(bool|boolean).*(invalid|not\s+valid|must\s+be|expected)|(enableLogging|yes).*(invalid|not\s+valid|must\s+be|expected).*(bool|boolean))'
       - type: "output_matches"
-        pattern: "(?i)(maxRetries|abc).*(int|integer|not\\s+valid)"
+        pattern: '(?i)((maxRetries|abc).*(int|integer).*(invalid|not\s+valid|must\s+be|expected)|(maxRetries|abc).*(invalid|not\s+valid|must\s+be|expected).*(int|integer))'
       - type: "output_matches"
         pattern: "(?i)computed.*(missing|no).*value"
       - type: "output_matches"
         pattern: "(?i)generated.*(missing|no).*generator"
+      - type: "output_matches"
+        pattern: "(?i)(actionId|post.?action).*(missing|required|no)"
     rubric:
       - "The agent identified the missing 'identity' field (required)"
       - "The agent flagged 'restore' as a shortName that conflicts with a dotnet CLI command"
