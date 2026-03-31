@@ -109,7 +109,8 @@ public static class RetryHelper
                     // Apply jitter: ±JitterFactor of the computed delay to spread out concurrent retries.
                     var jitterRange = (int)(clampedDelay * JitterFactor);
                     var jitterOffset = jitterRange > 0 ? (int)((getJitter() * 2 - 1) * jitterRange) : 0;
-                    var delay = Math.Max(0, clampedDelay + jitterOffset);
+                    // Re-clamp after jitter so we never exceed the remaining budget or MaxSingleDelayMs.
+                    var delay = (int)Math.Min(Math.Max(0, clampedDelay + jitterOffset), Math.Min(MaxSingleDelayMs, Math.Max(0, remaining)));
                     Console.Error.WriteLine($"      🔄 {label}: retry {attempt}/{maxRetries} (waiting {delay / 1000}s)");
                     await doDelay(delay, budgetCts.Token);
                 }

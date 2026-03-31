@@ -202,29 +202,44 @@ public static class PairwiseJudge
             var errors = relevant.Where(e => errorTypes.Contains(e.Type)).ToList();
             var nonErrors = relevant.Where(e => !errorTypes.Contains(e.Type)).ToList();
 
-            var budget = MaxTimelineEvents - errors.Count;
-            var headCount = Math.Max(0, budget / 2);
-            var tailCount = Math.Max(0, budget - headCount);
-            var omitted = nonErrors.Count - headCount - tailCount;
+            if (errors.Count >= MaxTimelineEvents)
+            {
+                var errorBudget = Math.Max(0, MaxTimelineEvents - 1);
+                var keptErrors = errors.Take(errorBudget).ToList();
+                var omittedErrors = errors.Count - keptErrors.Count;
 
-            var head = nonErrors.Take(headCount).ToList();
-            var tail = nonErrors.Skip(Math.Max(0, nonErrors.Count - tailCount)).ToList();
+                relevant = [new AgentEvent(
+                    "summary", 0,
+                    new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(
+                        $"... ({nonErrors.Count} non-error events omitted, {omittedErrors} error(s) omitted, {keptErrors.Count} error(s) shown) ...") })];
+                relevant.AddRange(keptErrors);
+            }
+            else
+            {
+                var budget = MaxTimelineEvents - errors.Count;
+                var headCount = Math.Max(0, budget / 2);
+                var tailCount = Math.Max(0, budget - headCount);
+                var omitted = nonErrors.Count - headCount - tailCount;
 
-            var omittedEvents = nonErrors.Skip(headCount).Take(Math.Max(0, omitted)).ToList();
-            var omittedToolCalls = omittedEvents.Count(e => e.Type is "tool.execution_start" or "tool.execution_complete");
-            var omittedMessages = omittedEvents.Count(e => e.Type is "user.message" or "assistant.message");
+                var head = nonErrors.Take(headCount).ToList();
+                var tail = nonErrors.Skip(Math.Max(0, nonErrors.Count - tailCount)).ToList();
 
-            var summaryParts = new List<string> { $"{omitted} events omitted" };
-            if (omittedToolCalls > 0) summaryParts.Add($"{omittedToolCalls} tool events");
-            if (omittedMessages > 0) summaryParts.Add($"{omittedMessages} messages");
-            if (errors.Count > 0) summaryParts.Add($"{errors.Count} error(s) preserved");
+                var omittedEvents = nonErrors.Skip(headCount).Take(Math.Max(0, omitted)).ToList();
+                var omittedToolCalls = omittedEvents.Count(e => e.Type is "tool.execution_start" or "tool.execution_complete");
+                var omittedMessages = omittedEvents.Count(e => e.Type is "user.message" or "assistant.message");
 
-            relevant = [..head];
-            relevant.Add(new AgentEvent(
-                "summary", 0,
-                new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create($"... ({string.Join(", ", summaryParts)}) ...") }));
-            relevant.AddRange(errors);
-            relevant.AddRange(tail);
+                var summaryParts = new List<string> { $"{omitted} events omitted" };
+                if (omittedToolCalls > 0) summaryParts.Add($"{omittedToolCalls} tool events");
+                if (omittedMessages > 0) summaryParts.Add($"{omittedMessages} messages");
+                if (errors.Count > 0) summaryParts.Add($"{errors.Count} error(s) preserved");
+
+                relevant = [..head];
+                relevant.Add(new AgentEvent(
+                    "summary", 0,
+                    new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create($"... ({string.Join(", ", summaryParts)}) ...") }));
+                relevant.AddRange(errors);
+                relevant.AddRange(tail);
+            }
         }
 
         var sb = new System.Text.StringBuilder();
