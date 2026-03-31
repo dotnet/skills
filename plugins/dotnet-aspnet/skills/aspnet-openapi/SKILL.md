@@ -51,8 +51,12 @@ right choice when client code generation is the primary goal.
 | Complex polymorphism or discriminators | `NSwag.AspNetCore` | More schema control than either alternative |
 | Existing project already on Swashbuckle | Keep Swashbuckle | Migration is optional — see [references/swashbuckle-migration.md](references/swashbuckle-migration.md) |
 
-**Hard rule:** Do not mix `Microsoft.AspNetCore.OpenApi` and Swashbuckle in the same project.
-Both enumerate endpoints at startup and produce conflicting output. Pick one.
+**Hard rule:** Do not mix the built-in generator (`Microsoft.AspNetCore.OpenApi`) with the
+Swashbuckle *document generator* (`Swashbuckle.AspNetCore` via `AddSwaggerGen`/`UseSwagger`)
+in the same project. Both enumerate endpoints at startup and produce conflicting OpenAPI
+documents — pick one generator. Using the standalone `Swashbuckle.AspNetCore.SwaggerUi`
+package alongside `Microsoft.AspNetCore.OpenApi` is fine, as long as it only points at the
+built-in `/openapi/v1.json` endpoint (shown in Step 4).
 
 ---
 
@@ -366,7 +370,7 @@ app.MapOpenApi()
 | Security scheme `$ref` name mismatch | The `Id` in `OpenApiReference` must exactly match the key in `SecuritySchemes` — `"Bearer"` ≠ `"bearer"` |
 | Spec endpoint returns 401 unexpectedly | Either wrapped in `IsDevelopment()` (run in Development env) or secured with `RequireAuthorization()` (authenticate first, or remove the auth requirement from the spec endpoint) |
 | Swashbuckle 6.x on .NET 9 | Swashbuckle 6.x does not support .NET 9+ reflection APIs. Upgrade to 7.x or migrate to the built-in package |
-| `MapOpenApi()` produces empty `paths` | All endpoints were registered after `app.Build()` was called, or the project targets .NET 8 where the built-in package is unavailable |
+| `MapOpenApi()` produces empty `paths` | `AddOpenApi()` was not called, `MapOpenApi()` was mapped on a different `app` instance or route than your API endpoints, or you're requesting a document name that doesn't match the one registered in `AddOpenApi()` |
 | Scalar UI loads but shows no auth button | `WithPreferredScheme("Bearer")` not set, or the security scheme was not added to `document.Components.SecuritySchemes` |
 
 ## Reference Files

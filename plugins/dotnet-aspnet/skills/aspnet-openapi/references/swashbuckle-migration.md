@@ -24,10 +24,10 @@ Stay on Swashbuckle when:
 
 ```xml
 <!-- Remove -->
-<PackageReference Include="Swashbuckle.AspNetCore" Version="*" />
+<PackageReference Include="Swashbuckle.AspNetCore" Version="7.*" />
 
 <!-- Add -->
-<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="*" />
+<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.*" />
 
 <!-- If you still want Swagger UI instead of Scalar -->
 <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUi" Version="7.*" />
