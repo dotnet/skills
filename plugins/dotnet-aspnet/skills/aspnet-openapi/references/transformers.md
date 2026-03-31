@@ -81,6 +81,9 @@ comments are picked up automatically once the XML file exists on disk.
 When versioning produces multiple documents, the document name is available on the context:
 
 ```csharp
+using Microsoft.AspNetCore.OpenApi;
+using Microsoft.OpenApi.Models;
+
 internal sealed class VersionedInfoTransformer : IOpenApiDocumentTransformer
 {
     public Task TransformAsync(
@@ -110,6 +113,8 @@ Apply the Bearer requirement only to endpoints marked with `[Authorize]` or
 
 ```csharp
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.OpenApi;
+using Microsoft.OpenApi.Models;
 
 internal sealed class BearerOperationTransformer : IOpenApiOperationTransformer
 {
@@ -159,6 +164,9 @@ builder.Services.AddOpenApi(options =>
 ### Operation Transformer: Mark Deprecated Endpoints
 
 ```csharp
+using Microsoft.AspNetCore.OpenApi;
+using Microsoft.OpenApi.Models;
+
 internal sealed class DeprecationTransformer : IOpenApiOperationTransformer
 {
     public Task TransformAsync(
@@ -188,6 +196,10 @@ attribute on MVC controller actions.
 By default, enums serialize as integers in the spec. To represent them as string values:
 
 ```csharp
+using Microsoft.AspNetCore.OpenApi;
+using Microsoft.OpenApi.Any;
+using Microsoft.OpenApi.Models;
+
 internal sealed class EnumSchemaTransformer : IOpenApiSchemaTransformer
 {
     public Task TransformAsync(
@@ -220,6 +232,10 @@ internal sealed class EnumSchemaTransformer : IOpenApiSchemaTransformer
 For OAuth2 authorization code flow (e.g., Azure AD, Entra ID):
 
 ```csharp
+using Microsoft.AspNetCore.OpenApi;
+using Microsoft.Extensions.Configuration;
+using Microsoft.OpenApi.Models;
+
 internal sealed class OAuth2SecuritySchemeTransformer : IOpenApiDocumentTransformer
 {
     private readonly IConfiguration _configuration;
@@ -279,6 +295,7 @@ app.MapScalarApiReference(options =>
 ### Document Transformer: API Key Security Scheme
 
 ```csharp
+// Inside a document transformer's TransformAsync method:
 document.Components ??= new OpenApiComponents();
 document.Components.SecuritySchemes["ApiKey"] = new OpenApiSecurityScheme
 {
