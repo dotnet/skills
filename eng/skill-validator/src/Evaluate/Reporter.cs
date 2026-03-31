@@ -324,7 +324,7 @@ public static class Reporter
             Console.WriteLine();
             foreach (var rs in sj.RubricScores)
             {
-                var scoreColor = rs.Score >= 4 ? $"{Ansi.Green}" : rs.Score >= 3 ? $"{Ansi.Yellow}" : $"{Ansi.Red}";
+                var scoreColor = rs.Score >= 4 ? Ansi.Green : rs.Score >= 3 ? Ansi.Yellow : Ansi.Red;
                 var baselineRs = bj.RubricScores.FirstOrDefault(b =>
                     string.Equals(b.Criterion, rs.Criterion, StringComparison.OrdinalIgnoreCase));
                 var comparison = baselineRs is not null ? $"{Ansi.Dim} (was {baselineRs.Score}/5){Ansi.Reset}" : "";
@@ -346,7 +346,7 @@ public static class Reporter
                 Console.WriteLine();
                 foreach (var rs in pj.RubricScores)
                 {
-                    var scoreColor = rs.Score >= 4 ? $"{Ansi.Green}" : rs.Score >= 3 ? $"{Ansi.Yellow}" : $"{Ansi.Red}";
+                    var scoreColor = rs.Score >= 4 ? Ansi.Green : rs.Score >= 3 ? Ansi.Yellow : Ansi.Red;
                     var baselineRs = bj.RubricScores.FirstOrDefault(b =>
                         string.Equals(b.Criterion, rs.Criterion, StringComparison.OrdinalIgnoreCase));
                     var comparison = baselineRs is not null ? $"{Ansi.Dim} (was {baselineRs.Score}/5){Ansi.Reset}" : "";
@@ -364,7 +364,7 @@ public static class Reporter
             var consistencyIcon = pw.PositionSwapConsistent
                 ? $"{Ansi.Green}✓ consistent{Ansi.Reset}"
                 : $"{Ansi.Yellow}⚠ inconsistent{Ansi.Reset}";
-            var winnerColor = pw.OverallWinner == "skill" ? $"{Ansi.Green}" : pw.OverallWinner == "baseline" ? $"{Ansi.Red}" : $"{Ansi.Dim}";
+            var winnerColor = pw.OverallWinner == "skill" ? Ansi.Green : pw.OverallWinner == "baseline" ? Ansi.Red : Ansi.Dim;
             Console.WriteLine($"      {Ansi.Bold}─── Pairwise Comparison{Ansi.Reset} {consistencyIcon} {Ansi.Bold}───{Ansi.Reset}");
             Console.WriteLine($"      Winner: {winnerColor}{pw.OverallWinner}{Ansi.Reset} ({pw.OverallMagnitude})");
             Console.WriteLine($"      {Ansi.Dim}{pw.OverallReasoning}{Ansi.Reset}");
@@ -373,7 +373,7 @@ public static class Reporter
                 Console.WriteLine();
                 foreach (var pr in pw.RubricResults)
                 {
-                    var prColor = pr.Winner == "skill" ? $"{Ansi.Green}" : pr.Winner == "baseline" ? $"{Ansi.Red}" : $"{Ansi.Dim}";
+                    var prColor = pr.Winner == "skill" ? Ansi.Green : pr.Winner == "baseline" ? Ansi.Red : Ansi.Dim;
                     Console.WriteLine($"        {prColor}{Ansi.Bold}{pr.Winner,-8}{Ansi.Reset} ({pr.Magnitude})  {Ansi.Bold}{pr.Criterion}{Ansi.Reset}");
                     if (!string.IsNullOrEmpty(pr.Reasoning))
                         Console.WriteLine($"              {Ansi.Dim}{pr.Reasoning}{Ansi.Reset}");
