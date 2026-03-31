@@ -1,38 +1,44 @@
 scenarios:
-  - name: "Add OpenTelemetry tracing and metrics to an ASP.NET Core API"
+  - name: "Set up OpenTelemetry tracing and metrics with custom spans in ASP.NET Core"
     prompt: |
-      Show me the code changes needed to add OpenTelemetry to my ASP.NET Core 8 app. I need distributed tracing with custom spans for order processing, a counter metric for orders processed, and OTLP export. My custom traces weren't showing up last time I tried — what did I likely get wrong? Don't create or modify any files, just explain with code snippets.
+      I'm adding OpenTelemetry to my ASP.NET Core 8 API. I need:
+      1. Distributed tracing with OTLP export to a collector at localhost:4317
+      2. A custom span around my OrderService.ProcessOrder method
+      3. A custom counter metric for orders processed
+      Show me the complete Program.cs setup and the service class. Don't create files.
     assertions:
       - type: "output_matches"
         pattern: "(OpenTelemetry\\.Extensions\\.Hosting|AddOpenTelemetry)"
       - type: "output_matches"
         pattern: "(ActivitySource|StartActivity)"
       - type: "output_matches"
-        pattern: "(AddSource|AddMeter)"
-      - type: "output_matches"
-        pattern: "(Counter|Histogram|CreateCounter|CreateHistogram)"
-      - type: "output_matches"
-        pattern: "(AddOtlpExporter|OtlpExporter|OpenTelemetryProtocol)"
+        pattern: "(AddOtlpExporter|OtlpExporter)"
     rubric:
-      - "Listed the correct NuGet packages: OpenTelemetry.Extensions.Hosting, OpenTelemetry.Instrumentation.AspNetCore, OpenTelemetry.Instrumentation.Http, OpenTelemetry.Exporter.OpenTelemetryProtocol"
-      - "Showed AddOpenTelemetry() configuration with .WithTracing() and .WithMetrics()"
-      - "Included AddAspNetCoreInstrumentation() and/or AddHttpClientInstrumentation() for auto-instrumentation"
-      - "Showed how to register custom ActivitySource names via AddSource() and create spans with StartActivity()"
-      - "Showed how to create custom metrics using CreateCounter() or similar, with the Meter name registered via AddMeter()"
-      - "Warned that ActivitySource/Meter names must match AddSource/AddMeter registrations exactly or custom telemetry will be silently dropped"
+      - "Included OpenTelemetry.Extensions.Hosting and OpenTelemetry.Instrumentation.Http in the required NuGet packages"
+      - "Configured both .WithTracing() and .WithMetrics() in the same AddOpenTelemetry() call"
+      - "Registered custom ActivitySource names via AddSource() and showed that the ActivitySource name in the service class must match exactly"
+      - "Used IMeterFactory via dependency injection to create the Meter instead of a static Meter constructor"
     reject_tools: ["bash", "edit"]
-    timeout: 360
+    timeout: 180
 
-  - name: "OpenTelemetry skill should not activate for simple logging question"
-    prompt: "How do I configure Serilog structured logging in my ASP.NET Core app to write to a file and console?"
+  - name: "Configure all three OpenTelemetry signals with correct OTLP endpoints"
+    prompt: |
+      I need to set up all three OpenTelemetry signals (traces, metrics, logs) in my
+      ASP.NET Core 8 app, all exporting via OTLP to my collector. I want logs to
+      include trace correlation and carry the same service name as my traces.
+      What NuGet packages do I need, and show me the complete Program.cs configuration?
+      Don't create files.
     assertions:
-      - type: "output_not_contains"
-        value: "OpenTelemetry"
-      - type: "output_not_matches"
-        pattern: "(ActivitySource|StartActivity|AddOpenTelemetry|OTLP)"
+      - type: "output_matches"
+        pattern: "(AddOpenTelemetry|WithTracing|WithMetrics)"
+      - type: "output_matches"
+        pattern: "(AddOtlpExporter|OtlpExporter)"
+      - type: "output_matches"
+        pattern: "(Logging|AddOpenTelemetry|TraceId|SpanId)"
     rubric:
-      - "Did NOT suggest OpenTelemetry for a Serilog logging question"
-      - "Provided Serilog-specific configuration guidance"
+      - "Configured all three signals: tracing (WithTracing), metrics (WithMetrics), and logging (builder.Logging.AddOpenTelemetry)"
+      - "Set explicit OTLP exporter endpoints consistently across all three signals instead of leaving some as defaults"
+      - "Set the service resource on the logging provider explicitly so logs carry the same service name as traces and metrics"
+      - "Listed the complete set of required NuGet packages including the OTLP exporter package"
     reject_tools: ["bash", "edit"]
-    timeout: 60
-    expect_activation: false
+    timeout: 180

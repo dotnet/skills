@@ -128,6 +128,14 @@ builder.Logging.AddOpenTelemetry(logging =>
 {
     logging.IncludeScopes = true;
     logging.IncludeFormattedMessage = true;
+    logging.ParseStateValues = true;  // Preserve structured log attributes
+
+    // CRITICAL: Set the same service resource on the logging provider.
+    // builder.Services.AddOpenTelemetry().ConfigureResource() does NOT
+    // propagate to the logging provider — set it explicitly here.
+    logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
+        .AddService(serviceName: serviceName, serviceVersion: serviceVersion));
+
     logging.AddOtlpExporter(options =>
     {
         options.Endpoint = new Uri("http://localhost:4317");
