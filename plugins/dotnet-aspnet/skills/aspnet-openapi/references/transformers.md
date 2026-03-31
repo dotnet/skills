@@ -19,6 +19,8 @@ The built-in package exposes three transformer interfaces, all registered throug
 ### Registering Transformers
 
 ```csharp
+using Microsoft.OpenApi.Models;
+
 builder.Services.AddOpenApi(options =>
 {
     // DI-enabled class transformer (can take constructor dependencies)
