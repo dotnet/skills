@@ -446,6 +446,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      cache-key: ${{ steps.cache-validator.outputs.cache-primary-key }}
     steps:
       # For same-repo PRs (trusted), build from the PR branch so skill-validator
       # changes are tested. For fork PRs (untrusted), always build from the
@@ -456,18 +458,29 @@ jobs:
           ref: ${{ needs.gate.outputs.is_fork != 'true' && needs.gate.outputs.head_sha || '' }}
           persist-credentials: false
 
+      - name: Cache validator archive
+        id: cache-validator
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: skill-validator-dist.tar.gz
+          key: skill-validator-${{ runner.os }}-${{ hashFiles('eng/skill-validator/src/**', 'eng/skill-validator/Directory.Build.props', 'global.json') }}
+
       - name: Setup .NET SDK
+        if: steps.cache-validator.outputs.cache-hit != 'true'
         uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
         with:
           global-json-file: global.json
 
       - name: Build skill-validator
+        if: steps.cache-validator.outputs.cache-hit != 'true'
         run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
 
       - name: Create validator archive
+        if: steps.cache-validator.outputs.cache-hit != 'true'
         run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
 
       - name: Upload built validator
+        if: steps.cache-validator.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: skill-validator-dist.tar.gz
@@ -504,7 +517,15 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Restore cached validator
+        id: cache-validator
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: skill-validator-dist.tar.gz
+          key: ${{ needs.build-validator.outputs.cache-key }}
+
       - name: Download built validator
+        if: steps.cache-validator.outputs.cache-hit != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: skill-validator-dist.tar.gz
@@ -595,7 +616,7 @@ jobs:
   # Post consolidated evaluation results as a PR comment.
   # ==========================================================================
   comment-on-pr:
-    needs: [gate, discover, evaluate]
+    needs: [gate, discover, build-validator, evaluate]
     if: >-
       always() &&
       needs.evaluate.result != 'cancelled' &&
@@ -614,8 +635,17 @@ jobs:
           merge-multiple: false
         continue-on-error: ${{ needs.evaluate.result != 'success' }}
 
-      - name: Download built validator
+      - name: Restore cached validator
         if: needs.evaluate.result != 'skipped'
+        id: cache-validator
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: skill-validator-dist.tar.gz
+          key: ${{ needs.build-validator.outputs.cache-key }}
+        continue-on-error: true
+
+      - name: Download built validator
+        if: needs.evaluate.result != 'skipped' && steps.cache-validator.outputs.cache-hit != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: skill-validator-dist.tar.gz
