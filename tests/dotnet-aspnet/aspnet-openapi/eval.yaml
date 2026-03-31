@@ -1,0 +1,83 @@
+scenarios:
+  - name: "Add OpenAPI with Scalar UI to a new .NET 9 minimal API"
+    prompt: |
+      I've just created a new ASP.NET Core 9 minimal API project with dotnet new webapi
+      and I want to add an OpenAPI spec endpoint and an interactive API explorer.
+      Show me the complete setup using the built-in Microsoft.AspNetCore.OpenApi package
+      and Scalar UI. Include the NuGet packages I need and the Program.cs changes.
+    assertions:
+      - type: "output_matches"
+        pattern: "(AddOpenApi|MapOpenApi)"
+      - type: "output_matches"
+        pattern: "(Scalar\\.AspNetCore|MapScalarApiReference)"
+      - type: "output_matches"
+        pattern: "(Microsoft\\.AspNetCore\\.OpenApi|dotnet add package)"
+    rubric:
+      - "Installs Microsoft.AspNetCore.OpenApi and Scalar.AspNetCore packages"
+      - "Calls AddOpenApi() to register document generation and MapOpenApi() to serve the spec"
+      - "Calls MapScalarApiReference() to serve the Scalar UI"
+      - "Wraps MapOpenApi() and MapScalarApiReference() inside IsDevelopment() to avoid exposing the spec in production"
+      - "States or implies the correct default spec path (/openapi/v1.json), not the Swashbuckle default"
+    timeout: 180
+
+  - name: "Swashbuckle spec is empty — no endpoints appear for minimal API"
+    prompt: |
+      I added Swashbuckle.AspNetCore to my ASP.NET Core 9 minimal API project.
+      The Swagger UI loads at /swagger but the spec is completely empty — none of my
+      MapGet or MapPost endpoints appear. My MVC controllers show up fine.
+      What's wrong and how do I fix it?
+    assertions:
+      - type: "output_contains"
+        value: "AddEndpointsApiExplorer"
+    rubric:
+      - "Identifies the missing AddEndpointsApiExplorer() call as the root cause"
+      - "Explains that MVC controllers register with ApiExplorer automatically but minimal API endpoints do not"
+      - "Provides the fix: call builder.Services.AddEndpointsApiExplorer() before AddSwaggerGen()"
+    timeout: 120
+
+  - name: "Configure JWT Bearer security scheme in the OpenAPI document"
+    prompt: |
+      My ASP.NET Core 9 minimal API uses JWT Bearer authentication via AddAuthentication()
+      and AddJwtBearer(). I'm using Microsoft.AspNetCore.OpenApi with Scalar. The spec
+      generates correctly but there's no padlock icon in Scalar and no securitySchemes
+      section in the JSON output. How do I add JWT Bearer security scheme documentation
+      to the OpenAPI spec?
+    assertions:
+      - type: "output_matches"
+        pattern: "(IOpenApiDocumentTransformer|AddDocumentTransformer)"
+      - type: "output_matches"
+        pattern: "(SecuritySchemes|SecuritySchemeType\\.Http)"
+      - type: "output_matches"
+        pattern: "(BearerFormat|bearer)"
+    rubric:
+      - "Explains that the built-in package does not auto-detect AddAuthentication() — the scheme must be declared explicitly"
+      - "Implements or shows an IOpenApiDocumentTransformer that adds the Bearer scheme to document.Components.SecuritySchemes"
+      - "Adds a security requirement to the operations in the document (or uses an operation transformer for per-endpoint control)"
+      - "Registers the transformer with options.AddDocumentTransformer<T>() inside AddOpenApi()"
+      - "The security scheme type is Http with scheme 'bearer', not ApiKey or OAuth2"
+    timeout: 180
+
+  - name: "Migrate from Swashbuckle to Microsoft.AspNetCore.OpenApi on .NET 9"
+    prompt: |
+      I have an ASP.NET Core 9 Web API that uses Swashbuckle.AspNetCore 7.x. I want to
+      migrate to the built-in Microsoft.AspNetCore.OpenApi package. The project uses:
+      - AddEndpointsApiExplorer() and AddSwaggerGen() for registration
+      - UseSwagger() and UseSwaggerUI() in middleware
+      - One custom IDocumentFilter that sets the API title and contact info
+      - JWT Bearer security via AddSecurityDefinition and AddSecurityRequirement
+      Walk me through the migration steps.
+    assertions:
+      - type: "output_matches"
+        pattern: "(AddOpenApi|MapOpenApi)"
+      - type: "output_matches"
+        pattern: "(IOpenApiDocumentTransformer|AddDocumentTransformer)"
+      - type: "output_matches"
+        pattern: "(/openapi/v1\\.json|openapi.*v1)"
+    rubric:
+      - "Removes Swashbuckle.AspNetCore and adds Microsoft.AspNetCore.OpenApi (and optionally Scalar.AspNetCore)"
+      - "Removes AddEndpointsApiExplorer() — it is no longer needed with the built-in package"
+      - "Replaces UseSwagger()/UseSwaggerUI() with MapOpenApi() and either MapScalarApiReference() or UseSwaggerUI() pointed at /openapi/v1.json"
+      - "Migrates the IDocumentFilter to an IOpenApiDocumentTransformer with a TransformAsync method"
+      - "Migrates AddSecurityDefinition/AddSecurityRequirement to a document transformer that populates document.Components.SecuritySchemes"
+      - "Calls attention to the spec URL change from /swagger/v1/swagger.json to /openapi/v1.json and the need to update downstream tooling"
+    timeout: 240
