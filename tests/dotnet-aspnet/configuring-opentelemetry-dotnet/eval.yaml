@@ -42,3 +42,21 @@ scenarios:
       - "Listed the complete set of required NuGet packages including the OTLP exporter package"
     reject_tools: ["bash", "edit"]
     timeout: 180
+
+  - name: "Propagate trace context across a message queue"
+    prompt: |
+      I have two ASP.NET Core 8 services communicating via RabbitMQ. Service A publishes
+      an order event and Service B consumes it. Traces show up fine within each service
+      but I can't see the end-to-end distributed trace across the queue boundary.
+      How do I propagate the trace context through message headers? Don't create files.
+    assertions:
+      - type: "output_matches"
+        pattern: "(Propagat|TextMapPropagator|Inject|Extract)"
+      - type: "output_matches"
+        pattern: "(ActivitySource|StartActivity)"
+    rubric:
+      - "Showed how to inject trace context into message headers on the sending side using a TextMapPropagator"
+      - "Showed how to extract trace context from message headers on the receiving side and link it as a parent"
+      - "Used the extracted context as the parent when starting a new Activity on the consumer so spans connect into one distributed trace"
+    reject_tools: ["bash", "edit"]
+    timeout: 180
