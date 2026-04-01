@@ -21,7 +21,7 @@ jobs:
 
       - name: Cache validator archive
         id: cache-validator
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v4
         with:
           path: skill-validator-dist.tar.gz
           key: skill-validator-${{ runner.os }}-${{ hashFiles('eng/skill-validator/src/**', 'eng/skill-validator/Directory.Build.props', 'global.json') }}

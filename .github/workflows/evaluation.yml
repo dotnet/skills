@@ -90,12 +90,13 @@ jobs:
             Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
             Select-Object -First 1
 
-          # Skill-validator changes need evaluation. Workflow YAML changes don't
-          # require /evaluate because the issue_comment trigger always runs from
-          # main anyway — workflow changes are only effective after merge.
-          # Documentation files don't affect evaluation.
+          # Skill-validator and evaluation pipeline changes need evaluation.
+          # Documentation files under src/ don't affect evaluation.
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
+            Where-Object {
+              ($_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)') -or
+              $_ -match '^\.github/workflows/evaluation\.yml$'
+            } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -156,7 +157,10 @@ jobs:
             Select-Object -First 1
 
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
+            Where-Object {
+              ($_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)') -or
+              $_ -match '^\.github/workflows/evaluation\.yml$'
+            } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -351,18 +355,29 @@ jobs:
             # Check if any changed files are in infrastructure paths
             # Documentation files under src/ don't affect evaluation.
             $hasInfraChanges = $changedFiles |
-              Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
+              Where-Object {
+                ($_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)') -or
+                $_ -match '^\.github/workflows/evaluation\.yml$'
+              } |
               Select-Object -First 1
 
-            if ($hasInfraChanges) {
-              Write-Host "Infrastructure changes detected, evaluating all plugins"
+            # Also check for skill/test changes so we don't lose them
+            $hasSkillChanges = $changedFiles |
+              Where-Object { $_ -match '^(?:plugins/([^/]+)/skills|tests/([^/]+))/([^/]+)/' } |
+              Select-Object -First 1
+
+            if ($hasInfraChanges -and -not $hasSkillChanges) {
               echo "is_infra=true" >> $env:GITHUB_OUTPUT
-              $plugins = @(Get-ChildItem -Path (Join-Path $contentRoot "plugins") -Directory -ErrorAction SilentlyContinue |
+              # Infra-only: evaluate a small random subset of plugins to keep
+              # the smoke-test fast while still catching regressions.
+              $allPlugins = @(Get-ChildItem -Path (Join-Path $contentRoot "plugins") -Directory -ErrorAction SilentlyContinue |
                 Where-Object {
                   (Test-Path (Join-Path $_.FullName "skills")) -and
                   (Test-Path (Join-Path $contentRoot "tests" $_.Name))
                 } |
                 Select-Object -ExpandProperty Name)
+              $plugins = @($allPlugins | Get-Random -Count ([Math]::Min(2, $allPlugins.Count)))
+              Write-Host "Infrastructure changes detected, evaluating random subset: $($plugins -join ', ')"
               $entries = @($plugins | ForEach-Object {
                 @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
               })
@@ -464,7 +479,7 @@ jobs:
 
       - name: Cache validator archive
         id: cache-validator
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v4
         with:
           path: skill-validator-dist.tar.gz
           key: ${{ steps.compute-key.outputs.cache-key }}
@@ -523,7 +538,7 @@ jobs:
 
       - name: Restore cached validator
         id: cache-validator
-        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v4
         with:
           path: skill-validator-dist.tar.gz
           key: ${{ needs.build-validator.outputs.cache-key }}
@@ -642,7 +657,7 @@ jobs:
       - name: Restore cached validator
         if: needs.evaluate.result != 'skipped'
         id: cache-validator
-        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v4
         with:
           path: skill-validator-dist.tar.gz
           key: ${{ needs.build-validator.outputs.cache-key }}
