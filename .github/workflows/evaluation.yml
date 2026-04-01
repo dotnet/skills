@@ -740,7 +740,8 @@ jobs:
               ORG=$(echo "${{ github.repository }}" | cut -d/ -f1)
               REPO=$(echo "${{ github.repository }}" | cut -d/ -f2)
               REPLAY_URL="https://${ORG}.github.io/${REPO}/replay/index.html"
-              FULL_URL="${REPLAY_URL}?manifest=${MANIFEST_URL}&tag=pr-${PR_NUMBER}"
+              MANIFEST_ENCODED=$(printf '%s' "$MANIFEST_URL" | jq -sRr @uri)
+              FULL_URL="${REPLAY_URL}?manifest=${MANIFEST_ENCODED}&tag=pr-${PR_NUMBER}"
               echo "" >> consolidated-comment.md
               echo "**[▶ Sessions Visualisation](${FULL_URL})** -- interactive replay of all evaluation sessions" >> consolidated-comment.md
             fi
@@ -1267,15 +1268,14 @@ jobs:
         if: steps.check-replay.outputs.skip != 'true' && steps.agentviz-cache.outputs.cache-hit != 'true'
         run: |
           TARGET_SHA="${{ steps.check-replay.outputs.target_sha }}"
-          AGENTVIZ_BRANCH="dev/jankrivanek/static-manifest-mode"
 
-          git clone --depth 1 --branch "$AGENTVIZ_BRANCH" \
-            https://github.com/JanKrivanek/agentviz.git /tmp/agentviz-src
+          git clone https://github.com/JanKrivanek/agentviz.git /tmp/agentviz-src
           cd /tmp/agentviz-src
 
-          ACTUAL_SHA=$(git rev-parse HEAD)
-          if [ "$ACTUAL_SHA" != "$TARGET_SHA" ]; then
-            echo "::warning::AGENTVIZ HEAD ($ACTUAL_SHA) differs from ls-remote ($TARGET_SHA). Branch may have been updated mid-run."
+          # Check out the exact resolved commit for deterministic builds
+          if ! git checkout "$TARGET_SHA"; then
+            echo "::error::Failed to check out AGENTVIZ commit $TARGET_SHA"
+            exit 1
           fi
 
           npm ci
@@ -1315,7 +1315,12 @@ jobs:
           if [ "${{ steps.check-replay.outputs.skip }}" != "true" ]; then
             rm -rf replay
             mkdir -p replay
-            cp -r /tmp/agentviz-src/dist/* replay/
+            if [ -d /tmp/agentviz-dist ]; then
+              cp -r /tmp/agentviz-dist/* replay/
+            else
+              echo "::error::No AGENTVIZ build artifacts found"
+              exit 1
+            fi
             echo "${{ steps.check-replay.outputs.target_sha }}" > replay/.agentviz-commit
           fi
 

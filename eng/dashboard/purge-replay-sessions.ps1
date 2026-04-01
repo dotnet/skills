@@ -34,7 +34,12 @@ $ErrorActionPreference = 'Stop'
 $cutoffDate = (Get-Date).ToUniversalTime().AddDays(-$RetentionDays)
 
 # Use a temp directory if OutputDir == ExistingDir to avoid read/write conflicts
-$useTempDir = (Resolve-Path $OutputDir -ErrorAction SilentlyContinue) -eq (Resolve-Path $ExistingDir -ErrorAction SilentlyContinue)
+$resolvedOutputDir  = Resolve-Path $OutputDir  -ErrorAction SilentlyContinue
+$resolvedExistingDir = Resolve-Path $ExistingDir -ErrorAction SilentlyContinue
+$useTempDir = $false
+if ($resolvedOutputDir -and $resolvedExistingDir) {
+    $useTempDir = [IO.Path]::GetFullPath($resolvedOutputDir) -eq [IO.Path]::GetFullPath($resolvedExistingDir)
+}
 if ($useTempDir) {
     $workDir = Join-Path ([System.IO.Path]::GetTempPath()) "purge-sessions-$(Get-Random)"
     New-Item -ItemType Directory -Path $workDir -Force | Out-Null
@@ -83,7 +88,7 @@ if (Test-Path $existingSessionsDir) {
         $isExpired = $false
         if ($relativePath -match 'scheduled[/\\](\d{4}-\d{2}-\d{2})[/\\]') {
             $dirDate = [DateTime]::ParseExact($Matches[1], 'yyyy-MM-dd', $null)
-            if ($dirDate -lt $cutoffDate) {
+            if ($dirDate.Date -lt $cutoffDate.Date) {
                 $isExpired = $true
             }
         } elseif ($file.LastWriteTimeUtc -lt $cutoffDate) {
@@ -147,8 +152,16 @@ if (Test-Path $existingManifestPath) {
 }
 
 # Step 4: Write merged manifest
+# Derive generated timestamp from newest session mtime to avoid gratuitous commits
+# when sessions haven't changed.
+$newestMtime = ($allSessions | Where-Object { $_.mtime } | ForEach-Object { $_.mtime } | Measure-Object -Maximum).Maximum
+$generatedTs = if ($newestMtime) {
+    [DateTimeOffset]::FromUnixTimeMilliseconds($newestMtime).ToString('o')
+} else {
+    (Get-Date).ToUniversalTime().ToString('o')
+}
 $mergedManifest = @{
-    generated = (Get-Date -Format 'o')
+    generated = $generatedTs
     sessions  = @($allSessions)
 }
 

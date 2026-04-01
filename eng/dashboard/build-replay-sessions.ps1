@@ -126,8 +126,8 @@ $roleMap = @{
     'with-agent-plugin'    = 'plugin'
 }
 
-# Determine date and subdirectory
-$dateTag = (Get-Date -Format 'yyyy-MM-dd')
+# Determine date and subdirectory (use UTC for consistency with purge retention)
+$dateTag = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
 if ($Source -eq 'pr') {
     $subDir = "pr/$PrNumber"
 } else {
