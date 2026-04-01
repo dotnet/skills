@@ -57,7 +57,7 @@ Make sure to check the package references in project files, MSBuild props and ta
 
 Run `dotnet test` to establish a baseline of test pass/fail counts. When running `dotnet test`, ensure that:
 
-- You run `dotnet test` without any additional arguments (i.e, don't pass `--no-restore` or `--no-build`).
+- You run `dotnet test` without any additional arguments (i.e., don't pass `--no-restore` or `--no-build`).
 - Ensure you redirect the command output to a file and read the output from that file.
 
 ### Step 4: Update package references
