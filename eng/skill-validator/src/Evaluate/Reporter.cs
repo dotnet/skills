@@ -57,12 +57,12 @@ public static class Reporter
     private static void ReportConsole(IReadOnlyList<SkillVerdict> verdicts, bool verbose, int rejectedCount = 0)
     {
         Console.WriteLine();
-        Console.WriteLine("{Ansi.Bold}═══ Skill Validation Results ═══{Ansi.Reset}");
+        Console.WriteLine($"{Ansi.Bold}═══ Skill Validation Results ═══{Ansi.Reset}");
         Console.WriteLine();
 
         foreach (var verdict in verdicts)
         {
-            var icon = verdict.Passed ? "{Ansi.Green}✓{Ansi.Reset}" : "{Ansi.Red}✗{Ansi.Reset}";
+            var icon = verdict.Passed ? $"{Ansi.Green}✓{Ansi.Reset}" : $"{Ansi.Red}✗{Ansi.Reset}";
             var name = $"{Ansi.Bold}{verdict.SkillName}{Ansi.Reset}";
             var score = FormatScore(verdict.OverallImprovementScore);
 
@@ -71,8 +71,8 @@ public static class Reporter
             {
                 var ciStr = $"[{FormatPct(ci.Low)}, {FormatPct(ci.High)}]";
                 var sigStr = verdict.IsSignificant == true
-                    ? "{Ansi.Green}significant{Ansi.Reset}"
-                    : "{Ansi.Yellow}not significant{Ansi.Reset}";
+                    ? $"{Ansi.Green}significant{Ansi.Reset}"
+                    : $"{Ansi.Yellow}not significant{Ansi.Reset}";
                 scoreLine += $"  {Ansi.Dim}{ciStr}{Ansi.Reset} {sigStr}";
             }
             if (verdict.NormalizedGain is { } ng)
@@ -84,7 +84,7 @@ public static class Reporter
             if (verdict.SkillNotActivated)
             {
                 Console.WriteLine();
-                Console.WriteLine("  {Ansi.BoldRed}⚠️  SKILL NOT ACTIVATED{Ansi.Reset} — the tested skill was not loaded or invoked by the agent");
+                Console.WriteLine($"  {Ansi.BoldRed}⚠️  SKILL NOT ACTIVATED{Ansi.Reset} — the tested skill was not loaded or invoked by the agent");
             }
             if (verdict.OverfittingResult is { } overfitResult)
             {
@@ -98,10 +98,10 @@ public static class Reporter
                 };
                 var severityColor = overfitResult.Severity switch
                 {
-                    OverfittingSeverity.Low => "{Ansi.Green}",
-                    OverfittingSeverity.Moderate => "{Ansi.Yellow}",
-                    OverfittingSeverity.High => "{Ansi.Red}",
-                    _ => "{Ansi.Dim}",
+                    OverfittingSeverity.Low => Ansi.Green,
+                    OverfittingSeverity.Moderate => Ansi.Yellow,
+                    OverfittingSeverity.High => Ansi.Red,
+                    _ => Ansi.Dim,
                 };
                 Console.WriteLine($"  🔍 Overfitting: {severityColor}{overfitResult.Score:F2} ({overfitResult.Severity.ToString().ToLowerInvariant()}){Ansi.Reset} {overfitIcon}");
 
@@ -133,13 +133,13 @@ public static class Reporter
             {
                 Console.WriteLine();
                 var noiseIcon = noiseResult.Passed ? "✅" : "⚠️";
-                var noiseColor = noiseResult.Passed ? "{Ansi.Green}" : "{Ansi.Yellow}";
+                var noiseColor = noiseResult.Passed ? Ansi.Green : Ansi.Yellow;
                 Console.WriteLine($"  🔊 Noise test ({noiseResult.TotalSkillsLoaded} skills loaded): {noiseColor}{noiseResult.OverallDegradation * 100:F1}% avg degradation{Ansi.Reset} {noiseIcon}");
                 Console.WriteLine($"  {Ansi.Dim}{noiseResult.Reason}{Ansi.Reset}");
 
                 foreach (var ns in noiseResult.Scenarios)
                 {
-                    var nsIcon = ns.DegradationScore <= 0 ? "{Ansi.Green}↑{Ansi.Reset}" : "{Ansi.Yellow}↓{Ansi.Reset}";
+                    var nsIcon = ns.DegradationScore <= 0 ? $"{Ansi.Green}↑{Ansi.Reset}" : $"{Ansi.Yellow}↓{Ansi.Reset}";
                     var activated = ns.SkillActivation?.Activated == true ? "✅" : "⚠️ not activated";
                     Console.WriteLine($"    {nsIcon} {ns.ScenarioName}  degradation: {ns.DegradationScore * 100:F1}%  target skill: {activated}");
                     Console.WriteLine($"      {Ansi.Dim}skill-only: {ns.WithSkillOnly.JudgeResult.OverallScore:F1}/5 → all-skills: {ns.WithAllSkills.JudgeResult.OverallScore:F1}/5{Ansi.Reset}");
@@ -157,7 +157,7 @@ public static class Reporter
 
         int passed = verdicts.Count(v => v.Passed);
         int total = verdicts.Count + rejectedCount;
-        var summaryColor = (passed == total) ? "{Ansi.Green}" : "{Ansi.Red}";
+        var summaryColor = (passed == total) ? Ansi.Green : Ansi.Red;
         var summaryText = $"{passed}/{total} skills passed validation";
         if (rejectedCount > 0)
             summaryText += $" ({rejectedCount} rejected due to execution errors)";
@@ -185,7 +185,7 @@ public static class Reporter
 
     private static void ReportScenarioDetail(ScenarioComparison scenario, bool verbose)
     {
-        var icon = scenario.ImprovementScore >= 0 ? "{Ansi.Green}↑{Ansi.Reset}" : "{Ansi.Red}↓{Ansi.Reset}";
+        var icon = scenario.ImprovementScore >= 0 ? $"{Ansi.Green}↑{Ansi.Reset}" : $"{Ansi.Red}↓{Ansi.Reset}";
         Console.WriteLine($"    {icon} {scenario.ScenarioName}  {FormatScore(scenario.ImprovementScore)}");
 
         var b = scenario.Baseline.Metrics;
@@ -287,13 +287,13 @@ public static class Reporter
         double scoreDeltaIso = sj.OverallScore - bj.OverallScore;
         var deltaStrIso = FormatColorDelta(scoreDeltaIso);
 
-        var bTimeout = b.TimedOut ? " {Ansi.Red}⏰ timeout{Ansi.Reset}" : "";
-        var sTimeout = s.TimedOut ? " {Ansi.Red}⏰ timeout{Ansi.Reset}" : "";
+        var bTimeout = b.TimedOut ? $" {Ansi.Red}⏰ timeout{Ansi.Reset}" : "";
+        var sTimeout = s.TimedOut ? $" {Ansi.Red}⏰ timeout{Ansi.Reset}" : "";
         var overallLine = $"      {Ansi.Bold}Overall:{Ansi.Reset} {bj.OverallScore:F1}{bTimeout} → isolated: {sj.OverallScore:F1}{sTimeout} ({deltaStrIso})";
         if (pj is not null)
         {
             double scoreDeltaPlug = pj.OverallScore - bj.OverallScore;
-            var pTimeout = p!.TimedOut ? " {Ansi.Red}⏰ timeout{Ansi.Reset}" : "";
+            var pTimeout = p!.TimedOut ? $" {Ansi.Red}⏰ timeout{Ansi.Reset}" : "";
             overallLine += $"  plugin: {pj.OverallScore:F1}{pTimeout} ({FormatColorDelta(scoreDeltaPlug)})";
         }
         Console.WriteLine(overallLine);
@@ -307,7 +307,7 @@ public static class Reporter
             Console.WriteLine();
             foreach (var rs in bj.RubricScores)
             {
-                var scoreColor = rs.Score >= 4 ? "{Ansi.Green}" : rs.Score >= 3 ? "{Ansi.Yellow}" : "{Ansi.Red}";
+                var scoreColor = rs.Score >= 4 ? Ansi.Green : rs.Score >= 3 ? Ansi.Yellow : Ansi.Red;
                 Console.WriteLine($"        {scoreColor}{Ansi.Bold}{rs.Score}/5{Ansi.Reset}  {Ansi.Bold}{rs.Criterion}{Ansi.Reset}");
                 if (!string.IsNullOrEmpty(rs.Reasoning))
                     Console.WriteLine($"              {Ansi.Dim}{rs.Reasoning}{Ansi.Reset}");
@@ -324,7 +324,7 @@ public static class Reporter
             Console.WriteLine();
             foreach (var rs in sj.RubricScores)
             {
-                var scoreColor = rs.Score >= 4 ? "{Ansi.Green}" : rs.Score >= 3 ? "{Ansi.Yellow}" : "{Ansi.Red}";
+                var scoreColor = rs.Score >= 4 ? Ansi.Green : rs.Score >= 3 ? Ansi.Yellow : Ansi.Red;
                 var baselineRs = bj.RubricScores.FirstOrDefault(b =>
                     string.Equals(b.Criterion, rs.Criterion, StringComparison.OrdinalIgnoreCase));
                 var comparison = baselineRs is not null ? $"{Ansi.Dim} (was {baselineRs.Score}/5){Ansi.Reset}" : "";
@@ -338,7 +338,7 @@ public static class Reporter
         // With-skill judge (Plugin) — only if plugin run exists
         if (pj is not null)
         {
-            var pTimeout = p!.TimedOut ? " {Ansi.Red}⏰ timeout{Ansi.Reset}" : "";
+            var pTimeout = p!.TimedOut ? $" {Ansi.Red}⏰ timeout{Ansi.Reset}" : "";
             Console.WriteLine($"      {Ansi.Green}─── With-Skill Judge (Plugin){Ansi.Reset} \x1b[32;1m{pj.OverallScore:F1}/5{Ansi.Reset}{pTimeout} {Ansi.Green}───{Ansi.Reset}");
             Console.WriteLine($"      {Ansi.Dim}{pj.OverallReasoning}{Ansi.Reset}");
             if (pj.RubricScores.Count > 0)
@@ -346,7 +346,7 @@ public static class Reporter
                 Console.WriteLine();
                 foreach (var rs in pj.RubricScores)
                 {
-                    var scoreColor = rs.Score >= 4 ? "{Ansi.Green}" : rs.Score >= 3 ? "{Ansi.Yellow}" : "{Ansi.Red}";
+                    var scoreColor = rs.Score >= 4 ? Ansi.Green : rs.Score >= 3 ? Ansi.Yellow : Ansi.Red;
                     var baselineRs = bj.RubricScores.FirstOrDefault(b =>
                         string.Equals(b.Criterion, rs.Criterion, StringComparison.OrdinalIgnoreCase));
                     var comparison = baselineRs is not null ? $"{Ansi.Dim} (was {baselineRs.Score}/5){Ansi.Reset}" : "";
@@ -362,9 +362,9 @@ public static class Reporter
         if (scenario.PairwiseResult is { } pw)
         {
             var consistencyIcon = pw.PositionSwapConsistent
-                ? "{Ansi.Green}✓ consistent{Ansi.Reset}"
-                : "{Ansi.Yellow}⚠ inconsistent{Ansi.Reset}";
-            var winnerColor = pw.OverallWinner == "skill" ? "{Ansi.Green}" : pw.OverallWinner == "baseline" ? "{Ansi.Red}" : "{Ansi.Dim}";
+                ? $"{Ansi.Green}✓ consistent{Ansi.Reset}"
+                : $"{Ansi.Yellow}⚠ inconsistent{Ansi.Reset}";
+            var winnerColor = pw.OverallWinner == "skill" ? Ansi.Green : pw.OverallWinner == "baseline" ? Ansi.Red : Ansi.Dim;
             Console.WriteLine($"      {Ansi.Bold}─── Pairwise Comparison{Ansi.Reset} {consistencyIcon} {Ansi.Bold}───{Ansi.Reset}");
             Console.WriteLine($"      Winner: {winnerColor}{pw.OverallWinner}{Ansi.Reset} ({pw.OverallMagnitude})");
             Console.WriteLine($"      {Ansi.Dim}{pw.OverallReasoning}{Ansi.Reset}");
@@ -373,7 +373,7 @@ public static class Reporter
                 Console.WriteLine();
                 foreach (var pr in pw.RubricResults)
                 {
-                    var prColor = pr.Winner == "skill" ? "{Ansi.Green}" : pr.Winner == "baseline" ? "{Ansi.Red}" : "{Ansi.Dim}";
+                    var prColor = pr.Winner == "skill" ? Ansi.Green : pr.Winner == "baseline" ? Ansi.Red : Ansi.Dim;
                     Console.WriteLine($"        {prColor}{Ansi.Bold}{pr.Winner,-8}{Ansi.Reset} ({pr.Magnitude})  {Ansi.Bold}{pr.Criterion}{Ansi.Reset}");
                     if (!string.IsNullOrEmpty(pr.Reasoning))
                         Console.WriteLine($"              {Ansi.Dim}{pr.Reasoning}{Ansi.Reset}");
@@ -385,13 +385,13 @@ public static class Reporter
         if (verbose)
         {
             Console.WriteLine();
-            Console.WriteLine("      {Ansi.Dim}Baseline output:{Ansi.Reset}");
+            Console.WriteLine($"      {Ansi.Dim}Baseline output:{Ansi.Reset}");
             Console.WriteLine(IndentBlock(scenario.Baseline.Metrics.AgentOutput.Length > 0 ? scenario.Baseline.Metrics.AgentOutput : "(no output)", 8));
-            Console.WriteLine("      {Ansi.Dim}With-skill output (isolated):{Ansi.Reset}");
+            Console.WriteLine($"      {Ansi.Dim}With-skill output (isolated):{Ansi.Reset}");
             Console.WriteLine(IndentBlock(scenario.SkilledIsolated.Metrics.AgentOutput.Length > 0 ? scenario.SkilledIsolated.Metrics.AgentOutput : "(no output)", 8));
             if (scenario.SkilledPlugin is { } pluginRun)
             {
-                Console.WriteLine("      {Ansi.Dim}With-skill output (plugin):{Ansi.Reset}");
+                Console.WriteLine($"      {Ansi.Dim}With-skill output (plugin):{Ansi.Reset}");
                 Console.WriteLine(IndentBlock(pluginRun.Metrics.AgentOutput.Length > 0 ? pluginRun.Metrics.AgentOutput : "(no output)", 8));
             }
         }
@@ -429,8 +429,8 @@ public static class Reporter
         double pctChange = (value - baseline) / baseline * 100;
         var sign = pctChange > 0 ? "+" : "";
         bool isGood = lowerIsBetter ? pctChange < 0 : pctChange > 0;
-        var color = isGood ? "{Ansi.Green}" : pctChange == 0 ? "" : "{Ansi.Red}";
-        var reset = string.IsNullOrEmpty(color) ? "" : "{Ansi.Reset}";
+        var color = isGood ? Ansi.Green : pctChange == 0 ? "" : Ansi.Red;
+        var reset = string.IsNullOrEmpty(color) ? "" : Ansi.Reset;
         return $"{value} {color}({sign}{pctChange:F0}%){reset}";
     }
 
@@ -441,14 +441,14 @@ public static class Reporter
         double pctChange = (value - baseline) / baseline * 100;
         var sign = pctChange > 0 ? "+" : "";
         bool isGood = lowerIsBetter ? pctChange < 0 : pctChange > 0;
-        var color = isGood ? "{Ansi.Green}" : pctChange == 0 ? "" : "{Ansi.Red}";
-        var reset = string.IsNullOrEmpty(color) ? "" : "{Ansi.Reset}";
+        var color = isGood ? Ansi.Green : pctChange == 0 ? "" : Ansi.Red;
+        var reset = string.IsNullOrEmpty(color) ? "" : Ansi.Reset;
         return $" {color}({sign}{pctChange:F0}%){reset}";
     }
 
     private static string FormatColorDelta(double delta) =>
         delta > 0 ? $"{Ansi.Green}+{delta:F1}{Ansi.Reset}" :
-        delta < 0 ? $"{Ansi.Red}{delta:F1}{Ansi.Reset}" : "{Ansi.Dim}±0{Ansi.Reset}";
+        delta < 0 ? $"{Ansi.Red}{delta:F1}{Ansi.Reset}" : $"{Ansi.Dim}±0{Ansi.Reset}";
 
     // --- Markdown reporter ---
 
