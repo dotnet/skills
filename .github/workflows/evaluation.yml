@@ -26,6 +26,9 @@
 name: evaluation
 
 on:
+  # Manual trigger for one-off deploys (e.g., AGENTVIZ SPA update)
+  workflow_dispatch:
+
   # Same-repo PRs: post initial status
   pull_request:
 
@@ -618,6 +621,7 @@ jobs:
           ARGS="$ARGS --parallel-skills $PARALLEL_SKILLS"
           ARGS="$ARGS --parallel-scenarios $PARALLEL_SCENARIOS"
           ARGS="$ARGS --parallel-runs $PARALLEL_RUNS"
+          ARGS="$ARGS --keep-sessions"
 
           artifacts/publish/SkillValidator/release/skill-validator evaluate $ARGS --tests-dir ./tests/${{ matrix.entry.plugin }} ./${{ matrix.entry.skills_path }}
 
@@ -635,7 +639,7 @@ jobs:
   # Post consolidated evaluation results as a PR comment.
   # ==========================================================================
   comment-on-pr:
-    needs: [gate, discover, build-validator, evaluate]
+    needs: [gate, discover, build-validator, evaluate, publish-session-data]
     if: >-
       always() &&
       needs.evaluate.result != 'cancelled' &&
@@ -728,6 +732,18 @@ jobs:
               echo ""
               echo "[🔍 Full Results - additional metrics and failure investigation steps]($RUN_URL)"
             } > consolidated-comment.md
+
+            # Append AGENTVIZ replay link if session data was published
+            if [[ "${{ needs.publish-session-data.result }}" == "success" ]]; then
+              MANIFEST_URL="https://raw.githubusercontent.com/${{ github.repository }}/dashboard-session-data/data/manifest.json"
+              # Derive the Pages base URL from the repository (org.github.io/repo)
+              ORG=$(echo "${{ github.repository }}" | cut -d/ -f1)
+              REPO=$(echo "${{ github.repository }}" | cut -d/ -f2)
+              REPLAY_URL="https://${ORG}.github.io/${REPO}/replay/index.html"
+              FULL_URL="${REPLAY_URL}?manifest=${MANIFEST_URL}&tag=pr-${PR_NUMBER}"
+              echo "" >> consolidated-comment.md
+              echo "**[▶ Sessions Visualisation](${FULL_URL})** -- interactive replay of all evaluation sessions" >> consolidated-comment.md
+            fi
 
             # Action summary: full table (all columns) + investigation prompt
             {
@@ -950,6 +966,99 @@ jobs:
           git push origin dashboard-token-data
 
   # ==========================================================================
+  # PUBLISH SESSION DATA
+  # Both scheduled and PR runs: flatten JSONL sessions → dashboard-session-data
+  # ==========================================================================
+  publish-session-data:
+    needs: [gate, discover, evaluate]
+    if: >-
+      always() && !cancelled() &&
+      needs.discover.result == 'success' &&
+      needs.discover.outputs.has_plugins == 'true' &&
+      (
+        github.ref == 'refs/heads/main' ||
+        (github.event_name == 'issue_comment' && needs.gate.result == 'success')
+      )
+    runs-on: ubuntu-latest
+    concurrency:
+      group: publish-session-data
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Download evaluation artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: skill-validator-results-*
+          path: all-results/
+          merge-multiple: false
+        continue-on-error: ${{ needs.evaluate.result != 'success' }}
+
+      - name: Determine source metadata
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            echo "source=pr" >> "$GITHUB_OUTPUT"
+            echo "pr_number=${{ needs.gate.outputs.pr_number }}" >> "$GITHUB_OUTPUT"
+            echo "subdir=pr/${{ needs.gate.outputs.pr_number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "source=scheduled" >> "$GITHUB_OUTPUT"
+            echo "pr_number=" >> "$GITHUB_OUTPUT"
+            echo "subdir=scheduled/$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build session manifest
+        shell: pwsh
+        run: |
+          ./eng/dashboard/build-replay-sessions.ps1 `
+            -ResultsDir all-results `
+            -OutputDir staging `
+            -Source ${{ steps.meta.outputs.source }} `
+            -PrNumber "${{ steps.meta.outputs.pr_number }}"
+
+      - name: Clone existing session data branch
+        run: |
+          cd /tmp
+          REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+          if git ls-remote --exit-code --heads "$REPO_URL" dashboard-session-data > /dev/null 2>&1; then
+            git clone --branch dashboard-session-data --single-branch "$REPO_URL" session-deploy
+          else
+            mkdir session-deploy && cd session-deploy && git init && git checkout -b dashboard-session-data
+            git remote add origin "$REPO_URL"
+            cd /tmp
+          fi
+
+          cd /tmp/session-deploy
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge and purge old sessions
+        shell: pwsh
+        run: |
+          ./eng/dashboard/purge-replay-sessions.ps1 `
+            -ExistingDir /tmp/session-deploy/data `
+            -NewDir staging `
+            -OutputDir /tmp/session-deploy/data `
+            -RetentionDays 7
+
+      - name: Push to dashboard-session-data branch
+        run: |
+          cd /tmp/session-deploy
+          git add data/
+          git diff --cached --quiet && echo "No changes to deploy" && exit 0
+
+          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+            git commit -m "Update session data (PR #${{ needs.gate.outputs.pr_number }})"
+          else
+            git commit -m "Update scheduled session data"
+          fi
+          git push origin dashboard-session-data
+
+  # ==========================================================================
   # PUBLISH EVAL DATA
   # Scheduled runs only: generate benchmark data → dashboard-eval-data
   # ==========================================================================
@@ -1081,7 +1190,7 @@ jobs:
   # No data generation — pure copy and deploy.
   # ==========================================================================
   deploy-dashboard:
-    needs: [discover, publish-token-data, publish-eval-data]
+    needs: [discover, publish-token-data, publish-eval-data, publish-session-data]
     if: >-
       always() &&
       !cancelled() &&
@@ -1098,6 +1207,10 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Fetch eval data from dashboard-eval-data branch
         run: |
           mkdir -p /tmp/gh-pages/data
@@ -1111,6 +1224,37 @@ jobs:
           git fetch origin dashboard-token-data:dashboard-token-data 2>/dev/null || true
           git show dashboard-token-data:data/token-usage.json > /tmp/gh-pages/data/token-usage.json 2>/dev/null || \
             echo '{"entries":[]}' > /tmp/gh-pages/data/token-usage.json
+
+      - name: Check if AGENTVIZ SPA needs update
+        id: check-replay
+        run: |
+          cd /tmp
+          REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+          # Hash the currently deployed SPA (if any)
+          DEPLOYED_HASH=""
+          if git ls-remote --exit-code --heads "$REPO_URL" gh-pages > /dev/null 2>&1; then
+            git clone --branch gh-pages --single-branch "$REPO_URL" gh-pages-check || true
+            if [ -f /tmp/gh-pages-check/replay/.agentviz-hash ]; then
+              DEPLOYED_HASH=$(cat /tmp/gh-pages-check/replay/.agentviz-hash)
+            fi
+            rm -rf /tmp/gh-pages-check
+          fi
+
+          # Build AGENTVIZ from source and compute hash
+          git clone --depth 1 --branch dev/jankrivanek/static-manifest-mode \
+            https://github.com/JanKrivanek/agentviz.git /tmp/agentviz-src
+          cd /tmp/agentviz-src
+          npm ci
+          npm run build
+          BUILD_HASH=$(find dist -type f -exec sha256sum {} + | sort | sha256sum | cut -d' ' -f1)
+          echo "build_hash=$BUILD_HASH" >> "$GITHUB_OUTPUT"
+          echo "deployed_hash=$DEPLOYED_HASH" >> "$GITHUB_OUTPUT"
+          if [ "$BUILD_HASH" = "$DEPLOYED_HASH" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Deploy to GitHub Pages
         run: |
@@ -1139,6 +1283,14 @@ jobs:
           cp ${{ github.workspace }}/eng/dashboard/dashboard.html index.html
           cp ${{ github.workspace }}/eng/dashboard/dashboard.js dashboard.js
           cp ${{ github.workspace }}/eng/dashboard/token-usage.js token-usage.js
+
+          # Deploy AGENTVIZ SPA (skip if already present and unchanged)
+          if [ "${{ steps.check-replay.outputs.skip }}" != "true" ]; then
+            rm -rf replay
+            mkdir -p replay
+            cp -r /tmp/agentviz-src/dist/* replay/
+            echo "${{ steps.check-replay.outputs.build_hash }}" > replay/.agentviz-hash
+          fi
 
           git add .
           git diff --cached --quiet && echo "No changes to deploy" && exit 0
