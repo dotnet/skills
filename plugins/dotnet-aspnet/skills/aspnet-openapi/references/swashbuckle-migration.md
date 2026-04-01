@@ -30,7 +30,7 @@ Stay on Swashbuckle when:
 <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.*" />
 
 <!-- If you still want Swagger UI instead of Scalar -->
-<PackageReference Include="Swashbuckle.AspNetCore.SwaggerUi" Version="7.*" />
+<PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="7.*" />
 
 <!-- Recommended: replace Swagger UI with Scalar -->
 <PackageReference Include="Scalar.AspNetCore" Version="2.*" />

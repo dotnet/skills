@@ -54,7 +54,7 @@ right choice when client code generation is the primary goal.
 **Hard rule:** Do not mix the built-in generator (`Microsoft.AspNetCore.OpenApi`) with the
 Swashbuckle *document generator* (`Swashbuckle.AspNetCore` via `AddSwaggerGen`/`UseSwagger`)
 in the same project. Both enumerate endpoints at startup and produce conflicting OpenAPI
-documents — pick one generator. Using the standalone `Swashbuckle.AspNetCore.SwaggerUi`
+documents — pick one generator. Using the standalone `Swashbuckle.AspNetCore.SwaggerUI`
 package alongside `Microsoft.AspNetCore.OpenApi` is fine, as long as it only points at the
 built-in `/openapi/v1.json` endpoint (shown in Step 4).
 
@@ -165,7 +165,7 @@ app.MapScalarApiReference(options =>
 If Swagger UI is a hard requirement, use only the UI package — not the full Swashbuckle stack:
 
 ```bash
-dotnet add package Swashbuckle.AspNetCore.SwaggerUi
+dotnet add package Swashbuckle.AspNetCore.SwaggerUI
 ```
 
 ```csharp
