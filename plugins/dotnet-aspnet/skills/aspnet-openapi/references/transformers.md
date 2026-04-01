@@ -233,7 +233,6 @@ For OAuth2 authorization code flow (e.g., Azure AD, Entra ID):
 
 ```csharp
 using Microsoft.AspNetCore.OpenApi;
-using Microsoft.Extensions.Configuration;
 using Microsoft.OpenApi.Models;
 
 internal sealed class OAuth2SecuritySchemeTransformer : IOpenApiDocumentTransformer
@@ -382,6 +381,7 @@ public class EnumSchemaFilter : ISchemaFilter
         if (!context.Type.IsEnum)
             return;
 
+        schema.Type = "string";
         schema.Enum.Clear();
         foreach (var name in Enum.GetNames(context.Type))
             schema.Enum.Add(new OpenApiString(name));

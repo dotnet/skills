@@ -26,7 +26,7 @@ right choice when client code generation is the primary goal.
 ## Stop Signals
 
 - **Need to generate C# or TypeScript API clients?** — Use NSwag or `dotnet-openapi`. This skill covers spec *generation*, not *consumption*.
-- **Targeting .NET 8 or earlier?** — `Microsoft.AspNetCore.OpenApi` is .NET 9+ only. Use Swashbuckle 6.x on .NET 8.
+- **Targeting .NET 8 or earlier?** — `AddOpenApi()` / `MapOpenApi()` document generation requires .NET 9+. Use Swashbuckle 6.x on .NET 8.
 - **Already on Swashbuckle and no .NET 9 migration planned?** — Don't migrate just for its own sake. See [references/swashbuckle-migration.md](references/swashbuckle-migration.md) if migration is wanted later.
 - **Review request on existing OpenAPI config?** — Jump directly to the Validation checklist.
 
@@ -46,7 +46,7 @@ right choice when client code generation is the primary goal.
 | Situation | Package | Reason |
 |-----------|---------|--------|
 | New project on .NET 9+ | `Microsoft.AspNetCore.OpenApi` | First-party, default in templates, actively maintained by the ASP.NET Core team |
-| New project on .NET 8 | `Swashbuckle.AspNetCore` 6.x | Built-in package requires .NET 9+ |
+| New project on .NET 8 | `Swashbuckle.AspNetCore` 6.x | `AddOpenApi()` / `MapOpenApi()` require .NET 9+ |
 | Need typed client code generation | `NSwag.AspNetCore` | Only mature option with C#/TypeScript codegen; pair with the spec output |
 | Complex polymorphism or discriminators | `NSwag.AspNetCore` | More schema control than either alternative |
 | Existing project already on Swashbuckle | Keep Swashbuckle | Migration is optional — see [references/swashbuckle-migration.md](references/swashbuckle-migration.md) |
@@ -366,7 +366,7 @@ app.MapOpenApi()
 |---------|----------|
 | Forgot `AddEndpointsApiExplorer()` with Swashbuckle | Minimal API endpoints won't appear — MVC controllers are unaffected. This is the single most common Swashbuckle setup bug |
 | Spec path mismatch after switching packages | Built-in defaults to `/openapi/v1.json`; Swashbuckle defaults to `/swagger/v1/swagger.json`. Update all downstream tooling explicitly |
-| Mixed `Microsoft.AspNetCore.OpenApi` + Swashbuckle | Both packages enumerate endpoints at startup. Behavior is undefined. Remove one |
+| Mixed `Microsoft.AspNetCore.OpenApi` + Swashbuckle document generator | Both enumerate endpoints at startup and produce conflicting specs. Remove one generator. The standalone `Swashbuckle.AspNetCore.SwaggerUI` package is fine alongside the built-in package |
 | Security scheme `$ref` name mismatch | The `Id` in `OpenApiReference` must exactly match the key in `SecuritySchemes` — `"Bearer"` ≠ `"bearer"` |
 | Spec endpoint returns 401 unexpectedly | Either wrapped in `IsDevelopment()` (run in Development env) or secured with `RequireAuthorization()` (authenticate first, or remove the auth requirement from the spec endpoint) |
 | Swashbuckle 6.x on .NET 9 | Swashbuckle 6.x does not support .NET 9+ reflection APIs. Upgrade to 7.x or migrate to the built-in package |
