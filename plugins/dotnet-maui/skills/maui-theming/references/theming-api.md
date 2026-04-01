@@ -80,14 +80,12 @@ Use `DynamicResource` (not `StaticResource`) so values update at runtime when th
 ### Switch Themes at Runtime
 
 ```csharp
-void ApplyTheme(ResourceDictionary newTheme)
+void ApplyTheme(ResourceDictionary theme)
 {
-    var merged = Application.Current!.Resources.MergedDictionaries;
-    // Remove only the previous theme dictionary, not base styles
-    var oldTheme = merged.FirstOrDefault(d => d is LightTheme or DarkTheme);
-    if (oldTheme is not null)
-        merged.Remove(oldTheme);
-    merged.Add(newTheme);
+    // Assumes theme dictionaries are the only merged dictionaries.
+    var mergedDictionaries = Application.Current!.Resources.MergedDictionaries;
+    mergedDictionaries.Clear();
+    mergedDictionaries.Add(theme);
 }
 
 // Usage
