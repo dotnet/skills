@@ -98,3 +98,35 @@ Baseline scores 5.0/5 — non-activation scenario where the model already handle
 ### Removed: "Decline mock framework migration request" scenario
 
 Baseline scores 5.0/5 — the model already handles Moq→NSubstitute migration requests without the skill. Weighted score was -1.2% from time overhead alone.
+
+### Round 4 — Drastic skill simplification
+
+**Problem:** Results degraded significantly. The skill was actively hurting quality — 5/6 scenarios scored worse with the skill than without it. When activated, scores dropped from 2.3-3.3 baseline to 1.0-2.3. Two scenarios showed "NOT ACTIVATED" indicating the skill loaded but the model chose not to use it.
+
+| Scenario | Baseline | With Skill | Verdict |
+| --- | --- | --- | --- |
+| Detect unused and unreachable mock setups | 3.0/5 | 2.3/5 | ❌ |
+| Detect redundant mock configurations | 3.3/5 | 1.0/5 (NOT ACTIVATED) | ❌ |
+| Detect mocking of stable framework types | 3.0/5 | 2.3/5 (NOT ACTIVATED) | ❌ |
+| Analyze mock usage in NSubstitute tests | 2.3/5 | 1.0/5 | ❌ |
+| Analyze mock usage in FakeItEasy tests | 3.3/5 | 1.0/5 | ❌ |
+| Detect excessive mock configuration sprawl | 2.7/5 | 3.7/5 | ✅ |
+
+**Root cause analysis:**
+
+1. **Skill too verbose (~200 lines)** — Extensive anti-pattern catalog tables that the model already knows, consuming attention budget that should go to code analysis.
+2. **6-step workflow too rigid** — Model spent effort following the prescribed categorization workflow (classify dependencies as Trivial/Stable/Thin/External/Complex) instead of doing actual code-path tracing.
+3. **Anti-pattern encyclopedia redundant** — 4 severity levels × 3-4 patterns each = 15+ anti-patterns listed. The model already knows these; listing them added noise without value.
+4. **Reporting format instructions too prescriptive** — "Present findings in this structure: Summary → Critical/High → Medium/Low → Positive → Aggregate" forced a template that didn't match rubric expectations.
+
+**Changes:**
+
+- Cut skill from ~200 lines to ~90 lines
+- Reduced workflow from 6 steps to 4 (read → trace → check replaceable → report)
+- Removed the anti-pattern catalog entirely — model already knows common mock anti-patterns
+- Removed dependency categorization tables (Trivial/Stable/Thin/External/Complex)
+- Removed the runtime data incorporation step (never used in evals)
+- Focused Step 2 entirely on **code-path tracing** — the unique value-add identified in Round 2
+- Added explicit guidance on early returns, exceptions, and branch-specific logic as things to trace
+- Simplified reporting to: specific location + why unreachable + concrete fix
+- Enhanced description with more trigger phrases for better activation
