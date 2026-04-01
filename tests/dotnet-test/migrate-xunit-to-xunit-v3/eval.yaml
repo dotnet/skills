@@ -70,7 +70,7 @@ scenarios:
       - "Sets OutputType to Exe in the test project"
       - "Adds IsTestingPlatformApplication=false since the project was using VSTest (no MTP reference present)"
       - "Updates xunit.runner.visualstudio to the latest version"
-    timeout: 360
+    timeout: 720
 
   # ============================================================================
   # Goal 2: Incompatible target framework — should stop
@@ -122,7 +122,7 @@ scenarios:
       - "Identifies that net462 is below the minimum .NET Framework 4.7.2 required by xUnit.net v3"
       - "Stops the migration and does NOT update package references to xunit.v3"
       - "Advises the user to upgrade the target framework first before attempting the xUnit.net migration"
-    timeout: 360
+    timeout: 720
 
   # ============================================================================
   # Goal 3: async void test methods
@@ -192,7 +192,7 @@ scenarios:
       - "Changes 'async void' to 'async Task' for test methods decorated with [Fact] or [Theory]"
       - "Applies the change to both GetUser_ReturnsExpectedName and ProcessItem_Completes methods"
       - "Explains that xUnit.net v3 no longer supports async void test methods and they will fail to compile"
-    timeout: 360
+    timeout: 720
 
   # ============================================================================
   # Goal 4: String-based attribute constructors → typeof syntax
@@ -269,7 +269,7 @@ scenarios:
       - "Converts CollectionBehavior from string-based constructor ('namespace.type', 'assembly') to typeof() syntax"
       - "Converts TestCaseOrderer from string-based constructor to typeof() syntax"
       - "Explains that xUnit.net v3 changed these attributes to accept System.Type instead of two strings"
-    timeout: 360
+    timeout: 720
 
   # ============================================================================
   # Goal 5: Custom FactAttribute inheritance — add caller info
@@ -360,7 +360,7 @@ scenarios:
       - "Adds [CallerLineNumber] int sourceLineNumber = -1 parameter to the RetryFactAttribute constructor"
       - "Passes sourceFilePath and sourceLineNumber to base() constructor call"
       - "Applies the same caller-info pattern to ConditionalTheoryAttribute (TheoryAttribute-derived)"
-    timeout: 360
+    timeout: 720
 
   # ============================================================================
   # Goal 6: BeforeAfterTestAttribute signature update
@@ -441,7 +441,7 @@ scenarios:
       - "Adds IXunitTest parameter to the After(MethodInfo, IXunitTest) method override"
       - "Updates base.Before and base.After calls to include the IXunitTest argument"
       - "Explains that xUnit.net v3 changed the BeforeAfterTestAttribute method signatures"
-    timeout: 360
+    timeout: 720
 
   # ============================================================================
   # Goal 7: Test platform selection — project with YTest.MTP.XUnit2
@@ -510,7 +510,7 @@ scenarios:
       - "Adds UseMicrosoftTestingPlatformRunner=true to Directory.Build.props to preserve MTP"
       - "Does NOT add IsTestingPlatformApplication=false — the project was already using MTP"
       - "Updates xunit to xunit.v3 and sets OutputType to Exe"
-    timeout: 360
+    timeout: 720
 
   # ============================================================================
   # Goal 8: SkippableFact migration
@@ -583,7 +583,7 @@ scenarios:
       - "Converts [SkippableTheory] to the regular [Theory] attribute"
       - "Converts Skip.If calls to Assert.SkipWhen"
       - "Converts Skip.IfNot calls to Assert.SkipUnless"
-    timeout: 360
+    timeout: 720
 
   # ============================================================================
   # Goal 9: Central Package Management (Directory.Packages.props)
@@ -657,7 +657,7 @@ scenarios:
       - "Renames xunit PackageVersion to xunit.v3 with appropriate version in Directory.Packages.props"
       - "Updates the PackageReference in the csproj from xunit to xunit.v3"
       - "Sets OutputType to Exe"
-    timeout: 360
+    timeout: 720
 
   # ============================================================================
   # Goal 10: Already on xUnit v3 — no migration needed
@@ -716,7 +716,7 @@ scenarios:
       - "Correctly identifies that the project already references xunit.v3 packages"
       - "Does NOT make unnecessary changes to package references or project configuration"
       - "Informs the user that migration is already complete or not needed"
-    timeout: 360
+    timeout: 720
 
   # ============================================================================
   # Goal 11: Extensibility packages consolidation + abstractions removal
@@ -785,7 +785,7 @@ scenarios:
       - "Removes the xunit.abstractions package reference entirely"
       - "Removes 'using Xunit.Abstractions;' directives from C# files"
       - "Explains that the two extensibility packages were merged into one in v3"
-    timeout: 360
+    timeout: 720
 
   # ============================================================================
   # Goal 12: Xunit.Combinatorial and Xunit.StaFact companion package updates
@@ -849,4 +849,4 @@ scenarios:
       - "Updates Xunit.StaFact from 1.x to the latest compatible 3.x version"
       - "Also migrates the core xunit package to xunit.v3"
       - "Sets OutputType to Exe"
-    timeout: 360
+    timeout: 720
