@@ -31,7 +31,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$cutoffDate = (Get-Date).AddDays(-$RetentionDays)
+$cutoffDate = (Get-Date).ToUniversalTime().AddDays(-$RetentionDays)
 
 # Use a temp directory if OutputDir == ExistingDir to avoid read/write conflicts
 $useTempDir = (Resolve-Path $OutputDir -ErrorAction SilentlyContinue) -eq (Resolve-Path $ExistingDir -ErrorAction SilentlyContinue)
@@ -122,10 +122,14 @@ $existingManifestPath = Join-Path $ExistingDir "manifest.json"
 if (Test-Path $existingManifestPath) {
     $existingManifest = Get-Content $existingManifestPath -Raw | ConvertFrom-Json
     if ($existingManifest.sessions) {
+        # Precompute IDs from sessions already in $allSessions (new manifest)
+        $existingIds = [System.Collections.Generic.HashSet[string]]::new(
+            [string[]]@($allSessions | ForEach-Object { $_.id })
+        )
+
         foreach ($session in $existingManifest.sessions) {
             # Skip if already in new manifest (by id)
-            $existingIds = @($allSessions | ForEach-Object { $_.id })
-            if ($session.id -in $existingIds) { continue }
+            if ($existingIds.Contains($session.id)) { continue }
 
             # Check retention via mtime
             if ($session.mtime) {

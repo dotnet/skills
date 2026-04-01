@@ -88,7 +88,8 @@ function Invoke-SqliteQuery {
     $nativeDir = Join-Path $baseDir "runtimes/$rid/native"
     if (Test-Path $nativeDir) {
         # Add native dir to PATH so the DllImport resolver finds e_sqlite3
-        $env:PATH = "$nativeDir;$env:PATH"
+        $pathSeparator = [IO.Path]::PathSeparator
+        $env:PATH = "$nativeDir$pathSeparator$env:PATH"
     }
 
     # Initialize SQLitePCL batteries

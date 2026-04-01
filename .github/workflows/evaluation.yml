@@ -1207,7 +1207,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
 
@@ -1227,33 +1227,46 @@ jobs:
 
       - name: Check if AGENTVIZ SPA needs update
         id: check-replay
+        env:
+          # Pin to a specific AGENTVIZ commit SHA for reproducible deployments.
+          # Update this SHA when intentionally upgrading AGENTVIZ.
+          AGENTVIZ_COMMIT_SHA: "643d2339330f6bcab15104fc3f19bc89a16f8564"
+          AGENTVIZ_BRANCH: "dev/jankrivanek/static-manifest-mode"
         run: |
           cd /tmp
           REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
 
-          # Hash the currently deployed SPA (if any)
-          DEPLOYED_HASH=""
+          # Read the currently deployed commit SHA (if any)
+          DEPLOYED_SHA=""
           if git ls-remote --exit-code --heads "$REPO_URL" gh-pages > /dev/null 2>&1; then
-            git clone --branch gh-pages --single-branch "$REPO_URL" gh-pages-check || true
-            if [ -f /tmp/gh-pages-check/replay/.agentviz-hash ]; then
-              DEPLOYED_HASH=$(cat /tmp/gh-pages-check/replay/.agentviz-hash)
+            git clone --branch gh-pages --single-branch --depth 1 "$REPO_URL" gh-pages-check || true
+            if [ -f /tmp/gh-pages-check/replay/.agentviz-commit ]; then
+              DEPLOYED_SHA=$(cat /tmp/gh-pages-check/replay/.agentviz-commit)
             fi
             rm -rf /tmp/gh-pages-check
           fi
 
-          # Build AGENTVIZ from source and compute hash
-          git clone --depth 1 --branch dev/jankrivanek/static-manifest-mode \
-            https://github.com/JanKrivanek/agentviz.git /tmp/agentviz-src
-          cd /tmp/agentviz-src
-          npm ci
-          npm run build
-          BUILD_HASH=$(find dist -type f -exec sha256sum {} + | sort | sha256sum | cut -d' ' -f1)
-          echo "build_hash=$BUILD_HASH" >> "$GITHUB_OUTPUT"
-          echo "deployed_hash=$DEPLOYED_HASH" >> "$GITHUB_OUTPUT"
-          if [ "$BUILD_HASH" = "$DEPLOYED_HASH" ]; then
+          echo "deployed_sha=$DEPLOYED_SHA" >> "$GITHUB_OUTPUT"
+          echo "target_sha=$AGENTVIZ_COMMIT_SHA" >> "$GITHUB_OUTPUT"
+
+          if [ "$AGENTVIZ_COMMIT_SHA" = "$DEPLOYED_SHA" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "AGENTVIZ SPA is up-to-date (commit $AGENTVIZ_COMMIT_SHA), skipping build."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "AGENTVIZ SPA needs update: deployed=$DEPLOYED_SHA target=$AGENTVIZ_COMMIT_SHA"
+            # Only clone and build when an update is needed
+            git clone --depth 1 --branch "$AGENTVIZ_BRANCH" \
+              https://github.com/JanKrivanek/agentviz.git /tmp/agentviz-src
+            cd /tmp/agentviz-src
+            # Verify we have the exact pinned commit
+            ACTUAL_SHA=$(git rev-parse HEAD)
+            if [ "$ACTUAL_SHA" != "$AGENTVIZ_COMMIT_SHA" ]; then
+              echo "::error::AGENTVIZ commit mismatch: expected $AGENTVIZ_COMMIT_SHA but got $ACTUAL_SHA. Update AGENTVIZ_COMMIT_SHA or the branch."
+              exit 1
+            fi
+            npm ci
+            npm run build
           fi
 
       - name: Deploy to GitHub Pages
@@ -1289,7 +1302,7 @@ jobs:
             rm -rf replay
             mkdir -p replay
             cp -r /tmp/agentviz-src/dist/* replay/
-            echo "${{ steps.check-replay.outputs.build_hash }}" > replay/.agentviz-hash
+            echo "${{ steps.check-replay.outputs.target_sha }}" > replay/.agentviz-commit
           fi
 
           git add .
