@@ -8,8 +8,8 @@ scenarios:
     assertions:
       - type: "output_contains"
         value: "SafeAreaEdges"
-      - type: "output_contains"
-        value: "Container"
+      - type: "output_matches"
+        pattern: "(?i)SafeAreaEdges.{0,20}Container"
       - type: "output_matches"
         pattern: "(?i)obsolete|legacy|deprecated|replaced"
       - type: "output_matches"

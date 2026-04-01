@@ -158,12 +158,6 @@ builder.Services.AddSingleton<INotificationService, AndroidNotificationService>(
 builder.Services.AddSingleton<INotificationService, AppleNotificationService>();
 #elif WINDOWS
 builder.Services.AddSingleton<INotificationService, WindowsNotificationService>();
-#endif
-```
-
-If a platform has no real implementation, register a stub:
-
-```csharp
 #else
 builder.Services.AddSingleton<INotificationService, NoOpNotificationService>();
 #endif

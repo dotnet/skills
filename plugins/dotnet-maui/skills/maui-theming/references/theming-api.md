@@ -148,5 +148,5 @@ Application.Current!.RequestedThemeChanged += (s, e) =>
 |----------------|-----------------|
 | iOS            | 13+             |
 | Android        | 10+ (API 29)    |
-| macOS Catalyst | 10.14+          |
+| macOS Catalyst | 10.15+          |
 | Windows        | 10+             |

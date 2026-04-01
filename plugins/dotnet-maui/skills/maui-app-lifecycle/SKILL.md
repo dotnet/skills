@@ -3,7 +3,7 @@ name: maui-app-lifecycle
 description: >-
   .NET MAUI app lifecycle guidance — the four app states, cross-platform Window
   lifecycle events (Created, Activated, Deactivated, Stopped, Resumed, Destroying),
-  platform-specific lifecycle mapping, backgrounding and resume behaviour, and
+  platform-specific lifecycle mapping, backgrounding and resume behavior, and
   state-preservation patterns.
   USE FOR: "app lifecycle", "window lifecycle events", "save state on background",
   "resume app", "OnStopped", "OnResumed", "backgrounding", "deactivated event",
