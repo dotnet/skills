@@ -57,9 +57,9 @@ scenarios:
       - type: "output_matches"
         pattern: "xunit\\.v3"
       - type: "output_matches"
-        pattern: "(OutputType|Exe)"
+        pattern: "<OutputType>Exe</OutputType>"
       - type: "output_matches"
-        pattern: "(IsTestingPlatformApplication|false)"
+        pattern: "<IsTestingPlatformApplication>false</IsTestingPlatformApplication>"
       - type: run_command_and_assert
         command_to_run: "dotnet"
         command_arguments: "test -p:TreatWarningsAsErrors=true"
