@@ -211,7 +211,7 @@ Find package references of `Xunit.StaFact` and update them from 1.x to the lates
 
 ### Step 16: Build the solution
 
-Now, build the solution to identify any remaining compilation errors that might have not been addressed by previous instructions.
+Now, build the solution to identify any remaining compilation errors that might not have been addressed by previous instructions.
 Fix any straightforward errors that show up, and keep iterating and fixing more.
 
 You can also look into https://xunit.net/docs/getting-started/v3/migration-extensibility and https://xunit.net/docs/getting-started/v3/migration to help with the remaining compilation errors.
