@@ -1227,47 +1227,61 @@ jobs:
 
       - name: Check if AGENTVIZ SPA needs update
         id: check-replay
-        env:
-          # Pin to a specific AGENTVIZ commit SHA for reproducible deployments.
-          # Update this SHA when intentionally upgrading AGENTVIZ.
-          AGENTVIZ_COMMIT_SHA: "643d2339330f6bcab15104fc3f19bc89a16f8564"
-          AGENTVIZ_BRANCH: "dev/jankrivanek/static-manifest-mode"
         run: |
-          cd /tmp
-          REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          AGENTVIZ_REPO="https://github.com/JanKrivanek/agentviz.git"
+          AGENTVIZ_BRANCH="dev/jankrivanek/static-manifest-mode"
 
-          # Read the currently deployed commit SHA (if any)
-          DEPLOYED_SHA=""
-          if git ls-remote --exit-code --heads "$REPO_URL" gh-pages > /dev/null 2>&1; then
-            git clone --branch gh-pages --single-branch --depth 1 "$REPO_URL" gh-pages-check || true
-            if [ -f /tmp/gh-pages-check/replay/.agentviz-commit ]; then
-              DEPLOYED_SHA=$(cat /tmp/gh-pages-check/replay/.agentviz-commit)
-            fi
-            rm -rf /tmp/gh-pages-check
+          # Resolve the latest commit on the AGENTVIZ branch (no clone needed)
+          TARGET_SHA=$(git ls-remote "$AGENTVIZ_REPO" "refs/heads/$AGENTVIZ_BRANCH" | cut -f1)
+          if [ -z "$TARGET_SHA" ]; then
+            echo "::error::Could not resolve AGENTVIZ branch $AGENTVIZ_BRANCH"
+            exit 1
           fi
+          echo "target_sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "AGENTVIZ target commit: $TARGET_SHA"
 
+          # Read the currently deployed commit SHA from gh-pages (no clone needed)
+          DEPLOYED_SHA=""
+          DEPLOYED_SHA=$(curl -fsSL \
+            "https://raw.githubusercontent.com/${{ github.repository }}/gh-pages/replay/.agentviz-commit" \
+            2>/dev/null) || true
           echo "deployed_sha=$DEPLOYED_SHA" >> "$GITHUB_OUTPUT"
-          echo "target_sha=$AGENTVIZ_COMMIT_SHA" >> "$GITHUB_OUTPUT"
 
-          if [ "$AGENTVIZ_COMMIT_SHA" = "$DEPLOYED_SHA" ]; then
+          if [ "$TARGET_SHA" = "$DEPLOYED_SHA" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "AGENTVIZ SPA is up-to-date (commit $AGENTVIZ_COMMIT_SHA), skipping build."
+            echo "AGENTVIZ SPA is up-to-date (commit $TARGET_SHA), skipping build."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "AGENTVIZ SPA needs update: deployed=$DEPLOYED_SHA target=$AGENTVIZ_COMMIT_SHA"
-            # Only clone and build when an update is needed
-            git clone --depth 1 --branch "$AGENTVIZ_BRANCH" \
-              https://github.com/JanKrivanek/agentviz.git /tmp/agentviz-src
-            cd /tmp/agentviz-src
-            # Verify we have the exact pinned commit
-            ACTUAL_SHA=$(git rev-parse HEAD)
-            if [ "$ACTUAL_SHA" != "$AGENTVIZ_COMMIT_SHA" ]; then
-              echo "::error::AGENTVIZ commit mismatch: expected $AGENTVIZ_COMMIT_SHA but got $ACTUAL_SHA. Update AGENTVIZ_COMMIT_SHA or the branch."
-              exit 1
-            fi
-            npm ci
-            npm run build
+            echo "AGENTVIZ SPA needs update: deployed=$DEPLOYED_SHA target=$TARGET_SHA"
           fi
+
+      - name: Build AGENTVIZ SPA
+        if: steps.check-replay.outputs.skip != 'true'
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        id: agentviz-cache
+        with:
+          path: /tmp/agentviz-dist
+          key: agentviz-dist-${{ steps.check-replay.outputs.target_sha }}
+
+      - name: Build AGENTVIZ SPA (on cache miss)
+        if: steps.check-replay.outputs.skip != 'true' && steps.agentviz-cache.outputs.cache-hit != 'true'
+        run: |
+          TARGET_SHA="${{ steps.check-replay.outputs.target_sha }}"
+          AGENTVIZ_BRANCH="dev/jankrivanek/static-manifest-mode"
+
+          git clone --depth 1 --branch "$AGENTVIZ_BRANCH" \
+            https://github.com/JanKrivanek/agentviz.git /tmp/agentviz-src
+          cd /tmp/agentviz-src
+
+          ACTUAL_SHA=$(git rev-parse HEAD)
+          if [ "$ACTUAL_SHA" != "$TARGET_SHA" ]; then
+            echo "::warning::AGENTVIZ HEAD ($ACTUAL_SHA) differs from ls-remote ($TARGET_SHA). Branch may have been updated mid-run."
+          fi
+
+          npm ci
+          npm run build
+          mkdir -p /tmp/agentviz-dist
+          cp -r dist/* /tmp/agentviz-dist/
 
       - name: Deploy to GitHub Pages
         run: |
