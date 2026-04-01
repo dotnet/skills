@@ -216,4 +216,4 @@ builder.ConfigureLifecycleEvents(events =>
 
 5. **Long-running handlers cause kills.** Android enforces a ~5 second ANR timeout; iOS has limited background execution time. Keep lifecycle handlers synchronous and fast — use `Preferences` for quick saves, not database writes.
 
-6. **Do not use legacy Xamarin.Forms lifecycle methods.** `Application.OnStart()`, `Application.OnSleep()`, and `Application.OnResume()` are from Xamarin.Forms. In .NET MAUI, use `Window` lifecycle events (`OnActivated`, `OnStopped`, `OnResumed`, etc.) instead.
+6. **Do not use legacy Xamarin.Forms lifecycle methods.** `Application.OnStart()`, `Application.OnSleep()`, and `Application.OnResume()` exist for backward compatibility but bypass Window-level events. In .NET MAUI, prefer `Window` lifecycle events (`OnActivated`, `OnStopped`, `OnResumed`, etc.) for correct multi-window behavior.

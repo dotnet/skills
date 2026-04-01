@@ -37,7 +37,7 @@ and treat binding warnings as build errors.
 - **CollectionView layouts / templates** — use the `maui-collectionview` skill
 - **Shell navigation parameters** — use the `maui-shell-navigation` skill
 - **Service registration / DI** — use the `maui-dependency-injection` skill
-- **Property-change-triggered animations** — use the `maui-animations` skill
+- **Property-change-triggered animations** — use built-in [.NET MAUI animation APIs](https://learn.microsoft.com/dotnet/maui/user-interface/animation/basic)
 
 ## Inputs
 
@@ -262,8 +262,7 @@ Combine multiple source values with `IMultiValueConverter`:
 ```xml
 <Label>
     <Label.Text>
-        <MultiBinding Converter="{StaticResource FullNameConverter}"
-                      StringFormat="{}{0}">
+        <MultiBinding Converter="{StaticResource FullNameConverter}">
             <Binding Path="FirstName" />
             <Binding Path="LastName" />
         </MultiBinding>
@@ -296,7 +295,7 @@ public class FullNameConverter : IMultiValueConverter
 | Source | Syntax | Use case |
 |--------|--------|----------|
 | Self | `{Binding Source={RelativeSource Self}, Path=Width}` | Bind to own properties |
-| Ancestor | `{Binding Source={RelativeSource AncestorType={x:Type vm:ParentVM}}, Path=Title}` | Reach parent BindingContext |
+| Ancestor | `{Binding BindingContext.Title, Source={RelativeSource AncestorType={x:Type ContentPage}}}` | Reach parent BindingContext |
 | TemplatedParent | `{Binding Source={RelativeSource TemplatedParent}, Path=Padding}` | Inside ControlTemplate |
 
 ```xml

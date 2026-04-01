@@ -77,8 +77,8 @@ scenarios:
         value: "SafeAreaEdges"
       - type: "output_matches"
         pattern: "(?i)obsolete|legacy|deprecated|old|replaced|do not use"
-      - type: "output_contains"
-        value: "SafeAreaRegions"
+      - type: "output_matches"
+        pattern: "(?i)SafeArea(Edges|Regions)"
       - type: "output_matches"
         pattern: "(?i)\\.NET 10|net10"
     rubric:

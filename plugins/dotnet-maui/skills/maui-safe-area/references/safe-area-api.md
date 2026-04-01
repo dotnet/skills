@@ -111,11 +111,10 @@ SafeAreaEdges="Container, Container, Container, SoftInput"
         <Border Grid.Row="1"
                 BackgroundColor="LightGray"
                 Padding="20">
-            <HorizontalStackLayout Spacing="10">
-                <Entry Placeholder="Type a message..."
-                       HorizontalOptions="Fill" />
-                <Button Text="Send" />
-            </HorizontalStackLayout>
+            <Grid ColumnDefinitions="*,Auto" Spacing="10">
+                <Entry Placeholder="Type a message..." />
+                <Button Grid.Column="1" Text="Send" />
+            </Grid>
         </Border>
     </Grid>
 </ContentPage>
@@ -127,7 +126,7 @@ SafeAreaEdges="Container, Container, Container, SoftInput"
 <ContentPage SafeAreaEdges="None">
     <Grid RowDefinitions="Auto,*,Auto">
         <!-- Header: edge-to-edge behind status bar -->
-        <Grid BackgroundColor="Primary">
+        <Grid BackgroundColor="{StaticResource Primary}">
             <Label Text="App Header"
                    TextColor="White"
                    Margin="20,40,20,20" />

@@ -119,7 +119,7 @@ public class FullNameConverter : IMultiValueConverter
 | Source | Syntax | Use case |
 |--------|--------|----------|
 | Self | `{Binding Source={RelativeSource Self}, Path=Width}` | Bind to own properties |
-| Ancestor | `{Binding Source={RelativeSource AncestorType={x:Type vm:ParentVM}}, Path=Title}` | Reach parent BindingContext |
+| Ancestor | `{Binding BindingContext.Title, Source={RelativeSource AncestorType={x:Type ContentPage}}}` | Reach parent BindingContext |
 | TemplatedParent | `{Binding Source={RelativeSource TemplatedParent}, Path=Padding}` | Inside ControlTemplate |
 
 ```xml

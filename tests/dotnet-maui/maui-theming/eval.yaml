@@ -36,7 +36,7 @@ scenarios:
       - "Creates separate ResourceDictionary files with matching keys for each theme"
       - "Uses DynamicResource (not StaticResource) for consuming theme values"
       - "Shows how to swap theme dictionaries at runtime via MergedDictionaries"
-      - "Mentions that each ResourceDictionary needs a code-behind with InitializeComponent"
+      - "Mentions how theme ResourceDictionaries are structured and loaded (compiled XAML with x:Class or Source-based)"
     timeout: 120
 
   - name: "Detect and respond to system theme changes"

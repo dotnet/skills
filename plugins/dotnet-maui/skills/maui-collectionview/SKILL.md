@@ -29,7 +29,7 @@ description: >
 ## When Not to Use
 
 - Static layouts with a fixed number of items — use `Grid` or `StackLayout` directly
-- Map pin lists — use the `maui-maps` skill
+- Map pin lists — use the `Microsoft.Maui.Controls.Maps` NuGet package
 - Table-based data entry forms — use standard form controls
 - Simple text-only lists with no interaction — consider `BindableLayout` on a `StackLayout`
 
@@ -83,12 +83,12 @@ Set `ItemsLayout` to control arrangement. Default is `VerticalList`.
     </CollectionView.ItemsLayout>
     <CollectionView.ItemTemplate>
         <DataTemplate x:DataType="models:Item">
-            <Frame Padding="8" HasShadow="False">
+            <Border Padding="8" StrokeThickness="0">
                 <VerticalStackLayout>
                     <Image Source="{Binding Image}" HeightRequest="120" Aspect="AspectFill" />
                     <Label Text="{Binding Name}" FontAttributes="Bold" />
                 </VerticalStackLayout>
-            </Frame>
+            </Border>
         </DataTemplate>
     </CollectionView.ItemTemplate>
 </CollectionView>
@@ -223,7 +223,7 @@ Commands inside a `DataTemplate` can't directly reach your ViewModel. Use `Relat
                 <SwipeItems>
                     <SwipeItem Text="Delete"
                                BackgroundColor="Red"
-                               Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:MainViewModel}}, Path=DeleteCommand}"
+                               Command="{Binding BindingContext.DeleteCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                CommandParameter="{Binding}" />
                 </SwipeItems>
             </SwipeView.RightItems>

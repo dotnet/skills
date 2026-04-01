@@ -39,7 +39,7 @@ Use separate `ResourceDictionary` files with matching keys to define themes, the
 
 ### Define Theme Dictionaries
 
-Each ResourceDictionary **must** have a code-behind file that calls `InitializeComponent()`.
+When using compiled XAML with `x:Class` (as shown below), each ResourceDictionary needs a code-behind file that calls `InitializeComponent()`. Dictionaries loaded via `Source` without `x:Class` do not need code-behind.
 
 **LightTheme.xaml**
 ```xml
@@ -80,15 +80,17 @@ Use `DynamicResource` (not `StaticResource`) so values update at runtime when th
 ### Switch Themes at Runtime
 
 ```csharp
-void ApplyTheme(ResourceDictionary theme)
+void ApplyTheme(ResourceDictionary newTheme)
 {
-    var mergedDictionaries = Application.Current!.Resources.MergedDictionaries;
-    mergedDictionaries.Clear();
-    mergedDictionaries.Add(theme);
+    var merged = Application.Current!.Resources.MergedDictionaries;
+    // Remove only the previous theme dictionary, not base styles
+    var oldTheme = merged.FirstOrDefault(d => d is LightTheme or DarkTheme);
+    if (oldTheme is not null)
+        merged.Remove(oldTheme);
+    merged.Add(newTheme);
 }
 
 // Usage
-ApplyTheme(new LightTheme());
 ApplyTheme(new DarkTheme());
 ```
 

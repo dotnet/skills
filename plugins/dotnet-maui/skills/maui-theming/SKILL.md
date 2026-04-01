@@ -28,10 +28,10 @@ Apply light/dark mode support, custom branded themes, and runtime theme switchin
 
 ## When Not to Use
 
-- Localization or language switching — use the `maui-localization` skill
-- Accessibility-specific visual adjustments — use the `maui-accessibility` skill
-- App icon or splash screen configuration — use the `maui-app-icons-splash` skill
-- Bootstrap-style class theming — use the `maui-bootstrap-theme` skill
+- Localization or language switching — see [.NET MAUI localization docs](https://learn.microsoft.com/dotnet/maui/fundamentals/localization)
+- Accessibility-specific visual adjustments — see [.NET MAUI accessibility docs](https://learn.microsoft.com/dotnet/maui/fundamentals/accessibility)
+- App icon or splash screen configuration — see [.NET MAUI app icon docs](https://learn.microsoft.com/dotnet/maui/user-interface/images/app-icons)
+- Bootstrap-style class theming — see the `Plugin.Maui.BootstrapTheme` NuGet package
 
 ## Inputs
 
@@ -91,7 +91,7 @@ Use separate `ResourceDictionary` files with matching keys to define themes, the
 
 ### Step 1 — Define Theme Dictionaries
 
-Each dictionary **must** have a code-behind that calls `InitializeComponent()`.
+When using compiled XAML with `x:Class` (as shown below), each dictionary needs a code-behind that calls `InitializeComponent()`. Dictionaries loaded via `Source` without `x:Class` do not need code-behind.
 
 **LightTheme.xaml**
 
@@ -134,15 +134,17 @@ Use `DynamicResource` so values update when the dictionary is swapped at runtime
 ### Step 3 — Switch Themes at Runtime
 
 ```csharp
-void ApplyTheme(ResourceDictionary theme)
+void ApplyTheme(ResourceDictionary newTheme)
 {
-    var mergedDictionaries = Application.Current!.Resources.MergedDictionaries;
-    mergedDictionaries.Clear();
-    mergedDictionaries.Add(theme);
+    var merged = Application.Current!.Resources.MergedDictionaries;
+    // Remove only the previous theme dictionary, not base styles
+    var oldTheme = merged.FirstOrDefault(d => d is LightTheme or DarkTheme);
+    if (oldTheme is not null)
+        merged.Remove(oldTheme);
+    merged.Add(newTheme);
 }
 
 // Usage
-ApplyTheme(new LightTheme());
 ApplyTheme(new DarkTheme());
 ```
 
@@ -204,7 +206,7 @@ Store the user's choice with `Preferences` and apply it on startup:
 // Save choice
 Preferences.Set("AppTheme", "Dark");
 
-// Restore on startup (in App.xaml.cs constructor or OnStart)
+// Restore on startup (in App constructor or CreateWindow)
 var saved = Preferences.Get("AppTheme", "System");
 Application.Current!.UserAppTheme = saved switch
 {

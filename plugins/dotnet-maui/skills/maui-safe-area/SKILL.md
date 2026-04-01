@@ -34,7 +34,7 @@ description: >-
 - Projects targeting .NET 9 or earlier — use the legacy iOS-specific APIs
 - General page layout questions unrelated to system bars or keyboard — use standard layout guidance
 - App lifecycle or navigation structure — use maui-app-lifecycle or Shell guidance
-- Theming or visual styling — use maui-bootstrap-theme or resource dictionary guidance
+- Theming or visual styling — use the **maui-theming** skill
 
 ## Inputs
 
@@ -167,10 +167,10 @@ Set `None` on **both** page and layout — layouts default to `Container`:
             </VerticalStackLayout>
         </ScrollView>
         <Border Grid.Row="1" BackgroundColor="LightGray" Padding="20">
-            <HorizontalStackLayout Spacing="10">
-                <Entry Placeholder="Type a message..." HorizontalOptions="Fill" />
-                <Button Text="Send" />
-            </HorizontalStackLayout>
+            <Grid ColumnDefinitions="*,Auto" Spacing="10">
+                <Entry Placeholder="Type a message..." />
+                <Button Grid.Column="1" Text="Send" />
+            </Grid>
         </Border>
     </Grid>
 </ContentPage>
@@ -181,7 +181,7 @@ Set `None` on **both** page and layout — layouts default to `Container`:
 ```xaml
 <ContentPage SafeAreaEdges="None">
     <Grid RowDefinitions="Auto,*,Auto">
-        <Grid BackgroundColor="Primary">
+        <Grid BackgroundColor="{StaticResource Primary}">
             <Label Text="App Header" TextColor="White" Margin="20,40,20,20" />
         </Grid>
         <ScrollView Grid.Row="1" SafeAreaEdges="All">

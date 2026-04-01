@@ -30,7 +30,7 @@ description: >
 
 - XAML data-binding syntax or compiled bindings — use the **maui-data-binding** skill
 - Shell route registration and query parameters — use the **maui-shell-navigation** skill
-- Mocking frameworks or test runners — use the **maui-unit-testing** skill
+- Mocking frameworks or test runners — use standard .NET testing tools (xUnit, NUnit, MSTest) and mocking libraries (NSubstitute, Moq)
 
 ## Inputs
 
@@ -254,8 +254,8 @@ public partial class App : Application
     protected override Window CreateWindow(IActivationState? activationState)
     {
         // Safe — container is fully built
-        var mainPage = _services.GetRequiredService<MainPage>();
-        return new Window(new AppShell());
+        var appShell = _services.GetRequiredService<AppShell>();
+        return new Window(appShell);
     }
 }
 ```
