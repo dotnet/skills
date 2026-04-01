@@ -88,8 +88,7 @@ Combine multiple source values with `IMultiValueConverter`:
 ```xml
 <Label>
     <Label.Text>
-        <MultiBinding Converter="{StaticResource FullNameConverter}"
-                      StringFormat="{}{0}">
+        <MultiBinding Converter="{StaticResource FullNameConverter}">
             <Binding Path="FirstName" />
             <Binding Path="LastName" />
         </MultiBinding>
@@ -118,7 +117,7 @@ public class FullNameConverter : IMultiValueConverter
 
 | Source | Syntax | Use case |
 |--------|--------|----------|
-| Self | `{Binding Source={RelativeSource Self}, Path=Width}` | Bind to own properties |
+| Self | `{Binding Source={RelativeSource Self}, Path=WidthRequest}` | Bind to own properties |
 | Ancestor | `{Binding BindingContext.Title, Source={RelativeSource AncestorType={x:Type ContentPage}}}` | Reach parent BindingContext |
 | TemplatedParent | `{Binding Source={RelativeSource TemplatedParent}, Path=Padding}` | Inside ControlTemplate |
 

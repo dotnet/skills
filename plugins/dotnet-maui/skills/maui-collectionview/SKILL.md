@@ -209,7 +209,7 @@ Wrap `CollectionView` in a `RefreshView`. Set `IsRefreshing` back to `false` whe
                 RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}" />
 ```
 
-> ⚠️ **Do NOT use with StackLayout-based ItemsLayout** — it has no virtualization and triggers infinite threshold-reached events. Always use `LinearItemsLayout` or `GridItemsLayout`.
+> ⚠️ **Do NOT use with non-virtualizing layouts.** `LinearItemsLayout` and `GridItemsLayout` support virtualization. Using `BindableLayout` on a `StackLayout` as an alternative to `CollectionView` has no virtualization, which triggers infinite threshold-reached events.
 
 ## SwipeView — Binding from Inside DataTemplate
 

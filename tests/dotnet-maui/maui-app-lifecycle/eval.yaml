@@ -26,7 +26,7 @@ scenarios:
       - type: "output_contains"
         value: "CreateWindow"
       - type: "output_matches"
-        pattern: "(?i)(created|activated|deactivated|stopped|resumed|destroying)"
+        pattern: "(?i)(?=.*(created|activated))(?=.*(stopped|destroying))(?=.*(resumed|deactivated))"
     rubric:
       - "The agent shows how to override CreateWindow or use a custom Window subclass"
       - "The agent lists all six lifecycle events: Created, Activated, Deactivated, Stopped, Resumed, Destroying"

@@ -16,7 +16,7 @@ description: >-
 
 # Safe Area & Edge-to-Edge Layout (.NET 10+)
 
-.NET 10 introduces a **brand-new, cross-platform safe area API** that replaces the legacy iOS-only `UseSafeArea` and the layout-level `IgnoreSafeArea` properties. The new `SafeAreaEdges` attached property and `SafeAreaRegions` flags enum give you per-edge, per-control safe area management on Android, iOS, and Mac Catalyst from a single API surface.
+.NET 10 introduces a **brand-new, cross-platform safe area API** that replaces the legacy iOS-only `UseSafeArea` and the layout-level `IgnoreSafeArea` properties. The new `SafeAreaEdges` property and `SafeAreaRegions` flags enum give you per-edge, per-control safe area management on Android, iOS, and Mac Catalyst from a single API surface.
 
 > **This is new API surface in .NET 10.** If the project targets .NET 9 or earlier, these APIs do not exist. Guide the developer to the legacy `ios:Page.UseSafeArea` and `Layout.IgnoreSafeArea` properties instead.
 
@@ -184,7 +184,8 @@ Set `None` on **both** page and layout — layouts default to `Container`:
         <Grid BackgroundColor="{StaticResource Primary}">
             <Label Text="App Header" TextColor="White" Margin="20,40,20,20" />
         </Grid>
-        <ScrollView Grid.Row="1" SafeAreaEdges="All">
+        <ScrollView Grid.Row="1" SafeAreaEdges="Container">
+            <!-- Use Container, not All — ScrollView only honors Container and None -->
             <VerticalStackLayout Padding="20">
                 <Label Text="Main content" />
             </VerticalStackLayout>

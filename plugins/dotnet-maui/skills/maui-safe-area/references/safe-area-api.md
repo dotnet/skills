@@ -132,8 +132,8 @@ SafeAreaEdges="Container, Container, Container, SoftInput"
                    Margin="20,40,20,20" />
         </Grid>
 
-        <!-- Body: respect safe areas -->
-        <ScrollView Grid.Row="1" SafeAreaEdges="All">
+        <!-- Body: respect safe areas (ScrollView only honors Container and None) -->
+        <ScrollView Grid.Row="1" SafeAreaEdges="Container">
             <VerticalStackLayout Padding="20">
                 <Label Text="Main content" />
             </VerticalStackLayout>
@@ -280,7 +280,7 @@ Thickness insets = On<iOS>().SafeAreaInsets();
 <Shell Shell.BackgroundColor="#80000000"
        Shell.NavBarHasShadow="False" />
 
-<!-- NavigationPage -->
+<!-- NavigationPage (requires xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls") -->
 <NavigationPage BarBackgroundColor="#80000000"
     ios:NavigationPage.HideNavigationBarSeparator="True" />
 ```

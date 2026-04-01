@@ -76,7 +76,7 @@ scenarios:
       - type: "output_contains"
         value: "CollectionView"
       - type: "output_matches"
-        pattern: "(?i)ViewCell.{0,40}(not|never|don't|avoid|remove|replace)"
+        pattern: "(?i)(not|never|don.t|avoid|remove|replace).{0,40}ViewCell|ViewCell.{0,40}(not|never|don.t|avoid|remove|replace)"
     rubric:
       - "Recommends migrating from ListView to CollectionView"
       - "Explains that CollectionView has better performance than ListView"

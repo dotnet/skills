@@ -77,6 +77,7 @@ public static MauiApp CreateMauiApp()
     builder.Services.AddSingleton<ISettingsService, SettingsService>();
 
     // HTTP — use typed or named clients via IHttpClientFactory
+    // Requires NuGet: Microsoft.Extensions.Http
     builder.Services.AddHttpClient<IApiClient, ApiClient>();
 
     // ViewModels — Transient for fresh state per navigation
@@ -254,6 +255,7 @@ public partial class App : Application
     protected override Window CreateWindow(IActivationState? activationState)
     {
         // Safe — container is fully built
+        // Requires: builder.Services.AddTransient<AppShell>() in MauiProgram.cs
         var appShell = _services.GetRequiredService<AppShell>();
         return new Window(appShell);
     }
