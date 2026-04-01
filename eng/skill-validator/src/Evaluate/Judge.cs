@@ -18,11 +18,13 @@ public static class Judge
         EvalScenario scenario,
         RunMetrics metrics,
         JudgeOptions options,
-        Action<string>? log)
+        Action<string>? log,
+        CancellationToken cancellationToken = default)
     {
         return RetryHelper.ExecuteWithRetry(
             (ct) => JudgeRunOnce(scenario, metrics, scenario.Rubric ?? [], options, log, ct),
-            $"Judge for \"{scenario.Name}\"");
+            $"Judge for \"{scenario.Name}\"",
+            cancellationToken: cancellationToken);
     }
 
     private static async Task<(JudgeResult Result, TokenUsage Tokens)> JudgeRunOnce(
@@ -145,25 +147,58 @@ public static class Judge
             "tool.execution_complete", "session.error", "runner.error",
         };
 
+        var errorTypes = new HashSet<string> { "session.error", "runner.error" };
+
         var relevant = events.Where(e => relevantTypes.Contains(e.Type)).ToList();
         if (relevant.Count == 0) return "(no events recorded)";
 
-        // When the timeline is very large (e.g. hundreds of tool calls on a big
-        // project), keep the first and last events with a summary in between so
-        // the judge prompt stays within a reasonable size.
+        // When the timeline is very large, keep the first and last events with
+        // all error events preserved regardless of position.
         if (relevant.Count > MaxTimelineEvents)
         {
-            var headCount = MaxTimelineEvents / 2;
-            var tailCount = MaxTimelineEvents - headCount;
-            var omitted = relevant.Count - headCount - tailCount;
-            var head = relevant.Take(headCount).ToList();
-            var tail = relevant.Skip(relevant.Count - tailCount).ToList();
-            relevant = [..head, ..tail];
-            // Insert a synthetic marker so the judge knows events were trimmed
-            relevant.Insert(headCount, new AgentEvent(
-                "summary",
-                0,
-                new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create($"... ({omitted} events omitted for brevity) ...") }));
+            var errors = relevant.Where(e => errorTypes.Contains(e.Type)).ToList();
+            var nonErrors = relevant.Where(e => !errorTypes.Contains(e.Type)).ToList();
+
+            if (errors.Count >= MaxTimelineEvents)
+            {
+                // Errors alone exceed the cap — trim errors too, keeping first N with a summary.
+                var errorBudget = Math.Max(0, MaxTimelineEvents - 1);
+                var keptErrors = errors.Take(errorBudget).ToList();
+                var omittedErrors = errors.Count - keptErrors.Count;
+
+                relevant = [new AgentEvent(
+                    "summary", 0,
+                    new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(
+                        $"... ({nonErrors.Count} non-error events omitted, {omittedErrors} error(s) omitted, {keptErrors.Count} error(s) shown) ...") })];
+                relevant.AddRange(keptErrors);
+            }
+            else
+            {
+                var budget = MaxTimelineEvents - errors.Count;
+                var headCount = Math.Max(0, budget / 2);
+                var tailCount = Math.Max(0, budget - headCount);
+                var omitted = nonErrors.Count - headCount - tailCount;
+
+                var head = nonErrors.Take(headCount).ToList();
+                var tail = nonErrors.Skip(Math.Max(0, nonErrors.Count - tailCount)).ToList();
+
+                // Count omitted event types for the summary
+                var omittedEvents = nonErrors.Skip(headCount).Take(Math.Max(0, omitted)).ToList();
+                var omittedToolCalls = omittedEvents.Count(e => e.Type is "tool.execution_start" or "tool.execution_complete");
+                var omittedMessages = omittedEvents.Count(e => e.Type is "user.message" or "assistant.message");
+
+                var summaryParts = new List<string> { $"{omitted} events omitted" };
+                if (omittedToolCalls > 0) summaryParts.Add($"{omittedToolCalls} tool events");
+                if (omittedMessages > 0) summaryParts.Add($"{omittedMessages} messages");
+                if (errors.Count > 0) summaryParts.Add($"{errors.Count} error(s) preserved");
+
+                relevant = [..head];
+                relevant.Add(new AgentEvent(
+                    "summary", 0,
+                    new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create($"... ({string.Join(", ", summaryParts)}) ...") }));
+                relevant.AddRange(errors);
+                relevant.AddRange(tail);
+            }
         }
 
         var sb = new System.Text.StringBuilder();

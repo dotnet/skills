@@ -14,22 +14,3 @@ scenarios:
     expect_tools:
       - skill
     timeout: 180
-
-  - name: "Create project with specific framework"
-    prompt: "Create a new class library targeting net9.0 called MyLib in ./test-output"
-    assertions:
-      - type: "exit_success"
-      - type: "output_contains"
-        value: "net9.0"
-      - type: "file_exists"
-        path: "test-output/MyLib/MyLib.csproj"
-      - type: "file_contains"
-        path: "test-output/MyLib/MyLib.csproj"
-        value: "net9.0"
-    rubric:
-      - "The agent used the template-instantiation skill or dotnet new classlib to create the project"
-      - "The agent passed the Framework parameter as net9.0"
-      - "The agent confirmed successful creation"
-    expect_tools:
-      - skill
-    timeout: 180

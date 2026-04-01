@@ -633,7 +633,7 @@ public class OverfittingJudgeTests
                 Scenarios = [],
                 OverallImprovementScore = 0,
                 Reason = "Skill description is 1,370 characters — maximum is 1,024.",
-                FailureKind = "spec_conformance_failure",
+                FailureKind = FailureKind.SpecConformanceFailure,
             }
         };
 
@@ -705,7 +705,7 @@ public class OverfittingJudgeTests
                 },
                 OverallImprovementScore = -0.25,
                 Reason = "Regression detected",
-                FailureKind = "completion_regression",
+                FailureKind = FailureKind.CompletionRegression,
             }
         };
 

@@ -128,7 +128,8 @@ public class RetryHelperTests
                 totalTimeoutMs: 60_000,
                 cancellationToken: TestContext.Current.CancellationToken,
                 clock: () => fakeTimeMs,
-                delayFunc: (ms, _) => { recordedDelays.Add(ms); fakeTimeMs += ms; return Task.CompletedTask; }));
+                delayFunc: (ms, _) => { recordedDelays.Add(ms); fakeTimeMs += ms; return Task.CompletedTask; },
+                jitterFunc: () => 0.5)); // 0.5 → zero jitter offset ((0.5*2-1)*range = 0)
 
         Assert.Equal(3, callCount);
         // With baseDelayMs=200, expected delays are: 200ms (attempt 1), 400ms (attempt 2)
@@ -163,7 +164,8 @@ public class RetryHelperTests
                 totalTimeoutMs: 2000,
                 cancellationToken: TestContext.Current.CancellationToken,
                 clock: () => fakeTimeMs,
-                delayFunc: (ms, _) => { recordedDelays.Add(ms); return Task.CompletedTask; }));
+                delayFunc: (ms, _) => { recordedDelays.Add(ms); return Task.CompletedTask; },
+                jitterFunc: () => 0.5)); // zero jitter offset
 
         Assert.Equal(2, callCount);
         // The retry delay should be clamped to remaining budget, not the raw 60s.
@@ -172,6 +174,62 @@ public class RetryHelperTests
             $"Delay should be clamped to remaining budget, got {recordedDelays[0]}ms");
         Assert.True(recordedDelays[0] >= 0,
             $"Delay should be non-negative, got {recordedDelays[0]}ms");
+    }
+
+    [Fact]
+    public async Task Jitter_AdjustsDelayWithinRange()
+    {
+        var fakeTimeMs = 0L;
+        var recordedDelays = new List<int>();
+
+        // jitterFunc returns 1.0 → max positive jitter offset
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            RetryHelper.ExecuteWithRetryCore<int>(
+                (_) =>
+                {
+                    fakeTimeMs += 5;
+                    throw new InvalidOperationException("fail");
+                },
+                "test",
+                maxRetries: 1,
+                baseDelayMs: 1000,
+                totalTimeoutMs: 60_000,
+                cancellationToken: TestContext.Current.CancellationToken,
+                clock: () => fakeTimeMs,
+                delayFunc: (ms, _) => { recordedDelays.Add(ms); fakeTimeMs += ms; return Task.CompletedTask; },
+                jitterFunc: () => 1.0)); // max positive: (1.0*2-1)*250 = +250
+
+        Assert.Single(recordedDelays);
+        // baseDelay=1000, jitter=25% of 1000=250, offset=+250 → 1250
+        Assert.Equal(1250, recordedDelays[0]);
+    }
+
+    [Fact]
+    public async Task Jitter_NegativeOffset_ReducesDelay()
+    {
+        var fakeTimeMs = 0L;
+        var recordedDelays = new List<int>();
+
+        // jitterFunc returns 0.0 → max negative jitter offset
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            RetryHelper.ExecuteWithRetryCore<int>(
+                (_) =>
+                {
+                    fakeTimeMs += 5;
+                    throw new InvalidOperationException("fail");
+                },
+                "test",
+                maxRetries: 1,
+                baseDelayMs: 1000,
+                totalTimeoutMs: 60_000,
+                cancellationToken: TestContext.Current.CancellationToken,
+                clock: () => fakeTimeMs,
+                delayFunc: (ms, _) => { recordedDelays.Add(ms); fakeTimeMs += ms; return Task.CompletedTask; },
+                jitterFunc: () => 0.0)); // max negative: (0.0*2-1)*250 = -250
+
+        Assert.Single(recordedDelays);
+        // baseDelay=1000, jitter=-250 → 750
+        Assert.Equal(750, recordedDelays[0]);
     }
 
     [Fact]

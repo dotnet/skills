@@ -8,9 +8,9 @@ public sealed class ConcurrencyLimiter(int maxConcurrency) : IDisposable
 {
     private readonly SemaphoreSlim _semaphore = new(Math.Max(1, maxConcurrency));
 
-    public async Task<T> RunAsync<T>(Func<Task<T>> fn)
+    public async Task<T> RunAsync<T>(Func<Task<T>> fn, CancellationToken cancellationToken = default)
     {
-        await _semaphore.WaitAsync();
+        await _semaphore.WaitAsync(cancellationToken);
         try
         {
             return await fn();

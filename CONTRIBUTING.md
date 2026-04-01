@@ -46,7 +46,17 @@ Every plugin must have a plugin.json file in the plugin root that is linked to f
 ### Plugin organization
 
 Skills are grouped into domain-specific plugins. When proposing a new skill, place it in the plugin that best matches its domain. See [README.md](README.md) for the current list of plugins.
-If your skill does not fit any existing plugin, consider creating a new one. The following plugin names are reserved for future use and are good candidates for new skills in those areas:
+If your skill does not fit any existing plugin, consider creating a new one.
+
+To create a new plugin:
+
+1. Add `plugins/<plugin-name>/plugin.json` and a `skills/` directory beneath it.
+2. Add a matching entry in both `.github/plugin/marketplace.json` and `.claude-plugin/marketplace.json`. The `.claude-plugin/marketplace.json` file must remain an exact copy of `.github/plugin/marketplace.json`, so any change to one file (adding, removing, or editing a plugin entry) must be applied to the other in the same way.
+3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
+4. Add the plugin to the **What's Included** table in the root `README.md`.
+5. Create a `tests/<plugin-name>/` directory for skill tests.
+
+See existing plugins for the expected format.
 
 ### The `dotnet-experimental` plugin
 
@@ -59,16 +69,6 @@ Skills in `dotnet-experimental`:
 - Should eventually graduate to a stable plugin or be retired. When a skill has proven itself, move it to the appropriate domain plugin and update tests accordingly.
 
 Place experimental skills under `plugins/dotnet-experimental/skills/` with matching tests in `tests/dotnet-experimental/`.
-
-To create a new plugin:
-
-1. Add `plugins/<plugin-name>/plugin.json` and a `skills/` directory beneath it.
-2. Add a matching entry in both `.github/plugin/marketplace.json` and `.claude-plugin/marketplace.json`. The `.claude-plugin/marketplace.json` file must remain an exact copy of `.github/plugin/marketplace.json`, so any change to one file (adding, removing, or editing a plugin entry) must be applied to the other in the same way.
-3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
-4. Add the plugin to the **What's Included** table in the root `README.md`.
-5. Create a `tests/<plugin-name>/` directory for skill tests.
-
-See existing plugins for the expected format.
 
 ## Before you start
 

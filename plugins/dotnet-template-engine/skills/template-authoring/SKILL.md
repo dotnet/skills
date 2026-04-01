@@ -41,18 +41,13 @@ This skill helps an agent create and validate custom `dotnet new` templates. It 
 
 ### Step 1: Bootstrap from existing project
 
-Analyze the source `.csproj` and create a `.template.config/template.json` that preserves the project's conventions:
+Analyze the source `.csproj` and create a `.template.config/template.json`:
 
-1. Create the `.template.config` directory next to the project
-2. Generate `template.json` with:
-   - `identity` in reverse-DNS format (e.g., `MyOrg.Templates.MyLib`)
-   - `name` as the human-readable template name
-   - `shortName` for `dotnet new <shortname>` usage
-   - `sourceName` set to the project name (enables name replacement)
-   - `classifications` for discoverability (e.g., `["Library"]`)
-   - `tags` with language and type
+1. Create `.template.config` directory next to the project
+2. Generate `template.json` with `identity` (reverse-DNS), `name`, `shortName`, `sourceName` (project name for replacement), `classifications`, and `tags`
+3. Preserve from source: SDK type, package references with metadata (PrivateAssets, IncludeAssets), properties (OutputType, TreatWarningsAsErrors), CPM patterns
 
-Example generated `template.json`:
+Minimal example:
 ```json
 {
   "$schema": "http://json.schemastore.org/template",
@@ -62,29 +57,9 @@ Example generated `template.json`:
   "name": "My Library Template",
   "shortName": "mylib",
   "sourceName": "MyLib",
-  "tags": {
-    "language": "C#",
-    "type": "project"
-  },
-  "symbols": {
-    "Framework": {
-      "type": "parameter",
-      "datatype": "choice",
-      "defaultValue": "net9.0",
-      "choices": [
-        { "choice": "net9.0" },
-        { "choice": "net10.0" }
-      ],
-      "replaces": "net9.0"
-    }
-  }
+  "tags": { "language": "C#", "type": "project" }
 }
 ```
-
-Preserve from the source project:
-- SDK type, package references with metadata (PrivateAssets, IncludeAssets)
-- Properties (OutputType, TreatWarningsAsErrors)
-- Central Package Management and shared compile patterns
 
 ### Step 2: Validate template.json
 
@@ -110,30 +85,12 @@ Based on validation results and user requirements:
 
 ### Step 4: Test the template locally
 
-1. Install the template from the local directory:
-   ```bash
-   dotnet new install ./path/to/template/root
-   ```
-2. Run a dry-run to verify the output:
-   ```bash
-   dotnet new mylib --name TestProject --dry-run
-   ```
-3. Create a test project and verify it builds:
-   ```bash
-   dotnet new mylib --name TestProject --output ./test-output
-   dotnet build ./test-output/TestProject
-   ```
-4. Verify all parameters produce the expected output
-
-### Step 5: Package for distribution
-
-1. Create a `.nuspec` or use `<PackAsTool>` in a packaging `.csproj`
-2. Include the template directory with `.template.config/template.json`
-3. Run `dotnet pack` to create the `.nupkg`
-4. Test installation from the `.nupkg`:
-   ```bash
-   dotnet new install ./path/to/package.nupkg
-   ```
+```bash
+dotnet new install ./path/to/template/root
+dotnet new mylib --name TestProject --dry-run
+dotnet new mylib --name TestProject --output ./test-output
+dotnet build ./test-output/TestProject
+```
 
 ## Validation
 

@@ -80,7 +80,7 @@ public static class Comparator
                 Scenarios = [],
                 OverallImprovementScore = 0,
                 Reason = "No scenarios to evaluate",
-                FailureKind = "no_scenarios",
+                FailureKind = FailureKind.NoScenarios,
             };
         }
 
@@ -112,7 +112,7 @@ public static class Comparator
                     ConfidenceInterval = ci,
                     IsSignificant = significant,
                     Reason = "Skill regressed on task completion in one or more scenarios",
-                    FailureKind = "completion_regression",
+                    FailureKind = FailureKind.CompletionRegression,
                 };
             }
         }
@@ -125,6 +125,13 @@ public static class Comparator
 
         if (!significant && allPerRunScores.Count > 1)
             reason += " (not statistically significant)";
+
+        var highVarianceScenarios = comparisons.Where(c => c.HighVariance).ToList();
+        if (highVarianceScenarios.Count > 0)
+        {
+            var names = string.Join(", ", highVarianceScenarios.Select(c => c.ScenarioName));
+            reason += $" [high variance in: {names}]";
+        }
 
         return new SkillVerdict
         {
@@ -141,7 +148,7 @@ public static class Comparator
                 ? comparisons.Where(c => c.SkilledPlugin != null).Average(c => c.PluginImprovementScore)
                 : null,
             Reason = reason,
-            FailureKind = passed ? null : "threshold",
+            FailureKind = passed ? null : FailureKind.Threshold,
         };
     }
 

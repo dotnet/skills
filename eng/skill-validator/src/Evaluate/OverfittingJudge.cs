@@ -9,7 +9,7 @@ public static partial class OverfittingJudge
     private const int MaxRetries = 2;
     private const int MaxSkillContentChars = 48_000; // ~12K tokens
 
-    public static async Task<OverfittingResult?> Analyze(EvalSkillInfo evalSkill, OverfittingJudgeOptions options)
+    public static async Task<OverfittingResult?> Analyze(EvalSkillInfo evalSkill, OverfittingJudgeOptions options, CancellationToken cancellationToken = default)
     {
         if (evalSkill.EvalConfig is null || evalSkill.EvalPath is null)
             return null;
@@ -18,11 +18,12 @@ public static partial class OverfittingJudge
 
         for (int attempt = 0; attempt <= MaxRetries; attempt++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 if (attempt > 0)
                     Console.Error.WriteLine($"      🔄 Overfitting judge retry {attempt}/{MaxRetries} for \"{evalSkill.Skill.Name}\"");
-                return await AnalyzeOnce(evalSkill, options);
+                return await AnalyzeOnce(evalSkill, options, cancellationToken);
             }
             catch (Exception error)
             {
@@ -35,7 +36,7 @@ public static partial class OverfittingJudge
             $"Overfitting judge failed for \"{evalSkill.Skill.Name}\" after {MaxRetries + 1} attempts: {lastError}");
     }
 
-    private static async Task<OverfittingResult> AnalyzeOnce(EvalSkillInfo evalSkill, OverfittingJudgeOptions options)
+    private static async Task<OverfittingResult> AnalyzeOnce(EvalSkillInfo evalSkill, OverfittingJudgeOptions options, CancellationToken cancellationToken)
     {
         // Run deterministic prompt checks first — these are high-confidence signals
         // that don't need LLM judgment.
@@ -48,7 +49,8 @@ public static partial class OverfittingJudge
             workDir: options.WorkDir,
             timeoutMs: options.Timeout,
             verbose: options.Verbose,
-            timeoutLabel: "Overfitting judge");
+            timeoutLabel: "Overfitting judge",
+            cancellationToken: cancellationToken);
 
         return ParseOverfittingResponse(response.Content, deterministicPromptAssessments);
     }

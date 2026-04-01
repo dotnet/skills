@@ -62,6 +62,25 @@ public static class Statistics
         ci.Low > 0 || ci.High < 0;
 
     /// <summary>
+    /// Compute the coefficient of variation (CV) for a set of scores.
+    /// Returns null if fewer than 2 data points. A CV above the threshold
+    /// (e.g., 0.5) indicates high run-to-run variance.
+    /// </summary>
+    public static double? CoefficientOfVariation(IReadOnlyList<double> data)
+    {
+        if (data.Count < 2)
+            return null;
+
+        double mean = data.Average();
+        if (Math.Abs(mean) < 1e-10)
+            return null; // CV is undefined when mean is ~0
+
+        double sumSquaredDiff = data.Sum(x => (x - mean) * (x - mean));
+        double stdDev = Math.Sqrt(sumSquaredDiff / (data.Count - 1));
+        return stdDev / Math.Abs(mean);
+    }
+
+    /// <summary>
     /// Wilson score interval for a binomial proportion.
     /// Useful for pass/fail rates with small samples.
     /// </summary>
