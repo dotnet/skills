@@ -33,7 +33,7 @@ A test method has multiple assertions without descriptive messages. When one fai
 
 **Detection:** A test method containing 3+ assertion statements where none provide an explanation message parameter.
 
-**Example** (from [agit — GitAsyncTaskTest.java](https://github.com/rtyley/agit/blob/fc99d8eaa42940198589b032a2b9ba74d9ce3094/agit-integration-tests/src/main/java/com/madgag/agit/GitAsyncTaskTest.java)):
+**Example:**
 
 ```java
 assertThat(repo, hasGitObject("ba1f63e4430bff267d112b1e8afc1d6294db0ccc"));
@@ -50,7 +50,7 @@ The same assertion (same parameters) appears multiple times in a single test met
 
 **Detection:** Two or more assertion statements within the same test method with identical parameters.
 
-**Example** (from [radiocells-scanner — XmlSanitizerTest.java](https://github.com/openbmap/radiocells-scanner-android/blob/d6353829f786180ec5ba548ed2adf747e816f735/android/app/src/test/java/org/openbmap/utils/XmlSanitizerTest.java)):
+**Example:**
 
 ```java
 valid = XmlSanitizer.isValid("Fritz-box");
@@ -90,7 +90,7 @@ Assertions that are always true or always false regardless of the code under tes
 
 **Detection:** Assertions comparing a value to itself, or asserting literal `true`/`false` constants.
 
-**Example** (from [worldscope — LoginActivityTest.java](https://github.com/nus-mtp/worldscope/blob/41770e12e0780b57ad80a48c2a4cd07f57aadfa6/client/android/WorldScope/app/src/androidTest/java/com/litmus/worldscope/LoginActivityTest.java)):
+**Example:**
 
 ```java
 assertEquals(true, true);
