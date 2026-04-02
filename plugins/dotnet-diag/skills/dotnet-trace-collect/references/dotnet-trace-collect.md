@@ -64,7 +64,7 @@ dotnet-trace collect -p <PID> --format speedscope
 | Format | Extension | Analysis Tool |
 |--------|-----------|---------------|
 | `nettrace` (default) | `.nettrace` | PerfView, Visual Studio, `dotnet-trace report` |
-| `speedscope` | `.speedscope.json` | [Speedscope](https://www.speedscope.app/) (web) |
+| `speedscope` | `.speedscope.json` | Speedscope |
 | `chromium` | `.chromium.json` | Chrome DevTools (chrome://tracing) |
 
 ## Container Usage

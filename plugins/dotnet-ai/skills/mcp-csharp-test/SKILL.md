@@ -188,4 +188,3 @@ For the evaluation format, example questions, and detailed guidance, see [refere
 ## More Info
 
 - [xUnit documentation](https://xunit.net/docs/getting-started/netcore/cmdline) — Getting started with xUnit for .NET
-- [FluentAssertions](https://fluentassertions.com/) — Readable assertion library for .NET
