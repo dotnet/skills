@@ -331,7 +331,7 @@ In independent mode, rubric items are scored 1–5 per run. Quality metrics have
 Before running the A/B evaluation, skill-validator performs static analysis of each SKILL.md and reports a one-line profile:
 
 ```
-📊 crank-benchmarking: 1,722 tokens (detailed ✓), 29 sections, 24 code blocks
+📊 crank-benchmarking: 1,722 BPE tokens [chars/4: 2,156] (detailed ✓), 29 sections, 24 code blocks
    ⚠  No numbered workflow steps detected
 ```
 
@@ -342,6 +342,32 @@ This is grounded in [SkillsBench](https://arxiv.org/abs/2602.12670) findings (84
 - **2–3 focused skills outperform 4+** skills bundled together
 
 When a skill fails validation, the profile warnings appear in the diagnosis to suggest what to fix.
+
+### Getting the token count for a skill
+
+The `check` sub-command reports the BPE token count for each skill when run with `--verbose`:
+
+```bash
+skill-validator check --verbose --plugin ./plugins/my-plugin
+```
+
+The profile line shows two token measurements:
+
+| Value | Description |
+|-------|-------------|
+| **BPE tokens** | Actual token count computed with the `cl100k_base` tokenizer (OpenAI). This is the primary size metric. |
+| **chars/4** | Approximate token count (character count ÷ 4). Shown as a reference point. |
+
+The complexity tier is derived from the BPE token count:
+
+| Tier | Token range | Verdict |
+|------|-------------|---------|
+| compact | < 400 | ✓ Good |
+| detailed | 400 – 2,500 | ✓ Optimal sweet spot |
+| standard | 2,501 – 5,000 | Approaching diminishing returns |
+| comprehensive | > 5,000 | ✗ Performance degrades |
+
+> **Note:** The `check` command outputs to the console only — it does not write result files. Warnings about skill size are always printed; the full profile line requires `--verbose`.
 
 ## Metrics & scoring
 
