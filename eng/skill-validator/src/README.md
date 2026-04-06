@@ -363,7 +363,7 @@ The complexity tier is derived from the BPE token count:
 | Tier | Token range | Verdict |
 |------|-------------|---------|
 | compact | < 400 | ✓ Good |
-| detailed | 400 – 2,500 | ✓ Optimal sweet spot |
+| detailed | 400 – 2,500 | ✓ Recommended tier (sweet spot: 800–2,500) |
 | standard | 2,501 – 5,000 | Approaching diminishing returns |
 | comprehensive | > 5,000 | ✗ Performance degrades |
 
