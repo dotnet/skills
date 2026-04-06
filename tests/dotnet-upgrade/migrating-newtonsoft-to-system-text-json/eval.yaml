@@ -27,7 +27,11 @@ scenarios:
       }
       ```
 
-      Also show me how to configure the JSON options globally to match Newtonsoft.Json's default behavior (case insensitivity, trailing commas, number-from-string coercion).
+      Also show me how to configure the JSON options globally for Newtonsoft compatibility (case insensitivity, trailing commas, number-from-string coercion). What else should I watch out for when completing this migration?
+    reject_tools:
+      - "bash"
+      - "create_file"
+      - "edit"
     assertions:
       - type: "output_contains"
         value: "JsonPropertyName"
@@ -36,13 +40,14 @@ scenarios:
       - type: "output_matches"
         pattern: "(PropertyNameCaseInsensitive|CamelCase|PropertyNamingPolicy)"
       - type: "output_matches"
-        pattern: "(JsonElement|JsonNode)"
+        pattern: "(JsonElement|JsonNode|JsonObject)"
     rubric:
       - "Replaced [JsonProperty(\"order_id\")] with [JsonPropertyName(\"order_id\")]"
       - "Replaced NullValueHandling.Ignore with [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]"
       - "Replaced [JsonConverter(typeof(StringEnumConverter))] with System.Text.Json equivalent (JsonStringEnumConverter)"
-      - "Changed [JsonExtensionData] Dictionary value type from JToken to JsonElement (critical difference!)"
+      - "Changed [JsonExtensionData] Dictionary value type from JToken to a System.Text.Json type (JsonElement, JsonNode, or JsonObject)"
       - "Configured PropertyNameCaseInsensitive = true to match Newtonsoft default case-insensitive behavior"
-      - "Configured AllowTrailingCommas = true and NumberHandling = AllowReadingFromString for Newtonsoft compatibility"
-      - "Warned about behavioral differences (strict parsing, case sensitivity, and security trade-offs of compatibility settings)"
+      - "Warned about security trade-offs or behavioral differences when loosening System.Text.Json's strict defaults (e.g., comments enabling desync attacks, case insensitivity widening input surface)"
+      - "Mentioned removing the Newtonsoft.Json or Microsoft.AspNetCore.Mvc.NewtonsoftJson NuGet packages as a migration step"
+      - "Noted that NullValueHandling.Ignore is NOT the Newtonsoft default — DefaultIgnoreCondition.WhenWritingNull should only be applied globally if the existing code explicitly used NullValueHandling.Ignore in settings"
     timeout: 120

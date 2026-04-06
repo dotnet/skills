@@ -19,12 +19,6 @@ description: >
 - Removing the Newtonsoft.Json dependency for performance or AOT compatibility
 - Fixing serialization differences after switching to System.Text.Json
 
-## When Not to Use
-
-- The project requires Newtonsoft.Json features that System.Text.Json cannot support (extremely rare edge cases like `$ref/$id` with deep graphs)
-- The user is already using System.Text.Json and just needs help with it
-- The user explicitly wants to keep Newtonsoft.Json
-
 ## Inputs
 
 | Input | Required | Description |
@@ -40,24 +34,19 @@ description: >
 
 | Behavior | Newtonsoft.Json | System.Text.Json | Impact |
 |----------|----------------|-------------------|--------|
-| **Property naming** | As declared (typically PascalCase) | As declared (typically PascalCase) | Same ✓ (both preserve the property name as written in the class) |
-| **Character escaping** | Only escapes characters required by JSON spec | **Escapes non-ASCII and HTML-sensitive characters** | Output looks different but is semantically equivalent; use `JavaScriptEncoder.UnsafeRelaxedJsonEscaping` if unescaped output is needed (e.g., for readability), but understand the trade-offs: relaxed escaping is safe for API responses but may require additional escaping if the JSON is embedded in HTML |
-| **Missing properties** | Ignored silently | Ignored silently | Same ✓ |
-| **Extra JSON properties** | Ignored by default | Ignored by default (can opt-in to throw in .NET 8+) | Same ✓ (stricter behavior available via options) |
+| **Character escaping** | Only escapes JSON-spec chars | **Escapes non-ASCII and HTML-sensitive** | Output differs but is equivalent; use `JavaScriptEncoder.UnsafeRelaxedJsonEscaping` if needed |
 | **Trailing commas** | Allowed | **Rejected by default** | Parse errors on valid-looking JSON |
 | **Comments in JSON** | Allowed | **Rejected by default** | Config files break |
 | **Number in string** (`"123"`) | Coerced automatically | **Throws by default** | Deserialization breaks! |
-| **Enum serialization** | Numeric by default | Numeric by default | Same ✓, but converter syntax differs |
-| **null → non-nullable value type** | Sets to default(T) | Sets to default(T) | Same ✓ (null becomes default(T)) |
 | **Case sensitivity** | Case-insensitive | **Case-sensitive by default** | Property matching breaks |
-| **Max depth** | 64 | 64 | Same ✓ |
 | **Circular references** | `$ref/$id` with PreserveReferencesHandling | `ReferenceHandler.Preserve` (.NET 5+) | API differs |
 
-### Step 2: Configure System.Text.Json to match Newtonsoft.Json behavior
+### Step 2: Configure System.Text.Json — start strict, loosen only what you need
 
-> **Security note:** Several settings below widen the parser's acceptance surface.
-> System.Text.Json's stricter defaults are intentional security boundaries. Only enable
-> the settings your application actually needs — do not blindly apply them all.
+> **Security-first approach:** System.Text.Json's stricter defaults are intentional
+> security boundaries. Start from the strictest configuration and only loosen individual
+> settings when your application specifically requires it. Interview the user about each
+> compatibility requirement rather than applying a blanket compatibility configuration.
 
 ```csharp
 // In Program.cs (ASP.NET Core) — configure globally
@@ -75,27 +64,46 @@ builder.Services.AddControllers()
 
 static void ConfigureJsonOptions(JsonSerializerOptions options)
 {
-    // Case-insensitive matching (Newtonsoft default).
-    // ⚠️ Enables multiple JSON properties to map to one .NET property,
-    // which can cause interoperability issues. Only enable if needed.
-    options.PropertyNameCaseInsensitive = true;
+    // Start from strict defaults. Only add the settings below that your
+    // application actually needs after reviewing the trade-offs.
 
-    // Allow numbers in string form like "123" (Newtonsoft coerces automatically).
-    // ⚠️ Widens the accepted input surface — only enable if your data contains
+    // ── Case sensitivity ──
+    // Newtonsoft is case-insensitive by default; STJ is case-sensitive.
+    // ⚠️ Case-insensitive matching enables multiple JSON properties to map to
+    // one .NET property, which can cause interoperability/desync attacks.
+    // Only enable if your JSON producers use inconsistent casing.
+    // options.PropertyNameCaseInsensitive = true;
+
+    // ── Numbers in strings ──
+    // Newtonsoft coerces "123" to int automatically; STJ rejects by default.
+    // ⚠️ Widens the accepted input surface. Only enable if your data contains
     // quoted numbers and you cannot fix the producer.
-    options.NumberHandling = JsonNumberHandling.AllowReadingFromString;
+    // options.NumberHandling = JsonNumberHandling.AllowReadingFromString;
 
-    options.ReadCommentHandling = JsonCommentHandling.Skip;     // Newtonsoft allows
-    options.AllowTrailingCommas = true;                         // Newtonsoft allows
+    // ── Comments ──
+    // Newtonsoft allows comments; STJ rejects by default.
+    // ⚠️ SECURITY: Allowing comments risks desynced deserialization attacks.
+    // Different parsers disagree on where comments start/end (e.g., Newtonsoft,
+    // JSON5, and STJ have different definitions of "end of line" for single-line
+    // comments). An attacker can exploit these differences to smuggle values
+    // through what appears to be an ignorable comment. Only enable for trusted
+    // input like config files — never for user-supplied JSON.
+    // options.ReadCommentHandling = JsonCommentHandling.Skip;
 
-    // Enum string serialization (replaces StringEnumConverter)
+    // ── Trailing commas ──
+    // Newtonsoft allows; STJ rejects by default. Low risk.
+    // options.AllowTrailingCommas = true;
+
+    // ── Enum string serialization ──
+    // Replaces Newtonsoft's StringEnumConverter.
     options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
 
-    // Handle circular references — use IgnoreCycles to silently break cycles.
-    // ⚠️ ReferenceHandler.Preserve emits $id/$ref metadata and significantly
-    // increases the deserialization attack surface (an adversary who controls the
-    // JSON can rewire object graph edges). Only use Preserve if you specifically
-    // need round-trip reference identity and the JSON comes from a trusted source.
+    // ── Circular references ──
+    // Use IgnoreCycles to silently break cycles (safe default).
+    // ⚠️ Do NOT use ReferenceHandler.Preserve unless you specifically need
+    // round-trip reference identity AND the JSON comes from a trusted source.
+    // Preserve emits $id/$ref metadata that lets an adversary rewire object
+    // graph edges, potentially violating business logic.
     options.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 }
 ```
@@ -125,160 +133,53 @@ static void ConfigureJsonOptions(JsonSerializerOptions options)
 
 ### Step 4: Convert custom JsonConverters
 
-**Newtonsoft converter pattern:**
-```csharp
-// OLD: Newtonsoft.Json
-public class UnixDateTimeConverter : Newtonsoft.Json.JsonConverter<DateTime>
-{
-    public override DateTime ReadJson(JsonReader reader, Type objectType,
-        DateTime existingValue, bool hasExistingValue, JsonSerializer serializer)
-    {
-        var timestamp = (long)reader.Value!;
-        return DateTimeOffset.FromUnixTimeSeconds(timestamp).DateTime;
-    }
-
-    public override void WriteJson(JsonWriter writer, DateTime value,
-        JsonSerializer serializer)
-    {
-        var timestamp = new DateTimeOffset(value).ToUnixTimeSeconds();
-        writer.WriteValue(timestamp);
-    }
-}
-```
-
-**System.Text.Json converter pattern:**
-```csharp
-// NEW: System.Text.Json
-public class UnixDateTimeConverter : System.Text.Json.Serialization.JsonConverter<DateTime>
-{
-    public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert,
-        JsonSerializerOptions options)
-    {
-        var timestamp = reader.GetInt64(); // Note: strongly typed reader methods
-        return DateTimeOffset.FromUnixTimeSeconds(timestamp).DateTime;
-    }
-
-    public override void Write(Utf8JsonWriter writer, DateTime value,
-        JsonSerializerOptions options)
-    {
-        var timestamp = new DateTimeOffset(value).ToUnixTimeSeconds();
-        writer.WriteNumberValue(timestamp);
-    }
-}
-```
-
-**Key differences in converter API:**
-- Reader is `ref Utf8JsonReader` (struct, passed by ref) — NOT a class
-- Writer is `Utf8JsonWriter` — write methods are `WriteStringValue`, `WriteNumberValue`, `WriteBooleanValue` (typed)
-- No `serializer` parameter — use `options` and call `JsonSerializer.Serialize/Deserialize` for nested objects
-- For polymorphic deserialization: use `JsonTypeInfo` and `[JsonDerivedType]` (.NET 7+) instead of custom type handling
+Key API differences from Newtonsoft:
+- Base class: `System.Text.Json.Serialization.JsonConverter<T>`
+- Reader is `ref Utf8JsonReader` (struct by ref); Writer is `Utf8JsonWriter`
+- Methods: `Read`/`Write` (not `ReadJson`/`WriteJson`)
+- Typed write methods: `WriteStringValue`, `WriteNumberValue`, `WriteBooleanValue`
+- Typed read methods: `reader.GetInt64()`, `reader.GetString()` (not casting `reader.Value`)
+- Use `JsonSerializerOptions options` parameter (not `JsonSerializer serializer`)
 
 ### Step 5: Replace JToken/JObject/JArray with JsonNode
 
-**Use `JsonNode` (System.Text.Json.Nodes) as the primary replacement for JToken/JObject/JArray.** It provides a mutable DOM that is the closest equivalent to Newtonsoft's LINQ-to-JSON:
+Use `JsonNode` (System.Text.Json.Nodes) for mutable DOM (replaces LINQ-to-JSON):
+- `JToken.Parse` → `JsonNode.Parse`, `JObject` → `JsonObject`, `JArray` → `JsonArray`
+- Read: `(string)node["key"]!` or `.GetValue<T>()`; Modify: `node["key"] = value`
+- Serialize: `node.ToJsonString()`
 
-```csharp
-// Mutable DOM — replaces JObject/JArray patterns
-var node = JsonNode.Parse(json)!;
-node["newProperty"] = "value";           // Add/set properties
-node["nested"] = new JsonObject          // Create nested objects
-{
-    ["key"] = 42
-};
-string name = (string)node["name"]!;     // Read values with cast
-var result = node.ToJsonString();         // Serialize back
-```
-
-| Newtonsoft.Json | System.Text.Json (JsonNode) | Notes |
-|----------------|----------------------------|-------|
-| `JToken.Parse(json)` | `JsonNode.Parse(json)` | Returns mutable tree |
-| `JObject obj = ...` | `JsonObject obj = ...` | Create with `new JsonObject { ... }` |
-| `obj["key"]` | `node["key"]` | Returns `JsonNode?`; cast to get value |
-| `obj["key"]?.Value<int>()` | `(int)node["key"]!` | Or use `.GetValue<int>()` |
-| `obj.Add("key", value)` | `node["key"] = value` | Mutable — unlike JsonElement |
-
-> **For high-performance read-only scenarios**, consider `JsonDocument`/`JsonElement` instead.
-> `JsonDocument` is `IDisposable` and must be wrapped in `using`. `JsonElement` is a
-> read-only struct that becomes invalid after the owning `JsonDocument` is disposed
-> (clone with `element.Clone()` if needed).
+For **read-only** scenarios, use `JsonDocument`/`JsonElement` (IDisposable, must clone if keeping past dispose).
 
 ### Step 6: Handle polymorphic serialization
 
-**Newtonsoft.Json (uses $type discriminator):**
-```csharp
-// ⚠️ SECURITY RISK: TypeNameHandling allows an attacker to control the deserialized
-// type, enabling remote code execution. Do NOT migrate this pattern as-is.
-// System.Text.Json's approach below is secure by design (explicit allow-list).
-var settings = new JsonSerializerSettings
-{
-    TypeNameHandling = TypeNameHandling.Auto // NEVER use with untrusted input!
-};
-```
-
-**System.Text.Json (.NET 7+ — type discriminators):**
-```csharp
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
-[JsonDerivedType(typeof(CreditCardPayment), typeDiscriminator: "credit")]
-[JsonDerivedType(typeof(BankTransferPayment), typeDiscriminator: "bank")]
-public abstract class Payment
-{
-    public decimal Amount { get; set; }
-}
-
-public class CreditCardPayment : Payment
-{
-    public string CardNumber { get; set; } = "";
-}
-
-// Serializes as: {"$type":"credit","amount":99.99,"cardNumber":"..."}
-// System.Text.Json requires [JsonPolymorphic] on the base type and explicit
-// [JsonDerivedType] for each allowed subtype — no arbitrary type instantiation.
-```
+⚠️ Newtonsoft's `TypeNameHandling` is a **security risk** (attacker-controlled type instantiation). System.Text.Json uses a secure-by-design approach (.NET 7+):
+- `[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]` on base class
+- `[JsonDerivedType(typeof(Subtype), typeDiscriminator: "name")]` for each allowed subtype
+- No arbitrary type instantiation — explicit allow-list only
 
 ### Step 7: Update package references
 
-```xml
-<!-- Remove from .csproj -->
-<PackageReference Include="Newtonsoft.Json" Version="*" />
-<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="*" />
+Remove `Newtonsoft.Json` and `Microsoft.AspNetCore.Mvc.NewtonsoftJson` from .csproj. System.Text.Json is in-box for .NET 6+. Replace `using Newtonsoft.Json` / `Newtonsoft.Json.Linq` with `System.Text.Json` / `System.Text.Json.Serialization` / `System.Text.Json.Nodes`.
 
-<!-- System.Text.Json is included in the framework — no package needed for .NET 6+ -->
-<!-- Only add explicitly if you need a newer version: -->
-<!-- <PackageReference Include="System.Text.Json" Version="8.0.0" /> -->
-```
+### Step 8: Write baseline serialization tests
 
-**Update using statements:**
-```csharp
-// Remove:
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using Newtonsoft.Json.Serialization;
-using Newtonsoft.Json.Converters;
-
-// Add:
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Text.Json.Nodes;  // For JsonNode (mutable DOM)
-```
+Compare NJ and STJ output for every migrated model. Serialize with both, parse results to `JsonNode`, and assert equality. Also test round-trip deserialization for edge cases (nulls, extra properties, enums).
 
 ## Validation
 
-- [ ] All `using Newtonsoft.Json` references removed
-- [ ] All `[JsonProperty]` replaced with `[JsonPropertyName]`
-- [ ] Custom converters use `System.Text.Json.Serialization.JsonConverter<T>` base
-- [ ] `JObject`/`JToken` replaced with `JsonDocument` (read-only) or `JsonNode` (mutable)
-- [ ] API responses match previous JSON format (property casing, null handling)
-- [ ] Deserialization handles edge cases: trailing commas, comments, numbers-as-strings
-- [ ] No `TypeNameHandling` equivalent (security improvement)
-- [ ] `JsonDocument` usages wrapped in `using` statements
+- All `[JsonProperty]` replaced with `[JsonPropertyName]`
+- Custom converters use `System.Text.Json.Serialization.JsonConverter<T>` base
+- `JObject`/`JToken` replaced with `JsonNode` (mutable) or `JsonDocument` (read-only)
+- API responses match previous format; deserialization handles edge cases
 
 ## Common Pitfalls
 
-| Pitfall | Solution |
-|---------|----------|
-| Forgetting `PropertyNameCaseInsensitive = true` | Deserialization silently returns default values for all properties |
-| `JsonDocument` not disposed | Memory leak — always `using var doc = JsonDocument.Parse(...)` |
-| Using `JsonElement` after `JsonDocument` is disposed | JsonElement is invalid after dispose; clone with `element.Clone()` if needed |
-| `[JsonIgnore]` from wrong namespace | Both Newtonsoft and System.Text.Json have `[JsonIgnore]` — wrong `using` = attribute ignored |
-| Custom converter reading past the current token | System.Text.Json reader is strict — must read exactly the right tokens |
-| `JsonExtensionData` type mismatch | Use `Dictionary<string, JsonElement>`, `IDictionary<string, object>`, or `JsonObject` — not `JToken` |
+- Missing `PropertyNameCaseInsensitive = true` → deserialization silently returns defaults
+- `[JsonIgnore]` from wrong namespace → attribute silently ignored (both NJ and STJ have it)
+- `JsonDocument` not disposed → memory leak; always use `using`
+- `JsonExtensionData` with `JToken` → use `Dictionary<string, JsonElement>` or `JsonObject`
+
+## References
+
+- [System.Text.Json overview](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/overview)
+- [Migrate from Newtonsoft.Json](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/migrate-from-newtonsoft)
