@@ -51,3 +51,74 @@ scenarios:
       - "Mentioned removing the Newtonsoft.Json or Microsoft.AspNetCore.Mvc.NewtonsoftJson NuGet packages as a migration step"
       - "Noted that NullValueHandling.Ignore is NOT the Newtonsoft default — DefaultIgnoreCondition.WhenWritingNull should only be applied globally if the existing code explicitly used NullValueHandling.Ignore in settings"
     timeout: 120
+
+  - name: "Review a partially completed Newtonsoft.Json to System.Text.Json migration for correctness"
+    prompt: |
+      I migrated our .NET 8 Web API from Newtonsoft.Json to System.Text.Json over the weekend. It compiles and basic tests pass, but I want a thorough review before we ship. Can you review my migration and point out any issues, risks, or things I missed?
+
+      **Before (Newtonsoft.Json setup in Program.cs):**
+      ```csharp
+      builder.Services.AddControllers()
+          .AddNewtonsoftJson(options =>
+          {
+              options.SerializerSettings.Converters.Add(
+                  new StringEnumConverter(new CamelCaseNamingStrategy()));
+          });
+      ```
+
+      **After (my System.Text.Json migration in Program.cs):**
+      ```csharp
+      using System.Text.Json;
+      using System.Text.Json.Serialization;
+      using Newtonsoft.Json;  // keeping this — we still use JObject in one helper
+
+      builder.Services.AddControllers()
+          .AddJsonOptions(options =>
+          {
+              options.JsonSerializerOptions.DefaultIgnoreCondition =
+                  JsonIgnoreCondition.WhenWritingNull;
+              options.JsonSerializerOptions.Converters.Add(
+                  new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+              options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+              options.JsonSerializerOptions.ReadCommentHandling =
+                  JsonCommentHandling.Skip;
+              options.JsonSerializerOptions.AllowTrailingCommas = true;
+          });
+      ```
+
+      **Model class (after migration):**
+      ```csharp
+      using System.Text.Json.Serialization;
+
+      public class Customer
+      {
+          [JsonPropertyName("customer_id")]
+          public int Id { get; set; }
+
+          public string Name { get; set; }
+
+          [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+          public string? PhoneNumber { get; set; }
+
+          [JsonExtensionData]
+          public Dictionary<string, JToken>? Extra { get; set; }
+      }
+      ```
+
+      Our API receives JSON from external partners. What did I get wrong or miss?
+    reject_tools:
+      - "bash"
+      - "create_file"
+      - "edit"
+    assertions:
+      - type: "output_matches"
+        pattern: "(JToken|JsonElement|JsonNode)"
+      - type: "output_matches"
+        pattern: "(NullValueHandling|DefaultIgnoreCondition|WhenWritingNull)"
+    rubric:
+      - "Identified that Dictionary<string, JToken> must be changed to a System.Text.Json type (JsonElement, JsonNode, or JsonObject) because JToken is a Newtonsoft.Json type that won't work with System.Text.Json serialization"
+      - "Flagged that DefaultIgnoreCondition = WhenWritingNull was added but the original Newtonsoft configuration did NOT set NullValueHandling.Ignore — this silently changes API behavior by dropping null values from all responses"
+      - "Warned that ReadCommentHandling = Skip is a security risk for external partner JSON — different parsers disagree on comment boundaries, enabling desync attacks where an attacker smuggles values through what looks like a comment"
+      - "Flagged that the lingering 'using Newtonsoft.Json' import is dangerous — attributes like [JsonIgnore] or [JsonConstructor] exist in both namespaces and can silently resolve to the wrong one if a model file has both usings"
+      - "Mentioned removing the Newtonsoft.Json NuGet package once the JObject helper dependency is eliminated"
+    timeout: 120
