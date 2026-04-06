@@ -95,9 +95,9 @@ if ($parentPath -and $parentPath -ne $root -and $parentPath -ne $gitRoot) { $sea
 $testProjects = @()
 foreach ($sr in $searchRoots) {
     # Primary: match by .csproj content (test framework references)
-    $testProjects = Get-ChildItem -Path $sr -Filter "*.csproj" -Recurse -Depth 5 -ErrorAction SilentlyContinue |
+    $testProjects = @(Get-ChildItem -Path $sr -Filter "*.csproj" -Recurse -Depth 5 -ErrorAction SilentlyContinue |
         Where-Object { $_.FullName -notmatch '([/\\]obj[/\\]|[/\\]bin[/\\])' } |
-        Where-Object { (Select-String -Path $_.FullName -Pattern 'Microsoft\.NET\.Test\.Sdk|xunit|nunit|MSTest\.TestAdapter|"MSTest"|MSTest\.TestFramework|TUnit' -Quiet) }
+        Where-Object { (Select-String -Path $_.FullName -Pattern 'Microsoft\.NET\.Test\.Sdk|xunit|nunit|MSTest\.TestAdapter|"MSTest"|MSTest\.TestFramework|TUnit' -Quiet) })
     if ($testProjects.Count -gt 0) {
         if ($sr -ne $root) { Write-Host "SEARCHED:$sr" }
         break
@@ -107,8 +107,8 @@ foreach ($sr in $searchRoots) {
 # Fallback: match by file name convention
 if ($testProjects.Count -eq 0) {
     foreach ($sr in $searchRoots) {
-        $testProjects = Get-ChildItem -Path $sr -Filter "*.csproj" -Recurse -Depth 5 -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -match '(?i)(test|spec)' }
+        $testProjects = @(Get-ChildItem -Path $sr -Filter "*.csproj" -Recurse -Depth 5 -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '(?i)(test|spec)' })
         if ($testProjects.Count -gt 0) {
             if ($sr -ne $root) { Write-Host "SEARCHED:$sr" }
             break
