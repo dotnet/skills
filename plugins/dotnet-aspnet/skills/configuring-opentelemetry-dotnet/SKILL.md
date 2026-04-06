@@ -37,9 +37,11 @@ dotnet add package OpenTelemetry.Extensions.Hosting
 dotnet add package OpenTelemetry.Instrumentation.AspNetCore
 dotnet add package OpenTelemetry.Instrumentation.Http
 
-# Exporter (pick one or more — also used by logging in Step 3)
+# Exporter
 dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol  # OTLP exporter for traces, metrics, AND logs
-dotnet add package OpenTelemetry.Exporter.Console                # Dev/debugging
+
+# Optional — dev/local debugging only (do NOT include in production deployments)
+# dotnet add package OpenTelemetry.Exporter.Console
 ```
 
 **Do NOT install `OpenTelemetry` alone** — you need `OpenTelemetry.Extensions.Hosting` for proper DI integration.
@@ -87,7 +89,8 @@ builder.Services.AddOpenTelemetry()
         // })
         // Custom activity sources (must match ActivitySource names in your code)
         .AddSource("MyApp.Orders")
-        .AddSource("MyApp.Payments"))
+        .AddSource("MyApp.Payments")
+        .AddSource("MyApp.Messaging"))
     .WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
@@ -98,7 +101,7 @@ builder.Services.AddOpenTelemetry()
     .WithLogging(logging =>
     {
         logging.IncludeScopes = true;
-        logging.IncludeFormattedMessage = true;
+        // logging.IncludeFormattedMessage = true;  // Enable if you need the formatted message string in log exports
     })
     // Single OTLP exporter for all signals — reads OTEL_EXPORTER_OTLP_ENDPOINT
     // env var (defaults to http://localhost:4317). Override via environment variable
