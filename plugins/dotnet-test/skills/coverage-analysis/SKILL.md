@@ -164,24 +164,25 @@ New-Item -ItemType Directory -Path $coverageDir -Force | Out-Null
 Write-Host "COVERAGE_DIR:$coverageDir"
 ```
 
-#### Step 2b: Ensure `TestResults/` is gitignored
+#### Step 2b: Recommend ignoring `TestResults/`
 
 ```powershell
+$pattern = "**/TestResults/"
 $gitRoot = (git -C $testOutputRoot rev-parse --show-toplevel 2>$null)
 if ($gitRoot) { $gitRoot = [System.IO.Path]::GetFullPath($gitRoot) }
 if ($gitRoot) {
     $gitignorePath = Join-Path $gitRoot ".gitignore"
-    $pattern = "**/TestResults/"
     $alreadyIgnored = $false
     if (Test-Path $gitignorePath) {
         $alreadyIgnored = (Select-String -Path $gitignorePath -Pattern '^\s*(\*\*/)?TestResults/?\s*$' -Quiet)
     }
-    if (-not $alreadyIgnored) {
-        Add-Content -Path $gitignorePath -Value "`n# Test results and coverage output`n$pattern"
-        Write-Host "GITIGNORE_UPDATED:$gitignorePath"
+    if ($alreadyIgnored) {
+        Write-Host "GITIGNORE_RECOMMENDATION:already-present"
     } else {
-        Write-Host "GITIGNORE_UPDATED:already-present"
+        Write-Host "GITIGNORE_RECOMMENDATION:$pattern"
     }
+} else {
+    Write-Host "GITIGNORE_RECOMMENDATION:$pattern"
 }
 ```
 
