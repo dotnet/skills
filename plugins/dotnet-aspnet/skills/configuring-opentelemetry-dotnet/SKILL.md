@@ -8,7 +8,7 @@ description: Configure OpenTelemetry distributed tracing, metrics, and logging i
 ## When to Use
 
 - Adding distributed tracing to an ASP.NET Core application
-- Setting up OpenTelemetry exporters (OTLP is the primary protocol shown; Jaeger and Prometheus accept OTLP natively)
+- Setting up OpenTelemetry exporters (OTLP is the primary protocol; Jaeger accepts OTLP natively; Prometheus OTLP ingestion requires explicit opt-in)
 - Creating custom metrics or trace spans for business operations
 - Troubleshooting distributed trace context propagation across services
 
@@ -55,26 +55,20 @@ dotnet add package OpenTelemetry.Instrumentation.GrpcNetClient       # gRPC call
 dotnet add package OpenTelemetry.Instrumentation.Runtime             # GC, thread pool metrics
 ```
 
-### Step 2: Configure tracing and metrics in Program.cs
+### Step 2: Configure all signals in Program.cs
 
 ```csharp
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Logs;
-using OpenTelemetry.Exporter;  // for OtlpExportProtocol
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Define the service resource (appears in all telemetry)
-var serviceName = "MyOrderService";
-var serviceVersion = "1.0.0";
-
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource
-        .AddService(serviceName: serviceName, serviceVersion: serviceVersion))
+        .AddService(serviceName: builder.Environment.ApplicationName))
     .WithTracing(tracing => tracing
-        // Auto-instrumentation sources
         .AddAspNetCoreInstrumentation(options =>
         {
             // Filter out health check endpoints from traces
@@ -83,7 +77,6 @@ builder.Services.AddOpenTelemetry()
         })
         .AddHttpClientInstrumentation(options =>
         {
-            // Enrich outgoing HTTP spans with request/response details
             options.RecordException = true;
         })
         // Optional: add SQL instrumentation if using SqlClient directly
@@ -92,69 +85,49 @@ builder.Services.AddOpenTelemetry()
         //     options.SetDbStatementForText = true;
         //     options.RecordException = true;
         // })
-        // Custom activity sources (for your own spans)
-        .AddSource("MyOrderService.Orders")
-        .AddSource("MyOrderService.Payments")
-        // Exporter
-        .AddOtlpExporter(options =>
-        {
-            options.Endpoint = new Uri("http://localhost:4317"); // gRPC endpoint
-            // For HTTP: options.Protocol = OtlpExportProtocol.HttpProtobuf;
-            //           options.Endpoint = new Uri("http://localhost:4318/v1/traces");
-        }))
+        // Custom activity sources (must match ActivitySource names in your code)
+        .AddSource("MyApp.Orders")
+        .AddSource("MyApp.Payments"))
     .WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         // Optional: .AddRuntimeInstrumentation() for GC and thread pool metrics
         //   (requires OpenTelemetry.Instrumentation.Runtime package)
-        // Custom meters
-        .AddMeter("MyOrderService.Metrics")
-        // Note: Jaeger is traces-only. For metrics, export to an OTel Collector or
-        // Prometheus-compatible backend. Here we use the same OTLP endpoint assuming
-        // an OTel Collector that routes traces and metrics to appropriate backends.
-        .AddOtlpExporter(options =>
-        {
-            options.Endpoint = new Uri("http://localhost:4317"); // gRPC endpoint (metrics)
-        }));
-```
-
-### Step 3: Add OpenTelemetry logging integration
-
-No additional packages are needed — `AddOpenTelemetry()` comes from the `OpenTelemetry` package (a transitive dependency of `OpenTelemetry.Extensions.Hosting`), and `AddOtlpExporter()` comes from `OpenTelemetry.Exporter.OpenTelemetryProtocol`, both already installed in Step 1.
-
-```csharp
-// Connect ILogger to OpenTelemetry
-builder.Logging.AddOpenTelemetry(logging =>
-{
-    logging.IncludeScopes = true;
-    logging.IncludeFormattedMessage = true;
-    logging.ParseStateValues = true;  // Preserve structured log attributes
-
-    // CRITICAL: Set the same service resource on the logging provider.
-    // builder.Services.AddOpenTelemetry().ConfigureResource() does NOT
-    // propagate to the logging provider — set it explicitly here.
-    logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
-        .AddService(serviceName: serviceName, serviceVersion: serviceVersion));
-
-    logging.AddOtlpExporter(options =>
+        // Custom meters (must match Meter names in your code)
+        .AddMeter("MyApp.Metrics"))
+    .WithLogging(logging =>
     {
-        options.Endpoint = new Uri("http://localhost:4317");
-    });
-});
+        logging.IncludeScopes = true;
+        logging.IncludeFormattedMessage = true;
+    })
+    // Single OTLP exporter for all signals — reads OTEL_EXPORTER_OTLP_ENDPOINT
+    // env var (defaults to http://localhost:4317). Override via environment variable
+    // or appsettings.json configuration.
+    .UseOtlpExporter();
 ```
 
-**This correlates logs with traces automatically** — each log entry gets the current TraceId and SpanId.
+### Step 3: Understanding log–trace correlation
+
+The `.WithLogging()` call in Step 2 integrates ILogger with OpenTelemetry:
+
+- Each log entry automatically includes TraceId and SpanId for correlation with traces
+- The service resource from `.ConfigureResource()` propagates to logs automatically
+- `UseOtlpExporter()` applies to logs alongside traces and metrics
+- No additional packages or separate `SetResourceBuilder` call needed
 
 ### Step 4: Create custom spans (Activities) for business operations
 
 ```csharp
 using System.Diagnostics;
-using OpenTelemetry.Trace;
+using Microsoft.Extensions.Logging;
 
 public class OrderService
 {
     // Create an ActivitySource matching what you registered in Step 2
-    private static readonly ActivitySource ActivitySource = new("MyOrderService.Orders");
+    private static readonly ActivitySource ActivitySource = new("MyApp.Orders");
+    private readonly ILogger<OrderService> _logger;
+
+    public OrderService(ILogger<OrderService> logger) => _logger = logger;
 
     public async Task<Order> ProcessOrderAsync(CreateOrderRequest request)
     {
@@ -191,9 +164,11 @@ public class OrderService
         }
         catch (Exception ex)
         {
-            // Record the exception on the span
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            activity?.RecordException(ex);
+            // Log via ILogger — OpenTelemetry captures this with trace correlation.
+            // Prefer logging over activity.RecordException() as OTel is deprecating
+            // span events for exception recording in favor of log-based exceptions.
+            _logger.LogError(ex, "Order processing failed for customer {CustomerId}", request.CustomerId);
             throw;
         }
     }
@@ -209,18 +184,17 @@ Use `IMeterFactory` (injected via DI) to create meters — this ensures proper l
 ```csharp
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using Microsoft.Extensions.Diagnostics.Metrics;
 
 public class OrderMetrics
 {
-    // Meter name must match AddMeter("...") in configuration
     private readonly Counter<long> _ordersProcessed;
     private readonly Histogram<double> _orderProcessingDuration;
     private readonly UpDownCounter<int> _activeOrders;
 
     public OrderMetrics(IMeterFactory meterFactory)
     {
-        var meter = meterFactory.Create("MyOrderService.Metrics");
+        // Meter name must match AddMeter("...") in configuration
+        var meter = meterFactory.Create("MyApp.Metrics");
 
         // Counter — use for things that only go up
         _ordersProcessed = meter.CreateCounter<long>(
@@ -266,8 +240,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using OpenTelemetry.Context.Propagation;
 
-// ActivitySource should be static — register via .AddSource("MyOrderService.Messaging") in Step 2
-private static readonly ActivitySource MessageSource = new("MyOrderService.Messaging");
+// ActivitySource should be static — register via .AddSource("MyApp.Messaging") in Step 2
+private static readonly ActivitySource MessageSource = new("MyApp.Messaging");
 
 // Manual context propagation (e.g., across message queues)
 // On the SENDING side:
@@ -308,5 +282,4 @@ using var activity = MessageSource.StartActivity("ProcessMessage",
 | Missing HTTP client spans | Ensure `AddHttpClientInstrumentation()` is registered; it works for both `IHttpClientFactory`/DI and `new HttpClient()` (use `IHttpClientFactory` for lifetime management) |
 | High cardinality tags | Don't use user IDs, request IDs, or UUIDs as metric tags — explodes storage |
 | OTLP gRPC vs HTTP mismatch | Default is gRPC (port 4317); if collector only accepts HTTP, set `OtlpExportProtocol.HttpProtobuf` |
-| Static `Meter` instead of `IMeterFactory` | Prefer `IMeterFactory` from DI for proper lifetime management and testability |
-| `Meter` and `ActivitySource` not static | `ActivitySource` should be static; `Meter` should be created via `IMeterFactory` in DI |
+| `Meter` / `ActivitySource` lifecycle | `ActivitySource` should be static; create `Meter` via `IMeterFactory` from DI (not `new Meter()`) for proper lifetime management and testability |
