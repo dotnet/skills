@@ -291,12 +291,13 @@ if ($major -ge 10) {
     dotnet test "<ENTRY>" `
         --results-directory $rawDir `
         --coverage `
-        --coverage-output-format cobertura
+        --coverage-output-format cobertura `
+        --coverage-output $rawDir
 } else {
     # .NET 9: pass Microsoft.Testing.Platform arguments after the -- separator
     dotnet test "<ENTRY>" `
         --results-directory $rawDir `
-        -- --coverage --coverage-output-format cobertura
+        -- --coverage --coverage-output-format cobertura --coverage-output $rawDir
 }
 ```
 
@@ -311,9 +312,9 @@ foreach ($tp in $testProjects) {
     $hasMsCodeCov = Select-String -Path $tp.FullName -Pattern 'Microsoft\.Testing\.Extensions\.CodeCoverage' -Quiet
     if ($hasMsCodeCov) {
         if ($major -ge 10) {
-            dotnet test $tp.FullName --results-directory $rawDir --coverage --coverage-output-format cobertura
+            dotnet test $tp.FullName --results-directory $rawDir --coverage --coverage-output-format cobertura --coverage-output $rawDir
         } else {
-            dotnet test $tp.FullName --results-directory $rawDir -- --coverage --coverage-output-format cobertura
+            dotnet test $tp.FullName --results-directory $rawDir -- --coverage --coverage-output-format cobertura --coverage-output $rawDir
         }
     } else {
         dotnet test $tp.FullName `
@@ -355,11 +356,13 @@ if ($rgCommand) {
     $rgAvailable = $true
     Write-Host "RG_INSTALLED:already-present"
 } else {
-    dotnet tool install --global dotnet-reportgenerator-globaltool
-    $rgCommand = Get-Command reportgenerator -ErrorAction SilentlyContinue
-    if ($LASTEXITCODE -eq 0 -and $rgCommand) {
+    $rgToolPath = Join-Path "<COVERAGE_DIR>" ".tools"
+    dotnet tool install dotnet-reportgenerator-globaltool --tool-path $rgToolPath
+    $rgBin = Join-Path $rgToolPath "reportgenerator"
+    if ($LASTEXITCODE -eq 0 -and (Test-Path $rgBin)) {
+        $env:PATH = "$rgToolPath$([System.IO.Path]::PathSeparator)$env:PATH"
         $rgAvailable = $true
-        Write-Host "RG_INSTALLED:true"
+        Write-Host "RG_INSTALLED:true (tool-path: $rgToolPath)"
     } else {
         Write-Host "RG_INSTALLED:false"
         Write-Host "RG_INSTALL_ERROR:reportgenerator-not-available"
