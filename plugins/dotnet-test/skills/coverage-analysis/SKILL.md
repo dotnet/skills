@@ -81,7 +81,13 @@ $sln = Get-ChildItem -Path $root -Filter "*.sln" -Recurse -Depth 2 -ErrorAction 
 if ($sln) {
     Write-Host "ENTRY_TYPE:Solution"; Write-Host "ENTRY:$($sln.FullName)"
 } else {
-    Write-Host "ENTRY_TYPE:NotFound"
+    $project = Get-ChildItem -Path $root -Filter "*.csproj" -Recurse -Depth 2 -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($project) {
+        Write-Host "ENTRY_TYPE:Project"; Write-Host "ENTRY:$($project.FullName)"
+    } else {
+        Write-Host "ENTRY_TYPE:NotFound"
+    }
 }
 
 # Test projects: search path first, then git root, then parent
