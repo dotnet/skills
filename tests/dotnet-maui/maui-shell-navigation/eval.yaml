@@ -1,0 +1,91 @@
+scenarios:
+  - name: "Set up Shell navigation with tabs and flyout"
+    prompt: |
+      I'm starting a new .NET MAUI app that needs a flyout menu with two sections:
+      "Dashboard" (single page) and "Products" (with two sub-tabs: "Active" and
+      "Archived"). I also need a Settings page accessible from the flyout.
+      Show me how to set up AppShell.xaml with this structure, including route
+      registration for a ProductDetailsPage that I'll navigate to from the list.
+    assertions:
+      - type: "output_contains"
+        value: "FlyoutItem"
+      - type: "output_contains"
+        value: "ContentTemplate"
+      - type: "output_matches"
+        pattern: "Routing\\.RegisterRoute"
+      - type: "output_matches"
+        pattern: "(?i)ShellContent"
+    rubric:
+      - "Uses ContentTemplate with DataTemplate for lazy page creation, not eager Content"
+      - "Correctly nests ShellContent inside Tab to produce top tabs for Active/Archived"
+      - "Registers ProductDetailsPage route in AppShell constructor"
+      - "Sets FlyoutBehavior on Shell element"
+    timeout: 120
+
+  - name: "Navigate with parameters using GoToAsync"
+    prompt: |
+      I have a ProductListPage that shows products in a CollectionView. When the
+      user taps a product, I need to navigate to ProductDetailsPage and pass the
+      product ID as a string parameter AND sometimes the full Product object.
+      Show me both approaches and how to receive the data on the target page
+      using IQueryAttributable on my ViewModel.
+    assertions:
+      - type: "output_contains"
+        value: "GoToAsync"
+      - type: "output_contains"
+        value: "IQueryAttributable"
+      - type: "output_matches"
+        pattern: "ShellNavigationQueryParameters"
+      - type: "output_matches"
+        pattern: "ApplyQueryAttributes"
+    rubric:
+      - "Shows query string approach for the string ID parameter"
+      - "Shows ShellNavigationQueryParameters for passing the full object"
+      - "Implements IQueryAttributable on the ViewModel, not the page"
+      - "Always awaits GoToAsync calls"
+    timeout: 120
+
+  - name: "Handle back navigation and unsaved changes guard"
+    prompt: |
+      My EditProductPage has a form with unsaved changes. I need to:
+      1. Show a confirmation dialog when the user tries to navigate back
+      2. Cancel navigation if they choose to stay
+      3. Also provide a custom back button that says "Cancel" instead of the
+         default back arrow.
+      How do I implement this in .NET MAUI Shell?
+    assertions:
+      - type: "output_matches"
+        pattern: "(?i)OnNavigating|ShellNavigatingEventArgs"
+      - type: "output_matches"
+        pattern: "GetDeferral"
+      - type: "output_contains"
+        value: "BackButtonBehavior"
+      - type: "output_matches"
+        pattern: "(?i)args\\.Cancel|Cancel\\(\\)"
+    rubric:
+      - "Uses GetDeferral/Complete pattern for async confirmation dialog"
+      - "Checks ShellNavigationSource.Pop to detect back navigation"
+      - "Shows BackButtonBehavior XAML with TextOverride for custom label"
+      - "Does not use synchronous blocking for the async dialog check"
+    timeout: 120
+
+  - name: "Diagnose common Shell navigation mistakes"
+    prompt: |
+      My .NET MAUI Shell app has these problems:
+      1. GoToAsync("productdetails") throws an exception
+      2. GoToAsync("//products/active") navigates but nothing visible changes
+      3. My app takes 3 seconds to start and I have 12 pages in Shell
+      What's likely wrong in each case and how do I fix them?
+    assertions:
+      - type: "output_matches"
+        pattern: "(?i)RegisterRoute|register.*route"
+      - type: "output_matches"
+        pattern: "(?i)hierarchy|absolute.*route|path"
+      - type: "output_contains"
+        value: "ContentTemplate"
+    rubric:
+      - "Identifies missing Routing.RegisterRoute for the relative route case"
+      - "Explains that the absolute route path must match the full visual hierarchy"
+      - "Recommends ContentTemplate with DataTemplate to fix eager page creation at startup"
+      - "Does not suggest NavigationPage-based solutions for Shell navigation issues"
+    timeout: 120
