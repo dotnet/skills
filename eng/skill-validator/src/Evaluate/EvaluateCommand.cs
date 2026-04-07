@@ -33,6 +33,7 @@ public static class EvaluateCommand
         var noiseSkillsDirOpt = new Option<string?>("--noise-skills-dir") { Description = "Directory containing skills to load as noise. Enables the noise test: re-runs scenarios with all noise skills loaded and measures degradation." };
         var noiseMaxDegradationOpt = new Option<double>("--noise-max-degradation") { Description = "Maximum acceptable average quality degradation (0-1) in noise test (only positive degradations count)", DefaultValueFactory = _ => 0.2 };
         var noiseMaxScenarioDegradationOpt = new Option<double>("--noise-max-scenario-degradation") { Description = "Maximum acceptable quality degradation (0-1) for any single noise-test scenario", DefaultValueFactory = _ => 0.4 };
+        var varOpt = new Option<string[]>("--var") { Description = "Set eval variables (key=value). Overrides config.variables in eval.yaml. Can be repeated.", AllowMultipleArgumentsPerToken = true };
 
         var command = new Command("evaluate", "Evaluate agent skills via LLM-based testing")
         {
@@ -59,6 +60,7 @@ public static class EvaluateCommand
             noiseSkillsDirOpt,
             noiseMaxDegradationOpt,
             noiseMaxScenarioDegradationOpt,
+            varOpt,
         };
 
         command.Add(RejudgeCommand.Create());
@@ -110,6 +112,7 @@ public static class EvaluateCommand
                 NoiseSkillsDir = parseResult.GetValue(noiseSkillsDirOpt),
                 NoiseDegradationLimit = parseResult.GetValue(noiseMaxDegradationOpt),
                 NoiseMaxScenarioDegradation = parseResult.GetValue(noiseMaxScenarioDegradationOpt),
+                Variables = ParseVariables(parseResult.GetValue(varOpt)),
             };
 
             return await Run(config, cancellationToken);
@@ -126,6 +129,50 @@ public static class EvaluateCommand
         "markdown" => new ReporterSpec(ReporterType.Markdown),
         _ => throw new ArgumentException($"Unknown reporter type: {value}"),
     };
+
+    private static Dictionary<string, string>? ParseVariables(string[]? values)
+    {
+        if (values is null or { Length: 0 })
+            return null;
+
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var v in values)
+        {
+            var eqIdx = v.IndexOf('=');
+            if (eqIdx <= 0)
+                throw new ArgumentException($"Invalid --var format: '{v}'. Expected key=value.");
+            dict[v[..eqIdx]] = v[(eqIdx + 1)..];
+        }
+        return dict;
+    }
+
+    /// <summary>
+    /// Merge variable layers (eval.yaml config → scenario → CLI) and apply ${var} substitution to a prompt.
+    /// CLI variables take highest priority, then scenario-level, then config-level.
+    /// </summary>
+    internal static string ResolvePrompt(
+        string prompt,
+        IReadOnlyDictionary<string, string>? configVariables,
+        IReadOnlyDictionary<string, string>? scenarioVariables,
+        IReadOnlyDictionary<string, string>? cliVariables)
+    {
+        var merged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (configVariables is not null)
+            foreach (var kv in configVariables) merged[kv.Key] = kv.Value;
+        if (scenarioVariables is not null)
+            foreach (var kv in scenarioVariables) merged[kv.Key] = kv.Value;
+        if (cliVariables is not null)
+            foreach (var kv in cliVariables) merged[kv.Key] = kv.Value;
+
+        if (merged.Count == 0)
+            return prompt;
+
+        return Regex.Replace(prompt, @"\$\{(\w+)\}", m =>
+        {
+            var key = m.Groups[1].Value;
+            return merged.TryGetValue(key, out var value) ? value : m.Value;
+        });
+    }
 
     public static async Task<int> Run(ValidatorConfig config, CancellationToken cancellationToken = default)
     {
@@ -660,12 +707,15 @@ public static class EvaluateCommand
         var pluginConfigDir = sessionsDir is not null ? Path.Combine("sessions", pluginSessionId) : null;
         var rubricJson = JsonSerializer.Serialize(scenario.Rubric?.ToArray() ?? [], SkillValidatorJsonContext.Default.StringArray);
 
+        var resolvedPrompt = ResolvePrompt(scenario.Prompt, target.EvalConfig?.Variables, scenario.Variables, config.Variables);
+        var resolvedScenario = scenario with { Prompt = resolvedPrompt };
+
         sessionDb?.RegisterSession(baselineSessionId, agent.Name, agent.Path, scenario.Name, runIndex,
-            "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, targetSha, rubricJson);
+            "baseline", config.Model, baselineConfigDir, null, resolvedPrompt, targetSha, rubricJson);
         sessionDb?.RegisterSession(isolatedSessionId, agent.Name, agent.Path, scenario.Name, runIndex,
-            "with-agent-isolated", config.Model, isolatedConfigDir, null, scenario.Prompt, targetSha, rubricJson);
+            "with-agent-isolated", config.Model, isolatedConfigDir, null, resolvedPrompt, targetSha, rubricJson);
         sessionDb?.RegisterSession(pluginSessionId, agent.Name, agent.Path, scenario.Name, runIndex,
-            "with-agent-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, targetSha, rubricJson);
+            "with-agent-plugin", config.Model, pluginConfigDir, null, resolvedPrompt, targetSha, rubricJson);
 
         // Resolve additional_required_skills/agents for the isolated run
         IReadOnlyList<SkillInfo>? additionalSkills = null;
@@ -678,14 +728,14 @@ public static class EvaluateCommand
 
         var agentTasks = await Task.WhenAll(
             // 1. Baseline: no agent, no skills — vanilla
-            AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
+            AgentRunner.RunAgent(new RunOptions(resolvedScenario, null, target.EvalPath, config.Model, config.Verbose,
                 PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId), cancellationToken),
             // 2. Agent-isolated: target agent only (+ scenario deps)
-            AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
+            AgentRunner.RunAgent(new RunOptions(resolvedScenario, null, target.EvalPath, config.Model, config.Verbose,
                 PluginRoot: null, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
                 SessionId: isolatedSessionId, Agent: agent, AdditionalSkills: additionalSkills, AdditionalAgents: additionalAgents), cancellationToken),
             // 3. Agent-plugin: full plugin context + agent selected
-            AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
+            AgentRunner.RunAgent(new RunOptions(resolvedScenario, null, target.EvalPath, config.Model, config.Verbose,
                 PluginRoot: pluginRoot, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
                 SessionId: pluginSessionId, Agent: agent), cancellationToken));
         var baselineMetrics = agentTasks[0];
@@ -1124,12 +1174,15 @@ public static class EvaluateCommand
         var pluginConfigDir = sessionsDir is not null ? Path.Combine("sessions", pluginSessionId) : null;
         var rubricJson = JsonSerializer.Serialize(scenario.Rubric?.ToArray() ?? [], SkillValidatorJsonContext.Default.StringArray);
 
+        var resolvedPrompt = ResolvePrompt(scenario.Prompt, evalSkill.EvalConfig?.Variables, scenario.Variables, config.Variables);
+        var resolvedScenario = scenario with { Prompt = resolvedPrompt };
+
         sessionDb?.RegisterSession(baselineSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
-            "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, skillSha, rubricJson);
+            "baseline", config.Model, baselineConfigDir, null, resolvedPrompt, skillSha, rubricJson);
         sessionDb?.RegisterSession(isolatedSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
-            "with-skill-isolated", config.Model, isolatedConfigDir, null, scenario.Prompt, skillSha, rubricJson);
+            "with-skill-isolated", config.Model, isolatedConfigDir, null, resolvedPrompt, skillSha, rubricJson);
         sessionDb?.RegisterSession(pluginSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
-            "with-skill-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, skillSha, rubricJson);
+            "with-skill-plugin", config.Model, pluginConfigDir, null, resolvedPrompt, skillSha, rubricJson);
 
         // Resolve additional_required_skills/agents for the isolated skill run
         IReadOnlyList<SkillInfo>? additionalSkills = null;
@@ -1142,14 +1195,14 @@ public static class EvaluateCommand
 
         var agentTasks = await Task.WhenAll(
             // 1. Baseline: no plugin, no skills — vanilla agent
-            AgentRunner.RunAgent(new RunOptions(scenario, null, evalSkill.EvalPath, config.Model, config.Verbose,
+            AgentRunner.RunAgent(new RunOptions(resolvedScenario, null, evalSkill.EvalPath, config.Model, config.Verbose,
                 PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId), cancellationToken),
             // 2. Skilled-isolated: target skill + declared dependencies
-            AgentRunner.RunAgent(new RunOptions(scenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
+            AgentRunner.RunAgent(new RunOptions(resolvedScenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
                 PluginRoot: null, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir,
                 SessionId: isolatedSessionId, AdditionalSkills: additionalSkills, AdditionalAgents: additionalAgents), cancellationToken),
             // 3. Skilled-plugin: load entire plugin from plugin root directory
-            AgentRunner.RunAgent(new RunOptions(scenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
+            AgentRunner.RunAgent(new RunOptions(resolvedScenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
                 PluginRoot: pluginRoot, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir, SessionId: pluginSessionId), cancellationToken));
         var baselineMetrics = agentTasks[0];
         var isolatedMetrics = agentTasks[1];
@@ -1405,6 +1458,9 @@ public static class EvaluateCommand
 
                 scenarioLog($"running skill-only vs all-skills ({config.Runs} run(s))...");
 
+                var noiseResolvedPrompt = ResolvePrompt(scenario.Prompt, targetEvalSkill.EvalConfig?.Variables, scenario.Variables, config.Variables);
+                var noiseResolvedScenario = scenario with { Prompt = noiseResolvedPrompt };
+
                 using var runLimit = new ConcurrencyLimiter(effectiveParallelRuns);
 
                 var runResults = await Task.WhenAll(Enumerable.Range(0, config.Runs).Select(runIndex =>
@@ -1412,12 +1468,12 @@ public static class EvaluateCommand
                     {
                         // Run with target skill only
                         var skillOnlyMetrics = await AgentRunner.RunAgent(new RunOptions(
-                            scenario, targetSkill, targetEvalSkill.EvalPath, config.Model, config.Verbose,
+                            noiseResolvedScenario, targetSkill, targetEvalSkill.EvalPath, config.Model, config.Verbose,
                             Log: scenarioLog, McpServers: targetEvalSkill.McpServers), cancellationToken);
 
                         // Run with all skills loaded
                         var allSkillsMetrics = await AgentRunner.RunAgent(new RunOptions(
-                            scenario, targetSkill, targetEvalSkill.EvalPath, config.Model, config.Verbose,
+                            noiseResolvedScenario, targetSkill, targetEvalSkill.EvalPath, config.Model, config.Verbose,
                             Log: scenarioLog, AdditionalSkills: otherSkills, McpServers: targetEvalSkill.McpServers), cancellationToken);
 
                         // Evaluate assertions on both

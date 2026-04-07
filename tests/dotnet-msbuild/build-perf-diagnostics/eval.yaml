@@ -1,9 +1,13 @@
+config:
+  variables:
+    backend: text-replay
+
 scenarios:
   - name: "Diagnose slow build for a small project"
     prompt: >-
       This .NET project's build time is unacceptable for its size.
-      Systematically diagnose where build time is being spent and recommend
-      targeted fixes.
+      Use the ${backend} backend to systematically diagnose where build time
+      is being spent and recommend targeted fixes.
     setup:
       copy_test_files: true
     assertions:

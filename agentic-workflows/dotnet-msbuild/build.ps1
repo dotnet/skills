@@ -82,7 +82,7 @@ $KnowledgeGroups = [ordered]@{
 $KnowledgeTargets = @{
     'agentic-workflows' = @{
         OutputDir = Join-Path $PSScriptRoot 'shared' 'compiled'
-        MaxChars  = 40000
+        MaxChars  = 80000
     }
 }
 
@@ -101,10 +101,11 @@ function Read-Skill([string]$SkillName) {
         $content = $Matches[1]
     }
 
-    # Inline linked references: replace [text](references/file.md) with file content
-    $content = [regex]::Replace($content, '\[([^\]]*)\]\((references/[^\)]+\.md)\)', {
+    # Inline linked references: replace [text](references/file.md) and [text](../../shared/file.md) with file content
+    $content = [regex]::Replace($content, '\[([^\]]*)\]\(((?:references|\.\.\/\.\.\/shared)/[^\)]+\.md)\)', {
         param($m)
-        $refPath = Join-Path $skillDir $m.Groups[2].Value
+        $relPath = $m.Groups[2].Value
+        $refPath = [System.IO.Path]::GetFullPath((Join-Path $skillDir $relPath))
         if (Test-Path $refPath) {
             $refContent = (Get-Content $refPath -Raw).Trim()
             return $refContent

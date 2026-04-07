@@ -37,8 +37,15 @@ The reported time includes **waiting for dependent projects to build** while the
 
 ### Step 3: Redirect to task self-time
 
-Guide the user to use the **Task** Performance Summary instead:
+Guide the user to look at **Task** Performance Summary instead. Use the backend specified in the request:
 
+**`baronfel-mcp`**: Call `get_expensive_tasks(top_number=10)` — returns task self-time directly.
+
+**`gerlicher-mcp`**: Call `GetPerformanceReport` — includes task-level timing.
+
+**`sqlite`**: `SELECT * FROM ExpensiveTasks ORDER BY DurationMs DESC LIMIT 10;`
+
+**`text-replay`**:
 ```bash
 dotnet msbuild build.binlog -noconlog -fl "-flp:v=diag;logfile=full.log;performancesummary"
 grep "Task Performance Summary" -A 50 full.log

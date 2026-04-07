@@ -97,12 +97,14 @@ public sealed record EvalScenario(
     IReadOnlyList<string>? RejectTools = null,
     int? MaxTurns = null,
     int? MaxTokens = null,
-    bool ExpectActivation = true);
+    bool ExpectActivation = true,
+    IReadOnlyDictionary<string, string>? Variables = null);
 
 public sealed record EvalConfig(
     IReadOnlyList<EvalScenario> Scenarios,
     int? MaxParallelScenarios = null,
-    int? MaxParallelRuns = null);
+    int? MaxParallelRuns = null,
+    IReadOnlyDictionary<string, string>? Variables = null);
 
 /// <summary>
 /// Extends SkillInfo with evaluation-specific data (eval.yaml config, MCP servers).
@@ -423,6 +425,7 @@ public sealed record ValidatorConfig
     public string? NoiseSkillsDir { get; init; }
     public double NoiseDegradationLimit { get; init; } = 0.2;
     public double NoiseMaxScenarioDegradation { get; init; } = 0.4;
+    public IReadOnlyDictionary<string, string>? Variables { get; init; }
 }
 
 public static class DefaultWeights

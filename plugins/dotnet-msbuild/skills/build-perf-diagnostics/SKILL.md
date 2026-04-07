@@ -1,28 +1,27 @@
 ---
 name: build-perf-diagnostics
-description: "Diagnose MSBuild build performance bottlenecks using binary log analysis. Only activate in MSBuild/.NET build context. USE FOR: identifying why builds are slow by analyzing binlog performance summaries, detecting ResolveAssemblyReference (RAR) taking >5s, Roslyn analyzers consuming >30% of Csc time, single targets dominating >50% of build time, node utilization below 80%, excessive Copy tasks, NuGet restore running every build. Covers timeline analysis, Target/Task Performance Summary interpretation, and 7 common bottleneck categories. Use after build-perf-baseline has established measurements. DO NOT USE FOR: establishing initial baselines (use build-perf-baseline first), fixing incremental build issues (use incremental-build), parallelism tuning (use build-parallelism), non-MSBuild build systems. INVOKES: dotnet msbuild binlog replay with performancesummary, grep for analysis."
+description: "Diagnose MSBuild build performance bottlenecks using binary log analysis. Only activate in MSBuild/.NET build context. USE FOR: identifying why builds are slow by analyzing binlog performance data, detecting ResolveAssemblyReference (RAR) taking >5s, Roslyn analyzers consuming >30% of Csc time, single targets dominating >50% of build time, node utilization below 80%, excessive Copy tasks, NuGet restore running every build. Covers timeline analysis, Target/Task Performance Summary interpretation, and 7 common bottleneck categories. Use after build-perf-baseline has established measurements. DO NOT USE FOR: establishing initial baselines (use build-perf-baseline first), fixing incremental build issues (use incremental-build), parallelism tuning (use build-parallelism), non-MSBuild build systems. INVOKES: binlog MCP tools when available, otherwise dotnet msbuild binlog replay with grep."
 ---
 
 ## Performance Analysis Methodology
 
-1. **Generate a binlog**: `dotnet build /bl:{} -m`
-2. **Replay to diagnostic log with performance summary**:
-   ```bash
-   dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
-   ```
-3. **Read the performance summary** (at the end of `full.log`):
-   ```bash
-   grep "Target Performance Summary\|Task Performance Summary" -A 50 full.log
-   ```
-4. **Find expensive targets and tasks**: The PerformanceSummary section lists all targets/tasks sorted by cumulative time
-5. **Check for node utilization**: grep for scheduling and node messages
-   ```bash
-   grep -i "node.*assigned\|building with\|scheduler" full.log | head -30
-   ```
-6. **Check analyzers**: grep for analyzer timing
-   ```bash
-   grep -i "analyzer.*elapsed\|Total analyzer execution time\|CompilerAnalyzerDriver" full.log
-   ```
+Follow the workflow for the backend specified in the user's request:
+
+| Backend ID | Name | Workflow |
+|---|---|---|
+| `baronfel-mcp` | baronfel.binlog.mcp | [baronfel.binlog.mcp workflow](references/workflow-baronfel-mcp.md) |
+| `gerlicher-mcp` | AndyGerlicher BinlogMCP | [BinlogMCP workflow](references/workflow-gerlicher-mcp.md) |
+| `sqlite` | SQLite Logger | [SQLite workflow](references/workflow-sqlite.md) |
+| `text-replay` | Text-log replay | [Text replay workflow](references/workflow-text-replay.md) |
+
+Regardless of backend, the key analysis steps are:
+
+1. **Find expensive targets** — sorted by cumulative time
+2. **Find expensive tasks** — sorted by total duration
+3. **Check per-project build times** — identify bottleneck projects
+4. **Check analyzer overhead** — compare Csc time with and without analyzers
+5. **Check node utilization** — look for serialization bottlenecks
+6. **Drill into slow targets** — find root cause within slow targets
 
 ## Key Metrics and Thresholds
 
@@ -90,36 +89,6 @@ description: "Diagnose MSBuild build performance bottlenecks using binary log an
 - **Consider**: project consolidation, or use `/graph` mode for better scheduling
 - **Graph shape matters**: a wide dependency graph (few levels, many parallel branches) builds faster than a deep one (many levels, serialized). Refactoring from deep to wide can yield significant improvements in both clean and incremental build times.
 - **Actions**: look for unnecessary project dependencies, consider splitting a bottleneck project into two, or merging small leaf projects
-
-## Using Binlog Replay for Performance Analysis
-
-Step-by-step workflow using text log replay:
-
-1. **Replay with performance summary**:
-   ```bash
-   dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
-   ```
-2. **Read target/task performance summaries** (at the end of `full.log`):
-   ```bash
-   grep "Target Performance Summary\|Task Performance Summary" -A 50 full.log
-   ```
-   This shows all targets and tasks sorted by cumulative time — equivalent to finding expensive targets/tasks.
-3. **Find per-project build times**:
-   ```bash
-   grep "done building project\|Project Performance Summary" full.log
-   ```
-4. **Check parallelism** (multi-node scheduling):
-   ```bash
-   grep -i "node.*assigned\|RequiresLeadingNewline\|Building with" full.log | head -30
-   ```
-5. **Check analyzer overhead**:
-   ```bash
-   grep -i "Total analyzer execution time\|analyzer.*elapsed\|CompilerAnalyzerDriver" full.log
-   ```
-6. **Drill into a specific slow target**:
-   ```bash
-   grep 'Target "CoreCompile"\|Target "ResolveAssemblyReferences"' full.log
-   ```
 
 ## Quick Wins Checklist
 

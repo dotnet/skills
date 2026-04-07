@@ -16,7 +16,6 @@ description: "Guide for optimizing MSBuild build parallelism and multi-project s
 - MSBuild builds projects in dependency order (topological sort)
 - Critical path: longest chain of dependent projects determines minimum build time
 - Bottleneck: if project A depends on B, C, D and B takes 60s while C and D take 5s, B is the bottleneck
-- Diagnosis: replay binlog to diagnostic log with `performancesummary` and check Project Performance Summary — shows per-project time; grep for `node.*assigned` to check scheduling
 - Wide graphs (many independent projects) parallelize well; deep graphs (long chains) don't
 
 ## Graph Build Mode (`/graph`)
@@ -50,14 +49,21 @@ description: "Guide for optimizing MSBuild build parallelism and multi-project s
 
 ## Analyzing Parallelism with Binlog
 
-Step-by-step:
+Follow the workflow for the backend specified in the user's request:
 
-1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary`
-2. Check Project Performance Summary at the end of `full.log`
-3. Ideal: build time should be much less than sum of project times (parallelism)
-4. If build time ≈ sum of project times: too many serial dependencies, or one slow project blocking others
-5. `grep 'Target Performance Summary' -A 30 full.log` → find the bottleneck targets
-6. Consider splitting large projects or optimizing the critical path
+| Backend ID | Name | Workflow |
+|---|---|---|
+| `baronfel-mcp` | baronfel.binlog.mcp | [baronfel.binlog.mcp workflow](references/workflow-baronfel-mcp.md) |
+| `gerlicher-mcp` | AndyGerlicher BinlogMCP | [BinlogMCP workflow](references/workflow-gerlicher-mcp.md) |
+| `sqlite` | SQLite Logger | [SQLite workflow](references/workflow-sqlite.md) |
+| `text-replay` | Text-log replay | [Text replay workflow](references/workflow-text-replay.md) |
+
+Regardless of backend, the key analysis is:
+
+1. Check if build time is much less than the sum of project times (good parallelism) or approximately equal (poor parallelism)
+2. Look for idle nodes or uneven node utilization
+3. Identify the critical path and bottleneck projects
+4. Consider splitting large projects or optimizing the critical path
 
 ## CI/CD Parallelism Tips
 

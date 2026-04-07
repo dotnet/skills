@@ -18,7 +18,8 @@ public static class EvalSchema
         return new EvalConfig(
             scenarios,
             MaxParallelScenarios: raw.Config?.MaxParallelScenarios,
-            MaxParallelRuns: raw.Config?.MaxParallelRuns);
+            MaxParallelRuns: raw.Config?.MaxParallelRuns,
+            Variables: raw.Config?.Variables);
     }
 
     public static (bool Success, EvalConfig? Data, IReadOnlyList<string>? Errors) ValidateEvalConfig(string yamlContent)
@@ -67,7 +68,8 @@ public static class EvalSchema
             RejectTools: raw.RejectTools,
             MaxTurns: raw.MaxTurns,
             MaxTokens: raw.MaxTokens,
-            ExpectActivation: raw.ExpectActivation ?? true);
+            ExpectActivation: raw.ExpectActivation ?? true,
+            Variables: raw.Variables);
     }
 
     private static Assertion ParseAssertion(RawAssertion raw)
@@ -151,6 +153,7 @@ public static class EvalSchema
     {
         public int? MaxParallelScenarios { get; set; }
         public int? MaxParallelRuns { get; set; }
+        public Dictionary<string, string>? Variables { get; set; }
     }
 
     internal sealed class RawScenario
@@ -166,6 +169,7 @@ public static class EvalSchema
         public int? MaxTurns { get; set; }
         public int? MaxTokens { get; set; }
         public bool? ExpectActivation { get; set; }
+        public Dictionary<string, string>? Variables { get; set; }
     }
 
     internal sealed class RawSetup

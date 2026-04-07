@@ -128,6 +128,19 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 | `reject_tools` | Array of tool names that will cause the run to fail if they are used (e.g., `["bash", "edit"]`). This is enforced as a post-run assertion in the validator (it does not sandbox or block the tool calls), and is useful to force the agent to explain rather than explore/build, leveling the playing field between baseline and skilled runs. |
 | `setup.files` | Array of files to create before the run. Gives the agent concrete code to work with, reducing variance from different scaffolding strategies. |
 
+**Variables** can be defined at `config.variables` (defaults) or per-scenario `variables` (overrides), and overridden via CLI `--var key=value`. Use `${key}` in prompts for template substitution. Example:
+
+```yaml
+config:
+  variables:
+    backend: text-replay
+scenarios:
+  - name: "Diagnose build failure"
+    prompt: "Use the ${backend} backend to analyze build.binlog"
+```
+
+Run with `--var backend=baronfel-mcp` to override for the entire eval run.
+
 ## Common failure patterns
 
 ### 1. Timeout with empty output

@@ -1,12 +1,16 @@
+config:
+  variables:
+    backend: text-replay
+
 scenarios:
   - name: "Diagnose build failures from binlog only (no source files)"
     prompt: >-
       A .NET solution build has failed. The binary log from the failed build is
       available at build.binlog in the current directory. You do NOT have access
-      to the original source files — only the binlog. Analyze this binlog file
-      to diagnose all build failures, identify which errors are root causes
-      versus cascading failures from dependent project failures, and suggest
-      targeted fixes for each root cause.
+      to the original source files — only the binlog. Use the ${backend} backend
+      to analyze this binlog file, diagnose all build failures, identify which
+      errors are root causes versus cascading failures from dependent project
+      failures, and suggest targeted fixes for each root cause.
     setup:
       copy_test_files: true
       commands:

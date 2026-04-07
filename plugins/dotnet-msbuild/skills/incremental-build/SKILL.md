@@ -1,6 +1,6 @@
 ---
 name: incremental-build
-description: "Guide for optimizing MSBuild incremental builds. Only activate in MSBuild/.NET build context. USE FOR: builds slower than expected on subsequent runs, 'nothing changed but it rebuilds anyway', diagnosing why targets re-execute unnecessarily, fixing broken no-op builds. Covers 8 common causes: missing Inputs/Outputs on custom targets, volatile properties in output paths (timestamps/GUIDs), file writes outside tracked Outputs, missing FileWrites registration, glob changes, Visual Studio Fast Up-to-Date Check (FUTDC) issues. Key diagnostic: look for 'Building target completely' vs 'Skipping target' in binlog. DO NOT USE FOR: first-time build slowness (use build-perf-baseline), parallelism issues (use build-parallelism), evaluation-phase slowness (use eval-performance), non-MSBuild build systems. INVOKES: dotnet build /bl, binlog replay with diagnostic verbosity."
+description: "Guide for optimizing MSBuild incremental builds. Only activate in MSBuild/.NET build context. USE FOR: builds slower than expected on subsequent runs, 'nothing changed but it rebuilds anyway', diagnosing why targets re-execute unnecessarily, fixing broken no-op builds. Covers 8 common causes: missing Inputs/Outputs on custom targets, volatile properties in output paths (timestamps/GUIDs), file writes outside tracked Outputs, missing FileWrites registration, glob changes, Visual Studio Fast Up-to-Date Check (FUTDC) issues. Key diagnostic: look for 'Building target completely' vs 'Skipping target' in binlog. DO NOT USE FOR: first-time build slowness (use build-perf-baseline), parallelism issues (use build-parallelism), evaluation-phase slowness (use eval-performance), non-MSBuild build systems. INVOKES: binlog MCP tools when available, otherwise dotnet build /bl with binlog replay."
 ---
 
 ## How MSBuild Incremental Build Works
@@ -48,43 +48,33 @@ MSBuild's incremental build mechanism allows targets to be skipped when their ou
 
 Use binary logs (binlogs) to understand exactly why targets ran instead of being skipped.
 
-### Step-by-step using binlog
+### Step-by-step diagnosis
 
-1. **Build twice with binlogs** to capture the incremental build behavior:
-   ```shell
-   dotnet build /bl:first.binlog
-   dotnet build /bl:second.binlog
-   ```
-   The first build establishes the baseline. The second build is the one you want to be incremental. Analyze `second.binlog`.
+First, build twice to capture incremental behavior:
+```shell
+dotnet build /bl:first.binlog
+dotnet build /bl:second.binlog
+```
 
-2. **Replay the second binlog** to a diagnostic text log:
-   ```shell
-   dotnet msbuild second.binlog -noconlog -fl -flp:v=diag;logfile=second-full.log;performancesummary
-   ```
-   Then search for targets that actually executed:
-   ```bash
-   grep 'Building target\|Target.*was not skipped' second-full.log
-   ```
-   In a perfectly incremental build, most targets should be skipped.
+The first build establishes the baseline. The second build is the one you want to be incremental. Analyze `second.binlog`.
 
-3. **Inspect non-skipped targets** by looking for their execution messages in the diagnostic log. Check for "out of date" messages that indicate why a target ran.
+Then follow the workflow for the backend specified in the user's request:
 
-4. **Look for key messages** in the binlog:
-   - `"Building target 'X' completely"` — means MSBuild found no outputs or all outputs are missing; this is a full target execution.
-   - `"Building target 'X' incrementally"` — means some (but not all) outputs are out of date.
-   - `"Skipping target 'X' because all output files are up-to-date"` — target was correctly skipped.
+| Backend ID | Name | Workflow |
+|---|---|---|
+| `baronfel-mcp` | baronfel.binlog.mcp | [baronfel.binlog.mcp workflow](references/workflow-baronfel-mcp.md) |
+| `gerlicher-mcp` | AndyGerlicher BinlogMCP | [BinlogMCP workflow](references/workflow-gerlicher-mcp.md) (best for incremental build — has build comparison tools) |
+| `sqlite` | SQLite Logger | [SQLite workflow](references/workflow-sqlite.md) |
+| `text-replay` | Text-log replay | [Text replay workflow](references/workflow-text-replay.md) |
 
-5. **Search for "is newer than output"** messages to find the specific input file that triggered the rebuild:
-   ```bash
-   grep "is newer than output" second-full.log
-   ```
-   This reveals exactly which input file's timestamp caused MSBuild to consider the target out of date.
+### Key messages to look for
 
-### Additional diagnostic techniques
+Regardless of backend, search for these messages in the second build:
 
-- Compare `first.binlog` and `second.binlog` side by side in the MSBuild Structured Log Viewer to see what changed.
-- Use `grep 'Target Performance Summary' -A 30 second-full.log` to see which targets consumed the most time in the second build — these are your optimization targets.
-- Check for targets with zero-duration that still ran — they may have unnecessary dependencies causing them to execute.
+- `"Building target 'X' completely"` — MSBuild found no outputs or all outputs are missing; this is a full target execution.
+- `"Building target 'X' incrementally"` — some (but not all) outputs are out of date.
+- `"Skipping target 'X' because all output files are up-to-date"` — target was correctly skipped.
+- `"is newer than output"` — reveals exactly which input file triggered the rebuild.
 
 ## FileWrites and Clean Build
 

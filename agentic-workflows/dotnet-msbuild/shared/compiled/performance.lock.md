@@ -414,24 +414,176 @@ Is your no-op build slow (> 10s per project)?
 
 ## Performance Analysis Methodology
 
-1. **Generate a binlog**: `dotnet build /bl:{} -m`
-2. **Replay to diagnostic log with performance summary**:
-   ```bash
-   dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
-   ```
-3. **Read the performance summary** (at the end of `full.log`):
-   ```bash
-   grep "Target Performance Summary\|Task Performance Summary" -A 50 full.log
-   ```
-4. **Find expensive targets and tasks**: The PerformanceSummary section lists all targets/tasks sorted by cumulative time
-5. **Check for node utilization**: grep for scheduling and node messages
-   ```bash
-   grep -i "node.*assigned\|building with\|scheduler" full.log | head -30
-   ```
-6. **Check analyzers**: grep for analyzer timing
-   ```bash
-   grep -i "analyzer.*elapsed\|Total analyzer execution time\|CompilerAnalyzerDriver" full.log
-   ```
+Follow the workflow for the backend specified in the user's request:
+
+| Backend ID | Name | Workflow |
+|---|---|---|
+| `baronfel-mcp` | baronfel.binlog.mcp | ## Performance Analysis with baronfel.binlog.mcp
+
+### Step 1: Load the binlog
+
+Call `load_binlog` with the path to the binlog file.
+
+### Step 2: Get expensive targets
+
+Call `get_expensive_targets(top_number=10)`. This returns targets sorted by cumulative execution time, including execution count, skipped count, inclusive and exclusive durations.
+
+### Step 3: Get expensive tasks
+
+Call `get_expensive_tasks(top_number=10)`. This returns tasks sorted by total duration, with execution count, average/min/max durations.
+
+### Step 4: Get expensive projects
+
+Call `get_expensive_projects(top_number=10)` to see per-project build times with both exclusive and inclusive durations.
+
+### Step 5: Check analyzer overhead
+
+Call `get_expensive_analyzers(top_number=5)` to see which Roslyn analyzers and source generators consume the most build time.
+
+For more detail on a specific Csc task, use `search_tasks_by_name(taskName="Csc")` to find task IDs, then `get_task_analyzers(projectId=<id>, targetId=<id>, taskId=<id>)` for per-analyzer timing.
+
+### Step 6: Check node utilization
+
+Call `get_node_timeline` to see per-node work data. Look for uneven utilization indicating serialization bottlenecks.
+
+### Step 7: Drill into specific targets
+
+For a slow target, call `get_target_info_by_name(projectId=<id>, targetName="CoreCompile")` to see its duration, build reason, and messages. Then `list_tasks_in_target` to see which tasks within the target are expensive. |
+| `gerlicher-mcp` | AndyGerlicher BinlogMCP | ## Performance Analysis with BinlogMCP
+
+### Step 1: Get comprehensive performance report
+
+Call `GetPerformanceReport` with the binlog path. This returns a comprehensive analysis including bottlenecks, slow targets/tasks, and optimization hints — often sufficient as a single call.
+
+### Step 2: Get compiler performance details
+
+Call `GetCompilerPerformance` for detailed C#/VB/F# compilation timing analysis, including per-project Csc task durations.
+
+### Step 3: Check parallelism
+
+Call `GetParallelismAnalysis` for build parallelism efficiency — concurrent operations, sequential bottlenecks, and utilization metrics.
+
+### Step 4: Check slow I/O operations
+
+Call `GetSlowOperations` to analyze slow file I/O operations (Copy, Move, Delete, Exec).
+
+### Step 5: Get per-project timing
+
+Call `GetProjectPerformance` for per-project timing rollup. Identify which projects are slowest.
+
+### Step 6: Identify the critical path
+
+Call `GetCriticalPath` to identify targets on the critical path that determine overall build duration.
+
+### Step 7: Drill into specific targets
+
+Call `AnalyzeTarget(targetName="CoreCompile")` for a deep dive into a specific target — tasks, parameters, I/O, and timing breakdown. |
+| `sqlite` | SQLite Logger | ## Performance Analysis with SQLite Logger
+
+Requires: build was run with `-logger:"SqliteLogger,SqliteLogger.dll;LogFile=build.sqlite"`
+
+### Step 1: Get expensive targets
+
+```sql
+SELECT * FROM ExpensiveTargets LIMIT 10;
+```
+
+### Step 2: Get expensive tasks
+
+```sql
+SELECT * FROM ExpensiveTasks LIMIT 10;
+```
+
+### Step 3: Get expensive projects
+
+```sql
+SELECT * FROM ExpensiveProjects LIMIT 10;
+```
+
+### Step 4: Check analyzer overhead
+
+```sql
+-- Csc task durations per project
+SELECT t.ProjectFile, t.Name, t.DurationMs
+FROM Tasks t
+WHERE t.Name = 'Csc'
+ORDER BY t.DurationMs DESC
+LIMIT 10;
+```
+
+### Step 5: Check node utilization
+
+```sql
+SELECT NodeId,
+       COUNT(*) AS TargetCount,
+       SUM(DurationMs) AS TotalWorkMs,
+       MIN(StartTimeMs) AS FirstStart,
+       MAX(EndTimeMs) AS LastEnd
+FROM NodeTimeline
+GROUP BY NodeId
+ORDER BY TotalWorkMs DESC;
+```
+
+### Step 6: Drill into a specific slow target
+
+```sql
+-- Get tasks within a specific target
+SELECT tk.Name AS TaskName, tk.DurationMs, tk.TaskAssembly
+FROM Tasks tk
+JOIN Targets t ON tk.TargetId = t.TargetId
+WHERE t.Name = 'CoreCompile' AND t.ProjectId = <id>
+ORDER BY tk.DurationMs DESC;
+``` |
+| `text-replay` | Text-log replay | ## Performance Analysis with Text-Log Replay
+
+### Step 1: Replay with performance summary
+
+```bash
+dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
+```
+
+> **PowerShell:** `-flp:"v=diag;logfile=full.log;performancesummary"`
+
+### Step 2: Read target/task performance summaries
+
+```bash
+grep "Target Performance Summary\|Task Performance Summary" -A 50 full.log
+```
+
+This shows all targets and tasks sorted by cumulative time.
+
+### Step 3: Find per-project build times
+
+```bash
+grep "done building project\|Project Performance Summary" full.log
+```
+
+### Step 4: Check parallelism (multi-node scheduling)
+
+```bash
+grep -i "node.*assigned\|RequiresLeadingNewline\|Building with" full.log | head -30
+```
+
+### Step 5: Check analyzer overhead
+
+```bash
+grep -i "Total analyzer execution time\|analyzer.*elapsed\|CompilerAnalyzerDriver" full.log
+```
+
+### Step 6: Drill into a specific slow target
+
+```bash
+grep 'Target "CoreCompile"\|Target "ResolveAssemblyReferences"' full.log
+``` |
+
+Regardless of backend, the key analysis steps are:
+
+1. **Find expensive targets** — sorted by cumulative time
+2. **Find expensive tasks** — sorted by total duration
+3. **Check per-project build times** — identify bottleneck projects
+4. **Check analyzer overhead** — compare Csc time with and without analyzers
+5. **Check node utilization** — look for serialization bottlenecks
+6. **Drill into slow targets** — find root cause within slow targets
 
 ## Key Metrics and Thresholds
 
@@ -499,36 +651,6 @@ Is your no-op build slow (> 10s per project)?
 - **Consider**: project consolidation, or use `/graph` mode for better scheduling
 - **Graph shape matters**: a wide dependency graph (few levels, many parallel branches) builds faster than a deep one (many levels, serialized). Refactoring from deep to wide can yield significant improvements in both clean and incremental build times.
 - **Actions**: look for unnecessary project dependencies, consider splitting a bottleneck project into two, or merging small leaf projects
-
-## Using Binlog Replay for Performance Analysis
-
-Step-by-step workflow using text log replay:
-
-1. **Replay with performance summary**:
-   ```bash
-   dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
-   ```
-2. **Read target/task performance summaries** (at the end of `full.log`):
-   ```bash
-   grep "Target Performance Summary\|Task Performance Summary" -A 50 full.log
-   ```
-   This shows all targets and tasks sorted by cumulative time — equivalent to finding expensive targets/tasks.
-3. **Find per-project build times**:
-   ```bash
-   grep "done building project\|Project Performance Summary" full.log
-   ```
-4. **Check parallelism** (multi-node scheduling):
-   ```bash
-   grep -i "node.*assigned\|RequiresLeadingNewline\|Building with" full.log | head -30
-   ```
-5. **Check analyzer overhead**:
-   ```bash
-   grep -i "Total analyzer execution time\|analyzer.*elapsed\|CompilerAnalyzerDriver" full.log
-   ```
-6. **Drill into a specific slow target**:
-   ```bash
-   grep 'Target "CoreCompile"\|Target "ResolveAssemblyReferences"' full.log
-   ```
 
 ## Quick Wins Checklist
 
@@ -599,43 +721,214 @@ MSBuild's incremental build mechanism allows targets to be skipped when their ou
 
 Use binary logs (binlogs) to understand exactly why targets ran instead of being skipped.
 
-### Step-by-step using binlog
+### Step-by-step diagnosis
 
-1. **Build twice with binlogs** to capture the incremental build behavior:
-   ```shell
-   dotnet build /bl:first.binlog
-   dotnet build /bl:second.binlog
-   ```
-   The first build establishes the baseline. The second build is the one you want to be incremental. Analyze `second.binlog`.
+First, build twice to capture incremental behavior:
+```shell
+dotnet build /bl:first.binlog
+dotnet build /bl:second.binlog
+```
 
-2. **Replay the second binlog** to a diagnostic text log:
-   ```shell
-   dotnet msbuild second.binlog -noconlog -fl -flp:v=diag;logfile=second-full.log;performancesummary
-   ```
-   Then search for targets that actually executed:
-   ```bash
-   grep 'Building target\|Target.*was not skipped' second-full.log
-   ```
-   In a perfectly incremental build, most targets should be skipped.
+The first build establishes the baseline. The second build is the one you want to be incremental. Analyze `second.binlog`.
 
-3. **Inspect non-skipped targets** by looking for their execution messages in the diagnostic log. Check for "out of date" messages that indicate why a target ran.
+Then follow the workflow for the backend specified in the user's request:
 
-4. **Look for key messages** in the binlog:
-   - `"Building target 'X' completely"` — means MSBuild found no outputs or all outputs are missing; this is a full target execution.
-   - `"Building target 'X' incrementally"` — means some (but not all) outputs are out of date.
-   - `"Skipping target 'X' because all output files are up-to-date"` — target was correctly skipped.
+| Backend ID | Name | Workflow |
+|---|---|---|
+| `baronfel-mcp` | baronfel.binlog.mcp | ## Diagnosing Incremental Build Issues with baronfel.binlog.mcp
 
-5. **Search for "is newer than output"** messages to find the specific input file that triggered the rebuild:
-   ```bash
-   grep "is newer than output" second-full.log
-   ```
-   This reveals exactly which input file's timestamp caused MSBuild to consider the target out of date.
+### Step 1: Build twice with binlogs
 
-### Additional diagnostic techniques
+```shell
+dotnet build /bl:first.binlog
+dotnet build /bl:second.binlog
+```
+
+### Step 2: Load the second binlog
+
+Call `load_binlog` with the path to `second.binlog`.
+
+### Step 3: Find non-skipped targets
+
+Call `search_binlog(query="Building target")` to find targets that executed instead of being skipped. In a perfectly incremental build, most targets should be skipped.
+
+Also search for: `search_binlog(query="is newer than output")` to find the specific input files that triggered rebuilds.
+
+### Step 4: Check expensive targets in second build
+
+Call `get_expensive_targets(top_number=10)` to see which targets consumed the most time in the second build. These are your optimization targets.
+
+### Step 5: Inspect specific targets
+
+For each non-skipped target, call `get_target_info_by_name(projectId=<id>, targetName="<name>")` to see:
+- The build reason (why it ran)
+- Duration
+- Messages (including "is newer than output" details)
+
+### Step 6: Compare with first build (manual)
+
+Load `first.binlog` separately and compare the target execution lists. Targets that ran in both builds despite no code changes indicate broken incrementality.
+
+> **Note:** baronfel.binlog.mcp does not have built-in build comparison. If build comparison is critical, consider the AndyGerlicher/BinlogMCP backend which has `CompareBinlogs` and `DiffTargetExecution` tools. |
+| `gerlicher-mcp` | AndyGerlicher BinlogMCP | ## Diagnosing Incremental Build Issues with BinlogMCP
+
+This is the **best backend for incremental build diagnosis** due to its built-in build comparison tools.
+
+### Step 1: Build twice with binlogs
+
+```shell
+dotnet build /bl:first.binlog
+dotnet build /bl:second.binlog
+```
+
+### Step 2: Compare the two builds
+
+Call `CompareBinlogs(baseline="first.binlog", current="second.binlog")` to get a structured diff showing timing changes, new/fixed errors, and target differences between the two builds.
+
+### Step 3: Get incremental build analysis
+
+Call `GetIncrementalBuildAnalysis` with `second.binlog` to analyze incremental build behavior — showing executed vs skipped targets and identifying targets that should have been skipped.
+
+### Step 4: Diff target execution
+
+Call `DiffTargetExecution(baseline="first.binlog", current="second.binlog")` to see exactly which targets ran differently between the two builds.
+
+### Step 5: Check skipped targets
+
+Call `GetSkippedTargets` with `second.binlog` to see all targets that were skipped and the reasons why. Cross-reference with targets that ran but should have been skipped.
+
+### Step 6: Trace specific inputs (if needed)
+
+If a target ran because of a specific file change:
+- Call `GetTargetInputsOutputs(targetName="<name>")` to see the target's incremental build inputs and outputs
+- Call `TraceItem(item="<filename>")` to track how a specific item flowed through the build
+
+### Step 7: Identify root cause
+
+Call `GetTargetExecutionReasons` to see why targets executed (DependsOnTargets, BeforeTargets, AfterTargets chains). This helps identify the root target that triggered a cascade of rebuilds. (best for incremental build — has build comparison tools) |
+| `sqlite` | SQLite Logger | ## Diagnosing Incremental Build Issues with SQLite Logger
+
+Requires: both builds were run with the SQLite logger:
+```bash
+dotnet build -logger:"SqliteLogger,SqliteLogger.dll;LogFile=first.sqlite"
+dotnet build -logger:"SqliteLogger,SqliteLogger.dll;LogFile=second.sqlite"
+```
+
+### Step 1: Find non-skipped targets in the second build
+
+```sql
+-- Targets that executed (not skipped) in the second build
+SELECT t.Name, t.ProjectFile, t.DurationMs, t.BuildReason
+FROM Targets t
+WHERE t.Skipped = 0
+ORDER BY t.DurationMs DESC;
+```
+
+### Step 2: Check total work done in second build
+
+```sql
+SELECT * FROM ExpensiveTargets LIMIT 15;
+```
+
+In a good incremental build, most targets should have `SkippedCount >> RanCount`.
+
+### Step 3: Compare target execution across builds
+
+Use SQLite's `ATTACH` to compare the two databases:
+
+```sql
+-- In sqlite3 with second.sqlite open:
+ATTACH 'first.sqlite' AS first;
+
+-- Targets that ran in the second build but were skipped in the first
+SELECT s.Name, s.ProjectFile, s.DurationMs AS SecondBuildMs
+FROM main.Targets s
+WHERE s.Skipped = 0
+  AND EXISTS (
+    SELECT 1 FROM first.Targets f
+    WHERE f.Name = s.Name AND f.ProjectFile = s.ProjectFile AND f.Skipped = 1
+  );
+```
+
+### Step 4: Search for "is newer than output" messages
+
+```sql
+SELECT Message, ProjectFile
+FROM Messages
+WHERE Message LIKE '%is newer than output%'
+ORDER BY TimestampMs;
+```
+
+### Step 5: Check target inputs/outputs
+
+For targets that should have been skipped, look at their definition using `/pp`:
+```bash
+dotnet msbuild -pp:full.xml MyProject.csproj
+```
+
+Search for the target name to find its `Inputs` and `Outputs` attributes. |
+| `text-replay` | Text-log replay | ## Diagnosing Incremental Build Issues with Text-Log Replay
+
+### Step 1: Build twice with binlogs
+
+```shell
+dotnet build /bl:first.binlog
+dotnet build /bl:second.binlog
+```
+
+The first build establishes the baseline. The second build is the one you want to be incremental. Analyze `second.binlog`.
+
+### Step 2: Replay the second binlog
+
+```shell
+dotnet msbuild second.binlog -noconlog -fl -flp:v=diag;logfile=second-full.log;performancesummary
+```
+
+> **PowerShell:** `-flp:"v=diag;logfile=second-full.log;performancesummary"`
+
+### Step 3: Find non-skipped targets
+
+```bash
+grep 'Building target\|Target.*was not skipped' second-full.log
+```
+
+In a perfectly incremental build, most targets should be skipped.
+
+### Step 4: Look for key messages
+
+- `"Building target 'X' completely"` — MSBuild found no outputs or all outputs are missing
+- `"Building target 'X' incrementally"` — some (but not all) outputs are out of date
+- `"Skipping target 'X' because all output files are up-to-date"` — target was correctly skipped
+
+### Step 5: Find the triggering file
+
+```bash
+grep "is newer than output" second-full.log
+```
+
+This reveals exactly which input file's timestamp caused MSBuild to consider the target out of date.
+
+### Step 6: Check performance summary
+
+```bash
+grep "Target Performance Summary" -A 30 second-full.log
+```
+
+Targets that consumed time in the second build are your optimization targets.
+
+### Additional techniques
 
 - Compare `first.binlog` and `second.binlog` side by side in the MSBuild Structured Log Viewer to see what changed.
-- Use `grep 'Target Performance Summary' -A 30 second-full.log` to see which targets consumed the most time in the second build — these are your optimization targets.
-- Check for targets with zero-duration that still ran — they may have unnecessary dependencies causing them to execute.
+- Check for targets with zero-duration that still ran — they may have unnecessary dependencies. |
+
+### Key messages to look for
+
+Regardless of backend, search for these messages in the second build:
+
+- `"Building target 'X' completely"` — MSBuild found no outputs or all outputs are missing; this is a full target execution.
+- `"Building target 'X' incrementally"` — some (but not all) outputs are out of date.
+- `"Skipping target 'X' because all output files are up-to-date"` — target was correctly skipped.
+- `"is newer than output"` — reveals exactly which input file triggered the rebuild.
 
 ## FileWrites and Clean Build
 
@@ -783,7 +1076,6 @@ MSBuild provides built-in tools to understand what's running and why.
 - MSBuild builds projects in dependency order (topological sort)
 - Critical path: longest chain of dependent projects determines minimum build time
 - Bottleneck: if project A depends on B, C, D and B takes 60s while C and D take 5s, B is the bottleneck
-- Diagnosis: replay binlog to diagnostic log with `performancesummary` and check Project Performance Summary — shows per-project time; grep for `node.*assigned` to check scheduling
 - Wide graphs (many independent projects) parallelize well; deep graphs (long chains) don't
 
 ## Graph Build Mode (`/graph`)
@@ -817,14 +1109,170 @@ MSBuild provides built-in tools to understand what's running and why.
 
 ## Analyzing Parallelism with Binlog
 
-Step-by-step:
+Follow the workflow for the backend specified in the user's request:
 
-1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary`
-2. Check Project Performance Summary at the end of `full.log`
-3. Ideal: build time should be much less than sum of project times (parallelism)
-4. If build time ≈ sum of project times: too many serial dependencies, or one slow project blocking others
-5. `grep 'Target Performance Summary' -A 30 full.log` → find the bottleneck targets
-6. Consider splitting large projects or optimizing the critical path
+| Backend ID | Name | Workflow |
+|---|---|---|
+| `baronfel-mcp` | baronfel.binlog.mcp | ## Analyzing Parallelism with baronfel.binlog.mcp
+
+### Step 1: Load the binlog
+
+Call `load_binlog` with the path to the binlog file.
+
+### Step 2: Get the node timeline
+
+Call `get_node_timeline`. This returns per-node work data showing what each build node was doing and when. Look for idle gaps between target executions on the same node.
+
+### Step 3: Get expensive projects
+
+Call `get_expensive_projects(top_number=10, sortByExclusive=false)` to see which projects took the longest (inclusive time, which includes waiting for dependencies).
+
+### Step 4: Check project-level build times
+
+For suspected bottleneck projects, call `get_project_build_time(projectId=<id>)` to get exclusive vs inclusive time. A large gap between inclusive and exclusive means the project spent most of its time waiting for dependencies.
+
+### Step 5: Get expensive targets
+
+Call `get_expensive_targets(top_number=10)` to find which targets dominate build time across all projects.
+
+### Step 6: Assess parallelism
+
+- If `get_node_timeline` shows uneven node utilization → serialization bottleneck
+- If one project has high inclusive time but low exclusive time → it's waiting on dependencies, not doing work
+- If one project has high exclusive time → it's the actual bottleneck; consider splitting it |
+| `gerlicher-mcp` | AndyGerlicher BinlogMCP | ## Analyzing Parallelism with BinlogMCP
+
+### Step 1: Get parallelism analysis
+
+Call `GetParallelismAnalysis` with the binlog path. This returns a comprehensive analysis of build parallelism including concurrent operations, sequential bottlenecks, and utilization metrics.
+
+### Step 2: Identify parallelism blockers
+
+Call `GetParallelismBlockers` to find serialization points and dependency bottlenecks. This shows what is preventing better parallelism.
+
+### Step 3: Get project dependency graph
+
+Call `GetProjectDependencies` to see the project dependency graph, build order, and parallel execution info. Look for deep chains that serialize the build.
+
+### Step 4: Get per-project timing
+
+Call `GetProjectPerformance` to see per-project timing rollup. Identify which projects are slowest.
+
+### Step 5: Get critical path
+
+Call `GetCriticalPath` to identify the targets on the critical path that determine the overall build duration.
+
+### Step 6: Assess parallelism
+
+- `GetParallelismAnalysis` directly reports utilization percentage
+- `GetParallelismBlockers` identifies the specific serialization points to fix
+- `GetCriticalPath` shows which targets determine minimum build time
+- Consider: splitting projects on the critical path, reducing dependency depth, using `/graph` mode |
+| `sqlite` | SQLite Logger | ## Analyzing Parallelism with SQLite Logger
+
+Requires: build was run with `-logger:"SqliteLogger,SqliteLogger.dll;LogFile=build.sqlite"`
+
+### Step 1: Check node utilization
+
+```sql
+SELECT NodeId,
+       COUNT(*) AS TargetCount,
+       SUM(DurationMs) AS TotalWorkMs,
+       MIN(StartTimeMs) AS FirstStart,
+       MAX(EndTimeMs) AS LastEnd,
+       MAX(EndTimeMs) - MIN(StartTimeMs) AS WallClockMs
+FROM NodeTimeline
+GROUP BY NodeId
+ORDER BY TotalWorkMs DESC;
+```
+
+Compare `TotalWorkMs` to `WallClockMs` per node. If `TotalWorkMs << WallClockMs`, the node was idle much of the time.
+
+### Step 2: Get expensive projects
+
+```sql
+SELECT * FROM ExpensiveProjects LIMIT 10;
+```
+
+### Step 3: Identify the critical path
+
+```sql
+-- Find the longest project chains
+SELECT p.ProjectFile, p.DurationMs, p.StartTimeMs, p.EndTimeMs,
+       parent.ProjectFile AS ParentProject
+FROM Projects p
+LEFT JOIN Projects parent ON p.ParentProjectId = parent.ProjectId
+WHERE p.DurationMs IS NOT NULL
+ORDER BY p.DurationMs DESC
+LIMIT 15;
+```
+
+### Step 4: Find idle gaps between targets on each node
+
+```sql
+-- Detect gaps > 100ms between consecutive targets on the same node
+SELECT a.NodeId, a.TargetName AS PrevTarget, b.TargetName AS NextTarget,
+       b.StartTimeMs - a.EndTimeMs AS GapMs
+FROM NodeTimeline a
+JOIN NodeTimeline b ON a.NodeId = b.NodeId AND a.EndTimeMs < b.StartTimeMs
+WHERE b.StartTimeMs - a.EndTimeMs > 100
+  AND NOT EXISTS (
+    SELECT 1 FROM NodeTimeline c
+    WHERE c.NodeId = a.NodeId AND c.StartTimeMs > a.EndTimeMs AND c.StartTimeMs < b.StartTimeMs
+  )
+ORDER BY GapMs DESC
+LIMIT 20;
+```
+
+### Step 5: Assess parallelism
+
+- Many idle gaps → projects are serialized due to dependency chains
+- One node doing most of the work → build graph is too deep
+- All nodes evenly loaded → parallelism is already good |
+| `text-replay` | Text-log replay | ## Analyzing Parallelism with Text-Log Replay
+
+### Step 1: Replay the binlog
+
+```bash
+dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
+```
+
+> **PowerShell:** `-flp:"v=diag;logfile=full.log;performancesummary"`
+
+### Step 2: Check Project Performance Summary
+
+```bash
+grep "Project Performance Summary" -A 30 full.log
+```
+
+Compare total build wall-clock time against the sum of individual project times. If they are similar, parallelism is low.
+
+### Step 3: Identify bottleneck targets
+
+```bash
+grep "Target Performance Summary" -A 30 full.log
+```
+
+### Step 4: Check node scheduling
+
+```bash
+grep -i "node.*assigned\|Building with" full.log | head -30
+```
+
+Look for nodes that are idle while others are busy — this indicates serialization bottlenecks.
+
+### Step 5: Assess parallelism
+
+- Build time << sum of project times → good parallelism
+- Build time ≈ sum of project times → too many serial dependencies or one slow project blocking others
+- Consider splitting large projects or optimizing the critical path |
+
+Regardless of backend, the key analysis is:
+
+1. Check if build time is much less than the sum of project times (good parallelism) or approximately equal (poor parallelism)
+2. Look for idle nodes or uneven node utilization
+3. Identify the critical path and bottleneck projects
+4. Consider splitting large projects or optimizing the critical path
 
 ## CI/CD Parallelism Tips
 
@@ -834,8 +1282,6 @@ Step-by-step:
 - `dotnet build /graph` works well with structured CI pipelines
 
 ---
-
-## eval-performance
 
 ## MSBuild Evaluation Phases
 
@@ -851,12 +1297,168 @@ Key insight: evaluation happens BEFORE any targets run. Slow evaluation = slow b
 
 ## Diagnosing Evaluation Performance
 
-### Using binlog
+Follow the workflow for the backend specified in the user's request:
 
-1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log`
-2. Search for evaluation events: `grep -i 'Evaluation started\|Evaluation finished' full.log`
-3. Multiple evaluations for the same project = overbuilding
-4. Look for "Project evaluation started/finished" messages and their timestamps
+| Backend ID | Name | Workflow |
+|---|---|---|
+| `baronfel-mcp` | baronfel.binlog.mcp | ## Diagnosing Evaluation Performance with baronfel.binlog.mcp
+
+### Step 1: Load the binlog
+
+Call `load_binlog` with the path to the binlog file.
+
+### Step 2: List all evaluations
+
+Call `list_projects` to get all project file paths, then call `list_evaluations(projectFilePath=<path>)` for each project. This returns evaluation IDs with durations in milliseconds.
+
+Sort by duration to find the slowest evaluations.
+
+### Step 3: Check for multiple evaluations
+
+If a project has more than one evaluation per TFM, it is being over-evaluated. Call `get_evaluation_global_properties(evaluationId=<id>)` for each evaluation to see what differs between them (different global properties trigger separate evaluations).
+
+### Step 4: Inspect evaluation properties
+
+For slow evaluations, call `get_evaluation_properties_by_name(evaluationId=<id>, propertyNames=["DefaultItemExcludes", "EnableDefaultItems"])` to check glob configuration.
+
+### Step 5: Inspect evaluation items
+
+Call `get_evaluation_items_by_name(evaluationId=<id>, itemTypeNames=["Compile"])` to see how many Compile items were evaluated. An unexpectedly large count suggests overly broad globs.
+
+### Step 6: Check import chain
+
+Call `list_files_from_binlog` and filter for `.props` and `.targets` files to understand the import chain depth. |
+| `gerlicher-mcp` | AndyGerlicher BinlogMCP | ## Diagnosing Evaluation Performance with BinlogMCP
+
+### Step 1: Get the evaluated project view
+
+Call `GetEvaluatedProject` with the binlog path and project name. This returns the flattened project view showing final properties, items, and imports after evaluation.
+
+### Step 2: Get the import chain
+
+Call `GetImportChain` to see the full import hierarchy of `.props` and `.targets` files. Look for:
+- Import depth > 20 levels
+- Large numbers of imported files
+- Unexpected imports from NuGet packages
+
+### Step 3: Check properties
+
+Call `GetProperties` to see all evaluated properties. Filter for `DefaultItemExcludes`, `EnableDefaultItems`, and glob-related properties.
+
+### Step 4: Check items
+
+Call `GetItems` to see all evaluated items. Look for unexpectedly large `Compile` or `None` item groups that suggest overly broad glob patterns.
+
+### Step 5: Trace specific properties (if needed)
+
+Call `TraceProperty(property="DefaultItemExcludes")` to see how a property was set through the import chain — which file set it, in what order, and what the final value is. |
+| `sqlite` | SQLite Logger | ## Diagnosing Evaluation Performance with SQLite Logger
+
+Requires: build was run with `-logger:"SqliteLogger,SqliteLogger.dll;LogFile=build.sqlite"`
+
+### Step 1: Find slowest evaluations
+
+```sql
+SELECT EvaluationId, ProjectFile, DurationMs
+FROM Evaluations
+ORDER BY DurationMs DESC
+LIMIT 10;
+```
+
+### Step 2: Check for multiple evaluations per project
+
+```sql
+SELECT ProjectFile, COUNT(*) AS EvalCount, SUM(DurationMs) AS TotalMs
+FROM Evaluations
+GROUP BY ProjectFile
+HAVING COUNT(*) > 1
+ORDER BY TotalMs DESC;
+```
+
+Any project with `EvalCount > 1` per TFM is being over-evaluated.
+
+### Step 3: Compare global properties across evaluations
+
+```sql
+-- For a project with multiple evaluations, see what differs
+SELECT e.EvaluationId, ep.Name, ep.Value
+FROM EvaluationProperties ep
+JOIN Evaluations e ON ep.EvaluationId = e.EvaluationId
+WHERE e.ProjectFile LIKE '%MyProject.csproj'
+AND ep.Name IN ('TargetFramework', 'Configuration', 'Platform', 'RuntimeIdentifier')
+ORDER BY e.EvaluationId, ep.Name;
+```
+
+### Step 4: Check glob patterns
+
+```sql
+-- Count Compile items per evaluation to detect overly broad globs
+SELECT e.EvaluationId, e.ProjectFile, COUNT(*) AS CompileCount
+FROM EvaluationItems ei
+JOIN Evaluations e ON ei.EvaluationId = e.EvaluationId
+WHERE ei.ItemType = 'Compile'
+GROUP BY e.EvaluationId
+ORDER BY CompileCount DESC
+LIMIT 10;
+```
+
+### Step 5: Inspect imported files
+
+```sql
+SELECT FilePath, LENGTH(Content) AS ContentBytes
+FROM Files
+WHERE FilePath LIKE '%.props' OR FilePath LIKE '%.targets'
+ORDER BY ContentBytes DESC
+LIMIT 20;
+```
+
+Deep import chains with large files indicate heavy evaluation overhead. |
+| `text-replay` | Text-log replay | ## Diagnosing Evaluation Performance with Text-Log Replay
+
+### Step 1: Replay the binlog
+
+```bash
+dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
+```
+
+### Step 2: Search for evaluation events
+
+```bash
+grep -i "Evaluation started\|Evaluation finished" full.log
+```
+
+Multiple evaluations for the same project indicate overbuilding. Look for timestamps to measure evaluation duration.
+
+### Step 3: Check evaluation counts per project
+
+```bash
+grep -i "Evaluation started" full.log | grep -oP '"[^"]+\.(csproj|vbproj|fsproj)"' | sort | uniq -c | sort -rn
+```
+
+Any project with count > 1 per TFM is being over-evaluated.
+
+### Step 4: Preprocess to analyze imports
+
+```bash
+dotnet msbuild -pp:full.xml MyProject.csproj
+```
+
+Search the preprocessed output for `<!-- Importing` comments to see the import tree depth. Large preprocessed output (>10K lines) indicates heavy evaluation.
+
+### Step 5: Check evaluation time in performance summary
+
+```bash
+dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
+grep "Evaluation Performance Summary\|Evaluation started\|Evaluation finished" full.log | head -30
+``` |
+
+Regardless of backend, the key diagnostics are:
+
+1. Find the slowest evaluations and which projects they belong to
+2. Check for multiple evaluations per project (overbuilding)
+3. Compare global properties across evaluations to understand why duplicates occur
+4. Inspect item counts (especially Compile) for overly broad globs
+5. Analyze import chain depth
 
 ### Using /pp (preprocess)
 
@@ -891,6 +1493,30 @@ Key insight: evaluation happens BEFORE any targets run. Slow evaluation = slow b
 ## Multiple Evaluations
 
 - A project evaluated multiple times = wasted work
-- Common causes: referenced from multiple other projects 
+- Common causes: referenced from multiple other projects with different global properties
+- Each unique set of global properties = separate evaluation
+- Fix: normalize global properties, use graph build (`/graph`)
 
-[truncated]
+## TreatAsLocalProperty
+
+- Prevents property values from flowing to child projects via MSBuild task
+- Overuse: declaring many TreatAsLocalProperty entries adds evaluation overhead
+- Correct use: only when you genuinely need to override an inherited property
+
+## Property Function Cost
+
+- Property functions execute during evaluation
+- Most are cheap (string operations)
+- Expensive: `$([System.IO.File]::ReadAllText(...))` during evaluation — reads file on every evaluation
+- Expensive: network calls, heavy computation
+- Rule: property functions should be fast and side-effect-free
+
+## Optimization Checklist
+
+- [ ] Check preprocessed output size: `dotnet msbuild -pp:full.xml`
+- [ ] Verify evaluation count: should be 1 per project per TFM
+- [ ] Exclude large directories from globs
+- [ ] Avoid file I/O in property functions during evaluation
+- [ ] Minimize import depth
+- [ ] Use graph build to reduce redundant evaluations
+- [ ] Check for unnecessary UsingTask declarations

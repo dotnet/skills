@@ -1,6 +1,10 @@
+config:
+  variables:
+    backend: text-replay
+
 scenarios:
   - name: "Diagnose bin/obj output path clashes"
-    prompt: "Build this solution and diagnose any build failures related to output path conflicts."
+    prompt: "Build this solution using the ${backend} backend and diagnose any build failures related to output path conflicts."
     setup:
       copy_test_files: true
     assertions:

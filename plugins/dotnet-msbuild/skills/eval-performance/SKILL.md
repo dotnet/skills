@@ -17,12 +17,22 @@ Key insight: evaluation happens BEFORE any targets run. Slow evaluation = slow b
 
 ## Diagnosing Evaluation Performance
 
-### Using binlog
+Follow the workflow for the backend specified in the user's request:
 
-1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log`
-2. Search for evaluation events: `grep -i 'Evaluation started\|Evaluation finished' full.log`
-3. Multiple evaluations for the same project = overbuilding
-4. Look for "Project evaluation started/finished" messages and their timestamps
+| Backend ID | Name | Workflow |
+|---|---|---|
+| `baronfel-mcp` | baronfel.binlog.mcp | [baronfel.binlog.mcp workflow](references/workflow-baronfel-mcp.md) |
+| `gerlicher-mcp` | AndyGerlicher BinlogMCP | [BinlogMCP workflow](references/workflow-gerlicher-mcp.md) |
+| `sqlite` | SQLite Logger | [SQLite workflow](references/workflow-sqlite.md) |
+| `text-replay` | Text-log replay | [Text replay workflow](references/workflow-text-replay.md) |
+
+Regardless of backend, the key diagnostics are:
+
+1. Find the slowest evaluations and which projects they belong to
+2. Check for multiple evaluations per project (overbuilding)
+3. Compare global properties across evaluations to understand why duplicates occur
+4. Inspect item counts (especially Compile) for overly broad globs
+5. Analyze import chain depth
 
 ### Using /pp (preprocess)
 
@@ -59,7 +69,6 @@ Key insight: evaluation happens BEFORE any targets run. Slow evaluation = slow b
 - A project evaluated multiple times = wasted work
 - Common causes: referenced from multiple other projects with different global properties
 - Each unique set of global properties = separate evaluation
-- Diagnosis: `grep 'Evaluation started.*ProjectName' full.log` → if count > 1, check for differing global properties
 - Fix: normalize global properties, use graph build (`/graph`)
 
 ## TreatAsLocalProperty

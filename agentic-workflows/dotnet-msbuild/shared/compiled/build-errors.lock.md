@@ -2,9 +2,117 @@
 
 # Analyzing MSBuild Failures with Binary Logs
 
-Use MSBuild's built-in **binlog replay** to convert binary logs into searchable text logs, then analyze with standard tools (`grep`, `cat`, `head`, `tail`, `find`).
+## Build Error Investigation
 
-## Build Error Investigation (Primary Workflow)
+Follow the workflow for the backend specified in the user's request:
+
+| Backend ID | Name | Workflow |
+|---|---|---|
+| `baronfel-mcp` | baronfel.binlog.mcp | ## Failure Analysis with baronfel.binlog.mcp
+
+### Step 1: Load the binlog
+
+Call `load_binlog` with the path to the binlog file.
+
+### Step 2: Get all diagnostics
+
+Call `get_diagnostics(includeErrors=true, includeWarnings=false)` to get structured error data. Each error includes file path, line number, error code, message, and project context — no parsing needed.
+
+To also see warnings: `get_diagnostics(includeErrors=true, includeWarnings=true)`.
+
+### Step 3: Identify affected projects
+
+Call `list_projects` to see all projects and their entry targets. Cross-reference with the diagnostics to identify which projects have direct errors.
+
+### Step 4: Detect cascading failures
+
+Call `search_binlog(query="$target CoreCompile")` to find which projects ran `CoreCompile`. Projects with errors but no `CoreCompile` execution are cascading failures — they failed because a dependency failed.
+
+### Step 5: Investigate specific errors
+
+For errors in specific projects, use `search_binlog` with targeted queries:
+
+- `search_binlog(query="error CS0246")` — find specific error codes with context
+- `search_binlog(query="$target CoreCompile under($project MyProject)")` — check if a specific project compiled
+
+### Step 6: Examine project files for root causes
+
+Use file tools to read the `.csproj` of the first project with direct errors. Check `PackageReference` and `ProjectReference` entries. |
+| `gerlicher-mcp` | AndyGerlicher BinlogMCP | ## Failure Analysis with BinlogMCP
+
+### Step 1: Get build summary
+
+Call `GetBuildSummary` to get an overview: build result, duration, error/warning counts, and project list.
+
+### Step 2: Get automated diagnosis
+
+Call `GetFailureDiagnosis` with the binlog path. This tool categorizes errors, identifies root causes, and suggests fixes. For many failures, this single call provides a complete diagnosis without further investigation.
+
+### Step 3: Get structured error list
+
+If more detail is needed, call `GetErrors` to get all errors with file, line, column, code, and message.
+
+### Step 4: Examine project dependencies
+
+Call `GetProjectDependencies` to understand the build graph and trace cascading failures through the dependency chain. Projects downstream of a failed project are cascading failures.
+
+### Step 5: Examine project files for root causes
+
+Use file tools to read the `.csproj` of the root-cause project identified by `GetFailureDiagnosis` or `GetErrors`. |
+| `sqlite` | SQLite Logger | ## Failure Analysis with SQLite Logger
+
+Requires: build was run with `-logger:"SqliteLogger,SqliteLogger.dll;LogFile=build.sqlite"`
+
+### Step 1: Get all errors
+
+```sql
+SELECT Code, Message, File, LineNumber, ColumnNumber, ProjectFile
+FROM Errors
+ORDER BY ProjectFile, LineNumber;
+```
+
+### Step 2: Get failing projects
+
+```sql
+SELECT ProjectId, ProjectFile, Succeeded, DurationMs
+FROM Projects
+WHERE Succeeded = 0
+ORDER BY ProjectFile;
+```
+
+### Step 3: Detect cascading failures
+
+```sql
+SELECT p.ProjectFile,
+  CASE WHEN EXISTS (
+    SELECT 1 FROM Targets t
+    WHERE t.ProjectId = p.ProjectId AND t.Name = 'CoreCompile' AND t.Skipped = 0
+  ) THEN 'direct' ELSE 'cascading' END AS FailureType,
+  (SELECT COUNT(*) FROM Diagnostics d
+   WHERE d.ProjectId = p.ProjectId AND d.Severity = 'Error') AS ErrorCount
+FROM Projects p
+WHERE p.Succeeded = 0
+ORDER BY FailureType, p.ProjectFile;
+```
+
+Projects with `FailureType = 'cascading'` failed because a dependency failed, not their own code. Focus on `FailureType = 'direct'` projects first.
+
+### Step 4: Get context for specific errors
+
+```sql
+-- Find errors with their target and task context
+SELECT d.Code, d.Message, d.File, d.LineNumber, t.Name AS TargetName, tk.Name AS TaskName
+FROM Diagnostics d
+LEFT JOIN Targets t ON d.TargetId = t.TargetId
+LEFT JOIN Tasks tk ON d.TaskId = tk.TaskId
+WHERE d.Severity = 'Error'
+ORDER BY d.TimestampMs;
+```
+
+### Step 5: Examine project files for root causes
+
+Use file tools to read the `.csproj` of projects with direct errors. |
+| `text-replay` | Text-log replay | ## Failure Analysis with Text-Log Replay
 
 ### Step 1: Replay the binlog to text logs
 
@@ -62,26 +170,7 @@ cat path/to/Services/Services.csproj
 grep -n "PackageReference\|ProjectReference" path/to/Services/Services.csproj
 ```
 
-**Write your diagnosis as soon as you have enough information.** Do not over-investigate.
-
-## Additional Workflows
-
-### Performance Investigation
-```bash
-# The PerformanceSummary is at the end of full.log
-tail -100 full.log   # shows target/task timing summary
-grep "Target Performance Summary\|Task Performance Summary" -A 50 full.log
-```
-
-### Dependency/Evaluation Issues
-```bash
-# Check evaluation properties
-grep -i "OutputPath\|IntermediateOutputPath\|TargetFramework" full.log | head -30
-# Check item groups
-grep "PackageReference\|ProjectReference" full.log | head -30
-```
-
-## Replay reference
+### Replay reference
 
 | Command | Purpose |
 |---------|---------|
@@ -89,7 +178,18 @@ grep "PackageReference\|ProjectReference" full.log | head -30
 | `dotnet msbuild X.binlog -noconlog -fl -flp:errorsonly;logfile=errors.log` | Errors only |
 | `dotnet msbuild X.binlog -noconlog -fl -flp:warningsonly;logfile=warnings.log` | Warnings only |
 | `grep -n "PATTERN" full.log` | Search for patterns in the replayed log |
-| `dotnet msbuild -pp:preprocessed.xml Proj.csproj` | Preprocess — inline all imports into one file |
+| `dotnet msbuild -pp:preprocessed.xml Proj.csproj` | Preprocess — inline all imports into one file | |
+
+### What to look for
+
+Regardless of backend, the key investigation steps are:
+
+1. **Get all errors** — with file paths, line numbers, error codes, and project context
+2. **Identify which projects failed** — distinguish between projects with direct errors and cascading failures
+3. **Detect cascading failures** — projects that never reached `CoreCompile` failed because a dependency failed, not their own code
+4. **Examine project files for root causes** — read the `.csproj` of the first project with direct errors
+
+**Write your diagnosis as soon as you have enough information.** Do not over-investigate.
 
 ## Generating a binlog (only if none exists)
 
@@ -229,141 +329,256 @@ Clashes can occur between:
 
 Use the `binlog-generation` skill to generate a binary log with the correct naming convention.
 
-## Step 2: Replay the Binary Log to Text
+## Step 2: Analyze the Binary Log
+
+Follow the workflow for the backend specified in the user's request:
+
+| Backend ID | Name | Workflow |
+|---|---|---|
+| `baronfel-mcp` | baronfel.binlog.mcp | ## Detecting OutputPath Clashes with baronfel.binlog.mcp
+
+### Step 1: Load the binlog
+
+Call `load_binlog` with the path to the binlog file.
+
+### Step 2: List all projects
+
+Call `list_projects` to get all project file paths and IDs.
+
+### Step 3: List evaluations per project
+
+For each unique project file path, call `list_evaluations(projectFilePath=<path>)`. Multiple evaluations for the same project indicate multi-targeting or multiple build configurations.
+
+### Step 4: Check global properties for each evaluation
+
+For evaluations of the same project, call `get_evaluation_global_properties(evaluationId=<id>)` to see what differs between them. Look for:
+- `TargetFramework` — should produce different output paths
+- `SolutionFileName` — different values indicate multi-solution builds
+- `PublishReadyToRun` — extra property that doesn't affect output paths
+- `BuildProjectReferences` — if `false`, this is a P2P query (ignore)
+- `MSBuildRestoreSessionId` — if present, this is a restore-phase evaluation
+
+### Step 5: Get output paths for each evaluation
+
+Call `get_evaluation_properties_by_name(evaluationId=<id>, propertyNames=["OutputPath", "IntermediateOutputPath", "BaseOutputPath", "BaseIntermediateOutputPath"])` for each evaluation.
+
+### Step 6: Identify clashes
+
+Compare the property values across evaluations:
+- Normalize paths to absolute paths
+- Group evaluations by OutputPath and IntermediateOutputPath
+- Any group with multiple evaluations (after filtering out P2P queries and restore-only evals) is a clash
+
+### Step 7: Verify via target execution (optional)
+
+Call `search_binlog(query="$target CopyFilesToOutputDirectory")` to check which project instances ran file copy operations to the same output path.
+
+Call `search_targets_by_name(targetName="CoreCompile")` to distinguish primary builds (long duration) from redundant builds (skipped or near-zero duration). |
+| `gerlicher-mcp` | AndyGerlicher BinlogMCP | ## Detecting OutputPath Clashes with BinlogMCP
+
+### Step 1: Get build summary
+
+Call `GetBuildSummary` to see all projects in the build.
+
+### Step 2: Get properties for each project
+
+Call `GetProperties` with a filter for output path properties. This returns MSBuild properties including `OutputPath`, `IntermediateOutputPath`, `BaseOutputPath`, and `BaseIntermediateOutputPath`.
+
+### Step 3: Get evaluated project view
+
+For suspected clashing projects, call `GetEvaluatedProject` to see the flattened project view with all final properties, items, and imports.
+
+### Step 4: Trace output path origin
+
+Call `GetPropertyOrigin(property="OutputPath")` to trace where the output path was set — which file, in what order, and the final value. This helps understand WHY two projects share the same path.
+
+Also try `TraceProperty(property="OutputPath")` for a full trace of every assignment from initial to final value.
+
+### Step 5: Diff properties across configurations (if applicable)
+
+If the build includes multiple configurations or solutions, call `DiffProperties` with two build binlogs to compare property values side by side.
+
+### Step 6: Check for duplicate file writes
+
+Call `GetDuplicateFileWrites` to find files that were written multiple times during the build. This directly identifies the consequences of OutputPath clashes.
+
+### Step 7: Check redundant operations
+
+Call `GetRedundantOperations` to find tasks that ran with identical inputs — often a symptom of extra global properties creating redundant project instances. |
+| `sqlite` | SQLite Logger | ## Detecting OutputPath Clashes with SQLite Logger
+
+Requires: build was run with `-logger:"SqliteLogger,SqliteLogger.dll;LogFile=build.sqlite"`
+
+### Step 1: Find OutputPath clashes
+
+```sql
+-- Find OutputPath values shared by multiple evaluations (excluding restore-only and P2P queries)
+SELECT ep.Value AS OutputPath, COUNT(DISTINCT ep.EvaluationId) AS EvalCount,
+       GROUP_CONCAT(DISTINCT e.ProjectFile) AS Projects
+FROM EvaluationProperties ep
+JOIN Evaluations e ON ep.EvaluationId = e.EvaluationId
+WHERE ep.Name = 'OutputPath'
+  AND ep.EvaluationId NOT IN (
+    SELECT gp.EvaluationId FROM EvaluationProperties gp
+    WHERE gp.Name = 'BuildProjectReferences' AND gp.Value = 'false'
+  )
+  AND ep.EvaluationId NOT IN (
+    SELECT gp.EvaluationId FROM EvaluationProperties gp
+    WHERE gp.Name = 'MSBuildRestoreSessionId' AND gp.Value IS NOT NULL
+  )
+GROUP BY ep.Value
+HAVING COUNT(DISTINCT ep.EvaluationId) > 1
+ORDER BY EvalCount DESC;
+```
+
+### Step 2: Find IntermediateOutputPath clashes
+
+```sql
+-- IntermediateOutputPath clashes (include restore evals, they write project.assets.json)
+SELECT ep.Value AS IntermediateOutputPath, COUNT(DISTINCT ep.EvaluationId) AS EvalCount,
+       GROUP_CONCAT(DISTINCT e.ProjectFile) AS Projects
+FROM EvaluationProperties ep
+JOIN Evaluations e ON ep.EvaluationId = e.EvaluationId
+WHERE ep.Name = 'IntermediateOutputPath'
+  AND ep.EvaluationId NOT IN (
+    SELECT gp.EvaluationId FROM EvaluationProperties gp
+    WHERE gp.Name = 'BuildProjectReferences' AND gp.Value = 'false'
+  )
+GROUP BY ep.Value
+HAVING COUNT(DISTINCT ep.EvaluationId) > 1
+ORDER BY EvalCount DESC;
+```
+
+### Step 3: Investigate clashing evaluations
+
+```sql
+-- For a clashing path, see what global properties differ between evaluations
+SELECT e.EvaluationId, e.ProjectFile,
+       MAX(CASE WHEN ep.Name = 'TargetFramework' THEN ep.Value END) AS TFM,
+       MAX(CASE WHEN ep.Name = 'Configuration' THEN ep.Value END) AS Config,
+       MAX(CASE WHEN ep.Name = 'SolutionFileName' THEN ep.Value END) AS Solution,
+       MAX(CASE WHEN ep.Name = 'PublishReadyToRun' THEN ep.Value END) AS PubR2R,
+       MAX(CASE WHEN ep.Name = 'OutputPath' THEN ep.Value END) AS OutputPath
+FROM EvaluationProperties ep
+JOIN Evaluations e ON ep.EvaluationId = e.EvaluationId
+WHERE ep.Name IN ('TargetFramework', 'Configuration', 'SolutionFileName', 'PublishReadyToRun', 'OutputPath')
+  AND e.ProjectFile LIKE '%MyProject.csproj'
+GROUP BY e.EvaluationId
+ORDER BY e.EvaluationId;
+```
+
+### Step 4: Verify via target execution (optional)
+
+```sql
+-- Check which instances ran CopyFilesToOutputDirectory
+SELECT t.ProjectFile, t.Name, t.Skipped, t.DurationMs
+FROM Targets t
+WHERE t.Name = 'CopyFilesToOutputDirectory'
+ORDER BY t.ProjectFile;
+
+-- Check CoreCompile to distinguish primary from redundant builds
+SELECT t.ProjectFile, t.Name, t.Skipped, t.DurationMs
+FROM Targets t
+WHERE t.Name = 'CoreCompile'
+ORDER BY t.DurationMs DESC;
+``` |
+| `text-replay` | Text-log replay | ## Detecting OutputPath Clashes with Text-Log Replay
+
+### Step 1: Replay the binlog
 
 ```bash
 dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
 ```
 
-## Step 3: List All Projects
+> **PowerShell:** `-flp:"v=diag;logfile=full.log"`
+
+### Step 2: List all projects
 
 ```bash
 grep -i 'done building project\|Building project' full.log | grep -oP '"[^"]+\.csproj"' | sort -u
 ```
 
-This lists all project files that participated in the build.
-
-## Step 4: Check for Multiple Evaluations per Project
-
-Multiple evaluations for the same project indicate multi-targeting or multiple build configurations:
+### Step 3: Check for multiple evaluations per project
 
 ```bash
-# Count how many times each project was evaluated
-grep -c 'Evaluation started' full.log
 grep 'Evaluation started.*\.csproj' full.log
 ```
 
-## Step 5: Check Global Properties for Each Evaluation
+Multiple evaluations for the same project indicate multi-targeting or multiple build configurations.
 
-For each project, query the build properties to understand the build configuration:
+### Step 4: Check global properties for each evaluation
 
 ```bash
-# Search the diagnostic log for evaluated property values
 grep -i 'TargetFramework\|Configuration\|Platform\|RuntimeIdentifier' full.log | head -40
 ```
 
-Look for properties like `TargetFramework`, `Configuration`, `Platform`, and `RuntimeIdentifier` that should differentiate output paths.
-
-Also check **solution-related properties** to identify multi-solution builds:
-- `SolutionFileName`, `SolutionName`, `SolutionPath`, `SolutionDir`, `SolutionExt` — differ when a project is built from multiple solutions
-- `CurrentSolutionConfigurationContents` — the number of project entries reveals which solution an evaluation belongs to (e.g., 1 project vs ~49 projects)
-
-Look for **extra global properties that don't affect output paths** but create distinct MSBuild project instances:
-- `PublishReadyToRun` — a publish setting that doesn't change `OutputPath` or `IntermediateOutputPath`, but MSBuild treats it as a distinct project instance, preventing result caching and causing redundant target execution (e.g., `CopyFilesToOutputDirectory` running again)
-- Any other global property that differs between evaluations but doesn't contribute to path differentiation
-
-### Filter Out Non-Build Evaluations
-
-When analyzing clashes, filter evaluations based on the type of clash you're investigating:
-
-1. **For OutputPath clashes**: Exclude restore-phase evaluations (where `MSBuildRestoreSessionId` global property is set). These don't write to output directories.
-
-2. **For IntermediateOutputPath clashes**: Include restore-phase evaluations, as NuGet restore writes `project.assets.json` to the intermediate output path.
-
-3. **Always exclude `BuildProjectReferences=false`**: These are P2P metadata queries, not actual builds that write files.
-
-## Step 6: Get Output Paths for Each Project
-
-Query each project's output path properties:
-
+Also check solution-related properties for multi-solution builds:
 ```bash
-# From the diagnostic log - search for OutputPath assignments
-grep -i 'OutputPath\s*=\|IntermediateOutputPath\s*=\|BaseOutputPath\s*=\|BaseIntermediateOutputPath\s*=' full.log | head -40
-
-# Or query a specific project directly
-dotnet msbuild MyProject.csproj -getProperty:OutputPath
-dotnet msbuild MyProject.csproj -getProperty:IntermediateOutputPath
-dotnet msbuild MyProject.csproj -getProperty:BaseOutputPath
-dotnet msbuild MyProject.csproj -getProperty:BaseIntermediateOutputPath
+grep -i "SolutionFileName\|CurrentSolutionConfigurationContents" full.log | head -20
 ```
 
-## Step 7: Identify Clashes
+Look for extra global properties that don't affect output paths:
+```bash
+grep -i "PublishReadyToRun\|BuildProjectReferences\|MSBuildRestoreSessionId" full.log | head -20
+```
 
-Compare the `OutputPath` and `IntermediateOutputPath` values across all evaluations:
-
-1. **Normalize paths** - Convert to absolute paths and normalize separators
-2. **Group by path** - Find evaluations that share the same OutputPath or IntermediateOutputPath
-3. **Report clashes** - Any group with more than one evaluation indicates a clash
-
-## Step 8: Verify Clashes via CopyFilesToOutputDirectory (Optional)
-
-As additional evidence for OutputPath clashes, check if multiple project builds execute the `CopyFilesToOutputDirectory` target to the same path. Note that not all clashes manifest here - compilation outputs and other targets may also conflict.
+### Step 5: Get output paths
 
 ```bash
-# Search for CopyFilesToOutputDirectory target execution per project
-grep 'Target "CopyFilesToOutputDirectory"' full.log
+grep -i 'OutputPath\s*=\|IntermediateOutputPath\s*=\|BaseOutputPath\s*=\|BaseIntermediateOutputPath\s*=' full.log | head -40
+```
 
-# Look for Copy task messages showing file destinations
+Or query specific projects directly:
+```bash
+dotnet msbuild MyProject.csproj -getProperty:OutputPath
+dotnet msbuild MyProject.csproj -getProperty:IntermediateOutputPath
+```
+
+### Step 6: Identify clashes
+
+Compare OutputPath and IntermediateOutputPath values. Normalize paths and group by value — any group with more than one evaluation is a clash.
+
+### Step 7: Verify via CopyFilesToOutputDirectory (optional)
+
+```bash
+grep 'Target "CopyFilesToOutputDirectory"' full.log
 grep 'Copying file from\|SkipUnchangedFiles' full.log | head -30
 ```
 
-Look for evidence of clashes in the messages:
-- `Copying file from "..." to "..."` - Active file writes
-- `Did not copy from file "..." to file "..." because the "SkipUnchangedFiles" parameter was set to "true"` - Indicates a second build attempted to write to the same location
-
-The `SkipUnchangedFiles` skip message often masks clashes - the build succeeds but is vulnerable to race conditions in parallel builds.
-
-## Step 9: Check CoreCompile Execution Patterns (Optional)
-
-To understand which project instance did the actual compilation vs redundant work, check `CoreCompile`:
+### Step 8: Check CoreCompile patterns (optional)
 
 ```bash
 grep 'Target "CoreCompile"' full.log
 ```
 
-Compare the durations:
-- The instance with a long `CoreCompile` duration (e.g., seconds) is the **primary build** that did the actual compilation
-- Instances where `CoreCompile` was skipped (duration ~0-10ms) are **redundant builds** — they didn't recompile but may still run other targets like `CopyFilesToOutputDirectory` that write to the same output directory
+The instance with long duration is the primary build; skipped instances are redundant. |
 
-This helps distinguish the "real" build from redundant instances created by extra global properties or multi-solution builds.
+### What to collect for each evaluation
 
-### Caveat: Multi-Solution Builds
-
-When analyzing multi-solution builds, note that the diagnostic log interleaves output from all projects. To determine which solution a project instance belongs to, search for `SolutionFileName` property assignments in the diagnostic log:
-
-```bash
-grep -i "SolutionFileName\|CurrentSolutionConfigurationContents" full.log | head -20
-```
-
-### Expected Output Structure
-
-For each evaluation, collect:
+Regardless of backend, collect for each project evaluation:
 - Project file path
 - Evaluation ID
 - TargetFramework (if multi-targeting)
 - Configuration
 - OutputPath
 - IntermediateOutputPath
+- Key global properties (SolutionFileName, BuildProjectReferences, MSBuildRestoreSessionId, PublishReadyToRun)
 
-### Clash Detection Logic
+### Clash detection logic
 
 ```
 For each unique OutputPath:
   - If multiple evaluations share it → CLASH
-  
+
 For each unique IntermediateOutputPath:
   - If multiple evaluations share it → CLASH
 ```
+
+### Filter rules
+
+1. **For OutputPath clashes**: Exclude restore-phase evaluations (where `MSBuildRestoreSessionId` is set). These don't write to output directories.
+2. **For IntermediateOutputPath clashes**: Include restore-phase evaluations, as NuGet restore writes `project.assets.json` to the intermediate output path.
+3. **Always exclude `BuildProjectReferences=false`**: These are P2P metadata queries, not actual builds that write files.
 
 ## Common Causes and Fixes
 
@@ -469,28 +684,6 @@ This is particularly wasteful for projects where the extra property has no effec
 1. **Remove the extra global property** - Investigate which parent target/task is injecting the property and prevent it from being passed to projects that don't need it
 2. **Use `RemoveGlobalProperties` metadata** - On `ProjectReference` items, use `RemoveGlobalProperties="PublishReadyToRun"` to strip the property before building the referenced project
 3. **Condition the property** - Only set the property on projects that actually use it (e.g., only for executable projects, not class libraries)
-
-## Example Workflow
-
-```bash
-# 1. Replay the binlog
-dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
-
-# 2. List projects
-grep 'done building project' full.log | grep -oP '"[^"]+\.csproj"' | sort -u
-
-# 3. Check OutputPath for each evaluation
-grep -i 'OutputPath\s*=' full.log | sort -u
-# e.g.  OutputPath = bin\Debug\net8.0\
-#       OutputPath = bin\Debug\net9.0\
-
-# 4. Check IntermediateOutputPath
-grep -i 'IntermediateOutputPath\s*=' full.log | sort -u
-# e.g.  IntermediateOutputPath = obj\Debug\net8.0\
-#       IntermediateOutputPath = obj\Debug\net9.0\
-
-# 5. Compare paths → No clash (paths differ by TargetFramework)
-```
 
 ## Tips
 
