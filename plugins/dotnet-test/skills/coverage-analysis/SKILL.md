@@ -367,11 +367,16 @@ if ($rgCommand) {
 } else {
     $rgToolPath = Join-Path "<COVERAGE_DIR>" ".tools"
     dotnet tool install dotnet-reportgenerator-globaltool --tool-path $rgToolPath
-    $rgBin = Join-Path $rgToolPath "reportgenerator"
-    if ($LASTEXITCODE -eq 0 -and (Test-Path $rgBin)) {
+    if ($LASTEXITCODE -eq 0) {
         $env:PATH = "$rgToolPath$([System.IO.Path]::PathSeparator)$env:PATH"
-        $rgAvailable = $true
-        Write-Host "RG_INSTALLED:true (tool-path: $rgToolPath)"
+        $rgCommand = Get-Command reportgenerator -ErrorAction SilentlyContinue
+        if ($rgCommand) {
+            $rgAvailable = $true
+            Write-Host "RG_INSTALLED:true (tool-path: $rgToolPath)"
+        } else {
+            Write-Host "RG_INSTALLED:false"
+            Write-Host "RG_INSTALL_ERROR:reportgenerator-not-available"
+        }
     } else {
         Write-Host "RG_INSTALLED:false"
         Write-Host "RG_INSTALL_ERROR:reportgenerator-not-available"
