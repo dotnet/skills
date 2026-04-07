@@ -1,6 +1,6 @@
 ---
 name: test-anti-patterns
-description: "Quick pragmatic review of .NET test code for anti-patterns that undermine reliability and diagnostic value. Catches the most impactful issues — assertion gaps, flakiness indicators, over-mocking, naming, and structural problems — with actionable fixes. Use for periodic test code reviews and PR feedback. For a deep formal audit based on academic test smell taxonomy, use exp-test-smell-detection instead. Works with MSTest, xUnit, NUnit, and TUnit."
+description: "Quick pragmatic review of .NET test code for anti-patterns that undermine reliability and diagnostic value. Use when asked to review tests, find test problems, check test quality, or audit tests for common mistakes. Catches assertion gaps, flakiness indicators, over-mocking, naming issues, and structural problems with actionable fixes. Use for periodic test code reviews and PR feedback. For a deep formal audit based on academic test smell taxonomy, use exp-test-smell-detection instead. Works with MSTest, xUnit, NUnit, and TUnit."
 ---
 
 # Test Anti-Pattern Detection
