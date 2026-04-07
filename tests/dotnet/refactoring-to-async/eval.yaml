@@ -1,6 +1,6 @@
 scenarios:
   - name: "Refactor synchronous service to async"
-    prompt: "I have a service class with several synchronous database and HTTP calls. It's causing thread pool starvation under load. Can you convert it to async/await?"
+    prompt: "This service class is causing thread pool starvation under high load. Can you fix the performance issues?"
     setup:
       copy_test_files: true
     assertions:
@@ -25,7 +25,7 @@ scenarios:
     timeout: 120
 
   - name: "Async refactoring should not apply to CPU-bound code"
-    prompt: "This method is really slow and blocking my app. Can you make Multiply() async so it runs faster?"
+    prompt: "This method is really slow and blocking my app. Can you make it faster?"
     expect_activation: false
     setup:
       files:
@@ -182,11 +182,11 @@ scenarios:
       - "Converted controller action methods to async Task<ActionResult<T>>"
       - "Replaced .GetAwaiter().GetResult(), .Wait(), and .Result with await"
       - "Added CancellationToken parameter to async actions to support request cancellation"
-      - "Used sequential awaits (preferred) or Task.WhenAll with concurrency caveats instead of blocking .Result in the loop"
+      - "Used sequential awaits (preferred) or Task.WhenAll with a concurrency caveat for the loop in GetReport"
     timeout: 120
 
   - name: "Convert file I/O operations to async"
-    prompt: "Convert this file processing class to async. It reads CSV files, processes them, and writes output files."
+    prompt: "This file processing class is blocking threads when handling large files and causing thread pool starvation under load. Can you fix the blocking I/O?"
     setup:
       files:
         - path: "FileProcessor.cs"
@@ -249,7 +249,7 @@ scenarios:
     timeout: 120
 
   - name: "Partial async conversion in large codebase"
-    prompt: "I need to convert just the data access layer to async. The business logic layer and API controllers should stay synchronous for now — we're doing a staged migration."
+    prompt: "I need to convert just the data access layer for now. The business logic layer and API controllers should stay as-is — we're doing a staged migration."
     setup:
       copy_test_files: true
     assertions:

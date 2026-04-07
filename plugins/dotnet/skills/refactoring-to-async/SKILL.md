@@ -1,10 +1,8 @@
 ---
 name: refactoring-to-async
 description: >
-  Convert synchronous .NET code to async/await with proper Task propagation,
-  CancellationToken support, and async anti-pattern removal.
-  USE FOR: converting blocking I/O to async, fixing sync-over-async patterns.
-  DO NOT USE FOR: CPU-bound computation, code with no I/O.
+  Convert synchronous .NET code to async/await. USE FOR: blocking I/O to async,
+  sync-over-async fixes. DO NOT USE FOR: CPU-bound computation, code with no I/O.
 ---
 
 # Refactoring to Async
@@ -23,14 +21,16 @@ description: >
 
 ### Step 1: Identify blocking I/O calls
 
-Look for these synchronous I/O methods and blocking patterns in the codebase:
+Look for synchronous I/O methods and sync-over-async blocking patterns. Common examples include:
 
-- `.Result`, `.Wait()`, `.GetAwaiter().GetResult()` — sync-over-async blocking
-- `stream.Read`, `stream.Write`, `reader.ReadToEnd` — synchronous stream I/O
-- `File.ReadAllText`, `File.WriteAllBytes`, `File.ReadAllLines` — synchronous file I/O
-- `connection.Open`, `command.ExecuteReader`, `command.ExecuteNonQuery` — synchronous database calls
-- `HttpClient.Send`, `WebClient.Download*` — synchronous HTTP calls
-- `Thread.Sleep` — thread-blocking delay
+- **Sync-over-async blocking:** `.Result`, `.Wait()`, `.GetAwaiter().GetResult()`
+- **Stream I/O:** `Stream.Read`, `Stream.Write`, `StreamReader.ReadToEnd`
+- **File I/O:** `File.ReadAllText`, `File.WriteAllBytes`, `File.ReadAllLines`, `File.AppendAllText`
+- **Database:** `SqlConnection.Open`, `SqlCommand.ExecuteReader`, `SqlCommand.ExecuteNonQuery`, `SqlCommand.ExecuteScalar`
+- **HTTP:** `HttpClient.Send`, `WebClient.DownloadString`, `WebClient.DownloadFile`
+- **Thread blocking:** `Thread.Sleep`
+
+These are examples, not an exhaustive list — inspect the codebase for any synchronous I/O that has an async counterpart.
 
 Common blocking patterns to convert:
 
@@ -72,6 +72,20 @@ public async Task<string> GetUserDataAsync(int userId, CancellationToken ct = de
     using var response = await _httpClient.GetAsync($"/users/{userId}", ct);
     return await response.Content.ReadAsStringAsync(ct);
 }
+```
+
+When converting loops that make multiple async calls, prefer sequential `await` by default. Only use `Task.WhenAll` when concurrent execution is intentional and the downstream service can handle the load:
+
+```csharp
+// Preferred: sequential await (safe default)
+foreach (var item in items)
+{
+    await ProcessAsync(item, ct);
+}
+
+// Only when concurrency is intentional and safe:
+var tasks = items.Select(item => ProcessAsync(item, ct));
+await Task.WhenAll(tasks);
 ```
 
 ### Step 3: Propagate async through the call chain
@@ -122,6 +136,8 @@ using var connection = new SqlConnection(connectionString);
 // After
 await using var connection = new SqlConnection(connectionString);
 ```
+
+Note: `StreamReader` and `StreamWriter` implement only `IDisposable`, not `IAsyncDisposable` — these continue to use `using`. Dispose the underlying `Stream` with `await using` when applicable.
 
 ### Step 6: Update interfaces
 
@@ -181,7 +197,13 @@ public async IAsyncEnumerable<User> GetUsersAsync(
 
 ### `ValueTask` vs `Task`
 
-Use `Task` by default. Use `ValueTask`/`ValueTask<T>` only for hot-path methods that frequently complete synchronously (e.g., reading from a buffered stream). `ValueTask` limitations: cannot be awaited multiple times, cannot be stored or cached, cannot use `.Result` or `.GetAwaiter().GetResult()` after the first consumption.
+Use `Task` by default. Use `ValueTask`/`ValueTask<T>` only for hot-path methods that frequently complete synchronously (e.g., reading from a buffered stream).
+
+**`ValueTask` restrictions** — unlike `Task`, a `ValueTask`:
+- Cannot be awaited more than once
+- Cannot be stored, cached, or passed to multiple consumers
+- Cannot use `.Result` or `.GetAwaiter().GetResult()` unless already completed
+- Should be awaited immediately or converted with `.AsTask()` if deferred consumption is needed
 
 ## Anti-Patterns to Avoid
 
@@ -190,8 +212,8 @@ Use `Task` by default. Use `ValueTask`/`ValueTask<T>` only for hot-path methods 
 | `task.Result` or `task.Wait()` | Blocks thread, risks deadlock | `await task` |
 | `async void` methods | Exceptions crash the process | `async Task` (except event handlers) |
 | `Task.Run` wrapping async I/O | Wastes a thread pool thread | Call async method directly |
-| Missing `ConfigureAwait(false)` in libraries | Can deadlock in WinForms/WPF/ASP.NET sync contexts | Add `.ConfigureAwait(false)` to every `await` in library code; omit in ASP.NET Core app code (no SynchronizationContext) |
-| Fire-and-forget without error handling | Swallows exceptions silently | `await` the work, or queue it to a background service (`IHostedService`) with proper error handling |
+| Missing `ConfigureAwait(false)` in libraries | Can deadlock in WinForms/WPF/ASP.NET sync contexts | Add `.ConfigureAwait(false)` to every `await` in library code; omit in ASP.NET Core app code (no `SynchronizationContext`) |
+| Fire-and-forget without error handling | Swallows exceptions silently | `await` the work, or queue it to an `IHostedService`/background worker with proper error handling |
 
 ## Validation
 
