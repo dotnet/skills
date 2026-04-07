@@ -323,30 +323,6 @@ public class AnalyzeSkillTests
     }
 
     [Fact]
-    public void SharedDirectoryTraversalAllowed()
-    {
-        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](../../shared/platform-detection.md)\n" + new string('x', 4000);
-        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.DoesNotContain(profile.Errors, e => e.Contains("parent-directory traversal") || e.Contains("shared/"));
-    }
-
-    [Fact]
-    public void SharedDirectoryDeepTraversalErrors()
-    {
-        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](../../shared/sub/file.md)\n" + new string('x', 4000);
-        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.Contains(profile.Errors, e => e.Contains("inside shared/"));
-    }
-
-    [Fact]
-    public void NonSharedParentTraversalStillErrors()
-    {
-        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](../../other/file.md)\n" + new string('x', 4000);
-        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.Contains(profile.Errors, e => e.Contains("parent-directory traversal"));
-    }
-
-    [Fact]
     public void AnchorFragmentStrippedFromDepthCheck()
     {
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](references/file.md#section)\n" + new string('x', 4000);

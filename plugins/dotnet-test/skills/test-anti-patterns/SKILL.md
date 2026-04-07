@@ -35,7 +35,7 @@ Quick, pragmatic analysis of .NET test code for anti-patterns and quality issues
 
 ### Step 1: Gather the test code
 
-Read the test files the user wants reviewed. If the user points to a directory or project, scan for all test files — see [dotnet-test-frameworks.md](../../shared/dotnet-test-frameworks.md) for framework-specific markers (e.g., `[TestClass]`, `[Fact]`, `[Test]`).
+Read the test files the user wants reviewed. If the user points to a directory or project, scan for all test files using the framework-specific markers in the `dotnet-test-frameworks` skill (e.g., `[TestClass]`, `[Fact]`, `[Test]`).
 
 If production code is available, read it too -- this is critical for detecting tests that are coupled to implementation details rather than behavior.
 

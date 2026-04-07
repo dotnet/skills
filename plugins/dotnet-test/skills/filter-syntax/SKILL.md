@@ -1,3 +1,9 @@
+---
+name: filter-syntax
+description: "Reference data for test filter syntax across all platform and framework combinations: VSTest --filter expressions, MTP filters for MSTest/NUnit/xUnit v3/TUnit, and VSTest-to-MTP filter translation. DO NOT USE directly — loaded by run-tests, mtp-hot-reload, and migrate-vstest-to-mtp when they need filter syntax."
+user-invocable: false
+---
+
 # Test Filter Syntax Reference
 
 Filter syntax depends on the **platform** and **test framework**.

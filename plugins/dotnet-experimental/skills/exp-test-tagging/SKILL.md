@@ -56,7 +56,7 @@ A single test may have **multiple traits** (e.g., both `negative` and `boundary`
 
 ### Step 1: Detect the test framework
 
-Examine project files and source code to determine the framework — see [dotnet-test-frameworks.md](../../shared/dotnet-test-frameworks.md) for the complete detection table (package references, test markers, assertion APIs, and skip annotations).
+Examine project files and source code to determine the framework — see the `exp-dotnet-test-frameworks` skill for the complete detection table (package references, test markers, assertion APIs, and skip annotations).
 
 ### Step 2: Scan existing traits
 

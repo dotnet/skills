@@ -127,30 +127,10 @@ public static partial class SkillProfiler
 
             var segments = refPath.Split('/');
 
-            // Allow parent-directory traversals only when resolving to a plugin-level shared/ directory.
-            // Skills live at plugins/<plugin>/skills/<skill-name>/, so ../../shared/ resolves to
-            // the plugin's shared/ directory. This enables deduplication of reference files that
-            // multiple skills within the same plugin need (e.g., platform-detection.md).
+            // Reject parent-directory traversals
             if (segments.Any(s => s == ".."))
             {
-                bool isAllowedSharedRef =
-                    segments.Length >= 4 &&
-                    segments[0] == ".." && segments[1] == ".." && segments[2] == "shared" &&
-                    segments.Take(2).All(s => s == "..") &&
-                    !segments.Skip(2).Any(s => s == "..");
-
-                if (!isAllowedSharedRef)
-                {
-                    errors.Add($"File reference '{refMatch.Groups[1].Value}' uses parent-directory traversal — references must stay within the skill directory or use ../../shared/.");
-                    continue;
-                }
-
-                // Depth inside shared/ (exclude the "../../shared" prefix and the filename)
-                int sharedDirDepth = segments.Length - 4; // segments: [.., .., shared, <optional-dir>, filename]
-                if (sharedDirDepth > 0)
-                {
-                    errors.Add($"File reference '{refMatch.Groups[1].Value}' is {sharedDirDepth + 1} directories deep inside shared/ — files must be directly inside shared/.");
-                }
+                errors.Add($"File reference '{refMatch.Groups[1].Value}' uses parent-directory traversal — references must stay within the skill directory.");
                 continue;
             }
 

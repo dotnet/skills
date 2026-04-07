@@ -1,4 +1,10 @@
-# .NET Extension
+---
+name: exp-dotnet-test-frameworks
+description: "Reference data for .NET test framework detection patterns, assertion APIs, skip annotations, setup/teardown methods, and common test smell indicators across MSTest, xUnit, NUnit, and TUnit. DO NOT USE directly — loaded by test analysis skills (exp-test-smell-detection, exp-assertion-quality, exp-test-boilerplate-detection, exp-test-tagging) when they need framework-specific lookup tables."
+user-invocable: false
+---
+
+# .NET Test Framework Reference
 
 Language-specific detection patterns for .NET test frameworks (MSTest, xUnit, NUnit, TUnit).
 

@@ -46,7 +46,7 @@ Low assertion diversity signals shallow testing. Tests may pass while bugs hide 
 
 ### Step 1: Gather the test code
 
-Read all test files the user provides. If the user points to a directory or project, scan for all test files — see [dotnet-test-frameworks.md](../../shared/dotnet-test-frameworks.md) for framework-specific markers.
+Read all test files the user provides. If the user points to a directory or project, scan for all test files — see the `exp-dotnet-test-frameworks` skill for framework-specific markers.
 
 ### Step 2: Classify every assertion
 
