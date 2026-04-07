@@ -38,8 +38,6 @@ safe-outputs:
     allowed-reasons: [outdated, resolved]
   noop:
     report-as-issue: false
-  failure:
-    report-as-issue: false
 
 network:
   allowed:

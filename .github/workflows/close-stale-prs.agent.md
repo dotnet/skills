@@ -17,8 +17,6 @@ safe-outputs:
     max: 30
   noop:
     report-as-issue: false
-  failure:
-    report-as-issue: false
 ---
 
 # Close Stale Pull Requests

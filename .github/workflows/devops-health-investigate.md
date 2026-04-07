@@ -51,8 +51,6 @@ safe-outputs:
     max: 1
   noop:
     report-as-issue: false
-  failure:
-    report-as-issue: false
 
 network:
   allowed:
