@@ -10,6 +10,8 @@
 
 **Show the risk hotspots table even when all thresholds pass.** A project at 90% line coverage can still have a method with cyclomatic complexity 20 and 0% branch coverage. The thresholds measure averages; the hotspot table finds outliers. Don't hide it just because the summary looks green.
 
+**Always compute and surface CRAP scores.** The Risk Hotspots table is mandatory in every analysis output, whether analyzing pre-existing data, freshly collected data, or diagnosing a plateau. Never skip CRAP score computation — it is the primary differentiator between this skill and raw `dotnet test` coverage output.
+
 **Continue past test failures (exit code 1).** If some tests fail, coverage is still collected from the passing tests — partial data is better than no data. Note the failures in the summary and proceed. Aborting would leave the developer with nothing actionable.
 
 **Run `dotnet test` only once per entry point during normal flow.** When a solution is found, run it once against the solution. When no solution is found, run it once per test project. A single recovery rerun is allowed only if the first run produced no Cobertura XML and only `.coverage` binary output.

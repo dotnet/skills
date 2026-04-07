@@ -65,6 +65,8 @@ No pre-existing runsettings files or manually installed tools required.
 
 ## Workflow
 
+If the user provides a path to existing Cobertura XML (or coverage data is already present in `TestResults/`), skip Steps 3–4 (test execution and provider detection) but **still run Steps 5–6** (ReportGenerator and CRAP score computation). The Risk Hotspots table and CRAP scores are mandatory in every output — they are the skill's core value-add over raw coverage numbers.
+
 The workflow runs in four phases. Phases 2 and 3 each contain steps that can run in parallel to reduce total wall-clock time.
 
 ### Phase 1 — Setup (sequential)
