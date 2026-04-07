@@ -54,11 +54,17 @@ Detect the test platform and framework, run tests, and apply filters using `dotn
 
 ### Step 1: Detect the test platform and framework
 
-1. Run `dotnet --version` to determine the .NET SDK version
-2. Read `global.json`, `.csproj`, `Directory.Build.props`, and `Directory.Packages.props`
-3. Follow the detection procedure in the `platform-detection` skill to determine:
-   - **Test framework**: MSTest, xUnit, NUnit, or TUnit
-   - **Test platform**: VSTest or Microsoft.Testing.Platform (MTP)
+1. Read `global.json` first — on .NET SDK 10+, `"test": { "runner": "Microsoft.Testing.Platform" }` is the **authoritative MTP signal**. If present, the project uses MTP and SDK 10+ syntax (no `--` separator).
+2. Read `.csproj`, `Directory.Build.props`, and `Directory.Packages.props` for framework packages and MTP properties.
+3. For full detection logic (SDK 8/9 signals, framework identification), see the `platform-detection` skill.
+
+**Quick detection summary:**
+
+| Signal | Means |
+|--------|-------|
+| `global.json` has `"test": { "runner": "Microsoft.Testing.Platform" }` | **MTP on SDK 10+** — pass args directly, no `--` |
+| `<TestingPlatformDotnetTestSupport>true` in csproj or Directory.Build.props | **MTP on SDK 8/9** — pass args after `--` |
+| Neither signal present | **VSTest** |
 
 ### Step 2: Run tests
 
@@ -191,7 +197,7 @@ See the `filter-syntax` skill for the complete filter syntax for each platform a
 | Missing `Microsoft.NET.Test.Sdk` in a VSTest project | Tests won't be discovered. Add `<PackageReference Include="Microsoft.NET.Test.Sdk" />` |
 | Using VSTest `--filter` syntax with xUnit v3 on MTP | xUnit v3 on MTP uses `--filter-class`, `--filter-method`, etc. -- not the VSTest expression syntax |
 | Passing MTP args without `--` on .NET SDK 8/9 | Before .NET 10, MTP args must go after `--`: `dotnet test -- --report-trx` |
-| Using `--` for MTP args on .NET SDK 10+ | On .NET 10+, MTP args are passed directly: `dotnet test --report-trx` (using `--` still works but is unnecessary) |
+| Using `--` for MTP args on .NET SDK 10+ | On .NET 10+, MTP args are passed directly: `dotnet test --project . --blame-hang-timeout 5min` — do NOT use `-- --blame-hang-timeout` |
 | Multi-TFM project runs tests for all frameworks | Use `--framework <TFM>` to target a specific framework |
 | `global.json` runner setting ignored | Requires .NET 10+ SDK. On older SDKs, use `<TestingPlatformDotnetTestSupport>` MSBuild property instead |
 | TUnit `--treenode-filter` not recognized | TUnit is MTP-only. On .NET SDK 10+ use `dotnet test`; on older SDKs use `dotnet run` since VSTest-mode `dotnet test` does not support TUnit |
