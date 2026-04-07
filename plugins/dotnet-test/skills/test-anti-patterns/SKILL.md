@@ -1,11 +1,11 @@
 ---
 name: test-anti-patterns
-description: "Detects anti-patterns and code smells in .NET test suites. Use when the user asks to review test quality, find test smells, identify flaky test indicators, or audit tests for common mistakes. Covers assertion quality, test isolation, naming, flakiness indicators, over-mocking, and structural problems. Works with MSTest, xUnit, NUnit, and TUnit."
+description: "Quick pragmatic review of .NET test code for anti-patterns that undermine reliability and diagnostic value. Catches the most impactful issues — assertion gaps, flakiness indicators, over-mocking, naming, and structural problems — with actionable fixes. Use for periodic test code reviews and PR feedback. For a deep formal audit based on academic test smell taxonomy, use exp-test-smell-detection instead. Works with MSTest, xUnit, NUnit, and TUnit."
 ---
 
 # Test Anti-Pattern Detection
 
-Analyze .NET test code for anti-patterns, code smells, and quality issues that undermine test reliability, maintainability, and diagnostic value.
+Quick, pragmatic analysis of .NET test code for anti-patterns and quality issues that undermine test reliability, maintainability, and diagnostic value.
 
 ## When to Use
 
@@ -21,6 +21,7 @@ Analyze .NET test code for anti-patterns, code smells, and quality issues that u
 - User wants to run or execute tests (use `run-tests`)
 - User wants to migrate between test frameworks or versions (use migration skills)
 - User wants to measure code coverage (out of scope)
+- User wants a deep formal test smell audit with academic taxonomy and extended catalog (use `exp-test-smell-detection`)
 
 ## Inputs
 
@@ -34,7 +35,7 @@ Analyze .NET test code for anti-patterns, code smells, and quality issues that u
 
 ### Step 1: Gather the test code
 
-Read the test files the user wants reviewed. If the user points to a directory or project, scan for all test files (files containing `[TestClass]`, `[TestMethod]`, `[Fact]`, `[Test]`, or `[Theory]` attributes).
+Read the test files the user wants reviewed. If the user points to a directory or project, scan for all test files — see [dotnet-test-frameworks.md](../../shared/dotnet-test-frameworks.md) for framework-specific markers (e.g., `[TestClass]`, `[Fact]`, `[Test]`).
 
 If production code is available, read it too -- this is critical for detecting tests that are coupled to implementation details rather than behavior.
 

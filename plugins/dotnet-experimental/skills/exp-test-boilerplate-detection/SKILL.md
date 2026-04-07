@@ -34,7 +34,7 @@ Analyze .NET test code to find duplicated boilerplate patterns across test metho
 
 ### Step 1: Gather the test code
 
-Read all test files the user provides or references. If the user points to a directory or project, scan for all test files (files containing `[TestClass]`, `[TestMethod]`, `[Fact]`, `[Test]`, or `[Theory]` attributes).
+Read all test files the user provides or references. If the user points to a directory or project, scan for all test files — see [dotnet-test-frameworks.md](../../shared/dotnet-test-frameworks.md) for framework-specific markers.
 
 ### Step 2: Identify boilerplate categories
 

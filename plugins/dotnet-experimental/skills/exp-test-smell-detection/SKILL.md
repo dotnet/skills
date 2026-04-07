@@ -1,11 +1,11 @@
 ---
 name: exp-test-smell-detection
-description: "Detects test smells — bad programming practices in test code that indicate design problems and reduce test effectiveness. Use when the user asks to find test smells, review test quality, audit test health, identify problematic test patterns, or detect anti-patterns in test suites. Produces a categorized report with severity, locations, and concrete fix suggestions. Works with any test framework and language. DO NOT USE FOR: writing new tests (use writing-mstest-tests), evaluating assertion quality specifically (use exp-assertion-quality), or detecting boilerplate duplication (use exp-test-boilerplate-detection)."
+description: "Deep formal test smell audit based on academic research taxonomy (testsmells.org). Detects 19 categorized smell types — conditional logic, mystery guests, sensitive equality, eager tests, and more — with calibrated severity and research-backed remediation. Use for comprehensive test suite health assessments. For a quick pragmatic review, use test-anti-patterns instead. DO NOT USE FOR: writing new tests (use writing-mstest-tests), evaluating assertion quality specifically (use exp-assertion-quality), or detecting boilerplate duplication (use exp-test-boilerplate-detection)."
 ---
 
 # Test Smell Detection
 
-Analyze test code to detect test smells — symptoms of bad design or implementation decisions that make tests harder to understand, more fragile, less effective at catching bugs, or more expensive to maintain. Produce a severity-ranked report of findings with specific locations and actionable fixes.
+Deep formal audit of test code using an academic test smell taxonomy. Detects symptoms of bad design or implementation decisions that make tests harder to understand, more fragile, less effective at catching bugs, or more expensive to maintain. Produces a severity-ranked report with specific locations and actionable fixes.
 
 ## Why Test Smells Matter
 
@@ -24,14 +24,15 @@ Test smells erode confidence in a test suite and inflate maintenance costs:
 
 ## When to Use
 
-- User asks to find test smells or anti-patterns in test code
-- User asks "are my tests well-written?" or "what's wrong with my tests?"
-- User wants a test quality audit or health check
-- User asks for a review of test design or structure
-- User suspects tests are fragile, flaky, or giving false confidence
+- User asks for a comprehensive or formal test smell audit
+- User asks "are my tests well-written?" and wants a thorough analysis
+- User wants a test quality health check with academic rigor
+- User asks for a review of test design or structure using standard smell categories
+- User suspects tests are fragile, flaky, or giving false confidence and wants a deep investigation
 
 ## When Not to Use
 
+- User wants a quick pragmatic test review (use `test-anti-patterns` — faster, covers the most common issues)
 - User wants to evaluate assertion diversity specifically (use `exp-assertion-quality`)
 - User wants to find duplicated boilerplate across tests (use `exp-test-boilerplate-detection`)
 - User wants to write new tests from scratch (help them directly)
@@ -48,7 +49,7 @@ Test smells erode confidence in a test suite and inflate maintenance costs:
 
 ### Step 1: Gather the test code
 
-Read all test files the user provides. If the user points to a directory or project, scan for all test files by looking for test framework markers — see [extensions/dotnet.md](extensions/dotnet.md) for .NET-specific markers.
+Read all test files the user provides. If the user points to a directory or project, scan for all test files by looking for test framework markers — see [dotnet-test-frameworks.md](../../shared/dotnet-test-frameworks.md) for .NET-specific markers.
 
 For a thorough audit, also consult the [extended smell catalog](references/test-smell-catalog.md) which covers 9 additional smell types beyond the core 10 below.
 
@@ -77,7 +78,7 @@ Tests that depend on external resources — files on disk, databases, network en
 Tests that call sleep or delay functions to wait for a condition. These introduce non-deterministic timing and slow down the suite.
 
 **Severity:** High
-**Detection:** Calls to sleep/delay functions inside test methods. See [extensions/dotnet.md](extensions/dotnet.md) for .NET-specific patterns.
+**Detection:** Calls to sleep/delay functions inside test methods. See [dotnet-test-frameworks.md](../../shared/dotnet-test-frameworks.md) for .NET-specific patterns.
 
 #### Smell 4: Assertion-Free Test (Unknown Test)
 
@@ -130,7 +131,7 @@ The test setup method or constructor initializes fields that are not used by eve
 Tests marked as skipped or disabled. These add overhead and clutter, and the underlying issue they were disabled for may never be addressed.
 
 **Severity:** Low
-**Detection:** Skip/ignore annotations or conditional compilation that disables a test. See [extensions/dotnet.md](extensions/dotnet.md) for framework-specific skip attributes.
+**Detection:** Skip/ignore annotations or conditional compilation that disables a test. See [dotnet-test-frameworks.md](../../shared/dotnet-test-frameworks.md) for framework-specific skip attributes.
 
 ### Step 3: Apply calibration rules
 
@@ -190,7 +191,7 @@ Present the analysis in this structure:
 | Flagging integration tests for using real resources | Check for integration test markers and adjust severity accordingly |
 | Flagging loop-over-collection-assert as conditional logic | Only flag loops with branching or complex logic, not assertion iterations |
 | Flagging obvious count assertions after adding N items | Consider the immediate context — self-documenting numbers are fine |
-| Missing framework-specific assertion syntax | Consult [extensions/dotnet.md](extensions/dotnet.md) for .NET framework assertion and skip APIs |
+| Missing framework-specific assertion syntax | Consult [dotnet-test-frameworks.md](../../shared/dotnet-test-frameworks.md) for .NET framework assertion and skip APIs |
 | Over-flagging try/catch that captures for assertion | Distinguish swallowed exceptions from capture-and-assert patterns |
 | Treating skip annotations with reasons same as bare skips | Note that reasoned skips are less concerning than unexplained ones |
 | Flagging `DoesNotThrow`-style tests as assertion-free | These implicitly assert no exception — note but acknowledge the intent |
