@@ -188,3 +188,59 @@ scenarios:
       - "Did not recommend over-engineered patterns disproportionate to the test complexity"
       - "If any suggestions were made, they were minor and clearly labeled as optional polish"
     timeout: 120
+
+  # ==========================================================================
+  # Scenario 3: Heavy boilerplate — repeated construction and assertion patterns
+  # ==========================================================================
+
+  - name: "Detect repeated object construction and setup across test methods"
+    prompt: |
+      I feel like my test code has a lot of copy-paste. Can you analyze
+      my OrderService.Tests project and tell me what patterns are repeated
+      and where I could refactor?
+    setup:
+      files:
+        - path: "OrderService.Tests/OrderService.Tests.csproj"
+          source: "fixtures/heavy-boilerplate/OrderService.Tests/OrderService.Tests.csproj"
+        - path: "OrderService.Tests/OrderProcessorTests.cs"
+          source: "fixtures/heavy-boilerplate/OrderService.Tests/OrderProcessorTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(factory|helper|extract|CreateProcessor|CreateOrder|shared|reuse|common)"
+      - type: "output_matches"
+        pattern: "(3|4|5|6|7|8|multiple|every|all|each|repeated)"
+      - type: "exit_success"
+    rubric:
+      - "Identified that the three-line FakeLogger/FakeEmailService/FakeInventoryService construction block is repeated in every OrderProcessorTests test method"
+      - "Identified that Order object construction with Items list is repeated across both test classes with very similar structure"
+      - "Suggested extracting a helper method or factory for creating the OrderProcessor with its dependencies"
+      - "Suggested extracting a helper for creating test Order objects with customizable properties"
+      - "Noted that OrderValidatorTests also repeats the same Order construction pattern as OrderProcessorTests, suggesting a cross-class shared helper"
+      - "Provided concrete before/after code showing how at least one extraction would look"
+      - "Did not recommend removing all duplication indiscriminately — acknowledged trade-offs between DRY and test readability"
+    timeout: 120
+
+  # ==========================================================================
+  # Scenario 4: Minimal boilerplate — tests are already well-structured
+  # ==========================================================================
+
+  - name: "Recognize tests with minimal boilerplate that need no refactoring"
+    prompt: |
+      Can you check my Calculator.Tests project for any repeated code patterns
+      that I should clean up? I have two test classes in there.
+    setup:
+      files:
+        - path: "Calculator.Tests/Calculator.Tests.csproj"
+          source: "fixtures/minimal-boilerplate/Calculator.Tests/Calculator.Tests.csproj"
+        - path: "Calculator.Tests/CalculatorTests.cs"
+          source: "fixtures/minimal-boilerplate/Calculator.Tests/CalculatorTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(clean|minimal|good|well.structured|no.*(major|significant)|already|little.*(duplicat|boilerplate)|minor)"
+      - type: "exit_success"
+    rubric:
+      - "Recognized that CalculatorTests already uses parameterized data-driven tests and a shared field instance effectively"
+      - "Identified that ScientificCalculatorTests has individual test methods that could be consolidated into parameterized tests (e.g., SquareRoot positive/zero cases, Power squared/zero/negative exponent cases)"
+      - "Noted that the overall code is well-structured and any suggestions are minor improvements, not critical refactorings"
+      - "Did not recommend over-engineered patterns like base classes or shared fixtures for these simple test classes"
+    timeout: 120
