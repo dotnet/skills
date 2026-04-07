@@ -59,7 +59,7 @@ Check each test file against the anti-pattern catalog below. Report findings gro
 |---|---|
 | **Flakiness indicators** | `Thread.Sleep(...)`, `Task.Delay(...)` for synchronization, `DateTime.Now`/`DateTime.UtcNow` without abstraction, `Random` without a seed, environment-dependent paths. |
 | **Test ordering dependency** | Static mutable fields modified across tests, `[TestInitialize]` that doesn't fully reset state, tests that fail when run individually but pass in suite (or vice versa). |
-| **Over-mocking** | More mock setup lines than actual test logic. Verifying exact call sequences on mocks rather than outcomes. Mocking types the test owns. |
+| **Over-mocking** | More mock setup lines than actual test logic. Verifying exact call sequences on mocks rather than outcomes. Mocking types the test owns. For a deep mock audit, use `exp-mock-usage-analysis`. |
 | **Implementation coupling** | Testing private methods via reflection, asserting on internal state, verifying exact method call counts on collaborators instead of observable behavior. |
 | **Broad exception assertions** | `Assert.ThrowsException<Exception>(...)` instead of the specific exception type. Also: `[ExpectedException(typeof(Exception))]`. |
 
@@ -69,7 +69,7 @@ Check each test file against the anti-pattern catalog below. Report findings gro
 |---|---|
 | **Poor naming** | Test names like `Test1`, `TestMethod`, names that don't describe the scenario or expected outcome. Good: `Add_NegativeNumber_ThrowsArgumentException`. |
 | **Magic values** | Unexplained numbers or strings in arrange/assert: `Assert.AreEqual(42, result)` -- what does 42 mean? |
-| **Duplicate tests** | Three or more test methods with near-identical bodies that differ only in a single input value. Should be data-driven (`[DataRow]`, `[Theory]`, `[TestCase]`). Note: Two tests covering distinct boundary conditions (e.g., zero vs. negative) are NOT duplicates -- separate tests for different edge cases provide clearer failure diagnostics and are a valid practice. |
+| **Duplicate tests** | Three or more test methods with near-identical bodies that differ only in a single input value. Should be data-driven (`[DataRow]`, `[Theory]`, `[TestCase]`). For a detailed duplication analysis, use `exp-test-maintainability`. Note: Two tests covering distinct boundary conditions (e.g., zero vs. negative) are NOT duplicates -- separate tests for different edge cases provide clearer failure diagnostics and are a valid practice. |
 | **Giant tests** | Test methods exceeding ~30 lines or testing multiple behaviors at once. Hard to diagnose when they fail. |
 | **Assertion messages that repeat the assertion** | `Assert.AreEqual(expected, actual, "Expected and actual are not equal")` adds no information. Messages should describe the business meaning. |
 | **Missing AAA separation** | Arrange, Act, Assert phases are interleaved or indistinguishable. |
