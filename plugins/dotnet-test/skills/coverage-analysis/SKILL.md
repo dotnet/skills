@@ -8,8 +8,9 @@ description: >
   ReportGenerator, calculates CRAP scores per method, and surfaces risk
   hotspots — complex code with low test coverage that is dangerous to modify.
   Use when the user wants project-wide coverage analysis with risk
-  prioritization, coverage gap identification, or CRAP score computation
-  across an entire solution.
+  prioritization, coverage gap identification, CRAP score computation
+  across an entire solution, or to diagnose why coverage is stuck or
+  plateaued and identify what methods are blocking improvement.
   DO NOT USE FOR: targeted single-method CRAP analysis (use crap-score skill),
   writing tests, general test execution unrelated to coverage/CRAP analysis,
   or coverage reporting without CRAP context.
