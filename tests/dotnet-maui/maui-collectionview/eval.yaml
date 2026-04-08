@@ -1,0 +1,85 @@
+scenarios:
+  - name: "Basic CollectionView with data binding and DataTemplate"
+    prompt: |
+      I have an ObservableCollection<Product> with Name and Price properties.
+      Show me how to display these products in a vertical scrollable list using
+      CollectionView with a DataTemplate that shows both the name and price.
+      Use compiled bindings.
+    assertions:
+      - type: "output_contains"
+        value: "CollectionView"
+      - type: "output_contains"
+        value: "ItemsSource"
+      - type: "output_contains"
+        value: "DataTemplate"
+      - type: "output_contains"
+        value: "x:DataType"
+      - type: "output_contains"
+        value: "ObservableCollection"
+    rubric:
+      - "Uses CollectionView with ItemsSource bound to the collection"
+      - "Defines a DataTemplate with x:DataType for compiled bindings"
+      - "Binds both Name and Price properties inside the template"
+      - "Does NOT use ViewCell as the template root"
+      - "Uses ObservableCollection<T> rather than List<T>"
+    timeout: 120
+
+  - name: "Grid layout with CollectionView"
+    prompt: |
+      I want to display a photo gallery using CollectionView in a 3-column
+      grid layout with spacing between items. Each item should show an image
+      and a caption. How do I set this up in XAML?
+    assertions:
+      - type: "output_contains"
+        value: "GridItemsLayout"
+      - type: "output_contains"
+        value: "Span"
+      - type: "output_contains"
+        value: "CollectionView"
+      - type: "output_matches"
+        pattern: "(?i)spacing|ItemSpacing"
+    rubric:
+      - "Uses GridItemsLayout with Orientation and Span=\"3\""
+      - "Configures spacing via VerticalItemSpacing and HorizontalItemSpacing"
+      - "Includes a DataTemplate with Image and Label for caption"
+      - "Does NOT use ViewCell"
+    timeout: 120
+
+  - name: "Selection and pull-to-refresh with CollectionView"
+    prompt: |
+      I need a CollectionView that supports single item selection and
+      pull-to-refresh. When the user selects an item, I want to navigate
+      to a detail page. When they pull to refresh, I want to reload data
+      from my API. Show me the XAML and explain the ViewModel bindings needed.
+    assertions:
+      - type: "output_contains"
+        value: "SelectionMode"
+      - type: "output_contains"
+        value: "SelectedItem"
+      - type: "output_contains"
+        value: "RefreshView"
+      - type: "output_contains"
+        value: "IsRefreshing"
+    rubric:
+      - "Sets SelectionMode to Single and binds SelectedItem with TwoWay binding"
+      - "Wraps CollectionView in a RefreshView with IsRefreshing and Command bindings"
+      - "Explains that IsRefreshing must be set back to false when refresh completes"
+      - "Uses SelectionChangedCommand or SelectedItem binding for navigation"
+    timeout: 120
+
+  - name: "Avoid ListView and ViewCell mistakes"
+    prompt: |
+      I'm migrating from Xamarin.Forms to .NET MAUI. My existing code uses
+      ListView with ViewCell for each item. Should I keep using ListView in
+      MAUI? Also, can I reuse my ViewCell templates inside CollectionView?
+    assertions:
+      - type: "output_contains"
+        value: "CollectionView"
+      - type: "output_matches"
+        pattern: "(?i)(not|never|don.t|avoid|remove|replace).{0,40}ViewCell|ViewCell.{0,40}(not|never|don.t|avoid|remove|replace)"
+    rubric:
+      - "Recommends migrating from ListView to CollectionView"
+      - "Explains that CollectionView has better performance than ListView"
+      - "Clearly states that ViewCell must NOT be used with CollectionView"
+      - "Suggests using Grid, StackLayout, or other View/Layout as the template root instead of ViewCell"
+    timeout: 120
