@@ -100,6 +100,8 @@ scenarios:
     assertions:
       - type: "output_matches"
         pattern: "(net6\\.0|dropped|unsupported|net8\\.0)"
+      - type: "output_not_matches"
+        pattern: "(stay|remain|keep).*net6\\.0"
     rubric:
       - "Identifies that MSTest v4 dropped support for .NET 6.0 (and .NET 7.0, .NET Core 3.1 through .NET 5)"
       - "Recommends upgrading to net8.0 as the minimum supported .NET version"
@@ -354,6 +356,8 @@ scenarios:
         pattern: "(ExpectedException|ThrowsExactly)"
       - type: "output_matches"
         pattern: "(ClassCleanupBehavior|ClassCleanup)"
+      - type: "output_not_matches"
+        pattern: "(v1.*to.*v3|QualityTools|assembly.?ref.*remove)"
     rubric:
       - "Identifies net6.0 must be upgraded to net8.0 or later"
       - "Identifies LoggingTestMethodAttribute.Execute must become ExecuteAsync"
@@ -414,6 +418,8 @@ scenarios:
         pattern: "(v4|4\\.[0-9]+|MSTest 4)"
       - type: "output_matches"
         pattern: "(ExpectedException|ThrowsExactly)"
+      - type: "output_not_matches"
+        pattern: "(v1.*to.*v3|QualityTools|assembly.?ref.*remove)"
     rubric:
       - "Correctly identifies the project as MSTest v3 (3.8.0) and recommends MSTest v4"
       - "Identifies that [ExpectedException] is removed in v4 and shows how to replace with Assert.ThrowsExactly"

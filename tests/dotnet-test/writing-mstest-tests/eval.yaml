@@ -75,6 +75,8 @@ scenarios:
         pattern: "\\[Timeout\\]"
       - type: output_matches
         pattern: "CancellationToken"
+      - type: output_not_matches
+        pattern: "async void"
     rubric:
       - "Uses async Task test methods (not async void)"
       - "Uses TestContext.CancellationToken or mentions its importance for cooperative timeout"
@@ -117,6 +119,8 @@ scenarios:
         pattern: "Assert\\.AreEqual\\(5"
       - type: output_matches
         pattern: "Assert\\.AreEqual\\(0"
+      - type: output_not_matches
+        pattern: "Assert\\.AreEqual\\(result,\\s*5\\)"
     rubric:
       - "Identifies the swapped arguments in Assert.AreEqual — expected should be first, actual second"
       - "Fixes to Assert.AreEqual(5, result) and Assert.AreEqual(0, result)"

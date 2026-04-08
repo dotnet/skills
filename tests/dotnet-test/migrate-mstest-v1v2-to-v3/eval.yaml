@@ -17,7 +17,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(QualityTools|assembly.?ref|UnitTestFramework)"
       - type: "output_matches"
-        pattern: "(MSTest|MSTest\\.TestFramework|MSTest\\.Sdk)"
+        pattern: "(MSTest\\s+(v3|3)|MSTest\\.TestFramework|MSTest\\.TestAdapter|MSTest\\.Sdk|NuGet)"
     rubric:
       - "Identifies the project as MSTest v1 via the QualityTools assembly reference"
       - "Recommends removing the assembly reference to Microsoft.VisualStudio.QualityTools.UnitTestFramework"
@@ -44,6 +44,8 @@ scenarios:
         pattern: "(2\\.2\\.10|v2|version 2)"
       - type: "output_matches"
         pattern: "(3\\.[0-9]+|v3|version 3)"
+      - type: "output_not_matches"
+        pattern: "(ExecuteAsync|ClassCleanupBehavior\\.EndOfClass|TestTimeout\\.Infinite)"
     rubric:
       - "Identifies the project as MSTest v2 from the 2.2.10 package versions"
       - "Recommends updating MSTest packages to 3.x or switching to the MSTest metapackage"
@@ -286,6 +288,8 @@ scenarios:
     assertions:
       - type: "output_matches"
         pattern: "(net5\\.0|dropped|unsupported|net6\\.0|net8\\.0)"
+      - type: "output_not_matches"
+        pattern: "(stay|remain|keep).*net5\\.0"
     rubric:
       - "Identifies that .NET 5.0 is no longer supported by MSTest v3"
       - "Recommends upgrading to .NET 6.0 or later (preferably .NET 8.0 as a current LTS)"
@@ -350,6 +354,8 @@ scenarios:
         pattern: "(QualityTools|assembly.?ref|v1)"
       - type: "output_matches"
         pattern: "(2\\.2\\.10|v2|NuGet)"
+      - type: "output_not_matches"
+        pattern: "(v4|MSTest\\s+4|ExecuteAsync|ClassCleanupBehavior\\.EndOfClass)"
     rubric:
       - "Correctly identifies the first project as MSTest v1 (assembly reference to QualityTools)"
       - "Correctly identifies the second project as MSTest v2 (NuGet packages 2.2.10)"

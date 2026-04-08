@@ -14,6 +14,7 @@ scenarios:
         pattern: "CRAP"
       - type: "output_matches"
         pattern: "complexity|cyclomatic"
+      - type: "exit_success"
     rubric:
       - "Reads the source file to compute cyclomatic complexity of ProcessOrder"
       - "Parses the Cobertura XML to extract coverage data for the method"
@@ -35,6 +36,7 @@ scenarios:
     assertions:
       - type: "output_matches"
         pattern: "CRAP"
+      - type: "exit_success"
     rubric:
       - "Analyzes all methods in the file, not just one"
       - "Produces a sorted table or ranking by CRAP score"
@@ -57,6 +59,7 @@ scenarios:
         pattern: "dotnet test"
       - type: "output_matches"
         pattern: "coverage"
+      - type: "exit_success"
     rubric:
       - "Runs dotnet test with code coverage collection to generate Cobertura data before analysis"
       - "Extracts per-method coverage from the generated Cobertura XML"

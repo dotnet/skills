@@ -433,9 +433,13 @@ scenarios:
       ```
     assertions:
       - type: "output_matches"
-        pattern: "(no (major|significant|critical|serious)|well.?written|good (shape|quality|structure)|clean|looks good|solid|few issues|minor)"
+        pattern: "(no (major|significant|critical|serious) (issue|problem|anti.?pattern|finding|concern)|well.?(written|structured)|good (shape|quality|structure)|follows.*(best practice|pattern)|looks good|few (issues|concerns)|no.*(critical|serious).*found)"
       - type: "output_not_contains"
         value: "no assertion"
+      - type: "output_not_contains"
+        value: "catch"
+      - type: "output_not_contains"
+        value: "self-comparison"
       - type: "exit_success"
     rubric:
       - "Recognized that these tests are generally well-structured and do not have critical or high-severity anti-patterns"

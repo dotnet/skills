@@ -52,6 +52,8 @@ scenarios:
         pattern: "(NUnit3TestAdapter|5\\.0\\.0|adapter.*5)"
       - type: "output_matches"
         pattern: "(OutputType|Exe)"
+      - type: "output_not_contains"
+        value: "EnableMSTestRunner"
     rubric:
       - "Identifies that NUnit3TestAdapter must be upgraded to 5.0.0 or later for MTP support"
       - "Adds <EnableNUnitRunner>true</EnableNUnitRunner>"
@@ -79,6 +81,10 @@ scenarios:
         pattern: "(YTest\\.MTP\\.XUnit2|MTP.*xunit)"
       - type: "output_matches"
         pattern: "(PackageReference|package)"
+      - type: "output_not_contains"
+        value: "EnableMSTestRunner"
+      - type: "output_not_contains"
+        value: "EnableNUnitRunner"
     rubric:
       - "Recommends adding the YTest.MTP.XUnit2 package to enable MTP support for xUnit.net v2"
       - "Does NOT require upgrading to xunit.v3 — YTest.MTP.XUnit2 works with xUnit.net v2"

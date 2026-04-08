@@ -22,6 +22,7 @@ scenarios:
         pattern: "CalculateGpa|Calculate_?Gpa"
       - type: "output_matches"
         pattern: "hotspot|risk|coverage"
+      - type: "exit_success"
     rubric:
       - "Discovers the solution and identifies the test project"
       - "Parses the existing Cobertura XML to extract per-method coverage data"
@@ -52,6 +53,7 @@ scenarios:
         pattern: "coverage"
       - type: "output_matches"
         pattern: "CRAP|crap|hotspot|risk"
+      - type: "exit_success"
     rubric:
       - "Detects the coverage provider from the test project .csproj (coverlet.collector)"
       - "Runs dotnet test with coverage collection to generate Cobertura XML"
@@ -82,6 +84,7 @@ scenarios:
         pattern: "CalculateGpa|Calculate_?Gpa"
       - type: "output_matches"
         pattern: "0%|uncovered|untested|no coverage"
+      - type: "exit_success"
     rubric:
       - "Identifies CalculateGpa as the method blocking coverage improvement (0% coverage, highest complexity)"
       - "Explains that 3 of 4 methods are well-covered but CalculateGpa drags down the average"

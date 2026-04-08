@@ -69,6 +69,8 @@ scenarios:
         pattern: "TESTINGPLATFORM_HOTRELOAD_ENABLED"
       - type: "output_matches"
         pattern: "dotnet run"
+      - type: "output_not_matches"
+        pattern: "dotnet test.*hotreload|dotnet test.*hot.?reload"
     rubric:
       - "Detects this is an MTP project (TestingPlatformDotnetTestSupport=true in csproj)"
       - "Suggests installing the Microsoft.Testing.Extensions.HotReload NuGet package"
@@ -152,6 +154,8 @@ scenarios:
         pattern: "TESTINGPLATFORM_HOTRELOAD_ENABLED"
       - type: "output_matches"
         pattern: "dotnet run"
+      - type: "output_not_matches"
+        pattern: "dotnet test.*hotreload|dotnet test.*hot.?reload"
     rubric:
       - "Detects MTP via global.json runner setting (Microsoft.Testing.Platform) on SDK 10"
       - "Suggests installing the Microsoft.Testing.Extensions.HotReload NuGet package"

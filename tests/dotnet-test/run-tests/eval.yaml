@@ -14,6 +14,10 @@ scenarios:
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"
+      - type: "output_not_contains"
+        value: "--report-trx"
+      - type: "output_not_matches"
+        pattern: "-- --"
       - type: "exit_success"
     rubric:
       - "Identifies the project as a VSTest project (Microsoft.NET.Test.Sdk + MSTest.TestAdapter)"
@@ -154,6 +158,8 @@ scenarios:
         pattern: "--filter-class"
       - type: "output_matches"
         pattern: "ShoppingCartTests"
+      - type: "output_not_matches"
+        pattern: "--filter \"(ClassName|FullyQualifiedName)"
       - type: "exit_success"
     rubric:
       - "Detects xUnit v3 on MTP (xunit.v3 package + TestingPlatformDotnetTestSupport)"
@@ -178,6 +184,8 @@ scenarios:
         pattern: "--filter-trait"
       - type: "output_matches"
         pattern: "Category=Integration"
+      - type: "output_not_matches"
+        pattern: "--filter \"Traits"
       - type: "exit_success"
     rubric:
       - "Detects xUnit v3 on MTP from the project references"
@@ -200,6 +208,8 @@ scenarios:
         pattern: "--treenode-filter"
       - type: "output_matches"
         pattern: "SmsNotificationTests"
+      - type: "output_not_matches"
+        pattern: "--filter \"(ClassName|FullyQualifiedName)"
       - type: "exit_success"
     rubric:
       - "Identifies TUnit as MTP-only (no VSTest support)"
