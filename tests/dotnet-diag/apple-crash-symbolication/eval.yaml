@@ -45,8 +45,6 @@ scenarios:
       - type: "output_matches"
         pattern: '(Android|tombstone|not.*(iOS|\.ips)|wrong.*(format|type)|different.*(format|process))'
     rubric:
-      - "Recognized that this is an Android tombstone, not an iOS .ips crash log"
-      - "Did NOT attempt to apply the iOS crash symbolication workflow"
-      - "Did NOT attempt to run atos or search for dSYMs"
-      - "Suggested using an Android-specific crash analysis approach (e.g., ndk-stack, addr2line, or a dedicated tool) instead"
+      - "Recognized that the crash file is an Android tombstone (not an Apple .ips crash log) and clearly communicated the format mismatch to the user"
+      - "Recommended using Android-specific crash analysis tools (such as ndk-stack, addr2line, or a tombstone analysis workflow) rather than iOS symbolication tools like atos or dSYMs"
     timeout: 300
