@@ -24,7 +24,7 @@ The UUID is extracted from the crash log's binary image list and normalized by l
 Download the separate **`Microsoft.NETCore.App.Runtime.<rid>.symbols`** package (note `.symbols` suffix — not `.snupkg`):
 
 ```bash
-curl -Lo symbols.nupkg https://nuget.org/api/v2/package/Microsoft.NETCore.App.Runtime.osx-arm64.symbols/10.0.4
+curl -Lo symbols.nupkg https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.runtime.osx-arm64.symbols/10.0.4/microsoft.netcore.app.runtime.osx-arm64.symbols.10.0.4.nupkg
 unzip -q symbols.nupkg -d symbols-extracted
 ```
 
