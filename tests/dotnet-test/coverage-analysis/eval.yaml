@@ -1,0 +1,91 @@
+scenarios:
+  - name: "Project-wide coverage analysis with existing Cobertura data"
+    prompt: "Run coverage analysis on this project. Coverage data is already in TestResults/coverage.cobertura.xml."
+    setup:
+      files:
+        - path: "ContosoUniversity.sln"
+          source: "fixtures/shared/ContosoUniversity.sln"
+        - path: "ContosoUniversity/ContosoUniversity.csproj"
+          source: "fixtures/shared/ContosoUniversity/ContosoUniversity.csproj"
+        - path: "ContosoUniversity/StudentService.cs"
+          source: "fixtures/shared/ContosoUniversity/StudentService.cs"
+        - path: "ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj"
+          source: "fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj"
+        - path: "ContosoUniversity.UnitTests/StudentServiceTests.cs"
+          source: "fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs"
+        - path: "TestResults/coverage.cobertura.xml"
+          source: "fixtures/partial-coverage/coverage.cobertura.xml"
+    assertions:
+      - type: "output_matches"
+        pattern: "CRAP|crap"
+      - type: "output_matches"
+        pattern: "CalculateGpa|Calculate_?Gpa"
+      - type: "output_matches"
+        pattern: "hotspot|risk|coverage"
+    rubric:
+      - "Discovers the solution and identifies the test project"
+      - "Parses the existing Cobertura XML to extract per-method coverage data"
+      - "Calculates CRAP scores and produces a sorted risk hotspot table"
+      - "Identifies CalculateGpa as the highest-risk method (high complexity, low coverage)"
+      - "Provides actionable recommendations for the riskiest methods"
+      - "Generates or displays a coverage analysis report"
+    timeout: 300
+
+  - name: "Run coverage from scratch without existing data"
+    prompt: "Analyze code coverage and risk hotspots for this project. I haven't run any coverage yet."
+    setup:
+      files:
+        - path: "ContosoUniversity.sln"
+          source: "fixtures/shared/ContosoUniversity.sln"
+        - path: "ContosoUniversity/ContosoUniversity.csproj"
+          source: "fixtures/shared/ContosoUniversity/ContosoUniversity.csproj"
+        - path: "ContosoUniversity/StudentService.cs"
+          source: "fixtures/shared/ContosoUniversity/StudentService.cs"
+        - path: "ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj"
+          source: "fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj"
+        - path: "ContosoUniversity.UnitTests/StudentServiceTests.cs"
+          source: "fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "dotnet test"
+      - type: "output_matches"
+        pattern: "coverage"
+      - type: "output_matches"
+        pattern: "CRAP|crap|hotspot|risk"
+    rubric:
+      - "Detects the coverage provider from the test project .csproj (coverlet.collector)"
+      - "Runs dotnet test with coverage collection to generate Cobertura XML"
+      - "Extracts per-method coverage from the generated data"
+      - "Computes CRAP scores and identifies risk hotspots"
+      - "Identifies CalculateGpa as untested or highest risk due to complexity with no coverage"
+      - "Provides prioritized recommendations for where to add tests"
+    timeout: 360
+
+  - name: "Coverage plateau diagnosis"
+    prompt: "My coverage is stuck at 75% and I can't get it higher. What's blocking me? Coverage data is in TestResults/coverage.cobertura.xml."
+    setup:
+      files:
+        - path: "ContosoUniversity.sln"
+          source: "fixtures/shared/ContosoUniversity.sln"
+        - path: "ContosoUniversity/ContosoUniversity.csproj"
+          source: "fixtures/shared/ContosoUniversity/ContosoUniversity.csproj"
+        - path: "ContosoUniversity/StudentService.cs"
+          source: "fixtures/shared/ContosoUniversity/StudentService.cs"
+        - path: "ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj"
+          source: "fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj"
+        - path: "ContosoUniversity.UnitTests/StudentServiceTests.cs"
+          source: "fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs"
+        - path: "TestResults/coverage.cobertura.xml"
+          source: "fixtures/plateau/coverage.cobertura.xml"
+    assertions:
+      - type: "output_matches"
+        pattern: "CalculateGpa|Calculate_?Gpa"
+      - type: "output_matches"
+        pattern: "0%|uncovered|untested|no coverage"
+    rubric:
+      - "Identifies CalculateGpa as the method blocking coverage improvement (0% coverage, highest complexity)"
+      - "Explains that 3 of 4 methods are well-covered but CalculateGpa drags down the average"
+      - "Quantifies the impact — covering CalculateGpa would raise overall coverage significantly"
+      - "Uses CRAP scores to distinguish the risky gap (CalculateGpa) from trivial ones"
+      - "Provides specific test recommendations for the uncovered method"
+    timeout: 300

@@ -4,6 +4,30 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Evaluate;
 
+// --- Failure classification ---
+
+[JsonConverter(typeof(JsonStringEnumConverter<FailureKind>))]
+public enum FailureKind
+{
+    [JsonStringEnumMemberName("no_scenarios")]
+    NoScenarios,
+
+    [JsonStringEnumMemberName("completion_regression")]
+    CompletionRegression,
+
+    [JsonStringEnumMemberName("threshold")]
+    Threshold,
+
+    [JsonStringEnumMemberName("spec_conformance_failure")]
+    SpecConformanceFailure,
+
+    [JsonStringEnumMemberName("skill_not_activated")]
+    SkillNotActivated,
+
+    [JsonStringEnumMemberName("noise_degradation")]
+    NoiseDegradation,
+}
+
 // --- Assertion types ---
 
 public enum AssertionType
@@ -256,6 +280,10 @@ public sealed class ScenarioComparison
     public MetricBreakdown? PluginBreakdown { get; init; }
     public PairwiseJudgeResult? PairwiseResult { get; init; }
     public IReadOnlyList<double>? PerRunScores { get; set; }
+    /// <summary>True when the coefficient of variation across runs exceeds the high-variance threshold.</summary>
+    public bool HighVariance { get; set; }
+    /// <summary>Coefficient of variation across per-run scores. Null when fewer than 2 runs.</summary>
+    public double? VarianceCV { get; set; }
     public SkillActivationInfo? SkillActivationIsolated { get; set; }
     public SkillActivationInfo? SkillActivationPlugin { get; set; }
     public SubagentActivationInfo? SubagentActivationIsolated { get; set; }
@@ -289,7 +317,7 @@ public sealed class SkillVerdict
     public double? PluginScore { get; set; }
     public required string Reason { get; set; }
     /// <summary>Categorizes why the verdict failed, if it did.</summary>
-    public string? FailureKind { get; set; }
+    public FailureKind? FailureKind { get; set; }
     public bool SkillNotActivated { get; set; }
     public OverfittingResult? OverfittingResult { get; set; }
     public NoiseTestResult? NoiseTestResult { get; set; }

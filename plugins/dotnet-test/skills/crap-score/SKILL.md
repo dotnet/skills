@@ -27,11 +27,11 @@ Where:
 | CRAP Score | Risk Level | Interpretation |
 |------------|------------|----------------|
 | < 5        | Low        | Simple and well-tested |
-| 5–15       | Moderate   | Acceptable for most code |
-| 15–30      | High       | Needs more tests or simplification |
+| 5-15       | Moderate   | Acceptable for most code |
+| 15-30      | High       | Needs more tests or simplification |
 | > 30       | Critical   | Refactor and add coverage urgently |
 
-A method with 100% coverage has CRAP = complexity (the minimum). A method with 0% coverage has CRAP = complexity² + complexity.
+A method with 100% coverage has CRAP = complexity (the minimum). A method with 0% coverage has CRAP = complexity^2 + complexity.
 
 ## When to Use
 
@@ -57,6 +57,8 @@ A method with 100% coverage has CRAP = complexity (the minimum). A method with 0
 ## Workflow
 
 ### Step 1: Collect code coverage data
+
+If no coverage data exists yet (no Cobertura XML available), **always run `dotnet test` with coverage collection first** and mention the exact command in your response. Do not skip this step -- CRAP scores require coverage data.
 
 Check the test project's `.csproj` for the coverage package, then run the appropriate command:
 
@@ -126,16 +128,16 @@ Include:
 
 For high-CRAP methods, suggest one or both:
 
-1. **Add tests** — identify uncovered branches and suggest specific test cases
-2. **Reduce complexity** — suggest extract-method refactoring for deeply nested logic
+1. **Add tests** -- identify uncovered branches and suggest specific test cases
+2. **Reduce complexity** -- suggest extract-method refactoring for deeply nested logic
 
 Calculate the **coverage needed** to bring a method below a CRAP threshold of 15:
 
 $$\text{cov}_{\text{needed}} = 1 - \left(\frac{15 - \text{comp}}{\text{comp}^2}\right)^{1/3}$$
 
-This formula only applies when $\text{comp} < 15$. When $\text{comp} \geq 15$, the minimum possible CRAP score (at 100% coverage) is $\text{comp}$ itself, which already meets or exceeds the threshold. In that case, **coverage alone cannot bring the CRAP score below the threshold** — the method must be refactored to reduce its cyclomatic complexity first.
+This formula only applies when comp < 15. When comp >= 15, the minimum possible CRAP score (at 100% coverage) is comp itself, which already meets or exceeds the threshold. In that case, **coverage alone cannot bring the CRAP score below the threshold** -- the method must be refactored to reduce its cyclomatic complexity first.
 
-Report this as: "To bring `ProcessOrder` (complexity 12) below CRAP 15, increase coverage from 45% to at least 72%." For methods where complexity alone exceeds the threshold, report: "`ComplexMethod` (complexity 18) cannot reach CRAP < 15 through testing alone — reduce complexity by extracting sub-methods."
+Report this as: "To bring `ProcessOrder` (complexity 12) below CRAP 15, increase coverage from 45% to at least 72%." For methods where complexity alone exceeds the threshold, report: "`ComplexMethod` (complexity 18) cannot reach CRAP < 15 through testing alone -- reduce complexity by extracting sub-methods."
 
 ## Validation
 

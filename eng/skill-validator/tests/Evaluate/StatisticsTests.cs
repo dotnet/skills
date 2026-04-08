@@ -134,3 +134,49 @@ public class WilsonScoreIntervalTests
         Assert.True(width100 < width10);
     }
 }
+
+public class CoefficientOfVariationTests
+{
+    [Fact]
+    public void ReturnsNullForEmpty()
+    {
+        Assert.Null(Statistics.CoefficientOfVariation([]));
+    }
+
+    [Fact]
+    public void ReturnsNullForSingleElement()
+    {
+        Assert.Null(Statistics.CoefficientOfVariation([0.5]));
+    }
+
+    [Fact]
+    public void ReturnsNullWhenMeanIsZero()
+    {
+        Assert.Null(Statistics.CoefficientOfVariation([-0.1, 0.1]));
+    }
+
+    [Fact]
+    public void ReturnsZeroForIdenticalValues()
+    {
+        var cv = Statistics.CoefficientOfVariation([0.3, 0.3, 0.3]);
+        Assert.NotNull(cv);
+        Assert.Equal(0.0, cv.Value, 0.001);
+    }
+
+    [Fact]
+    public void ReturnsHighValueForHighVariance()
+    {
+        // Scores: -0.5, 0.5, -0.3, 0.4 → high spread relative to mean
+        var cv = Statistics.CoefficientOfVariation([-0.5, 0.5, -0.3, 0.4]);
+        Assert.NotNull(cv);
+        Assert.True(cv > 1.0, $"Expected high CV, got {cv}");
+    }
+
+    [Fact]
+    public void ReturnsLowValueForConsistentScores()
+    {
+        var cv = Statistics.CoefficientOfVariation([0.10, 0.11, 0.09, 0.10, 0.12]);
+        Assert.NotNull(cv);
+        Assert.True(cv < 0.15, $"Expected low CV, got {cv}");
+    }
+}

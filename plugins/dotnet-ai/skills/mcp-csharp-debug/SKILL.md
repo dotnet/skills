@@ -209,5 +209,5 @@ builder.Logging.AddConsole(options =>
 
 ## More Info
 
-- [MCP Inspector](https://www.npmjs.com/package/@modelcontextprotocol/inspector) — Interactive debugging tool for MCP servers
+- [MCP Inspector](https://www.npmjs.com/package/@modelcontextprotocol/inspector/v/0.21.1) — Interactive debugging tool for MCP servers
 - [VS Code MCP documentation](https://code.visualstudio.com/docs/copilot/chat/mcp-servers) — Configuring MCP servers in VS Code

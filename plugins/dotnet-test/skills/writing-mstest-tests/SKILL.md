@@ -116,7 +116,7 @@ Assert.IsNull(value);
 Assert.IsNotNull(value);
 ```
 
-#### Exception testing — use `Assert.Throws` instead of `[ExpectedException]`
+#### Exception testing -- use `Assert.Throws` instead of `[ExpectedException]`
 
 ```csharp
 // Synchronous
@@ -142,7 +142,15 @@ Assert.IsEmpty(collection);
 Assert.IsNotEmpty(collection);
 ```
 
-Replace `Assert.IsTrue(x != null)` with `Assert.IsNotNull(x)` — specialized assertions give better failure messages than generic `Assert.IsTrue`.
+Replace generic `Assert.IsTrue` with specialized assertions -- they give better failure messages:
+
+| Instead of | Use |
+|---|---|
+| `Assert.IsTrue(list.Count > 0)` | `Assert.IsNotEmpty(list)` |
+| `Assert.IsTrue(list.Count() == 3)` | `Assert.HasCount(3, list)` |
+| `Assert.IsTrue(x != null)` | `Assert.IsNotNull(x)` |
+| `list.Single(predicate)` + `Assert.IsNotNull` | `Assert.ContainsSingle(list)` |
+| `Assert.IsTrue(list.Contains(item))` | `Assert.Contains(item, list)` |
 
 #### String assertions
 
@@ -156,11 +164,11 @@ Assert.MatchesRegex(@"\d{3}-\d{4}", phoneNumber);
 #### Type assertions
 
 ```csharp
-// MSTest 3.x — out parameter
+// MSTest 3.x -- out parameter
 Assert.IsInstanceOfType<MyHandler>(result, out var typed);
 typed.Handle();
 
-// MSTest 4.x — returns directly
+// MSTest 4.x -- returns directly
 var typed = Assert.IsInstanceOfType<MyHandler>(result);
 ```
 
@@ -200,7 +208,7 @@ public void ApplyDiscount_ReturnsExpectedPrice(decimal price, int percent, decim
     Assert.AreEqual(expected, result);
 }
 
-// ValueTuple — preferred (MSTest 3.7+)
+// ValueTuple -- preferred (MSTest 3.7+)
 public static IEnumerable<(decimal price, int percent, decimal expected)> DiscountTestData =>
 [
     (100m, 10, 90m),
@@ -222,7 +230,7 @@ public static IEnumerable<TestDataRow<(decimal price, int percent, decimal expec
 
 ### Step 5: Handle test lifecycle correctly
 
-- **Always initialize in the constructor** — this enables `readonly` fields and works correctly with nullability analyzers (fields are guaranteed non-null after construction)
+- **Always initialize in the constructor** -- this enables `readonly` fields and works correctly with nullability analyzers (fields are guaranteed non-null after construction)
 - Use `[TestInitialize]` **only** for async initialization, combined with the constructor for sync parts
 - Use `[TestCleanup]` for cleanup that must run even on failure
 - Inject `TestContext` via constructor (MSTest 3.6+)
@@ -232,7 +240,7 @@ public static IEnumerable<TestDataRow<(decimal price, int percent, decimal expec
 public sealed class RepositoryTests
 {
     private readonly TestContext _testContext;
-    private readonly FakeDatabase _db;  // readonly — guaranteed by constructor
+    private readonly FakeDatabase _db;  // readonly -- guaranteed by constructor
 
     public RepositoryTests(TestContext testContext)
     {
@@ -254,15 +262,15 @@ public sealed class RepositoryTests
 
 #### Execution order
 
-1. `[AssemblyInitialize]` — once per assembly
-2. `[ClassInitialize]` — once per class
+1. `[AssemblyInitialize]` -- once per assembly
+2. `[ClassInitialize]` -- once per class
 3. Per test:
-   - With `TestContext` property injection: Constructor → set `TestContext` property → `[TestInitialize]`
-   - With constructor injection of `TestContext`: Constructor (receives `TestContext`) → `[TestInitialize]`
+   - With `TestContext` property injection: Constructor -> set `TestContext` property -> `[TestInitialize]`
+   - With constructor injection of `TestContext`: Constructor (receives `TestContext`) -> `[TestInitialize]`
 4. Test method
-5. `[TestCleanup]` → `DisposeAsync` → `Dispose` — per test
-6. `[ClassCleanup]` — once per class
-7. `[AssemblyCleanup]` — once per assembly
+5. `[TestCleanup]` -> `DisposeAsync` -> `Dispose` -- per test
+6. `[ClassCleanup]` -- once per class
+7. `[AssemblyCleanup]` -- once per assembly
 
 ### Step 6: Apply cancellation and timeout patterns
 
@@ -281,6 +289,8 @@ public async Task FetchData_ReturnsWithinTimeout()
 ### Step 7: Use advanced features where appropriate
 
 #### Retry flaky tests (MSTest 3.9+)
+
+Use only for genuinely flaky external dependencies (network, file system), not to paper over race conditions or shared state issues.
 
 ```csharp
 [TestMethod]
@@ -310,17 +320,28 @@ public void LocalOnly_InteractiveTest() { }
 public sealed class DatabaseIntegrationTests { }
 ```
 
+## Validation
+
+- [ ] Test classes are `sealed`
+- [ ] Test methods follow `MethodName_Scenario_ExpectedBehavior` naming
+- [ ] `Assert.ThrowsExactly<T>` used instead of `[ExpectedException]`
+- [ ] Specialized assertions used instead of `Assert.IsTrue` (e.g., `Assert.IsNotNull`, `Assert.AreEqual`)
+- [ ] DynamicData uses ValueTuple return types instead of `IEnumerable<object[]>`
+- [ ] Sync initialization done in the constructor, not `[TestInitialize]`
+- [ ] `TestContext.CancellationToken` passed to async calls in tests with `[Timeout]`
+- [ ] Project builds with zero errors and all tests pass
+
 ## Common Pitfalls
 
 | Pitfall | Solution |
 |---------|----------|
-| `Assert.AreEqual(actual, expected)` — swapped arguments | Always put expected first: `Assert.AreEqual(expected, actual)`. Failure messages show "Expected: X, Actual: Y" so wrong order makes messages confusing |
-| `[ExpectedException]` — obsolete, cannot assert message | Use `Assert.Throws<T>` or `Assert.ThrowsExactly<T>` |
-| `items.Single()` — unclear exception on failure | Use `Assert.ContainsSingle(items)` for better failure messages |
-| Hard cast `(MyType)result` — unclear exception | Use `Assert.IsInstanceOfType<MyType>(result)` |
+| `Assert.AreEqual(actual, expected)` -- swapped arguments | Always put expected first: `Assert.AreEqual(expected, actual)`. Failure messages show "Expected: X, Actual: Y" so wrong order makes messages confusing |
+| `[ExpectedException]` -- obsolete, cannot assert message | Use `Assert.Throws<T>` or `Assert.ThrowsExactly<T>` |
+| `items.Single()` -- unclear exception on failure | Use `Assert.ContainsSingle(items)` for better failure messages |
+| Hard cast `(MyType)result` -- unclear exception | Use `Assert.IsInstanceOfType<MyType>(result)` |
 | `IEnumerable<object[]>` for DynamicData | Use `IEnumerable<(T1, T2, ...)>` ValueTuples for type safety |
-| Sync setup in `[TestInitialize]` | Initialize in the constructor instead — enables `readonly` fields and satisfies nullability analyzers |
+| Sync setup in `[TestInitialize]` | Initialize in the constructor instead -- enables `readonly` fields and satisfies nullability analyzers |
 | `CancellationToken.None` in async tests | Use `TestContext.CancellationToken` for cooperative timeout |
-| `public TestContext? TestContext { get; set; }` | Drop the `?` — MSTest suppresses CS8618 for this property |
-| `TestContext TestContext { get; set; } = null!` | Remove `= null!` — unnecessary, MSTest handles assignment |
+| `public TestContext? TestContext { get; set; }` | Drop the `?` -- MSTest suppresses CS8618 for this property |
+| `TestContext TestContext { get; set; } = null!` | Remove `= null!` -- unnecessary, MSTest handles assignment |
 | Non-sealed test classes | Seal test classes by default for performance |

@@ -1,0 +1,212 @@
+scenarios:
+  # ============================================================
+  # Scenarios removed (baseline already scores 5.0/5 — no headroom):
+  #   - "Detect mocking of DTOs, records, and enums": Model already
+  #     identifies trivial-type mocking without skill guidance.
+  #   - "Recognize well-placed mocks without inventing false positives":
+  #     Model already avoids false positives on well-structured tests.
+  # ============================================================
+
+  # ============================================================
+  # Scenario 1: Unused mock setups
+  # ============================================================
+  - name: "Detect unused and unreachable mock setups"
+    prompt: |
+      I've been told our tests have a lot of dead mock setup code — setups for
+      mocks that never get invoked during the test. Can you audit the mock usage
+      in these tests against the production code and identify which mock setups
+      are actually necessary and which are dead code?
+
+      Test file: InventoryServiceTests.cs
+      Production file: InventoryService.cs
+    setup:
+      files:
+        - path: "InventoryServiceTests.cs"
+          source: "unused-setups/InventoryServiceTests.cs"
+        - path: "InventoryService.cs"
+          source: "unused-setups/InventoryService.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(unused|dead|unreachable|never.*call|not.*invoke|unnecessary.*setup)"
+      - type: "output_matches"
+        pattern: "(GetLowStockProducts|low.?stock)"
+      - type: "output_matches"
+        pattern: "(Restock_ZeroQuantity|throws.*before|argument.*validation|early.*return)"
+      - type: "exit_success"
+    rubric:
+      - "Identified that GetLowStockProducts is set up but never called by any method under test"
+      - "Identified that in Reserve_InsufficientStock, the UpdateStock/AuditLogger/EventBus setups are unreachable because the method returns early when stock is insufficient"
+      - "Identified that in Restock_ZeroQuantity, all mock setups are unnecessary because the method throws ArgumentOutOfRangeException before using any dependency"
+      - "Identified that Reserve_VerifiesExactCallSequence has over-verification — it tests exact call sequence rather than behavioral outcomes"
+      - "Provided concrete recommendations on which setup lines to remove from each test method"
+    timeout: 180
+
+  # ============================================================
+  # Scenario 3: Redundant mock configurations across tests
+  # ============================================================
+  - name: "Detect redundant mock configurations duplicated across tests"
+    prompt: |
+      Every time I add a new test to this file, I have to copy-paste the same
+      mock setup — creating Mock<IPaymentGateway>, Mock<IInvoiceStore>, and
+      Mock<ICustomerLookup> over and over. Can you audit the mock usage and
+      suggest a better way to organize these redundant mocks?
+
+      Test file: BillingServiceTests.cs
+      Production file: BillingService.cs
+    setup:
+      files:
+        - path: "BillingServiceTests.cs"
+          source: "redundant-mocks/BillingServiceTests.cs"
+        - path: "BillingService.cs"
+          source: "redundant-mocks/BillingService.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(redundant|duplicat|repeated|identical.*setup|copy|shared|extract|helper|fixture)"
+      - type: "output_matches"
+        pattern: "(ChargeCustomer_CustomerNotFound|gateway.*setup.*never.*reach|unreachable)"
+      - type: "exit_success"
+    rubric:
+      - "Identified that all five tests create identical mock boilerplate (three Mock<> instantiations) independently"
+      - "Recommended extracting shared mock creation into a test fixture, helper method, or TestInitialize"
+      - "Identified that ChargeCustomer_CustomerNotFound sets up gateway and invoice store mocks that are unreachable after the customer lookup returns null"
+      - "Identified that ChargeCustomer_VerifiesGatewayCalledWithCorrectAmount only verifies interactions without asserting on the return value"
+      - "Provided a concrete before/after example showing how to reduce the duplication"
+    timeout: 180
+
+  # ============================================================
+  # Scenario 4: Mocking stable utilities (ILogger, IOptions)
+  # ============================================================
+  - name: "Detect mocking of stable framework types"
+    prompt: |
+      I read that mocking ILogger and IOptions is considered a bad practice
+      in most cases. Can you check our authentication tests and tell me if our
+      mock setup is appropriate or if we should use real implementations?
+
+      Test file: AuthenticationServiceTests.cs
+      Production file: AuthenticationService.cs
+    setup:
+      files:
+        - path: "AuthenticationServiceTests.cs"
+          source: "stable-utility-mocks/AuthenticationServiceTests.cs"
+        - path: "AuthenticationService.cs"
+          source: "stable-utility-mocks/AuthenticationService.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(NullLogger|Options\\.Create|real.*implementation|replace.*mock|unnecessary.*mock.*ILogger|unnecessary.*mock.*IOptions)"
+      - type: "output_matches"
+        pattern: "(IUserStore|IPasswordHasher).*(keep|appropriate|correct|valid)"
+      - type: "exit_success"
+    rubric:
+      - "Identified that Mock<ILogger<AuthenticationService>> should be replaced with NullLogger<AuthenticationService>.Instance since log output is never asserted"
+      - "Identified that Mock<IOptions<UserManagerOptions>> should be replaced with Options.Create(new UserManagerOptions { ... }) since it is a simple value wrapper"
+      - "Correctly noted that IUserStore and IPasswordHasher mocks are appropriate because they represent external data access and security boundaries"
+      - "Identified that Login_LockedAccount sets up a password hasher mock that is never reached because the locked check short-circuits"
+    timeout: 120
+
+  # ============================================================
+  # Scenarios removed (baseline already scores 5.0/5 — no headroom):
+  #   - "Recognize well-placed mocks without inventing false positives":
+  #     Model already avoids false positives on well-structured tests.
+  # ============================================================
+
+  # ============================================================
+  # Scenario 4: NSubstitute framework support
+  # ============================================================
+  - name: "Analyze mock usage in NSubstitute tests"
+    prompt: |
+      We use NSubstitute in this part of the codebase. I suspect some of our
+      substitute setups are unnecessary. Can you analyze these tests and the
+      service code to find any wasted mock configuration?
+
+      Test file: ShippingServiceTests.cs
+      Production file: ShippingService.cs
+    setup:
+      files:
+        - path: "ShippingServiceTests.cs"
+          source: "nsubstitute-mocks/ShippingServiceTests.cs"
+        - path: "ShippingService.cs"
+          source: "nsubstitute-mocks/ShippingService.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(unused|unnecessary|never.*call|not.*invoke|GetTracking|CreateShipment.*GetQuote|CalculateRate.*Ship)"
+      - type: "output_matches"
+        pattern: "(Ship_OnlyVerifiesInteractions|Received|interaction.*only|no.*assert.*result)"
+      - type: "exit_success"
+    rubric:
+      - "Identified unused NSubstitute setups — GetTracking and CreateShipment are set up in GetQuote tests but never called by that method"
+      - "Identified that GetQuote_InvalidOrigin sets up Normalize, CalculateRate, CreateShipment, and GetTracking — all unreachable after the address validation fails"
+      - "Identified that Ship_OnlyVerifiesInteractions only checks Received() calls without asserting on the returned shipment ID"
+      - "Used correct NSubstitute terminology (Substitute.For, .Returns, .Received) rather than Moq terms"
+    timeout: 180
+
+  # ============================================================
+  # Scenario 7: FakeItEasy framework support
+  # ============================================================
+  - name: "Analyze mock usage in FakeItEasy tests"
+    prompt: |
+      Our notification tests use FakeItEasy. We're seeing some fake setups that
+      might not be needed. Can you audit the mock usage and identify which
+      A.CallTo configurations are unnecessary? Don't modify any files — just
+      explain your findings.
+
+      Test file: NotificationDispatcherTests.cs
+      Production file: NotificationDispatcher.cs
+    setup:
+      files:
+        - path: "NotificationDispatcherTests.cs"
+          source: "fakeiteasy-mocks/NotificationDispatcherTests.cs"
+        - path: "NotificationDispatcher.cs"
+          source: "fakeiteasy-mocks/NotificationDispatcher.cs"
+    reject_tools: ["bash", "edit"]
+    assertions:
+      - type: "output_matches"
+        pattern: "(unused|unnecessary|never.*call|not.*invoke|push.*sms|sms.*push|wrong.*channel)"
+      - type: "exit_success"
+    rubric:
+      - "Identified that the SMS test sets up the push notifier unnecessarily, and the push test sets up the SMS sender unnecessarily"
+      - "Identified that in Dispatch_UnknownChannel, both smsSender and pushNotifier setups are unreachable because the switch throws before reaching them"
+      - "Used correct FakeItEasy terminology (A.Fake, A.CallTo, MustHaveHappened) rather than Moq or NSubstitute terms"
+      - "Acknowledged that the template engine mock is correctly used across all tests since rendering is always called before dispatch"
+    timeout: 120
+
+  # ============================================================
+  # Scenario 8: Setup sprawl (excessive mock configuration)
+  # ============================================================
+  - name: "Detect excessive mock configuration sprawl"
+    prompt: |
+      Each test in our report generator file is over 40 lines long and most of
+      it is just setting up mocks. The mock configuration completely dominates
+      the test logic. Can you audit the mock usage and tell me which setups
+      are unnecessary?
+
+      Test file: ReportGeneratorTests.cs
+      Production file: ReportGenerator.cs
+    setup:
+      files:
+        - path: "ReportGeneratorTests.cs"
+          source: "setup-sprawl/ReportGeneratorTests.cs"
+        - path: "ReportGenerator.cs"
+          source: "setup-sprawl/ReportGenerator.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(sprawl|excessive|too many|bloat|overwhelm|unreadable|dominant|setup.*lines)"
+      - type: "output_matches"
+        pattern: "(GetCustomers|GetProducts|GetExchangeRate|FormatAsPdf|FormatAsCsv|GetLatest|cache).*(unused|never|unnecessary|not.*call)"
+      - type: "output_matches"
+        pattern: "(extract|helper|builder|fixture|shared|TestInitialize|refactor)"
+      - type: "exit_success"
+    rubric:
+      - "Identified that the majority of setup lines are unused — GetCustomers, GetProducts, GetExchangeRate, cache operations, and non-matching formatters are never called by GenerateSalesReport"
+      - "Identified that the two tests duplicate nearly identical 30+ line mock configurations"
+      - "Recommended extracting shared setup into a helper, builder, or TestInitialize to reduce duplication"
+      - "Suggested that mocking ILogger and ICacheService could be replaced with NullLogger and a no-op cache if never asserted"
+      - "Noted that the class may have too many dependencies, which could indicate the SUT has too many responsibilities"
+    timeout: 180
+
+  # ============================================================
+  # Non-activation scenarios removed (baseline already scores 5.0/5):
+  #   - "Decline when asked about non-mock test anti-patterns":
+  #     Model already handles non-mock test reviews without skill.
+  #   - "Decline mock framework migration request":
+  #     Model already handles migration requests without skill.
+  # ============================================================

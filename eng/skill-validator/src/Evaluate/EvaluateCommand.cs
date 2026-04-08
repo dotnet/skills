@@ -64,7 +64,7 @@ public static class EvaluateCommand
         command.Add(RejudgeCommand.Create());
         command.Add(ConsolidateCommand.Create());
 
-        command.SetAction(async (parseResult, _) =>
+        command.SetAction(async (parseResult, cancellationToken) =>
         {
             var paths = parseResult.GetValue(pathsArg) ?? [];
             var reporterValues = parseResult.GetValue(reporterOpt) ?? [];
@@ -112,7 +112,7 @@ public static class EvaluateCommand
                 NoiseMaxScenarioDegradation = parseResult.GetValue(noiseMaxScenarioDegradationOpt),
             };
 
-            return await Run(config);
+            return await Run(config, cancellationToken);
         });
 
         return command;
@@ -127,7 +127,7 @@ public static class EvaluateCommand
         _ => throw new ArgumentException($"Unknown reporter type: {value}"),
     };
 
-    public static async Task<int> Run(ValidatorConfig config)
+    public static async Task<int> Run(ValidatorConfig config, CancellationToken cancellationToken = default)
     {
         // Validate model early
         try
@@ -314,10 +314,11 @@ public static class EvaluateCommand
         // Evaluate all targets (skills and agents)
         spinner.Start($"Evaluating {allTargets.Count} target(s)...");
         var skillTasks = allTargets.Select(target =>
-            skillLimit.RunAsync(() => EvaluateTarget(target, config, usePairwise, spinner, noiseEvalSkills, sessionsDir, sessionDb)));
+            skillLimit.RunAsync(() => EvaluateTarget(target, config, usePairwise, spinner, noiseEvalSkills, sessionsDir, sessionDb, cancellationToken), cancellationToken));
         var settled = await Task.WhenAll(skillTasks.Select(async t =>
         {
             try { return (Result: await t, Error: (Exception?)null); }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception ex) { return (Result: (SkillVerdict?)null, Error: ex); }
         }));
         spinner.Stop();
@@ -378,16 +379,17 @@ public static class EvaluateCommand
         Spinner spinner,
         IReadOnlyList<EvalSkillInfo> noiseSkills,
         string? sessionsDir,
-        SessionDatabase? sessionDb)
+        SessionDatabase? sessionDb,
+        CancellationToken cancellationToken)
     {
         if (target.Kind == EvalTargetKind.Skill && target.Skill is not null)
         {
             var evalSkill = new EvalSkillInfo(target.Skill, target.EvalPath, target.EvalConfig, target.McpServers);
-            return await EvaluateSkill(evalSkill, config, usePairwise, spinner, noiseSkills, sessionsDir, sessionDb);
+            return await EvaluateSkill(evalSkill, config, usePairwise, spinner, noiseSkills, sessionsDir, sessionDb, cancellationToken);
         }
         else if (target.Kind == EvalTargetKind.Agent && target.Agent is not null)
         {
-            return await EvaluateAgent(target, config, usePairwise, spinner, sessionsDir, sessionDb);
+            return await EvaluateAgent(target, config, usePairwise, spinner, sessionsDir, sessionDb, cancellationToken);
         }
         return null;
     }
@@ -402,7 +404,8 @@ public static class EvaluateCommand
         bool usePairwise,
         Spinner spinner,
         string? sessionsDir,
-        SessionDatabase? sessionDb)
+        SessionDatabase? sessionDb,
+        CancellationToken cancellationToken)
     {
         var agent = target.Agent!;
         var prefix = $"[{agent.Name}]";
@@ -436,7 +439,7 @@ public static class EvaluateCommand
                 Scenarios = [],
                 OverallImprovementScore = 0,
                 Reason = string.Join(" ", promptErrors),
-                FailureKind = "spec_conformance_failure",
+                FailureKind = FailureKind.SpecConformanceFailure,
             };
         }
 
@@ -450,7 +453,7 @@ public static class EvaluateCommand
         using var scenarioLimit = new ConcurrencyLimiter(effectiveParallelScenarios);
 
         var scenarioTasks = target.EvalConfig.Scenarios.Select(scenario =>
-            scenarioLimit.RunAsync(() => ExecuteAgentScenario(scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha)));
+            scenarioLimit.RunAsync(() => ExecuteAgentScenario(scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha, cancellationToken), cancellationToken));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
 
         var verdict = Comparator.ComputeVerdict(
@@ -471,7 +474,7 @@ public static class EvaluateCommand
             log($"{Ansi.Yellow}⚠️  Agent NOT activated (isolated) in: {names}{Ansi.Reset}");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
-            verdict.FailureKind = "skill_not_activated";
+            verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [AGENT NOT ACTIVATED (isolated) in {notActivatedIsolated.Count} scenario(s)]";
         }
         if (notActivatedPlugin.Count > 0)
@@ -480,7 +483,7 @@ public static class EvaluateCommand
             log($"{Ansi.Yellow}⚠️  Agent NOT activated (plugin) in: {names}{Ansi.Reset}");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
-            verdict.FailureKind = "skill_not_activated";
+            verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [AGENT NOT ACTIVATED (plugin) in {notActivatedPlugin.Count} scenario(s)]";
         }
 
@@ -500,7 +503,8 @@ public static class EvaluateCommand
         Spinner spinner,
         string? sessionsDir,
         SessionDatabase? sessionDb,
-        string? targetSha)
+        string? targetSha,
+        CancellationToken cancellationToken)
     {
         var agent = target.Agent!;
         var tag = singleScenario ? $"[{agent.Name}]" : $"[{agent.Name}/{scenario.Name}]";
@@ -515,7 +519,7 @@ public static class EvaluateCommand
             scenarioLog("📋 Starting scenario");
 
         var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
-            runLimit.RunAsync(() => ExecuteAgentRun(i, scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha)));
+            runLimit.RunAsync(() => ExecuteAgentRun(i, scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha, cancellationToken), cancellationToken));
         var runResults = await Task.WhenAll(runTasks);
 
         scenarioLog($"✓ All {config.Runs} run(s) complete");
@@ -583,6 +587,8 @@ public static class EvaluateCommand
             PairwiseResult = bestPairwise,
         };
         comparison.PerRunScores = perRunScores;
+        comparison.VarianceCV = Statistics.CoefficientOfVariation(perRunScores);
+        comparison.HighVariance = comparison.VarianceCV is > 0.5;
 
         // Aggregate subagent activation across runs (primary activation signal for agents)
         var allIsoSubagents = runResults.Select(r => r.SubagentActivationIsolated).ToList();
@@ -632,7 +638,8 @@ public static class EvaluateCommand
         Spinner spinner,
         string? sessionsDir,
         SessionDatabase? sessionDb,
-        string? targetSha)
+        string? targetSha,
+        CancellationToken cancellationToken)
     {
         var agent = target.Agent!;
         var runTag = config.Runs > 1
@@ -672,15 +679,15 @@ public static class EvaluateCommand
         var agentTasks = await Task.WhenAll(
             // 1. Baseline: no agent, no skills — vanilla
             AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
-                PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId)),
+                PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId), cancellationToken),
             // 2. Agent-isolated: target agent only (+ scenario deps)
             AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
                 PluginRoot: null, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
-                SessionId: isolatedSessionId, Agent: agent, AdditionalSkills: additionalSkills, AdditionalAgents: additionalAgents)),
+                SessionId: isolatedSessionId, Agent: agent, AdditionalSkills: additionalSkills, AdditionalAgents: additionalAgents), cancellationToken),
             // 3. Agent-plugin: full plugin context + agent selected
             AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
                 PluginRoot: pluginRoot, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
-                SessionId: pluginSessionId, Agent: agent)));
+                SessionId: pluginSessionId, Agent: agent), cancellationToken));
         var baselineMetrics = agentTasks[0];
         var isolatedMetrics = agentTasks[1];
         var pluginMetrics = agentTasks[2];
@@ -725,11 +732,11 @@ public static class EvaluateCommand
 
         var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, agent.Path);
 
-        var (baselineJudge, baselineJudgeTokens) = await SafeJudge(Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, runLog), "baseline", runLog);
+        var (baselineJudge, baselineJudgeTokens) = await SafeJudge(Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, runLog, cancellationToken), "baseline", runLog);
         var (isolatedJudge, isolatedJudgeTokens) = await SafeJudge(Judge.JudgeRun(
-            scenario, isolatedMetrics, judgeOpts with { WorkDir = isolatedMetrics.WorkDir }, runLog), "isolated", runLog);
+            scenario, isolatedMetrics, judgeOpts with { WorkDir = isolatedMetrics.WorkDir }, runLog, cancellationToken), "isolated", runLog);
         var (pluginJudge, pluginJudgeTokens) = await SafeJudge(Judge.JudgeRun(
-            scenario, pluginMetrics, judgeOpts with { WorkDir = pluginMetrics.WorkDir }, runLog), "plugin", runLog);
+            scenario, pluginMetrics, judgeOpts with { WorkDir = pluginMetrics.WorkDir }, runLog, cancellationToken), "plugin", runLog);
 
         AccumulateJudgeTokens(baselineMetrics, baselineJudgeTokens);
         AccumulateJudgeTokens(isolatedMetrics, isolatedJudgeTokens);
@@ -751,7 +758,7 @@ public static class EvaluateCommand
                 var (pairwiseResult, pairwiseTokens) = await PairwiseJudge.Judge(
                     scenario, baselineMetrics, worseSkilled,
                     new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, agent.Path, worseSkilled.WorkDir),
-                    runLog);
+                    runLog, cancellationToken);
                 pairwise = pairwiseResult;
                 AccumulateJudgeTokens(baselineMetrics, pairwiseTokens);
                 AccumulateJudgeTokens(worseSkilled, pairwiseTokens);
@@ -789,7 +796,8 @@ public static class EvaluateCommand
         Spinner spinner,
         IReadOnlyList<EvalSkillInfo> noiseSkills,
         string? sessionsDir,
-        SessionDatabase? sessionDb)
+        SessionDatabase? sessionDb,
+        CancellationToken cancellationToken)
     {
         var skill = evalSkill.Skill;
         var prefix = $"[{skill.Name}]";
@@ -824,14 +832,14 @@ public static class EvaluateCommand
                 Scenarios = [],
                 OverallImprovementScore = 0,
                 Reason = string.Join(" ", promptErrors),
-                FailureKind = "spec_conformance_failure",
+                FailureKind = FailureKind.SpecConformanceFailure,
             };
         }
 
         // --- Noise-only path: skip normal baseline-vs-skill eval, run only skill-only vs all-skills ---
         if (config.NoiseSkillsDir is not null && noiseSkills.Count > 0)
         {
-            return await EvaluateSkillNoise(evalSkill, noiseSkills, config, spinner);
+            return await EvaluateSkillNoise(evalSkill, noiseSkills, config, spinner, cancellationToken);
         }
 
         // Launch overfitting check in parallel with scenario execution
@@ -841,7 +849,7 @@ public static class EvaluateCommand
         {
             log("🔍 Running overfitting check (parallel)...");
             overfittingTask = OverfittingJudge.Analyze(evalSkill, new OverfittingJudgeOptions(
-                config.JudgeModel, config.Verbose, config.JudgeTimeout, workDir));
+                config.JudgeModel, config.Verbose, config.JudgeTimeout, workDir), cancellationToken);
         }
 
         var skillSha = sessionDb is not null ? SessionDatabase.ComputeDirectorySha(skill.Path) : null;
@@ -854,7 +862,7 @@ public static class EvaluateCommand
         using var scenarioLimit = new ConcurrencyLimiter(effectiveParallelScenarios);
 
         var scenarioTasks = evalSkill.EvalConfig.Scenarios.Select(scenario =>
-            scenarioLimit.RunAsync(() => ExecuteScenario(scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha)));
+            scenarioLimit.RunAsync(() => ExecuteScenario(scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha, cancellationToken), cancellationToken));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
 
         // Await overfitting result (non-fatal — never blocks an otherwise-successful evaluation)
@@ -905,7 +913,7 @@ public static class EvaluateCommand
             log($"{Ansi.Yellow}⚠️  Skill NOT activated (isolated) in: {names}{Ansi.Reset}");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
-            verdict.FailureKind = "skill_not_activated";
+            verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [NOT ACTIVATED (isolated) in {notActivatedIsolated.Count} scenario(s)]";
         }
         if (notActivatedPlugin.Count > 0)
@@ -914,7 +922,7 @@ public static class EvaluateCommand
             log($"{Ansi.Yellow}⚠️  Skill NOT activated (plugin) in: {names}{Ansi.Reset}");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
-            verdict.FailureKind = "skill_not_activated";
+            verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [NOT ACTIVATED (plugin) in {notActivatedPlugin.Count} scenario(s)]";
         }
 
@@ -938,7 +946,8 @@ public static class EvaluateCommand
         Spinner spinner,
         string? sessionsDir,
         SessionDatabase? sessionDb,
-        string? skillSha)
+        string? skillSha,
+        CancellationToken cancellationToken)
     {
         var skill = evalSkill.Skill;
         var tag = singleScenario ? $"[{skill.Name}]" : $"[{skill.Name}/{scenario.Name}]";
@@ -953,7 +962,7 @@ public static class EvaluateCommand
             scenarioLog("📋 Starting scenario");
 
         var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
-            runLimit.RunAsync(() => ExecuteRun(i, scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha)));
+            runLimit.RunAsync(() => ExecuteRun(i, scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha, cancellationToken), cancellationToken));
         var runResults = await Task.WhenAll(runTasks);
 
         scenarioLog($"✓ All {config.Runs} run(s) complete");
@@ -1028,6 +1037,8 @@ public static class EvaluateCommand
             PairwiseResult = bestPairwise,
         };
         comparison.PerRunScores = perRunScores;
+        comparison.VarianceCV = Statistics.CoefficientOfVariation(perRunScores);
+        comparison.HighVariance = comparison.VarianceCV is > 0.5;
 
         // Aggregate skill activation — BOTH skilled runs independently
         var allIsoActivations = runResults.Select(r => r.SkillActivationIsolated).ToList();
@@ -1091,7 +1102,8 @@ public static class EvaluateCommand
         Spinner spinner,
         string? sessionsDir,
         SessionDatabase? sessionDb,
-        string? skillSha)
+        string? skillSha,
+        CancellationToken cancellationToken)
     {
         var skill = evalSkill.Skill;
         var runTag = config.Runs > 1
@@ -1131,14 +1143,14 @@ public static class EvaluateCommand
         var agentTasks = await Task.WhenAll(
             // 1. Baseline: no plugin, no skills — vanilla agent
             AgentRunner.RunAgent(new RunOptions(scenario, null, evalSkill.EvalPath, config.Model, config.Verbose,
-                PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId)),
+                PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId), cancellationToken),
             // 2. Skilled-isolated: target skill + declared dependencies
             AgentRunner.RunAgent(new RunOptions(scenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
                 PluginRoot: null, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir,
-                SessionId: isolatedSessionId, AdditionalSkills: additionalSkills, AdditionalAgents: additionalAgents)),
+                SessionId: isolatedSessionId, AdditionalSkills: additionalSkills, AdditionalAgents: additionalAgents), cancellationToken),
             // 3. Skilled-plugin: load entire plugin from plugin root directory
             AgentRunner.RunAgent(new RunOptions(scenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
-                PluginRoot: pluginRoot, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir, SessionId: pluginSessionId)));
+                PluginRoot: pluginRoot, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir, SessionId: pluginSessionId), cancellationToken));
         var baselineMetrics = agentTasks[0];
         var isolatedMetrics = agentTasks[1];
         var pluginMetrics = agentTasks[2];
@@ -1186,11 +1198,11 @@ public static class EvaluateCommand
         // Judge all three runs independently (failures are non-fatal)
         var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path);
 
-        var baselineJudgeTask = Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, runLog);
+        var baselineJudgeTask = Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, runLog, cancellationToken);
         var isolatedJudgeTask = Judge.JudgeRun(
-            scenario, isolatedMetrics, judgeOpts with { WorkDir = isolatedMetrics.WorkDir }, runLog);
+            scenario, isolatedMetrics, judgeOpts with { WorkDir = isolatedMetrics.WorkDir }, runLog, cancellationToken);
         var pluginJudgeTask = Judge.JudgeRun(
-            scenario, pluginMetrics, judgeOpts with { WorkDir = pluginMetrics.WorkDir }, runLog);
+            scenario, pluginMetrics, judgeOpts with { WorkDir = pluginMetrics.WorkDir }, runLog, cancellationToken);
 
         var (baselineJudge, baselineJudgeTokens) = await SafeJudge(baselineJudgeTask, "baseline", runLog);
         var (isolatedJudge, isolatedJudgeTokens) = await SafeJudge(isolatedJudgeTask, "isolated", runLog);
@@ -1226,7 +1238,7 @@ public static class EvaluateCommand
                 var (pairwiseResult, pairwiseTokens) = await PairwiseJudge.Judge(
                     scenario, baselineMetrics, worseSkilled,
                     new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path, worseSkilled.WorkDir),
-                    runLog);
+                    runLog, cancellationToken);
                 pairwise = pairwiseResult;
                 // Attribute pairwise judge tokens to both the baseline and the compared run
                 AccumulateJudgeTokens(baselineMetrics, pairwiseTokens);
@@ -1293,7 +1305,8 @@ public static class EvaluateCommand
         EvalSkillInfo evalSkill,
         IReadOnlyList<EvalSkillInfo> noiseEvalSkills,
         ValidatorConfig config,
-        Spinner spinner)
+        Spinner spinner,
+        CancellationToken cancellationToken)
     {
         var skill = evalSkill.Skill;
         var prefix = $"[{skill.Name}]";
@@ -1302,7 +1315,7 @@ public static class EvaluateCommand
         NoiseTestResult noiseResult;
         try
         {
-            noiseResult = await ExecuteNoiseTest(evalSkill, noiseEvalSkills, config, spinner);
+            noiseResult = await ExecuteNoiseTest(evalSkill, noiseEvalSkills, config, spinner, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -1315,7 +1328,7 @@ public static class EvaluateCommand
                 Scenarios = [],
                 OverallImprovementScore = 0,
                 Reason = $"Noise test execution failed: {ex.Message}",
-                FailureKind = "noise_degradation",
+                FailureKind = FailureKind.NoiseDegradation,
             };
         }
 
@@ -1327,7 +1340,7 @@ public static class EvaluateCommand
             Scenarios = [],
             OverallImprovementScore = 0,
             Reason = noiseResult.Reason,
-            FailureKind = noiseResult.Passed ? null : "noise_degradation",
+            FailureKind = noiseResult.Passed ? null : FailureKind.NoiseDegradation,
             NoiseTestResult = noiseResult,
         };
 
@@ -1357,7 +1370,8 @@ public static class EvaluateCommand
         EvalSkillInfo targetEvalSkill,
         IReadOnlyList<EvalSkillInfo> allEvalSkills,
         ValidatorConfig config,
-        Spinner spinner)
+        Spinner spinner,
+        CancellationToken cancellationToken)
     {
         var targetSkill = targetEvalSkill.Skill;
         var prefix = $"[{targetSkill.Name}/noise]";
@@ -1399,12 +1413,12 @@ public static class EvaluateCommand
                         // Run with target skill only
                         var skillOnlyMetrics = await AgentRunner.RunAgent(new RunOptions(
                             scenario, targetSkill, targetEvalSkill.EvalPath, config.Model, config.Verbose,
-                            Log: scenarioLog, McpServers: targetEvalSkill.McpServers));
+                            Log: scenarioLog, McpServers: targetEvalSkill.McpServers), cancellationToken);
 
                         // Run with all skills loaded
                         var allSkillsMetrics = await AgentRunner.RunAgent(new RunOptions(
                             scenario, targetSkill, targetEvalSkill.EvalPath, config.Model, config.Verbose,
-                            Log: scenarioLog, AdditionalSkills: otherSkills, McpServers: targetEvalSkill.McpServers));
+                            Log: scenarioLog, AdditionalSkills: otherSkills, McpServers: targetEvalSkill.McpServers), cancellationToken);
 
                         // Evaluate assertions on both
                         if (scenario.Assertions is { Count: > 0 })
@@ -1431,7 +1445,7 @@ public static class EvaluateCommand
                         JudgeResult skillOnlyJudge, allSkillsJudge;
                         try
                         {
-                            var (result, tokens) = await Judge.JudgeRun(scenario, skillOnlyMetrics, judgeOpts, log);
+                            var (result, tokens) = await Judge.JudgeRun(scenario, skillOnlyMetrics, judgeOpts, log, cancellationToken);
                             skillOnlyJudge = result;
                             AccumulateJudgeTokens(skillOnlyMetrics, tokens);
                         }
@@ -1442,7 +1456,7 @@ public static class EvaluateCommand
                         try
                         {
                             var (result, tokens) = await Judge.JudgeRun(scenario, allSkillsMetrics,
-                                judgeOpts with { WorkDir = allSkillsMetrics.WorkDir }, log);
+                                judgeOpts with { WorkDir = allSkillsMetrics.WorkDir }, log, cancellationToken);
                             allSkillsJudge = result;
                             AccumulateJudgeTokens(allSkillsMetrics, tokens);
                         }
@@ -1457,7 +1471,7 @@ public static class EvaluateCommand
                             allSkillsMetrics.Events, skillOnlyMetrics.ToolCallBreakdown);
 
                         return (SkillOnly: skillOnly, AllSkills: allSkills, Activation: activation);
-                    })));
+                    }, cancellationToken)));
 
                 scenarioLog($"✓ All {config.Runs} noise run(s) complete");
 
@@ -1487,7 +1501,7 @@ public static class EvaluateCommand
                     comparison.Breakdown,
                     activation,
                     totalLoaded);
-            }));
+            }, cancellationToken));
 
         noiseScenarios = (await Task.WhenAll(tasks)).ToList();
 

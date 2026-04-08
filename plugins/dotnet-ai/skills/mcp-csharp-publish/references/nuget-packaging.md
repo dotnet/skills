@@ -68,11 +68,6 @@ dotnet tool uninstall --global YourUsername.MyMcpServer
 dotnet nuget push bin/Release/*.nupkg \
   --api-key YOUR_NUGET_API_KEY \
   --source https://api.nuget.org/v3/index.json
-
-# Or push to NuGet test environment first
-dotnet nuget push bin/Release/*.nupkg \
-  --api-key YOUR_NUGET_API_KEY \
-  --source https://apiint.nugettest.org/v3/index.json
 ```
 
 ## User Configuration

@@ -45,24 +45,18 @@ Every plugin must have a plugin.json file in the plugin root that is linked to f
 
 ### Plugin organization
 
-Skills are grouped into domain-specific plugins. When proposing a new skill, place it in the plugin that best matches its domain:
+Skills are grouped into domain-specific plugins. When proposing a new skill, place it in the plugin that best matches its domain. See [README.md](README.md) for the current list of plugins.
+If your skill does not fit any existing plugin, consider creating a new one.
 
-| Plugin | Domain |
-|--------|--------|
-| `dotnet` | Common everyday C#/.NET coding tasks useful to all .NET developers |
-| `dotnet-upgrade` | Migrating and upgrading .NET projects across framework versions, language features, and compatibility targets |
-| `dotnet-diag` | Performance investigations, debugging, and incident analysis |
-| `dotnet-data` | Data access and Entity Framework |
-| `dotnet-msbuild` | MSBuild and project system |
-| `dotnet-ai` | AI and ML: technology selection, LLM integration, agentic workflows, RAG pipelines, and classic ML |
-| `dotnet-experimental` | Experimental skills under active evaluation (see below) |
+To create a new plugin:
 
-If your skill does not fit any existing plugin, consider creating a new one. The following plugin names are reserved for future use and are good candidates for new skills in those areas:
+1. Add `plugins/<plugin-name>/plugin.json` and a `skills/` directory beneath it.
+2. Add a matching entry in both `.github/plugin/marketplace.json` and `.claude-plugin/marketplace.json`. The `.claude-plugin/marketplace.json` file must remain an exact copy of `.github/plugin/marketplace.json`, so any change to one file (adding, removing, or editing a plugin entry) must be applied to the other in the same way.
+3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
+4. Add the plugin to the **What's Included** table in the root `README.md`.
+5. Create a `tests/<plugin-name>/` directory for skill tests.
 
-- `dotnet-aspnet` — ASP.NET
-- `dotnet-wpf` — WPF
-- `dotnet-winforms` — Windows Forms (WinForms)
-- `dotnet-maui` — .NET MAUI
+See existing plugins for the expected format.
 
 ### The `dotnet-experimental` plugin
 
@@ -75,16 +69,6 @@ Skills in `dotnet-experimental`:
 - Should eventually graduate to a stable plugin or be retired. When a skill has proven itself, move it to the appropriate domain plugin and update tests accordingly.
 
 Place experimental skills under `plugins/dotnet-experimental/skills/` with matching tests in `tests/dotnet-experimental/`.
-
-To create a new plugin:
-
-1. Add `plugins/<plugin-name>/plugin.json` and a `skills/` directory beneath it.
-2. Add a matching entry in both `.github/plugin/marketplace.json` and `.claude-plugin/marketplace.json`. The `.claude-plugin/marketplace.json` file must remain an exact copy of `.github/plugin/marketplace.json`, so any change to one file (adding, removing, or editing a plugin entry) must be applied to the other in the same way.
-3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
-4. Add the plugin to the **What's Included** table in the root `README.md`.
-5. Create a `tests/<plugin-name>/` directory for skill tests.
-
-See existing plugins for the expected format.
 
 ## Before you start
 
@@ -238,40 +222,7 @@ scenarios:
     timeout: 120
 ```
 
-#### Test fixture files
-
-If a scenario requires files in the agent's working directory (e.g. `.csproj`, `.sln`, `.cs` files), place them alongside `eval.yaml` and opt into auto-copy:
-
-```text
-tests/<plugin>/<skill-name>/
-  eval.yaml
-  MyProject.csproj
-  Program.cs
-```
-
-```yaml
-scenarios:
-  - name: "Diagnose build failure"
-    prompt: "Why does this project fail to build?"
-    setup:
-      copy_test_files: true    # copies MyProject.csproj, Program.cs into work dir
-    assertions:
-      - type: "output_matches"
-        pattern: "CS\\d{4}"
-```
-
-You can also create files inline or reference files from the skill directory:
-
-```yaml
-setup:
-  files:
-    - path: "input.txt"
-      content: "inline file content"
-    - path: "data.csv"
-      source: "fixtures/sample-data.csv"  # relative to skill directory
-```
-
-See the [skill-validator README](eng/skill-validator/README.md) for the full list of assertion types, constraints, and rubric options.
+See the [skill-validator README](eng/skill-validator/src/README.md) for the full eval.yaml format — assertion types, setup options, fixture files, constraints, and rubric details.
 
 ### Running tests locally
 
@@ -283,16 +234,9 @@ dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate -
 
 # Run tests for a single skill (pass the skill directory directly)
 dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills/common-build-errors
-
-# Fewer runs for faster iteration (default is 5)
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --runs 3 --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
-
-# Use a specific model
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --model claude-opus-4.6 --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
-
-# Run with verbose logging
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --verbose --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
 ```
+
+See the [skill-validator README](eng/skill-validator/src/README.md) for additional flags (`--runs`, `--model`, `--verbose`, etc.) and all available subcommands.
 
 > [!WARNING]  
 > If you share the results in a Pull Request, make sure to have `--runs` configured to at least 3 but better 5 for reliable results.
@@ -301,7 +245,7 @@ dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate -
 
 Tests run automatically on pull requests that modify files under `plugins/`. The evaluation workflow discovers changed plugins and runs the skill-validator for each one. Results are posted as a PR comment and uploaded as build artifacts.
 
-If a scenario fails or regresses, see [Investigating Results](eng/skill-validator/InvestigatingResults.md) for how to download artifacts, interpret `results.json`, and diagnose common failure patterns.
+If a scenario fails or regresses, see [Investigating Results](eng/skill-validator/src/docs/InvestigatingResults.md) for how to download artifacts, interpret `results.json`, and diagnose common failure patterns.
 
 ## Writing style
 

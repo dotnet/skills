@@ -155,7 +155,7 @@ Results are displayed in the console with color-coded scores and metric deltas. 
 - `junit` — `results.xml` with JUnit XML test results
 - `markdown` — `summary.md` with a results table, plus per-skill directories with per-scenario judge reports
 
-See [Investigating Results](InvestigatingResults.md) for how to diagnose poor scores, download artifacts, and interpret `results.json`.
+See [Investigating Results](docs/InvestigatingResults.md) for how to diagnose poor scores, download artifacts, and interpret `results.json`.
 
 ### Consolidating results across matrix jobs
 
@@ -264,6 +264,39 @@ scenarios:
 | `additional_required_skills` | List of skill names (from the same plugin) to load in the **isolated** run alongside the target. Useful when an agent routes to specific skills or a skill depends on sibling skills. Does not affect baseline (nothing loaded) or plugin (everything loaded) runs. |
 | `additional_required_agents` | List of agent names (from the same plugin) to register in the **isolated** run alongside the target. Same semantics as `additional_required_skills` but for agents. |
 
+#### Test fixture files
+
+If a scenario requires files in the agent's working directory (e.g. `.csproj`, `.sln`, `.cs` files), place them alongside `eval.yaml` and opt into auto-copy:
+
+```text
+tests/<plugin>/<skill-name>/
+  eval.yaml
+  MyProject.csproj
+  Program.cs
+```
+
+```yaml
+scenarios:
+  - name: "Diagnose build failure"
+    prompt: "Why does this project fail to build?"
+    setup:
+      copy_test_files: true    # copies MyProject.csproj, Program.cs into work dir
+    assertions:
+      - type: "output_matches"
+        pattern: "CS\\d{4}"
+```
+
+You can also create files inline or reference files from the skill directory:
+
+```yaml
+setup:
+  files:
+    - path: "input.txt"
+      content: "inline file content"
+    - path: "data.csv"
+      source: "fixtures/sample-data.csv"  # relative to skill directory
+```
+
 ### Scenario constraints
 
 Constraints are declarative checks against run metrics — no regex or globs needed:
@@ -298,7 +331,7 @@ In independent mode, rubric items are scored 1–5 per run. Quality metrics have
 Before running the A/B evaluation, skill-validator performs static analysis of each SKILL.md and reports a one-line profile:
 
 ```
-📊 crank-benchmarking: 1,722 tokens (detailed ✓), 29 sections, 24 code blocks
+📊 crank-benchmarking: 1,722 BPE tokens [chars/4: 2,156] (detailed ✓), 29 sections, 24 code blocks
    ⚠  No numbered workflow steps detected
 ```
 
@@ -309,6 +342,32 @@ This is grounded in [SkillsBench](https://arxiv.org/abs/2602.12670) findings (84
 - **2–3 focused skills outperform 4+** skills bundled together
 
 When a skill fails validation, the profile warnings appear in the diagnosis to suggest what to fix.
+
+### Getting the token count for a skill
+
+The `check` sub-command reports the BPE token count for each skill when run with `--verbose`:
+
+```bash
+skill-validator check --verbose --plugin ./plugins/my-plugin
+```
+
+The profile line shows two token measurements:
+
+| Value | Description |
+|-------|-------------|
+| **BPE tokens** | Actual token count computed with the `cl100k_base` tokenizer (OpenAI). This is the primary size metric. |
+| **chars/4** | Approximate token count (character count ÷ 4). Shown as a reference point. |
+
+The complexity tier is derived from the BPE token count:
+
+| Tier | Token range | Verdict |
+|------|-------------|---------|
+| compact | < 400 | ✓ Good |
+| detailed | 400 – 2,500 | ✓ Recommended tier (sweet spot: 800–2,500) |
+| standard | 2,501 – 5,000 | Approaching diminishing returns |
+| comprehensive | > 5,000 | ✗ Performance degrades |
+
+> **Note:** The `check` command outputs to the console only — it does not write result files. Warnings about skill size are always printed; the full profile line requires `--verbose`.
 
 ## Metrics & scoring
 
@@ -350,7 +409,7 @@ The per-element classifications are combined into a 0–1 score (✅ low ≤ 0.2
 
 Use `--overfitting-fix` to generate an `eval.fixed.yaml` with suggested outcome-focused replacements for flagged items. Disable the check entirely with `--no-overfitting-check`.
 
-See [OverfittingDetection.md](OverfittingDetection.md) for the full design.
+See [OverfittingDetection.md](docs/OverfittingDetection.md) for the full design.
 
 ### Statistical confidence
 

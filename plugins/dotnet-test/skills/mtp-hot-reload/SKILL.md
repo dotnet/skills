@@ -28,7 +28,7 @@ Set up and use Microsoft Testing Platform hot reload to rapidly iterate fixes on
 - User needs to write new tests from scratch (use general coding assistance)
 - User needs to diagnose why a test is failing (use diagnostic skills)
 - User wants Visual Studio Test Explorer hot reload (different feature, built into VS)
-- Project uses VSTest — hot reload requires Microsoft Testing Platform (MTP)
+- Project uses VSTest -- hot reload requires Microsoft Testing Platform (MTP)
 - User needs CI/CD pipeline configuration
 
 ## Inputs
@@ -56,13 +56,13 @@ Install the `Microsoft.Testing.Extensions.HotReload` package:
 dotnet add <project-path> package Microsoft.Testing.Extensions.HotReload
 ```
 
-> **Note**: When using `Microsoft.Testing.Platform.MSBuild` (included transitively by MSTest, NUnit, and xUnit runners), the extension is auto-registered when you install its NuGet package — no code changes needed.
+> **Note**: When using `Microsoft.Testing.Platform.MSBuild` (included transitively by MSTest, NUnit, and xUnit runners), the extension is auto-registered when you install its NuGet package -- no code changes needed.
 
 ### Step 3: Enable hot reload
 
 Hot reload is activated by setting the `TESTINGPLATFORM_HOTRELOAD_ENABLED` environment variable to `1`.
 
-**Option A — Set it in the shell before running tests:**
+**Option A -- Set it in the shell before running tests:**
 
 ```shell
 # PowerShell
@@ -72,7 +72,7 @@ $env:TESTINGPLATFORM_HOTRELOAD_ENABLED = "1"
 export TESTINGPLATFORM_HOTRELOAD_ENABLED=1
 ```
 
-**Option B — Add it to `launchSettings.json` (recommended for repeatable use):**
+**Option B -- Add it to `launchSettings.json` (recommended for repeatable use):**
 
 Create or update `Properties/launchSettings.json` in the test project:
 
@@ -97,7 +97,7 @@ Run the test project directly (not through `dotnet test`) to use hot reload in c
 dotnet run --project <project-path>
 ```
 
-To filter to specific failing tests, pass the filter after `--`. The syntax depends on the test framework — see [references/filter-syntax.md](references/filter-syntax.md) for full details. Quick examples:
+To filter to specific failing tests, pass the filter after `--`. The syntax depends on the test framework -- see [references/filter-syntax.md](references/filter-syntax.md) for full details. Quick examples:
 
 | Framework | Filter syntax |
 |-----------|--------------|
@@ -140,5 +140,5 @@ Once all tests pass:
 | Using `dotnet test` instead of `dotnet run` | Hot reload requires `dotnet run --project <path>` to run the test host directly in console mode |
 | Project uses VSTest, not MTP | Hot reload requires MTP. Migrate to MTP first or use VS Test Explorer hot reload |
 | Forgetting to set the environment variable | Set `TESTINGPLATFORM_HOTRELOAD_ENABLED=1` before running |
-| Expecting Test Explorer integration | Console mode only — no VS/VS Code Test Explorer support |
+| Expecting Test Explorer integration | Console mode only -- no VS/VS Code Test Explorer support |
 | Making unsupported code changes (rude edits) | Some changes (adding new types, changing method signatures) require a restart. Stop and re-run |

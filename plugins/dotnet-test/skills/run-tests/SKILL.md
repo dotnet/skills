@@ -50,7 +50,7 @@ Detect the test platform and framework, run tests, and apply filters using `dotn
 | MTP | 8 or 9 | `dotnet test [<path>] -- <MTP_ARGS>` |
 | MTP | 10+ | `dotnet test --project <path> <MTP_ARGS>` |
 
-**Detection files to always check** (in order): `global.json` → `.csproj` → `Directory.Build.props` → `Directory.Packages.props`
+**Detection files to always check** (in order): `global.json` -> `.csproj` -> `Directory.Build.props` -> `Directory.Packages.props`
 
 ### Step 1: Detect the test platform and framework
 
@@ -133,6 +133,7 @@ These flags apply to MTP on both SDK versions. On SDK 8/9, pass after `--`; on S
 |------|-------------|
 | `--no-build` | Skip build, use previously built output |
 | `--framework <TFM>` | Target a specific framework in multi-TFM projects |
+| `--results-directory <DIR>` | Directory for test result output |
 | `--diagnostic` | Enable diagnostic logging for the test platform |
 | `--diagnostic-output-directory <DIR>` | Directory for diagnostic log output |
 
@@ -171,9 +172,9 @@ These alternative invocations accept MTP command line arguments directly (no `--
 See [references/filter-syntax.md](references/filter-syntax.md) for the complete filter syntax for each platform and framework combination. Key points:
 
 - **VSTest** (MSTest, xUnit v2, NUnit): `dotnet test --filter <EXPRESSION>` with `=`, `!=`, `~`, `!~` operators
-- **MTP — MSTest and NUnit**: Same `--filter` syntax as VSTest; pass after `--` on SDK 8/9, directly on SDK 10+
-- **MTP — xUnit v3**: Uses `--filter-class`, `--filter-method`, `--filter-trait` (not VSTest expression syntax)
-- **MTP — TUnit**: Uses `--treenode-filter` with path-based syntax
+- **MTP -- MSTest and NUnit**: Same `--filter` syntax as VSTest; pass after `--` on SDK 8/9, directly on SDK 10+
+- **MTP -- xUnit v3**: Uses `--filter-class`, `--filter-method`, `--filter-trait` (not VSTest expression syntax)
+- **MTP -- TUnit**: Uses `--treenode-filter` with path-based syntax
 
 ## Validation
 
@@ -188,9 +189,9 @@ See [references/filter-syntax.md](references/filter-syntax.md) for the complete 
 | Pitfall | Solution |
 |---------|----------|
 | Missing `Microsoft.NET.Test.Sdk` in a VSTest project | Tests won't be discovered. Add `<PackageReference Include="Microsoft.NET.Test.Sdk" />` |
-| Using VSTest `--filter` syntax with xUnit v3 on MTP | xUnit v3 on MTP uses `--filter-class`, `--filter-method`, etc. — not the VSTest expression syntax |
+| Using VSTest `--filter` syntax with xUnit v3 on MTP | xUnit v3 on MTP uses `--filter-class`, `--filter-method`, etc. -- not the VSTest expression syntax |
 | Passing MTP args without `--` on .NET SDK 8/9 | Before .NET 10, MTP args must go after `--`: `dotnet test -- --report-trx` |
 | Using `--` for MTP args on .NET SDK 10+ | On .NET 10+, MTP args are passed directly: `dotnet test --report-trx` (using `--` still works but is unnecessary) |
 | Multi-TFM project runs tests for all frameworks | Use `--framework <TFM>` to target a specific framework |
 | `global.json` runner setting ignored | Requires .NET 10+ SDK. On older SDKs, use `<TestingPlatformDotnetTestSupport>` MSBuild property instead |
-| TUnit `--treenode-filter` not recognized | TUnit is MTP-only and requires `dotnet run`, not `dotnet test` with VSTest |
+| TUnit `--treenode-filter` not recognized | TUnit is MTP-only. On .NET SDK 10+ use `dotnet test`; on older SDKs use `dotnet run` since VSTest-mode `dotnet test` does not support TUnit |

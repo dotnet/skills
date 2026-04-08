@@ -7,6 +7,10 @@
     return div.innerHTML;
   }
 
+  // AGENTVIZ session replay configuration
+  const sessionManifestUrl = 'https://raw.githubusercontent.com/dotnet/skills/dashboard-session-data/data/manifest.json';
+  const replayBaseUrl = 'replay/index.html';
+
   // Fetch plugin manifest
   let plugins;
   try {
@@ -168,7 +172,13 @@
     const qualityEntries = data.entries['Quality'] || [];
     const efficiencyEntries = data.entries['Efficiency'] || [];
 
+    const replayHref = `${replayBaseUrl}?manifest=${encodeURIComponent(sessionManifestUrl)}&tag=${encodeURIComponent(plugin)}`;
+
     panel.innerHTML = `
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:8px;">
+        <a href="${escapeHtml(replayHref)}" target="_blank" rel="noopener"
+           style="color:#58a6ff;font-size:13px;text-decoration:none;">&#9654; Sessions Visualisation</a>
+      </div>
       <div class="summary-cards" id="summary-${plugin}"></div>
       <h2 class="section-title">Quality Over Time</h2>
       <div class="charts-grid" id="quality-${plugin}"></div>
