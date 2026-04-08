@@ -25,6 +25,9 @@ scenarios:
       - type: file_contains
         path: "OrderService.Tests/OrderProcessorTests.cs"
         value: "TestCategory"
+      - type: file_contains
+        path: "OrderService.Tests/OrderProcessorTests.cs"
+        value: "[TestCategory("
       - type: output_matches
         pattern: "positive|negative"
       - type: output_matches
@@ -33,7 +36,6 @@ scenarios:
       - "Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive"
       - "Tagged the exception-throwing tests (NullEmail, EmptyEmail, InvalidEmailFormat, etc.) as negative"
       - "Identified the boundary-adjacent tests that operate on zero, negative, or empty values (ZeroQuantity, NegativePrice, EmptyItemList, ZeroTotal, Exactly500Points) and tagged them accordingly"
-      - "Used the correct MSTest attribute syntax [TestCategory(\"...\")]"
       - "Produced a summary showing the count or distribution of tags across the test suite"
       - "Every test method received at least one positive or negative tag"
     timeout: 360
@@ -64,6 +66,9 @@ scenarios:
       - type: file_contains
         path: "OrderService.Tests/OrderProcessorTests.cs"
         value: "[Trait("
+      - type: file_contains
+        path: "OrderService.Tests/OrderProcessorTests.cs"
+        value: "Category"
       - type: output_matches
         pattern: "positive|negative"
       - type: output_matches
@@ -72,7 +77,6 @@ scenarios:
       - "Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive"
       - "Tagged the exception-throwing tests (NullEmail, EmptyEmail, InvalidEmailFormat, etc.) as negative"
       - "Identified the boundary-adjacent tests that operate on zero, negative, or empty values (ZeroQuantity, NegativePrice, EmptyItemList, ZeroTotal, Exactly500Points) and tagged them accordingly"
-      - "Used the correct xUnit attribute syntax [Trait(\"Category\", \"...\")]"
       - "Produced a summary showing the count or distribution of tags across the test suite"
       - "Every test method received at least one positive or negative tag"
     timeout: 360
@@ -111,7 +115,6 @@ scenarios:
       - "Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive"
       - "Tagged the exception-throwing tests (NullEmail, EmptyEmail, InvalidEmailFormat, etc.) as negative"
       - "Identified the boundary-adjacent tests that operate on zero, negative, or empty values (ZeroQuantity, NegativePrice, EmptyItemList, ZeroTotal, Exactly500Points) and tagged them accordingly"
-      - "Used the correct NUnit attribute syntax [Category(\"...\")]"
       - "Produced a summary showing the count or distribution of tags across the test suite"
       - "Every test method received at least one positive or negative tag"
     timeout: 360
@@ -149,6 +152,8 @@ scenarios:
       - "Identified tests that cover boundary conditions (zero quantity, negative price, empty list, zero total, exactly-500-points tier boundary)"
       - "Provided observations about the test distribution balance or coverage gaps"
       - "Did NOT modify OrderProcessorTests.cs — analysis only"
+    max_turns: 3
+    max_tokens: 8000
     timeout: 180
 
   # ==========================================================================
@@ -181,4 +186,6 @@ scenarios:
     rubric:
       - "Wrote test methods for the PaymentGateway class"
       - "Covered both success and failure scenarios"
+    max_turns: 5
+    max_tokens: 12000
     timeout: 360
