@@ -1,0 +1,65 @@
+scenarios:
+  - name: "Save and restore state on background"
+    prompt: |
+      My .NET MAUI app has a note-taking page. I need to save the user's draft
+      text when the app goes to the background and restore it when the app comes
+      back. Show me how to do this properly.
+    assertions:
+      - type: "output_contains"
+        value: "OnStopped"
+      - type: "output_contains"
+        value: "OnResumed"
+      - type: "output_matches"
+        pattern: "(?i)preferences\\.set"
+    rubric:
+      - "The agent saves state in OnStopped (not OnDeactivated)"
+      - "The agent restores state in OnResumed"
+      - "The agent mentions the Android back-button edge case and saving in OnDestroying"
+      - "The agent warns against heavy I/O in lifecycle handlers"
+    timeout: 120
+
+  - name: "Window lifecycle event subscription"
+    prompt: |
+      How do I subscribe to all the Window lifecycle events in my .NET MAUI app?
+      I want to log each transition for debugging purposes.
+    assertions:
+      - type: "output_contains"
+        value: "CreateWindow"
+      - type: "output_matches"
+        pattern: "(?i)(?=.*(created|activated))(?=.*(stopped|destroying))(?=.*(resumed|deactivated))"
+    rubric:
+      - "The agent shows how to override CreateWindow or use a custom Window subclass"
+      - "The agent lists all six lifecycle events: Created, Activated, Deactivated, Stopped, Resumed, Destroying"
+      - "The agent explains that Resumed does not fire on first launch"
+    timeout: 120
+
+  - name: "Platform-specific lifecycle mapping"
+    prompt: |
+      I need to run code when my app enters the background on Android (OnPause/OnStop)
+      and iOS (DidEnterBackground). How do I hook into these platform-specific
+      lifecycle events in .NET MAUI?
+    assertions:
+      - type: "output_contains"
+        value: "ConfigureLifecycleEvents"
+      - type: "output_matches"
+        pattern: "(?i)AddAndroid|AddiOS"
+    rubric:
+      - "The agent uses ConfigureLifecycleEvents in MauiProgram.cs"
+      - "The agent shows platform-specific hooks with #if ANDROID and #if IOS preprocessor directives"
+      - "The agent maps Window events to their native counterparts"
+    timeout: 120
+
+  - name: "Avoid legacy Xamarin.Forms lifecycle methods"
+    prompt: |
+      I'm migrating from Xamarin.Forms to .NET MAUI. I used to override OnStart,
+      OnSleep, and OnResume in my Application class. What's the equivalent in MAUI?
+    assertions:
+      - type: "output_matches"
+        pattern: "(?i)window.*(lifecycle|event)"
+      - type: "output_matches"
+        pattern: "(?i)(OnActivated|OnStopped|OnResumed)"
+    rubric:
+      - "The agent explains that OnStart/OnSleep/OnResume are legacy Xamarin.Forms methods"
+      - "The agent directs the developer to use Window lifecycle events instead"
+      - "The agent maps OnSleep to OnStopped and OnResume to OnResumed"
+    timeout: 120

@@ -1,6 +1,17 @@
 ---
 name: run-tests
-description: "Guide for running .NET tests with dotnet test. Use when the user needs to execute tests, detect the test platform (VSTest or Microsoft.Testing.Platform), identify the test framework, apply test filters, or troubleshoot test execution. Covers MSTest, xUnit, NUnit, and TUnit across both VSTest and MTP platforms."
+description: >
+  Runs .NET tests with dotnet test. Use when user says "run tests", "execute
+  tests", "dotnet test", "test filter", "filter by category", "filter by
+  class", "run only specific tests", "tests not running", "hang timeout",
+  "blame-hang", "blame-crash", "TUnit", "treenode-filter", or needs to
+  detect the test platform (VSTest or Microsoft.Testing.Platform), identify the
+  test framework, apply test filters, or troubleshoot test execution failures.
+  Covers MSTest, xUnit, NUnit, and TUnit across both VSTest and MTP platforms.
+  Also use for --filter-class, --filter-trait, and other
+  framework-specific filter syntax.
+  DO NOT USE FOR: writing or generating test code, CI/CD pipeline
+  configuration, or debugging failing test logic.
 ---
 
 # Run .NET Tests
@@ -16,7 +27,9 @@ Detect the test platform and framework, run tests, and apply filters using `dotn
 
 ## When Not to Use
 
-- User needs to write or generate test code (use general coding assistance)
+- User needs to write or generate test code (use `writing-mstest-tests` for MSTest, or general coding assistance for other frameworks)
+- User needs to migrate from VSTest to MTP (use `migrate-vstest-to-mtp`)
+- User wants to iterate on failing tests without rebuilding (use `mtp-hot-reload`)
 - User needs CI/CD pipeline configuration (use CI-specific skills)
 - User needs to debug a test (use debugging skills)
 
@@ -38,59 +51,21 @@ Detect the test platform and framework, run tests, and apply filters using `dotn
 | MTP | 8 or 9 | `dotnet test [<path>] -- <MTP_ARGS>` |
 | MTP | 10+ | `dotnet test --project <path> <MTP_ARGS>` |
 
-**Detection files to always check** (in order): `global.json` → `.csproj` → `Directory.Build.props` → `Directory.Packages.props`
+**Detection files to always check** (in order): `global.json` -> `.csproj` -> `Directory.Build.props` -> `Directory.Packages.props`
 
 ### Step 1: Detect the test platform and framework
 
-Determine **which test platform** (VSTest or Microsoft.Testing.Platform) and **which test framework** (MSTest, xUnit, NUnit, TUnit) the project uses.
+1. Read `global.json` first — on .NET SDK 10+, `"test": { "runner": "Microsoft.Testing.Platform" }` is the **authoritative MTP signal**. If present, the project uses MTP and SDK 10+ syntax (no `--` separator).
+2. Read `.csproj`, `Directory.Build.props`, and `Directory.Packages.props` for framework packages and MTP properties.
+3. For full detection logic (SDK 8/9 signals, framework identification), see the `platform-detection` skill.
 
-#### Detecting the test framework
+**Quick detection summary:**
 
-Read the `.csproj` file **and** `Directory.Build.props` / `Directory.Packages.props` (for centrally managed dependencies) and look for:
-
-| Package or SDK reference | Framework |
-|--------------------------|-----------|
-| `MSTest` (metapackage, recommended) or `<Sdk Name="MSTest.Sdk">` | MSTest |
-| `MSTest.TestFramework` + `MSTest.TestAdapter` | MSTest (also valid for v3/v4) |
-| `xunit`, `xunit.v3`, `xunit.v3.mtp-v1`, `xunit.v3.mtp-v2`, `xunit.v3.core.mtp-v1`, `xunit.v3.core.mtp-v2` | xUnit |
-| `NUnit` + `NUnit3TestAdapter` | NUnit |
-| `TUnit` | TUnit (MTP only) |
-
-#### Detecting the test platform
-
-The detection logic depends on the .NET SDK version. Run `dotnet --version` to determine it.
-
-##### .NET SDK 10+
-
-On .NET 10+, the `global.json` `test.runner` setting is the **authoritative source**:
-
-- If `global.json` contains `"test": { "runner": "Microsoft.Testing.Platform" }` → **MTP**
-- If `global.json` has `"runner": "VSTest"`, or no `test` section exists → **VSTest**
-
-> **Important**: On .NET 10+, `<TestingPlatformDotnetTestSupport>` alone does **not** switch to MTP. The `global.json` runner setting takes precedence. If the runner is VSTest (or unset), the project uses VSTest regardless of `TestingPlatformDotnetTestSupport`.
-
-##### .NET SDK 8 or 9
-
-On older SDKs, check these signals in priority order:
-
-**1. Check the `<TestingPlatformDotnetTestSupport>` MSBuild property.** Look in the `.csproj`, `Directory.Build.props`, **and** `Directory.Packages.props`. If set to `true` in **any** of these files, the project uses **MTP**.
-
-> **Critical**: Always read `Directory.Build.props` and `Directory.Packages.props` if they exist. MTP properties are frequently set there instead of in the `.csproj`, so checking only the project file will miss them.
-
-**2. Check project-level signals:**
-
-| Signal | Platform |
-|--------|----------|
-| `<Sdk Name="MSTest.Sdk">` as project SDK | **MTP** by default |
-| `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` | **MTP** runner (xUnit) |
-| `<EnableMSTestRunner>true</EnableMSTestRunner>` | **MTP** runner (MSTest) |
-| `<EnableNUnitRunner>true</EnableNUnitRunner>` | **MTP** runner (NUnit) |
-| `Microsoft.Testing.Platform` package referenced directly | **MTP** |
-| `TUnit` package referenced | **MTP** (TUnit is MTP-only) |
-
-> **Note**: The presence of `Microsoft.NET.Test.Sdk` does **not** necessarily mean VSTest. Some frameworks (e.g., MSTest) pull it in transitively for compatibility, even when MTP is enabled. Do not use this package as a signal on its own — always check the MTP signals above first.
-
-> **Key distinction**: VSTest is the classic platform that uses `vstest.console` under the hood. Microsoft.Testing.Platform (MTP) is the newer, faster platform. Both can be invoked via `dotnet test`, but their filter syntax and CLI options differ.
+| Signal | Means |
+|--------|-------|
+| `global.json` has `"test": { "runner": "Microsoft.Testing.Platform" }` | **MTP on SDK 10+** — pass args directly, no `--` |
+| `<TestingPlatformDotnetTestSupport>true` in csproj or Directory.Build.props | **MTP on SDK 8/9** — pass args after `--` |
+| Neither signal present | **VSTest** |
 
 ### Step 2: Run tests
 
@@ -165,6 +140,7 @@ These flags apply to MTP on both SDK versions. On SDK 8/9, pass after `--`; on S
 |------|-------------|
 | `--no-build` | Skip build, use previously built output |
 | `--framework <TFM>` | Target a specific framework in multi-TFM projects |
+| `--results-directory <DIR>` | Directory for test result output |
 | `--diagnostic` | Enable diagnostic logging for the test platform |
 | `--diagnostic-output-directory <DIR>` | Directory for diagnostic log output |
 
@@ -200,141 +176,12 @@ These alternative invocations accept MTP command line arguments directly (no `--
 
 ### Step 3: Run filtered tests
 
-The filter syntax depends on the **platform** and **test framework**.
+See the `filter-syntax` skill for the complete filter syntax for each platform and framework combination. Key points:
 
-#### VSTest filters (MSTest, xUnit, NUnit on VSTest)
-
-```bash
-dotnet test --filter <EXPRESSION>
-```
-
-Expression syntax: `<Property><Operator><Value>[|&<Expression>]`
-
-**Operators:**
-
-| Operator | Meaning |
-|----------|---------|
-| `=` | Exact match |
-| `!=` | Not exact match |
-| `~` | Contains |
-| `!~` | Does not contain |
-
-**Combinators:** `|` (OR), `&` (AND). Parentheses for grouping: `(A|B)&C`
-
-**Supported properties by framework:**
-
-| Framework | Properties |
-|-----------|-----------|
-| MSTest | `FullyQualifiedName`, `Name`, `ClassName`, `Priority`, `TestCategory` |
-| xUnit | `FullyQualifiedName`, `DisplayName`, `Traits` |
-| NUnit | `FullyQualifiedName`, `Name`, `Priority`, `TestCategory` |
-
-An expression without an operator is treated as `FullyQualifiedName~<value>`.
-
-**Examples (VSTest):**
-
-```bash
-# Run tests whose name contains "LoginTest"
-dotnet test --filter "Name~LoginTest"
-
-# Run a specific test class
-dotnet test --filter "ClassName=MyNamespace.MyTestClass"
-
-# Run tests in a category
-dotnet test --filter "TestCategory=Integration"
-
-# Exclude a category
-dotnet test --filter "TestCategory!=Slow"
-
-# Combine: class AND category
-dotnet test --filter "ClassName=MyNamespace.MyTestClass&TestCategory=Unit"
-
-# Either of two classes
-dotnet test --filter "ClassName=MyNamespace.ClassA|ClassName=MyNamespace.ClassB"
-```
-
-#### MTP filters — MSTest and NUnit
-
-MSTest and NUnit on MTP use the **same `--filter` syntax** as VSTest (same properties, operators, and combinators). The only difference is how the flag is passed:
-
-```bash
-# .NET SDK 8/9 (after --)
-dotnet test -- --filter "Name~LoginTest"
-
-# .NET SDK 10+ (direct)
-dotnet test --filter "Name~LoginTest"
-```
-
-#### MTP filters — xUnit (v3)
-
-xUnit v3 on MTP uses **framework-specific filter flags** instead of the generic `--filter` expression:
-
-| Flag | Description |
-|------|-------------|
-| `--filter-class "name"` | Run all tests in a given class |
-| `--filter-not-class "name"` | Exclude all tests in a given class |
-| `--filter-method "name"` | Run a specific test method |
-| `--filter-not-method "name"` | Exclude a specific test method |
-| `--filter-namespace "name"` | Run all tests in a namespace |
-| `--filter-not-namespace "name"` | Exclude all tests in a namespace |
-| `--filter-trait "name=value"` | Run tests with a matching trait |
-| `--filter-not-trait "name=value"` | Exclude tests with a matching trait |
-
-Multiple values can be specified with a single flag: `--filter-class Foo Bar`.
-
-```bash
-# .NET SDK 8/9
-dotnet test -- --filter-class "MyNamespace.LoginTests"
-
-# .NET SDK 10+
-dotnet test --filter-class "MyNamespace.LoginTests"
-
-# Combine: namespace + trait
-dotnet test --filter-namespace "MyApp.Tests.Integration" --filter-trait "Category=Smoke"
-```
-
-#### MTP filters — TUnit
-
-TUnit uses TUnit uses `--treenode-filter` with a path-based syntax:
-
-```
---treenode-filter "/<Assembly>/<Namespace>/<ClassName>/<TestName>"
-```
-
-Wildcards (`*`) are supported in any segment. Filter operators can be appended to test names for property-based filtering.
-
-| Operator | Meaning |
-|----------|---------|
-| `*` | Wildcard match |
-| `=` | Exact property match (e.g., `[Category=Unit]`) |
-| `!=` | Exclude property value |
-| `&` | AND (combine conditions) |
-| `\|` | OR (within a segment, requires parentheses) |
-
-**Examples (TUnit):**
-
-```bash
-# All tests in a class
-dotnet run --treenode-filter "/*/*/LoginTests/*"
-
-# A specific test
-dotnet run --treenode-filter "/*/*/*/AcceptCookiesTest"
-
-# By namespace prefix (wildcard)
-dotnet run --treenode-filter "/*/MyProject.Tests.Api*/*/*"
-
-# By custom property
-dotnet run --treenode-filter "/*/*/*/*[Category=Smoke]"
-
-# Exclude by property
-dotnet run --treenode-filter "/*/*/*/*[Category!=Slow]"
-
-# OR across classes
-dotnet run --treenode-filter "/*/*/(LoginTests)|(SignupTests)/*"
-
-# Combined: namespace + property
-dotnet run --treenode-filter "/*/MyProject.Tests.Integration/*/*/*[Priority=Critical]"
-```
+- **VSTest** (MSTest, xUnit v2, NUnit): `dotnet test --filter <EXPRESSION>` with `=`, `!=`, `~`, `!~` operators
+- **MTP -- MSTest and NUnit**: Same `--filter` syntax as VSTest; pass after `--` on SDK 8/9, directly on SDK 10+
+- **MTP -- xUnit v3**: Uses `--filter-class`, `--filter-method`, `--filter-trait` (not VSTest expression syntax)
+- **MTP -- TUnit**: Uses `--treenode-filter` with path-based syntax
 
 ## Validation
 
@@ -349,9 +196,9 @@ dotnet run --treenode-filter "/*/MyProject.Tests.Integration/*/*/*[Priority=Crit
 | Pitfall | Solution |
 |---------|----------|
 | Missing `Microsoft.NET.Test.Sdk` in a VSTest project | Tests won't be discovered. Add `<PackageReference Include="Microsoft.NET.Test.Sdk" />` |
-| Using VSTest `--filter` syntax with xUnit v3 on MTP | xUnit v3 on MTP uses `--filter-class`, `--filter-method`, etc. — not the VSTest expression syntax |
+| Using VSTest `--filter` syntax with xUnit v3 on MTP | xUnit v3 on MTP uses `--filter-class`, `--filter-method`, etc. -- not the VSTest expression syntax |
 | Passing MTP args without `--` on .NET SDK 8/9 | Before .NET 10, MTP args must go after `--`: `dotnet test -- --report-trx` |
-| Using `--` for MTP args on .NET SDK 10+ | On .NET 10+, MTP args are passed directly: `dotnet test --report-trx` (using `--` still works but is unnecessary) |
+| Using `--` for MTP args on .NET SDK 10+ | On .NET 10+, MTP args are passed directly: `dotnet test --project . --blame-hang-timeout 5min` — do NOT use `-- --blame-hang-timeout` |
 | Multi-TFM project runs tests for all frameworks | Use `--framework <TFM>` to target a specific framework |
 | `global.json` runner setting ignored | Requires .NET 10+ SDK. On older SDKs, use `<TestingPlatformDotnetTestSupport>` MSBuild property instead |
-| TUnit `--treenode-filter` not recognized | TUnit is MTP-only and requires `dotnet run`, not `dotnet test` with VSTest |
+| TUnit `--treenode-filter` not recognized | TUnit is MTP-only. On .NET SDK 10+ use `dotnet test`; on older SDKs use `dotnet run` since VSTest-mode `dotnet test` does not support TUnit |

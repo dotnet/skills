@@ -1,0 +1,72 @@
+scenarios:
+  - name: "Optimize manual min/max with TensorPrimitives"
+    prompt: "This .NET 10 project has a method that finds the minimum and maximum values in a float array. It's used in a real-time sensor monitoring system to compute value ranges over sliding windows of 10K–100K readings. Please optimize FindMinMax for maximum throughput."
+    setup:
+      files:
+        - path: "RangeCalculator.cs"
+          source: "fixtures/simd-tensor-primitives-minmax.cs"
+    assertions:
+      - type: "exit_success"
+    rubric:
+      - "Identifies that finding min and max of a float span is already covered by TensorPrimitives.Min and TensorPrimitives.Max"
+      - "Replaces the scalar loop with TensorPrimitives.Min/Max or equivalent framework API — not manual SIMD"
+      - "Does not introduce Vector128/Vector256/Vector512 intrinsics for operations already optimized by TensorPrimitives"
+    timeout: 180
+
+  - name: "Optimize manual product with TensorPrimitives"
+    prompt: "This .NET 10 project computes the product of all elements in a float array for probability calculations. Arrays are 100-1000 elements. Please optimize Product for maximum throughput."
+    setup:
+      files:
+        - path: "MathOps.cs"
+          source: "fixtures/simd-tensor-primitives-product.cs"
+    assertions:
+      - type: "exit_success"
+    rubric:
+      - "Identifies that aggregate product is already covered by TensorPrimitives.Product"
+      - "Replaces the scalar loop with TensorPrimitives.Product — not manual SIMD"
+      - "Does not introduce Vector128/Vector256/Vector512 intrinsics for an operation already optimized by TensorPrimitives"
+    timeout: 180
+
+  - name: "No optimization opportunity — dictionary-based lookup service"
+    prompt: "This .NET 10 project is a product catalog lookup service that maps product codes to categories using dictionaries. The development team suspects it could benefit from SIMD optimization. Please analyze and optimize for maximum throughput."
+    setup:
+      files:
+        - path: "ProductCatalog.cs"
+          source: "fixtures/simd-no-opportunity-catalog.cs"
+    assertions:
+      - type: "exit_success"
+    rubric:
+      - "Correctly identifies that this code has no meaningful SIMD optimization opportunity"
+      - "Explains why SIMD is not applicable (dictionary lookups, hash-based operations, small string keys, branching logic)"
+      - "Does not introduce unnecessary SIMD code that adds complexity without benefit"
+    timeout: 180
+
+  - name: "Optimize int array conditional increment with SIMD"
+    prompt: "This .NET 10 project conditionally increments each element of an int array based on a threshold for counter updates. Arrays are 100K+ elements. Please optimize ConditionalIncrement.IncrementAbove for maximum throughput."
+    setup:
+      files:
+        - path: "ConditionalIncrement.cs"
+          source: "fixtures/simd-conditional-increment.cs"
+    assertions:
+      - type: "output_contains"
+        value: "Vector"
+      - type: "exit_success"
+    rubric:
+      - "Introduces Vector128/Vector256/Vector512 with GreaterThan comparison mask and ConditionalSelect or masked Add for conditional increment"
+      - "Preserves scalar fallback for trailing elements or non-accelerated hardware"
+    timeout: 180
+
+  - name: "Optimize byte buffer bit reversal with SIMD"
+    prompt: "This .NET 10 project reverses the bit order of each byte in a buffer for serial protocol decoding. Buffers are 64KB+. Please optimize BitReverser.ReverseInPlace for maximum throughput."
+    setup:
+      files:
+        - path: "BitReverser.cs"
+          source: "fixtures/simd-bit-reverser.cs"
+    assertions:
+      - type: "output_contains"
+        value: "Vector"
+      - type: "exit_success"
+    rubric:
+      - "Introduces Vector128/Vector256/Vector512 with nibble-based Shuffle lookup tables for parallel bit reversal"
+      - "Preserves scalar fallback for trailing elements or non-accelerated hardware"
+    timeout: 180

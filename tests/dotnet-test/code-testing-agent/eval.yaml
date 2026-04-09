@@ -1,0 +1,32 @@
+scenarios:
+  # ============================================================================
+  # Goal: Generate comprehensive tests for a real-world ASP.NET Core MVC app
+  # ContosoUniversity is a non-trivial web app with EF Core (SqlServer), TPH
+  # inheritance, multiple CRUD controllers, a notification service, pagination,
+  # and a complex DbContext. The agent must figure out how to set up an in-memory
+  # or SQLite test database, mock/arrange controller dependencies, and cover
+  # controllers + services + data layer logic.
+  # ============================================================================
+
+  - name: "Generate tests for ContosoUniversity ASP.NET Core MVC app"
+    prompt: |
+      I have an ASP.NET Core MVC application under ContosoUniversity/ — a university
+      enrollment system.
+
+      Please generate comprehensive unit tests that achieve high code coverage.
+    setup:
+      copy_test_files: true
+    assertions:
+      # The generated tests must compile, pass, and produce a coverage report
+      - type: run_command_and_assert
+        command_to_run: "dotnet"
+        command_arguments: "test ContosoUniversity.Tests/ContosoUniversity.Tests.csproj -v:q --collect:\"XPlat Code Coverage\""
+        expected_exit_code: 0
+        expected_std_output_contains: "Passed!"
+        command_timeout: 180
+    rubric:
+      - "Achieved high line coverage (>70%) across the ContosoUniversity source files as reported by the Cobertura XML in TestResults/"
+      - "Tests are organized logically with clear naming that describes test scenarios"
+      - "Generated tests that cover multiple controllers (Students, Courses, Departments, Instructors)"
+      - "Set up the EF Core SchoolContext correctly for testing without a real SQL Server (e.g., InMemory provider or SQLite)"
+    timeout: 1800

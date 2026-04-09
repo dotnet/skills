@@ -1,3 +1,7 @@
+config:
+  max_parallel_scenarios: 1
+  max_parallel_runs: 2
+
 scenarios:
   - name: "ML.NET classification on tabular data"
     prompt: "Add a support ticket classifier to this .NET 10 Web API. Tickets have a Subject (string), Description (string), Priority (int 1-3), and Category should be predicted as one of: Billing, Technical, General. Use the provided training data CSV. Show me the full implementation including model training, evaluation metrics, and a prediction endpoint."

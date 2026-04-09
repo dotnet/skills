@@ -1,0 +1,117 @@
+scenarios:
+  # ==========================================================================
+  # Scenario 1: Low assertion diversity — equality-heavy test suite
+  # ==========================================================================
+
+  - name: "Identify low assertion diversity in equality-dominated test suite"
+    prompt: |
+      I want to understand whether my PaymentService tests are actually
+      thorough. They all pass, but I'm not confident they'd catch real bugs.
+      Can you analyze the assertion quality and variety?
+    setup:
+      files:
+        - path: "PaymentService.Tests/PaymentService.Tests.csproj"
+          source: "fixtures/low-diversity/PaymentService.Tests/PaymentService.Tests.csproj"
+        - path: "PaymentService.Tests/PaymentProcessorTests.cs"
+          source: "fixtures/low-diversity/PaymentService.Tests/PaymentProcessorTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(diversity|variety|spread|shallow|narrow|limited|homogeneous|repetitive)"
+      - type: "output_matches"
+        pattern: "(AreEqual|equality|equal)"
+      - type: "output_matches"
+        pattern: "(exception|throw|error|negative|missing)"
+      - type: "exit_success"
+    rubric:
+      - "Identified that the vast majority of assertions are Assert.AreEqual, showing low assertion type diversity"
+      - "Noted the absence of exception assertions — no tests verify error handling behavior (e.g., invalid card, negative amounts)"
+      - "Identified GetReceipt test as having only a trivial Assert.IsNotNull without checking the receipt's content"
+      - "Noted that no tests verify collection contents in GetTransactionHistory — only the count is checked"
+      - "Recommended specific additional assertion types that would improve coverage (exception, collection, structural)"
+      - "Provided concrete examples of assertions that could be added to specific test methods"
+    timeout: 120
+
+  # ==========================================================================
+  # Scenario 2: Assertion-free smoke tests
+  # ==========================================================================
+
+  - name: "Flag assertion-free tests and trivial-only assertions"
+    prompt: |
+      Our QA team says these API smoke tests give us good coverage but
+      I'm suspicious. Can you check whether these tests are actually
+      verifying anything useful?
+    setup:
+      files:
+        - path: "SmokeTests/SmokeTests.csproj"
+          source: "fixtures/assertion-free/SmokeTests/SmokeTests.csproj"
+        - path: "SmokeTests/ApiEndpointSmokeTests.cs"
+          source: "fixtures/assertion-free/SmokeTests/ApiEndpointSmokeTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(no assertion|zero assertion|assertion.free|without.*assert|missing.*assert|don.*assert|lack.*assert)"
+      - type: "output_matches"
+        pattern: "(5|five|62%|most|majority|several)"
+      - type: "exit_success"
+    rubric:
+      - "Identified that 5 out of 8 tests have zero assertions — they only call methods without verifying results"
+      - "Identified that the remaining 3 tests only use Assert.IsNotNull, which is a trivial assertion that doesn't verify content"
+      - "Explained that these tests give false security — code coverage may look good but correctness is not verified"
+      - "Recommended specific meaningful assertions for at least some of the assertion-free tests"
+      - "Distinguished between intentional smoke tests (acceptable if labeled as such) and tests masquerading as real verification"
+    timeout: 300
+
+  # ==========================================================================
+  # Scenario 3: Good assertion diversity — acknowledge well-tested code
+  # ==========================================================================
+
+  - name: "Recognize well-diversified assertion usage"
+    prompt: |
+      Can you evaluate the assertion quality in my UserService.Tests project?
+      I want to make sure my tests are thorough enough before we ship.
+    setup:
+      files:
+        - path: "UserService.Tests/UserService.Tests.csproj"
+          source: "fixtures/good-diversity/UserService.Tests/UserService.Tests.csproj"
+        - path: "UserService.Tests/UserManagerTests.cs"
+          source: "fixtures/good-diversity/UserService.Tests/UserManagerTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(good|strong|solid|diverse|well|thorough|comprehensive|varied)"
+      - type: "exit_success"
+    rubric:
+      - "Recognized that the test suite uses a variety of assertion types including equality, boolean, null, exception, and collection assertions"
+      - "Noted positive patterns: tests check multiple properties on returned objects, not just one field"
+      - "Acknowledged the negative assertions (Assert.IsNull for non-existent user, Assert.IsFalse for failed delete, Assert.AreNotEqual for role change)"
+      - "Acknowledged the exception assertions with specific exception types and parameter name verification"
+      - "If any gaps were identified, they were presented as minor enhancement opportunities rather than problems"
+    timeout: 300
+
+  # ==========================================================================
+  # Scenario 4: Non-activation — user wants to run tests
+  # ==========================================================================
+
+  - name: "Decline request to write new tests from scratch"
+    prompt: |
+      I need to write unit tests for my InventoryTracker class.
+      It handles stock levels, reorder alerts, and warehouse transfers.
+      Can you help me write a full MSTest test suite from scratch?
+    expect_activation: false
+    setup:
+      files:
+        - path: "InventoryTracker.cs"
+          content: |
+            namespace Warehouse;
+
+            public sealed class InventoryTracker
+            {
+                public int GetStockLevel(string sku) => throw new NotImplementedException();
+                public void AddStock(string sku, int quantity) => throw new NotImplementedException();
+                public bool NeedsReorder(string sku) => throw new NotImplementedException();
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "(TestMethod|TestClass|\\[Fact\\]|test)"
+    rubric:
+      - "Wrote test methods for the InventoryTracker class"
+      - "Covered multiple methods of the class"
+    timeout: 120

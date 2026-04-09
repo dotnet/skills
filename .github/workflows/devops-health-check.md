@@ -11,10 +11,58 @@ on:
     - cron: "0 3 * * *"  # 03:00 UTC daily
   workflow_dispatch:
 
+  # ###############################################################
+  # Override the COPILOT_GITHUB_TOKEN secret usage for the workflow
+  # with a randomly-selected token from a pool of secrets.
+  #
+  # As soon as organization-level billing is offered for Agentic
+  # Workflows, this stop-gap approach will be removed.
+  #
+  # See: /.github/actions/select-copilot-pat/README.md
+  # ###############################################################
+  steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      name: Checkout the select-copilot-pat action folder
+      with:
+        persist-credentials: false
+        sparse-checkout: .github/actions/select-copilot-pat
+        sparse-checkout-cone-mode: true
+        fetch-depth: 1
+
+    - id: select-copilot-pat
+      name: Select Copilot token from pool
+      uses: ./.github/actions/select-copilot-pat
+      env:
+        # If the secret names are changed here, they must also be changed
+        # in the `engine: env` case expression below
+        SECRET_0: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+        SECRET_1: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+        SECRET_2: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+        SECRET_3: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
+        SECRET_4: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
+        SECRET_5: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
+        SECRET_6: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
+        SECRET_7: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
+
 # Don't run scheduled triggers on forked repositories — forks lack the
 # secrets and context required, and scheduled runs would consume the
 # fork owner's minutes.
 if: ${{ !(github.event_name == 'schedule' && github.event.repository.fork) }}
+
+# Add the pre-activation output of the randomly selected PAT
+jobs:
+  pre-activation:
+    outputs:
+      copilot_pat_number: ${{ steps.select-copilot-pat.outputs.copilot_pat_number }}
+
+# Override the COPILOT_GITHUB_TOKEN expression used in the activation job
+# Consume the PAT number from the pre-activation step and select the corresponding secret
+engine:
+  id: copilot
+  env:
+    # We cannot use line breaks in this expression as it leads to a syntax error in the compiled workflow
+    # If none of the `COPILOT_GITHUB_TOKEN_#` secrets were selected, then the default COPILOT_GITHUB_TOKEN is used
+    COPILOT_GITHUB_TOKEN: ${{ case(needs.pre_activation.outputs.copilot_pat_number == '0', secrets.COPILOT_GITHUB_TOKEN, needs.pre_activation.outputs.copilot_pat_number == '1', secrets.COPILOT_GITHUB_TOKEN_2, needs.pre_activation.outputs.copilot_pat_number == '2', secrets.COPILOT_GITHUB_TOKEN_3, needs.pre_activation.outputs.copilot_pat_number == '3', secrets.COPILOT_GITHUB_TOKEN_4, needs.pre_activation.outputs.copilot_pat_number == '4', secrets.COPILOT_GITHUB_TOKEN_5, needs.pre_activation.outputs.copilot_pat_number == '5', secrets.COPILOT_GITHUB_TOKEN_6, needs.pre_activation.outputs.copilot_pat_number == '6', secrets.COPILOT_GITHUB_TOKEN_7, needs.pre_activation.outputs.copilot_pat_number == '7', secrets.COPILOT_GITHUB_TOKEN_8, secrets.COPILOT_GITHUB_TOKEN) }}
 
 permissions:
   contents: read
@@ -45,6 +93,8 @@ safe-outputs:
     workflows:
       - devops-health-investigate
     max: 5
+  noop:
+    report-as-issue: false
 
 network:
   allowed:
@@ -423,6 +473,7 @@ Replace the entire issue body with the following structure:
 {For each finding dispatched in the current run:}
 | {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | [Workflow Run]({workflow_actions_url}) |
 {Preserve any rows from the previous issue body that already show ✅ Done or ✅ Resolved — do not remove them}
+{If no findings were dispatched AND no previous rows exist, render the table header with zero rows — the section MUST still appear in the output}
 
 ---
 
@@ -548,6 +599,7 @@ Before finishing, verify:
 - **Time budget**: You have a 60-minute timeout. Prioritize reaching Steps 4 and 5 (issue update + dispatch). Do NOT write intermediate scripts or analysis files. Work through each check, collect findings in memory, and proceed directly to output. Aim to complete data collection (Step 1) within 30 minutes.
 - **Efficiency**: Process API responses in memory. Do NOT create Python/bash scripts to analyze data — parse JSON directly using `jq` or inline analysis. Do NOT write intermediate files unless explicitly required by the output format.
 - **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **complete, literal issue body text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. Pass the body directly as the string value.
+- **CRITICAL — Investigation Results section is MANDATORY**: The `## 🔍 Investigation Results` section MUST always appear in the issue body, even if no investigations were dispatched (in that case, render the section with the table header and zero data rows). The downstream grooming workflow depends on this section to link investigation results. Never omit it. Never inline investigation status elsewhere (e.g., inside the New Findings section). The section must appear **exactly** between the `## 🆕 New Findings` section and the `## ✅ Resolved` section.
 - **Be data-driven**: Include specific numbers, durations, percentages, and links.
 - **Be precise with fingerprints**: Use the exact fingerprint formulas from the knowledge file. Consistency is critical — the same finding MUST produce the same fingerprint across runs.
 - **First run handling**: If `cache-memory` has no previous state, note: "⚠️ This is the first health check run. All findings appear as new. Diff will resume from next run."

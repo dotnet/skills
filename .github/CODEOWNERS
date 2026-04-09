@@ -22,6 +22,20 @@
 /plugins/dotnet/skills/nuget-trusted-publishing/ @lewing @kartheekp-ms
 /tests/dotnet/nuget-trusted-publishing/ @lewing @kartheekp-ms
 
+/plugins/dotnet/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel
+
+/plugins/dotnet-ai/skills/mcp-csharp-create/ @leslierichardson95 @mikekistler
+/tests/dotnet-ai/mcp-csharp-create/ @leslierichardson95 @mikekistler
+
+/plugins/dotnet-ai/skills/mcp-csharp-debug/ @leslierichardson95 @mikekistler
+/tests/dotnet-ai/mcp-csharp-debug/ @leslierichardson95 @mikekistler
+
+/plugins/dotnet-ai/skills/mcp-csharp-publish/ @leslierichardson95 @mikekistler
+/tests/dotnet-ai/mcp-csharp-publish/ @leslierichardson95 @mikekistler
+
+/plugins/dotnet-ai/skills/mcp-csharp-test/ @leslierichardson95 @mikekistler
+/tests/dotnet-ai/mcp-csharp-test/ @leslierichardson95 @mikekistler
+
 # dotnet-upgrade (migrating and upgrading .NET projects)
 /plugins/dotnet-upgrade/skills/thread-abort-migration/ @dotnet/appmodel
 /tests/dotnet-upgrade/thread-abort-migration/ @dotnet/appmodel
@@ -65,14 +79,69 @@
 /plugins/dotnet-ai/skills/technology-selection/ @luisquintanilla @artl93
 /tests/dotnet-ai/technology-selection/ @luisquintanilla @artl93
 
+# dotnet-aspnet (ASP.NET Core web development)
+/plugins/dotnet-aspnet/ @dotnet/aspnet
+/tests/dotnet-aspnet/ @dotnet/aspnet
+
 # dotnet-data (data access, Entity Framework)
 /plugins/dotnet-data/skills/optimizing-ef-core-queries/ @dotnet/efteam
 /tests/dotnet-data/optimizing-ef-core-queries/ @dotnet/efteam
 
-# dotnet-test (test execution, filtering, platform detection)
-/plugins/dotnet-test/skills/run-tests/ @Evangelink @JanKrivanek
-/tests/dotnet-test/run-tests/ @Evangelink @JanKrivanek
+# dotnet-test (everything testing related)
+/plugins/dotnet-test/ @dotnet/dotnet-testing
+/tests/dotnet-test/ @dotnet/dotnet-testing
+
+# dotnet-experimental (skills under active evaluation)
+/plugins/dotnet-experimental/plugin.json @JanKrivanek @ViktorHofer @Evangelink @ManishJayaswal @AbhitejJohn
+
+# dotnet-experimental-tests (everything experimental test related)
+/plugins/dotnet-experimental/skills/exp-dotnet-test-frameworks/ @dotnet/dotnet-testing
+
+/plugins/dotnet-experimental/skills/exp-test-tagging/ @dotnet/dotnet-testing
+/tests/dotnet-experimental/exp-test-tagging/ @dotnet/dotnet-testing
+
+/plugins/dotnet-experimental/skills/exp-test-maintainability/ @dotnet/dotnet-testing
+/tests/dotnet-experimental/exp-test-maintainability/ @dotnet/dotnet-testing
+
+/plugins/dotnet-experimental/skills/exp-assertion-quality/ @dotnet/dotnet-testing
+/tests/dotnet-experimental/exp-assertion-quality/ @dotnet/dotnet-testing
+
+/plugins/dotnet-experimental/skills/exp-test-gap-analysis/ @dotnet/dotnet-testing
+/tests/dotnet-experimental/exp-test-gap-analysis/ @dotnet/dotnet-testing
+
+/plugins/dotnet-experimental/skills/exp-mock-usage-analysis/ @dotnet/dotnet-testing
+/tests/dotnet-experimental/exp-mock-usage-analysis/ @dotnet/dotnet-testing
+
+/plugins/dotnet-experimental/skills/exp-test-smell-detection/ @dotnet/dotnet-testing
+/tests/dotnet-experimental/exp-test-smell-detection/ @dotnet/dotnet-testing
+
+/plugins/dotnet-experimental/skills/exp-simd-vectorization/ @jeffschw @artl93
+/tests/dotnet-experimental/exp-simd-vectorization/ @jeffschw @artl93
 
 # dotnet-maui
 /plugins/dotnet-maui/ @Redth @jfversluis
 /tests/dotnet-maui/ @Redth @jfversluis
+
+/plugins/dotnet-maui/skills/maui-shell-navigation/ @davidortinau @Redth @jfversluis
+/tests/dotnet-maui/maui-shell-navigation/ @davidortinau @Redth @jfversluis
+/plugins/dotnet-maui/skills/maui-app-lifecycle/ @davidortinau @Redth @jfversluis
+/tests/dotnet-maui/maui-app-lifecycle/ @davidortinau @Redth @jfversluis
+/plugins/dotnet-maui/skills/maui-dependency-injection/ @davidortinau @Redth @jfversluis
+/tests/dotnet-maui/maui-dependency-injection/ @davidortinau @Redth @jfversluis
+/plugins/dotnet-maui/skills/maui-collectionview/ @davidortinau @Redth @jfversluis
+/tests/dotnet-maui/maui-collectionview/ @davidortinau @Redth @jfversluis
+/plugins/dotnet-maui/skills/maui-data-binding/ @davidortinau @Redth @jfversluis
+/tests/dotnet-maui/maui-data-binding/ @davidortinau @Redth @jfversluis
+/plugins/dotnet-maui/skills/maui-safe-area/ @davidortinau @Redth @jfversluis
+/tests/dotnet-maui/maui-safe-area/ @davidortinau @Redth @jfversluis
+/plugins/dotnet-maui/skills/maui-theming/ @davidortinau @Redth @jfversluis
+/tests/dotnet-maui/maui-theming/ @davidortinau @Redth @jfversluis
+
+# dotnet-template-engine
+/plugins/dotnet-template-engine/ @YuliiaKovalova @JanKrivanek
+/tests/dotnet-template-engine/ @YuliiaKovalova @JanKrivanek
+
+# dotnet-nuget (package and dependency management)
+/plugins/dotnet-nuget/ @dotnet/area-infrastructure-libraries @kartheekp-ms
+/tests/dotnet-nuget/ @dotnet/area-infrastructure-libraries @kartheekp-ms
+

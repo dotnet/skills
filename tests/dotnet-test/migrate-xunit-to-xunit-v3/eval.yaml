@@ -1,0 +1,853 @@
+scenarios:
+  # ============================================================================
+  # Goal 1: Basic xUnit v2 to v3 package migration
+  # ============================================================================
+
+  - name: "Migrate basic xUnit.net v2 project to v3"
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3. Update all
+      package references and make any necessary project configuration changes.
+    setup:
+      files:
+        - path: "global.json"
+          content: |
+            {
+              "test": {
+                "runner": "VSTest"
+              }
+            }
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+                <IsPackable>false</IsPackable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+                <PackageReference Include="xunit" Version="2.9.3" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+              </ItemGroup>
+            </Project>
+        - path: "CalculatorTests.cs"
+          content: |
+            using Xunit;
+
+            namespace MyApp.Tests;
+
+            public class CalculatorTests
+            {
+                [Fact]
+                public void Add_ReturnsSum()
+                {
+                    Assert.Equal(4, 2 + 2);
+                }
+
+                [Theory]
+                [InlineData(1, 2, 3)]
+                [InlineData(0, 0, 0)]
+                public void Add_WithTheoryData_ReturnsSum(int a, int b, int expected)
+                {
+                    Assert.Equal(expected, a + b);
+                }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "xunit\\.v3"
+      - type: "output_matches"
+        pattern: "<OutputType>Exe</OutputType>"
+      - type: "output_matches"
+        pattern: "<IsTestingPlatformApplication>false</IsTestingPlatformApplication>"
+      - type: run_command_and_assert
+        command_to_run: "dotnet"
+        command_arguments: "test -p:TreatWarningsAsErrors=true"
+        expected_exit_code: 0
+        command_timeout: 120
+    rubric:
+      - "Replaces 'xunit' package reference with 'xunit.v3'"
+      - "Sets OutputType to Exe in the test project"
+      - "Adds IsTestingPlatformApplication=false since the project was using VSTest (no MTP reference present)"
+      - "Updates xunit.runner.visualstudio to the latest version"
+    timeout: 720
+
+  # ============================================================================
+  # Goal 2: Incompatible target framework — should stop
+  # ============================================================================
+
+  - name: "Detect incompatible target framework and stop migration"
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    setup:
+      files:
+        - path: "global.json"
+          content: |
+            {
+              "test": {
+                "runner": "VSTest"
+              }
+            }
+        - path: "LegacyTests.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net462</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+                <PackageReference Include="xunit" Version="2.9.3" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+              </ItemGroup>
+            </Project>
+        - path: "SampleTests.cs"
+          content: |
+            using Xunit;
+
+            namespace Legacy.Tests
+            {
+                public class SampleTests
+                {
+                    [Fact]
+                    public void Always_Passes()
+                    {
+                        Assert.True(true);
+                    }
+                }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "(4\\.7\\.2|net472|incompatible|not supported|cannot.{0,20}migrate|upgrade.{0,30}target.{0,10}framework|target.{0,10}framework.{0,30}upgrade)"
+    rubric:
+      - "Identifies that net462 is below the minimum .NET Framework 4.7.2 required by xUnit.net v3"
+      - "Stops the migration and does NOT update package references to xunit.v3"
+      - "Advises the user to upgrade the target framework first before attempting the xUnit.net migration"
+    timeout: 720
+
+  # ============================================================================
+  # Goal 3: async void test methods
+  # ============================================================================
+
+  - name: "Convert async void test methods to async Task"
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    setup:
+      files:
+        - path: "global.json"
+          content: |
+            {
+              "test": {
+                "runner": "VSTest"
+              }
+            }
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+                <PackageReference Include="xunit" Version="2.9.3" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+              </ItemGroup>
+            </Project>
+        - path: "AsyncTests.cs"
+          content: |
+            using Xunit;
+
+            namespace MyApp.Tests;
+
+            public class AsyncTests
+            {
+                [Fact]
+                public async void GetUser_ReturnsExpectedName()
+                {
+                    var name = await Task.FromResult("Alice");
+                    Assert.Equal("Alice", name);
+                }
+
+                [Theory]
+                [InlineData(1)]
+                [InlineData(2)]
+                public async void ProcessItem_Completes(int id)
+                {
+                    await Task.Delay(10);
+                    Assert.True(id > 0);
+                }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "async Task"
+      - type: "output_not_matches"
+        pattern: "async void"
+      - type: run_command_and_assert
+        command_to_run: "dotnet"
+        command_arguments: "test -p:TreatWarningsAsErrors=true"
+        expected_exit_code: 0
+        command_timeout: 120
+    rubric:
+      - "Changes 'async void' to 'async Task' for test methods decorated with [Fact] or [Theory]"
+      - "Applies the change to both GetUser_ReturnsExpectedName and ProcessItem_Completes methods"
+      - "Explains that xUnit.net v3 no longer supports async void test methods and they will fail to compile"
+    timeout: 720
+
+  # ============================================================================
+  # Goal 4: String-based attribute constructors → typeof syntax
+  # ============================================================================
+
+  - name: "Convert string-based attribute constructors to typeof syntax"
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3. Pay special
+      attention to any attribute usages that may have changed.
+    setup:
+      files:
+        - path: "global.json"
+          content: |
+            {
+              "test": {
+                "runner": "VSTest"
+              }
+            }
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+                <PackageReference Include="xunit" Version="2.9.3" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+              </ItemGroup>
+            </Project>
+        - path: "CustomCollectionFixture.cs"
+          content: |
+            using Xunit;
+
+            [assembly: CollectionBehavior("MyApp.Tests.CustomCollectionFactory", "TestProject")]
+
+            namespace MyApp.Tests;
+
+            public class CustomCollectionFactory { }
+
+            public class DatabaseFixture : IDisposable
+            {
+                public DatabaseFixture() { }
+                public void Dispose() { }
+            }
+        - path: "OrderedTests.cs"
+          content: |
+            using Xunit;
+
+            namespace MyApp.Tests;
+
+            [TestCaseOrderer("MyApp.Tests.AlphabeticalOrderer", "TestProject")]
+            public class OrderedTests
+            {
+                [Fact]
+                public void Test_A() => Assert.True(true);
+
+                [Fact]
+                public void Test_B() => Assert.True(true);
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "typeof"
+      - type: "output_not_matches"
+        pattern: "CollectionBehavior\\(\\s*\"MyApp"
+      - type: run_command_and_assert
+        command_to_run: "dotnet"
+        command_arguments: "test -p:TreatWarningsAsErrors=true"
+        expected_exit_code: 0
+        command_timeout: 120
+    rubric:
+      - "Converts CollectionBehavior from string-based constructor ('namespace.type', 'assembly') to typeof() syntax"
+      - "Converts TestCaseOrderer from string-based constructor to typeof() syntax"
+      - "Explains that xUnit.net v3 changed these attributes to accept System.Type instead of two strings"
+    timeout: 720
+
+  # ============================================================================
+  # Goal 5: Custom FactAttribute inheritance — add caller info
+  # ============================================================================
+
+  - name: "Update custom FactAttribute to include source information parameters"
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    setup:
+      files:
+        - path: "global.json"
+          content: |
+            {
+              "test": {
+                "runner": "VSTest"
+              }
+            }
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+                <PackageReference Include="xunit" Version="2.9.3" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+              </ItemGroup>
+            </Project>
+        - path: "CustomAttributes.cs"
+          content: |
+            using Xunit;
+
+            namespace MyApp.Tests;
+
+            internal sealed class RetryFactAttribute : FactAttribute
+            {
+                public int MaxRetries { get; set; } = 3;
+
+                public RetryFactAttribute()
+                {
+                }
+            }
+
+            internal sealed class ConditionalTheoryAttribute : TheoryAttribute
+            {
+                public string Feature { get; set; } = "";
+
+                public ConditionalTheoryAttribute()
+                {
+                }
+            }
+        - path: "RetryTests.cs"
+          content: |
+            using Xunit;
+
+            namespace MyApp.Tests;
+
+            public class RetryTests
+            {
+                [RetryFact(MaxRetries = 2)]
+                public void Flaky_Test_Retries()
+                {
+                    Assert.True(true);
+                }
+
+                [ConditionalTheory(Feature = "Premium")]
+                [InlineData("admin")]
+                public void Premium_Feature_Test(string role)
+                {
+                    Assert.NotNull(role);
+                }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "CallerFilePath"
+      - type: "output_matches"
+        pattern: "CallerLineNumber"
+      - type: run_command_and_assert
+        command_to_run: "dotnet"
+        command_arguments: "test -p:TreatWarningsAsErrors=true"
+        expected_exit_code: 0
+        command_timeout: 120
+    rubric:
+      - "Adds [CallerFilePath] string? sourceFilePath = null parameter to the RetryFactAttribute constructor"
+      - "Adds [CallerLineNumber] int sourceLineNumber = -1 parameter to the RetryFactAttribute constructor"
+      - "Passes sourceFilePath and sourceLineNumber to base() constructor call"
+      - "Applies the same caller-info pattern to ConditionalTheoryAttribute (TheoryAttribute-derived)"
+    timeout: 720
+
+  # ============================================================================
+  # Goal 6: BeforeAfterTestAttribute signature update
+  # ============================================================================
+
+  - name: "Update BeforeAfterTestAttribute overrides with IXunitTest parameter"
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    setup:
+      files:
+        - path: "global.json"
+          content: |
+            {
+              "test": {
+                "runner": "VSTest"
+              }
+            }
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+                <PackageReference Include="xunit" Version="2.9.3" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+              </ItemGroup>
+            </Project>
+        - path: "DatabaseSetupAttribute.cs"
+          content: |
+            using System.Reflection;
+            using Xunit.Sdk;
+
+            namespace MyApp.Tests;
+
+            public class DatabaseSetupAttribute : BeforeAfterTestAttribute
+            {
+                public override void Before(MethodInfo methodUnderTest)
+                {
+                    // Initialize test database
+                    base.Before(methodUnderTest);
+                }
+
+                public override void After(MethodInfo methodUnderTest)
+                {
+                    // Cleanup test database
+                    base.After(methodUnderTest);
+                }
+            }
+        - path: "DatabaseTests.cs"
+          content: |
+            using Xunit;
+
+            namespace MyApp.Tests;
+
+            public class DatabaseTests
+            {
+                [Fact]
+                [DatabaseSetup]
+                public void Query_ReturnsResults()
+                {
+                    Assert.True(true);
+                }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "IXunitTest"
+      - type: run_command_and_assert
+        command_to_run: "dotnet"
+        command_arguments: "test -p:TreatWarningsAsErrors=true"
+        expected_exit_code: 0
+        command_timeout: 120
+    rubric:
+      - "Adds IXunitTest parameter to the Before(MethodInfo, IXunitTest) method override"
+      - "Adds IXunitTest parameter to the After(MethodInfo, IXunitTest) method override"
+      - "Updates base.Before and base.After calls to include the IXunitTest argument"
+      - "Explains that xUnit.net v3 changed the BeforeAfterTestAttribute method signatures"
+    timeout: 720
+
+  # ============================================================================
+  # Goal 7: Test platform selection — project with YTest.MTP.XUnit2
+  # ============================================================================
+
+  - name: "Migrate project with YTest.MTP.XUnit2 to xUnit.net v3 preserving MTP"
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    setup:
+      files:
+        - path: "global.json"
+          content: |
+            {
+              "test": {
+                "runner": "Microsoft.Testing.Platform"
+              }
+            }
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="xunit" Version="2.9.3" />
+                <PackageReference Include="YTest.MTP.XUnit2" Version="1.0.0" />
+              </ItemGroup>
+            </Project>
+        - path: "Directory.Build.props"
+          content: |
+            <Project>
+              <PropertyGroup>
+                <IsPackable>false</IsPackable>
+              </PropertyGroup>
+            </Project>
+        - path: "BasicTests.cs"
+          content: |
+            using Xunit;
+
+            namespace MyApp.Tests;
+
+            public class BasicTests
+            {
+                [Fact]
+                public void SimpleTest_Passes()
+                {
+                    Assert.True(true);
+                }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "xunit\\.v3"
+      - type: "output_matches"
+        pattern: "UseMicrosoftTestingPlatformRunner"
+      - type: "output_not_matches"
+        pattern: "IsTestingPlatformApplication.{0,5}false"
+      - type: run_command_and_assert
+        command_to_run: "dotnet"
+        command_arguments: "test -p:TreatWarningsAsErrors=true"
+        expected_exit_code: 0
+        command_timeout: 120
+    rubric:
+      - "Removes the YTest.MTP.XUnit2 package reference entirely"
+      - "Adds UseMicrosoftTestingPlatformRunner=true to Directory.Build.props to preserve MTP"
+      - "Does NOT add IsTestingPlatformApplication=false — the project was already using MTP"
+      - "Updates xunit to xunit.v3 and sets OutputType to Exe"
+    timeout: 720
+
+  # ============================================================================
+  # Goal 8: SkippableFact migration
+  # ============================================================================
+
+  - name: "Migrate Xunit.SkippableFact to xUnit.net v3 built-in skip APIs"
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    setup:
+      files:
+        - path: "global.json"
+          content: |
+            {
+              "test": {
+                "runner": "VSTest"
+              }
+            }
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+                <PackageReference Include="xunit" Version="2.9.3" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+                <PackageReference Include="Xunit.SkippableFact" Version="1.4.13" />
+              </ItemGroup>
+            </Project>
+        - path: "ConditionalTests.cs"
+          content: |
+            using Xunit;
+
+            namespace MyApp.Tests;
+
+            public class ConditionalTests
+            {
+                [SkippableFact]
+                public void OnlyOnWindows()
+                {
+                    Skip.IfNot(OperatingSystem.IsWindows());
+                    Assert.True(true);
+                }
+
+                [SkippableTheory]
+                [InlineData("feature-a")]
+                [InlineData("feature-b")]
+                public void OnlyWithFeature(string feature)
+                {
+                    Skip.If(string.IsNullOrEmpty(Environment.GetEnvironmentVariable(feature)));
+                    Assert.NotNull(feature);
+                }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "(Assert\\.SkipWhen|Assert\\.SkipUnless)"
+      - type: "output_not_matches"
+        pattern: "SkippableFact.{0,10}Version"
+      - type: run_command_and_assert
+        command_to_run: "dotnet"
+        command_arguments: "test -p:TreatWarningsAsErrors=true"
+        expected_exit_code: 0
+        command_timeout: 120
+    rubric:
+      - "Removes the Xunit.SkippableFact package reference entirely"
+      - "Converts [SkippableFact] to the regular [Fact] attribute"
+      - "Converts [SkippableTheory] to the regular [Theory] attribute"
+      - "Converts Skip.If calls to Assert.SkipWhen"
+      - "Converts Skip.IfNot calls to Assert.SkipUnless"
+    timeout: 720
+
+  # ============================================================================
+  # Goal 9: Central Package Management (Directory.Packages.props)
+  # ============================================================================
+
+  - name: "Migrate xUnit v2 packages managed via Central Package Management"
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3. The solution
+      uses Central Package Management with Directory.Packages.props.
+    setup:
+      files:
+        - path: "global.json"
+          content: |
+            {
+              "test": {
+                "runner": "VSTest"
+              }
+            }
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="xunit" />
+                <PackageReference Include="xunit.runner.visualstudio" />
+                <PackageReference Include="Microsoft.NET.Test.Sdk" />
+              </ItemGroup>
+            </Project>
+        - path: "Directory.Packages.props"
+          content: |
+            <Project>
+              <PropertyGroup>
+                <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+                <PackageVersion Include="xunit" Version="2.9.3" />
+                <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+              </ItemGroup>
+            </Project>
+        - path: "BasicTests.cs"
+          content: |
+            using Xunit;
+
+            namespace MyApp.Tests;
+
+            public class BasicTests
+            {
+                [Fact]
+                public void Addition_Works()
+                {
+                    Assert.Equal(4, 2 + 2);
+                }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "(Directory\\.Packages\\.props|PackageVersion)"
+      - type: "output_matches"
+        pattern: "xunit\\.v3"
+      - type: run_command_and_assert
+        command_to_run: "dotnet"
+        command_arguments: "test -p:TreatWarningsAsErrors=true"
+        expected_exit_code: 0
+        command_timeout: 120
+    rubric:
+      - "Updates PackageVersion entries in Directory.Packages.props (not just the csproj)"
+      - "Renames xunit PackageVersion to xunit.v3 with appropriate version in Directory.Packages.props"
+      - "Updates the PackageReference in the csproj from xunit to xunit.v3"
+      - "Sets OutputType to Exe"
+    timeout: 720
+
+  # ============================================================================
+  # Goal 10: Already on xUnit v3 — no migration needed
+  # ============================================================================
+
+  - name: "Recognize project already on xUnit.net v3 — no migration needed"
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    setup:
+      files:
+        - path: "global.json"
+          content: |
+            {
+              "test": {
+                "runner": "VSTest"
+              }
+            }
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <OutputType>Exe</OutputType>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+                <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="xunit.v3" Version="1.0.1" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="3.0.1" />
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+              </ItemGroup>
+            </Project>
+        - path: "ExistingTests.cs"
+          content: |
+            using Xunit;
+
+            namespace MyApp.Tests;
+
+            public class ExistingTests
+            {
+                [Fact]
+                public void Test_Passes()
+                {
+                    Assert.True(true);
+                }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "(already|no.{0,30}migration|not.{0,20}need|already.{0,20}(v3|migrated|done))"
+      - type: run_command_and_assert
+        command_to_run: "dotnet"
+        command_arguments: "test -p:TreatWarningsAsErrors=true"
+        expected_exit_code: 0
+        command_timeout: 120
+    rubric:
+      - "Correctly identifies that the project already references xunit.v3 packages"
+      - "Does NOT make unnecessary changes to package references or project configuration"
+      - "Informs the user that migration is already complete or not needed"
+    timeout: 720
+
+  # ============================================================================
+  # Goal 11: Extensibility packages consolidation + abstractions removal
+  # ============================================================================
+
+  - name: "Consolidate xunit.extensibility packages and remove xunit.abstractions"
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3. The project
+      references xunit.extensibility.core, xunit.extensibility.execution, and
+      xunit.abstractions separately.
+    setup:
+      files:
+        - path: "global.json"
+          content: |
+            {
+              "test": {
+                "runner": "VSTest"
+              }
+            }
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="xunit.abstractions" Version="2.0.3" />
+                <PackageReference Include="xunit.extensibility.core" Version="2.9.3" />
+                <PackageReference Include="xunit.extensibility.execution" Version="2.9.3" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+              </ItemGroup>
+            </Project>
+        - path: "CustomDiscoverer.cs"
+          content: |
+            using Xunit;
+            using Xunit.Abstractions;
+
+            namespace MyApp.Tests;
+
+            public class OutputLogger
+            {
+                private readonly ITestOutputHelper _output;
+
+                public OutputLogger(ITestOutputHelper output)
+                {
+                    _output = output;
+                }
+
+                public void Log(string message) => _output.WriteLine(message);
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "xunit\\.v3\\.extensibility"
+      - type: "output_not_matches"
+        pattern: "using Xunit\\.Abstractions;"
+      - type: run_command_and_assert
+        command_to_run: "dotnet"
+        command_arguments: "test -p:TreatWarningsAsErrors=true"
+        expected_exit_code: 0
+        command_timeout: 120
+    rubric:
+      - "Consolidates xunit.extensibility.core and xunit.extensibility.execution into a single xunit.v3.extensibility.core reference"
+      - "Removes the xunit.abstractions package reference entirely"
+      - "Removes 'using Xunit.Abstractions;' directives from C# files"
+      - "Explains that the two extensibility packages were merged into one in v3"
+    timeout: 720
+
+  # ============================================================================
+  # Goal 12: Xunit.Combinatorial and Xunit.StaFact companion package updates
+  # ============================================================================
+
+  - name: "Update Xunit.Combinatorial and Xunit.StaFact companion packages"
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    setup:
+      files:
+        - path: "global.json"
+          content: |
+            {
+              "test": {
+                "runner": "VSTest"
+              }
+            }
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0-windows</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="xunit" Version="2.9.3" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+                <PackageReference Include="Xunit.Combinatorial" Version="1.6.24" />
+                <PackageReference Include="Xunit.StaFact" Version="1.1.11" />
+              </ItemGroup>
+            </Project>
+        - path: "CombinatorialTests.cs"
+          content: |
+            using Xunit;
+
+            namespace MyApp.Tests;
+
+            public class CombinatorialTests
+            {
+                [Theory, CombinatorialData]
+                public void AllCombinations(bool a, bool b)
+                {
+                    Assert.NotNull($"{a}{b}");
+                }
+
+                [StaFact]
+                public void StaThread_Test()
+                {
+                    Assert.True(true);
+                }
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "xunit\\.v3"
+      - type: "output_matches"
+        pattern: "(Combinatorial|combinatorial)"
+    rubric:
+      - "Updates Xunit.Combinatorial from 1.x to the latest compatible 2.x version"
+      - "Updates Xunit.StaFact from 1.x to the latest compatible 3.x version"
+      - "Also migrates the core xunit package to xunit.v3"
+      - "Sets OutputType to Exe"
+    timeout: 720

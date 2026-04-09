@@ -1,7 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using SkillValidator.Models;
+using SkillValidator.Evaluate;
+using SkillValidator.Shared;
 
 namespace SkillValidator;
 
@@ -26,10 +27,12 @@ namespace SkillValidator;
 [JsonSerializable(typeof(PairwiseJudgeResult))]
 [JsonSerializable(typeof(PairwiseRubricResult))]
 [JsonSerializable(typeof(SkillActivationInfo))]
+[JsonSerializable(typeof(SubagentActivationInfo))]
 [JsonSerializable(typeof(OverfittingResult))]
 [JsonSerializable(typeof(RubricOverfitAssessment))]
 [JsonSerializable(typeof(AssertionOverfitAssessment))]
 [JsonSerializable(typeof(OverfittingSeverity))]
+[JsonSerializable(typeof(FailureKind))]
 [JsonSerializable(typeof(NoiseScenarioResult))]
 [JsonSerializable(typeof(NoiseTestResult))]
 [JsonSerializable(typeof(PairwiseMagnitude))]
@@ -38,6 +41,7 @@ namespace SkillValidator;
 [JsonSerializable(typeof(JsonElement))]
 [JsonSerializable(typeof(Dictionary<string, int>))]
 [JsonSerializable(typeof(Dictionary<string, JsonNode?>))]
+[JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(List<SkillVerdict>))]
 [JsonSerializable(typeof(IReadOnlyList<SkillVerdict>))]
 internal partial class SkillValidatorJsonContext : JsonSerializerContext;

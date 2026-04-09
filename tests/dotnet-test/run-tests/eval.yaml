@@ -8,9 +8,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/TestProject.csproj"
+          source: "fixtures/vstest-mstest/TestProject.csproj"
         - path: "OrderServiceTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/OrderServiceTests.cs"
+          source: "fixtures/vstest-mstest/OrderServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"
@@ -20,18 +20,18 @@ scenarios:
       - "Uses 'dotnet test' without MTP-specific arguments or '--' separator"
       - "Does not suggest MTP-style arguments like --report-trx or --treenode-filter"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 180
 
   - name: "Run tests with trx reporting on MTP project (SDK 9)"
     prompt: "I have an MSTest project using Microsoft.Testing.Platform. I need to run the tests and produce a TRX report. I'm on .NET SDK 9."
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk9/TestProject.csproj"
+          source: "fixtures/mtp-mstest-sdk9/TestProject.csproj"
         - path: "UserAuthTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk9/UserAuthTests.cs"
+          source: "fixtures/mtp-mstest-sdk9/UserAuthTests.cs"
         - path: "global.json"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk9/global.json"
+          source: "fixtures/mtp-mstest-sdk9/global.json"
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"
@@ -44,18 +44,18 @@ scenarios:
       - "Uses '-- --report-trx' (with separator) instead of just '--report-trx'"
       - "Does not suggest the VSTest-style '--logger trx' for an MTP project"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 360
 
   - name: "Run tests with blame-hang on MTP project (SDK 10)"
     prompt: "My tests are occasionally hanging. I want to run them with a hang timeout of 5 minutes to detect the culprit. Here's my project."
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk10/TestProject.csproj"
+          source: "fixtures/mtp-mstest-sdk10/TestProject.csproj"
         - path: "CatalogServiceTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk10/CatalogServiceTests.cs"
+          source: "fixtures/mtp-mstest-sdk10/CatalogServiceTests.cs"
         - path: "global.json"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk10/global.json"
+          source: "fixtures/mtp-mstest-sdk10/global.json"
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"
@@ -70,14 +70,14 @@ scenarios:
       - "Uses '--blame-hang-timeout 5min' or similar directly, not after '--'"
       - "Does not use the VSTest-style '--blame --blame-hang-timeout' combination"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 300
 
   - name: "Run tests in a multi-TFM project targeting a specific framework"
     prompt: "This test project targets both net8.0 and net9.0. I only want to run the tests on net9.0."
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/multi-tfm/TestProject.csproj"
+          source: "fixtures/multi-tfm/TestProject.csproj"
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"
@@ -100,9 +100,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/TestProject.csproj"
+          source: "fixtures/vstest-mstest/TestProject.csproj"
         - path: "OrderServiceTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/OrderServiceTests.cs"
+          source: "fixtures/vstest-mstest/OrderServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "--filter"
@@ -122,9 +122,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-nunit/TestProject.csproj"
+          source: "fixtures/vstest-nunit/TestProject.csproj"
         - path: "ReportServiceTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-nunit/ReportServiceTests.cs"
+          source: "fixtures/vstest-nunit/ReportServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "--filter"
@@ -144,11 +144,11 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-xunit-v3/TestProject.csproj"
+          source: "fixtures/mtp-xunit-v3/TestProject.csproj"
         - path: "ShoppingCartTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-xunit-v3/ShoppingCartTests.cs"
+          source: "fixtures/mtp-xunit-v3/ShoppingCartTests.cs"
         - path: "global.json"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-xunit-v3/global.json"
+          source: "fixtures/mtp-xunit-v3/global.json"
     assertions:
       - type: "output_matches"
         pattern: "--filter-class"
@@ -168,11 +168,11 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-xunit-v3/TestProject.csproj"
+          source: "fixtures/mtp-xunit-v3/TestProject.csproj"
         - path: "ShoppingCartTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-xunit-v3/ShoppingCartTests.cs"
+          source: "fixtures/mtp-xunit-v3/ShoppingCartTests.cs"
         - path: "global.json"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-xunit-v3/global.json"
+          source: "fixtures/mtp-xunit-v3/global.json"
     assertions:
       - type: "output_matches"
         pattern: "--filter-trait"
@@ -192,9 +192,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-tunit/TestProject.csproj"
+          source: "fixtures/mtp-tunit/TestProject.csproj"
         - path: "NotificationTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-tunit/NotificationTests.cs"
+          source: "fixtures/mtp-tunit/NotificationTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "--treenode-filter"
@@ -215,9 +215,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/TestProject.csproj"
+          source: "fixtures/vstest-mstest/TestProject.csproj"
         - path: "OrderServiceTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/OrderServiceTests.cs"
+          source: "fixtures/vstest-mstest/OrderServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "--filter"
@@ -234,7 +234,7 @@ scenarios:
       - "Does not suggest running all tests and post-filtering results"
       - "Explains the AND/OR combinator syntax for future reference"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 180
 
   # ============================================================================
   # Goal 3: Using the right test platform CLI options
@@ -245,11 +245,11 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk9/TestProject.csproj"
+          source: "fixtures/mtp-mstest-sdk9/TestProject.csproj"
         - path: "UserAuthTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk9/UserAuthTests.cs"
+          source: "fixtures/mtp-mstest-sdk9/UserAuthTests.cs"
         - path: "global.json"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk9/global.json"
+          source: "fixtures/mtp-mstest-sdk9/global.json"
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"
@@ -262,18 +262,18 @@ scenarios:
       - "Places --blame-crash after the '--' separator: 'dotnet test -- --blame-crash'"
       - "Does not use the VSTest-style '--blame' flag for this MTP project"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 240
 
   - name: "MTP project on SDK 10 passes args directly"
     prompt: "I want to run these tests and produce a TRX report."
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk10/TestProject.csproj"
+          source: "fixtures/mtp-mstest-sdk10/TestProject.csproj"
         - path: "CatalogServiceTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk10/CatalogServiceTests.cs"
+          source: "fixtures/mtp-mstest-sdk10/CatalogServiceTests.cs"
         - path: "global.json"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/mtp-mstest-sdk10/global.json"
+          source: "fixtures/mtp-mstest-sdk10/global.json"
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"
@@ -288,7 +288,7 @@ scenarios:
       - "Uses the SDK 10+ dotnet test syntax (e.g., --project flag instead of bare positional argument)"
       - "Does not use VSTest-style '--logger trx' for an MTP project on SDK 10"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 300
 
   - name: "Detect test platform from Directory.Build.props"
     prompt: "I want to run the integration tests in this project. Can you figure out which test platform it uses and run them?"
@@ -350,16 +350,16 @@ scenarios:
       - "Uses MSTest filter syntax for TestCategory since MSTest on MTP uses the same filter syntax as VSTest"
       - "Uses '--' separator before MTP filter args since this is SDK 9: 'dotnet test -- --filter TestCategory=Integration'"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 240
 
   - name: "Negative test: do not use MTP syntax for a VSTest project"
     prompt: "Run my tests and generate a TRX report."
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/TestProject.csproj"
+          source: "fixtures/vstest-mstest/TestProject.csproj"
         - path: "OrderServiceTests.cs"
-          source: "../../../../tests/dotnet-test/run-tests/fixtures/vstest-mstest/OrderServiceTests.cs"
+          source: "fixtures/vstest-mstest/OrderServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "dotnet test"

@@ -38,7 +38,7 @@ jobs:
           $head = "${{ github.event.pull_request.head.sha }}"
           $mergeBase = git merge-base $base $head
           $changed = git diff --name-only $mergeBase $head |
-            Where-Object { $_ -match '^(eng/skill-validator/|\.github/workflows/skill-validator\.yml$)' } |
+            Where-Object { $_ -match '^(eng/skill-validator/|\.github/workflows/skill-validator\.yml$)' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
             Select-Object -First 1
           if ($changed) {
             echo "has_changes=true" >> $env:GITHUB_OUTPUT
@@ -139,7 +139,10 @@ jobs:
           if-no-files-found: ignore
 
   release:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.create_release)
+    if: >-
+      always() &&
+      needs.build.result == 'success' &&
+      (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.create_release))
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -150,7 +153,7 @@ jobs:
           persist-credentials: true
 
       - name: Download all artifacts
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           path: release-assets
           merge-multiple: true
