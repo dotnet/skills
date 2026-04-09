@@ -160,15 +160,21 @@ For each **Daily overview** comment, extract:
 
 ### 3.1 Parse the Current Issue Body
 
-Find the `## 🔍 Investigation Results` section in the issue body. This section contains a markdown table with rows like:
+Look for the `## 🔍 Investigation Results` section in the issue body. This section, when present, contains a markdown table with rows like:
 
 ```
 | {finding_title} | {severity} | 🔄 Dispatched | [Workflow Run]({url}) |
 ```
 
+**If the section is missing** (the health check agent sometimes omits it), you MUST
+create it. Do NOT skip this step — creating the section is the primary purpose of
+this workflow. Proceed to Step 3.2 with an empty table.
+
 ### 3.2 Build the Updated Table
 
-For each row in the Investigation Results table:
+**If the Investigation Results section already exists** in the issue body:
+
+For each row in the existing Investigation Results table:
 1. Determine the `finding_id` for this row. Match by finding title or by checking the fingerprint from the current health check state in `cache-memory`.
 2. Look up the `finding_id` in the investigation comments collected in Step 2.
 3. If a matching investigation comment exists:
@@ -176,7 +182,35 @@ For each row in the Investigation Results table:
    - Replace the Result cell with `[{executive_summary}]({comment_url})`
 4. If no matching investigation comment exists yet, leave the row unchanged.
 
-Also check for investigation comments that correspond to findings in the **📌 Existing Findings** or **🆕 New Findings** sections (from previous runs). Add rows for those too if they aren't already in the table.
+**If the Investigation Results section does NOT exist** in the issue body:
+
+You must INSERT it. Build the section from scratch using the investigation
+comments collected in Step 2:
+
+1. For each investigation comment, create a table row:
+   ```
+   | {finding_title from comment heading} | {severity from comment} | ✅ Done | [{executive_summary}]({comment_url}) |
+   ```
+2. Wrap the rows in the standard section structure:
+   ```markdown
+   ## 🔍 Investigation Results
+
+   > Deep investigations are dispatched for new critical/warning findings.
+   > The [grooming workflow](../workflows/devops-health-groom.md) links results ~3 hours after this run.
+
+   | Finding | Severity | Status | Result |
+   |---------|----------|--------|--------|
+   {rows}
+   ```
+3. Insert this section into the issue body **immediately before** the first of
+   these sections (whichever appears first): `## ✅ Resolved`, `## 📌 Existing`,
+   `## 📊 Trends`. If none of those headings are found, append the section at
+   the end of the body (before the `<sub>` footer if present).
+
+**In both cases** (section existed or was created), also check for investigation
+comments that correspond to findings in the **📌 Existing Findings** or **🆕 New
+Findings** sections (from previous runs). Add rows for those too if they aren't
+already in the table.
 
 ### 3.3 Hold Changes (Do Not Update Yet)
 
@@ -286,5 +320,5 @@ If changes were made, the summary is implicit in the safe-output calls. Do NOT c
 - **Preserve the issue body structure**: When updating the issue body, keep ALL sections intact. Only modify the Investigation Results table rows and any resolved-finding annotations. Do not rewrite sections you don't need to change.
 - **Don't hide "Other" comments**: Only hide comments that match the Investigation or Daily overview patterns. Human comments, bot reactions, etc. must be preserved.
 - **Idempotent**: Running this workflow twice should produce the same result. If investigation results are already linked, don't re-link them. If comments are already hidden, they won't appear in the API results (collapsed).
-- **Graceful degradation**: If the issue body doesn't contain an Investigation Results section (e.g., first run before any investigations), skip Step 3 and proceed to hiding stale comments.
+- **Create missing sections**: If the issue body doesn't contain a `## 🔍 Investigation Results` section, **create it** from investigation comments (see Step 3). Do NOT silently skip linking — this is the groomer's primary job. Only skip Step 3 if there are zero investigation comments to link.
 - **No intermediate files**: Do all work in memory. Do NOT write intermediate scripts, JSON files, or body text files. Parse API responses with `jq` inline and hold the issue body as a string variable.

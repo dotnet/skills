@@ -31,6 +31,17 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Resolve all parameter paths to absolute so that FullName.Substring() comparisons
+# produce correct relative paths. Get-ChildItem returns items whose FullName is
+# always absolute; if the base path used for Substring is relative, the computed
+# relative path will be garbage (e.g., on a CI runner whose workspace is
+# /home/runner/work/skills/skills, a relative "staging/sessions" (16 chars) would
+# chop the first 16 chars of the absolute FullName, yielding
+# "k/skills/skills/staging/sessions/..." instead of the intended relative path).
+$ExistingDir = [System.IO.Path]::GetFullPath($ExistingDir)
+$NewDir      = [System.IO.Path]::GetFullPath($NewDir)
+$OutputDir   = [System.IO.Path]::GetFullPath($OutputDir)
+
 $cutoffDate = (Get-Date).ToUniversalTime().AddDays(-$RetentionDays)
 
 # Use a temp directory if OutputDir == ExistingDir to avoid read/write conflicts

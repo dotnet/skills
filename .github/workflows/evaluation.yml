@@ -1229,8 +1229,8 @@ jobs:
       - name: Check if AGENTVIZ SPA needs update
         id: check-replay
         run: |
-          AGENTVIZ_REPO="https://github.com/JanKrivanek/agentviz.git"
-          AGENTVIZ_BRANCH="dev/jankrivanek/static-manifest-mode"
+          AGENTVIZ_REPO="https://github.com/jayparikh/agentviz.git"
+          AGENTVIZ_BRANCH="main"
 
           # Resolve the latest commit on the AGENTVIZ branch (no clone needed)
           TARGET_SHA=$(git ls-remote "$AGENTVIZ_REPO" "refs/heads/$AGENTVIZ_BRANCH" | cut -f1)
@@ -1269,7 +1269,7 @@ jobs:
         run: |
           TARGET_SHA="${{ steps.check-replay.outputs.target_sha }}"
 
-          git clone https://github.com/JanKrivanek/agentviz.git /tmp/agentviz-src
+          git clone https://github.com/jayparikh/agentviz.git /tmp/agentviz-src
           cd /tmp/agentviz-src
 
           # Check out the exact resolved commit for deterministic builds

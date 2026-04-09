@@ -234,7 +234,7 @@ foreach ($artifactDir in $artifactDirs) {
         $displayName = "$pluginName / $scenarioName ($roleTag, run $runIndex)"
         $id = "$subDir/$pluginName/$safeScenario--$roleTag--run$runIndex"
 
-        $tags = @($Source, $pluginName, $roleTag, $safeScenario)
+        $tags = @($Source, $pluginName, $roleTag)
         if ($Source -eq 'pr' -and $PrNumber -gt 0) {
             $tags += "pr-$PrNumber"
         }
