@@ -473,6 +473,7 @@ Replace the entire issue body with the following structure:
 {For each finding dispatched in the current run:}
 | {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | [Workflow Run]({workflow_actions_url}) |
 {Preserve any rows from the previous issue body that already show ✅ Done or ✅ Resolved — do not remove them}
+{If no findings were dispatched AND no previous rows exist, render the table header with zero rows — the section MUST still appear in the output}
 
 ---
 
@@ -598,6 +599,7 @@ Before finishing, verify:
 - **Time budget**: You have a 60-minute timeout. Prioritize reaching Steps 4 and 5 (issue update + dispatch). Do NOT write intermediate scripts or analysis files. Work through each check, collect findings in memory, and proceed directly to output. Aim to complete data collection (Step 1) within 30 minutes.
 - **Efficiency**: Process API responses in memory. Do NOT create Python/bash scripts to analyze data — parse JSON directly using `jq` or inline analysis. Do NOT write intermediate files unless explicitly required by the output format.
 - **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **complete, literal issue body text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. Pass the body directly as the string value.
+- **CRITICAL — Investigation Results section is MANDATORY**: The `## 🔍 Investigation Results` section MUST always appear in the issue body, even if no investigations were dispatched (in that case, render the section with the table header and zero data rows). The downstream grooming workflow depends on this section to link investigation results. Never omit it. Never inline investigation status elsewhere (e.g., inside the New Findings section). The section must appear **exactly** between the `## 🆕 New Findings` section and the `## ✅ Resolved` section.
 - **Be data-driven**: Include specific numbers, durations, percentages, and links.
 - **Be precise with fingerprints**: Use the exact fingerprint formulas from the knowledge file. Consistency is critical — the same finding MUST produce the same fingerprint across runs.
 - **First run handling**: If `cache-memory` has no previous state, note: "⚠️ This is the first health check run. All findings appear as new. Diff will resume from next run."
