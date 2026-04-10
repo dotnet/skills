@@ -57,6 +57,7 @@ Use this skill when the user mentions test coverage, coverage gaps, code risk, C
 - Internet access for `dotnet tool install` (ReportGenerator) on first run, or ReportGenerator already installed globally
 
 The skill auto-detects coverage provider state per test project and selects the least-invasive execution strategy:
+
 - unified Microsoft CodeCoverage when all projects use it,
 - unified Coverlet when no project uses Microsoft CodeCoverage,
 - per-project provider execution when the solution is truly mixed.
@@ -338,6 +339,7 @@ foreach ($tp in $testProjects) {
 ```
 
 Exit code handling:
+
 - **0** — all tests passed, coverage collected
 - **1** — some tests failed (coverage still collected — proceed with a warning)
 - **Other** — build failure; stop and report the error
@@ -353,6 +355,7 @@ if ($vsCovFiles) { Write-Host "VS_BINARY_COVERAGE:$($vsCovFiles.Count)" }
 ```
 
 If `COBERTURA_COUNT` is 0:
+
 - If `VS_BINARY_COVERAGE` > 0: warn the user — *"Found .coverage files (VS binary format) but no Cobertura XML. These were likely produced by Visual Studio's built-in collector, which outputs a binary format by default. This skill needs Cobertura XML. Re-running with the detected provider configured for Cobertura output."* Then re-run the appropriate `dotnet test` command above (Coverlet or Microsoft CodeCoverage) with Cobertura format.
 - If no `.coverage` files either: stop and report — *"Coverage files not generated. Ensure `dotnet test` completed successfully and check the build output for errors."*
 

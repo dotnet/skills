@@ -13,7 +13,7 @@ Language-specific detection patterns for .NET test frameworks (MSTest, xUnit, NU
 | Framework | Test class markers | Test method markers |
 | --------- | ------------------ | ------------------- |
 | MSTest | `[TestClass]` | `[TestMethod]`, `[DataTestMethod]` |
-| xUnit | _(none — convention-based)_ | `[Fact]`, `[Theory]` |
+| xUnit | *(none — convention-based)* | `[Fact]`, `[Theory]` |
 | NUnit | `[TestFixture]` | `[Test]`, `[TestCase]`, `[TestCaseSource]` |
 | TUnit | `[ClassDataSource]` | `[Test]` |
 
@@ -28,7 +28,7 @@ Language-specific detection patterns for .NET test frameworks (MSTest, xUnit, NU
 | Collection | `CollectionAssert.Contains` | `Assert.Contains` | `Assert.That(col, Has.Member(x))` |
 | String | `StringAssert.Contains` | `Assert.Contains(str, sub)` | `Assert.That(str, Does.Contain(sub))` |
 | Type | `Assert.IsInstanceOfType` | `Assert.IsAssignableFrom` | `Assert.That(x, Is.InstanceOf<T>())` |
-| Inconclusive | `Assert.Inconclusive()` | _skip via `[Fact(Skip)]`_ | `Assert.Inconclusive()` |
+| Inconclusive | `Assert.Inconclusive()` | *skip via `[Fact(Skip)]`* | `Assert.Inconclusive()` |
 | Fail | `Assert.Fail()` | `Assert.Fail()` (.NET 10+) | `Assert.Fail()` |
 
 Third-party assertion libraries: `Should*` (Shouldly), `.Should()` (FluentAssertions / AwesomeAssertions), `Verify()` (Verify).
@@ -46,10 +46,10 @@ Third-party assertion libraries: `Should*` (Shouldly), `.Should()` (FluentAssert
 | Framework | Annotation | With reason |
 | --------- | ---------- | ----------- |
 | MSTest | `[Ignore]` | `[Ignore("reason")]` |
-| xUnit | `[Fact(Skip = "reason")]` | _(reason is required)_ |
-| NUnit | `[Ignore("reason")]` | _(reason is required)_ |
-| TUnit | `[Skip("reason")]` | _(reason is required)_ |
-| Conditional | `#if false` / `#if NEVER` | _(no reason possible)_ |
+| xUnit | `[Fact(Skip = "reason")]` | *(reason is required)* |
+| NUnit | `[Ignore("reason")]` | *(reason is required)* |
+| TUnit | `[Skip("reason")]` | *(reason is required)* |
+| Conditional | `#if false` / `#if NEVER` | *(no reason possible)* |
 
 ## Exception Handling — Idiomatic Alternatives
 

@@ -185,10 +185,10 @@ You should keep the same test platform that was used with xunit 2.
 Note that xunit 2 is always VSTest except if the user used YTest.MTP.XUnit2.
 
 - If user had a reference to YTest.MTP.XUnit2:
-    - Remove the reference to YTest.MTP.XUnit2 completely.
-    - Add `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` to Directory.Build.props under an unconditional PropertyGroup.
+  - Remove the reference to YTest.MTP.XUnit2 completely.
+  - Add `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` to Directory.Build.props under an unconditional PropertyGroup.
 - If user didn't have a reference to YTest.MTP.XUnit2:
-    - Add `<IsTestingPlatformApplication>false</IsTestingPlatformApplication>` to Directory.Build.props under an unconditional PropertyGroup.
+  - Add `<IsTestingPlatformApplication>false</IsTestingPlatformApplication>` to Directory.Build.props under an unconditional PropertyGroup.
 
 ### Step 13: Migrate `Xunit.SkippableFact`
 
@@ -214,6 +214,6 @@ Find package references of `Xunit.StaFact` and update them from 1.x to the lates
 Now, build the solution to identify any remaining compilation errors that might not have been addressed by previous instructions.
 Fix any straightforward errors that show up, and keep iterating and fixing more.
 
-You can also look into https://xunit.net/docs/getting-started/v3/migration-extensibility and https://xunit.net/docs/getting-started/v3/migration to help with the remaining compilation errors.
+You can also look into <https://xunit.net/docs/getting-started/v3/migration-extensibility> and <https://xunit.net/docs/getting-started/v3/migration> to help with the remaining compilation errors.
 
 You can fix as much as you can, and it's okay if not everything is fixed. Just tell the user that there are remaining errors that need to be manually addressed.
