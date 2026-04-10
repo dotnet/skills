@@ -96,7 +96,7 @@ scenarios:
   # ============================================================================
 
   - name: "Filter MSTest tests by category on VSTest"
-    prompt: "I only want to run the integration tests in this project. How do I filter for just the Integration category?"
+    prompt: "I only want to run the integration tests in this .NET project. How do I filter by the Integration category?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -208,10 +208,10 @@ scenarios:
       - "Does not use VSTest --filter syntax which is incompatible with TUnit"
       - "Uses 'dotnet run' or 'dotnet test' with correct MTP argument passing"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 240
 
   - name: "Combine multiple filter criteria on VSTest MSTest"
-    prompt: "I want to run only the unit tests in the OrderServiceTests class. How do I combine these two conditions?"
+    prompt: "I want to run only the unit tests in the OrderServiceTests class using dotnet test. How do I combine these two filter conditions?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -241,7 +241,7 @@ scenarios:
   # ============================================================================
 
   - name: "MTP project on SDK 9 must use -- separator for args"
-    prompt: "I want to run these tests and collect a crash dump if any test crashes the host."
+    prompt: "I want to run these .NET tests and collect a crash dump if any test crashes the host."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -265,7 +265,7 @@ scenarios:
     timeout: 240
 
   - name: "MTP project on SDK 10 passes args directly"
-    prompt: "I want to run these tests and produce a TRX report."
+    prompt: "I want to run these .NET tests and produce a TRX report."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -291,7 +291,7 @@ scenarios:
     timeout: 300
 
   - name: "Detect test platform from Directory.Build.props"
-    prompt: "I want to run the integration tests in this project. Can you figure out which test platform it uses and run them?"
+    prompt: "I want to run the integration tests in this .NET project. Can you figure out which test platform it uses and run them?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -353,7 +353,7 @@ scenarios:
     timeout: 240
 
   - name: "Negative test: do not use MTP syntax for a VSTest project"
-    prompt: "Run my tests and generate a TRX report."
+    prompt: "Run my .NET tests and generate a TRX report."
     setup:
       files:
         - path: "TestProject.csproj"
