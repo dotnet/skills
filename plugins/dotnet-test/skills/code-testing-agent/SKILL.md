@@ -36,7 +36,7 @@ This skill coordinates multiple specialized agents in a **Research → Plan → 
 
 ### Pipeline Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                     TEST GENERATOR                          │
 │  Coordinates the full pipeline and manages state            │
@@ -73,7 +73,7 @@ When the user does not express strong requirements for test style, coverage goal
 
 Start by calling the `code-testing-generator` agent with your test generation request:
 
-```
+```text
 Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines
 ```
 
@@ -134,19 +134,19 @@ All pipeline state is stored in `.testagent/` folder:
 
 ### Example 1: Full Project Testing
 
-```
+```text
 Generate unit tests for my Calculator project at C:\src\Calculator
 ```
 
 ### Example 2: Specific File Testing
 
-```
+```text
 Generate unit tests for src/services/UserService.ts
 ```
 
 ### Example 3: Targeted Coverage
 
-```
+```text
 Add tests for the authentication module with focus on edge cases
 ```
 

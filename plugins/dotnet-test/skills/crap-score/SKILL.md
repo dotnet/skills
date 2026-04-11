@@ -21,6 +21,7 @@ The CRAP score combines **cyclomatic complexity** and **code coverage** into a s
 $$\text{CRAP}(m) = \text{comp}(m)^2 \times (1 - \text{cov}(m))^3 + \text{comp}(m)$$
 
 Where:
+
 - $\text{comp}(m)$ = cyclomatic complexity of method $m$
 - $\text{cov}(m)$ = code coverage ratio (0.0 to 1.0) of method $m$
 
@@ -111,7 +112,7 @@ $$\text{CRAP}(m) = \text{comp}(m)^2 \times (1 - \text{cov}(m))^3 + \text{comp}(m
 
 Present a sorted table (highest CRAP first):
 
-```
+```text
 | Method                          | Complexity | Coverage | CRAP Score | Risk     |
 |---------------------------------|------------|----------|------------|----------|
 | OrderService.ProcessOrder       | 12         | 45%      | 28.4       | High     |
@@ -120,6 +121,7 @@ Present a sorted table (highest CRAP first):
 ```
 
 Include:
+
 - **Summary**: total methods analyzed, how many in each risk category
 - **Top offenders**: methods with CRAP > 30, with specific recommendations
 - **Quick wins**: methods with high complexity but where small coverage improvements would drop the score significantly

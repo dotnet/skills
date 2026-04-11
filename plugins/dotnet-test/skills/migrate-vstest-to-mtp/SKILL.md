@@ -65,7 +65,6 @@ Migrate a .NET test solution from VSTest to Microsoft.Testing.Platform (MTP). Th
 ### Step 2: Set up Directory.Build.props
 
 > **Critical**: Always set MTP properties in `Directory.Build.props` at the solution or repo root -- never per-project. This prevents inconsistent configuration where some projects use VSTest and others use MTP (an unsupported scenario).
-
 > **Note**: MTP requires test projects to have `<OutputType>Exe</OutputType>`. Only `MSTest.Sdk` sets this automatically. For all other setups (MSTest NuGet packages with `EnableMSTestRunner`, NUnit with `EnableNUnitRunner`, xUnit.net with `YTest.MTP.XUnit2`), you must set `<OutputType>Exe</OutputType>` explicitly -- either per-project or in `Directory.Build.props` with a condition that targets only test projects.
 
 ### Step 3: Enable the framework-specific MTP runner
@@ -99,7 +98,7 @@ Requires `NUnit3TestAdapter` **5.0.0** or later.
 <PackageReference Include="NUnit3TestAdapter" Version="5.0.0" />
 ```
 
-2. Enable the NUnit runner:
+1. Enable the NUnit runner:
 
 ```xml
 <PropertyGroup>

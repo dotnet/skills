@@ -37,6 +37,7 @@ Check if `.testagent/` contains pre-computed coverage data:
 - `initial_coverage.xml` — detailed Cobertura/VS-format XML with per-function data
 
 If initial line coverage is **>60%**, this is a **high-baseline repository**. Focus analysis on:
+
 1. Source files with no corresponding test file (biggest gaps)
 2. Functions with `line_coverage="0.00"` (completely untested)
 3. Functions with low coverage (`<50%`) containing complex logic

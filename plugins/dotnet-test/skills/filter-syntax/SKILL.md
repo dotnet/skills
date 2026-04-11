@@ -103,11 +103,11 @@ dotnet test --filter-namespace "MyApp.Tests.Integration" --filter-trait "Categor
 
 For complex expressions, use `--filter-query` with a path-segment syntax:
 
-```
+```text
 /<assemblyFilter>/<namespaceFilter>/<classFilter>/<methodFilter>[traitName=traitValue]
 ```
 
-Each segment matches against: assembly name, namespace, class name, method name. Use `*` for "match all" in any segment. Documentation: https://xunit.net/docs/query-filter-language
+Each segment matches against: assembly name, namespace, class name, method name. Use `*` for "match all" in any segment. Documentation: <https://xunit.net/docs/query-filter-language>
 
 ```shell
 # xUnit.net v3 MTP — using query language (assembly/namespace/class/method[trait])
@@ -118,7 +118,7 @@ dotnet test -- --filter-query "/*/*/*IntegrationTests*/*[Category=Smoke]"
 
 TUnit uses `--treenode-filter` with a path-based syntax:
 
-```
+```text
 --treenode-filter "/<Assembly>/<Namespace>/<ClassName>/<TestName>"
 ```
 
