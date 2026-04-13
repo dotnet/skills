@@ -5,8 +5,9 @@ description: >
   daily (pipelines, CI/CD infrastructure, resource usage), computes a
   fingerprint-based diff against the previous run, updates a pinned health
   dashboard issue, and dispatches investigation workers for new
-  critical/warning findings. Focused on pipeline and infra health only —
-  does not track individual skill quality or PR review status.
+  critical/warning findings. Focused on pipeline, infrastructure, and
+  resource usage health only — does not track individual skill quality or
+  PR review status.
 
 on:
   schedule:
