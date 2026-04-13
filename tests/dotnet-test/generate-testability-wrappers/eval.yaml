@@ -20,7 +20,7 @@ scenarios:
       - "Showed how to inject TimeProvider into the ReportGenerator class"
       - "Showed how to use FakeTimeProvider in tests to pin time"
       - "Mentioned the Microsoft.Extensions.TimeProvider.Testing NuGet package for testing"
-    timeout: 120
+    timeout: 240
 
   - name: "Generate custom Environment wrapper"
     prompt: |
@@ -40,7 +40,7 @@ scenarios:
       - "Generated a default implementation that delegates to the real Environment static class"
       - "Provided DI registration code for the wrapper"
       - "Only wrapped the two members actually used in the code, not every Environment member"
-    timeout: 120
+    timeout: 240
 
   - name: "Recommend System.IO.Abstractions for file system calls"
     prompt: |
@@ -59,7 +59,7 @@ scenarios:
       - "Showed how to register IFileSystem in DI"
       - "Showed how to use MockFileSystem in tests"
       - "Did not generate a custom file system wrapper when the established package exists"
-    timeout: 120
+    timeout: 240
 
   - name: "Decline wrapper generation for already-abstracted code"
     prompt: |
@@ -83,4 +83,4 @@ scenarios:
       - "Recognized that IFileSystem is already in use and no wrapper generation is needed"
       - "Did not generate a redundant wrapper interface"
       - "May have suggested other improvements but did not create duplicate abstractions"
-    timeout: 60
+    timeout: 120

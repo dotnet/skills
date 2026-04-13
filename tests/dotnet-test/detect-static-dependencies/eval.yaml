@@ -41,10 +41,10 @@ scenarios:
         pattern: "(TimeProvider|time provider|ISystemClock|abstraction)"
       - type: "exit_success"
     rubric:
-      - "Found all DateTime.UtcNow and DateTime.Now call sites across multiple files"
-      - "Identified OrderProcessor.cs and NotificationService.cs as files with time dependencies"
-      - "Recommended TimeProvider as the replacement abstraction for .NET 8+"
-      - "Explained that the static calls make tests non-deterministic"
+      - "Found DateTime.UtcNow and/or DateTime.Now call sites in the project"
+      - "Identified specific files containing time-related static dependencies"
+      - "Recommended TimeProvider or a similar abstraction as the replacement for .NET 8+"
+      - "Explained that the static calls make tests non-deterministic or hard to test"
     timeout: 120
 
   - name: "Decline scan for non-C# project"

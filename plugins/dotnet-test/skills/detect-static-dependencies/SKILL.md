@@ -54,67 +54,14 @@ Always exclude `obj/`, `bin/`, and any user-specified exclusion patterns.
 
 Scan each file for calls matching these categories:
 
-#### Time
-| Pattern | Replacement |
-|---------|-------------|
-| `DateTime.Now` | `TimeProvider.GetLocalNow()` |
-| `DateTime.UtcNow` | `TimeProvider.GetUtcNow()` |
-| `DateTime.Today` | `TimeProvider.GetLocalNow().Date` |
-| `DateTimeOffset.Now` | `TimeProvider.GetLocalNow()` |
-| `DateTimeOffset.UtcNow` | `TimeProvider.GetUtcNow()` |
-| `Task.Delay(` | `TimeProvider.Delay()` |
-| `new CancellationTokenSource(TimeSpan` | `TimeProvider.CreateCancellationTokenSource()` |
-
-#### File System
-| Pattern | Replacement |
-|---------|-------------|
-| `File.ReadAllText(` | `IFileSystem` (System.IO.Abstractions) |
-| `File.WriteAllText(` | `IFileSystem` |
-| `File.Exists(` | `IFileSystem` |
-| `File.Delete(` | `IFileSystem` |
-| `File.Copy(` | `IFileSystem` |
-| `File.Move(` | `IFileSystem` |
-| `Directory.Exists(` | `IFileSystem` |
-| `Directory.CreateDirectory(` | `IFileSystem` |
-| `Directory.GetFiles(` | `IFileSystem` |
-| `Directory.Delete(` | `IFileSystem` |
-| `Path.Combine(` | `IFileSystem.Path` |
-| `Path.GetTempPath(` | `IFileSystem.Path` |
-
-#### Environment
-| Pattern | Replacement |
-|---------|-------------|
-| `Environment.GetEnvironmentVariable(` | `IEnvironmentProvider` wrapper |
-| `Environment.SetEnvironmentVariable(` | `IEnvironmentProvider` wrapper |
-| `Environment.MachineName` | `IEnvironmentProvider` wrapper |
-| `Environment.UserName` | `IEnvironmentProvider` wrapper |
-| `Environment.CurrentDirectory` | `IEnvironmentProvider` wrapper |
-| `Environment.Exit(` | `IEnvironmentProvider` wrapper |
-
-#### Network
-| Pattern | Replacement |
-|---------|-------------|
-| `new HttpClient(` | `IHttpClientFactory` |
-| `HttpClient.GetAsync(` | `IHttpClientFactory` |
-| `HttpClient.PostAsync(` | `IHttpClientFactory` |
-| `HttpClient.SendAsync(` | `IHttpClientFactory` |
-| `Dns.GetHostEntry(` | Custom wrapper |
-| `Dns.GetHostAddresses(` | Custom wrapper |
-
-#### Console
-| Pattern | Replacement |
-|---------|-------------|
-| `Console.WriteLine(` | `IConsole` wrapper or `ILogger` |
-| `Console.ReadLine(` | `IConsole` wrapper |
-| `Console.Write(` | `IConsole` wrapper |
-| `Console.ReadKey(` | `IConsole` wrapper |
-
-#### Process
-| Pattern | Replacement |
-|---------|-------------|
-| `Process.Start(` | `IProcessRunner` wrapper |
-| `Process.GetCurrentProcess(` | `IProcessRunner` wrapper |
-| `Process.GetProcessesByName(` | `IProcessRunner` wrapper |
+| Category | Patterns to search for | Recommended replacement |
+|----------|----------------------|------------------------|
+| **Time** | `DateTime.Now`, `DateTime.UtcNow`, `DateTime.Today`, `DateTimeOffset.Now`, `DateTimeOffset.UtcNow`, `Task.Delay(`, `new CancellationTokenSource(TimeSpan` | `TimeProvider` (.NET 8+) |
+| **File System** | `File.ReadAllText(`, `File.WriteAllText(`, `File.Exists(`, `File.Delete(`, `File.Copy(`, `File.Move(`, `Directory.Exists(`, `Directory.CreateDirectory(`, `Directory.GetFiles(`, `Directory.Delete(`, `Path.Combine(`, `Path.GetTempPath(` | `IFileSystem` (System.IO.Abstractions NuGet) |
+| **Environment** | `Environment.GetEnvironmentVariable(`, `Environment.SetEnvironmentVariable(`, `Environment.MachineName`, `Environment.UserName`, `Environment.CurrentDirectory`, `Environment.Exit(` | Custom `IEnvironmentProvider` |
+| **Network** | `new HttpClient(`, `HttpClient.GetAsync(`, `HttpClient.PostAsync(`, `HttpClient.SendAsync(` | `IHttpClientFactory` (built-in) |
+| **Console** | `Console.WriteLine(`, `Console.ReadLine(`, `Console.Write(`, `Console.ReadKey(` | `IConsole` wrapper or `ILogger` |
+| **Process** | `Process.Start(`, `Process.GetCurrentProcess(`, `Process.GetProcessesByName(` | Custom `IProcessRunner` |
 
 ### Step 3: Aggregate and rank results
 

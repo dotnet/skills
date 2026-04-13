@@ -6,9 +6,12 @@ description: >
   Performs codemod-style bulk replacement of DateTime.UtcNow to TimeProvider.GetUtcNow(),
   File.ReadAllText to IFileSystem, and similar transformations. Adds constructor
   injection parameters and updates DI registration.
-  USE FOR: replace DateTime.Now with TimeProvider, migrate static calls to wrapper,
-  bulk replace File.* with IFileSystem, codemod static to injectable, add constructor
-  injection for time provider, mechanical migration of statics.
+  USE FOR: replace DateTime.UtcNow with TimeProvider, replace DateTime.Now with
+  TimeProvider, migrate static calls to wrapper, bulk replace File.* with IFileSystem,
+  codemod static to injectable, add constructor injection for time provider,
+  mechanical migration of statics, refactor DateTime to TimeProvider, swap static
+  for injected dependency, convert static calls to use abstraction, replace statics
+  in a class, migrate one file to TimeProvider, scoped migration, update call sites.
   DO NOT USE FOR: detecting statics (use detect-static-dependencies), generating
   wrappers (use generate-testability-wrappers), migrating between test frameworks.
 ---
@@ -63,71 +66,28 @@ For each file containing the static pattern, determine:
 
 #### Replacement mapping
 
-| Original Call | Replacement (DI) | Replacement (ambient) |
-|---------------|-------------------|-----------------------|
-| `DateTime.Now` | `_timeProvider.GetLocalNow().DateTime` | `Clock.Now` |
-| `DateTime.UtcNow` | `_timeProvider.GetUtcNow().DateTime` | `Clock.UtcNow` |
-| `DateTime.Today` | `_timeProvider.GetLocalNow().Date` | `Clock.Today` |
-| `DateTimeOffset.Now` | `_timeProvider.GetLocalNow()` | `Clock.Now` |
-| `DateTimeOffset.UtcNow` | `_timeProvider.GetUtcNow()` | `Clock.UtcNow` |
-| `Task.Delay(duration)` | `_timeProvider.Delay(duration)` | N/A |
-| `File.ReadAllText(path)` | `_fileSystem.File.ReadAllText(path)` | N/A |
-| `File.WriteAllText(path, text)` | `_fileSystem.File.WriteAllText(path, text)` | N/A |
-| `File.Exists(path)` | `_fileSystem.File.Exists(path)` | N/A |
-| `Directory.Exists(path)` | `_fileSystem.Directory.Exists(path)` | N/A |
-| `Directory.CreateDirectory(path)` | `_fileSystem.Directory.CreateDirectory(path)` | N/A |
-| `Environment.GetEnvironmentVariable(name)` | `_env.GetEnvironmentVariable(name)` | N/A |
-| `Console.WriteLine(msg)` | `_console.WriteLine(msg)` | N/A |
-| `Process.Start(info)` | `_processRunner.Start(info)` | N/A |
+| Category | Original | DI replacement |
+|----------|----------|----------------|
+| Time | `DateTime.Now` | `_timeProvider.GetLocalNow().DateTime` |
+| Time | `DateTime.UtcNow` | `_timeProvider.GetUtcNow().DateTime` |
+| Time | `DateTime.Today` | `_timeProvider.GetLocalNow().Date` |
+| Time | `DateTimeOffset.UtcNow` | `_timeProvider.GetUtcNow()` |
+| File | `File.ReadAllText(path)` | `_fileSystem.File.ReadAllText(path)` |
+| File | `File.WriteAllText(path, text)` | `_fileSystem.File.WriteAllText(path, text)` |
+| File | `File.Exists(path)` | `_fileSystem.File.Exists(path)` |
+| File | `Directory.Exists(path)` | `_fileSystem.Directory.Exists(path)` |
+| Env | `Environment.GetEnvironmentVariable(name)` | `_env.GetEnvironmentVariable(name)` |
+| Console | `Console.WriteLine(msg)` | `_console.WriteLine(msg)` |
+| Process | `Process.Start(info)` | `_processRunner.Start(info)` |
+
+Apply the same pattern for other members in each category.
 
 ### Step 3: Add constructor injection
 
-For each class that needs the new dependency:
+Add the new dependency following the class's existing pattern:
 
-#### Primary constructor (C# 12+ / .NET 8+, preferred if class already uses primary constructor)
-
-```csharp
-// Before:
-public class OrderProcessor(ILogger<OrderProcessor> logger)
-
-// After:
-public class OrderProcessor(ILogger<OrderProcessor> logger, TimeProvider timeProvider)
-```
-
-#### Traditional constructor
-
-```csharp
-// Before:
-public class OrderProcessor
-{
-    private readonly ILogger<OrderProcessor> _logger;
-
-    public OrderProcessor(ILogger<OrderProcessor> logger)
-    {
-        _logger = logger;
-    }
-}
-
-// After:
-public class OrderProcessor
-{
-    private readonly ILogger<OrderProcessor> _logger;
-    private readonly TimeProvider _timeProvider;
-
-    public OrderProcessor(ILogger<OrderProcessor> logger, TimeProvider timeProvider)
-    {
-        _logger = logger;
-        _timeProvider = timeProvider;
-    }
-}
-```
-
-#### Field naming convention
-
-Follow the existing convention in the class:
-- If other fields use `_camelCase`, use `_timeProvider`
-- If other fields use `m_camelCase`, use `m_timeProvider`
-- If primary constructor, use the parameter name directly
+- **Primary constructor** (C# 12+): Add parameter to primary constructor: `public class OrderProcessor(ILogger<OrderProcessor> logger, TimeProvider timeProvider)`
+- **Traditional constructor**: Add `private readonly` field + constructor parameter, matching the existing field naming convention (`_camelCase` or `m_camelCase`)
 
 ### Step 4: Replace call sites
 

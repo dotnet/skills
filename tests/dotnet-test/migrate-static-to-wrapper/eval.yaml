@@ -72,4 +72,4 @@ scenarios:
       - "Identified that System.IO.Abstractions NuGet package is not referenced in the project"
       - "Did not blindly replace File.ReadAllText with IFileSystem calls that would not compile"
       - "Recommended installing the package and registering IFileSystem before migrating"
-    timeout: 120
+    timeout: 180

@@ -1,15 +1,17 @@
 ---
 name: generate-testability-wrappers
 description: >
-  Generate wrapper interfaces, default implementations, and DI registration for
-  hard-to-test static dependencies in C# code. Produces IFileSystem, IEnvironmentProvider,
-  IConsole, IProcessRunner wrappers, or guides adoption of built-in abstractions like
-  TimeProvider and IHttpClientFactory.
+  Generate wrapper interfaces and DI registration for hard-to-test static dependencies in C#.
+  Produces IFileSystem, IEnvironmentProvider, IConsole, IProcessRunner wrappers, or guides adoption
+  of TimeProvider and IHttpClientFactory.
   USE FOR: generate wrapper for static, create IFileSystem wrapper, wrap DateTime.Now,
-  make static testable, create abstraction for File.*, generate DI registration,
-  TimeProvider adoption, IHttpClientFactory setup, testability wrapper, mock-friendly interface.
+  make static testable, make class testable, create abstraction for File.*, generate
+  DI registration, TimeProvider adoption, IHttpClientFactory setup, testability wrapper,
+  mock-friendly interface, mock time in tests, create the right abstraction to mock,
+  how to mock DateTime, test code using File.ReadAllText, what abstraction for Environment,
+  how to make statics injectable, adopt System.IO.Abstractions, make file calls testable.
   DO NOT USE FOR: detecting statics (use detect-static-dependencies), migrating call
-  sites (use migrate-static-to-wrapper), general interface design that is not about testability.
+  sites (use migrate-static-to-wrapper), general interface design not about testability.
 ---
 
 # Generate Testability Wrappers
@@ -89,24 +91,7 @@ Guide: install `Microsoft.Bcl.TimeProvider` NuGet. Same API as above.
 
 #### IHttpClientFactory
 
-No wrapper code needed — guide the user:
-
-1. Register in DI:
-```csharp
-builder.Services.AddHttpClient<MyService>(client =>
-{
-    client.BaseAddress = new Uri("https://api.example.com");
-});
-```
-
-2. Inject into classes:
-```csharp
-public class MyService(HttpClient httpClient)
-{
-    public Task<string> GetDataAsync()
-        => httpClient.GetStringAsync("/data");
-}
-```
+No wrapper code needed — register typed clients via `builder.Services.AddHttpClient<MyService>()` and inject `HttpClient` directly into the class constructor.
 
 ### Step 3: Generate custom wrappers (Environment, Console, Process)
 
@@ -189,29 +174,20 @@ Assert.Equal("{\"key\": \"value\"}", loader.LoadConfig("/config.json"));
 
 ### Step 5: Generate ambient context alternative (when DI is not available)
 
-If the codebase does not use DI (e.g., old console app, library code), offer the ambient context pattern instead:
+If the codebase does not use DI (e.g., old console app, library code), offer the ambient context pattern:
 
 ```csharp
 public static class Clock
 {
     private static readonly AsyncLocal<Func<DateTimeOffset>?> s_override = new();
-
     public static DateTimeOffset UtcNow
         => s_override.Value?.Invoke() ?? TimeProvider.System.GetUtcNow();
 
-    /// <summary>Test helper — pins the clock to a fixed time in the current async scope.</summary>
     public static IDisposable Override(DateTimeOffset fixedTime)
     {
         s_override.Value = () => fixedTime;
         return new Scope();
     }
-
-    public static IDisposable Override(Func<DateTimeOffset> factory)
-    {
-        s_override.Value = factory;
-        return new Scope();
-    }
-
     private sealed class Scope : IDisposable
     {
         public void Dispose() => s_override.Value = null;
@@ -219,10 +195,7 @@ public static class Clock
 }
 ```
 
-Explain the trade-offs:
-- **Production cost**: one static `readonly` field + one null check per call (negligible)
-- **Thread safety**: `AsyncLocal<T>` scopes per async flow — parallel tests don't interfere
-- **Limitation**: does not propagate to `Task.Run` unless the execution context is captured
+Key trade-offs: `AsyncLocal<T>` ensures parallel tests don't interfere; production cost is one null check per call; the `static readonly` field is essentially free.
 
 ### Step 6: Place generated files
 
@@ -255,3 +228,4 @@ Always generate:
 | Registering scoped when singleton suffices | Stateless wrappers should be `AddSingleton` |
 | Forgetting test helper packages | `Microsoft.Extensions.TimeProvider.Testing` for time, `System.IO.Abstractions.TestingHelpers` for filesystem |
 | Ambient context without `AsyncLocal` | Non-async `[ThreadStatic]` breaks with `async`/`await` — always use `AsyncLocal<T>` |
+
