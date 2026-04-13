@@ -47,7 +47,7 @@ scenarios:
     timeout: 360
 
   - name: "Run tests with blame-hang on MTP project (SDK 10)"
-    prompt: "My tests are occasionally hanging. I want to run them with a hang timeout of 5 minutes to detect the culprit. Here's my project."
+    prompt: "My tests are occasionally hanging. I want to run them with dotnet test using a hang timeout of 5 minutes to detect the culprit. Here's my project."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -140,7 +140,7 @@ scenarios:
     timeout: 120
 
   - name: "Filter xUnit v3 tests by class on MTP"
-    prompt: "I need to run only the ShoppingCartTests class, not the InventoryServiceTests. Can you show me the command?"
+    prompt: "I need to run only the ShoppingCartTests class using dotnet test, not the InventoryServiceTests. Can you show me the command?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -164,7 +164,7 @@ scenarios:
     timeout: 120
 
   - name: "Filter xUnit v3 tests by trait on MTP"
-    prompt: "I want to run only the tests with the Category=Integration trait in this xUnit project."
+    prompt: "I want to run only the tests with the Category=Integration trait in this xUnit project using dotnet test."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -188,7 +188,7 @@ scenarios:
     timeout: 120
 
   - name: "Filter TUnit tests by class using treenode-filter"
-    prompt: "I want to run only the SmsNotificationTests from this TUnit project. What's the command?"
+    prompt: "I want to run only the SmsNotificationTests from this TUnit project using dotnet test. What's the command?"
     setup:
       files:
         - path: "TestProject.csproj"
