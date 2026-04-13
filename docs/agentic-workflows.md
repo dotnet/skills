@@ -8,7 +8,7 @@ The workflow source files live in `.github/workflows/` and are compiled with `gh
 
 | Workflow | Description | Trigger |
 |----------|-------------|---------|
-| [devops-health-check](../.github/workflows/devops-health-check.md) | Daily orchestrator that collects repo health signals (pipelines, skill quality, PRs, infrastructure), computes a fingerprint-based diff against the previous run, and updates a pinned health dashboard issue | `cron: 0 3 * * *` (03:00 UTC daily), `workflow_dispatch` |
+| [devops-health-check](../.github/workflows/devops-health-check.md) | Daily orchestrator that collects repo infrastructure health signals (pipelines, CI/CD infrastructure, resource usage), computes a fingerprint-based diff against the previous run, and updates a pinned health dashboard issue | `cron: 0 3 * * *` (03:00 UTC daily), `workflow_dispatch` |
 | [devops-health-investigate](../.github/workflows/devops-health-investigate.md) | Worker agent dispatched by the health check orchestrator to perform deep root-cause analysis on individual findings | `workflow_dispatch` (dispatched by orchestrator via `dispatch-workflow`) |
 | [devops-health-groom](../.github/workflows/devops-health-groom.md) | Runs ~3h after the health check to link investigation results into the issue body, hide stale comments (>7 days), and clean up resolved investigations | `cron: 0 6 * * *` (06:00 UTC daily), `workflow_dispatch` |
 
@@ -16,8 +16,8 @@ The workflow source files live in `.github/workflows/` and are compiled with `gh
 
 ```
 devops-health-check (Orchestrator) ─── runs daily
-  ├─ Collects health signals from 5 categories:
-  │   Pipeline · Quality · PRs · Infrastructure · Resources
+  ├─ Collects health signals from 3 categories:
+  │   Pipeline · Infrastructure · Resources
   ├─ Fingerprints each finding for stable diff tracking
   ├─ Classifies: 🆕 NEW · 📌 EXISTING · ✅ RESOLVED
   ├─ Updates pinned health dashboard issue

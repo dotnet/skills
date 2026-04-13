@@ -67,14 +67,13 @@ permissions:
   contents: read
   actions: read
   issues: read
-  pull-requests: read
 
 imports:
   - ../aw/shared/devops-health.lock.md
 
 tools:
   github:
-    toolsets: [repos, issues, pull_requests, actions]
+    toolsets: [repos, issues, actions]
   bash: ["cat", "grep", "head", "tail", "jq", "date", "sort"]
 
 safe-outputs:

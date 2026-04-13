@@ -36,59 +36,18 @@ fingerprint = "pipeline:{workflow_name}:{job_name}:{failed_step}:{conclusion}"
 | Evaluation scheduled cancellation rate > 60% | `pipeline:evaluation:schedule-cancellation:critical` |
 | Evaluation scheduled cancellation rate > 30% | `pipeline:evaluation:schedule-cancellation:warning` |
 
-### 1.2 Quality Fingerprints
-
-```
-fingerprint = "quality:{skill_name}:{scenario_name}:{signal}"
-  where signal ∈ { "{flag_name}", "regressed", "no-uplift", "high-variance" }
-```
-
-- Extract `skill_name` and `scenario_name` from bench entry `name` field
-  - Format: `"{skill}/{scenario} - {metric}"` → parse text before ` - ` and split on `/`
-- `{flag_name}` = any non-standard boolean property found on a bench entry (e.g., `notActivated`, `timedOut`, `testOverfitted`, or any future flag added to `generate-benchmark-data.ps1`)
-- Anomaly flags are **dynamically discovered**: any property beyond `name`/`unit`/`value` on a bench entry is treated as an anomaly flag
-
-**Examples:**
-| Finding | Fingerprint |
-|---------|-------------|
-| dump-collect/basic-dump has notActivated flag | `quality:dump-collect:basic-dump:notActivated` |
-| csharp-scripts/basic-script quality dropped 2.3 points | `quality:csharp-scripts:basic-script:regressed` |
-| dotnet-pinvoke/marshal-array skilled ≤ vanilla | `quality:dotnet-pinvoke:marshal-array:no-uplift` |
-| analyzing-dotnet-performance/memory-leak high stddev | `quality:analyzing-dotnet-performance:memory-leak:high-variance` |
-
-### 1.3 Coverage Fingerprints
-
-```
-fingerprint = "coverage:{skill_name}:no-tests"
-```
-
-### 1.4 Benchmark Staleness Fingerprints
-
-```
-fingerprint = "quality:benchmark-stale:{component_name}"
-```
-
-### 1.5 PR Fingerprints
-
-```
-fingerprint = "pr:{pr_number}:{signal}"
-  where signal ∈ { "stale", "no-review", "failing-checks", "stale-draft" }
-```
-
-- `pr_number` is the integer PR number (not the node ID)
-- A PR that was "stale" last run and is still stale → EXISTING
-- A PR that was "stale" but got merged/closed → RESOLVED
-
-### 1.6 Infrastructure Fingerprints
+### 1.2 Infrastructure Fingerprints
 
 ```
 fingerprint = "infra:{config_key}"
   where config_key ∈ { "no-codeowners", "no-dependabot", "relaxed-skill-validation",
                         "verdict-warn-only", "pages-deployment-failed",
-                        "unpinned-action:{action_name}" }
+                        "unpinned-action:{action_name}",
+                        "orphan-skill:{component}:{skill_name}",
+                        "orphan-plugin:{directory_basename}" }
 ```
 
-### 1.7 Resource Fingerprints
+### 1.3 Resource Fingerprints
 
 ```
 fingerprint = "resource:{metric}:{threshold_breach}"
@@ -134,7 +93,7 @@ cache_memory_save("health-check-history", append(
 
 Within each category (NEW, EXISTING, RESOLVED):
 1. **Primary**: Severity descending — 🔴 Critical → 🟡 Warning → 🔵 Info
-2. **Secondary**: Category — pipeline → quality → pr → infra → resource
+2. **Secondary**: Category — pipeline → infra → resource
 3. **Tertiary**: Alphabetical by title
 
 ---
@@ -156,28 +115,6 @@ Within each category (NEW, EXISTING, RESOLVED):
 | P6 | Eval scheduled cancellation rate > 60% (24h) | 🔴 Critical |
 | P6 | Eval scheduled cancellation rate > 30% (24h) | 🟡 Warning |
 
-### Quality
-
-| Check | Condition | Severity |
-|-------|-----------|----------|
-| Q1 | `notActivated` flag on bench entry | 🔴 Critical |
-| Q1 | Any other anomaly flag | 🟡 Warning |
-| Q2 | Quality drop > 2.0 points vs 7-day avg | 🔴 Critical |
-| Q2 | Quality drop > 1.0 points vs 7-day avg | 🟡 Warning |
-| Q3 | Skilled ≤ Vanilla quality | 🟡 Warning |
-| Q4 | Quality stddev > 1.5 over 7 days | 🟡 Warning |
-| Q5 | Skill has no eval tests | 🟡 Warning |
-| Q6 | Benchmark data > 24h old | 🟡 Warning |
-
-### PR
-
-| Check | Condition | Severity |
-|-------|-----------|----------|
-| R1 | Open > 7 days, no review | 🟡 Warning |
-| R2 | Open > 14 days (any review) | 🟡 Warning |
-| R3 | All checks failing | 🟡 Warning |
-| R4 | Draft, no activity > 7 days | 🔵 Info |
-
 ### Infrastructure
 
 | Check | Condition | Severity |
@@ -188,6 +125,8 @@ Within each category (NEW, EXISTING, RESOLVED):
 | I4 | `--verdict-warn-only` in evaluation | 🔵 Info |
 | I5 | Pages deployment failed | 🔴 Critical |
 | I6 | Unpinned third-party action | 🔵 Info |
+| I7 | Orphan skill (not registered in any plugin) | 🟡 Warning |
+| I8 | Orphan plugin (not listed in marketplace.json) | 🟡 Warning |
 
 ### Resource
 
@@ -197,114 +136,7 @@ Within each category (NEW, EXISTING, RESOLVED):
 
 ---
 
-## 4. Benchmark Data Format
-
-Dashboard data files on `gh-pages` at `data/{component}.json` have this structure:
-
-```json
-{
-  "lastUpdate": 1740000000000,
-  "repoUrl": "",
-  "entries": {
-    "Quality": [
-      {
-        "commit": { "id": "abc1234", "message": "...", "timestamp": "..." },
-        "date": 1740000000000,
-        "tool": "customBiggerIsBetter",
-        "model": "claude-opus-4.6",
-        "benches": [
-          {
-            "name": "skillName/scenarioName - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 7.8
-          },
-          {
-            "name": "skillName/scenarioName - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 5.2
-          },
-          {
-            "name": "skillName/scenarioName - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 0.0,
-            "notActivated": true
-          }
-        ]
-      }
-    ],
-    "Efficiency": [
-      {
-        "commit": { ... },
-        "date": 1740000000000,
-        "tool": "customSmallerIsBetter",
-        "model": "claude-opus-4.6",
-        "benches": [
-          {
-            "name": "skillName/scenarioName - Skilled Time",
-            "unit": "seconds",
-            "value": 45.2,
-            "timedOut": true
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### Key Points for Parsing:
-- `date` is Unix epoch in **milliseconds**
-- Bench entry `name` format: `"{skill}/{scenario} - {metric}"`
-- Standard fields: `name`, `unit`, `value` — anything else is an anomaly flag
-- Both `Quality` and `Efficiency` arrays carry the same anomaly flags
-- Quality scores range 0-10 (mapped from 0-5 judge scale)
-- The latest entry is the last element in the array (`entries.Quality[-1]`)
-- For 7-day rolling averages, filter entries by `date` field (not array index)
-
-### Parsing Skill/Scenario from Bench Name:
-
-```
-bench.name = "dump-collect/basic-dump - Skilled Quality"
-parts = bench.name.split(" - ")
-# parts[0] = "dump-collect/basic-dump"
-# parts[1] = "Skilled Quality"
-
-skill_scenario = parts[0].split("/")
-# skill_scenario[0] = "dump-collect"    (skill name)
-# skill_scenario[1] = "basic-dump"      (scenario name)
-```
-
-### Detecting Anomaly Flags:
-
-For each bench entry, check all properties. Any property key that is NOT `name`, `unit`, or `value` is an anomaly flag:
-
-```
-standard_fields = {"name", "unit", "value"}
-flags = { key: value for key, value in bench_entry if key not in standard_fields and value == true }
-```
-
-This approach automatically discovers new flag types added in the future.
-
----
-
-## 5. Component Discovery
-
-Components are discovered by scanning the file system:
-
-```bash
-find plugins/*/plugin.json -maxdepth 2
-```
-
-Each `plugins/{name}/` directory containing a `plugin.json` is a component. The dashboard data file is at `data/{name}.json` on the `gh-pages` branch.
-
-To fetch benchmark data via the GitHub API (without `curl`):
-```
-GET https://raw.githubusercontent.com/{owner}/{repo}/gh-pages/data/{component}.json
-```
-
----
-
-## 6. Known Noise Patterns
+## 4. Known Noise Patterns
 
 The `cache-memory` key `known-noise` stores a list of fingerprint prefixes or patterns that should be demoted to 🔵 Info severity. Example patterns:
 
@@ -317,35 +149,33 @@ New patterns can be added by manually editing the `known-noise` list in `cache-m
 
 ---
 
-## 7. Investigation Dispatch Rules
+## 5. Investigation Dispatch Rules
 
 Only 🆕 NEW findings that meet these criteria qualify for investigation dispatch:
 
 | Condition | Action |
 |-----------|--------|
 | 🆕 + 🔴 Critical | **Always dispatch** |
-| 🆕 + 🟡 Warning + `pipeline` or `quality` category | **Dispatch** |
-| 🆕 + 🟡 Warning + `pr` or `infra` category | **Skip** |
+| 🆕 + 🟡 Warning + `pipeline` category | **Dispatch** |
+| 🆕 + 🟡 Warning + `infra` or `resource` category | **Skip** |
 | 🆕 + 🔵 Info | **Never dispatch** |
 | 📌 EXISTING or ✅ RESOLVED | **Never dispatch** |
 
-**Budget cap:** Maximum 10 dispatches per run.
+**Budget cap:** Maximum 2 dispatches per run.
 **Priority order when cap is hit:**
 1. 🔴 Critical findings first
-2. Pipeline findings before quality
+2. Pipeline findings before infrastructure
 3. Other categories last
 
----
+## 6. Output Templates
 
-## 8. Output Templates
-
-### 8.1 Issue Title
+### 6.1 Issue Title
 
 ```
 🏥 Repository Health Dashboard
 ```
 
-### 8.2 Issue Label
+### 6.2 Issue Label
 
 ```
 devops-health
@@ -353,7 +183,7 @@ devops-health
 - Color: `#0E8A16`
 - Description: `Daily automated health check report`
 
-### 8.3 First Run Notice
+### 6.3 First Run Notice
 
 If no previous fingerprints exist in `cache-memory`:
 
@@ -362,7 +192,7 @@ If no previous fingerprints exist in `cache-memory`:
 > Starting from the next run, only changes will be highlighted.
 ```
 
-### 8.4 Trends Arrow Legend
+### 6.4 Trends Arrow Legend
 
 | Condition | Arrow | Meaning |
 |-----------|-------|---------|
@@ -372,7 +202,7 @@ If no previous fingerprints exist in `cache-memory`:
 | Δ negative and bad (e.g., success rate down) | ⚠️ | Degrading |
 | Δ ≈ 0 | ➡️ | Stable |
 
-### 8.5 Investigation Island Template
+### 6.5 Investigation Island Template
 
 ```markdown
 <!-- investigation:{fingerprint} -->
@@ -382,20 +212,20 @@ If no previous fingerprints exist in `cache-memory`:
 
 ---
 
-## 9. Operational Guardrails
+## 7. Operational Guardrails
 
-### 9.1 API Rate Limits
+### 7.1 API Rate Limits
 - Use targeted, date-filtered queries to minimize API calls
 - The `github` MCP toolset handles pagination automatically
 - Space dispatches 5 seconds apart
 
-### 9.2 Issue Body Size
+### 7.2 Issue Body Size
 - GitHub issues have a ~65,535 character limit
 - If body exceeds 60k: truncate EXISTING section (keep top 20 by severity)
 - Footer: `> … N additional existing findings omitted`
 - The daily comment always includes complete summary counts
 
-### 9.3 Cache Memory Keys
+### 7.3 Cache Memory Keys
 
 | Key | Contents | Updated |
 |-----|----------|---------|
@@ -403,7 +233,7 @@ If no previous fingerprints exist in `cache-memory`:
 | `health-check-history` | Array of daily summaries (date, counts by diff type and severity) | Appended each run |
 | `known-noise` | Array of fingerprint patterns to demote to Info | Manual edit |
 
-### 9.4 Graceful Degradation
+### 7.4 Graceful Degradation
 
 If any data source is unavailable:
 - Skip that check category entirely
@@ -411,9 +241,9 @@ If any data source is unavailable:
 - Do NOT fail the entire workflow
 - Continue with available data
 
-### 9.5 Cache Memory Loss
+### 7.5 Cache Memory Loss
 
 If `cache-memory` returns no previous state:
 - Treat all findings as 🆕 NEW
-- Display the first-run notice (§8.3)
+- Display the first-run notice (§6.3)
 - The diff will resume automatically on the next run
