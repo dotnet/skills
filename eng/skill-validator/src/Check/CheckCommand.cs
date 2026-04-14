@@ -14,6 +14,9 @@ public static class CheckCommand
         var allowedExternalDepsOpt = new Option<string?>("--allowed-external-deps") { Description = "Path to allowed-external-deps.txt allow list file" };
         var knownDomainsOpt = new Option<string?>("--known-domains") { Description = "Path to known-domains.txt for reference scanning" };
         var verboseOpt = new Option<bool>("--verbose") { Description = "Show detailed output" };
+        var maxDeclarationLinesOpt = new Option<int?>("--max-declaration-lines") { Description = "Override the maximum allowed body line count for skills and agents (default: 500)" };
+        var maxAgentLinesOpt = new Option<int?>("--max-agent-lines") { Description = "Override the maximum allowed agent body line count (defaults to --max-declaration-lines value)" };
+        var allowRepoTraversalOpt = new Option<bool>("--allow-repo-traversal") { Description = "Allow parent-directory traversals in file references" };
 
         var command = new Command("check", "Run static analysis checks on skills, plugins, and agents (no LLM required). Use --plugin to check an entire plugin directory (recommended).")
         {
@@ -23,6 +26,9 @@ public static class CheckCommand
             allowedExternalDepsOpt,
             knownDomainsOpt,
             verboseOpt,
+            maxDeclarationLinesOpt,
+            maxAgentLinesOpt,
+            allowRepoTraversalOpt,
         };
 
         command.SetAction(async (parseResult, _) =>
@@ -51,6 +57,12 @@ public static class CheckCommand
                 AllowedExternalDepsFile = parseResult.GetValue(allowedExternalDepsOpt),
                 KnownDomainsFile = parseResult.GetValue(knownDomainsOpt),
                 Verbose = parseResult.GetValue(verboseOpt),
+                CheckOptions = new CheckOptions
+                {
+                    MaxDeclarationLines = parseResult.GetValue(maxDeclarationLinesOpt),
+                    MaxAgentLines = parseResult.GetValue(maxAgentLinesOpt),
+                    AllowRepoTraversal = parseResult.GetValue(allowRepoTraversalOpt),
+                },
             };
             return await Run(config);
         });
@@ -162,7 +174,7 @@ public static class CheckCommand
         if (allSkillsList.Count > 0)
         {
             Console.WriteLine($"Found {allSkillsList.Count} skill(s)");
-            if (ValidateSkillProfiles(allSkillsList, config.Verbose))
+            if (ValidateSkillProfiles(allSkillsList, config.Verbose, config.CheckOptions))
                 skillResult = 1;
 
             // Check for duplicate skill names across all skills
@@ -171,7 +183,7 @@ public static class CheckCommand
         }
 
         // Validate agents
-        var (allAgents, agentResult) = await RunAgentsCheckCore(agentDirs.Distinct().ToList());
+        var (allAgents, agentResult) = await RunAgentsCheckCore(agentDirs.Distinct().ToList(), config.CheckOptions);
 
         if (allSkillsList.Count == 0 && allAgents.Count == 0)
         {
@@ -208,7 +220,7 @@ public static class CheckCommand
 
     private static async Task<int> RunSkillsCheck(CheckConfig config)
     {
-        var (skills, result) = await RunSkillsCheckCore(config.SkillPaths, config.Verbose);
+        var (skills, result) = await RunSkillsCheckCore(config.SkillPaths, config.Verbose, config.CheckOptions);
 
         if (skills.Count == 0)
             return 1; // error already printed
@@ -225,7 +237,7 @@ public static class CheckCommand
 
     private static async Task<int> RunAgentsCheck(CheckConfig config)
     {
-        var (agents, result) = await RunAgentsCheckCore(config.AgentPaths);
+        var (agents, result) = await RunAgentsCheckCore(config.AgentPaths, config.CheckOptions);
 
         if (agents.Count == 0)
             return 1; // error already printed
@@ -240,7 +252,7 @@ public static class CheckCommand
         return 0;
     }
 
-    private static async Task<(IReadOnlyList<SkillInfo> Skills, int Result)> RunSkillsCheckCore(IReadOnlyList<string> skillPaths, bool verbose)
+    private static async Task<(IReadOnlyList<SkillInfo> Skills, int Result)> RunSkillsCheckCore(IReadOnlyList<string> skillPaths, bool verbose, CheckOptions? checkOptions = null)
     {
         var allSkills = new List<SkillInfo>();
         foreach (var path in skillPaths)
@@ -262,7 +274,7 @@ public static class CheckCommand
         Console.WriteLine($"Found {allSkills.Count} skill(s)");
 
         bool hasErrors = false;
-        if (ValidateSkillProfiles(allSkills, verbose))
+        if (ValidateSkillProfiles(allSkills, verbose, checkOptions))
             hasErrors = true;
 
         if (CheckDuplicateSkillNames(allSkills))
@@ -271,7 +283,7 @@ public static class CheckCommand
         return (allSkills, hasErrors ? 1 : 0);
     }
 
-    private static async Task<(IReadOnlyList<AgentInfo> Agents, int Result)> RunAgentsCheckCore(IReadOnlyList<string> agentPaths)
+    private static async Task<(IReadOnlyList<AgentInfo> Agents, int Result)> RunAgentsCheckCore(IReadOnlyList<string> agentPaths, CheckOptions? checkOptions = null)
     {
         var allAgents = new List<AgentInfo>();
         foreach (var path in agentPaths)
@@ -295,7 +307,7 @@ public static class CheckCommand
         bool hasErrors = false;
         foreach (var agent in allAgents)
         {
-            var profile = AgentProfiler.AnalyzeAgent(agent);
+            var profile = AgentProfiler.AnalyzeAgent(agent, checkOptions);
             foreach (var warning in profile.Warnings)
                 Console.WriteLine($"{Ansi.Yellow}⚠  [agent:{profile.Name}] {warning}{Ansi.Reset}");
             foreach (var error in profile.Errors)
@@ -336,12 +348,12 @@ public static class CheckCommand
         return hasDuplicates;
     }
 
-    private static bool ValidateSkillProfiles(IReadOnlyList<SkillInfo> skills, bool verbose)
+    private static bool ValidateSkillProfiles(IReadOnlyList<SkillInfo> skills, bool verbose, CheckOptions? checkOptions = null)
     {
         bool hasErrors = false;
         foreach (var skill in skills)
         {
-            var profile = SkillProfiler.AnalyzeSkill(skill);
+            var profile = SkillProfiler.AnalyzeSkill(skill, checkOptions);
 
             if (verbose)
                 Console.WriteLine($"[{skill.Name}] 📊 {SkillProfiler.FormatProfileLine(profile)}");

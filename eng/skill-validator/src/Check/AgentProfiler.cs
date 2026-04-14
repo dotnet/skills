@@ -13,8 +13,9 @@ public static class AgentProfiler
     // https://agentskills.io/specification#progressive-disclosure
     private const int MaxBodyLines = 500;
 
-    public static AgentProfile AnalyzeAgent(AgentInfo agent)
+    public static AgentProfile AnalyzeAgent(AgentInfo agent, CheckOptions? options = null)
     {
+        var effectiveMaxBodyLines = options?.MaxAgentLines ?? options?.MaxDeclarationLines ?? MaxBodyLines;
         var content = agent.AgentMdContent;
         var errors = new List<string>();
         var warnings = new List<string>();
@@ -55,9 +56,9 @@ public static class AgentProfiler
         // https://agentskills.io/specification#progressive-disclosure
         var trimmedBody = body.TrimEnd('\r', '\n');
         int bodyLineCount = trimmedBody.Length == 0 ? 0 : trimmedBody.Split('\n').Length;
-        if (bodyLineCount > MaxBodyLines)
+        if (bodyLineCount > effectiveMaxBodyLines)
         {
-            errors.Add($"Agent body is {bodyLineCount} lines — maximum is {MaxBodyLines}. Keep agent instructions concise.");
+            errors.Add($"Agent body is {bodyLineCount} lines — maximum is {effectiveMaxBodyLines}. Keep agent instructions concise.");
         }
 
         return new AgentProfile(profileName, agent.FileName, errors, warnings);

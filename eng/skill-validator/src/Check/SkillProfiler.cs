@@ -38,8 +38,10 @@ public static partial class SkillProfiler
     private const int MaxBodyLines = 500;
     private const long MaxAssetFileSize = 5 * 1024 * 1024; // 5 MB
 
-    public static SkillProfile AnalyzeSkill(SkillInfo skill)
+    public static SkillProfile AnalyzeSkill(SkillInfo skill, CheckOptions? options = null)
     {
+        var effectiveMaxBodyLines = options?.MaxDeclarationLines ?? MaxBodyLines;
+        var allowRepoTraversal = options?.AllowRepoTraversal ?? false;
         var content = skill.SkillMdContent;
         int chars4TokenCount = (int)Math.Ceiling(content.Length / 4.0);
         int bpeTokenCount = s_bpeTokenizer.Value.CountTokens(content);
@@ -102,9 +104,9 @@ public static partial class SkillProfiler
         // --- agentskills.io spec: body line count ---
         var trimmedBody = body.TrimEnd('\r', '\n');
         int bodyLineCount = trimmedBody.Length == 0 ? 0 : trimmedBody.Split('\n').Length;
-        if (bodyLineCount > MaxBodyLines)
+        if (bodyLineCount > effectiveMaxBodyLines)
         {
-            errors.Add($"SKILL.md body is {bodyLineCount} lines — maximum is {MaxBodyLines}. Move detailed reference material to separate files.");
+            errors.Add($"SKILL.md body is {bodyLineCount} lines — maximum is {effectiveMaxBodyLines}. Move detailed reference material to separate files.");
         }
 
         // --- agentskills.io spec: file reference depth ---
@@ -128,7 +130,7 @@ public static partial class SkillProfiler
             var segments = refPath.Split('/');
 
             // Reject parent-directory traversals
-            if (segments.Any(s => s == ".."))
+            if (!allowRepoTraversal && segments.Any(s => s == ".."))
             {
                 errors.Add($"File reference '{refMatch.Groups[1].Value}' uses parent-directory traversal — references must stay within the skill directory.");
                 continue;
