@@ -120,9 +120,13 @@ public static partial class SkillProfiler
             var segments = refPath.Split('/');
 
             // Reject parent-directory traversals
-            if (!allowRepoTraversal && segments.Any(s => s == ".."))
+            if (segments.Any(s => s == ".."))
             {
-                errors.Add($"File reference '{refMatch.Groups[1].Value}' uses parent-directory traversal — references must stay within the skill directory.");
+                if (!allowRepoTraversal)
+                {
+                    errors.Add($"File reference '{refMatch.Groups[1].Value}' uses parent-directory traversal — references must stay within the skill directory.");
+                }
+                // When repo traversal is allowed, external refs have no depth constraint.
                 continue;
             }
 

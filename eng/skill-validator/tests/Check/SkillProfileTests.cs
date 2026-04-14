@@ -321,9 +321,18 @@ public class AnalyzeSkillTests
     }
 
     [Fact]
-    public void AllowRepoTraversalStillChecksDepth()
+    public void AllowRepoTraversalAllowsDeepExternalRefs()
     {
-        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](deep/nested/file.md)\n" + new string('x', 4000);
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](../../../documentation/guides/setup.md)\n" + new string('x', 4000);
+        var options = new CheckOptions { AllowRepoTraversal = true };
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), options);
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("traversal") || e.Contains("directories deep"));
+    }
+
+    [Fact]
+    public void AllowRepoTraversalStillChecksDepthForInternalRefs()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](refs/utils/foo/readme.md)\n" + new string('x', 4000);
         var options = new CheckOptions { AllowRepoTraversal = true };
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), options);
         Assert.Contains(profile.Errors, e => e.Contains("directories deep"));
