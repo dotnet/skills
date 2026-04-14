@@ -64,6 +64,23 @@ public static class CheckCommand
                     AllowRepoTraversal = parseResult.GetValue(allowRepoTraversalOpt),
                 },
             };
+
+            if (config.CheckOptions.MaxDeclarationLines is <= 0)
+            {
+                Console.Error.WriteLine("--max-declaration-lines must be a positive integer.");
+                return 1;
+            }
+            if (config.CheckOptions.MaxAgentLines is <= 0)
+            {
+                Console.Error.WriteLine("--max-agent-lines must be a positive integer.");
+                return 1;
+            }
+            if (config.CheckOptions.AllowRepoTraversal && pluginPaths.Length > 0)
+            {
+                Console.Error.WriteLine("--allow-repo-traversal cannot be used with --plugin. Plugins must be portable — use --skills or --agents instead.");
+                return 1;
+            }
+
             return await Run(config);
         });
 

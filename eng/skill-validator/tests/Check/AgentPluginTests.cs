@@ -165,6 +165,48 @@ public class AgentProfilerTests
         Assert.Contains(profile.Errors, e => e.StartsWith("Agent name"));
         Assert.DoesNotContain(profile.Errors, e => e.StartsWith("Skill name"));
     }
+
+    // --- CheckOptions: MaxAgentLines ---
+
+    [Fact]
+    public void MaxAgentLinesOverridesDefault()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 501).Select(i => $"Line {i}"));
+        var content = "---\nname: test-agent\ndescription: test\n---\n" + body;
+        var options = new CheckOptions { MaxAgentLines = 600 };
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content), options);
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("lines"));
+    }
+
+    [Fact]
+    public void MaxAgentLinesLowerThanDefaultTriggersError()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 300).Select(i => $"Line {i}"));
+        var content = "---\nname: test-agent\ndescription: test\n---\n" + body;
+        var options = new CheckOptions { MaxAgentLines = 200 };
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content), options);
+        Assert.Contains(profile.Errors, e => e.Contains("lines") && e.Contains("200"));
+    }
+
+    [Fact]
+    public void MaxAgentLinesFallsBackToMaxDeclarationLines()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 501).Select(i => $"Line {i}"));
+        var content = "---\nname: test-agent\ndescription: test\n---\n" + body;
+        var options = new CheckOptions { MaxDeclarationLines = 600 };
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content), options);
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("lines"));
+    }
+
+    [Fact]
+    public void MaxAgentLinesTakesPrecedenceOverMaxDeclarationLines()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 501).Select(i => $"Line {i}"));
+        var content = "---\nname: test-agent\ndescription: test\n---\n" + body;
+        var options = new CheckOptions { MaxDeclarationLines = 200, MaxAgentLines = 600 };
+        var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content), options);
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("lines"));
+    }
 }
 
 public class PluginProfilerTests

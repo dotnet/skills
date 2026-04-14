@@ -337,6 +337,57 @@ public class AnalyzeSkillTests
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
         Assert.DoesNotContain(profile.Errors, e => e.Contains("directories deep") || e.Contains("traversal"));
     }
+
+    // --- CheckOptions: MaxDeclarationLines ---
+
+    [Fact]
+    public void MaxDeclarationLinesOverridesDefault()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 501).Select(i => $"Line {i}"));
+        var content = "---\nname: test-skill\n---\n" + body;
+        var options = new CheckOptions { MaxDeclarationLines = 600 };
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), options);
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("lines"));
+    }
+
+    [Fact]
+    public void MaxDeclarationLinesLowerThanDefaultTriggersError()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 300).Select(i => $"Line {i}"));
+        var content = "---\nname: test-skill\n---\n" + body;
+        var options = new CheckOptions { MaxDeclarationLines = 200 };
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), options);
+        Assert.Contains(profile.Errors, e => e.Contains("lines") && e.Contains("200"));
+    }
+
+    [Fact]
+    public void NullOptionsUsesDefaultMaxBodyLines()
+    {
+        var body = string.Join("\n", Enumerable.Range(1, 501).Select(i => $"Line {i}"));
+        var content = "---\nname: test-skill\n---\n" + body;
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), null);
+        Assert.Contains(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
+    }
+
+    // --- CheckOptions: AllowRepoTraversal ---
+
+    [Fact]
+    public void AllowRepoTraversalSuppressesParentTraversalError()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](../other-skill/SKILL.md)\n" + new string('x', 4000);
+        var options = new CheckOptions { AllowRepoTraversal = true };
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), options);
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("parent-directory traversal"));
+    }
+
+    [Fact]
+    public void AllowRepoTraversalStillChecksDepth()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](deep/nested/file.md)\n" + new string('x', 4000);
+        var options = new CheckOptions { AllowRepoTraversal = true };
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), options);
+        Assert.Contains(profile.Errors, e => e.Contains("directories deep"));
+    }
 }
 
 public class FormatProfileLineTests
