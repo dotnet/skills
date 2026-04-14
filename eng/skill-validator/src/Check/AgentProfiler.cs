@@ -9,7 +9,7 @@ namespace SkillValidator.Check;
 /// </summary>
 public static class AgentProfiler
 {
-    public static AgentProfile AnalyzeAgent(AgentInfo agent, CheckOptions? options = null)
+    public static AgentProfile AnalyzeAgent(AgentInfo agent)
     {
         var content = agent.AgentMdContent;
         var errors = new List<string>();

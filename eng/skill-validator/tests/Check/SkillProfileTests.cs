@@ -314,10 +314,10 @@ public class AnalyzeSkillTests
     [Fact]
     public void AllowRepoTraversalSuppressesParentTraversalError()
     {
-        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](../other-skill/SKILL.md)\n" + new string('x', 4000);
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](../SKILL.md)\n" + new string('x', 4000);
         var options = new CheckOptions { AllowRepoTraversal = true };
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), options);
-        Assert.DoesNotContain(profile.Errors, e => e.Contains("parent-directory traversal"));
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("traversal") || e.Contains("directories deep"));
     }
 
     [Fact]

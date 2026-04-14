@@ -184,7 +184,7 @@ public static class CheckCommand
         }
 
         // Validate agents
-        var (allAgents, agentResult) = await RunAgentsCheckCore(agentDirs.Distinct().ToList(), config.CheckOptions);
+        var (allAgents, agentResult) = await RunAgentsCheckCore(agentDirs.Distinct().ToList());
 
         if (allSkillsList.Count == 0 && allAgents.Count == 0)
         {
@@ -238,7 +238,7 @@ public static class CheckCommand
 
     private static async Task<int> RunAgentsCheck(CheckConfig config)
     {
-        var (agents, result) = await RunAgentsCheckCore(config.AgentPaths, config.CheckOptions);
+        var (agents, result) = await RunAgentsCheckCore(config.AgentPaths);
 
         if (agents.Count == 0)
             return 1; // error already printed
@@ -284,7 +284,7 @@ public static class CheckCommand
         return (allSkills, hasErrors ? 1 : 0);
     }
 
-    private static async Task<(IReadOnlyList<AgentInfo> Agents, int Result)> RunAgentsCheckCore(IReadOnlyList<string> agentPaths, CheckOptions? checkOptions = null)
+    private static async Task<(IReadOnlyList<AgentInfo> Agents, int Result)> RunAgentsCheckCore(IReadOnlyList<string> agentPaths)
     {
         var allAgents = new List<AgentInfo>();
         foreach (var path in agentPaths)
@@ -308,7 +308,7 @@ public static class CheckCommand
         bool hasErrors = false;
         foreach (var agent in allAgents)
         {
-            var profile = AgentProfiler.AnalyzeAgent(agent, checkOptions);
+            var profile = AgentProfiler.AnalyzeAgent(agent);
             foreach (var warning in profile.Warnings)
                 Console.WriteLine($"{Ansi.Yellow}⚠  [agent:{profile.Name}] {warning}{Ansi.Reset}");
             foreach (var error in profile.Errors)
