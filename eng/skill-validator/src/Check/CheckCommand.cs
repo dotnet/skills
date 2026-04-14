@@ -14,8 +14,6 @@ public static class CheckCommand
         var allowedExternalDepsOpt = new Option<string?>("--allowed-external-deps") { Description = "Path to allowed-external-deps.txt allow list file" };
         var knownDomainsOpt = new Option<string?>("--known-domains") { Description = "Path to known-domains.txt for reference scanning" };
         var verboseOpt = new Option<bool>("--verbose") { Description = "Show detailed output" };
-        var maxDeclarationLinesOpt = new Option<int?>("--max-declaration-lines") { Description = "Override the maximum allowed body line count for skills and agents (default: 500)" };
-        var maxAgentLinesOpt = new Option<int?>("--max-agent-lines") { Description = "Override the maximum allowed agent body line count (defaults to --max-declaration-lines value)" };
         var allowRepoTraversalOpt = new Option<bool>("--allow-repo-traversal") { Description = "Allow parent-directory traversals in file references" };
 
         var command = new Command("check", "Run static analysis checks on skills, plugins, and agents (no LLM required). Use --plugin to check an entire plugin directory (recommended).")
@@ -26,8 +24,6 @@ public static class CheckCommand
             allowedExternalDepsOpt,
             knownDomainsOpt,
             verboseOpt,
-            maxDeclarationLinesOpt,
-            maxAgentLinesOpt,
             allowRepoTraversalOpt,
         };
 
@@ -59,22 +55,10 @@ public static class CheckCommand
                 Verbose = parseResult.GetValue(verboseOpt),
                 CheckOptions = new CheckOptions
                 {
-                    MaxDeclarationLines = parseResult.GetValue(maxDeclarationLinesOpt),
-                    MaxAgentLines = parseResult.GetValue(maxAgentLinesOpt),
                     AllowRepoTraversal = parseResult.GetValue(allowRepoTraversalOpt),
                 },
             };
 
-            if (config.CheckOptions.MaxDeclarationLines is <= 0)
-            {
-                Console.Error.WriteLine("--max-declaration-lines must be a positive integer.");
-                return 1;
-            }
-            if (config.CheckOptions.MaxAgentLines is <= 0)
-            {
-                Console.Error.WriteLine("--max-agent-lines must be a positive integer.");
-                return 1;
-            }
             if (config.CheckOptions.AllowRepoTraversal && pluginPaths.Length > 0)
             {
                 Console.Error.WriteLine("--allow-repo-traversal cannot be used with --plugin. Plugins must be portable — use --skills or --agents instead.");

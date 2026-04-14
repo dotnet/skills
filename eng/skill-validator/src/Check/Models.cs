@@ -14,8 +14,6 @@ public sealed record PluginValidationResult(
 
 public sealed record CheckOptions
 {
-    public int? MaxDeclarationLines { get; init; }
-    public int? MaxAgentLines { get; init; }
     public bool AllowRepoTraversal { get; init; }
 }
 

@@ -35,12 +35,10 @@ public static partial class SkillProfiler
     private const int MaxNameLength = 64;
     internal const int MinDescriptionLength = 10;
     private const int MaxCompatibilityLength = 500;
-    private const int MaxBodyLines = 500;
     private const long MaxAssetFileSize = 5 * 1024 * 1024; // 5 MB
 
     public static SkillProfile AnalyzeSkill(SkillInfo skill, CheckOptions? options = null)
     {
-        var effectiveMaxBodyLines = options?.MaxDeclarationLines ?? MaxBodyLines;
         var allowRepoTraversal = options?.AllowRepoTraversal ?? false;
         var content = skill.SkillMdContent;
         int chars4TokenCount = (int)Math.Ceiling(content.Length / 4.0);
@@ -99,14 +97,6 @@ public static partial class SkillProfiler
         else if (skill.Compatibility is not null && string.IsNullOrWhiteSpace(skill.Compatibility))
         {
             errors.Add("Compatibility field must be 1-500 non-whitespace characters when provided.");
-        }
-
-        // --- agentskills.io spec: body line count ---
-        var trimmedBody = body.TrimEnd('\r', '\n');
-        int bodyLineCount = trimmedBody.Length == 0 ? 0 : trimmedBody.Split('\n').Length;
-        if (bodyLineCount > effectiveMaxBodyLines)
-        {
-            errors.Add($"SKILL.md body is {bodyLineCount} lines — maximum is {effectiveMaxBodyLines}. Move detailed reference material to separate files.");
         }
 
         // --- agentskills.io spec: file reference depth ---
