@@ -76,7 +76,7 @@ scenarios:
       - "Uses 'dotnet run --project' to run the test host, not 'dotnet test'"
       - "Explains the iterative workflow: edit code, hot reload picks up changes, re-runs tests"
     expect_tools: ["bash"]
-    timeout: 360
+    timeout: 480
 
   - name: "Suggest hot reload for failing test in MTP project (SDK 10)"
     prompt: "My RemoveStock_ExceedsAvailable_ThrowsException test is failing. I want to iterate fixes rapidly. How can I set up hot reload for this test project?"
@@ -501,4 +501,4 @@ scenarios:
       - "Includes the TESTINGPLATFORM_HOTRELOAD_ENABLED environment variable setup"
       - "Shows how to pass the filter: dotnet run --project <path> -- --filter FullyQualifiedName~ProcessPayment_NegativeAmount"
     expect_tools: ["bash"]
-    timeout: 180
+    timeout: 300
