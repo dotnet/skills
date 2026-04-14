@@ -34,9 +34,9 @@ For each file in your phase:
 - Note dependencies and how to mock them
 - **Validate project references**: Read the test project file and verify it references the source project(s) you'll test. Add missing references before creating test files
 
-### 3. Register Test Project with Solution
+### 3. Register Test Project with Build System
 
-If the test project is new (just created by you or a previous phase), use the exact solution target already identified in `.testagent/research.md` or `.testagent/plan.md` rather than searching for any `.sln`/`.slnx` file. If that target is a `.sln` or `.slnx`, add the test project to that solution with `dotnet sln <solution> add <test-project.csproj>` so the planned test command can discover it. If the target is a `.slnf` (solution filter), make sure the new test project is included in the active test target as well as in the underlying solution if needed; adding only to the underlying `.sln` may not be enough for test discovery. Skip this if the project is already included in the solution/solution filter used for testing. When referring to test execution, prefer the researched command or `dotnet test --solution <solution>` over `dotnet test <solution>`.
+If the test project is new, register it with the project's build system so the test command can discover it. See `extensions/` for language-specific instructions (e.g., `extensions/dotnet.md` for .NET solution registration).
 
 ### 4. Write Test Files
 
