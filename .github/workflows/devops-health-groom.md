@@ -275,10 +275,15 @@ Only call `update-issue` if at least one change was made across Steps 3 and 4. I
 ## Step 5: Hide Stale Comments
 
 Use `hide-comment` to collapse stale comments. Hidden comments remain accessible
-but are collapsed in the GitHub UI with a reason label. Apply the following
-retention policy:
+but are collapsed in the GitHub UI with a reason label.
 
-### 5.1 Daily Overview Comments
+**Minimum age safeguard:** NEVER hide any comment less than **72 hours** old,
+regardless of which rule matches. This gives people time to read investigations
+before they are cleaned up.
+
+Apply the following retention rules in priority order:
+
+### 5.1 P1 — Daily Summary Comments (> 7 days)
 
 Hide daily overview comments (`## 📋 Health Check —`) older than **7 days** with reason `OUTDATED`.
 
@@ -287,32 +292,46 @@ Age = now - comment.created_at
 If Age > 7 days → hide-comment(node_id, reason: "OUTDATED")
 ```
 
-### 5.2 Investigation Comments — Age-Based
+### 5.2 P2 — Already-Hidden / Resolved Investigation Comments (> 7 days)
 
-Hide investigation comments (`## 🔍 Investigation:`) older than **7 days** with reason `OUTDATED`.
+Hide investigation comments (`## 🔍 Investigation:`) older than **7 days** that
+have already been collapsed (hidden) in a previous grooming run, or whose
+`finding_id` is NOT in the current active fingerprint set (i.e. the finding is
+resolved). Use reason `RESOLVED` for resolved findings, `OUTDATED` for others.
 
-### 5.3 Investigation Comments — Resolved Findings
+### 5.3 P3 — Unreferenced Investigation Comments (> 7 days)
 
-Hide investigation comments for findings that have been **resolved** (finding_id is NOT in the current active fingerprint set derived from the issue body in Step 4.1), regardless of age, with reason `RESOLVED`. These investigations are no longer relevant since the underlying issue is fixed.
+Hide investigation comments older than **7 days** whose `finding_id` does **not**
+appear anywhere in the current issue body's `## 🔍 Investigation Results` table.
+These investigations are orphaned — not linked from the dashboard. Use reason
+`OUTDATED`.
 
-**Exception:** Do NOT hide investigation comments less than 24 hours old, even if the finding is resolved. This gives people time to read the investigation before it's cleaned up.
+### 5.4 P4 — Hard Age Cutoff (> 28 days)
 
-### 5.4 Hide Order
+Hide **any** bot comment (`github-actions[bot]` author) older than **28 days**,
+regardless of type or status, with reason `OUTDATED`. This is a catch-all to
+prevent unbounded comment accumulation.
+
+**Never hide human comments** — only comments authored by `github-actions[bot]`.
+
+### 5.5 Hide Order
 
 Process hides in this priority order:
-1. Resolved investigation comments (oldest first) — reason: `RESOLVED`
-2. Age-expired investigation comments (oldest first) — reason: `OUTDATED`
-3. Age-expired daily overview comments (oldest first) — reason: `OUTDATED`
+1. P2 — Resolved investigation comments (oldest first) — reason: `RESOLVED`
+2. P3 — Unreferenced investigation comments (oldest first) — reason: `OUTDATED`
+3. P1 — Age-expired daily overview comments (oldest first) — reason: `OUTDATED`
+4. P4 — Hard age cutoff (oldest first) — reason: `OUTDATED`
 
 Use the `hide-comment` safe-output for each operation. The `node_id` field is
 required (GraphQL node ID starting with `IC_kwDO…`). Include the reason.
 
-### 5.5 Safety Limits
+### 5.6 Safety Limits
 
 - Maximum 50 hides per run (safe-output budget)
 - If more than 50 comments qualify for hiding, prioritize: resolved investigations first, then oldest comments first
 - Log the count of skipped hides if the budget is exhausted
 - Hidden comments remain on the issue (collapsed); they are NOT deleted
+- **Actual deletion** is handled by the separate [`devops-health-cleanup.yml`](devops-health-cleanup.yml) workflow, which runs weekly and permanently removes bot comments matching the same P1–P4 rules. This groomer only hides (collapses) comments.
 
 ---
 
