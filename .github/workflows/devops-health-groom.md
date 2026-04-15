@@ -115,13 +115,19 @@ Record the `issue_number` and current issue `body`.
 
 ---
 
-## Step 2: Fetch All Comments
+## Step 2: Fetch Recent Comments
+
+Compute a `since` timestamp equal to **8 days ago** (ISO-8601 format, e.g. `2026-04-07T00:00:00Z`). This covers the 7-day retention window for hiding stale comments plus a 1-day buffer.
 
 ```
-GET /repos/{owner}/{repo}/issues/{issue_number}/comments?per_page=100
+GET /repos/{owner}/{repo}/issues/{issue_number}/comments?per_page=100&since={since_timestamp}
 ```
 
-Paginate if needed (follow `Link` header). Collect every comment with:
+The `since` parameter filters to comments created or updated after the timestamp, which keeps the result set small enough to avoid pagination in most cases.
+
+**You MUST paginate**: If the response contains a `Link` header with `rel="next"`, you MUST fetch subsequent pages until no `rel="next"` link is present. Failure to paginate means investigation comments may be missed, which is the primary failure mode of this workflow.
+
+Collect every comment with:
 - `id` (numeric REST comment ID)
 - `node_id` (GraphQL node ID, e.g. `IC_kwDOABCD…` — required by `hide-comment`)
 - `html_url` (link for the issue body)
@@ -174,7 +180,7 @@ this workflow. Proceed to Step 3.2 with an empty table.
 **If the Investigation Results section already exists** in the issue body:
 
 For each row in the existing Investigation Results table:
-1. Determine the `finding_id` for this row. Match by finding title or by checking the fingerprint from the current health check state in `cache-memory`.
+1. Determine the `finding_id` for this row. Match by comparing the finding title in the table row against the `finding_id` or heading title in each investigation comment.
 2. Look up the `finding_id` in the investigation comments collected in Step 2.
 3. If a matching investigation comment exists:
    - Change the status from `🔄 Dispatched` to `✅ Done`
@@ -245,9 +251,22 @@ Additionally, in the **📌 Existing Findings** section, if any finding that was
 
 ### 4.4 Write the Updated Issue Body
 
-Now that both Step 3 (linking investigation results) and Step 4 (marking resolved findings) have been applied to the in-memory issue body, make a **single** `update-issue` call with the combined changes. You **MUST** set `operation: "replace"` so the body is overwritten (the default operation is `append`, which would duplicate the entire body).
+Now that both Step 3 (linking investigation results) and Step 4 (marking resolved findings) have been applied, write **only the `## 🔍 Investigation Results` section** using a **single** `update-issue` call with `operation: "replace-island"`.
 
-**Before calling `update-issue`**, run the body-length sanity check (see Guidelines). If the check fails, **abort the entire workflow** — skip `update-issue`, skip Step 5 (hide comments), and call `noop` with the error.
+The `replace-island` operation replaces only the content between the `## 🔍 Investigation Results` heading and the next `##`-level heading (or end of body), leaving every other section untouched. This eliminates the risk of accidentally truncating or reformatting the issue body.
+
+The `body` field must contain **only** the Investigation Results island — starting with `## 🔍 Investigation Results` and ending just before the next section heading. Example:
+
+```markdown
+## 🔍 Investigation Results
+
+> Deep investigations are dispatched for new critical/warning findings.
+> The [grooming workflow](../workflows/devops-health-groom.md) links results ~3 hours after this run.
+
+| Finding | Severity | Status | Result |
+|---------|----------|--------|--------|
+| ... | ... | ✅ Done | [summary](url) |
+```
 
 Only call `update-issue` if at least one change was made across Steps 3 and 4. If nothing changed, skip the call.
 
@@ -311,13 +330,13 @@ If changes were made, the summary is implicit in the safe-output calls. Do NOT c
 
 ## Guidelines
 
-- **CRITICAL — Use `operation: "replace"`**: When calling `update-issue`, you **MUST** set `operation: "replace"`. The default operation is `append`, which adds the body after the existing content and will duplicate the entire issue. Since you are providing the complete updated body, always use `replace`.
-- **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **complete, literal issue body text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. The body must be passed directly as the string value.
-- **CRITICAL — Body length sanity check**: Before calling `update-issue`, verify the new body is at least 80% the length of the original body. If it is significantly shorter, something went wrong — **stop immediately**: do NOT call `update-issue`, do NOT call `hide-comment`, and call `noop` with an error message describing the length mismatch. This check runs before any safe-output calls, so `noop` is always safe here. The health check body is typically 3000–8000 characters.
+- **CRITICAL — Use `operation: "replace-island"`**: When calling `update-issue`, you **MUST** set `operation: "replace-island"`. This replaces only the `## 🔍 Investigation Results` section in the issue body, leaving all other sections untouched. The `body` field must contain only the Investigation Results section content (from the `## 🔍 Investigation Results` heading up to but not including the next `##`-level heading). Do NOT pass the full issue body — `replace-island` handles scoping automatically.
+- **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **literal section text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. The body must be passed directly as the string value.
 - **Minimal edits only**: You are a groomer, not a rewriter. Only change: (a) investigation table rows (status + link), (b) resolved-finding annotations. Copy all other sections **byte-for-byte** from the original body. Do not reformat, re-wrap, or reorganize sections you are not changing.
 - **Be precise with comment parsing**: The comment format is well-defined (see the investigation worker template). Match the exact patterns — don't be fuzzy.
 - **Preserve the issue body structure**: When updating the issue body, keep ALL sections intact. Only modify the Investigation Results table rows and any resolved-finding annotations. Do not rewrite sections you don't need to change.
 - **Don't hide "Other" comments**: Only hide comments that match the Investigation or Daily overview patterns. Human comments, bot reactions, etc. must be preserved.
 - **Idempotent**: Running this workflow twice should produce the same result. If investigation results are already linked, don't re-link them. If comments are already hidden, they won't appear in the API results (collapsed).
-- **Create missing sections**: If the issue body doesn't contain a `## 🔍 Investigation Results` section, **create it** from investigation comments (see Step 3). Do NOT silently skip linking — this is the groomer's primary job. Only skip Step 3 if there are zero investigation comments to link.
+- **Create missing sections**: If the issue body doesn't contain a `## 🔍 Investigation Results` section, **create it** from investigation comments (see Step 3). Do NOT silently skip linking — this is the groomer's primary job. Only skip Step 3 if there are zero investigation comments to link. When creating a missing section, use `operation: "replace-island"` — this will insert the section at the appropriate location.
 - **No intermediate files**: Do all work in memory. Do NOT write intermediate scripts, JSON files, or body text files. Parse API responses with `jq` inline and hold the issue body as a string variable.
+- **Pagination is mandatory**: Always follow `Link: <…>; rel="next"` headers when fetching comments. The issue accumulates 100+ comments over weeks — if you only fetch page 1, you will miss recent investigation comments and silently fail to link them. The `since` parameter reduces the volume, but pagination must still be implemented as a safety net.
