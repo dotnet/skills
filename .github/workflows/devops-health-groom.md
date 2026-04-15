@@ -117,13 +117,13 @@ Record the `issue_number` and current issue `body`.
 
 ## Step 2: Fetch Recent Comments
 
-Compute a `since` timestamp equal to **8 days ago** (ISO-8601 format, e.g. `2026-04-07T00:00:00Z`). This covers the 7-day retention window for hiding stale comments plus a 1-day buffer.
+Compute a `since` timestamp equal to **30 days ago** (ISO-8601 format, e.g. `2026-03-16T00:00:00Z`). This covers the 28-day P4 hard age cutoff plus a 2-day buffer, ensuring all comments within the retention window are fetched — including older investigations whose findings are still active.
 
 ```
 GET /repos/{owner}/{repo}/issues/{issue_number}/comments?per_page=100&since={since_timestamp}
 ```
 
-The `since` parameter filters to comments created or updated after the timestamp, which keeps the result set small enough to avoid pagination in most cases.
+The `since` parameter filters to comments created or updated after the timestamp, which keeps the result set bounded.
 
 **You MUST paginate**: If the response contains a `Link` header with `rel="next"`, you MUST fetch subsequent pages until no `rel="next"` link is present. Failure to paginate means investigation comments may be missed, which is the primary failure mode of this workflow.
 
@@ -247,11 +247,9 @@ In the Investigation Results table, for findings whose investigation is complete
 - Change status from `✅ Done` to `✅ Resolved`
 - Keep the link to the investigation comment (still useful for historical context until pruned)
 
-Additionally, in the **📌 Existing Findings** section, if any finding that was previously `📌 EXISTING` is no longer in the current fingerprint set, annotate it with `(resolved {date})`.
-
 ### 4.4 Write the Updated Issue Body
 
-Now that both Step 3 (linking investigation results) and Step 4 (marking resolved findings) have been applied, write **only the `## 🔍 Investigation Results` section** using a **single** `update-issue` call with `operation: "replace-island"`.
+Now that both Step 3 (linking investigation results) and Step 4 (marking resolved investigations) have been applied to the Investigation Results table, write **only the `## 🔍 Investigation Results` section** using a **single** `update-issue` call with `operation: "replace-island"`.
 
 The `replace-island` operation replaces only the content between the `## 🔍 Investigation Results` heading and the next `##`-level heading (or end of body), leaving every other section untouched. This eliminates the risk of accidentally truncating or reformatting the issue body.
 
@@ -354,8 +352,8 @@ If changes were made, the summary is implicit in the safe-output calls. Do NOT c
 - **Minimal edits only**: You are a groomer, not a rewriter. Only change: (a) investigation table rows (status + link), (b) resolved-finding annotations. Copy all other sections **byte-for-byte** from the original body. Do not reformat, re-wrap, or reorganize sections you are not changing.
 - **Be precise with comment parsing**: The comment format is well-defined (see the investigation worker template). Match the exact patterns — don't be fuzzy.
 - **Preserve the issue body structure**: When updating the issue body, keep ALL sections intact. Only modify the Investigation Results table rows and any resolved-finding annotations. Do not rewrite sections you don't need to change.
-- **Don't hide "Other" comments**: Only hide comments that match the Investigation or Daily overview patterns. Human comments, bot reactions, etc. must be preserved.
+- **Don't hide human comments**: Never hide comments authored by humans. For bot comments (`github-actions[bot]`), P1–P3 only target Investigation and Daily overview patterns. P4 (hard age cutoff > 28 days) may hide any bot comment regardless of pattern. Never hide human comments, bot reactions from humans, etc.
 - **Idempotent**: Running this workflow twice should produce the same result. If investigation results are already linked, don't re-link them. If comments are already hidden, they won't appear in the API results (collapsed).
 - **Create missing sections**: If the issue body doesn't contain a `## 🔍 Investigation Results` section, **create it** from investigation comments (see Step 3). Do NOT silently skip linking — this is the groomer's primary job. Only skip Step 3 if there are zero investigation comments to link. When creating a missing section, use `operation: "replace-island"` — this will insert the section at the appropriate location.
 - **No intermediate files**: Do all work in memory. Do NOT write intermediate scripts, JSON files, or body text files. Parse API responses with `jq` inline and hold the issue body as a string variable.
-- **Pagination is mandatory**: Always follow `Link: <…>; rel="next"` headers when fetching comments. The issue accumulates 100+ comments over weeks — if you only fetch page 1, you will miss recent investigation comments and silently fail to link them. The `since` parameter reduces the volume, but pagination must still be implemented as a safety net.
+- **Pagination is mandatory**: Always follow `Link: <…>; rel="next"` headers when fetching comments. Even with the `since` parameter, the result set can exceed 100 comments — if you only fetch page 1, you will miss recent investigation comments and silently fail to link them.
