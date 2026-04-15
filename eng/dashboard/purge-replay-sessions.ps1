@@ -162,6 +162,61 @@ if (Test-Path $existingManifestPath) {
     }
 }
 
+# Step 3b: Recover orphaned session files that exist on disk but not in any manifest.
+# This prevents a cascading failure where a corrupted or empty manifest causes
+# session files to become invisible, leading to data loss on subsequent merges.
+$knownUrls = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]@($allSessions | ForEach-Object { $_.url -replace '^sessions/', '' })
+)
+$orphanedFiles = Get-ChildItem -Path $sessionsWorkDir -Recurse -File -Filter '*.jsonl' -ErrorAction SilentlyContinue
+$orphanedCount = 0
+foreach ($file in $orphanedFiles) {
+    $relPath = $file.FullName.Substring($sessionsWorkDir.Length).TrimStart([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+    if ($knownUrls.Contains($relPath)) { continue }
+
+    # Determine source/tags from path structure: <source>/<subdir>/<plugin>/<filename>.jsonl
+    $parts = $relPath -split '[/\\]'
+    if ($parts.Count -lt 3) { continue }
+
+    $source = $parts[0]   # 'pr' or 'scheduled'
+    $plugin = $parts[-2]  # plugin name (parent of file)
+    $fileName = [IO.Path]::GetFileNameWithoutExtension($parts[-1])
+
+    # Parse filename: <scenario>--<role>--run<N>
+    $fileParts = $fileName -split '--'
+    if ($fileParts.Count -lt 3) { continue }
+
+    $roleTag = $fileParts[-2]
+    $safeScenario = ($fileParts[0..($fileParts.Count - 3)] -join '--')
+
+    $sessionUrl = "sessions/$relPath"
+    $sessionId = ($relPath -replace '\.jsonl$', '')
+
+    $tags = @($source, $plugin, $roleTag, $safeScenario)
+    if ($source -eq 'pr' -and $parts.Count -ge 3 -and $parts[1] -match '^\d+$') {
+        $tags += "pr-$($parts[1])"
+    }
+    if ($source -eq 'scheduled' -and $parts.Count -ge 3 -and $parts[1] -match '^\d{4}-\d{2}-\d{2}$') {
+        $tags += $parts[1]
+    }
+
+    $displayName = "$plugin / $safeScenario ($roleTag)"
+    $mtime = [long]([DateTimeOffset]::new($file.LastWriteTimeUtc, [TimeSpan]::Zero).ToUnixTimeMilliseconds())
+
+    $allSessions += @{
+        id    = $sessionId
+        name  = $displayName
+        url   = $sessionUrl
+        tags  = $tags
+        mtime = $mtime
+    }
+    $orphanedCount++
+}
+
+if ($orphanedCount -gt 0) {
+    Write-Host "Recovered $orphanedCount orphaned session file(s) missing from manifest"
+}
+
 # Step 4: Write merged manifest
 # Derive generated timestamp from newest session mtime to avoid gratuitous commits
 # when sessions haven't changed.

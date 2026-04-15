@@ -296,6 +296,18 @@ public sealed class SessionDatabase : IDisposable
 
     public void Dispose()
     {
+        // Checkpoint WAL to ensure all data is written to the main database file.
+        // This is critical because the database may be packaged into artifacts
+        // and read by external tools (e.g., build-replay-sessions.ps1) that
+        // rely on the main file being up-to-date.
+        try
+        {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = "PRAGMA wal_checkpoint(TRUNCATE)";
+            cmd.ExecuteNonQuery();
+        }
+        catch { /* best-effort; connection dispose will handle cleanup */ }
+
         _connection.Dispose();
     }
 }

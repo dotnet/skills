@@ -1197,7 +1197,7 @@ jobs:
       !cancelled() &&
       needs.discover.result == 'success' &&
       needs.discover.outputs.has_plugins == 'true' &&
-      github.ref == 'refs/heads/main'
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     concurrency:
       group: deploy-dashboard
       cancel-in-progress: false
