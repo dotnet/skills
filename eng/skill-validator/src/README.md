@@ -119,7 +119,7 @@ skill-validator check --verbose --plugin ./plugins/my-plugin
 | `--known-domains <path>` | *(none)* | Path to known-domains.txt for reference scanning; when omitted the reference scan is skipped |
 | `--verbose` | `false` | Show detailed output |
 
-> Exactly one of `--plugin`, `--skills`, or `--agents` must be provided.
+> `--plugin` must be used alone. `--skills` and `--agents` can be combined.
 
 ## `evaluate` flags
 

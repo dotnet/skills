@@ -33,15 +33,18 @@ public static class CheckCommand
             var skillPaths = parseResult.GetValue(skillsOpt) ?? [];
             var agentPaths = parseResult.GetValue(agentsOpt) ?? [];
 
-            int modeCount = (pluginPaths.Length > 0 ? 1 : 0) + (skillPaths.Length > 0 ? 1 : 0) + (agentPaths.Length > 0 ? 1 : 0);
-            if (modeCount == 0)
+            bool hasPlugin = pluginPaths.Length > 0;
+            bool hasSkills = skillPaths.Length > 0;
+            bool hasAgents = agentPaths.Length > 0;
+
+            if (!hasPlugin && !hasSkills && !hasAgents)
             {
                 Console.Error.WriteLine("Specify one of --plugin, --skills, or --agents. Use --plugin to check an entire plugin directory.");
                 return 1;
             }
-            if (modeCount > 1)
+            if (hasPlugin && (hasSkills || hasAgents))
             {
-                Console.Error.WriteLine("Only one of --plugin, --skills, or --agents can be used at a time.");
+                Console.Error.WriteLine("--plugin cannot be combined with --skills or --agents. Use --plugin alone to check an entire plugin directory.");
                 return 1;
             }
 
@@ -75,6 +78,9 @@ public static class CheckCommand
     {
         if (config.PluginPaths.Count > 0)
             return await RunPluginCheck(config);
+
+        if (config.SkillPaths.Count > 0 && config.AgentPaths.Count > 0)
+            return await RunSkillsAndAgentsCheck(config);
 
         if (config.SkillPaths.Count > 0)
             return await RunSkillsCheck(config);
@@ -250,6 +256,26 @@ public static class CheckCommand
             return 1;
 
         Console.WriteLine($"{Ansi.Green}✅ All checks passed ({agents.Count} agent(s)){Ansi.Reset}");
+        return 0;
+    }
+
+    private static async Task<int> RunSkillsAndAgentsCheck(CheckConfig config)
+    {
+        var (skills, skillResult) = await RunSkillsCheckCore(config.SkillPaths, config.Verbose, config.CheckOptions);
+        var (agents, agentResult) = await RunAgentsCheckCore(config.AgentPaths);
+
+        if (skills.Count == 0 && agents.Count == 0)
+            return 1; // errors already printed
+
+        if (skillResult != 0 || agentResult != 0)
+            return 1;
+
+        // Run reference scanner on all directories
+        var allDirs = config.SkillPaths.Concat(config.AgentPaths).ToList();
+        if (RunReferenceScanner(config.KnownDomainsFile, allDirs))
+            return 1;
+
+        Console.WriteLine($"{Ansi.Green}✅ All checks passed ({skills.Count} skill(s), {agents.Count} agent(s)){Ansi.Reset}");
         return 0;
     }
 
