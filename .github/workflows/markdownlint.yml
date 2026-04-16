@@ -6,6 +6,8 @@ on:
       - "**/*.md"
       - ".markdownlint.jsonc"
       - ".markdownlint-cli2.jsonc"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/markdownlint.yml"
 
 concurrency:
@@ -25,12 +27,12 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642195f572a2b2b9a3c4a10 # v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
-      - name: Install markdownlint-cli2
-        run: npm install --no-save markdownlint-cli2
+      - name: Install dependencies from lockfile
+        run: npm ci
 
       - name: Run markdownlint
         run: npx markdownlint-cli2 "**/*.md" "#node_modules" "#artifacts"
