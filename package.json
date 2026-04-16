@@ -1,0 +1,12 @@
+{
+  "name": "dotnet-skills",
+  "private": true,
+  "description": "Lint tooling for the dotnet/skills repository",
+  "scripts": {
+    "lint:md": "markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#artifacts\"",
+    "lint:md:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#node_modules\" \"#artifacts\""
+  },
+  "devDependencies": {
+    "markdownlint-cli2": "^0.17.0"
+  }
+}

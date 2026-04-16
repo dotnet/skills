@@ -1,0 +1,36 @@
+name: markdownlint
+
+on:
+  pull_request:
+    paths:
+      - "**/*.md"
+      - ".markdownlint.jsonc"
+      - ".markdownlint-cli2.jsonc"
+      - ".github/workflows/markdownlint.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642195f572a2b2b9a3c4a10 # v4
+        with:
+          node-version: "20"
+
+      - name: Install markdownlint-cli2
+        run: npm install --no-save markdownlint-cli2
+
+      - name: Run markdownlint
+        run: npx markdownlint-cli2 "**/*.md" "#node_modules" "#artifacts"
