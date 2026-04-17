@@ -1,0 +1,128 @@
+scenarios:
+  # ============================================================================
+  # Goal 1: Broad audit request — agent should run multiple analysis dimensions
+  # and produce a unified quality summary.
+  # ============================================================================
+
+  - name: "Comprehensive test quality audit of weak test suite"
+    prompt: |
+      I'm worried our tests might be giving us false confidence. Can you audit
+      the test suite in the WeakTests project and tell me how good our tests
+      really are?
+    setup:
+      files:
+        - path: "WeakTests/WeakTests.csproj"
+          source: "fixtures/weak-tests/WeakTests.csproj"
+        - path: "WeakTests/ShoppingCart.cs"
+          source: "fixtures/weak-tests/ShoppingCart.cs"
+        - path: "WeakTests/ShoppingCartTests.cs"
+          source: "fixtures/weak-tests/ShoppingCartTests.cs"
+      additional_required_skills:
+        - test-anti-patterns
+        - exp-assertion-quality
+        - exp-test-gap-analysis
+    assertions:
+      - type: "output_matches"
+        pattern: "(assertion.free|no.*assert|missing.*assert|without.*assert)"
+      - type: "output_matches"
+        pattern: "(tautolog|self.compar|same.*value|trivial)"
+      - type: "output_matches"
+        pattern: "(catch.*swallow|try.*catch|exception.*handling)"
+      - type: "output_matches"
+        pattern: "(RemoveItem|GetTotalWithDiscount|untest|not.*cover|missing.*test|gap)"
+      - type: "output_matches"
+        pattern: "(summary|priorit|rank|critical|sever)"
+      - type: "exit_success"
+    rubric:
+      - "Identified the assertion-free test (AddItem_Works) as a critical issue"
+      - "Flagged the tautological assertion (comparing total to itself)"
+      - "Detected the catch-and-swallow exception test pattern"
+      - "Identified untested production code (RemoveItem, GetTotalWithDiscount, boundary conditions)"
+      - "Produced a summary or prioritized list of findings"
+    timeout: 300
+
+  # ============================================================================
+  # Goal 2: Targeted request — route to a single analysis skill
+  # ============================================================================
+
+  - name: "Targeted anti-pattern review"
+    prompt: |
+      Can you do a quick review of my test code for common problems? I just
+      want to know what the biggest issues are.
+    setup:
+      files:
+        - path: "WeakTests/WeakTests.csproj"
+          source: "fixtures/weak-tests/WeakTests.csproj"
+        - path: "WeakTests/ShoppingCart.cs"
+          source: "fixtures/weak-tests/ShoppingCart.cs"
+        - path: "WeakTests/ShoppingCartTests.cs"
+          source: "fixtures/weak-tests/ShoppingCartTests.cs"
+      additional_required_skills:
+        - test-anti-patterns
+    assertions:
+      - type: "output_matches"
+        pattern: "(anti.pattern|problem|issue|warning|critical)"
+      - type: "exit_success"
+    rubric:
+      - "Identified at least three distinct anti-patterns in the test code"
+      - "Ranked or categorized findings by severity"
+      - "Provided actionable suggestions for fixing the most critical issues"
+    timeout: 180
+
+  # ============================================================================
+  # Goal 3: Targeted request — assertion quality analysis
+  # ============================================================================
+
+  - name: "Assertion quality analysis"
+    prompt: |
+      Are the assertions in my ShoppingCartTests actually testing anything
+      meaningful? I want to understand if we have enough assertion variety.
+    setup:
+      files:
+        - path: "WeakTests/WeakTests.csproj"
+          source: "fixtures/weak-tests/WeakTests.csproj"
+        - path: "WeakTests/ShoppingCart.cs"
+          source: "fixtures/weak-tests/ShoppingCart.cs"
+        - path: "WeakTests/ShoppingCartTests.cs"
+          source: "fixtures/weak-tests/ShoppingCartTests.cs"
+      additional_required_skills:
+        - exp-assertion-quality
+    assertions:
+      - type: "output_matches"
+        pattern: "(shallow|trivial|weak|low.*divers|limited)"
+      - type: "output_matches"
+        pattern: "(no.*assert|assertion.free|meaningless|without.*assert|never.*assert)"
+      - type: "output_matches"
+        pattern: "(exception|collection|state|structural|missing.*type|more.*assert)"
+      - type: "exit_success"
+    rubric:
+      - "Identified low assertion diversity — tests primarily use equality and null checks"
+      - "Flagged tests with no assertions or meaningless assertions"
+      - "Pointed out missing assertion types (exception assertions, collection/state checks, structural verification)"
+    timeout: 180
+
+  # ============================================================================
+  # Goal 4: Non-activation — request to write tests is out of scope
+  # ============================================================================
+
+  - name: "Decline request to generate new tests"
+    prompt: |
+      I need you to write comprehensive unit tests for the ShoppingCart class.
+      Generate tests that cover all methods with good coverage.
+    expect_activation: false
+    setup:
+      files:
+        - path: "WeakTests/WeakTests.csproj"
+          source: "fixtures/weak-tests/WeakTests.csproj"
+        - path: "WeakTests/ShoppingCart.cs"
+          source: "fixtures/weak-tests/ShoppingCart.cs"
+        - path: "WeakTests/ShoppingCartTests.cs"
+          source: "fixtures/weak-tests/ShoppingCartTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(out.*scope|not.*cover|cannot|does not|generat|writ.*test|different)"
+      - type: "exit_success"
+    rubric:
+      - "Did not attempt to run a test quality audit"
+      - "Recognized that generating new tests is outside the scope of quality auditing"
+    timeout: 60
