@@ -28,6 +28,10 @@ scenarios:
         pattern: "(tautolog|self.compar|same.*value|trivial)"
       - type: "output_matches"
         pattern: "(catch.*swallow|try.*catch|exception.*handling)"
+      - type: "output_matches"
+        pattern: "(RemoveItem|GetTotalWithDiscount|untest|not.*cover|missing.*test|gap)"
+      - type: "output_matches"
+        pattern: "(summary|priorit|rank|critical|sever)"
       - type: "exit_success"
     rubric:
       - "Identified the assertion-free test (AddItem_Works) as a critical issue"

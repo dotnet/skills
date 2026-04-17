@@ -27,6 +27,8 @@ scenarios:
         pattern: "(2\\.2\\.10|v2|version 2)"
       - type: "output_matches"
         pattern: "(v3|v4|upgrade|migrat)"
+      - type: "output_matches"
+        pattern: "(VSTest|vstest|Microsoft\\.Testing\\.Platform|MTP)"
       - type: "exit_success"
     rubric:
       - "Correctly identified the project uses MSTest v2 (2.2.10)"
