@@ -371,9 +371,13 @@ scenarios:
 
   - name: "Migrate MSTest.Sdk v3 project using ManagedType and TestTimeout"
     prompt: |
-      I have a test project using MSTest.Sdk/3.8.0. The tests use TestContext.ManagedType,
-      TestTimeout.Infinite, and TestContext.Properties.Contains. After upgrading to
-      MSTest.Sdk/4.1.0, I get compilation errors. How do I fix them?
+      I upgraded my test project from MSTest.Sdk/3.8.0 to MSTest.Sdk/4.1.0 and now I get
+      these compilation errors:
+      - CS1061: 'TestContext' does not contain a definition for 'ManagedType'
+      - CS0103: The name 'TestTimeout' does not exist in the current context
+      - CS1061: 'IDictionary<string, object>' does not contain a definition for 'Contains'
+      How do I fix these errors? Also, is there anything else I should know about
+      MSTest.Sdk v4 behavior changes?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -391,7 +395,7 @@ scenarios:
       - "Identifies that TestContext.ManagedType is removed in v4 and recommends FullyQualifiedTestClassName"
       - "Identifies that TestTimeout.Infinite is removed and recommends int.MaxValue"
       - "Identifies that TestContext.Properties.Contains must become ContainsKey"
-      - "Notes the MSTest.Sdk version should be updated to 4.1.0"
+      - "Notes the project is using MSTest.Sdk/4.1.0 or confirms the SDK version upgrade"
       - "Mentions that MSTest.Sdk v4 no longer adds Microsoft.NET.Test.Sdk when using MTP"
     timeout: 240
 
