@@ -1,4 +1,6 @@
 name: skill-coverage
+# NOTE: The issue_comment trigger sources this workflow from the default branch.
+# The /skill-coverage slash command will only work after this workflow is merged to main.
 
 on:
   pull_request:
@@ -75,6 +77,7 @@ jobs:
 
       - name: Add reaction to comment
         if: github.event_name == 'issue_comment'
+        continue-on-error: true
         uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
           script: |
@@ -261,7 +264,10 @@ jobs:
           $report >> $env:GITHUB_STEP_SUMMARY
 
       - name: Post or update PR comment
-        if: steps.detect.outputs.count != '0'
+        if: >
+          steps.detect.outputs.count != '0' &&
+          (github.event_name != 'pull_request' ||
+           github.event.pull_request.head.repo.full_name == github.repository)
         uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         env:
           PR_NUMBER: ${{ github.event.pull_request.number || steps.pr-ref.outputs.pr_number }}
@@ -303,6 +309,7 @@ jobs:
 
       - name: Post no-changes comment
         if: steps.detect.outputs.count == '0' && github.event_name == 'issue_comment'
+        continue-on-error: true
         uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
           script: |
