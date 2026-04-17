@@ -15,6 +15,8 @@ internal sealed class LocalSessionFsHandler : ISessionFsHandler
     public LocalSessionFsHandler(string rootDir)
     {
         _rootDir = Path.GetFullPath(rootDir);
+        if (!Path.EndsInDirectorySeparator(_rootDir))
+            _rootDir += Path.DirectorySeparatorChar;
         Directory.CreateDirectory(_rootDir);
     }
 
@@ -27,29 +29,27 @@ internal sealed class LocalSessionFsHandler : ISessionFsHandler
         return full;
     }
 
-    public Task<SessionFsReadFileResult> ReadFileAsync(SessionFsReadFileParams request, CancellationToken cancellationToken)
+    public async Task<SessionFsReadFileResult> ReadFileAsync(SessionFsReadFileParams request, CancellationToken cancellationToken)
     {
         var path = ResolvePath(request.Path);
-        var content = File.ReadAllText(path);
-        return Task.FromResult(new SessionFsReadFileResult { Content = content });
+        var content = await File.ReadAllTextAsync(path, cancellationToken);
+        return new SessionFsReadFileResult { Content = content };
     }
 
-    public Task WriteFileAsync(SessionFsWriteFileParams request, CancellationToken cancellationToken)
+    public async Task WriteFileAsync(SessionFsWriteFileParams request, CancellationToken cancellationToken)
     {
         var path = ResolvePath(request.Path);
         var dir = Path.GetDirectoryName(path);
         if (dir is not null) Directory.CreateDirectory(dir);
-        File.WriteAllText(path, request.Content);
-        return Task.CompletedTask;
+        await File.WriteAllTextAsync(path, request.Content, cancellationToken);
     }
 
-    public Task AppendFileAsync(SessionFsAppendFileParams request, CancellationToken cancellationToken)
+    public async Task AppendFileAsync(SessionFsAppendFileParams request, CancellationToken cancellationToken)
     {
         var path = ResolvePath(request.Path);
         var dir = Path.GetDirectoryName(path);
         if (dir is not null) Directory.CreateDirectory(dir);
-        File.AppendAllText(path, request.Content);
-        return Task.CompletedTask;
+        await File.AppendAllTextAsync(path, request.Content, cancellationToken);
     }
 
     public Task<SessionFsExistsResult> ExistsAsync(SessionFsExistsParams request, CancellationToken cancellationToken)

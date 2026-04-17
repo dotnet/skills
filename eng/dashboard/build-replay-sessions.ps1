@@ -144,7 +144,7 @@ $artifactDirs = Get-ChildItem -Path $ResultsDir -Directory -ErrorAction Silently
     Where-Object { $_.Name -like 'skill-validator-results-*' }
 
 Write-Host "Scanning $ResultsDir for session artifacts..."
-$allDirs = Get-ChildItem -Path $ResultsDir -Directory -ErrorAction SilentlyContinue
+$allDirs = @(Get-ChildItem -Path $ResultsDir -Directory -ErrorAction SilentlyContinue)
 Write-Host "  Total directories in ResultsDir: $($allDirs.Count)"
 if ($allDirs.Count -gt 0) {
     Write-Host "  Directory names: $($allDirs.Name -join ', ')"
@@ -166,7 +166,7 @@ foreach ($artifactDir in $artifactDirs) {
     $pluginName = ($entryName -split '--')[0]
 
     # Find timestamped result directory
-    $allSubDirs = Get-ChildItem -Path $artifactDir.FullName -Directory -ErrorAction SilentlyContinue
+    $allSubDirs = @(Get-ChildItem -Path $artifactDir.FullName -Directory -ErrorAction SilentlyContinue)
     $runDir = $allSubDirs |
         Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
         Sort-Object Name -Descending |
