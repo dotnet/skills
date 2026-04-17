@@ -14,14 +14,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
+permissions: {}
 
 jobs:
-  coverage:
-    # Run on PR file changes, or on a /skill-coverage comment on a PR
+  # ──────────────────────────────────────────────────────────────
+  #  Job 1: Analyze — runs trusted script with read-only permissions
+  #         Checks out base branch for tooling, PR head into a
+  #         separate worktree so untrusted code is never executed.
+  # ──────────────────────────────────────────────────────────────
+  analyze:
     if: >-
       github.event_name == 'pull_request' ||
       (github.event_name == 'issue_comment' &&
@@ -30,6 +31,11 @@ jobs:
         startsWith(github.event.comment.body, '/skill-coverage ') ||
         startsWith(github.event.comment.body, '/skill-coverage\n')))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      count: ${{ steps.detect.outputs.count }}
+      pr_number: ${{ github.event.pull_request.number || steps.pr-ref.outputs.pr_number }}
 
     steps:
       - name: Check commenter permissions
@@ -103,12 +109,23 @@ jobs:
             core.setOutput('base_sha', pr.data.base.sha);
             core.setOutput('pr_number', context.issue.number);
 
-      - name: Checkout repository
+      # Checkout the default branch for trusted tooling (Measure-SkillCoverage.ps1),
+      # then fetch the PR head into a separate worktree so untrusted code is never executed.
+      - name: Checkout base branch (trusted tooling)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', steps.pr-ref.outputs.pr_number) || '' }}
-          fetch-depth: 0
           persist-credentials: false
+
+      - name: Fetch PR head into worktree
+        shell: bash
+        env:
+          PR_REF: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', steps.pr-ref.outputs.pr_number) || format('refs/pull/{0}/head', github.event.pull_request.number) }}
+        run: |
+          git fetch --depth=1 origin "$PR_REF":pr-head-ref
+          git worktree add pr-head pr-head-ref
+
+      - name: Fetch full history for diff
+        run: git fetch --unshallow || true
 
       - name: Detect changed plugins and skills
         id: detect
@@ -142,6 +159,7 @@ jobs:
 
           # Collect unique plugin/skill pairs from changed paths
           $seen = @{}
+          $pluginWide = @{}
           $targets = @()
 
           foreach ($file in $changedFiles) {
@@ -163,13 +181,14 @@ jobs:
             }
             # Match plugins/<plugin>/ level changes (plugin.json etc.) - run all skills
             elseif ($file -match '^plugins/([^/]+)/[^/]+$') {
-              $pluginName = $Matches[1]
-              $key = "$pluginName/*"
-              if (-not $seen.ContainsKey($key)) {
-                $seen[$key] = $true
-                $targets += [PSCustomObject]@{ Plugin = $pluginName; Skill = '' }
-              }
+              $pluginWide[$Matches[1]] = $true
             }
+          }
+
+          # For plugin-wide changes, replace per-skill targets with a single plugin-wide target
+          foreach ($plugin in $pluginWide.Keys) {
+            $targets = @($targets | Where-Object { $_.Plugin -ne $plugin })
+            $targets += [PSCustomObject]@{ Plugin = $plugin; Skill = '' }
           }
 
           if ($targets.Count -eq 0) {
@@ -197,8 +216,12 @@ jobs:
           $allJson = @()
           $summary = @()
 
+          # Run the trusted script from base branch against PR content in the worktree
+          $scriptPath = "$env:GITHUB_WORKSPACE/eng/skill-coverage/Measure-SkillCoverage.ps1"
+          $prRoot = "$env:GITHUB_WORKSPACE/pr-head"
+
           foreach ($t in $targets) {
-            $args = @{ Format = 'Json'; RepoRoot = $env:GITHUB_WORKSPACE }
+            $args = @{ Format = 'Json'; RepoRoot = $prRoot }
 
             if ($t.Plugin) { $args.PluginName = $t.Plugin }
             if ($t.Skill) { $args.SkillName = $t.Skill }
@@ -206,7 +229,7 @@ jobs:
             Write-Host "::group::Coverage: $($t.Plugin)$(if ($t.Skill) { "/$($t.Skill)" })"
 
             try {
-              $result = & "$env:GITHUB_WORKSPACE/eng/skill-coverage/Measure-SkillCoverage.ps1" @args
+              $result = & $scriptPath @args
               $parsed = ($result | Out-String) | ConvertFrom-Json
 
               # Handle single or array results
@@ -256,21 +279,46 @@ jobs:
             $md += $uncoveredDetails
           }
 
-          # Write the report to a file for the comment step
+          # Write the report to a file for the comment job
           $report = $md -join "`n"
           $report | Out-File -FilePath coverage-report.md -Encoding utf8
 
           # Also write to step summary
           $report >> $env:GITHUB_STEP_SUMMARY
 
+      - name: Upload coverage report
+        if: steps.detect.outputs.count != '0'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-report
+          path: coverage-report.md
+          retention-days: 1
+
+  # ──────────────────────────────────────────────────────────────
+  #  Job 2: Comment — posts results with write permissions only.
+  #         No PR code is checked out or executed in this job.
+  # ──────────────────────────────────────────────────────────────
+  comment:
+    needs: analyze
+    if: >-
+      needs.analyze.outputs.count != '0' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Download coverage report
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-report
+
       - name: Post or update PR comment
-        if: >
-          steps.detect.outputs.count != '0' &&
-          (github.event_name != 'pull_request' ||
-           github.event.pull_request.head.repo.full_name == github.repository)
         uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number || steps.pr-ref.outputs.pr_number }}
+          PR_NUMBER: ${{ needs.analyze.outputs.pr_number }}
         with:
           script: |
             const fs = require('fs');
@@ -279,8 +327,8 @@ jobs:
             const fullBody = `${marker}\n${body}`;
             const prNumber = parseInt(process.env.PR_NUMBER, 10);
 
-            // Find existing comment
-            const { data: comments } = await github.rest.issues.listComments({
+            // Paginate to find existing marker comment (handles PRs with >100 comments)
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
@@ -308,7 +356,7 @@ jobs:
             }
 
       - name: Post no-changes comment
-        if: steps.detect.outputs.count == '0' && github.event_name == 'issue_comment'
+        if: needs.analyze.outputs.count == '0' && github.event_name == 'issue_comment'
         continue-on-error: true
         uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         with:
