@@ -1,7 +1,7 @@
 ---
 name: system-text-json-net11
 description: >
-  Provides guidance on new System.Text.Json APIs introduced in .NET 11s.
+  Provides guidance on new System.Text.Json APIs introduced in .NET 11.
   It covers typed JsonTypeInfo access via GetTypeInfo<T> and TryGetTypeInfo<T> on
   JsonSerializerOptions, and the new JsonNamingPolicy.PascalCase static property.
   Use when serializing or deserializing JSON in .NET 11 applications and needing
