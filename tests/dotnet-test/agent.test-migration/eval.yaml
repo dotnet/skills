@@ -58,8 +58,10 @@ scenarios:
       - type: "output_matches"
         pattern: "(xunit|xUnit)"
       - type: "output_matches"
-        pattern: "(v3|xunit\\.v3|version 3)"      - type: "output_matches"
-        pattern: "(VSTest|vstest|Microsoft\.Testing\.Platform|MTP)"      - type: "exit_success"
+        pattern: "(v3|xunit\\.v3|version 3)"
+      - type: "output_matches"
+        pattern: "(VSTest|vstest|Microsoft\\.Testing\\.Platform|MTP)"
+      - type: "exit_success"
     rubric:
       - "Identified the project uses xUnit.net v2 (2.9.3)"
       - "Recommended migrating to xUnit.net v3"
