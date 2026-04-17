@@ -35,11 +35,11 @@ public static partial class SkillProfiler
     private const int MaxNameLength = 64;
     internal const int MinDescriptionLength = 10;
     private const int MaxCompatibilityLength = 500;
-    private const int MaxBodyLines = 500;
     private const long MaxAssetFileSize = 5 * 1024 * 1024; // 5 MB
 
-    public static SkillProfile AnalyzeSkill(SkillInfo skill)
+    public static SkillProfile AnalyzeSkill(SkillInfo skill, CheckOptions? options = null)
     {
+        var allowRepoTraversal = options?.AllowRepoTraversal ?? false;
         var content = skill.SkillMdContent;
         int chars4TokenCount = (int)Math.Ceiling(content.Length / 4.0);
         int bpeTokenCount = s_bpeTokenizer.Value.CountTokens(content);
@@ -99,14 +99,6 @@ public static partial class SkillProfiler
             errors.Add("Compatibility field must be 1-500 non-whitespace characters when provided.");
         }
 
-        // --- agentskills.io spec: body line count ---
-        var trimmedBody = body.TrimEnd('\r', '\n');
-        int bodyLineCount = trimmedBody.Length == 0 ? 0 : trimmedBody.Split('\n').Length;
-        if (bodyLineCount > MaxBodyLines)
-        {
-            errors.Add($"SKILL.md body is {bodyLineCount} lines — maximum is {MaxBodyLines}. Move detailed reference material to separate files.");
-        }
-
         // --- agentskills.io spec: file reference depth ---
         foreach (Match refMatch in FileRefRegex().Matches(body))
         {
@@ -130,7 +122,11 @@ public static partial class SkillProfiler
             // Reject parent-directory traversals
             if (segments.Any(s => s == ".."))
             {
-                errors.Add($"File reference '{refMatch.Groups[1].Value}' uses parent-directory traversal — references must stay within the skill directory.");
+                if (!allowRepoTraversal)
+                {
+                    errors.Add($"File reference '{refMatch.Groups[1].Value}' uses parent-directory traversal — references must stay within the skill directory.");
+                }
+                // When repo traversal is allowed, external refs have no depth constraint.
                 continue;
             }
 

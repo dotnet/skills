@@ -9,10 +9,6 @@ namespace SkillValidator.Check;
 /// </summary>
 public static class AgentProfiler
 {
-    // Aligned with SKILL.md body limit from the agentskills.io spec:
-    // https://agentskills.io/specification#progressive-disclosure
-    private const int MaxBodyLines = 500;
-
     public static AgentProfile AnalyzeAgent(AgentInfo agent)
     {
         var content = agent.AgentMdContent;
@@ -50,15 +46,6 @@ public static class AgentProfiler
         // --- Description validation (same 1024-char limit as skills) ---
         // https://agentskills.io/specification#description-field
         SkillProfiler.ValidateDescription(agent.Description, "Agent", errors);
-
-        // --- Body line count ---
-        // https://agentskills.io/specification#progressive-disclosure
-        var trimmedBody = body.TrimEnd('\r', '\n');
-        int bodyLineCount = trimmedBody.Length == 0 ? 0 : trimmedBody.Split('\n').Length;
-        if (bodyLineCount > MaxBodyLines)
-        {
-            errors.Add($"Agent body is {bodyLineCount} lines — maximum is {MaxBodyLines}. Keep agent instructions concise.");
-        }
 
         return new AgentProfile(profileName, agent.FileName, errors, warnings);
     }

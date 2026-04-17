@@ -55,5 +55,4 @@ On older SDKs, check these signals in priority order:
 | `TUnit` package referenced | **MTP** (TUnit is MTP-only) |
 
 > **Note**: The presence of `Microsoft.NET.Test.Sdk` does **not** necessarily mean VSTest. Some frameworks (e.g., MSTest) pull it in transitively for compatibility, even when MTP is enabled. Do not use this package as a signal on its own — always check the MTP signals above first.
-
 > **Key distinction**: VSTest is the classic platform that uses `vstest.console` under the hood. Microsoft.Testing.Platform (MTP) is the newer, faster platform. Both can be invoked via `dotnet test`, but their filter syntax and CLI options differ.

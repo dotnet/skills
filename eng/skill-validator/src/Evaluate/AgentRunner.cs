@@ -432,6 +432,10 @@ public static class AgentRunner
             McpServers = sdkMcp,
             CustomAgents = customAgents,
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
+            // SDK 0.2.x removed the built-in local-filesystem session-state
+            // handler.  Without this, events.jsonl files are never written and
+            // session replay data is lost.
+            CreateSessionFsHandler = _ => new LocalSessionFsHandler(configDir),
             OnPermissionRequest = (request, _) =>
             {
                 // SDK 0.2.0: PermissionRequest only has Kind, no path data.

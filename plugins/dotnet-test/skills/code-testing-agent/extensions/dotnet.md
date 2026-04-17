@@ -61,6 +61,16 @@ This prevents CS0234 ("namespace not found") and CS0246 ("type not found") error
 - For the final validation, build the full `.sln` with `--no-incremental`
 - Full-solution builds catch cross-project reference errors invisible in scoped builds
 
+### Registering a new test project
+
+If a new test project was created, register it with the solution so `dotnet test` can discover it:
+
+1. Use the exact solution or solution-filter target identified in `.testagent/research.md` or `.testagent/plan.md` — do not search for or substitute a different `.sln`, `.slnx`, or `.slnf` target.
+2. If that target is a `.sln` or `.slnx`, run `dotnet sln <solution> add <test-project.csproj>`.
+3. If the target is a `.slnf` (solution filter), also ensure the new project is included in the filter; adding only to the underlying `.sln` may not be enough for test discovery.
+4. Skip this if the project is already included in the solution or solution filter used for testing.
+5. Prefer the researched test command. If you need to run the solution directly, use `dotnet test --solution <solution>` only for repos on .NET SDK 10+ with MTP-style syntax; otherwise use the standard positional form `dotnet test <solution>`.
+
 ## MSTest Template
 
 ```csharp

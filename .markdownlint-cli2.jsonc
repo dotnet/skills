@@ -1,0 +1,30 @@
+{
+  // Glob patterns to ignore
+  "ignores": [
+    "node_modules/**",
+    "artifacts/**"
+  ],
+
+  // Inline markdownlint configuration (merged from .markdownlint.jsonc)
+  "config": {
+    // Default: enable all rules
+    "default": true,
+
+    // MD013 - Line length: disable because skill files and docs routinely have long lines
+    "MD013": false,
+
+    // MD024 - Multiple headings with the same content: allow siblings with same text
+    "MD024": {
+      "siblings_only": true
+    },
+
+    // MD033 - Inline HTML: allow specific elements commonly used in docs
+    "MD033": {
+      "allowed_elements": ["br", "details", "summary", "img", "a", "sub", "sup"]
+    },
+
+    // MD041 - First line in a file should be a top-level heading:
+    // Disable because SKILL.md files start with YAML frontmatter
+    "MD041": false
+  }
+}

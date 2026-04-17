@@ -8,6 +8,10 @@ public static class SkillDiscovery
 
     public static async Task<IReadOnlyList<SkillInfo>> DiscoverSkills(string targetPath)
     {
+        // If pointing at a SKILL.md file, use its parent directory
+        if (File.Exists(targetPath) && Path.GetFileName(targetPath).Equals("SKILL.md", StringComparison.OrdinalIgnoreCase))
+            targetPath = Path.GetDirectoryName(targetPath)!;
+
         // Check if the target itself is a skill
         var directSkill = await DiscoverSkillAt(targetPath);
         if (directSkill is not null)

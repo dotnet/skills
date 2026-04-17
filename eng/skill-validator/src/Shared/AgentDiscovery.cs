@@ -75,10 +75,17 @@ public static class AgentDiscovery
     }
 
     /// <summary>
-    /// Discover agent files (.agent.md) directly in the given directory.
+    /// Discover agent files (.agent.md) in the given directory, or a single agent if a file path is provided.
     /// </summary>
     public static async Task<IReadOnlyList<AgentInfo>> DiscoverAgentsInDirectory(string agentsDir)
     {
+        // If the path is a file, try to discover it directly
+        if (File.Exists(agentsDir))
+        {
+            var agent = await DiscoverAgentAt(agentsDir);
+            return agent is not null ? [agent] : [];
+        }
+
         if (!Directory.Exists(agentsDir))
             return [];
 

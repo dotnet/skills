@@ -203,3 +203,122 @@ public class DuplicateSkillNameTests
         }
     }
 }
+
+public class CheckCommandFilePathTests
+{
+    private static string CreateSkillFixture(string skillName, string description)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"file-test-{Guid.NewGuid():N}");
+        var skillDir = Path.Combine(root, skillName);
+        Directory.CreateDirectory(skillDir);
+        File.WriteAllText(Path.Combine(skillDir, "SKILL.md"),
+            $"---\nname: {skillName}\ndescription: {description}\n---\n# {skillName}\n\nContent.\n");
+        return root;
+    }
+
+    private static string CreateAgentFixture(string agentName)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"file-test-{Guid.NewGuid():N}");
+        var agentsDir = Path.Combine(root, "agents");
+        Directory.CreateDirectory(agentsDir);
+        File.WriteAllText(Path.Combine(agentsDir, $"{agentName}.agent.md"),
+            $"---\nname: {agentName}\ndescription: A test agent.\n---\n# {agentName}\n\nAgent content.\n");
+        return root;
+    }
+
+    [Fact]
+    public async Task SkillsArg_WithSkillDirectoryPath_Passes()
+    {
+        var root = CreateSkillFixture("my-skill", "A short description.");
+        try
+        {
+            var config = new CheckConfig { SkillPaths = [Path.Combine(root, "my-skill")] };
+            var result = await CheckCommand.Run(config);
+            Assert.Equal(0, result);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task SkillsArg_WithSkillMdFilePath_Passes()
+    {
+        var root = CreateSkillFixture("my-skill", "A short description.");
+        try
+        {
+            var config = new CheckConfig { SkillPaths = [Path.Combine(root, "my-skill", "SKILL.md")] };
+            var result = await CheckCommand.Run(config);
+            Assert.Equal(0, result);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task AgentsArg_WithAgentFilePath_Passes()
+    {
+        var root = CreateAgentFixture("test-agent");
+        try
+        {
+            var config = new CheckConfig { AgentPaths = [Path.Combine(root, "agents", "test-agent.agent.md")] };
+            var result = await CheckCommand.Run(config);
+            Assert.Equal(0, result);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task AgentsArg_WithDirectoryPath_Passes()
+    {
+        var root = CreateAgentFixture("test-agent");
+        try
+        {
+            var config = new CheckConfig { AgentPaths = [Path.Combine(root, "agents")] };
+            var result = await CheckCommand.Run(config);
+            Assert.Equal(0, result);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task CombinedSkillsAndAgents_Passes()
+    {
+        var skillRoot = CreateSkillFixture("my-skill", "A short description.");
+        var agentRoot = CreateAgentFixture("test-agent");
+        try
+        {
+            var config = new CheckConfig
+            {
+                SkillPaths = [Path.Combine(skillRoot, "my-skill")],
+                AgentPaths = [Path.Combine(agentRoot, "agents")],
+            };
+            var result = await CheckCommand.Run(config);
+            Assert.Equal(0, result);
+        }
+        finally
+        {
+            Directory.Delete(skillRoot, true);
+            Directory.Delete(agentRoot, true);
+        }
+    }
+
+    [Fact]
+    public async Task CombinedSkillsAndAgents_WithFilePaths_Passes()
+    {
+        var skillRoot = CreateSkillFixture("my-skill", "A short description.");
+        var agentRoot = CreateAgentFixture("test-agent");
+        try
+        {
+            var config = new CheckConfig
+            {
+                SkillPaths = [Path.Combine(skillRoot, "my-skill", "SKILL.md")],
+                AgentPaths = [Path.Combine(agentRoot, "agents", "test-agent.agent.md")],
+            };
+            var result = await CheckCommand.Run(config);
+            Assert.Equal(0, result);
+        }
+        finally
+        {
+            Directory.Delete(skillRoot, true);
+            Directory.Delete(agentRoot, true);
+        }
+    }
+}

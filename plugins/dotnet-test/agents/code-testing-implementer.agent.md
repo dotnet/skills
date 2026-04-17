@@ -34,7 +34,11 @@ For each file in your phase:
 - Note dependencies and how to mock them
 - **Validate project references**: Read the test project file and verify it references the source project(s) you'll test. Add missing references before creating test files
 
-### 3. Write Test Files
+### 3. Register Test Project with Build System
+
+If the test project is new, register it with the project's build system so the test command can discover it. See `extensions/` for language-specific instructions (e.g., `extensions/dotnet.md` for .NET solution registration).
+
+### 4. Write Test Files
 
 For each test file in your phase:
 
@@ -43,13 +47,13 @@ For each test file in your phase:
 - Include tests for: happy path, edge cases (empty, null, boundary), error conditions
 - Mock all external dependencies — never call external URLs, bind ports, or depend on timing
 
-### 4. Verify with Build
+### 5. Verify with Build
 
 Call the `code-testing-builder` sub-agent to compile. Build only the specific test project, not the full solution.
 
 If build fails: call `code-testing-fixer`, rebuild, retry up to 3 times.
 
-### 5. Verify with Tests
+### 6. Verify with Tests
 
 Call the `code-testing-tester` sub-agent to run tests.
 
@@ -65,11 +69,11 @@ If tests fail:
 - Never mark a test `[Ignore]`, `[Skip]`, or `[Inconclusive]`
 - Retry the fix-test cycle up to 5 times
 
-### 6. Format Code (Optional)
+### 7. Format Code (Optional)
 
 If a lint command is available, call the `code-testing-linter` sub-agent.
 
-### 7. Report Results
+### 8. Report Results
 
 ```text
 PHASE: [N]

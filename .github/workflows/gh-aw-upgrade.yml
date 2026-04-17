@@ -1,0 +1,56 @@
+name: Upgrade gh-aw
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Weekly on Monday at 9:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Install gh-aw CLI
+        run: curl -sL https://raw.githubusercontent.com/github/gh-aw/main/install-gh-aw.sh | bash
+
+      - name: Check for updates
+        id: check
+        run: |
+          gh aw upgrade --no-compile --no-fix --no-actions 2>&1 | tee upgrade-output.txt
+          gh aw compile 2>&1 | tee -a upgrade-output.txt
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create pull request
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          BRANCH="automated/gh-aw-upgrade"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com" # 41898282 is the GitHub user ID of github-actions[bot]
+          git checkout -B "$BRANCH"
+          git add -A
+          git commit -m "chore: upgrade gh-aw"
+          git push --force origin "$BRANCH"
+
+          # Close existing PR if any, then create new one
+          existing_pr=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' || true)
+          if [ -n "$existing_pr" ]; then
+            gh pr close "$existing_pr" --delete-branch=false || true
+          fi
+
+          gh pr create \
+            --title "chore: upgrade gh-aw" \
+            --body "Automated gh-aw upgrade. Review the lock file changes and merge." \
+            --head "$BRANCH"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

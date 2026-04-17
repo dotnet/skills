@@ -12,6 +12,11 @@ public sealed record PluginValidationResult(
     IReadOnlyList<string> Errors,
     IReadOnlyList<string> Warnings);
 
+public sealed record CheckOptions
+{
+    public bool AllowRepoTraversal { get; init; }
+}
+
 public sealed record CheckConfig
 {
     public IReadOnlyList<string> PluginPaths { get; init; } = [];
@@ -20,4 +25,5 @@ public sealed record CheckConfig
     public string? AllowedExternalDepsFile { get; init; }
     public string? KnownDomainsFile { get; init; }
     public bool Verbose { get; init; }
+    public CheckOptions CheckOptions { get; init; } = new();
 }

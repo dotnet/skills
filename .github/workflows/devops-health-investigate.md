@@ -2,7 +2,8 @@
 name: "DevOps Health — Deep Investigation"
 description: >
   Worker agent that performs deep root-cause analysis on a single
-  health check finding. Dispatched by the health check orchestrator.
+  health check finding (pipeline, infrastructure, or resource).
+  Dispatched by the health check orchestrator.
 
 on:
   workflow_dispatch:
@@ -11,7 +12,7 @@ on:
         description: "Fingerprint ID of the finding to investigate"
         required: true
       finding_type:
-        description: "Category: pipeline | quality | pr | infra | resource"
+        description: "Category: pipeline | infra | resource"
         required: true
       finding_title:
         description: "Human-readable title of the finding"
@@ -118,7 +119,7 @@ Investigate the finding identified by the inputs provided to this workflow run. 
 ## Inputs Available
 
 - `finding_id`: `${{ inputs.finding_id }}` — The fingerprint ID of the finding
-- `finding_type`: `${{ inputs.finding_type }}` — Category (pipeline, quality, pr, infra, resource)
+- `finding_type`: `${{ inputs.finding_type }}` — Category (pipeline, infra, resource)
 - `finding_title`: `${{ inputs.finding_title }}` — Human-readable title
 - `finding_severity`: `${{ inputs.finding_severity }}` — Severity level
 - `resource_url`: `${{ inputs.resource_url }}` — URL to the primary resource
@@ -134,8 +135,6 @@ Investigate the finding identified by the inputs provided to this workflow run. 
 Based on `finding_type`, follow the appropriate investigation playbook from the compiled knowledge file:
 
 - **pipeline** → Pipeline Investigation Playbook
-- **quality** → Quality Investigation Playbook
-- **pr** → PR Investigation Playbook
 - **infra** → Infrastructure Investigation Playbook
 - **resource** → Resource Investigation Playbook
 

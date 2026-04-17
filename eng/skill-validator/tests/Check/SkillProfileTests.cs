@@ -259,35 +259,6 @@ public class AnalyzeSkillTests
         Assert.Contains(profile.Errors, e => e.Contains("Compatibility"));
     }
 
-    // --- Body line count tests ---
-
-    [Fact]
-    public void BodyOver500LinesErrors()
-    {
-        var body = string.Join("\n", Enumerable.Range(1, 501).Select(i => $"Line {i}"));
-        var content = "---\nname: test-skill\n---\n" + body;
-        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.Contains(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
-    }
-
-    [Fact]
-    public void BodyAt500LinesNoError()
-    {
-        var body = string.Join("\n", Enumerable.Range(1, 500).Select(i => $"Line {i}"));
-        var content = "---\nname: test-skill\n---\n" + body;
-        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.DoesNotContain(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
-    }
-
-    [Fact]
-    public void BodyAt500LinesWithTrailingNewlineNoError()
-    {
-        var body = string.Join("\n", Enumerable.Range(1, 500).Select(i => $"Line {i}")) + "\n";
-        var content = "---\nname: test-skill\n---\n" + body;
-        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.DoesNotContain(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
-    }
-
     // --- File reference depth tests ---
 
     [Fact]
@@ -336,6 +307,35 @@ public class AnalyzeSkillTests
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](./references/file.md)\n" + new string('x', 4000);
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
         Assert.DoesNotContain(profile.Errors, e => e.Contains("directories deep") || e.Contains("traversal"));
+    }
+
+    // --- CheckOptions: AllowRepoTraversal ---
+
+    [Fact]
+    public void AllowRepoTraversalSuppressesParentTraversalError()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](../SKILL.md)\n" + new string('x', 4000);
+        var options = new CheckOptions { AllowRepoTraversal = true };
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), options);
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("traversal") || e.Contains("directories deep"));
+    }
+
+    [Fact]
+    public void AllowRepoTraversalAllowsDeepExternalRefs()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](../../../documentation/guides/setup.md)\n" + new string('x', 4000);
+        var options = new CheckOptions { AllowRepoTraversal = true };
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), options);
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("traversal") || e.Contains("directories deep"));
+    }
+
+    [Fact]
+    public void AllowRepoTraversalStillChecksDepthForInternalRefs()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](refs/utils/foo/readme.md)\n" + new string('x', 4000);
+        var options = new CheckOptions { AllowRepoTraversal = true };
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), options);
+        Assert.Contains(profile.Errors, e => e.Contains("directories deep"));
     }
 }
 

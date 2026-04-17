@@ -1,0 +1,75 @@
+scenarios:
+  - name: "Migrate DateTime.UtcNow to TimeProvider in a service class"
+    prompt: |
+      I have a CouponService that uses DateTime.UtcNow in several places. TimeProvider
+      is already registered in my DI container. Can you replace all the DateTime.UtcNow
+      calls with TimeProvider and add the constructor parameter?
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "file_contains"
+        path: "**/CouponService.cs"
+        value: "TimeProvider"
+      - type: "file_not_contains"
+        path: "**/CouponService.cs"
+        value: "DateTime.UtcNow"
+      - type: "exit_success"
+    rubric:
+      - "Replaced all DateTime.UtcNow calls in CouponService.cs with TimeProvider calls"
+      - "Added TimeProvider as a constructor parameter to CouponService"
+      - "Stored TimeProvider in a readonly field following the class's existing naming convention"
+      - "Did not change the behavior of any method — only the time source changed"
+      - "Did not modify Program.cs DI registration since TimeProvider was already registered"
+    timeout: 180
+
+  - name: "Migrate only in scoped files, leaving others untouched"
+    prompt: |
+      I want to migrate DateTime.UtcNow to TimeProvider, but only in CouponService.cs
+      for now. Don't touch AuditLogger.cs yet — I'll do that in a separate pass.
+      TimeProvider is already in my DI container.
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "file_contains"
+        path: "**/CouponService.cs"
+        value: "TimeProvider"
+      - type: "file_contains"
+        path: "**/AuditLogger.cs"
+        value: "DateTime.UtcNow"
+      - type: "exit_success"
+    rubric:
+      - "Migrated DateTime.UtcNow to TimeProvider in CouponService.cs"
+      - "Left AuditLogger.cs completely untouched with DateTime.UtcNow calls still present"
+      - "Respected the scope boundary the user specified"
+      - "Reported what was migrated and what remains to be done"
+    timeout: 180
+
+  - name: "Decline migration when wrapper does not exist yet"
+    prompt: |
+      Replace all File.ReadAllText calls in my project with IFileSystem. Just do
+      the bulk replacement across all files.
+    expect_activation: false
+    setup:
+      files:
+        - path: "MyProject/MyProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "MyProject/DataLoader.cs"
+          content: |
+            namespace MyProject;
+            public class DataLoader
+            {
+                public string Load(string path) => File.ReadAllText(path);
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "(System\\.IO\\.Abstractions|package|install|not.*registered|not.*referenced|add.*package)"
+    rubric:
+      - "Identified that System.IO.Abstractions NuGet package is not referenced in the project"
+      - "Did not blindly replace File.ReadAllText with IFileSystem calls that would not compile"
+      - "Recommended installing the package and registering IFileSystem before migrating"
+    timeout: 180

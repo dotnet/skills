@@ -1,0 +1,50 @@
+scenarios:
+  - name: "Full pipeline: detect statics and recommend migration plan"
+    prompt: |
+      I have a SubscriptionManager class that's impossible to unit test because it
+      uses DateTime.UtcNow, File.*, Directory.*, Environment.*, and Console.* all
+      directly. Can you analyze it and help me make it testable?
+    setup:
+      copy_test_files: true
+      additional_required_skills:
+        - detect-static-dependencies
+        - generate-testability-wrappers
+        - migrate-static-to-wrapper
+    assertions:
+      - type: "output_matches"
+        pattern: "(DateTime\\.UtcNow|DateTime\\.Now|time)"
+      - type: "output_matches"
+        pattern: "(File\\.|Directory\\.|file system|filesystem)"
+      - type: "output_matches"
+        pattern: "(TimeProvider|IFileSystem|System\\.IO\\.Abstractions|wrapper|abstraction)"
+      - type: "exit_success"
+    rubric:
+      - "Identified the static dependencies in SubscriptionManager (time, filesystem, environment, console)"
+      - "Recommended TimeProvider for replacing DateTime.UtcNow calls"
+      - "Recommended System.IO.Abstractions or a wrapper for File/Directory calls"
+      - "Proposed an incremental migration plan rather than changing everything at once"
+      - "Produced concrete code changes or clear next steps"
+    timeout: 300
+
+  - name: "Targeted request: just migrate DateTime to TimeProvider"
+    prompt: |
+      I only care about making the time calls testable right now. Replace DateTime.UtcNow
+      with TimeProvider in my SubscriptionManager class. I'm on .NET 10.
+    setup:
+      copy_test_files: true
+      additional_required_skills:
+        - migrate-static-to-wrapper
+    assertions:
+      - type: "file_contains"
+        path: "**/SubscriptionManager.cs"
+        value: "TimeProvider"
+      - type: "file_not_contains"
+        path: "**/SubscriptionManager.cs"
+        value: "DateTime.UtcNow"
+      - type: "exit_success"
+    rubric:
+      - "Replaced all DateTime.UtcNow calls in SubscriptionManager with TimeProvider equivalents"
+      - "Added TimeProvider as a dependency to SubscriptionManager via constructor injection"
+      - "Registered TimeProvider.System in the DI container in Program.cs"
+      - "Did not modify the File.*, Directory.*, Environment.*, or Console.* calls — stayed focused"
+    timeout: 300

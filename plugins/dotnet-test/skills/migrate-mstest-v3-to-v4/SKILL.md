@@ -348,6 +348,7 @@ The `ConditionBaseAttribute.ShouldRun` property is renamed to `IsConditionMet`.
 #### 3.12 Internal/removed types
 
 Several types previously public are now internal or removed:
+
 - `MSTestDiscoverer`, `MSTestExecutor`, `AssemblyResolver`, `LogMessageListener`
 - `TestExecutionManager`, `TestMethodInfo`, `TestResultExtensions`
 - `UnitTestOutcomeExtensions`, `GenericParameterHelper`
@@ -383,6 +384,7 @@ AppDomains are disabled by default. On .NET Framework, when running inside testh
 #### 4.2 TestContext throws when used incorrectly
 
 MSTest v4 now throws when accessing test-specific properties in the wrong lifecycle stage:
+
 - `TestContext.FullyQualifiedTestClassName` -- cannot be accessed in `[AssemblyInitialize]`
 - `TestContext.TestName` -- cannot be accessed in `[AssemblyInitialize]` or `[ClassInitialize]`
 
@@ -428,6 +430,7 @@ If you need VSTest during a transition period, Option A works without changing C
 #### 4.6 Analyzer severity changes
 
 Multiple analyzers have been upgraded from Info to Warning by default:
+
 - MSTEST0001, MSTEST0007, MSTEST0017, MSTEST0023, MSTEST0024, MSTEST0025
 - MSTEST0030, MSTEST0031, MSTEST0032, MSTEST0035, MSTEST0037, MSTEST0045
 

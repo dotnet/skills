@@ -67,14 +67,13 @@ permissions:
   contents: read
   actions: read
   issues: read
-  pull-requests: read
 
 imports:
   - ../aw/shared/devops-health.lock.md
 
 tools:
   github:
-    toolsets: [repos, issues, pull_requests, actions]
+    toolsets: [repos, issues, actions]
   bash: ["cat", "grep", "head", "tail", "jq", "date", "sort"]
 
 safe-outputs:
@@ -116,13 +115,19 @@ Record the `issue_number` and current issue `body`.
 
 ---
 
-## Step 2: Fetch All Comments
+## Step 2: Fetch Recent Comments
+
+Compute a `since` timestamp equal to **30 days ago** (ISO-8601 format, e.g. `2026-03-16T00:00:00Z`). This covers the 28-day P4 hard age cutoff plus a 2-day buffer, ensuring all comments within the retention window are fetched — including older investigations whose findings are still active.
 
 ```
-GET /repos/{owner}/{repo}/issues/{issue_number}/comments?per_page=100
+GET /repos/{owner}/{repo}/issues/{issue_number}/comments?per_page=100&since={since_timestamp}
 ```
 
-Paginate if needed (follow `Link` header). Collect every comment with:
+The `since` parameter filters to comments created or updated after the timestamp, which keeps the result set bounded.
+
+**You MUST paginate**: If the response contains a `Link` header with `rel="next"`, you MUST fetch subsequent pages until no `rel="next"` link is present. Failure to paginate means investigation comments may be missed, which is the primary failure mode of this workflow.
+
+Collect every comment with:
 - `id` (numeric REST comment ID)
 - `node_id` (GraphQL node ID, e.g. `IC_kwDOABCD…` — required by `hide-comment`)
 - `html_url` (link for the issue body)
@@ -175,7 +180,7 @@ this workflow. Proceed to Step 3.2 with an empty table.
 **If the Investigation Results section already exists** in the issue body:
 
 For each row in the existing Investigation Results table:
-1. Determine the `finding_id` for this row. Match by finding title or by checking the fingerprint from the current health check state in `cache-memory`.
+1. Determine the `finding_id` for this row. Match by comparing the finding title in the table row against the `finding_id` or heading title in each investigation comment.
 2. Look up the `finding_id` in the investigation comments collected in Step 2.
 3. If a matching investigation comment exists:
    - Change the status from `🔄 Dispatched` to `✅ Done`
@@ -242,13 +247,24 @@ In the Investigation Results table, for findings whose investigation is complete
 - Change status from `✅ Done` to `✅ Resolved`
 - Keep the link to the investigation comment (still useful for historical context until pruned)
 
-Additionally, in the **📌 Existing Findings** section, if any finding that was previously `📌 EXISTING` is no longer in the current fingerprint set, annotate it with `(resolved {date})`.
-
 ### 4.4 Write the Updated Issue Body
 
-Now that both Step 3 (linking investigation results) and Step 4 (marking resolved findings) have been applied to the in-memory issue body, make a **single** `update-issue` call with the combined changes. You **MUST** set `operation: "replace"` so the body is overwritten (the default operation is `append`, which would duplicate the entire body).
+Now that both Step 3 (linking investigation results) and Step 4 (marking resolved investigations) have been applied to the Investigation Results table, write **only the `## 🔍 Investigation Results` section** using a **single** `update-issue` call with `operation: "replace-island"`.
 
-**Before calling `update-issue`**, run the body-length sanity check (see Guidelines). If the check fails, **abort the entire workflow** — skip `update-issue`, skip Step 5 (hide comments), and call `noop` with the error.
+The `replace-island` operation replaces only the content between the `## 🔍 Investigation Results` heading and the next `##`-level heading (or end of body), leaving every other section untouched. This eliminates the risk of accidentally truncating or reformatting the issue body.
+
+The `body` field must contain **only** the Investigation Results island — starting with `## 🔍 Investigation Results` and ending just before the next section heading. Example:
+
+```markdown
+## 🔍 Investigation Results
+
+> Deep investigations are dispatched for new critical/warning findings.
+> The [grooming workflow](../workflows/devops-health-groom.md) links results ~3 hours after this run.
+
+| Finding | Severity | Status | Result |
+|---------|----------|--------|--------|
+| ... | ... | ✅ Done | [summary](url) |
+```
 
 Only call `update-issue` if at least one change was made across Steps 3 and 4. If nothing changed, skip the call.
 
@@ -257,10 +273,15 @@ Only call `update-issue` if at least one change was made across Steps 3 and 4. I
 ## Step 5: Hide Stale Comments
 
 Use `hide-comment` to collapse stale comments. Hidden comments remain accessible
-but are collapsed in the GitHub UI with a reason label. Apply the following
-retention policy:
+but are collapsed in the GitHub UI with a reason label.
 
-### 5.1 Daily Overview Comments
+**Minimum age safeguard:** NEVER hide any comment less than **72 hours** old,
+regardless of which rule matches. This gives people time to read investigations
+before they are cleaned up.
+
+Apply the following retention rules in priority order:
+
+### 5.1 P1 — Daily Summary Comments (> 7 days)
 
 Hide daily overview comments (`## 📋 Health Check —`) older than **7 days** with reason `OUTDATED`.
 
@@ -269,32 +290,46 @@ Age = now - comment.created_at
 If Age > 7 days → hide-comment(node_id, reason: "OUTDATED")
 ```
 
-### 5.2 Investigation Comments — Age-Based
+### 5.2 P2 — Already-Hidden / Resolved Investigation Comments (> 7 days)
 
-Hide investigation comments (`## 🔍 Investigation:`) older than **7 days** with reason `OUTDATED`.
+Hide investigation comments (`## 🔍 Investigation:`) older than **7 days** that
+have already been collapsed (hidden) in a previous grooming run, or whose
+`finding_id` is NOT in the current active fingerprint set (i.e. the finding is
+resolved). Use reason `RESOLVED` for resolved findings, `OUTDATED` for others.
 
-### 5.3 Investigation Comments — Resolved Findings
+### 5.3 P3 — Unreferenced Investigation Comments (> 7 days)
 
-Hide investigation comments for findings that have been **resolved** (finding_id is NOT in the current active fingerprint set derived from the issue body in Step 4.1), regardless of age, with reason `RESOLVED`. These investigations are no longer relevant since the underlying issue is fixed.
+Hide investigation comments older than **7 days** whose `finding_id` does **not**
+appear anywhere in the current issue body's `## 🔍 Investigation Results` table.
+These investigations are orphaned — not linked from the dashboard. Use reason
+`OUTDATED`.
 
-**Exception:** Do NOT hide investigation comments less than 24 hours old, even if the finding is resolved. This gives people time to read the investigation before it's cleaned up.
+### 5.4 P4 — Hard Age Cutoff (> 28 days)
 
-### 5.4 Hide Order
+Hide **any** bot comment (`github-actions[bot]` author) older than **28 days**,
+regardless of type or status, with reason `OUTDATED`. This is a catch-all to
+prevent unbounded comment accumulation.
+
+**Never hide human comments** — only comments authored by `github-actions[bot]`.
+
+### 5.5 Hide Order
 
 Process hides in this priority order:
-1. Resolved investigation comments (oldest first) — reason: `RESOLVED`
-2. Age-expired investigation comments (oldest first) — reason: `OUTDATED`
-3. Age-expired daily overview comments (oldest first) — reason: `OUTDATED`
+1. P2 — Resolved investigation comments (oldest first) — reason: `RESOLVED`
+2. P3 — Unreferenced investigation comments (oldest first) — reason: `OUTDATED`
+3. P1 — Age-expired daily overview comments (oldest first) — reason: `OUTDATED`
+4. P4 — Hard age cutoff (oldest first) — reason: `OUTDATED`
 
 Use the `hide-comment` safe-output for each operation. The `node_id` field is
 required (GraphQL node ID starting with `IC_kwDO…`). Include the reason.
 
-### 5.5 Safety Limits
+### 5.6 Safety Limits
 
 - Maximum 50 hides per run (safe-output budget)
 - If more than 50 comments qualify for hiding, prioritize: resolved investigations first, then oldest comments first
 - Log the count of skipped hides if the budget is exhausted
 - Hidden comments remain on the issue (collapsed); they are NOT deleted
+- **Actual deletion** is handled by the separate [`devops-health-cleanup.yml`](devops-health-cleanup.yml) workflow, which runs weekly and permanently removes bot comments matching the same P1–P4 rules. This groomer only hides (collapses) comments.
 
 ---
 
@@ -312,13 +347,13 @@ If changes were made, the summary is implicit in the safe-output calls. Do NOT c
 
 ## Guidelines
 
-- **CRITICAL — Use `operation: "replace"`**: When calling `update-issue`, you **MUST** set `operation: "replace"`. The default operation is `append`, which adds the body after the existing content and will duplicate the entire issue. Since you are providing the complete updated body, always use `replace`.
-- **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **complete, literal issue body text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. The body must be passed directly as the string value.
-- **CRITICAL — Body length sanity check**: Before calling `update-issue`, verify the new body is at least 80% the length of the original body. If it is significantly shorter, something went wrong — **stop immediately**: do NOT call `update-issue`, do NOT call `hide-comment`, and call `noop` with an error message describing the length mismatch. This check runs before any safe-output calls, so `noop` is always safe here. The health check body is typically 3000–8000 characters.
+- **CRITICAL — Use `operation: "replace-island"`**: When calling `update-issue`, you **MUST** set `operation: "replace-island"`. This replaces only the `## 🔍 Investigation Results` section in the issue body, leaving all other sections untouched. The `body` field must contain only the Investigation Results section content (from the `## 🔍 Investigation Results` heading up to but not including the next `##`-level heading). Do NOT pass the full issue body — `replace-island` handles scoping automatically.
+- **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **literal section text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. The body must be passed directly as the string value.
 - **Minimal edits only**: You are a groomer, not a rewriter. Only change: (a) investigation table rows (status + link), (b) resolved-finding annotations. Copy all other sections **byte-for-byte** from the original body. Do not reformat, re-wrap, or reorganize sections you are not changing.
 - **Be precise with comment parsing**: The comment format is well-defined (see the investigation worker template). Match the exact patterns — don't be fuzzy.
 - **Preserve the issue body structure**: When updating the issue body, keep ALL sections intact. Only modify the Investigation Results table rows and any resolved-finding annotations. Do not rewrite sections you don't need to change.
-- **Don't hide "Other" comments**: Only hide comments that match the Investigation or Daily overview patterns. Human comments, bot reactions, etc. must be preserved.
+- **Don't hide human comments**: Never hide comments authored by humans. For bot comments (`github-actions[bot]`), P1–P3 only target Investigation and Daily overview patterns. P4 (hard age cutoff > 28 days) may hide any bot comment regardless of pattern. Never hide human comments, bot reactions from humans, etc.
 - **Idempotent**: Running this workflow twice should produce the same result. If investigation results are already linked, don't re-link them. If comments are already hidden, they won't appear in the API results (collapsed).
-- **Create missing sections**: If the issue body doesn't contain a `## 🔍 Investigation Results` section, **create it** from investigation comments (see Step 3). Do NOT silently skip linking — this is the groomer's primary job. Only skip Step 3 if there are zero investigation comments to link.
+- **Create missing sections**: If the issue body doesn't contain a `## 🔍 Investigation Results` section, **create it** from investigation comments (see Step 3). Do NOT silently skip linking — this is the groomer's primary job. Only skip Step 3 if there are zero investigation comments to link. When creating a missing section, use `operation: "replace-island"` — this will insert the section at the appropriate location.
 - **No intermediate files**: Do all work in memory. Do NOT write intermediate scripts, JSON files, or body text files. Parse API responses with `jq` inline and hold the issue body as a string variable.
+- **Pagination is mandatory**: Always follow `Link: <…>; rel="next"` headers when fetching comments. Even with the `since` parameter, the result set can exceed 100 comments — if you only fetch page 1, you will miss recent investigation comments and silently fail to link them.

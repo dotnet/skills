@@ -143,6 +143,13 @@ $manifestSessions = @()
 $artifactDirs = Get-ChildItem -Path $ResultsDir -Directory -ErrorAction SilentlyContinue |
     Where-Object { $_.Name -like 'skill-validator-results-*' }
 
+Write-Host "Scanning $ResultsDir for session artifacts..."
+$allDirs = @(Get-ChildItem -Path $ResultsDir -Directory -ErrorAction SilentlyContinue)
+Write-Host "  Total directories in ResultsDir: $($allDirs.Count)"
+if ($allDirs.Count -gt 0) {
+    Write-Host "  Directory names: $($allDirs.Name -join ', ')"
+}
+
 if (-not $artifactDirs) {
     Write-Warning "No skill-validator-results-* directories found in $ResultsDir"
     # Write empty manifest
@@ -159,23 +166,30 @@ foreach ($artifactDir in $artifactDirs) {
     $pluginName = ($entryName -split '--')[0]
 
     # Find timestamped result directory
-    $runDir = Get-ChildItem -Path $artifactDir.FullName -Directory -ErrorAction SilentlyContinue |
+    $allSubDirs = @(Get-ChildItem -Path $artifactDir.FullName -Directory -ErrorAction SilentlyContinue)
+    $runDir = $allSubDirs |
         Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
         Sort-Object Name -Descending |
         Select-Object -First 1
 
     if (-not $runDir) {
-        Write-Warning "No timestamped run directory found in $($artifactDir.Name), skipping"
+        Write-Warning "No timestamped run directory found in $($artifactDir.Name), skipping (subdirs: $($allSubDirs.Name -join ', '))"
         continue
     }
 
     $sessionsDbPath = Join-Path $runDir.FullName "sessions.db"
     if (-not (Test-Path $sessionsDbPath)) {
-        Write-Warning "No sessions.db found in $($runDir.FullName), skipping"
+        # List files in the run directory for diagnostics
+        $runFiles = Get-ChildItem -Path $runDir.FullName -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+        Write-Warning "No sessions.db found in $($runDir.FullName), skipping (files: $($runFiles -join ', '))"
         continue
     }
 
-    Write-Host "Processing sessions from $($artifactDir.Name) ($($runDir.Name))..."
+    # Check for WAL file alongside the database
+    $walPath = "$sessionsDbPath-wal"
+    $hasWal = Test-Path $walPath
+    $dbSize = (Get-Item $sessionsDbPath).Length
+    Write-Host "Processing sessions from $($artifactDir.Name) ($($runDir.Name))... [db=$([math]::Round($dbSize/1024,1))KB, wal=$hasWal]"
 
     # Query sessions.db
     $query = "SELECT id, skill_name, scenario_name, role, run_index, model, status, config_dir FROM sessions WHERE status IN ('completed', 'timed_out') ORDER BY skill_name, scenario_name, run_index, role;"
@@ -185,6 +199,17 @@ foreach ($artifactDir in $artifactDirs) {
     catch {
         Write-Warning "Failed to query $sessionsDbPath : $_"
         continue
+    }
+
+    Write-Host "  Found $($rows.Count) completed/timed_out session(s) in DB"
+    if ($rows.Count -eq 0) {
+        # Query total sessions (any status) for diagnostics
+        try {
+            $allRows = Invoke-SqliteQuery -DatabasePath $sessionsDbPath -Query "SELECT id, status FROM sessions;"
+            Write-Warning "  DB has $($allRows.Count) total session(s) with statuses: $(($allRows | ForEach-Object { ($_ -split '\|')[1] } | Sort-Object -Unique) -join ', ')"
+        } catch {
+            Write-Warning "  Could not query all sessions: $_"
+        }
     }
 
     foreach ($row in $rows) {
@@ -234,7 +259,7 @@ foreach ($artifactDir in $artifactDirs) {
         $displayName = "$pluginName / $scenarioName ($roleTag, run $runIndex)"
         $id = "$subDir/$pluginName/$safeScenario--$roleTag--run$runIndex"
 
-        $tags = @($Source, $pluginName, $roleTag)
+        $tags = @($Source, $pluginName, $roleTag, $safeScenario)
         if ($Source -eq 'pr' -and $PrNumber -gt 0) {
             $tags += "pr-$PrNumber"
         }
@@ -264,3 +289,7 @@ $manifestPath = Join-Path $OutputDir "manifest.json"
 $manifest | ConvertTo-Json -Depth 10 | Out-File -FilePath $manifestPath -Encoding utf8
 
 Write-Host "`nManifest written to $manifestPath with $($manifestSessions.Count) session(s)"
+if ($manifestSessions.Count -eq 0) {
+    Write-Warning "No sessions were extracted from any artifact. Check warnings above for details."
+    Write-Warning "Artifact dirs scanned: $($artifactDirs.Count)"
+}

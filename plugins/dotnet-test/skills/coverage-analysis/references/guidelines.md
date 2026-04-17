@@ -19,13 +19,14 @@
 **CRAP threshold of 30 is the default for a reason.** Scores above 30 are widely cited (by the original researchers) as "needs immediate attention." Scores between 15 and 30 are moderate — flag them in the table but don't make them sound catastrophic. Scores ≤ 5 are generally fine.
 
 **Priority assignment for coverage gaps:**
+
 - **HIGH** — file has both a CRAP score above threshold AND coverage below threshold (the double failure is what makes it urgent)
 - **MED** — coverage below threshold OR CRAP score above threshold, but not both
 - **LOW** — coverage below threshold with all methods having complexity ≤ 2 (trivial code — missing coverage here is unlikely to hide real bugs)
 
 ---
 
-# Coverage Intelligence — Going Beyond the Numbers
+## Coverage Intelligence — Going Beyond the Numbers
 
 **Prioritize uncovered code that is** complex (cyclomatic complexity > 5), on critical paths (auth, payment, data access, error handling), or changed frequently. **Deprioritize** trivial getters (complexity 1–2), generated files (EF migrations, `*.Designer.cs`, `*.g.cs`), and DI/configuration glue code.
 
@@ -35,7 +36,7 @@
 
 ---
 
-# Style
+## Style
 
 - **Keep risk hotspots prominent and immediately after the summary section** — developers should find the highest-risk methods quickly
 - **Quantify recommendations** — "adding 3 tests for `ProcessOrder` would cut the CRAP score from 48 to ~6"
