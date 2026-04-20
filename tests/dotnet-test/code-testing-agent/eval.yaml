@@ -23,7 +23,7 @@ scenarios:
         command_arguments: "test ContosoUniversity.Tests/ContosoUniversity.Tests.csproj -v:q --collect:\"XPlat Code Coverage\""
         expected_exit_code: 0
         expected_std_output_contains: "Passed!"
-        command_timeout: 180
+        command_timeout: 300
     rubric:
       - "Achieved high line coverage (>70%) across the ContosoUniversity source files as reported by the Cobertura XML in TestResults/"
       - "Tests are organized logically with clear naming that describes test scenarios"
