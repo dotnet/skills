@@ -15,9 +15,21 @@ scenarios:
       - type: "output_contains"
         value: "Assert.Equal"
       - type: "output_matches"
+        pattern: "Assert\\.True|Assert\\.False"
+      - type: "output_matches"
+        pattern: "Assert\\.Null|Assert\\.NotNull"
+      - type: "output_matches"
+        pattern: "Assert\\.IsAssignableFrom|Assert\\.IsType"
+      - type: "output_matches"
+        pattern: "Assert\\.Contains"
+      - type: "output_matches"
         pattern: "Assert\\.That\\(.*Is\\.EqualTo"
       - type: "output_matches"
-        pattern: "Assert\\.Contains|Has\\.Member"
+        pattern: "Is\\.True|Is\\.False"
+      - type: "output_matches"
+        pattern: "Is\\.Null"
+      - type: "output_matches"
+        pattern: "Has\\.Member|Does\\.Contain"
       - type: "exit_success"
     rubric:
       - "Provided correct xUnit equivalents for all six MSTest assertions"
@@ -136,9 +148,11 @@ scenarios:
       ```
     assertions:
       - type: "output_matches"
-        pattern: "Assert\\.Throws(Exactly)?<InvalidOperationException>"
+        pattern: "\\[TestMethod\\].*Assert\\.Throws(Exactly)?<|Assert\\.Throws(Exactly)?<.*AreEqual"
       - type: "output_matches"
-        pattern: "Throws\\.TypeOf<InvalidOperationException>|Assert\\.Throws<InvalidOperationException>"
+        pattern: "\\[Fact\\].*Assert\\.Throws<|Assert\\.Throws<.*Assert\\.Equal"
+      - type: "output_matches"
+        pattern: "Throws\\.TypeOf<InvalidOperationException>|Assert\\.That\\(.*Throws"
       - type: "exit_success"
     rubric:
       - "Replaced the MSTest try/catch with Assert.ThrowsExactly<T> or Assert.Throws<T>"
@@ -154,6 +168,14 @@ scenarios:
       I need to temporarily skip some tests in each project with a reason message explaining why.
       What's the correct attribute to use in each framework?
     assertions:
+      - type: "output_matches"
+        pattern: "MSTest"
+      - type: "output_matches"
+        pattern: "xUnit"
+      - type: "output_matches"
+        pattern: "NUnit"
+      - type: "output_matches"
+        pattern: "TUnit"
       - type: "output_matches"
         pattern: "\\[Ignore\\("
       - type: "output_matches"
@@ -290,6 +312,8 @@ scenarios:
         pattern: "Trait.*Category.*Integration|\\[Trait\\("
       - type: "output_matches"
         pattern: "SqlConnection|database"
+      - type: "output_matches"
+        pattern: "\\[Category\\(\"Integration\"\\)\\]|Category.*Integration.*NUnit|NUnit.*Category"
       - type: "exit_success"
     rubric:
       - "Identified Project A as integration test via the [TestCategory(\"Integration\")] marker and direct HttpClient usage"
