@@ -417,11 +417,14 @@ scenarios:
     assertions:
       - type: "file_contains"
         path: "TestProject.csproj"
-        value: "4."
+        value: "PackageReference Include=\"MSTest.TestFramework\" Version=\"4."
+      - type: "file_contains"
+        path: "TestProject.csproj"
+        value: "PackageReference Include=\"MSTest.TestAdapter\" Version=\"4."
       - type: "output_matches"
         pattern: "(dotnet build|dotnet test|build.*succeed|test.*pass)"
       - type: "output_matches"
-        pattern: "(TestTimeout|int\\.MaxValue|Timeout)"
+        pattern: "(int\\.MaxValue|int\\.Max)"
     rubric:
       - "Updated MSTest package references from 3.8.0 to a 4.x version"
       - "Fixed the TestTimeout.Infinite breaking change to int.MaxValue"
@@ -438,7 +441,7 @@ scenarios:
       After upgrading to MSTest 4.1.0, my test project fails to compile. I have a
       sealed TimedTestMethodAttribute that overrides Execute, and several tests use
       [Timeout(TestTimeout.Infinite)]. Here are the errors:
-      - error CS0507: cannot change access modifiers when overriding 'Execute'
+      - error CS0115: no suitable method found to override for 'Execute'
       - error CS0103: The name 'TestTimeout' does not exist in the current context
       How do I fix these?
     setup:
@@ -575,7 +578,7 @@ scenarios:
     timeout: 180
 
   # ============================================================================
-  # Goal 10: Recognize v3 project needs v3→v4 migration, not v1→v3
+  # Goal 15: Recognize v3 project needs v3→v4 migration, not v1→v3
   # ============================================================================
 
   - name: "Correctly identify MSTest v3 project and recommend v4 migration"
