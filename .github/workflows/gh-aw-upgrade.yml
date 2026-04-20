@@ -8,7 +8,6 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  workflows: write
 
 jobs:
   upgrade:
@@ -19,39 +18,114 @@ jobs:
       - name: Install gh-aw CLI
         run: curl -sL https://raw.githubusercontent.com/github/gh-aw/main/install-gh-aw.sh | bash
 
-      - name: Check for updates
-        id: check
-        run: |
-          gh aw upgrade --no-compile --no-fix --no-actions
-          gh aw compile
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Run gh-aw upgrade
+        run: gh aw upgrade
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create pull request
-        if: steps.check.outputs.changed == 'true'
+      - name: Detect changes
+        id: changes
         run: |
-          BRANCH="automated/gh-aw-upgrade"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com" # 41898282 is the GitHub user ID of github-actions[bot]
-          git checkout -B "$BRANCH"
-          git add -A
-          git commit -m "chore: upgrade gh-aw"
-          git push --force origin "$BRANCH"
+          # Categorize changes: files under .github/workflows/ can't be
+          # pushed with GITHUB_TOKEN (requires workflows scope).
+          # Include both modified and untracked files.
+          workflow_files=$(
+            git diff --name-only -- '.github/workflows/'
+            git ls-files --others --exclude-standard -- '.github/workflows/'
+          )
+          other=$(
+            git diff --name-only -- . ':!.github/workflows/'
+            git ls-files --others --exclude-standard -- . ':!.github/workflows/'
+          )
 
-          # Close existing PR if any, then create new one
-          existing_pr=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' || true)
-          if [ -n "$existing_pr" ]; then
-            gh pr close "$existing_pr" --delete-branch=false || true
+          if [ -z "$other" ] && [ -z "$workflow_files" ]; then
+            echo "Already up to date."
+            echo "has_pushable=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-          gh pr create \
-            --title "chore: upgrade gh-aw" \
-            --body "Automated gh-aw upgrade. Review the lock file changes and merge." \
-            --head "$BRANCH"
+          echo "has_pushable=$( [ -n "$other" ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+
+          if [ -n "$workflow_files" ]; then
+            echo "needs_recompile=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "workflow_files<<EOF"
+              echo "$workflow_files"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_recompile=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create PR
+        if: steps.changes.outputs.has_pushable == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          BRANCH="automated/gh-aw-upgrade"
+
+          # Revert workflow files (can't push these with GITHUB_TOKEN)
+          git checkout HEAD -- '.github/workflows/' 2>/dev/null || true
+          # Remove any new (untracked) files added under .github/workflows/
+          git ls-files --others -- '.github/workflows/' | xargs -r rm -f
+
+          git checkout -B "$BRANCH"
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No pushable changes after excluding compiled workflows."
+            exit 0
+          fi
+
+          git commit -m "chore: upgrade gh-aw runtime"
+          git push -f origin "$BRANCH"
+
+          # Build PR body
+          BODY="Automated gh-aw runtime upgrade."
+          BODY+=$'\n\n'
+          if [ "${{ steps.changes.outputs.needs_recompile }}" = "true" ]; then
+            BODY+="## ⚠️ Workflow recompilation needed"
+            BODY+=$'\n\n'
+            BODY+="The following workflow files also need updating but cannot be "
+            BODY+="pushed automatically (\`GITHUB_TOKEN\` lacks the \`workflows\` scope "
+            BODY+="required to modify files under \`.github/workflows/\`):"
+            BODY+=$'\n\n'
+            BODY+='```'
+            BODY+=$'\n'
+            BODY+="${{ steps.changes.outputs.workflow_files }}"
+            BODY+=$'\n'
+            BODY+='```'
+            BODY+=$'\n\n'
+            BODY+="After merging this PR, run locally:"
+            BODY+=$'\n\n'
+            BODY+='```bash'
+            BODY+=$'\n'
+            BODY+="git pull"
+            BODY+=$'\n'
+            BODY+="gh aw compile"
+            BODY+=$'\n'
+            BODY+="git add '.github/workflows/*.lock.yml'"
+            BODY+=$'\n'
+            BODY+="git commit -m 'chore: recompile gh-aw workflows'"
+            BODY+=$'\n'
+            BODY+="git push"
+            BODY+=$'\n'
+            BODY+='```'
+            BODY+=$'\n\n'
+            BODY+="To fully automate this, configure a GitHub App with \`workflows:write\` "
+            BODY+="permission and use \`actions/create-github-app-token\` in this workflow."
+          fi
+
+          # Update existing PR or create new one
+          existing_pr=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$existing_pr" ]; then
+            gh pr edit "$existing_pr" --body "$BODY"
+          else
+            gh pr create \
+              --title "chore: upgrade gh-aw runtime" \
+              --body "$BODY" \
+              --head "$BRANCH"
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
