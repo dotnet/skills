@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  workflows: write
 
 jobs:
   upgrade:
@@ -21,8 +22,8 @@ jobs:
       - name: Check for updates
         id: check
         run: |
-          gh aw upgrade --no-compile --no-fix --no-actions 2>&1 | tee upgrade-output.txt
-          gh aw compile 2>&1 | tee -a upgrade-output.txt
+          gh aw upgrade --no-compile --no-fix --no-actions
+          gh aw compile
           if [ -z "$(git status --porcelain)" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
