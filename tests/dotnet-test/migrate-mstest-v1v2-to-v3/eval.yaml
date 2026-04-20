@@ -62,9 +62,9 @@ scenarios:
 
   - name: "Fix Assert.AreEqual object overload errors after v3 upgrade"
     prompt: |
-      After updating my MSTest NuGet packages, several of my tests no longer compile.
-      I'm seeing errors on various Assert calls. Can you review my test file and fix
-      the compilation issues?
+      After upgrading my MSTest NuGet packages to the latest major version, several
+      of my tests no longer compile. I'm seeing errors on various Assert calls. Can
+      you review my test file and fix the compilation issues?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -144,8 +144,8 @@ scenarios:
   - name: "Migrate from .testsettings to .runsettings"
     prompt: |
       My MSTest project has a .testsettings file that configures test deployment, timeout,
-      and a code coverage data collector. After a package update, the settings seem to be
-      ignored. How do I migrate this configuration?
+      and a code coverage data collector. After upgrading MSTest packages, the settings
+      seem to be ignored. How do I migrate this configuration?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -200,9 +200,9 @@ scenarios:
 
   - name: "Fix DataRow type mismatch errors after v3 upgrade"
     prompt: |
-      After updating my test project's NuGet packages, several data-driven tests
-      no longer compile. The errors are on the DataRow attributes. Can you review
-      my test file and fix the issues?
+      After upgrading my MSTest packages to a newer major version, several
+      data-driven tests no longer compile. The errors are on the DataRow
+      attributes. Can you review my test file and fix the issues?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -301,8 +301,8 @@ scenarios:
 
   - name: "Handle dropped target framework during v3 migration"
     prompt: |
-      My test project multi-targets several frameworks and uses MSTest v2.
-      I want to upgrade to MSTest v3. Will I run into compatibility issues?
+      My test project multi-targets several frameworks and currently uses MSTest v2.
+      I want to migrate to MSTest v3. Will I run into any compatibility issues?
     setup:
       files:
         - path: "TestProject.csproj"
