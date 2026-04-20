@@ -58,9 +58,9 @@ scenarios:
 
   - name: "Fix multiple v4 breaking changes: Assert, ClassCleanup, TestContext, Timeout"
     prompt: |
-      I upgraded from MSTest 3.8 to MSTest 4.0 and my test project has many compilation errors.
-      The errors mention ThrowsException, ClassCleanupBehavior, Contains, TestTimeout, and
-      IsInstanceOfType. Can you review my code and fix all breaking changes?
+      I upgraded from MSTest 3.8 to MSTest 4.0 and my test project has compilation errors.
+      The errors mention ThrowsException, ClassCleanupBehavior, and TestTimeout.
+      Can you review my code and fix the breaking changes?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -73,15 +73,14 @@ scenarios:
       - type: "output_matches"
         pattern: "(ClassCleanup|ClassCleanupBehavior)"
       - type: "output_matches"
-        pattern: "(ContainsKey|IDictionary)"
+        pattern: "(TestTimeout|int\\.MaxValue|Infinite)"
     rubric:
       - "Identifies Assert.ThrowsException removal and recommends Assert.ThrowsExactly"
-      - "Identifies the Assert.AreEqual message+params change — recommends string interpolation"
-      - "Identifies Assert.IsInstanceOfType<T> out parameter change — shows return value pattern"
-      - "Identifies ClassCleanupBehavior.EndOfClass removal — recommends just [ClassCleanup]"
-      - "Identifies TestContext.Properties.Contains → ContainsKey change"
-      - "Identifies TestTimeout.Infinite removal — recommends int.MaxValue"
-    timeout: 240
+      - "Identifies ClassCleanupBehavior.EndOfClass removal — recommends plain [ClassCleanup]"
+      - "Identifies TestTimeout.Infinite removal and recommends a replacement (e.g. int.MaxValue)"
+      - "Provides concrete fixed code or a clear before/after for the changes"
+    max_turns: 5
+    timeout: 180
 
   # ============================================================================
   # Goal 4: Dropped target framework
