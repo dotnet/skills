@@ -34,31 +34,31 @@ jobs:
             git ls-files --others --exclude-standard -- '.github/workflows/'
           )
           other=$(
-            git diff --name-only -- ':!.github/workflows/'
-            git ls-files --others --exclude-standard -- ':!.github/workflows/'
+            git diff --name-only -- . ':!.github/workflows/'
+            git ls-files --others --exclude-standard -- . ':!.github/workflows/'
           )
 
           if [ -z "$other" ] && [ -z "$workflow_files" ]; then
             echo "Already up to date."
-            echo "has-pushable=false" >> "$GITHUB_OUTPUT"
+            echo "has_pushable=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          echo "has-pushable=$( [ -n "$other" ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          echo "has_pushable=$( [ -n "$other" ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
 
           if [ -n "$workflow_files" ]; then
-            echo "needs-recompile=true" >> "$GITHUB_OUTPUT"
+            echo "needs_recompile=true" >> "$GITHUB_OUTPUT"
             {
-              echo "workflow-files<<EOF"
+              echo "workflow_files<<EOF"
               echo "$workflow_files"
               echo "EOF"
             } >> "$GITHUB_OUTPUT"
           else
-            echo "needs-recompile=false" >> "$GITHUB_OUTPUT"
+            echo "needs_recompile=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create PR
-        if: steps.changes.outputs.has-pushable == 'true'
+        if: steps.changes.outputs.has_pushable == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -84,7 +84,7 @@ jobs:
           # Build PR body
           BODY="Automated gh-aw runtime upgrade."
           BODY+=$'\n\n'
-          if [ "${{ steps.changes.outputs.needs-recompile }}" = "true" ]; then
+          if [ "${{ steps.changes.outputs.needs_recompile }}" = "true" ]; then
             BODY+="## ⚠️ Workflow recompilation needed"
             BODY+=$'\n\n'
             BODY+="The following workflow files also need updating but cannot be "
@@ -93,7 +93,7 @@ jobs:
             BODY+=$'\n\n'
             BODY+='```'
             BODY+=$'\n'
-            BODY+="${{ steps.changes.outputs.workflow-files }}"
+            BODY+="${{ steps.changes.outputs.workflow_files }}"
             BODY+=$'\n'
             BODY+='```'
             BODY+=$'\n\n'
