@@ -43,7 +43,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(3\\.[0-9]+|v3|version 3|MSTest\\.Sdk)"
       - type: "output_matches"
-        pattern: "(AreEqual|Assert|overload|generic)"
+        pattern: "(Assert\\.(AreEqual|AreNotEqual)(<[^>]+>)?|object overload|overload removal|remove[ds]? the object overload|generic type parameter[s]?)"
     rubric:
       - "Recommends the MSTest metapackage or MSTest.Sdk as the upgrade path, not just bumping individual package versions"
       - "Warns about the Assert.AreEqual/AreNotEqual object overload removal visible in UserServiceTests.cs"
