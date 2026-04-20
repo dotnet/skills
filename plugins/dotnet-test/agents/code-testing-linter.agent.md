@@ -1,7 +1,9 @@
 ---
 description: >-
-  Runs code formatting/linting for any language. Discovers lint
-  command from project files if not specified.
+  Runs code formatting and linting for any language.
+
+  Use when: formatting code, running dotnet format, fixing style issues,
+  applying lint fixes.
 name: code-testing-linter
 user-invocable: false
 ---
