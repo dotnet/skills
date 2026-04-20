@@ -1,6 +1,7 @@
 ---
 description: >-
   Runs build/compile commands for any language and reports results.
+
   Use when: compiling code, running dotnet build, checking for compilation
   errors, verifying project builds successfully.
 name: code-testing-builder

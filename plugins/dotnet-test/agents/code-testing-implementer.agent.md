@@ -1,7 +1,9 @@
 ---
 description: >-
   Implements a single phase from the test plan. Writes test files and verifies
-  they compile and pass. Use when: executing a plan phase, writing test files,
+  they compile and pass.
+
+  Use when: executing a plan phase, writing test files,
   running build-test-fix cycle for generated tests.
 name: code-testing-implementer
 user-invocable: false

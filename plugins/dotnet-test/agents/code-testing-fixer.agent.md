@@ -1,6 +1,7 @@
 ---
 description: >-
   Fixes compilation errors in source or test files.
+
   Use when: resolving build errors, fixing CS/TS error codes, adding missing
   imports, correcting type mismatches, fixing compilation failures.
 name: code-testing-fixer

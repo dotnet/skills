@@ -1,6 +1,7 @@
 ---
 description: >-
   Runs code formatting and linting for any language.
+
   Use when: formatting code, running dotnet format, fixing style issues,
   applying lint fixes.
 name: code-testing-linter
