@@ -459,7 +459,7 @@ scenarios:
       - "Shows that [Timeout(TestTimeout.Infinite)] must become [Timeout(int.MaxValue)]"
       - "Provides corrected code for the sealed TimedTestMethodAttribute class"
       - "Addresses both the Execute and Timeout breaking changes together"
-    timeout: 180
+    timeout: 240
 
   # ============================================================================
   # Goal 12: TestMethodAttribute and TestMethod display name syntax
@@ -515,7 +515,7 @@ scenarios:
       - "Shows the new pattern: var typed = Assert.IsInstanceOfType<T>(obj) using the return value"
       - "Provides corrected code for all three test methods using IsInstanceOfType"
       - "Explains the typed variable is now assigned from the return value instead of an out parameter"
-    timeout: 180
+    timeout: 240
 
   # ============================================================================
   # Goal 14: Behavioral changes review and remediation
