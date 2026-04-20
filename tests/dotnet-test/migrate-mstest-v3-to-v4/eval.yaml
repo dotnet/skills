@@ -88,8 +88,8 @@ scenarios:
 
   - name: "Handle net6.0 target framework dropped in MSTest v4"
     prompt: |
-      My test project targets net6.0 and I want to upgrade to MSTest v4.
-      Will I run into compatibility issues?
+      My test project targets net6.0 and uses MSTest 3.8.0. I want to migrate to MSTest v4.
+      Will my target framework still be supported, or do I need to change it?
     setup:
       files:
         - path: "TestProject.csproj"
