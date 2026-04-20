@@ -1,8 +1,9 @@
 ---
 description: >-
-  Creates structured test implementation plans from research
-  findings. Organizes tests into phases by priority and complexity. Works with any
-  language.
+  Creates structured test implementation plans from research findings.
+
+  Use when: organizing tests into phases, prioritizing test generation,
+  creating .testagent/plan.md from research.
 name: code-testing-planner
 user-invocable: false
 ---

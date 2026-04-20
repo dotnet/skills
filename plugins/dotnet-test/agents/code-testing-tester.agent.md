@@ -1,7 +1,9 @@
 ---
 description: >-
-  Runs test commands for any language and reports results.
-  Discovers test command from project files if not specified.
+  Runs test commands for any language and reports pass/fail results.
+
+  Use when: running dotnet test, executing tests, verifying tests pass,
+  checking test results and failures.
 name: code-testing-tester
 user-invocable: false
 ---

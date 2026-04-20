@@ -1,8 +1,9 @@
 ---
 description: >-
-  Analyzes codebases to understand structure, testing patterns,
-  and testability. Identifies source files, existing tests, build commands, and
-  testing framework. Works with any language.
+  Analyzes codebases to understand structure, testing patterns, and testability.
+
+  Use when: researching project structure, identifying source files to test,
+  discovering test frameworks and build commands, producing .testagent/research.md.
 name: code-testing-researcher
 user-invocable: false
 ---

@@ -3,10 +3,13 @@ name: code-testing-agent
 description: >-
   Generates comprehensive, workable unit tests for any programming language
   using a multi-agent pipeline. Use when asked to generate tests, write unit
-  tests, improve test coverage, add test coverage, create test files, or test a
-  codebase. Supports C#, TypeScript, JavaScript, Python, Go, Rust, Java, and
-  more. Orchestrates research, planning, and implementation phases to produce
+  tests, improve test coverage, add test coverage, or create test files.
+  Supports C#, TypeScript, JavaScript, Python, Go, Rust, Java, and more.
+  Orchestrates research, planning, and implementation phases to produce
   tests that compile, pass, and follow project conventions.
+  DO NOT USE FOR: running existing tests, executing dotnet test, applying
+  test filters, detecting test platforms, or troubleshooting test execution
+  (use run-tests for all of these).
 ---
 
 # Code Testing Generation Skill

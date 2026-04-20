@@ -12,8 +12,9 @@ description: >
   across an entire solution, or to diagnose why coverage is stuck or
   plateaued and identify what methods are blocking improvement.
   DO NOT USE FOR: targeted single-method CRAP analysis (use crap-score skill),
-  writing tests, general test execution unrelated to coverage/CRAP analysis,
-  or coverage reporting without CRAP context.
+  writing tests, running tests without coverage collection, applying test
+  filters, producing TRX reports, or troubleshooting test execution (use
+  run-tests for all of these).
 ---
 
 # Coverage Analysis

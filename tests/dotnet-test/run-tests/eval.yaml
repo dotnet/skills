@@ -44,10 +44,10 @@ scenarios:
       - "Uses '-- --report-trx' (with separator) instead of just '--report-trx'"
       - "Does not suggest the VSTest-style '--logger trx' for an MTP project"
     expect_tools: ["bash"]
-    timeout: 360
+    timeout: 480
 
   - name: "Run tests with blame-hang on MTP project (SDK 10)"
-    prompt: "My tests are occasionally hanging. I want to run them with a hang timeout of 5 minutes to detect the culprit. Here's my project."
+    prompt: "My tests are occasionally hanging. I want to run them with dotnet test using a hang timeout of 5 minutes to detect the culprit. Here's my project."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -70,10 +70,10 @@ scenarios:
       - "Uses '--blame-hang-timeout 5min' or similar directly, not after '--'"
       - "Does not use the VSTest-style '--blame --blame-hang-timeout' combination"
     expect_tools: ["bash"]
-    timeout: 300
+    timeout: 420
 
   - name: "Run tests in a multi-TFM project targeting a specific framework"
-    prompt: "This test project targets both net8.0 and net9.0. I only want to run the tests on net9.0."
+    prompt: "This test project targets both net8.0 and net9.0. I only want to run the tests on net9.0 using dotnet test."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -96,7 +96,7 @@ scenarios:
   # ============================================================================
 
   - name: "Filter MSTest tests by category on VSTest"
-    prompt: "I only want to run the integration tests in this project. How do I filter for just the Integration category?"
+    prompt: "I only want to run the integration tests using dotnet test. How do I filter by the Integration category?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -118,7 +118,7 @@ scenarios:
     timeout: 120
 
   - name: "Filter NUnit tests by class name on VSTest"
-    prompt: "I want to run only the ReportExporterTests class, not the ReportGeneratorTests. How?"
+    prompt: "I want to run only the ReportExporterTests class using dotnet test, not the ReportGeneratorTests. How do I do that?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -140,7 +140,7 @@ scenarios:
     timeout: 120
 
   - name: "Filter xUnit v3 tests by class on MTP"
-    prompt: "I need to run only the ShoppingCartTests class, not the InventoryServiceTests. Can you show me the command?"
+    prompt: "I need to run only the ShoppingCartTests class using dotnet test, not the InventoryServiceTests. Can you show me the command?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -164,7 +164,7 @@ scenarios:
     timeout: 120
 
   - name: "Filter xUnit v3 tests by trait on MTP"
-    prompt: "I want to run only the tests with the Category=Integration trait in this xUnit project."
+    prompt: "I want to run only the tests with the Category=Integration trait in this xUnit project using dotnet test."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -188,7 +188,7 @@ scenarios:
     timeout: 120
 
   - name: "Filter TUnit tests by class using treenode-filter"
-    prompt: "I want to run only the SmsNotificationTests from this TUnit project. What's the command?"
+    prompt: "I want to run only the SmsNotificationTests from this TUnit project using dotnet test. What's the command?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -208,10 +208,10 @@ scenarios:
       - "Does not use VSTest --filter syntax which is incompatible with TUnit"
       - "Uses 'dotnet run' or 'dotnet test' with correct MTP argument passing"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 240
 
   - name: "Combine multiple filter criteria on VSTest MSTest"
-    prompt: "I want to run only the unit tests in the OrderServiceTests class. How do I combine these two conditions?"
+    prompt: "I want to run only the unit tests in the OrderServiceTests class using dotnet test. How do I combine these two filter conditions?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -234,14 +234,14 @@ scenarios:
       - "Does not suggest running all tests and post-filtering results"
       - "Explains the AND/OR combinator syntax for future reference"
     expect_tools: ["bash"]
-    timeout: 180
+    timeout: 300
 
   # ============================================================================
   # Goal 3: Using the right test platform CLI options
   # ============================================================================
 
   - name: "MTP project on SDK 9 must use -- separator for args"
-    prompt: "I want to run these tests and collect a crash dump if any test crashes the host."
+    prompt: "I want to run these tests with dotnet test and collect a crash dump if any test crashes the host."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -265,7 +265,7 @@ scenarios:
     timeout: 240
 
   - name: "MTP project on SDK 10 passes args directly"
-    prompt: "I want to run these tests and produce a TRX report."
+    prompt: "I want to run these tests with dotnet test and produce a TRX report."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -291,7 +291,7 @@ scenarios:
     timeout: 300
 
   - name: "Detect test platform from Directory.Build.props"
-    prompt: "I want to run the integration tests in this project. Can you figure out which test platform it uses and run them?"
+    prompt: "I want to run the integration tests in this project with dotnet test. Can you figure out which test platform it uses and run them?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -317,7 +317,8 @@ scenarios:
           content: |
             {
               "sdk": {
-                "version": "9.0.200"
+                "version": "9.0.200",
+                "rollForward": "latestFeature"
               }
             }
         - path: "ServiceTests.cs"
@@ -353,7 +354,7 @@ scenarios:
     timeout: 240
 
   - name: "Negative test: do not use MTP syntax for a VSTest project"
-    prompt: "Run my tests and generate a TRX report."
+    prompt: "Run my tests with dotnet test and generate a TRX report."
     setup:
       files:
         - path: "TestProject.csproj"

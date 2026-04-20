@@ -7,9 +7,10 @@ description: >
   "fix test faster", or needs to set up MTP hot reload to rapidly iterate on
   test failures. Covers setup (NuGet package, environment variable,
   launchSettings.json) and the iterative workflow for fixing tests.
-  DO NOT USE FOR: writing test code, diagnosing test failures, CI/CD pipeline
-  configuration, or Visual Studio Test Explorer hot reload (which is a
-  different feature).
+  DO NOT USE FOR: writing test code, diagnosing test failures, running tests
+  normally with dotnet test (use run-tests), applying test filters, producing
+  TRX reports, CI/CD pipeline configuration, or Visual Studio Test Explorer
+  hot reload (which is a different feature).
 ---
 
 # MTP Hot Reload for Iterative Test Fixing

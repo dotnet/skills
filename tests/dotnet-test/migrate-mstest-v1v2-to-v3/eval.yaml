@@ -44,10 +44,14 @@ scenarios:
         pattern: "(2\\.2\\.10|v2|version 2)"
       - type: "output_matches"
         pattern: "(3\\.[0-9]+|v3|version 3)"
+      - type: "output_matches"
+        pattern: "Assert\\.(AreEqual|AreSame)(<[^>]+>)?"
+      - type: "output_matches"
+        pattern: "(object overload|overload removal|remove[ds]? the object overload|generic type parameter[s]?)"
     rubric:
       - "Identifies the project as MSTest v2 from the 2.2.10 package versions"
       - "Recommends updating MSTest packages to 3.x or switching to the MSTest metapackage"
-      - "Warns about Assert.AreEqual/AreNotEqual object overload removal"
+      - "Warns about the Assert.AreEqual/AreSame object overload removal visible in UserServiceTests.cs"
       - "Mentions DataRow constructor changes and strict type matching"
       - "Mentions timeout behavior unification across .NET Core and .NET Framework"
     timeout: 240
