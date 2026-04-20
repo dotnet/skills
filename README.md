@@ -64,17 +64,16 @@ Once configured, type `/plugins` in Copilot Chat or use the `@agentPlugins` filt
 
 ### Cursor
 
-This repository is a [Cursor plugin marketplace](https://cursor.com/docs/plugins). Install plugins directly from the Cursor IDE:
+This repository is a [Cursor plugin marketplace](https://cursor.com/docs/plugins). You can discover and install published plugins directly in Cursor:
 
 1. Open the marketplace panel in Cursor
 2. Search for `.NET` or browse [cursor.com/marketplace](https://cursor.com/marketplace)
 3. Install the desired plugins
 
-Alternatively, load plugins locally:
+For local development or unpublished changes, import plugins from a local checkout:
 
-1. Clone this repository
-2. Copy or symlink to `~/.cursor/plugins/local/dotnet-agent-skills`
-3. Restart Cursor or run **Developer: Reload Window**
+1. Copy or symlink your local checkout to `~/.cursor/plugins/local/dotnet-agent-skills`
+2. Restart Cursor or run **Developer: Reload Window**
 
 ### Codex CLI
 
