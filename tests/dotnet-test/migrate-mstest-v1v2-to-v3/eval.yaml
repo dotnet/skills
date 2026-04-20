@@ -31,7 +31,7 @@ scenarios:
 
   - name: "Migrate MSTest v2 NuGet project to v3"
     prompt: |
-      I want to upgrade my MSTest test project to the latest major version.
+      I want to upgrade my MSTest v2 test project to the next major version.
       Can you review my project and tell me what I need to change?
     setup:
       files:
@@ -101,7 +101,7 @@ scenarios:
                 public void CompareReferences_AreSame()
                 {
                     var svc = GetService();
-                    Assert.AreSame(svc, GetService());
+                    Assert.AreSame(svc, svc);
                 }
 
                 [TestMethod]
