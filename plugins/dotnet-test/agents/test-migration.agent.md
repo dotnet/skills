@@ -9,6 +9,13 @@ description: >-
 tools: ['read', 'search', 'edit', 'terminal', 'skill']
 user-invokable: true
 disable-model-invocation: false
+handoffs:
+  - label: Audit Test Quality
+    agent: test-quality-auditor
+    prompt: >-
+      The test framework migration is complete. Please audit the migrated
+      test suite for quality issues, anti-patterns, and coverage gaps.
+    send: false
 ---
 
 # Test Migration Agent

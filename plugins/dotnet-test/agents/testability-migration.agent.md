@@ -7,6 +7,14 @@ description: >-
   TimeProvider, adopt IFileSystem, or improve testability of a legacy codebase.
 name: testability-migration
 tools: ['read', 'search', 'edit', 'terminal', 'skill']
+handoffs:
+  - label: Generate Tests for Migrated Code
+    agent: code-testing-generator
+    prompt: >-
+      The code has been migrated to use injectable abstractions. Please
+      generate unit tests for the migrated classes, using test doubles for
+      the new wrapper interfaces.
+    send: false
 ---
 
 # Testability Migration Agent

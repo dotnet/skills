@@ -9,6 +9,19 @@ description: >-
 tools: ['read', 'search', 'edit', 'terminal', 'skill']
 user-invokable: true
 disable-model-invocation: false
+handoffs:
+  - label: Generate Missing Tests
+    agent: code-testing-generator
+    prompt: >-
+      Based on the audit findings above, generate tests to fill the identified
+      coverage gaps and address the weak test areas.
+    send: false
+  - label: Fix Testability Issues
+    agent: testability-migration
+    prompt: >-
+      The audit found untestable code with static dependencies. Please run
+      the detect-generate-migrate pipeline on the flagged areas.
+    send: false
 ---
 
 # Test Quality Auditor Agent
