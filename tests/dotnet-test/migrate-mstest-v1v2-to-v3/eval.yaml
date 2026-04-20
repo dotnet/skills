@@ -250,7 +250,7 @@ scenarios:
     rubric:
       - "Explains that MSTest v3 enforces strict type matching in DataRow -- implicit conversions that worked in v2 now fail"
       - "Fixes the long-to-int mismatch (1L → 1) and the double-to-float mismatch (10.0 → 10.0f)"
-      - "Explains the 16-parameter constructor limit and suggests refactoring or updating to the latest 3.x where it may be resolved"
+      - "Explains the 16-parameter constructor limit and suggests refactoring; if the project is on an earlier 3.x release, it may also suggest updating to the latest 3.x where the limitation may be resolved"
       - "Does not suggest downgrading MSTest as a fix"
     timeout: 240
 
