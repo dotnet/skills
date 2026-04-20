@@ -20,7 +20,7 @@ Quick, pragmatic analysis of .NET test code for anti-patterns and quality issues
 - User wants to write new tests from scratch (use `writing-mstest-tests`)
 - User wants direct implementation fixes in MSTest code rather than a diagnostic review (use `writing-mstest-tests`)
 - User asks to fix swapped `Assert.AreEqual` argument order (use `writing-mstest-tests`)
-- User asks to convert `DynamicData` from `IEnumerable<object[]>` to ValueTuples (use `writing-mstest-tests`)
+- User asks to convert `DynamicData` from `IEnumerable<object[]>` to `ValueTuple` (use `writing-mstest-tests`)
 - User wants to run or execute tests (use `run-tests`)
 - User wants to migrate between test frameworks or versions (use migration skills)
 - User wants to measure code coverage (out of scope)
