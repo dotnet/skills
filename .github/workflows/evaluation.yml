@@ -998,6 +998,21 @@ jobs:
           merge-multiple: false
         continue-on-error: ${{ needs.evaluate.result != 'success' }}
 
+      - name: Inspect downloaded artifacts
+        if: always()
+        run: |
+          echo "=== all-results/ directory listing (3 levels) ==="
+          if [ -d all-results ]; then
+            find all-results -maxdepth 3 -ls 2>/dev/null | head -80
+            echo "---"
+            echo "sessions.db files:"
+            find all-results -name 'sessions.db' -ls 2>/dev/null
+            echo "events.jsonl files:"
+            find all-results -name 'events.jsonl' 2>/dev/null | head -20
+          else
+            echo "all-results/ directory does not exist!"
+          fi
+
       - name: Determine source metadata
         id: meta
         run: |
