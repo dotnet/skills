@@ -38,6 +38,16 @@ Based on the request scope, pick exactly one strategy and follow it:
 | **Single pass** | A moderate scope (couple projects or modules) that a single Research → Plan → Implement cycle can cover | Execute Steps 3-8 once, then proceed to Step 9. |
 | **Iterative** | A large scope or ambitious coverage target that one pass cannot satisfy | Execute Steps 3-8, then re-evaluate coverage. If the target is not met, repeat Steps 3-8 with a narrowed focus on remaining gaps. Use unique names for each iteration's `.testagent/` documents (e.g., `research-2.md`, `plan-2.md`) so earlier results are not overwritten. Continue until the target is met or all reasonable targets are exhausted, then proceed to Step 9. |
 
+**Strategy decision examples:**
+
+| User request | Strategy | Reasoning |
+|---|---|---|
+| "Write tests for `src/InvoiceService.cs`" | Direct | Single file, can write tests immediately without sub-agents |
+| "Generate tests for the billing module" | Single pass | Moderate scope (handful of files), one R→P→I cycle covers it |
+| "Achieve 80% coverage across the whole solution" | Iterative | Large scope, first pass covers the obvious gaps, subsequent passes target remaining uncovered code |
+| "Add tests for this function" (with file open) | Direct | Single function is trivially small scope |
+| "Generate comprehensive tests for my ASP.NET app" | Single pass or Iterative | Depends on how many controllers/services exist — use single pass for <10 files, iterative for more |
+
 **All strategies MUST execute Steps 6-9** (final build validation, final test validation, coverage gap iteration, and reporting). These steps are never skipped.
 
 ### Step 3: Research Phase
@@ -109,6 +119,37 @@ After the previous phases complete, check for uncovered source files:
 ### Step 9: Report Results
 
 Summarize tests created, report any failures or issues, suggest next steps if needed.
+
+**Example final report:**
+
+```
+## Test Generation Report
+
+**Project**: MyProject
+**Strategy**: Single pass
+
+### Results
+| Metric         | Value |
+|----------------|-------|
+| Tests created  | 24    |
+| Tests passing  | 24    |
+| Tests failing  | 0     |
+| Files created  | 3     |
+
+### Files Created
+- tests/MyProject.Tests/ServiceATests.cs (10 tests)
+- tests/MyProject.Tests/ServiceBTests.cs (8 tests)
+- tests/MyProject.Tests/HelperTests.cs (6 tests)
+
+### Build Validation
+- Scoped build: ✅ passed
+- Full solution build: ✅ passed
+
+### Next Steps
+- Consider adding integration tests for database layer
+```
+
+> **Language-specific examples**: For a complete end-to-end walkthrough including sample source code, research output, plan, generated tests, and fix cycles, see the `extensions/` folder (e.g., `extensions/dotnet-examples.md` for .NET).
 
 ## State Management
 

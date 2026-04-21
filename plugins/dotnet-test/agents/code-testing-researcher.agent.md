@@ -155,3 +155,5 @@ For each test project found, list:
 ## Output
 
 Write the research document to `.testagent/research.md` in the workspace root.
+
+> **Concrete example**: For a filled-in research document showing real file paths, detected frameworks, and prioritized file tables, see `extensions/dotnet-examples.md` ("Sample Research Output" section).

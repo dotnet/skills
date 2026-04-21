@@ -136,23 +136,31 @@ All pipeline state is stored in `.testagent/` folder:
 
 ## Examples
 
-### Example 1: Full Project Testing
+### Strategy Selection
 
-```text
-Generate unit tests for my Calculator project at C:\src\Calculator
-```
+The generator picks a strategy based on request scope:
 
-### Example 2: Specific File Testing
+| User Request | Strategy | Why |
+|---|---|---|
+| "Generate tests for `src/services/UserService.ts`" | **Direct** | Single file, small scope — write tests immediately, skip sub-agents |
+| "Add unit tests for my billing project" | **Single pass** | Moderate scope — one Research → Plan → Implement cycle covers it |
+| "Achieve 80% coverage across the entire solution" | **Iterative** | Large scope — multiple R→P→I cycles, each narrowing remaining gaps |
 
-```text
-Generate unit tests for src/services/UserService.ts
-```
+### Pipeline Walkthrough
 
-### Example 3: Targeted Coverage
+Given a request like *"Generate unit tests for my InvoiceService"*, the pipeline produces:
 
-```text
-Add tests for the authentication module with focus on edge cases
-```
+1. **Research** → `.testagent/research.md` containing detected language/framework, build commands, files to test ranked by priority, and existing test inventory
+2. **Plan** → `.testagent/plan.md` containing phased approach with specific methods and test scenarios (happy path, edge cases, error cases) for each file
+3. **Implement** → Test files written, built, and verified per phase. Fix cycle runs automatically if build/test errors occur
+4. **Validate** → Full workspace build + full test run to catch cross-project issues
+5. **Report** → Summary of tests created, pass/fail counts, coverage notes, and next steps
+
+### Language-Specific Examples
+
+The `extensions/` folder contains concrete, filled-in examples for each pipeline phase showing real source code, real research output, real plans, and real generated tests:
+
+- **[.NET/C#](extensions/dotnet-examples.md)** — MSTest example with InvoiceService: research output, plan output, generated test file, fix cycle walkthrough, and final report
 
 ## Agent Reference
 

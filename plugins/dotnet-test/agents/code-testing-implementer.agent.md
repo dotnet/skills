@@ -89,6 +89,8 @@ ISSUES:
 - [Any unresolved issues]
 ```
 
+> **Concrete example**: For a complete generated test file and build-error fix cycle walkthrough, see `extensions/dotnet-examples.md` ("Sample Generated Test File" and "Sample Fix Cycle" sections).
+
 ## Rules
 
 1. **Complete the phase** — don't stop partway through

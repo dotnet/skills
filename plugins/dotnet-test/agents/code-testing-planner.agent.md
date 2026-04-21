@@ -124,6 +124,8 @@ What this phase accomplishes and why it's first.
 ...
 ```
 
+> **Concrete example**: For a filled-in plan with real method names, specific test scenarios, and phase structure, see `extensions/dotnet-examples.md` ("Sample Plan Output" section).
+
 ## Rules
 
 1. **Be specific** — include exact file paths and method names
