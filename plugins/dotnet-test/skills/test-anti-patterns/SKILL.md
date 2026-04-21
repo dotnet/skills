@@ -1,6 +1,6 @@
 ---
 name: test-anti-patterns
-description: "Quick pragmatic review of .NET test code for anti-patterns that undermine reliability and diagnostic value. Use when asked to review tests, find test problems, check test quality, or audit tests for common mistakes. Catches assertion gaps, flakiness indicators, over-mocking, naming issues, and structural problems with actionable fixes. Use for periodic test code reviews and PR feedback. For a deep formal audit based on academic test smell taxonomy, use exp-test-smell-detection instead. Works with MSTest, xUnit, NUnit, and TUnit."
+description: "Quick pragmatic detection-focused review of .NET test code for anti-patterns that undermine reliability and diagnostic value. Use when asked to audit test quality, investigate flaky or coupled tests, find duplication or magic values, or when tests pass but don't actually verify anything. Best for identifying and prioritizing issues in existing tests with severity-ranked findings and targeted remediation guidance. Catches assertion gaps, swallowed exceptions, always-true assertions, flakiness indicators, test coupling, over-mocking, naming issues, magic values, duplicate tests, and structural problems. Do NOT use for direct MSTest API rewrites or implementation-only fixes (for example swapped Assert.AreEqual argument order or converting `DynamicData` from `IEnumerable<object[]>` to `ValueTuple`) — use writing-mstest-tests instead. For a deep formal audit based on academic test smell taxonomy, use exp-test-smell-detection instead. Works with MSTest, xUnit, NUnit, and TUnit."
 ---
 
 # Test Anti-Pattern Detection
@@ -18,6 +18,9 @@ Quick, pragmatic analysis of .NET test code for anti-patterns and quality issues
 ## When Not to Use
 
 - User wants to write new tests from scratch (use `writing-mstest-tests`)
+- User wants direct implementation fixes in MSTest code rather than a diagnostic review (use `writing-mstest-tests`)
+- User asks to fix swapped `Assert.AreEqual` argument order (use `writing-mstest-tests`)
+- User asks to convert `DynamicData` from `IEnumerable<object[]>` to `ValueTuple` (use `writing-mstest-tests`)
 - User wants to run or execute tests (use `run-tests`)
 - User wants to migrate between test frameworks or versions (use migration skills)
 - User wants to measure code coverage (out of scope)
