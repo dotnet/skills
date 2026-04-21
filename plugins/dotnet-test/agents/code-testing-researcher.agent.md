@@ -24,8 +24,9 @@ Analyze a codebase and produce a comprehensive research document that will guide
 
 Search for key files:
 
-- Project files: `*.csproj`, `*.sln`, `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`
-- Source files: `*.cs`, `*.ts`, `*.py`, `*.go`, `*.rs`
+- Project files: `*.csproj`, `*.vcxproj`, `*.sln`, `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`
+- Property and Target files: `*.props`, `*.targets` 
+- Source files: `*.cs`, `*.ts`, `*.py`, `*.go`, `*.rs`, `*.cpp`, `*.h`
 - Existing tests: `*test*`, `*Test*`, `*spec*`
 - Config files: `README*`, `Makefile`, `*.config`
 
@@ -38,6 +39,7 @@ Based on files found:
 - **Python**: `pyproject.toml` or `pytest.ini` → check for pytest/unittest
 - **Go**: `go.mod` → tests use `*_test.go` pattern
 - **Rust**: `Cargo.toml` → tests go in same file or `tests/` directory
+- **C++**: `*.vcxproj` → check for GoogleTest (gtest) references
 
 ### 3. Identify the Scope of Testing
 
