@@ -25,6 +25,7 @@ handoffs:
       The audit found untestable code with static dependencies. Please run
       the detect-generate-migrate pipeline on the flagged areas.
     send: false
+license: MIT
 ---
 
 # Test Quality Auditor Agent

@@ -7,6 +7,7 @@ description: >-
   running build-test-fix cycle for generated tests.
 name: code-testing-implementer
 user-invocable: false
+license: MIT
 ---
 
 # Test Implementer

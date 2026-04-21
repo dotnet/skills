@@ -6,6 +6,7 @@ description: >-
   creating .testagent/plan.md from research.
 name: code-testing-planner
 user-invocable: false
+license: MIT
 ---
 
 # Test Planner

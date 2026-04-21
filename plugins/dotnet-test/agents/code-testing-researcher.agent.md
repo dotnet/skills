@@ -6,6 +6,7 @@ description: >-
   discovering test frameworks and build commands, producing .testagent/research.md.
 name: code-testing-researcher
 user-invocable: false
+license: MIT
 ---
 
 # Test Researcher

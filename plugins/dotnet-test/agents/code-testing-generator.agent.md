@@ -5,6 +5,7 @@ description: >-
   tests, improve test coverage, or add tests.
 name: code-testing-generator
 tools: ['read', 'search', 'edit', 'task', 'skill', 'terminal']
+license: MIT
 ---
 
 # Test Generator Agent

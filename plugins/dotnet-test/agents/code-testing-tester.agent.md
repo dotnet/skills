@@ -6,6 +6,7 @@ description: >-
   checking test results and failures.
 name: code-testing-tester
 user-invocable: false
+license: MIT
 ---
 
 # Tester Agent

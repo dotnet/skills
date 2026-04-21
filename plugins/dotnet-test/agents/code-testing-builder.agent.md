@@ -6,6 +6,7 @@ description: >-
   errors, verifying project builds successfully.
 name: code-testing-builder
 user-invocable: false
+license: MIT
 ---
 
 # Builder Agent
