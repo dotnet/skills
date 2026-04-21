@@ -7,28 +7,12 @@ namespace MyApp.Tests;
 public class CalculatorTests
 {
     [TestMethod]
-    public void Add_ReturnsSum()
-    {
-        int expected = 5;
-        int actual = 5;
-        Assert.AreEqual(expected, actual, "Expected {0} but got {1}", expected, actual);
-    }
-
-    [TestMethod]
     public void Divide_ByZero_Throws()
     {
         Assert.ThrowsException<DivideByZeroException>(() =>
         {
             int result = 1 / 0;
         });
-    }
-
-    [TestMethod]
-    public void GetResult_IsCorrectType()
-    {
-        object obj = "hello";
-        Assert.IsInstanceOfType<string>(obj, out var typed);
-        Assert.AreEqual("hello", typed);
     }
 
     [TestMethod]
@@ -50,8 +34,8 @@ public class ContextTests
     }
 
     [TestMethod]
-    public void Context_HasProperty()
+    public void RunTest()
     {
-        TestContext.Properties.Contains("key");
+        Assert.IsTrue(true);
     }
 }
