@@ -149,6 +149,8 @@ Use this catalog when scanning project files for improvements.
 
 **Exception**: Non-SDK-style (legacy) projects require explicit file includes. If migrating, see `msbuild-modernization` skill.
 
+**Exception (F# / `.fsproj`)**: F# compilation is order-dependent — the compiler processes `<Compile Include>` items sequentially and a file can only reference types/modules declared in files listed above it. `.fsproj` files must therefore list every source file explicitly, in dependency order (utility/leaf modules at the top, the entry point such as `Program.fs` at the bottom). If a `.fsi` signature file is used, it must appear **immediately before** its companion `.fs` implementation file.
+
 ---
 
 ## AP-06: Using `<Reference>` with HintPath for NuGet Packages
@@ -1074,23 +1076,6 @@ Centralizes NuGet version management across a multi-project solution. See [https
 
 ## Directory.Build Consolidation
 
-Identify properties repeated across multiple `.csproj` files and move them to shared files.
-
-**`Directory.Build.props`** (for properties — placed at repo or src root):
-
-```xml
-<Project>
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Company>Contoso</Company>
-    <Copyright>Copyright © Contoso 2024</Copyright>
-  </PropertyGroup>
-</Project>
-```
-
-**`Directory.Build.targets`** (for targets/t
+Identify properties repeated across multiple `
 
 [truncated]
