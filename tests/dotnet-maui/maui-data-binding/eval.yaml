@@ -1,0 +1,87 @@
+scenarios:
+  - name: "Set up compiled bindings with x:DataType on a page"
+    prompt: |
+      I have a .NET MAUI ContentPage called SettingsPage.xaml that currently uses
+      plain bindings with no x:DataType. The page's BindingContext is a
+      SettingsViewModel with properties: string Theme, bool NotificationsEnabled,
+      and int FontSize. Convert this page to use compiled bindings and tell me
+      how to catch binding errors at build time.
+    assertions:
+      - type: "output_contains"
+        value: "x:DataType"
+      - type: "output_matches"
+        pattern: "(?i)SettingsViewModel"
+      - type: "output_matches"
+        pattern: "XC0022|XC0025|WarningsAsErrors"
+    rubric:
+      - "Places x:DataType on the ContentPage root element pointing to SettingsViewModel"
+      - "Does not scatter x:DataType on child elements or use x:DataType='x:Object'"
+      - "Recommends enabling XC0022 and/or XC0025 as warnings-as-errors in the .csproj"
+      - "Explains that compiled bindings are faster and required for NativeAOT/trimming"
+    timeout: 120
+
+  - name: "Implement MVVM ViewModel with ObservableObject"
+    prompt: |
+      I need to create a ProductDetailViewModel for a .NET MAUI app. It should
+      have properties for Name (string), Price (decimal), IsAvailable (bool),
+      and a LoadCommand that fetches data asynchronously. Show me how to
+      implement this with proper change notification so bindings update the UI.
+    assertions:
+      - type: "output_matches"
+        pattern: "(?i)ObservableObject|INotifyPropertyChanged"
+      - type: "output_matches"
+        pattern: "(?i)ObservableProperty|PropertyChanged"
+      - type: "output_matches"
+        pattern: "(?i)RelayCommand|ICommand"
+    rubric:
+      - "Uses CommunityToolkit.Mvvm ObservableObject with [ObservableProperty] or implements INotifyPropertyChanged manually"
+      - "Includes all four members: Name, Price, IsAvailable, and a load command"
+      - "Shows how the generated properties raise PropertyChanged automatically when using the toolkit"
+      - "Does not use a base class that doesn't implement INotifyPropertyChanged"
+    timeout: 120
+
+  - name: "Create and use an IValueConverter"
+    prompt: |
+      In my .NET MAUI app I have a status field that is an enum:
+      enum OrderStatus { Pending, Shipped, Delivered, Cancelled }.
+      I want to display a different color for each status in a Label's TextColor.
+      Show me how to create a value converter and wire it up in XAML.
+    assertions:
+      - type: "output_contains"
+        value: "IValueConverter"
+      - type: "output_matches"
+        pattern: "(?i)Convert"
+      - type: "output_matches"
+        pattern: "(?i)StaticResource|x:Key"
+    rubric:
+      - "Implements IValueConverter with a Convert method that maps each enum value to a Color"
+      - "Declares the converter in XAML resources with an x:Key"
+      - "Shows the binding syntax with Converter={StaticResource ...}"
+      - "Handles the default/fallback case in the converter"
+    timeout: 120
+
+  - name: "Diagnose missing BindingContext and non-compiled bindings"
+    prompt: |
+      My .NET MAUI page shows blank labels even though my ViewModel properties
+      have values. Here is my XAML:
+      ```xml
+      <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                   xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+          <VerticalStackLayout>
+              <Label Text="{Binding Title}" />
+              <Label Text="{Binding Description}" />
+          </VerticalStackLayout>
+      </ContentPage>
+      ```
+      What am I doing wrong?
+    assertions:
+      - type: "output_matches"
+        pattern: "(?i)BindingContext"
+      - type: "output_matches"
+        pattern: "(?i)x:DataType"
+    rubric:
+      - "Identifies that BindingContext is never set on the page"
+      - "Shows how to set BindingContext either in XAML or code-behind"
+      - "Points out the missing x:DataType and recommends compiled bindings"
+      - "Explains that without BindingContext, bindings resolve to null and display empty"
+    timeout: 120

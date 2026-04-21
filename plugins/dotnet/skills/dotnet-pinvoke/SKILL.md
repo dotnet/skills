@@ -1,6 +1,14 @@
 ---
 name: dotnet-pinvoke
-description: Correctly call native (C/C++) libraries from .NET using P/Invoke and LibraryImport. Covers function signatures, string marshalling, memory lifetime, SafeHandle, and cross-platform patterns. Use when (1) writing new P/Invoke or LibraryImport declarations, (2) reviewing or debugging existing native interop code, (3) wrapping a C or C++ library for use in .NET, or (4) diagnosing crashes, memory leaks, or corruption at the managed/native boundary. Do not use for COM interop, C++/CLI mixed-mode assemblies, or pure managed code with no native dependencies.
+description: >
+  Correctly call native (C/C++) libraries from .NET using P/Invoke and LibraryImport.
+  Covers function signatures, string marshalling, memory lifetime, SafeHandle, and
+  cross-platform patterns.
+  USE FOR: writing new P/Invoke or LibraryImport declarations, reviewing or debugging
+  existing native interop code, wrapping a C or C++ library for use in .NET, diagnosing
+  crashes, memory leaks, or corruption at the managed/native boundary.
+  DO NOT USE FOR: COM interop, C++/CLI mixed-mode assemblies, or pure managed code with
+  no native dependencies.
 ---
 
 # .NET P/Invoke
@@ -8,6 +16,23 @@ description: Correctly call native (C/C++) libraries from .NET using P/Invoke an
 Calling native code from .NET is powerful but unforgiving. Incorrect signatures, garbled strings, and leaked or freed memory are the most common sources of bugs — all can manifest as intermittent crashes, silent data corruption, or access violations far from the actual defect.
 
 This skill covers both `DllImport` (available since .NET Framework 1.0) and `LibraryImport` (source-generated, .NET 7+). When targeting .NET Framework, always use `DllImport`. When targeting .NET 7+, prefer `LibraryImport` for new code. When native AOT is a requirement, `LibraryImport` is the only option.
+
+## When to Use This Skill
+
+- Writing a new `[DllImport]` or `[LibraryImport]` declaration from a C/C++ header
+- Reviewing P/Invoke signatures for correctness (type sizes, calling conventions, string encoding)
+- Wrapping an entire C library for use from .NET
+- Debugging `AccessViolationException`, `DllNotFoundException`, or silent data corruption at the native boundary
+- Migrating `DllImport` declarations to `LibraryImport` for AOT/trimming compatibility
+- Diagnosing memory leaks or heap corruption involving native handles or buffers
+
+## Stop Signals
+
+- **Single function?** Map the signature (Steps 1-3), handle strings/memory only if relevant, skip tooling and migration sections.
+- **Don't migrate** existing `DllImport` to `LibraryImport` unless the user asks or AOT/trimming is an explicit requirement.
+- **Don't recommend CsWin32** unless the target is specifically Win32 APIs.
+- **Don't generate callbacks** (Step 8) unless the native API requires function pointers.
+- **Review request?** Use the validation checklist — don't rewrite working code.
 
 ## Inputs
 
@@ -49,6 +74,10 @@ The most dangerous mappings — these cause the majority of bugs:
 | `LPSTR` / `char*` | `string` | Must specify encoding (ANSI or UTF-8). Always requires marshalling cost for `in` parameters |
 
 **For the complete type mapping table, struct layout, and blittable type rules**, see [references/type-mapping.md](references/type-mapping.md).
+
+> ❌ **NEVER** use `int` or `long` for C `long` — it's 32-bit on Windows, 64-bit on Unix. Always use `CLong`.
+> ❌ **NEVER** use `ulong` for `size_t` — causes stack corruption on 32-bit. Use `nuint` or `UIntPtr`.
+> ❌ **NEVER** use `bool` without `MarshalAs` — the default marshal size is wrong.
 
 ### Step 3: Write the Declaration
 
@@ -109,6 +138,8 @@ internal static partial int ProcessRecords(
 4. **Specify encoding explicitly.** Never rely on `CharSet.Auto`.
 5. **Never introduce `StringBuilder` for output buffers.**
 
+> ❌ **NEVER** rely on `CharSet.Auto` or omit string encoding — there is no safe default.
+
 ```csharp
 // DllImport — Windows API (UTF-16)
 [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -136,6 +167,8 @@ internal static partial int SetName(string name);
 ### Step 5: Establish Memory Ownership
 
 When memory crosses the boundary, exactly one side must own it — and both sides must agree.
+
+> ❌ **NEVER** free with a mismatched allocator — `Marshal.FreeHGlobal` on `malloc`'d memory is heap corruption.
 
 **Model 1 — Caller allocates, caller frees (safest):**
 

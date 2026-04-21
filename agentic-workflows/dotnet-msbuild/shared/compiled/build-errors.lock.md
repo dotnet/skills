@@ -1,4 +1,4 @@
-﻿<!-- AUTO-GENERATED -- DO NOT EDIT -->
+<!-- AUTO-GENERATED — DO NOT EDIT -->
 
 # Analyzing MSBuild Failures with Binary Logs
 

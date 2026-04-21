@@ -1,0 +1,155 @@
+name: "DevOps Health — Comment Cleanup"
+
+# Deletes old bot comments from the pinned health dashboard issue to prevent
+# unbounded comment accumulation. The groomer workflow can only *hide* (collapse)
+# comments; this workflow actually removes them.
+#
+# Retention rules (applied to github-actions[bot] comments only):
+#   P1 — Daily summary comments (## 📋 Health Check / ## 🏥 Daily Health):  > 7 days
+#   P2 — Investigation comments (## 🔍 Investigation:):  > 7 days AND not referenced in issue body
+#   P4 — Any bot comment (hard cutoff):                                    > 28 days
+#
+# Minimum age safeguard: never deletes comments < 72 hours old.
+# Human comments are never deleted.
+
+on:
+  schedule:
+    - cron: "30 6 * * 0"  # 06:30 UTC every Sunday (after groomer)
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  cleanup:
+    if: ${{ !(github.event_name == 'schedule' && github.event.repository.fork) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete stale health dashboard comments
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const ISSUE_LABEL = 'devops-health';
+            const BOT_LOGIN = 'github-actions[bot]';
+            const MIN_AGE_HOURS = 72;
+            const SUMMARY_MAX_AGE_DAYS = 7;
+            const INVESTIGATION_MAX_AGE_DAYS = 7;
+            const HARD_CUTOFF_DAYS = 28;
+
+            const msPerDay = 24 * 60 * 60 * 1000;
+            const msPerHour = 60 * 60 * 1000;
+            const now = Date.now();
+
+            // Find the health dashboard issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ISSUE_LABEL,
+              state: 'open',
+              per_page: 5,
+              sort: 'created',
+              direction: 'desc',
+            });
+
+            if (issues.data.length === 0) {
+              core.info('No health dashboard issue found — nothing to clean up.');
+              return;
+            }
+
+            const issueNumber = issues.data[0].number;
+            core.info(`Health dashboard issue: #${issueNumber}`);
+
+            // Fetch the issue body to check for referenced investigation comments
+            const issueData = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+            });
+            const issueBody = issueData.data.body || '';
+
+            // Fetch all comments (paginate)
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100,
+              }
+            );
+
+            core.info(`Total comments: ${comments.length}`);
+
+            let deleted = 0;
+            let skipped = 0;
+
+            for (const comment of comments) {
+              // Never delete human comments
+              if (comment.user.login !== BOT_LOGIN) {
+                continue;
+              }
+
+              const ageMs = now - new Date(comment.created_at).getTime();
+              const ageDays = ageMs / msPerDay;
+              const ageHours = ageMs / msPerHour;
+
+              // Minimum age safeguard
+              if (ageHours < MIN_AGE_HOURS) {
+                continue;
+              }
+
+              const firstLine = (comment.body || '').split('\n')[0];
+              const isSummary = /^## .{0,4}(Health Check|Daily Health)/.test(firstLine);
+              const isInvestigation = /^## .{0,4}Investigation/.test(firstLine);
+
+              let shouldDelete = false;
+              let reason = '';
+
+              // P1 — Daily summaries > 7 days
+              if (isSummary && ageDays > SUMMARY_MAX_AGE_DAYS) {
+                shouldDelete = true;
+                reason = `P1: daily summary aged ${Math.floor(ageDays)}d`;
+              }
+              // P2 — Investigation comments > 7 days AND not referenced in issue body
+              else if (isInvestigation && ageDays > INVESTIGATION_MAX_AGE_DAYS) {
+                // Check if this investigation comment is still linked from the issue body
+                const commentUrl = comment.html_url;
+                const commentAnchor = `#issuecomment-${comment.id}`;
+                const isReferenced = issueBody.includes(commentUrl) || issueBody.includes(commentAnchor);
+                if (isReferenced) {
+                  core.info(`Keeping comment ${comment.id}: still referenced in issue body (aged ${Math.floor(ageDays)}d)`);
+                } else {
+                  shouldDelete = true;
+                  reason = `P2: unreferenced investigation aged ${Math.floor(ageDays)}d`;
+                }
+              }
+              // P4 — Hard cutoff > 28 days (any bot comment)
+              else if (ageDays > HARD_CUTOFF_DAYS) {
+                shouldDelete = true;
+                reason = `P4: hard cutoff aged ${Math.floor(ageDays)}d`;
+              }
+
+              if (shouldDelete) {
+                core.info(`Deleting comment ${comment.id} (${comment.created_at.substring(0, 10)}): ${reason}`);
+                try {
+                  await github.rest.issues.deleteComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    comment_id: comment.id,
+                  });
+                  deleted++;
+                  // Small delay to avoid rate limits
+                  await new Promise(r => setTimeout(r, 300));
+                } catch (err) {
+                  core.warning(`Failed to delete comment ${comment.id}: ${err.message}`);
+                }
+              } else {
+                skipped++;
+              }
+            }
+
+            core.info(`Done. Deleted: ${deleted}, Skipped (bot): ${skipped}`);
+            core.summary
+              .addHeading('Comment Cleanup', 3)
+              .addRaw(`Issue #${issueNumber} — deleted ${deleted} stale comments, kept ${skipped} bot comments + all human comments.`)
+              .write();

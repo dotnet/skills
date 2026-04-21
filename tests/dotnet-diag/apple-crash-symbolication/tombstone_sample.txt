@@ -1,0 +1,38 @@
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+Build fingerprint: 'google/sdk_gphone64_arm64/emu64a:14/UE1A.230829.036.A2/12269489:userdebug/dev-keys'
+Revision: '0'
+ABI: 'arm64'
+Timestamp: 2026-02-25 23:55:20.385027290+0000
+Process uptime: 1s
+Cmdline: com.companyname.MauiTest
+pid: 7020, tid: 7020, name: uiTest.MauiTest  >>> com.companyname.MauiTest <<<
+uid: 10156
+tagged_addr_ctrl: 0000000000000001 (PR_TAGGED_ADDR_ENABLE)
+signal 6 (SIGABRT), code -1 (SI_QUEUE), fault addr --------
+Abort message: 'not compatible'
+    x0  0000000000000000  x1  0000000000001b6c  x2  0000000000000006  x3  0000000000000000
+    x4  464e472b47282b15  x5  464e472b47282b15  x6  464e472b47282b15  x7  7f7f7f7f7f7f7f7f
+    x8  00000000000000f0  x9  000000749f42a490  x10 0000000000000000  x11 ffffff80ffffffce
+    x12 0000000000000000  x13 000000000000004f  x14 0070006f00200073  x15 00740072006f0062
+    x16 000000749f477a50  x17 000000749f45be1c  x18 0000007491b84000  x19 0000000000001b6c
+    x20 0000000000001b6c  x21 00000000ffffffff  x22 000000001476f510  x23 00000074a08c9000
+    x24 00000074a0c00e38  x25 00000074a08c9000  x26 0000007491d00000  x27 0000000000000001
+    x28 0000000000000000  x29 0000007fe2c51510
+    lr  000000749f460d48  sp  0000007fe2c514e0  pc  000000749f462e1c  pst 0000000000001000
+backtrace:
+      #00 pc 000000000006ae1c  /apex/com.android.runtime/lib64/bionic/libc.so (abort+164) (BuildId: a87908b48b368e6282bcc9f34bcfc28c)
+      #01 pc 0000000000222098  /data/app/~~Abc123==/com.companyname.MauiTest-Xyz789==/lib/arm64/libmonosgen-2.0.so (BuildId: 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)
+      #02 pc 00000000002241ac  /data/app/~~Abc123==/com.companyname.MauiTest-Xyz789==/lib/arm64/libmonosgen-2.0.so (BuildId: 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)
+      #03 pc 00000000001abc80  /data/app/~~Abc123==/com.companyname.MauiTest-Xyz789==/lib/arm64/libmonosgen-2.0.so (BuildId: 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)
+      #04 pc 00000000001abd14  /data/app/~~Abc123==/com.companyname.MauiTest-Xyz789==/lib/arm64/libmonosgen-2.0.so (BuildId: 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)
+      #05 pc 000000000016dfa4  /data/app/~~Abc123==/com.companyname.MauiTest-Xyz789==/lib/arm64/libmonosgen-2.0.so (BuildId: 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)
+      #06 pc 000000000016db6c  /data/app/~~Abc123==/com.companyname.MauiTest-Xyz789==/lib/arm64/libmonosgen-2.0.so (BuildId: 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)
+      #07 pc 000000000016de04  /data/app/~~Abc123==/com.companyname.MauiTest-Xyz789==/lib/arm64/libmonosgen-2.0.so (BuildId: 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be)
+      #08 pc 000000000000307c  <anonymous:00000074834ab000> (BuildId: 0000000000000000000000000000000000000000)
+
+memory near x14 (interpreted as UTF-16):
+    0070006f00200073  's o m e   i n t'
+    006e006500740072  'e n t i o n a l'
+    006100200020006c  '  c r a s h   o'
+    0074007200610020  'n   s t a r t u'
+    002e00700075006c  'p . '

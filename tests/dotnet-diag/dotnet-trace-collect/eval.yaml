@@ -1,0 +1,299 @@
+scenarios:
+  - name: "High CPU in Kubernetes on Linux (.NET 8)"
+    prompt: >-
+      My ASP.NET Core application running on Linux in a Kubernetes pod is
+      experiencing high CPU usage. I'm running .NET 8. How do I collect
+      diagnostic data to figure out what's going on?
+    assertions:
+      - type: "output_matches"
+        pattern: "(dotnet-trace|dotnet trace)"
+      - type: "output_matches"
+        pattern: "(kubectl|container|pod)"
+    rubric:
+      - "Recommends dotnet-trace as the preferred approach when the user can exec into the container"
+      - "Provides specific commands to install or download dotnet-trace inside the container (e.g., aka.ms links or dotnet tool install)"
+      - "Mentions dotnet-monitor as an alternative when console access is not available"
+      - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
+      - "Mentions how to get the collected trace out of the container for analysis (e.g., kubectl cp)"
+    timeout: 120
+
+  - name: ".NET Framework on Windows without admin privileges"
+    prompt: >-
+      Our .NET Framework service running directly on a Windows Server has high
+      CPU, but I don't have admin rights on the server. What diagnostics can I
+      collect, and what are the limitations?
+    assertions:
+      - type: "output_contains"
+        value: "PerfView"
+      - type: "output_matches"
+        pattern: "(admin|privilege|elevated)"
+    rubric:
+      - "Explains that PerfView is the primary diagnostic tool for .NET Framework but requires admin privileges"
+      - "Clearly states there is no trace-based fallback for .NET Framework without admin access"
+      - "Does not recommend dotnet-trace since it does not work with .NET Framework"
+      - "Mentions that process dumps can still be captured without admin for hangs or memory leaks"
+      - "Advises the user to obtain admin privileges for high CPU investigation on .NET Framework"
+    timeout: 120
+
+  - name: ".NET 10 on Linux with root access and native call stacks"
+    prompt: >-
+      My .NET 10 service runs directly on a Linux VM (kernel 6.8) and I have
+      root access. I'm seeing high CPU and suspect native code is involved.
+      What's the best way to collect a rich trace with native call stacks?
+    assertions:
+      - type: "output_contains"
+        value: "collect-linux"
+      - type: "output_matches"
+        pattern: "(native|kernel)"
+    rubric:
+      - "Recommends dotnet-trace collect-linux as the preferred tool for .NET 10+ with root"
+      - "Explains that collect-linux uses perf_events for richer traces including native call stacks and kernel events"
+      - "Mentions that dotnet-trace (without collect-linux) is a fallback if root or kernel requirements are not met"
+      - "Provides the specific command to run dotnet-trace collect-linux"
+    timeout: 120
+
+  - name: "Memory leak on Linux (.NET 8)"
+    prompt: >-
+      My .NET 8 app running directly on a Linux VM has memory that keeps
+      growing over hours. What exact data should I collect to identify a
+      memory leak?
+    assertions:
+      - type: "output_matches"
+        pattern: "(dump|dump-collect)"
+      - type: "output_matches"
+        pattern: "(dotnet-trace|dotnet trace)"
+    rubric:
+      - "Recommends capturing two dumps at different points during memory growth for heap diffing"
+      - "Invokes the dump-collect skill for dump collection rather than providing direct dotnet-dump commands"
+      - "Recommends dotnet-trace while memory is growing for allocation tracking"
+      - "Explains that diffing two dumps helps identify which objects are increasing"
+      - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
+    timeout: 120
+
+  - name: "Slow requests on Windows with PerfView"
+    prompt: >-
+      My ASP.NET Core (.NET 8) app running on a Windows Server has slow
+      requests under load. I have admin access. Which trace should I collect
+      to capture waits/blocks, and what PerfView arguments should I use?
+    assertions:
+      - type: "output_contains"
+        value: "PerfView"
+      - type: "output_contains"
+        value: "ThreadTime"
+      - type: "output_matches"
+        pattern: "(BufferSizeMB|CircularMB)"
+    rubric:
+      - "Recommends PerfView with the /ThreadTime argument to capture thread-level wait and block detail"
+      - "Includes /BufferSizeMB and /CircularMB for larger buffers since thread time traces generate more data"
+      - "Does not include a stop trigger by default for slow request scenarios"
+      - "Provides the specific PerfView command line to run"
+      - "Explains that /ThreadTime adds thread-level wait and block detail for diagnosing slow requests"
+    timeout: 120
+
+  - name: "Excessive GC on Linux (.NET 8)"
+    prompt: >-
+      My .NET 8 service running on a Linux VM is spending a lot of time in
+      garbage collection. Response times spike during GC pauses. What trace
+      should I collect to analyze GC behavior, and what commands do I run?
+    assertions:
+      - type: "output_matches"
+        pattern: "(dotnet-trace|dotnet trace)"
+      - type: "output_matches"
+        pattern: "(gc-verbose|gc verbose)"
+      - type: "output_matches"
+        pattern: "--profile\\s+gc-verbose"
+    rubric:
+      - "Recommends dotnet-trace with the gc-verbose profile for capturing GC events on Linux"
+      - "Explains that a trace is required to analyze GC events, pause times, and allocation patterns — a dump is not sufficient"
+      - "Provides the specific dotnet-trace collect command with --profile gc-verbose"
+      - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
+      - "Suggests an analysis tool for the resulting .nettrace file"
+    timeout: 120
+
+  - name: "Hang or deadlock diagnosis on Linux"
+    prompt: >-
+      My .NET 8 application running on a Linux VM appears completely hung —
+      it's not responding to any requests. How do I diagnose what's going on?
+    assertions:
+      - type: "output_matches"
+        pattern: "(dotnet-trace|dotnet trace|trace)"
+      - type: "output_matches"
+        pattern: "(thread|stack)"
+    rubric:
+      - "Recommends starting with a trace to understand what threads are doing (livelock, thread starvation, or partial forward progress)"
+      - "Explains that if the trace does not explain the hang, the issue may be a true deadlock requiring a dump"
+      - "Mentions invoking the dump-collect skill or recommends a dump as a follow-up step"
+      - "Mentions lldb with SOS or a debugger for analyzing thread stacks in the dump"
+      - "Distinguishes between livelocks (threads spinning), thread starvation, and true deadlocks"
+    timeout: 120
+
+  - name: "Windows container high CPU with PerfView"
+    prompt: >-
+      My .NET 8 application runs in a Windows container on Kubernetes.
+      I'm seeing high CPU. I have admin access on the host. How do I
+      collect a trace?
+    assertions:
+      - type: "output_contains"
+        value: "PerfView"
+      - type: "output_matches"
+        pattern: "(EnableEventsInContainers|container)"
+    rubric:
+      - "Recommends PerfView from the host with /EnableEventsInContainers for process-isolation Windows containers"
+      - "Explains the two analysis options: analyze locally while container is running, or merge symbols before container shuts down"
+      - "Mentions PerfViewCollect merge /ImageIDsOnly for off-machine analysis"
+    timeout: 120
+
+  - name: "Long-running intermittent issue with PerfView triggers"
+    prompt: >-
+      My .NET 8 Windows service running on a Windows Server has a high CPU
+      spike that happens roughly once every 4-6 hours. I have admin access
+      but I can't sit and watch it. How do I set up PerfView to automatically
+      capture the spike with a circular buffer?
+    assertions:
+      - type: "output_contains"
+        value: "PerfView"
+      - type: "output_matches"
+        pattern: "(StopOn|CircularMB|BufferSizeMB)"
+    rubric:
+      - "Recommends PerfView with a /StopOn trigger that fires on the symptom (e.g., /StopOnPerfCounter)"
+      - "Includes /CircularMB and /BufferSizeMB for a circular buffer that keeps only the most recent data"
+      - "Explains that the stop trigger should fire on the interesting event, not the recovery"
+      - "Provides specific PerfView command-line arguments for the circular buffer and trigger setup"
+    timeout: 120
+
+  - name: "Linux pre-.NET 10 needing native call stacks"
+    prompt: >-
+      I have a .NET 8 app running directly on a Linux server with root access.
+      I suspect the high CPU is partly in native code (a native interop
+      library). How do I get native call stacks in my trace?
+    assertions:
+      - type: "output_contains"
+        value: "perfcollect"
+      - type: "output_matches"
+        pattern: "(native|perf)"
+    rubric:
+      - "Recommends perfcollect for capturing native call stacks on Linux with pre-.NET 10"
+      - "Explains that perfcollect requires root/admin access"
+      - "Mentions that dotnet-trace only captures managed stacks and would miss native frames"
+      - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
+      - "Provides guidance on installing and running perfcollect"
+    timeout: 120
+
+  - name: "Windows modern .NET with admin high CPU"
+    prompt: >-
+      I have a .NET 8 service running on Windows Server with admin access.
+      CPU is pegged at 100%. What's the best tool to collect a CPU trace
+      and how do I run it?
+    assertions:
+      - type: "output_contains"
+        value: "PerfView"
+      - type: "output_contains"
+        value: "PerfView collect"
+    rubric:
+      - "Recommends PerfView as the preferred tool for Windows with admin access"
+      - "Provides the specific PerfView collect command to run"
+      - "Recommends analysis approach for the resulting .etl.zip file"
+    timeout: 120
+
+  - name: "Memory leak on .NET Framework Windows"
+    prompt: >-
+      Our .NET Framework 4.8 Windows service has a slow memory leak. Memory
+      grows over days until the process crashes with an OutOfMemoryException.
+      I have admin access. What should I collect?
+    assertions:
+      - type: "output_contains"
+        value: "PerfView"
+      - type: "output_matches"
+        pattern: "(dump|dumps)"
+    rubric:
+      - "Recommends capturing two process dumps at different points during memory growth for diffing"
+      - "Provides dump collection commands directly (e.g., procdump -ma) since dump-collect does not support .NET Framework"
+      - "Recommends a PerfView trace while memory is growing to see what is being allocated"
+      - "Explains that diffing two dumps in PerfView identifies which objects have increased"
+      - "Advises to capture during the growth period rather than waiting for the OutOfMemoryException"
+    timeout: 120
+
+  - name: "Kubernetes with console access prefers console tools"
+    prompt: >-
+      My .NET 8 app is running in a Kubernetes pod on Linux and I have high
+      CPU. I can exec into the container. What's the best way to collect a
+      CPU trace?
+    assertions:
+      - type: "output_matches"
+        pattern: "(dotnet-trace|dotnet trace)"
+    rubric:
+      - "Recommends dotnet-trace (console tool) as the preferred option since the user has console access to the container"
+      - "Provides the specific dotnet-trace collect command to run inside the container"
+      - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
+    timeout: 120
+
+  - name: "Container installation without .NET SDK"
+    prompt: >-
+      I need to collect a CPU trace from my .NET 8 app running in a Linux
+      container that is experiencing high CPU, but the container image doesn't
+      have the .NET SDK installed. How can I get dotnet-trace into the
+      container?
+    assertions:
+      - type: "output_matches"
+        pattern: "(aka.ms|curl|wget)"
+    rubric:
+      - "Mentions the aka.ms direct download links as a way to get dotnet-trace without the SDK"
+      - "Provides the curl or wget command to download dotnet-trace for the appropriate platform"
+      - "Explains that this avoids the need for a .NET SDK in the container"
+      - "Mentions kubectl cp as an alternative to copy the tool into the container"
+    timeout: 120
+
+  - name: "HTTP 500s from downstream service on Linux (.NET 8)"
+    prompt: >-
+      My .NET 8 ASP.NET Core app running on a Linux VM is making HTTP calls to
+      a downstream API using HttpClient, and we're seeing intermittent HTTP 500
+      responses from that downstream service. I need to understand which
+      requests are failing and how long they're taking. What trace should I
+      collect?
+    assertions:
+      - type: "output_matches"
+        pattern: "(dotnet-trace|dotnet trace)"
+      - type: "output_matches"
+        pattern: "System\\.Net\\.Http"
+    rubric:
+      - "Recommends dotnet-trace with networking providers (at minimum System.Net.Http)"
+      - "Explains that System.Net.Http events include HTTP status codes in RequestStop events, allowing identification of 5xx responses"
+      - "Mentions that the trace also captures request timing to correlate slow requests with failures"
+      - "Provides the specific dotnet-trace collect command with --providers for networking"
+      - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
+    timeout: 120
+
+  - name: "Networking timeouts on Windows with admin (.NET 8)"
+    prompt: >-
+      My .NET 8 Windows service is experiencing networking timeouts when
+      calling external APIs via HttpClient. Requests are timing out after 30
+      seconds. I have admin access. What's the best way to collect diagnostic
+      data to understand what's happening at the networking level?
+    assertions:
+      - type: "output_contains"
+        value: "PerfView"
+      - type: "output_matches"
+        pattern: "System\\.Net"
+    rubric:
+      - "Recommends PerfView with /ThreadTime and networking providers as Additional Providers"
+      - "Lists the networking providers to enable (System.Net.Http, and optionally System.Net.NameResolution, System.Net.Security, System.Net.Sockets)"
+      - "Explains that combining thread-time traces with networking events shows both where threads are blocked and what networking operations are failing"
+      - "Mentions that RequestFailed events capture exception messages for timed-out requests"
+    timeout: 60
+
+  - name: "Assembly loading failure on Linux (.NET 8)"
+    prompt: >-
+      My .NET 8 application running on a Linux VM throws a
+      ReflectionTypeLoadException at startup when loading a plugin via a
+      custom AssemblyLoadContext. How do I collect the right trace to
+      diagnose what's going wrong with assembly loading?
+    assertions:
+      - type: "output_matches"
+        pattern: "(dotnet-trace|dotnet trace)"
+      - type: "output_matches"
+        pattern: "(assemblyloader|assembly.?load|loader|binder)"
+    rubric:
+      - "Recommends dotnet-trace with --clrevents assemblyloader or --providers Microsoft-Windows-DotNETRuntime:0x4:4 to capture assembly loader binder events"
+      - "Recommends the launch form (-- <exe>) rather than attaching by PID since the process may fail on startup"
+      - "Does not recommend dotnet-trace collect-linux since the runtime is .NET 8 (pre-.NET 10)"
+    timeout: 120

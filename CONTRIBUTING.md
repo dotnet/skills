@@ -43,6 +43,33 @@ agentic-workflows/
 
 Every plugin must have a plugin.json file in the plugin root that is linked to from the marketplace.json file.
 
+### Plugin organization
+
+Skills are grouped into domain-specific plugins. When proposing a new skill, place it in the plugin that best matches its domain. See [README.md](README.md) for the current list of plugins.
+If your skill does not fit any existing plugin, consider creating a new one.
+
+To create a new plugin:
+
+1. Add `plugins/<plugin-name>/plugin.json` and a `skills/` directory beneath it.
+2. Add a matching entry in `.github/plugin/marketplace.json`, `.claude-plugin/marketplace.json`, and `.cursor-plugin/marketplace.json`. Keep plugin entries consistent across all marketplace manifests (including `plugins[].source` format) to reduce drift and make future updates safer.
+3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
+4. Add the plugin to the **What's Included** table in the root `README.md`.
+5. Create a `tests/<plugin-name>/` directory for skill tests.
+
+See existing plugins for the expected format.
+
+### The `dotnet-experimental` plugin
+
+Use `dotnet-experimental` when you want to try out a skill idea but are not yet confident it belongs in a stable plugin — for example, when the skill is outside your usual area of responsibility, the approach is unproven, or you want community feedback before committing to a long-term home.
+
+Skills in `dotnet-experimental`:
+
+- May change, be reworked, or be removed without notice.
+- Are held to the same quality and testing standards as any other skill (frontmatter, `eval.yaml`, etc.).
+- Should eventually graduate to a stable plugin or be retired. When a skill has proven itself, move it to the appropriate domain plugin and update tests accordingly.
+
+Place experimental skills under `plugins/dotnet-experimental/skills/` with matching tests in `tests/dotnet-experimental/`.
+
 ## Before you start
 
 - Search existing issues and pull requests to avoid duplicates.
@@ -54,8 +81,9 @@ Every plugin must have a plugin.json file in the plugin root that is linked to f
 
 We are most likely to accept contributions that are:
 
+- Addresses a LLM gap and is clearly motivated by a real use case
+- Likely to be used frequently and is general (not repo-specific)
 - Narrow in scope and easy to review
-- Clearly motivated by a real use case
 - Tool conscious and explicit about assumptions
 - Verifiable with concrete validation steps
 - Written to be durable across repo changes
@@ -70,9 +98,13 @@ We are less likely to accept contributions that:
 
 ## Proposing a new skill
 
+Please review the **What we look for** section and add justification for the skill in your issue and PR.
+
 A skill should be self-contained and:
 
 - Clearly state **what it does** and **when to use it**.
+- Frontmatter (name and description) is small and minimal, just enough for LLM to understand when to use it
+- Keep the SKILL.md body under 500 lines for optimal performance. Split content into separate files when you approach this limit. Use a progressive disclosure pattern, referring to those files from the SKILL.md file where needed.
 - Specify required inputs (repo context, environment, access needs).
 - Prefer concrete checklists and verification steps over vague guidance.
 
@@ -108,7 +140,7 @@ description: <description of what the skill does, when to use it, and when not t
 > **Tip:** The `description` field is used by the agent runtime to decide whether to load the full skill.
 > Include **when to use** and **when not to use** guidance directly in the description so the agent can
 > select or skip skills without reading the entire `SKILL.md`. This avoids unnecessary token usage.
-> See [`thread-abort-migration/SKILL.md`](plugins/dotnet/skills/thread-abort-migration/SKILL.md) for a good example.
+> See [`thread-abort-migration/SKILL.md`](plugins/dotnet-upgrade/skills/thread-abort-migration/SKILL.md) for a good example.
 
 ### Recommended `SKILL.md` sections
 
@@ -190,40 +222,7 @@ scenarios:
     timeout: 120
 ```
 
-#### Test fixture files
-
-If a scenario requires files in the agent's working directory (e.g. `.csproj`, `.sln`, `.cs` files), place them alongside `eval.yaml` and opt into auto-copy:
-
-```text
-tests/<plugin>/<skill-name>/
-  eval.yaml
-  MyProject.csproj
-  Program.cs
-```
-
-```yaml
-scenarios:
-  - name: "Diagnose build failure"
-    prompt: "Why does this project fail to build?"
-    setup:
-      copy_test_files: true    # copies MyProject.csproj, Program.cs into work dir
-    assertions:
-      - type: "output_matches"
-        pattern: "CS\\d{4}"
-```
-
-You can also create files inline or reference files from the skill directory:
-
-```yaml
-setup:
-  files:
-    - path: "input.txt"
-      content: "inline file content"
-    - path: "data.csv"
-      source: "fixtures/sample-data.csv"  # relative to skill directory
-```
-
-See the [skill-validator README](eng/skill-validator/README.md) for the full list of assertion types, constraints, and rubric options.
+See the [skill-validator README](eng/skill-validator/src/README.md) for the full eval.yaml format — assertion types, setup options, fixture files, constraints, and rubric details.
 
 ### Running tests locally
 
@@ -231,20 +230,13 @@ Prerequisites: .NET 10 SDK or later and `gh auth login`.
 
 ```bash
 # Run tests for a single plugin
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
 
 # Run tests for a single skill (pass the skill directory directly)
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills/common-build-errors
-
-# Fewer runs for faster iteration (default is 5)
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --runs 3 --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
-
-# Use a specific model
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --model claude-opus-4.6 --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
-
-# Run with verbose logging
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills --verbose
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills/common-build-errors
 ```
+
+See the [skill-validator README](eng/skill-validator/src/README.md) for additional flags (`--runs`, `--model`, `--verbose`, etc.) and all available subcommands.
 
 > [!WARNING]  
 > If you share the results in a Pull Request, make sure to have `--runs` configured to at least 3 but better 5 for reliable results.
@@ -252,6 +244,8 @@ dotnet run --project eng/skill-validator/src/SkillValidator.csproj --tests-dir t
 ### CI evaluation
 
 Tests run automatically on pull requests that modify files under `plugins/`. The evaluation workflow discovers changed plugins and runs the skill-validator for each one. Results are posted as a PR comment and uploaded as build artifacts.
+
+If a scenario fails or regresses, see [Investigating Results](eng/skill-validator/src/docs/InvestigatingResults.md) for how to download artifacts, interpret `results.json`, and diagnose common failure patterns.
 
 ## Writing style
 
@@ -265,6 +259,25 @@ Tests run automatically on pull requests that modify files under `plugins/`. The
 
 - Do not include secrets, tokens, or internal URLs.
 - If you discover a security issue, do not open a public issue with sensitive details. Use the repository or organization security reporting process instead.
+
+### External references
+
+Skills often reference external tools, documentation, and projects — this is
+expected and welcome, including community and third-party resources. To help
+reviewers stay aware of external dependencies, the repository includes an
+automated reference scanner (integrated into `skill-validator check`) that runs
+in CI against plugin content (SKILL.md, agent files, and reference docs).
+
+The scanner treats all of the following as CI-blocking errors:
+- `http://` URLs where `https://` should be used
+- `<script>` tags loading external resources without an `integrity` (SRI) attribute
+- Pipe-to-shell patterns (`curl ... | bash`)
+- URLs pointing to domains not listed in `eng/known-domains.txt`
+
+Community tools and third-party projects are evaluated on a case-by-case basis
+(see "What we look for" above). If your skill references a new external domain,
+add it to `eng/known-domains.txt` in the same PR — the reviewer will
+approve it alongside the skill content.
 
 ## Review process
 
@@ -306,3 +319,8 @@ Skills and agents in this repo should be:
 - **Minimal**: no extra features or scope creep; focus on the task.
 - **Verifiable**: always include a way to validate success.
 - **Tool-conscious**: don't assume capabilities that might not exist in every runtime.
+
+## Skill-Validator & Evaluation workflow
+
+Changes to `eng/skill-validator` or the `.github/workflows/evaluation*.yml` workflows must be made from a branch in the `dotnet/skills` repository (i.e., not from a fork). This is a security measure.
+For pull requests from forks, the evaluation workflow (triggered via `/evaluate`) always uses the workflow YAML from the default branch of `dotnet/skills` and builds the validator from that default-branch checkout, so any changes to these files in the forked PR will be ignored during evaluation.

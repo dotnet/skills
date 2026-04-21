@@ -1,0 +1,121 @@
+scenarios:
+  - name: "Validate template with multiple errors"
+    prompt: "Check this template.json for any issues. It's at .template.config/template.json"
+    setup:
+      files:
+        - path: ".template.config/template.json"
+          content: |
+            {
+              "author": "Test Author",
+              "classifications": ["Library"],
+              "name": "My Library Template",
+              "shortName": "restore",
+              "symbols": {
+                "targetFramework": {
+                  "type": "parameter",
+                  "datatype": "choice",
+                  "defaultValue": "net7.0",
+                  "choices": {
+                    "net8.0": { "description": ".NET 8" },
+                    "net9.0": { "description": ".NET 9" }
+                  }
+                },
+                "enableLogging": {
+                  "type": "parameter",
+                  "datatype": "bool",
+                  "defaultValue": "yes"
+                },
+                "maxRetries": {
+                  "type": "parameter",
+                  "datatype": "int",
+                  "defaultValue": "abc"
+                },
+                "computed1": {
+                  "type": "computed"
+                },
+                "generated1": {
+                  "type": "generated"
+                }
+              },
+              "postActions": [
+                {
+                  "description": "Restore packages"
+                }
+              ]
+            }
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: "identity"
+      - type: "output_matches"
+        pattern: "(?i)shortName.*(restore|conflict|reserved|CLI)"
+      - type: "output_matches"
+        pattern: "(?i)(net7\\.0|default.*not in|not.*valid.*choice)"
+      - type: "output_matches"
+        pattern: '(?i)((enableLogging|yes).*(bool|boolean).*(invalid|not\s+valid|must\s+be|expected)|(enableLogging|yes).*(invalid|not\s+valid|must\s+be|expected).*(bool|boolean))'
+      - type: "output_matches"
+        pattern: '(?i)((maxRetries|abc).*(int|integer).*(invalid|not\s+valid|must\s+be|expected)|(maxRetries|abc).*(invalid|not\s+valid|must\s+be|expected).*(int|integer))'
+      - type: "output_matches"
+        pattern: "(?i)computed.*(missing|no).*value"
+      - type: "output_matches"
+        pattern: "(?i)generated.*(missing|no).*generator"
+      - type: "output_matches"
+        pattern: "(?i)(actionId|post.?action).*(missing|required|no)"
+    rubric:
+      - "The agent identified the missing 'identity' field (required)"
+      - "The agent flagged 'restore' as a shortName that conflicts with a dotnet CLI command"
+      - "The agent found that defaultValue 'net7.0' is not in the choices (net8.0, net9.0)"
+      - "The agent reported that 'yes' is not a valid boolean defaultValue for enableLogging"
+      - "The agent reported that 'abc' is not a valid integer defaultValue for maxRetries"
+      - "The agent found the computed symbol missing its 'value' expression"
+      - "The agent found the generated symbol missing its 'generator' field"
+      - "The agent found the post-action missing its 'actionId'"
+    expect_tools:
+      - skill
+    timeout: 180
+
+  - name: "Validate correct template and suggest improvements"
+    prompt: "Review the template at .template.config/template.json and tell me if it's ready to publish to NuGet."
+    setup:
+      files:
+        - path: ".template.config/template.json"
+          content: |
+            {
+              "identity": "MyCompany.WebApi.CSharp",
+              "name": "My Web API Template",
+              "shortName": "mywebapi",
+              "sourceName": "MyWebApi",
+              "author": "My Company",
+              "classifications": ["Web", "API"],
+              "tags": {
+                "language": "C#",
+                "type": "project"
+              },
+              "symbols": {
+                "Framework": {
+                  "type": "parameter",
+                  "datatype": "choice",
+                  "defaultValue": "net9.0",
+                  "description": "Target framework",
+                  "choices": {
+                    "net8.0": { "description": ".NET 8" },
+                    "net9.0": { "description": ".NET 9" }
+                  }
+                }
+              }
+            }
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: '(?i)(no errors?\b|0 errors?\b|template (is|looks) (valid|good)|ready to publish|no issues? (found|identified)?)'
+      - type: "output_matches"
+        pattern: '(?i)\b(identity|shortName|name)\b'
+    rubric:
+      - "The agent confirmed the template has no errors"
+      - "The agent verified all required fields (identity, name, shortName) are present"
+      - "The agent checked that shortName doesn't conflict with CLI commands"
+      - "The agent noted the template is well-formed and ready to publish"
+      - "The agent may suggest optional improvements (defaultName, description) without flagging errors"
+    expect_tools:
+      - skill
+    timeout: 180

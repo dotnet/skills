@@ -5,7 +5,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$RepoRoot = Split-Path $PSScriptRoot -Parent
+$RepoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $SkillsDir = Join-Path $RepoRoot 'plugins' 'dotnet-msbuild' 'skills'
 $DomainGatePattern = 'Only activate in MSBuild/\.NET build context'
 
@@ -39,6 +39,7 @@ foreach ($dir in $skillDirs) {
     }
 
     $description = $Matches[1]
+
     if ($description -notmatch $DomainGatePattern) {
         Write-Host "❌ $($dir.Name): Description missing domain gate. Must include 'Only activate in MSBuild/.NET build context.'" -ForegroundColor Red
         $errors++

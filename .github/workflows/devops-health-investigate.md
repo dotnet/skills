@@ -2,7 +2,8 @@
 name: "DevOps Health — Deep Investigation"
 description: >
   Worker agent that performs deep root-cause analysis on a single
-  health check finding. Dispatched by the health check orchestrator.
+  health check finding (pipeline, infrastructure, or resource).
+  Dispatched by the health check orchestrator.
 
 on:
   workflow_dispatch:
@@ -11,7 +12,7 @@ on:
         description: "Fingerprint ID of the finding to investigate"
         required: true
       finding_type:
-        description: "Category: pipeline | quality | pr | infra | resource"
+        description: "Category: pipeline | infra | resource"
         required: true
       finding_title:
         description: "Human-readable title of the finding"
@@ -28,6 +29,57 @@ on:
       correlation_id:
         description: "Unique ID linking this investigation to the health check run"
         required: true
+
+  # ###############################################################
+  # Override the COPILOT_GITHUB_TOKEN secret usage for the workflow
+  # with a randomly-selected token from a pool of secrets.
+  #
+  # As soon as organization-level billing is offered for Agentic
+  # Workflows, this stop-gap approach will be removed.
+  #
+  # See: /.github/actions/select-copilot-pat/README.md
+  # ###############################################################
+  steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      name: Checkout the select-copilot-pat action folder
+      with:
+        persist-credentials: false
+        sparse-checkout: .github/actions/select-copilot-pat
+        sparse-checkout-cone-mode: true
+        fetch-depth: 1
+
+    - id: select-copilot-pat
+      name: Select Copilot token from pool
+      uses: ./.github/actions/select-copilot-pat
+      env:
+        # If the secret names are changed here, they must also be changed
+        # in the `engine: env` case expression below
+        SECRET_0: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+        SECRET_1: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+        SECRET_2: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+        SECRET_3: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
+        SECRET_4: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
+        SECRET_5: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
+        SECRET_6: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
+        SECRET_7: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
+
+concurrency:
+  group: gh-aw-${{ github.workflow }}-${{ inputs.finding_id }}
+
+# Add the pre-activation output of the randomly selected PAT
+jobs:
+  pre-activation:
+    outputs:
+      copilot_pat_number: ${{ steps.select-copilot-pat.outputs.copilot_pat_number }}
+
+# Override the COPILOT_GITHUB_TOKEN expression used in the activation job
+# Consume the PAT number from the pre-activation step and select the corresponding secret
+engine:
+  id: copilot
+  env:
+    # We cannot use line breaks in this expression as it leads to a syntax error in the compiled workflow
+    # If none of the `COPILOT_GITHUB_TOKEN_#` secrets were selected, then the default COPILOT_GITHUB_TOKEN is used
+    COPILOT_GITHUB_TOKEN: ${{ case(needs.pre_activation.outputs.copilot_pat_number == '0', secrets.COPILOT_GITHUB_TOKEN, needs.pre_activation.outputs.copilot_pat_number == '1', secrets.COPILOT_GITHUB_TOKEN_2, needs.pre_activation.outputs.copilot_pat_number == '2', secrets.COPILOT_GITHUB_TOKEN_3, needs.pre_activation.outputs.copilot_pat_number == '3', secrets.COPILOT_GITHUB_TOKEN_4, needs.pre_activation.outputs.copilot_pat_number == '4', secrets.COPILOT_GITHUB_TOKEN_5, needs.pre_activation.outputs.copilot_pat_number == '5', secrets.COPILOT_GITHUB_TOKEN_6, needs.pre_activation.outputs.copilot_pat_number == '6', secrets.COPILOT_GITHUB_TOKEN_7, needs.pre_activation.outputs.copilot_pat_number == '7', secrets.COPILOT_GITHUB_TOKEN_8, secrets.COPILOT_GITHUB_TOKEN) }}
 
 permissions:
   contents: read
@@ -46,10 +98,14 @@ tools:
 safe-outputs:
   add-comment:
     max: 1
+  noop:
+    report-as-issue: false
 
 network:
   allowed:
     - defaults
+
+timeout-minutes: 60
 ---
 
 # DevOps Health — Deep Investigation Worker
@@ -63,7 +119,7 @@ Investigate the finding identified by the inputs provided to this workflow run. 
 ## Inputs Available
 
 - `finding_id`: `${{ inputs.finding_id }}` — The fingerprint ID of the finding
-- `finding_type`: `${{ inputs.finding_type }}` — Category (pipeline, quality, pr, infra, resource)
+- `finding_type`: `${{ inputs.finding_type }}` — Category (pipeline, infra, resource)
 - `finding_title`: `${{ inputs.finding_title }}` — Human-readable title
 - `finding_severity`: `${{ inputs.finding_severity }}` — Severity level
 - `resource_url`: `${{ inputs.resource_url }}` — URL to the primary resource
@@ -79,8 +135,6 @@ Investigate the finding identified by the inputs provided to this workflow run. 
 Based on `finding_type`, follow the appropriate investigation playbook from the compiled knowledge file:
 
 - **pipeline** → Pipeline Investigation Playbook
-- **quality** → Quality Investigation Playbook
-- **pr** → PR Investigation Playbook
 - **infra** → Infrastructure Investigation Playbook
 - **resource** → Resource Investigation Playbook
 
@@ -124,6 +178,7 @@ add-comment:
     **Finding ID:** `{finding_id}`
     **Severity:** {finding_severity}
     **Correlation:** {correlation_id}
+    **Executive Summary:** {one-sentence summary of the root cause and recommended action}
 
     ### Root Cause
     {one-paragraph description with evidence}

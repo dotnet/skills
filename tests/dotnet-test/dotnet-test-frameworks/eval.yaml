@@ -1,0 +1,324 @@
+scenarios:
+  - name: "Cross-framework assertion equivalence mapping"
+    prompt: |
+      I have these MSTest assertions in my test file and I need to know their equivalents in both xUnit and NUnit. Please provide a complete mapping for all six:
+
+      ```csharp
+      Assert.AreEqual(expected, actual);
+      Assert.IsTrue(condition);
+      Assert.IsNull(obj);
+      Assert.IsInstanceOfType(obj, typeof(MyClass));
+      CollectionAssert.Contains(list, item);
+      StringAssert.Contains(str, "substring");
+      ```
+    assertions:
+      - type: "output_contains"
+        value: "Assert.Equal"
+      - type: "output_matches"
+        pattern: "Assert\\.True|Assert\\.False"
+      - type: "output_matches"
+        pattern: "Assert\\.Null|Assert\\.NotNull"
+      - type: "output_matches"
+        pattern: "Assert\\.IsAssignableFrom|Assert\\.IsType"
+      - type: "output_matches"
+        pattern: "Assert\\.Contains"
+      - type: "output_matches"
+        pattern: "Assert\\.That\\(.*Is\\.EqualTo"
+      - type: "output_matches"
+        pattern: "Is\\.True|Is\\.False"
+      - type: "output_matches"
+        pattern: "Is\\.Null"
+      - type: "output_matches"
+        pattern: "Has\\.Member|Does\\.Contain"
+      - type: "exit_success"
+    rubric:
+      - "Provided correct xUnit equivalents for all six MSTest assertions"
+      - "Provided correct NUnit equivalents using the constraint model (Assert.That with Is/Has/Does syntax)"
+      - "Covered collection assertion equivalents for both target frameworks"
+      - "Covered string assertion equivalents for both target frameworks"
+    reject_tools: ["bash", "edit", "create"]
+    timeout: 120
+
+  - name: "Identify TUnit framework and its unique attributes"
+    prompt: |
+      I inherited a project with this test file and I'm not sure what testing framework it uses.
+      Can you identify it and explain the key attributes?
+
+      ```csharp
+      using TUnit.Core;
+
+      [ClassDataSource<DatabaseFixture>]
+      public class OrderTests
+      {
+          private readonly DatabaseFixture _db;
+
+          public OrderTests(DatabaseFixture db)
+          {
+              _db = db;
+          }
+
+          [Test]
+          public async Task CreateOrder_WithValidItems_Succeeds()
+          {
+              var order = new Order { Items = new[] { "Widget" } };
+              var result = await _db.OrderService.CreateAsync(order);
+              await Assert.That(result.Id).IsNotNull();
+          }
+
+          [Test]
+          [Skip("Waiting for payment gateway sandbox")]
+          public async Task ProcessPayment_ChargesCorrectAmount()
+          {
+              // TODO: implement
+          }
+      }
+      ```
+    assertions:
+      - type: "output_matches"
+        pattern: "[Tt][Uu]nit"
+      - type: "output_matches"
+        pattern: "ClassDataSource"
+      - type: "output_matches"
+        pattern: "\\[Skip"
+      - type: "exit_success"
+    rubric:
+      - "Correctly identified the framework as TUnit"
+      - "Explained that [ClassDataSource] is used for shared fixture/dependency injection into the test class"
+      - "Noted the [Skip] attribute with required reason string as TUnit's mechanism for skipping tests"
+    reject_tools: ["bash", "edit", "create"]
+    timeout: 120
+
+  - name: "Replace try-catch with framework-native exception assertions"
+    prompt: |
+      My team lead says these tests should use proper exception assertions instead of try/catch.
+      Can you refactor each one using its framework's native approach?
+
+      MSTest test:
+      ```csharp
+      [TestMethod]
+      public void ProcessOrder_EmptyOrder_ThrowsException()
+      {
+          try
+          {
+              var processor = new OrderProcessor();
+              processor.ProcessOrder(new Order());
+              Assert.Fail("Expected exception was not thrown");
+          }
+          catch (InvalidOperationException ex)
+          {
+              Assert.AreEqual("Order must contain at least one item", ex.Message);
+          }
+      }
+      ```
+
+      xUnit test:
+      ```csharp
+      [Fact]
+      public void ProcessOrder_EmptyOrder_ThrowsException()
+      {
+          try
+          {
+              var processor = new OrderProcessor();
+              processor.ProcessOrder(new Order());
+              Assert.True(false, "Expected exception was not thrown");
+          }
+          catch (InvalidOperationException ex)
+          {
+              Assert.Equal("Order must contain at least one item", ex.Message);
+          }
+      }
+      ```
+
+      NUnit test:
+      ```csharp
+      [Test]
+      public void ProcessOrder_EmptyOrder_ThrowsException()
+      {
+          try
+          {
+              var processor = new OrderProcessor();
+              processor.ProcessOrder(new Order());
+              Assert.Fail("Expected exception was not thrown");
+          }
+          catch (InvalidOperationException ex)
+          {
+              Assert.That(ex.Message, Is.EqualTo("Order must contain at least one item"));
+          }
+      }
+      ```
+    assertions:
+      - type: "output_matches"
+        pattern: "\\[TestMethod\\].*Assert\\.Throws(Exactly)?<|Assert\\.Throws(Exactly)?<.*AreEqual"
+      - type: "output_matches"
+        pattern: "\\[Fact\\].*Assert\\.Throws<|Assert\\.Throws<.*Assert\\.Equal"
+      - type: "output_matches"
+        pattern: "Throws\\.TypeOf<InvalidOperationException>|Assert\\.That\\(.*Throws"
+      - type: "exit_success"
+    rubric:
+      - "Replaced the MSTest try/catch with Assert.ThrowsExactly<T> or Assert.Throws<T>"
+      - "Replaced the xUnit try/catch with Assert.Throws<T>"
+      - "Replaced the NUnit try/catch with the constraint-model pattern or Assert.Throws<T>"
+      - "Preserved exception message verification in all three refactored versions"
+    reject_tools: ["bash", "edit", "create"]
+    timeout: 120
+
+  - name: "Skip annotations across all four frameworks"
+    prompt: |
+      I maintain a solution with test projects using MSTest, xUnit, NUnit, and TUnit.
+      I need to temporarily skip some tests in each project with a reason message explaining why.
+      What's the correct attribute to use in each framework?
+    assertions:
+      - type: "output_matches"
+        pattern: "MSTest"
+      - type: "output_matches"
+        pattern: "xUnit"
+      - type: "output_matches"
+        pattern: "NUnit"
+      - type: "output_matches"
+        pattern: "TUnit"
+      - type: "output_matches"
+        pattern: "\\[Ignore\\("
+      - type: "output_matches"
+        pattern: "Skip\\s*=\\s*\""
+      - type: "output_matches"
+        pattern: "\\[Skip\\("
+      - type: "exit_success"
+    rubric:
+      - "Provided the correct skip attribute for MSTest ([Ignore] with optional reason)"
+      - "Provided the correct skip mechanism for xUnit (Skip property on [Fact] or [Theory])"
+      - "Provided the correct skip attribute for NUnit ([Ignore] with required reason)"
+      - "Provided the correct skip attribute for TUnit ([Skip] with required reason)"
+    reject_tools: ["bash", "edit", "create"]
+    timeout: 120
+
+  - name: "Convert NUnit lifecycle methods to xUnit equivalents"
+    prompt: |
+      I'm migrating this NUnit test class to xUnit. How should I convert the setup and teardown methods?
+
+      ```csharp
+      [TestFixture]
+      public class CustomerRepositoryTests
+      {
+          private DbContext _context;
+          private CustomerRepository _repo;
+
+          [OneTimeSetUp]
+          public void ClassSetup()
+          {
+              Database.Initialize();
+          }
+
+          [OneTimeTearDown]
+          public void ClassTeardown()
+          {
+              Database.Cleanup();
+          }
+
+          [SetUp]
+          public void TestSetup()
+          {
+              _context = new TestDbContext();
+              _repo = new CustomerRepository(_context);
+          }
+
+          [TearDown]
+          public void TestTeardown()
+          {
+              _context.Dispose();
+          }
+
+          [Test]
+          public void FindById_ExistingCustomer_ReturnsCustomer()
+          {
+              var customer = _repo.FindById(1);
+              Assert.That(customer, Is.Not.Null);
+              Assert.That(customer.Name, Is.EqualTo("Alice"));
+          }
+      }
+      ```
+    assertions:
+      - type: "output_matches"
+        pattern: "IClassFixture"
+      - type: "output_matches"
+        pattern: "IDisposable|Dispose"
+      - type: "output_matches"
+        pattern: "\\[Fact\\]"
+      - type: "exit_success"
+    rubric:
+      - "Converted per-test [SetUp]/[TearDown] to constructor and IDisposable.Dispose"
+      - "Converted class-level [OneTimeSetUp]/[OneTimeTearDown] to an IClassFixture<T> with the fixture's constructor and Dispose"
+      - "Removed [TestFixture] and converted [Test] to [Fact]"
+    reject_tools: ["bash", "edit", "create"]
+    timeout: 120
+
+  - name: "Identify integration tests by markers and code patterns"
+    prompt: |
+      I have a test solution with hundreds of tests. I need to separate integration tests from
+      unit tests for CI pipeline optimization. Here are samples from three projects — which ones
+      are integration tests and what indicators tell you that?
+
+      Project A (MSTest):
+      ```csharp
+      [TestClass]
+      [TestCategory("Integration")]
+      public class PaymentGatewayTests
+      {
+          [TestMethod]
+          public async Task ChargeCard_ValidCard_ReturnsSuccess()
+          {
+              var client = new HttpClient();
+              var gateway = new PaymentGateway(client);
+              var result = await gateway.ChargeAsync("4111111111111111", 99.99m);
+              Assert.IsTrue(result.Success);
+          }
+      }
+      ```
+
+      Project B (xUnit):
+      ```csharp
+      public class OrderApiTests
+      {
+          [Fact]
+          [Trait("Category", "Integration")]
+          public async Task CreateOrder_ReturnsCreatedStatus()
+          {
+              using var factory = new WebApplicationFactory<Program>();
+              var client = factory.CreateClient();
+              var response = await client.PostAsJsonAsync("/orders", new { Item = "Widget" });
+              Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+          }
+      }
+      ```
+
+      Project C (NUnit):
+      ```csharp
+      [TestFixture]
+      public class DatabaseQueryTests
+      {
+          [Test]
+          public void GetCustomer_ById_ReturnsExpectedName()
+          {
+              using var conn = new SqlConnection("Server=localhost;...");
+              conn.Open();
+              var name = conn.QuerySingle<string>("SELECT Name FROM Customers WHERE Id = 1");
+              Assert.That(name, Is.EqualTo("Alice"));
+          }
+      }
+      ```
+    assertions:
+      - type: "output_matches"
+        pattern: "TestCategory.*Integration|\\[TestCategory\\(\"Integration\"\\)\\]"
+      - type: "output_matches"
+        pattern: "Trait.*Category.*Integration|\\[Trait\\("
+      - type: "output_matches"
+        pattern: "SqlConnection|database"
+      - type: "output_matches"
+        pattern: "\\[Category\\(\"Integration\"\\)\\]|Category.*Integration.*NUnit|NUnit.*Category"
+      - type: "exit_success"
+    rubric:
+      - "Identified Project A as integration test via the [TestCategory(\"Integration\")] marker and direct HttpClient usage"
+      - "Identified Project B as integration test via the [Trait(\"Category\", \"Integration\")] marker"
+      - "Identified Project C as integration test based on direct database access (SqlConnection), even without an explicit category marker"
+      - "Recommended adding a framework-appropriate integration category marker to Project C"
+    reject_tools: ["bash", "edit", "create"]
+    timeout: 120

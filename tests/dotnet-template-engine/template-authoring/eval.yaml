@@ -1,0 +1,83 @@
+scenarios:
+  - name: "Validate a template.json file"
+    prompt: "Validate the template.json file at .template.config/template.json and tell me if there are any issues"
+    setup:
+      files:
+        - path: ".template.config/template.json"
+          content: |
+            {
+              "author": "Test",
+              "classifications": ["Test"],
+              "name": "Test Template",
+              "shortName": "build",
+              "symbols": {
+                "myParam": {
+                  "type": "parameter",
+                  "datatype": "invalid-type"
+                }
+              }
+            }
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: "identity"
+      - type: "output_contains"
+        value: "shortName"
+      - type: "output_contains"
+        value: "datatype"
+    rubric:
+      - "The agent reviewed the template.json for authoring issues"
+      - "The agent identified the missing identity field"
+      - "The agent flagged the shortName conflict with the built-in 'build' command"
+      - "The agent reported the invalid datatype"
+    expect_tools:
+      - skill
+    timeout: 180
+
+  - name: "Create template from existing project"
+    prompt: "I have an existing xUnit test project at ./test-output/MyTests/MyTests.csproj. Create a reusable template from it so my team can use it for new test projects. The template should be called 'Team Test Project'."
+    setup:
+      files:
+        - path: "test-output/MyTests/MyTests.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net9.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+                <IsPackable>false</IsPackable>
+                <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.0" />
+                <PackageReference Include="xunit" Version="2.9.0" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+                  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+                  <PrivateAssets>all</PrivateAssets>
+                </PackageReference>
+              </ItemGroup>
+            </Project>
+        - path: "test-output/MyTests/UnitTest1.cs"
+          content: |
+            using Xunit;
+
+            namespace MyTests;
+            public class UnitTest1
+            {
+                [Fact]
+                public void Test1() { }
+            }
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: "Team Test Project"
+      - type: "output_matches"
+        pattern: "(?i)(template\\.json|sourceName|\\.template\\.config)"
+    rubric:
+      - "The agent used the template-authoring skill to generate the template"
+      - "The agent preserved the project conventions (TreatWarningsAsErrors, package references with PrivateAssets)"
+      - "The agent set the template name to 'Team Test Project'"
+      - "The agent explained how to install and use the generated template"
+    expect_tools:
+      - skill
+    timeout: 300
