@@ -331,7 +331,6 @@ NativeUsesCallback(fnPtr);
 GC.KeepAlive(callback); // prevent collection — fnPtr does not root the delegate
 ```
 
-license: MIT
 ---
 
 ## Cross-Platform Library Loading
@@ -387,7 +386,6 @@ Enable the interop analyzers:
 </PropertyGroup>
 ```
 
-license: MIT
 ---
 
 ## Tooling

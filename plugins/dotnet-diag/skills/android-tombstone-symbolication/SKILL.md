@@ -100,7 +100,6 @@ pwsh scripts/Symbolicate-Tombstone.ps1 -TombstoneFile tombstone_01.txt -LlvmSymb
 
 Flags: `-CrashingThreadOnly` (limit to crashing thread), `-OutputFile path` (write to file), `-ParseOnly` (report libraries/BuildIds/URLs without downloading), `-SkipVersionLookup` (skip runtime version identification).
 
-license: MIT
 ---
 
 ## Finding llvm-symbolizer
@@ -125,7 +124,6 @@ CI source paths use these prefixes:
 
 The script identifies the exact .NET runtime version by matching BuildIds against locally-installed runtime packs. It searches: SDK packs (`$DOTNET_ROOT/packs/`), NuGet cache (`~/.nuget/packages/`), and NuGet.org as an online fallback. When found, it extracts the version and source commit from the `.nuspec` `<repository commit="..." />` element. Pass `-SkipVersionLookup` to disable. Requires `llvm-readelf` (auto-discovered from the NDK).
 
-license: MIT
 ---
 
 ## Validation

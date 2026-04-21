@@ -50,7 +50,6 @@ Use this catalog when scanning project files for improvements.
 | `touch` | `<Touch>` |
 | `xcopy /s` | `<Copy>` with item globs |
 
-license: MIT
 ---
 
 ## AP-02: Unquoted Condition Expressions
@@ -104,7 +103,6 @@ license: MIT
 | `$([MSBuild]::GetDirectoryNameOfFileAbove(...))` | Walk up to find a marker file |
 | `$([MSBuild]::NormalizePath(...))` | Combine and normalize path segments |
 
-license: MIT
 ---
 
 ## AP-04: Restating SDK Defaults
@@ -155,7 +153,6 @@ license: MIT
 
 **Exception**: Non-SDK-style (legacy) projects require explicit file includes. If migrating, see `msbuild-modernization` skill.
 
-license: MIT
 ---
 
 ## AP-06: Using `<Reference>` with HintPath for NuGet Packages
@@ -190,7 +187,6 @@ license: MIT
 
 See [`references/private-assets.md`](references/private-assets.md) for BAD/GOOD examples and the full list of packages that need this.
 
-license: MIT
 ---
 
 ## AP-08: Copy-Pasted Properties Across Multiple .csproj Files
@@ -241,7 +237,6 @@ See `directory-build-organization` skill for full guidance on structuring `Direc
 
 **Fix:** Use Central Package Management. See [https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management) for details.
 
-license: MIT
 ---
 
 ## AP-10: Monolithic Targets (Too Much in One Target)
@@ -289,7 +284,6 @@ See [`references/incremental-build-inputs-outputs.md`](references/incremental-bu
 
 See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, and up-to-date checks.
 
-license: MIT
 ---
 
 ## AP-12: Setting Defaults in .targets Instead of .props
@@ -342,7 +336,6 @@ license: MIT
 
 **Exception**: Imports that are *required* for the build to work correctly should fail fast — don't guard those. Guard imports that are optional or environment-specific (e.g., local developer overrides, CI-specific settings).
 
-license: MIT
 ---
 
 ## AP-14: Using Backslashes in Paths (Cross-Platform Issue)
@@ -390,7 +383,6 @@ license: MIT
 <!-- MyProject.csproj can now intentionally override or leave the default -->
 ```
 
-license: MIT
 ---
 
 For additional anti-patterns (AP-16 through AP-21) and a quick-reference checklist, see [additional-antipatterns.md](references/additional-antipatterns.md).

@@ -117,7 +117,6 @@ Start with `-ParseOnly` for a fast overview without requiring `atos`. The script
 
 Flags: `-CrashingThreadOnly`, `-OutputFile path`, `-ParseOnly`, `-SkipVersionLookup`, `-SkipSymbolDownload`, `-SymbolCacheDir path`, `-DsymSearchPaths path1,path2`.
 
-license: MIT
 ---
 
 ## Retrieving Crash Logs

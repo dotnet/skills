@@ -63,7 +63,6 @@ license: MIT
 
 > ⚠️ **Avoid `AddScoped` unless you manually manage `IServiceScope`.** MAUI has no built-in request scope like ASP.NET Core. A Scoped registration without an explicit scope silently behaves as a Singleton, leading to subtle bugs.
 
-license: MIT
 ---
 
 ## Registration Pattern in MauiProgram.cs
@@ -129,7 +128,6 @@ public partial class MainPage : ContentPage
 }
 ```
 
-license: MIT
 ---
 
 ## Shell Navigation Auto-Resolution
@@ -166,7 +164,6 @@ builder.Services.AddSingleton<INotificationService, NoOpNotificationService>();
 #endif
 ```
 
-license: MIT
 ---
 
 ## Explicit Resolution (Last Resort)
@@ -208,7 +205,6 @@ var services = new ServiceCollection();
 services.AddSingleton<IDataService, FakeDataService>();
 ```
 
-license: MIT
 ---
 
 ## Common Pitfalls
