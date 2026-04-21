@@ -11,6 +11,7 @@ description: >-
   Do not use for: deep linking from external URLs (see .NET MAUI deep linking
   documentation), data binding on pages (use maui-data-binding), dependency injection
   setup (use maui-dependency-injection), or NavigationPage-only apps that don't use Shell.
+license: MIT
 ---
 
 # .NET MAUI Shell Navigation

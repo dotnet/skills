@@ -1,6 +1,7 @@
 ---
 name: build-perf-baseline
 description: "Establish build performance baselines and apply systematic optimization techniques. Only activate in MSBuild/.NET build context. USE FOR: diagnosing slow builds, establishing before/after measurements (cold, warm, no-op scenarios), applying optimization strategies like MSBuild Server, static graph builds, artifacts output, and dependency graph trimming. Start here before diving into build-perf-diagnostics, incremental-build, or build-parallelism. DO NOT USE FOR: non-MSBuild build systems, detailed bottleneck analysis (use build-perf-diagnostics after baselining)."
+license: MIT
 ---
 
 # Build Performance Baseline & Optimization
@@ -87,6 +88,7 @@ Record baselines in a structured way before and after optimization:
 | No-op build | 45s     |         |             |
 ```
 
+license: MIT
 ---
 
 ## Step 2: MSBuild Server (Persistent Build Process)
@@ -175,6 +177,7 @@ artifacts/
 </PropertyGroup>
 ```
 
+license: MIT
 ---
 
 ## Step 4: Deterministic Builds
@@ -271,6 +274,7 @@ For explicit-only dependency management (extreme measure for very large repos):
 
 **Caution**: This requires all dependencies to be listed explicitly. Only use in large repos where transitive closure is causing excessive rebuilds.
 
+license: MIT
 ---
 
 ## Step 6: Static Graph Builds (`/graph`)
@@ -347,6 +351,7 @@ The critical path is the longest chain of dependent projects. To shorten it:
 3. **Use `ReferenceOutputAssembly="false"`** for build-order-only dependencies
 4. **Move shared code to a base library** that builds first, then parallelize consumers
 
+license: MIT
 ---
 
 ## Step 8: Additional Quick Wins

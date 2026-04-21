@@ -1,6 +1,7 @@
 ---
 name: msbuild-antipatterns
 description: "Catalog of MSBuild anti-patterns with detection rules and fix recipes. Only activate in MSBuild/.NET build context. USE FOR: reviewing, auditing, or cleaning up .csproj, .vbproj, .fsproj, .props, .targets, or .proj files. Each anti-pattern has a symptom, explanation, and concrete BAD→GOOD transformation. Covers Exec-instead-of-built-in-task, unquoted conditions, hardcoded paths, restating SDK defaults, scattered package versions, and more. DO NOT USE FOR: non-MSBuild build systems (npm, Maven, CMake, etc.), project migration to SDK-style (use msbuild-modernization)."
+license: MIT
 ---
 
 # MSBuild Anti-Pattern Catalog
@@ -49,6 +50,7 @@ Use this catalog when scanning project files for improvements.
 | `touch` | `<Touch>` |
 | `xcopy /s` | `<Copy>` with item globs |
 
+license: MIT
 ---
 
 ## AP-02: Unquoted Condition Expressions
@@ -102,6 +104,7 @@ Use this catalog when scanning project files for improvements.
 | `$([MSBuild]::GetDirectoryNameOfFileAbove(...))` | Walk up to find a marker file |
 | `$([MSBuild]::NormalizePath(...))` | Combine and normalize path segments |
 
+license: MIT
 ---
 
 ## AP-04: Restating SDK Defaults
@@ -152,6 +155,7 @@ Use this catalog when scanning project files for improvements.
 
 **Exception**: Non-SDK-style (legacy) projects require explicit file includes. If migrating, see `msbuild-modernization` skill.
 
+license: MIT
 ---
 
 ## AP-06: Using `<Reference>` with HintPath for NuGet Packages
@@ -186,6 +190,7 @@ Use this catalog when scanning project files for improvements.
 
 See [`references/private-assets.md`](references/private-assets.md) for BAD/GOOD examples and the full list of packages that need this.
 
+license: MIT
 ---
 
 ## AP-08: Copy-Pasted Properties Across Multiple .csproj Files
@@ -236,6 +241,7 @@ See `directory-build-organization` skill for full guidance on structuring `Direc
 
 **Fix:** Use Central Package Management. See [https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management](https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management) for details.
 
+license: MIT
 ---
 
 ## AP-10: Monolithic Targets (Too Much in One Target)
@@ -283,6 +289,7 @@ See [`references/incremental-build-inputs-outputs.md`](references/incremental-bu
 
 See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, and up-to-date checks.
 
+license: MIT
 ---
 
 ## AP-12: Setting Defaults in .targets Instead of .props
@@ -335,6 +342,7 @@ See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, a
 
 **Exception**: Imports that are *required* for the build to work correctly should fail fast — don't guard those. Guard imports that are optional or environment-specific (e.g., local developer overrides, CI-specific settings).
 
+license: MIT
 ---
 
 ## AP-14: Using Backslashes in Paths (Cross-Platform Issue)
@@ -382,6 +390,7 @@ See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, a
 <!-- MyProject.csproj can now intentionally override or leave the default -->
 ```
 
+license: MIT
 ---
 
 For additional anti-patterns (AP-16 through AP-21) and a quick-reference checklist, see [additional-antipatterns.md](references/additional-antipatterns.md).

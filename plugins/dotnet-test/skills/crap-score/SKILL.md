@@ -8,6 +8,7 @@ description: >
   cyclomatic complexity analysis.
   DO NOT USE FOR: writing tests, general test execution unrelated to coverage/CRAP
   analysis, or general code coverage reporting without CRAP context.
+license: MIT
 ---
 
 # CRAP Score Analysis

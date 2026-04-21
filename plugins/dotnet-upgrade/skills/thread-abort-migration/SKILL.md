@@ -13,6 +13,7 @@ description: >
   identically in modern .NET and need no migration. Also not for projects staying
   on .NET Framework, or Thread.Abort usage inside third-party libraries you do not
   control.
+license: MIT
 ---
 
 # Thread.Abort Migration

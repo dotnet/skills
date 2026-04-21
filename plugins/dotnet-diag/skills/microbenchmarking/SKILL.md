@@ -11,6 +11,7 @@ description: >
   performance comparisons.
   Do NOT use for profiling/tracing .NET code (dotnet-trace, PerfView), production
   telemetry, or load/stress testing (Crank, k6).
+license: MIT
 ---
 
 # Benchmark Authoring Guidelines

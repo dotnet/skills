@@ -2,6 +2,7 @@
 name: exp-dotnet-test-frameworks
 description: "Reference data for .NET test framework detection patterns, assertion APIs, skip annotations, setup/teardown methods, and common test smell indicators across MSTest, xUnit, NUnit, and TUnit. DO NOT USE directly — loaded by test analysis skills (exp-test-smell-detection, exp-assertion-quality, exp-test-maintainability, exp-test-tagging) when they need framework-specific lookup tables."
 user-invocable: false
+license: MIT
 ---
 
 # .NET Test Framework Reference

@@ -14,6 +14,7 @@ description: >
   (MSTest/xUnit/NUnit), xUnit.net v2 to v3 API migration, MSTest version
   upgrades (use migrate-mstest-* skills), TFM upgrades, or UWP/WinUI test
   projects.
+license: MIT
 ---
 
 # VSTest -> Microsoft.Testing.Platform Migration

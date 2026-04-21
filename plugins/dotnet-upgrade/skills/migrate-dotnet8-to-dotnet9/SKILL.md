@@ -10,6 +10,7 @@ description: >
   and resolving EF Core 9 migration/Cosmos DB changes.
   DO NOT USE FOR: .NET Framework migrations, upgrading from .NET 7 or earlier,
   greenfield .NET 9 projects, or cosmetic modernization unrelated to the upgrade.
+license: MIT
 ---
 
 # .NET 8 → .NET 9 Migration

@@ -13,6 +13,7 @@ description: >-
   maui-collectionview), Shell navigation data passing (use
   maui-shell-navigation), dependency injection (use maui-dependency-injection),
   or animations triggered by property changes (use .NET MAUI animation APIs).
+license: MIT
 ---
 
 # .NET MAUI Data Binding
@@ -109,6 +110,7 @@ Add to the `.csproj`:
 <WarningsAsErrors>XC0022;XC0025</WarningsAsErrors>
 ```
 
+license: MIT
 ---
 
 ## Binding Modes
@@ -171,6 +173,7 @@ public MainPage(MainViewModel vm)
 }
 ```
 
+license: MIT
 ---
 
 ## INotifyPropertyChanged and ObservableObject
@@ -253,6 +256,7 @@ Declare in XAML resources and consume:
               ConverterParameter=50}" />
 ```
 
+license: MIT
 ---
 
 ## Multi-Binding
@@ -304,6 +308,7 @@ public class FullNameConverter : IMultiValueConverter
          HeightRequest="{Binding Source={RelativeSource Self}, Path=WidthRequest}" />
 ```
 
+license: MIT
 ---
 
 ## StringFormat
@@ -331,6 +336,7 @@ Wrap the format string in single quotes when it contains commas or braces.
 <Image Source="{Binding AvatarUrl, TargetNullValue='default_avatar.png'}" />
 ```
 
+license: MIT
 ---
 
 ## .NET 9+ Code Bindings (AOT-safe)
@@ -363,6 +369,7 @@ await Task.Run(() => Title = "Loaded");
 MainThread.BeginInvokeOnMainThread(() => Items.Add(newItem));
 ```
 
+license: MIT
 ---
 
 ## Common Pitfalls

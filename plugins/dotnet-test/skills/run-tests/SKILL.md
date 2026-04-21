@@ -16,6 +16,7 @@ description: >
   platform-specific filter and reporting syntax.
   DO NOT USE FOR: writing or generating test code, CI/CD pipeline
   configuration, or debugging failing test logic.
+license: MIT
 ---
 
 # Run .NET Tests

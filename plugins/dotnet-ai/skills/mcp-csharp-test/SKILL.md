@@ -9,6 +9,7 @@ description: >
   creating evaluations for MCP servers, writing eval questions, measuring tool quality.
   DO NOT USE FOR: testing MCP clients (this is server testing only), load or performance
   testing, testing non-.NET MCP servers, debugging server issues (use mcp-csharp-debug).
+license: MIT
 ---
 
 # C# MCP Server Testing

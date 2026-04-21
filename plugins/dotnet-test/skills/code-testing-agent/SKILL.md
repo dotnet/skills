@@ -10,6 +10,7 @@ description: >-
   DO NOT USE FOR: running existing tests, executing dotnet test, applying
   test filters, detecting test platforms, or troubleshooting test execution
   (use run-tests for all of these).
+license: MIT
 ---
 
 # Code Testing Generation Skill

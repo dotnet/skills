@@ -10,6 +10,7 @@ description: >
   DO NOT USE FOR: finding or comparing templates (use template-discovery), authoring
   custom templates (use template-authoring), modifying existing projects or adding
   NuGet packages to existing projects.
+license: MIT
 ---
 
 # Template Instantiation

@@ -1,6 +1,7 @@
 ---
 name: android-tombstone-symbolication
 description: Symbolicate the .NET runtime frames in an Android tombstone file. Extracts BuildIds and PC offsets from the native backtrace, downloads debug symbols from the Microsoft symbol server, and runs llvm-symbolizer to produce function names with source file and line numbers. USE FOR triaging a .NET MAUI or Mono Android app crash from a tombstone, resolving native backtrace frames in libmonosgen-2.0.so or libcoreclr.so to .NET runtime source code, or investigating SIGABRT, SIGSEGV, or other native signals originating from the .NET runtime on Android. DO NOT USE FOR pure Java/Kotlin crashes, managed .NET exceptions that are already captured in logcat, or iOS crash logs. INVOKES Symbolicate-Tombstone.ps1 script, llvm-symbolizer, Microsoft symbol server.
+license: MIT
 ---
 
 # Android Tombstone .NET Symbolication
@@ -99,6 +100,7 @@ pwsh scripts/Symbolicate-Tombstone.ps1 -TombstoneFile tombstone_01.txt -LlvmSymb
 
 Flags: `-CrashingThreadOnly` (limit to crashing thread), `-OutputFile path` (write to file), `-ParseOnly` (report libraries/BuildIds/URLs without downloading), `-SkipVersionLookup` (skip runtime version identification).
 
+license: MIT
 ---
 
 ## Finding llvm-symbolizer
@@ -123,6 +125,7 @@ CI source paths use these prefixes:
 
 The script identifies the exact .NET runtime version by matching BuildIds against locally-installed runtime packs. It searches: SDK packs (`$DOTNET_ROOT/packs/`), NuGet cache (`~/.nuget/packages/`), and NuGet.org as an online fallback. When found, it extracts the version and source commit from the `.nuspec` `<repository commit="..." />` element. Pass `-SkipVersionLookup` to disable. Requires `llvm-readelf` (auto-discovered from the NDK).
 
+license: MIT
 ---
 
 ## Validation

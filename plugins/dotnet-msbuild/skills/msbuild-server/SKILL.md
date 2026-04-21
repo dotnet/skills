@@ -1,6 +1,7 @@
 ---
 name: msbuild-server
 description: "Guide for using MSBuild Server to improve CLI build performance. Only activate in MSBuild/.NET build context. Activate when developers report slow incremental builds from the command line, or when CLI builds are noticeably slower than IDE builds. Covers MSBUILDUSESERVER=1 environment variable for persistent server-based caching. Do not activate for IDE-based builds (Visual Studio already uses a long-lived process)."
+license: MIT
 ---
 
 # MSBuild Server for CLI Caching
