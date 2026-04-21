@@ -355,7 +355,7 @@ scenarios:
       - type: "output_contains"
         value: "MSBuildProjectName"
       - type: "output_not_matches"
-        pattern: "Condition\\s*=\\s*\"['\"]?\\$\\(IsTestProject\\)"
+        pattern: "Condition\\s*=\\s*(['\"]).*\\$\\(IsTestProject\\).*\\1"
     rubric:
       - "Recommends a condition based on a property available when Directory.Build.props is evaluated, such as MSBuildProjectName"
       - "Provides a concrete example condition (e.g., $(MSBuildProjectName.EndsWith('.Tests'))) that targets only test projects by name"

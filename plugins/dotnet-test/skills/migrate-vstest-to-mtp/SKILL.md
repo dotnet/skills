@@ -64,8 +64,8 @@ Migrate a .NET test solution from VSTest to Microsoft.Testing.Platform (MTP). Th
 
 ### Step 2: Set up Directory.Build.props
 
-> **Critical**: Always set MTP properties in `Directory.Build.props` at the solution or repo root -- never per-project. This prevents inconsistent configuration where some projects use VSTest and others use MTP (an unsupported scenario).
-> **Note**: MTP requires test projects to have `<OutputType>Exe</OutputType>`. Only `MSTest.Sdk` sets this automatically. For all other setups (MSTest NuGet packages with `EnableMSTestRunner`, NUnit with `EnableNUnitRunner`, xUnit.net with `YTest.MTP.XUnit2`), you must set `<OutputType>Exe</OutputType>` explicitly -- either per-project or in `Directory.Build.props` with a condition that targets only test projects.
+> **Critical**: Set MTP runner properties in `Directory.Build.props` at the solution or repo root whenever possible, rather than per-project. This prevents inconsistent configuration where some projects use VSTest and others use MTP (an unsupported scenario).
+> **Note**: MTP also requires test projects to have `<OutputType>Exe</OutputType>`. Only `MSTest.Sdk` sets this automatically. For all other setups (MSTest NuGet packages with `EnableMSTestRunner`, NUnit with `EnableNUnitRunner`, xUnit.net with `YTest.MTP.XUnit2`), prefer setting `<OutputType>Exe</OutputType>` centrally in `Directory.Build.props` with a condition that targets only test projects. If you cannot reliably target only test projects from `Directory.Build.props`, setting `<OutputType>Exe</OutputType>` per-project is an acceptable exception.
 >
 > **Conditioning in `Directory.Build.props`**: Do NOT use `Condition="'$(IsTestProject)' == 'true'"` -- `IsTestProject` is set by the test SDK targets later in evaluation and is not available when `Directory.Build.props` is imported. Use a property that is available early, such as `MSBuildProjectName`, to target test projects by naming convention. For example, if all test projects end in `.Tests`:
 >
