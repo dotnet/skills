@@ -31,8 +31,8 @@ scenarios:
 
   - name: "Migrate MSTest v2 NuGet project to v3"
     prompt: |
-      My test project uses MSTest.TestFramework 2.2.10 and MSTest.TestAdapter 2.2.10 on .NET 6.
-      I want to upgrade to MSTest v3. What breaking changes should I expect?
+      I want to upgrade my MSTest v2 test project to the next major version.
+      Can you review my project and tell me what I need to change?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -41,7 +41,7 @@ scenarios:
           source: "fixtures/v2-nuget/UserServiceTests.cs"
     assertions:
       - type: "output_matches"
-        pattern: "(2\\.2\\.10|v2|version 2)"
+        pattern: "(3\\.[0-9]+|v3|version 3|MSTest\\.Sdk)"
       - type: "output_matches"
         pattern: "(3\\.[0-9]+|v3|version 3)"
       - type: "output_matches"
@@ -62,9 +62,9 @@ scenarios:
 
   - name: "Fix Assert.AreEqual object overload errors after v3 upgrade"
     prompt: |
-      I just upgraded to MSTest v3 and I'm getting compilation errors like:
-      "error CS1503: Argument 1: cannot convert from 'object' to 'string'"
-      on Assert.AreEqual calls. My tests compare objects. How do I fix this?
+      After upgrading my MSTest NuGet packages to the latest major version, several
+      of my tests no longer compile. I'm seeing errors on various Assert calls. Can
+      you review my test file and fix the compilation issues?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -87,39 +87,54 @@ scenarios:
             public class ComparisonTests
             {
                 [TestMethod]
-                public void CompareObjects_AreEqual()
+                public void CompareStrings_AreEqual()
                 {
-                    object expected = GetExpected();
-                    object actual = GetActual();
+                    object expected = GetExpectedName();
+                    object actual = GetActualName();
                     Assert.AreEqual(expected, actual);
                 }
 
                 [TestMethod]
-                public void CompareObjects_AreNotEqual()
+                public void CompareIntegers_AreNotEqual()
                 {
-                    object a = "hello";
-                    object b = "world";
+                    object a = GetCount();
+                    object b = GetOtherCount();
                     Assert.AreNotEqual(a, b);
                 }
 
                 [TestMethod]
                 public void CompareReferences_AreSame()
                 {
-                    object obj = new object();
-                    Assert.AreSame(obj, obj);
+                    var svc = GetService();
+                    Assert.AreSame(svc, svc);
                 }
 
-                private static object GetExpected() => 42;
-                private static object GetActual() => 42;
+                [TestMethod]
+                public void MixedComparison_DifferentTypes()
+                {
+                    object result = Compute();
+                    Assert.AreEqual(42, result);
+                    Assert.AreNotEqual(null, result);
+                }
+
+                private static object GetExpectedName() => "Alice";
+                private static object GetActualName() => "Alice";
+                private static object GetCount() => 1;
+                private static object GetOtherCount() => 2;
+                private static IService GetService() => new ServiceImpl();
+                private static object Compute() => 42;
             }
+
+            public interface IService { }
+            public class ServiceImpl : IService { }
     assertions:
       - type: "output_matches"
         pattern: "(generic|AreEqual<|<T>|type.?param)"
     rubric:
-      - "Explains that MSTest v3 removed the Assert.AreEqual(object, object) overload"
-      - "Recommends adding explicit generic type parameters: Assert.AreEqual<T>(expected, actual)"
-      - "Applies the same fix pattern to AreNotEqual, AreSame, and AreNotSame"
-      - "Does not suggest downgrading to MSTest v2 as a solution"
+      - "Explains that MSTest v3 removed the non-generic Assert.AreEqual(object, object) overload family"
+      - "Recommends adding explicit generic type parameters and chooses the correct type for each case (e.g., Assert.AreEqual<object> for mixed types, Assert.AreSame<IService> or the concrete type for interface references)"
+      - "Applies the fix to AreNotEqual and AreSame calls, not just AreEqual"
+      - "Does not suggest downgrading MSTest as a solution"
     timeout: 180
 
   # ============================================================================
@@ -128,8 +143,9 @@ scenarios:
 
   - name: "Migrate from .testsettings to .runsettings"
     prompt: |
-      My MSTest project has a .testsettings file that configures test deployment and timeout.
-      After upgrading to MSTest v3, it seems to be ignored. How do I migrate?
+      My MSTest project has a .testsettings file that configures test deployment, timeout,
+      and a code coverage data collector. After upgrading MSTest packages, the settings
+      seem to be ignored. How do I migrate this configuration?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -158,6 +174,12 @@ scenarios:
               <Properties>
                 <Property name="TestTimeout" value="30000" />
               </Properties>
+              <AgentRule name="LocalMachineDefaultRole">
+                <DataCollectors>
+                  <DataCollector uri="datacollector://microsoft/CodeCoverage/1.0"
+                    assemblyQualifiedName="Microsoft.VisualStudio.Coverage.DynamicCoverageDataCollector, Microsoft.VisualStudio.TraceCollector" />
+                </DataCollectors>
+              </AgentRule>
             </TestSettings>
     assertions:
       - type: "output_matches"
@@ -166,9 +188,10 @@ scenarios:
         pattern: "(testsettings|legacy|no longer supported)"
     rubric:
       - "Explains that .testsettings and LegacySettings are no longer supported in MSTest v3"
-      - "Provides guidance on creating a .runsettings file as a replacement"
-      - "Shows how to configure timeout and other settings in .runsettings XML format"
-      - "Does not suggest keeping the .testsettings file alongside .runsettings"
+      - "Provides a .runsettings file that maps the TestTimeout to <MSTest><TestTimeout> (per-test), not to <TestSessionTimeout>"
+      - "Maps the code coverage data collector into the <DataCollectionRunSettings><DataCollectors> section of .runsettings"
+      - "Recommends deleting the .testsettings file entirely rather than keeping it alongside .runsettings"
+      - "Notes that AssemblyResolution settings can be removed as they are not needed in modern .NET"
     timeout: 180
 
   # ============================================================================
@@ -177,9 +200,9 @@ scenarios:
 
   - name: "Fix DataRow type mismatch errors after v3 upgrade"
     prompt: |
-      After upgrading to MSTest v3, many of my data-driven tests fail to compile with errors
-      about DataRow constructors. I have tests with lots of parameters and some implicit
-      type conversions. What changed and how do I fix it?
+      After upgrading my MSTest packages to a newer major version, several
+      data-driven tests no longer compile. The errors are on the DataRow
+      attributes. Can you review my test file and fix the issues?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -210,6 +233,14 @@ scenarios:
                 }
 
                 [TestMethod]
+                [DataRow(10.0, 3.5f)]
+                [DataRow(20.0, 7.2f)]
+                public void CalculateDiscount(float price, float rate)
+                {
+                    Assert.IsTrue(rate > 0);
+                }
+
+                [TestMethod]
                 [DataRow(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17)]
                 public void ManyParameters(int a, int b, int c, int d, int e, int f,
                     int g, int h, int i, int j, int k, int l, int m, int n, int o,
@@ -220,12 +251,12 @@ scenarios:
             }
     assertions:
       - type: "output_matches"
-        pattern: "(DataRow|type.?match|constructor|16|param)"
+        pattern: "(DataRow|type.?match|constructor|strict)"
     rubric:
-      - "Explains that MSTest v3 requires DataRow values to match parameter types exactly"
-      - "Identifies the 1L (long) vs int mismatch and recommends fixing to 1 (int)"
-      - "Explains the 16-parameter limit on DataRow constructors and suggests refactoring or wrapping in an array"
-      - "Does not suggest downgrading as a fix"
+      - "Explains that MSTest v3 enforces strict type matching in DataRow -- implicit conversions that worked in v2 now fail"
+      - "Fixes the long-to-int mismatch (1L → 1) and the double-to-float mismatch (10.0 → 10.0f)"
+      - "Explains the 16-parameter constructor limit and suggests refactoring; if the project is on an earlier 3.x release, it may also suggest updating to the latest 3.x where the limitation may be resolved"
+      - "Does not suggest downgrading MSTest as a fix"
     timeout: 240
 
   # ============================================================================
@@ -270,15 +301,15 @@ scenarios:
 
   - name: "Handle dropped target framework during v3 migration"
     prompt: |
-      My test project targets .NET 5.0 and uses MSTest v2. I want to upgrade to MSTest v3.
-      Will there be any framework compatibility issues?
+      My test project multi-targets several frameworks and currently uses MSTest v2.
+      I want to migrate to MSTest v3. Will I run into any compatibility issues?
     setup:
       files:
         - path: "TestProject.csproj"
           content: |
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
-                <TargetFramework>net5.0</TargetFramework>
+                <TargetFrameworks>net5.0;net462;netcoreapp3.1</TargetFrameworks>
                 <IsPackable>false</IsPackable>
               </PropertyGroup>
               <ItemGroup>
@@ -289,11 +320,12 @@ scenarios:
             </Project>
     assertions:
       - type: "output_matches"
-        pattern: "(net5\\.0|dropped|unsupported|net6\\.0|net8\\.0)"
+        pattern: "(net5\\.0|dropped|unsupported|net8\\.0)"
     rubric:
-      - "Identifies that .NET 5.0 is no longer supported by MSTest v3"
-      - "Recommends upgrading to .NET 6.0 or later (preferably .NET 8.0 as a current LTS)"
-      - "Does not suggest staying on .NET 5.0 with MSTest v3"
+      - "Identifies that .NET 5.0 is dropped in MSTest v3 and recommends replacing it with .NET 8.0 (LTS) or .NET 6+"
+      - "Correctly states that .NET Framework 4.6.2 is still supported by MSTest v3 and does not need to change"
+      - "Correctly states that .NET Core 3.1 is still supported by MSTest v3 and does not need to change"
+      - "Does not recommend upgrading all TFMs indiscriminately -- only the unsupported one"
     timeout: 180
 
   # ============================================================================

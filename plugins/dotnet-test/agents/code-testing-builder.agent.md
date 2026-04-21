@@ -1,7 +1,9 @@
 ---
 description: >-
-  Runs build/compile commands for any language and reports
-  results. Discovers build command from project files if not specified.
+  Runs build/compile commands for any language and reports results.
+
+  Use when: compiling code, running dotnet build, checking for compilation
+  errors, verifying project builds successfully.
 name: code-testing-builder
 user-invocable: false
 ---
