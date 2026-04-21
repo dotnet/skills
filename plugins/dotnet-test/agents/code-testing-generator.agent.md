@@ -42,7 +42,7 @@ Call the `code-testing-researcher` subagent:
 ```text
 runSubagent({
   agent: "code-testing-researcher",
-  prompt: "Research the codebase at [PATH] for test generation. Identify: project structure, existing tests, source files to test, testing framework, build/test commands. Check .testagent/ for initial coverage data."
+  prompt: "Research the codebase at [PATH] for test generation. Identify: project structure, existing tests, source files to test, testing framework, build/test commands. Build a dependency graph and estimate preexisting coverage."
 })
 ```
 

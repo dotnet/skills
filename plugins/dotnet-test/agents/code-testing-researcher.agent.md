@@ -29,23 +29,7 @@ Search for key files:
 - Existing tests: `*test*`, `*Test*`, `*spec*`
 - Config files: `README*`, `Makefile`, `*.config`
 
-### 2. Check for Initial Coverage Data
-
-Check if `.testagent/` contains pre-computed coverage data:
-
-- `initial_line_coverage.txt` — percentage of lines covered
-- `initial_branch_coverage.txt` — percentage of branches covered
-- `initial_coverage.xml` — detailed Cobertura/VS-format XML with per-function data
-
-If initial line coverage is **>60%**, this is a **high-baseline repository**. Focus analysis on:
-
-1. Source files with no corresponding test file (biggest gaps)
-2. Functions with `line_coverage="0.00"` (completely untested)
-3. Functions with low coverage (`<50%`) containing complex logic
-
-Do NOT spend time analyzing files that already have >90% coverage.
-
-### 3. Identify the Language and Framework
+### 2. Identify the Language and Framework
 
 Based on files found:
 
@@ -55,12 +39,12 @@ Based on files found:
 - **Go**: `go.mod` → tests use `*_test.go` pattern
 - **Rust**: `Cargo.toml` → tests go in same file or `tests/` directory
 
-### 4. Identify the Scope of Testing
+### 3. Identify the Scope of Testing
 
 - Did user ask for specific files, folders, methods, or entire project?
 - If specific scope is mentioned, focus research on that area. If not, analyze entire codebase.
 
-### 5. Spawn Parallel Sub-Agent Tasks
+### 4. Spawn Parallel Sub-Agent Tasks
 
 Launch multiple task agents to research different aspects concurrently:
 
@@ -68,18 +52,25 @@ Launch multiple task agents to research different aspects concurrently:
 - Run multiple agents in parallel when searching for different things
 - Each agent knows its job — tell it what you're looking for, not how to search
 
-### 6. Analyze Source Files
+### 5. Analyze Source Files
 
 For each source file (or delegate to sub-agents):
 
 - Identify public classes/functions
 - Note dependencies and complexity
 - Assess testability (high/medium/low)
-- Look for existing tests
+
+#### Build Dependency Graph
+
+- **Find interfaces**: Identify all interfaces and abstractions in scope
+- **Find implementations**: Map which types implement each interface or abstraction
+- **Identify leaves**: Determine leaf types — classes with no dependencies on other in-scope types (they depend only on external/framework types)
+- **Leaf-first testing**: Leaves that fall within the test scope should be tested directly with no mocking needed
+- **Layer-up with mocks**: For types above the leaves that fall within the test scope, mock their leaf dependencies and test the layer's own logic in isolation
 
 Analyze all code in the requested scope.
 
-### 7. Discover Build/Test Commands
+### 6. Discover Build/Test Commands
 
 Search for commands in:
 
@@ -87,6 +78,17 @@ Search for commands in:
 - `Makefile` targets
 - `README.md` instructions
 - Project files
+
+### 7. Discover Preexisting Tests
+
+Locate all existing test files and analyze what they cover:
+
+- Match each test file to the source file(s) it tests
+- For each source file in scope, estimate the coverage percentage based on:
+  - Presence/absence of a corresponding test file
+  - Number of test methods vs. number of public methods in the source
+  - Whether tests cover only happy paths or also edge cases and error paths
+- Record the estimated coverage level per source file so the planner can prioritize gaps
 
 ### 8. Generate Research Document
 
@@ -101,11 +103,10 @@ Create `.testagent/research.md` with this structure:
 - **Framework**: [detected framework]
 - **Test Framework**: [detected or recommended]
 
-## Coverage Baseline
-- **Initial Line Coverage**: [X%] (from .testagent/initial_line_coverage.txt, or "unknown")
-- **Initial Branch Coverage**: [X%] (or "unknown")
-- **Strategy**: [broad | targeted] (use "targeted" if line coverage >60%)
-- **Existing Test Count**: [N tests across M files]
+## Dependency Graph
+- **Leaf types** (no in-scope dependencies): [list]
+- **Mid-layer types** (depend on leaves): [list]
+- **Top-layer types** (depend on mid-layer): [list]
 
 ## Build & Test Commands
 - **Build**: `[command]`
@@ -119,21 +120,22 @@ Create `.testagent/research.md` with this structure:
 ## Files to Test
 
 ### High Priority
-| File | Classes/Functions | Testability | Notes |
-|------|-------------------|-------------|-------|
-| path/to/file.ext | Class1, func1 | High | Core logic |
+| File | Classes/Functions | Testability | Estimated Coverage | Notes |
+|------|-------------------|-------------|-------------------|-------|
+| path/to/file.ext | Class1, func1 | High | Untested | Core logic, leaf type |
 
 ### Medium Priority
-| File | Classes/Functions | Testability | Notes |
-|------|-------------------|-------------|-------|
+| File | Classes/Functions | Testability | Estimated Coverage | Notes |
+|------|-------------------|-------------|-------------------|-------|
 
 ### Low Priority / Skip
 | File | Reason |
 |------|--------|
 | path/to/file.ext | Auto-generated |
 
-## Existing Tests
-- [List existing test files and what they cover]
+## Existing Tests & Estimated Coverage
+- [List existing test files and what source files they cover]
+- [Per source file: untested / partially tested / well tested]
 - [Or "No existing tests found"]
 
 ## Existing Test Projects
