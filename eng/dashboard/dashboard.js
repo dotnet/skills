@@ -358,12 +358,15 @@
       // Discover tests from all entries (not just latest, which may have partial data)
       const effTests = new Set();
       let hasAnyPluginEff = false;
+      let hasAnyVanillaEff = false;
       efficiencyEntries.forEach(entry => {
         entry.benches.forEach(b => {
           const matchSkilled = b.name.match(/^(.+) - Skilled Time$/);
           if (matchSkilled) effTests.add(matchSkilled[1]);
           const matchPlugin = b.name.match(/^(.+) - Plugin Time$/);
           if (matchPlugin) { effTests.add(matchPlugin[1]); hasAnyPluginEff = true; }
+          const matchVanilla = b.name.match(/^(.+) - Vanilla Time$/);
+          if (matchVanilla) { effTests.add(matchVanilla[1]); hasAnyVanillaEff = true; }
         });
       });
 
@@ -384,6 +387,8 @@
         const tokenName = `${test} - Skilled Tokens In`;
         const plugTimeName = `${test} - Plugin Time`;
         const plugTokenName = `${test} - Plugin Tokens In`;
+        const vanTimeName = `${test} - Vanilla Time`;
+        const vanTokenName = `${test} - Vanilla Tokens In`;
         const legendFlags = { notActivated: false, timedOut: false, overfittingModerate: false, overfittingHigh: false, multiIssue: false };
 
         const perEntryData = efficiencyEntries.map(e => {
@@ -391,11 +396,15 @@
           let tokenBench = undefined;
           let plugTimeBench = undefined;
           let plugTokenBench = undefined;
+          let vanTimeBench = undefined;
+          let vanTokenBench = undefined;
           for (const b of e.benches) {
             if (!timeBench && b.name === timeName) timeBench = b;
             else if (!tokenBench && b.name === tokenName) tokenBench = b;
             else if (!plugTimeBench && b.name === plugTimeName) plugTimeBench = b;
             else if (!plugTokenBench && b.name === plugTokenName) plugTokenBench = b;
+            else if (!vanTimeBench && b.name === vanTimeName) vanTimeBench = b;
+            else if (!vanTokenBench && b.name === vanTokenName) vanTokenBench = b;
           }
           const timeNA = !!(timeBench && timeBench.notActivated);
           const tokenNA = !!(tokenBench && tokenBench.notActivated);
@@ -423,6 +432,8 @@
             tokenOverfitting: tokenOF,
             plugTimeValue: plugTimeBench ? plugTimeBench.value : null,
             plugTokenValue: plugTokenBench ? plugTokenBench.value / 1000 : null,
+            vanTimeValue: vanTimeBench ? vanTimeBench.value : null,
+            vanTokenValue: vanTokenBench ? vanTokenBench.value / 1000 : null,
           };
         });
 
@@ -430,14 +441,16 @@
         const tokenData = perEntryData.map(d => d.tokenValue);
         const plugTimeData = perEntryData.map(d => d.plugTimeValue);
         const plugTokenData = perEntryData.map(d => d.plugTokenValue);
+        const vanTimeData = perEntryData.map(d => d.vanTimeValue);
+        const vanTokenData = perEntryData.map(d => d.vanTokenValue);
 
         // Per-point styling using shared helper
-        const timeAp = perEntryData.map(d => getPointAppearance({ timedOut: d.timeTimedOut, notActivated: d.timeNotActivated, overfitting: d.timeOverfitting }, '#f0883e'));
+        const timeAp = perEntryData.map(d => getPointAppearance({ timedOut: d.timeTimedOut, notActivated: d.timeNotActivated, overfitting: d.timeOverfitting }, '#58a6ff'));
         const timePointBg = timeAp.map(a => a.color);
         const timePointStyle = timeAp.map(a => a.style);
         const timePointRadius = timeAp.map(a => a.radius);
         const timePointBorderWidth = timeAp.map(a => a.borderWidth);
-        const tokenAp = perEntryData.map(d => getPointAppearance({ timedOut: d.tokenTimedOut, notActivated: d.tokenNotActivated, overfitting: d.tokenOverfitting }, '#a371f7'));
+        const tokenAp = perEntryData.map(d => getPointAppearance({ timedOut: d.tokenTimedOut, notActivated: d.tokenNotActivated, overfitting: d.tokenOverfitting }, '#58a6ff'));
         const tokenPointBg = tokenAp.map(a => a.color);
         const tokenPointStyle = tokenAp.map(a => a.style);
         const tokenPointRadius = tokenAp.map(a => a.radius);
@@ -447,7 +460,7 @@
           {
             label: 'Isolated Time (s)',
             data: timeData,
-            borderColor: '#f0883e',
+            borderColor: '#58a6ff',
             borderWidth: 2,
             pointBackgroundColor: timePointBg,
             pointBorderColor: timePointBg,
@@ -461,7 +474,7 @@
           {
             label: 'Isolated Tokens (k)',
             data: tokenData,
-            borderColor: '#a371f7',
+            borderColor: '#58a6ff',
             borderWidth: 2,
             pointBackgroundColor: tokenPointBg,
             pointBorderColor: tokenPointBg,
@@ -491,7 +504,34 @@
           datasets.push({
             label: 'Plugin Tokens (k)',
             data: plugTokenData,
-            borderColor: '#56d364',
+            borderColor: '#3fb950',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            borderDash: [5, 5],
+            fill: false,
+            yAxisID: 'y1'
+          });
+        }
+
+        // Add vanilla efficiency datasets if any vanilla data exists
+        if (hasAnyVanillaEff) {
+          datasets.push({
+            label: 'Vanilla Time (s)',
+            data: vanTimeData,
+            borderColor: '#8b949e',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            fill: false,
+            yAxisID: 'y'
+          });
+          datasets.push({
+            label: 'Vanilla Tokens (k)',
+            data: vanTokenData,
+            borderColor: '#8b949e',
             borderWidth: 2,
             pointRadius: 4,
             pointHoverRadius: 6,
@@ -512,7 +552,7 @@
             responsive: true,
             interaction: { mode: 'index', intersect: false },
             plugins: {
-              legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true } },
+              legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: function(chart) { return Chart.defaults.plugins.legend.labels.generateLabels(chart).map(function(l) { return Object.assign({}, l, { pointStyle: 'circle' }); }); } } },
               tooltip: {
                 callbacks: {
                   afterTitle: (items) => {
@@ -535,16 +575,16 @@
               y: {
                 type: 'linear',
                 position: 'left',
-                ticks: { color: '#f0883e' },
+                ticks: { color: '#8b949e' },
                 grid: { color: '#30363d' },
-                title: { display: true, text: 'seconds', color: '#f0883e' }
+                title: { display: true, text: 'seconds', color: '#8b949e' }
               },
               y1: {
                 type: 'linear',
                 position: 'right',
-                ticks: { color: '#a371f7' },
+                ticks: { color: '#8b949e' },
                 grid: { drawOnChartArea: false },
-                title: { display: true, text: 'tokens (k)', color: '#a371f7' }
+                title: { display: true, text: 'tokens (k)', color: '#8b949e' }
               }
             }
           }
@@ -673,7 +713,7 @@
         responsive: true,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true } },
+          legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: function(chart) { return Chart.defaults.plugins.legend.labels.generateLabels(chart).map(function(l) { return Object.assign({}, l, { pointStyle: 'circle' }); }); } } },
           tooltip: {
             callbacks: {
               afterTitle: (items) => {
@@ -798,7 +838,7 @@
         responsive: true,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true } },
+          legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: function(chart) { return Chart.defaults.plugins.legend.labels.generateLabels(chart).map(function(l) { return Object.assign({}, l, { pointStyle: 'circle' }); }); } } },
           tooltip: {
             callbacks: {
               afterTitle: (items) => {
