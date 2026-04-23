@@ -158,9 +158,9 @@ Given a request like *"Generate unit tests for my InvoiceService"*, the pipeline
 
 ### Language-Specific Examples
 
-The `extensions/` folder contains concrete, filled-in examples for each pipeline phase showing real source code, real research output, real plans, and real generated tests:
+The `code-testing-extensions` skill provides concrete, filled-in examples for each pipeline phase showing real source code, real research output, real plans, and real generated tests. Call the `code-testing-extensions` skill to discover available extension files, then read:
 
-- **[.NET/C#](extensions/dotnet-examples.md)** — MSTest example with InvoiceService: research output, plan output, generated test file, fix cycle walkthrough, and final report
+- **`dotnet-examples.md`** — MSTest example with InvoiceService: research output, plan output, generated test file, fix cycle walkthrough, and final report
 
 ## Agent Reference
 
@@ -185,7 +185,7 @@ The `extensions/` folder contains concrete, filled-in examples for each pipeline
 
 ### Tests don't compile
 
-The `code-testing-fixer` agent will attempt to resolve compilation errors. Check `.testagent/plan.md` for the expected test structure. Check the `extensions/` folder for language-specific error code references (e.g., `extensions/dotnet.md` for .NET).
+The `code-testing-fixer` agent will attempt to resolve compilation errors. Check `.testagent/plan.md` for the expected test structure. Call the `code-testing-extensions` skill and read the language-specific extension file for error code references (e.g., `dotnet.md` for .NET).
 
 ### Tests fail
 

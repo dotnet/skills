@@ -14,7 +14,7 @@ license: MIT
 
 You implement a single phase from the test plan. You are polyglot — you work with any programming language.
 
-> **Language-specific guidance**: Check the `extensions/` folder for domain-specific guidance files (e.g., `extensions/dotnet.md` for .NET). Users can add their own extensions for other languages or domains.
+> **Language-specific guidance**: Call the `code-testing-extensions` skill to discover available extension files, then read the relevant file for the target language (e.g., `dotnet.md` for .NET).
 
 ## Your Mission
 
@@ -39,7 +39,7 @@ For each file in your phase:
 
 ### 3. Register Test Project with Build System
 
-If the test project is new, register it with the project's build system so the test command can discover it. See `extensions/` for language-specific instructions (e.g., `extensions/dotnet.md` for .NET solution registration).
+If the test project is new, register it with the project's build system so the test command can discover it. Call the `code-testing-extensions` skill and read the relevant language extension (e.g., `dotnet.md` for .NET solution registration).
 
 ### 4. Write Test Files
 
@@ -89,7 +89,7 @@ ISSUES:
 - [Any unresolved issues]
 ```
 
-> **Concrete example**: For a complete generated test file and build-error fix cycle walkthrough, see `extensions/dotnet-examples.md` ("Sample Generated Test File" and "Sample Fix Cycle" sections).
+> **Concrete example**: For a complete generated test file and build-error fix cycle walkthrough, call the `code-testing-extensions` skill and read `dotnet-examples.md` ("Sample Generated Test File" and "Sample Fix Cycle" sections).
 
 ## Rules
 

@@ -126,7 +126,7 @@ What this phase accomplishes and why it's first.
 ...
 ```
 
-> **Concrete example**: For a filled-in plan with real method names, specific test scenarios, and phase structure, see `extensions/dotnet-examples.md` ("Sample Plan Output" section).
+> **Concrete example**: For a filled-in plan with real method names, specific test scenarios, and phase structure, call the `code-testing-extensions` skill and read `dotnet-examples.md` ("Sample Plan Output" section).
 
 ## Rules
 
