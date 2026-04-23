@@ -65,7 +65,7 @@ jobs:
           persist-credentials: false
 
       - name: Super-linter
-        uses: super-linter/super-linter@v8.5.0
+        uses: super-linter/super-linter@61abc07d755095a68f4987d1c2c3d1d64408f1f9 # v8.5.0
         id: super-linter
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -74,7 +74,7 @@ jobs:
           DEFAULT_BRANCH: main
           ENABLE_GITHUB_ACTIONS_STEP_SUMMARY: "true"
           VALIDATE_MARKDOWN: "true"
-          VALIDATE_ALL_CODEBASE: "false"
+          VALIDATE_ALL_CODEBASE: "true"
 
       - name: Check for linting issues
         id: check-results
@@ -91,7 +91,7 @@ jobs:
 
       - name: Upload super-linter log
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: super-linter-log
           path: super-linter.log
@@ -121,6 +121,7 @@ tools:
     - "wc"
     - "sort"
     - "uniq"
+    - "date"
 
 safe-outputs:
   create-issue:
@@ -139,7 +140,7 @@ timeout-minutes: 15
 
 steps:
   - name: Download super-linter log
-    uses: actions/download-artifact@v8
+    uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
     with:
       name: super-linter-log
       path: /tmp/gh-aw/
@@ -228,7 +229,7 @@ Use format: "Markdown Quality Report - [Date] - [X] issues found"
 - **Use proper formatting**: Make the issue easy to read and navigate
 - **If no errors found**: Call `noop` celebrating clean markdown
 
-**Important**: Always call exactly one safe-output tool before finishing (`create_issue` or `noop`).
+**Important**: Always call exactly one safe-output tool before finishing (`create-issue` or `noop`).
 
 ```json
 {"noop": {"message": "No action needed: [brief explanation of what was analyzed and why]"}}
