@@ -46,7 +46,8 @@ Based on the request scope, pick exactly one strategy and follow it:
 | "Generate tests for the billing module" | Single pass | Moderate scope (handful of files), one R→P→I cycle covers it |
 | "Achieve 80% coverage across the whole solution" | Iterative | Large scope, first pass covers the obvious gaps, subsequent passes target remaining uncovered code |
 | "Add tests for this function" (with file open) | Direct | Single function is trivially small scope |
-| "Generate comprehensive tests for my ASP.NET app" | Single pass or Iterative | Depends on how many controllers/services exist — use single pass for <10 files, iterative for more |
+| "Generate comprehensive tests for my ASP.NET app" | Single pass | If the app has fewer than 10 controllers/services/files in scope, one R→P→I cycle should cover it |
+| "Generate comprehensive tests for my large ASP.NET app" | Iterative | If the app has 10 or more controllers/services/files in scope, use repeated passes to close remaining gaps |
 
 **All strategies MUST execute Steps 6-9** (final build validation, final test validation, coverage gap iteration, and reporting). These steps are never skipped.
 
@@ -110,11 +111,13 @@ Run tests from the **full workspace scope** with a fresh build (never use `--no-
 
 After the previous phases complete, check for uncovered source files:
 
-1. List all source files in scope.
+1. List **all** source files in scope (controllers, services, models, helpers, data layer — everything).
 2. List all test files created.
 3. Identify source files with no corresponding test file.
 4. Generate tests for each uncovered file, build, test, and fix.
-5. Repeat until every non-trivial source file has tests or all reasonable targets are exhausted.
+5. Repeat until every source file has tests or all reasonable targets are exhausted.
+
+**Do not skip model/DTO classes.** Models with properties, validation attributes, enums, navigation properties, computed fields, or constructors all contribute to line coverage and should have basic tests (property round-trips, enum value coverage, validation attribute behavior).
 
 ### Step 9: Report Results
 
