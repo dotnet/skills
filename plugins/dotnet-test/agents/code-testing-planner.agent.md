@@ -35,11 +35,11 @@ Check the **Coverage Baseline** section:
 
 **Broad strategy** (coverage <60% or unknown):
 
-- Generate tests for **all** source files systematically — services, controllers, models, helpers, data layer
+- Generate tests for **all** source files systematically
 - Organize into phases by priority and complexity (2-5 phases)
-- Every public class and method must have at least one test, including model/DTO classes (property round-trips, validation attributes, enum values)
+- Every public class and method must have at least one test
 - If >15 source files, use more phases (up to 8-10)
-- List ALL source files and assign each to a phase — no file should be left unassigned
+- List ALL source files and assign each to a phase
 
 **Targeted strategy** (coverage >60%):
 

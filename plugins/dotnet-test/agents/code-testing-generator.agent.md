@@ -111,13 +111,11 @@ Run tests from the **full workspace scope** with a fresh build (never use `--no-
 
 After the previous phases complete, check for uncovered source files:
 
-1. List **all** source files in scope (controllers, services, models, helpers, data layer — everything).
+1. List all source files in scope.
 2. List all test files created.
 3. Identify source files with no corresponding test file.
 4. Generate tests for each uncovered file, build, test, and fix.
-5. Repeat until every source file has tests or all reasonable targets are exhausted.
-
-**Do not skip model/DTO classes.** Models with properties, validation attributes, enums, navigation properties, computed fields, or constructors all contribute to line coverage and should have basic tests (property round-trips, enum value coverage, validation attribute behavior).
+5. Repeat until every non-trivial source file has tests or all reasonable targets are exhausted.
 
 ### Step 9: Report Results
 

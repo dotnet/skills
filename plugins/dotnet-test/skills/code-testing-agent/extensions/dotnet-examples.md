@@ -88,14 +88,10 @@ What `code-testing-researcher` produces in `.testagent/research.md`:
 |------|-------------------|-------------|-------|
 | src/Contoso.Billing/InvoiceService.cs | InvoiceService: CalculateTotal, GetByIdAsync, MarkAsPaidAsync | High | Core business logic, repository dependency needs mocking |
 
-### Medium Priority
-| File | Classes/Functions | Testability | Notes |
-|------|-------------------|-------------|-------|
-| src/Contoso.Billing/Invoice.cs | Invoice: properties, LineItems, TaxRate, Status, InvoiceStatus enum | Medium | Model with enum, properties, and collection — test property defaults, enum values, validation |
-
 ### Low Priority / Skip
 | File | Reason |
 |------|--------|
+| src/Contoso.Billing/Invoice.cs | Data model, no logic |
 | src/Contoso.Billing/IInvoiceRepository.cs | Interface, no implementation |
 
 ## Existing Tests

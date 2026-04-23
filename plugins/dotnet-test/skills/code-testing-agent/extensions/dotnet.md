@@ -108,6 +108,49 @@ public sealed class ClassNameTests
 }
 ```
 
+## ASP.NET MVC Controller Testing
+
+For ASP.NET Core MVC apps using EF Core, test controllers with an InMemory database instead of mocking DbContext:
+
+```csharp
+[TestClass]
+public sealed class StudentsControllerTests
+{
+    private SchoolContext CreateContext()
+    {
+        var options = new DbContextOptionsBuilder<SchoolContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        return new SchoolContext(options);
+    }
+
+    [TestMethod]
+    public async Task Index_ReturnsStudentsList()
+    {
+        // Arrange
+        using var context = CreateContext();
+        context.Students.Add(new Student { FirstMidName = "Alice", LastName = "Smith", EnrollmentDate = DateTime.Now });
+        await context.SaveChangesAsync();
+        var controller = new StudentsController(context);
+
+        // Act
+        var result = await controller.Index(null, null, null, null) as ViewResult;
+
+        // Assert
+        Assert.IsNotNull(result);
+        var model = result.Model as PaginatedList<Student>;
+        Assert.IsNotNull(model);
+        Assert.AreEqual(1, model.Count);
+    }
+}
+```
+
+Key patterns:
+- Use `Guid.NewGuid().ToString()` as the InMemory database name so each test gets an isolated database
+- Seed data in Arrange, then verify controller actions in Act/Assert
+- Test sorting, filtering, pagination, and CRUD operations for each controller
+- Cover both GET and POST actions, including validation error paths
+
 ## Coverage XML Parsing
 
 If `.testagent/initial_coverage.xml` exists, it uses Cobertura/VS format:

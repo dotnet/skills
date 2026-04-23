@@ -128,15 +128,10 @@ Create `.testagent/research.md` with this structure:
 | File | Classes/Functions | Testability | Notes |
 |------|-------------------|-------------|-------|
 
-### Medium Priority
-| File | Classes/Functions | Testability | Notes |
-|------|-------------------|-------------|-------|
-| path/to/model.ext | Properties, enums, validation | Medium | Models with properties, validation attributes, or enums still need basic tests for coverage |
-
 ### Low Priority / Skip
 | File | Reason |
 |------|--------|
-| path/to/file.ext | Auto-generated, no testable logic (e.g., pure interfaces, empty Program.cs) |
+| path/to/file.ext | Auto-generated |
 
 ## Existing Tests
 - [List existing test files and what they cover]
