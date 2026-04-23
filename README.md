@@ -86,18 +86,6 @@ Install individual skills using the `skill-installer` CLI with the GitHub URL:
 $ skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<plugin>/skills/<skill-name>
 ```
 
-### ⚡ Agentic Workflows
-
-Some plugins include [GitHub Agentic Workflow](https://github.com/github/gh-aw) templates for CI/CD automation:
-
-1. Install the `gh aw` CLI extension
-2. Copy the desired workflow `.md` files and the `shared/` directory to your repository's `.github/workflows/`
-3. Compile and commit:
-   ```
-   gh aw compile
-   ```
-4. Commit both the `.md` and generated `.lock.yml` files
-
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and how to add a new plugin.
