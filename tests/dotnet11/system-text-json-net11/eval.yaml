@@ -25,6 +25,10 @@ scenarios:
         pattern: "net11\\.0"
       - type: "output_not_matches"
         pattern: "class\\s+\\w+\\s*:\\s*JsonNamingPolicy"
+      - type: "output_matches"
+        pattern: "\"Name\""
+      - type: "output_matches"
+        pattern: "\"Age\""
     rubric:
       - "Uses the new built-in JsonNamingPolicy.PascalCase static property (added in .NET 11) and does not implement a custom JsonNamingPolicy subclass"
       - "Targets net11.0 in the project / file-based app"
@@ -61,6 +65,8 @@ scenarios:
         pattern: "net11\\.0"
       - type: "output_not_matches"
         pattern: "\\bcatch\\b\\s*(\\(|\\{)"
+      - type: "output_matches"
+        pattern: "(True|False|found|Found|JsonTypeInfo)"
     rubric:
       - "Uses the new generic JsonSerializerOptions.GetTypeInfo<T>() overload (added in .NET 11) for the typed-access part"
       - "Uses the new generic JsonSerializerOptions.TryGetTypeInfo<T>(out JsonTypeInfo<T>? info) overload (added in .NET 11) for the probing part"
@@ -95,6 +101,10 @@ scenarios:
         pattern: "JsonNamingPolicy\\.PascalCase"
       - type: "output_not_matches"
         pattern: "net11\\.0"
+      - type: "output_matches"
+        pattern: "\"name\""
+      - type: "output_matches"
+        pattern: "\"age\""
     rubric:
       - "Solves the task using only pre-.NET 11 APIs (JsonNamingPolicy.CamelCase, standard JsonSerializer.Serialize)"
       - "Does NOT load or reference the system-text-json-net11 skill — none of its APIs are needed here"
