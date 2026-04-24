@@ -60,7 +60,7 @@ scenarios:
       - type: "output_matches"
         pattern: "net11\\.0"
       - type: "output_not_matches"
-        pattern: "catch\\s*\\(\\s*\\w*Exception"
+        pattern: "\\bcatch\\b\\s*(\\(|\\{)"
     rubric:
       - "Uses the new generic JsonSerializerOptions.GetTypeInfo<T>() overload (added in .NET 11) for the typed-access part"
       - "Uses the new generic JsonSerializerOptions.TryGetTypeInfo<T>(out JsonTypeInfo<T>? info) overload (added in .NET 11) for the probing part"
