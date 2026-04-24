@@ -209,6 +209,7 @@ jobs:
       base_sha: ${{ steps.pr.outputs.base_sha }}
       pr_number: ${{ steps.pr.outputs.pr_number }}
       is_fork: ${{ steps.pr.outputs.is_fork }}
+      include_dotnet11: ${{ steps.parse-flags.outputs.include_dotnet11 }}
     steps:
       - name: Check commenter permissions
         id: perms
@@ -220,6 +221,17 @@ jobs:
           if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "write" && "$PERMISSION" != "maintain" ]]; then
             echo "::error::User does not have write access"
             exit 1
+          fi
+
+      - name: Parse /evaluate flags
+        id: parse-flags
+        run: |
+          COMMENT_BODY="${{ github.event.comment.body }}"
+          if echo "$COMMENT_BODY" | grep -qwF -- '--dotnet11'; then
+            echo "include_dotnet11=true" >> $GITHUB_OUTPUT
+            echo "Flag --dotnet11 detected"
+          else
+            echo "include_dotnet11=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Get PR details
@@ -283,6 +295,7 @@ jobs:
       is_infra: ${{ steps.find.outputs.is_infra }}
       plugins: ${{ steps.find.outputs.plugins }}
       has_plugins: ${{ steps.find.outputs.has_plugins }}
+      dotnet11_excluded: ${{ steps.find.outputs.dotnet11_excluded }}
     steps:
       - name: Check for new commits since last evaluation
         if: github.event_name == 'schedule'
@@ -347,6 +360,7 @@ jobs:
             # /evaluate command: detect individual changed skills using gate outputs
             $base = "${{ needs.gate.outputs.base_sha }}"
             $head = (git rev-parse origin/pr-head)
+            $includeDotnet11 = "${{ needs.gate.outputs.include_dotnet11 }}" -eq "true"
 
             # Use a worktree so Test-Path checks are against PR content
             git worktree add /tmp/pr-content origin/pr-head 2>$null
@@ -376,7 +390,8 @@ jobs:
               $allPlugins = @(Get-ChildItem -Path (Join-Path $contentRoot "plugins") -Directory -ErrorAction SilentlyContinue |
                 Where-Object {
                   (Test-Path (Join-Path $_.FullName "skills")) -and
-                  (Test-Path (Join-Path $contentRoot "tests" $_.Name))
+                  (Test-Path (Join-Path $contentRoot "tests" $_.Name)) -and
+                  ($includeDotnet11 -or $_.Name -ne 'dotnet11')
                 } |
                 Select-Object -ExpandProperty Name)
               $plugins = @($allPlugins | Get-Random -Count ([Math]::Min(2, $allPlugins.Count)))
@@ -413,12 +428,23 @@ jobs:
               $plugins = @($entries | ForEach-Object { $_.plugin } | Sort-Object -Unique)
             }
 
+            # Exclude dotnet11 entries unless --dotnet11 flag was passed
+            if (-not $includeDotnet11) {
+              $excluded = @($entries | Where-Object { $_.plugin -eq 'dotnet11' })
+              if ($excluded.Count -gt 0) {
+                Write-Host "Excluding $($excluded.Count) dotnet11 entry/entries (pass --dotnet11 to /evaluate to include)"
+                $entries = @($entries | Where-Object { $_.plugin -ne 'dotnet11' })
+                $plugins = @($entries | ForEach-Object { $_.plugin } | Sort-Object -Unique)
+                echo "dotnet11_excluded=true" >> $env:GITHUB_OUTPUT
+              }
+            }
+
             git worktree remove /tmp/pr-content --force 2>$null
           } else {
             # Schedule: evaluate all plugins with skills and tests
             # Exclude experimental plugins from scheduled runs — they are
             # evaluated only on-demand via /evaluate on PRs.
-            $excludeFromSchedule = @('dotnet-experimental')
+            $excludeFromSchedule = @('dotnet-experimental', 'dotnet11')
             $plugins = @(Get-ChildItem -Path "plugins" -Directory |
               Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) -and ($_.Name -notin $excludeFromSchedule) } |
               Select-Object -ExpandProperty Name)
@@ -539,6 +565,13 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Setup .NET 11 preview SDK
+        if: matrix.entry.plugin == 'dotnet11'
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+
       - name: Restore cached validator
         id: cache-validator
         uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
@@ -622,6 +655,10 @@ jobs:
           ARGS="$ARGS --parallel-scenarios $PARALLEL_SCENARIOS"
           ARGS="$ARGS --parallel-runs $PARALLEL_RUNS"
           ARGS="$ARGS --keep-sessions"
+
+          if [[ "${{ matrix.entry.plugin }}" == "dotnet11" ]]; then
+            ARGS="$ARGS --include-dotnet11"
+          fi
 
           artifacts/publish/SkillValidator/release/skill-validator evaluate $ARGS --tests-dir ./tests/${{ matrix.entry.plugin }} ./${{ matrix.entry.skills_path }}
 
@@ -746,6 +783,12 @@ jobs:
               echo "**[▶ Sessions Visualisation](${FULL_URL})** -- interactive replay of all evaluation sessions" >> consolidated-comment.md
             fi
 
+            # Warn when dotnet11 skills were excluded from this evaluation
+            if [[ "${{ needs.discover.outputs.dotnet11_excluded }}" == "true" ]]; then
+              echo "" >> consolidated-comment.md
+              echo "> ⚠️ **dotnet11 skills were excluded** from this evaluation. To include them, post \`/evaluate --dotnet11\` (installs .NET 11 preview SDK)." >> consolidated-comment.md
+            fi
+
             # Action summary: full table (all columns) + investigation prompt
             {
               cat summary-body.md
@@ -797,10 +840,19 @@ jobs:
         run: |
           if [[ "${{ needs.evaluate.result }}" == "success" ]]; then
             STATE="success"
-            DESC="Evaluation passed"
+            if [[ "${{ needs.discover.outputs.dotnet11_excluded }}" == "true" ]]; then
+              DESC="Evaluation passed (dotnet11 skills excluded — use /evaluate --dotnet11)"
+            else
+              DESC="Evaluation passed"
+            fi
           elif [[ "${{ needs.evaluate.result }}" == "skipped" && "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
-            STATE="success"
-            DESC="No skills to evaluate"
+            if [[ "${{ needs.discover.outputs.dotnet11_excluded }}" == "true" ]]; then
+              STATE="pending"
+              DESC="dotnet11 skills skipped — use /evaluate --dotnet11 to include"
+            else
+              STATE="success"
+              DESC="No skills to evaluate"
+            fi
           elif [[ "${{ needs.build-validator.result }}" == "failure" ]]; then
             STATE="failure"
             DESC="Validator build failed"
@@ -827,7 +879,11 @@ jobs:
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           if [[ "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
-            BODY="⏭️ No skills to evaluate — no changed skills with tests were found in this PR. [View workflow run](${RUN_URL})"
+            if [[ "${{ needs.discover.outputs.dotnet11_excluded }}" == "true" ]]; then
+              BODY="⚠️ dotnet11 skills were excluded from evaluation. To evaluate them, post \`/evaluate --dotnet11\` (requires .NET 11 preview SDK). [View workflow run](${RUN_URL})"
+            else
+              BODY="⏭️ No skills to evaluate — no changed skills with tests were found in this PR. [View workflow run](${RUN_URL})"
+            fi
           else
             BODY="❌ Evaluation did not complete (upstream job failed or was skipped). [View workflow run](${RUN_URL})"
           fi

@@ -253,17 +253,37 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 - **Rewrite the prompt** to be purely diagnostic (e.g., "Don't modify any files — just explain the root cause") to prevent the agent from spending time on tool calls
 - **Remove the scenario** if the model consistently scores 5.0/5 without the skill — it isn't testing the skill's value
 
+### 9. dotnet11 plugin excluded by default
+
+**Symptoms:**
+- Evaluation reports "No skills to evaluate" or exits with "All discovered skills belong to the dotnet11 plugin"
+- The `evaluation-status` commit status shows `pending` with "dotnet11 skills skipped"
+- A PR comment says "dotnet11 skills were excluded from evaluation"
+- The skill-validator exits with code 1 when targeting a dotnet11 skill path locally
+
+**Cause:** The `dotnet11` plugin requires the .NET 11 preview SDK, which is not installed by default. To avoid requiring preview SDK installation on every evaluation run, dotnet11 skills are excluded unless explicitly opted in. This applies to:
+- **Scheduled (nightly) runs** — dotnet11 is in the `$excludeFromSchedule` list alongside `dotnet-experimental`
+- **PR `/evaluate` runs** — dotnet11 entries are filtered from the discover job unless the `--dotnet11` flag is passed
+- **Infra-only PR runs** — dotnet11 is excluded from the random plugin subset
+- **Local skill-validator** — the `evaluate` command filters out dotnet11 skills unless `--include-dotnet11` is passed
+
+**Fixes:**
+- **For PR evaluation:** post `/evaluate --dotnet11` instead of `/evaluate`. This installs the .NET 11 preview SDK and passes `--include-dotnet11` to the validator.
+- **For local evaluation:** pass `--include-dotnet11` to the `skill-validator evaluate` command, and ensure the .NET 11 preview SDK is installed on your machine.
+- **This is expected behavior, not a bug** — if a PR only touches dotnet11 files and the commenter uses `/evaluate` without `--dotnet11`, the status will remain `pending` until `/evaluate --dotnet11` is posted.
+
 ## When multiple patterns apply
 
 Most failing scenarios match 2–3 patterns simultaneously (e.g., timeout + token overhead + high variance). Fix them in this priority order:
 
 1. **Timeouts (#1)** — if the model can't finish, nothing else matters. Increase timeout first.
-2. **Skill not activated (#5)** — if the skill never loaded, fix the description before tuning anything else.
-3. **Baseline already bad (#2)** — if the baseline scores ≤2.0/5, the scenario may need simplification regardless of the skill.
-4. **Baseline already good (#8)** — if the baseline scores ≥4.5/5, consider adding `reject_tools`, making the scenario harder, or removing it.
-5. **High variance (#3)** — if `perRunScores` are unstable, a single eval run is unreliable. Re-run before concluding the skill is broken.
-6. **Rubric/judgment issues (#6, #7)** — once the runs are stable, tune the rubric.
-7. **Token overhead (#4)** — only optimize if quality is already good but the weighted score is marginally negative.
+2. **dotnet11 excluded (#9)** — if the plugin is dotnet11, re-run with `/evaluate --dotnet11` before investigating further.
+3. **Skill not activated (#5)** — if the skill never loaded, fix the description before tuning anything else.
+4. **Baseline already bad (#2)** — if the baseline scores ≤2.0/5, the scenario may need simplification regardless of the skill.
+5. **Baseline already good (#8)** — if the baseline scores ≥4.5/5, consider adding `reject_tools`, making the scenario harder, or removing it.
+6. **High variance (#3)** — if `perRunScores` are unstable, a single eval run is unreliable. Re-run before concluding the skill is broken.
+7. **Rubric/judgment issues (#6, #7)** — once the runs are stable, tune the rubric.
+8. **Token overhead (#4)** — only optimize if quality is already good but the weighted score is marginally negative.
 
 ## Improving the skill vs. gaming the eval
 
