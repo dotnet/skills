@@ -469,7 +469,7 @@ scenarios:
       - "Uses Assert.IsNull to verify that resolving an unregistered service returns null"
       - "Uses Assert.IsEmpty to verify that GetAll returns an empty collection after Clear"
       - "Verifies that a removed service is no longer resolvable (e.g., Assert.DoesNotContain or Assert.IsNull after Remove)"
-      - "The written tests reference correct class and method names and would build with zero errors against the provided source"
+      - "The written tests reference correct class and method names from the provided source code"
     timeout: 180
 
   # ============================================================================
@@ -528,6 +528,4 @@ scenarios:
       - "Shows assembly-level Parallelize attribute configuration with Workers and Scope"
       - "Uses [DoNotParallelize] on the database integration test class to opt it out of parallel execution"
       - "Suggests putting the MSTest.Sdk version in global.json so all test projects stay in sync"
-    timeout: 120
-      - "Notes this requires MSTest 3.7+"
     timeout: 120
