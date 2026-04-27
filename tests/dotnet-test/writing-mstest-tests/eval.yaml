@@ -4,7 +4,7 @@ scenarios:
   # ============================================================================
 
   - name: "Write unit tests for a service class"
-    prompt: "I need to write MSTest unit tests for my OrderService class. Can you help me write comprehensive tests?"
+    prompt: "I need to write MSTest unit tests for my OrderService class following modern MSTest best practices. I want sealed classes, proper assertion APIs like Assert.ThrowsExactly, and the AAA pattern."
     setup:
       copy_test_files: true
     assertions:
@@ -90,7 +90,7 @@ scenarios:
 
   - name: "Fix swapped Assert.AreEqual arguments"
     prompt: |
-      Something seems off about my test assertions. Can you review these tests and fix any issues?
+      I think I have the Assert.AreEqual arguments in the wrong order in my MSTest tests. Can you fix them?
 
       ```csharp
       [TestClass]
@@ -269,7 +269,7 @@ scenarios:
 
   - name: "Use DynamicData with ValueTuples over object arrays"
     prompt: |
-      I have this data-driven test using object arrays. Is there a better way?
+      I have this MSTest data-driven test using object arrays for DynamicData. Is there a more type-safe way to do this in modern MSTest?
 
       ```csharp
       [TestMethod]
@@ -304,7 +304,7 @@ scenarios:
 
   - name: "Use string assertions for format validation"
     prompt: |
-      Help me write MSTest tests for this formatting utility. I want to thoroughly validate the output formats.
+      Help me write MSTest tests for this formatting utility. I want to use the right MSTest string assertion methods like StartsWith and EndsWith to validate the output formats.
 
       ```csharp
       namespace Contoso.Text;
