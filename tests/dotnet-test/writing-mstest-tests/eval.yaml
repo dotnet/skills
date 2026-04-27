@@ -206,12 +206,11 @@ scenarios:
       - type: output_matches
         pattern: "ContainsSingle|Assert\\.IsNotNull"
     rubric:
-      - "Replaces Assert.IsTrue(users.Count > 0) with Assert.IsNotEmpty(users) or similar"
-      - "Replaces Assert.IsTrue(users.Count() == 3) with Assert.HasCount(3, users)"
-      - "Replaces users.Single() with Assert.ContainsSingle for better failure messages"
-      - "Uses Assert.IsNotNull instead of Assert.IsTrue(x != null)"
-      - "Uses Assert.Contains for checking specific items in collections"
-      - "Explains that specialized assertions give better failure messages than generic Assert.IsTrue"
+      - "The non-empty validation no longer relies on a generic Assert.IsTrue boolean check — it uses a dedicated assertion that clearly reports 'collection was empty' on failure"
+      - "The exact-count validation uses a count-specific or equality assertion rather than wrapping the comparison in Assert.IsTrue"
+      - "The single-element lookup uses an assertion that produces a meaningful failure message when zero or multiple elements match, rather than throwing an unrelated exception"
+      - "The null check uses a null-specific assertion rather than Assert.IsTrue with a boolean null comparison"
+      - "Explains why specialized assertions produce better failure diagnostics than generic Assert.IsTrue"
     timeout: 120
 
   - name: "Use proper type assertions instead of casts"
@@ -235,10 +234,10 @@ scenarios:
       - type: output_matches
         pattern: "IsInstanceOfType"
     rubric:
-      - "Replaces hard cast (EmailHandler)result with Assert.IsInstanceOfType<EmailHandler>(result)"
-      - "Shows how to use the typed result from IsInstanceOfType for further assertions"
-      - "Explains that IsInstanceOfType provides a clear failure message showing actual vs expected type"
-      - "Distinguishes MSTest 3.x (out parameter) vs 4.x (direct return) syntax"
+      - "Replaces the hard cast with a type-checking assertion that produces a clear failure message showing the actual type when the type does not match"
+      - "Shows how to access the strongly-typed result after the type check so further property assertions can be made without a separate cast"
+      - "Explains the diagnostic benefit — a type assertion failure message shows expected vs actual type, while a hard cast just throws InvalidCastException"
+      - "Covers both MSTest 3.x and 4.x syntax variants for type assertions (out parameter vs direct return)"
     timeout: 120
 
   # ============================================================================
@@ -409,7 +408,7 @@ scenarios:
   # ============================================================================
 
   - name: "Write tests with collection, null, and reference assertions"
-    prompt: "Write MSTest tests for my ServiceRegistry class. I need tests that verify registration, resolution returning the same instance, null for unregistered services, clearing all services, and removal."
+    prompt: "Write MSTest tests for my ServiceRegistry class using the most appropriate assertion for each check. I need tests that verify registration, resolution returning the same instance, null for unregistered services, clearing all services, and removal."
     setup:
       files:
         - path: "src/ServiceRegistry.cs"
@@ -465,10 +464,10 @@ scenarios:
         path: "tests/*.cs"
         value: "[TestClass]"
     rubric:
-      - "Uses Assert.AreSame to verify that resolving a registered service returns the exact same instance"
-      - "Uses Assert.IsNull to verify that resolving an unregistered service returns null"
-      - "Uses Assert.IsEmpty to verify that GetAll returns an empty collection after Clear"
-      - "Verifies that a removed service is no longer resolvable (e.g., Assert.DoesNotContain or Assert.IsNull after Remove)"
+      - "Verifies reference identity (same object instance, not just value equality) when testing that resolving a registered service returns the exact object that was registered"
+      - "Checks that resolving an unregistered service type returns null, using a null-specific assertion rather than a boolean check"
+      - "Asserts the collection is empty after calling Clear, using a dedicated empty-collection assertion rather than checking count manually"
+      - "Verifies that a removed service is no longer resolvable after calling Remove (e.g., returns null or is absent from the collection)"
       - "The written tests reference correct class and method names from the provided source code"
     timeout: 180
 
