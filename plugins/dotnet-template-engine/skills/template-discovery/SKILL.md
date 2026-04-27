@@ -11,6 +11,7 @@ description: >
   DO NOT USE FOR: actually creating projects (use template-instantiation), authoring
   custom templates (use template-authoring), MSBuild or build issues (use dotnet-msbuild
   plugin), NuGet package management unrelated to template packages.
+license: MIT
 ---
 
 # Template Discovery

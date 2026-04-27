@@ -9,6 +9,7 @@ description: >
   DO NOT USE FOR: debugging or running existing servers (use mcp-csharp-debug), writing tests
   (use mcp-csharp-test), publishing or deploying (use mcp-csharp-publish), building MCP
   clients, non-.NET MCP servers.
+license: MIT
 ---
 
 # C# MCP Server Creation

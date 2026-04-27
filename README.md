@@ -4,6 +4,8 @@
 
 This repository contains the .NET team's curated set of core skills and custom agents for coding agents. For information about the Agent Skills standard, see [agentskills.io](https://agentskills.io).
 
+[**📊 Dashboard**](https://dotnet.github.io/skills/) - Accuracy and efficiency scoring trends for contained plugins (https://dotnet.github.io/skills/)
+
 ## What's Included
 
 | Plugin | Description |
@@ -85,18 +87,6 @@ Install individual skills using the `skill-installer` CLI with the GitHub URL:
 ```bash
 $ skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<plugin>/skills/<skill-name>
 ```
-
-### ⚡ Agentic Workflows
-
-Some plugins include [GitHub Agentic Workflow](https://github.com/github/gh-aw) templates for CI/CD automation:
-
-1. Install the `gh aw` CLI extension
-2. Copy the desired workflow `.md` files and the `shared/` directory to your repository's `.github/workflows/`
-3. Compile and commit:
-   ```
-   gh aw compile
-   ```
-4. Commit both the `.md` and generated `.lock.yml` files
 
 ## Contributing
 

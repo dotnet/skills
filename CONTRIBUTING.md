@@ -11,7 +11,7 @@ Because these artifacts can affect many users and workflows, we prioritize corre
 
 ## Code ownership
 
-Every plugin, skill, agent, and agentic workflow must have designated owners in the `.github/CODEOWNERS` file. When you add a new skill, agent, or workflow, add a matching CODEOWNERS entry. Ownership must be either:
+Every plugin, skill, and agent must have designated owners in the `.github/CODEOWNERS` file. When you add a new skill or agent, add a matching CODEOWNERS entry. Ownership must be either:
 
 - **Two or more FTE GitHub aliases** (e.g., `@user1 @user2`), or
 - **A GitHub team alias** (e.g., `@dotnet/my-team`)
@@ -37,8 +37,6 @@ tests/
     <skill-name>/
       eval.yaml
       <fixture files>
-agentic-workflows/
-  <plugin>/
 ```
 
 Every plugin must have a plugin.json file in the plugin root that is linked to from the marketplace.json file.

@@ -6,6 +6,7 @@ description: >
   DO NOT USE FOR: migrating between test frameworks (MSTest/NUnit to
   xUnit.net), migrating from VSTest to Microsoft.Testing.Platform
   (use migrate-vstest-to-mtp).
+license: MIT
 ---
 
 # xunit.v3 Migration

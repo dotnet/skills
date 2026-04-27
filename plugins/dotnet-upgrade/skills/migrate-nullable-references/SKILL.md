@@ -9,6 +9,7 @@ description: >
   suppressions), fixing a handful of nullable warnings in code that already has NRTs enabled,
   suppressing warnings without fixing them, C# 7.3 or earlier projects.
   INVOKES: Get-NullableReadiness.ps1 scanner script.
+license: MIT
 ---
 
 # Nullable Reference Migration

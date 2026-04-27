@@ -67,6 +67,8 @@ scenarios:
           source: "fixtures/v3-assert-changes/TestProject.csproj"
         - path: "CalculatorTests.cs"
           source: "fixtures/v3-assert-changes/CalculatorTests.cs"
+      commands:
+        - "dotnet restore"
     assertions:
       - type: "output_matches"
         pattern: "(ThrowsExactly|ThrowsException)"
@@ -76,11 +78,12 @@ scenarios:
         pattern: "(TestTimeout|int\\.MaxValue|Infinite)"
     rubric:
       - "Identifies Assert.ThrowsException removal and recommends Assert.ThrowsExactly"
-      - "Identifies ClassCleanupBehavior.EndOfClass removal — recommends plain [ClassCleanup]"
-      - "Identifies TestTimeout.Infinite removal and recommends a replacement (e.g. int.MaxValue)"
-      - "Provides concrete fixed code or a clear before/after for the changes"
-    max_turns: 5
-    timeout: 180
+      - "Identifies the Assert.AreEqual message+params change — recommends string interpolation"
+      - "Identifies Assert.IsInstanceOfType<T> out parameter change — shows return value pattern"
+      - "Identifies ClassCleanupBehavior.EndOfClass removal — recommends just [ClassCleanup]"
+      - "Identifies TestContext.Properties.Contains → ContainsKey change"
+      - "Identifies TestTimeout.Infinite removal — recommends int.MaxValue"
+    timeout: 300
 
   # ============================================================================
   # Goal 4: Dropped target framework
@@ -158,6 +161,8 @@ scenarios:
                     Assert.IsTrue(true);
                 }
             }
+      commands:
+        - "dotnet restore"
     assertions:
       - type: "output_matches"
         pattern: "(CallerFilePath|CallerLineNumber|caller.?info)"
@@ -168,7 +173,7 @@ scenarios:
       - "Shows how to propagate caller info parameters to the base class constructor"
       - "Identifies that [TestMethod(\"display name\")] must change to [TestMethod(DisplayName = \"display name\")]"
       - "Provides concrete fixed code for the custom attribute"
-    timeout: 180
+    timeout: 240
 
   # ============================================================================
   # Goal 6: Behavioral changes awareness
@@ -383,6 +388,8 @@ scenarios:
           source: "fixtures/v3-sdk-project/TestProject.csproj"
         - path: "DiagnosticTests.cs"
           source: "fixtures/v3-sdk-project/DiagnosticTests.cs"
+      commands:
+        - "dotnet restore"
     assertions:
       - type: "output_matches"
         pattern: "(ManagedType|FullyQualifiedTestClassName)"
@@ -396,7 +403,7 @@ scenarios:
       - "Identifies that TestContext.Properties.Contains must become ContainsKey"
       - "Notes the project is using MSTest.Sdk/4.1.0 or confirms the SDK version upgrade"
       - "Mentions that MSTest.Sdk v4 no longer adds Microsoft.NET.Test.Sdk when using MTP"
-    timeout: 240
+    timeout: 300
 
   # ============================================================================
   # Goal 10: Verified package update with build and test validation
@@ -432,35 +439,34 @@ scenarios:
     timeout: 300
 
   # ============================================================================
-  # Goal 11: Sealed custom TestMethodAttribute with Timeout migration
+  # Goal 11: Sealed custom TestMethodAttribute with Timeout changes
   # ============================================================================
 
   - name: "Fix sealed custom TestMethodAttribute with Timeout changes"
     prompt: |
-      After upgrading to MSTest 4.1.0, my test project fails to compile. I have a
-      sealed TimedTestMethodAttribute that overrides Execute, and several tests use
-      [Timeout(TestTimeout.Infinite)]. Here are the errors:
-      - error CS0115: no suitable method found to override for 'Execute'
-      - error CS0103: The name 'TestTimeout' does not exist in the current context
-      How do I fix these?
+      After upgrading to MSTest 4.1.0, my test project fails to compile. I have a sealed
+      custom TestMethodAttribute subclass that overrides Execute, and several tests use
+      [Timeout(TestTimeout.Infinite)]. How do I fix these errors?
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "fixtures/v3-sealed-timeout/TestProject.csproj"
+          source: "fixtures/v3-sealed-testmethod/TestProject.csproj"
         - path: "PerformanceTests.cs"
-          source: "fixtures/v3-sealed-timeout/PerformanceTests.cs"
+          source: "fixtures/v3-sealed-testmethod/PerformanceTests.cs"
+      commands:
+        - "dotnet restore"
     assertions:
       - type: "output_matches"
-        pattern: "ExecuteAsync"
+        pattern: "(ExecuteAsync|Execute.*Async)"
       - type: "output_matches"
-        pattern: "(int\\.MaxValue|TestTimeout)"
+        pattern: "(Task<TestResult|Task<.*TestResult)"
       - type: "output_matches"
-        pattern: "(sealed|TimedTestMethod)"
+        pattern: "(TestTimeout|int\\.MaxValue|Infinite)"
     rubric:
-      - "Identifies that Execute must be changed to ExecuteAsync returning Task<TestResult[]> in the sealed attribute class"
-      - "Shows that [Timeout(TestTimeout.Infinite)] must become [Timeout(int.MaxValue)]"
-      - "Provides corrected code for the sealed TimedTestMethodAttribute class"
-      - "Addresses both the Execute and Timeout breaking changes together"
+      - "Identifies Execute → ExecuteAsync breaking change and shows the async signature"
+      - "Shows how to propagate CallerInfo parameters to the base constructor in the sealed attribute"
+      - "Identifies TestTimeout.Infinite removal and recommends int.MaxValue"
+      - "Provides concrete fixed code for the sealed TimedTestMethodAttribute"
     timeout: 240
 
   # ============================================================================

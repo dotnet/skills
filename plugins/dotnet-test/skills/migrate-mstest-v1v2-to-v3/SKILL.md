@@ -17,6 +17,7 @@ description: >
   DO NOT USE FOR: migrating to MSTest v4 (use migrate-mstest-v3-to-v4),
   migrating between frameworks (MSTest to xUnit/NUnit), or general .NET
   upgrades unrelated to MSTest.
+license: MIT
 ---
 
 # MSTest v1/v2 -> v3 Migration

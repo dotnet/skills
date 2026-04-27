@@ -108,14 +108,6 @@ public sealed class ClassNameTests
 }
 ```
 
-## Coverage XML Parsing
-
-If `.testagent/initial_coverage.xml` exists, it uses Cobertura/VS format:
-
-- `module` elements with `line_coverage` attribute — identifies which assemblies have low coverage
-- `function` elements with `line_coverage="0.00"` — identifies completely untested methods
-- `range` elements with `covered="no"` — identifies specific uncovered lines
-
 ## Skip Coverage Tools
 
 Do not configure or run code coverage measurement tools (coverlet, dotnet-coverage, XPlat Code Coverage). These tools have inconsistent cross-configuration behavior and waste significant time. Coverage is measured separately by the evaluation harness.

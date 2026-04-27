@@ -9,6 +9,7 @@ description: >
   crashes, memory leaks, or corruption at the managed/native boundary.
   DO NOT USE FOR: COM interop, C++/CLI mixed-mode assemblies, or pure managed code with
   no native dependencies.
+license: MIT
 ---
 
 # .NET P/Invoke

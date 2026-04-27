@@ -1,6 +1,7 @@
 ---
 name: test-anti-patterns
 description: "Quick pragmatic detection-focused review of .NET test code for anti-patterns that undermine reliability and diagnostic value. Use when asked to audit test quality, investigate flaky or coupled tests, find duplication or magic values, or when tests pass but don't actually verify anything. Best for identifying and prioritizing issues in existing tests with severity-ranked findings and targeted remediation guidance. Catches assertion gaps, swallowed exceptions, always-true assertions, flakiness indicators, test coupling, over-mocking, naming issues, magic values, duplicate tests, and structural problems. Do NOT use for direct MSTest API rewrites or implementation-only fixes (for example swapped Assert.AreEqual argument order or converting `DynamicData` from `IEnumerable<object[]>` to `ValueTuple`) — use writing-mstest-tests instead. For a deep formal audit based on academic test smell taxonomy, use exp-test-smell-detection instead. Works with MSTest, xUnit, NUnit, and TUnit."
+license: MIT
 ---
 
 # Test Anti-Pattern Detection

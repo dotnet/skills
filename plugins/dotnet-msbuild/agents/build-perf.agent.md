@@ -3,6 +3,7 @@ name: build-perf
 description: "Agent for diagnosing and optimizing MSBuild build performance. Runs multi-step analysis: generates binlogs, analyzes timeline and bottlenecks, identifies expensive targets/tasks/analyzers, and suggests concrete optimizations. Invoke when builds are slow or when asked to optimize build times."
 user-invokable: true
 disable-model-invocation: false
+license: MIT
 ---
 
 # Build Performance Agent

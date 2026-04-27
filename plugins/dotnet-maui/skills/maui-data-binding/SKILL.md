@@ -13,6 +13,7 @@ description: >-
   maui-collectionview), Shell navigation data passing (use
   maui-shell-navigation), dependency injection (use maui-dependency-injection),
   or animations triggered by property changes (use .NET MAUI animation APIs).
+license: MIT
 ---
 
 # .NET MAUI Data Binding

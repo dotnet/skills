@@ -35,6 +35,12 @@ internal static class LlmSession
     {
         var client = await AgentRunner.GetSharedClient(verbose);
 
+        // Judge/analyzer sessions don't persist data, but SessionFs on the client
+        // requires every session to provide a CreateSessionFsHandler.
+        var tempConfigDir = Path.Combine(Path.GetTempPath(), $"sv-judge-{Guid.NewGuid():N}");
+        try
+        {
+
         await using var session = await client.CreateSessionAsync(new SessionConfig
         {
             Model = model,
@@ -46,6 +52,7 @@ internal static class LlmSession
                 Content = systemPrompt,
             },
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
+            CreateSessionFsHandler = _ => new LocalSessionFsHandler(tempConfigDir),
             OnPermissionRequest = onPermissionRequest ?? ((_, _) => Task.FromResult(new PermissionRequestResult
             {
                 Kind = PermissionRequestResultKind.DeniedByRules,
@@ -92,5 +99,10 @@ internal static class LlmSession
             throw new InvalidOperationException($"{timeoutLabel} returned no content");
 
         return new LlmResponse(content, new TokenUsage(inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens));
+        } // try
+        finally
+        {
+            try { Directory.Delete(tempConfigDir, true); } catch { }
+        }
     }
 }

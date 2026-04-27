@@ -11,6 +11,7 @@ description: >
   version conflict resolution, build validation with binlog comparison, and a structured
   post-conversion report. DO NOT USE FOR: packages.config projects (must migrate to
   PackageReference first) or repositories that already have CPM fully enabled.
+license: MIT
 ---
 
 # Convert to Central Package Management

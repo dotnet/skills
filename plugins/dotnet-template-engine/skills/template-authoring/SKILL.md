@@ -10,6 +10,7 @@ description: >
   DO NOT USE FOR: finding or using existing templates (use template-discovery and
   template-instantiation), MSBuild project file issues unrelated to template authoring,
   NuGet package publishing (only template packaging structure).
+license: MIT
 ---
 
 # Template Authoring

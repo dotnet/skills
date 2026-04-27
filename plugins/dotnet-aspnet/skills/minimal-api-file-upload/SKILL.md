@@ -1,6 +1,7 @@
 ---
 name: minimal-api-file-upload
 description: File upload endpoints in ASP.NET minimal APIs (.NET 8+)
+license: MIT
 ---
 
 # Implementing File Uploads in ASP.NET Core Minimal APIs

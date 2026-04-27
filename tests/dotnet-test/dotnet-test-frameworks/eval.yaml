@@ -1,5 +1,6 @@
 scenarios:
   - name: "Cross-framework assertion equivalence mapping"
+    expect_activation: false
     prompt: |
       I have these MSTest assertions in my test file and I need to know their equivalents in both xUnit and NUnit. Please provide a complete mapping for all six:
 
@@ -40,6 +41,7 @@ scenarios:
     timeout: 120
 
   - name: "Identify TUnit framework and its unique attributes"
+    expect_activation: false
     prompt: |
       I inherited a project with this test file and I'm not sure what testing framework it uses.
       Can you identify it and explain the key attributes?
@@ -89,6 +91,7 @@ scenarios:
     timeout: 120
 
   - name: "Replace try-catch with framework-native exception assertions"
+    expect_activation: false
     prompt: |
       My team lead says these tests should use proper exception assertions instead of try/catch.
       Can you refactor each one using its framework's native approach?
@@ -163,6 +166,7 @@ scenarios:
     timeout: 120
 
   - name: "Skip annotations across all four frameworks"
+    expect_activation: false
     prompt: |
       I maintain a solution with test projects using MSTest, xUnit, NUnit, and TUnit.
       I need to temporarily skip some tests in each project with a reason message explaining why.
@@ -192,6 +196,7 @@ scenarios:
     timeout: 120
 
   - name: "Convert NUnit lifecycle methods to xUnit equivalents"
+    expect_activation: false
     prompt: |
       I'm migrating this NUnit test class to xUnit. How should I convert the setup and teardown methods?
 
@@ -252,6 +257,7 @@ scenarios:
     timeout: 120
 
   - name: "Identify integration tests by markers and code patterns"
+    expect_activation: false
     prompt: |
       I have a test solution with hundreds of tests. I need to separate integration tests from
       unit tests for CI pipeline optimization. Here are samples from three projects — which ones

@@ -14,6 +14,7 @@ description: >
   MSTest.Sdk MTP changes, dropped TFMs (net6.0/net7.0 to net8.0+).
   DO NOT USE FOR: migrating from MSTest v1/v2 to v3 (use migrate-mstest-v1v2-to-v3
   first), migrating between test frameworks, or general .NET upgrades.
+license: MIT
 ---
 
 # MSTest v3 -> v4 Migration
