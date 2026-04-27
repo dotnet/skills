@@ -1202,8 +1202,8 @@ jobs:
 
   # ==========================================================================
   # DEPLOY DASHBOARD
-  # Scheduled runs only: assemble data from both branches + UI → gh-pages
-  # No data generation — pure copy and deploy.
+  # Scheduled runs + manual dispatch on main: assemble data from both
+  # branches + UI → gh-pages. No data generation — pure copy and deploy.
   # ==========================================================================
   deploy-dashboard:
     needs: [discover, publish-token-data, publish-eval-data, publish-session-data]
