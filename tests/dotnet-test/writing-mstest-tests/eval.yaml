@@ -133,6 +133,8 @@ scenarios:
           source: "fixtures/legacy-antipatterns/PriceCalculatorTests.cs"
         - path: "PriceCalculator.cs"
           source: "fixtures/legacy-antipatterns/PriceCalculator.cs"
+      commands:
+        - "dotnet restore"
     assertions:
       - type: output_matches
         pattern: "\\bsealed\\b"
@@ -149,7 +151,7 @@ scenarios:
       - "Improves test naming to be descriptive (replaces 'Test1', 'TestNegativeQuantity')"
       - "Replaces hard cast with Assert.IsInstanceOfType"
       - "Replaces manual foreach test data loop with [DataRow] or [DynamicData] attributes"
-    timeout: 180
+    timeout: 300
 
   - name: "Replace ExpectedException with Assert.Throws"
     prompt: |
