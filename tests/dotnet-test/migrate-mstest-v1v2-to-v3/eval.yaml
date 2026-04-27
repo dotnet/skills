@@ -62,9 +62,10 @@ scenarios:
 
   - name: "Fix Assert.AreEqual object overload errors after v3 upgrade"
     prompt: |
-      After upgrading my MSTest NuGet packages to the latest major version, several
-      of my tests no longer compile. I'm seeing errors on various Assert calls. Can
-      you review my test file and fix the compilation issues?
+      I just upgraded my MSTest packages from v2 to v3 and now several of my tests
+      no longer compile. I'm seeing errors like CS1501 on Assert.AreEqual,
+      Assert.AreNotEqual, and Assert.AreSame calls. Can you help me fix these
+      MSTest v3 compatibility issues?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -73,6 +74,7 @@ scenarios:
               <PropertyGroup>
                 <TargetFramework>net8.0</TargetFramework>
               </PropertyGroup>
+              <!-- Upgraded from MSTest.TestFramework 2.2.10 + MSTest.TestAdapter 2.2.10 -->
               <ItemGroup>
                 <PackageReference Include="MSTest" Version="3.8.0" />
               </ItemGroup>
