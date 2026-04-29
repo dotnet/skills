@@ -227,7 +227,7 @@ jobs:
         id: parse-flags
         run: |
           COMMENT_BODY="${{ github.event.comment.body }}"
-          if echo "$COMMENT_BODY" | grep -qwF -- '--dotnet11'; then
+          if echo "$COMMENT_BODY" | grep -qwE -- '--(include-)?dotnet11'; then
             echo "include_dotnet11=true" >> $GITHUB_OUTPUT
             echo "Flag --dotnet11 detected"
           else
