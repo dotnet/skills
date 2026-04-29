@@ -34,9 +34,9 @@ Based on the request scope, pick exactly one strategy and follow it:
 
 | Strategy | When to use | What to do |
 | ---------- | ------------- | ------------ |
-| **Direct** | A small, self-contained request (e.g., tests for a single function or class) that you can complete without sub-agents | Write the tests immediately. Skip Steps 3-5 (research, plan, implement sub-agents). Then proceed to Steps 6-9 for validation and reporting. |
-| **Single pass** | A moderate scope (couple projects or modules) that a single Research → Plan → Implement cycle can cover | Execute Steps 3-8 once, then proceed to Step 9. |
-| **Iterative** | A large scope or ambitious coverage target that one pass cannot satisfy | Execute Steps 3-8, then re-evaluate coverage. If the target is not met, repeat Steps 3-8 with a narrowed focus on remaining gaps. Use unique names for each iteration's `.testagent/` documents (e.g., `research-2.md`, `plan-2.md`) so earlier results are not overwritten. Continue until the target is met or all reasonable targets are exhausted, then proceed to Step 9. |
+| **Direct** | A small, self-contained request (e.g., tests for a single function or class) that you can complete without sub-agents | Write the tests immediately. Skip Steps 3-5 (research, plan, implement sub-agents). Then proceed to Steps 6-10 for validation, manifest, and reporting. |
+| **Single pass** | A moderate scope (couple projects or modules) that a single Research → Plan → Implement cycle can cover | Execute Steps 3-8 once, then proceed to Steps 9-10. |
+| **Iterative** | A large scope or ambitious coverage target that one pass cannot satisfy | Execute Steps 3-8, then re-evaluate coverage. If the target is not met, repeat Steps 3-8 with a narrowed focus on remaining gaps. Use unique names for each iteration's `.testagent/` documents (e.g., `research-2.md`, `plan-2.md`) so earlier results are not overwritten. Continue until the target is met or all reasonable targets are exhausted, then proceed to Steps 9-10. |
 
 **Strategy decision examples:**
 
@@ -49,7 +49,7 @@ Based on the request scope, pick exactly one strategy and follow it:
 | "Generate comprehensive tests for my ASP.NET app" | Single pass | If the app has fewer than 10 controllers/services/files in scope, one R→P→I cycle should cover it |
 | "Generate comprehensive tests for my large ASP.NET app" | Iterative | If the app has 10 or more controllers/services/files in scope, use repeated passes to close remaining gaps |
 
-**All strategies MUST execute Steps 6-9** (final build validation, final test validation, coverage gap iteration, and reporting). These steps are never skipped.
+**All strategies MUST execute Steps 6-10** (final build validation, final test validation, coverage gap iteration, test manifest, and reporting). These steps are never skipped.
 
 ### Step 3: Research Phase
 
@@ -117,7 +117,25 @@ After the previous phases complete, check for uncovered source files:
 4. Generate tests for each uncovered file, build, test, and fix.
 5. Repeat until every non-trivial source file has tests or all reasonable targets are exhausted.
 
-### Step 9: Report Results
+### Step 9: Write Test Manifest
+
+If the directory `/logs/agent` exists (benchmark environments), write a manifest listing all test files and test names:
+
+```bash
+mkdir -p /logs/agent
+cat <<'EOF' > /logs/agent/manifest.txt
+<<TEST_MANIFEST>>
+- file: <relative path to test file>
+  tests:
+    - <test function/method name 1>
+    - <test function/method name 2>
+<<TEST_MANIFEST>>
+EOF
+```
+
+Include **every test file created** and **every test function/method name** within it. The manifest must match the actual code changes. Skip this step if `/logs/agent` does not exist.
+
+### Step 10: Report Results
 
 Summarize tests created, report any failures or issues, suggest next steps if needed.
 
@@ -172,5 +190,5 @@ All state is stored in `.testagent/` folder:
 8. **Fix assertions, don't skip tests** — when tests fail, read production code and fix the expected value; never `[Ignore]` or `[Skip]`
 9. **Clean up `.testagent/`** — after pipeline completion, delete the `.testagent/` folder or advise the user to add it to `.gitignore` so ephemeral state is not committed
 10. **Read language extensions first** — always call the `code-testing-extensions` skill and read the relevant extension file before writing any code; it contains critical project registration and build validation steps
-11. **Always validate** — final build, final test, coverage-gap review, and reporting are mandatory for ALL strategies including Direct; never skip final validation
+11. **Always validate** — final build, final test, coverage-gap review, test manifest, and reporting are mandatory for ALL strategies including Direct; never skip final validation
 12. **Preserve existing tests** — never delete or overwrite existing test files; create new files or append to existing ones
