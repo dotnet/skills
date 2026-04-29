@@ -32,8 +32,9 @@ Given a phase from the plan, write all the test files for that phase and ensure 
 
 For each file in your phase:
 
-- Read the source file completely
-- Understand the public API — verify exact parameter types, count, and order before calling any method in test code
+- **Read the entire source file** — do not write tests based on function names or signatures alone
+- Understand the public API — verify exact parameter types, count, return types, and **actual return values for key inputs** before writing assertions
+- **Trace the logic** for each code path you plan to test — understand what the function actually does, not what you think it should do
 - Note dependencies and how to mock them
 - **Validate project references**: Read the test project file and verify it references the source project(s) you'll test. Add missing references before creating test files
 
