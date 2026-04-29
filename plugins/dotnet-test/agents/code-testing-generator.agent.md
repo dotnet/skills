@@ -111,9 +111,7 @@ Run tests from the **full workspace scope** with a fresh build (never use `--no-
 
 **Verify tests are implementation-specific:**
 
-- Each test should assert on **concrete values** returned by the function, not just type checks or non-null checks
-- Tests should fail if the function's core logic were removed (e.g., if it returned a default value instead)
-- If a test would pass even with an empty function body, it's not testing anything useful — rewrite it with specific assertions
+- Each test should assert on **concrete values** returned by the function — not just type checks, non-null checks, or other assertions that would still pass if the function body were empty or returned a default value. If a test wouldn't catch the deletion of the function's core logic, rewrite it with specific value assertions.
 
 ### Step 8: Coverage Gap Iteration
 
