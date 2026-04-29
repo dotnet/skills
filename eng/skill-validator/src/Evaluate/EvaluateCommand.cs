@@ -203,18 +203,21 @@ public static class EvaluateCommand
             return 1;
         }
 
-        // Filter out dotnet11 plugin skills unless --include-dotnet11 is passed
+        // Filter out dotnet11 plugin skills and agents unless --include-dotnet11 is passed
         if (!config.IncludeDotnet11)
         {
-            var excluded = discoveredSkills.Where(s => IsDotnet11Plugin(s)).ToList();
-            if (excluded.Count > 0)
+            var excludedSkills = discoveredSkills.Where(s => IsDotnet11Plugin(s)).ToList();
+            var excludedAgents = discoveredAgents.Where(a => IsDotnet11PluginPath(a.Path)).ToList();
+            var excludedCount = excludedSkills.Count + excludedAgents.Count;
+            if (excludedCount > 0)
             {
                 discoveredSkills = discoveredSkills.Where(s => !IsDotnet11Plugin(s)).ToList();
-                Console.WriteLine($"Skipping {excluded.Count} dotnet11 skill(s) (pass --include-dotnet11 to include them)");
+                discoveredAgents = discoveredAgents.Where(a => !IsDotnet11PluginPath(a.Path)).ToList();
+                Console.WriteLine($"Skipping {excludedCount} dotnet11 skill(s)/agent(s) (pass --include-dotnet11 to include them)");
 
                 if (discoveredSkills.Count == 0 && discoveredAgents.Count == 0)
                 {
-                    Console.Error.WriteLine("All discovered skills belong to the dotnet11 plugin which requires .NET 11 preview SDK. " +
+                    Console.Error.WriteLine("All discovered skills/agents belong to the dotnet11 plugin which requires .NET 11 preview SDK. " +
                         "Pass --include-dotnet11 to evaluate them.");
                     return 1;
                 }
@@ -1857,9 +1860,21 @@ public static class EvaluateCommand
 
     private static bool IsDotnet11Plugin(SkillInfo skill)
     {
-        var context = PluginDiscovery.FindPluginContext(skill);
-        return context is not null &&
-               string.Equals(context.Value.Plugin.Name, "dotnet11", StringComparison.OrdinalIgnoreCase);
+        return IsDotnet11PluginPath(skill.Path);
+    }
+
+    private static bool IsDotnet11PluginPath(string path)
+    {
+        var pluginRoot = PluginDiscovery.FindPluginRoot(path);
+        if (pluginRoot is null) return false;
+        var pluginJsonPath = Path.Combine(pluginRoot, "plugin.json");
+        try
+        {
+            var plugin = PluginDiscovery.ParsePluginJson(pluginJsonPath);
+            return plugin is not null &&
+                   string.Equals(plugin.Name, "dotnet11", StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
     }
 
     internal static (Dictionary<string, (PluginInfo Plugin, List<SkillInfo> Skills)> Groups, List<string> Errors)

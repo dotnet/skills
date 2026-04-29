@@ -12,6 +12,19 @@ description: >
 
 New APIs added to `System.Text.Json` across .NET 11 releases.
 
+## When to Use
+
+- Serializing or deserializing JSON in a .NET 11 (or later) project
+- Needing strongly-typed `JsonTypeInfo<T>` access instead of the untyped `JsonTypeInfo` overload
+- Wanting to safely check whether type metadata is available without catching exceptions (`TryGetTypeInfo<T>`)
+- Requiring PascalCase property naming during JSON serialization
+
+## When Not to Use
+
+- The project targets .NET 10 or earlier — these APIs are not available before .NET 11
+- Using a third-party JSON library (e.g., Newtonsoft.Json) instead of `System.Text.Json`
+- The existing untyped `GetTypeInfo(Type)` / `TryGetTypeInfo(Type, ...)` overloads are sufficient
+
 ## Target Framework
 
 ```xml
