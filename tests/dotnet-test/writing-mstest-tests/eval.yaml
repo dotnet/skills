@@ -170,13 +170,10 @@ scenarios:
     assertions:
       - type: output_matches
         pattern: "Assert\\.ThrowsExactly|Assert\\.Throws"
-      - type: output_not_contains
-        value: "[ExpectedException]"
     rubric:
-      - "Replaces [ExpectedException] with Assert.ThrowsExactly<ArgumentNullException> or Assert.Throws<ArgumentNullException>"
-      - "Wraps the call in a lambda: Assert.ThrowsExactly<ArgumentNullException>(() => service.CreateUser(null, \"John\"))"
-      - "Mentions that Assert.Throws/ThrowsExactly allows asserting on the exception properties (message, param name)"
-      - "Explains the difference between Throws (matches derived types) and ThrowsExactly (exact type only)"
+      - "The modernized test removes the ExpectedException attribute and wraps the throwing call in an inline assertion using Assert.ThrowsExactly or Assert.Throws"
+      - "Shows how to capture the thrown exception to verify its properties such as message or parameter name"
+      - "Explains when to prefer ThrowsExactly (exact type match) versus Throws (matches derived types too)"
     timeout: 120
 
   # ============================================================================
