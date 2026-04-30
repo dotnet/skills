@@ -1,8 +1,14 @@
+using Xunit;
+using System.Text.Json;
 using SkillValidator.Check;
 using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[CollectionDefinition("CheckCommandConsole", DisableParallelization = true)]
+public sealed class CheckCommandConsoleCollection;
+
+[Collection("CheckCommandConsole")]
 public class CheckCommandAggregateDescriptionTests
 {
     private static string CreatePluginFixture(string pluginName, params (string skillName, string description)[] skills)
@@ -131,6 +137,7 @@ public class CheckCommandAggregateDescriptionTests
     }
 }
 
+[Collection("CheckCommandConsole")]
 public class DuplicateSkillNameTests
 {
     private static string CreatePluginFixture(string pluginName, params (string skillName, string description)[] skills)
@@ -204,6 +211,7 @@ public class DuplicateSkillNameTests
     }
 }
 
+[Collection("CheckCommandConsole")]
 public class CheckCommandFilePathTests
 {
     private static string CreateSkillFixture(string skillName, string description)
@@ -319,6 +327,142 @@ public class CheckCommandFilePathTests
         {
             Directory.Delete(skillRoot, true);
             Directory.Delete(agentRoot, true);
+        }
+    }
+}
+
+[Collection("CheckCommandConsole")]
+public class CheckCommandJsonOutputTests
+{
+    private static string CreateSkillFixture(string skillName, string description)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"json-test-{Guid.NewGuid():N}");
+        var skillDir = Path.Combine(root, skillName);
+        Directory.CreateDirectory(skillDir);
+        File.WriteAllText(Path.Combine(skillDir, "SKILL.md"),
+            $"---\nname: {skillName}\ndescription: {description}\n---\n# {skillName}\n\nContent.\n");
+        return root;
+    }
+
+    [Fact]
+    public async Task JsonOutput_WithSkills_WritesStructuredReportToStdout()
+    {
+        var root = CreateSkillFixture("json-skill", "A short description.");
+        try
+        {
+            var capture = await ConsoleCapture.RunAsync(() => CheckCommand.Run(new CheckConfig
+            {
+                SkillPaths = [Path.Combine(root, "json-skill")],
+                OutputMode = CheckOutputMode.Json,
+            }));
+
+            Assert.Equal(0, capture.ExitCode);
+            Assert.Equal("", capture.StandardError);
+
+            using var document = JsonDocument.Parse(capture.StandardOutput);
+            var report = document.RootElement;
+            var skill = report.GetProperty("skills")[0];
+            var warning = skill.GetProperty("warnings")[0];
+
+            Assert.Equal(1, report.GetProperty("counts").GetProperty("skillCount").GetInt32());
+            Assert.Equal(1, report.GetProperty("skills").GetArrayLength());
+            Assert.False(report.TryGetProperty("messages", out _));
+            Assert.False(report.TryGetProperty("invocation", out _));
+            Assert.False(report.TryGetProperty("scope", out _));
+            Assert.False(report.TryGetProperty("exitCode", out _));
+            Assert.False(report.TryGetProperty("succeeded", out _));
+            Assert.True(skill.GetProperty("warnings").GetArrayLength() > 0);
+            Assert.Equal("profile", warning.GetProperty("kind").GetString());
+            Assert.False(string.IsNullOrWhiteSpace(warning.GetProperty("message").GetString()));
+            Assert.False(skill.GetProperty("profile").TryGetProperty("warnings", out _));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task JsonFlag_WithMissingPaths_WritesStructuredFailureToStdout()
+    {
+        var command = CheckCommand.Create();
+        var capture = await ConsoleCapture.RunAsync(() => command.Parse(["--json"]).InvokeAsync());
+
+        Assert.Equal(1, capture.ExitCode);
+        Assert.Equal("", capture.StandardError);
+
+        using var document = JsonDocument.Parse(capture.StandardOutput);
+        var report = document.RootElement;
+
+        Assert.Equal(0, report.GetProperty("counts").GetProperty("pluginCount").GetInt32());
+        Assert.Equal(0, report.GetProperty("skills").GetArrayLength());
+        Assert.Contains(report.GetProperty("errors").EnumerateArray(),
+            error => error.GetString()!.Contains("Specify one of --plugin, --skills, or --agents.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task JsonOutput_WithMissingKnownDomains_WritesReferenceFailureToStdout()
+    {
+        var root = CreateSkillFixture("json-skill", "A short description.");
+        try
+        {
+            var missingKnownDomains = Path.Combine(root, "known-domains.txt");
+            var capture = await ConsoleCapture.RunAsync(() => CheckCommand.Run(new CheckConfig
+            {
+                SkillPaths = [Path.Combine(root, "json-skill")],
+                KnownDomainsFile = missingKnownDomains,
+                OutputMode = CheckOutputMode.Json,
+            }));
+
+            Assert.Equal(1, capture.ExitCode);
+            Assert.Equal("", capture.StandardError);
+
+            using var document = JsonDocument.Parse(capture.StandardOutput);
+            var report = document.RootElement;
+
+            Assert.Equal(1, report.GetProperty("skills").GetArrayLength());
+            Assert.Contains(report.GetProperty("errors").EnumerateArray(),
+                error => error.GetString() == $"Known-domains file not found: '{missingKnownDomains}'");
+            Assert.False(report.TryGetProperty("referenceScan", out _));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+}
+
+public sealed record ConsoleCaptureResult(
+    int ExitCode,
+    string StandardOutput,
+    string StandardError);
+
+public static class ConsoleCapture
+{
+    private static readonly SemaphoreSlim s_lock = new(1, 1);
+
+    public static async Task<ConsoleCaptureResult> RunAsync(Func<Task<int>> action)
+    {
+        await s_lock.WaitAsync();
+
+        var originalOut = Console.Out;
+        var originalErr = Console.Error;
+        using var stdout = new StringWriter();
+        using var stderr = new StringWriter();
+
+        Console.SetOut(stdout);
+        Console.SetError(stderr);
+
+        try
+        {
+            var exitCode = await action();
+            return new ConsoleCaptureResult(exitCode, stdout.ToString(), stderr.ToString());
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Console.SetError(originalErr);
+            s_lock.Release();
         }
     }
 }

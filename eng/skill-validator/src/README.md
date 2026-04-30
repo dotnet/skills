@@ -106,6 +106,9 @@ skill-validator check --plugin ./plugins/my-plugin --allowed-external-deps ./eng
 
 # Verbose output
 skill-validator check --verbose --plugin ./plugins/my-plugin
+
+# Emit machine-readable JSON to stdout
+skill-validator check --json --plugin ./plugins/my-plugin
 ```
 
 ## `check` flags
@@ -118,6 +121,7 @@ skill-validator check --verbose --plugin ./plugins/my-plugin
 | `--allowed-external-deps <path>` | *(none)* | Path to allowed-external-deps.txt; when omitted the external-deps check is skipped |
 | `--known-domains <path>` | *(none)* | Path to known-domains.txt for reference scanning; when omitted the reference scan is skipped |
 | `--verbose` | `false` | Show detailed output |
+| `--json` | `false` | Write a machine-readable JSON report to stdout |
 
 > `--plugin` must be used alone. `--skills` and `--agents` can be combined.
 
@@ -367,7 +371,7 @@ The complexity tier is derived from the BPE token count:
 | standard | 2,501 – 5,000 | Approaching diminishing returns |
 | comprehensive | > 5,000 | ✗ Performance degrades |
 
-> **Note:** The `check` command outputs to the console only — it does not write result files. Warnings about skill size are always printed; the full profile line requires `--verbose`.
+> **Note:** The `check` command writes to stdout. Use the default console output for human-readable summaries, or `--json` for a machine-readable payload you can pipe to a file or another tool. Warnings about skill size are always printed in console mode; the full profile line requires `--verbose`.
 
 ## Metrics & scoring
 
