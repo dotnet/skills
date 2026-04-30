@@ -1,5 +1,5 @@
 scenarios:
-  - name: "Test a C# language feature with a script"
+  - name: "Test a C# language feature with a file-based app"
     prompt: "Does C# support creating a stackalloc'd Span of native-sized integers? Can you test it and see?"
     assertions:
       - type: "exit_success"
@@ -13,4 +13,22 @@ scenarios:
     rubric:
       - "Runs the test using 'dotnet <file>.cs' (file-based app) rather than creating a full project with 'dotnet new console'"
       - "The code compiles and runs, demonstrating that stackalloc with Span<nint> works"
+    timeout: 120
+
+  - name: "Compose a file-based app from helper files"
+    prompt: "Can you make and run a tiny C# app that keeps the entry point separate from helper and model files, excludes a scratch file from the build, and prints a transformed person's name?"
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: "#:include"
+      - type: "output_contains"
+        value: "#:exclude"
+      - type: "output_not_matches"
+        pattern: "dotnet new console"
+    expect_tools: ["bash"]
+    rubric:
+      - "Uses a file-based app with an entry-point .cs file rather than creating a project"
+      - "Uses #:include to compile helper/model .cs files with the entry point"
+      - "Uses #:exclude to keep an unwanted scratch/generated .cs file out of the build"
+      - "Runs the app with dotnet <file>.cs and reports the successful output"
     timeout: 120
