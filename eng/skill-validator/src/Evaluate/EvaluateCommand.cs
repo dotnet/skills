@@ -33,7 +33,6 @@ public static class EvaluateCommand
         var noiseSkillsDirOpt = new Option<string?>("--noise-skills-dir") { Description = "Directory containing skills to load as noise. Enables the noise test: re-runs scenarios with all noise skills loaded and measures degradation." };
         var noiseMaxDegradationOpt = new Option<double>("--noise-max-degradation") { Description = "Maximum acceptable average quality degradation (0-1) in noise test (only positive degradations count)", DefaultValueFactory = _ => 0.2 };
         var noiseMaxScenarioDegradationOpt = new Option<double>("--noise-max-scenario-degradation") { Description = "Maximum acceptable quality degradation (0-1) for any single noise-test scenario", DefaultValueFactory = _ => 0.4 };
-        var includeDotnet11Opt = new Option<bool>("--include-dotnet11") { Description = "Include skills in the dotnet11 plugin (excluded by default because it requires .NET 11 preview SDK)" };
 
         var command = new Command("evaluate", "Evaluate agent skills via LLM-based testing")
         {
@@ -60,7 +59,6 @@ public static class EvaluateCommand
             noiseSkillsDirOpt,
             noiseMaxDegradationOpt,
             noiseMaxScenarioDegradationOpt,
-            includeDotnet11Opt,
         };
 
         command.Add(RejudgeCommand.Create());
@@ -112,7 +110,6 @@ public static class EvaluateCommand
                 NoiseSkillsDir = parseResult.GetValue(noiseSkillsDirOpt),
                 NoiseDegradationLimit = parseResult.GetValue(noiseMaxDegradationOpt),
                 NoiseMaxScenarioDegradation = parseResult.GetValue(noiseMaxScenarioDegradationOpt),
-                IncludeDotnet11 = parseResult.GetValue(includeDotnet11Opt),
             };
 
             return await Run(config, cancellationToken);
@@ -201,27 +198,6 @@ public static class EvaluateCommand
             var searched = string.Join(", ", config.SkillPaths.Select(p => $"\"{Path.GetFullPath(p)}\""));
             Console.Error.WriteLine($"No skills or agents found in the specified paths: {searched}");
             return 1;
-        }
-
-        // Filter out dotnet11 plugin skills and agents unless --include-dotnet11 is passed
-        if (!config.IncludeDotnet11)
-        {
-            var excludedSkills = new HashSet<SkillInfo>(discoveredSkills.Where(s => IsDotnet11Plugin(s)));
-            var excludedAgents = new HashSet<AgentInfo>(discoveredAgents.Where(a => IsDotnet11PluginPath(a.Path)));
-            var excludedCount = excludedSkills.Count + excludedAgents.Count;
-            if (excludedCount > 0)
-            {
-                discoveredSkills = discoveredSkills.Where(s => !excludedSkills.Contains(s)).ToList();
-                discoveredAgents = discoveredAgents.Where(a => !excludedAgents.Contains(a)).ToList();
-                Console.WriteLine($"Skipping {excludedCount} dotnet11 skill(s)/agent(s) (pass --include-dotnet11 to include them)");
-
-                if (discoveredSkills.Count == 0 && discoveredAgents.Count == 0)
-                {
-                    Console.Error.WriteLine("All discovered skills/agents belong to the dotnet11 plugin which requires .NET 11 preview SDK. " +
-                        "Pass --include-dotnet11 to evaluate them.");
-                    return 1;
-                }
-            }
         }
 
         if (discoveredSkills.Count > 0)
@@ -1856,35 +1832,6 @@ public static class EvaluateCommand
         }
 
         return resolved.Count > 0 ? resolved : null;
-    }
-
-    private static readonly Dictionary<string, bool> s_dotnet11PluginCache = new(StringComparer.OrdinalIgnoreCase);
-
-    private static bool IsDotnet11Plugin(SkillInfo skill)
-    {
-        return IsDotnet11PluginPath(skill.Path);
-    }
-
-    private static bool IsDotnet11PluginPath(string path)
-    {
-        var pluginRoot = PluginDiscovery.FindPluginRoot(path);
-        if (pluginRoot is null) return false;
-
-        if (s_dotnet11PluginCache.TryGetValue(pluginRoot, out var cached))
-            return cached;
-
-        var pluginJsonPath = Path.Combine(pluginRoot, "plugin.json");
-        bool result;
-        try
-        {
-            var plugin = PluginDiscovery.ParsePluginJson(pluginJsonPath);
-            result = plugin is not null &&
-                     string.Equals(plugin.Name, "dotnet11", StringComparison.OrdinalIgnoreCase);
-        }
-        catch { result = false; }
-
-        s_dotnet11PluginCache[pluginRoot] = result;
-        return result;
     }
 
     internal static (Dictionary<string, (PluginInfo Plugin, List<SkillInfo> Skills)> Groups, List<string> Errors)

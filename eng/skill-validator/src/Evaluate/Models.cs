@@ -423,7 +423,6 @@ public sealed record ValidatorConfig
     public string? NoiseSkillsDir { get; init; }
     public double NoiseDegradationLimit { get; init; } = 0.2;
     public double NoiseMaxScenarioDegradation { get; init; } = 0.4;
-    public bool IncludeDotnet11 { get; init; }
 }
 
 public static class DefaultWeights
