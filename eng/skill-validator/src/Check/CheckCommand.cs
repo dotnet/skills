@@ -295,6 +295,7 @@ public static class CheckCommand
             {
                 var searched = string.Join(", ", skillPaths.Select(p => $"\"{Path.GetFullPath(p)}\""));
                 builder.AddPlainError($"No skills found in the specified paths: {searched}");
+                return ([], 1);
             }
 
             return ([], 0);
@@ -323,6 +324,7 @@ public static class CheckCommand
             {
                 var searched = string.Join(", ", agentPaths.Select(p => $"\"{Path.GetFullPath(p)}\""));
                 builder.AddPlainError($"No agents found in the specified paths: {searched}");
+                return ([], [], 1);
             }
 
             return ([], [], 0);

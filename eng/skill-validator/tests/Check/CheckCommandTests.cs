@@ -329,6 +329,43 @@ public class CheckCommandFilePathTests
             Directory.Delete(agentRoot, true);
         }
     }
+
+    [Fact]
+    public async Task SkillsArg_WithNoDiscoveredSkills_Fails()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"file-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var config = new CheckConfig { SkillPaths = [root] };
+            var result = await CheckCommand.Run(config);
+            Assert.Equal(1, result);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task CombinedSkillsAndAgents_WithNoDiscoveredAgents_Fails()
+    {
+        var skillRoot = CreateSkillFixture("my-skill", "A short description.");
+        var emptyAgentRoot = Path.Combine(Path.GetTempPath(), $"file-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(emptyAgentRoot);
+        try
+        {
+            var config = new CheckConfig
+            {
+                SkillPaths = [Path.Combine(skillRoot, "my-skill")],
+                AgentPaths = [emptyAgentRoot],
+            };
+            var result = await CheckCommand.Run(config);
+            Assert.Equal(1, result);
+        }
+        finally
+        {
+            Directory.Delete(skillRoot, true);
+            Directory.Delete(emptyAgentRoot, true);
+        }
+    }
 }
 
 [Collection("CheckCommandConsole")]
