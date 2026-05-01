@@ -6,6 +6,7 @@ description: >
   JsonSerializerOptions, and the new JsonNamingPolicy.PascalCase static property.
   Use when serializing or deserializing JSON in .NET 11 applications and needing
   typed metadata access or PascalCase property naming.
+license: MIT
 ---
 
 # System.Text.Json — .NET 11
