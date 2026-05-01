@@ -259,11 +259,11 @@ Most failing scenarios match 2–3 patterns simultaneously (e.g., timeout + toke
 
 1. **Timeouts (#1)** — if the model can't finish, nothing else matters. Increase timeout first.
 2. **Skill not activated (#5)** — if the skill never loaded, fix the description before tuning anything else.
-4. **Baseline already bad (#2)** — if the baseline scores ≤2.0/5, the scenario may need simplification regardless of the skill.
-5. **Baseline already good (#8)** — if the baseline scores ≥4.5/5, consider adding `reject_tools`, making the scenario harder, or removing it.
-6. **High variance (#3)** — if `perRunScores` are unstable, a single eval run is unreliable. Re-run before concluding the skill is broken.
-7. **Rubric/judgment issues (#6, #7)** — once the runs are stable, tune the rubric.
-8. **Token overhead (#4)** — only optimize if quality is already good but the weighted score is marginally negative.
+3. **Baseline already bad (#2)** — if the baseline scores ≤2.0/5, the scenario may need simplification regardless of the skill.
+4. **Baseline already good (#8)** — if the baseline scores ≥4.5/5, consider adding `reject_tools`, making the scenario harder, or removing it.
+5. **High variance (#3)** — if `perRunScores` are unstable, a single eval run is unreliable. Re-run before concluding the skill is broken.
+6. **Rubric/judgment issues (#6, #7)** — once the runs are stable, tune the rubric.
+7. **Token overhead (#4)** — only optimize if quality is already good but the weighted score is marginally negative.
 
 ## Improving the skill vs. gaming the eval
 

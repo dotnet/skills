@@ -22,7 +22,7 @@ New APIs added to `System.Text.Json` across .NET 11 releases.
 ## When Not to Use
 
 - The project targets .NET 10 or earlier — these APIs are not available before .NET 11
-- Using a third-party JSON library (e.g., Newtonsoft.Json) instead of `System.Text.Json`
+- Using a JSON library that is not `System.Text.Json` (e.g., Newtonsoft.Json)
 - The existing untyped `GetTypeInfo(Type)` / `TryGetTypeInfo(Type, ...)` overloads are sufficient
 
 ## Target Framework
