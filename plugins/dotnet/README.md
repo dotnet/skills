@@ -13,7 +13,7 @@ This plugin declares a C# LSP server that is installed through the .NET CLI.
 
 Prerequisites:
 - .NET 10 SDK installed
-- The `roslyn-language-server` tool installed globally
+- The `roslyn-language-server` tool installed globally. [Click here](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-tool-install#global-tools) to learn more about dotnet global tools.
   ```
   dotnet tool install --global --prerelease roslyn-language-server
   ```
