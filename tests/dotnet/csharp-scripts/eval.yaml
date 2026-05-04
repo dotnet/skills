@@ -2,8 +2,8 @@ scenarios:
   - name: "Avoid activating for language-agnostic calendar script"
     prompt: >
       Write a quick script to experiment with finding the earliest Friday the
-      13th after year 0 in the Gregorian calendar. Also count how many Friday
-      the 13ths exist in a full 400-year cycle. Execute it and show results --
+      13th starting at 0001-01-01 in the proleptic Gregorian calendar. Also
+      count how many Friday the 13ths exist in a full 400-year cycle. Execute it and show results --
       no need for a full project, just a small script for quick prototyping.
     expect_activation: false
     assertions:

@@ -29,7 +29,7 @@ license: MIT
 
 ### Step 1: Check the .NET SDK version
 
-Run `dotnet --version` to verify the SDK is installed and note the major version number. File-based apps require .NET 10 or later. If the version is below 10, follow the [fallback for older SDKs](#fallback-for-net-9-and-earlier) instead.
+Run `dotnet --version` to verify the SDK is installed and note the full version, including the feature band. File-based apps require .NET 10 or later. `#:include`, `#:exclude`, and transitive directive processing require SDK 10.0.300 or later; SDK 10.0.100/10.0.200 builds can run single-file apps but do not support those multi-file directives. If the version is below 10, follow the [fallback for older SDKs](#fallback-for-net-9-and-earlier) instead.
 
 ### Step 2: Write the app file
 
@@ -141,7 +141,7 @@ Override the default SDK (`Microsoft.NET.Sdk`):
 
 #### `#:include` and `#:exclude` — Multi-file apps
 
-In .NET SDK 10.0.300 and later, file-based apps can include additional files in the same virtual project. Use `#:include` for helper source files and supported assets, and `#:exclude` to remove files from an include pattern or default item set.
+In .NET SDK 10.0.300 and later, file-based apps can include additional files in the same virtual project. Check the full `dotnet --version` output before using these directives; a 10.0.100 or 10.0.200 SDK is still .NET 10 but does not support them. Use `#:include` for helper source files and supported assets, and `#:exclude` to remove files from an include pattern or default item set.
 
 ```csharp
 #!/usr/bin/env dotnet
@@ -270,6 +270,7 @@ Replace the generated `Program.cs` with the app content and run with `dotnet run
 ## Validation
 
 - [ ] `dotnet --version` reports 10.0 or later (or fallback path is used)
+- [ ] If the app uses `#:include`, `#:exclude`, or transitive directives from included files, `dotnet --version` reports SDK 10.0.300 or later
 - [ ] The app compiles without errors (can be checked explicitly with `dotnet build <file>.cs`)
 - [ ] `dotnet <file>.cs` produces the expected output
 - [ ] Multi-file apps include every required helper file and exclude unintended matches
