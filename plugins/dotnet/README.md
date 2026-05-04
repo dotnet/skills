@@ -9,7 +9,7 @@ Core .NET and C# skills for coding agents.
 
 ## LSP
 
-This plugin declares a C# LSP server that is launched through the .NET CLI.
+This plugin declares a C# LSP server that is installed through the .NET CLI.
 
 Prerequisites:
 - .NET 10 SDK installed
