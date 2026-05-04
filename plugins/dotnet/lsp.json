@@ -1,13 +1,8 @@
 {
   "lspServers": {
     "csharp": {
-      "command": "dotnet",
+      "command": "roslyn-language-server",
       "args": [
-        "dnx",
-        "roslyn-language-server",
-        "--yes",
-        "--prerelease",
-        "--",
         "--stdio",
         "--autoLoadProjects"
       ],

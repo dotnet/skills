@@ -12,8 +12,12 @@ Core .NET and C# skills for coding agents.
 This plugin declares a C# LSP server that is launched through the .NET CLI.
 
 Prerequisites:
-- .NET SDK installed
-- `dotnet` available on PATH
+- .NET 10 SDK installed
+- The `roslyn-language-server` tool installed globally
+  ```
+  dotnet tool install --global --prerelease roslyn-language-server
+  ```
+- `roslyn-language-server` available on PATH
 
 ## Skills
 
