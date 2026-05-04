@@ -282,13 +282,12 @@ After migration, consider enabling modern C# features:
   <TargetFramework>net8.0</TargetFramework>
   <Nullable>enable</Nullable>
   <ImplicitUsings>enable</ImplicitUsings>
-  <LangVersion>latest</LangVersion>
 </PropertyGroup>
 ```
 
 - `<Nullable>enable</Nullable>` — enables nullable reference type analysis
 - `<ImplicitUsings>enable</ImplicitUsings>` — auto-imports common namespaces (.NET 6+)
-- `<LangVersion>latest</LangVersion>` — uses the latest C# language version (or specify e.g. `12.0`)
+- **Do not set `<LangVersion>`** — the TFM already determines the correct C# version automatically (e.g. `net8.0` → C# 12). Setting it to `latest` causes builds to silently vary across machines with different SDKs. Only set `<LangVersion>preview</LangVersion>` if you explicitly need preview language features.
 
 ## Complete Before/After Example
 

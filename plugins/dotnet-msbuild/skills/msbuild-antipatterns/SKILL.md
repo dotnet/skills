@@ -201,7 +201,6 @@ See [`references/private-assets.md`](references/private-assets.md) for BAD/GOOD 
 <!-- BAD: Repeated in every .csproj -->
 <!-- ProjectA.csproj, ProjectB.csproj, ProjectC.csproj all have: -->
 <PropertyGroup>
-  <LangVersion>latest</LangVersion>
   <Nullable>enable</Nullable>
   <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   <ImplicitUsings>enable</ImplicitUsings>
@@ -211,7 +210,6 @@ See [`references/private-assets.md`](references/private-assets.md) for BAD/GOOD 
 <!-- Directory.Build.props -->
 <Project>
   <PropertyGroup>
-    <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ImplicitUsings>enable</ImplicitUsings>
