@@ -1,4 +1,28 @@
 scenarios:
+  - name: "Avoid activating for language-agnostic calendar script"
+    prompt: >
+      Write a quick script to experiment with finding the earliest Friday the
+      13th after year 0 in the Gregorian calendar. Also count how many Friday
+      the 13ths exist in a full 400-year cycle. Execute it and show results --
+      no need for a full project, just a small script for quick prototyping.
+    expect_activation: false
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: "Friday"
+      - type: "output_matches"
+        pattern: "(April|4/13|0001-04-13)"
+      - type: "output_contains"
+        value: "688"
+    expect_tools: ["bash"]
+    max_turns: 10
+    rubric:
+      - "The agent correctly finds April 13, 0001 as the earliest Friday the 13th"
+      - "The agent correctly counts 688 Friday the 13ths in 400 years"
+      - "The agent verified by running code"
+      - "The csharp-scripts skill does not activate because the prompt does not ask for C# or .NET"
+    timeout: 120
+
   - name: "Test a C# language feature with a file-based app"
     prompt: "Does C# support creating a stackalloc'd Span of native-sized integers? Can you test it and see?"
     assertions:

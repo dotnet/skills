@@ -1,6 +1,6 @@
 ---
 name: csharp-scripts
-description: "Run file-based C# apps with the .NET CLI for quick experimentation, prototyping, and small utilities without creating a project. Use for one-file apps or small multi-file apps composed with `#:include`/`#:exclude` or linked with `#:ref`. Do not use when the user needs a full project, solution integration, or project references in an existing app."
+description: "Run file-based C# apps with the .NET CLI when the user explicitly wants C#/.NET code without creating a project. Use for C# language/API experiments, one-file C# apps, small multi-file C# apps composed with `#:include`/`#:exclude`, or C# file-based apps linked with `#:ref`. Do not use for language-agnostic throwaway scripts, generic computations, Python/PowerShell-style automation, full projects, or existing app integration."
 license: MIT
 ---
 
@@ -14,6 +14,7 @@ license: MIT
 
 ## When Not to Use
 
+- The user asks for a language-agnostic quick script, throwaway computation, or shell/Python/PowerShell-style automation
 - The user needs a full project, solution integration, or project references in an existing app
 - The user is working inside an existing .NET solution and wants to add code there
 - The app is large enough that project structure, build customization, tests, or publish configuration should live in a `.csproj`
