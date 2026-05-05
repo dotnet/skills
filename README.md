@@ -4,6 +4,8 @@
 
 This repository contains the .NET team's curated set of core skills and custom agents for coding agents. For information about the Agent Skills standard, see [agentskills.io](https://agentskills.io).
 
+[**📊 Dashboard**](https://dotnet.github.io/skills/) - Accuracy and efficiency scoring trends for contained plugins (https://dotnet.github.io/skills/)
+
 ## What's Included
 
 | Plugin | Description |
@@ -19,6 +21,7 @@ This repository contains the .NET team's curated set of core skills and custom a
 | [dotnet-template-engine](plugins/dotnet-template-engine/) | .NET Template Engine skills: template discovery, project scaffolding, and template authoring. |
 | [dotnet-test](plugins/dotnet-test/) | Skills for running, diagnosing, and migrating .NET tests: test execution, filtering, platform detection, and MSTest workflows. |
 | [dotnet-aspnet](plugins/dotnet-aspnet/) | ASP.NET Core web development skills including middleware, endpoints, real-time communication, and API patterns. |
+| [dotnet11](plugins/dotnet11/) | Skills for new .NET 11 APIs and language features. |
 
 ## Installation
 
@@ -85,18 +88,6 @@ Install individual skills using the `skill-installer` CLI with the GitHub URL:
 ```bash
 $ skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<plugin>/skills/<skill-name>
 ```
-
-### ⚡ Agentic Workflows
-
-Some plugins include [GitHub Agentic Workflow](https://github.com/github/gh-aw) templates for CI/CD automation:
-
-1. Install the `gh aw` CLI extension
-2. Copy the desired workflow `.md` files and the `shared/` directory to your repository's `.github/workflows/`
-3. Compile and commit:
-   ```
-   gh aw compile
-   ```
-4. Commit both the `.md` and generated `.lock.yml` files
 
 ## Contributing
 

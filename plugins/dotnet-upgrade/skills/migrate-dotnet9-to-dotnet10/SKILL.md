@@ -16,6 +16,7 @@ description: >
   LOADS REFERENCES: csharp-compiler, core-libraries, sdk-msbuild (always);
   aspnet-core, efcore, cryptography, extensions-hosting,
   serialization-networking, winforms-wpf, containers-interop (selective).
+license: MIT
 ---
 
 # .NET 9 → .NET 10 Migration

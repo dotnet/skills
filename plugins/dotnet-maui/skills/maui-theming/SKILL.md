@@ -12,6 +12,7 @@ description: >-
   documentation), app icons or splash screens (see .NET MAUI app icons
   documentation), or Bootstrap-style class theming (see Plugin.Maui.BootstrapTheme
   NuGet package).
+license: MIT
 ---
 
 # .NET MAUI Theming

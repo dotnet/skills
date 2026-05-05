@@ -11,6 +11,7 @@ description: >
   DO NOT USE FOR: finding or using existing templates (use template-discovery),
   creating projects from templates (use template-instantiation), creating templates
   from existing projects (use template-authoring).
+license: MIT
 ---
 
 # Template Validation

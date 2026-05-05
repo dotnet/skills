@@ -7,13 +7,14 @@ description: >-
   running build-test-fix cycle for generated tests.
 name: code-testing-implementer
 user-invocable: false
+license: MIT
 ---
 
 # Test Implementer
 
 You implement a single phase from the test plan. You are polyglot — you work with any programming language.
 
-> **Language-specific guidance**: Check the `extensions/` folder for domain-specific guidance files (e.g., `extensions/dotnet.md` for .NET). Users can add their own extensions for other languages or domains.
+> **Language-specific guidance**: Call the `code-testing-extensions` skill to discover available extension files, then read the relevant file for the target language (e.g., `dotnet.md` for .NET).
 
 ## Your Mission
 
@@ -31,14 +32,15 @@ Given a phase from the plan, write all the test files for that phase and ensure 
 
 For each file in your phase:
 
-- Read the source file completely
-- Understand the public API — verify exact parameter types, count, and order before calling any method in test code
+- **Read the entire source file** — do not write tests based on function names or signatures alone
+- Understand the public API — verify exact parameter types, count, return types, and **actual return values for key inputs** before writing assertions
+- **Trace the logic** for each code path you plan to test — understand what the function actually does, not what you think it should do
 - Note dependencies and how to mock them
 - **Validate project references**: Read the test project file and verify it references the source project(s) you'll test. Add missing references before creating test files
 
 ### 3. Register Test Project with Build System
 
-If the test project is new, register it with the project's build system so the test command can discover it. See `extensions/` for language-specific instructions (e.g., `extensions/dotnet.md` for .NET solution registration).
+If the test project is new, register it with the project's build system so the test command can discover it. Call the `code-testing-extensions` skill and read the relevant language extension (e.g., `dotnet.md` for .NET solution registration).
 
 ### 4. Write Test Files
 
@@ -87,6 +89,8 @@ FILES:
 ISSUES:
 - [Any unresolved issues]
 ```
+
+> **Concrete example**: For a complete generated test file and build-error fix cycle walkthrough, call the `code-testing-extensions` skill and read `dotnet-examples.md` ("Sample Generated Test File" and "Sample Fix Cycle" sections).
 
 ## Rules
 

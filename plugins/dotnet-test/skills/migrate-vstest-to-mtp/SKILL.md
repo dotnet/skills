@@ -4,16 +4,18 @@ description: >
   Migrates .NET test projects from VSTest to Microsoft.Testing.Platform (MTP).
   Use when user asks to "migrate to MTP", "switch from VSTest", "enable
   Microsoft.Testing.Platform", "use MTP runner", or mentions EnableMSTestRunner,
-  EnableNUnitRunner, UseMicrosoftTestingPlatformRunner, or dotnet test exit
-  code 8. Supports MSTest, NUnit, xUnit.net v2 (via YTest.MTP.XUnit2), and
-  xUnit.net v3 (native MTP). Also covers translating xUnit.net v3 MTP filter
-  syntax (--filter-class, --filter-trait, --filter-query).
-  Covers runner enablement, CLI argument translation, Directory.Build.props
-  and global.json configuration, CI/CD pipeline updates, and MTP extension
+  EnableNUnitRunner, UseMicrosoftTestingPlatformRunner, dotnet test exit
+  code 8, zero tests discovered, or MTP behavioral differences
+  (--ignore-exit-code, TESTINGPLATFORM_EXITCODE_IGNORE).
+  Supports MSTest, NUnit, xUnit.net v2 (via YTest.MTP.XUnit2), and
+  xUnit.net v3 (native MTP). Covers runner enablement, CLI argument
+  translation, xUnit.net v3 filter syntax, Directory.Build.props and
+  global.json configuration, CI/CD pipeline updates, and MTP extension
   packages. DO NOT USE FOR: migrating between test frameworks
   (MSTest/xUnit/NUnit), xUnit.net v2 to v3 API migration, MSTest version
   upgrades (use migrate-mstest-* skills), TFM upgrades, or UWP/WinUI test
   projects.
+license: MIT
 ---
 
 # VSTest -> Microsoft.Testing.Platform Migration
@@ -64,8 +66,18 @@ Migrate a .NET test solution from VSTest to Microsoft.Testing.Platform (MTP). Th
 
 ### Step 2: Set up Directory.Build.props
 
-> **Critical**: Always set MTP properties in `Directory.Build.props` at the solution or repo root -- never per-project. This prevents inconsistent configuration where some projects use VSTest and others use MTP (an unsupported scenario).
-> **Note**: MTP requires test projects to have `<OutputType>Exe</OutputType>`. Only `MSTest.Sdk` sets this automatically. For all other setups (MSTest NuGet packages with `EnableMSTestRunner`, NUnit with `EnableNUnitRunner`, xUnit.net with `YTest.MTP.XUnit2`), you must set `<OutputType>Exe</OutputType>` explicitly -- either per-project or in `Directory.Build.props` with a condition that targets only test projects.
+> **Critical**: Set MTP runner properties in `Directory.Build.props` at the solution or repo root whenever possible, rather than per-project. This prevents inconsistent configuration where some projects use VSTest and others use MTP (an unsupported scenario).
+> **Note**: MTP also requires test projects to have `<OutputType>Exe</OutputType>`. Only `MSTest.Sdk` sets this automatically. For all other setups (MSTest NuGet packages with `EnableMSTestRunner`, NUnit with `EnableNUnitRunner`, xUnit.net with `YTest.MTP.XUnit2`), prefer setting `<OutputType>Exe</OutputType>` centrally in `Directory.Build.props` with a condition that targets only test projects. If you cannot reliably target only test projects from `Directory.Build.props`, setting `<OutputType>Exe</OutputType>` per-project is an acceptable exception.
+>
+> **Conditioning in `Directory.Build.props`**: Do NOT use `Condition="'$(IsTestProject)' == 'true'"` -- `IsTestProject` is set by the test SDK targets later in evaluation and is not available when `Directory.Build.props` is imported. Use a property that is available early, such as `MSBuildProjectName`, to target test projects by naming convention. For example, if all test projects end in `.Tests`:
+>
+> ```xml
+> <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+>   <OutputType>Exe</OutputType>
+> </PropertyGroup>
+> ```
+>
+> Adjust the condition (e.g., `.EndsWith('Tests')`, `.Contains('.Test')`) to match the test project naming convention used in the repository.
 
 ### Step 3: Enable the framework-specific MTP runner
 
@@ -324,6 +336,7 @@ Once migration is complete and verified, remove packages that are only needed fo
 | Exit code 8 on CI without failures | MTP fails when zero tests run; use `--ignore-exit-code 8` or fix test discovery |
 | MSTest.Sdk v4 + vstest.console no longer works | MSTest.Sdk v4 no longer adds `Microsoft.NET.Test.Sdk` -- add it explicitly or switch to `dotnet test` |
 | Missing `<OutputType>Exe</OutputType>` | Required for all setups except MSTest.Sdk (which sets it automatically) |
+| Using `Condition="'$(IsTestProject)' == 'true'"` in `Directory.Build.props` | `IsTestProject` is not yet defined when `Directory.Build.props` is evaluated -- use `$(MSBuildProjectName.EndsWith('.Tests'))` (or a similar name-based check) instead |
 
 ## Next Steps
 

@@ -10,6 +10,7 @@ description: >
   DO NOT USE FOR: generating wrappers (use generate-testability-wrappers),
   migrating code (use migrate-static-to-wrapper), general code review,
   or finding statics that are already behind abstractions.
+license: MIT
 ---
 
 # Detect Static Dependencies

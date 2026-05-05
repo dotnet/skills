@@ -14,6 +14,7 @@ description: >
   in a class, migrate one file to TimeProvider, scoped migration, update call sites.
   DO NOT USE FOR: detecting statics (use detect-static-dependencies), generating
   wrappers (use generate-testability-wrappers), migrating between test frameworks.
+license: MIT
 ---
 
 # Migrate Static to Wrapper

@@ -15,6 +15,7 @@ description: >
   writing tests, running tests without coverage collection, applying test
   filters, producing TRX reports, or troubleshooting test execution (use
   run-tests for all of these).
+license: MIT
 ---
 
 # Coverage Analysis

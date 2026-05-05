@@ -3,6 +3,7 @@ name: msbuild
 description: "Expert agent for MSBuild and .NET build troubleshooting, optimization, and project file quality. Routes to specialized agents for performance analysis and code review. Verifies MSBuild domain relevance before deep-diving. Specializes in build configuration, error diagnosis, binary log analysis, and resolving common build issues."
 user-invokable: true
 disable-model-invocation: false
+license: MIT
 ---
 
 # MSBuild Expert Agent

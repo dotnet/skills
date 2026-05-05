@@ -15,6 +15,7 @@ handoffs:
       generate unit tests for the migrated classes, using test doubles for
       the new wrapper interfaces.
     send: false
+license: MIT
 ---
 
 # Testability Migration Agent

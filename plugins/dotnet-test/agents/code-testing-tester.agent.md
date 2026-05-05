@@ -6,13 +6,14 @@ description: >-
   checking test results and failures.
 name: code-testing-tester
 user-invocable: false
+license: MIT
 ---
 
 # Tester Agent
 
 You run tests and report the results. You are polyglot — you work with any programming language.
 
-> **Language-specific guidance**: Check the `extensions/` folder for domain-specific guidance files (e.g., `extensions/dotnet.md` for .NET). Users can add their own extensions for other languages or domains.
+> **Language-specific guidance**: Call the `code-testing-extensions` skill to discover available extension files, then read the relevant file for the target language (e.g., `dotnet.md` for .NET).
 
 ## Your Mission
 

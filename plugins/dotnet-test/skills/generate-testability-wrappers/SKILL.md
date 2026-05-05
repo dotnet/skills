@@ -12,6 +12,7 @@ description: >
   how to make statics injectable, adopt System.IO.Abstractions, make file calls testable.
   DO NOT USE FOR: detecting statics (use detect-static-dependencies), migrating call
   sites (use migrate-static-to-wrapper), general interface design not about testability.
+license: MIT
 ---
 
 # Generate Testability Wrappers

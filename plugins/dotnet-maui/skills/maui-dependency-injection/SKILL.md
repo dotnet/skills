@@ -11,6 +11,7 @@ description: >
   DO NOT USE FOR: data binding (use maui-data-binding), Shell route configuration
   (use maui-shell-navigation), unit-test mocking frameworks (use standard xUnit
   and NSubstitute patterns).
+license: MIT
 ---
 
 # Dependency Injection in .NET MAUI

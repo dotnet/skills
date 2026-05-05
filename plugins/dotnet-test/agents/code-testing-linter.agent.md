@@ -6,6 +6,7 @@ description: >-
   applying lint fixes.
 name: code-testing-linter
 user-invocable: false
+license: MIT
 ---
 
 # Linter Agent

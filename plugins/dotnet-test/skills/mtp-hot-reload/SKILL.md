@@ -11,6 +11,7 @@ description: >
   normally with dotnet test (use run-tests), applying test filters, producing
   TRX reports, CI/CD pipeline configuration, or Visual Studio Test Explorer
   hot reload (which is a different feature).
+license: MIT
 ---
 
 # MTP Hot Reload for Iterative Test Fixing

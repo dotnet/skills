@@ -7,6 +7,7 @@ description: >-
   (FOD) dialogs, unexpectedly does NOT show FOD dialogs, loads both v2 and v4
   into the same process causing failures, or any time someone is wondering
   "what is happening with .NET Framework activation?"
+license: MIT
 ---
 
 # CLR Activation Debugging

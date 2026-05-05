@@ -8,6 +8,7 @@ description: >
   DO NOT USE FOR: publishing native AOT binaries, optimizing binary size, replacing
   reflection-heavy libraries with alternatives.
   INVOKES: no tools — pure knowledge skill.
+license: MIT
 ---
 
 # dotnet-aot-compat

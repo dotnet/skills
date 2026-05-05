@@ -12,6 +12,7 @@ description: >-
   DO NOT USE FOR: general layout or grid design (use Grid and StackLayout),
   app lifecycle handling (use maui-app-lifecycle), theming or styling
   (use maui-theming), or Shell navigation structure.
+license: MIT
 ---
 
 # Safe Area & Edge-to-Edge Layout (.NET 10+)

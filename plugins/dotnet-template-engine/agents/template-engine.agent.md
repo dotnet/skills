@@ -3,6 +3,7 @@ name: template-engine
 description: "Expert agent for .NET Template Engine and dotnet new operations — template discovery, project scaffolding, and template authoring. Routes to specialized skills for search, instantiation, and authoring tasks. Verifies template-engine domain relevance before deep-diving."
 user-invokable: true
 disable-model-invocation: false
+license: MIT
 ---
 
 # Template Engine Expert Agent

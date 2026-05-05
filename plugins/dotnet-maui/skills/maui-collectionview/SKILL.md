@@ -11,6 +11,7 @@ description: >
   DO NOT USE FOR: simple static layouts without scrollable data (use Grid or
   StackLayout), map pin lists (use Microsoft.Maui.Controls.Maps), table-based
   data entry forms, or non-MAUI list controls.
+license: MIT
 ---
 
 # CollectionView — .NET MAUI

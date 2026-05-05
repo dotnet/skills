@@ -41,6 +41,15 @@ Generate concise, parameterized, and effective unit tests using discovered conve
 | **Best Practices**            | Use Arrange-Act-Assert pattern and proper naming (`Method_Condition_ExpectedResult`)                 |
 | **Buildable & Complete**      | Tests must compile, run, and contain no hallucinated or missed logic                                 |
 
+## Quality over Quantity
+
+When the task specifies particular test scenarios or behaviors to cover:
+
+1. **Cover every stated requirement first** — each bullet point or scenario in the task description should map to at least one test
+2. **Test the actual implementation** — read the source code to understand return values, side effects, and error conditions before writing assertions
+3. **Fewer focused tests beat many shallow ones** — 5 tests that thoroughly exercise the function are better than 20 that only check surface behavior
+4. **Every test must pass** — run tests after writing them; fix immediately if they fail
+
 ## Parameterization
 
 - Prefer parameterized tests (e.g., `[DataRow]`, `[Theory]`, `@pytest.mark.parametrize`) over multiple similar methods
@@ -163,7 +172,7 @@ class TestCalculator:
 - **Scoped builds during development**: Build the specific test project during implementation for faster iteration
 - **Final full-workspace build**: After all test generation is complete, run a full non-incremental build from the workspace root to catch cross-project errors
 - **API signature verification**: Before calling any method in test code, verify the exact parameter types, count, and order by reading the source code
-- **Project reference validation**: Before writing test code, verify the test project references all source projects the tests will use. Check the `extensions/` folder for language-specific guidance (e.g., `extensions/dotnet.md` for .NET)
+- **Project reference validation**: Before writing test code, verify the test project references all source projects the tests will use. Call the `code-testing-extensions` skill and read the language-specific extension file for guidance (e.g., `dotnet.md` for .NET)
 
 ## Test Scope Guidelines
 

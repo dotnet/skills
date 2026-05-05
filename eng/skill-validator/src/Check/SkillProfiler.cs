@@ -103,7 +103,11 @@ public static partial class SkillProfiler
         foreach (Match refMatch in FileRefRegex().Matches(body))
         {
             var refPath = refMatch.Groups[1].Value;
-            if (refPath.StartsWith("http", StringComparison.OrdinalIgnoreCase) || refPath.StartsWith('#'))
+            // Skip URLs and in-page anchors. "//" is treated as a protocol-relative URL
+            // (not as a repo-rooted path) and is left to the URL/reference scanner.
+            if (refPath.StartsWith("http", StringComparison.OrdinalIgnoreCase) ||
+                refPath.StartsWith("//", StringComparison.Ordinal) ||
+                refPath.StartsWith('#'))
                 continue;
 
             // Strip fragment anchors (e.g. "file.md#section")
@@ -127,6 +131,19 @@ public static partial class SkillProfiler
                     errors.Add($"File reference '{refMatch.Groups[1].Value}' uses parent-directory traversal — references must stay within the skill directory.");
                 }
                 // When repo traversal is allowed, external refs have no depth constraint.
+                continue;
+            }
+
+            // Reject absolute (repo-rooted) paths — e.g. "/src/libraries/...".
+            // GitHub renders these relative to the repo root, but they are non-portable
+            // outside that repo. Treated symmetrically with ".." traversal: allowed only
+            // when the skill opts in via --allow-repo-traversal.
+            if (refPath.StartsWith('/'))
+            {
+                if (!allowRepoTraversal)
+                {
+                    errors.Add($"File reference '{refMatch.Groups[1].Value}' uses an absolute (repo-rooted) path — references must be relative to the skill directory.");
+                }
                 continue;
             }
 

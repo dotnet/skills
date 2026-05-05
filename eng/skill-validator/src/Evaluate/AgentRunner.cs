@@ -69,6 +69,14 @@ public static class AgentRunner
             var options = new CopilotClientOptions
             {
                 LogLevel = verbose ? "info" : "none",
+                SessionFs = new SessionFsConfig
+                {
+                    InitialCwd = Environment.CurrentDirectory,
+                    SessionStatePath = "session-state",
+                    Conventions = OperatingSystem.IsWindows()
+                        ? GitHub.Copilot.SDK.Rpc.SessionFsSetProviderRequestConventions.Windows
+                        : GitHub.Copilot.SDK.Rpc.SessionFsSetProviderRequestConventions.Posix,
+                },
             };
 
             if (!string.IsNullOrEmpty(_capturedGitHubToken))

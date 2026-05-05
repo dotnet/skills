@@ -11,6 +11,7 @@ description: >-
   DO NOT USE FOR: navigation events (use maui-shell-navigation),
   dependency injection setup (use maui-dependency-injection),
   platform API invocation (use conditional compilation and partial classes).
+license: MIT
 ---
 
 # .NET MAUI App Lifecycle

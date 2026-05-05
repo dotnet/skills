@@ -9,6 +9,7 @@ description: >
   protocol messages, configuring logging for stdio and HTTP servers.
   DO NOT USE FOR: creating new MCP servers (use mcp-csharp-create), writing automated tests
   (use mcp-csharp-test), publishing or deploying to production (use mcp-csharp-publish).
+license: MIT
 ---
 
 # C# MCP Server Debugging

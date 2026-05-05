@@ -16,6 +16,7 @@ handoffs:
       The test framework migration is complete. Please audit the migrated
       test suite for quality issues, anti-patterns, and coverage gaps.
     send: false
+license: MIT
 ---
 
 # Test Migration Agent
