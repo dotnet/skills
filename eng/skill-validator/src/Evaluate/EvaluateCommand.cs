@@ -650,6 +650,7 @@ public static class EvaluateCommand
         comparison.TimedOut = runResults.Any(r =>
             r.Baseline.Metrics.TimedOut || r.SkilledIsolated.Metrics.TimedOut || r.SkilledPlugin.Metrics.TimedOut);
         comparison.ExpectActivation = scenario.ExpectActivation;
+        comparison.FailedRunCount = failedRunCount;
 
         return comparison;
     }
@@ -1135,6 +1136,7 @@ public static class EvaluateCommand
         // Propagate timeout and expect_activation from scenario config
         comparison.TimeoutSeconds = scenario.Timeout;
         comparison.ExpectActivation = scenario.ExpectActivation;
+        comparison.FailedRunCount = failedRunCount;
 
         return comparison;
     }
@@ -1656,7 +1658,7 @@ public static class EvaluateCommand
     /// Creates a degraded ScenarioComparison for a scenario that failed with an exception.
     /// This allows the evaluation to continue with other scenarios instead of aborting.
     /// </summary>
-    private static ScenarioComparison CreateFailedScenarioComparison(string scenarioName, string errorMessage)
+    internal static ScenarioComparison CreateFailedScenarioComparison(string scenarioName, string errorMessage)
     {
         var emptyMetrics = new RunMetrics { ErrorCount = 1 };
         var emptyJudge = new JudgeResult([], 0, $"Scenario failed: {errorMessage}");
@@ -1670,7 +1672,7 @@ public static class EvaluateCommand
             SkilledPlugin = emptyResult,
             ImprovementScore = 0,
             Breakdown = emptyBreakdown,
-            TimedOut = true,
+            ExecutionError = errorMessage,
         };
     }
 
