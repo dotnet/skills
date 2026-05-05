@@ -18,6 +18,8 @@ This skill provides access to language-specific guidance files used by the code-
 | File | Language | Contents |
 |------|----------|----------|
 | [extensions/dotnet.md](extensions/dotnet.md) | .NET (C#/F#/VB) | Build commands, test commands, project reference validation, common CS error codes, MSTest template |
+| [extensions/python.md](extensions/python.md) | Python | Build/test commands (pytest), project layout detection, mocking guidelines, common errors, pytest template |
+| [extensions/typescript.md](extensions/typescript.md) | TypeScript/JavaScript | Build/test commands (Jest/Vitest/Mocha), framework detection, mocking, TS-specific considerations |
 | [extensions/cpp.md](extensions/cpp.md) | C++ | Testing internals with friend declarations |
 | [extensions/dotnet-examples.md](extensions/dotnet-examples.md) | .NET (C#/F#/VB) | Concrete pipeline examples: sample research output, plan, generated tests, fix cycles, final report |
 
