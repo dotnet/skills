@@ -287,7 +287,7 @@ After migration, consider enabling modern C# features:
 
 - `<Nullable>enable</Nullable>` — enables nullable reference type analysis
 - `<ImplicitUsings>enable</ImplicitUsings>` — auto-imports common namespaces (.NET 6+)
-- **Do not set `<LangVersion>`** — the TFM already determines the correct C# version automatically (e.g. `net8.0` → C# 12). Setting it to `latest` causes builds to silently vary across machines with different SDKs. Only set `<LangVersion>preview</LangVersion>` if you explicitly need preview language features.
+- **Avoid `<LangVersion>latest`** — the effective language version is determined by the SDK/compiler defaults, not just the TFM, so builds can silently vary across machines with different SDKs installed. Omit `<LangVersion>` unless you need to pin a specific version. For reproducible builds, pin the SDK version repo-wide with `global.json` (which indirectly fixes the default language version), or set an explicit numeric `<LangVersion>` (e.g. `<LangVersion>12</LangVersion>`) per project to directly control the language version.
 
 ## Complete Before/After Example
 
