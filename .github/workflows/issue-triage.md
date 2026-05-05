@@ -105,7 +105,7 @@ If the issue already has the `Triaged` label, skip it entirely — it has alread
 ## Step 2: Gather Context
 
 - Fetch the CODEOWNERS file at `.github/CODEOWNERS` using bash: `cat .github/CODEOWNERS`
-- Fetch available labels: use `gh label list --limit 200` via bash
+- Fetch available labels using the `list_labels` GitHub tool
 - Search for similar open issues using the `search_issues` tool with key terms from the issue title and body
 - List recent issues to check for duplicates
 
@@ -133,7 +133,7 @@ Analyze the issue content and determine which area of the codebase it relates to
 
 If the issue clearly spans multiple areas, pick the **primary** one.
 
-If none of the predefined area labels above fit the issue, fetch all labels with the `area-` prefix from the repository using bash: `gh label list --search 'area-' --limit 200 --json name --jq '.[].name'`. Check if any of those labels match the issue's topic. If a match is found, use it. If **no** `area-*` label fits — do **not** add any area label at all.
+If none of the predefined area labels above fit the issue, use the `list_labels` GitHub tool to fetch all repository labels and filter for those with the `area-` prefix. Check if any of those labels match the issue's topic. If a match is found, use it. If **no** `area-*` label fits — do **not** add any area label at all.
 
 ## Step 4: Determine Owners
 

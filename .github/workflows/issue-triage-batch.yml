@@ -14,11 +14,11 @@ permissions:
   issues: read
   actions: write
 
-# Don't run on forks
 run-name: "Batch triage${{ inputs.date_from && format(' from {0}', inputs.date_from) || '' }}${{ inputs.date_to && format(' to {0}', inputs.date_to) || '' }}"
 
 jobs:
   dispatch-triage:
+    if: ${{ !github.event.repository.fork }}
     runs-on: ubuntu-latest
     steps:
       - name: Collect untriaged issues and dispatch triage
