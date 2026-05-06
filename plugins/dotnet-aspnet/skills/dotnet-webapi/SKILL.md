@@ -9,6 +9,7 @@ description: >
   DO NOT USE FOR: general C# coding style, EF Core data access or query
   optimization (use optimizing-ef-core-queries), frontend/Blazor work, gRPC
   services, or SignalR hubs.
+license: MIT
 ---
 
 # ASP.NET Core Web API
