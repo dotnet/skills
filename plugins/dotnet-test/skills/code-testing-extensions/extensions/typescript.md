@@ -2,287 +2,135 @@
 
 Language-specific guidance for TypeScript (and JavaScript) test generation.
 
+## Rule #1: Investigate the Repo First
+
+Before writing any test or running any command, read:
+
+1. **Existing tests** — find `*.test.ts` / `*.spec.ts` files and copy their style (imports, describe/it vs test, assertion patterns, mock approach)
+2. **`package.json`** — `scripts.test`, `devDependencies`, `type` field
+3. **Config files** — `tsconfig.json`, `jest.config.*`, `vitest.config.*`, `eslint.config.*`
+
+Do **not** add or change test infrastructure (frameworks, configs, transforms) unless the repo already uses it. Use the runner the repo already has — do not switch runners.
+
 ## Package Manager Detection
 
-Before running any commands, detect the package manager from lockfiles:
+Detect the package manager from lockfiles and use it consistently for **all** commands:
 
-| Indicator | Manager | Run command | Exec command |
-|-----------|---------|-------------|-------------|
-| `pnpm-lock.yaml` | pnpm | `pnpm test` | `pnpm exec vitest` |
-| `yarn.lock` | Yarn | `yarn test` | `yarn vitest` |
-| `bun.lockb` or `bun.lock` | Bun | `bun test` | `bunx vitest` |
-| `package-lock.json` or none | npm | `npm test` | `npx vitest` |
+| Indicator | Manager | Run script | Execute binary |
+|-----------|---------|------------|----------------|
+| `pnpm-lock.yaml` | pnpm | `pnpm test` | `pnpm exec <tool>` |
+| `yarn.lock` | Yarn | `yarn test` | `yarn <tool>` |
+| `bun.lockb` / `bun.lock` | Bun | `bun test` | `bunx <tool>` |
+| `package-lock.json` or none | npm | `npm test` | `npx <tool>` |
 
-- **Always prefer the project's existing scripts** (`npm test`, `pnpm test`, etc.) over raw tool CLIs
-- **Do not add a new test framework if one already exists** — follow the repo's established choices
-- For monorepos (workspaces), run commands from the package directory, not the root
+Use `<exec>` below as shorthand for the detected exec command.
 
 ## Build Commands
 
 | Scope | Command |
 |-------|---------|
-| Type check (project-level) | `npx tsc --noEmit` or `npm run typecheck` |
-| Build (if configured) | `npm run build` |
+| Type check | `<exec> tsc --noEmit` or the repo's `typecheck` script |
+| Build (if configured) | The repo's `build` script |
 
-- Check `package.json` `scripts` for the project's preferred build/typecheck command
-- Many projects don't need an explicit build step — the test runner handles transpilation
-- If `tsconfig.json` exists, TypeScript is in use; check `strict` mode and `target` settings
+Many projects don't need an explicit build step — the test runner handles transpilation.
 
 ## Test Commands
 
-Detect the test runner from `package.json` `devDependencies` and `scripts.test`:
+Detect the runner from `devDependencies` and `scripts.test`. Always prefer the repo's test script first.
 
-| Runner | All tests | Filtered | Watch mode |
-|--------|-----------|----------|------------|
-| **Jest** | `npx jest` | `npx jest --testPathPattern="module"` | `npx jest --watch` |
-| **Vitest** | `npx vitest run` | `npx vitest run path/to/file` | `npx vitest` |
-| **Mocha** | `npx mocha` | `npx mocha --grep "pattern"` | `npx mocha --watch` |
+| Runner | Run once | Filter by file | Filter by name |
+|--------|----------|----------------|----------------|
+| **Jest** | `<exec> jest` | `<exec> jest path/to/file` | `<exec> jest -t "name"` |
+| **Vitest** | `<exec> vitest run` | `<exec> vitest run path/to/file` | `<exec> vitest run -t "name"` |
+| **Mocha** | `<exec> mocha` | (use config or positional args) | `<exec> mocha --grep "name"` |
 
-- Prefer `npm test` or `npm run test` (or equivalent for detected package manager) if it's configured in `package.json`
-- Use `npx vitest run` (not `npx vitest`) to run once without watch mode
-- For Jest: use `--verbose` for detailed output, `--bail` to stop on first failure
-- For Jest: filter by test name with `npx jest path/to/file.test.ts -t "test name"`
-- For Vitest: use `--reporter=verbose` for detailed output
-- For Vitest: filter by test name with `npx vitest run path/to/file.test.ts -t "test name"`
-- Mocha should almost always be invoked via the project's existing script/config — direct CLI only if existing tests already do that
+- **Always use `vitest run`** (not bare `vitest`) — bare `vitest` starts watch mode
+- **Never use `--watch`** — the agent must not start interactive/watch mode
+- For Jest: `--bail` to stop on first failure, `--verbose` for detail
+- Mocha `--grep` filters by **test name**, not file path
 
 ## Lint Command
 
-```bash
-# ESLint (most common)
-npx eslint path/to/test_file.ts --fix
+Use the repo's lint script first. Otherwise detect from `devDependencies` and config:
 
-# Prettier (formatting)
-npx prettier --write path/to/test_file.ts
+- `eslint.config.*` or `.eslintrc.*` → `<exec> eslint --fix path/to/file.ts`
+- `prettier` → `<exec> prettier --write path/to/file.ts`
+- `biome.json` → `<exec> biome check --write path/to/file.ts`
 
-# Biome (all-in-one)
-npx biome check --write path/to/test_file.ts
-```
+## Project Layout and Imports
 
-- Detect which tools the project uses from `package.json` `devDependencies` and config files (`.eslintrc.*`, `prettier.config.*`, `biome.json`)
-- Run `npm run lint -- --fix` if the project has a lint script configured
+| Layout | Import Style |
+|--------|-------------|
+| Colocated (`src/module.test.ts`) | `import { X } from './module'` |
+| `__tests__/` dir | `import { X } from '../module'` |
+| Top-level `tests/` | `import { X } from '../src/module'` |
 
-## Dependency Validation
-
-Before writing test code, verify test infrastructure is present:
-
-1. **Test runner**: Check `package.json` `devDependencies` for `jest`, `vitest`, `mocha`, etc.
-2. **Type definitions**: For Jest, ensure `@types/jest` is installed; Vitest includes its own types
-3. **TypeScript support**: Jest needs `ts-jest` or `@swc/jest`; Vitest handles TS natively
-4. **Assertion library**: Jest/Vitest have built-in `expect`; Mocha typically uses `chai`
-
-If imports fail or tests won't run:
-
-```bash
-# Jest setup
-npm install --save-dev jest ts-jest @types/jest
-
-# Vitest setup
-npm install --save-dev vitest
-
-# Mocha + Chai setup
-npm install --save-dev mocha chai @types/mocha @types/chai ts-node
-```
-
-## Common Errors
-
-| Error | Meaning | Fix |
-|-------|---------|-----|
-| `Cannot find module 'X'` | Import path wrong or package not installed | Fix the import path or `npm install` the package |
-| `TS2305: Module has no exported member` | Named export doesn't exist | Check the source file's actual exports |
-| `TS2307: Cannot find module` | Missing module or type declarations | Install `@types/package` or check `tsconfig.json` paths |
-| `TS2345: Argument type not assignable` | Type mismatch in function call | Match the expected type or use type assertion |
-| `TS2339: Property does not exist on type` | Wrong property name or type | Verify property name against the source interface/class |
-| `TS7006: Parameter implicitly has 'any' type` | Missing type annotation (strict mode) | Add explicit type annotations |
-| `SyntaxError: Unexpected token` | Test runner can't parse TypeScript | Configure `ts-jest`, `@swc/jest`, or use Vitest which handles TS natively |
-| `ReferenceError: describe is not defined` | Test globals not available | For Vitest: import from `vitest` or set `globals: true` in config; for Jest: ensure tests run under Jest (not `node`); for Mocha: check test bootstrap |
-| `ERR_REQUIRE_ESM` / `Cannot use import statement outside a module` | ESM/CJS mismatch | Set `"type": "module"` in `package.json`, or configure the test runner's transform/loader — see ESM section below |
-| `ReferenceError: document is not defined` | Code uses browser APIs | Configure test environment: `testEnvironment: 'jsdom'` (Jest) or `environment: 'jsdom'` (Vitest) |
-
-## Project Layout Detection
-
-| Layout | Test Location | Import Style |
-|--------|--------------|-------------|
-| Colocated | `src/module.test.ts` next to `src/module.ts` | `import { X } from './module'` |
-| Separate `__tests__` | `src/__tests__/module.test.ts` | `import { X } from '../module'` |
-| Top-level `tests/` | `tests/module.test.ts` | `import { X } from '../src/module'` |
-
-- Check existing test files to match the project's convention
-- If `tsconfig.json` has `paths` aliases (e.g., `@/`), use them in test imports
-- For monorepos, import from the package name, not relative paths across packages
+- **Match existing test imports** — copy path style from neighboring tests
+- If `tsconfig.json` has `paths` aliases (e.g., `@/`), use them in tests too
+- For monorepos: import from the package name, not relative cross-package paths
+- For monorepo workspaces (Nx, Turborepo, Lerna): run tests via the workspace tool (`nx test <project>`, `turbo test`), not from a random package directory
 
 ## Test File Naming
 
-- Jest default: `*.test.ts`, `*.test.tsx`, `*.spec.ts`, `*.spec.tsx`, or files inside `__tests__/`
-- Vitest default: same as Jest
-- Match the existing project convention — check for `.test.` vs `.spec.` usage
-- Place test files to mirror source structure
+- Match existing convention — check for `.test.ts` vs `.spec.ts`
+- Jest/Vitest default: `*.test.ts`, `*.spec.ts`, or files inside `__tests__/`
+- Place test files to mirror the existing project pattern
 
-## Jest Template
+## Common Errors
 
-```typescript
-import { ClassName } from '../module';
-
-describe('ClassName', () => {
-  let sut: ClassName;
-
-  beforeEach(() => {
-    sut = new ClassName();
-  });
-
-  describe('methodName', () => {
-    it('returns expected result for valid input', () => {
-      // Arrange
-      const input = 'test';
-
-      // Act
-      const result = sut.methodName(input);
-
-      // Assert
-      expect(result).toBe(expected);
-    });
-
-    it.each([
-      { a: 2, b: 3, expected: 5 },
-      { a: -1, b: 1, expected: 0 },
-      { a: 0, b: 0, expected: 0 },
-    ])('add($a, $b) returns $expected', ({ a, b, expected }) => {
-      expect(sut.add(a, b)).toBe(expected);
-    });
-
-    it('throws on invalid input', () => {
-      expect(() => sut.methodName(null!)).toThrow('must not be null');
-    });
-  });
-});
-```
-
-## Vitest Template
-
-```typescript
-import { describe, it, expect, beforeEach } from 'vitest';
-import { ClassName } from '../module';
-
-describe('ClassName', () => {
-  let sut: ClassName;
-
-  beforeEach(() => {
-    sut = new ClassName();
-  });
-
-  describe('methodName', () => {
-    it('returns expected result for valid input', () => {
-      const result = sut.methodName('test');
-      expect(result).toBe(expected);
-    });
-
-    it.each([
-      { a: 2, b: 3, expected: 5 },
-      { a: -1, b: 1, expected: 0 },
-    ])('add($a, $b) returns $expected', ({ a, b, expected }) => {
-      expect(sut.add(a, b)).toBe(expected);
-    });
-  });
-});
-```
-
-## Mocking Guidelines
-
-### Jest
-
-```typescript
-// Manual mock
-const mockRepo = {
-  find: jest.fn().mockResolvedValue({ id: 1, name: 'test' }),
-  save: jest.fn(),
-};
-const sut = new Service(mockRepo as unknown as Repository);
-
-// Module mock
-jest.mock('../repository', () => ({
-  Repository: jest.fn().mockImplementation(() => ({
-    find: jest.fn().mockResolvedValue({ id: 1 }),
-  })),
-}));
-
-// Spy on existing method
-jest.spyOn(sut, 'methodName').mockReturnValue('mocked');
-```
-
-### Vitest
-
-```typescript
-import { vi } from 'vitest';
-
-const mockRepo = {
-  find: vi.fn().mockResolvedValue({ id: 1, name: 'test' }),
-  save: vi.fn(),
-};
-const sut = new Service(mockRepo as unknown as Repository);
-
-// Module mock
-vi.mock('../repository', () => ({
-  Repository: vi.fn().mockImplementation(() => ({
-    find: vi.fn().mockResolvedValue({ id: 1 }),
-  })),
-}));
-```
-
-- Prefer dependency injection over module mocking — cleaner and less brittle
-- Prefer typed mock helpers (`jest.Mocked<T>`, `vi.mocked`) or `Pick<T, 'method1' | 'method2'>` over `as unknown as Type`
-- Use `as unknown as Type` only as a last resort for partial mocks
-- For complex interfaces, consider a factory helper to reduce mock boilerplate
-- If a test needs more than 3–4 mocks, flag it as a design smell
-- Mock reset: if config enables `clearMocks`/`mockReset`, rely on it; otherwise reset explicitly in `beforeEach`
-
-## Async Tests
-
-```typescript
-// Jest / Vitest — both support async/await natively
-it('fetches data successfully', async () => {
-  const result = await sut.fetchData(42);
-  expect(result).toBeDefined();
-});
-
-// Testing rejected promises
-it('throws on not found', async () => {
-  await expect(sut.fetchData(-1)).rejects.toThrow('not found');
-});
-```
-
-## TypeScript-Specific Considerations
-
-- **Access modifiers**: TypeScript `private` and `protected` are compile-time only — they don't exist at runtime. Tests can technically access them but **should not** — test through the public API
-- **Interfaces**: When the source defines interfaces, mock against the interface type, not the concrete class
-- **Enums**: Import and use enum values directly in test assertions — don't hardcode the underlying numbers
-- **Generics**: Provide explicit type arguments when instantiating generic classes in tests for clarity
-- **Type assertions in tests**: Use `as Type` sparingly and only for test setup (mock objects), never to silence legitimate type errors
+| Error | Fix |
+|-------|-----|
+| `Cannot find module 'X'` | Check existing imports for correct paths; verify `tsconfig.json` `paths`; check `moduleNameMapper` (Jest) or `resolve.alias` (Vitest) |
+| `TS2305: has no exported member` | Verify the exact export name from the source file |
+| `TS2345: type not assignable` | Match the expected type; use type assertion only for mock objects |
+| `SyntaxError: Unexpected token` / `Jest encountered an unexpected token` | Verify TS transform config (`ts-jest`, `@swc/jest`, or Vitest handles natively) |
+| `ReferenceError: describe is not defined` | Vitest: import from `vitest` or set `globals: true` in config; Jest: ensure tests run under Jest not bare `node` |
+| `Cannot use import statement outside a module` / `ERR_REQUIRE_ESM` | ESM/CJS mismatch — align runner config with the project's module system (see ESM section); do **not** blindly set `"type": "module"` |
+| `ReferenceError: document is not defined` | Set test environment: `testEnvironment: 'jsdom'` (Jest) or `environment: 'jsdom'` (Vitest) |
+| `jest.mock() ... out-of-scope variables` | Keep `jest.mock()` at top level; don't reference variables declared after the mock call (Jest hoists mocks) |
+| `Cannot find module '@/...'` | Mirror the project's alias config in the test runner's module resolution |
+| `Warning: not wrapped in act(...)` | Await async UI updates using the repo's existing pattern (`waitFor`, `act`) |
 
 ## ESM vs CommonJS
 
-Many TypeScript projects are transitioning to ESM. Watch for these signals:
+Check these signals to determine the project's module system:
 
-- `"type": "module"` in `package.json` → ESM project
-- `"module": "ESNext"` or `"NodeNext"` in `tsconfig.json` → ESM output
-- `.mjs`/`.mts` file extensions → ESM files
+- `"type": "module"` in `package.json` → ESM
+- `"module": "ESNext"` or `"NodeNext"` in `tsconfig.json` → ESM output (but not sufficient alone)
+- `.mjs`/`.mts` extensions → ESM files
 
-If the test runner fails with ESM errors:
+If the test runner fails with ESM errors, align the runner's config with the project's module system. **Do not change `package.json` `type` field** — align the test runner to match whatever the project uses:
 
-- **Jest**: May need `--experimental-vm-modules` flag and ESM-compatible transform (`ts-jest` with `useESM: true`, or `@swc/jest`)
-- **Vitest**: Handles ESM natively — prefer Vitest for ESM projects if no runner is established
-- **Mocha**: Needs `--loader ts-node/esm` or similar loader configuration
+- **Jest**: `--experimental-vm-modules` + `ts-jest` with `useESM: true`, or `@swc/jest`
+- **Vitest**: handles ESM natively
+- **Mocha**: `--loader ts-node/esm`
 
-Check the project's existing test configuration before changing module settings.
+## Mocking Rules
 
-## Framework Detection Priority
+- Prefer dependency injection over module mocking
+- Use typed mocks: `jest.Mocked<T>`, `vi.mocked(obj)`, or `Partial<T>` with `as T`
+- Jest: `jest.mock()` is hoisted — keep at top level, don't close over local variables
+- Vitest: `vi.mock()` follows the same hoisting rules
+- If a test needs more than 3–4 mocks, flag it as a design smell
+- Mock reset: rely on `clearMocks`/`restoreMocks` config if present; otherwise reset in `beforeEach`
 
-When the project has multiple test runners configured, prefer in this order:
+## Framework-Specific Notes
 
-1. Whatever `npm test` / `scripts.test` runs
-2. Vitest (faster, better TS support)
-3. Jest (most widely used)
-4. Mocha + Chai (older projects)
+- **React/Preact**: use `@testing-library/react`, wrap with necessary providers (router, query client, theme) matching existing test setup
+- **Express/Koa**: use `supertest` for HTTP testing if the repo already uses it
+- **NestJS**: build testing module with `Test.createTestingModule` — don't instantiate controllers directly
+
+## Dependency Installation (Last Resort)
+
+Only install packages after investigation confirms they are missing. Use the detected package manager:
+
+```
+<manager> add --save-dev jest ts-jest @types/jest
+<manager> add --save-dev vitest
+```
+
+Never install test infrastructure that conflicts with what the repo already uses.
 
 ## Skip Coverage Tools
 
-Do not configure or run code coverage measurement tools (istanbul, c8, vitest --coverage). Coverage is measured separately by the evaluation harness.
+Do not configure or run coverage tools (istanbul, c8, `vitest --coverage`). Coverage is measured separately by the evaluation harness.
