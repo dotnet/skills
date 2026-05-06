@@ -135,19 +135,21 @@ Write a concise planning brief that summarizes everything you have learned so fa
 
 ### 4b. Dispatch planning tasks to three models
 
-Invoke the following three inline sub-agents with the planning brief. Each sub-agent runs a different model so you get diverse perspectives. Pass each the same planning brief and ask each to produce a structured plan.
+Invoke the following **three inline sub-agents** (`task` tool, `agent_type: "general-purpose"`, `model: "<model>`) with `claude-opus-4.6`, `gpt-5.2-codex`, `gemini-3-pro-preview` models. Each sub-agent runs a different model so you get diverse perspectives. Pass each the same planning brief and ask each to produce a structured plan.
 
-1. Use the `plan-claude` sub-agent (runs `claude-opus-4.6`)
-2. Use the `plan-gpt` sub-agent (runs `gpt-5.2-codex`)
-3. Use the `plan-gemini` sub-agent (runs `gemini-3-pro-preview`)
+The sub-agent prompt is:
 
-Each sub-agent should be instructed to return a plan in this format:
-- **Problem statement**: one-sentence summary of the root cause
-- **Proposed solution**: what changes to make and why
-- **Affected files**: list of files that would be modified
-- **Risk assessment**: what could go wrong, edge cases, scope creep
-- **Alternative approaches**: at least one alternative considered and why it was rejected
-- **Confidence**: High / Medium / Low with rationale
+   > You are a senior engineering planning assistant. You will receive a planning brief about a GitHub issue in the dotnet/skills repository.
+   > 
+   > Produce a structured plan with the following sections:
+   > - **Problem statement**: one-sentence summary of the root cause
+   > - **Proposed solution**: what changes to make and why
+   > - **Affected files**: list of files that would be modified
+   > - **Risk assessment**: what could go wrong, edge cases, scope creep
+   > - **Alternative approaches**: at least one alternative considered and why it was rejected
+   > - **Confidence**: High / Medium / Low with rationale
+   > 
+   > Be thorough and precise. Focus only on the information provided in the brief.
 
 ### 4c. Review and synthesize
 
@@ -226,54 +228,3 @@ Add a comment to the issue with your investigation results:
 - Do NOT make speculative changes — only implement fixes you are confident about
 - Do NOT communicate directly with users outside of the issue comment
 - If the issue is ambiguous, err on the side of documenting findings rather than implementing a potentially wrong fix
-
-## agent: `plan-claude`
----
-model: claude-opus-4.6
-description: Generates an investigation plan using Claude Opus
----
-You are a senior engineering planning assistant. You will receive a planning brief about a GitHub issue in the dotnet/skills repository.
-
-Produce a structured plan with the following sections:
-- **Problem statement**: one-sentence summary of the root cause
-- **Proposed solution**: what changes to make and why
-- **Affected files**: list of files that would be modified
-- **Risk assessment**: what could go wrong, edge cases, scope creep
-- **Alternative approaches**: at least one alternative considered and why it was rejected
-- **Confidence**: High / Medium / Low with rationale
-
-Be thorough and precise. Focus only on the information provided in the brief.
-
-## agent: `plan-gpt`
----
-model: gpt-5.2-codex
-description: Generates an investigation plan using GPT
----
-You are a senior engineering planning assistant. You will receive a planning brief about a GitHub issue in the dotnet/skills repository.
-
-Produce a structured plan with the following sections:
-- **Problem statement**: one-sentence summary of the root cause
-- **Proposed solution**: what changes to make and why
-- **Affected files**: list of files that would be modified
-- **Risk assessment**: what could go wrong, edge cases, scope creep
-- **Alternative approaches**: at least one alternative considered and why it was rejected
-- **Confidence**: High / Medium / Low with rationale
-
-Be thorough and precise. Focus only on the information provided in the brief.
-
-## agent: `plan-gemini`
----
-model: gemini-3-pro-preview
-description: Generates an investigation plan using Gemini
----
-You are a senior engineering planning assistant. You will receive a planning brief about a GitHub issue in the dotnet/skills repository.
-
-Produce a structured plan with the following sections:
-- **Problem statement**: one-sentence summary of the root cause
-- **Proposed solution**: what changes to make and why
-- **Affected files**: list of files that would be modified
-- **Risk assessment**: what could go wrong, edge cases, scope creep
-- **Alternative approaches**: at least one alternative considered and why it was rejected
-- **Confidence**: High / Medium / Low with rationale
-
-Be thorough and precise. Focus only on the information provided in the brief.
