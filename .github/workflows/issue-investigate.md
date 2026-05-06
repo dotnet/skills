@@ -120,24 +120,53 @@ Based on the issue content, explore the relevant parts of the codebase:
    - Past discussions that inform the solution approach
 3. Note any patterns (e.g., recurring issue in the same area)
 
-## Step 4: Formulate and Validate a Plan
+## Step 4: Multi-Model Plan Generation and Validation
 
-Before taking any action, formulate a clear plan:
+Before taking any action, generate independent plans from multiple models and synthesize the best approach.
 
-1. **Draft a plan**: Write out your proposed approach in a structured format:
-   - **Problem statement**: one-sentence summary of the root cause
-   - **Proposed solution**: what changes you intend to make and why
-   - **Affected files**: list of files that would be modified
-   - **Risk assessment**: what could go wrong, edge cases, scope creep concerns
-   - **Alternative approaches**: at least one alternative you considered and why you rejected it
+### 4a. Prepare a planning brief
 
-2. **Self-review the plan**: Before implementing, critically evaluate your own plan:
-   - Does the proposed change actually address the root cause, or just a symptom?
-   - Is the scope minimal and well-contained, or does it risk unintended side-effects?
-   - Are there dependencies or downstream impacts you haven't considered?
-   - Would a human reviewer find obvious gaps in your reasoning?
+Write a concise planning brief that summarizes everything you have learned so far. Include:
+- The issue summary and key details
+- Root cause hypothesis (if any)
+- Relevant files and code paths discovered
+- Related issues found
+- Constraints (e.g., scope, backward compatibility, ownership)
 
-3. **Decide**: Only proceed to implementation if the plan passes self-review. If you have doubts about any aspect, document the plan in the investigation report (Step 6) and let a human decide rather than implementing a risky change.
+### 4b. Dispatch planning tasks to three models
+
+Invoke the following three inline sub-agents with the planning brief. Each sub-agent runs a different model so you get diverse perspectives. Pass each the same planning brief and ask each to produce a structured plan.
+
+1. Use the `plan-claude` sub-agent (runs `claude-opus-4.6`)
+2. Use the `plan-gpt` sub-agent (runs `gpt-5.2-codex`)
+3. Use the `plan-gemini` sub-agent (runs `gemini-3-pro-preview`)
+
+Each sub-agent should be instructed to return a plan in this format:
+- **Problem statement**: one-sentence summary of the root cause
+- **Proposed solution**: what changes to make and why
+- **Affected files**: list of files that would be modified
+- **Risk assessment**: what could go wrong, edge cases, scope creep
+- **Alternative approaches**: at least one alternative considered and why it was rejected
+- **Confidence**: High / Medium / Low with rationale
+
+### 4c. Review and synthesize
+
+Once all three sub-agent plans are returned, review them critically:
+
+1. **Compare** the three plans side-by-side:
+   - Do they agree on the root cause? Disagreement is a red flag — investigate further.
+   - Do they propose the same solution? If so, confidence is high.
+   - Do they identify different risks? Union of all identified risks is the true risk set.
+
+2. **Synthesize a final plan** that takes the best elements from each:
+   - Prefer the solution approach that the majority of models agree on
+   - Include all unique risks identified across the three plans
+   - If the models significantly disagree on approach, document all approaches in the investigation report and let a human decide
+
+3. **Decide**:
+   - If at least 2 of 3 models agree and confidence is Medium or High → proceed to implementation
+   - If all 3 disagree or confidence is Low across the board → do NOT implement; document findings only
+   - If any model identifies a risk that the others missed and it is serious → pause and document
 
 ## Step 5: Implement (if plan is validated)
 
@@ -197,3 +226,54 @@ Add a comment to the issue with your investigation results:
 - Do NOT make speculative changes — only implement fixes you are confident about
 - Do NOT communicate directly with users outside of the issue comment
 - If the issue is ambiguous, err on the side of documenting findings rather than implementing a potentially wrong fix
+
+## agent: `plan-claude`
+---
+model: claude-opus-4.6
+description: Generates an investigation plan using Claude Opus
+---
+You are a senior engineering planning assistant. You will receive a planning brief about a GitHub issue in the dotnet/skills repository.
+
+Produce a structured plan with the following sections:
+- **Problem statement**: one-sentence summary of the root cause
+- **Proposed solution**: what changes to make and why
+- **Affected files**: list of files that would be modified
+- **Risk assessment**: what could go wrong, edge cases, scope creep
+- **Alternative approaches**: at least one alternative considered and why it was rejected
+- **Confidence**: High / Medium / Low with rationale
+
+Be thorough and precise. Focus only on the information provided in the brief.
+
+## agent: `plan-gpt`
+---
+model: gpt-5.2-codex
+description: Generates an investigation plan using GPT
+---
+You are a senior engineering planning assistant. You will receive a planning brief about a GitHub issue in the dotnet/skills repository.
+
+Produce a structured plan with the following sections:
+- **Problem statement**: one-sentence summary of the root cause
+- **Proposed solution**: what changes to make and why
+- **Affected files**: list of files that would be modified
+- **Risk assessment**: what could go wrong, edge cases, scope creep
+- **Alternative approaches**: at least one alternative considered and why it was rejected
+- **Confidence**: High / Medium / Low with rationale
+
+Be thorough and precise. Focus only on the information provided in the brief.
+
+## agent: `plan-gemini`
+---
+model: gemini-3-pro-preview
+description: Generates an investigation plan using Gemini
+---
+You are a senior engineering planning assistant. You will receive a planning brief about a GitHub issue in the dotnet/skills repository.
+
+Produce a structured plan with the following sections:
+- **Problem statement**: one-sentence summary of the root cause
+- **Proposed solution**: what changes to make and why
+- **Affected files**: list of files that would be modified
+- **Risk assessment**: what could go wrong, edge cases, scope creep
+- **Alternative approaches**: at least one alternative considered and why it was rejected
+- **Confidence**: High / Medium / Low with rationale
+
+Be thorough and precise. Focus only on the information provided in the brief.
