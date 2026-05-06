@@ -102,6 +102,14 @@ If the issue is obviously spam, bot-generated, or not an actionable issue, add a
 
 If the issue already has the `Triaged` label, skip it entirely — it has already been triaged.
 
+### Reopened Issues
+
+If the issue was **reopened** (i.e., it already has labels, assignees, or prior triage comments):
+- Review existing labels — they may still be correct. Do not blindly overwrite them.
+- Pay special attention to the **reopen context**: the most recent comment or event that caused the reopen often contains the key new information (e.g., "still happening after fix", "different repro").
+- If existing labels are still accurate, keep them. Only change the area label if the reopen context clearly indicates a different area.
+- If the issue was previously triaged and closed as resolved, note that it has regressed or resurfaced in your triage comment.
+
 ## Step 2: Gather Context
 
 - Fetch the CODEOWNERS file at `.github/CODEOWNERS` using bash: `cat .github/CODEOWNERS`
@@ -147,30 +155,46 @@ Using the CODEOWNERS file, determine the most appropriate owners for the issue b
 
 Use the `update_issue` tool to **directly assign** the determined owners to the issue. If a user cannot be assigned (e.g., teams cannot be set as assignees), mention them in the triage comment instead.
 
-## Step 5: Apply Labels
+## Step 5: Determine Issue Type
+
+Classify the issue as one of the following types and apply the corresponding label:
+- `bug` — Something is broken or not working as expected
+- `enhancement` — A new feature or improvement to existing functionality
+- `task` — A work item, chore, or maintenance request that is not a bug or feature
+- `question` — A question or request for clarification
+
+If the type is ambiguous, make your best judgment. You must always assign exactly one type label.
+
+## Step 6: Apply Labels
 
 Use the `update_issue` tool to apply labels to the issue:
-- The determined `area-*` label
+- The determined `area-*` label (if one was determined)
+- The issue type label (`bug`, `enhancement`, `task`, or `question`)
 - The `Triaged` label
 - If owners could not be determined: `needs-manual-assignment`
 - If clearly a duplicate of an open issue: `duplicate`
-- Optionally a type label if obvious: `bug`, `enhancement`, `question`
 
 **Important:** Only use labels that exist in the repository. Verify against the label list fetched in Step 2.
 
-## Step 6: Post Triage Comment
+## Step 7: Post Triage Comment
 
 Add a **single** comment to the issue with your triage analysis:
 
 - Start with "**🎯 Issue Triage**"
 - **Summary** (2-3 sentences): what the issue is about and which area it falls under
+- **Type**: the issue type you assigned (bug/enhancement/task/question)
 - **Assigned owners**: confirm who was assigned; mention any team handles that could not be directly assigned
+- **Confidence**: rate your triage confidence as **High**, **Medium**, or **Low**
+  - **High**: issue clearly maps to a single area, type is obvious, owners are unambiguous
+  - **Medium**: reasonable confidence but some ambiguity (e.g., could span two areas, type is debatable)
+  - **Low**: significant uncertainty — multiple areas could apply, issue is vague, or you had to guess
 - **Similar issues**: link any related open issues found, noting if this might be a duplicate
 
 <details><summary>Triage details</summary>
 
 - Area mapping rationale
 - CODEOWNERS path match
+- Confidence rationale (why High/Medium/Low)
 - Any additional context or suggested next steps
 
 </details>

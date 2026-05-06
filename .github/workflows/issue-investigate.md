@@ -120,9 +120,28 @@ Based on the issue content, explore the relevant parts of the codebase:
    - Past discussions that inform the solution approach
 3. Note any patterns (e.g., recurring issue in the same area)
 
-## Step 4: Analyze and Determine Next Steps
+## Step 4: Formulate and Validate a Plan
 
-Based on your investigation, determine the best path forward:
+Before taking any action, formulate a clear plan:
+
+1. **Draft a plan**: Write out your proposed approach in a structured format:
+   - **Problem statement**: one-sentence summary of the root cause
+   - **Proposed solution**: what changes you intend to make and why
+   - **Affected files**: list of files that would be modified
+   - **Risk assessment**: what could go wrong, edge cases, scope creep concerns
+   - **Alternative approaches**: at least one alternative you considered and why you rejected it
+
+2. **Self-review the plan**: Before implementing, critically evaluate your own plan:
+   - Does the proposed change actually address the root cause, or just a symptom?
+   - Is the scope minimal and well-contained, or does it risk unintended side-effects?
+   - Are there dependencies or downstream impacts you haven't considered?
+   - Would a human reviewer find obvious gaps in your reasoning?
+
+3. **Decide**: Only proceed to implementation if the plan passes self-review. If you have doubts about any aspect, document the plan in the investigation report (Step 6) and let a human decide rather than implementing a risky change.
+
+## Step 5: Implement (if plan is validated)
+
+Based on your validated plan, determine the best path forward:
 
 ### If the fix or implementation is clear and contained:
 - Implement the change using the `edit` tool
@@ -140,7 +159,7 @@ Based on your investigation, determine the best path forward:
 - Identify who should be consulted (from CODEOWNERS)
 - List specific questions that need answers before proceeding
 
-## Step 5: Post Investigation Report
+## Step 6: Post Investigation Report
 
 Add a comment to the issue with your investigation results:
 
