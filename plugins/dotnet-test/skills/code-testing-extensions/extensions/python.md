@@ -10,7 +10,7 @@ Before writing any test or running any command, read:
 2. **Config files** — `pyproject.toml`, `pytest.ini`, `setup.cfg`, `tox.ini`, `conftest.py`
 3. **Package layout** — determine import paths from existing code, not guesswork
 
-Do **not** add or change test infrastructure (frameworks, plugins, configs) unless the repo already uses it.
+Use the repo's existing test framework and conventions. If multiple frameworks are present, follow whichever existing tests use. Only introduce a framework (default to pytest) if the repo has no tests at all.
 
 ## Environment Detection
 

@@ -11,7 +11,7 @@ Before writing any test or running any command, read:
 3. **Build/test scripts** — check for `build.ps1`, `Invoke-Build` (`*.build.ps1`), `psake`, or CI scripts
 4. **Shell target** — check `.psd1` for `PowerShellVersion`/`CompatiblePSEditions`, CI matrix for `pwsh` vs `powershell.exe`
 
-Do **not** add Pester or change test infrastructure unless the repo already uses it.
+Use the repo's existing test conventions. Only add Pester if the repo has no tests at all.
 
 ## Build Commands
 

@@ -10,7 +10,7 @@ Before writing any test or running any command, read:
 2. **`package.json`** — `scripts.test`, `devDependencies`, `type` field
 3. **Config files** — `tsconfig.json`, `jest.config.*`, `vitest.config.*`, `eslint.config.*`
 
-Do **not** add or change test infrastructure (frameworks, configs, transforms) unless the repo already uses it. Use the runner the repo already has — do not switch runners.
+Use the repo's existing test runner and conventions — do not switch frameworks. If multiple runners are configured, follow whichever `scripts.test` invokes. Only introduce a framework if the repo has no tests at all.
 
 ## Package Manager Detection
 
