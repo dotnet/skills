@@ -276,7 +276,7 @@ stimuli:
           pattern: (BackgroundService|ExecuteAsync|exception|host|stop|crash)
       - type: output-matches
         config:
-          pattern: (ZipArchive|CRC32|corrupt|InvalidDataException)
+          pattern: (ZipArchive|CRC32|InvalidDataException|checksum)
       - type: prompt
       - type: pairwise
     rubric:
