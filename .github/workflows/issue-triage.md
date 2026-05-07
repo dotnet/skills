@@ -155,7 +155,7 @@ Using the CODEOWNERS file, determine the most appropriate owners for the issue b
 4. If the issue is general or cross-cutting, use the default owners from the `*` rule
 5. If you cannot confidently determine owners, add the `needs-manual-assignment` label instead of assigning
 
-Use the `update_issue` tool to **directly assign** the determined owners to the issue by setting the `assignees` field. **Only set assignees in this call — do NOT set labels here.** Labels are handled separately in Step 6 using the `add_labels` tool.
+Use the `update_issue` tool to **directly assign** the determined owners to the issue by setting the `assignees` field. To satisfy tool validation, include a no-op `title` field set to the issue's current title fetched in Step 1, unchanged. **Do NOT set labels in this call.** Labels are handled separately in Step 6 using the `add_labels` tool.
 
 If a user cannot be assigned (e.g., teams cannot be set as assignees), mention them in the triage comment instead.
 
