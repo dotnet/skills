@@ -37,7 +37,7 @@ jobs:
           if [ -n "$CONFIG_CHANGED" ]; then
             echo "mode=all" >> "$GITHUB_OUTPUT"
           else
-            FILES=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- '*.md' | tr '\n' ' ')
+            FILES=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- '**/*.md' | tr '\n' ' ')
             echo "files=$FILES" >> "$GITHUB_OUTPUT"
             if [ -n "$FILES" ]; then
               echo "mode=changed" >> "$GITHUB_OUTPUT"
@@ -50,7 +50,7 @@ jobs:
         if: steps.scope.outputs.mode != 'none'
         run: |
           if [ "${{ steps.scope.outputs.mode }}" = "all" ]; then
-            npx markdownlint-cli2 "**/*.md"
+            npx --yes markdownlint-cli2 "**/*.md"
           else
-            npx markdownlint-cli2 ${{ steps.scope.outputs.files }}
+            npx --yes markdownlint-cli2 ${{ steps.scope.outputs.files }}
           fi
