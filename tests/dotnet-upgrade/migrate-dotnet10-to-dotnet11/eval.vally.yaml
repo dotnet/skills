@@ -325,7 +325,7 @@ stimuli:
           pattern: (OpenApi|Microsoft\.OpenApi|v3|3\.2|upgrade)
       - type: output-matches
         config:
-          pattern: (Virtualize|OverscanCount|3|15)
+          pattern: OverscanCount.*(3|15)
       - type: prompt
       - type: pairwise
     rubric:
