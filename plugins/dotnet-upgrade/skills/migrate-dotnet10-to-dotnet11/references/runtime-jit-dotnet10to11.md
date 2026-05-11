@@ -49,5 +49,3 @@ For ReadyToRun-capable assemblies, there may be additional startup overhead on s
 **Fix:** Verify all deployment targets meet the new minimum requirements. For x86/x64, any CPU from ~2013 or later should be fine. For Windows Arm64, ensure `LSE` support (all Windows 11 compatible Arm64 devices).
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/jit/11/minimum-hardware-requirements
-
-

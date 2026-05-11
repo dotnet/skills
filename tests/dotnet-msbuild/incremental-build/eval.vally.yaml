@@ -1,0 +1,28 @@
+name: incremental-build
+description: Evaluates the dotnet-msbuild/incremental-build skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Analyze incremental build issues
+    prompt: Analyze this project for incremental build issues. Identify any custom targets that would unnecessarily re-run
+      on every build even when nothing has changed.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-contains
+        config:
+          substring: Inputs
+      - type: output-contains
+        config:
+          substring: Outputs
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified custom target is missing Inputs and Outputs attributes
+      - Explained that without Inputs/Outputs, MSBuild runs the target every time
+      - Suggested adding Inputs and Outputs attributes referencing source files and generated outputs
+      - Identified generated files not registered in FileWrites for clean support
+      - Mentioned building twice to verify incrementality (second build should skip the target)

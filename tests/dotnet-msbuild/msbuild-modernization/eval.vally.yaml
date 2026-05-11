@@ -1,0 +1,28 @@
+name: msbuild-modernization
+description: Evaluates the dotnet-msbuild/msbuild-modernization skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Modernize legacy project to SDK-style
+    prompt: Modernize this project to SDK-style format. Identify all legacy patterns and suggest how to simplify the project
+      file.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-contains
+        config:
+          substring: Microsoft.NET.Sdk
+      - type: output-matches
+        config:
+          pattern: (SDK-style|SDK style|Sdk)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified project as non-SDK-style (legacy format) and suggested migration to SDK-style
+      - Identified explicit Compile Include items as unnecessary due to SDK-style implicit globbing
+      - Identified framework Reference elements and explicit MSBuild Import statements as removable
+      - Identified AssemblyInfo.cs as replaceable by SDK auto-generation
+      - Provided a modernized .csproj example showing the dramatic reduction in boilerplate

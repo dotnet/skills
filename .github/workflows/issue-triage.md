@@ -75,7 +75,7 @@ safe-outputs:
     max: 5
   update-issue:
     target: "*"
-    max: 1
+    max: 2
   add-comment:
     max: 1
 
@@ -93,6 +93,8 @@ You are a triage assistant for the dotnet/skills GitHub repository. Your task is
 ## Target Issue
 
 Triage issue number: `${{ github.event.issue.number || inputs.issue_number }}`
+
+**Important — workflow_dispatch context:** When this workflow is triggered via `workflow_dispatch`, there is no triggering issue context. You MUST pass `issue_number` (for `update_issue`) or `item_number` (for `add_labels` and `add_comment`) explicitly in every safe-output tool call. Use the issue number from the Target Issue above.
 
 ## Step 1: Retrieve Issue Content
 
@@ -153,7 +155,9 @@ Using the CODEOWNERS file, determine the most appropriate owners for the issue b
 4. If the issue is general or cross-cutting, use the default owners from the `*` rule
 5. If you cannot confidently determine owners, add the `needs-manual-assignment` label instead of assigning
 
-Use the `update_issue` tool to **directly assign** the determined owners to the issue. If a user cannot be assigned (e.g., teams cannot be set as assignees), mention them in the triage comment instead.
+Use the `update_issue` tool to **directly assign** the determined owners to the issue by setting the `assignees` field. To satisfy tool validation, include a no-op `title` field set to the issue's current title fetched in Step 1, unchanged. **Do NOT set labels in this call.** Labels are handled separately in Step 6 using the `add_labels` tool.
+
+If a user cannot be assigned (e.g., teams cannot be set as assignees), mention them in the triage comment instead.
 
 ## Step 5: Determine Issue Type
 
@@ -167,7 +171,9 @@ If the type is ambiguous, make your best judgment. You must always assign exactl
 
 ## Step 6: Apply Labels
 
-Use the `update_issue` tool to apply labels to the issue:
+Use the `add_labels` tool (NOT `update_issue`) to apply labels to the issue. The `add_labels` tool is additive — it does not remove existing labels.
+
+Add the following labels:
 - The determined `area-*` label (if one was determined)
 - The issue type label (`bug`, `enhancement`, `task`, or `question`)
 - The `Triaged` label

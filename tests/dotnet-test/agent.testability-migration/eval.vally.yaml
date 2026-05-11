@@ -1,0 +1,68 @@
+name: agent.testability-migration
+description: Evaluates the dotnet-test/agent.testability-migration orchestrator agent
+type: capability
+config:
+  timeout: 5m
+stimuli:
+  - name: "Full pipeline: detect statics and recommend migration plan"
+    prompt: >
+      I have a SubscriptionManager class that's impossible to unit test
+      because it uses DateTime.UtcNow, File.*, Directory.*, Environment.*,
+      and Console.* all directly. Can you analyze it and help me make it
+      testable?
+    environment:
+      files:
+        - src: ./fixtures/full-pipeline
+          dest: FullPipeline
+      skills:
+        - ../../plugins/dotnet-test/skills/detect-static-dependencies
+        - ../../plugins/dotnet-test/skills/generate-testability-wrappers
+        - ../../plugins/dotnet-test/skills/migrate-static-to-wrapper
+    graders:
+      - type: output-matches
+        config:
+          pattern: (DateTime\.UtcNow|DateTime\.Now|time)
+      - type: output-matches
+        config:
+          pattern: (File\.|Directory\.|file system|filesystem)
+      - type: output-matches
+        config:
+          pattern: (TimeProvider|IFileSystem|System\.IO\.Abstractions|wrapper|abstraction)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified the static dependencies in SubscriptionManager (time, filesystem, environment, console)
+      - Recommended TimeProvider for replacing DateTime.UtcNow calls
+      - Recommended System.IO.Abstractions or a wrapper for File/Directory calls
+      - Proposed an incremental migration plan rather than changing everything at once
+      - Produced concrete code changes or clear next steps
+
+  - name: "Targeted request: just migrate DateTime to TimeProvider"
+    prompt: >
+      I only care about making the time calls testable right now. Replace
+      DateTime.UtcNow with TimeProvider in my SubscriptionManager class. I'm
+      on .NET 10.
+    environment:
+      files:
+        - src: ./fixtures/full-pipeline
+          dest: FullPipeline
+      skills:
+        - ../../plugins/dotnet-test/skills/migrate-static-to-wrapper
+    graders:
+      - type: file-contains
+        config:
+          path: "**/SubscriptionManager.cs"
+          value: TimeProvider
+      - type: file-not-contains
+        config:
+          path: "**/SubscriptionManager.cs"
+          value: DateTime.UtcNow
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Replaced all DateTime.UtcNow calls in SubscriptionManager with TimeProvider equivalents
+      - Added TimeProvider as a dependency to SubscriptionManager via constructor injection
+      - Registered TimeProvider.System in the DI container in Program.cs
+      - Did not modify the File.*, Directory.*, Environment.*, or Console.* calls — stayed focused

@@ -1,0 +1,32 @@
+name: code-testing-agent
+description: Evaluates the dotnet-test/code-testing-agent skill
+type: capability
+config:
+  timeout: 40m
+stimuli:
+  - name: Generate tests for ContosoUniversity ASP.NET Core MVC app
+    prompt: |
+      I have an ASP.NET Core MVC application under ContosoUniversity/ — a university
+      enrollment system.
+
+      Please generate comprehensive unit tests that achieve high code coverage.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: dotnet test ContosoUniversity.Tests/ContosoUniversity.Tests.csproj -v:q --collect:"XPlat Code Coverage"
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Achieved high line coverage (>70%) across the ContosoUniversity source files as reported by the Cobertura XML in
+        TestResults/
+      - Tests are organized logically with clear naming that describes test scenarios
+      - Generated tests that cover multiple controllers (Students, Courses, Departments, Instructors)
+      - Set up the EF Core SchoolContext correctly for testing without a real SQL Server (e.g., InMemory provider or
+        SQLite)

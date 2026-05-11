@@ -1,0 +1,36 @@
+name: build-perf-baseline
+description: Evaluates the dotnet-msbuild/build-perf-baseline skill
+type: capability
+config:
+  timeout: 6m
+stimuli:
+  - name: Establish build performance baseline and recommend optimizations
+    prompt: This .NET solution has build performance concerns. Build the solution, establish a build performance baseline,
+      then analyze the project structure and build configuration for optimization opportunities. Provide  specific
+      recommendations to improve build performance.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: (baseline|cold.build|warm.build|no.op)
+      - type: output-matches
+        config:
+          pattern: (redundant|transitive|unnecessary).*(reference|depend)
+      - type: output-matches
+        config:
+          pattern: (GenerateDocumentationFile|RunAnalyzers|EnforceCodeStyleInBuild)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - "Measured or described three build scenarios: cold build, warm/incremental build, and no-op build as a
+        structured baseline"
+      - Identified redundant transitive ProjectReference entries (e.g., WebApi referencing Common and DataAccess when
+        BusinessLogic already depends on them)
+      - Recommended trimming unnecessary project references to shorten the dependency graph
+      - Identified GenerateDocumentationFile and EnforceCodeStyleInBuild as dev inner loop performance drags and
+        suggested conditionalizing them for CI only
+      - Suggested at least one advanced optimization such as graph build (/graph), UseArtifactsOutput, or separating
+        restore from build (--no-restore)

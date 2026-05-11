@@ -1,0 +1,28 @@
+name: including-generated-files
+description: Evaluates the dotnet-msbuild/including-generated-files skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Diagnose generated file inclusion failure
+    prompt: Build this project and diagnose why it fails. The project generates a source file during the build but it's not
+      being compiled.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-contains
+        config:
+          substring: Compile
+      - type: output-matches
+        config:
+          pattern: (evaluation|execution|phase)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified that the generated file is not included in compilation
+      - Explained evaluation phase vs execution phase timing — default globs don't capture files generated during build
+      - Suggested adding generated file to Compile item group inside the target
+      - Suggested adding generated file to FileWrites item group for clean support
+      - Provided correct XML fix with Compile Include inside the target, not at project level

@@ -1,0 +1,112 @@
+name: maui-safe-area
+description: Evaluates the dotnet-maui/maui-safe-area skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Handle notch and status bar safe areas on iOS
+    prompt: |
+      I just upgraded my .NET MAUI app from .NET 9 to .NET 10. On iOS, my content
+      is now going behind the status bar and the Dynamic Island notch area. In .NET 9
+      I was using `ios:Page.UseSafeArea="True"` and it worked fine. What's the correct
+      way to handle this in .NET 10? Show me the XAML.
+    graders:
+      - type: output-contains
+        config:
+          substring: SafeAreaEdges
+      - type: output-matches
+        config:
+          pattern: (?i)SafeAreaEdges.{0,20}Container
+      - type: output-matches
+        config:
+          pattern: (?i)obsolete|legacy|deprecated|replaced
+      - type: output-matches
+        config:
+          pattern: (?i)cross.?platform|all platforms
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recommends SafeAreaEdges="Container" as the replacement for ios:Page.UseSafeArea="True"
+      - Explains that UseSafeArea is obsolete/legacy in .NET 10 and should be migrated
+      - Highlights that SafeAreaEdges is cross-platform, unlike the old iOS-only API
+      - Provides correct XAML syntax showing the migration
+  - name: Edge-to-edge layout with SafeAreaEdges
+    prompt: |
+      I'm building a photo viewer page in my .NET MAUI app targeting .NET 10. I want
+      the image to fill the entire screen edge-to-edge, going behind the status bar
+      and navigation bar. But my image still has padding around it even though I set
+      SafeAreaEdges="None" on the ContentPage. What am I missing?
+    graders:
+      - type: output-contains
+        config:
+          substring: SafeAreaEdges
+      - type: output-contains
+        config:
+          substring: None
+      - type: output-matches
+        config:
+          pattern: (?i)layout|Grid|StackLayout
+      - type: output-matches
+        config:
+          pattern: (?i)Container|default
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies that child layouts default to SafeAreaEdges="Container" even when the page is set to None
+      - Recommends setting SafeAreaEdges="None" on BOTH the ContentPage and the child layout (Grid, etc.)
+      - Provides complete XAML example showing None on both page and layout
+      - Does not suggest using legacy IgnoreSafeArea or UseSafeArea APIs
+  - name: Keyboard avoidance with safe area for chat UI
+    prompt: |
+      I'm building a chat messaging screen in .NET MAUI targeting .NET 10. When the
+      keyboard opens, it covers my text input at the bottom of the screen. In .NET 9
+      I used WindowSoftInputModeAdjust.Resize but that doesn't seem to work anymore.
+      How do I make the input bar move up when the keyboard appears?
+    graders:
+      - type: output-contains
+        config:
+          substring: SoftInput
+      - type: output-contains
+        config:
+          substring: SafeAreaEdges
+      - type: output-matches
+        config:
+          pattern: (?i)Container.*SoftInput|SoftInput.*Container
+      - type: output-matches
+        config:
+          pattern: (?i)ScrollView
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recommends per-edge SafeAreaEdges with SoftInput on the bottom edge for keyboard avoidance
+      - Shows the four-value XAML syntax like SafeAreaEdges="Container, Container, Container, SoftInput"
+      - Warns that SoftInput on ScrollView directly has no effect and suggests a wrapper layout
+      - Explains that WindowSoftInputModeAdjust.Resize is replaced by the new SafeAreaEdges API in .NET 10
+  - name: Avoid deprecated UseSafeArea in new .NET 10 project
+    prompt: |
+      I'm starting a new .NET MAUI project on .NET 10. I found a tutorial that says
+      to add `ios:Page.UseSafeArea="True"` to my ContentPage to handle the iPhone
+      notch. Is this the right approach? Also, the tutorial mentions using
+      `IgnoreSafeArea="True"` on a Grid for a background image. Are these correct
+      for .NET 10?
+    graders:
+      - type: output-contains
+        config:
+          substring: SafeAreaEdges
+      - type: output-matches
+        config:
+          pattern: (?i)obsolete|legacy|deprecated|old|replaced|do not use
+      - type: output-matches
+        config:
+          pattern: (?i)SafeArea(Edges|Regions)
+      - type: output-matches
+        config:
+          pattern: (?i)\.NET 10|net10
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Warns that ios:Page.UseSafeArea is obsolete/legacy and should not be used in new .NET 10 code
+      - Warns that IgnoreSafeArea is also obsolete and replaced by SafeAreaEdges="None"
+      - Recommends SafeAreaEdges="Container" as replacement for UseSafeArea="True"
+      - Recommends SafeAreaEdges="None" as replacement for IgnoreSafeArea="True"
+      - Mentions that SafeAreaEdges is the new cross-platform API introduced in .NET 10
