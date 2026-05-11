@@ -192,21 +192,20 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "fixtures/mtp-xunit-v3-query/TestProject.csproj"
+          source: "fixtures/mtp-xunit-v3/TestProject.csproj"
         - path: "EcommerceTests.cs"
           source: "fixtures/mtp-xunit-v3-query/EcommerceTests.cs"
         - path: "global.json"
-          source: "fixtures/mtp-xunit-v3-query/global.json"
+          source: "fixtures/mtp-xunit-v3/global.json"
     assertions:
       - type: "output_matches"
-        pattern: "--filter-query"
+        pattern: "--\\s+--filter-query"
       - type: "output_matches"
-        pattern: "\\[Category=Smoke\\]"
-      - type: "output_matches"
-        pattern: "Integration"
+        pattern: '--filter-query\\s+"(?=[^"]*Integration)(?=[^"]*\\[Category=Smoke\\])[^"]+"'
       - type: "exit_success"
     rubric:
       - "Recognized that xUnit v3 on MTP supports a query filter language for complex combined expressions"
+      - "Uses SDK 9 MTP argument passing with '-- --filter-query'"
       - "Produced a filter-query expression that combines a class name pattern with a trait filter in square brackets"
       - "The expression correctly targets only Smoke tests from integration test classes, not all Smoke tests or all integration tests"
       - "Used the path-segment syntax with wildcard segments and a trait qualifier like [Category=Smoke]"

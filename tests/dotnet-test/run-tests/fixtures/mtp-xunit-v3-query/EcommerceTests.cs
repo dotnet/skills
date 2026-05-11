@@ -24,7 +24,7 @@ public class PaymentValidationTests
     public void ValidateCard_InvalidNumber_ReturnsFalse() { Assert.True(true); }
 
     [Fact]
-    [Trait("Category", "Unit")]
+    [Trait("Category", "Smoke")]
     public void ValidateCard_ExpiredDate_ReturnsFalse() { Assert.True(true); }
 }
 
