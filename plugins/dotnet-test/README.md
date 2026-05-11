@@ -101,4 +101,3 @@ These are pipeline stages invoked automatically by the agents above (`user-invoc
 
 - .NET SDK installed (`dotnet` on PATH)
 - A project with an existing test framework (MSTest, xUnit, NUnit, or TUnit) for execution and analysis skills
-- Test generation works on projects without existing tests
