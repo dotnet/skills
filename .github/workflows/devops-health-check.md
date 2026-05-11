@@ -359,8 +359,8 @@ Replace the entire issue body with the following structure:
 
 | Finding | Severity | Investigation | First Seen | Result |
 |---------|----------|---------------|------------|--------|
-{Preserve rows from the previous issue body’s Investigation Results table (look inside the `<!-- gh-aw-island-start:devops-health-groom -->` block if present). Copy all rows as-is — do not modify them. Then append new rows for findings dispatched in the current run:}
-| {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | {first_seen date} | ⏳ Investigation dispatched — results arriving shortly... |
+{Preserve rows from the previous issue body's Investigation Results table (look inside the `<!-- gh-aw-island-start:devops-health-groom -->` block if present). Copy all rows as-is for findings that are still active (appear in New Findings or Existing Findings). Drop rows whose finding is no longer active (resolved). If the previous table uses the old 4-column schema (`| Finding | Severity | Status | Result |`), migrate each row to the new 5-column schema: rename Status to Investigation, and populate First Seen from the finding's `<summary>` line (`first seen YYYY-MM-DD`) or use today's date as fallback. Then append new rows for findings dispatched in the current run:}
+| {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | {first_seen date} | [⏳ Investigation dispatched — results arriving shortly...]({link_to_dispatched_investigate_run_or_this_health_check_run}) |
 {If no dispatched findings AND no previous rows exist, render the table header with zero data rows.}
 
 ---
