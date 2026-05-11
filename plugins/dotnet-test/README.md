@@ -25,7 +25,6 @@ Skills and agents for running, generating, analyzing, migrating, and improving .
 | Skill | Description |
 |---|---|
 | **code-testing-agent** | Multi-agent pipeline (Research → Plan → Implement → Build → Test → Fix → Lint) that generates tests for any language |
-| **code-testing-extensions** | Language-specific guidance files loaded by the code-testing pipeline |
 | **writing-mstest-tests** | Best practices and modern APIs for writing MSTest 3.x/4.x tests |
 
 ### Test migration
@@ -66,6 +65,7 @@ Skills and agents for running, generating, analyzing, migrating, and improving .
 
 | Skill | Description |
 |---|---|
+| **code-testing-extensions** | Language-specific guidance files loaded by the code-testing pipeline |
 | **platform-detection** | Detect VSTest vs MTP and identify the test framework from project files |
 | **filter-syntax** | Test filter syntax reference for VSTest and MTP across all frameworks |
 | **dotnet-test-frameworks** | Framework detection patterns, assertion APIs, skip annotations, and lifecycle methods |
