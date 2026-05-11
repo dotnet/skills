@@ -60,13 +60,13 @@ Classify the user's request and route to the appropriate skill:
 
 | User Intent | Route To | Plugin |
 |---|---|---|
-| "Are my assertions good enough?" / shallow testing / assertion diversity | `exp-assertion-quality` skill | dotnet-experimental |
-| "Find test smells" / comprehensive formal audit | `exp-test-smell-detection` skill | dotnet-experimental |
+| "Are my assertions good enough?" / shallow testing / assertion diversity | `assertion-quality` skill | dotnet-test |
+| "Find test smells" / comprehensive formal audit | `test-smell-detection` skill | dotnet-test |
 | "Pragmatic anti-pattern check" within a broader audit context | `test-anti-patterns` skill | dotnet-test |
 | "Find test duplication" / boilerplate / DRY up tests | `exp-test-maintainability` skill | dotnet-experimental |
 | "Are my mocks needed?" / over-mocking / mock audit | `exp-mock-usage-analysis` skill | dotnet-experimental |
-| "Would my tests catch bugs?" / mutation analysis / test gaps | `exp-test-gap-analysis` skill | dotnet-experimental |
-| "Categorize my tests" / tag tests / trait distribution | `exp-test-tagging` skill | dotnet-experimental |
+| "Would my tests catch bugs?" / mutation analysis / test gaps | `test-gap-analysis` skill | dotnet-test |
+| "Categorize my tests" / tag tests / trait distribution | `test-tagging` skill | dotnet-test |
 | "Coverage report" / risk hotspots / CRAP score | `coverage-analysis` skill (use `crap-score` only for explicitly targeted method/class CRAP analysis or narrow-scope Cobertura data) | dotnet-test |
 | "Find untestable code" / static dependencies | `detect-static-dependencies` skill → hand off to `testability-migration` agent for fixes | dotnet-test |
 | "Full health check" / "audit my tests" / broad quality request | Run the **Comprehensive Audit Pipeline** below | multiple |
@@ -83,11 +83,11 @@ Run these in order. Each step builds context for the next. Stop early if the use
    - Quick pragmatic scan for the most impactful issues
    - Produces severity-ranked findings (Critical → Low)
 
-2. **Assertion quality** — `exp-assertion-quality` skill
+2. **Assertion quality** — `assertion-quality` skill
    - Measures assertion variety and depth
    - Reveals whether tests actually verify meaningful behavior
 
-3. **Test gaps** — `exp-test-gap-analysis` skill
+3. **Test gaps** — `test-gap-analysis` skill
    - Pseudo-mutation analysis to find blind spots
    - Answers "would tests catch a bug here?"
 
@@ -97,10 +97,10 @@ Run these in order. Each step builds context for the next. Stop early if the use
 
 ### Optional follow-ups (offer but don't run automatically)
 
-5. **Test smells** — `exp-test-smell-detection` skill (if step 1 found many issues and the user wants a deeper formal audit)
+5. **Test smells** — `test-smell-detection` skill (if step 1 found many issues and the user wants a deeper formal audit)
 6. **Maintainability** — `exp-test-maintainability` skill (if the test suite is large and duplication is suspected)
 7. **Mock audit** — `exp-mock-usage-analysis` skill (if over-mocking was flagged in step 1)
-8. **Test tagging** — `exp-test-tagging` skill (if the user wants to understand test type distribution)
+8. **Test tagging** — `test-tagging` skill (if the user wants to understand test type distribution)
 
 ### Synthesizing results
 
@@ -152,4 +152,4 @@ Prioritize findings by impact:
 - **Always start with detection**: Identify test framework, test project paths, and approximate test count before diving into analysis
 - **Lead with actionable findings**: Put the most impactful issues first
 - **Distinguish analysis from action**: This agent produces reports. If the user wants to fix issues, point them to the appropriate skill or agent (e.g., `testability-migration` for static dependencies, `code-testing-generator` for writing new tests)
-- **Be honest about experimental skills**: Skills from `dotnet-experimental` are being refined — mention this context when presenting their results
+- **Be honest about experimental skills**: Skills from `dotnet-experimental` (`exp-test-maintainability`, `exp-mock-usage-analysis`) are being refined — mention this context when presenting their results

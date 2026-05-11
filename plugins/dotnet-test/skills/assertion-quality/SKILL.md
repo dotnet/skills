@@ -1,5 +1,5 @@
 ---
-name: exp-assertion-quality
+name: assertion-quality
 description: "Analyzes the variety and depth of assertions across .NET test suites. Use when the user asks to evaluate assertion quality, find shallow testing, identify tests with only trivial assertions, measure assertion coverage diversity, or audit whether tests verify different facets of correctness. Produces metrics and actionable recommendations. Works with MSTest, xUnit, NUnit, and TUnit. DO NOT USE FOR: writing new tests (use writing-mstest-tests), detecting anti-patterns (use test-anti-patterns), or fixing existing assertions."
 license: MIT
 ---
@@ -47,7 +47,7 @@ Low assertion diversity signals shallow testing. Tests may pass while bugs hide 
 
 ### Step 1: Gather the test code
 
-Read all test files the user provides. If the user points to a directory or project, scan for all test files — see the `exp-dotnet-test-frameworks` skill for framework-specific markers.
+Read all test files the user provides. If the user points to a directory or project, scan for all test files — see the `dotnet-test-frameworks` skill for framework-specific markers.
 
 ### Step 2: Classify every assertion
 

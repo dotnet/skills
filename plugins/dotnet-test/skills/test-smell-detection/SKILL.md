@@ -1,6 +1,6 @@
 ---
-name: exp-test-smell-detection
-description: "Deep formal test smell audit based on academic research taxonomy (testsmells.org). Detects 19 categorized smell types — conditional logic, mystery guests, sensitive equality, eager tests, and more — with calibrated severity and research-backed remediation. Use for comprehensive test suite health assessments. For a quick pragmatic review, use test-anti-patterns instead. DO NOT USE FOR: writing new tests (use writing-mstest-tests), evaluating assertion quality specifically (use exp-assertion-quality), or finding test duplication and boilerplate (use exp-test-maintainability)."
+name: test-smell-detection
+description: "Deep formal test smell audit based on academic research taxonomy (testsmells.org). Detects 19 categorized smell types — conditional logic, mystery guests, sensitive equality, eager tests, and more — with calibrated severity and research-backed remediation. Use for comprehensive test suite health assessments. For a quick pragmatic review, use test-anti-patterns instead. DO NOT USE FOR: writing new tests (use writing-mstest-tests), evaluating assertion quality specifically (use assertion-quality), or finding test duplication and boilerplate (use exp-test-maintainability)."
 license: MIT
 ---
 
@@ -34,7 +34,7 @@ Test smells erode confidence in a test suite and inflate maintenance costs:
 ## When Not to Use
 
 - User wants a quick pragmatic test review (use `test-anti-patterns` — faster, covers the most common issues)
-- User wants to evaluate assertion diversity specifically (use `exp-assertion-quality`)
+- User wants to evaluate assertion diversity specifically (use `assertion-quality`)
 - User wants to find duplicated boilerplate across tests (use `exp-test-maintainability`)
 - User wants to write new tests from scratch (help them directly)
 - User wants to fix a specific failing test (diagnose and fix directly)
@@ -50,7 +50,7 @@ Test smells erode confidence in a test suite and inflate maintenance costs:
 
 ### Step 1: Gather the test code
 
-Read all test files the user provides. If the user points to a directory or project, scan for all test files by looking for test framework markers — see the `exp-dotnet-test-frameworks` skill for .NET-specific markers.
+Read all test files the user provides. If the user points to a directory or project, scan for all test files by looking for test framework markers — see the `dotnet-test-frameworks` skill for .NET-specific markers.
 
 For a thorough audit, also consult the [extended smell catalog](references/test-smell-catalog.md) which covers 9 additional smell types beyond the core 10 below.
 
@@ -79,7 +79,7 @@ Tests that depend on external resources — files on disk, databases, network en
 Tests that call sleep or delay functions to wait for a condition. These introduce non-deterministic timing and slow down the suite.
 
 **Severity:** High
-**Detection:** Calls to sleep/delay functions inside test methods. See the `exp-dotnet-test-frameworks` skill for .NET-specific patterns.
+**Detection:** Calls to sleep/delay functions inside test methods. See the `dotnet-test-frameworks` skill for .NET-specific patterns.
 
 #### Smell 4: Assertion-Free Test (Unknown Test)
 
@@ -132,7 +132,7 @@ The test setup method or constructor initializes fields that are not used by eve
 Tests marked as skipped or disabled. These add overhead and clutter, and the underlying issue they were disabled for may never be addressed.
 
 **Severity:** Low
-**Detection:** Skip/ignore annotations or conditional compilation that disables a test. See the `exp-dotnet-test-frameworks` skill for framework-specific skip attributes.
+**Detection:** Skip/ignore annotations or conditional compilation that disables a test. See the `dotnet-test-frameworks` skill for framework-specific skip attributes.
 
 ### Step 3: Apply calibration rules
 
@@ -192,7 +192,7 @@ Present the analysis in this structure:
 | Flagging integration tests for using real resources | Check for integration test markers and adjust severity accordingly |
 | Flagging loop-over-collection-assert as conditional logic | Only flag loops with branching or complex logic, not assertion iterations |
 | Flagging obvious count assertions after adding N items | Consider the immediate context — self-documenting numbers are fine |
-| Missing framework-specific assertion syntax | Consult the `exp-dotnet-test-frameworks` skill for .NET framework assertion and skip APIs |
+| Missing framework-specific assertion syntax | Consult the `dotnet-test-frameworks` skill for .NET framework assertion and skip APIs |
 | Over-flagging try/catch that captures for assertion | Distinguish swallowed exceptions from capture-and-assert patterns |
 | Treating skip annotations with reasons same as bare skips | Note that reasoned skips are less concerning than unexplained ones |
 | Flagging `DoesNotThrow`-style tests as assertion-free | These implicitly assert no exception — note but acknowledge the intent |

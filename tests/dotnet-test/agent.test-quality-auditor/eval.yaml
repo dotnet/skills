@@ -19,8 +19,8 @@ scenarios:
           source: "fixtures/weak-tests/ShoppingCartTests.cs"
       additional_required_skills:
         - test-anti-patterns
-        - exp-assertion-quality
-        - exp-test-gap-analysis
+        - assertion-quality
+        - test-gap-analysis
     assertions:
       - type: "output_matches"
         pattern: "(assertion.free|no.*assert|missing.*assert|without.*assert)"
@@ -86,7 +86,7 @@ scenarios:
         - path: "WeakTests/ShoppingCartTests.cs"
           source: "fixtures/weak-tests/ShoppingCartTests.cs"
       additional_required_skills:
-        - exp-assertion-quality
+        - assertion-quality
     assertions:
       - type: "output_matches"
         pattern: "(shallow|trivial|weak|low.*divers|limited)"

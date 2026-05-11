@@ -36,7 +36,7 @@ Analyze .NET test code for maintainability issues: duplicated boilerplate, copy-
 
 ### Step 1: Gather the test code
 
-Read all test files the user provides or references. If the user points to a directory or project, scan for all test files — see the `exp-dotnet-test-frameworks` skill for framework-specific markers.
+Read all test files the user provides or references. If the user points to a directory or project, scan for all test files — see the `dotnet-test-frameworks` skill for framework-specific markers.
 
 ### Step 2: Identify maintainability issues
 
