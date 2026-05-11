@@ -443,3 +443,264 @@ scenarios:
       - "Acknowledged positive patterns present in the tests (sealed class, specific exception types, data-driven tests, clear AAA structure, proper use of fakes)"
       - "If any suggestions were made, they were minor and correctly categorized as low severity"
     timeout: 120
+
+  - name: "Detect coverage-touching pattern across a service facade"
+    prompt: |
+      We hit 95% code coverage on this service but keep finding bugs in production.
+      Something feels off about the tests. Can you audit them?
+
+      ```csharp
+      using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+      namespace CatalogService.Tests;
+
+      [TestClass]
+      public class ProductCatalogTests
+      {
+          private ProductCatalog _catalog = null!;
+
+          [TestInitialize]
+          public void Setup()
+          {
+              _catalog = new ProductCatalog(new InMemoryStore());
+          }
+
+          [TestMethod]
+          public void AddProduct_Works()
+          {
+              var product = new Product("SKU-001", "Widget", 9.99m);
+              _catalog.AddProduct(product);
+          }
+
+          [TestMethod]
+          public void GetProduct_Works()
+          {
+              _catalog.AddProduct(new Product("SKU-001", "Widget", 9.99m));
+              var result = _catalog.GetProduct("SKU-001");
+              Assert.IsNotNull(result);
+          }
+
+          [TestMethod]
+          public void UpdatePrice_Works()
+          {
+              _catalog.AddProduct(new Product("SKU-001", "Widget", 9.99m));
+              _catalog.UpdatePrice("SKU-001", 14.99m);
+          }
+
+          [TestMethod]
+          public void RemoveProduct_Works()
+          {
+              _catalog.AddProduct(new Product("SKU-001", "Widget", 9.99m));
+              _catalog.RemoveProduct("SKU-001");
+          }
+
+          [TestMethod]
+          public void SearchProducts_Works()
+          {
+              _catalog.AddProduct(new Product("SKU-001", "Widget", 9.99m));
+              _catalog.AddProduct(new Product("SKU-002", "Gadget", 19.99m));
+              var results = _catalog.Search("Widget");
+              Assert.IsNotNull(results);
+          }
+
+          [TestMethod]
+          public void GetAllProducts_Works()
+          {
+              _catalog.AddProduct(new Product("SKU-001", "Widget", 9.99m));
+              var all = _catalog.GetAll();
+              Assert.IsNotNull(all);
+          }
+
+          [TestMethod]
+          public void GetProductCount_Works()
+          {
+              var count = _catalog.GetProductCount();
+          }
+
+          [TestMethod]
+          public void ApplyBulkDiscount_Works()
+          {
+              _catalog.AddProduct(new Product("SKU-001", "Widget", 9.99m));
+              _catalog.AddProduct(new Product("SKU-002", "Gadget", 19.99m));
+              _catalog.ApplyBulkDiscount(0.10m);
+          }
+
+          [TestMethod]
+          public void ExportToCsv_Works()
+          {
+              _catalog.AddProduct(new Product("SKU-001", "Widget", 9.99m));
+              var csv = _catalog.ExportToCsv();
+              Assert.IsNotNull(csv);
+          }
+
+          [TestMethod]
+          public void ImportFromCsv_Works()
+          {
+              _catalog.ImportFromCsv("SKU-001,Widget,9.99");
+          }
+      }
+      ```
+
+      ```csharp
+      namespace CatalogService;
+
+      public record Product(string Sku, string Name, decimal Price);
+
+      public class ProductCatalog
+      {
+          private readonly IProductStore _store;
+          public ProductCatalog(IProductStore store) => _store = store;
+
+          public void AddProduct(Product p) => _store.Save(p);
+          public Product? GetProduct(string sku) => _store.FindBySku(sku);
+          public void UpdatePrice(string sku, decimal newPrice)
+          {
+              var p = _store.FindBySku(sku) ?? throw new KeyNotFoundException(sku);
+              _store.Save(p with { Price = newPrice });
+          }
+          public void RemoveProduct(string sku) => _store.Delete(sku);
+          public List<Product> Search(string query) => _store.FindByName(query);
+          public List<Product> GetAll() => _store.GetAll();
+          public int GetProductCount() => _store.GetAll().Count;
+          public void ApplyBulkDiscount(decimal fraction)
+          {
+              foreach (var p in _store.GetAll())
+                  _store.Save(p with { Price = p.Price * (1 - fraction) });
+          }
+          public string ExportToCsv() =>
+              string.Join("\n", _store.GetAll().Select(p => $"{p.Sku},{p.Name},{p.Price}"));
+          public void ImportFromCsv(string csv)
+          {
+              foreach (var line in csv.Split('\n'))
+              {
+                  var parts = line.Split(',');
+                  _store.Save(new Product(parts[0], parts[1], decimal.Parse(parts[2])));
+              }
+          }
+      }
+
+      public interface IProductStore
+      {
+          void Save(Product p);
+          void Delete(string sku);
+          Product? FindBySku(string sku);
+          List<Product> FindByName(string query);
+          List<Product> GetAll();
+      }
+      ```
+    assertions:
+      - type: "output_matches"
+        pattern: "(no assert|missing assert|never verif|without.*assert|coverage.*touch|coverage.*inflat|surface.area|systematic.*call)"
+      - type: "output_matches"
+        pattern: "(IsNotNull.*only|trivial|shallow|not.*verif|not.*check)"
+      - type: "exit_success"
+    rubric:
+      - "Identified the systematic pattern: nearly every method is called but most tests have no assertions or only Assert.IsNotNull — this inflates coverage without verifying behavior"
+      - "Called out specific assertion-free tests (AddProduct_Works, UpdatePrice_Works, RemoveProduct_Works, GetProductCount_Works, ApplyBulkDiscount_Works, ImportFromCsv_Works) that execute code but prove nothing"
+      - "Identified that the few tests with assertions only use trivial IsNotNull checks that don't verify actual content or correctness"
+      - "Explained why this pattern is dangerous: coverage metrics look healthy but bugs in pricing, search logic, CSV export format, or bulk discount calculations would go undetected"
+      - "Suggested concrete assertions for at least some of the methods (e.g., verify price changed after UpdatePrice, verify product is gone after RemoveProduct, verify CSV format in ExportToCsv)"
+    reject_tools: ["bash", "edit", "create"]
+    timeout: 120
+
+  - name: "Detect self-referential assertions in round-trip and identity tests"
+    prompt: |
+      I inherited this test suite from another team. The tests all pass and coverage
+      looks decent but I don't trust them. Can you review for any problems?
+
+      ```csharp
+      using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+      namespace Serialization.Tests;
+
+      [TestClass]
+      public class SerializerTests
+      {
+          [TestMethod]
+          public void Serialize_ThenDeserialize_ProducesOriginal()
+          {
+              var input = new UserDto { Name = "Alice", Age = 30 };
+              var json = Serializer.ToJson(input);
+              var output = Serializer.FromJson<UserDto>(json);
+              Assert.AreEqual(input.Name, output.Name);
+              Assert.AreEqual(input.Age, output.Age);
+          }
+
+          [TestMethod]
+          public void ToString_ParseBack_Identity()
+          {
+              var value = new Money(42.50m, "USD");
+              var text = value.ToString();
+              var parsed = Money.Parse(text);
+              Assert.AreEqual(value, parsed);
+          }
+
+          [TestMethod]
+          public void Clone_ProducesEqualObject()
+          {
+              var original = new Config { Timeout = 30, Retries = 3 };
+              var clone = original.Clone();
+              Assert.AreEqual(original.Timeout, clone.Timeout);
+              Assert.AreEqual(original.Retries, clone.Retries);
+          }
+
+          [TestMethod]
+          public void NormalizeName_AlreadyNormalized_NoChange()
+          {
+              var name = "alice";
+              var result = NameNormalizer.Normalize(name);
+              Assert.AreEqual(name, result);
+          }
+
+          [TestMethod]
+          public void MapToDto_MapBack_RoundTrip()
+          {
+              var entity = new UserEntity { Id = 1, FullName = "Alice Smith", Email = "a@b.com" };
+              var dto = Mapper.ToDto(entity);
+              var backToEntity = Mapper.ToEntity(dto);
+              Assert.AreEqual(entity.Id, backToEntity.Id);
+              Assert.AreEqual(entity.FullName, backToEntity.FullName);
+              Assert.AreEqual(entity.Email, backToEntity.Email);
+          }
+
+          [TestMethod]
+          public void GetDisplayName_ReturnsFormattedName()
+          {
+              var user = new UserDto { Name = "Alice", Age = 30 };
+              var display = user.GetDisplayName();
+              Assert.AreEqual(user.Name, display);
+          }
+
+          [TestMethod]
+          public void Validate_ValidInput_ReturnsSameInput()
+          {
+              var input = "hello@world.com";
+              var result = Validator.ValidateEmail(input);
+              Assert.AreEqual(input, result);
+          }
+
+          [TestMethod]
+          public void UpperCase_ToUpper_Works()
+          {
+              var input = "HELLO";
+              var result = input.ToUpper();
+              Assert.AreEqual(input, result);
+          }
+      }
+      ```
+    assertions:
+      - type: "output_matches"
+        pattern: "(self.referent|tautolog|identity|round.?trip.*only|input.*equals.*output|circular|proves nothing|assert.*same)"
+      - type: "output_matches"
+        pattern: "(NormalizeName|GetDisplayName|Validate.*ValidInput|UpperCase.*ToUpper)"
+      - type: "exit_success"
+    rubric:
+      - "Identified the self-referential pattern: multiple tests assert that output equals input, which is tautological when the operation is identity or the input is already in the expected form"
+      - "Flagged NormalizeName_AlreadyNormalized_NoChange as a self-referential test — it only proves the normalizer is a no-op on already-normalized input, not that it actually normalizes anything"
+      - "Flagged GetDisplayName_ReturnsFormattedName — it asserts the display name equals the raw Name property, which either means the method is trivial or the test isn't verifying the actual formatting"
+      - "Flagged Validate_ValidInput_ReturnsSameInput — asserting that valid input passes through unchanged doesn't test the validation logic itself"
+      - "Flagged UpperCase_ToUpper_Works — calling ToUpper on an already-uppercase string and comparing to the input is a self-fulfilling assertion"
+      - "Distinguished the round-trip tests (Serialize_ThenDeserialize, ToString_ParseBack, MapToDto_MapBack) as potentially valid IF accompanied by tests using non-trivial inputs that exercise edge cases"
+      - "Noted that Clone_ProducesEqualObject is a legitimate equality check (testing deep copy), not self-referential"
+    reject_tools: ["bash", "edit", "create"]
+    timeout: 120
