@@ -1,0 +1,60 @@
+name: template-authoring
+description: Evaluates the dotnet-template-engine/template-authoring skill
+type: capability
+config:
+  timeout: 5m
+stimuli:
+  - name: Validate a template.json file
+    prompt: Validate the template.json file at .template.config/template.json and tell me if there are any issues
+    environment:
+      files:
+        - src: ./fixtures/validate-a-template-json-file/.template.config/template.json
+          dest: .template.config/template.json
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: identity
+      - type: output-contains
+        config:
+          substring: shortName
+      - type: output-contains
+        config:
+          substring: datatype
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The agent reviewed the template.json for authoring issues
+      - The agent identified the missing identity field
+      - The agent flagged the shortName conflict with the built-in 'build' command
+      - The agent reported the invalid datatype
+    constraints:
+      expect_tools:
+        - skill
+  - name: Create template from existing project
+    prompt: I have an existing xUnit test project at ./test-output/MyTests/MyTests.csproj. Create a reusable template from
+      it so my team can use it for new test projects. The template should be called 'Team Test Project'.
+    environment:
+      files:
+        - src: ./fixtures/create-template-from-existing-project/test-output/MyTests/MyTests.csproj
+          dest: test-output/MyTests/MyTests.csproj
+        - src: ./fixtures/create-template-from-existing-project/test-output/MyTests/UnitTest1.cs
+          dest: test-output/MyTests/UnitTest1.cs
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: Team Test Project
+      - type: output-matches
+        config:
+          pattern: (?i)(template\.json|sourceName|\.template\.config)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The agent used the template-authoring skill to generate the template
+      - The agent preserved the project conventions (TreatWarningsAsErrors, package references with PrivateAssets)
+      - The agent set the template name to 'Team Test Project'
+      - The agent explained how to install and use the generated template
+    constraints:
+      expect_tools:
+        - skill

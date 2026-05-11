@@ -1,0 +1,166 @@
+name: migrate-nullable-references
+description: Evaluates the dotnet-upgrade/migrate-nullable-references skill
+type: capability
+config:
+  timeout: 5m
+stimuli:
+  - name: Enable NRT in a small library with mixed nullability
+    prompt: |
+      Enable nullable reference types in this C# project and resolve all warnings.
+      The project is at TaskManager/TaskManager.csproj. Make sure the public API
+      surface accurately reflects nullability.
+    environment:
+      files:
+        - src: ./fixtures/enable-nrt-in-a-small-library-with-mixed-nullability/TaskManager/TaskManager.csproj
+          dest: TaskManager/TaskManager.csproj
+        - src: ./fixtures/enable-nrt-in-a-small-library-with-mixed-nullability/TaskManager/Models/TaskItem.cs
+          dest: TaskManager/Models/TaskItem.cs
+        - src: ./fixtures/enable-nrt-in-a-small-library-with-mixed-nullability/TaskManager/Models/Project.cs
+          dest: TaskManager/Models/Project.cs
+        - src: ./fixtures/enable-nrt-in-a-small-library-with-mixed-nullability/TaskManager/Services/ITaskRepository.cs
+          dest: TaskManager/Services/ITaskRepository.cs
+        - src: ./fixtures/enable-nrt-in-a-small-library-with-mixed-nullability/TaskManager/Services/InMemoryTaskRepository.cs
+          dest: TaskManager/Services/InMemoryTaskRepository.cs
+        - src: ./fixtures/enable-nrt-in-a-small-library-with-mixed-nullability/TaskManager/Services/TaskService.cs
+          dest: TaskManager/Services/TaskService.cs
+        - src: ./fixtures/enable-nrt-in-a-small-library-with-mixed-nullability/TaskManager/Services/TaskFormatter.cs
+          dest: TaskManager/Services/TaskFormatter.cs
+        - src: ./fixtures/enable-nrt-in-a-small-library-with-mixed-nullability/TaskManager/Services/CsvExporter.cs
+          dest: TaskManager/Services/CsvExporter.cs
+    graders:
+      - type: exit-success
+      - type: file-contains
+        config:
+          path: TaskManager/TaskManager.csproj
+          value: <Nullable>enable</Nullable>
+      - type: file-contains
+        config:
+          path: TaskManager/Services/ITaskRepository.cs
+          value: TaskItem?
+      - type: file-contains
+        config:
+          path: TaskManager/Models/Project.cs
+          value: TaskItem?
+      - type: file-contains
+        config:
+          path: TaskManager/Services/TaskService.cs
+          value: string?
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Did the agent avoid adding `?` to value types? `int Id`, `bool IsCompleted`, `int id` parameters, and `int
+        _nextId` must NOT get `?`. `DateTime? DueDate` already has `?` and must not become `DateTime??`. Check edits
+        carefully for this mistake.
+      - Did the agent correctly annotate methods that return null? `GetById`, `FindByTitle`, and `FindTaskByTitle` all
+        use `FirstOrDefault` which returns null — their return types must be `TaskItem?`, not `TaskItem`. Both the
+        interface `ITaskRepository` and implementation `InMemoryTaskRepository` must match.
+      - Did the agent correctly handle the `_header` field in CsvExporter? It is set inside `Export()`, not the
+        constructor — it should be `string? _header` or `string _header = null!`, not left as `string _header` which
+        would produce CS8618.
+      - Did the agent keep interface and implementation return types consistent? If `ITaskRepository.GetById` returns
+        `TaskItem?`, then `InMemoryTaskRepository.GetById` must also return `TaskItem?`. Same for `FindByTitle`. Check
+        both files.
+      - Does the project build with zero CS86xx warnings after the agent's changes? The agent should have resolved all
+        nullable warnings introduced by enabling NRT.
+  - name: "File-by-file migration: only modify the targeted file"
+    prompt: |
+      This project has nullable reference types enabled project-wide, but each file
+      still has #nullable disable at the top. Remove #nullable disable from
+      UserProfile.cs ONLY and fix all resulting nullable warnings in that file.
+      Do NOT modify any other files.
+    environment:
+      files:
+        - src: ./fixtures/file-by-file-migration-only-modify-the-targeted-file/FileByFile/FileByFile.csproj
+          dest: FileByFile/FileByFile.csproj
+        - src: ./fixtures/file-by-file-migration-only-modify-the-targeted-file/FileByFile/UserProfile.cs
+          dest: FileByFile/UserProfile.cs
+        - src: ./fixtures/file-by-file-migration-only-modify-the-targeted-file/FileByFile/OrderProcessor.cs
+          dest: FileByFile/OrderProcessor.cs
+        - src: ./fixtures/file-by-file-migration-only-modify-the-targeted-file/FileByFile/NotificationService.cs
+          dest: FileByFile/NotificationService.cs
+    graders:
+      - type: exit-success
+      - type: file-not-contains
+        config:
+          path: FileByFile/UserProfile.cs
+          value: "#nullable disable"
+      - type: file-contains
+        config:
+          path: FileByFile/UserProfile.cs
+          value: string?
+      - type: file-contains
+        config:
+          path: FileByFile/OrderProcessor.cs
+          value: "#nullable disable"
+      - type: file-contains
+        config:
+          path: FileByFile/NotificationService.cs
+          value: "#nullable disable"
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - "Did the agent follow the skill's file-by-file migration strategy, migrating UserProfile.cs completely (removing
+        #nullable disable, annotating correctly) before moving on to other files?"
+      - Did the agent correctly annotate Bio as string? (nullable) since it is never set in the constructor and can
+        legitimately be null, while keeping Name and Email as non-nullable string since they are set via the
+        constructor?
+      - Does the project build with zero errors after the agent's changes?
+  - name: Enable NRT in ASP.NET Core Web API with EF Core
+    prompt: |
+      This small project (6 files) needs `<Nullable>enable</Nullable>` added and all resulting
+      warnings fixed. It's a straightforward task. The project is at BookStore/BookStore.csproj.
+      It uses Entity Framework Core with an in-memory database and has a Web API controller.
+      Make sure annotations are correct for both EF Core entities and API models.
+    environment:
+      files:
+        - src: ./fixtures/enable-nrt-in-asp-net-core-web-api-with-ef-core/BookStore/BookStore.csproj
+          dest: BookStore/BookStore.csproj
+        - src: ./fixtures/enable-nrt-in-asp-net-core-web-api-with-ef-core/BookStore/Models/Author.cs
+          dest: BookStore/Models/Author.cs
+        - src: ./fixtures/enable-nrt-in-asp-net-core-web-api-with-ef-core/BookStore/Models/Book.cs
+          dest: BookStore/Models/Book.cs
+        - src: ./fixtures/enable-nrt-in-asp-net-core-web-api-with-ef-core/BookStore/Models/Category.cs
+          dest: BookStore/Models/Category.cs
+        - src: ./fixtures/enable-nrt-in-asp-net-core-web-api-with-ef-core/BookStore/Data/BookStoreContext.cs
+          dest: BookStore/Data/BookStoreContext.cs
+        - src: ./fixtures/enable-nrt-in-asp-net-core-web-api-with-ef-core/BookStore/Dtos/BookDto.cs
+          dest: BookStore/Dtos/BookDto.cs
+        - src: ./fixtures/enable-nrt-in-asp-net-core-web-api-with-ef-core/BookStore/Controllers/BooksController.cs
+          dest: BookStore/Controllers/BooksController.cs
+        - src: ./fixtures/enable-nrt-in-asp-net-core-web-api-with-ef-core/BookStore/Program.cs
+          dest: BookStore/Program.cs
+    graders:
+      - type: exit-success
+      - type: file-contains
+        config:
+          path: BookStore/BookStore.csproj
+          value: <Nullable>enable</Nullable>
+      - type: file-contains
+        config:
+          path: BookStore/Models/Book.cs
+          value: Category?
+      - type: file-contains
+        config:
+          path: BookStore/Dtos/BookDto.cs
+          value: string?
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Did the agent handle the required vs optional navigation property distinction? `Book.Author` is a required
+        navigation (non-nullable FK `AuthorId`) and should use `= null!` or stay non-nullable. `Book.Category` is an
+        optional navigation (nullable FK `CategoryId?`) and MUST be `Category?`. Check that the agent did not make both
+        nullable or both non-nullable.
+      - Did the agent keep `DbSet<T>` properties non-nullable in BookStoreContext? EF Core always initializes these.
+        They should remain `DbSet<Book>`, `DbSet<Author>`, `DbSet<Category>` without `?`. The agent may add `= null!` or
+        use `=> Set<T>()` but must NOT make them nullable.
+      - Did the agent correctly identify that `BookResponse.CategoryName` can be null (category is optional) and make it
+        `string?`, while `BookResponse.AuthorName` should remain non-nullable (author is always present)?
+      - Did the agent handle `Author.Biography` and `Book.Summary` appropriately? These are descriptive text fields that
+        logically could be null. The agent should make them `string?` (nullable) since not every book/author necessarily
+        has a summary/biography, OR use `= string.Empty` / `= null!` with a comment. It should NOT silently leave them
+        as `string` which would make them NOT NULL columns in EF Core.
+      - Did the agent recognize the ASP.NET model validation impact? With NRTs enabled, non-nullable string properties
+        on `CreateBookRequest` (like `Title`, `Isbn`) become implicitly `[Required]`. The agent should either accept
+        this (correct for Title/Isbn) or annotate `Summary` as `string?` if it should be optional. Check that the agent
+        did not blindly make all DTO strings nullable.
+      - Does the project build with zero CS86xx warnings after the agent's changes?

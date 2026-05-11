@@ -1,0 +1,87 @@
+name: detect-static-dependencies
+description: Evaluates the dotnet-test/detect-static-dependencies skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Identify static dependencies in a multi-class project
+    prompt: >
+      I have a .NET project at StaticHeavy/ that I suspect has a lot of
+      hard-to-test static calls. Can you scan it and tell me what's making it
+      hard to unit test?
+    environment:
+      files:
+        - src: ./fixtures/static-heavy-project
+          dest: StaticHeavy
+    graders:
+      - type: output-matches
+        config:
+          pattern: (DateTime\.UtcNow|DateTime\.Now)
+      - type: output-matches
+        config:
+          pattern: (File\.|file system|filesystem|IFileSystem)
+      - type: output-matches
+        config:
+          pattern: (Environment\.|environment variable)
+      - type: output-matches
+        config:
+          pattern: (Console\.|console)
+      - type: output-matches
+        config:
+          pattern: (HttpClient|http client)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified DateTime.UtcNow and DateTime.Now as frequently used static dependencies
+      - Identified File.WriteAllText, File.ReadAllText, File.Exists, and File.AppendAllText as file system statics
+      - Identified Environment.GetEnvironmentVariable as environment static usage
+      - Identified Console.WriteLine as untestable console output
+      - Identified new HttpClient() as a hard-to-test network dependency
+      - Ranked or prioritized the static categories by frequency or migration ease
+      - Recommended a concrete next step such as wrapping the statics or adopting TimeProvider
+
+  - name: Detect time-related statics and recommend TimeProvider
+    prompt: >
+      My OrderProcessor.cs uses DateTime.UtcNow in several places and it's
+      impossible to write deterministic tests. Can you find all the
+      time-related static calls in my project and tell me what to do about
+      them?
+    environment:
+      files:
+        - src: ./fixtures/static-heavy-project
+          dest: StaticHeavy
+    graders:
+      - type: output-matches
+        config:
+          pattern: (DateTime\.UtcNow|DateTime\.Now)
+      - type: output-matches
+        config:
+          pattern: (TimeProvider|time provider|ISystemClock|abstraction)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Found DateTime.UtcNow and/or DateTime.Now call sites in the project
+      - Identified specific files containing time-related static dependencies
+      - Recommended TimeProvider or a similar abstraction as the replacement for .NET 8+
+      - Explained that the static calls make tests non-deterministic or hard to test
+
+  - name: Decline scan for non-C# project
+    prompt: >
+      I have a Python Django project at my_app/ that has lots of
+      datetime.now() calls. Can you scan it for untestable statics?
+    environment:
+      files:
+        - src: ./fixtures/decline-non-csharp/views.py
+          dest: my_app/views.py
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Python|not.*(C#|\.NET)|different|unsupported)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recognized that the project is Python, not C#/.NET
+      - Did not attempt to scan for .NET static patterns
+      - Suggested an alternative approach or clarified it only supports .NET

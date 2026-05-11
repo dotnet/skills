@@ -26,7 +26,7 @@ Analyze a codebase and produce a comprehensive research document that will guide
 Search for key files:
 
 - Project files: `*.csproj`, `*.vcxproj`, `*.sln`, `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`
-- Property and Target files: `*.props`, `*.targets` 
+- Property and Target files: `*.props`, `*.targets`
 - Source files: `*.cs`, `*.ts`, `*.py`, `*.go`, `*.rs`, `*.cpp`, `*.h`
 - Existing tests: `*test*`, `*Test*`, `*spec*`
 - Config files: `README*`, `Makefile`, `*.config`

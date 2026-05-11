@@ -58,7 +58,7 @@ After identifying the task type, select the right library layer. These libraries
    - Agentic loops that iterate until a goal is met
    - Multi-agent collaboration with handoff protocols
    - Graph-based or durable workflows
-   
+
    Do **not** implement these patterns by hand with `IChatClient` — the Agent Framework provides iteration limits, observability, and tool dispatch that are error-prone to reimplement.
 
 4. **Add Copilot SDK only when building Copilot extensions.** Use `GitHub.Copilot.SDK` when the goal is to build a custom agent or tool that runs inside the GitHub Copilot platform (CLI, IDE, or Copilot Chat). This is not a general-purpose LLM orchestration library — it is specifically for Copilot extensibility.

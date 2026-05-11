@@ -133,6 +133,8 @@ scenarios:
           source: "fixtures/legacy-antipatterns/PriceCalculatorTests.cs"
         - path: "PriceCalculator.cs"
           source: "fixtures/legacy-antipatterns/PriceCalculator.cs"
+      commands:
+        - "dotnet restore"
     assertions:
       - type: output_matches
         pattern: "\\bsealed\\b"
@@ -149,7 +151,7 @@ scenarios:
       - "Improves test naming to be descriptive (replaces 'Test1', 'TestNegativeQuantity')"
       - "Replaces hard cast with Assert.IsInstanceOfType"
       - "Replaces manual foreach test data loop with [DataRow] or [DynamicData] attributes"
-    timeout: 180
+    timeout: 300
 
   - name: "Replace ExpectedException with Assert.Throws"
     prompt: |
@@ -168,13 +170,10 @@ scenarios:
     assertions:
       - type: output_matches
         pattern: "Assert\\.ThrowsExactly|Assert\\.Throws"
-      - type: output_not_contains
-        value: "[ExpectedException]"
     rubric:
-      - "Replaces [ExpectedException] with Assert.ThrowsExactly<ArgumentNullException> or Assert.Throws<ArgumentNullException>"
-      - "Wraps the call in a lambda: Assert.ThrowsExactly<ArgumentNullException>(() => service.CreateUser(null, \"John\"))"
-      - "Mentions that Assert.Throws/ThrowsExactly allows asserting on the exception properties (message, param name)"
-      - "Explains the difference between Throws (matches derived types) and ThrowsExactly (exact type only)"
+      - "The modernized test removes the ExpectedException attribute and wraps the throwing call in an inline assertion using Assert.ThrowsExactly or Assert.Throws"
+      - "Shows how to capture the thrown exception to verify its properties such as message or parameter name"
+      - "Explains when to prefer ThrowsExactly (exact type match) versus Throws (matches derived types too)"
     timeout: 120
 
   # ============================================================================

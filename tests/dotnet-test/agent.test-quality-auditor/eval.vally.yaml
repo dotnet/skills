@@ -1,0 +1,130 @@
+name: agent.test-quality-auditor
+description: Evaluates the dotnet-test/agent.test-quality-auditor orchestrator agent
+type: capability
+config:
+  timeout: 5m
+stimuli:
+  - name: Comprehensive test quality audit of weak test suite
+    prompt: |
+      I'm worried our tests might be giving us false confidence. Can you audit
+      the test suite in the WeakTests project and tell me how good our tests
+      really are?
+    environment:
+      files:
+        - src: fixtures/weak-tests/WeakTests.csproj
+          dest: WeakTests/WeakTests.csproj
+        - src: fixtures/weak-tests/ShoppingCart.cs
+          dest: WeakTests/ShoppingCart.cs
+        - src: fixtures/weak-tests/ShoppingCartTests.cs
+          dest: WeakTests/ShoppingCartTests.cs
+      skills:
+        - ../../plugins/dotnet-test/skills/test-anti-patterns
+        - ../../plugins/dotnet-experimental/skills/exp-assertion-quality
+        - ../../plugins/dotnet-experimental/skills/exp-test-gap-analysis
+    graders:
+      - type: output-matches
+        config:
+          pattern: (assertion.free|no.*assert|missing.*assert|without.*assert)
+      - type: output-matches
+        config:
+          pattern: (tautolog|self.compar|same.*value|trivial)
+      - type: output-matches
+        config:
+          pattern: (catch.*swallow|try.*catch|exception.*handling)
+      - type: output-matches
+        config:
+          pattern: (RemoveItem|GetTotalWithDiscount|untest|not.*cover|missing.*test|gap)
+      - type: output-matches
+        config:
+          pattern: (summary|priorit|rank|critical|sever)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified the assertion-free test (AddItem_Works) as a critical issue
+      - Flagged the tautological assertion (comparing total to itself)
+      - Detected the catch-and-swallow exception test pattern
+      - Identified untested production code (RemoveItem, GetTotalWithDiscount, boundary conditions)
+      - Produced a summary or prioritized list of findings
+
+  - name: Targeted anti-pattern review
+    prompt: |
+      Can you do a quick review of my test code for common problems? I just
+      want to know what the biggest issues are.
+    environment:
+      files:
+        - src: fixtures/weak-tests/WeakTests.csproj
+          dest: WeakTests/WeakTests.csproj
+        - src: fixtures/weak-tests/ShoppingCart.cs
+          dest: WeakTests/ShoppingCart.cs
+        - src: fixtures/weak-tests/ShoppingCartTests.cs
+          dest: WeakTests/ShoppingCartTests.cs
+      skills:
+        - ../../plugins/dotnet-test/skills/test-anti-patterns
+    graders:
+      - type: output-matches
+        config:
+          pattern: (anti.pattern|problem|issue|warning|critical)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified at least three distinct anti-patterns in the test code
+      - Ranked or categorized findings by severity
+      - Provided actionable suggestions for fixing the most critical issues
+
+  - name: Assertion quality analysis
+    prompt: |
+      Are the assertions in my ShoppingCartTests actually testing anything
+      meaningful? I want to understand if we have enough assertion variety.
+    environment:
+      files:
+        - src: fixtures/weak-tests/WeakTests.csproj
+          dest: WeakTests/WeakTests.csproj
+        - src: fixtures/weak-tests/ShoppingCart.cs
+          dest: WeakTests/ShoppingCart.cs
+        - src: fixtures/weak-tests/ShoppingCartTests.cs
+          dest: WeakTests/ShoppingCartTests.cs
+      skills:
+        - ../../plugins/dotnet-experimental/skills/exp-assertion-quality
+    graders:
+      - type: output-matches
+        config:
+          pattern: (shallow|trivial|weak|low.*divers|limited)
+      - type: output-matches
+        config:
+          pattern: (no.*assert|assertion.free|meaningless|without.*assert|never.*assert)
+      - type: output-matches
+        config:
+          pattern: (exception|collection|state|structural|missing.*type|more.*assert)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified low assertion diversity — tests primarily use equality and null checks
+      - Flagged tests with no assertions or meaningless assertions
+      - Pointed out missing assertion types (exception assertions, collection/state checks, structural verification)
+
+  - name: Decline request to generate new tests
+    prompt: |
+      I need you to write comprehensive unit tests for the ShoppingCart class.
+      Generate tests that cover all methods with good coverage.
+    expect_activation: false
+    environment:
+      files:
+        - src: fixtures/weak-tests/WeakTests.csproj
+          dest: WeakTests/WeakTests.csproj
+        - src: fixtures/weak-tests/ShoppingCart.cs
+          dest: WeakTests/ShoppingCart.cs
+        - src: fixtures/weak-tests/ShoppingCartTests.cs
+          dest: WeakTests/ShoppingCartTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (out.*scope|not.*cover|cannot|does not|generat|writ.*test|different)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Did not attempt to run a test quality audit
+      - Recognized that generating new tests is outside the scope of quality auditing

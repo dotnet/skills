@@ -1,6 +1,18 @@
 ---
 name: writing-mstest-tests
-description: "Write, fix, and modernize MSTest 3.x/4.x unit tests using current best practices and modern assertion APIs. Use when the user asks to write MSTest tests, fix MSTest assertion issues, modernize MSTest patterns, choose the right MSTest assertion, or convert DynamicData to ValueTuples. Covers: sealed test classes, Assert.ThrowsExactly, Assert.AreSame, Assert.IsNull, Assert.IsEmpty, Assert.HasCount, Assert.Contains, Assert.IsInstanceOfType, Assert.StartsWith, Assert.MatchesRegex, Assert.IsGreaterThan, Assert.IsInRange, DataRow, DynamicData with ValueTuples, test lifecycle, MSTest.Sdk, TestContext, and conditional execution. Do NOT use for test quality audits or anti-pattern detection (use test-anti-patterns), nor for generating tests in non-MSTest frameworks (use code-testing-agent)."
+description: >
+  Write new MSTest unit tests and implement concrete fixes in existing MSTest code using
+  MSTest 3.x/4.x modern APIs and best practices.
+  USE FOR: write unit tests for a class, write MSTest tests, create test class, help me write
+  comprehensive tests, fix test assertions, choose the right MSTest assertion (string assertions
+  StartsWith/EndsWith/MatchesRegex, comparison assertions IsGreaterThan/IsLessThan/IsInRange,
+  collection and null assertions), something seems off with my tests, review tests and fix issues,
+  fix swapped Assert.AreEqual arguments, replace ExpectedException with Assert.Throws, modernize
+  test patterns, convert DynamicData to ValueTuples, data-driven tests, test lifecycle setup,
+  sealed test classes, async test patterns, cancellation token testing.
+  DO NOT USE FOR: broad test quality audits or test smell detection (use test-anti-patterns),
+  running tests (use run-tests), MSTest version migration (use migrate-mstest-v1v2-to-v3 or
+  migrate-mstest-v3-to-v4).
 license: MIT
 ---
 

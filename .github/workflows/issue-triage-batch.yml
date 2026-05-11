@@ -1,0 +1,68 @@
+name: "Issue Triage — Batch"
+
+on:
+  workflow_dispatch:
+    inputs:
+      date_from:
+        description: "Start date (inclusive, ISO 8601, e.g. 2025-01-01). Defaults to 7 days ago."
+        required: false
+      date_to:
+        description: "End date (inclusive, ISO 8601, e.g. 2025-01-31). Defaults to today."
+        required: false
+
+permissions:
+  issues: read
+  actions: write
+
+run-name: "Batch triage${{ inputs.date_from && format(' from {0}', inputs.date_from) || '' }}${{ inputs.date_to && format(' to {0}', inputs.date_to) || '' }}"
+
+jobs:
+  dispatch-triage:
+    if: ${{ !github.event.repository.fork }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect untriaged issues and dispatch triage
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DATE_FROM: ${{ inputs.date_from }}
+          DATE_TO: ${{ inputs.date_to }}
+        run: |
+          set -euo pipefail
+
+          REPO="${GITHUB_REPOSITORY}"
+
+          # Default date range: last 7 days
+          if [ -z "${DATE_FROM}" ]; then
+            DATE_FROM=$(date -u -d '7 days ago' '+%Y-%m-%d' 2>/dev/null || date -u -v-7d '+%Y-%m-%d')
+          fi
+          if [ -z "${DATE_TO}" ]; then
+            DATE_TO=$(date -u '+%Y-%m-%d')
+          fi
+
+          echo "Searching for untriaged issues in ${REPO} from ${DATE_FROM} to ${DATE_TO}"
+
+          # Search for open issues without the 'Triaged' label in the date range
+          ISSUES=$(gh issue list \
+            --repo "${REPO}" \
+            --state open \
+            --search "created:${DATE_FROM}..${DATE_TO} -label:Triaged" \
+            --json number,title \
+            --limit 200 \
+            --jq '.[].number')
+
+          if [ -z "${ISSUES}" ]; then
+            echo "No untriaged issues found in the specified date range."
+            exit 0
+          fi
+
+          COUNT=$(echo "${ISSUES}" | wc -l | tr -d ' ')
+          echo "Found ${COUNT} untriaged issue(s). Dispatching triage workflows..."
+
+          for ISSUE_NUM in ${ISSUES}; do
+            echo "  Dispatching triage for issue #${ISSUE_NUM}..."
+            gh workflow run issue-triage.lock.yml \
+              --repo "${REPO}" \
+              -f issue_number="${ISSUE_NUM}"
+          done
+
+          echo "Done. Dispatched triage for ${COUNT} issue(s)."

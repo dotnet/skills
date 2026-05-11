@@ -1,0 +1,66 @@
+name: minimal-api-file-upload
+description: Evaluates the dotnet-aspnet/minimal-api-file-upload skill
+type: capability
+config:
+  timeout: 3m
+stimuli:
+  - name: Implement secure file upload in ASP.NET Core 8 minimal API
+    prompt: |
+      I need to implement a file upload endpoint in my ASP.NET Core 8 minimal API.
+      The endpoint should accept image files (JPEG and PNG only), reject files over 10MB,
+      and save them to an "uploads" folder. My app already has UseAntiforgery() in the pipeline.
+      Show me the complete implementation including size limits configuration and the endpoint.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (IFormFile|IFormFileCollection)
+      - type: output-matches
+        config:
+          pattern: (Guid\.NewGuid|Path\.GetRandomFileName)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Configures both the Kestrel request body size limit and the form multipart body length limit — not just one of
+        them
+      - Handles the antiforgery middleware that would otherwise reject the upload with a 400 error
+      - Does not save to disk using the original user-provided filename — generates a safe name to prevent path traversal
+      - Verifies the actual file content (e.g., magic bytes or file signatures), not just the Content-Type header which
+        can be spoofed
+  - name: Upload multiple files with metadata in minimal API
+    prompt: |
+      Show me how to add a file upload endpoint to an ASP.NET Core 8 minimal API
+      that accepts multiple image files along with a text description field from
+      the same form submission. The total size can be up to 50MB. Just show me
+      the code — I don't need a full project.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (IFormFileCollection|IFormFile|List<IFormFile>)
+      - type: output-matches
+        config:
+          pattern: (MaxRequestBodySize|MultipartBodyLengthLimit)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Configures both the Kestrel request body size limit and the form multipart body length limit for the 50MB
+        requirement
+      - Uses [FromForm] correctly when mixing file parameters with non-file form fields like description
+      - Does not save uploaded files using the original user-provided filenames
+  - name: Stream very large file uploads without buffering
+    prompt: |
+      I need to accept uploads of video files up to 2GB in my ASP.NET Core 8 minimal API.
+      Using IFormFile crashes with out-of-memory errors for files over 500MB.
+      How do I stream large uploads directly to disk without buffering the whole file?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (MultipartReader|ReadNextSectionAsync)
+      - type: output-matches
+        config:
+          pattern: (DisableRequestSizeLimit|MaxRequestBodySize)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Uses MultipartReader to stream upload sections directly to disk instead of buffering via IFormFile
+      - Disables or increases the request size limit to accommodate 2GB files
+      - Does not use the user-provided filename directly when saving streamed sections to disk
