@@ -352,20 +352,6 @@ Replace the entire issue body with the following structure:
 
 ---
 
-## 🔍 Investigation Results
-
-> Deep investigations are dispatched for new critical/warning findings.
-> The [grooming workflow](../workflows/devops-health-groom.md) links results ~3 hours after this run.
-
-| Finding | Severity | Investigation | First Seen | Result |
-|---------|----------|---------------|------------|--------|
-{For each finding dispatched in the current run:}
-| {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | {first_seen date, e.g. 2026-05-09} | ⏳ Investigation dispatched — results arriving shortly... |
-{Preserve any rows from the previous issue body that show ✅ Done and whose finding is still in the active set (New Findings or Existing Findings sections). Drop rows for resolved findings.}
-{If no findings were dispatched AND no previous rows exist, render the table header with zero rows — the section MUST still appear in the output}
-
----
-
 ## ✅ Resolved Since Yesterday ({resolved_count})
 
 > These were in yesterday's report but are no longer detected.
@@ -474,8 +460,6 @@ dispatch-workflow:
 Before finishing, verify:
 - [ ] At least one `dispatch-workflow` call was made (if any 🔴 critical or qualifying 🟡 warning findings exist)
 - [ ] All 🔴 critical NEW findings have been dispatched (up to budget cap)
-- [ ] The "🔍 Investigation Results" section in the issue body shows newly dispatched findings as "🔄 Dispatched"
-- [ ] Any existing "✅ Done" rows from the previous issue body are preserved only if the finding is still active (in New/Existing Findings sections). Resolved rows are dropped.
 - [ ] The noop summary message mentions how many investigations were dispatched
 
 ---
@@ -485,7 +469,7 @@ Before finishing, verify:
 - **Time budget**: You have a 60-minute timeout. Prioritize reaching Steps 4 and 5 (issue update + dispatch). Do NOT write intermediate scripts or analysis files. Work through each check, collect findings in memory, and proceed directly to output. Aim to complete data collection (Step 1) within 30 minutes.
 - **Efficiency**: Process API responses in memory. Do NOT create Python/bash scripts to analyze data — parse JSON directly using `jq` or inline analysis. Do NOT write intermediate files unless explicitly required by the output format.
 - **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **complete, literal issue body text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. Pass the body directly as the string value.
-- **CRITICAL — Investigation Results section is MANDATORY**: The `## 🔍 Investigation Results` section MUST always appear in the issue body, even if no investigations were dispatched (in that case, render the section with the table header and zero data rows). The downstream grooming workflow depends on this section to link investigation results. Never omit it. Never inline investigation status elsewhere (e.g., inside the New Findings section). The section must appear **exactly** between the `## 🆕 New Findings` section and the `## ✅ Resolved` section.
+- **Do NOT create an Investigation Results section**: The `## 🔍 Investigation Results` section is owned by the downstream [grooming workflow](../workflows/devops-health-groom.md), which runs ~3 hours later and manages it via its own `replace-island` block. If the health-check also creates this section, the issue body ends up with two duplicate `## 🔍 Investigation Results` headings. The health-check must NOT emit this section.
 - **Be data-driven**: Include specific numbers, durations, percentages, and links.
 - **Be precise with fingerprints**: Use the exact fingerprint formulas from the knowledge file. Consistency is critical — the same finding MUST produce the same fingerprint across runs.
 - **First run handling**: If `cache-memory` has no previous state, note: "⚠️ This is the first health check run. All findings appear as new. Diff will resume from next run."
