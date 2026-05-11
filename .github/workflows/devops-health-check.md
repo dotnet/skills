@@ -357,11 +357,11 @@ Replace the entire issue body with the following structure:
 > Deep investigations are dispatched for new critical/warning findings.
 > The [grooming workflow](../workflows/devops-health-groom.md) links results ~3 hours after this run.
 
-| Finding | Severity | Status | Result |
-|---------|----------|--------|--------|
+| Finding | Severity | Investigation | First Seen | Result |
+|---------|----------|---------------|------------|--------|
 {For each finding dispatched in the current run:}
-| {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | [Workflow Run]({workflow_actions_url}) |
-{Preserve any rows from the previous issue body that already show ✅ Done or ✅ Resolved — do not remove them}
+| {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | {first_seen date, e.g. 2026-05-09} | ⏳ Investigation dispatched — results arriving shortly... |
+{Preserve any rows from the previous issue body that show ✅ Done and whose finding is still in the active set (New Findings or Existing Findings sections). Drop rows for resolved findings.}
 {If no findings were dispatched AND no previous rows exist, render the table header with zero rows — the section MUST still appear in the output}
 
 ---
@@ -475,7 +475,7 @@ Before finishing, verify:
 - [ ] At least one `dispatch-workflow` call was made (if any 🔴 critical or qualifying 🟡 warning findings exist)
 - [ ] All 🔴 critical NEW findings have been dispatched (up to budget cap)
 - [ ] The "🔍 Investigation Results" section in the issue body shows newly dispatched findings as "🔄 Dispatched"
-- [ ] Any existing "✅ Done" or "✅ Resolved" rows from the previous issue body are preserved
+- [ ] Any existing "✅ Done" rows from the previous issue body are preserved only if the finding is still active (in New/Existing Findings sections). Resolved rows are dropped.
 - [ ] The noop summary message mentions how many investigations were dispatched
 
 ---
