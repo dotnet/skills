@@ -349,6 +349,22 @@ foreach ($verdict in $results.verdicts) {
             }
             $efficiencyBenches.Add($pluginTokenBench)
         }
+
+        # Efficiency metrics (from vanilla/baseline run, if exists)
+        if ($null -ne $scenario.baseline -and $null -ne $scenario.baseline.metrics.wallTimeMs) {
+            $efficiencyBenches.Add(@{
+                name  = "$testName - Vanilla Time"
+                unit  = "seconds"
+                value = [math]::Round([float]$scenario.baseline.metrics.wallTimeMs / 1000, 1)
+            })
+        }
+        if ($null -ne $scenario.baseline -and $null -ne $scenario.baseline.metrics.tokenEstimate) {
+            $efficiencyBenches.Add(@{
+                name  = "$testName - Vanilla Tokens In"
+                unit  = "tokens"
+                value = [float]$scenario.baseline.metrics.tokenEstimate
+            })
+        }
     }
 }
 

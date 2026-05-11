@@ -1,0 +1,24 @@
+{
+  "identity": "MyCompany.WebApi.CSharp",
+  "name": "My Web API Template",
+  "shortName": "mywebapi",
+  "sourceName": "MyWebApi",
+  "author": "My Company",
+  "classifications": ["Web", "API"],
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "symbols": {
+    "Framework": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "net9.0",
+      "description": "Target framework",
+      "choices": {
+        "net8.0": { "description": ".NET 8" },
+        "net9.0": { "description": ".NET 9" }
+      }
+    }
+  }
+}

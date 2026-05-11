@@ -1,0 +1,227 @@
+name: migrate-mstest-v1v2-to-v3
+description: Evaluates the dotnet-test/migrate-mstest-v1v2-to-v3 skill
+type: capability
+config:
+  timeout: 4m
+stimuli:
+  - name: Migrate MSTest v1 project with assembly reference
+    prompt: |
+      I have an old .NET Framework test project that references MSTest via assembly reference.
+      I want to upgrade to MSTest v3. What do I need to change?
+    environment:
+      files:
+        - src: fixtures/v1-assembly-ref/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/v1-assembly-ref/OrderServiceTests.cs
+          dest: OrderServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (QualityTools|assembly.?ref|UnitTestFramework)
+      - type: output-matches
+        config:
+          pattern: (MSTest|MSTest\.TestFramework|MSTest\.Sdk)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies the project as MSTest v1 via the QualityTools assembly reference
+      - Recommends removing the assembly reference to Microsoft.VisualStudio.QualityTools.UnitTestFramework
+      - Recommends adding MSTest v3 NuGet packages (MSTest metapackage, MSTest.TestFramework+TestAdapter, or MSTest.Sdk)
+      - Mentions the Assert.AreEqual(object, object) overload removal and suggests adding generic type parameters
+  - name: Migrate MSTest v2 NuGet project to v3
+    prompt: |
+      My test project uses MSTest.TestFramework 2.2.10 and MSTest.TestAdapter 2.2.10 on .NET 6.
+      I want to upgrade to MSTest v3. What breaking changes should I expect?
+    environment:
+      files:
+        - src: fixtures/v2-nuget/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/v2-nuget/UserServiceTests.cs
+          dest: UserServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (2\.2\.10|v2|version 2)
+      - type: output-matches
+        config:
+          pattern: (3\.[0-9]+|v3|version 3)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies the project as MSTest v2 from the 2.2.10 package versions
+      - Recommends updating MSTest packages to 3.x or switching to the MSTest metapackage
+      - Warns about Assert.AreEqual/AreNotEqual object overload removal
+      - Mentions DataRow constructor changes and strict type matching
+      - Mentions timeout behavior unification across .NET Core and .NET Framework
+  - name: Fix Assert.AreEqual object overload errors after v3 upgrade
+    prompt: |
+      I just upgraded to MSTest v3 and I'm getting compilation errors like:
+      "error CS1503: Argument 1: cannot convert from 'object' to 'string'"
+      on Assert.AreEqual calls. My tests compare objects. How do I fix this?
+    environment:
+      files:
+        - src: ./fixtures/fix-assert-areequal-object-overload-errors-after-v3-upgrade/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/fix-assert-areequal-object-overload-errors-after-v3-upgrade/ComparisonTests.cs
+          dest: ComparisonTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (generic|AreEqual<|<T>|type.?param)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Explains that MSTest v3 removed the Assert.AreEqual(object, object) overload
+      - "Recommends adding explicit generic type parameters: Assert.AreEqual<T>(expected, actual)"
+      - Applies the same fix pattern to AreNotEqual, AreSame, and AreNotSame
+      - Does not suggest downgrading to MSTest v2 as a solution
+  - name: Migrate from .testsettings to .runsettings
+    prompt: |
+      My MSTest project has a .testsettings file that configures test deployment and timeout.
+      After upgrading to MSTest v3, it seems to be ignored. How do I migrate?
+    environment:
+      files:
+        - src: ./fixtures/migrate-from-testsettings-to-runsettings/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/migrate-from-testsettings-to-runsettings/local.testsettings
+          dest: local.testsettings
+    graders:
+      - type: output-matches
+        config:
+          pattern: (runsettings|\.runsettings)
+      - type: output-matches
+        config:
+          pattern: (testsettings|legacy|no longer supported)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Explains that .testsettings and LegacySettings are no longer supported in MSTest v3
+      - Provides guidance on creating a .runsettings file as a replacement
+      - Shows how to configure timeout and other settings in .runsettings XML format
+      - Does not suggest keeping the .testsettings file alongside .runsettings
+  - name: Fix DataRow type mismatch errors after v3 upgrade
+    prompt: |
+      After upgrading to MSTest v3, many of my data-driven tests fail to compile with errors
+      about DataRow constructors. I have tests with lots of parameters and some implicit
+      type conversions. What changed and how do I fix it?
+    environment:
+      files:
+        - src: ./fixtures/fix-datarow-type-mismatch-errors-after-v3-upgrade/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/fix-datarow-type-mismatch-errors-after-v3-upgrade/DataDrivenTests.cs
+          dest: DataDrivenTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (DataRow|type.?match|constructor|16|param)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Explains that MSTest v3 requires DataRow values to match parameter types exactly
+      - Identifies the 1L (long) vs int mismatch and recommends fixing to 1 (int)
+      - Explains the 16-parameter limit on DataRow constructors and suggests refactoring or wrapping in an array
+      - Does not suggest downgrading as a fix
+  - name: Migrate to MSTest.Sdk project style
+    prompt: |
+      I have a standard MSTest v2 project and I heard MSTest.Sdk simplifies things.
+      Can you help me convert my project to use MSTest.Sdk? Show me what the new
+      project file should look like.
+    environment:
+      files:
+        - src: ./fixtures/migrate-to-mstest-sdk-project-style/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/v2-nuget/UserServiceTests.cs
+          dest: UserServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: MSTest\.Sdk
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recommends changing the project SDK to MSTest.Sdk
+      - Shows the simplified project file format with MSTest.Sdk
+      - Mentions that MSTest.Sdk eliminates the need for explicit MSTest and Microsoft.NET.Test.Sdk package references
+      - Notes that MSTest.Sdk defaults to Microsoft.Testing.Platform
+  - name: Handle dropped target framework during v3 migration
+    prompt: |
+      My test project targets .NET 5.0 and uses MSTest v2. I want to upgrade to MSTest v3.
+      Will there be any framework compatibility issues?
+    environment:
+      files:
+        - src: ./fixtures/handle-dropped-target-framework-during-v3-migration/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (net5\.0|dropped|unsupported|net6\.0|net8\.0)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies that .NET 5.0 is no longer supported by MSTest v3
+      - Recommends upgrading to .NET 6.0 or later (preferably .NET 8.0 as a current LTS)
+      - Does not suggest staying on .NET 5.0 with MSTest v3
+  - name: Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM
+    prompt: |
+      I have an MSTest v2 project on .NET 5.0 that uses a .testsettings file, data-driven
+      tests with implicit type conversions, and Assert.AreEqual on objects. I want to
+      migrate to MSTest v3. What's the full list of changes I need to make?
+    environment:
+      files:
+        - src: fixtures/v2-complex/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/v2-complex/InventoryServiceTests.cs
+          dest: InventoryServiceTests.cs
+        - src: fixtures/v2-complex/local.testsettings
+          dest: local.testsettings
+    graders:
+      - type: output-matches
+        config:
+          pattern: (net5\.0|dropped|unsupported|net8\.0)
+      - type: output-matches
+        config:
+          pattern: (AreEqual|generic|<T>|object)
+      - type: output-matches
+        config:
+          pattern: (DataRow|type.?match|long|int)
+      - type: output-matches
+        config:
+          pattern: (testsettings|runsettings|legacy)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies that .NET 5.0 is dropped in MSTest v3 and recommends upgrading to net8.0
+      - Identifies the Assert.AreEqual/AreNotEqual/AreSame object overload removal and recommends generic type parameters
+      - Identifies the DataRow 1L (long) to int type mismatch and recommends exact type matching
+      - Identifies the DataRow 17-parameter test exceeds the 16-parameter limit
+      - Recommends migrating the .testsettings file to .runsettings
+      - Recommends updating MSTest packages from 2.2.10 to 3.x
+  - name: Correctly identify MSTest v1 vs v2 and recommend different migration paths
+    prompt: |
+      I have two test projects. One uses QualityTools assembly references and the other
+      uses MSTest.TestFramework 2.2.10 NuGet. Are the migration steps the same for both?
+    environment:
+      files:
+        - src: fixtures/v1-assembly-ref/TestProject.csproj
+          dest: LegacyTests/TestProject.csproj
+        - src: fixtures/v1-assembly-ref/OrderServiceTests.cs
+          dest: LegacyTests/OrderServiceTests.cs
+        - src: fixtures/v2-nuget/TestProject.csproj
+          dest: ModernTests/TestProject.csproj
+        - src: fixtures/v2-nuget/UserServiceTests.cs
+          dest: ModernTests/UserServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (QualityTools|assembly.?ref|v1)
+      - type: output-matches
+        config:
+          pattern: (2\.2\.10|v2|NuGet)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Correctly identifies the first project as MSTest v1 (assembly reference to QualityTools)
+      - Correctly identifies the second project as MSTest v2 (NuGet packages 2.2.10)
+      - "Explains that v1 requires an extra step: removing the assembly reference before adding NuGet packages"
+      - Notes that v2 migration is simpler — just update the package versions
+      - Recommends both projects end up on MSTest v3 with the same final package references

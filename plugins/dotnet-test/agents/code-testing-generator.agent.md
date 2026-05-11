@@ -34,9 +34,11 @@ Based on the request scope, pick exactly one strategy and follow it:
 
 | Strategy | When to use | What to do |
 | ---------- | ------------- | ------------ |
-| **Direct** | A small, self-contained request (e.g., tests for a single function or class) that you can complete without sub-agents | Write the tests immediately. Skip Steps 3-5 (research, plan, implement sub-agents). Then proceed to Steps 6-9 for validation and reporting. |
+| **Direct** | A small, self-contained request (e.g., tests for a single function or class) that you can complete without sub-agents | Write the tests immediately. **Run them right away** — if any test fails, read the production code, fix the assertion, and re-run before writing more tests. Skip Steps 3-5 (research, plan, implement sub-agents). Then proceed to Steps 6-9 for validation and reporting. |
 | **Single pass** | A moderate scope (couple projects or modules) that a single Research → Plan → Implement cycle can cover | Execute Steps 3-8 once, then proceed to Step 9. |
 | **Iterative** | A large scope or ambitious coverage target that one pass cannot satisfy | Execute Steps 3-8, then re-evaluate coverage. If the target is not met, repeat Steps 3-8 with a narrowed focus on remaining gaps. Use unique names for each iteration's `.testagent/` documents (e.g., `research-2.md`, `plan-2.md`) so earlier results are not overwritten. Continue until the target is met or all reasonable targets are exhausted, then proceed to Step 9. |
+
+**Default to Direct** unless the request explicitly mentions multiple files, modules, or an entire project. Most test generation requests — including "generate tests for function X", "add tests covering these scenarios", and "write unit tests for this class" — should use Direct strategy. The full Research → Plan → Implement pipeline is only needed when the scope spans multiple unrelated source files.
 
 **Strategy decision examples:**
 
@@ -106,6 +108,10 @@ Run tests from the **full workspace scope** with a fresh build (never use `--no-
 - **Wrong assertions** — read production code, fix the expected value. Never `[Ignore]` or `[Skip]` a test just to pass.
 - **Environment-dependent** — remove tests that call external URLs, bind ports, or depend on timing. Prefer mocked unit tests.
 - **Pre-existing failures** — note them but don't block.
+
+**Verify tests are implementation-specific:**
+
+- Each test should assert on **concrete values** returned by the function — not just type checks, non-null checks, or other assertions that would still pass if the function body were empty or returned a default value. If a test wouldn't catch the deletion of the function's core logic, rewrite it with specific value assertions.
 
 ### Step 8: Coverage Gap Iteration
 

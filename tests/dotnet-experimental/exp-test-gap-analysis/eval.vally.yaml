@@ -1,0 +1,132 @@
+name: exp-test-gap-analysis
+description: Evaluates the dotnet-experimental/exp-test-gap-analysis skill
+type: capability
+config:
+  timeout: 5m
+stimuli:
+  - name: Find boundary mutation gaps in tiered discount and shipping logic
+    prompt: |
+      I want to know if my tests are actually strong enough to catch subtle bugs.
+      Look at my PricingEngine code and its tests — could a small change like an
+      off-by-one error or a flipped comparison slip through without any test failing?
+    environment:
+      files:
+        - src: fixtures/boundary-gaps/PricingEngine/PricingEngine.csproj
+          dest: PricingEngine/PricingEngine.csproj
+        - src: fixtures/boundary-gaps/PricingEngine/DiscountCalculator.cs
+          dest: PricingEngine/DiscountCalculator.cs
+        - src: fixtures/boundary-gaps/PricingEngine.Tests/PricingEngine.Tests.csproj
+          dest: PricingEngine.Tests/PricingEngine.Tests.csproj
+        - src: fixtures/boundary-gaps/PricingEngine.Tests/DiscountCalculatorTests.cs
+          dest: PricingEngine.Tests/DiscountCalculatorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (boundar|off.by.one|>=.*>|>.*>=|threshold|exact.*(value|boundary|point)|edge)
+      - type: output-matches
+        config:
+          pattern: (1000|500|100|250)
+      - type: output-matches
+        config:
+          pattern: (surviv|not.*caught|not.*detected|would.*pass|miss|blind|gap|weak)
+      - type: output-matches
+        config:
+          pattern: (express|heavy|10.*kg|coupon|minimum|floor|1\.00)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified that no test exercises the exact discount tier boundaries (1000, 500, 100) — mutations like >= to >
+        at those points would survive
+      - Identified that the free shipping boundary at 250 is not tested — order of exactly 250 is not covered
+      - Identified that the express shipping surcharge is never tested
+      - Identified that the heavy item fee boundary (weight > 10kg) is not tested
+      - Identified that the coupon minimum floor (total cannot go below 1.00) is not tested
+      - Recommended concrete test cases that would kill the survived mutations
+  - name: Find logic and null-check mutation gaps in access control code
+    prompt: |
+      I have an access control system and I'm worried the tests might not catch
+      all security-related bugs. Can you analyze whether a subtle logic change
+      in the permission checks would go undetected by the current tests?
+    environment:
+      files:
+        - src: fixtures/logic-gaps/AccessControl/AccessControl.csproj
+          dest: AccessControl/AccessControl.csproj
+        - src: fixtures/logic-gaps/AccessControl/AccessChecker.cs
+          dest: AccessControl/AccessChecker.cs
+        - src: fixtures/logic-gaps/AccessControl.Tests/AccessControl.Tests.csproj
+          dest: AccessControl.Tests/AccessControl.Tests.csproj
+        - src: fixtures/logic-gaps/AccessControl.Tests/AccessCheckerTests.cs
+          dest: AccessControl.Tests/AccessCheckerTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Guest|guest|denied|no.access)
+      - type: output-matches
+        config:
+          pattern: (write|CanWrite|writeAccess)
+      - type: output-matches
+        config:
+          pattern: (null|empty|token|elevat)
+      - type: output-matches
+        config:
+          pattern: (surviv|not.*caught|not.*detected|gap|miss|blind|weak)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified that Guest access denial is never tested — removing the default deny branch would survive
+      - Identified that User's CanWrite=false is never asserted — flipping it to true would survive
+      - Identified that CanPerform is only tested with writeAccess=false — the write path is not verified
+      - Identified that ElevateRole is not tested with null or empty tokens — removing the null guard would survive
+      - Identified that Editor on system resources getting read-only (CanWrite=false) is not tested
+      - Recommended concrete test cases targeting the specific survived mutations
+  - name: Acknowledge well-tested code with few surviving mutations
+    prompt: |
+      Can you check if my inventory management tests would actually catch
+      bugs if someone introduced a subtle mistake in the code?
+    environment:
+      files:
+        - src: fixtures/well-tested/Inventory/Inventory.csproj
+          dest: Inventory/Inventory.csproj
+        - src: fixtures/well-tested/Inventory/StockManager.cs
+          dest: Inventory/StockManager.cs
+        - src: fixtures/well-tested/Inventory.Tests/Inventory.Tests.csproj
+          dest: Inventory.Tests/Inventory.Tests.csproj
+        - src: fixtures/well-tested/Inventory.Tests/StockManagerTests.cs
+          dest: Inventory.Tests/StockManagerTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (strong|solid|good|well.tested|thorough|effective|high.*kill|most.*killed|most.*caught)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recognized that the test suite has good mutation coverage — most mutations at boundaries and guards would be
+        caught
+      - Acknowledged the boundary tests for NeedsReorder (below, at, and above threshold)
+      - Acknowledged that both zero and negative quantities are tested for guard clauses
+      - Acknowledged that RemoveStock verifies both the return value and the resulting stock level
+      - If any gaps were found, they were presented as minor improvements rather than critical weaknesses
+  - name: Decline request to write new tests from scratch
+    prompt: |
+      I need to write unit tests for my ShoppingCart class. It handles
+      adding items, removing items, calculating totals, and applying promo codes.
+      Can you write a complete MSTest test suite for me?
+    environment:
+      files:
+        - src: ./fixtures/decline-request-to-write-new-tests-from-scratch/ShoppingCart.cs
+          dest: ShoppingCart.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (TestMethod|TestClass|\[Fact\]|test)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Wrote test methods for the ShoppingCart class
+      - Covered the AddItem and GetTotal methods
+    constraints:
+      reject_skills:
+        - "*"

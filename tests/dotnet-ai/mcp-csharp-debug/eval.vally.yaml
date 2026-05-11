@@ -1,0 +1,66 @@
+name: mcp-csharp-debug
+description: Evaluates the dotnet-ai/mcp-csharp-debug skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Debug an MCP server with MCP Inspector
+    prompt: |
+      I have a C# MCP server that uses stdio transport. I want to test it
+      interactively with the MCP Inspector to see if my tools are working.
+      How do I connect and debug?
+    graders:
+      - type: output-contains
+        config:
+          substring: npx @modelcontextprotocol/inspector
+      - type: output-matches
+        config:
+          pattern: (dotnet run|--project)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Shows how to launch MCP Inspector with npx @modelcontextprotocol/inspector
+      - Explains how to connect it to the stdio server using dotnet run — either as a single CLI command (npx
+        @modelcontextprotocol/inspector dotnet run ...) or via the Inspector UI configuration (Transport Type, Command,
+        Arguments)
+      - Mentions that the Inspector UI shows tools, prompts, and resources
+      - Notes that server logging must go to stderr, not stdout
+  - name: Configure VS Code to use an MCP server
+    prompt: |
+      I built a C# MCP server at src/MyMcpServer/MyMcpServer.csproj.
+      I want to use it with GitHub Copilot in VS Code agent mode.
+      How do I configure mcp.json?
+    graders:
+      - type: output-contains
+        config:
+          substring: mcp.json
+      - type: output-matches
+        config:
+          pattern: (dotnet|run|--project)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Shows the mcp.json configuration with type stdio
+      - Uses dotnet run --project with the correct project path
+      - Places the config in .vscode/mcp.json for workspace or user settings
+      - Mentions testing the configuration by asking Copilot to use the tools
+  - name: Debug a failing MCP server tool
+    prompt: |
+      My C# MCP server is returning errors when I call one of its tools from
+      VS Code Copilot. The tool works fine when I run it manually as a console
+      app. How do I debug this?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (stderr|Console\.Error|logging)
+      - type: output-matches
+        config:
+          pattern: (breakpoint|attach|debugger)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Explains that stdout is reserved for MCP protocol in stdio mode
+      - Recommends checking that all logging goes to stderr
+      - Shows how to further diagnose the issue — such as attaching a debugger to the running process, using
+        Debugger.Launch(), or configuring launch.json to debug the server
+      - Suggests using MCP Inspector or VS Code debug config to test or step through the server

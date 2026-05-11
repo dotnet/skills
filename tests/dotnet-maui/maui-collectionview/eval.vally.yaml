@@ -1,0 +1,106 @@
+name: maui-collectionview
+description: Evaluates the dotnet-maui/maui-collectionview skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Basic CollectionView with data binding and DataTemplate
+    prompt: |
+      I have an ObservableCollection<Product> with Name and Price properties.
+      Show me how to display these products in a vertical scrollable list using
+      CollectionView with a DataTemplate that shows both the name and price.
+      Use compiled bindings.
+    graders:
+      - type: output-contains
+        config:
+          substring: CollectionView
+      - type: output-contains
+        config:
+          substring: ItemsSource
+      - type: output-contains
+        config:
+          substring: DataTemplate
+      - type: output-contains
+        config:
+          substring: x:DataType
+      - type: output-contains
+        config:
+          substring: ObservableCollection
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Uses CollectionView with ItemsSource bound to the collection
+      - Defines a DataTemplate with x:DataType for compiled bindings
+      - Binds both Name and Price properties inside the template
+      - Does NOT use ViewCell as the template root
+      - Uses ObservableCollection<T> rather than List<T>
+  - name: Grid layout with CollectionView
+    prompt: |
+      I want to display a photo gallery using CollectionView in a 3-column
+      grid layout with spacing between items. Each item should show an image
+      and a caption. How do I set this up in XAML?
+    graders:
+      - type: output-contains
+        config:
+          substring: GridItemsLayout
+      - type: output-contains
+        config:
+          substring: Span
+      - type: output-contains
+        config:
+          substring: CollectionView
+      - type: output-matches
+        config:
+          pattern: (?i)spacing|ItemSpacing
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Uses GridItemsLayout with Orientation and Span="3"
+      - Configures spacing via VerticalItemSpacing and HorizontalItemSpacing
+      - Includes a DataTemplate with Image and Label for caption
+      - Does NOT use ViewCell
+  - name: Selection and pull-to-refresh with CollectionView
+    prompt: |
+      I need a CollectionView that supports single item selection and
+      pull-to-refresh. When the user selects an item, I want to navigate
+      to a detail page. When they pull to refresh, I want to reload data
+      from my API. Show me the XAML and explain the ViewModel bindings needed.
+    graders:
+      - type: output-contains
+        config:
+          substring: SelectionMode
+      - type: output-contains
+        config:
+          substring: SelectedItem
+      - type: output-contains
+        config:
+          substring: RefreshView
+      - type: output-contains
+        config:
+          substring: IsRefreshing
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Sets SelectionMode to Single and binds SelectedItem with TwoWay binding
+      - Wraps CollectionView in a RefreshView with IsRefreshing and Command bindings
+      - Explains that IsRefreshing must be set back to false when refresh completes
+      - Uses SelectionChangedCommand or SelectedItem binding for navigation
+  - name: Avoid ListView and ViewCell mistakes
+    prompt: |
+      I'm migrating from Xamarin.Forms to .NET MAUI. My existing code uses
+      ListView with ViewCell for each item. Should I keep using ListView in
+      MAUI? Also, can I reuse my ViewCell templates inside CollectionView?
+    graders:
+      - type: output-contains
+        config:
+          substring: CollectionView
+      - type: output-matches
+        config:
+          pattern: (?i)(not|never|don.t|avoid|remove|replace).{0,40}ViewCell|ViewCell.{0,40}(not|never|don.t|avoid|remove|replace)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recommends migrating from ListView to CollectionView
+      - Explains that CollectionView has better performance than ListView
+      - Clearly states that ViewCell must NOT be used with CollectionView
+      - Suggests using Grid, StackLayout, or other View/Layout as the template root instead of ViewCell

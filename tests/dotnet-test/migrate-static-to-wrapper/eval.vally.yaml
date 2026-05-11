@@ -1,0 +1,82 @@
+name: migrate-static-to-wrapper
+description: Evaluates the dotnet-test/migrate-static-to-wrapper skill
+type: capability
+config:
+  timeout: 3m
+stimuli:
+  - name: Migrate DateTime.UtcNow to TimeProvider in a service class
+    prompt: >
+      I have a CouponService that uses DateTime.UtcNow in several places.
+      TimeProvider is already registered in my DI container. Can you replace
+      all the DateTime.UtcNow calls with TimeProvider and add the constructor
+      parameter?
+    environment:
+      files:
+        - src: ./fixtures/ready-to-migrate
+          dest: ReadyToMigrate
+    graders:
+      - type: file-contains
+        config:
+          path: "**/CouponService.cs"
+          value: TimeProvider
+      - type: file-not-contains
+        config:
+          path: "**/CouponService.cs"
+          value: DateTime.UtcNow
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Replaced all DateTime.UtcNow calls in CouponService.cs with TimeProvider calls
+      - Added TimeProvider as a constructor parameter to CouponService
+      - Stored TimeProvider in a readonly field following the class's existing naming convention
+      - Did not change the behavior of any method — only the time source changed
+      - Did not modify Program.cs DI registration since TimeProvider was already registered
+
+  - name: Migrate only in scoped files, leaving others untouched
+    prompt: >
+      I want to migrate DateTime.UtcNow to TimeProvider, but only in
+      CouponService.cs for now. Don't touch AuditLogger.cs yet — I'll do that
+      in a separate pass. TimeProvider is already in my DI container.
+    environment:
+      files:
+        - src: ./fixtures/ready-to-migrate
+          dest: ReadyToMigrate
+    graders:
+      - type: file-contains
+        config:
+          path: "**/CouponService.cs"
+          value: TimeProvider
+      - type: file-contains
+        config:
+          path: "**/AuditLogger.cs"
+          value: DateTime.UtcNow
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Migrated DateTime.UtcNow to TimeProvider in CouponService.cs
+      - Left AuditLogger.cs completely untouched with DateTime.UtcNow calls still present
+      - Respected the scope boundary the user specified
+      - Reported what was migrated and what remains to be done
+
+  - name: Decline migration when wrapper does not exist yet
+    prompt: >
+      Replace all File.ReadAllText calls in my project with IFileSystem. Just
+      do the bulk replacement across all files.
+    environment:
+      files:
+        - src: ./fixtures/decline-no-wrapper/MyProject.csproj
+          dest: MyProject/MyProject.csproj
+        - src: ./fixtures/decline-no-wrapper/DataLoader.cs
+          dest: MyProject/DataLoader.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (System\.IO\.Abstractions|package|install|not.*registered|not.*referenced|add.*package)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified that System.IO.Abstractions NuGet package is not referenced in the project
+      - Did not blindly replace File.ReadAllText with IFileSystem calls that would not compile
+      - Recommended installing the package and registering IFileSystem before migrating

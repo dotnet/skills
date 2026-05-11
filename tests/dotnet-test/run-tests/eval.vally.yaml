@@ -1,0 +1,423 @@
+name: run-tests
+description: Evaluates the dotnet-test/run-tests skill
+type: capability
+config:
+  timeout: 6m
+stimuli:
+  - name: Run tests in a VSTest MSTest project
+    prompt: I need to run all the tests in this project. Can you help me?
+    environment:
+      files:
+        - src: fixtures/vstest-mstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/vstest-mstest/OrderServiceTests.cs
+          dest: OrderServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: dotnet test
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies the project as a VSTest project (Microsoft.NET.Test.Sdk + MSTest.TestAdapter)
+      - Uses 'dotnet test' without MTP-specific arguments or '--' separator
+      - Does not suggest MTP-style arguments like --report-trx or --treenode-filter
+    constraints:
+      expect_tools:
+        - bash
+  - name: Run tests with trx reporting on MTP project (SDK 9)
+    prompt: >
+      I have an MSTest project using Microsoft.Testing.Platform. I need to run
+      the tests and produce a TRX report. I'm on .NET SDK 9.
+      on .NET SDK 9.
+    environment:
+      files:
+        - src: fixtures/mtp-mstest-sdk9/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/mtp-mstest-sdk9/UserAuthTests.cs
+          dest: UserAuthTests.cs
+        - src: fixtures/mtp-mstest-sdk9/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: dotnet test
+      - type: output-matches
+        config:
+          pattern: --\s+--report-trx
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Detects TestingPlatformDotnetTestSupport property in the csproj indicating MTP
+      - Recognizes that SDK 9 requires MTP arguments after the '--' separator
+      - Uses '-- --report-trx' (with separator) instead of just '--report-trx'
+      - Does not suggest the VSTest-style '--logger trx' for an MTP project
+    constraints:
+      expect_tools:
+        - bash
+  - name: Run tests with blame-hang on MTP project (SDK 10)
+    prompt: >
+      My tests are occasionally hanging. I want to run them with dotnet test using
+      a hang timeout of 5 minutes to detect the culprit. Here's my project.
+      Here's my project.
+    environment:
+      files:
+        - src: fixtures/mtp-mstest-sdk10/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/mtp-mstest-sdk10/CatalogServiceTests.cs
+          dest: CatalogServiceTests.cs
+        - src: fixtures/mtp-mstest-sdk10/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: dotnet test
+      - type: output-matches
+        config:
+          pattern: blame-hang
+      - type: output-not-matches
+        config:
+          pattern: -- --blame
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Detects MTP via the global.json runner setting (Microsoft.Testing.Platform)
+      - Recognizes that SDK 10 passes MTP arguments directly without '--' separator
+      - Uses '--blame-hang-timeout 5min' or similar directly, not after '--'
+      - Does not use the VSTest-style '--blame --blame-hang-timeout' combination
+    constraints:
+      expect_tools:
+        - bash
+  - name: Run tests in a multi-TFM project targeting a specific framework
+    prompt: >
+      This test project targets both net8.0 and net9.0. I only want to run the
+      tests on net9.0 using dotnet test.
+    environment:
+      files:
+        - src: fixtures/multi-tfm/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: dotnet test
+      - type: output-matches
+        config:
+          pattern: --framework\s+net9\.0
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recognizes the multi-TFM project from the TargetFrameworks (plural) property
+      - Uses '--framework net9.0' to target the specific framework
+      - Does not suggest running all frameworks and filtering after the fact
+    constraints:
+      expect_tools:
+        - bash
+  - name: Filter MSTest tests by category on VSTest
+    prompt: >
+      I only want to run the integration tests using dotnet test. How do I filter
+      by the Integration category?
+    environment:
+      files:
+        - src: fixtures/vstest-mstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/vstest-mstest/OrderServiceTests.cs
+          dest: OrderServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: --filter
+      - type: output-matches
+        config:
+          pattern: TestCategory=Integration
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Uses the VSTest --filter flag with the TestCategory property
+      - 'Uses the correct syntax: --filter "TestCategory=Integration"'
+      - Does not use MTP-style filter flags like --filter-trait
+      - Does not suggest xUnit-style Trait filtering for an MSTest project
+    constraints:
+      expect_tools:
+        - bash
+  - name: Filter NUnit tests by class name on VSTest
+    prompt: >
+      I want to run only the ReportExporterTests class using dotnet test, not
+      the ReportGeneratorTests. How do I do that?
+    environment:
+      files:
+        - src: fixtures/vstest-nunit/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/vstest-nunit/ReportServiceTests.cs
+          dest: ReportServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: --filter
+      - type: output-matches
+        config:
+          pattern: (FullyQualifiedName~ReportExporterTests|ClassName=.*ReportExporterTests)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies NUnit on VSTest (NUnit + NUnit3TestAdapter + Microsoft.NET.Test.Sdk)
+      - Uses --filter with FullyQualifiedName or ClassName property to select the class
+      - Correctly targets ReportExporterTests and excludes ReportGeneratorTests
+      - Uses VSTest expression syntax, not MTP-specific flags
+    constraints:
+      expect_tools:
+        - bash
+  - name: Filter xUnit v3 tests by class on MTP
+    prompt: >
+      I need to run only the ShoppingCartTests class using dotnet test, not the
+      InventoryServiceTests. Can you show me the command?
+    environment:
+      files:
+        - src: fixtures/mtp-xunit-v3/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/mtp-xunit-v3/ShoppingCartTests.cs
+          dest: ShoppingCartTests.cs
+        - src: fixtures/mtp-xunit-v3/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: --filter-class
+      - type: output-matches
+        config:
+          pattern: ShoppingCartTests
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Detects xUnit v3 on MTP (xunit.v3 package + TestingPlatformDotnetTestSupport)
+      - Uses --filter-class instead of the VSTest --filter expression syntax
+      - xUnit v3 on MTP does NOT support the VSTest --filter "ClassName=..." syntax
+      - Correctly passes the filter after '--' separator since this is SDK 9
+    constraints:
+      expect_tools:
+        - bash
+  - name: Filter xUnit v3 tests by trait on MTP
+    prompt: >
+      I want to run only the tests with the Category=Integration trait in this
+      xUnit project using dotnet test.
+    environment:
+      files:
+        - src: fixtures/mtp-xunit-v3/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/mtp-xunit-v3/ShoppingCartTests.cs
+          dest: ShoppingCartTests.cs
+        - src: fixtures/mtp-xunit-v3/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: --filter-trait
+      - type: output-matches
+        config:
+          pattern: Category=Integration
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Detects xUnit v3 on MTP from the project references
+      - Uses --filter-trait "Category=Integration" instead of VSTest --filter "Traits.Category=Integration"
+      - xUnit v3 on MTP requires framework-specific filter flags, not VSTest expression syntax
+      - Correctly handles the '--' separator for SDK 9
+    constraints:
+      expect_tools:
+        - bash
+  - name: Filter TUnit tests by class using treenode-filter
+    prompt: >
+      I want to run only the SmsNotificationTests from this TUnit project using
+      dotnet test. What's the command?
+    environment:
+      files:
+        - src: fixtures/mtp-tunit/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/mtp-tunit/NotificationTests.cs
+          dest: NotificationTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: --treenode-filter
+      - type: output-matches
+        config:
+          pattern: SmsNotificationTests
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies TUnit as MTP-only (no VSTest support)
+      - Uses --treenode-filter with the path-based syntax to filter by class name
+      - Uses the correct wildcard pattern like /*/*/SmsNotificationTests/*
+      - Does not use VSTest --filter syntax which is incompatible with TUnit
+      - Uses 'dotnet run' or 'dotnet test' with correct MTP argument passing
+    constraints:
+      expect_tools:
+        - bash
+  - name: Combine multiple filter criteria on VSTest MSTest
+    prompt: >
+      I want to run only the unit tests in the OrderServiceTests class using
+      dotnet test. How do I combine these two filter conditions?
+    environment:
+      files:
+        - src: fixtures/vstest-mstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/vstest-mstest/OrderServiceTests.cs
+          dest: OrderServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: --filter
+      - type: output-matches
+        config:
+          pattern: TestCategory=Unit
+      - type: output-matches
+        config:
+          pattern: OrderServiceTests
+      - type: output-contains
+        config:
+          substring: "&"
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Combines ClassName and TestCategory filters using the '&' (AND) operator
+      - 'Uses correct VSTest expression syntax: --filter "ClassName~OrderServiceTests&TestCategory=Unit"'
+      - Does not suggest running all tests and post-filtering results
+      - Explains the AND/OR combinator syntax for future reference
+    constraints:
+      expect_tools:
+        - bash
+  - name: MTP project on SDK 9 must use -- separator for args
+    prompt: >
+      I want to run these tests with dotnet test and collect a crash dump if any
+      test crashes the host.
+    environment:
+      files:
+        - src: fixtures/mtp-mstest-sdk9/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/mtp-mstest-sdk9/UserAuthTests.cs
+          dest: UserAuthTests.cs
+        - src: fixtures/mtp-mstest-sdk9/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: dotnet test
+      - type: output-matches
+        config:
+          pattern: --\s+--blame-crash
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Detects TestingPlatformDotnetTestSupport in the csproj indicating MTP
+      - Recognizes that SDK 9 requires MTP arguments after the '--' separator
+      - "Places --blame-crash after the '--' separator: 'dotnet test -- --blame-crash'"
+      - Does not use the VSTest-style '--blame' flag for this MTP project
+    constraints:
+      expect_tools:
+        - bash
+  - name: MTP project on SDK 10 passes args directly
+    prompt: I want to run these tests with dotnet test and produce a TRX report.
+    environment:
+      files:
+        - src: fixtures/mtp-mstest-sdk10/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/mtp-mstest-sdk10/CatalogServiceTests.cs
+          dest: CatalogServiceTests.cs
+        - src: fixtures/mtp-mstest-sdk10/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: dotnet test
+      - type: output-matches
+        config:
+          pattern: --report-trx
+      - type: output-not-matches
+        config:
+          pattern: -- --report-trx
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Detects MTP via global.json runner setting and SDK 10
+      - Passes --report-trx directly without the '--' separator
+      - Uses the SDK 10+ dotnet test syntax (e.g., --project flag instead of bare positional argument)
+      - Does not use VSTest-style '--logger trx' for an MTP project on SDK 10
+    constraints:
+      expect_tools:
+        - bash
+  - name: Detect test platform from Directory.Build.props
+    prompt: >
+      I want to run the integration tests in this project with dotnet test. Can
+      you figure out which test platform it uses and run them?
+    environment:
+      files:
+        - src: ./fixtures/detect-test-platform-from-directory-build-props/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/detect-test-platform-from-directory-build-props/Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./fixtures/detect-test-platform-from-directory-build-props/global.json
+          dest: global.json
+        - src: ./fixtures/detect-test-platform-from-directory-build-props/ServiceTests.cs
+          dest: ServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (MTP|Microsoft\.Testing\.Platform|TestingPlatformDotnetTestSupport)
+      - type: output-matches
+        config:
+          pattern: --filter.*TestCategory=Integration
+      - type: output-matches
+        config:
+          pattern: -- --filter
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Reads Directory.Build.props (not just the csproj) and finds TestingPlatformDotnetTestSupport=true
+      - Correctly identifies this as an MTP project even though the csproj alone looks like VSTest
+      - Uses MSTest filter syntax for TestCategory since MSTest on MTP uses the same filter syntax as VSTest
+      - "Uses '--' separator before MTP filter args since this is SDK 9: 'dotnet test -- --filter
+        TestCategory=Integration'"
+    constraints:
+      expect_tools:
+        - bash
+  - name: "Negative test: do not use MTP syntax for a VSTest project"
+    prompt: Run my tests with dotnet test and generate a TRX report.
+    environment:
+      files:
+        - src: fixtures/vstest-mstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/vstest-mstest/OrderServiceTests.cs
+          dest: OrderServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: dotnet test
+      - type: output-matches
+        config:
+          pattern: --logger.*(trx|"trx")
+      - type: output-not-contains
+        config:
+          substring: --report-trx
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies this as a VSTest project (Microsoft.NET.Test.Sdk without MTP signals)
+      - Uses '--logger trx' which is the VSTest way to produce TRX output
+      - Does NOT use '--report-trx' which is the MTP-specific flag
+      - Does not add unnecessary '--' separator for a VSTest project
+    constraints:
+      expect_tools:
+        - bash

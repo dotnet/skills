@@ -24,16 +24,33 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Get changed Markdown files
-        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
-        id: changed-files
+      - name: Use Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          files: "**/*.md"
-          separator: ","
+          node-version: 'lts/*'
+
+      - name: Detect lint scope
+        id: scope
+        run: |
+          # If config or workflow changed, lint all .md files; otherwise lint only changed .md files
+          CONFIG_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- '.markdownlint-cli2.jsonc' '.github/workflows/markdownlint.yml')
+          if [ -n "$CONFIG_CHANGED" ]; then
+            echo "mode=all" >> "$GITHUB_OUTPUT"
+          else
+            FILES=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- '*.md' | tr '\n' ' ')
+            echo "files=$FILES" >> "$GITHUB_OUTPUT"
+            if [ -n "$FILES" ]; then
+              echo "mode=changed" >> "$GITHUB_OUTPUT"
+            else
+              echo "mode=none" >> "$GITHUB_OUTPUT"
+            fi
+          fi
 
       - name: Run markdownlint
-        if: steps.changed-files.outputs.any_changed == 'true'
-        uses: DavidAnson/markdownlint-cli2-action@ce4853d43830c74c1753b39f3cf40f71c2031eb9 # v23
-        with:
-          globs: ${{ steps.changed-files.outputs.all_changed_files }}
-          separator: ","
+        if: steps.scope.outputs.mode != 'none'
+        run: |
+          if [ "${{ steps.scope.outputs.mode }}" = "all" ]; then
+            npx markdownlint-cli2 "**/*.md"
+          else
+            npx markdownlint-cli2 ${{ steps.scope.outputs.files }}
+          fi

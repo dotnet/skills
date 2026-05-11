@@ -229,4 +229,3 @@ Always generate:
 | Registering scoped when singleton suffices | Stateless wrappers should be `AddSingleton` |
 | Forgetting test helper packages | `Microsoft.Extensions.TimeProvider.Testing` for time, `System.IO.Abstractions.TestingHelpers` for filesystem |
 | Ambient context without `AsyncLocal` | Non-async `[ThreadStatic]` breaks with `async`/`await` — always use `AsyncLocal<T>` |
-

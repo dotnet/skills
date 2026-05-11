@@ -1,0 +1,117 @@
+name: exp-test-smell-detection
+description: Evaluates the dotnet-experimental/exp-test-smell-detection skill
+type: capability
+config:
+  timeout: 5m
+stimuli:
+  - name: Detect multiple test smells in order processing test suite
+    prompt: |
+      I'm worried about the quality of our OrderProcessor test suite.
+      The tests all pass but some of them feel off — can you review them
+      and tell me if there are any problematic patterns?
+    environment:
+      files:
+        - src: fixtures/smelly-tests/OrderService.Tests/OrderService.Tests.csproj
+          dest: OrderService.Tests/OrderService.Tests.csproj
+        - src: fixtures/smelly-tests/OrderService.Tests/OrderProcessorTests.cs
+          dest: OrderService.Tests/OrderProcessorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (conditional|if.else|control flow|branch)
+      - type: output-matches
+        config:
+          pattern: (no assert|assertion.free|without.*assert|zero assert|missing.*assert)
+      - type: output-matches
+        config:
+          pattern: (Thread\.Sleep|sleep|delay|sleepy)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified the conditional test logic in ProcessOrder_SetsCorrectStatus — the if/else means one branch is always
+        untested
+      - Flagged ProcessOrder_CompletesWithoutError as having no assertions — it only calls the method without verifying
+        anything
+      - Identified the Thread.Sleep(2000) in ProcessOrder_AsyncNotification_IsSent as a flakiness risk
+      - Noted the try/catch pattern in ProcessOrder_EmptyOrder_ThrowsValidationError and suggested using
+        Assert.ThrowsException instead
+      - Identified the ToString() comparison in GetOrderSummary_ReturnsFormattedString as fragile
+      - Noted the File.ReadAllText with a hard-coded path in ImportOrders_FromCsv_ParsesCorrectly as an external
+        dependency problem
+      - Provided concrete fix suggestions showing how to rewrite at least some of the smelly tests
+  - name: Recognize well-written tests with no significant smells
+    prompt: |
+      Can you check my Calculator tests for any test design problems or
+      anti-patterns? I want to make sure they follow best practices before
+      we use them as a template for other test suites.
+    environment:
+      files:
+        - src: fixtures/clean-tests/Calculator.Tests/Calculator.Tests.csproj
+          dest: Calculator.Tests/Calculator.Tests.csproj
+        - src: fixtures/clean-tests/Calculator.Tests/ScientificCalculatorTests.cs
+          dest: Calculator.Tests/ScientificCalculatorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (clean|good|well.written|no.*(major|significant).*(smell|issue|problem)|solid|well.structured)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recognized that the test suite is well-structured with clear Arrange-Act-Assert patterns
+      - Acknowledged proper use of Assert.ThrowsException for exception testing instead of try/catch
+      - Noted the use of parameterized tests with [DataTestMethod] as a good practice
+      - Did not invent false problems or flag correct patterns as smells
+      - If any minor suggestions were made, they were presented as optional improvements rather than problems
+  - name: Recognize integration tests and avoid false positives for external resources
+    prompt: |
+      Our team has been arguing about whether our integration tests are
+      well-designed. Some people say they have too many smells. Can you
+      review them and give us an objective assessment?
+    environment:
+      files:
+        - src: fixtures/integration-tests/DataAccess.IntegrationTests/DataAccess.IntegrationTests.csproj
+          dest: DataAccess.IntegrationTests/DataAccess.IntegrationTests.csproj
+        - src: fixtures/integration-tests/DataAccess.IntegrationTests/UserRepositoryIntegrationTests.cs
+          dest: DataAccess.IntegrationTests/UserRepositoryIntegrationTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (integration|appropriate|expected|legitimate|acceptable)
+      - type: output-matches
+        config:
+          pattern: (Sleep|delay|sleepy|conditional|if.else|assert|no assert)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recognized that these are integration tests and did not flag database usage or insert-then-query patterns as
+        smells
+      - Identified the Thread.Sleep(3000) in NotifyOnInsert_SendsEventAfterDelay as a real smell even in an integration
+        test context
+      - Flagged the if/else conditional logic in GetUser_ReturnsCorrectType as a test smell — one branch is untested
+      - Identified BulkInsert_RunsWithoutErrors as having no assertions — it exercises code but verifies nothing
+      - Distinguished between the legitimate integration patterns (setup/teardown, multi-step persistence) and the
+        actual smells (sleep, conditional, assertion-free)
+  - name: Decline request to write new tests from scratch
+    prompt: |
+      I need to write unit tests for my ShoppingCart class. It supports
+      adding items, removing items, calculating totals, and applying
+      coupon codes. Can you write a complete MSTest test suite for me?
+    environment:
+      files:
+        - src: ./fixtures/decline-request-to-write-new-tests-from-scratch/ShoppingCart.cs
+          dest: ShoppingCart.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (TestMethod|TestClass|\[Fact\]|test)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Wrote test methods for the ShoppingCart class
+      - Covered multiple methods of the class
+    constraints:
+      reject_skills:
+        - "*"

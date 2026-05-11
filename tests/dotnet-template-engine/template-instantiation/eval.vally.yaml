@@ -1,0 +1,25 @@
+name: template-instantiation
+description: Evaluates the dotnet-template-engine/template-instantiation skill
+type: capability
+config:
+  timeout: 3m
+stimuli:
+  - name: Create a console application
+    prompt: Create a new .NET console application called MyConsoleApp in the ./test-output directory
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: MyConsoleApp
+      - type: file-exists
+        config:
+          path: test-output/MyConsoleApp/MyConsoleApp.csproj
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The agent used the template-instantiation skill or dotnet new to create the project
+      - The agent specified the correct output path
+      - The agent verified the project was created successfully
+    constraints:
+      expect_tools:
+        - skill

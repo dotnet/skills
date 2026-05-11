@@ -453,7 +453,19 @@ public static class EvaluateCommand
         using var scenarioLimit = new ConcurrencyLimiter(effectiveParallelScenarios);
 
         var scenarioTasks = target.EvalConfig.Scenarios.Select(scenario =>
-            scenarioLimit.RunAsync(() => ExecuteAgentScenario(scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha, cancellationToken), cancellationToken));
+            scenarioLimit.RunAsync(async () =>
+            {
+                try
+                {
+                    return await ExecuteAgentScenario(scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha, cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                {
+                    var tag = singleScenario ? $"[{agent.Name}]" : $"[{agent.Name}/{scenario.Name}]";
+                    spinner.Log($"{tag} {Ansi.Yellow}⚠️  Scenario failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
+                    return CreateFailedScenarioComparison(scenario.Name, SanitizeErrorMessage(ex.Message));
+                }
+            }, cancellationToken));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
 
         var verdict = Comparator.ComputeVerdict(
@@ -519,10 +531,27 @@ public static class EvaluateCommand
             scenarioLog("📋 Starting scenario");
 
         var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
-            runLimit.RunAsync(() => ExecuteAgentRun(i, scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha, cancellationToken), cancellationToken));
-        var runResults = await Task.WhenAll(runTasks);
+            runLimit.RunAsync(async () =>
+            {
+                try
+                {
+                    return (Result: await ExecuteAgentRun(i, scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha, cancellationToken), Error: (Exception?)null);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                {
+                    scenarioLog($"{Ansi.Yellow}⚠️  Run {i + 1} failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
+                    return (Result: (RunExecutionResult?)null, Error: ex);
+                }
+            }, cancellationToken));
+        var settledRuns = await Task.WhenAll(runTasks);
+        var runResults = settledRuns.Where(s => s.Result is not null).Select(s => s.Result!).ToArray();
+        var failedRunCount = settledRuns.Count(s => s.Error is not null);
+        if (failedRunCount > 0)
+            scenarioLog($"{Ansi.Yellow}⚠️  {failedRunCount}/{config.Runs} run(s) failed{Ansi.Reset}");
+        if (runResults.Length == 0)
+            throw new InvalidOperationException($"All {config.Runs} run(s) failed for scenario '{scenario.Name}'");
 
-        scenarioLog($"✓ All {config.Runs} run(s) complete");
+        scenarioLog($"✓ {runResults.Length}/{config.Runs} run(s) complete");
 
         var baselineRuns = runResults.Select(r => r.Baseline).ToList();
         var isolatedRuns = runResults.Select(r => r.SkilledIsolated).ToList();
@@ -621,6 +650,7 @@ public static class EvaluateCommand
         comparison.TimedOut = runResults.Any(r =>
             r.Baseline.Metrics.TimedOut || r.SkilledIsolated.Metrics.TimedOut || r.SkilledPlugin.Metrics.TimedOut);
         comparison.ExpectActivation = scenario.ExpectActivation;
+        comparison.FailedRunCount = failedRunCount;
 
         return comparison;
     }
@@ -862,7 +892,19 @@ public static class EvaluateCommand
         using var scenarioLimit = new ConcurrencyLimiter(effectiveParallelScenarios);
 
         var scenarioTasks = evalSkill.EvalConfig.Scenarios.Select(scenario =>
-            scenarioLimit.RunAsync(() => ExecuteScenario(scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha, cancellationToken), cancellationToken));
+            scenarioLimit.RunAsync(async () =>
+            {
+                try
+                {
+                    return await ExecuteScenario(scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha, cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                {
+                    var tag = singleScenario ? $"[{skill.Name}]" : $"[{skill.Name}/{scenario.Name}]";
+                    spinner.Log($"{tag} {Ansi.Yellow}⚠️  Scenario failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
+                    return CreateFailedScenarioComparison(scenario.Name, SanitizeErrorMessage(ex.Message));
+                }
+            }, cancellationToken));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
 
         // Await overfitting result (non-fatal — never blocks an otherwise-successful evaluation)
@@ -962,10 +1004,27 @@ public static class EvaluateCommand
             scenarioLog("📋 Starting scenario");
 
         var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
-            runLimit.RunAsync(() => ExecuteRun(i, scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha, cancellationToken), cancellationToken));
-        var runResults = await Task.WhenAll(runTasks);
+            runLimit.RunAsync(async () =>
+            {
+                try
+                {
+                    return (Result: await ExecuteRun(i, scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha, cancellationToken), Error: (Exception?)null);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                {
+                    scenarioLog($"{Ansi.Yellow}⚠️  Run {i + 1} failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
+                    return (Result: (RunExecutionResult?)null, Error: ex);
+                }
+            }, cancellationToken));
+        var settledRuns = await Task.WhenAll(runTasks);
+        var runResults = settledRuns.Where(s => s.Result is not null).Select(s => s.Result!).ToArray();
+        var failedRunCount = settledRuns.Count(s => s.Error is not null);
+        if (failedRunCount > 0)
+            scenarioLog($"{Ansi.Yellow}⚠️  {failedRunCount}/{config.Runs} run(s) failed{Ansi.Reset}");
+        if (runResults.Length == 0)
+            throw new InvalidOperationException($"All {config.Runs} run(s) failed for scenario '{scenario.Name}'");
 
-        scenarioLog($"✓ All {config.Runs} run(s) complete");
+        scenarioLog($"✓ {runResults.Length}/{config.Runs} run(s) complete");
 
         var baselineRuns = runResults.Select(r => r.Baseline).ToList();
         var isolatedRuns = runResults.Select(r => r.SkilledIsolated).ToList();
@@ -1077,6 +1136,7 @@ public static class EvaluateCommand
         // Propagate timeout and expect_activation from scenario config
         comparison.TimeoutSeconds = scenario.Timeout;
         comparison.ExpectActivation = scenario.ExpectActivation;
+        comparison.FailedRunCount = failedRunCount;
 
         return comparison;
     }
@@ -1592,6 +1652,28 @@ public static class EvaluateCommand
         var raw = message ?? "unknown error";
         var singleLine = raw.ReplaceLineEndings(" ");
         return singleLine.Length > 150 ? singleLine[..150] + "…" : singleLine;
+    }
+
+    /// <summary>
+    /// Creates a degraded ScenarioComparison for a scenario that failed with an exception.
+    /// This allows the evaluation to continue with other scenarios instead of aborting.
+    /// </summary>
+    internal static ScenarioComparison CreateFailedScenarioComparison(string scenarioName, string errorMessage)
+    {
+        var emptyMetrics = new RunMetrics { ErrorCount = 1 };
+        var emptyJudge = new JudgeResult([], 0, $"Scenario failed: {errorMessage}");
+        var emptyResult = new RunResult(emptyMetrics, emptyJudge);
+        var emptyBreakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0);
+        return new ScenarioComparison
+        {
+            ScenarioName = scenarioName,
+            Baseline = emptyResult,
+            SkilledIsolated = emptyResult,
+            SkilledPlugin = emptyResult,
+            ImprovementScore = 0,
+            Breakdown = emptyBreakdown,
+            ExecutionError = errorMessage,
+        };
     }
 
     /// <summary>

@@ -130,6 +130,16 @@
     return lines;
   }
 
+  // Custom generateLabels that always shows a circle in the series color,
+  // regardless of per-point error markers (triangles, diamonds, stars).
+  function legendLabelsWithCircle(chart) {
+    return Chart.defaults.plugins.legend.labels.generateLabels(chart).map(function(l) {
+      const ds = chart.data.datasets[l.datasetIndex];
+      const seriesColor = ds && ds.borderColor ? ds.borderColor : l.strokeStyle;
+      return Object.assign({}, l, { pointStyle: 'circle', fillStyle: seriesColor, strokeStyle: seriesColor });
+    });
+  }
+
   function appendLegendNotes(div, flags) {
     if (flags.notActivated) {
       const note = document.createElement('div');
@@ -552,7 +562,7 @@
             responsive: true,
             interaction: { mode: 'index', intersect: false },
             plugins: {
-              legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: function(chart) { return Chart.defaults.plugins.legend.labels.generateLabels(chart).map(function(l) { return Object.assign({}, l, { pointStyle: 'circle' }); }); } } },
+              legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: legendLabelsWithCircle } },
               tooltip: {
                 callbacks: {
                   afterTitle: (items) => {
@@ -713,7 +723,7 @@
         responsive: true,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: function(chart) { return Chart.defaults.plugins.legend.labels.generateLabels(chart).map(function(l) { return Object.assign({}, l, { pointStyle: 'circle' }); }); } } },
+          legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: legendLabelsWithCircle } },
           tooltip: {
             callbacks: {
               afterTitle: (items) => {
@@ -838,7 +848,7 @@
         responsive: true,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: function(chart) { return Chart.defaults.plugins.legend.labels.generateLabels(chart).map(function(l) { return Object.assign({}, l, { pointStyle: 'circle' }); }); } } },
+          legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: legendLabelsWithCircle } },
           tooltip: {
             callbacks: {
               afterTitle: (items) => {

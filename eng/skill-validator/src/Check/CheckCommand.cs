@@ -14,7 +14,7 @@ public static class CheckCommand
         var allowedExternalDepsOpt = new Option<string?>("--allowed-external-deps") { Description = "Path to allowed-external-deps.txt allow list file" };
         var knownDomainsOpt = new Option<string?>("--known-domains") { Description = "Path to known-domains.txt for reference scanning" };
         var verboseOpt = new Option<bool>("--verbose") { Description = "Show detailed output" };
-        var allowRepoTraversalOpt = new Option<bool>("--allow-repo-traversal") { Description = "Allow parent-directory traversals in file references" };
+        var allowRepoTraversalOpt = new Option<bool>("--allow-repo-traversal") { Description = "Allow file references that point outside the skill directory: parent-directory paths (../…) and absolute repo-rooted paths (/src/…). Use for skills shipped inside a repo, not standalone." };
 
         var command = new Command("check", "Run static analysis checks on skills, plugins, and agents (no LLM required). Use --plugin to check an entire plugin directory (recommended).")
         {

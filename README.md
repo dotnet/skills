@@ -21,6 +21,7 @@ This repository contains the .NET team's curated set of core skills and custom a
 | [dotnet-template-engine](plugins/dotnet-template-engine/) | .NET Template Engine skills: template discovery, project scaffolding, and template authoring. |
 | [dotnet-test](plugins/dotnet-test/) | Skills for running, diagnosing, and migrating .NET tests: test execution, filtering, platform detection, and MSTest workflows. |
 | [dotnet-aspnet](plugins/dotnet-aspnet/) | ASP.NET Core web development skills including middleware, endpoints, real-time communication, and API patterns. |
+| [dotnet11](plugins/dotnet11/) | Skills for new .NET 11 APIs and language features. |
 
 ## Installation
 

@@ -1,0 +1,38 @@
+{
+  "author": "Test Author",
+  "classifications": ["Library"],
+  "name": "My Library Template",
+  "shortName": "restore",
+  "symbols": {
+    "targetFramework": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "net7.0",
+      "choices": {
+        "net8.0": { "description": ".NET 8" },
+        "net9.0": { "description": ".NET 9" }
+      }
+    },
+    "enableLogging": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "yes"
+    },
+    "maxRetries": {
+      "type": "parameter",
+      "datatype": "int",
+      "defaultValue": "abc"
+    },
+    "computed1": {
+      "type": "computed"
+    },
+    "generated1": {
+      "type": "generated"
+    }
+  },
+  "postActions": [
+    {
+      "description": "Restore packages"
+    }
+  ]
+}
