@@ -290,8 +290,10 @@ scenarios:
       - type: file_contains
         path: "OrderService.Tests/OrderProcessorTests.cs"
         value: "TestCategory"
-      - type: output_matches
-        pattern: "(Build succeeded|build succeeded|0 Error|succeeded)"
+      - type: run_command_and_assert
+        command: "dotnet build OrderService.Tests/OrderService.Tests.csproj"
+        expected_exit_code: 0
+        stdout_matches: "(Build succeeded|build succeeded|0 Error|0 error)"
     rubric:
       - "Added [TestCategory] attributes to the test methods"
       - "Ran dotnet build (or equivalent compilation check) and confirmed the project compiles without errors after the changes"
