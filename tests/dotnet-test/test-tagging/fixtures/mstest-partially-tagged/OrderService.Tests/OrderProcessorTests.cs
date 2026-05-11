@@ -39,14 +39,14 @@ public sealed class OrderProcessorTests
     // Already tagged — agent must preserve
     [TestMethod]
     [TestCategory("negative")]
-    public void PlaceOrder_NullEmail_ThrowsArgumentException()
+    public async Task PlaceOrder_NullEmail_ThrowsArgumentException()
     {
         var items = new List<OrderItem>
         {
             new() { ProductName = "Widget", Price = 5.00m, Quantity = 1 }
         };
 
-        Assert.ThrowsExactly<ArgumentException>(
+        await Assert.ThrowsExactlyAsync<ArgumentException>(
             () => _processor.PlaceOrderAsync(null!, items));
     }
 
