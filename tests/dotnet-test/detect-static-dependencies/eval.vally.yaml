@@ -132,13 +132,13 @@ stimuli:
           pattern: (DateTime|File\.|Environment)
       - type: output-not-matches
         config:
-          pattern: (GeneratedResourceAccessor|Process\.GetCurrentProcess)
+          pattern: (GeneratedResourceAccessor|AssemblyMetadata|Process\.(GetCurrentProcess|GetProcessesByName))
       - type: exit-success
       - type: prompt
       - type: pairwise
     rubric:
       - Only reported static dependencies found in production source code files
-      - Did not include statics from auto-generated code in the obj/ directory
+      - Did not include statics from auto-generated code in obj/ or bin/ directories
       - Correctly identified the static dependencies in DataService such as DateTime.UtcNow and File.WriteAllText
       - Recommended wrapping or abstracting the detected static dependencies
 
