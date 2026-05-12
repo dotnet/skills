@@ -261,3 +261,93 @@ stimuli:
         time
       - Recommends casting to concrete type or to dynamic
       - Explains ref readonly delegate synthesis requires InAttribute; recommends ensuring proper assembly references
+  - name: BackgroundService exceptions and ZipArchive CRC32 validation
+    prompt: >
+      I'm migrating a .NET 10 worker service to .NET 11. The app has several
+      BackgroundService implementations. One of them occasionally throws exceptions
+      in ExecuteAsync() — we were relying on the host silently ignoring those
+      failures and continuing to run. It also reads ZIP archives uploaded by users,
+      and some of those archives are truncated or partially corrupt — that worked
+      fine before. What breaks in .NET 11?
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (BackgroundService|ExecuteAsync|exception|host|stop|crash)
+      - type: output-matches
+        config:
+          pattern: (ZipArchive|CRC32|InvalidDataException|checksum)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Explains that unhandled BackgroundService exceptions now propagate and stop the host; recommends adding
+        try/catch in ExecuteAsync()
+      - Explains ZipArchive now validates CRC32 checksums; corrupt or truncated archives throw InvalidDataException
+  - name: EF Core SQL Server with Entra ID auth and Design package dependency
+    prompt: |
+      We're upgrading a .NET 10 web API to .NET 11. The project uses EF Core with SQL Server
+      and connects via Entra ID managed identity (ActiveDirectoryManagedIdentity in the
+      connection string). We also use `dotnet ef` CLI tooling — it was working before with
+      just the Microsoft.EntityFrameworkCore.Tools package reference.
+
+      After upgrading all packages to 11.0.x, `dotnet ef migrations add` fails saying it
+      can't find design-time services, and the app throws at runtime when trying to connect
+      to SQL Server. What changed?
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (SqlClient|7\.0|Entra|Azure|authentication)
+      - type: output-matches
+        config:
+          pattern: (Design|Tools|transitive|explicit)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Explains Microsoft.Data.SqlClient updated to 7.0 and Entra ID auth dependencies were removed from the core
+        package; recommends adding Microsoft.Data.SqlClient.Extensions.Azure
+      - Explains EF Core Tools no longer transitively depends on Design; recommends adding explicit PackageReference
+        for Microsoft.EntityFrameworkCore.Design
+  - name: ASP.NET Core app with OpenAPI customizations and Blazor Virtualize
+    prompt: |
+      I'm upgrading a .NET 10 ASP.NET Core app to .NET 11. The app:
+      - Uses Microsoft.AspNetCore.OpenApi with custom document transformers that directly
+        manipulate OpenApiDocument and OpenApiSchema objects from the Microsoft.OpenApi library
+      - Has a Blazor Server component using <Virtualize> for rendering a large product list
+        without explicitly setting OverscanCount
+
+      After upgrading to .NET 11, I'm getting compile errors in the OpenAPI transformer code.
+      Also wondering if the Blazor component behavior will change. What's going on?
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (OpenApi|Microsoft\.OpenApi|v3|3\.2|upgrade)
+      - type: output-matches
+        config:
+          pattern: OverscanCount.*(3|15)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Explains Microsoft.OpenApi updated from v2 to v3 with breaking API changes; recommends following the v3
+        upgrade guide
+      - Notes the Virtualize default OverscanCount changed from 3 to 15; recommends setting OverscanCount explicitly
+        if performance matters
+  - name: mTLS and AIA certificate chain validation
+    prompt: >
+      We have a .NET 10 gRPC service that uses mutual TLS. The server validates client
+      certificates. The client certificates are signed by an intermediate CA that is not
+      installed on the server — instead, the certificates include an AIA extension that
+      points to the intermediate CA's URL. This worked in .NET 10 but after upgrading to
+      .NET 11, client certificate validation fails. What happened?
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (AIA|certificate|download|disabled|chain)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Explains AIA certificate downloads are now disabled by default during client-certificate validation
+      - Recommends pre-installing the full certificate chain, having clients send intermediates, or re-enabling
+        AIA downloads via X509ChainPolicy

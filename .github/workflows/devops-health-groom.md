@@ -167,11 +167,19 @@ For each **Daily overview** comment, extract:
 
 ### 3.1 Parse the Current Issue Body
 
-Look for the `## 🔍 Investigation Results` section in the issue body. This section, when present, contains a markdown table with rows like:
+Look for the `## 🔍 Investigation Results` section in the issue body. This section, when present, contains a markdown table with the header:
 
 ```
-| {finding_title} | {severity} | 🔄 Dispatched | [Workflow Run]({url}) |
+| Finding | Severity | Investigation | First Seen | Result |
 ```
+
+and rows like:
+
+```
+| {finding_title} | {severity} | 🔄 Dispatched | {date} | ⏳ Investigation dispatched — results arriving shortly... |
+```
+
+**Duplicate section handling:** If the issue body contains **multiple** `## 🔍 Investigation Results` sections, merge all rows from every occurrence into a single table (de-duplicate by finding title). The `replace-island` operation only replaces the **first** occurrence — it does NOT automatically remove later duplicates. If duplicates exist, extract all rows first, then the single `replace-island` call will place them in the first section. Any remaining duplicate sections will be overwritten by the next health-check run (which replaces the entire issue body).
 
 **If the section is missing** (the health check agent sometimes omits it), you MUST
 create it. Do NOT skip this step — creating the section is the primary purpose of
@@ -185,8 +193,9 @@ For each row in the existing Investigation Results table:
 1. Determine the `finding_id` for this row. Match by comparing the finding title in the table row against the `finding_id` or heading title in each investigation comment.
 2. Look up the `finding_id` in the investigation comments collected in Step 2.
 3. If a matching investigation comment exists:
-   - Change the status from `🔄 Dispatched` to `✅ Done`
+   - Change the Investigation column from `🔄 Dispatched` to `✅ Done`
    - Replace the Result cell with `[{executive_summary}]({comment_url})`
+   - Preserve the First Seen date from the existing row
 4. If no matching investigation comment exists yet, leave the row unchanged.
 
 **If the Investigation Results section does NOT exist** in the issue body:
@@ -196,7 +205,7 @@ comments collected in Step 2:
 
 1. For each investigation comment, create a table row:
    ```
-   | {finding_title from comment heading} | {severity from comment} | ✅ Done | [{executive_summary}]({comment_url}) |
+   | {finding_title from comment heading} | {severity from comment} | ✅ Done | {first_seen date from Existing/New Findings section, or comment created_at date} | [{executive_summary}]({comment_url}) |
    ```
 2. Wrap the rows in the standard section structure:
    ```markdown
@@ -205,8 +214,8 @@ comments collected in Step 2:
    > Deep investigations are dispatched for new critical/warning findings.
    > The [grooming workflow](../workflows/devops-health-groom.md) links results ~3 hours after this run.
 
-   | Finding | Severity | Status | Result |
-   |---------|----------|--------|--------|
+   | Finding | Severity | Investigation | First Seen | Result |
+   |---------|----------|---------------|------------|--------|
    {rows}
    ```
 3. Insert this section into the issue body **immediately before** the first of
@@ -241,13 +250,14 @@ The union of new + existing fingerprints forms the current active set. Findings 
 For each investigation comment found in Step 2:
 1. Check if the `finding_id` is still present in the current fingerprint set.
 2. If the `finding_id` is **NOT** in the current fingerprints → the finding has been resolved since the investigation was posted.
-3. For these resolved findings, check if they are already marked in the "✅ Resolved Since Yesterday" section or if the investigation table already shows them as resolved.
+3. For these resolved findings, they will be removed from the Investigation Results table in the next step.
 
-### 4.3 Mark Resolved Investigations in the Issue Body
+### 4.3 Remove Resolved Investigations from the Table
 
-In the Investigation Results table, for findings whose investigation is complete AND the finding is now resolved:
-- Change status from `✅ Done` to `✅ Resolved`
-- Keep the link to the investigation comment (still useful for historical context until pruned)
+For findings whose investigation is complete AND the finding is now resolved:
+- **Remove the entire row** from the Investigation Results table
+- The investigation comment is still accessible via the issue's comment history — no need to keep resolved rows in the table
+- This keeps the table focused on active/in-progress investigations only
 
 ### 4.4 Write the Updated Issue Body
 
@@ -263,9 +273,9 @@ The `body` field must contain **only** the Investigation Results island — star
 > Deep investigations are dispatched for new critical/warning findings.
 > The [grooming workflow](../workflows/devops-health-groom.md) links results ~3 hours after this run.
 
-| Finding | Severity | Status | Result |
-|---------|----------|--------|--------|
-| ... | ... | ✅ Done | [summary](url) |
+| Finding | Severity | Investigation | First Seen | Result |
+|---------|----------|---------------|------------|--------|
+| ... | ... | ✅ Done | 2026-05-09 | [summary](url) |
 ```
 
 Only call `update-issue` if at least one change was made across Steps 3 and 4. If nothing changed, skip the call.
@@ -349,7 +359,7 @@ If changes were made, the summary is implicit in the safe-output calls. Do NOT c
 
 ## Guidelines
 
-- **CRITICAL — Use `operation: "replace-island"`**: When calling `update-issue`, you **MUST** set `operation: "replace-island"`. This replaces only the `## 🔍 Investigation Results` section in the issue body, leaving all other sections untouched. The `body` field must contain only the Investigation Results section content (from the `## 🔍 Investigation Results` heading up to but not including the next `##`-level heading). Do NOT pass the full issue body — `replace-island` handles scoping automatically.
+- **CRITICAL — Use `operation: "replace-island"`**: When calling `update-issue`, you **MUST** set `operation: "replace-island"`. This replaces only the `## 🔍 Investigation Results` section in the issue body, leaving all other sections untouched. The `body` field must contain only the Investigation Results section content (from the `## 🔍 Investigation Results` heading up to but not including the next `##`-level heading). Do NOT pass the full issue body — `replace-island` handles scoping automatically. If multiple `## 🔍 Investigation Results` sections exist in the body, `replace-island` targets the first one — the groomer must merge all rows from every occurrence into that single section before calling `replace-island`. Later duplicate sections are not automatically removed; the next health-check run (which replaces the full body) will clean them up.
 - **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **literal section text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. The body must be passed directly as the string value.
 - **Minimal edits only**: You are a groomer, not a rewriter. Only change: (a) investigation table rows (status + link), (b) resolved-finding annotations. Copy all other sections **byte-for-byte** from the original body. Do not reformat, re-wrap, or reorganize sections you are not changing.
 - **Be precise with comment parsing**: The comment format is well-defined (see the investigation worker template). Match the exact patterns — don't be fuzzy.
@@ -357,6 +367,8 @@ If changes were made, the summary is implicit in the safe-output calls. Do NOT c
 - **Don't hide human comments**: Never hide comments authored by humans. For bot comments (`github-actions[bot]`), P1–P3 only target Investigation and Daily overview patterns. P4 (hard age cutoff > 28 days) may hide any bot comment regardless of pattern. Never hide human comments, bot reactions from humans, etc.
 - **Idempotent**: Running this workflow twice should produce the same result. If investigation results are already linked, don't re-link them. If comments are already hidden, they won't appear in the API results (collapsed).
 - **Create missing sections**: If the issue body doesn't contain a `## 🔍 Investigation Results` section, **create it** from investigation comments (see Step 3). Do NOT silently skip linking — this is the groomer's primary job. Only skip Step 3 if there are zero investigation comments to link. When creating a missing section, use `operation: "replace-island"` — this will insert the section at the appropriate location.
+- **Prune resolved rows**: Rows for findings that are no longer in the active fingerprint set (i.e. resolved) must be **removed** from the Investigation Results table entirely. The table should only show active investigations (🔄 Dispatched, ⏳ Skipped, ✅ Done for still-active findings). Historical investigation results remain accessible via the issue's comment history.
+- **Column schema**: The Investigation Results table MUST use the header `| Finding | Severity | Investigation | First Seen | Result |`. If the existing table uses a different schema (e.g. `| Finding | Severity | Status | Result |`), migrate it to the new schema during this grooming run. Map the old `Status` column to `Investigation`, and populate `First Seen` from the `<summary>` line in the Existing/New Findings sections (format: `first seen YYYY-MM-DD`), or use the investigation comment's `created_at` date as fallback.
 - **No intermediate files**: Do all work in memory. Do NOT write intermediate scripts, JSON files, or body text files. Hold parsed data and the issue body as in-memory variables.
 - **Use MCP `issue_read` for fetching comments**: Use the GitHub MCP `issue_read` tool with `method: get_comments` for fetching issue comments. If the response includes a `[Filtered]` notice, continue working with the comments that were returned — filtered items are from non-bot authors and are irrelevant to grooming. Do NOT call `report_incomplete` or `missing_tool` because of filtered items.
 - **`gh` CLI is NOT authenticated in the sandbox**: Never use `gh api` or other `gh` commands for GitHub API calls — the sandbox strips credentials by design. Use MCP tools for all GitHub reads.
