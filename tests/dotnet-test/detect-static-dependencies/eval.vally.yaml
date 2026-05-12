@@ -2,7 +2,7 @@ name: detect-static-dependencies
 description: Evaluates the dotnet-test/detect-static-dependencies skill
 type: capability
 config:
-  timeout: 2m
+  timeout: 3m
 stimuli:
   - name: Identify static dependencies in a multi-class project
     prompt: >
@@ -44,9 +44,9 @@ stimuli:
   - name: Detect time-related statics and recommend TimeProvider
     prompt: >
       My OrderProcessor.cs uses DateTime.UtcNow in several places and it's
-      impossible to write deterministic tests. Can you find all the
-      time-related static calls in my project and tell me what to do about
-      them?
+      impossible to write deterministic tests. Can you scan my entire project
+      for all time-related static dependencies, show me where each one is
+      with file locations and counts, and recommend how to make them testable?
     environment:
       files:
         - src: ./fixtures/static-heavy-project
@@ -62,10 +62,11 @@ stimuli:
       - type: prompt
       - type: pairwise
     rubric:
-      - Found DateTime.UtcNow and/or DateTime.Now call sites in the project
-      - Identified specific files containing time-related static dependencies
+      - Found all DateTime.UtcNow and DateTime.Now call sites across the project
+      - Identified specific files and locations containing time-related static dependencies
+      - Provided a count or summary of time-related static call sites
       - Recommended TimeProvider or a similar abstraction as the replacement for .NET 8+
-      - Explained that the static calls make tests non-deterministic or hard to test
+      - Provided a migration plan or prioritized steps for replacing the time statics
 
   - name: Decline scan for non-C# project
     prompt: >
@@ -121,7 +122,8 @@ stimuli:
     prompt: >
       My ObjExclusion/ project seems to have a lot of statics but I want to
       know what's in my actual source code, not build artifacts. Can you scan
-      it and tell me what needs to be wrapped for testability?
+      the source files, skip obj/ and bin/ directories, and give me a report
+      of all static dependencies that need to be wrapped for testability?
     environment:
       files:
         - src: ./fixtures/obj-exclusion-project
@@ -140,6 +142,7 @@ stimuli:
       - Only reported static dependencies found in production source code files
       - Did not include statics from auto-generated code in obj/ or bin/ directories
       - Correctly identified the static dependencies in DataService such as DateTime.UtcNow and File.WriteAllText
+      - Provided a structured summary or report of findings with categories or counts
       - Recommended wrapping or abstracting the detected static dependencies
 
   - name: Detect statics inside lambda expressions and LINQ queries

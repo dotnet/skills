@@ -30,8 +30,9 @@ scenarios:
   - name: "Detect time-related statics and recommend TimeProvider"
     prompt: |
       My OrderProcessor.cs uses DateTime.UtcNow in several places and it's impossible
-      to write deterministic tests. Can you find all the time-related static calls in
-      my project and tell me what to do about them?
+      to write deterministic tests. Can you scan my entire project for all time-related
+      static dependencies, show me where each one is with file locations and counts,
+      and recommend how to make them testable?
     setup:
       copy_test_files: true
     assertions:
@@ -41,10 +42,11 @@ scenarios:
         pattern: "(TimeProvider|time provider|ISystemClock|abstraction)"
       - type: "exit_success"
     rubric:
-      - "Found DateTime.UtcNow and/or DateTime.Now call sites in the project"
-      - "Identified specific files containing time-related static dependencies"
+      - "Found all DateTime.UtcNow and DateTime.Now call sites across the project"
+      - "Identified specific files and locations containing time-related static dependencies"
+      - "Provided a count or summary of time-related static call sites"
       - "Recommended TimeProvider or a similar abstraction as the replacement for .NET 8+"
-      - "Explained that the static calls make tests non-deterministic or hard to test"
+      - "Provided a migration plan or prioritized steps for replacing the time statics"
     timeout: 120
 
   - name: "Decline scan for non-C# project"
@@ -91,13 +93,14 @@ scenarios:
       - "Report ranks or lists the most frequently occurring static dependency patterns"
       - "Report identifies which source files have the most static dependencies"
       - "Report is organized with clear sections that would be presentable to a team"
-    timeout: 120
+    timeout: 180
 
   - name: "Exclude obj and bin directories from the scan"
     prompt: |
       My ObjExclusion/ project seems to have a lot of statics but I want to know
-      what's in my actual source code, not build artifacts. Can you scan it and
-      tell me what needs to be wrapped for testability?
+      what's in my actual source code, not build artifacts. Can you scan the source
+      files, skip obj/ and bin/ directories, and give me a report of all static
+      dependencies that need to be wrapped for testability?
     setup:
       copy_test_files: true
     assertions:
@@ -110,6 +113,7 @@ scenarios:
       - "Only reported static dependencies found in production source code files"
       - "Did not include statics from auto-generated code in obj/ or bin/ directories"
       - "Correctly identified the static dependencies in DataService such as DateTime.UtcNow and File.WriteAllText"
+      - "Provided a structured summary or report of findings with categories or counts"
       - "Recommended wrapping or abstracting the detected static dependencies"
     timeout: 120
 
