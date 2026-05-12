@@ -78,8 +78,10 @@ stimuli:
       - Does not suggest downgrading to MSTest v2 as a solution
   - name: Migrate from .testsettings to .runsettings
     prompt: |
-      My MSTest project has a .testsettings file that configures test deployment and timeout.
-      After upgrading to MSTest v3, it seems to be ignored. How do I migrate?
+      I'm migrating my test project from MSTest v2 to MSTest v3. The project has a
+      .testsettings file that configures test deployment and timeout. After the MSTest v3
+      upgrade the .testsettings seems to be ignored. How do I migrate this configuration
+      as part of the MSTest v2 to v3 upgrade?
     environment:
       files:
         - src: ./fixtures/migrate-from-testsettings-to-runsettings/TestProject.csproj
@@ -102,9 +104,10 @@ stimuli:
       - Does not suggest keeping the .testsettings file alongside .runsettings
   - name: Fix DataRow type mismatch errors after v3 upgrade
     prompt: |
-      After upgrading to MSTest v3, many of my data-driven tests fail to compile with errors
-      about DataRow constructors. I have tests with lots of parameters and some implicit
-      type conversions. What changed and how do I fix it?
+      I upgraded my MSTest packages from v2 to v3 and many of my data-driven tests no
+      longer compile. The errors are on the DataRow constructors — implicit type conversions
+      that worked in MSTest v2 now fail in v3. I also have a test with 17 parameters.
+      How do I fix these MSTest v2 to v3 migration issues?
     environment:
       files:
         - src: ./fixtures/fix-datarow-type-mismatch-errors-after-v3-upgrade/TestProject.csproj
