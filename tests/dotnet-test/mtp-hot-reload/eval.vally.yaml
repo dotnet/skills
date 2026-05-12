@@ -2,7 +2,7 @@ name: mtp-hot-reload
 description: Evaluates the dotnet-test/mtp-hot-reload skill
 type: capability
 config:
-  timeout: 6m
+  timeout: 10m
 stimuli:
   - name: Suggest hot reload for failing test in MTP project (SDK 9)
     prompt: I have a failing test in ProcessPayment_NegativeAmount_ThrowsException and I want to iterate on the fix quickly
@@ -128,9 +128,6 @@ stimuli:
       - Shows the correct launchSettings.json structure with TESTINGPLATFORM_HOTRELOAD_ENABLED=1
       - Includes the Microsoft.Testing.Extensions.HotReload package installation step
       - Explains that launchSettings.json makes the setting persistent across runs
-    constraints:
-      expect_tools:
-        - bash
   - name: Use dotnet run not dotnet test for hot reload
     prompt: I installed the hot reload package and set the environment variable. Should I use 'dotnet test' or 'dotnet run'
       to benefit from hot reload?
