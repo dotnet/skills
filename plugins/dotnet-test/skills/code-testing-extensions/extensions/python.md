@@ -4,13 +4,18 @@ Language-specific guidance for Python test generation.
 
 ## Rule #1: Investigate the Repo First
 
-Before writing any test or running any command, read:
+Before writing any test or running any command, discover what the repo already does:
 
-1. **Existing tests** — find `test_*.py` / `*_test.py` files and copy their style (imports, fixtures, class vs function, assertion patterns)
-2. **Config files** — `pyproject.toml`, `pytest.ini`, `setup.cfg`, `tox.ini`, `conftest.py`
-3. **Package layout** — determine import paths from existing code, not guesswork
+1. **Find ALL existing test files** — search broadly: `test_*.py`, `*_test.py`, `*.uts`, `test/*.sh`, or any other test format. Do not assume pytest.
+2. **Identify the test framework** — look for:
+   - Custom test runners (e.g. `UTscapy` for scapy, project-specific harnesses)
+   - Standard frameworks (`pytest`, `unittest`, `nose2`)
+   - Test runner scripts in `Makefile`, `tox.ini`, `nox`, `scripts/`
+   - Config entries in `pyproject.toml`, `setup.cfg`, `pytest.ini`, `conftest.py`
+3. **Read existing tests thoroughly** — copy their exact style: file format, imports, fixtures, assertion patterns, helper utilities, setup/teardown conventions
+4. **Package layout** — determine import paths from existing code, not guesswork
 
-Use the repo's existing test framework and conventions. If multiple frameworks are present, follow whichever existing tests use. Only introduce a framework (default to pytest) if the repo has no tests at all.
+**Use whatever framework and conventions the repo already uses.** If the repo uses a custom test framework (custom file formats, custom runners, domain-specific test utilities), adopt it fully — do not layer pytest on top. Only introduce pytest if the repo has no tests at all.
 
 ## Environment Detection
 
@@ -38,7 +43,15 @@ Python has no separate build step. Validate with the type checker if one is conf
 
 ## Test Commands
 
-Always use the detected `<prefix>`. Prefer `python -m pytest` over bare `pytest` to ensure the correct interpreter.
+If the repo uses a **custom test framework** (custom file formats, custom runner), use its native commands — do not wrap them in pytest. Examples:
+
+| Framework | Command |
+|-----------|---------|
+| UTscapy (`.uts` files) | `<prefix> scapy.tools.UTscapy -f test/test_file.uts` |
+| Custom runner script | `make test`, `./run_tests.sh`, `tox` |
+| Repo-defined script | Whatever `scripts.test` in Makefile/tox/nox specifies |
+
+For **pytest** projects (the most common case), use the detected `<prefix>`:
 
 | Scope | Command |
 |-------|---------|
@@ -48,7 +61,7 @@ Always use the detected `<prefix>`. Prefer `python -m pytest` over bare `pytest`
 | Keyword filter | `<prefix> pytest -k "keyword"` |
 | Stop on first failure | `<prefix> pytest -x --tb=short` |
 
-- If `scripts.test` exists in `Makefile`/`tox`/`nox`, prefer that
+- Prefer `python -m pytest` over bare `pytest` to ensure the correct interpreter
 - If the project uses `unittest` only (no pytest in deps), use `python -m unittest discover`
 
 ## Lint Command
@@ -73,10 +86,12 @@ Use the repo's existing lint script first (`make lint`, `tox -e lint`). Otherwis
 
 ## Test File Naming
 
-- Files: `test_*.py` or `*_test.py`
-- Functions: `test_` prefix
-- Classes: `Test` prefix, no `__init__`
-- No registration step needed — pytest discovers automatically
+Match the repo's existing conventions. Common patterns:
+
+- **pytest**: Files `test_*.py` or `*_test.py`, functions `test_` prefix, classes `Test` prefix
+- **Custom frameworks**: Use whatever format existing tests use (e.g. `.uts` for UTscapy, custom extensions)
+
+If writing new tests in a repo with no tests, default to pytest conventions.
 
 ## Common Errors
 
