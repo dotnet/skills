@@ -126,7 +126,12 @@ task({
 })
 ```
 
-You may dispatch the researcher additional times during the run with narrower scopes. Each additional research dispatch is allowed.
+After the researcher returns, **verify `.testagent/research.md` answers two questions explicitly**:
+
+1. *Which unit (function/class/method) is under test*, with a file:line citation.
+2. *Which behaviors need exercising* (positive paths, negative/error paths, edge cases relevant to the request).
+
+If either is missing or vague, dispatch the researcher one more time with narrow scope to fill the gap. If both are present, proceed to Step 2 — do not dispatch the researcher again unless `.testagent/research.md` itself is later proven wrong (e.g., implementer cannot find the unit).
 
 ### Step 2: Choose Execution Strategy
 
