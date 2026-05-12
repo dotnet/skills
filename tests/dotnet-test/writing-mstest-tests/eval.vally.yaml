@@ -5,7 +5,7 @@ config:
   timeout: 5m
 stimuli:
   - name: Write unit tests for a service class
-    prompt: I need to write MSTest unit tests for my OrderService class. Can you help me write comprehensive tests?
+    prompt: I need to write MSTest unit tests for my OrderService class following MSTest best practices. Help me write comprehensive tests with sealed test classes and Assert.ThrowsExactly.
     environment:
       files:
         - src: ./fixtures
@@ -35,7 +35,7 @@ stimuli:
       - Uses Assert.AreEqual with expected as first argument and actual as second
   - name: Write data-driven tests for a calculator
     prompt: I have a PriceCalculator class with CalculateTotal and ApplyDiscount methods. Help me write data-driven MSTest
-      tests that cover multiple input combinations.
+      tests using DataRow and DynamicData that cover multiple input combinations.
     environment:
       files:
         - src: ./fixtures
@@ -78,7 +78,7 @@ stimuli:
       }
       ```
 
-      How should I write MSTest tests for this, especially handling timeouts and cancellation properly?
+      How should I write MSTest tests for this using modern async test patterns and cancellation token testing?
     environment:
       files:
         - src: ./fixtures
@@ -104,7 +104,7 @@ stimuli:
       - Seals the test class
   - name: Fix swapped Assert.AreEqual arguments
     prompt: |
-      Something seems off about my test assertions. Can you review these tests and fix any issues?
+      Something seems off with my tests — I think I need to fix swapped Assert.AreEqual arguments. Can you review and fix the MSTest assertions?
 
       ```csharp
       [TestClass]
@@ -144,7 +144,7 @@ stimuli:
         - edit
         - create
   - name: Modernize legacy test patterns
-    prompt: Can you review these tests and modernize them to use current MSTest best practices?
+    prompt: Can you review tests and fix issues to modernize MSTest test patterns? I want sealed test classes, Assert.ThrowsExactly, and proper assertion order.
     environment:
       files:
         - src: fixtures/legacy-antipatterns/TestProject.csproj
@@ -177,7 +177,7 @@ stimuli:
       - Replaces manual foreach test data loop with [DataRow] or [DynamicData] attributes
   - name: Replace ExpectedException with Assert.Throws
     prompt: |
-      I have this test that uses [ExpectedException]. How should I modernize it?
+      I have this MSTest test that uses [ExpectedException]. I want to replace ExpectedException with Assert.ThrowsExactly. How should I modernize it?
 
       ```csharp
       [TestMethod]
@@ -210,8 +210,8 @@ stimuli:
         - create
   - name: Use proper collection assertions
     prompt: >
-      I'm testing a method that returns a list. What's the best way to assert on collections in MSTest? Here's what I
-      have:
+      I'm writing MSTest tests for a method that returns a list. What MSTest collection assertions like Assert.HasCount
+      should I use instead of Assert.IsTrue? Here's what I have:
 
 
       ```csharp
@@ -255,7 +255,7 @@ stimuli:
         - create
   - name: Use proper type assertions instead of casts
     prompt: |
-      I'm testing a factory method. Is there a better way to check the returned type?
+      I'm writing MSTest tests for a factory method. Should I use Assert.IsInstanceOfType instead of a hard cast to check the returned type?
 
       ```csharp
       [TestMethod]
@@ -287,8 +287,8 @@ stimuli:
         - create
   - name: Set up test lifecycle correctly
     prompt: >
-      I need to set up my test class with both synchronous and asynchronous initialization. I also need to inject
-      TestContext. What's the recommended way to do this in modern MSTest?
+      I need to set up my MSTest test lifecycle with both synchronous and asynchronous initialization. I want to inject
+      TestContext via the constructor. What's the recommended way to do this in modern MSTest?
     environment:
       files:
         - src: fixtures/modern-mstest/TestProject.csproj
@@ -316,7 +316,7 @@ stimuli:
       - If TestContext property is used, does not add nullable annotation or = null! initializer
   - name: Use DynamicData with ValueTuples over object arrays
     prompt: |
-      I have this data-driven test using object arrays. Is there a better way?
+      I have this MSTest data-driven test using DynamicData with object arrays. I want to convert DynamicData to ValueTuples. Is there a more type-safe way?
 
       ```csharp
       [TestMethod]
@@ -351,8 +351,8 @@ stimuli:
       - Notes this requires MSTest 3.7+
   - name: Use string assertions for format validation
     prompt: >
-      Help me write MSTest tests for this formatting utility. I want to use the right MSTest string assertion methods
-      like Assert.StartsWith and Assert.EndsWith to validate the output formats.
+      Help me write MSTest tests for this formatting utility. I want to use MSTest string assertions like
+      Assert.StartsWith and Assert.EndsWith to validate the output formats.
 
 
       ```csharp
@@ -414,7 +414,7 @@ stimuli:
   - name: Use comparison assertions for boundary testing
     prompt: >
       I have a scoring system and need to write MSTest tests with proper boundary checking. What MSTest comparison
-      assertions like Assert.IsGreaterThan or Assert.IsInRange should I use?
+      assertions like Assert.IsGreaterThan and Assert.IsInRange should I use?
 
 
       ```csharp
@@ -501,11 +501,11 @@ stimuli:
       - The written tests reference correct class and method names from the provided source code
   - name: Configure conditional execution, retry, and cleanup
     prompt: |
-      I have MSTest tests that:
-      1. Only work on Windows because they use the Windows registry
-      2. Should be skipped in CI because they require a local GPU
-      3. Sometimes fail due to a flaky external weather API
-      4. Create temporary files that need to be deleted even if the test fails
+      I have MSTest tests that need MSTest conditional execution:
+      1. Only work on Windows — I need an OSCondition attribute
+      2. Should be skipped in CI — I need a CICondition attribute
+      3. Sometimes fail due to a flaky weather API — I need Retry
+      4. Create temporary files that need cleanup even on failure
 
       How should I handle all of these using MSTest attributes and patterns?
     graders:
@@ -536,10 +536,10 @@ stimuli:
         - create
   - name: Configure test parallelization and MSTest.Sdk project
     prompt: |
-      I'm setting up a new MSTest project from scratch. I want:
+      I'm setting up a new MSTest.Sdk project from scratch. I want test parallelization:
       1. The simplest possible project file using MSTest.Sdk
-      2. Tests to run in parallel by default
-      3. But my database integration tests must run sequentially
+      2. Tests to run in parallel using Parallelize
+      3. But my database integration tests must use DoNotParallelize
 
       What's the recommended MSTest setup?
     graders:

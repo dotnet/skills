@@ -1,18 +1,25 @@
 ---
 name: writing-mstest-tests
 description: >
-  Write new MSTest unit tests and implement concrete fixes in existing MSTest code using
-  MSTest 3.x/4.x modern APIs and best practices.
-  USE FOR: write unit tests for a class, write MSTest tests, create test class, help me write
-  comprehensive tests, fix test assertions, choose the right MSTest assertion (string assertions
-  StartsWith/EndsWith/MatchesRegex, comparison assertions IsGreaterThan/IsLessThan/IsInRange,
-  collection and null assertions), something seems off with my tests, review tests and fix issues,
-  fix swapped Assert.AreEqual arguments, replace ExpectedException with Assert.Throws, modernize
-  test patterns, convert DynamicData to ValueTuples, data-driven tests, test lifecycle setup,
-  sealed test classes, async test patterns, cancellation token testing.
-  DO NOT USE FOR: broad test quality audits or test smell detection (use test-anti-patterns),
-  running tests (use run-tests), MSTest version migration (use migrate-mstest-v1v2-to-v3 or
-  migrate-mstest-v3-to-v4).
+  Best practices for writing new MSTest 3.x/4.x unit tests and implementing
+  concrete fixes in existing MSTest code. Use when user says "write MSTest
+  tests", "write MSTest unit tests", "create MSTest test class", "help me
+  write comprehensive tests", "write data-driven MSTest tests", "fix MSTest
+  assertions", "fix swapped Assert.AreEqual", "something seems off with my
+  tests", "review tests and fix issues", "replace ExpectedException with
+  Assert.ThrowsExactly", "modernize test patterns", "modernize MSTest",
+  "convert DynamicData to ValueTuples", "MSTest best practices", "test
+  lifecycle", "sealed test class", "async test patterns", "cancellation
+  token testing", "MSTest string assertions", "Assert.StartsWith",
+  "Assert.EndsWith", "Assert.MatchesRegex", "MSTest comparison assertions",
+  "Assert.IsGreaterThan", "Assert.IsInRange", "MSTest collection assertions",
+  "Assert.HasCount", "Assert.IsInstanceOfType", "Assert.ThrowsExactly",
+  "DataRow", "DynamicData", "MSTest conditional execution", "OSCondition",
+  "CICondition", "Retry", "test parallelization", "Parallelize",
+  "DoNotParallelize", "MSTest.Sdk", "TestContext", "TestInitialize".
+  DO NOT USE FOR: broad test quality audits or test smell detection (use
+  test-anti-patterns), running tests (use run-tests), MSTest version
+  migration (use migrate-mstest-v1v2-to-v3 or migrate-mstest-v3-to-v4).
 license: MIT
 ---
 

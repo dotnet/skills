@@ -4,7 +4,7 @@ scenarios:
   # ============================================================================
 
   - name: "Write unit tests for a service class"
-    prompt: "I need to write MSTest unit tests for my OrderService class following modern MSTest best practices. I want sealed classes, proper assertion APIs like Assert.ThrowsExactly, and the AAA pattern."
+    prompt: "I need to write MSTest unit tests for my OrderService class following MSTest best practices. Help me write comprehensive tests with sealed test classes and Assert.ThrowsExactly."
     setup:
       copy_test_files: true
     assertions:
@@ -90,7 +90,7 @@ scenarios:
 
   - name: "Fix swapped Assert.AreEqual arguments"
     prompt: |
-      Something seems off about my MSTest Assert.AreEqual calls. Can you review these tests and fix the assertion issues?
+      Something seems off with my tests — I think I need to fix swapped Assert.AreEqual arguments. Can you review and fix the MSTest assertions?
 
       ```csharp
       [TestClass]
