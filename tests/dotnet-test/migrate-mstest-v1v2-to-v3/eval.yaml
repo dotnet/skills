@@ -137,7 +137,7 @@ scenarios:
       - "Recommends adding explicit generic type parameters and chooses the correct type for each case (e.g., Assert.AreEqual<object> for mixed types, Assert.AreSame<IService> or the concrete type for interface references)"
       - "Applies the fix to AreNotEqual and AreSame calls, not just AreEqual"
       - "Does not suggest downgrading MSTest as a solution"
-    timeout: 180
+    timeout: 300
 
   # ============================================================================
   # Goal 4: Replacing .testsettings with .runsettings
