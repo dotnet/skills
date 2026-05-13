@@ -8,11 +8,10 @@ description: >
   code 8, zero tests discovered, or MTP behavioral differences
   (--ignore-exit-code, TESTINGPLATFORM_EXITCODE_IGNORE).
   Supports MSTest, NUnit, xUnit.net v2 (via YTest.MTP.XUnit2), and
-  xUnit.net v3 (native MTP). Also covers translating xUnit.net v3 MTP
-  filter syntax (--filter-class, --filter-trait, --filter-query).
-  Covers runner enablement, CLI argument translation, xUnit.net v3
-  filter migration, Directory.Build.props and global.json configuration,
-  CI/CD pipeline updates, and MTP extension packages. DO NOT USE FOR:
+  xUnit.net v3 (native MTP). Covers runner enablement, CLI argument
+  translation, xUnit.net v3 filter migration (--filter-class,
+  --filter-trait, --filter-query), Directory.Build.props and global.json
+  configuration, CI/CD pipeline updates, and MTP extension packages. DO NOT USE FOR:
   migrating between test frameworks (MSTest/xUnit/NUnit), xUnit.net v2
   to v3 API migration, MSTest version upgrades (use migrate-mstest-*
   skills), TFM upgrades, or UWP/WinUI test projects.

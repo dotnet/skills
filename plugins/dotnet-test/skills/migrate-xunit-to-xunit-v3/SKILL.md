@@ -5,10 +5,9 @@ description: >
   USE FOR: upgrading xunit to xunit.v3.
   DO NOT USE FOR: migrating between test frameworks (MSTest/NUnit to
   xUnit.net), migrating from VSTest to Microsoft.Testing.Platform
-  (use migrate-vstest-to-mtp). Note: if migrating xUnit.net v2 to v3
-  AND switching to MTP (filter syntax changes), use migrate-vstest-to-mtp
-  alongside this skill for filter translation (--filter-class,
-  --filter-trait, --filter-query).
+  (use migrate-vstest-to-mtp). For xUnit v3 MTP filter syntax
+  (--filter-class, --filter-trait, --filter-query), also load
+  migrate-vstest-to-mtp.
 license: MIT
 ---
 
