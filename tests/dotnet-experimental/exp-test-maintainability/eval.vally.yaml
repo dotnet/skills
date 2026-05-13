@@ -1,0 +1,250 @@
+name: exp-test-maintainability
+description: Evaluates the dotnet-experimental/exp-test-maintainability skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Recommend data-driven patterns with display names for unclear parameters
+    prompt: |
+      I need to add more test cases for our validation logic but each new case needs a whole new method.
+      Can you suggest a better structure?
+
+      ```csharp
+      using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+      namespace Validation.Tests;
+
+      [TestClass]
+      public sealed class InputValidatorTests
+      {
+          [TestMethod]
+          public void Validate_EmptyString_ReturnsFalse()
+          {
+              var validator = new InputValidator();
+              var result = validator.Validate("");
+              Assert.IsFalse(result.IsValid);
+              Assert.AreEqual("Input cannot be empty", result.ErrorMessage);
+          }
+
+          [TestMethod]
+          public void Validate_TooShort_ReturnsFalse()
+          {
+              var validator = new InputValidator();
+              var result = validator.Validate("ab");
+              Assert.IsFalse(result.IsValid);
+              Assert.AreEqual("Input must be at least 3 characters", result.ErrorMessage);
+          }
+
+          [TestMethod]
+          public void Validate_TooLong_ReturnsFalse()
+          {
+              var validator = new InputValidator();
+              var result = validator.Validate(new string('x', 256));
+              Assert.IsFalse(result.IsValid);
+              Assert.AreEqual("Input must not exceed 255 characters", result.ErrorMessage);
+          }
+
+          [TestMethod]
+          public void Validate_ContainsSpecialChars_ReturnsFalse()
+          {
+              var validator = new InputValidator();
+              var result = validator.Validate("hello<script>");
+              Assert.IsFalse(result.IsValid);
+              Assert.AreEqual("Input contains invalid characters", result.ErrorMessage);
+          }
+
+          [TestMethod]
+          public void Validate_ValidInput_ReturnsTrue()
+          {
+              var validator = new InputValidator();
+              var result = validator.Validate("hello-world");
+              Assert.IsTrue(result.IsValid);
+              Assert.IsNull(result.ErrorMessage);
+          }
+
+          [TestMethod]
+          public void Validate_MinLength_ReturnsTrue()
+          {
+              var validator = new InputValidator();
+              var result = validator.Validate("abc");
+              Assert.IsTrue(result.IsValid);
+              Assert.IsNull(result.ErrorMessage);
+          }
+
+          [TestMethod]
+          public void Validate_MaxLength_ReturnsTrue()
+          {
+              var validator = new InputValidator();
+              var result = validator.Validate(new string('a', 255));
+              Assert.IsTrue(result.IsValid);
+              Assert.IsNull(result.ErrorMessage);
+          }
+
+          [TestMethod]
+          public void Validate_Null_ReturnsFalse()
+          {
+              var validator = new InputValidator();
+              var result = validator.Validate(null);
+              Assert.IsFalse(result.IsValid);
+              Assert.AreEqual("Input cannot be empty", result.ErrorMessage);
+          }
+
+          [TestMethod]
+          public void Validate_WhitespaceOnly_ReturnsFalse()
+          {
+              var validator = new InputValidator();
+              var result = validator.Validate("   ");
+              Assert.IsFalse(result.IsValid);
+              Assert.AreEqual("Input cannot be empty", result.ErrorMessage);
+          }
+      }
+      ```
+    graders:
+      - type: output-matches
+        config:
+          pattern: (DataRow|InlineData|TestCase|data.driven|parameteriz)
+      - type: output-matches
+        config:
+          pattern: (DisplayName|display.name)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified that the invalid-input tests can be consolidated into a parameterized test with DataRow
+      - Identified that the valid-input tests can similarly be consolidated
+      - Recommended labeling parameterized test cases so that test runner output identifies which case failed
+      - Showed concrete refactored code with clear test case labels
+      - Acknowledged that the tests are otherwise well-structured (focused, clear assertions, proper naming)
+  - name: Recognize well-maintained tests that need minimal changes
+    prompt: |
+      Can you review these tests for maintainability? I want to make sure they'll be easy
+      to update as the codebase evolves.
+
+      ```csharp
+      using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+      namespace Auth.Tests;
+
+      [TestClass]
+      public sealed class TokenServiceTests
+      {
+          [TestMethod]
+          [DataRow("user@example.com", "admin", DisplayName = "Admin user gets full-access token")]
+          [DataRow("viewer@example.com", "viewer", DisplayName = "Viewer gets read-only token")]
+          [DataRow("api@example.com", "service", DisplayName = "Service account gets API token")]
+          public void GenerateToken_ValidUser_ReturnsTokenWithCorrectRole(string email, string role)
+          {
+              var service = CreateTokenService();
+
+              var token = service.GenerateToken(email, role);
+
+              Assert.IsNotNull(token);
+              Assert.AreEqual(role, token.Role);
+              Assert.IsTrue(token.ExpiresAt > DateTime.UtcNow);
+          }
+
+          [TestMethod]
+          public void GenerateToken_ExpiredCredentials_ThrowsAuthException()
+          {
+              var service = CreateTokenService(clockOffset: TimeSpan.FromDays(-1));
+
+              Assert.ThrowsException<AuthenticationException>(
+                  () => service.GenerateToken("user@example.com", "admin"));
+          }
+
+          [TestMethod]
+          public void RevokeToken_ValidToken_MarksRevoked()
+          {
+              var service = CreateTokenService();
+              var token = service.GenerateToken("user@example.com", "admin");
+
+              service.RevokeToken(token.Id);
+
+              Assert.IsTrue(service.IsRevoked(token.Id));
+          }
+
+          [TestMethod]
+          public void RevokeToken_AlreadyRevoked_IsIdempotent()
+          {
+              var service = CreateTokenService();
+              var token = service.GenerateToken("user@example.com", "admin");
+              service.RevokeToken(token.Id);
+
+              service.RevokeToken(token.Id); // second call
+
+              Assert.IsTrue(service.IsRevoked(token.Id));
+          }
+
+          private static TokenService CreateTokenService(TimeSpan? clockOffset = null)
+          {
+              var clock = clockOffset.HasValue
+                  ? new FakeClock(DateTimeOffset.UtcNow + clockOffset.Value)
+                  : new FakeClock(DateTimeOffset.UtcNow);
+              return new TokenService(clock, new InMemoryTokenStore());
+          }
+      }
+      ```
+    graders:
+      - type: output-matches
+        config:
+          pattern: (well.maintained|good shape|clean|solid|maintainable|easy to maintain|no.*(major|significant))
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recognized that these tests are already well-maintained and need no major refactoring
+      - Acknowledged the existing helper method (CreateTokenService) as a good pattern
+      - Acknowledged that parameterized tests are well-labeled and effectively structured
+      - Did not recommend over-engineered patterns disproportionate to the test complexity
+      - If any suggestions were made, they were minor and clearly labeled as optional polish
+  - name: Detect repeated object construction and setup across test methods
+    prompt: |
+      I feel like my test code has a lot of copy-paste. Can you analyze
+      my OrderService.Tests project and tell me what patterns are repeated
+      and where I could refactor?
+    environment:
+      files:
+        - src: fixtures/heavy-boilerplate/OrderService.Tests/OrderService.Tests.csproj
+          dest: OrderService.Tests/OrderService.Tests.csproj
+        - src: fixtures/heavy-boilerplate/OrderService.Tests/OrderProcessorTests.cs
+          dest: OrderService.Tests/OrderProcessorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: "(factory|helper|extract|CreateProcessor|CreateOrder|shared|reuse|common)"
+      - type: output-matches
+        config:
+          pattern: "(3|4|5|6|7|8|multiple|every|all|each|repeated)"
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified that the three-line FakeLogger/FakeEmailService/FakeInventoryService construction block is repeated in every OrderProcessorTests test method
+      - Identified that Order object construction with Items list is repeated across both test classes with very similar structure
+      - Suggested extracting a helper method or factory for creating the OrderProcessor with its dependencies
+      - Suggested extracting a helper for creating test Order objects with customizable properties
+      - Noted that OrderValidatorTests also repeats the same Order construction pattern as OrderProcessorTests, suggesting a cross-class shared helper
+      - Provided concrete before/after code showing how at least one extraction would look
+      - Did not recommend removing all duplication indiscriminately — acknowledged trade-offs between DRY and test readability
+  - name: Recognize tests with minimal boilerplate that need no refactoring
+    prompt: |
+      Can you check my Calculator.Tests project for any repeated code patterns
+      that I should clean up? I have two test classes in there.
+    environment:
+      files:
+        - src: fixtures/minimal-boilerplate/Calculator.Tests/Calculator.Tests.csproj
+          dest: Calculator.Tests/Calculator.Tests.csproj
+        - src: fixtures/minimal-boilerplate/Calculator.Tests/CalculatorTests.cs
+          dest: Calculator.Tests/CalculatorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: "(clean|minimal|good|well.structured|no.*(major|significant)|already|little.*(duplicat|boilerplate)|minor)"
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recognized that CalculatorTests already uses parameterized data-driven tests and a shared field instance effectively
+      - Identified that ScientificCalculatorTests has individual test methods that could be consolidated into parameterized tests (e.g., SquareRoot positive/zero cases, Power squared/zero/negative exponent cases)
+      - Noted that the overall code is well-structured and any suggestions are minor improvements, not critical refactorings
+      - Did not recommend over-engineered patterns like base classes or shared fixtures for these simple test classes

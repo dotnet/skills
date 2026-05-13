@@ -1,0 +1,30 @@
+name: eval-performance
+description: Evaluates the dotnet-msbuild/eval-performance skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Analyze MSBuild evaluation performance issues
+    prompt: Analyze this project for MSBuild evaluation performance issues. What patterns are causing slow project evaluation?
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-contains
+        config:
+          substring: import
+      - type: output-matches
+        config:
+          pattern: (glob|\*\*/\*)
+      - type: output-matches
+        config:
+          pattern: (evaluation|evaluate)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified deep import chain (level1→level2→level3) and explained evaluation overhead from nested imports
+      - Identified overly broad glob pattern and explained it scans large directories like node_modules and .git
+      - Suggested restricting globs or using DefaultItemExcludes
+      - Identified property function performing file I/O during evaluation phase
+      - Explained difference between MSBuild evaluation phase and execution phase

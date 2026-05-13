@@ -48,7 +48,7 @@ Scan the code for signals that indicate which pattern categories to check. If re
 | Signal in Code | Topic |
 |----------------|-------|
 | `async`, `await`, `Task`, `ValueTask` | Async patterns |
-| `Span<`, `Memory<`, `stackalloc`, `ArrayPool`, `string.Substring`, `.Replace(`, `.ToLower()`, `+=` in loops, `params ` | Memory & strings |
+| `Span<`, `Memory<`, `stackalloc`, `ArrayPool`, `string.Substring`, `.Replace(`, `.ToLower()`, `+=` in loops, `params` | Memory & strings |
 | `Regex`, `[GeneratedRegex]`, `Regex.Match`, `RegexOptions.Compiled` | Regex patterns |
 | `Dictionary<`, `List<`, `.ToList()`, `.Where(`, `.Select(`, LINQ methods, `static readonly Dictionary<` | Collections & LINQ |
 | `JsonSerializer`, `HttpClient`, `Stream`, `FileStream` | I/O & serialization |

@@ -1,0 +1,280 @@
+name: convert-to-cpm
+description: Evaluates the dotnet-nuget/convert-to-cpm skill
+type: capability
+config:
+  timeout: 10m
+stimuli:
+  - name: Decline CPM conversion for packages.config project
+    prompt: Convert my simple-packages-config/LegacyApp project to Central Package Management.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-contains
+        config:
+          substring: packages.config
+      - type: output-contains
+        config:
+          substring: PackageReference
+      - type: file-not-exists
+        config:
+          path: simple-packages-config/Directory.Packages.props
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Detected the project uses packages.config instead of PackageReference format
+      - Informed the user that CPM requires PackageReference and cannot be applied to packages.config projects
+      - Suggested migrating from packages.config to PackageReference first
+      - Did not attempt to create Directory.Packages.props or modify any project files
+    constraints:
+      reject_skills:
+        - "*"
+  - name: Recommend CPM when updating packages with version conflicts
+    prompt: The System.Text.Json and Azure.Identity packages have gotten out of sync across projects in
+      moderate-version-conflicts/Inventory.slnx. Can you align them to the latest versions?
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Central Package Management|CPM|Directory\.Packages\.props)
+      - type: output-matches
+        config:
+          pattern: (conflict|mismatch|different version|out of sync)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified the version conflicts across projects before attempting any changes
+      - Strongly recommended adopting Central Package Management to prevent versions from drifting apart again in the
+        future
+      - Explained that without CPM, manually aligning versions across projects is error-prone and the same drift will
+        likely recur
+      - Offered to perform the CPM conversion as part of resolving the version alignment request
+  - name: Recommend CPM when updating packages in a complex repository
+    prompt: I need to update and align NuGet package versions across the advanced-multi-complexity/Enterprise.slnx solution.
+      Package versions have drifted out of sync — some are defined as MSBuild properties, some are conditional for
+      multi-targeting, and there's a shared Common.props. Can you bump everything to the latest and get them consistent?
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Central Package Management|CPM|Directory\.Packages\.props)
+      - type: output-matches
+        config:
+          pattern: (BlobsVersion|HostingVersion|Common\.props)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - "Audited the repository complexity: MSBuild property-based versions, conditional references, shared props files,
+        and version conflicts across projects"
+      - Strongly recommended adopting Central Package Management as essential for a repository of this complexity —
+        manual package updates across scattered version definitions are high-risk and unsustainable
+      - Explained that CPM would consolidate the MSBuild properties, conditional versions, and shared props references
+        into a single governed file, greatly reducing the risk of version drift and update errors
+      - Offered to perform the full CPM conversion rather than making piecemeal version updates that would leave the
+        underlying governance problem unresolved
+  - name: Convert single project to CPM
+    prompt: Convert my project at simple-single-project/MyApp/MyApp.csproj to use Central Package Management.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: simple-single-project/Directory.Packages.props
+          value: ManagePackageVersionsCentrally
+      - type: file-contains
+        config:
+          path: simple-single-project/Directory.Packages.props
+          value: PackageVersion
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Created a Directory.Packages.props file with ManagePackageVersionsCentrally set to true
+      - Listed all three packages (Microsoft.Extensions.Logging, Polly, System.Text.Json) as PackageVersion items
+      - Removed Version attributes from PackageReference items in the .csproj
+      - Ran dotnet restore and dotnet build to validate the conversion
+      - Produced a markdown report comparing baseline package references and versions against the CPM result so the user
+        can review what changed
+      - Captured binlogs for both the baseline and converted builds and informed the user they are available for manual
+        validation and troubleshooting
+      - Offered reassurance that the conversion is safe when no material changes were detected, or warned about any risks
+  - name: Convert multi-project solution to CPM
+    prompt: I'd like to convert simple-solution/MyApp.sln to Central Package Management. Use the highest version for any
+      conflicts.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: simple-solution/Directory.Packages.props
+          value: ManagePackageVersionsCentrally
+      - type: file-contains
+        config:
+          path: simple-solution/Tests/Tests.csproj
+          value: PrivateAssets
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Enumerated projects in the solution (Web, Core, Tests)
+      - Created Directory.Packages.props at the solution root with ManagePackageVersionsCentrally set to true
+      - Listed all 6 unique packages as PackageVersion items
+      - Removed Version attributes from all three project files
+      - Preserved PrivateAssets attribute on xunit.runner.visualstudio
+      - Ran dotnet restore and dotnet build to validate the conversion
+      - Produced a markdown report summarizing all package references and versions across projects, comparing baseline
+        state against the CPM result
+      - When differing package versions were found across projects, guided the user through reconciliation or explicit
+        acceptance of each version
+      - Captured binlogs for both the baseline and converted builds and informed the user they are available for manual
+        validation and troubleshooting
+      - Offered reassurance when the conversion is straightforward, or warned about potential risks from version changes
+        that could cause unintended consequences
+  - name: Convert solution with MSBuild property versions to CPM
+    prompt: Convert moderate-msbuild-properties/Platform.sln to Central Package Management. The package versions are
+      currently defined as MSBuild properties in Directory.Build.props. Inline the resolved values into
+      Directory.Packages.props and use the highest version for any conflicts.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: moderate-msbuild-properties/Directory.Packages.props
+          value: ManagePackageVersionsCentrally
+      - type: file-not-contains
+        config:
+          path: moderate-msbuild-properties/Directory.Build.props
+          value: OTelVersion
+      - type: file-not-contains
+        config:
+          path: moderate-msbuild-properties/Directory.Build.props
+          value: DIVersion
+      - type: file-contains
+        config:
+          path: moderate-msbuild-properties/Directory.Build.props
+          value: OutputPath
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Traced each MSBuild property (OTelVersion, DIVersion) to its definition in Directory.Build.props
+      - Clearly showed which packages use properties vs literal versions
+      - Asked the user whether to inline the resolved values or keep the property references
+      - Created Directory.Packages.props with inlined resolved values as directed by the user
+      - Removed only the version-related properties from Directory.Build.props, preserving the OutputPath property
+      - Verified no remaining references to removed properties exist
+      - Ran dotnet restore and dotnet build to validate the conversion
+      - Produced a markdown report summarizing all package references and versions across projects, comparing baseline
+        state against the CPM result
+      - When differing package versions were found across projects, guided the user through reconciliation or explicit
+        acceptance of each version
+      - Captured binlogs for both the baseline and converted builds and informed the user they are available for manual
+        validation and troubleshooting
+      - Offered reassurance when the conversion is straightforward, or warned about potential risks from version or
+        property changes that could cause unintended consequences
+  - name: Convert solution with version conflicts to CPM
+    prompt: Convert moderate-version-conflicts/Inventory.slnx to Central Package Management. Use the highest version for any
+      conflicts.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: moderate-version-conflicts/Directory.Packages.props
+          value: ManagePackageVersionsCentrally
+      - type: output-matches
+        config:
+          pattern: (conflict|mismatch|different version)
+      - type: file-contains
+        config:
+          path: moderate-version-conflicts/Directory.Packages.props
+          value: System.Text.Json
+      - type: file-contains
+        config:
+          path: moderate-version-conflicts/Directory.Packages.props
+          value: Azure.Identity
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Audited all 4 projects and identified both version conflicts (System.Text.Json and Azure.Identity)
+      - "Presented the System.Text.Json conflict clearly: 10.0.1 in Api/Shared/Tests vs 8.0.4 in Worker"
+      - "Presented the Azure.Identity conflict: 1.13.2 in Api vs 1.10.0 in Shared"
+      - Applied the user's chosen strategy of aligning to the highest version for each conflict
+      - Created Directory.Packages.props with the highest version for each conflicting package
+      - Ran dotnet restore and dotnet build to validate the conversion
+      - Produced a markdown report summarizing all package references and resolved versions across projects, comparing
+        baseline state against the CPM result
+      - Guided the user through reconciliation or explicit acceptance of each differing version, surfacing the rationale
+        and impact of each choice
+      - Captured binlogs for both the baseline and converted builds and informed the user they are available for manual
+        validation and troubleshooting
+      - Warned about potential risks from version changes or unintended consequences, and offered reassurance where the
+        resolution is safe
+  - name: Convert complex repository with multiple CPM challenges
+    prompt: "I need to convert this entire repository to Central Package Management. The solution is at
+      advanced-multi-complexity/Enterprise.slnx. There are some complications: package versions defined as MSBuild
+      properties, conditional package references for multi-targeting, and a shared Common.props that adds a package to
+      all projects. Inline MSBuild property values and use the highest version for any conflicts."
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: advanced-multi-complexity/Directory.Packages.props
+          value: ManagePackageVersionsCentrally
+      - type: file-contains
+        config:
+          path: advanced-multi-complexity/Directory.Packages.props
+          value: System.Text.Json
+      - type: file-not-contains
+        config:
+          path: advanced-multi-complexity/Directory.Build.props
+          value: BlobsVersion
+      - type: file-not-contains
+        config:
+          path: advanced-multi-complexity/Directory.Build.props
+          value: HostingVersion
+      - type: output-matches
+        config:
+          pattern: (condition|conditional|TargetFramework)
+      - type: output-matches
+        config:
+          pattern: Common\.props
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Performed a thorough audit across all 5 projects plus Common.props and Directory.Build.props
+      - Identified the three-way System.Text.Json version conflict (10.0.1, 9.0.0, 8.0.4) including the security
+        advisory on 8.0.4
+      - Identified the Azure.Storage.Blobs version mismatch between the BlobsVersion property and the literal in Legacy
+      - Traced MSBuild properties (BlobsVersion, HostingVersion) to their definitions in Directory.Build.props
+      - Identified the conditional PackageReference for Microsoft.AspNetCore.Mvc.NewtonsoftJson with different versions
+        per TFM
+      - Identified the PackageReference in Common.props that applies to all projects
+      - Presented the findings and applied the user's chosen strategy of using the highest version for conflicts and
+        inlining MSBuild property values
+      - Created Directory.Packages.props reflecting the user's directed resolution strategy
+      - Preserved non-version properties (LangVersion, ImplicitUsings) in Directory.Build.props
+      - Ran dotnet restore and dotnet build to validate the conversion
+      - Produced a markdown report summarizing all package references, resolved versions, and decisions across projects,
+        comparing baseline state against the CPM result
+      - Guided the user through reconciliation or explicit acceptance of each differing version, including version
+        conflicts, property-based versions, and conditional references
+      - Captured binlogs for both the baseline and converted builds and informed the user they are available for manual
+        validation and troubleshooting
+      - Warned about potential risks from version changes, property removals, or conditional reference adjustments, and
+        offered reassurance where outcomes are safe and expected

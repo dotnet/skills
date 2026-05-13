@@ -1,0 +1,78 @@
+name: crap-score
+description: Evaluates the dotnet-test/crap-score skill
+type: capability
+config:
+  timeout: 6m
+stimuli:
+  - name: Calculate CRAP score for a single method with partial coverage
+    prompt: Calculate the CRAP score for the ProcessOrder method in OrderService.cs. I already have coverage data in
+      TestResults/coverage.cobertura.xml.
+    environment:
+      files:
+        - src: fixtures/partial-coverage/OrderService.cs
+          dest: OrderService.cs
+        - src: fixtures/partial-coverage/coverage.cobertura.xml
+          dest: TestResults/coverage.cobertura.xml
+        - src: fixtures/partial-coverage/OrderServiceTests.csproj
+          dest: OrderServiceTests.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: CRAP
+      - type: output-matches
+        config:
+          pattern: complexity|cyclomatic
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Reads the source file to compute cyclomatic complexity of ProcessOrder
+      - Parses the Cobertura XML to extract coverage data for the method
+      - "Applies the CRAP formula correctly: comp^2 * (1 - cov)^3 + comp"
+      - Identifies ProcessOrder as high risk due to moderate complexity and low coverage
+      - Provides a recommendation to add tests or reduce complexity
+  - name: Identify riskiest methods across a file
+    prompt: Which methods in OrderService.cs are the riskiest? I want to know where to focus my testing effort. Coverage
+      data is in TestResults/coverage.cobertura.xml.
+    environment:
+      files:
+        - src: fixtures/partial-coverage/OrderService.cs
+          dest: OrderService.cs
+        - src: fixtures/partial-coverage/coverage.cobertura.xml
+          dest: TestResults/coverage.cobertura.xml
+        - src: fixtures/partial-coverage/OrderServiceTests.csproj
+          dest: OrderServiceTests.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: CRAP
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Analyzes all methods in the file, not just one
+      - Produces a sorted table or ranking by CRAP score
+      - Correctly identifies the most complex and least-covered methods as highest risk
+      - Suggests specific actions for the top offenders
+  - name: Generate coverage then compute CRAP score
+    prompt: I want to know the CRAP scores for my OrderService class. I haven't run coverage yet.
+    environment:
+      files:
+        - src: fixtures/no-coverage/OrderService.cs
+          dest: OrderService.cs
+        - src: fixtures/no-coverage/OrderServiceTests.cs
+          dest: OrderServiceTests.cs
+        - src: fixtures/no-coverage/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: dotnet test
+      - type: output-matches
+        config:
+          pattern: coverage
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Runs dotnet test with code coverage collection to generate Cobertura data before analysis
+      - Extracts per-method coverage from the generated Cobertura XML
+      - Computes CRAP scores using both cyclomatic complexity and code coverage for each method in OrderService
+      - Provides risk categorization and actionable recommendations for the riskiest methods

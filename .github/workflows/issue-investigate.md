@@ -140,7 +140,7 @@ Invoke the following **three inline sub-agents** (`task` tool, `agent_type: "gen
 The sub-agent prompt is:
 
    > You are a senior engineering planning assistant. You will receive a planning brief about a GitHub issue in the dotnet/skills repository.
-   > 
+   >
    > Produce a structured plan with the following sections:
    > - **Problem statement**: one-sentence summary of the root cause
    > - **Proposed solution**: what changes to make and why
@@ -148,7 +148,7 @@ The sub-agent prompt is:
    > - **Risk assessment**: what could go wrong, edge cases, scope creep
    > - **Alternative approaches**: at least one alternative considered and why it was rejected
    > - **Confidence**: High / Medium / Low with rationale
-   > 
+   >
    > Be thorough and precise. Focus only on the information provided in the brief.
 
 ### 4c. Review and synthesize

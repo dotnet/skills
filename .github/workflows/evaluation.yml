@@ -98,7 +98,8 @@ jobs:
           $hasInfraChanges = $changedFiles |
             Where-Object {
               ($_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)') -or
-              $_ -match '^\.github/workflows/evaluation\.yml$'
+              ($_ -match '^eng/vally-adapter/') -or
+              $_ -match '^\.github/workflows/(evaluation|vally-evaluation)\.yml$'
             } |
             Select-Object -First 1
 
@@ -162,7 +163,8 @@ jobs:
           $hasInfraChanges = $changedFiles |
             Where-Object {
               ($_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)') -or
-              $_ -match '^\.github/workflows/evaluation\.yml$'
+              ($_ -match '^eng/vally-adapter/') -or
+              $_ -match '^\.github/workflows/(evaluation|vally-evaluation)\.yml$'
             } |
             Select-Object -First 1
 
@@ -360,7 +362,8 @@ jobs:
             $hasInfraChanges = $changedFiles |
               Where-Object {
                 ($_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)') -or
-                $_ -match '^\.github/workflows/evaluation\.yml$'
+                ($_ -match '^eng/vally-adapter/') -or
+                $_ -match '^\.github/workflows/(evaluation|vally-evaluation)\.yml$'
               } |
               Select-Object -First 1
 
@@ -633,6 +636,23 @@ jobs:
           path: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}/
           include-hidden-files: true
           retention-days: 30
+
+  # ==========================================================================
+  # VALLY EVALUATION
+  # Runs vally evaluations in parallel with skill-validator.
+  # NOTE: These results do not gate PRs for now.
+  # ==========================================================================
+  vally-evaluate:
+    needs: [gate, discover]
+    if: >-
+      always() && !cancelled() &&
+      needs.discover.outputs.has_entries == 'true' &&
+      needs.discover.result == 'success'
+    uses: ./.github/workflows/vally-evaluation.yml
+    with:
+      entries: ${{ needs.discover.outputs.entries }}
+      head_sha: ${{ needs.gate.outputs.head_sha }}
+    secrets: inherit
 
   # ==========================================================================
   # COMMENT ON PR

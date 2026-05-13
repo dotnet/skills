@@ -46,7 +46,6 @@ When using `printSource: true`, ensure the benchmark project emits PDB files so 
 <DebugSymbols>true</DebugSymbols>
 ```
 
-
 ### ThreadingDiagnoser
 
 `[ThreadingDiagnoser]` (CLI: `--threading`, Config: `.AddDiagnoser(ThreadingDiagnoser.Default)`) — adds `Completed Work Items` and `Lock Contentions` columns.
@@ -67,7 +66,6 @@ Produces: `.nettrace` and `.speedscope.json` files. By default (attribute/config
 
 **CLI note:** `--profiler EP` uses `CpuSampling` with `performExtraBenchmarksRun: false` — profiling is attached to normal measurement runs (no extra iteration, results include profiler overhead, no way to select a different profile). Use the attribute or config API for full control.
 
-
 ### HardwareCounters (Windows only, requires elevation)
 
 | Surface | Usage |
@@ -81,7 +79,6 @@ Collects CPU hardware performance counters via ETW.
 Available counters include: `TotalCycles`, `InstructionRetired`, `CacheMisses`, `BranchMispredictions`, `BranchInstructions`, `LlcMisses`, `LlcReference`.
 
 Requires: Windows, elevated (admin) process, and ETW support. Not available on all hardware.
-
 
 ## Statistical output
 

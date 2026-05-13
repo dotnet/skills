@@ -1,0 +1,248 @@
+name: analyzing-dotnet-performance
+description: Evaluates the dotnet-diag/analyzing-dotnet-performance skill
+type: capability
+config:
+  timeout: 3m
+stimuli:
+  - name: Detects compiled regex startup budget and regex chain allocations
+    prompt: Analyze this string transformation library for .NET performance issues. The Underscore/Pascalize/Camelize
+      methods are called millions of times in a text processing pipeline.
+    environment:
+      files:
+        - src: fixtures/inflector-and-regex.cs
+          dest: CaseTransformExtensions.cs
+    graders:
+      - type: output-contains
+        config:
+          substring: Compiled
+      - type: output-contains
+        config:
+          substring: ToLower
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies the compiled regex budget — 40+ Regex with RegexOptions.Compiled is excessive for short-string
+        matching
+      - Flags the triple regex .Replace() chain in Underscore as 4 allocations per call
+      - Notes .ToLower() without culture risks Turkish I problem and allocates unnecessarily
+      - Catches Pascalize() per-match .Value.ToUpper() allocation
+      - Recognizes [GeneratedRegex] pattern as a positive finding or correct practice
+      - Suggests removing RegexOptions.Compiled from the InflectionRule class or using source-generated regex
+  - name: Detects CurrentCulture comparer and compiled regex budget in inflection rules
+    prompt: Review this inflection rule engine for performance. Rules are loaded at startup and pattern-matched on every API
+      request.
+    environment:
+      files:
+        - src: fixtures/vocabulary-and-inflections.cs
+          dest: WordVocabulary.cs
+    graders:
+      - type: output-contains
+        config:
+          substring: Ordinal
+      - type: output-contains
+        config:
+          substring: Compiled
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Flags StringComparer.CurrentCultureIgnoreCase as ~3x slower than OrdinalIgnoreCase for the uncountables HashSet
+      - Identifies total compiled regex budget across all AddPlural/AddSingular calls creating InflectionEntry instances
+      - Suggests OrdinalIgnoreCase since the uncountable words are ASCII English words
+      - Notes that each InflectionEntry creates a new compiled Regex — with 40+ rules this is expensive at startup
+  - name: Finds per-call Dictionary allocation not hoisted to static
+    prompt: This number-to-words converter is used in a financial report generator processing 100K transactions. Review for
+      performance issues.
+    environment:
+      files:
+        - src: fixtures/number-converter-farsi-kurdish.cs
+          dest: NumberConverters.cs
+    graders:
+      - type: output-contains
+        config:
+          substring: Dictionary
+      - type: output-contains
+        config:
+          substring: static
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies the per-call new Dictionary<long, Func<>> in FarsiNumberToWordsConverter as wasteful — should be
+        static
+      - Notes each Convert() call creates ~10 allocations (dictionary + buckets + entries + closures)
+      - Identifies the same per-call Dictionary pattern in CentralKurdishNumberToWordsConverter
+      - Flags new List<string>() without initial capacity hint
+      - Catches string.Format with int boxing in FormatWithUnit — interpolation avoids the box
+  - name: Catches compound allocations in recursive number converter with ToLower
+    prompt: Analyze this localized number-to-words converter for performance. It is used for invoice generation in a billing
+      system processing thousands of invoices.
+    environment:
+      files:
+        - src: fixtures/number-converter-greek.cs
+          dest: GreekConverter.cs
+    graders:
+      - type: output-contains
+        config:
+          substring: ToLower
+      - type: output-contains
+        config:
+          substring: allocation
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies .ToLower() inside string interpolation as compound allocation — 3 allocations per branch
+      - Flags result += with embedded .ToLower() in interpolation as compound allocation
+      - Counts the 8+ .ToLower() sites in the recursive converter methods
+      - Recommends StringBuilder or deferring .ToLowerInvariant() to final output
+      - Notes .ToLower() should be .ToLowerInvariant() for correctness
+  - name: Finds StringComparison.Ordinal missing and FrozenDictionary opportunities
+    prompt: Review these number-to-words converters for performance. They handle multiple locales and are called in tight
+      loops during batch report generation.
+    environment:
+      files:
+        - src: fixtures/number-converter-multi-locale.cs
+          dest: MultiLocaleConverters.cs
+    graders:
+      - type: output-contains
+        config:
+          substring: Ordinal
+      - type: output-contains
+        config:
+          substring: Dictionary
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Flags .StartsWith/.EndsWith without StringComparison.Ordinal in SwedishNumberToWordsConverter
+      - Notes static readonly Dictionary<> should be FrozenDictionary (.NET 8+) since it is never mutated
+      - Catches string += concatenation in converter branches as allocation-heavy
+      - Identifies new List<string>() without capacity hint in FrenchNumberToWordsConverterBase
+      - Does NOT flag the HungarianNumberToWordsConverter._runtimeCache Dictionary as FrozenDictionary candidate since
+        it IS mutated
+  - name: Detects Aggregate+Replace chain and struct missing IEquatable
+    prompt: This metric numeral formatting utility is used in a real-time monitoring dashboard rendering thousands of data
+      points per second. Analyze for performance bottlenecks.
+    environment:
+      files:
+        - src: fixtures/metric-numeral-extensions.cs
+          dest: MetricNumerals.cs
+    graders:
+      - type: output-contains
+        config:
+          substring: Aggregate
+      - type: output-contains
+        config:
+          substring: IEquatable
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Flags .Aggregate() calling .Replace() over 16 unit prefixes as creating 16 intermediate string allocations
+      - Identifies char.ToString() allocation per unit prefix lookup iteration
+      - Notes UnitPrefix struct lacks IEquatable<UnitPrefix> causing boxing on equality checks
+      - Suggests short-circuiting with .Contains() check before .Replace()
+      - Recognizes FrozenDictionary usage as a positive finding
+  - name: Finds branched Replace chain in format string manipulation
+    prompt: This data size formatting struct is used in a file transfer dashboard showing real-time throughput for thousands
+      of concurrent transfers. Review for performance.
+    environment:
+      files:
+        - src: fixtures/byte-size-formatting.cs
+          dest: DataSize.cs
+    graders:
+      - type: output-contains
+        config:
+          substring: Replace
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies the cascading if/Replace branches as allocating a new string per branch
+      - Flags format.Replace('#.##', '0.##') as an additional intermediate allocation
+      - Suggests StringBuilder or string.Create for the format manipulation
+      - Notes the struct correctly implements IEquatable<DataSize> as a positive finding
+  - name: Catches LINQ on hot-path string processing and All(char.IsUpper)
+    prompt: These string humanization extensions are called on every user-facing string in a CMS rendering pages with
+      hundreds of dynamic strings. Analyze for performance issues.
+    environment:
+      files:
+        - src: fixtures/string-humanize-and-dehumanize.cs
+          dest: StringReadability.cs
+    graders:
+      - type: output-contains
+        config:
+          substring: LINQ
+      - type: output-contains
+        config:
+          substring: All
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Flags .Cast<Match>().Select() LINQ chain in FromPascalCase as allocating enumerator + delegate
+      - Catches value.All(char.IsUpper) as LINQ on string that allocates an enumerator
+      - Identifies .ToLower() inside LINQ lambda as per-match allocation
+      - Flags string.Concat(words.Select(...)) in Dehumanize as LINQ allocation
+      - Notes the params overload in To.Transform without 1-arg fast path
+      - Recognizes Span-based Concat helper methods as positive findings
+  - name: Detects LINQ pipeline in TimeSpan formatting and collection processing
+    prompt: This time formatting and collection display library is used in a logging framework processing millions of log
+      entries per minute. Review for performance.
+    environment:
+      files:
+        - src: fixtures/timespan-and-collection-formatters.cs
+          dest: TimeSpanFormatting.cs
+    graders:
+      - type: output-contains
+        config:
+          substring: Where
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Flags .Where().Take().Where() + collection expression as 3+ enumerator allocations per call
+      - Identifies .Select().Where().ToArray() chain in DefaultCollectionFormatter as allocating
+      - Catches params overload without 1-arg fast path in TransformExtensions
+      - Notes Enumerable.Reverse at static init could be a reversed array literal
+      - Flags double .Select() wrapping in the object-formatter overload as unnecessary allocation
+  - name: Flags Span inconsistencies and compound method chains in truncation library
+    prompt: Review this text truncation library for performance. The truncation methods are called on every displayed string
+      in a content delivery system serving thousands of concurrent users.
+    environment:
+      files:
+        - src: fixtures/truncation-and-span.cs
+          dest: Truncation.cs
+    graders:
+      - type: output-contains
+        config:
+          substring: TrimEnd
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Flags value[..n].TrimEnd() as double allocation in FixedLengthTruncator
+      - Notes inconsistent Span usage — FixedNumberOfCharactersTruncator uses AsSpan but FixedLengthTruncator and
+        FixedNumberOfWordsTruncator do not
+      - Identifies List<char>[] in Symbols class as heap-allocated when ReadOnlySpan<char> would be more efficient
+  - name: Identifies unsealed leaf classes and locale hierarchy patterns
+    prompt: Review this locale hierarchy and ordinalizer classes for performance. These classes are instantiated once per
+      locale but their virtual methods are called on every formatted string in a high-throughput localization library.
+    environment:
+      files:
+        - src: fixtures/unsealed-classes.cs
+          dest: Locales.cs
+    graders:
+      - type: output-contains
+        config:
+          substring: sealed
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies multiple unsealed leaf classes that should be sealed for JIT devirtualization
+      - Notes that DefaultOrdinalizer is a base class and should remain unsealed, but its derived classes should be
+        sealed
+      - Notes the LocaleRegistry uses correct StringComparer.OrdinalIgnoreCase as a positive finding

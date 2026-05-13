@@ -1,0 +1,477 @@
+name: migrate-dotnet8-to-dotnet9
+description: Evaluates the dotnet-upgrade/migrate-dotnet8-to-dotnet9 skill
+type: capability
+config:
+  timeout: 7m
+stimuli:
+  - name: App with empty environment variables, ZIP encoding, and keyed DI services
+    prompt: |
+      Migrate this .NET 8 app to .NET 9 and fix all breaking changes.
+      On our Linux servers, we set empty environment variables (export MY_FLAG="") to
+      distinguish between "not set" and "explicitly empty".
+      The ZIP archives are consumed by a legacy Java system that reads filenames in Shift-JIS.
+      A controller uses [FromKeyedServices("cache")] ICache but the service is registered as non-keyed.
+      Identify all breaking changes and provide the exact fixes.
+    environment:
+      files:
+        - src: ./fixtures/app-with-empty-environment-variables-zip-encoding-and-keyed-/App.csproj
+          dest: App.csproj
+        - src: ./fixtures/app-with-empty-environment-variables-zip-encoding-and-keyed-/EnvVarCheck.cs
+          dest: EnvVarCheck.cs
+        - src: ./fixtures/app-with-empty-environment-variables-zip-encoding-and-keyed-/ZipCreator.cs
+          dest: ZipCreator.cs
+        - src: ./fixtures/app-with-empty-environment-variables-zip-encoding-and-keyed-/Startup.cs
+          dest: Startup.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (empty.*env|null.*empty|SetEnvironmentVariable|string\.IsNullOrEmpty)
+      - type: output-matches
+        config:
+          pattern: (ZipArchive|UTF.?8|encoding|Shift.?JIS|flag)
+      - type: output-matches
+        config:
+          pattern: (keyed|non-keyed|FromKeyedServices|InvalidOperationException|fallback)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Correctly identifies empty environment variables on Unix now return empty string instead of null in .NET 9;
+        recommends string.IsNullOrEmpty check
+      - Warns about ZipArchiveEntry names/comments now respecting UTF-8 bit flag; explains that explicit
+        entryNameEncoding may be overridden
+      - Identifies FromKeyedServicesAttribute no longer falls back to non-keyed service registration; throws
+        InvalidOperationException
+    constraints:
+      reject_skills:
+        - "*"
+  - name: C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions
+    prompt: |
+      I'm migrating a .NET 8 library to .NET 9 / C# 13 and getting compiler errors. Here's the code:
+
+      ```csharp
+      // Buffer.cs
+      [System.Runtime.CompilerServices.InlineArray(10)]
+      record struct Buffer()
+      {
+          private int _element0;
+      }
+      ```
+
+      ```csharp
+      // Generator.cs
+      unsafe class DataGenerator
+      {
+          IEnumerable<int> Generate()
+          {
+              yield return 1;
+              Process();
+              void Process()
+              {
+                  int* p = stackalloc int[10];
+                  // ... work with pointer
+              }
+          }
+      }
+      ```
+
+      ```csharp
+      // Resolver.cs
+      class Resolver
+      {
+          static void Process(ReadOnlySpan<int> ros) {}
+          static void Process(Span<object> s) {}
+
+          static void Main()
+          {
+              Process([]);  // this compiled in .NET 8
+          }
+      }
+      ```
+
+      Migrate this code to .NET 9 / C# 13. What breaks in each case and how do I fix it?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (InlineArray|record struct|CS9259|struct)
+      - type: output-matches
+        config:
+          pattern: (iterator|safe context|unsafe|local function)
+      - type: output-matches
+        config:
+          pattern: (collection expression|overload|\[\]|ambig)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies InlineArray on record struct is disallowed (CS9259); recommends changing to a plain struct
+      - Identifies iterator safe context breaks unsafe code in nested local functions; recommends adding unsafe modifier
+        to local function
+      - Identifies collection expression overload resolution change for empty [] — no longer uses span to tiebreak
+    constraints:
+      reject_skills:
+        - "*"
+  - name: ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting
+    prompt: |
+      Migrate this .NET 8 ASP.NET Core web API to .NET 9.
+      The app runs behind a reverse proxy, has Trace-level logging to debug HTTP request headers,
+      and uses dotnet watch for development.
+      Identify all breaking changes and provide the exact fixes.
+    environment:
+      files:
+        - src: ./fixtures/asp-net-core-app-with-di-validation-forwarded-headers-and-ht/WebApi.csproj
+          dest: WebApi.csproj
+        - src: ./fixtures/asp-net-core-app-with-di-validation-forwarded-headers-and-ht/Program.cs
+          dest: Program.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (ValidateOnBuild|ValidateScopes|development|DI|scope)
+      - type: output-matches
+        config:
+          pattern: (ForwardedHeaders|KnownProxies|unknown prox)
+      - type: output-matches
+        config:
+          pattern: (SocketsHttpHandler|HttpClientHandler|InvalidCastException|primary handler)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies ValidateOnBuild/ValidateScopes now enabled in development — scoped-into-singleton will throw at
+        startup
+      - Warns about ForwardedHeadersMiddleware ignoring headers from unknown proxies; recommends adding proxy to
+        KnownProxies
+      - Identifies HttpClientFactory now uses SocketsHttpHandler; casting to HttpClientHandler throws
+        InvalidCastException
+      - Mentions header values are redacted by default in HttpClientFactory logging
+    constraints:
+      reject_skills:
+        - "*"
+  - name: EF Core app with migration patterns and Cosmos DB discriminator
+    prompt: |
+      Migrate this EF Core app to .NET 9 / EF Core 9.
+      The app also uses the Cosmos DB provider in a separate project with existing documents
+      using "Discriminator" property, and has synchronous Cosmos DB queries.
+      Identify all breaking changes and provide the exact fixes.
+    environment:
+      files:
+        - src: ./fixtures/ef-core-app-with-migration-patterns-and-cosmos-db-discrimina/EfApp.csproj
+          dest: EfApp.csproj
+        - src: ./fixtures/ef-core-app-with-migration-patterns-and-cosmos-db-discrimina/AppDbContext.cs
+          dest: AppDbContext.cs
+        - src: ./fixtures/ef-core-app-with-migration-patterns-and-cosmos-db-discrimina/MigrationRunner.cs
+          dest: MigrationRunner.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (explicit transaction|MigrateAsync|BeginTransaction)
+      - type: output-matches
+        config:
+          pattern: (pending.*model|HasData|DateTime|non-deterministic)
+      - type: output-matches
+        config:
+          pattern: (\$type|Discriminator|discriminator)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies Migrate/MigrateAsync inside explicit transaction now throws; recommends removing external transaction
+      - Identifies DateTime.UtcNow in HasData causes pending model changes exception; recommends static values
+      - Identifies Cosmos DB discriminator renamed from 'Discriminator' to '$type'; shows HasDiscriminator mitigation
+      - Warns that sync I/O on Cosmos DB provider now throws; must use async equivalents
+      - Mentions Microsoft.EntityFrameworkCore.Design may not be found; shows Publish=true workaround
+    constraints:
+      reject_skills:
+        - "*"
+  - name: EF Core Cosmos DB app with existing documents and composite id format
+    prompt: |
+      Migrate this EF Core Cosmos DB app to .NET 9.
+      Our existing Cosmos DB container has 500K documents. They were written by EF Core 8 and have
+      a "Discriminator" property and id values in format "Product|123".
+      We run direct SQL queries against the container that reference c.Discriminator.
+      Identify all breaking changes — especially around data compatibility with existing documents.
+    environment:
+      files:
+        - src: ./fixtures/ef-core-cosmos-db-app-with-existing-documents-and-composite-/CosmosApi.csproj
+          dest: CosmosApi.csproj
+        - src: ./fixtures/ef-core-cosmos-db-app-with-existing-documents-and-composite-/ProductContext.cs
+          dest: ProductContext.cs
+        - src: ./fixtures/ef-core-cosmos-db-app-with-existing-documents-and-composite-/CosmosQuery.cs
+          dest: CosmosQuery.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (\$type|Discriminator|discriminator.*renamed|HasDiscriminator)
+      - type: output-matches
+        config:
+          pattern: (id.*format|Product\|123|composite|no longer contain)
+      - type: output-matches
+        config:
+          pattern: (HasIndex|throws|not supported|Cosmos)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies discriminator property renamed from 'Discriminator' to '$type'; shows
+        HasDiscriminator('Discriminator') to preserve compatibility with existing docs
+      - Identifies id property no longer embeds discriminator — new documents will use '123' format not 'Product|123';
+        explains data migration implications
+      - Warns that HasIndex now throws on Cosmos (was silently ignored); must remove it
+      - Warns that SQL queries using c.Discriminator need updating to c.$type
+      - Identifies sync I/O (ToList) now throws on Cosmos provider; must use ToListAsync
+    constraints:
+      reject_skills:
+        - "*"
+  - name: App with JsonDocument null deserialization and BinaryFormatter fallback
+    prompt: |
+      Migrate this .NET 8 app to .NET 9 and fix all breaking changes in the code.
+    environment:
+      files:
+        - src: ./fixtures/app-with-jsondocument-null-deserialization-and-binaryformatt/SerializationApp.csproj
+          dest: SerializationApp.csproj
+        - src: ./fixtures/app-with-jsondocument-null-deserialization-and-binaryformatt/NullDocHandler.cs
+          dest: NullDocHandler.cs
+        - src: ./fixtures/app-with-jsondocument-null-deserialization-and-binaryformatt/CacheService.cs
+          dest: CacheService.cs
+        - src: ./fixtures/app-with-jsondocument-null-deserialization-and-binaryformatt/ApiClient.cs
+          dest: ApiClient.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (JsonDocument|null|JsonValueKind\.Null|non-null)
+      - type: output-matches
+        config:
+          pattern: (BinaryFormatter|NotSupportedException|always throws)
+      - type: output-matches
+        config:
+          pattern: (UserAgent|nullable|null check|string\?)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies JsonDocument deserialization of 'null' now returns non-null document instead of null; code path
+        changes
+      - Identifies BinaryFormatter always throws even with the AppContext switch; switch is removed
+      - Identifies HttpListenerRequest.UserAgent is now nullable; .Length without null check may throw
+    constraints:
+      reject_skills:
+        - "*"
+  - name: CI pipeline with Terminal Logger parsing and version constraints
+    prompt: |
+      Migrate this CI/CD pipeline and multi-targeted library to .NET 9 SDK.
+      Our developers use Visual Studio 2022 17.11.
+      We use `dotnet watch` for local development while targeting net8.0.
+      Identify all issues and provide the exact fixes.
+    environment:
+      files:
+        - src: ./fixtures/ci-pipeline-with-terminal-logger-parsing-and-version-constra/MultiTarget.csproj
+          dest: MultiTarget.csproj
+        - src: ./fixtures/ci-pipeline-with-terminal-logger-parsing-and-version-constra/global.json
+          dest: global.json
+        - src: ./fixtures/ci-pipeline-with-terminal-logger-parsing-and-version-constra/ci-build.sh
+          dest: ci-build.sh
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Terminal Logger|--tl|MSBUILDTERMINALLOGGER|console.*output)
+      - type: output-matches
+        config:
+          pattern: (17\.12|17\.11|Visual Studio|NETSDK1223)
+      - type: output-matches
+        config:
+          pattern: (net7\.0|warning|.NET Standard|netstandard)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies Terminal Logger changes build output format; recommends --tl:off for CI scripts
+      - Warns that VS 17.11 cannot target net9.0; requires 17.12+
+      - Notes net7.0 targets produce warnings since .NET 7 is out of support
+      - Notes netstandard1.x targets produce warnings
+      - Mentions dotnet workload output format changed
+      - Mentions dotnet watch incompatibility with Hot Reload for older frameworks
+    constraints:
+      reject_skills:
+        - "*"
+  - name: WinForms app with custom UserControls and PictureBox URL loading
+    prompt: |
+      Migrate this .NET 8 WinForms app to .NET 9 and fix all breaking changes.
+      The app also has StatusStrip controls with default rendering,
+      code that calls IWindowsFormsEditorService.DropDownControl passing null sometimes,
+      and references COM components with P/Invoke to native libraries.
+    environment:
+      files:
+        - src: ./fixtures/winforms-app-with-custom-usercontrols-and-picturebox-url-loa/WinFormsApp.csproj
+          dest: WinFormsApp.csproj
+        - src: ./fixtures/winforms-app-with-custom-usercontrols-and-picturebox-url-loa/MyControl.cs
+          dest: MyControl.cs
+        - src: ./fixtures/winforms-app-with-custom-usercontrols-and-picturebox-url-loa/ImageLoader.cs
+          dest: ImageLoader.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (WFO1000|security analyz|serialization|DesignerSerializationVisibility)
+      - type: output-matches
+        config:
+          pattern: (PictureBox|HttpRequestException|WebException)
+      - type: output-matches
+        config:
+          pattern: (StatusStrip|render|default)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies WFO1000 security analyzer errors for properties without serialization configuration
+      - Warns PictureBox now throws HttpRequestException instead of WebException
+      - Mentions StatusStrip default renderer changed
+      - Identifies DropDownControl parameter is now non-nullable — passing null will warn
+      - Mentions CET support may affect P/Invoke with incompatible native libraries
+    constraints:
+      reject_skills:
+        - "*"
+  - name: Containerized app with zlib dependency and runtime configuration
+    prompt: |
+      Migrate this containerized .NET 8 app to .NET 9.
+      In our Kubernetes deployment, we set DOTNET_gcServer=0 (to reduce memory on small pods)
+      and DOTNET_ThreadPool_MinThreads=4. In .NET 8, the runtimeconfig.json values took precedence.
+      The app uses .NET Monitor with specific image tags.
+      Identify all breaking changes and provide the exact fixes.
+    environment:
+      files:
+        - src: ./fixtures/containerized-app-with-zlib-dependency-and-runtime-configura/ContainerApp.csproj
+          dest: ContainerApp.csproj
+        - src: ./fixtures/containerized-app-with-zlib-dependency-and-runtime-configura/Dockerfile
+          dest: Dockerfile
+        - src: ./fixtures/containerized-app-with-zlib-dependency-and-runtime-configura/runtimeconfig.template.json
+          dest: runtimeconfig.template.json
+        - src: ./fixtures/containerized-app-with-zlib-dependency-and-runtime-configura/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: (zlib|no longer install|apt-get|zlib1g)
+      - type: output-matches
+        config:
+          pattern: (environment variable|precedence|runtimeconfig|override)
+      - type: output-matches
+        config:
+          pattern: (global\.json|SDK|9\.0)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies zlib is no longer installed in .NET 9 images; recommends adding apt-get install
+      - Explains environment variables now take precedence over runtimeconfig.json — GC and ThreadPool settings will use
+        env var values
+      - Warns about .NET Monitor image tag format changes
+      - Notes global.json should be updated to 9.0.x SDK
+    constraints:
+      reject_skills:
+        - "*"
+  - name: EF Core Cosmos DB app with discriminator and sync I/O
+    prompt: |
+      Migrate this EF Core Cosmos DB app to .NET 9.
+      The app has existing documents in Cosmos DB with a "Discriminator" property,
+      documents with id in format "Blog|1" (discriminator + key),
+      and raw SQL queries like `SELECT * FROM c WHERE c.Discriminator = 'Blog'`.
+      Identify all breaking changes and provide the exact fixes.
+    environment:
+      files:
+        - src: ./fixtures/ef-core-cosmos-db-app-with-discriminator-and-sync-i-o/CosmosApp.csproj
+          dest: CosmosApp.csproj
+        - src: ./fixtures/ef-core-cosmos-db-app-with-discriminator-and-sync-i-o/BlogContext.cs
+          dest: BlogContext.cs
+        - src: ./fixtures/ef-core-cosmos-db-app-with-discriminator-and-sync-i-o/SyncJob.cs
+          dest: SyncJob.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (\$type|Discriminator|discriminator.*renamed)
+      - type: output-matches
+        config:
+          pattern: (sync|synchronous|SaveChanges|ToList|async)
+      - type: output-matches
+        config:
+          pattern: (HasIndex|throws|ignored)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies discriminator property renamed from 'Discriminator' to '$type'; shows
+        HasDiscriminator('Discriminator') mitigation
+      - Identifies id property no longer contains discriminator — existing documents have 'Blog|1' format but new ones
+        will be '1'
+      - Identifies sync I/O throws — SaveChanges must become SaveChangesAsync, ToList must become ToListAsync
+      - Identifies HasIndex now throws instead of being silently ignored
+      - Warns that SQL queries using c.Discriminator need updating to c.$type or use VALUE projection
+    constraints:
+      reject_skills:
+        - "*"
+  - name: Library with String.Trim span overload, keyed services, and InlineArray
+    prompt: |
+      Migrate this .NET 8 library and web API to .NET 9. It was compiled against .NET 9 RC2.
+      The ICache service is only registered as a non-keyed service.
+      Identify all breaking changes and provide the exact fixes.
+    environment:
+      files:
+        - src: ./fixtures/library-with-string-trim-span-overload-keyed-services-and-in/MyLib.csproj
+          dest: MyLib.csproj
+        - src: ./fixtures/library-with-string-trim-span-overload-keyed-services-and-in/StringUtils.cs
+          dest: StringUtils.cs
+        - src: ./fixtures/library-with-string-trim-span-overload-keyed-services-and-in/ApiController.cs
+          dest: ApiController.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Trim|ReadOnlySpan|char\[\]|removed|MissingMethodException)
+      - type: output-matches
+        config:
+          pattern: (keyed|non-keyed|FromKeyedServices|InvalidOperationException)
+      - type: output-matches
+        config:
+          pattern: (InlineArray|size|1 MiB|limit)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies String.Trim(ReadOnlySpan<char>) overloads were removed in GA; RC2-compiled code may get
+        MissingMethodException at runtime or changed overload resolution when recompiled
+      - Identifies FromKeyedServicesAttribute no longer falls back to non-keyed service; throws InvalidOperationException
+      - Warns about InlineArray struct size limit enforcement (1 MiB)
+      - Identifies HttpListenerRequest.UserAgent is now nullable
+    constraints:
+      reject_skills:
+        - "*"
+  - name: Containerized app with env var precedence reversal and zlib removal
+    prompt: |
+      Migrate this containerized .NET 8 app to .NET 9.
+      Our Kubernetes deployment sets these env vars:
+        DOTNET_gcServer=0 (save memory on small pods)
+        DOTNET_gcConcurrent=0
+        DOTNET_ThreadPool_MinThreads=4
+      In .NET 8, the runtimeconfig.json values (Server=true, Concurrent=true, MinThreads=25)
+      took precedence and our app used server GC with 25 min threads.
+      The app uses SkiaSharp for image processing which depends on system zlib.
+      Identify all breaking changes and their exact impact on this deployment.
+    environment:
+      files:
+        - src: ./fixtures/containerized-app-with-env-var-precedence-reversal-and-zlib-/WebApp.csproj
+          dest: WebApp.csproj
+        - src: ./fixtures/containerized-app-with-env-var-precedence-reversal-and-zlib-/Dockerfile
+          dest: Dockerfile
+        - src: ./fixtures/containerized-app-with-env-var-precedence-reversal-and-zlib-/runtimeconfig.template.json
+          dest: runtimeconfig.template.json
+        - src: ./fixtures/containerized-app-with-env-var-precedence-reversal-and-zlib-/ImageProcessor.cs
+          dest: ImageProcessor.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (environment variable|precedence|runtimeconfig|DOTNET_gcServer)
+      - type: output-matches
+        config:
+          pattern: (zlib|no longer install|apt-get|zlib1g|SkiaSharp)
+      - type: output-matches
+        config:
+          pattern: (workstation|server GC|GC.*mode|MinThreads.*4)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Correctly states environment variables now take precedence in .NET 9 — all three settings (GC Server,
+        Concurrent, ThreadPool) will use env var values instead of runtimeconfig
+      - "Explains the concrete impact: app switches from server GC to workstation GC, concurrent GC disabled, min
+        threads drop from 25 to 4"
+      - Identifies zlib no longer installed in .NET 9 container images; SkiaSharp/image processing will fail; recommends
+        adding apt-get install zlib1g
+      - Recommends either removing conflicting env vars or updating runtimeconfig to match desired values
+    constraints:
+      reject_skills:
+        - "*"

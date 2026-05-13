@@ -1,0 +1,25 @@
+name: build-perf-diagnostics
+description: Evaluates the dotnet-msbuild/build-perf-diagnostics skill
+type: capability
+config:
+  timeout: 6m
+stimuli:
+  - name: Diagnose slow build for a small project
+    prompt: This .NET project's build time is unacceptable for its size. Systematically diagnose where build time is being
+      spent and recommend targeted fixes.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: (RunAnalyzers|analyzer|Analyzer)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified that Roslyn analyzers are consuming a disproportionate share of build time
+      - Found analyzer packages in both Directory.Build.props (GlobalPackageReference) and the project file
+      - Recommended using RunAnalyzers property to conditionally disable analyzers in the dev inner loop
+      - Proposed making EnforceCodeStyleInBuild conditional on CI environment while preserving enforcement in CI
+        pipelines

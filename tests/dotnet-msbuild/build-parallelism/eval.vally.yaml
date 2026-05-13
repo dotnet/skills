@@ -1,0 +1,28 @@
+name: build-parallelism
+description: Evaluates the dotnet-msbuild/build-parallelism skill
+type: capability
+config:
+  timeout: 2m40s
+stimuli:
+  - name: Analyze build parallelism bottlenecks
+    prompt: Build this solution with parallel build enabled and analyze the build parallelism. Are there any bottlenecks in
+      the dependency graph?
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: (serial|sequential|chain)
+      - type: output-matches
+        config:
+          pattern: (Core|Api|Web|Tests)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - "Identified the serial dependency chain: Core → Api → Web → Tests"
+      - Explained that the serial chain prevents build parallelism even with /maxcpucount
+      - Identified unnecessary transitive dependencies in the project graph
+      - Suggested flattening the dependency graph to enable parallel builds
+      - Mentioned binlog node timeline analysis for evidence of sequential execution
