@@ -17,7 +17,7 @@ public sealed class PaymentProcessorTests
     }
 
     [TestMethod]
-    public void ProcessPayment_ZeroAmount_ThrowsArgumentException()
+    public void ProcessPayment_ZeroAmount_ThrowsArgumentOutOfRangeException()
     {
         var processor = new PaymentProcessor(new FakeGateway());
 
@@ -26,7 +26,7 @@ public sealed class PaymentProcessorTests
     }
 
     [TestMethod]
-    public void ProcessPayment_NegativeAmount_ThrowsArgumentException()
+    public void ProcessPayment_NegativeAmount_ThrowsArgumentOutOfRangeException()
     {
         var processor = new PaymentProcessor(new FakeGateway());
 
