@@ -5,7 +5,10 @@ description: >
   USE FOR: upgrading xunit to xunit.v3.
   DO NOT USE FOR: migrating between test frameworks (MSTest/NUnit to
   xUnit.net), migrating from VSTest to Microsoft.Testing.Platform
-  (use migrate-vstest-to-mtp).
+  (use migrate-vstest-to-mtp). Note: if migrating xUnit.net v2 to v3
+  AND switching to MTP (filter syntax changes), use migrate-vstest-to-mtp
+  alongside this skill for filter translation (--filter-class,
+  --filter-trait, --filter-query).
 license: MIT
 ---
 
@@ -190,6 +193,8 @@ Note that xunit 2 is always VSTest except if the user used YTest.MTP.XUnit2.
   - Add `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` to Directory.Build.props under an unconditional PropertyGroup.
 - If user didn't have a reference to YTest.MTP.XUnit2:
   - Add `<IsTestingPlatformApplication>false</IsTestingPlatformApplication>` to Directory.Build.props under an unconditional PropertyGroup.
+
+> **Important — filter syntax change**: When running xUnit.net v3 on Microsoft.Testing.Platform (MTP), the VSTest `--filter` syntax is NOT supported. CI scripts and test commands that use `--filter` must be updated to use xUnit.net v3's native filter options (`--filter-class`, `--filter-trait`, `--filter-method`, `--filter-namespace`, `--filter-query`). See the `migrate-vstest-to-mtp` skill for the full translation table.
 
 ### Step 13: Migrate `Xunit.SkippableFact`
 
