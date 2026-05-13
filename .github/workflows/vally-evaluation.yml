@@ -67,7 +67,7 @@ jobs:
     needs: [prepare]
     if: always() && !cancelled()
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     continue-on-error: true
     name: vally (${{ matrix.entry.name }})
     strategy:
