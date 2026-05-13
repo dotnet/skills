@@ -210,8 +210,8 @@ stimuli:
         - create
   - name: Use proper collection assertions
     prompt: >
-      I'm writing MSTest tests for a method that returns a list. What MSTest collection assertions like Assert.HasCount
-      should I use instead of Assert.IsTrue? Here's what I have:
+      I'm writing MSTest tests and I'm using Assert.IsTrue for all my collection checks. Are there more specific MSTest
+      assertions I should use instead, following MSTest best practices? Here's what I have:
 
 
       ```csharp
@@ -316,7 +316,7 @@ stimuli:
       - If TestContext property is used, does not add nullable annotation or = null! initializer
   - name: Use DynamicData with ValueTuples over object arrays
     prompt: |
-      I have this MSTest data-driven test using DynamicData with object arrays. I want to convert DynamicData to ValueTuples. Is there a more type-safe way?
+      I have this MSTest data-driven test using DynamicData with object arrays. Is there a more type-safe way to write this following modern MSTest best practices?
 
       ```csharp
       [TestMethod]
@@ -351,8 +351,8 @@ stimuli:
       - Notes this requires MSTest 3.7+
   - name: Use string assertions for format validation
     prompt: >
-      Help me write MSTest tests for this formatting utility. I want to use MSTest string assertions like
-      Assert.StartsWith and Assert.EndsWith to validate the output formats.
+      Help me write MSTest tests for this formatting utility. I want to use the right MSTest assertion methods to
+      validate string formats following MSTest best practices, rather than just checking exact equality.
 
 
       ```csharp

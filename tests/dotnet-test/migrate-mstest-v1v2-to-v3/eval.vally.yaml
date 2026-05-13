@@ -123,7 +123,8 @@ stimuli:
     rubric:
       - Explains that MSTest v3 requires DataRow values to match parameter types exactly
       - Identifies the 1L (long) vs int mismatch and recommends fixing to 1 (int)
-      - Explains the 16-parameter limit on DataRow constructors and suggests refactoring or wrapping in an array
+      - Explains the 16-parameter constructor limit and suggests refactoring; if the project is on a later 3.x release,
+        it may also note the limitation is resolved
       - Does not suggest downgrading as a fix
   - name: Migrate to MSTest.Sdk project style
     prompt: |

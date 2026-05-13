@@ -49,6 +49,12 @@ Help users write effective, modern unit tests with MSTest 3.x/4.x using current 
 | Existing test code | No | Current tests to fix, update, or modernize |
 | Test scenario description | No | What behavior the user wants to test |
 
+## Response Guidelines
+
+- **Specific API or pattern questions** (assertions, data-driven, lifecycle): Jump directly to the relevant workflow step. Do not follow the full workflow.
+- **Write new tests from scratch**: Follow the full workflow.
+- **Review and fix existing tests**: Fix only the issues present. Do not add unrelated improvements.
+
 ## Workflow
 
 ### Step 1: Determine project setup
@@ -358,29 +364,3 @@ public void LocalOnly_InteractiveTest() { }
 [DoNotParallelize]  // Opt out specific classes
 public sealed class DatabaseIntegrationTests { }
 ```
-
-## Validation
-
-- [ ] Test classes are `sealed`
-- [ ] Test methods follow `MethodName_Scenario_ExpectedBehavior` naming
-- [ ] `Assert.ThrowsExactly<T>` used instead of `[ExpectedException]`
-- [ ] Specialized assertions used instead of `Assert.IsTrue` (e.g., `Assert.IsNotNull`, `Assert.AreEqual`)
-- [ ] DynamicData uses ValueTuple return types instead of `IEnumerable<object[]>`
-- [ ] Sync initialization done in the constructor, not `[TestInitialize]`
-- [ ] `TestContext.CancellationToken` passed to async calls in tests with `[Timeout]`
-- [ ] Project builds with zero errors and all tests pass
-
-## Common Pitfalls
-
-| Pitfall | Solution |
-|---------|----------|
-| `Assert.AreEqual(actual, expected)` -- swapped arguments | Always put expected first: `Assert.AreEqual(expected, actual)`. Failure messages show "Expected: X, Actual: Y" so wrong order makes messages confusing |
-| `[ExpectedException]` -- obsolete, cannot assert message | Use `Assert.Throws<T>` or `Assert.ThrowsExactly<T>` |
-| `items.Single()` -- unclear exception on failure | Use `Assert.ContainsSingle(items)` for better failure messages |
-| Hard cast `(MyType)result` -- unclear exception | Use `Assert.IsInstanceOfType<MyType>(result)` |
-| `IEnumerable<object[]>` for DynamicData | Use `IEnumerable<(T1, T2, ...)>` ValueTuples for type safety |
-| Sync setup in `[TestInitialize]` | Initialize in the constructor instead -- enables `readonly` fields and satisfies nullability analyzers |
-| `CancellationToken.None` in async tests | Use `TestContext.CancellationToken` for cooperative timeout |
-| `public TestContext? TestContext { get; set; }` | Drop the `?` -- MSTest suppresses CS8618 for this property |
-| `TestContext TestContext { get; set; } = null!` | Remove `= null!` -- unnecessary, MSTest handles assignment |
-| Non-sealed test classes | Seal test classes by default for performance |
