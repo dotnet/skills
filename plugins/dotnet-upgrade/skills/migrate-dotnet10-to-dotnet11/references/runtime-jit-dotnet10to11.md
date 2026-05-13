@@ -49,3 +49,11 @@ For ReadyToRun-capable assemblies, there may be additional startup overhead on s
 **Fix:** Verify all deployment targets meet the new minimum requirements. For x86/x64, any CPU from ~2013 or later should be fine. For Windows Arm64, ensure `LSE` support (all Windows 11 compatible Arm64 devices).
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/jit/11/minimum-hardware-requirements
+
+### NativeAOT native-library outputs use `lib` prefix on Unix (Preview 3)
+
+**Impact: Low.** NativeAOT shared/native library outputs on Linux and macOS now follow Unix conventions and include the `lib` prefix (e.g., `libMyLib.so` instead of `MyLib.so`).
+
+**Fix:** Update build scripts, deployment pipelines, or P/Invoke declarations that reference output filenames by the old name without the `lib` prefix.
+
+Source: https://github.com/dotnet/runtime/pull/124611

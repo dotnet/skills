@@ -71,6 +71,18 @@ If a new test project was created, register it with the solution so `dotnet test
 4. Skip this if the project is already included in the solution or solution filter used for testing.
 5. Prefer the researched test command. If you need to run the solution directly, use `dotnet test --solution <solution>` only for repos on .NET SDK 10+ with MTP-style syntax; otherwise use the standard positional form `dotnet test <solution>`.
 
+## Test Framework Detection
+
+Detect the framework from the test project's `.csproj` package references and match its conventions:
+
+| Package Reference | Framework | Attributes | Assertion Style |
+|-------------------|-----------|------------|-----------------|
+| `MSTest.Sdk` or `MSTest.TestFramework` | MSTest | `[TestClass]`, `[TestMethod]`, `[DataRow]` | `Assert.AreEqual(expected, actual)` |
+| `xunit` | xUnit | `[Fact]`, `[Theory]`, `[InlineData]` | `Assert.Equal(expected, actual)` |
+| `NUnit` | NUnit | `[TestFixture]`, `[Test]`, `[TestCase]` | `Assert.That(actual, Is.EqualTo(expected))` |
+
+Use the repo's existing framework — do not introduce a different one.
+
 ## MSTest Template
 
 ```csharp
