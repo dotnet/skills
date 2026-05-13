@@ -129,11 +129,7 @@ scenarios:
     setup:
       files:
         - path: "UserRepo.Tests/UserRepo.Tests.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
-              <ItemGroup><PackageReference Include="MSTest" Version="3.*" /></ItemGroup>
-            </Project>
+          source: "fixtures/mixed-severity/UserRepo.Tests/UserRepo.Tests.csproj"
         - path: "UserRepo.Tests/UserRepositoryTests.cs"
           source: "fixtures/mixed-severity/UserRepo.Tests/UserRepositoryTests.cs"
         - path: "UserRepo/UserRepository.cs"
@@ -260,11 +256,7 @@ scenarios:
     setup:
       files:
         - path: "FlakyCoupled.Tests/FlakyCoupled.Tests.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
-              <ItemGroup><PackageReference Include="MSTest" Version="3.*" /></ItemGroup>
-            </Project>
+          source: "fixtures/flaky-coupled/FlakyCoupled.Tests.csproj"
         - path: "FlakyCoupled.Tests/OrderServiceTests.cs"
           source: "fixtures/flaky-coupled/OrderServiceTests.cs"
     assertions:
@@ -376,11 +368,7 @@ scenarios:
     setup:
       files:
         - path: "DuplicateMagic.Tests/DuplicateMagic.Tests.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
-              <ItemGroup><PackageReference Include="MSTest" Version="3.*" /></ItemGroup>
-            </Project>
+          source: "fixtures/duplicate-magic/DuplicateMagic.Tests.csproj"
         - path: "DuplicateMagic.Tests/DiscountServiceTests.cs"
           source: "fixtures/duplicate-magic/DiscountServiceTests.cs"
     assertions:
@@ -421,7 +409,7 @@ scenarios:
           }
 
           [TestMethod]
-          public void ProcessPayment_ZeroAmount_ThrowsArgumentException()
+          public void ProcessPayment_ZeroAmount_ThrowsArgumentOutOfRangeException()
           {
               var processor = new PaymentProcessor(new FakeGateway());
 
@@ -430,7 +418,7 @@ scenarios:
           }
 
           [TestMethod]
-          public void ProcessPayment_NegativeAmount_ThrowsArgumentException()
+          public void ProcessPayment_NegativeAmount_ThrowsArgumentOutOfRangeException()
           {
               var processor = new PaymentProcessor(new FakeGateway());
 
@@ -466,11 +454,7 @@ scenarios:
     setup:
       files:
         - path: "Payments.Tests/Payments.Tests.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
-              <ItemGroup><PackageReference Include="MSTest" Version="3.*" /></ItemGroup>
-            </Project>
+          source: "fixtures/well-written/Payments.Tests/Payments.Tests.csproj"
         - path: "Payments.Tests/PaymentProcessorTests.cs"
           source: "fixtures/well-written/Payments.Tests/PaymentProcessorTests.cs"
     assertions:
@@ -633,11 +617,7 @@ scenarios:
     setup:
       files:
         - path: "CatalogService.Tests/CatalogService.Tests.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
-              <ItemGroup><PackageReference Include="MSTest" Version="3.*" /></ItemGroup>
-            </Project>
+          source: "fixtures/coverage-touching/CatalogService.Tests/CatalogService.Tests.csproj"
         - path: "CatalogService.Tests/ProductCatalogTests.cs"
           source: "fixtures/coverage-touching/CatalogService.Tests/ProductCatalogTests.cs"
         - path: "CatalogService/ProductCatalog.cs"

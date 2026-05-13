@@ -98,15 +98,7 @@ scenarios:
     setup:
       files:
         - path: "ConfigService.Tests/ConfigService.Tests.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net10.0</TargetFramework>
-              </PropertyGroup>
-              <ItemGroup>
-                <PackageReference Include="MSTest" Version="3.*" />
-              </ItemGroup>
-            </Project>
+          source: "fixtures/self-referential/ConfigService.Tests/ConfigService.Tests.csproj"
         - path: "ConfigService.Tests/ConfigTests.cs"
           source: "fixtures/self-referential/ConfigService.Tests/ConfigTests.cs"
     assertions:
