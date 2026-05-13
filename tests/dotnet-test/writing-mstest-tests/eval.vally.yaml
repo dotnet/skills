@@ -35,7 +35,7 @@ stimuli:
       - Uses Assert.AreEqual with expected as first argument and actual as second
   - name: Write data-driven tests for a calculator
     prompt: I have a PriceCalculator class with CalculateTotal and ApplyDiscount methods. Help me write data-driven MSTest
-      tests using DataRow and DynamicData that cover multiple input combinations.
+      tests using DataRow and DynamicData that cover multiple input combinations following modern MSTest best practices.
     environment:
       files:
         - src: ./fixtures
@@ -104,7 +104,7 @@ stimuli:
       - Seals the test class
   - name: Fix swapped Assert.AreEqual arguments
     prompt: |
-      I have MSTest tests with swapped Assert.AreEqual arguments — I used the actual value as the first parameter instead of the expected value. Fix the MSTest assertion argument order in my test code:
+      Something seems off with my MSTest tests — can you review and fix the MSTest assertions following MSTest best practices?
 
       ```csharp
       [TestClass]
@@ -144,7 +144,7 @@ stimuli:
         - edit
         - create
   - name: Modernize legacy test patterns
-    prompt: Help me modernize these MSTest tests to use MSTest best practices — sealed test classes, Assert.ThrowsExactly instead of ExpectedException, and fix swapped Assert.AreEqual argument order.
+    prompt: Can you review these MSTest tests and modernize them to use current MSTest best practices like sealed classes and Assert.ThrowsExactly?
     environment:
       files:
         - src: fixtures/legacy-antipatterns/TestProject.csproj
@@ -177,7 +177,7 @@ stimuli:
       - Replaces manual foreach test data loop with [DataRow] or [DynamicData] attributes
   - name: Replace ExpectedException with Assert.Throws
     prompt: |
-      I have this MSTest test that uses [ExpectedException]. I want to replace ExpectedException with Assert.ThrowsExactly. How should I modernize it?
+      I have this MSTest test that uses [ExpectedException]. How should I modernize it to use Assert.ThrowsExactly instead, following MSTest best practices?
 
       ```csharp
       [TestMethod]
@@ -255,7 +255,7 @@ stimuli:
         - create
   - name: Use proper type assertions instead of casts
     prompt: |
-      I'm writing MSTest tests for a factory method. Should I use Assert.IsInstanceOfType instead of a hard cast to check the returned type?
+      I'm writing MSTest tests for a factory method. Is there a better MSTest assertion to check the returned type instead of hard casting, following MSTest best practices?
 
       ```csharp
       [TestMethod]
@@ -473,7 +473,7 @@ stimuli:
         - edit
         - create
   - name: Write tests with collection, null, and reference assertions
-    prompt: Help me write MSTest tests for my ServiceRegistry class using the correct MSTest assertion APIs — Assert.AreSame for reference identity, Assert.IsNull for null checks, and collection assertions for empty state. I need tests for registration, resolution, null handling, clearing, and removal.
+    prompt: Help me write MSTest tests for my ServiceRegistry class using the most appropriate MSTest assertion for each check following modern MSTest best practices. I need tests that verify registration, resolution returning the same instance, null for unregistered services, clearing all services, and removal.
     environment:
       files:
         - src: ./fixtures/service-registry/src/ServiceRegistry.cs
@@ -499,13 +499,13 @@ stimuli:
       - The written tests reference correct class and method names from the provided source code
   - name: Configure conditional execution, retry, and cleanup
     prompt: |
-      I have MSTest tests that need MSTest conditional execution:
-      1. Only work on Windows — I need an OSCondition attribute
-      2. Should be skipped in CI — I need a CICondition attribute
-      3. Sometimes fail due to a flaky weather API — I need Retry
-      4. Create temporary files that need cleanup even on failure
+      I have MSTest tests that:
+      1. Only work on Windows because they use the Windows registry
+      2. Should be skipped in CI because they require a local GPU
+      3. Sometimes fail due to a flaky external weather API
+      4. Create temporary files that need to be deleted even if the test fails
 
-      How should I handle all of these using MSTest attributes and patterns?
+      How should I handle all of these using MSTest attributes and patterns following MSTest best practices?
     graders:
       - type: output-matches
         config:
