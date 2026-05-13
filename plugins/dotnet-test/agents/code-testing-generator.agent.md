@@ -122,7 +122,7 @@ Before any other CTA dispatch, dispatch the researcher once to populate `.testag
 task({
   agent_type: "dotnet-test:code-testing-researcher",
   name: "researcher",
-  prompt: "Initial scoping research for test generation. Identify project structure, existing tests, source files to test, testing framework, build/test commands. Write findings to .testagent/research.md."
+  prompt: "Initial scoping research for test generation. Identify project structure, existing tests, source files to test, testing framework, build/test commands. Then explicitly answer two questions in `.testagent/research.md`: (1) Which unit (function/class/method) is under test, with a `file:line` citation. (2) Which behaviors need exercising — positive paths, negative/error paths, and edge cases relevant to the request. Write findings to .testagent/research.md."
 })
 ```
 
@@ -139,9 +139,9 @@ Based on the request scope, pick exactly one strategy and follow it:
 
 | Strategy | When to use | What to do |
 | ---------- | ------------- | ------------ |
-| **Direct** | A small, self-contained request (e.g., tests for a single function or class) that you can complete without the full pipeline | "Direct" means **one phase**, NOT "do it inline" — Rules 4, 5, and 6 still apply: NO `edit` for test files, NO `terminal` for build/test, NO skipping the planner. Dispatch the named CTA pipeline with **narrow scope**: (1) dispatch `code-testing-planner` once with `[scope=single-phase]` hint to produce a one-phase plan. (2) dispatch `code-testing-implementer` once, scoped to just the requested function/class. (3) dispatch `code-testing-builder` to compile. (4) dispatch `code-testing-tester` to run. (5) **MANDATORY**: if any failure surfaced, dispatch `code-testing-fixer`; then re-dispatch `code-testing-tester`. (6) **MANDATORY** at end: dispatch `code-testing-linter` to format and lint generated test files (if a lint command exists). Then proceed to Steps 6-9 for validation and reporting (which also dispatch builder/tester/fixer/validator). |
-| **Single pass** | A moderate scope (couple projects or modules) that a single Research → Plan → Implement cycle can cover | Execute Steps 3-8 once, then proceed to Step 9. |
-| **Iterative** | A large scope or ambitious coverage target that one pass cannot satisfy | Execute Steps 3-8, then re-evaluate coverage. If the target is not met, repeat Steps 3-8 with a narrowed focus on remaining gaps. Use unique names for each iteration's `.testagent/` documents (e.g., `research-2.md`, `plan-2.md`) so earlier results are not overwritten. Continue until the target is met or all reasonable targets are exhausted, then proceed to Step 9. |
+| **Direct** | A small, self-contained request (e.g., tests for a single function or class) that you can complete without the full pipeline | "Direct" means **one phase**, NOT "do it inline" — Rules 4, 5, and 6 still apply: NO `edit` for test files, NO `terminal` for build/test, NO skipping the planner. Dispatch the named CTA pipeline with **narrow scope**: (1) dispatch `code-testing-planner` once with `[scope=single-phase]` hint to produce a one-phase plan. (2) dispatch `code-testing-implementer` once, scoped to just the requested function/class. (3) dispatch `code-testing-builder` to compile. (4) dispatch `code-testing-tester` to run. (5) **MANDATORY**: if any failure surfaced, dispatch `code-testing-fixer`; then re-dispatch `code-testing-tester`. (6) **MANDATORY** at end: dispatch `code-testing-linter` to format and lint generated test files (if a lint command exists). Then proceed to Steps 6-10 for validation, cleanup, and reporting (which also dispatch builder/tester/fixer). Step 3 (deep Research Phase) is skipped for Direct — Step 1b already produced sufficient `.testagent/research.md`. |
+| **Single pass** | A moderate scope (couple projects or modules) that a single Research → Plan → Implement cycle can cover | Execute Steps 3-8 once, then proceed to Steps 9-10. |
+| **Iterative** | A large scope or ambitious coverage target that one pass cannot satisfy | Execute Steps 3-8, then re-evaluate coverage. If the target is not met, repeat Steps 3-8 with a narrowed focus on remaining gaps. Use unique names for each iteration's `.testagent/` documents (e.g., `research-2.md`, `plan-2.md`) so earlier results are not overwritten. Continue until the target is met or all reasonable targets are exhausted, then proceed to Steps 9-10. |
 
 **Default to Direct** unless the request explicitly mentions multiple files, modules, or an entire project. Most test generation requests — including "generate tests for function X", "add tests covering these scenarios", and "write unit tests for this class" — should use Direct strategy. The full Research → Plan → Implement pipeline is only needed when the scope spans multiple unrelated source files.
 
@@ -156,15 +156,17 @@ Based on the request scope, pick exactly one strategy and follow it:
 | "Generate comprehensive tests for my ASP.NET app" | Single pass | If the app has fewer than 10 controllers/services/files in scope, one R→P→I cycle should cover it |
 | "Generate comprehensive tests for my large ASP.NET app" | Iterative | If the app has 10 or more controllers/services/files in scope, use repeated passes to close remaining gaps |
 
-**All strategies MUST execute Steps 6-9** (final build validation, final test validation, coverage gap iteration, and reporting). These steps are never skipped.
+**All strategies MUST execute Steps 6-10** (final build validation, final test validation, coverage gap iteration, diff validation/cleanup, and reporting). These steps are never skipped.
 
-### Step 3: Research Phase
+### Step 3: Deep Research Phase (Single pass and Iterative only — skipped for Direct)
+
+Step 1b already produced `.testagent/research.md` with the unit-under-test contract and behaviors. For broader scopes, dispatch the researcher again to **extend** that file with cross-file analysis. Do not overwrite the Step 1b findings; append or update in place.
 
 ```text
 task({
   agent_type: "dotnet-test:code-testing-researcher",
-  name: "researcher",
-  prompt: "Research the codebase at [PATH] for test generation. Identify: project structure, existing tests, source files to test, testing framework, build/test commands. Build a dependency graph and estimate preexisting coverage. Write findings to .testagent/research.md."
+  name: "researcher-deep",
+  prompt: "Extend .testagent/research.md (already populated in Step 1b with unit-under-test contract and behaviors). Add: (1) dependency graph for in-scope files, (2) preexisting test coverage estimate, (3) any cross-project build/test details not already captured. Preserve the unit-under-test and behaviors sections from Step 1b — append to research.md rather than rewriting it."
 })
 ```
 
@@ -208,7 +210,7 @@ Always dispatch the builder (Rule 5 — never run the build inline via `terminal
 task({
   agent_type: "dotnet-test:code-testing-builder",
   name: "builder",
-  prompt: "Run a full, non-incremental workspace build. .NET: 'dotnet build *.sln --no-incremental' with NO --framework flag (must build all target frameworks). TypeScript: 'npx tsc --noEmit' from workspace root. Go: 'go build ./...' from module root. Rust: 'cargo build'. Report any errors."
+  prompt: "Run a full, non-incremental workspace build. .NET: 'dotnet build --no-incremental' from the repo root with NO --framework flag (must build all target frameworks). If the repo contains a .sln/.slnx, use 'dotnet build <solution>.sln --no-incremental'. TypeScript: 'npx tsc --noEmit' from workspace root. Go: 'go build ./...' from module root. Rust: 'cargo build'. Report any errors."
 })
 ```
 
@@ -266,15 +268,16 @@ Then re-run planner (writing `.testagent/plan-2.md`) and implementer for the gap
 
 ### Step 9: Validate Diff and Clean Up
 
-Before reporting success, verify the patch contains only legitimate test changes and remove pipeline scratch state. Always dispatch the builder as a validator (Rule 5 — never run cleanup commands inline via `terminal`). This applies to ALL strategies including Direct:
+Before reporting, verify the patch contains only legitimate test changes and remove pipeline scratch state. These are file/git operations that the orchestrator performs directly — do not dispatch a CTA agent for cleanup (the build/test agents have narrower missions and cleanup is not in their charter; Rule 5 forbids inline `terminal` for build/test only, not for git or filesystem hygiene).
 
-```text
-task({
-  agent_type: "dotnet-test:code-testing-builder",
-  name: "validator",
-  prompt: "Final validation and cleanup. Do these steps in order and report results: (1) remove .testagent/ directory if it exists; (2) run 'git status --porcelain' and 'git diff --name-only HEAD' to list every file the pipeline touched; (3) revert any modified file outside test directories that was not part of the original task. Do NOT commit; the harness captures the working tree."
-})
-```
+Perform these steps in order:
+
+1. Remove the `.testagent/` directory if it exists.
+2. Run `git status --porcelain` and `git diff --name-only HEAD` to list every file the pipeline touched.
+3. For any modified file outside test directories that was not part of the original task, revert it.
+4. Do NOT commit; the harness captures the working tree.
+
+If a modified non-test file was a deliberate part of the task (e.g., adding `[InternalsVisibleTo]` for test access), keep it and note it in the Step 10 report.
 
 ### Step 10: Report Results
 
