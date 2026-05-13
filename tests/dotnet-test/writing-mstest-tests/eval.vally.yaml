@@ -5,7 +5,7 @@ config:
   timeout: 5m
 stimuli:
   - name: Write unit tests for a service class
-    prompt: I need to write MSTest unit tests for my OrderService class following MSTest best practices. Help me write comprehensive tests with sealed test classes and Assert.ThrowsExactly.
+    prompt: I need to write MSTest unit tests for my OrderService class using MSTest best practices — sealed test classes, proper Assert.AreEqual argument order (expected first), and Assert.ThrowsExactly for exception testing.
     environment:
       files:
         - src: ./fixtures
@@ -104,7 +104,7 @@ stimuli:
       - Seals the test class
   - name: Fix swapped Assert.AreEqual arguments
     prompt: |
-      Something seems off with my tests — I think I need to fix swapped Assert.AreEqual arguments. Can you review and fix the MSTest assertions?
+      I have MSTest tests with swapped Assert.AreEqual arguments — I used the actual value as the first parameter instead of the expected value. Fix the MSTest assertion argument order in my test code:
 
       ```csharp
       [TestClass]
@@ -144,7 +144,7 @@ stimuli:
         - edit
         - create
   - name: Modernize legacy test patterns
-    prompt: Can you review tests and fix issues to modernize MSTest test patterns? I want sealed test classes, Assert.ThrowsExactly, and proper assertion order.
+    prompt: Help me modernize these MSTest tests to use MSTest best practices — sealed test classes, Assert.ThrowsExactly instead of ExpectedException, and fix swapped Assert.AreEqual argument order.
     environment:
       files:
         - src: fixtures/legacy-antipatterns/TestProject.csproj
@@ -473,9 +473,7 @@ stimuli:
         - edit
         - create
   - name: Write tests with collection, null, and reference assertions
-    prompt: Write MSTest tests for my ServiceRegistry class using the most appropriate MSTest assertion for each check. I
-      need tests that verify registration, resolution returning the same instance, null for unregistered services,
-      clearing all services, and removal.
+    prompt: Help me write MSTest tests for my ServiceRegistry class using the correct MSTest assertion APIs — Assert.AreSame for reference identity, Assert.IsNull for null checks, and collection assertions for empty state. I need tests for registration, resolution, null handling, clearing, and removal.
     environment:
       files:
         - src: ./fixtures/service-registry/src/ServiceRegistry.cs

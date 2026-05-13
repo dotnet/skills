@@ -9,7 +9,8 @@ description: >
   collection and null assertions), something seems off with my tests, review tests and fix issues,
   fix swapped Assert.AreEqual arguments, replace ExpectedException with Assert.Throws, modernize
   test patterns, convert DynamicData to ValueTuples, data-driven tests, test lifecycle setup,
-  sealed test classes, async test patterns, cancellation token testing.
+  sealed test classes, async test patterns, cancellation token testing,
+  test parallelization, Parallelize, DoNotParallelize, MSTest.Sdk project setup.
   DO NOT USE FOR: broad test quality audits or test smell detection (use test-anti-patterns),
   running tests (use run-tests), MSTest version migration (use migrate-mstest-v1v2-to-v3 or
   migrate-mstest-v3-to-v4).

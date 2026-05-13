@@ -9,7 +9,9 @@ description: >-
   tests that compile, pass, and follow project conventions.
   DO NOT USE FOR: running existing tests, executing dotnet test, applying
   test filters, detecting test platforms, or troubleshooting test execution
-  (use run-tests for all of these).
+  (use run-tests for all of these); MSTest-specific assertion guidance,
+  MSTest test pattern modernization, or fixing existing MSTest test code
+  (use writing-mstest-tests for those).
 license: MIT
 ---
 
