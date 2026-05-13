@@ -357,12 +357,11 @@ Replace the entire issue body with the following structure:
 > Deep investigations are dispatched for new critical/warning findings.
 > The [grooming workflow](../workflows/devops-health-groom.md) links results ~3 hours after this run.
 
-| Finding | Severity | Status | Result |
-|---------|----------|--------|--------|
-{For each finding dispatched in the current run:}
-| {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | [Workflow Run]({workflow_actions_url}) |
-{Preserve any rows from the previous issue body that already show ✅ Done or ✅ Resolved — do not remove them}
-{If no findings were dispatched AND no previous rows exist, render the table header with zero rows — the section MUST still appear in the output}
+| Finding | Severity | Investigation | First Seen | Result |
+|---------|----------|---------------|------------|--------|
+{Preserve rows from the previous issue body's Investigation Results table (look inside the `<!-- gh-aw-island-start:devops-health-groom -->` block if present). Copy all rows as-is for findings that are still active (appear in New Findings or Existing Findings). Drop rows whose finding is no longer active (resolved). If the previous table uses the old 4-column schema (`| Finding | Severity | Status | Result |`), migrate each row to the new 5-column schema: rename Status to Investigation, and populate First Seen from the finding's `<summary>` line (`first seen YYYY-MM-DD`) or use today's date as fallback. Then append new rows for findings dispatched in the current run:}
+| {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | {first_seen date} | [⏳ Investigation dispatched — results arriving shortly...]({link_to_dispatched_investigate_run_or_this_health_check_run}) |
+{If no dispatched findings AND no previous rows exist, render the table header with zero data rows.}
 
 ---
 
@@ -474,8 +473,7 @@ dispatch-workflow:
 Before finishing, verify:
 - [ ] At least one `dispatch-workflow` call was made (if any 🔴 critical or qualifying 🟡 warning findings exist)
 - [ ] All 🔴 critical NEW findings have been dispatched (up to budget cap)
-- [ ] The "🔍 Investigation Results" section in the issue body shows newly dispatched findings as "🔄 Dispatched"
-- [ ] Any existing "✅ Done" or "✅ Resolved" rows from the previous issue body are preserved
+- [ ] The "🔍 Investigation Results" section in the issue body includes newly dispatched findings as "🔄 Dispatched" and preserves existing rows from the previous body
 - [ ] The noop summary message mentions how many investigations were dispatched
 
 ---
@@ -485,7 +483,7 @@ Before finishing, verify:
 - **Time budget**: You have a 60-minute timeout. Prioritize reaching Steps 4 and 5 (issue update + dispatch). Do NOT write intermediate scripts or analysis files. Work through each check, collect findings in memory, and proceed directly to output. Aim to complete data collection (Step 1) within 30 minutes.
 - **Efficiency**: Process API responses in memory. Do NOT create Python/bash scripts to analyze data — parse JSON directly using `jq` or inline analysis. Do NOT write intermediate files unless explicitly required by the output format.
 - **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **complete, literal issue body text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. Pass the body directly as the string value.
-- **CRITICAL — Investigation Results section is MANDATORY**: The `## 🔍 Investigation Results` section MUST always appear in the issue body, even if no investigations were dispatched (in that case, render the section with the table header and zero data rows). The downstream grooming workflow depends on this section to link investigation results. Never omit it. Never inline investigation status elsewhere (e.g., inside the New Findings section). The section must appear **exactly** between the `## 🆕 New Findings` section and the `## ✅ Resolved` section.
+- **CRITICAL — Investigation Results section**: The `## 🔍 Investigation Results` section MUST always appear in the issue body template. The downstream [grooming workflow](../workflows/devops-health-groom.md) manages this section via a `replace-island` block — so the health-check must **preserve existing rows** from the previous issue body (look inside `<!-- gh-aw-island-start:devops-health-groom -->` markers if present, and copy those table rows into the new section). Do NOT wrap the section in island markers yourself — the groom adds those. Only append new "🔄 Dispatched" rows for findings dispatched in the current run.
 - **Be data-driven**: Include specific numbers, durations, percentages, and links.
 - **Be precise with fingerprints**: Use the exact fingerprint formulas from the knowledge file. Consistency is critical — the same finding MUST produce the same fingerprint across runs.
 - **First run handling**: If `cache-memory` has no previous state, note: "⚠️ This is the first health check run. All findings appear as new. Diff will resume from next run."

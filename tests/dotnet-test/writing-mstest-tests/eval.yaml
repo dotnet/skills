@@ -4,7 +4,7 @@ scenarios:
   # ============================================================================
 
   - name: "Write unit tests for a service class"
-    prompt: "I need to write MSTest unit tests for my OrderService class. Can you help me write comprehensive tests?"
+    prompt: "I need to write MSTest unit tests for my OrderService class following modern MSTest best practices. I want sealed classes, proper assertion APIs like Assert.ThrowsExactly, and the AAA pattern."
     setup:
       copy_test_files: true
     assertions:
@@ -90,7 +90,7 @@ scenarios:
 
   - name: "Fix swapped Assert.AreEqual arguments"
     prompt: |
-      Something seems off about my test assertions. Can you review these tests and fix any issues?
+      I think I have the Assert.AreEqual arguments in the wrong order in my MSTest tests. Can you fix them?
 
       ```csharp
       [TestClass]
@@ -205,12 +205,11 @@ scenarios:
       - type: output_matches
         pattern: "ContainsSingle|Assert\\.IsNotNull"
     rubric:
-      - "Replaces Assert.IsTrue(users.Count > 0) with Assert.IsNotEmpty(users) or similar"
-      - "Replaces Assert.IsTrue(users.Count() == 3) with Assert.HasCount(3, users)"
-      - "Replaces users.Single() with Assert.ContainsSingle for better failure messages"
-      - "Uses Assert.IsNotNull instead of Assert.IsTrue(x != null)"
-      - "Uses Assert.Contains for checking specific items in collections"
-      - "Explains that specialized assertions give better failure messages than generic Assert.IsTrue"
+      - "The non-empty validation no longer relies on a generic Assert.IsTrue boolean check — it uses a dedicated assertion that clearly reports 'collection was empty' on failure"
+      - "The exact-count validation uses a count-specific or equality assertion rather than wrapping the comparison in Assert.IsTrue"
+      - "The single-element lookup uses an assertion that produces a meaningful failure message when zero or multiple elements match, rather than throwing an unrelated exception"
+      - "The null check uses a null-specific assertion rather than Assert.IsTrue with a boolean null comparison"
+      - "Explains why specialized assertions produce better failure diagnostics than generic Assert.IsTrue"
     timeout: 120
 
   - name: "Use proper type assertions instead of casts"
@@ -234,10 +233,10 @@ scenarios:
       - type: output_matches
         pattern: "IsInstanceOfType"
     rubric:
-      - "Replaces hard cast (EmailHandler)result with Assert.IsInstanceOfType<EmailHandler>(result)"
-      - "Shows how to use the typed result from IsInstanceOfType for further assertions"
-      - "Explains that IsInstanceOfType provides a clear failure message showing actual vs expected type"
-      - "Distinguishes MSTest 3.x (out parameter) vs 4.x (direct return) syntax"
+      - "Replaces the hard cast with a type-checking assertion that produces a clear failure message showing the actual type when the type does not match"
+      - "Shows how to access the strongly-typed result after the type check so further property assertions can be made without a separate cast"
+      - "Explains the diagnostic benefit — a type assertion failure message shows expected vs actual type, while a hard cast just throws InvalidCastException"
+      - "Covers both MSTest 3.x and 4.x syntax variants for type assertions (out parameter vs direct return)"
     timeout: 120
 
   # ============================================================================
@@ -269,7 +268,7 @@ scenarios:
 
   - name: "Use DynamicData with ValueTuples over object arrays"
     prompt: |
-      I have this data-driven test using object arrays. Is there a better way?
+      I have this MSTest data-driven test using object arrays for DynamicData. Is there a more type-safe way to do this in modern MSTest?
 
       ```csharp
       [TestMethod]
@@ -297,5 +296,234 @@ scenarios:
       - "Explains that ValueTuples provide compile-time type safety"
       - "Shows the correct ValueTuple syntax with named elements"
       - "Mentions TestDataRow<T> as an option when custom DisplayName or metadata is needed"
-      - "Notes this requires MSTest 3.7+"
+
+  # ============================================================================
+  # Goal 5: String assertions
+  # ============================================================================
+
+  - name: "Use string assertions for format validation"
+    prompt: |
+      Help me write MSTest tests for this formatting utility. I want to use the right MSTest string assertion methods like StartsWith and EndsWith to validate the output formats.
+
+      ```csharp
+      namespace Contoso.Text;
+
+      public sealed class StringFormatter
+      {
+          public string FormatPhoneNumber(string digits)
+          {
+              ArgumentNullException.ThrowIfNull(digits);
+              if (digits.Length != 10)
+                  throw new ArgumentException("Must be exactly 10 digits.", nameof(digits));
+              return $"({digits[..3]}) {digits[3..6]}-{digits[6..]}";
+          }
+
+          public string BuildGreeting(string name, string title = "Mr.")
+          {
+              ArgumentException.ThrowIfNullOrWhiteSpace(name);
+              return $"Dear {title} {name},";
+          }
+
+          public string GenerateSlug(string title)
+          {
+              ArgumentException.ThrowIfNullOrWhiteSpace(title);
+              return Regex.Replace(title.Trim().ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
+          }
+
+          public string FormatCurrency(decimal amount, string symbol = "$")
+          {
+              return $"{symbol}{amount:F2}";
+          }
+      }
+      ```
+    reject_tools: ["bash", "edit", "create"]
+    assertions:
+      - type: output_matches
+        pattern: "Assert\\.(StartsWith|EndsWith|MatchesRegex)"
+      - type: output_matches
+        pattern: "\\bsealed\\b"
+    rubric:
+      - "Validates string format structure using targeted string assertions like StartsWith, EndsWith, or MatchesRegex rather than only exact equality checks"
+      - "Tests FormatPhoneNumber validates the parenthesized area code and hyphen structure"
+      - "Tests BuildGreeting validates the output starts with 'Dear' and ends with a comma"
+      - "Tests GenerateSlug validates the slug pattern contains only lowercase letters, digits, and hyphens"
+      - "Tests exception handling for null or invalid inputs"
+    timeout: 180
+
+  # ============================================================================
+  # Goal 6: Comparison assertions
+  # ============================================================================
+
+  - name: "Use comparison assertions for boundary testing"
+    prompt: |
+      I have a scoring system and need to write tests with proper boundary checking. What MSTest assertions should I use?
+
+      ```csharp
+      namespace Contoso.Scoring;
+
+      public sealed class ScoreCalculator
+      {
+          public double CalculatePercentage(int correct, int total)
+          {
+              ArgumentOutOfRangeException.ThrowIfNegativeOrZero(total);
+              ArgumentOutOfRangeException.ThrowIfNegative(correct);
+              ArgumentOutOfRangeException.ThrowIfGreaterThan(correct, total);
+              return (double)correct / total * 100.0;
+          }
+
+          public string GetGrade(double percentage) => percentage switch
+          {
+              >= 90 => "A",
+              >= 80 => "B",
+              >= 70 => "C",
+              >= 60 => "D",
+              _ => "F"
+          };
+
+          public double NormalizeScore(double rawScore, double maxRaw)
+          {
+              ArgumentOutOfRangeException.ThrowIfNegative(rawScore);
+              ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxRaw);
+              return Math.Min(rawScore / maxRaw * 100.0, 100.0);
+          }
+      }
+      ```
+    reject_tools: ["bash", "edit", "create"]
+    assertions:
+      - type: output_matches
+        pattern: "Assert\\.(IsGreaterThan|IsLessThan|IsInRange|IsGreaterThanOrEqualTo|IsLessThanOrEqualTo)"
+      - type: output_matches
+        pattern: "\\bsealed\\b"
+    rubric:
+      - "Uses comparison assertions like IsGreaterThan, IsLessThan, or IsInRange for validating numeric bounds instead of Assert.IsTrue with manual comparisons"
+      - "Tests that CalculatePercentage returns values in the 0-100 range for valid inputs"
+      - "Tests boundary conditions at grade thresholds (e.g., exactly 90 vs 89)"
+      - "Tests that NormalizeScore caps the result at 100 when rawScore exceeds maxRaw"
+      - "Seals the test class"
+    timeout: 120
+
+  # ============================================================================
+  # Goal 7: Collection, null, and reference assertions
+  # ============================================================================
+
+  - name: "Write tests with collection, null, and reference assertions"
+    prompt: "Write MSTest tests for my ServiceRegistry class using the most appropriate assertion for each check. I need tests that verify registration, resolution returning the same instance, null for unregistered services, clearing all services, and removal."
+    setup:
+      files:
+        - path: "src/ServiceRegistry.cs"
+          content: |
+            namespace Contoso.Services;
+
+            public sealed class ServiceRegistry
+            {
+                private readonly Dictionary<Type, object> _services = new();
+
+                public void Register<T>(T service) where T : class
+                {
+                    ArgumentNullException.ThrowIfNull(service);
+                    _services[typeof(T)] = service;
+                }
+
+                public T? Resolve<T>() where T : class =>
+                    _services.TryGetValue(typeof(T), out var svc) ? (T)svc : null;
+
+                public T ResolveRequired<T>() where T : class =>
+                    Resolve<T>() ?? throw new InvalidOperationException($"{typeof(T).Name} not registered.");
+
+                public IReadOnlyList<object> GetAll() => [.. _services.Values];
+
+                public void Remove<T>() where T : class => _services.Remove(typeof(T));
+
+                public void Clear() => _services.Clear();
+            }
+        - path: "src/Contoso.Services.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net9.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+        - path: "tests/Contoso.Services.Tests.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net9.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="MSTest" Version="3.8.2" />
+              </ItemGroup>
+              <ItemGroup>
+                <ProjectReference Include="../src/Contoso.Services.csproj" />
+              </ItemGroup>
+            </Project>
+    assertions:
+      - type: file_exists
+        path: "tests/*.cs"
+      - type: file_contains
+        path: "tests/*.cs"
+        value: "[TestClass]"
+    rubric:
+      - "Verifies reference identity (same object instance, not just value equality) when testing that resolving a registered service returns the exact object that was registered"
+      - "Checks that resolving an unregistered service type returns null, using a null-specific assertion rather than a boolean check"
+      - "Asserts the collection is empty after calling Clear, using a dedicated empty-collection assertion rather than checking count manually"
+      - "Verifies that a removed service is no longer resolvable after calling Remove (e.g., returns null or is absent from the collection)"
+      - "The written tests reference correct class and method names from the provided source code"
+    timeout: 180
+
+  # ============================================================================
+  # Goal 8: Advanced features — conditional execution, retry, and cleanup
+  # ============================================================================
+
+  - name: "Configure conditional execution, retry, and cleanup"
+    prompt: |
+      I have tests that:
+      1. Only work on Windows because they use the Windows registry
+      2. Should be skipped in CI because they require a local GPU
+      3. Sometimes fail due to a flaky external weather API
+      4. Create temporary files that need to be deleted even if the test fails
+
+      How should I handle all of these in MSTest?
+    reject_tools: ["bash", "edit", "create"]
+    assertions:
+      - type: output_matches
+        pattern: "OSCondition|OsCondition"
+      - type: output_matches
+        pattern: "CICondition|CiCondition"
+      - type: output_matches
+        pattern: "Retry"
+      - type: output_matches
+        pattern: "TestCleanup|IDisposable"
+    rubric:
+      - "Uses an OS condition attribute to restrict the registry test to Windows only"
+      - "Uses a CICondition attribute to exclude the GPU test from CI environments"
+      - "Uses a retry attribute for the flaky weather API test with a small retry count"
+      - "Uses [TestCleanup] or IDisposable/IAsyncDisposable for deleting temporary files to ensure cleanup runs even on test failure"
+      - "Advises that retry should only be used for genuinely flaky external dependencies, not to mask real bugs"
+    timeout: 120
+
+  # ============================================================================
+  # Goal 9: Test parallelization and MSTest.Sdk project setup
+  # ============================================================================
+
+  - name: "Configure test parallelization and MSTest.Sdk project"
+    prompt: |
+      I'm setting up a new MSTest project from scratch. I want:
+      1. The simplest possible project file
+      2. Tests to run in parallel by default
+      3. But my database integration tests must run sequentially
+
+      What's the recommended setup?
+    reject_tools: ["bash", "edit", "create"]
+    assertions:
+      - type: output_matches
+        pattern: "MSTest\\.Sdk|MSTest.Sdk"
+      - type: output_matches
+        pattern: "Parallelize"
+      - type: output_matches
+        pattern: "DoNotParallelize"
+    rubric:
+      - "Recommends MSTest.Sdk for the simplest possible project file"
+      - "Shows assembly-level Parallelize attribute configuration with Workers and Scope"
+      - "Uses [DoNotParallelize] on the database integration test class to opt it out of parallel execution"
+      - "Suggests putting the MSTest.Sdk version in global.json so all test projects stay in sync"
     timeout: 120
