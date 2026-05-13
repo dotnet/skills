@@ -19,8 +19,8 @@ stimuli:
           dest: WeakTests/ShoppingCartTests.cs
       skills:
         - ../../plugins/dotnet-test/skills/test-anti-patterns
-        - ../../plugins/dotnet-experimental/skills/exp-assertion-quality
-        - ../../plugins/dotnet-experimental/skills/exp-test-gap-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
     graders:
       - type: output-matches
         config:
@@ -86,7 +86,7 @@ stimuli:
         - src: fixtures/weak-tests/ShoppingCartTests.cs
           dest: WeakTests/ShoppingCartTests.cs
       skills:
-        - ../../plugins/dotnet-experimental/skills/exp-assertion-quality
+        - ../../plugins/dotnet-test/skills/assertion-quality
     graders:
       - type: output-matches
         config:

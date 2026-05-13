@@ -1,6 +1,18 @@
 ---
 name: writing-mstest-tests
-description: "Best practices for writing new MSTest 3.x/4.x unit tests and implementing concrete fixes in existing MSTest code. Use when the user asks to write, create, implement, repair, or modernize tests (including fix-it prompts such as 'something seems off, fix issues'). Primary fit for direct code changes like correcting swapped Assert.AreEqual argument order, replacing outdated assertion patterns, and converting DynamicData from IEnumerable<object[]> to ValueTuple-based data sets. Covers modern assertions, data-driven tests, test lifecycle, MSTest.Sdk, sealed classes, Assert.Throws, DynamicData with ValueTuples, TestContext, and conditional execution. Do NOT use for broad test quality audits, flaky-test investigations, or test smell detection reports — use test-anti-patterns instead."
+description: >
+  Write new MSTest unit tests and implement concrete fixes in existing MSTest code using
+  MSTest 3.x/4.x modern APIs and best practices.
+  USE FOR: write unit tests for a class, write MSTest tests, create test class, help me write
+  comprehensive tests, fix test assertions, choose the right MSTest assertion (string assertions
+  StartsWith/EndsWith/MatchesRegex, comparison assertions IsGreaterThan/IsLessThan/IsInRange,
+  collection and null assertions), something seems off with my tests, review tests and fix issues,
+  fix swapped Assert.AreEqual arguments, replace ExpectedException with Assert.Throws, modernize
+  test patterns, convert DynamicData to ValueTuples, data-driven tests, test lifecycle setup,
+  sealed test classes, async test patterns, cancellation token testing.
+  DO NOT USE FOR: broad test quality audits or test smell detection (use test-anti-patterns),
+  running tests (use run-tests), MSTest version migration (use migrate-mstest-v1v2-to-v3 or
+  migrate-mstest-v3-to-v4).
 license: MIT
 ---
 
@@ -13,6 +25,8 @@ Help users write effective, modern unit tests with MSTest 3.x/4.x using current 
 - User wants to write new MSTest unit tests
 - User wants to improve or modernize existing MSTest tests by implementing concrete fixes
 - User asks about MSTest assertion APIs, data-driven patterns, or test lifecycle
+- User asks to replace `Assert.IsTrue` with more specific assertions (collections, nulls, types, comparisons)
+- User asks to replace hard casts with type-checking assertions in tests
 - User needs help fixing a specific MSTest test bug or failing assertion
 - User asks to fix swapped `Assert.AreEqual` argument order (expected first, actual second)
 - User asks to convert `DynamicData` from `IEnumerable<object[]>` to ValueTuple-based data
@@ -109,13 +123,29 @@ public sealed class OrderServiceTests
 
 ### Step 3: Use modern assertion APIs
 
-Use the correct assertion for each scenario. Prefer `Assert` class methods over `StringAssert` or `CollectionAssert` where both exist.
+Pick the most specific assertion for each test scenario. More specific assertions produce better failure messages and make the test's intent clear:
 
-#### Equality and null checks
+| What you are testing | Assertion |
+|---|---|
+| Two values are equal | `Assert.AreEqual(expected, actual)` |
+| Same object instance (reference identity) | `Assert.AreSame(expected, actual)` |
+| Value is null | `Assert.IsNull(value)` |
+| Value is not null | `Assert.IsNotNull(value)` |
+| Collection is empty | `Assert.IsEmpty(collection)` |
+| Collection is not empty | `Assert.IsNotEmpty(collection)` |
+| Collection has exactly N items | `Assert.HasCount(N, collection)` |
+| Collection contains an item | `Assert.Contains(item, collection)` |
+| Collection does not contain an item | `Assert.DoesNotContain(item, collection)` |
+| Object is a specific type | `Assert.IsInstanceOfType<T>(value)` |
+| Code throws an exception | `Assert.ThrowsExactly<T>(() => ...)` |
+
+Prefer `Assert` class methods over `StringAssert` or `CollectionAssert` where both exist.
+
+#### Equality, null, and reference checks
 
 ```csharp
 Assert.AreEqual(expected, actual);      // Value equality
-Assert.AreSame(expected, actual);       // Reference equality
+Assert.AreSame(expected, actual);       // Reference equality -- same object instance
 Assert.IsNull(value);
 Assert.IsNotNull(value);
 ```
@@ -151,8 +181,12 @@ Replace generic `Assert.IsTrue` with specialized assertions -- they give better 
 | Instead of | Use |
 |---|---|
 | `Assert.IsTrue(list.Count > 0)` | `Assert.IsNotEmpty(list)` |
+| `Assert.IsTrue(list.Count == 0)` | `Assert.IsEmpty(list)` |
 | `Assert.IsTrue(list.Count() == 3)` | `Assert.HasCount(3, list)` |
 | `Assert.IsTrue(x != null)` | `Assert.IsNotNull(x)` |
+| `Assert.IsTrue(x == null)` | `Assert.IsNull(x)` |
+| `Assert.AreEqual(a, b)` for same instance | `Assert.AreSame(a, b)` -- reference identity |
+| `Assert.IsTrue(!list.Contains(item))` | `Assert.DoesNotContain(item, list)` |
 | `list.Single(predicate)` + `Assert.IsNotNull` | `Assert.ContainsSingle(list)` |
 | `Assert.IsTrue(list.Contains(item))` | `Assert.Contains(item, list)` |
 

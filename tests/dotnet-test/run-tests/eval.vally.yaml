@@ -232,6 +232,39 @@ stimuli:
     constraints:
       expect_tools:
         - bash
+  - name: Filter xUnit v3 tests by class pattern and trait using query filter language
+    prompt: >
+      I have an xUnit v3 project with several test classes. I need to run only
+      the Smoke tests from classes whose name contains 'Integration' — I want a
+      single combined filter expression for dotnet test rather than separate
+      flags.
+    environment:
+      files:
+        - src: fixtures/mtp-xunit-v3/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/mtp-xunit-v3-query/EcommerceTests.cs
+          dest: EcommerceTests.cs
+        - src: fixtures/mtp-xunit-v3/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: --\s+--filter-query
+      - type: output-matches
+        config:
+          pattern: '--filter-query\s+"(?=[^"]*Integration)(?=[^"]*\[Category=Smoke\])[^"]+"'
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recognized that xUnit v3 on MTP supports a query filter language for complex combined expressions
+      - Uses SDK 9 MTP argument passing with '-- --filter-query'
+      - Produced a filter-query expression that combines a class name pattern with a trait filter in square brackets
+      - The expression correctly targets only Smoke tests from integration test classes, not all Smoke tests or all integration tests
+      - Used the path-segment syntax with wildcard segments and a trait qualifier like [Category=Smoke]
+    constraints:
+      expect_tools:
+        - bash
   - name: Filter TUnit tests by class using treenode-filter
     prompt: >
       I want to run only the SmsNotificationTests from this TUnit project using

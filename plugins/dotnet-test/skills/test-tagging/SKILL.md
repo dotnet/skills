@@ -1,5 +1,5 @@
 ---
-name: exp-test-tagging
+name: test-tagging
 description: "Analyzes test suites and tags each test with a standardized set of traits (e.g., positive, negative, critical-path, boundary, smoke, regression). Use when the user wants to categorize, audit, or label tests with traits. Do not use for writing new tests, running tests, or migrating test frameworks."
 license: MIT
 ---
@@ -57,7 +57,7 @@ A single test may have **multiple traits** (e.g., both `negative` and `boundary`
 
 ### Step 1: Detect the test framework
 
-Examine project files and source code to determine the framework — see the `exp-dotnet-test-frameworks` skill for the complete detection table (package references, test markers, assertion APIs, and skip annotations).
+Examine project files and source code to determine the framework — see the `dotnet-test-frameworks` skill for the complete detection table (package references, test markers, assertion APIs, and skip annotations).
 
 ### Step 2: Scan existing traits
 

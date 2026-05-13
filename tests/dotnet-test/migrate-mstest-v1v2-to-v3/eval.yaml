@@ -62,9 +62,10 @@ scenarios:
 
   - name: "Fix Assert.AreEqual object overload errors after v3 upgrade"
     prompt: |
-      After upgrading my MSTest NuGet packages to the latest major version, several
-      of my tests no longer compile. I'm seeing errors on various Assert calls. Can
-      you review my test file and fix the compilation issues?
+      I just upgraded my MSTest packages from v2 to v3 and now several of my tests
+      no longer compile. I'm seeing errors like CS1501 on Assert.AreEqual,
+      Assert.AreNotEqual, and Assert.AreSame calls. Can you help me fix these
+      MSTest v3 compatibility issues?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -73,6 +74,7 @@ scenarios:
               <PropertyGroup>
                 <TargetFramework>net8.0</TargetFramework>
               </PropertyGroup>
+              <!-- Upgraded from MSTest.TestFramework 2.2.10 + MSTest.TestAdapter 2.2.10 -->
               <ItemGroup>
                 <PackageReference Include="MSTest" Version="3.8.0" />
               </ItemGroup>
@@ -200,9 +202,9 @@ scenarios:
 
   - name: "Fix DataRow type mismatch errors after v3 upgrade"
     prompt: |
-      After upgrading my MSTest packages to a newer major version, several
-      data-driven tests no longer compile. The errors are on the DataRow
-      attributes. Can you review my test file and fix the issues?
+      I upgraded my MSTest packages from v2 to v3 and now several data-driven
+      tests no longer compile. The errors are on the DataRow attributes due to
+      MSTest v3 strict type matching. Can you help me fix these issues?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -211,6 +213,7 @@ scenarios:
               <PropertyGroup>
                 <TargetFramework>net8.0</TargetFramework>
               </PropertyGroup>
+              <!-- Upgraded from MSTest.TestFramework 2.2.10 + MSTest.TestAdapter 2.2.10 -->
               <ItemGroup>
                 <PackageReference Include="MSTest" Version="3.8.0" />
               </ItemGroup>
@@ -265,9 +268,9 @@ scenarios:
 
   - name: "Migrate to MSTest.Sdk project style"
     prompt: |
-      I have a standard MSTest v2 project and I heard MSTest.Sdk simplifies things.
-      Can you help me convert my project to use MSTest.Sdk? Show me what the new
-      project file should look like.
+      I have a standard MSTest v2 project and I want to upgrade to MSTest v3 using
+      MSTest.Sdk. Can you help me migrate my project to use MSTest.Sdk? Show me
+      what the new project file should look like.
     setup:
       files:
         - path: "TestProject.csproj"
