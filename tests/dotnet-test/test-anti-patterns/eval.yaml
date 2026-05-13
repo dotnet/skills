@@ -126,6 +126,18 @@ scenarios:
           public int Count => _users.Count;
       }
       ```
+    setup:
+      files:
+        - path: "UserRepo.Tests/UserRepo.Tests.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+              <ItemGroup><PackageReference Include="MSTest" Version="3.*" /></ItemGroup>
+            </Project>
+        - path: "UserRepo.Tests/UserRepositoryTests.cs"
+          source: "fixtures/mixed-severity/UserRepo.Tests/UserRepositoryTests.cs"
+        - path: "UserRepo/UserRepository.cs"
+          source: "fixtures/mixed-severity/UserRepo/UserRepository.cs"
     assertions:
       - type: "output_matches"
         pattern: "(no assertion|missing assertion|never assert|does.?n.?t assert|no.*verif)"
@@ -245,6 +257,16 @@ scenarios:
           }
       }
       ```
+    setup:
+      files:
+        - path: "FlakyCoupled.Tests/FlakyCoupled.Tests.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+              <ItemGroup><PackageReference Include="MSTest" Version="3.*" /></ItemGroup>
+            </Project>
+        - path: "FlakyCoupled.Tests/OrderServiceTests.cs"
+          source: "fixtures/flaky-coupled/OrderServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(static.*shared|shared.*state|_processedOrders|ordering|order.depend)"
@@ -351,6 +373,16 @@ scenarios:
           }
       }
       ```
+    setup:
+      files:
+        - path: "DuplicateMagic.Tests/DuplicateMagic.Tests.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+              <ItemGroup><PackageReference Include="MSTest" Version="3.*" /></ItemGroup>
+            </Project>
+        - path: "DuplicateMagic.Tests/DiscountServiceTests.cs"
+          source: "fixtures/duplicate-magic/DiscountServiceTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(duplicat|repetit|data.?driven|DataRow|parameteriz)"
@@ -431,6 +463,16 @@ scenarios:
           }
       }
       ```
+    setup:
+      files:
+        - path: "Payments.Tests/Payments.Tests.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+              <ItemGroup><PackageReference Include="MSTest" Version="3.*" /></ItemGroup>
+            </Project>
+        - path: "Payments.Tests/PaymentProcessorTests.cs"
+          source: "fixtures/well-written/Payments.Tests/PaymentProcessorTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(no (major|significant|critical|serious)|well.?written|good (shape|quality|structure)|clean|looks good|solid|few issues|minor)"
@@ -588,6 +630,18 @@ scenarios:
           List<Product> GetAll();
       }
       ```
+    setup:
+      files:
+        - path: "CatalogService.Tests/CatalogService.Tests.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+              <ItemGroup><PackageReference Include="MSTest" Version="3.*" /></ItemGroup>
+            </Project>
+        - path: "CatalogService.Tests/ProductCatalogTests.cs"
+          source: "fixtures/coverage-touching/CatalogService.Tests/ProductCatalogTests.cs"
+        - path: "CatalogService/ProductCatalog.cs"
+          source: "fixtures/coverage-touching/CatalogService/ProductCatalog.cs"
     assertions:
       - type: "output_matches"
         pattern: "(no assert|missing assert|never verif|without.*assert|coverage.*touch|coverage.*inflat|surface.area|systematic.*call)"
@@ -688,6 +742,12 @@ scenarios:
           }
       }
       ```
+    setup:
+      files:
+        - path: "Serialization.Tests/Serialization.Tests.csproj"
+          source: "fixtures/self-referential/Serialization.Tests/Serialization.Tests.csproj"
+        - path: "Serialization.Tests/SerializerTests.cs"
+          source: "fixtures/self-referential/Serialization.Tests/SerializerTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(self.referent|tautolog|identity|round.?trip.*only|input.*equals.*output|circular|proves nothing|assert.*same)"

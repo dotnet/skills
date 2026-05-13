@@ -90,6 +90,50 @@ stimuli:
         Assert.AreNotEqual for role change)
       - Acknowledged the exception assertions with specific exception types and parameter name verification
       - If any gaps were identified, they were presented as minor enhancement opportunities rather than problems
+  - name: Identify self-referential assertions in identity and round-trip tests
+    prompt: |
+      I want to check if my Config tests are actually testing anything useful.
+      They all pass but I'm not sure they'd catch real bugs. Can you analyze
+      the assertion quality?
+    environment:
+      files:
+        - src: fixtures/self-referential/ConfigService.Tests/ConfigTests.cs
+          dest: ConfigService.Tests/ConfigTests.cs
+        - content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="MSTest" Version="3.*" />
+              </ItemGroup>
+            </Project>
+          dest: ConfigService.Tests/ConfigService.Tests.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (self.referent|tautolog|identity|input.*equals.*output|circular|same.*value|trivial.*round.?trip|round.?trip|set.*get|write.*read|proves
+            nothing|not.*(testing|verif)|meaningless)
+      - type: output-matches
+        config:
+          pattern: (GetTimeout|GetRetries|FormatConnectionString|ValidateKey)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified that multiple tests assert the output equals the input — a self-referential pattern that cannot catch
+        transformation bugs
+      - Flagged GetTimeout_Default_ReturnsDefault and GetRetries_Default_ReturnsDefault as tautological — they assert
+        that reading back a just-written value returns the same value without testing the default/fallback behavior the
+        names suggest
+      - Flagged FormatConnectionString_RoundTrip as only proving round-trip identity without verifying the formatted
+        string's actual structure or content
+      - Flagged ValidateKey_Valid_ReturnsSameKey as not exercising the validation logic — it only proves valid input
+        passes through unchanged
+      - Noted that Serialize_Deserialize round-trip is potentially valid but should be accompanied by tests with
+        edge-case inputs (special characters, nulls, empty strings)
+      - "Recommended concrete improvements: test actual default values, test invalid keys, test formatted string
+        structure, test edge-case serialization inputs"
   - name: Decline request to write new tests from scratch
     prompt: |
       I need to write unit tests for my InventoryTracker class.

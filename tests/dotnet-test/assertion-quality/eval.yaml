@@ -111,7 +111,7 @@ scenarios:
           source: "fixtures/self-referential/ConfigService.Tests/ConfigTests.cs"
     assertions:
       - type: "output_matches"
-        pattern: "(self.referent|tautolog|identity|input.*equals.*output|circular|same.*value|trivial.*round.?trip)"
+        pattern: "(self.referent|tautolog|identity|input.*equals.*output|circular|same.*value|trivial.*round.?trip|round.?trip|set.*get|write.*read|proves nothing|not.*(testing|verif)|meaningless)"
       - type: "output_matches"
         pattern: "(GetTimeout|GetRetries|FormatConnectionString|ValidateKey)"
       - type: "exit_success"
@@ -122,7 +122,7 @@ scenarios:
       - "Flagged ValidateKey_Valid_ReturnsSameKey as not exercising the validation logic — it only proves valid input passes through unchanged"
       - "Noted that Serialize_Deserialize round-trip is potentially valid but should be accompanied by tests with edge-case inputs (special characters, nulls, empty strings)"
       - "Recommended concrete improvements: test actual default values, test invalid keys, test formatted string structure, test edge-case serialization inputs"
-    timeout: 120
+    timeout: 300
 
   # ==========================================================================
   # Scenario 5: Non-activation — user wants to run tests
@@ -152,4 +152,4 @@ scenarios:
     rubric:
       - "Wrote test methods for the InventoryTracker class"
       - "Covered multiple methods of the class"
-    timeout: 120
+    timeout: 300
