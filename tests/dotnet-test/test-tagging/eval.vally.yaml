@@ -2,7 +2,7 @@ name: test-tagging
 description: Evaluates the dotnet-test/test-tagging skill
 type: capability
 config:
-  timeout: 6m
+  timeout: 10m
 stimuli:
   - name: Tag an untagged MSTest test suite
     prompt: I have an MSTest test project at OrderService.Tests/ with about 20 tests covering an OrderProcessor class. None

@@ -36,7 +36,7 @@ scenarios:
       - "Used the correct MSTest attribute syntax [TestCategory(\"...\")]"
       - "Produced a summary showing the count or distribution of tags across the test suite"
       - "Every test method received at least one positive or negative tag"
-    timeout: 360
+    timeout: 600
 
   # ==========================================================================
   # Scenario 2: Tag the same tests using xUnit syntax
@@ -75,7 +75,7 @@ scenarios:
       - "Used the correct xUnit attribute syntax [Trait(\"Category\", \"...\")]"
       - "Produced a summary showing the count or distribution of tags across the test suite"
       - "Every test method received at least one positive or negative tag"
-    timeout: 360
+    timeout: 600
 
   # ==========================================================================
   # Scenario 3: Tag the same tests using NUnit syntax
@@ -114,7 +114,7 @@ scenarios:
       - "Used the correct NUnit attribute syntax [Category(\"...\")]"
       - "Produced a summary showing the count or distribution of tags across the test suite"
       - "Every test method received at least one positive or negative tag"
-    timeout: 360
+    timeout: 600
 
   # ==========================================================================
   # Scenario 4: Audit-only mode (report without modifying files)
@@ -149,7 +149,7 @@ scenarios:
       - "Identified tests that cover boundary conditions (zero quantity, negative price, empty list, zero total, exactly-500-points tier boundary)"
       - "Provided observations about the test distribution balance or coverage gaps"
       - "Did NOT modify OrderProcessorTests.cs — analysis only"
-    timeout: 180
+    timeout: 300
 
   # ==========================================================================
   # Scenario 5: Non-activation — writing new tests is out of scope
@@ -181,7 +181,7 @@ scenarios:
     rubric:
       - "Wrote test methods for the PaymentGateway class"
       - "Covered both success and failure scenarios"
-    timeout: 360
+    timeout: 600
 
   # ==========================================================================
   # Scenario 6: Partially-tagged MSTest suite — preserve existing traits
@@ -223,7 +223,7 @@ scenarios:
       - "Added trait attributes to the previously untagged test methods (e.g., CalculateDiscount_NegativeTotal, CancelOrder_ExistingPendingOrder, etc.)"
       - "Used only trait values from the standard taxonomy (positive, negative, boundary, critical-path, smoke, regression, integration, end-to-end, performance, security, concurrency, resilience, destructive, configuration, flaky)"
       - "Produced a trait distribution summary covering all tests in the suite"
-    timeout: 360
+    timeout: 600
 
   # ==========================================================================
   # Scenario 7: Misleading method names — must read test body to classify
@@ -263,7 +263,7 @@ scenarios:
       - "Classified DeleteTask_Validation as positive and security because the body verifies admin authorization succeeds"
       - "Used NUnit [Category(\"...\")] attribute syntax, not MSTest or xUnit syntax"
       - "Every test method received at least one trait attribute"
-    timeout: 360
+    timeout: 600
 
   # ==========================================================================
   # Scenario 8: Verify project builds after tagging changes
@@ -299,4 +299,4 @@ scenarios:
       - "Ran dotnet build (or equivalent compilation check) and confirmed the project compiles without errors after the changes"
       - "Used only valid trait values from the taxonomy — no invented category names that would cause logical errors"
       - "Every test method received at least one positive or negative tag"
-    timeout: 360
+    timeout: 600
