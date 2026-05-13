@@ -4,7 +4,17 @@ scenarios:
       I have a .NET project at StaticHeavy/ that I suspect has a lot of hard-to-test
       static calls. Can you scan it and tell me what's making it hard to unit test?
     setup:
-      copy_test_files: true
+      files:
+        - path: "StaticHeavy/StaticHeavy.csproj"
+          source: "fixtures/static-heavy-project/StaticHeavy.csproj"
+        - path: "StaticHeavy/Program.cs"
+          source: "fixtures/static-heavy-project/Program.cs"
+        - path: "StaticHeavy/Services/OrderProcessor.cs"
+          source: "fixtures/static-heavy-project/Services/OrderProcessor.cs"
+        - path: "StaticHeavy/Services/NotificationService.cs"
+          source: "fixtures/static-heavy-project/Services/NotificationService.cs"
+        - path: "StaticHeavy/Services/ConfigLoader.cs"
+          source: "fixtures/static-heavy-project/Services/ConfigLoader.cs"
     assertions:
       - type: "output_matches"
         pattern: "(DateTime\\.UtcNow|DateTime\\.Now)"
@@ -34,12 +44,26 @@ scenarios:
       static dependencies, show me where each one is with file locations and counts,
       and recommend how to make them testable?
     setup:
-      copy_test_files: true
+      files:
+        - path: "StaticHeavy/StaticHeavy.csproj"
+          source: "fixtures/static-heavy-project/StaticHeavy.csproj"
+        - path: "StaticHeavy/Program.cs"
+          source: "fixtures/static-heavy-project/Program.cs"
+        - path: "StaticHeavy/Services/OrderProcessor.cs"
+          source: "fixtures/static-heavy-project/Services/OrderProcessor.cs"
+        - path: "StaticHeavy/Services/NotificationService.cs"
+          source: "fixtures/static-heavy-project/Services/NotificationService.cs"
+        - path: "StaticHeavy/Services/ConfigLoader.cs"
+          source: "fixtures/static-heavy-project/Services/ConfigLoader.cs"
     assertions:
       - type: "output_matches"
         pattern: "(DateTime\\.UtcNow|DateTime\\.Now)"
       - type: "output_matches"
         pattern: "(TimeProvider|time provider|ISystemClock|abstraction)"
+      - type: "output_matches"
+        pattern: "\\.cs"
+      - type: "output_matches"
+        pattern: "\\d+.*(call|site|occurrence|instance|usage|found|time)|([Cc]ount|[Tt]otal).*\\d+"
       - type: "exit_success"
     rubric:
       - "Found all DateTime.UtcNow and DateTime.Now call sites across the project"
@@ -78,14 +102,26 @@ scenarios:
       many files were scanned, which categories of statics exist with their totals,
       which patterns appear most often, and which files are the worst offenders.
     setup:
-      copy_test_files: true
+      files:
+        - path: "StaticHeavy/StaticHeavy.csproj"
+          source: "fixtures/static-heavy-project/StaticHeavy.csproj"
+        - path: "StaticHeavy/Program.cs"
+          source: "fixtures/static-heavy-project/Program.cs"
+        - path: "StaticHeavy/Services/OrderProcessor.cs"
+          source: "fixtures/static-heavy-project/Services/OrderProcessor.cs"
+        - path: "StaticHeavy/Services/NotificationService.cs"
+          source: "fixtures/static-heavy-project/Services/NotificationService.cs"
+        - path: "StaticHeavy/Services/ConfigLoader.cs"
+          source: "fixtures/static-heavy-project/Services/ConfigLoader.cs"
     assertions:
       - type: "output_matches"
         pattern: "\\d+.*([Ff]iles?|scanned)|([Ff]iles?|[Ss]canned).*\\d+"
       - type: "output_matches"
-        pattern: "([Cc]ategory|[Ss]ummary|[Tt]ime|[Ff]ile [Ss]ystem|[Ee]nvironment|[Nn]etwork|[Cc]onsole)"
+        pattern: "([Cc]ategor(y|ies)|[Bb]reakdown|[Pp]er.category).*\\d+|\\d+.*(categor|breakdown)"
       - type: "output_matches"
         pattern: "(DateTime\\.UtcNow|DateTime\\.Now)"
+      - type: "output_matches"
+        pattern: "\\.cs"
       - type: "exit_success"
     rubric:
       - "Report includes the number of .cs files that were scanned"
@@ -93,7 +129,7 @@ scenarios:
       - "Report ranks or lists the most frequently occurring static dependency patterns"
       - "Report identifies which source files have the most static dependencies"
       - "Report is organized with clear sections that would be presentable to a team"
-    timeout: 180
+    timeout: 300
 
   - name: "Exclude obj and bin directories from the scan"
     prompt: |
@@ -102,12 +138,24 @@ scenarios:
       files, skip obj/ and bin/ directories, and give me a report of all static
       dependencies that need to be wrapped for testability?
     setup:
-      copy_test_files: true
+      files:
+        - path: "ObjExclusion/ObjExclusion.csproj"
+          source: "fixtures/obj-exclusion-project/ObjExclusion.csproj"
+        - path: "ObjExclusion/Program.cs"
+          source: "fixtures/obj-exclusion-project/Program.cs"
+        - path: "ObjExclusion/Services/DataService.cs"
+          source: "fixtures/obj-exclusion-project/Services/DataService.cs"
+        - path: "ObjExclusion/obj/Debug/net10.0/Generated.cs"
+          source: "fixtures/obj-exclusion-project/obj/Debug/net10.0/Generated.cs"
+        - path: "ObjExclusion/bin/Release/net10.0/AssemblyMetadata.cs"
+          source: "fixtures/obj-exclusion-project/bin/Release/net10.0/AssemblyMetadata.cs"
     assertions:
       - type: "output_matches"
         pattern: "(DateTime|File\\.|Environment)"
       - type: "output_not_matches"
         pattern: "(GeneratedResourceAccessor|AssemblyMetadata|Process\\.(GetCurrentProcess|GetProcessesByName))"
+      - type: "output_matches"
+        pattern: "\\.cs"
       - type: "exit_success"
     rubric:
       - "Only reported static dependencies found in production source code files"
@@ -123,7 +171,13 @@ scenarios:
       I'm worried there might be hidden static dependencies that would make it
       impossible to unit test. Can you find all the statics in that project?
     setup:
-      copy_test_files: true
+      files:
+        - path: "LambdaStatics/LambdaStatics.csproj"
+          source: "fixtures/lambda-statics-project/LambdaStatics.csproj"
+        - path: "LambdaStatics/Program.cs"
+          source: "fixtures/lambda-statics-project/Program.cs"
+        - path: "LambdaStatics/Services/ReportGenerator.cs"
+          source: "fixtures/lambda-statics-project/Services/ReportGenerator.cs"
     assertions:
       - type: "output_matches"
         pattern: "(DateTime\\.UtcNow|DateTime\\.Now)"
@@ -131,6 +185,8 @@ scenarios:
         pattern: "(File\\.(Exists|ReadAllText|WriteAllText))"
       - type: "output_matches"
         pattern: "(Environment\\.|Directory\\.)"
+      - type: "output_matches"
+        pattern: "\\.cs"
       - type: "exit_success"
     rubric:
       - "Found all DateTime.UtcNow and DateTime.Now call sites including those embedded in expression chains"

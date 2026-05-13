@@ -2,7 +2,7 @@ name: detect-static-dependencies
 description: Evaluates the dotnet-test/detect-static-dependencies skill
 type: capability
 config:
-  timeout: 3m
+  timeout: 5m
 stimuli:
   - name: Identify static dependencies in a multi-class project
     prompt: >
@@ -58,6 +58,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: (TimeProvider|time provider|ISystemClock|abstraction)
+      - type: output-matches
+        config:
+          pattern: \.cs
+      - type: output-matches
+        config:
+          pattern: \d+.*(call|site|occurrence|instance|usage|found|time)|([Cc]ount|[Tt]otal).*\d+
       - type: exit-success
       - type: prompt
       - type: pairwise
@@ -104,10 +110,13 @@ stimuli:
           pattern: \d+.*([Ff]iles?|scanned)|([Ff]iles?|[Ss]canned).*\d+
       - type: output-matches
         config:
-          pattern: ([Cc]ategory|[Ss]ummary|[Tt]ime|[Ff]ile [Ss]ystem|[Ee]nvironment|[Nn]etwork|[Cc]onsole)
+          pattern: ([Cc]ategor(y|ies)|[Bb]reakdown|[Pp]er.category).*\d+|\d+.*(categor|breakdown)
       - type: output-matches
         config:
           pattern: (DateTime\.UtcNow|DateTime\.Now)
+      - type: output-matches
+        config:
+          pattern: \.cs
       - type: exit-success
       - type: prompt
       - type: pairwise
@@ -135,6 +144,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (GeneratedResourceAccessor|AssemblyMetadata|Process\.(GetCurrentProcess|GetProcessesByName))
+      - type: output-matches
+        config:
+          pattern: \.cs
       - type: exit-success
       - type: prompt
       - type: pairwise
@@ -165,6 +177,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (Environment\.|Directory\.)
+      - type: output-matches
+        config:
+          pattern: \.cs
       - type: exit-success
       - type: prompt
       - type: pairwise
