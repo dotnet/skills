@@ -3,10 +3,10 @@ name: writing-mstest-tests
 description: >
   Write new MSTest unit tests and implement concrete fixes in existing MSTest code using
   MSTest 3.x/4.x modern APIs and best practices.
-  USE FOR: write unit tests for a class, write MSTest tests, create test class, help me write
-  comprehensive tests, fix test assertions, choose the right MSTest assertion (string assertions
-  StartsWith/EndsWith/MatchesRegex, comparison assertions IsGreaterThan/IsLessThan/IsInRange,
-  collection and null assertions), something seems off with my tests, review tests and fix issues,
+  USE FOR: write unit tests for a class, write MSTest tests, create test class,
+  fix test assertions, MSTest assertion APIs (StartsWith, EndsWith, MatchesRegex,
+  IsGreaterThan, IsInRange, HasCount, IsNull), something seems off with my tests,
+  review tests and fix issues,
   fix swapped Assert.AreEqual arguments, replace ExpectedException with Assert.Throws, modernize
   test patterns, convert DynamicData to ValueTuples, data-driven tests, test lifecycle setup,
   sealed test classes, async test patterns, cancellation token testing,
