@@ -28,6 +28,11 @@ stimuli:
           expected_exit_code: 0
           stdout_contains: Passed!
           timeout: 5m
+      - type: run-command
+        config:
+          command: python -c "import pathlib,sys; sys.exit(0 if any(pathlib.Path('TestResults').rglob('coverage.cobertura.xml')) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
       - type: pairwise
     rubric:

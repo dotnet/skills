@@ -8,8 +8,8 @@
 #   .\Compute-CrapScores.ps1 -CoberturaPath <path1>,<path2>,... [-CrapThreshold <int>] [-TopN <int>]
 #
 # Outputs:
-#   - OVERALL_LINE_COVERAGE:<n.n>   (max line-rate across input files, as percent)
-#   - OVERALL_BRANCH_COVERAGE:<n.n> (max branch-rate across input files, as percent)
+#   - OVERALL_LINE_COVERAGE:<n.n>   (aggregate line coverage across input files, as percent)
+#   - OVERALL_BRANCH_COVERAGE:<n.n> (aggregate branch coverage across input files, as percent)
 #   - TOTAL_METHODS:<n>
 #   - FLAGGED_METHODS:<n>
 #   - HOTSPOTS:<json> (top N by CRAP score)
@@ -21,10 +21,16 @@ param(
 )
 
 # Merge methods across all Cobertura files using a stable key (Class|Method|Signature|File).
-# Line hits are accumulated so a line is counted as covered if any test project covered it.
+# Line hits are accumulated so a line is counted as covered if any input coverage file covered it.
 $methodMap = @{}
-$overallLineRate = 0.0
-$overallBranchRate = 0.0
+$overallLineRate = $null
+$overallBranchRate = $null
+$totalLinesCovered = 0.0
+$totalLinesValid = 0.0
+$totalBranchesCovered = 0.0
+$totalBranchesValid = 0.0
+$fallbackLineRates = [System.Collections.Generic.List[double]]::new()
+$fallbackBranchRates = [System.Collections.Generic.List[double]]::new()
 
 foreach ($filePath in $CoberturaPath) {
     if (-not (Test-Path $filePath)) {
@@ -39,14 +45,19 @@ foreach ($filePath in $CoberturaPath) {
         exit 2
     }
 
-    # Capture Cobertura root coverage rates (max across input files — typical when one Cobertura
-    # per test project is passed and the rates are project-wide aggregates).
-    $rootLineRate = 0.0
-    $rootBranchRate = 0.0
-    if ($cobertura.coverage.'line-rate') { $rootLineRate = [double]$cobertura.coverage.'line-rate' }
-    if ($cobertura.coverage.'branch-rate') { $rootBranchRate = [double]$cobertura.coverage.'branch-rate' }
-    if ($rootLineRate -gt $overallLineRate) { $overallLineRate = $rootLineRate }
-    if ($rootBranchRate -gt $overallBranchRate) { $overallBranchRate = $rootBranchRate }
+    # Prefer aggregate numerator/denominator attributes when present.
+    if ($null -ne $cobertura.coverage.'lines-covered' -and $null -ne $cobertura.coverage.'lines-valid') {
+        $totalLinesCovered += [double]$cobertura.coverage.'lines-covered'
+        $totalLinesValid += [double]$cobertura.coverage.'lines-valid'
+    } elseif ($cobertura.coverage.'line-rate') {
+        $fallbackLineRates.Add([double]$cobertura.coverage.'line-rate')
+    }
+    if ($null -ne $cobertura.coverage.'branches-covered' -and $null -ne $cobertura.coverage.'branches-valid') {
+        $totalBranchesCovered += [double]$cobertura.coverage.'branches-covered'
+        $totalBranchesValid += [double]$cobertura.coverage.'branches-valid'
+    } elseif ($cobertura.coverage.'branch-rate') {
+        $fallbackBranchRates.Add([double]$cobertura.coverage.'branch-rate')
+    }
 
     foreach ($package in $cobertura.coverage.packages.package) {
         foreach ($class in $package.classes.class) {
@@ -117,6 +128,28 @@ foreach ($entry in $methodMap.Values) {
 
 $hotspots = $results | Sort-Object CrapScore -Descending | Select-Object -First $TopN
 $flagged  = $results | Where-Object { $_.CrapScore -gt $CrapThreshold }
+
+if ($totalLinesValid -gt 0) {
+    $overallLineRate = $totalLinesCovered / $totalLinesValid
+} else {
+    $mergedTotalLines = ($results | Measure-Object -Property TotalLines -Sum).Sum
+    $mergedCoveredLines = ($results | Measure-Object -Property CoveredLines -Sum).Sum
+    if ($mergedTotalLines -gt 0) {
+        $overallLineRate = [double]$mergedCoveredLines / [double]$mergedTotalLines
+    } elseif ($fallbackLineRates.Count -gt 0) {
+        $overallLineRate = ($fallbackLineRates | Measure-Object -Average).Average
+    } else {
+        $overallLineRate = 0.0
+    }
+}
+
+if ($totalBranchesValid -gt 0) {
+    $overallBranchRate = $totalBranchesCovered / $totalBranchesValid
+} elseif ($fallbackBranchRates.Count -gt 0) {
+    $overallBranchRate = ($fallbackBranchRates | Measure-Object -Average).Average
+} else {
+    $overallBranchRate = 0.0
+}
 
 Write-Host "OVERALL_LINE_COVERAGE:$([Math]::Round($overallLineRate * 100, 1))"
 Write-Host "OVERALL_BRANCH_COVERAGE:$([Math]::Round($overallBranchRate * 100, 1))"

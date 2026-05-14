@@ -77,11 +77,11 @@ Files below the line or branch coverage threshold, ordered by uncovered lines de
 | Report | Path |
 |--------|------|
 | Markdown summary (this file) | `<coverageDir>/coverage-analysis.md` |
-| Raw Cobertura XML | `<coverageDir>/raw/` |
+| Raw Cobertura XML | `<coberturaXmlPathsUsedForAnalysis>` |
 | HTML (browsable) | `<coverageDir>/reports/index.html` *or* `Not generated (optional — request HTML reports to enable)` |
 | Text summary | `<coverageDir>/reports/Summary.txt` *or* `Not generated` |
 | GitHub markdown | `<coverageDir>/reports/SummaryGithub.md` *or* `Not generated` |
 | CSV data | `<coverageDir>/reports/Summary.csv` *or* `Not generated` |
 ```
 
-If ReportGenerator (Phase 5) has not run, mark the HTML/Text/GitHub-markdown/CSV rows as `Not generated (optional — request HTML reports to enable)`. Do not invent paths for files that have not been produced. The Markdown summary and Raw Cobertura XML rows are always populated.
+If ReportGenerator (Phase 5) has not run, mark the HTML/Text/GitHub-markdown/CSV rows as `Not generated (optional — request HTML reports to enable)`. Do not invent paths for files that have not been produced. For **Raw Cobertura XML**, list the actual XML file path(s) used in analysis (for from-scratch runs this is typically under `<coverageDir>/raw/`; for existing-data runs this may be under `TestResults/` or another user-supplied location).

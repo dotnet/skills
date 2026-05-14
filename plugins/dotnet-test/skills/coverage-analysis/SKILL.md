@@ -133,7 +133,13 @@ Write-Host "TEST_PROJECTS:$($testProjects.Count)"
 $testProjects | ForEach-Object { Write-Host "TEST_PROJECT:$($_.FullName)" }
 
 # Resolve the test output root (where coverage-analysis artifacts will be written)
-if ($testProjects.Count -eq 1) {
+if ($testProjects.Count -eq 0) {
+    if ($gitRoot) {
+        $testOutputRoot = $gitRoot
+    } else {
+        $testOutputRoot = $root
+    }
+} elseif ($testProjects.Count -eq 1) {
     $testOutputRoot = $testProjects[0].DirectoryName
 } else {
     # Multiple test projects — find their deepest common parent directory
@@ -167,7 +173,8 @@ Write-Host "TEST_OUTPUT_ROOT:$testOutputRoot"
 
 - If `ENTRY_TYPE:NotFound` and test projects were found → use the test projects directly as entry points (run `dotnet test` on each test `.csproj`).
 - If `ENTRY_TYPE:NotFound` and no test projects found → stop: `No .sln or test projects found under <path>. Provide the path to your .NET solution or project.`
-- If `TEST_PROJECTS:0` → stop: `No test projects found (expected projects with 'Test' or 'Spec' in the name). Ensure your solution has unit test projects before running coverage analysis.`
+- If `TEST_PROJECTS:0` and `EXISTING_COBERTURA_COUNT` > 0 (Step 2b) → continue with existing Cobertura XML analysis (no `dotnet test` run).
+- If `TEST_PROJECTS:0` and `EXISTING_COBERTURA_COUNT` == 0 → stop: `No test projects found (expected projects with 'Test' or 'Spec' in the name), and no existing Cobertura XML was provided. Add a test project or provide a Cobertura file path.`
 
 #### Step 2: Create the output directory
 
@@ -180,7 +187,7 @@ Write-Host "COVERAGE_DIR:$coverageDir"
 
 This step only manages the `TestResults/coverage-analysis/` subdirectory (skill-owned outputs). It must never delete user-supplied Cobertura files — those live one level up at `TestResults/coverage.cobertura.xml` (or wherever the user pointed). If the user provided a path that *is* `TestResults/coverage-analysis/...`, copy the file aside before this step recreates the directory.
 
-#### Step 2c: Discover or accept existing Cobertura XML (required for the existing-data path)
+#### Step 2b: Discover or accept existing Cobertura XML (required for the existing-data path)
 
 If the user supplied a Cobertura XML path explicitly, use it. Otherwise probe well-known locations and any path the user mentioned:
 
@@ -211,7 +218,7 @@ $coberturaFiles | ForEach-Object { Write-Host "EXISTING_COBERTURA:$($_.FullName)
 - If `EXISTING_COBERTURA_COUNT` > 0 → **skip Phase 2 entirely** and pass these paths to the Phase 3 scripts.
 - If `EXISTING_COBERTURA_COUNT` == 0 → run Phase 2 to generate fresh coverage; the file paths to feed Phase 3 will be discovered from `<COVERAGE_DIR>/raw/` after `dotnet test`.
 
-#### Step 2b: Recommend ignoring `TestResults/`
+#### Step 2c: Recommend ignoring `TestResults/`
 
 ```powershell
 $pattern = "**/TestResults/"
@@ -413,7 +420,7 @@ To locate the script: find the directory containing this skill's `SKILL.md` file
     -TopN <top_n>
 ```
 
-Script outputs: `OVERALL_LINE_COVERAGE:<n>`, `OVERALL_BRANCH_COVERAGE:<n>` (project-wide rates from the Cobertura root attributes), `TOTAL_METHODS:<n>`, `FLAGGED_METHODS:<n>`, `HOTSPOTS:<json>` (top-N sorted by CrapScore descending). The OVERALL_* values are exactly what the Phase 4 summary needs for the "Line Coverage" / "Branch Coverage" rows — no separate XML parsing tool call is required.
+Script outputs: `OVERALL_LINE_COVERAGE:<n>`, `OVERALL_BRANCH_COVERAGE:<n>` (aggregated project-wide rates across all provided Cobertura files), `TOTAL_METHODS:<n>`, `FLAGGED_METHODS:<n>`, `HOTSPOTS:<json>` (top-N sorted by CrapScore descending). The OVERALL_* values are exactly what the Phase 4 summary needs for the "Line Coverage" / "Branch Coverage" rows — no separate XML parsing tool call is required.
 
 #### Step 5: Extract per-method coverage gaps
 
@@ -444,7 +451,7 @@ Use `references/output-format.md` verbatim for fixed headings, table structures,
 
 If Phase 5 has not yet run when you compose this summary, mark the `## 📁 Reports` section's HTML/Text/CSV/GitHub-markdown rows as `Not generated (optional — request HTML reports to enable)`. Only the `coverage-analysis.md` and raw Cobertura paths are guaranteed to exist.
 
-After delivering the response, also save the same content to `TestResults/coverage-analysis/coverage-analysis.md` (use the editor's create/edit tool — do not shell out). Saving the file is secondary and must not delay the assistant response. In editor-hosted environments, open the file after writing it; in CLI, print the absolute path. Do not ask for confirmation.
+Before delivering the response, save the same content to `TestResults/coverage-analysis/coverage-analysis.md` (use the editor's create/edit tool — do not shell out), then immediately send the user-facing summary. If the file write fails, still deliver the summary and note the file-write failure explicitly.
 
 ### Phase 5 — Optional: ReportGenerator HTML/CSV reports (post-summary)
 
