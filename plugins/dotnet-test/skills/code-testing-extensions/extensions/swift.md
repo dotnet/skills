@@ -186,7 +186,7 @@ final class CalculatorTests: XCTestCase {
 | `module 'MyLibrary' was not compiled for testing` | Build the production target with `-enable-testing`; SPM test targets do this automatically — Xcode Debug configs need "Enable Testability" = YES |
 | `failed to launch test runner` (Xcode) | Simulator destination may be invalid; list with `xcrun simctl list devices` and pick an existing one |
 | `No such module 'XCTest'` outside a test target | XCTest is only available in test targets — do not import it from production code |
-| `Static method 'expect(_:_:sourceLocation:)' is unavailable` | Swift Testing requires Xcode 16 / Swift 5.10+; either upgrade or use XCTest |
+| `Static method 'expect(_:_:sourceLocation:)' is unavailable` / `No such module 'Testing'` | Swift Testing requires Swift 6 / Xcode 16+. On older toolchains, fall back to XCTest |
 | `Symbol not found: _OBJC_CLASS_$_...` | Linker missing a framework; add it to the test target's "Link Binary With Libraries" |
 | `signal SIGABRT` in tests | Often a force-unwrap on `nil`; replace `!` with `XCTUnwrap` to localize the failure |
 | `MainActor-isolated property cannot be referenced from a non-isolated context` | Mark the test method `@MainActor` or move setup into a `MainActor` task |

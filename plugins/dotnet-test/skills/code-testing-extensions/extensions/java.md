@@ -80,9 +80,9 @@ src/
 | Multi-module Maven | Tests live in the same module as the code under test |
 
 - Test classes must mirror the production class's **package** to access package-private members
-- Use **wildcard imports** only if the repo already does — most style guides discourage them
-- For JUnit 5: `import org.junit.jupiter.api.*;` and `import static org.junit.jupiter.api.Assertions.*;`
-- For JUnit 4: `import org.junit.*;` and `import static org.junit.Assert.*;`
+- Avoid wildcard imports unless the repo already uses them — match the explicit imports shown in the templates below
+- For JUnit 5: import `org.junit.jupiter.api.Test` (and other annotations as needed) and `org.junit.jupiter.api.Assertions.assertEquals` etc. as static imports
+- For JUnit 4: import `org.junit.Test`, `org.junit.Before`, etc., and `org.junit.Assert.assertEquals` etc. as static imports
 
 ## Test Framework Detection
 
@@ -141,13 +141,13 @@ class CalculatorTest {
 |-------|-----|
 | `package X does not exist` | Add the dependency to `pom.xml` / `build.gradle`; run `./mvnw dependency:resolve` or `./gradlew --refresh-dependencies` |
 | `cannot find symbol` | Verify class name and import path; check that the test source set sees the production source set |
-| `No tests found for given includes` (Gradle) | `--tests` pattern doesn't match; class must be public, methods annotated with `@Test`, and class name matches the test task's `include` pattern (default `**/*Test*.class`) |
+| `No tests found for given includes` (Gradle) | `--tests` pattern doesn't match; verify the class/method names, that test methods are annotated with `@Test`, and that the class name matches the test task's `include` pattern (default `**/*Test*.class`). For JUnit 4 only, the class must also be `public` with a public no-arg constructor — JUnit 5 allows package-private classes and methods |
 | `Test class should have exactly one public zero-argument constructor` (JUnit 4) | Remove constructors with parameters; use `@Before` for setup |
 | `org.junit.runners.model.InvalidTestClassError` (JUnit 4) | Class is missing `public`, has wrong constructor, or method signature is wrong |
 | Mixing `org.junit.Test` (4) and `org.junit.jupiter.api.Test` (5) | Pick one framework per test class — imports must match the framework annotation |
 | `java.lang.NoClassDefFoundError` at runtime | Test runtime classpath is missing a transitive dep; add it to `testRuntimeOnly` (Gradle) or `<scope>test</scope>` (Maven) |
 | `UnsupportedClassVersionError` | JDK used to run tests is older than the JDK used to compile; align toolchains |
-| `Mockito cannot mock final class` | Add `mockito-inline` dep (or `mockito-subclass` in Mockito 5+), or refactor the class to be non-final |
+| `Mockito cannot mock final class` | Use Mockito's inline mock maker — Mockito 5+ uses it by default; for Mockito 3.x/4.x add the `mockito-inline` artifact (replaces `mockito-core`). Or switch to MockK for Kotlin. `mockito-subclass` does **not** mock final classes |
 | `WrongTypeOfReturnValue` (Mockito) | The stubbed method returns a different type than the mock was set up for — check return type signatures |
 
 ## Mocking Rules

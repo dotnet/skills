@@ -130,7 +130,7 @@ Pick the async harness the repo already uses. Do not mix `tokio` and `async-std`
 | `unresolved import 'crate::...'` in `tests/foo.rs` | Integration tests must import via the **crate name** (as listed in `Cargo.toml`), not `crate::` |
 | `error: no test target found` for `cargo test --test foo` | The file must live directly in `tests/`, not `tests/subdir/foo.rs` (subdirs are treated as helpers) |
 | `attempt to subtract with overflow` (debug) | Underflow on unsigned types; use `checked_sub`/`saturating_sub` or compare before subtracting |
-| Doctest fails to compile | Add `# ` to hide setup lines; mark code blocks `ignore`/`no_run`/`should_panic` if needed |
+| Doctest fails to compile | Use a leading "# " on hidden setup lines; mark code blocks `ignore`/`no_run`/`should_panic` if needed |
 | `the following imports are unused` (warning treated as error) | Remove unused `use` statements; do not silence with `#[allow(unused_imports)]` |
 
 ## Mocking Rules

@@ -56,7 +56,7 @@ For Rails: load all classes once with `bundle exec rails zeitwerk:check` to catc
 
 | Scope | Command |
 |-------|---------|
-| All tests | `bundle exec rake test` (Rails) or `bundle exec ruby -Ilib -Itest -e 'Dir.glob("./test/**/*_test.rb").each { require _1 }'` |
+| All tests | `bundle exec rake test` (Rails) or `bundle exec ruby -Ilib -Itest -e 'Dir.glob("./test/**/*_test.rb").each { |f| require f }'` |
 | Single file | `bundle exec ruby -Itest test/models/widget_test.rb` |
 | Single test | `bundle exec ruby -Itest test/models/widget_test.rb -n test_creates_widget` |
 | By name pattern | `... -n /pattern/` |

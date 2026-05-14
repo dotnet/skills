@@ -155,16 +155,17 @@ class CalculatorSpec : StringSpec({
 
 ## Coroutines
 
-- Add `org.jetbrains.kotlinx:kotlinx-coroutines-test` only if it's already on the classpath
+- Use `kotlinx-coroutines-test` when it's already on the classpath; otherwise add it as a `testImplementation` only after confirming it is missing (see Dependency Installation)
 - Use `runTest { ... }` (replaces the older `runBlockingTest`) for `suspend` test bodies
-- For virtual time advance, get the dispatcher from `testScheduler` rather than calling `delay` and waiting in real time
+- For virtual time advance, use a `TestDispatcher` built from `testScheduler` — e.g. `StandardTestDispatcher(testScheduler)` or `UnconfinedTestDispatcher(testScheduler)` — rather than calling `delay` and waiting in real time
 - Inject a `CoroutineDispatcher` into production code instead of using `Dispatchers.Main/IO` directly — then swap it in tests via `Dispatchers.setMain(testDispatcher)`
 
 ```kotlin
 @Test
 fun `loads data eventually`() = runTest {
     val repo = FakeRepo()
-    val sut = Loader(repo, testScheduler.testDispatcher())
+    val dispatcher = StandardTestDispatcher(testScheduler)
+    val sut = Loader(repo, dispatcher)
     sut.start()
     advanceUntilIdle()
     assertEquals(LoadState.Done, sut.state.value)
@@ -176,7 +177,7 @@ fun `loads data eventually`() = runTest {
 | Error | Fix |
 |-------|-----|
 | `Unresolved reference: X` | Add the import; verify the test source set sees the production source set; for KMP, the dep may be declared only in `jvmTest` |
-| `Cannot access 'X': it is internal in module Y` | Either move the test into the same Gradle module, or mark the symbol `@VisibleForTesting internal` deliberately |
+| `Cannot access 'X': it is internal in module Y` | `internal` is module-scoped, so a test in another Gradle module cannot see it. Move the test into the same module, expose a public seam (e.g. a `*-testing` artifact, or change visibility deliberately), or add the consuming module to the source module's `friend modules` via the Kotlin compiler `-Xfriend-paths` option. `@VisibleForTesting` does **not** widen Kotlin visibility |
 | `Class 'XTest' is not abstract and does not implement abstract member` (Kotest spec) | The spec class needs a no-arg constructor and a primary-constructor block — match the existing spec style |
 | `No tests found for given includes` (Gradle) | `--tests` pattern doesn't match; verify class name and that the framework's runner is registered on the test task (`useJUnitPlatform()`) |
 | `kotlin.UninitializedPropertyAccessException: lateinit property X has not been initialized` | The `@BeforeEach` (or `BeforeTest`) didn't run, or the field was reset; use `lateinit` only after confirming the lifecycle hook fires |
@@ -189,7 +190,7 @@ fun `loads data eventually`() = runTest {
 ## Mocking Rules
 
 - **MockK** is the de-facto standard for Kotlin (final classes, coroutine support): `every { mock.foo() } returns 1`, `coEvery { mock.suspendFn() } returns 1`, `verify { mock.foo() }`, `coVerify { ... }`
-- Mockito works on Kotlin too with `mockito-kotlin` extensions, but you'll need `mockito-inline`/`mockito-subclass` for final classes
+- Mockito works on Kotlin too with `mockito-kotlin` extensions, but Kotlin classes are `final` by default — use Mockito's inline mock maker (default in Mockito 5+; the `mockito-inline` artifact for Mockito 3.x/4.x). `mockito-subclass` cannot mock final classes
 - Avoid `mockkStatic`/`mockkObject` for production code you control — refactor to a wrapper instead
 - Prefer constructor injection so you don't need framework annotations (`@InjectMocks`) at all
 - If a test needs more than 3 mocks, flag it as a design smell
