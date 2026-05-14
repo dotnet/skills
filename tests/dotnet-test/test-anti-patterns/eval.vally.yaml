@@ -2,135 +2,31 @@ name: test-anti-patterns
 description: Evaluates the dotnet-test/test-anti-patterns skill
 type: capability
 config:
-  timeout: 2m
+  timeout: 5m
 stimuli:
   - name: Detect mixed severity anti-patterns in repository service tests
     prompt: |
-      We just had a prod incident traced back to tests that were passing but not actually verifying anything.
-      Can you audit this test class and flag anything suspicious?
+      We just had a prod incident traced back to tests that were passing but
+      not actually verifying anything. Audit the test class in
+      `UserRepo.Tests/UserRepositoryTests.cs` for .NET test anti-patterns
+      (use the production code at `UserRepo/UserRepository.cs` for context).
+      Look for the full anti-pattern catalog: missing/no assertions,
+      swallowed exceptions, always-true / self-comparing assertions, weak
+      negative assertions, broad exception types, unused fields, and
+      anything else that could let bugs sneak through.
 
-      ```csharp
-      using Microsoft.VisualStudio.TestTools.UnitTesting;
-
-      namespace UserRepo.Tests;
-
-      [TestClass]
-      public class UserRepositoryTests
-      {
-          private static readonly HttpClient _client = new();
-
-          [TestMethod]
-          public void GetUser_ExistingId_ReturnsUser()
-          {
-              var repo = new UserRepository();
-              repo.Add(new User(1, "Alice"));
-              var user = repo.GetById(1);
-              Assert.IsNotNull(user);
-          }
-
-          [TestMethod]
-          public void GetUser_NonExistentId_ReturnsNull()
-          {
-              var repo = new UserRepository();
-              var user = repo.GetById(999);
-              // should be null
-          }
-
-          [TestMethod]
-          public void AddUser_DuplicateId_ThrowsException()
-          {
-              var repo = new UserRepository();
-              repo.Add(new User(1, "Alice"));
-              try
-              {
-                  repo.Add(new User(1, "Bob"));
-                  // If we get here, no exception was thrown
-              }
-              catch (Exception)
-              {
-                  return; // test passes
-              }
-          }
-
-          [TestMethod]
-          public void DeleteUser_RemovesFromRepository()
-          {
-              var repo = new UserRepository();
-              repo.Add(new User(1, "Alice"));
-              repo.Delete(1);
-              Assert.AreEqual(repo.Count, repo.Count);
-          }
-
-          [TestMethod]
-          public void UpdateUser_ChangesName()
-          {
-              var repo = new UserRepository();
-              repo.Add(new User(1, "Alice"));
-              repo.Update(1, "Alicia");
-              var user = repo.GetById(1);
-              Assert.IsTrue(user.Name != "Alice");
-          }
-
-          [TestMethod]
-          public void GetAllUsers_ReturnsCorrectCount()
-          {
-              var repo = new UserRepository();
-              repo.Add(new User(1, "Alice"));
-              repo.Add(new User(2, "Bob"));
-              repo.Add(new User(3, "Charlie"));
-              var all = repo.GetAll();
-              Assert.AreEqual(3, all.Count);
-              Assert.IsTrue(all.Any(u => u.Name == "Alice"));
-              Assert.IsTrue(all.Any(u => u.Name == "Bob"));
-              Assert.IsTrue(all.Any(u => u.Name == "Charlie"));
-          }
-
-          [TestMethod]
-          public void AddUser_NullUser_ThrowsArgumentNullException()
-          {
-              var repo = new UserRepository();
-              Assert.ThrowsException<Exception>(() => repo.Add(null!));
-          }
-
-          [TestMethod]
-          public void SearchUsers_ByPartialName_FindsMatches()
-          {
-              var repo = new UserRepository();
-              repo.Add(new User(1, "Alice"));
-              repo.Add(new User(2, "Alicia"));
-              repo.Add(new User(3, "Bob"));
-              var results = repo.Search("Ali");
-              Assert.IsTrue(results.Count == 2);
-              Console.WriteLine($"Found {results.Count} users matching 'Ali'");
-          }
-      }
-      ```
-
-      ```csharp
-      namespace UserRepo;
-
-      public record User(int Id, string Name);
-
-      public class UserRepository
-      {
-          private readonly Dictionary<int, User> _users = new();
-
-          public void Add(User user)
-          {
-              ArgumentNullException.ThrowIfNull(user);
-              if (_users.ContainsKey(user.Id))
-                  throw new InvalidOperationException($"User {user.Id} already exists");
-              _users[user.Id] = user;
-          }
-
-          public User? GetById(int id) => _users.GetValueOrDefault(id);
-          public void Delete(int id) => _users.Remove(id);
-          public void Update(int id, string name) => _users[id] = _users[id] with { Name = name };
-          public List<User> GetAll() => _users.Values.ToList();
-          public List<User> Search(string partial) => _users.Values.Where(u => u.Name.Contains(partial)).ToList();
-          public int Count => _users.Count;
-      }
-      ```
+      Give me a severity-ranked list (Critical / Warning / Info) with each
+      finding named (e.g. "swallowed exception", "self-comparing assertion")
+      and a concrete code-level fix for each. Do not edit the files — this
+      is a read-only review.
+    environment:
+      files:
+        - src: ./fixtures/mixed-severity/UserRepo.Tests/UserRepo.Tests.csproj
+          dest: UserRepo.Tests/UserRepo.Tests.csproj
+        - src: ./fixtures/mixed-severity/UserRepo.Tests/UserRepositoryTests.cs
+          dest: UserRepo.Tests/UserRepositoryTests.cs
+        - src: ./fixtures/mixed-severity/UserRepo/UserRepository.cs
+          dest: UserRepo/UserRepository.cs
     graders:
       - type: output-matches
         config:
@@ -163,104 +59,27 @@ stimuli:
         - bash
         - edit
         - create
+
   - name: Detect flakiness indicators and test coupling
     prompt: |
-      I have a test suite that sometimes passes and sometimes fails depending on test execution order.
-      Can you look at the test code and figure out what's going on?
+      I have a test suite that sometimes passes and sometimes fails depending
+      on execution order. Audit `FlakyCoupled.Tests/OrderServiceTests.cs` for
+      .NET test anti-patterns. Specifically look for these named patterns:
+      flakiness indicators (Thread.Sleep, DateTime.Now, real network),
+      test ordering dependency, shared/static state across tests,
+      reflection-based access to private members (implementation coupling),
+      god tests that bundle many assertions, and broad exception types.
 
-      ```csharp
-      // OrderServiceTests.cs
-      using Microsoft.VisualStudio.TestTools.UnitTesting;
-      using System.Reflection;
-
-      namespace FlakyCoupled.Tests;
-
-      [TestClass]
-      public class OrderServiceTests
-      {
-          private static List<string> _processedOrders = new();
-
-          [TestInitialize]
-          public void Setup()
-          {
-              // Note: _processedOrders is never cleared between tests
-          }
-
-          [TestMethod]
-          public void Test1()
-          {
-              var service = new OrderService();
-              var order = service.CreateOrder("item-1", 2);
-              _processedOrders.Add(order.Id);
-              Assert.IsNotNull(order);
-          }
-
-          [TestMethod]
-          public void Test2()
-          {
-              Assert.AreEqual(1, _processedOrders.Count);
-              var service = new OrderService();
-              service.ProcessOrder(_processedOrders[0]);
-          }
-
-          [TestMethod]
-          public void ProcessOrder_SetsTimestamp()
-          {
-              var service = new OrderService();
-              var order = service.CreateOrder("item-2", 1);
-              service.ProcessOrder(order.Id);
-
-              Thread.Sleep(2000);
-
-              var processed = service.GetOrder(order.Id);
-              Assert.IsTrue(processed.ProcessedAt.Value.Day == DateTime.Now.Day);
-          }
-
-          [TestMethod]
-          public void CreateOrder_InternalState_IsCorrect()
-          {
-              var service = new OrderService();
-              var order = service.CreateOrder("item-3", 5);
-
-              var field = typeof(OrderService).GetField("_orders", BindingFlags.NonPublic | BindingFlags.Instance);
-              var orders = (Dictionary<string, Order>)field.GetValue(service);
-              Assert.AreEqual(1, orders.Count);
-          }
-
-          [TestMethod]
-          public void CreateOrder_MultipleItems_Test()
-          {
-              var service = new OrderService();
-              var order1 = service.CreateOrder("item-a", 1);
-              Assert.IsNotNull(order1);
-              Assert.IsNotNull(order1.Id);
-              var order2 = service.CreateOrder("item-b", 2);
-              Assert.IsNotNull(order2);
-              Assert.IsNotNull(order2.Id);
-              var order3 = service.CreateOrder("item-c", 3);
-              Assert.IsNotNull(order3);
-              Assert.IsNotNull(order3.Id);
-              Assert.AreNotEqual(order1.Id, order2.Id);
-              Assert.AreNotEqual(order2.Id, order3.Id);
-              Assert.AreNotEqual(order1.Id, order3.Id);
-              var all = service.GetAllOrders();
-              Assert.AreEqual(3, all.Count);
-              Assert.IsTrue(all.Any(o => o.ItemName == "item-a"));
-              Assert.IsTrue(all.Any(o => o.ItemName == "item-b"));
-              Assert.IsTrue(all.Any(o => o.ItemName == "item-c"));
-              Assert.IsTrue(all.All(o => o.Quantity > 0));
-              Assert.IsTrue(all.Sum(o => o.Quantity) == 6);
-              Console.WriteLine($"Created {all.Count} orders successfully");
-          }
-
-          [TestMethod]
-          public void ProcessOrder_InvalidId_Throws()
-          {
-              var service = new OrderService();
-              Assert.ThrowsException<Exception>(() => service.ProcessOrder("nonexistent"));
-          }
-      }
-      ```
+      Give me a severity-ranked list (Critical / Warning / Info) with each
+      finding named (e.g. "shared static state", "Thread.Sleep flakiness",
+      "reflection coupling") and a concrete code-level fix for each. Do not
+      edit the files — this is a read-only review.
+    environment:
+      files:
+        - src: ./fixtures/flaky-coupled/FlakyCoupled.Tests.csproj
+          dest: FlakyCoupled.Tests/FlakyCoupled.Tests.csproj
+        - src: ./fixtures/flaky-coupled/OrderServiceTests.cs
+          dest: FlakyCoupled.Tests/OrderServiceTests.cs
     graders:
       - type: output-matches
         config:
@@ -281,95 +100,28 @@ stimuli:
       - Identified reflection-based access to private _orders field as implementation coupling
       - Recognized that CreateOrder_MultipleItems_Test is too large and tests multiple concerns
       - Flagged the broad exception type in Assert.ThrowsException<Exception>
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
   - name: Detect duplicated tests and magic values
     prompt: |
-      I feel like my tests are hard to maintain and there's a lot of repetition.
-      Can you take a look and suggest improvements?
+      My tests feel hard to maintain and there's a lot of repetition. Audit
+      `DuplicateMagic.Tests/DiscountServiceTests.cs` for .NET test
+      anti-patterns — duplicated test methods, magic values, multi-scenario
+      tests — and suggest improvements.
 
-      ```csharp
-      using Microsoft.VisualStudio.TestTools.UnitTesting;
-
-      namespace DuplicateMagic.Tests;
-
-      [TestClass]
-      public class DiscountServiceTests
-      {
-          [TestMethod]
-          public void ApplyDiscount_Gold_10Percent()
-          {
-              var service = new DiscountService();
-              var result = service.ApplyDiscount(100.0m, "Gold");
-              Assert.AreEqual(90.0m, result);
-          }
-
-          [TestMethod]
-          public void ApplyDiscount_Gold_200()
-          {
-              var service = new DiscountService();
-              var result = service.ApplyDiscount(200.0m, "Gold");
-              Assert.AreEqual(180.0m, result);
-          }
-
-          [TestMethod]
-          public void ApplyDiscount_Gold_50()
-          {
-              var service = new DiscountService();
-              var result = service.ApplyDiscount(50.0m, "Gold");
-              Assert.AreEqual(45.0m, result);
-          }
-
-          [TestMethod]
-          public void ApplyDiscount_Silver_5Percent()
-          {
-              var service = new DiscountService();
-              var result = service.ApplyDiscount(100.0m, "Silver");
-              Assert.AreEqual(95.0m, result);
-          }
-
-          [TestMethod]
-          public void ApplyDiscount_Silver_200()
-          {
-              var service = new DiscountService();
-              var result = service.ApplyDiscount(200.0m, "Silver");
-              Assert.AreEqual(190.0m, result);
-          }
-
-          [TestMethod]
-          public void ApplyDiscount_Silver_50()
-          {
-              var service = new DiscountService();
-              var result = service.ApplyDiscount(50.0m, "Silver");
-              Assert.AreEqual(47.5m, result);
-          }
-
-          [TestMethod]
-          public void CalculateShipping_ShouldWork()
-          {
-              var service = new DiscountService();
-              var result = service.CalculateShipping(42, 7, 3);
-              Assert.AreEqual(882.0m, result);
-          }
-
-          [TestMethod]
-          public void CalculateShipping_ShouldWorkForHeavy()
-          {
-              var service = new DiscountService();
-              var result = service.CalculateShipping(150, 7, 3);
-              Assert.AreEqual(3150.0m, result);
-          }
-
-          [TestMethod]
-          public void TestTaxCalculation()
-          {
-              var svc = new DiscountService();
-              Assert.AreEqual(108.0m, svc.ApplyTax(100.0m, 0.08m));
-              Assert.AreEqual(216.0m, svc.ApplyTax(200.0m, 0.08m));
-              Assert.AreEqual(112.5m, svc.ApplyTax(100.0m, 0.125m));
-              Assert.AreEqual(225.0m, svc.ApplyTax(200.0m, 0.125m));
-              Assert.AreEqual(100.0m, svc.ApplyTax(100.0m, 0.0m));
-          }
-      }
-      ```
+      Give me a severity-ranked list with concrete code-level fixes (e.g.,
+      data-driven test refactors). Do not edit the files — this is a
+      read-only review.
+    environment:
+      files:
+        - src: ./fixtures/duplicate-magic/DuplicateMagic.Tests.csproj
+          dest: DuplicateMagic.Tests/DuplicateMagic.Tests.csproj
+        - src: ./fixtures/duplicate-magic/DiscountServiceTests.cs
+          dest: DuplicateMagic.Tests/DiscountServiceTests.cs
     graders:
       - type: output-matches
         config:
@@ -387,72 +139,32 @@ stimuli:
       - Suggested using DataRow or DynamicData to parameterize the discount tests
       - Called out at least something the tests do correctly (e.g., specific assertions, clear expected values, good
         coverage of tiers)
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
   - name: Recognize well-written tests without inventing false positives
     prompt: |
-      I'm worried these tests might have problems. Can you check for any anti-patterns or issues?
+      I'm worried these tests might have problems. Audit
+      `Payments.Tests/PaymentProcessorTests.cs` for .NET test anti-patterns
+      using the full anti-pattern catalog (missing assertions, swallowed
+      exceptions, always-true/self-comparing assertions, flakiness, magic
+      values, duplicate tests, broad exception types, etc.) and tell me
+      what (if anything) genuinely needs fixing — be careful not to invent
+      issues that aren't really there.
 
-      ```csharp
-      using Microsoft.VisualStudio.TestTools.UnitTesting;
-
-      namespace Payments.Tests;
-
-      [TestClass]
-      public sealed class PaymentProcessorTests
-      {
-          [TestMethod]
-          public void ProcessPayment_ValidAmount_ReturnsSuccess()
-          {
-              var processor = new PaymentProcessor(new FakeGateway());
-
-              var result = processor.Process(new Payment("order-1", 99.99m));
-
-              Assert.AreEqual(PaymentStatus.Approved, result.Status);
-              Assert.AreEqual("order-1", result.OrderId);
-          }
-
-          [TestMethod]
-          public void ProcessPayment_ZeroAmount_ThrowsArgumentException()
-          {
-              var processor = new PaymentProcessor(new FakeGateway());
-
-              Assert.ThrowsException<ArgumentOutOfRangeException>(
-                  () => processor.Process(new Payment("order-2", 0m)));
-          }
-
-          [TestMethod]
-          public void ProcessPayment_NegativeAmount_ThrowsArgumentException()
-          {
-              var processor = new PaymentProcessor(new FakeGateway());
-
-              Assert.ThrowsException<ArgumentOutOfRangeException>(
-                  () => processor.Process(new Payment("order-3", -10m)));
-          }
-
-          [TestMethod]
-          [DataRow("USD", DisplayName = "US Dollar")]
-          [DataRow("EUR", DisplayName = "Euro")]
-          [DataRow("GBP", DisplayName = "British Pound")]
-          public void ProcessPayment_SupportedCurrencies_Succeeds(string currency)
-          {
-              var processor = new PaymentProcessor(new FakeGateway());
-
-              var result = processor.Process(new Payment("order-4", 50m, currency));
-
-              Assert.AreEqual(PaymentStatus.Approved, result.Status);
-          }
-
-          [TestMethod]
-          public void ProcessPayment_GatewayDeclines_ReturnsDeclinedStatus()
-          {
-              var processor = new PaymentProcessor(new FakeGateway(alwaysDecline: true));
-
-              var result = processor.Process(new Payment("order-5", 100m));
-
-              Assert.AreEqual(PaymentStatus.Declined, result.Status);
-              Assert.IsNotNull(result.DeclineReason);
-          }
-      }
-      ```
+      Give me a severity-ranked list (Critical / Warning / Info / "no
+      issues found"). Each finding must be tied to a named anti-pattern
+      from the catalog and include a concrete code-level fix. Do not edit
+      the files — this is a read-only review.
+    environment:
+      files:
+        - src: ./fixtures/well-written/Payments.Tests/Payments.Tests.csproj
+          dest: Payments.Tests/Payments.Tests.csproj
+        - src: ./fixtures/well-written/Payments.Tests/PaymentProcessorTests.cs
+          dest: Payments.Tests/PaymentProcessorTests.cs
     graders:
       - type: output-matches
         config:
@@ -470,3 +182,104 @@ stimuli:
       - Acknowledged positive patterns present in the tests (sealed class, specific exception types, data-driven tests,
         clear AAA structure, proper use of fakes)
       - If any suggestions were made, they were minor and correctly categorized as low severity
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Detect coverage-touching pattern across a service facade
+    prompt: |
+      We hit 95% code coverage on this service but keep finding bugs in
+      production. Audit `CatalogService.Tests/ProductCatalogTests.cs` for
+      .NET test anti-patterns (use `CatalogService/ProductCatalog.cs` for
+      production context) — pay special attention to coverage-touching
+      patterns where every method is called but nothing is verified.
+
+      Give me a severity-ranked list with concrete code-level fixes. Do not
+      edit the files — this is a read-only review.
+    environment:
+      files:
+        - src: ./fixtures/coverage-touching/CatalogService.Tests/CatalogService.Tests.csproj
+          dest: CatalogService.Tests/CatalogService.Tests.csproj
+        - src: ./fixtures/coverage-touching/CatalogService.Tests/ProductCatalogTests.cs
+          dest: CatalogService.Tests/ProductCatalogTests.cs
+        - src: ./fixtures/coverage-touching/CatalogService/ProductCatalog.cs
+          dest: CatalogService/ProductCatalog.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (no assert|missing assert|never verif|without.*assert|coverage.*touch|coverage.*inflat|surface.area|systematic.*call)
+      - type: output-matches
+        config:
+          pattern: (IsNotNull.*only|trivial|shallow|not.*verif|not.*check)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - "Identified the systematic pattern: nearly every method is called but most tests have no assertions or only
+        Assert.IsNotNull — this inflates coverage without verifying behavior"
+      - Called out specific assertion-free tests (AddProduct_Works, UpdatePrice_Works, RemoveProduct_Works,
+        GetProductCount_Works, ApplyBulkDiscount_Works, ImportFromCsv_Works) that execute code but prove nothing
+      - Identified that the few tests with assertions only use trivial IsNotNull checks that don't verify actual content
+        or correctness
+      - "Explained why this pattern is dangerous: coverage metrics look healthy but bugs in pricing, search logic, CSV
+        export format, or bulk discount calculations would go undetected"
+      - Suggested concrete assertions for at least some of the methods (e.g., verify price changed after UpdatePrice,
+        verify product is gone after RemoveProduct, verify CSV format in ExportToCsv)
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Detect self-referential assertions in round-trip and identity tests
+    prompt: |
+      I inherited this test suite from another team. Tests pass and coverage
+      looks decent but I don't trust them. Audit
+      `Serialization.Tests/SerializerTests.cs` for .NET test anti-patterns —
+      pay special attention to self-referential / tautological assertions
+      where the test asserts `output == input` for an operation that should
+      transform something. Use the production code under `Serialization/`
+      for context.
+
+      Give me a severity-ranked list with concrete code-level fixes. Do not
+      edit the files — this is a read-only review.
+    environment:
+      files:
+        - src: ./fixtures/self-referential/Serialization.Tests/Serialization.Tests.csproj
+          dest: Serialization.Tests/Serialization.Tests.csproj
+        - src: ./fixtures/self-referential/Serialization.Tests/SerializerTests.cs
+          dest: Serialization.Tests/SerializerTests.cs
+        - src: ./fixtures/self-referential/Serialization/Serialization.cs
+          dest: Serialization/Serialization.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (self.referent|tautolog|identity|round.?trip.*only|input.*equals.*output|circular|proves
+            nothing|assert.*same)
+      - type: output-matches
+        config:
+          pattern: (NormalizeName|GetDisplayName|Validate.*ValidInput|UpperCase.*ToUpper)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - "Identified the self-referential pattern: multiple tests assert that output equals input, which is tautological
+        when the operation is identity or the input is already in the expected form"
+      - Flagged NormalizeName_AlreadyNormalized_NoChange as a self-referential test — it only proves the normalizer is a
+        no-op on already-normalized input, not that it actually normalizes anything
+      - Flagged GetDisplayName_ReturnsFormattedName — it asserts the display name equals the raw Name property, which
+        either means the method is trivial or the test isn't verifying the actual formatting
+      - Flagged Validate_ValidInput_ReturnsSameInput — asserting that valid input passes through unchanged doesn't test
+        the validation logic itself
+      - Flagged UpperCase_ToUpper_Works — calling ToUpper on an already-uppercase string and comparing to the input is a
+        self-fulfilling assertion
+      - Distinguished the round-trip tests (Serialize_ThenDeserialize, ToString_ParseBack, MapToDto_MapBack) as
+        potentially valid IF accompanied by tests using non-trivial inputs that exercise edge cases
+      - Noted that Clone_ProducesEqualObject is a legitimate equality check (testing deep copy), not self-referential
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create

@@ -1,6 +1,6 @@
 ---
 name: assertion-quality
-description: "Analyzes the variety and depth of assertions across .NET test suites. Use when the user asks to evaluate assertion quality, find shallow testing, identify tests with only trivial assertions, measure assertion coverage diversity, or audit whether tests verify different facets of correctness. Produces metrics and actionable recommendations. Works with MSTest, xUnit, NUnit, and TUnit. DO NOT USE FOR: writing new tests (use writing-mstest-tests), detecting anti-patterns (use test-anti-patterns), or fixing existing assertions."
+description: "Analyzes the variety and depth of assertions across .NET test suites. Use when the user asks to evaluate assertion quality, find shallow testing, identify assertion-free tests (no assertions or only trivial ones like Assert.IsNotNull), flag self-referential or tautological assertions (output equals input on identity/round-trip operations), measure assertion coverage diversity, or audit whether tests verify different facets of correctness. Produces metrics and actionable recommendations. Works with MSTest, xUnit, NUnit, TUnit. DO NOT USE FOR: writing new tests (use writing-mstest-tests), other anti-patterns like flakiness or duplication (use test-anti-patterns), or fixing assertions."
 license: MIT
 ---
 
@@ -83,6 +83,7 @@ Calculate these metrics for the test suite:
 - **Assertion type spread**: Number of distinct assertion categories used across the suite (out of 12)
 - **Tests with zero assertions**: Count and percentage of test methods with no assertions at all
 - **Tests with only trivial assertions**: Count and percentage of tests where every assertion is only a null check or `Assert.IsTrue(true)` — trivial means no meaningful value verification
+- **Tests with self-referential assertions**: Count and percentage of tests whose assertions compare an input to a round-tripped or identity-transformed version of itself (e.g., `Assert.AreEqual(input, Parse(input.ToString()))`) or assert a field against itself (`Assert.AreEqual(dto.Name, dto.Name)`). These are tautological — they verify the plumbing, not the behavior.
 - **Tests with negative assertions**: Count and percentage (target: at least 10% of tests should verify what should NOT happen)
 - **Tests with exception assertions**: Count and percentage
 - **Tests with state/side-effect assertions**: Count and percentage
@@ -98,6 +99,7 @@ Before reporting, calibrate findings:
 - **Consider the test's intent.** A test for a void method that verifies state change on a dependency is legitimate even if it only uses `Assert.IsTrue`.
 - **Exception tests are inherently low-assertion-count.** `Assert.ThrowsException<T>(() => ...)` may be the only assertion — that's fine for exception-focused tests. Don't penalize them for low assertion count.
 - **Don't conflate diversity with volume.** A test with 20 `Assert.AreEqual` calls has high volume but low diversity. A test with one equality, one null check, and one exception assertion has low volume but good diversity.
+- **Self-referential assertions are not meaningful equality checks.** `Assert.AreEqual(input, roundTrip(input))` looks like a real equality assertion but is tautological when the operation under test is expected to be identity. Flag these separately from normal equality assertions. If the test's *purpose* is to verify a round-trip (serialize/deserialize, encode/decode), the assertion is valid — but it should be accompanied by assertions on non-trivial inputs that exercise the transformation.
 - **If assertions are well-diversified, say so.** A report concluding the suite has good diversity is perfectly valid.
 
 ### Step 5: Report findings

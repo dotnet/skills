@@ -4,17 +4,17 @@ description: >
   Migrates .NET test projects from VSTest to Microsoft.Testing.Platform (MTP).
   Use when user asks to "migrate to MTP", "switch from VSTest", "enable
   Microsoft.Testing.Platform", "use MTP runner", or mentions EnableMSTestRunner,
-  EnableNUnitRunner, UseMicrosoftTestingPlatformRunner, dotnet test exit
-  code 8, zero tests discovered, or MTP behavioral differences
-  (--ignore-exit-code, TESTINGPLATFORM_EXITCODE_IGNORE).
+  EnableNUnitRunner, or UseMicrosoftTestingPlatformRunner.
+  USE FOR: MTP behavioral differences vs VSTest (exit code 8, zero tests
+  discovered), --ignore-exit-code, TESTINGPLATFORM_EXITCODE_IGNORE.
   Supports MSTest, NUnit, xUnit.net v2 (via YTest.MTP.XUnit2), and
   xUnit.net v3 (native MTP). Covers runner enablement, CLI argument
   translation, xUnit.net v3 filter migration (--filter-class,
   --filter-trait, --filter-query), Directory.Build.props and global.json
-  configuration, CI/CD pipeline updates, and MTP extension packages. DO NOT USE FOR:
-  migrating between test frameworks (MSTest/xUnit/NUnit), xUnit.net v2
-  to v3 API migration, MSTest version upgrades (use migrate-mstest-*
-  skills), TFM upgrades, or UWP/WinUI test projects.
+  configuration, CI/CD pipeline updates, and MTP extension packages.
+  DO NOT USE FOR: migrating between test frameworks (MSTest/xUnit/NUnit),
+  xUnit.net v2 to v3 API migration, MSTest version upgrades (use
+  migrate-mstest-* skills), TFM upgrades, or UWP/WinUI test projects.
 license: MIT
 ---
 
@@ -35,7 +35,7 @@ Migrate a .NET test solution from VSTest to Microsoft.Testing.Platform (MTP). Th
 
 ## When Not to Use
 
-- The project already runs on Microsoft.Testing.Platform -- migration is done
+- The project already runs on Microsoft.Testing.Platform and there is no remaining MTP behavioral difference to resolve (e.g., exit code 8 for zero tests discovered)
 - Migrating between test frameworks (e.g., MSTest to xUnit.net) -- different effort entirely
 - The project builds UWP or packaged WinUI test projects -- MTP does not support these yet
 - The solution mixes .NET and non-.NET test adapters (e.g., JavaScript or C++ adapters) -- VSTest is required
