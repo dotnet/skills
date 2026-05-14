@@ -24,7 +24,8 @@ Copy the template below **verbatim** for all fixed elements (headings, table hea
 | **Test Result** | <Passed / N tests failed> | — | ✅ / ⚠️ |
 
 > Coverage collected from **<N> of <M> test project(s)**.
-> Reports saved to: `<coverageDir>/reports/`
+> Outputs saved to: `<coverageDir>/` (markdown summary + raw Cobertura XML).
+> *If Phase 5 ran:* HTML/CSV reports also at `<coverageDir>/reports/`.
 
 If any coverage provider package was added to test projects, include this note after the summary:
 

@@ -52,8 +52,9 @@ Use this skill when the user mentions test coverage, coverage gaps, code risk, C
 ### Prerequisites
 
 - .NET SDK installed (`dotnet` on PATH)
-- At least one test project referencing the production code (xUnit, NUnit, or MSTest)
-- **Optional:** internet access for `dotnet tool install` (ReportGenerator). Core CRAP/coverage analysis works from Cobertura XML alone — ReportGenerator only adds HTML/CSV reports as an optional post-summary extra.
+- At least one test project referencing the production code (xUnit, NUnit, or MSTest) — only required for the from-scratch path; not needed when the user supplies an existing Cobertura XML
+- **Optional, only for the from-scratch path:** internet/NuGet access for `dotnet add package coverlet.collector` (or `Microsoft.Testing.Extensions.CodeCoverage`) when a test project has no coverage provider yet. Skip when the user supplies an existing Cobertura XML.
+- **Optional, only for Phase 5:** internet access for `dotnet tool install` (ReportGenerator). Core CRAP/coverage analysis works from Cobertura XML alone — ReportGenerator only adds HTML/CSV reports as an optional post-summary extra.
 
 The skill auto-detects coverage provider state per test project and selects the least-invasive execution strategy:
 
@@ -176,6 +177,39 @@ if (Test-Path $coverageDir) { Remove-Item $coverageDir -Recurse -Force }
 New-Item -ItemType Directory -Path $coverageDir -Force | Out-Null
 Write-Host "COVERAGE_DIR:$coverageDir"
 ```
+
+This step only manages the `TestResults/coverage-analysis/` subdirectory (skill-owned outputs). It must never delete user-supplied Cobertura files — those live one level up at `TestResults/coverage.cobertura.xml` (or wherever the user pointed). If the user provided a path that *is* `TestResults/coverage-analysis/...`, copy the file aside before this step recreates the directory.
+
+#### Step 2c: Discover or accept existing Cobertura XML (required for the existing-data path)
+
+If the user supplied a Cobertura XML path explicitly, use it. Otherwise probe well-known locations and any path the user mentioned:
+
+```powershell
+# 1. Honor a user-supplied path first (highest priority)
+$coberturaFiles = @()
+if ($userSuppliedCoberturaPath -and (Test-Path $userSuppliedCoberturaPath)) {
+    $coberturaFiles = @(Get-Item $userSuppliedCoberturaPath)
+}
+
+# 2. Otherwise scan TestResults/ at the repo/test root for any *.cobertura.xml
+if ($coberturaFiles.Count -eq 0) {
+    $searchPaths = @(
+        (Join-Path $testOutputRoot "TestResults"),
+        (Join-Path $root "TestResults")
+    ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
+    foreach ($sp in $searchPaths) {
+        $found = @(Get-ChildItem -Path $sp -Filter "*.cobertura.xml" -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -notmatch '[/\\]coverage-analysis[/\\]raw[/\\]' })
+        if ($found.Count -gt 0) { $coberturaFiles = $found; break }
+    }
+}
+
+Write-Host "EXISTING_COBERTURA_COUNT:$($coberturaFiles.Count)"
+$coberturaFiles | ForEach-Object { Write-Host "EXISTING_COBERTURA:$($_.FullName)" }
+```
+
+- If `EXISTING_COBERTURA_COUNT` > 0 → **skip Phase 2 entirely** and pass these paths to the Phase 3 scripts.
+- If `EXISTING_COBERTURA_COUNT` == 0 → run Phase 2 to generate fresh coverage; the file paths to feed Phase 3 will be discovered from `<COVERAGE_DIR>/raw/` after `dotnet test`.
 
 #### Step 2b: Recommend ignoring `TestResults/`
 
@@ -379,7 +413,7 @@ To locate the script: find the directory containing this skill's `SKILL.md` file
     -TopN <top_n>
 ```
 
-Script outputs: `TOTAL_METHODS:<n>`, `FLAGGED_METHODS:<n>`, `HOTSPOTS:<json>` (top-N sorted by CrapScore descending).
+Script outputs: `OVERALL_LINE_COVERAGE:<n>`, `OVERALL_BRANCH_COVERAGE:<n>` (project-wide rates from the Cobertura root attributes), `TOTAL_METHODS:<n>`, `FLAGGED_METHODS:<n>`, `HOTSPOTS:<json>` (top-N sorted by CrapScore descending). The OVERALL_* values are exactly what the Phase 4 summary needs for the "Line Coverage" / "Branch Coverage" rows — no separate XML parsing tool call is required.
 
 #### Step 5: Extract per-method coverage gaps
 
@@ -401,8 +435,8 @@ As soon as Phase 3 completes, **your immediately next assistant response must co
 
 The response must include, at minimum:
 
-1. Overall line and branch coverage (parsed from the Cobertura XML root `line-rate` / `branch-rate`)
-2. The Risk Hotspots table built from `Compute-CrapScores.ps1` output (CRAP scores, complexity, coverage)
+1. Overall line and branch coverage — read directly from the `OVERALL_LINE_COVERAGE:` / `OVERALL_BRANCH_COVERAGE:` lines emitted by `Compute-CrapScores.ps1` (no extra Cobertura parsing required)
+2. The Risk Hotspots table built from `Compute-CrapScores.ps1` `HOTSPOTS:` output (CRAP scores, complexity, coverage)
 3. Identification of the highest-risk method(s) and what is blocking coverage
 4. 1–3 prioritized, specific recommendations (which method to test, expected CRAP/coverage impact)
 

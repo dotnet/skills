@@ -8,8 +8,11 @@
 #   .\Compute-CrapScores.ps1 -CoberturaPath <path1>,<path2>,... [-CrapThreshold <int>] [-TopN <int>]
 #
 # Outputs:
-#   - Hotspot rows (top N by CRAP score) as a JSON array to stdout (HOTSPOTS:<json>)
-#   - Summary counts as TOTAL_METHODS:<n> and FLAGGED_METHODS:<n>
+#   - OVERALL_LINE_COVERAGE:<n.n>   (max line-rate across input files, as percent)
+#   - OVERALL_BRANCH_COVERAGE:<n.n> (max branch-rate across input files, as percent)
+#   - TOTAL_METHODS:<n>
+#   - FLAGGED_METHODS:<n>
+#   - HOTSPOTS:<json> (top N by CRAP score)
 
 param(
     [Parameter(Mandatory)][string[]]$CoberturaPath,
@@ -20,6 +23,8 @@ param(
 # Merge methods across all Cobertura files using a stable key (Class|Method|Signature|File).
 # Line hits are accumulated so a line is counted as covered if any test project covered it.
 $methodMap = @{}
+$overallLineRate = 0.0
+$overallBranchRate = 0.0
 
 foreach ($filePath in $CoberturaPath) {
     if (-not (Test-Path $filePath)) {
@@ -33,6 +38,15 @@ foreach ($filePath in $CoberturaPath) {
         Write-Error "Failed to parse Cobertura XML: $filePath. $_"
         exit 2
     }
+
+    # Capture Cobertura root coverage rates (max across input files — typical when one Cobertura
+    # per test project is passed and the rates are project-wide aggregates).
+    $rootLineRate = 0.0
+    $rootBranchRate = 0.0
+    if ($cobertura.coverage.'line-rate') { $rootLineRate = [double]$cobertura.coverage.'line-rate' }
+    if ($cobertura.coverage.'branch-rate') { $rootBranchRate = [double]$cobertura.coverage.'branch-rate' }
+    if ($rootLineRate -gt $overallLineRate) { $overallLineRate = $rootLineRate }
+    if ($rootBranchRate -gt $overallBranchRate) { $overallBranchRate = $rootBranchRate }
 
     foreach ($package in $cobertura.coverage.packages.package) {
         foreach ($class in $package.classes.class) {
@@ -104,6 +118,8 @@ foreach ($entry in $methodMap.Values) {
 $hotspots = $results | Sort-Object CrapScore -Descending | Select-Object -First $TopN
 $flagged  = $results | Where-Object { $_.CrapScore -gt $CrapThreshold }
 
+Write-Host "OVERALL_LINE_COVERAGE:$([Math]::Round($overallLineRate * 100, 1))"
+Write-Host "OVERALL_BRANCH_COVERAGE:$([Math]::Round($overallBranchRate * 100, 1))"
 Write-Host "TOTAL_METHODS:$($results.Count)"
 Write-Host "FLAGGED_METHODS:$($flagged.Count)"
 if ($hotspots) {
