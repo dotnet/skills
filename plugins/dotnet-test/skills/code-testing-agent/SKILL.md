@@ -2,9 +2,9 @@
 name: code-testing-agent
 description: >-
   Generates and writes new unit tests for any programming language using a
-  Research-Plan-Implement pipeline. Use when user says "generate tests",
-  "write unit tests", "add tests", "improve test coverage", "create test
-  project", "achieve high coverage", "comprehensive tests", or asks to
+  Research-Plan-Implement pipeline. Use when asked to generate tests,
+  write unit tests, add tests, improve test coverage, create test
+  project, achieve high coverage, comprehensive tests, or asked to
   scaffold a new test project for an app, service, or library. Supports
   C#, TypeScript, JavaScript, Python, Go, Rust, Java, and more. Orchestrates
   the code-testing-generator sub-agent through research, planning, and
