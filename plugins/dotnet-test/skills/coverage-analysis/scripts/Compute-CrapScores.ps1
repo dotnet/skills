@@ -132,7 +132,7 @@ $flagged  = $results | Where-Object { $_.CrapScore -gt $CrapThreshold }
 if ($totalLinesValid -gt 0) {
     $overallLineRate = $totalLinesCovered / $totalLinesValid
 } else {
-    # Fallback approximation when Cobertura aggregate counters are unavailable.
+    # Fallback approximation when Cobertura aggregate counters and per-file rates are unavailable.
     # This uses merged method line totals and may under/over-estimate if Cobertura
     # includes executable lines outside method nodes.
     $mergedTotalLines = ($results | Measure-Object -Property TotalLines -Sum).Sum

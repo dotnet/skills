@@ -451,7 +451,7 @@ Use `references/output-format.md` verbatim for fixed headings, table structures,
 
 If Phase 5 has not yet run when you compose this summary, mark the `## 📁 Reports` section's HTML/Text/CSV/GitHub-markdown rows as `Not generated (optional — request HTML reports to enable)`. Only the `coverage-analysis.md` and raw Cobertura paths are guaranteed to exist.
 
-Before delivering the response, save the same content to `TestResults/coverage-analysis/coverage-analysis.md` (use the editor's create/edit tool — do not shell out). If the file write fails, still deliver the summary and note the file-write failure explicitly.
+Attempt to save the same content to `TestResults/coverage-analysis/coverage-analysis.md` before delivering the response (use the editor's create/edit tool — do not shell out). If the file write fails, still deliver the summary and note the file-write failure explicitly.
 
 ### Phase 5 — Optional: ReportGenerator HTML/CSV reports (post-summary)
 
