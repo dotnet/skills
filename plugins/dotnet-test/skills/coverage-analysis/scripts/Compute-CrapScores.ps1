@@ -23,8 +23,8 @@ param(
 # Merge methods across all Cobertura files using a stable key (Class|Method|Signature|File).
 # Line hits are accumulated so a line is counted as covered if any input coverage file covered it.
 $methodMap = @{}
-$overallLineRate = $null
-$overallBranchRate = $null
+$overallLineRate = 0.0
+$overallBranchRate = 0.0
 $totalLinesCovered = 0.0
 $totalLinesValid = 0.0
 $totalBranchesCovered = 0.0
