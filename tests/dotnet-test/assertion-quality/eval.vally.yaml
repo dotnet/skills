@@ -97,12 +97,15 @@ stimuli:
       - If any gaps were identified, they were presented as minor enhancement opportunities rather than problems
   - name: Identify self-referential assertions in identity and round-trip tests
     prompt: |
-      I want to check if my Config tests are actually testing anything useful.
-      They all pass but I'm not sure they'd catch real bugs. Analyze the
-      assertion quality in `ConfigService.Tests/ConfigTests.cs` — specifically
-      look for self-referential or tautological assertions where the test
-      asserts the output equals the input on identity / round-trip operations.
-      Do not edit the files — this is a read-only analysis.
+      I want an assertion-quality analysis of my Config tests. They all pass
+      but I'm not sure they'd catch real bugs. Analyze the assertion quality
+      and depth in `ConfigService.Tests/ConfigTests.cs` — specifically
+      identify self-referential or tautological assertions where the test
+      asserts the output equals the input on identity / round-trip
+      operations. Report assertion-quality metrics (how many tests are
+      self-referential, which ones), explain why each flagged test fails to
+      verify real behavior, and recommend concrete improvements. Do not
+      edit the files — this is a read-only assertion-quality review.
     environment:
       files:
         - src: fixtures/self-referential/ConfigService.Tests/ConfigTests.cs

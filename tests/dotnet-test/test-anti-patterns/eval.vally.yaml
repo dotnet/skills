@@ -10,10 +10,15 @@ stimuli:
       not actually verifying anything. Audit the test class in
       `UserRepo.Tests/UserRepositoryTests.cs` for .NET test anti-patterns
       (use the production code at `UserRepo/UserRepository.cs` for context).
+      Look for the full anti-pattern catalog: missing/no assertions,
+      swallowed exceptions, always-true / self-comparing assertions, weak
+      negative assertions, broad exception types, unused fields, and
+      anything else that could let bugs sneak through.
 
-      Give me a severity-ranked list (Critical / Warning / Info) with
-      concrete code-level fixes for each finding. Do not edit the files —
-      this is a read-only review.
+      Give me a severity-ranked list (Critical / Warning / Info) with each
+      finding named (e.g. "swallowed exception", "self-comparing assertion")
+      and a concrete code-level fix for each. Do not edit the files — this
+      is a read-only review.
     environment:
       files:
         - src: ./fixtures/mixed-severity/UserRepo.Tests/UserRepo.Tests.csproj
@@ -59,11 +64,15 @@ stimuli:
     prompt: |
       I have a test suite that sometimes passes and sometimes fails depending
       on execution order. Audit `FlakyCoupled.Tests/OrderServiceTests.cs` for
-      .NET test anti-patterns — flakiness indicators, ordering dependencies,
-      shared state, time-based brittleness, reflection coupling — and explain
-      what's going on.
+      .NET test anti-patterns. Specifically look for these named patterns:
+      flakiness indicators (Thread.Sleep, DateTime.Now, real network),
+      test ordering dependency, shared/static state across tests,
+      reflection-based access to private members (implementation coupling),
+      god tests that bundle many assertions, and broad exception types.
 
-      Give me a severity-ranked list with concrete code-level fixes. Do not
+      Give me a severity-ranked list (Critical / Warning / Info) with each
+      finding named (e.g. "shared static state", "Thread.Sleep flakiness",
+      "reflection coupling") and a concrete code-level fix for each. Do not
       edit the files — this is a read-only review.
     environment:
       files:
@@ -140,11 +149,16 @@ stimuli:
     prompt: |
       I'm worried these tests might have problems. Audit
       `Payments.Tests/PaymentProcessorTests.cs` for .NET test anti-patterns
-      and tell me what (if anything) actually needs fixing — be careful not
-      to invent issues that aren't really there.
+      using the full anti-pattern catalog (missing assertions, swallowed
+      exceptions, always-true/self-comparing assertions, flakiness, magic
+      values, duplicate tests, broad exception types, etc.) and tell me
+      what (if anything) genuinely needs fixing — be careful not to invent
+      issues that aren't really there.
 
-      Give me a severity-ranked list with concrete code-level fixes for any
-      real findings. Do not edit the files — this is a read-only review.
+      Give me a severity-ranked list (Critical / Warning / Info / "no
+      issues found"). Each finding must be tied to a named anti-pattern
+      from the catalog and include a concrete code-level fix. Do not edit
+      the files — this is a read-only review.
     environment:
       files:
         - src: ./fixtures/well-written/Payments.Tests/Payments.Tests.csproj

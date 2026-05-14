@@ -7,7 +7,7 @@ description: >
   tests pass but don't verify anything, flaky tests, ordering dependency,
   duplicate tests, magic values, missing/no assertions, swallowed
   exceptions, always-true assertions, over-mocking, test coupling, coverage
-  touching, coverage inflation, self-referential or tautological assertions.
+  touching, coverage inflation.
   DO NOT USE FOR: writing new tests (use writing-mstest-tests), direct
   MSTest API rewrites or implementation-only fixes such as swapped
   Assert.AreEqual argument order, running tests (use run-tests), migrating
