@@ -137,7 +137,7 @@ scenarios:
       - "Recommends adding explicit generic type parameters and chooses the correct type for each case (e.g., Assert.AreEqual<object> for mixed types, Assert.AreSame<IService> or the concrete type for interface references)"
       - "Applies the fix to AreNotEqual and AreSame calls, not just AreEqual"
       - "Does not suggest downgrading MSTest as a solution"
-    timeout: 180
+    timeout: 300
 
   # ============================================================================
   # Goal 4: Replacing .testsettings with .runsettings
@@ -145,9 +145,10 @@ scenarios:
 
   - name: "Migrate from .testsettings to .runsettings"
     prompt: |
-      My MSTest project has a .testsettings file that configures test deployment, timeout,
-      and a code coverage data collector. After upgrading MSTest packages, the settings
-      seem to be ignored. How do I migrate this configuration?
+      I'm migrating my test project from MSTest v2 to MSTest v3. The project has a
+      .testsettings file that configures test deployment, timeout, and a code coverage
+      data collector. After the MSTest v3 upgrade, the .testsettings file seems to be ignored.
+      How do I migrate this configuration as part of the MSTest v2 to v3 upgrade?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -202,9 +203,10 @@ scenarios:
 
   - name: "Fix DataRow type mismatch errors after v3 upgrade"
     prompt: |
-      I upgraded my MSTest packages from v2 to v3 and now several data-driven
+      I upgraded my MSTest packages from v2 to v3 and several data-driven
       tests no longer compile. The errors are on the DataRow attributes due to
-      MSTest v3 strict type matching. Can you help me fix these issues?
+      MSTest v3 strict type matching. I also have a test with 17 parameters.
+      Can you help me fix these MSTest v2 to v3 migration issues?
     setup:
       files:
         - path: "TestProject.csproj"

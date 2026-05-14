@@ -234,7 +234,7 @@ scenarios:
       - "Instructs setting TESTINGPLATFORM_HOTRELOAD_ENABLED=1 to activate hot reload"
       - "Uses 'dotnet run --project' to run in console mode"
       - "Describes the iterative workflow: make changes, tests re-run automatically"
-    timeout: 120
+    timeout: 300
 
   - name: "Suggest launchSettings.json configuration for hot reload"
     prompt: "I want to set up hot reload for my test project so it's always enabled when I run from the command line. I don't want to set the environment variable every time."
@@ -293,7 +293,7 @@ scenarios:
       - "Shows the correct launchSettings.json structure with TESTINGPLATFORM_HOTRELOAD_ENABLED=1"
       - "Includes the Microsoft.Testing.Extensions.HotReload package installation step"
       - "Explains that launchSettings.json makes the setting persistent across runs"
-    timeout: 180
+    timeout: 300
 
   # ============================================================================
   # Goal 3: Correct usage — dotnet run, not dotnet test

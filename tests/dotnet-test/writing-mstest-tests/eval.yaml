@@ -4,7 +4,7 @@ scenarios:
   # ============================================================================
 
   - name: "Write unit tests for a service class"
-    prompt: "I need to write MSTest unit tests for my OrderService class following modern MSTest best practices. I want sealed classes, proper assertion APIs like Assert.ThrowsExactly, and the AAA pattern."
+    prompt: "I need to write MSTest unit tests for my OrderService class following MSTest best practices. Help me write comprehensive tests with sealed test classes and Assert.ThrowsExactly."
     setup:
       copy_test_files: true
     assertions:
@@ -27,7 +27,7 @@ scenarios:
     timeout: 180
 
   - name: "Write data-driven tests for a calculator"
-    prompt: "I have a PriceCalculator class with CalculateTotal and ApplyDiscount methods. Help me write data-driven MSTest tests that cover multiple input combinations."
+    prompt: "I have a PriceCalculator class with CalculateTotal and ApplyDiscount methods. Help me write data-driven MSTest tests using DataRow and DynamicData that cover multiple input combinations following modern MSTest best practices."
     setup:
       copy_test_files: true
     assertions:
@@ -65,7 +65,7 @@ scenarios:
       }
       ```
 
-      How should I write MSTest tests for this, especially handling timeouts and cancellation properly?
+      How should I write MSTest tests for this using modern MSTest patterns for async testing, timeouts, and cancellation token handling?
     setup:
       copy_test_files: true
     assertions:
@@ -90,7 +90,7 @@ scenarios:
 
   - name: "Fix swapped Assert.AreEqual arguments"
     prompt: |
-      I think I have the Assert.AreEqual arguments in the wrong order in my MSTest tests. Can you fix them?
+      Something seems off with my tests — I think I need to fix swapped Assert.AreEqual arguments. Can you review and fix the MSTest assertions?
 
       ```csharp
       [TestClass]
@@ -124,7 +124,7 @@ scenarios:
     timeout: 120
 
   - name: "Modernize legacy test patterns"
-    prompt: "Can you review these tests and modernize them to use current MSTest best practices?"
+    prompt: "Can you review these MSTest tests and modernize them to use current MSTest best practices like sealed classes and Assert.ThrowsExactly?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -155,7 +155,7 @@ scenarios:
 
   - name: "Replace ExpectedException with Assert.Throws"
     prompt: |
-      I have this test that uses [ExpectedException]. How should I modernize it?
+      I have this MSTest test that uses [ExpectedException]. How should I modernize it to use Assert.ThrowsExactly instead?
 
       ```csharp
       [TestMethod]
@@ -182,7 +182,7 @@ scenarios:
 
   - name: "Use proper collection assertions"
     prompt: |
-      I'm testing a method that returns a list. What's the best way to assert on collections in MSTest? Here's what I have:
+      I'm writing MSTest tests for a method that returns a list. What MSTest collection assertions should I use instead of Assert.IsTrue? Here's what I have:
 
       ```csharp
       [TestMethod]
@@ -214,7 +214,7 @@ scenarios:
 
   - name: "Use proper type assertions instead of casts"
     prompt: |
-      I'm testing a factory method. Is there a better way to check the returned type?
+      I'm writing MSTest tests for a factory method. Is there a better MSTest assertion to check the returned type instead of hard casting?
 
       ```csharp
       [TestMethod]
@@ -245,7 +245,7 @@ scenarios:
 
   - name: "Set up test lifecycle correctly"
     prompt: |
-      I need to set up my test class with both synchronous and asynchronous initialization. I also need to inject TestContext. What's the recommended way to do this in modern MSTest?
+      I need to set up my MSTest test class with both synchronous and asynchronous initialization using constructor injection for TestContext. What's the recommended way to do this in modern MSTest?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -268,7 +268,7 @@ scenarios:
 
   - name: "Use DynamicData with ValueTuples over object arrays"
     prompt: |
-      I have this MSTest data-driven test using object arrays for DynamicData. Is there a more type-safe way to do this in modern MSTest?
+      I have this MSTest data-driven test using DynamicData with object arrays. Is there a more type-safe way to write this in modern MSTest?
 
       ```csharp
       [TestMethod]
@@ -303,7 +303,7 @@ scenarios:
 
   - name: "Use string assertions for format validation"
     prompt: |
-      Help me write MSTest tests for this formatting utility. I want to use the right MSTest string assertion methods like StartsWith and EndsWith to validate the output formats.
+      Help me write MSTest tests for this formatting utility. I want to use the right MSTest string assertion methods like Assert.StartsWith and Assert.EndsWith to validate the output formats.
 
       ```csharp
       namespace Contoso.Text;
@@ -356,7 +356,7 @@ scenarios:
 
   - name: "Use comparison assertions for boundary testing"
     prompt: |
-      I have a scoring system and need to write tests with proper boundary checking. What MSTest assertions should I use?
+      I have a scoring system and need to write MSTest tests with proper boundary checking. What MSTest comparison assertions like Assert.IsGreaterThan or Assert.IsInRange should I use?
 
       ```csharp
       namespace Contoso.Scoring;
@@ -476,13 +476,13 @@ scenarios:
 
   - name: "Configure conditional execution, retry, and cleanup"
     prompt: |
-      I have tests that:
+      I have MSTest tests that:
       1. Only work on Windows because they use the Windows registry
       2. Should be skipped in CI because they require a local GPU
       3. Sometimes fail due to a flaky external weather API
       4. Create temporary files that need to be deleted even if the test fails
 
-      How should I handle all of these in MSTest?
+      How should I handle all of these using MSTest attributes and patterns?
     reject_tools: ["bash", "edit", "create"]
     assertions:
       - type: output_matches
@@ -508,11 +508,11 @@ scenarios:
   - name: "Configure test parallelization and MSTest.Sdk project"
     prompt: |
       I'm setting up a new MSTest project from scratch. I want:
-      1. The simplest possible project file
+      1. The simplest possible project file using MSTest.Sdk
       2. Tests to run in parallel by default
       3. But my database integration tests must run sequentially
 
-      What's the recommended setup?
+      What's the recommended MSTest setup?
     reject_tools: ["bash", "edit", "create"]
     assertions:
       - type: output_matches

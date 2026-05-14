@@ -4,17 +4,17 @@ description: >
   Migrates .NET test projects from VSTest to Microsoft.Testing.Platform (MTP).
   Use when user asks to "migrate to MTP", "switch from VSTest", "enable
   Microsoft.Testing.Platform", "use MTP runner", or mentions EnableMSTestRunner,
-  EnableNUnitRunner, UseMicrosoftTestingPlatformRunner, dotnet test exit
-  code 8, zero tests discovered, or MTP behavioral differences
-  (--ignore-exit-code, TESTINGPLATFORM_EXITCODE_IGNORE).
+  EnableNUnitRunner, or UseMicrosoftTestingPlatformRunner.
+  USE FOR: MTP behavioral differences vs VSTest (exit code 8, zero tests
+  discovered), --ignore-exit-code, TESTINGPLATFORM_EXITCODE_IGNORE.
   Supports MSTest, NUnit, xUnit.net v2 (via YTest.MTP.XUnit2), and
   xUnit.net v3 (native MTP). Covers runner enablement, CLI argument
-  translation, xUnit.net v3 filter syntax, Directory.Build.props and
-  global.json configuration, CI/CD pipeline updates, and MTP extension
-  packages. DO NOT USE FOR: migrating between test frameworks
-  (MSTest/xUnit/NUnit), xUnit.net v2 to v3 API migration, MSTest version
-  upgrades (use migrate-mstest-* skills), TFM upgrades, or UWP/WinUI test
-  projects.
+  translation, xUnit.net v3 filter migration (--filter-class,
+  --filter-trait, --filter-query), Directory.Build.props and global.json
+  configuration, CI/CD pipeline updates, and MTP extension packages.
+  DO NOT USE FOR: migrating between test frameworks (MSTest/xUnit/NUnit),
+  xUnit.net v2 to v3 API migration, MSTest version upgrades (use
+  migrate-mstest-* skills), TFM upgrades, or UWP/WinUI test projects.
 license: MIT
 ---
 
@@ -35,7 +35,7 @@ Migrate a .NET test solution from VSTest to Microsoft.Testing.Platform (MTP). Th
 
 ## When Not to Use
 
-- The project already runs on Microsoft.Testing.Platform -- migration is done
+- The project already runs on Microsoft.Testing.Platform and there is no remaining MTP behavioral difference to resolve (e.g., exit code 8 for zero tests discovered)
 - Migrating between test frameworks (e.g., MSTest to xUnit.net) -- different effort entirely
 - The project builds UWP or packaged WinUI test projects -- MTP does not support these yet
 - The solution mixes .NET and non-.NET test adapters (e.g., JavaScript or C++ adapters) -- VSTest is required
@@ -208,7 +208,44 @@ VSTest-specific arguments must be translated to MTP equivalents. Build-related a
 
 **MSTest, NUnit, and xUnit.net v2 (with `YTest.MTP.XUnit2`)**: The VSTest `--filter` syntax is identical on both VSTest and MTP. No changes needed.
 
-**xUnit.net v3 (native MTP)**: xUnit.net v3 does NOT support the VSTest `--filter` syntax on MTP. See the **VSTest → MTP filter translation** section in the `filter-syntax` skill for the complete translation table. Key translation example:
+**xUnit.net v3 (native MTP)**: xUnit.net v3 does NOT support the VSTest `--filter` syntax on MTP. You must translate filters to xUnit.net v3's native filter options.
+
+#### xUnit.net v3 filter flags
+
+| Flag | Description |
+|------|-------------|
+| `--filter-class "name"` | Run all tests in a given class. Supports wildcards (`*`). |
+| `--filter-not-class "name"` | Exclude all tests in a given class |
+| `--filter-method "name"` | Run a specific test method |
+| `--filter-not-method "name"` | Exclude a specific test method |
+| `--filter-namespace "name"` | Run all tests in a namespace |
+| `--filter-not-namespace "name"` | Exclude all tests in a namespace |
+| `--filter-trait "name=value"` | Run tests with a matching trait |
+| `--filter-not-trait "name=value"` | Exclude tests with a matching trait |
+
+Multiple values can be specified with a single flag: `--filter-class Foo Bar`.
+
+#### VSTest → xUnit.net v3 filter translation table
+
+| VSTest `--filter` syntax | xUnit.net v3 MTP equivalent | Notes |
+|---|---|---|
+| `FullyQualifiedName~ClassName` | `--filter-class *ClassName*` | Wildcards required for substring match |
+| `FullyQualifiedName=Ns.Class.Method` | `--filter-method Ns.Class.Method` | Exact match on fully qualified method |
+| `Name=MethodName` | `--filter-method *MethodName*` | Wildcards for substring match |
+| `Category=Value` (trait) | `--filter-trait "Category=Value"` | Filter by trait name/value pair |
+| Complex expressions | `--filter-query "expr"` | Uses xUnit.net query filter language (see below) |
+
+#### xUnit.net v3 query filter language
+
+For complex expressions, use `--filter-query` with a path-segment syntax:
+
+```text
+/<assemblyFilter>/<namespaceFilter>/<classFilter>/<methodFilter>[traitName=traitValue]
+```
+
+Each segment matches against: assembly name, namespace, class name, method name. Use `*` for "match all" in any segment. Documentation: <https://xunit.net/docs/query-filter-language>
+
+#### Translation example
 
 ```shell
 # VSTest

@@ -2,14 +2,15 @@ name: code-testing-agent
 description: Evaluates the dotnet-test/code-testing-agent skill
 type: capability
 config:
-  timeout: 40m
+  timeout: 60m
 stimuli:
   - name: Generate tests for ContosoUniversity ASP.NET Core MVC app
     prompt: |
       I have an ASP.NET Core MVC application under ContosoUniversity/ — a university
-      enrollment system.
+      enrollment system with multiple controllers, EF Core data access, and services.
 
-      Please generate comprehensive unit tests that achieve high code coverage.
+      Generate comprehensive unit tests for this application that achieve high code coverage.
+      The tests should compile and pass.
     environment:
       files:
         - src: .

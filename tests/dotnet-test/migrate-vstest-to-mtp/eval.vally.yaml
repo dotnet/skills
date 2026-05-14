@@ -185,11 +185,11 @@ stimuli:
       - Lists the required NuGet extension packages (TrxReport, CrashDump, HangDump, CodeCoverage)
   - name: Handle exit code 8 when migrating from VSTest to MTP
     prompt: |
-      We migrated our test project from VSTest to Microsoft.Testing.Platform.
-      Now our CI pipeline fails with exit code 8 even though no tests actually
-      failed. Some test assemblies have conditional compilation and produce zero
-      tests on certain configurations. With VSTest this was fine. How do I fix
-      this behavioral difference?
+      We're migrating our test projects from VSTest to Microsoft.Testing.Platform.
+      After enabling MTP, our CI pipeline fails with exit code 8 even though no
+      tests actually failed. Some test assemblies use conditional compilation, so
+      certain configurations legitimately discover zero tests. With VSTest this
+      succeeded. How do I handle this MTP behavioral difference?
     environment:
       files:
         - src: ./fixtures/handle-exit-code-8-when-migrating-from-vstest-to-mtp/TestProject.csproj
