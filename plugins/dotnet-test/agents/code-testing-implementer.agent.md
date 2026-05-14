@@ -55,15 +55,7 @@ For each test file in your phase:
 
 Call the `code-testing-builder` sub-agent to compile. Build only the specific test project, not the full solution.
 
-If build fails: **you MUST dispatch `code-testing-fixer`** — do not edit/create test files inline to make the build pass. Rebuild after the fixer returns. Retry up to 3 times.
-
-```text
-✅ builder fails → code-testing-fixer → builder retry              (correct)
-❌ builder fails → edit("tests/test_foo.py", ...) → builder retry  (forbidden — band-aid)
-❌ builder fails → create("tests/test_bar.py", ...) → builder retry (forbidden — band-aid)
-```
-
-The reason: when the implementer "patches" a test file inline to make the build pass, it tends to remove problematic assertions, comment out failing branches, or weaken types — none of which the fixer would do. Inline-fix is the classic band-aid anti-pattern: the build goes green, but the test no longer exercises what was specified.
+If build fails: call `code-testing-fixer`, rebuild, retry up to 3 times.
 
 ### 6. Verify with Tests
 
@@ -71,24 +63,19 @@ Call the `code-testing-tester` sub-agent to run tests.
 
 If tests fail:
 
-- **You MUST dispatch the fixer.** Even one failed test triggers a fixer dispatch — never declare `STATUS: SUCCESS` with failing tests, and never silently accept failures as "minor".
-- **You MUST NOT use `edit` or `create` on test files between a failed tester dispatch and the next fixer dispatch.** The fixer is the only sub-agent allowed to modify a failing test file:
+- Read the actual test output — note expected vs actual values
+- Read the production code to understand correct behavior
+- Update the assertion to match actual behavior. Common mistakes:
+  - Hardcoded IDs that don't match derived values
+  - Asserting counts in async scenarios without waiting for delivery
+  - Assuming constructor defaults that differ from implementation
+- For async/event-driven tests: add explicit waits before asserting
+- Never mark a test `[Ignore]`, `[Skip]`, or `[Inconclusive]`
+- Retry the fix-test cycle up to 5 times
 
-```text
-✅ tester reports failure → code-testing-fixer → tester retry             (correct)
-❌ tester reports failure → edit("tests/test_foo.py", ...) → tester retry (forbidden — band-aid)
-❌ tester reports failure → mark test [Skip] / pytest.skip / t.Skip(...)   (forbidden — silent acceptance)
-❌ tester reports failure → delete the failing test method                 (forbidden — silent acceptance)
-```
+### 7. Format Code (Optional)
 
-- Pass the actual test output (expected vs actual values) to the fixer in the dispatch prompt
-- Cite the relevant `<file>:<line-range>` of the production code in the fixer dispatch prompt
-- Never mark a test `[Ignore]`, `[Skip]`, `[Inconclusive]`, `pytest.skip`, `t.Skip`, `it.skip`, or any language-equivalent skip mechanism — neither the implementer nor the fixer may do this
-- Retry the fix-test cycle up to 5 times. You may stop early ONLY if the same test name fails identically across two consecutive fixer attempts (genuine deadlock — log it in the report).
-
-### 7. Format Code (mandatory if a lint command exists)
-
-If the project has a lint or format command, call the `code-testing-linter` sub-agent. Skip only if no lint command exists in the project.
+If a lint command is available, call the `code-testing-linter` sub-agent.
 
 ### 8. Report Results
 
@@ -112,5 +99,3 @@ ISSUES:
 3. **Match patterns** — follow existing test style
 4. **Be thorough** — cover edge cases
 5. **Report clearly** — state what was done and any issues
-6. **Never declare SUCCESS while build or tests fail** — any build error or failed test triggers a fixer dispatch. The implementer never silently accepts failures as "minor" or "good enough" — dispatch the fixer, re-run, and only declare SUCCESS when build is clean and all tests pass (or document a genuine deadlock after 2+ identical fixer attempts).
-7. **No inline test-file edits between a failed dispatch and the fixer** — once `code-testing-builder` returns an error or `code-testing-tester` returns a failure, the next dispatch on a test file MUST be `code-testing-fixer`. The implementer MUST NOT use `edit`/`create` on test source files between the failed dispatch and the fixer dispatch, MUST NOT add `Skip`/`Ignore`/`Inconclusive` markers, and MUST NOT delete the failing test. The fixer is the only sub-agent allowed to mutate a test file in this state.
