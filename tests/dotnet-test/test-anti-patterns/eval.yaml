@@ -172,7 +172,8 @@ scenarios:
       `Serialization.Tests/SerializerTests.cs` for .NET test anti-patterns —
       pay special attention to self-referential / tautological assertions
       where the test asserts `output == input` for an operation that should
-      transform something.
+      transform something. Use the production code under `Serialization/`
+      for context.
 
       Give me a severity-ranked list with concrete code-level fixes. Do not
       edit the files — this is a read-only review.
@@ -182,6 +183,8 @@ scenarios:
           source: "fixtures/self-referential/Serialization.Tests/Serialization.Tests.csproj"
         - path: "Serialization.Tests/SerializerTests.cs"
           source: "fixtures/self-referential/Serialization.Tests/SerializerTests.cs"
+        - path: "Serialization/Serialization.cs"
+          source: "fixtures/self-referential/Serialization/Serialization.cs"
     assertions:
       - type: "output_matches"
         pattern: "(self.referent|tautolog|identity|round.?trip.*only|input.*equals.*output|circular|proves nothing|assert.*same)"

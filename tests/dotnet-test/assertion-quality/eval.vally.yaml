@@ -98,8 +98,11 @@ stimuli:
   - name: Identify self-referential assertions in identity and round-trip tests
     prompt: |
       I want to check if my Config tests are actually testing anything useful.
-      They all pass but I'm not sure they'd catch real bugs. Can you analyze
-      the assertion quality?
+      They all pass but I'm not sure they'd catch real bugs. Analyze the
+      assertion quality in `ConfigService.Tests/ConfigTests.cs` — specifically
+      look for self-referential or tautological assertions where the test
+      asserts the output equals the input on identity / round-trip operations.
+      Do not edit the files — this is a read-only analysis.
     environment:
       files:
         - src: fixtures/self-referential/ConfigService.Tests/ConfigTests.cs
@@ -131,6 +134,11 @@ stimuli:
         edge-case inputs (special characters, nulls, empty strings)
       - "Recommended concrete improvements: test actual default values, test invalid keys, test formatted string
         structure, test edge-case serialization inputs"
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
   - name: Decline request to write new tests from scratch
     prompt: |
       I need to write unit tests for my InventoryTracker class.

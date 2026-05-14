@@ -226,7 +226,8 @@ stimuli:
       `Serialization.Tests/SerializerTests.cs` for .NET test anti-patterns —
       pay special attention to self-referential / tautological assertions
       where the test asserts `output == input` for an operation that should
-      transform something.
+      transform something. Use the production code under `Serialization/`
+      for context.
 
       Give me a severity-ranked list with concrete code-level fixes. Do not
       edit the files — this is a read-only review.
@@ -236,6 +237,8 @@ stimuli:
           dest: Serialization.Tests/Serialization.Tests.csproj
         - src: ./fixtures/self-referential/Serialization.Tests/SerializerTests.cs
           dest: Serialization.Tests/SerializerTests.cs
+        - src: ./fixtures/self-referential/Serialization/Serialization.cs
+          dest: Serialization/Serialization.cs
     graders:
       - type: output-matches
         config:

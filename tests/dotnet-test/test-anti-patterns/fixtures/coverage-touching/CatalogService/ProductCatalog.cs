@@ -43,3 +43,15 @@ public interface IProductStore
     List<Product> FindByName(string query);
     List<Product> GetAll();
 }
+
+public class InMemoryStore : IProductStore
+{
+    private readonly Dictionary<string, Product> _products = new();
+
+    public void Save(Product p) => _products[p.Sku] = p;
+    public void Delete(string sku) => _products.Remove(sku);
+    public Product? FindBySku(string sku) => _products.GetValueOrDefault(sku);
+    public List<Product> FindByName(string query) =>
+        _products.Values.Where(p => p.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+    public List<Product> GetAll() => _products.Values.ToList();
+}
