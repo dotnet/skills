@@ -25,10 +25,10 @@ param(
 $methodMap = @{}
 $overallLineRate = 0.0
 $overallBranchRate = 0.0
-$totalLinesCovered = 0.0
-$totalLinesValid = 0.0
-$totalBranchesCovered = 0.0
-$totalBranchesValid = 0.0
+$totalLinesCovered = 0
+$totalLinesValid = 0
+$totalBranchesCovered = 0
+$totalBranchesValid = 0
 $fallbackLineRates = [System.Collections.Generic.List[double]]::new()
 $fallbackBranchRates = [System.Collections.Generic.List[double]]::new()
 
@@ -132,6 +132,9 @@ $flagged  = $results | Where-Object { $_.CrapScore -gt $CrapThreshold }
 if ($totalLinesValid -gt 0) {
     $overallLineRate = $totalLinesCovered / $totalLinesValid
 } else {
+    # Fallback approximation when Cobertura aggregate counters are unavailable.
+    # This uses merged method line totals and may under/over-estimate if Cobertura
+    # includes executable lines outside method nodes.
     $mergedTotalLines = ($results | Measure-Object -Property TotalLines -Sum).Sum
     $mergedCoveredLines = ($results | Measure-Object -Property CoveredLines -Sum).Sum
     if ($mergedTotalLines -gt 0) {
