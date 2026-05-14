@@ -37,9 +37,14 @@ scenarios:
 
   - name: "Flag assertion-free tests and trivial-only assertions"
     prompt: |
-      Our QA team says these API smoke tests give us good coverage but
-      I'm suspicious. Can you check whether these tests are actually
-      verifying anything useful?
+      Our QA team says these API smoke tests give us good coverage but I'm
+      suspicious. Analyze the assertion quality and depth in
+      `SmokeTests/ApiEndpointSmokeTests.cs` — specifically identify
+      assertion-free tests (tests that call methods without verifying
+      results) and tests with only trivial assertions like
+      `Assert.IsNotNull`. Report which tests are assertion-free, the overall
+      assertion quality, and concrete recommendations. Do not edit the
+      files.
     setup:
       files:
         - path: "SmokeTests/SmokeTests.csproj"

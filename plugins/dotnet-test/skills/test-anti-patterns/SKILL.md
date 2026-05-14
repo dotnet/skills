@@ -1,25 +1,18 @@
 ---
 name: test-anti-patterns
 description: >
-  Quick pragmatic detection-focused review of .NET test code for anti-patterns
-  that undermine reliability and diagnostic value.
-  USE FOR: audit test quality, review test code, check tests for problems,
-  find test anti-patterns, tests pass but bugs in production, are my tests good,
-  what's wrong with my tests, flag suspicious tests, tests not catching bugs,
-  flaky tests, unreliable tests, tests fail randomly, test ordering dependency,
-  tests hard to maintain, test repetition, duplicate tests, magic values,
-  missing assertions, no assertions, tests don't verify anything, coverage but
-  no confidence, high coverage but bugs, don't trust my tests, swallowed
-  exceptions, always-true assertions, over-mocking, test coupling,
-  implementation coupling, coverage touching, coverage inflation,
-  self-referential assertions, tautological tests.
-  DO NOT USE FOR: writing new tests from scratch (use writing-mstest-tests),
-  direct MSTest API rewrites or implementation-only fixes such as swapped
-  Assert.AreEqual argument order or converting DynamicData from
-  IEnumerable<object[]> to ValueTuple (use writing-mstest-tests), running or
-  executing tests (use run-tests), migrating between test frameworks or versions
-  (use migration skills), deep formal audit based on academic test smell taxonomy
-  (use test-smell-detection).
+  Detection-focused review of .NET test code for anti-patterns that
+  undermine reliability and diagnostic value.
+  USE FOR: audit test quality, review test code, find test anti-patterns,
+  tests pass but don't verify anything, flaky tests, ordering dependency,
+  duplicate tests, magic values, missing/no assertions, swallowed
+  exceptions, always-true assertions, over-mocking, test coupling, coverage
+  touching, coverage inflation, self-referential or tautological assertions.
+  DO NOT USE FOR: writing new tests (use writing-mstest-tests), direct
+  MSTest API rewrites or implementation-only fixes such as swapped
+  Assert.AreEqual argument order, running tests (use run-tests), migrating
+  between frameworks (use migration skills), deep formal audit based on
+  academic test smell taxonomy (use test-smell-detection).
 license: MIT
 ---
 
