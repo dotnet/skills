@@ -22,6 +22,12 @@ This skill provides access to language-specific guidance files used by the code-
 | [extensions/typescript.md](extensions/typescript.md) | TypeScript/JavaScript | Build/test commands (Jest/Vitest/Mocha), framework detection, mocking, TS-specific considerations |
 | [extensions/powershell.md](extensions/powershell.md) | PowerShell | Test commands (Pester v5), module import patterns, discovery/run pitfalls, mocking, common errors |
 | [extensions/cpp.md](extensions/cpp.md) | C++ | Testing internals with friend declarations |
+| [extensions/go.md](extensions/go.md) | Go | `go test` commands, table-driven tests, integration vs unit layout, mocking via interfaces, common errors |
+| [extensions/java.md](extensions/java.md) | Java | Maven/Gradle commands, JUnit 4/5 and TestNG detection, Mockito, Spring Boot slices, common errors |
+| [extensions/rust.md](extensions/rust.md) | Rust | `cargo test` commands, unit vs integration vs doc tests, features, async test harnesses, common errors |
+| [extensions/ruby.md](extensions/ruby.md) | Ruby | RSpec and Minitest commands, Bundler usage, Rails specifics, mocking patterns, common errors |
+| [extensions/swift.md](extensions/swift.md) | Swift | SPM and Xcode test commands, XCTest vs Swift Testing, `@testable import`, async/throws tests, common errors |
+| [extensions/kotlin.md](extensions/kotlin.md) | Kotlin | Gradle commands, JUnit/Kotest detection, MockK, coroutines test, KMP and Android specifics, common errors |
 | [extensions/dotnet-examples.md](extensions/dotnet-examples.md) | .NET (C#/F#/VB) | Concrete pipeline examples: sample research output, plan, generated tests, fix cycles, final report |
 
 ## Usage
