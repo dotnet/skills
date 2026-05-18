@@ -4,22 +4,14 @@ using SkillValidator.Shared;
 namespace SkillValidator.Check;
 
 /// <summary>
-/// Detects structural external dependencies in skills, agents, and plugins.
-/// Flags scripts, non-built-in tool references, and MCP servers for human
-/// review. URL scanning is handled separately by the reference scanner
-/// (the ReferenceScanner service). Findings are advisory —
-/// authors should make an intentional decision to keep or remove each flagged
-/// dependency.
+/// Detects structural external dependencies in skills and plugins.
+/// Flags scripts (in skills) and MCP servers (in plugin.json) for human review.
+/// URL scanning is handled separately by the reference scanner
+/// (the ReferenceScanner service). Findings are advisory — authors should
+/// make an intentional decision to keep or remove each flagged dependency.
 /// </summary>
 public static partial class ExternalDependencyChecker
 {
-    private static readonly HashSet<string> BuiltInTools = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "read", "search", "edit", "create", "task", "skill", "web_search", "web_fetch",
-        "ask_user", "bash", "powershell", "grep", "glob", "view", "sql",
-        "report_intent", "store_memory", "fetch_copilot_cli_documentation",
-    };
-
     private static readonly HashSet<string> ScriptExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".ps1", ".sh", ".py", ".bat", ".cmd", ".bash",
@@ -46,7 +38,7 @@ public static partial class ExternalDependencyChecker
     }
 
     /// <summary>
-    /// Check a skill for structural external dependencies: scripts, tool references.
+    /// Check a skill for structural external dependencies: scripts.
     /// Returns advisory messages for human review. Entries matching the allowlist are skipped.
     /// </summary>
     public static IReadOnlyList<string> CheckSkill(SkillInfo skill, IReadOnlySet<string>? allowed = null)
@@ -76,57 +68,6 @@ public static partial class ExternalDependencyChecker
             var key = $"invokes:{skill.Name}";
             if (allowed?.Contains(key) != true)
                 findings.Add($"Description references an invoked script — review needed: skills should generally not depend on external scripts. Verify this is intentional. (allow: {key})");
-        }
-
-        // 3. Non-built-in tool references (#tool:...) in content (including frontmatter) — deduplicate by key
-        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (Match match in ToolReferenceRegex().Matches(skill.SkillMdContent))
-        {
-            var toolName = match.Value[6..]; // strip "#tool:" prefix
-            if (!BuiltInTools.Contains(toolName))
-            {
-                var key = $"tool-ref:{skill.Name}:{match.Value}";
-                if (seenKeys.Add(key) && allowed?.Contains(key) != true)
-                    findings.Add($"Tool reference '{match.Value}' — review needed: verify this non-built-in tool reference is intentional. (allow: {key})");
-            }
-        }
-
-        return findings;
-    }
-
-    /// <summary>
-    /// Check an agent for structural external dependencies: tool references, non-built-in tools.
-    /// Returns advisory messages for human review. Entries matching the allowlist are skipped.
-    /// </summary>
-    public static IReadOnlyList<string> CheckAgent(AgentInfo agent, IReadOnlySet<string>? allowed = null)
-    {
-        var findings = new List<string>();
-
-        // 1. Non-built-in tool references (#tool:...) in content (including frontmatter) — deduplicate by key
-        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (Match match in ToolReferenceRegex().Matches(agent.AgentMdContent))
-        {
-            var toolName = match.Value[6..]; // strip "#tool:" prefix
-            if (!BuiltInTools.Contains(toolName))
-            {
-                var key = $"tool-ref:{agent.Name}:{match.Value}";
-                if (seenKeys.Add(key) && allowed?.Contains(key) != true)
-                    findings.Add($"Tool reference '{match.Value}' — review needed: verify this non-built-in tool reference is intentional. (allow: {key})");
-            }
-        }
-
-        // 2. Non-built-in tools in frontmatter tools array
-        if (agent.Tools is not null)
-        {
-            foreach (var tool in agent.Tools)
-            {
-                if (!BuiltInTools.Contains(tool))
-                {
-                    var key = $"agent-tool:{agent.Name}:{tool}";
-                    if (allowed?.Contains(key) != true)
-                        findings.Add($"Non-built-in tool '{tool}' in tools list — review needed: verify this tool is intentional and available in the target environment. (allow: {key})");
-                }
-            }
         }
 
         return findings;
@@ -181,8 +122,4 @@ public static partial class ExternalDependencyChecker
     // Matches "INVOKES" followed by a script-like filename (word.ext)
     [GeneratedRegex(@"INVOKES\s+[\w./-]*\.\w+", RegexOptions.IgnoreCase)]
     private static partial Regex InvokesScriptRegex();
-
-    // Matches #tool:some/reference patterns used in VS Code Copilot
-    [GeneratedRegex(@"#tool:[\w/]+")]
-    private static partial Regex ToolReferenceRegex();
 }

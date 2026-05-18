@@ -21,15 +21,6 @@ public class ExternalDependencyCheckerTests
         return new SkillInfo(name, description, path, skillMdPath, content);
     }
 
-    private static AgentInfo MakeAgent(
-        string content = "---\nname: test-agent\ndescription: A test agent.\n---\n# Test Agent\n",
-        string name = "test-agent",
-        string description = "A test agent.",
-        IReadOnlyList<string>? tools = null)
-    {
-        return new AgentInfo(name, description, "/tmp/agents/test-agent.agent.md", content, "test-agent.agent.md", tools);
-    }
-
     private static (PluginInfo Plugin, string Dir) MakePlugin(string name = "test-plugin", string? extraJson = null)
     {
         var dir = Path.Combine(Path.GetTempPath(), "dep-plugin-" + Guid.NewGuid().ToString("N"));
@@ -133,125 +124,6 @@ public class ExternalDependencyCheckerTests
     }
 
     // ========================================
-    // Skill: Tool reference detection
-    // ========================================
-
-    [Fact]
-    public void Skill_WithToolReference_FlagsWarning()
-    {
-        var content = "---\nname: test-skill\ndescription: A test skill.\n---\n# Test\nUse `#tool:web/fetch` to retrieve docs.\n";
-        var skill = MakeSkill(content: content);
-        try
-        {
-            var findings = ExternalDependencyChecker.CheckSkill(skill);
-            Assert.Contains(findings, e => e.Contains("#tool:web/fetch"));
-        }
-        finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
-    }
-
-    [Fact]
-    public void Skill_WithBuiltInToolReference_NoWarning()
-    {
-        var content = "---\nname: test-skill\ndescription: A test skill.\n---\n# Test\nUse `#tool:edit` to modify files and `#tool:bash` to run commands.\n";
-        var skill = MakeSkill(content: content);
-        try
-        {
-            var findings = ExternalDependencyChecker.CheckSkill(skill);
-            Assert.Empty(findings);
-        }
-        finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
-    }
-
-    [Fact]
-    public void Skill_WithNoToolReference_NoWarning()
-    {
-        var content = "---\nname: test-skill\ndescription: A test skill.\n---\n# Test\nNo tool references here.\n";
-        var skill = MakeSkill(content: content);
-        try
-        {
-            var findings = ExternalDependencyChecker.CheckSkill(skill);
-            Assert.Empty(findings);
-        }
-        finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
-    }
-
-    [Fact]
-    public void Skill_WithDuplicateToolReferences_DeduplicatesWarnings()
-    {
-        var content = "---\nname: test-skill\ndescription: A test skill.\n---\n# Test\nUse `#tool:web/fetch` here and `#tool:web/fetch` again.\n";
-        var skill = MakeSkill(content: content);
-        try
-        {
-            var findings = ExternalDependencyChecker.CheckSkill(skill);
-            Assert.Single(findings);
-            Assert.Contains("#tool:web/fetch", findings[0]);
-        }
-        finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
-    }
-
-    // ========================================
-    // Agent: Tool detection
-    // ========================================
-
-    [Fact]
-    public void Agent_WithAllBuiltInTools_NoWarning()
-    {
-        var agent = MakeAgent(tools: new[] { "read", "search", "edit" });
-
-        var findings = ExternalDependencyChecker.CheckAgent(agent);
-        Assert.Empty(findings);
-    }
-
-    [Fact]
-    public void Agent_WithNonBuiltInTool_FlagsWarning()
-    {
-        var agent = MakeAgent(tools: new[] { "read", "custom-tool" });
-
-        var findings = ExternalDependencyChecker.CheckAgent(agent);
-        Assert.Single(findings);
-        Assert.Contains("custom-tool", findings[0]);
-    }
-
-    [Fact]
-    public void Agent_WithToolReferenceInProse_FlagsWarning()
-    {
-        var content = "---\nname: test-agent\ndescription: A test agent.\n---\n# Test\nUse `#tool:agent/runSubagent` to delegate.\n";
-        var agent = MakeAgent(content: content);
-
-        var findings = ExternalDependencyChecker.CheckAgent(agent);
-        Assert.Contains(findings, e => e.Contains("#tool:agent/runSubagent"));
-    }
-
-    [Fact]
-    public void Agent_WithNoToolsArray_NoWarning()
-    {
-        var agent = MakeAgent(tools: null);
-
-        var findings = ExternalDependencyChecker.CheckAgent(agent);
-        Assert.Empty(findings);
-    }
-
-    [Fact]
-    public void Agent_BuiltInToolsCaseInsensitive()
-    {
-        var agent = MakeAgent(tools: new[] { "READ", "Search", "EDIT" });
-
-        var findings = ExternalDependencyChecker.CheckAgent(agent);
-        Assert.Empty(findings);
-    }
-
-    [Fact]
-    public void Agent_WithDuplicateToolReferences_DeduplicatesWarnings()
-    {
-        var content = "---\nname: test-agent\ndescription: A test agent.\n---\n# Test\nUse `#tool:agent/runSubagent` here and `#tool:agent/runSubagent` again.\n";
-        var agent = MakeAgent(content: content);
-
-        var findings = ExternalDependencyChecker.CheckAgent(agent);
-        Assert.Single(findings);
-        Assert.Contains("#tool:agent/runSubagent", findings[0]);
-    }
-
-    // ========================================
     // Plugin: MCP server detection
     // ========================================
 
@@ -316,11 +188,11 @@ public class ExternalDependencyCheckerTests
         var path = Path.Combine(Path.GetTempPath(), "allowlist-" + Guid.NewGuid().ToString("N") + ".txt");
         try
         {
-            File.WriteAllText(path, "# comment\n\nscript:my-skill:scripts/foo.ps1\ntool-ref:my-agent:#tool:web/fetch\n");
+            File.WriteAllText(path, "# comment\n\nscript:my-skill:scripts/foo.ps1\nmcp-server:my-plugin:my-server\n");
             var allowed = ExternalDependencyChecker.LoadAllowList(path);
             Assert.Equal(2, allowed.Count);
             Assert.Contains("script:my-skill:scripts/foo.ps1", allowed);
-            Assert.Contains("tool-ref:my-agent:#tool:web/fetch", allowed);
+            Assert.Contains("mcp-server:my-plugin:my-server", allowed);
         }
         finally { File.Delete(path); }
     }
@@ -360,32 +232,6 @@ public class ExternalDependencyCheckerTests
             Assert.Empty(findings);
         }
         finally { Cleanup(Directory.GetParent(skill.Path)!.FullName); }
-    }
-
-    [Fact]
-    public void Agent_WithAllowedToolRef_NoError()
-    {
-        var content = "---\nname: test-agent\ndescription: A test agent.\n---\n# Test\nUse `#tool:web/fetch` here.\n";
-        var agent = MakeAgent(content: content);
-        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "tool-ref:test-agent:#tool:web/fetch"
-        };
-        var findings = ExternalDependencyChecker.CheckAgent(agent, allowed);
-        Assert.Empty(findings);
-    }
-
-    [Fact]
-    public void Agent_WithPartiallyAllowedTools_FlagsUnallowed()
-    {
-        var agent = MakeAgent(tools: new[] { "custom_a", "custom_b" });
-        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "agent-tool:test-agent:custom_a"
-        };
-        var findings = ExternalDependencyChecker.CheckAgent(agent, allowed);
-        Assert.Single(findings);
-        Assert.Contains("custom_b", findings[0]);
     }
 
     [Fact]

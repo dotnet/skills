@@ -212,7 +212,7 @@ public static class CheckCommand
         }
 
         // Check for external dependencies (plugin-level check includes all three)
-        CheckExternalDeps(config.AllowedExternalDepsFile, allSkillsList, allAgents, allPlugins);
+        CheckExternalDeps(config.AllowedExternalDepsFile, allSkillsList, allPlugins);
 
         // Run reference scanner if known-domains file is provided
         if (RunReferenceScanner(config.KnownDomainsFile, config.PluginPaths))
@@ -400,7 +400,7 @@ public static class CheckCommand
         return hasErrors;
     }
 
-    private static void CheckExternalDeps(string? allowedExternalDepsFile, IReadOnlyList<SkillInfo> skills, IReadOnlyList<AgentInfo> agents, IReadOnlyList<PluginInfo> plugins)
+    private static void CheckExternalDeps(string? allowedExternalDepsFile, IReadOnlyList<SkillInfo> skills, IReadOnlyList<PluginInfo> plugins)
     {
         if (allowedExternalDepsFile is null)
             return;
@@ -412,14 +412,6 @@ public static class CheckCommand
             foreach (var warning in ExternalDependencyChecker.CheckSkill(skill, allowed))
             {
                 Console.WriteLine($"{Ansi.Yellow}⚠  [skill:{skill.Name}] {warning}{Ansi.Reset}");
-                hasExternalDeps = true;
-            }
-        }
-        foreach (var agent in agents)
-        {
-            foreach (var warning in ExternalDependencyChecker.CheckAgent(agent, allowed))
-            {
-                Console.WriteLine($"{Ansi.Yellow}⚠  [agent:{agent.Name}] {warning}{Ansi.Reset}");
                 hasExternalDeps = true;
             }
         }
