@@ -211,7 +211,7 @@ public static class CheckCommand
             }
         }
 
-        // Check for external dependencies (plugin-level check includes all three)
+        // Check for external dependencies (skill scripts/INVOKES and plugin MCP servers)
         CheckExternalDeps(config.AllowedExternalDepsFile, allSkillsList, allPlugins);
 
         // Run reference scanner if known-domains file is provided

@@ -1,10 +1,10 @@
 # Allowed external dependencies for the skill-validator.
 # One entry per line. Lines starting with # are comments.
-# Format: type:name:detail
+# Format: type:name[:detail]   (detail is required for some types — see below)
 #
 # Types:
 #   script:SKILL-NAME:relative/path    - Script file in a skill's scripts/ directory
-#   invokes:SKILL-NAME                 - INVOKES pattern in a skill description
+#   invokes:SKILL-NAME                 - INVOKES pattern in a skill description (no detail)
 #   mcp-server:PLUGIN-NAME:server-name - MCP server declaration in plugin.json
 #
 # To get clean, remove entries as the underlying dependency is resolved.
