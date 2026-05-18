@@ -9,7 +9,6 @@ description: >-
   running multiple analysis skills in sequence. Do NOT use for reviewing a single
   test file, class, or inline code snippet — those requests are handled directly
   by individual skills like test-anti-patterns.
-tools: ['read', 'search', 'edit', 'bash', 'powershell', 'skill']
 user-invokable: true
 disable-model-invocation: false
 handoffs:

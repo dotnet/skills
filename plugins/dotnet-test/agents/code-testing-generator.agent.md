@@ -6,7 +6,6 @@ description: >-
   coverage plateaus or project-wide coverage/CRAP analysis without writing tests
   (use coverage-analysis); targeted method/class CRAP scores (use crap-score).
 name: code-testing-generator
-tools: ['read', 'search', 'edit', 'task', 'skill', 'bash', 'powershell']
 license: MIT
 ---
 

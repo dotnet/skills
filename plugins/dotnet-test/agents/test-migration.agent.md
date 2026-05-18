@@ -6,7 +6,6 @@ description: >-
   and guides users through end-to-end upgrades. Use when asked to upgrade
   MSTest, migrate to xUnit v3, switch to Microsoft.Testing.Platform, modernize
   test infrastructure, or when the user says "migrate my tests".
-tools: ['read', 'search', 'edit', 'bash', 'powershell', 'skill']
 user-invokable: true
 disable-model-invocation: false
 handoffs:
