@@ -39,16 +39,14 @@
     <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.0.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.7" />
     <!-- external -->
-    <PackageReference Include="GitHub.Copilot.SDK" Version="0.2.2" />
-    <PackageReference Include="YamlDotNet" Version="16.3.0" />
-    <PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="16.3.0" />
+    <PackageReference Include="GitHub.Copilot.SDK" Version="0.3.0" />
+    <PackageReference Include="YamlDotNet" Version="17.1.0" />
+    <PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="17.0.0" />
 
     <!--
-      Transitive pin: StreamJsonRpc 2.24.84 (brought in by GitHub.Copilot.SDK)
-      drags in Nerdbank.MessagePack 1.0.2, which has a known high-severity
-      stackalloc vulnerability in DateTime decoding (GHSA-2cwq-pwfr-wcw3,
-      https://github.com/advisories/GHSA-2cwq-pwfr-wcw3). Fixed in 1.1.62.
-      Drop this direct reference once the upstream chain bumps past 1.1.62.
+      Transitive pin: GitHub.Copilot.SDK still drags in Nerdbank.MessagePack
+      1.0.2 which has a known high-severity vulnerability (GHSA-2cwq-pwfr-wcw3).
+      Fixed in 1.1.62.  Drop this once the upstream chain bumps past 1.1.62.
     -->
     <PackageReference Include="Nerdbank.MessagePack" Version="1.1.62" />
   </ItemGroup>
