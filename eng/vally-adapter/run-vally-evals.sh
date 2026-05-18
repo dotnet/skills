@@ -125,6 +125,9 @@ run_one_eval() {
   # to avoid any cross-run contention when running in parallel.
   local EMPTY_SKILL_DIR
   EMPTY_SKILL_DIR=$(mktemp -d -t vally-empty-skills-XXXXXX)
+  # Cleanup on every exit path (including `set -e` aborts inside the
+  # log-capture block below, e.g. if `node adapt.mjs` exits non-zero).
+  trap 'rm -rf "$EMPTY_SKILL_DIR"' RETURN
 
   echo -e "  ${BOLD}▶${NC} $EVAL_PLUGIN/$EVAL_NAME — baseline..." >&2
 
@@ -190,8 +193,6 @@ run_one_eval() {
     echo "error" > "$STATUS_DIR/$EVAL_PLUGIN--$EVAL_NAME"
     echo -e "  ${RED}✘${NC} $EVAL_PLUGIN/$EVAL_NAME (see $LOG)"
   fi
-
-  rm -rf "$EMPTY_SKILL_DIR"
 }
 
 export -f run_one_eval

@@ -120,11 +120,11 @@ jobs:
           # directory.
           if [ -n "$DISPATCH_SKILL" ]; then
             CANDIDATE="tests/${{ matrix.entry.plugin }}/${DISPATCH_SKILL}/eval.vally.yaml"
-            if [ -f "$CANDIDATE" ]; then
-              EVALS="$CANDIDATE"
-            else
-              EVALS=""
+            if [ ! -f "$CANDIDATE" ]; then
+              echo "::error::workflow_dispatch requested skill '${DISPATCH_SKILL}' in plugin '${{ matrix.entry.plugin }}' but no eval spec exists at '${CANDIDATE}'. Check the skill name (case-sensitive) and that the eval file is present."
+              exit 1
             fi
+            EVALS="$CANDIDATE"
           else
             EVALS=$(find tests/${{ matrix.entry.plugin }} -name "eval.vally.yaml" -type f | sort)
           fi
