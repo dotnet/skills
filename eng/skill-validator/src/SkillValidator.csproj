@@ -6,6 +6,9 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- YamlDotNet 17.x is not fully trim/AOT-compatible; suppress the
+         assembly-level trim analysis warning so native publish succeeds. -->
+    <NoWarn>$(NoWarn);IL2104</NoWarn>
 
     <!-- Packaging -->
     <PackageId>Microsoft.DotNet.SkillValidator</PackageId>

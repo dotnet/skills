@@ -299,6 +299,14 @@ public static class AgentRunner
                     continue;
                 }
 
+                // Only stdio servers are supported; reject unknown types early.
+                if (def.Type is not null and not "stdio")
+                {
+                    Console.Error.WriteLine(
+                        $"Skipping MCP server '{name}': unsupported type '{def.Type}' (only 'stdio' is supported)");
+                    continue;
+                }
+
                 var sanitizedArgs = SanitizeMcpArgs(def.Command, def.Args);
                 if (sanitizedArgs is null)
                 {
