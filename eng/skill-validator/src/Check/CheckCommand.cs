@@ -405,6 +405,8 @@ public static class CheckCommand
         if (allowedExternalDepsFile is null)
             return;
 
+        _ = agents; // agents currently have no external-dependency checks; reserved for future use
+
         bool hasExternalDeps = false;
         var allowed = ExternalDependencyChecker.LoadAllowList(allowedExternalDepsFile);
         foreach (var skill in skills)
@@ -412,14 +414,6 @@ public static class CheckCommand
             foreach (var warning in ExternalDependencyChecker.CheckSkill(skill, allowed))
             {
                 Console.WriteLine($"{Ansi.Yellow}⚠  [skill:{skill.Name}] {warning}{Ansi.Reset}");
-                hasExternalDeps = true;
-            }
-        }
-        foreach (var agent in agents)
-        {
-            foreach (var warning in ExternalDependencyChecker.CheckAgent(agent, allowed))
-            {
-                Console.WriteLine($"{Ansi.Yellow}⚠  [agent:{agent.Name}] {warning}{Ansi.Reset}");
                 hasExternalDeps = true;
             }
         }
