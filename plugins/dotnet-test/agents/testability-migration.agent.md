@@ -6,7 +6,7 @@ description: >-
   Use when asked to make code testable, remove static coupling, migrate to
   TimeProvider, adopt IFileSystem, or improve testability of a legacy codebase.
 name: testability-migration
-tools: ['read', 'search', 'edit', 'terminal', 'skill']
+tools: ['read', 'search', 'edit', 'bash', 'powershell', 'skill']
 handoffs:
   - label: Generate Tests for Migrated Code
     agent: code-testing-generator

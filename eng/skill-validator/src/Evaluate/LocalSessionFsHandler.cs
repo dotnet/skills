@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using GitHub.Copilot.SDK;
 using GitHub.Copilot.SDK.Rpc;
 
@@ -12,6 +13,11 @@ namespace SkillValidator.Evaluate;
 internal sealed class LocalSessionFsHandler : SessionFsProvider
 {
     private readonly string _rootDir;
+    // The SDK can report "timeout while waiting for mutex to become available"
+    // when multiple session-state writes race on the same JSONL file, so serialize
+    // writes per resolved path inside the handler as well.
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _pathLocks =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public LocalSessionFsHandler(string rootDir)
     {
@@ -30,26 +36,46 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
         return full;
     }
 
+    private async Task ExecuteWithPathLockAsync(string path, Func<Task> action, CancellationToken cancellationToken)
+    {
+        var pathLock = _pathLocks.GetOrAdd(path, static _ => new SemaphoreSlim(1, 1));
+        await pathLock.WaitAsync(cancellationToken);
+        try
+        {
+            await action();
+        }
+        finally
+        {
+            pathLock.Release();
+        }
+    }
+
     protected override async Task<string> ReadFileAsync(string path, CancellationToken cancellationToken)
     {
         var resolved = ResolvePath(path);
         return await File.ReadAllTextAsync(resolved, cancellationToken);
     }
 
-    protected override async Task WriteFileAsync(string path, string content, int? mode, CancellationToken cancellationToken)
+    protected override Task WriteFileAsync(string path, string content, int? mode, CancellationToken cancellationToken)
     {
         var resolved = ResolvePath(path);
-        var dir = Path.GetDirectoryName(resolved);
-        if (dir is not null) Directory.CreateDirectory(dir);
-        await File.WriteAllTextAsync(resolved, content, cancellationToken);
+        return ExecuteWithPathLockAsync(resolved, async () =>
+        {
+            var dir = Path.GetDirectoryName(resolved);
+            if (dir is not null) Directory.CreateDirectory(dir);
+            await File.WriteAllTextAsync(resolved, content, cancellationToken);
+        }, cancellationToken);
     }
 
-    protected override async Task AppendFileAsync(string path, string content, int? mode, CancellationToken cancellationToken)
+    protected override Task AppendFileAsync(string path, string content, int? mode, CancellationToken cancellationToken)
     {
         var resolved = ResolvePath(path);
-        var dir = Path.GetDirectoryName(resolved);
-        if (dir is not null) Directory.CreateDirectory(dir);
-        await File.AppendAllTextAsync(resolved, content, cancellationToken);
+        return ExecuteWithPathLockAsync(resolved, async () =>
+        {
+            var dir = Path.GetDirectoryName(resolved);
+            if (dir is not null) Directory.CreateDirectory(dir);
+            await File.AppendAllTextAsync(resolved, content, cancellationToken);
+        }, cancellationToken);
     }
 
     protected override Task<bool> ExistsAsync(string path, CancellationToken cancellationToken)
