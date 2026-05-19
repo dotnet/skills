@@ -30,7 +30,6 @@ Use the available MCP server tools to query the binary log for:
 - Target execution details
 - File contents embedded in the binlog
 
-
 ## Fallback workflow — text-log replay (when MCP is unavailable)
 
 Use this only when the MCP server cannot be started (for example, on an older
