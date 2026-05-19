@@ -60,8 +60,7 @@ Classify the user's request and route to the appropriate skill:
 | User Intent | Route To | Plugin |
 |---|---|---|
 | "Are my assertions good enough?" / shallow testing / assertion diversity | `assertion-quality` skill | dotnet-test |
-| "Find test smells" / comprehensive formal audit | `test-smell-detection` skill | dotnet-test |
-| "Pragmatic anti-pattern check" within a broader audit context | `test-anti-patterns` skill | dotnet-test |
+| "Find test smells" / "audit my tests" / comprehensive test audit | `test-anti-patterns` skill (includes the testsmells.org-based formal smell catalog) | dotnet-test |
 | "Find test duplication" / boilerplate / DRY up tests | `exp-test-maintainability` skill | dotnet-experimental |
 | "Are my mocks needed?" / over-mocking / mock audit | `exp-mock-usage-analysis` skill | dotnet-experimental |
 | "Would my tests catch bugs?" / mutation analysis / test gaps | `test-gap-analysis` skill | dotnet-test |
@@ -78,8 +77,8 @@ When the user asks for a broad quality assessment (e.g., "audit my test suite", 
 
 Run these in order. Each step builds context for the next. Stop early if the user's scope is narrow or the codebase is small.
 
-1. **Anti-patterns** — `test-anti-patterns` skill
-   - Quick pragmatic scan for the most impactful issues
+1. **Anti-patterns and smells** — `test-anti-patterns` skill
+   - Comprehensive scan for the most impactful issues (anti-patterns + smell catalog)
    - Produces severity-ranked findings (Critical → Low)
 
 2. **Assertion quality** — `assertion-quality` skill
@@ -96,10 +95,9 @@ Run these in order. Each step builds context for the next. Stop early if the use
 
 ### Optional follow-ups (offer but don't run automatically)
 
-5. **Test smells** — `test-smell-detection` skill (if step 1 found many issues and the user wants a deeper formal audit)
-6. **Maintainability** — `exp-test-maintainability` skill (if the test suite is large and duplication is suspected)
-7. **Mock audit** — `exp-mock-usage-analysis` skill (if over-mocking was flagged in step 1)
-8. **Test tagging** — `test-tagging` skill (if the user wants to understand test type distribution)
+5. **Maintainability** — `exp-test-maintainability` skill (if the test suite is large and duplication is suspected)
+6. **Mock audit** — `exp-mock-usage-analysis` skill (if over-mocking was flagged in step 1)
+7. **Test tagging** — `test-tagging` skill (if the user wants to understand test type distribution)
 
 ### Synthesizing results
 

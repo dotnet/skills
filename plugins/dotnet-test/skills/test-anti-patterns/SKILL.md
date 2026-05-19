@@ -1,18 +1,22 @@
 ---
 name: test-anti-patterns
 description: >
-  Detection-focused review of .NET test code for anti-patterns that
-  undermine reliability and diagnostic value.
-  USE FOR: audit test quality, review test code, find test anti-patterns,
-  tests pass but don't verify anything, flaky tests, ordering dependency,
-  duplicate tests, magic values, missing/no assertions, swallowed
-  exceptions, always-true assertions, over-mocking, test coupling, coverage
-  touching, coverage inflation.
-  DO NOT USE FOR: writing new tests (use writing-mstest-tests), direct
-  MSTest API rewrites or implementation-only fixes such as swapped
-  Assert.AreEqual argument order, running tests (use run-tests), migrating
-  between frameworks (use migration skills), deep formal audit based on
-  academic test smell taxonomy (use test-smell-detection).
+  Audits existing .NET test code (MSTest, xUnit, NUnit, TUnit) for
+  anti-patterns and smells that undermine reliability and diagnostic
+  value — produces a severity-ranked report (Critical / Warning / Info)
+  with concrete code-level fixes and acknowledgement of what the tests
+  do well. Includes the testsmells.org 19-smell academic catalog as a
+  reference.
+  INVOKE THIS SKILL when the user asks to audit, review, rank, or find
+  problems in existing tests — including: "audit my tests", "audit for
+  .NET test anti-patterns", "test smell audit", "formal smell audit",
+  "rank by severity", "are these tests good", no/missing assertions,
+  swallowed exceptions, always-true / self-comparing / self-referential
+  assertions, broad exception types, flakiness (Thread.Sleep,
+  DateTime.Now), ordering dependency, shared static state, reflection
+  coupling, duplicated tests, magic values, coverage touching.
+  DO NOT USE FOR: writing new tests (use writing-mstest-tests); running
+  tests (use run-tests); framework migration (use migration skills).
 license: MIT
 ---
 
@@ -37,7 +41,7 @@ Quick, pragmatic analysis of .NET test code for anti-patterns and quality issues
 - User wants to run or execute tests (use `run-tests`)
 - User wants to migrate between test frameworks or versions (use migration skills)
 - User wants to measure code coverage (out of scope)
-- User wants a deep formal test smell audit with academic taxonomy and extended catalog (use `test-smell-detection`)
+- User wants raw academic-only smell catalog research data without an audit context (this skill includes a smell catalog reference, but is audit-focused — not a literature export)
 
 ## Inputs
 
@@ -153,3 +157,7 @@ If there are many findings, recommend which to fix first:
 | Rating cosmetic issues as Medium | Naming mismatches (e.g., method name says `ArgumentException` but asserts `ArgumentOutOfRangeException`) are Low, not Medium -- the test still works correctly. |
 | Ignoring the test framework | xUnit uses `[Fact]`/`[Theory]`, NUnit uses `[Test]`/`[TestCase]`, MSTest uses `[TestMethod]`/`[DataRow]` -- use correct terminology |
 | Missing the forest for the trees | If 80% of tests have no assertions, lead with that systemic issue rather than listing every instance |
+
+## References
+
+For deeper smell audits using the academic testsmells.org research taxonomy (Assertion Roulette, Duplicate Assert, Constructor Initialization, Default Test, Lazy Test, Redundant Print, Resource Optimism, Empty Test, and others not covered in the catalogs above), see [`references/test-smell-catalog.md`](references/test-smell-catalog.md). Use it when the user explicitly asks for the formal/research-backed 19-smell catalog or when the standard catalogs above leave a gap.

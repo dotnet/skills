@@ -40,8 +40,7 @@ Skills and agents for running, generating, analyzing, migrating, and improving .
 
 | Skill | Description |
 |---|---|
-| **test-anti-patterns** | Quick pragmatic scan for ~15 common test quality issues with severity ranking |
-| **test-smell-detection** | Deep formal audit using academic test smell taxonomy (19 smell types) |
+| **test-anti-patterns** | Comprehensive audit of existing tests for anti-patterns and smells (severity-ranked findings with concrete fixes; includes the testsmells.org-based formal smell catalog as an internal reference) |
 | **assertion-quality** | Measure assertion variety and depth — find shallow tests that barely verify anything |
 | **test-gap-analysis** | Pseudo-mutation analysis to find test blind spots that coverage numbers miss |
 | **test-tagging** | Tag tests with standardized traits (smoke, regression, boundary, critical-path, etc.) |
