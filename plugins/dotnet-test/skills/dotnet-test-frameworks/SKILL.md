@@ -23,12 +23,12 @@ Language-specific detection patterns for .NET test frameworks (MSTest, xUnit, NU
 | Category | MSTest | xUnit | NUnit | TUnit |
 | -------- | ------ | ----- | ----- | ----- |
 | Equality | `Assert.AreEqual` | `Assert.Equal` | `Assert.That(x, Is.EqualTo(y))` | `await Assert.That(x).IsEqualTo(y)` |
-| Boolean | `Assert.IsTrue` / `Assert.IsFalse` | `Assert.True` / `Assert.False` | `Assert.That(x, Is.True)` | `await Assert.That(x).IsTrue()` / `.IsFalse()` |
-| Null | `Assert.IsNull` / `Assert.IsNotNull` | `Assert.Null` / `Assert.NotNull` | `Assert.That(x, Is.Null)` | `await Assert.That(x).IsNull()` / `.IsNotNull()` |
-| Exception | `Assert.Throws<T>()` / `Assert.ThrowsExactly<T>()` | `Assert.Throws<T>()` | `Assert.That(() => ..., Throws.TypeOf<T>())` | `await Assert.That(() => ...).Throws<T>()` / `.ThrowsExactly<T>()` |
+| Boolean | `Assert.IsTrue` / `Assert.IsFalse` | `Assert.True` / `Assert.False` | `Assert.That(x, Is.True)` | `await Assert.That(x).IsTrue()` / `await Assert.That(x).IsFalse()` |
+| Null | `Assert.IsNull` / `Assert.IsNotNull` | `Assert.Null` / `Assert.NotNull` | `Assert.That(x, Is.Null)` | `await Assert.That(x).IsNull()` / `await Assert.That(x).IsNotNull()` |
+| Exception | `Assert.Throws<T>()` / `Assert.ThrowsExactly<T>()` | `Assert.Throws<T>()` | `Assert.That(() => ..., Throws.TypeOf<T>())` | `await Assert.That(() => ...).Throws<T>()` / `await Assert.That(() => ...).ThrowsExactly<T>()` |
 | Collection | `CollectionAssert.Contains` | `Assert.Contains` | `Assert.That(col, Has.Member(x))` | `await Assert.That(col).Contains(x)` |
 | String | `StringAssert.Contains` | `Assert.Contains(str, sub)` | `Assert.That(str, Does.Contain(sub))` | `await Assert.That(str).Contains(sub)` |
-| Type | `Assert.IsInstanceOfType` | `Assert.IsAssignableFrom` | `Assert.That(x, Is.InstanceOf<T>())` | `await Assert.That(x).IsAssignableTo<T>()` (use `.IsTypeOf<T>()` for exact-type check) |
+| Type | `Assert.IsInstanceOfType` | `Assert.IsAssignableFrom` | `Assert.That(x, Is.InstanceOf<T>())` | `await Assert.That(x).IsAssignableTo<T>()` (use `await Assert.That(x).IsTypeOf<T>()` for exact-type check) |
 | Inconclusive | `Assert.Inconclusive()` | *skip via `[Fact(Skip)]`* | `Assert.Inconclusive()` | `Skip.Test("reason")` (no true inconclusive state) |
 | Fail | `Assert.Fail()` | `Assert.Fail()` (.NET 10+) | `Assert.Fail()` | `Assert.Fail()` |
 
