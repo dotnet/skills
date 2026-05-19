@@ -1,6 +1,6 @@
 ---
 name: binlog-failure-analysis
-description: "Analyze MSBuild binary logs to diagnose build failures. Only activate in MSBuild/.NET build context. USE FOR: build errors that are unclear from console output, diagnosing cascading failures across multi-project builds, tracing MSBuild target execution order, and generaly any MSBuild build issues. Requires an existing .binlog file. DO NOT USE FOR: generating binlogs (use binlog-generation), non-MSBuild build systems. INVOKES: binlog MCP server tools (overview, errors, search, items, properties); falls back to dotnet msbuild binlog replay + grep/cat when the MCP is unavailable."
+description: "Analyze MSBuild binary logs to diagnose build failures. Only activate in MSBuild/.NET build context. USE FOR: build errors that are unclear from console output, diagnosing cascading failures across multi-project builds, tracing MSBuild target execution order, and generally any MSBuild build issues. Requires an existing .binlog file. DO NOT USE FOR: generating binlogs (use binlog-generation), non-MSBuild build systems. INVOKES: binlog MCP server tools (overview, errors, search, items, properties); falls back to dotnet msbuild binlog replay + grep/cat when the MCP is unavailable."
 license: MIT
 ---
 
@@ -15,7 +15,7 @@ not available, fall back to the **binlog replay** workflow at the bottom.
 
 The MCP server exposes structured tools for inspecting a `.binlog` without
 parsing text logs. Call them directly instead of replaying the binlog to a text
-file. Call `tools/list` first if you are unsure which tools are available.
+file. Call `tools/list` for the MCP first if you are unsure which tools are available.
 
 **Important constraints:**
 - The `.binlog` file is a **binary format** — do NOT try to `cat`, `head`, `strings`, or read it directly. Use only the MCP tools to query it.

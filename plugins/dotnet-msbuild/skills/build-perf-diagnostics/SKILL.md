@@ -11,6 +11,7 @@ license: MIT
 
 ### Alternate flow when MCP is unavailable: binlog replay to text logs
 
+1. **Generate a binlog**: `dotnet build /bl:{} -m`
 2. **Replay to diagnostic log with performance summary**:
    ```bash
    dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
