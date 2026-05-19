@@ -37,7 +37,7 @@ Group related properties under a shared condition:
   <FeatureAppDomain>true</FeatureAppDomain>
 </PropertyGroup>
 
-<PropertyGroup Condition="$([MSBuild]::GetTargetFrameworkIdentifier('$(TargetFramework)')) == '.NETCoreApp'">
+<PropertyGroup Condition="'$([MSBuild]::GetTargetFrameworkIdentifier('$(TargetFramework)'))' == '.NETCoreApp'">
   <NetCoreBuild>true</NetCoreBuild>
   <DefineConstants>$(DefineConstants);RUNTIME_TYPE_NETCORE</DefineConstants>
 </PropertyGroup>
