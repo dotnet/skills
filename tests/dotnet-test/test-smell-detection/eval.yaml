@@ -6,8 +6,8 @@ scenarios:
   - name: "Detect multiple test smells in order processing test suite"
     prompt: |
       I'm worried about the quality of our OrderProcessor test suite.
-      The tests all pass but some of them feel off — can you review them
-      and tell me if there are any problematic patterns?
+      The tests all pass but some of them feel off — can you do a test
+      smell audit and rank any findings by severity?
     setup:
       files:
         - path: "OrderService.Tests/OrderService.Tests.csproj"
@@ -38,9 +38,9 @@ scenarios:
 
   - name: "Recognize well-written tests with no significant smells"
     prompt: |
-      Can you check my Calculator tests for any test design problems or
-      anti-patterns? I want to make sure they follow best practices before
-      we use them as a template for other test suites.
+      Can you do a formal test smell audit of my Calculator tests? I want
+      to make sure they're clean before we use them as a template for
+      other test suites.
     setup:
       files:
         - path: "Calculator.Tests/Calculator.Tests.csproj"
@@ -66,8 +66,9 @@ scenarios:
   - name: "Recognize integration tests and avoid false positives for external resources"
     prompt: |
       Our team has been arguing about whether our integration tests are
-      well-designed. Some people say they have too many smells. Can you
-      review them and give us an objective assessment?
+      well-designed. Some people say they have too many test smells.
+      Can you do a formal smell audit and give us an objective
+      severity-ranked assessment?
     setup:
       files:
         - path: "DataAccess.IntegrationTests/DataAccess.IntegrationTests.csproj"
