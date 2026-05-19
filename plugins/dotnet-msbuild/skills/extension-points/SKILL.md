@@ -47,7 +47,7 @@ MSBuild imports all files in extension directories, sorted alphabetically:
 ```xml
 <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Imports\Microsoft.Common.props\ImportBefore\*"
     Condition="'$(ImportByWildcardBeforeMicrosoftCommonProps)' == 'true'
-               and exists('...\ImportBefore')" />
+               and Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Imports\Microsoft.Common.props\ImportBefore')" />
 ```
 
 ### Key paths

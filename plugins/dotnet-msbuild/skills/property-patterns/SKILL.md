@@ -67,7 +67,7 @@ Properties that hold lists use semicolons. Always include the existing value whe
 
 <!-- Normalize paths for cross-platform -->
 <PropertyGroup>
-  <TargetRefPath>$([MSBuild]::NormalizePath($(TargetDir), 'ref', $(TargetFileName)))</TargetRefPath>
+  <TargetRefPath>$([MSBuild]::NormalizePath('$(TargetDir)', 'ref', '$(TargetFileName)'))</TargetRefPath>
 </PropertyGroup>
 
 <!-- Make relative path absolute -->
