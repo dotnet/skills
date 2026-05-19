@@ -22,3 +22,6 @@ script:migrate-nullable-references:scripts/Get-NullableReadiness.ps1
 # dotnet-msbuild plugin: msbuild agent
 tool-ref:msbuild:#tool:web/fetch
 tool-ref:msbuild:#tool:agent/runSubagent
+
+# dotnet-msbuild plugin: AITools.BinlogMcp server (binlog analysis MCP from dotnet-eng feed)
+mcp-server:dotnet-msbuild:binlog

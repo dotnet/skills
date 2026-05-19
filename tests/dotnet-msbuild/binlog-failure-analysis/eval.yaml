@@ -21,7 +21,7 @@ scenarios:
       - type: "output_contains"
         value: "Newtonsoft.Json"
     rubric:
-      - "Successfully replayed the binary log to text logs or otherwise extracted errors from the binlog"
+      - "Used the binlog MCP server tools (e.g. binlog_overview, binlog_errors, binlog_search) to extract errors from the binlog, or — if the MCP is unavailable — fell back to dotnet msbuild binlog replay"
       - "Identified CS0246 compiler errors in the Services project for Newtonsoft.Json types (JsonConvert, JObject, Formatting) from the binlog"
       - "Correctly determined that the root cause is a missing PackageReference for Newtonsoft.Json in the Services project"
       - "Recognized the cascading failure chain: Services failed → Api could not build because it depends on Services"
