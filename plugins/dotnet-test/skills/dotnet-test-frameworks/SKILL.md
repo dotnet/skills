@@ -28,7 +28,7 @@ Language-specific detection patterns for .NET test frameworks (MSTest, xUnit, NU
 | Exception | `Assert.Throws<T>()` / `Assert.ThrowsExactly<T>()` | `Assert.Throws<T>()` | `Assert.That(() => ..., Throws.TypeOf<T>())` | `await Assert.That(() => ...).Throws<T>()` / `.ThrowsExactly<T>()` |
 | Collection | `CollectionAssert.Contains` | `Assert.Contains` | `Assert.That(col, Has.Member(x))` | `await Assert.That(col).Contains(x)` |
 | String | `StringAssert.Contains` | `Assert.Contains(str, sub)` | `Assert.That(str, Does.Contain(sub))` | `await Assert.That(str).Contains(sub)` |
-| Type | `Assert.IsInstanceOfType` | `Assert.IsAssignableFrom` | `Assert.That(x, Is.InstanceOf<T>())` | `await Assert.That(x).IsTypeOf<T>()` |
+| Type | `Assert.IsInstanceOfType` | `Assert.IsAssignableFrom` | `Assert.That(x, Is.InstanceOf<T>())` | `await Assert.That(x).IsAssignableTo<T>()` (use `.IsTypeOf<T>()` for exact-type check) |
 | Inconclusive | `Assert.Inconclusive()` | *skip via `[Fact(Skip)]`* | `Assert.Inconclusive()` | `Skip.Test("reason")` (no true inconclusive state) |
 | Fail | `Assert.Fail()` | `Assert.Fail()` (.NET 10+) | `Assert.Fail()` | `Assert.Fail()` |
 
@@ -51,7 +51,7 @@ Third-party assertion libraries: `Should*` (Shouldly), `.Should()` (FluentAssert
 | MSTest | `[Ignore]` | `[Ignore("reason")]` |
 | xUnit | `[Fact(Skip = "reason")]` | *(reason is required)* |
 | NUnit | `[Ignore("reason")]` | *(reason is required)* |
-| TUnit | `[Skip("reason")]` | *(reason is required)* |
+| TUnit | `[Skip("reason")]` | *(reason is required; also valid at class and assembly scope, e.g. `[assembly: Skip("…")]`. Dynamic in-test skipping via `Skip.Test("reason")`.)* |
 | Conditional | `#if false` / `#if NEVER` | *(no reason possible)* |
 
 ## Exception Handling — Idiomatic Alternatives
