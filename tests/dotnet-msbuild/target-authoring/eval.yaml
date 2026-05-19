@@ -1,6 +1,6 @@
 scenarios:
   - name: "Review custom target for authoring anti-patterns"
-    prompt: "Review the MSBuild project file TargetAuthoring.csproj for custom target authoring issues. Check the target chain structure, DependsOn usage, Returns vs Outputs, extensibility patterns, and naming conventions."
+    prompt: "I added some custom MSBuild targets to TargetAuthoring.csproj but the build behaves oddly — compilation steps seem to go missing and rebuilds happen every time. Can you review the targets and tell me what's wrong?"
     setup:
       copy_test_files: true
     assertions:
@@ -9,9 +9,9 @@ scenarios:
       - type: "output_matches"
         pattern: "(overwrit|append|chain)"
     rubric:
-      - "Identified that CompileDependsOn is overwritten instead of appending with $(CompileDependsOn);GenerateApiClient"
-      - "Identified that GetApiEndpoints query target should use Returns instead of Outputs"
-      - "Identified that GenerateApiClient is missing Inputs/Outputs for incrementality"
-      - "Identified that generated file is not registered in FileWrites for clean support"
-      - "Suggested adding a three-level pattern (Before/Core/After) or at minimum using the DependsOn chain extension pattern"
+      - "Identified that CompileDependsOn is overwritten instead of appending, which drops existing SDK compilation targets"
+      - "Identified that GetApiEndpoints query target should use Returns instead of Outputs to avoid caching stale results"
+      - "Identified that GenerateApiClient is missing Inputs/Outputs, causing unnecessary rebuilds"
+      - "Identified that generated file is not registered in FileWrites, so dotnet clean won't remove it"
+      - "Suggested a way to make the targets extensible by downstream consumers"
     timeout: 120

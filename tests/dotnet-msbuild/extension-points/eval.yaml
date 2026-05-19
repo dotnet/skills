@@ -1,16 +1,16 @@
 scenarios:
   - name: "Review MSBuild extension point patterns"
-    prompt: "Review the Directory.Build.targets file for MSBuild extension point issues. Check import guards, CustomBefore/After property usage, and target extensibility patterns."
+    prompt: "Our build breaks on fresh clones and a NuGet package's custom hook stopped working after we added Directory.Build.targets. Also other teams can't plug into our RunCodeGen step. Can you review the file and find the issues?"
     setup:
       copy_test_files: true
     assertions:
       - type: "output_matches"
-        pattern: "(Exists|guard)"
+        pattern: "(Exists|missing|not found)"
       - type: "output_matches"
-        pattern: "(CustomBefore|append|overwrite)"
+        pattern: "(CustomBefore|append|overwrite|drop)"
     rubric:
-      - "Identified the missing Exists() condition on the Import element for eng/custom-analyzers.props"
-      - "Identified that CustomBeforeMicrosoftCommonTargets is overwritten instead of appended with a semicolon separator"
-      - "Identified that RunCodeGen target is not extensible — it should use a DependsOn chain pattern with Before/Core/After split"
+      - "Identified that the Import will fail on fresh clones because there's no existence check for the imported file"
+      - "Identified that the CustomBeforeMicrosoftCommonTargets assignment drops any previously-set hooks (from NuGet packages or parent files)"
+      - "Identified that the RunCodeGen target cannot be extended by other teams and suggested a way to make it extensible"
       - "Suggested concrete fixes with correct patterns for each issue"
     timeout: 120
