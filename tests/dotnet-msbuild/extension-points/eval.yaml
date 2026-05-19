@@ -1,0 +1,16 @@
+scenarios:
+  - name: "Review MSBuild extension point patterns"
+    prompt: "Review the Directory.Build.targets file for MSBuild extension point issues. Check import guards, CustomBefore/After property usage, and target extensibility patterns."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(Exists|guard)"
+      - type: "output_matches"
+        pattern: "(CustomBefore|append|overwrite)"
+    rubric:
+      - "Identified the missing Exists() condition on the Import element for eng/custom-analyzers.props"
+      - "Identified that CustomBeforeMicrosoftCommonTargets is overwritten instead of appended with a semicolon separator"
+      - "Identified that RunCodeGen target is not extensible — it should use a DependsOn chain pattern with Before/Core/After split"
+      - "Suggested concrete fixes with correct patterns for each issue"
+    timeout: 120

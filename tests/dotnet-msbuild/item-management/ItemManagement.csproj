@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <!-- Anti-pattern: Uses Include when Update would be correct for modifying existing items -->
+  <ItemGroup>
+    <Compile Include="**\*.cs">
+      <AutoGen>true</AutoGen>
+    </Compile>
+  </ItemGroup>
+
+  <!-- Anti-pattern: Cross-product batching from two item groups -->
+  <ItemGroup>
+    <DataFile Include="data\users.json" />
+    <DataFile Include="data\orders.json" />
+    <SchemaFile Include="schemas\users.xsd" />
+    <SchemaFile Include="schemas\orders.xsd" />
+  </ItemGroup>
+
+  <Target Name="ValidateData" BeforeTargets="Build">
+    <!-- BAD: %(DataFile.Identity) × %(SchemaFile.Identity) creates cross-product -->
+    <Message Text="Validating %(DataFile.Filename) against %(SchemaFile.Filename)"
+             Importance="high" />
+  </Target>
+
+  <!-- Anti-pattern: Generated file written to source tree instead of obj/ -->
+  <Target Name="GenerateConstants" BeforeTargets="CoreCompile">
+    <WriteLinesToFile File="$(MSBuildProjectDirectory)\Constants.g.cs"
+                     Lines="namespace ItemManagement { public static class Constants { public const int Version = 1%3B } }"
+                     Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="Constants.g.cs" />
+      <!-- Missing FileWrites registration -->
+    </ItemGroup>
+  </Target>
+</Project>

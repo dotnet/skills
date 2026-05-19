@@ -1,0 +1,17 @@
+scenarios:
+  - name: "Review custom target for authoring anti-patterns"
+    prompt: "Review the MSBuild project file TargetAuthoring.csproj for custom target authoring issues. Check the target chain structure, DependsOn usage, Returns vs Outputs, extensibility patterns, and naming conventions."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "CompileDependsOn"
+      - type: "output_matches"
+        pattern: "(overwrit|append|chain)"
+    rubric:
+      - "Identified that CompileDependsOn is overwritten instead of appending with $(CompileDependsOn);GenerateApiClient"
+      - "Identified that GetApiEndpoints query target should use Returns instead of Outputs"
+      - "Identified that GenerateApiClient is missing Inputs/Outputs for incrementality"
+      - "Identified that generated file is not registered in FileWrites for clean support"
+      - "Suggested adding a three-level pattern (Before/Core/After) or at minimum using the DependsOn chain extension pattern"
+    timeout: 120

@@ -1,0 +1,17 @@
+scenarios:
+  - name: "Review item group management patterns"
+    prompt: "Review the MSBuild project file ItemManagement.csproj for item group management issues. Check Include vs Update usage, batching patterns, generated file placement, and FileWrites registration."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(cross.product|batch)"
+      - type: "output_matches"
+        pattern: "(FileWrites|clean)"
+    rubric:
+      - "Identified the Compile Include with AutoGen metadata should use Update instead of Include to avoid duplicating items from SDK default globbing"
+      - "Identified the cross-product batching issue in ValidateData target where %(DataFile.Identity) and %(SchemaFile.Identity) are mixed"
+      - "Identified that Constants.g.cs is generated in the source directory instead of $(IntermediateOutputPath)"
+      - "Identified that the generated file is not registered in FileWrites for clean support"
+      - "Suggested concrete fixes for each issue"
+    timeout: 120

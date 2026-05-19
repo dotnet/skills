@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <!-- Anti-pattern: Overwrites CompileDependsOn instead of appending -->
+  <PropertyGroup>
+    <CompileDependsOn>GenerateApiClient</CompileDependsOn>
+  </PropertyGroup>
+
+  <!-- Anti-pattern: Uses Outputs on a query target that should use Returns -->
+  <Target Name="GetApiEndpoints" Outputs="@(ApiEndpoint)">
+    <ItemGroup>
+      <ApiEndpoint Include="https://api.example.com/v1/users" />
+      <ApiEndpoint Include="https://api.example.com/v1/orders" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Anti-pattern: Missing extensibility (no Before/After), no Inputs/Outputs,
+       no FileWrites, target defined without DependsOn chain -->
+  <Target Name="GenerateApiClient" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <_GenOutput>$(IntermediateOutputPath)ApiClient.g.cs</_GenOutput>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_GenOutput)"
+                     Lines="namespace TargetAuthoring { public static class ApiClient { public static string BaseUrl => %22https://api.example.com%22%3B } }"
+                     Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(_GenOutput)" />
+    </ItemGroup>
+  </Target>
+</Project>

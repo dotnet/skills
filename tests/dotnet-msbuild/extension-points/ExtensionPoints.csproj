@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <!-- Anti-pattern: NuGet package extension with wrong file name (doesn't match package ID) -->
+  <!-- Package ID would be "ExtensionPoints" but the file is named "MyExtension.props" -->
+</Project>

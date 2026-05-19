@@ -1,0 +1,184 @@
+---
+name: extension-points
+description: "Guide for MSBuild extensibility: CustomBefore/CustomAfter hooks, wildcard imports with alphabetic ordering, import gating with control properties (ImportByWildcard*, ImportDirectoryBuild*, ImportProjectExtension*), feature gating with AreFeaturesEnabled, Directory.Build discovery and multi-level hierarchy, NuGet package build extension layout (build/buildTransitive), and the MicrosoftCommonPropsHasBeenImported guard pattern. USE FOR: injecting custom logic into the build pipeline, creating NuGet packages that extend the build, providing repo-wide build policies, understanding how MSBuild discovers and imports extensions, conditionally disabling imports, creating side-by-side versioned extensions. DO NOT USE FOR: target authoring (use target-authoring), props vs targets placement (use directory-build-organization), non-MSBuild build systems."
+license: MIT
+---
+
+# MSBuild Extension Points
+
+How the MSBuild pipeline provides hooks for SDKs, NuGet packages, repos, and users to inject custom logic.
+
+## CustomBefore / CustomAfter Hooks
+
+Every major `.targets` file defines import hooks:
+
+```xml
+<PropertyGroup>
+  <CustomBeforeMicrosoftCommonTargets Condition="'$(CustomBeforeMicrosoftCommonTargets)' == ''">
+    $(MSBuildExtensionsPath)\v$(MSBuildToolsVersion)\Custom.Before.Microsoft.Common.targets
+  </CustomBeforeMicrosoftCommonTargets>
+</PropertyGroup>
+
+<Import Project="$(CustomBeforeMicrosoftCommonTargets)"
+    Condition="'$(CustomBeforeMicrosoftCommonTargets)' != '' and Exists('$(CustomBeforeMicrosoftCommonTargets)')"/>
+<!-- ... core targets ... -->
+<Import Project="$(CustomAfterMicrosoftCommonTargets)"
+    Condition="'$(CustomAfterMicrosoftCommonTargets)' != '' and Exists('$(CustomAfterMicrosoftCommonTargets)')"/>
+```
+
+### Rules
+
+- Default path includes version (`v$(MSBuildToolsVersion)`) for side-by-side installations.
+- Always check `Exists()`. The file may not be present on every machine.
+- **Append** to the property (don't overwrite) to chain multiple hooks:
+
+```xml
+<PropertyGroup>
+  <CustomBeforeMicrosoftCommonTargets>
+    $(CustomBeforeMicrosoftCommonTargets);$(MSBuildThisFileDirectory)MyExtension.targets
+  </CustomBeforeMicrosoftCommonTargets>
+</PropertyGroup>
+```
+
+## Wildcard Import Directories
+
+MSBuild imports all files in extension directories, sorted alphabetically:
+
+```xml
+<Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Imports\Microsoft.Common.props\ImportBefore\*"
+    Condition="'$(ImportByWildcardBeforeMicrosoftCommonProps)' == 'true'
+               and exists('...\ImportBefore')" />
+```
+
+### Key paths
+
+| Property | Resolves to | Scope |
+|---|---|---|
+| `$(MSBuildUserExtensionsPath)` | `%APPDATA%\Microsoft\MSBuild` | Per-user |
+| `$(MSBuildExtensionsPath)` | MSBuild install directory | Machine-wide |
+| `$(MSBuildProjectExtensionsPath)` | `obj/` directory | Per-project (NuGet) |
+
+Name files with numeric prefixes for ordering: `01-first.props`, `02-second.props`.
+
+## Import Gating — Control Properties
+
+Every wildcard import is gated by a boolean property:
+
+```xml
+<PropertyGroup>
+  <ImportByWildcardBeforeMicrosoftCommonProps
+      Condition="'$(ImportByWildcardBeforeMicrosoftCommonProps)' == ''">true</ImportByWildcardBeforeMicrosoftCommonProps>
+  <ImportDirectoryBuildProps
+      Condition="'$(ImportDirectoryBuildProps)' == ''">true</ImportDirectoryBuildProps>
+</PropertyGroup>
+```
+
+### Available control properties
+
+| Property | What it disables |
+|---|---|
+| `ImportDirectoryBuildProps` | Directory.Build.props auto-discovery |
+| `ImportDirectoryBuildTargets` | Directory.Build.targets auto-discovery |
+| `ImportProjectExtensionProps` | NuGet-generated `*.props` in obj/ |
+| `ImportProjectExtensionTargets` | NuGet-generated `*.targets` in obj/ |
+| `ImportByWildcardBefore*` | Machine-level ImportBefore extensions |
+| `ImportByWildcardAfter*` | Machine-level ImportAfter extensions |
+
+## Feature Gating by MSBuild Version
+
+```xml
+<ImportProjectExtensionProps
+    Condition="$([MSBuild]::AreFeaturesEnabled('17.10'))
+               And '$(ImportProjectExtensionProps)' == ''
+               And '$(MSBuildIsRestoring)' == 'true'">false</ImportProjectExtensionProps>
+```
+
+Combine version gating with context detection (`$(MSBuildIsRestoring)`) to avoid importing stale files during restore.
+
+## NuGet Package Build Extension Layout
+
+NuGet packages inject build logic via `build/` or `buildTransitive/` folders:
+
+```text
+MyPackage/
+  build/
+    MyPackage.props      ← imported via *.props wildcard
+    MyPackage.targets    ← imported via *.targets wildcard
+  buildTransitive/
+    MyPackage.props      ← imported by transitive consumers
+    MyPackage.targets
+```
+
+### Rules
+
+- File names **must match the package ID** exactly.
+- `build/` affects direct consumers only. `buildTransitive/` affects the entire dependency chain.
+- Props are imported early (before the project), targets are imported late (after the project).
+
+## Import Guard Pattern
+
+The `.targets` file ensures `.props` was imported using a guard property:
+
+```xml
+<!-- End of Microsoft.Common.props -->
+<PropertyGroup>
+  <MicrosoftCommonPropsHasBeenImported>true</MicrosoftCommonPropsHasBeenImported>
+</PropertyGroup>
+
+<!-- Top of Microsoft.Common.CurrentVersion.targets -->
+<Import Project="Microsoft.Common.props"
+    Condition="'$(MicrosoftCommonPropsHasBeenImported)' != 'true'" />
+```
+
+This handles projects that only import `.targets`.
+
+## Directory.Build Discovery
+
+MSBuild walks up the directory tree to find the nearest `Directory.Build.props`:
+
+```xml
+<_DirectoryBuildPropsBasePath>
+  $([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), 'Directory.Build.props'))
+</_DirectoryBuildPropsBasePath>
+```
+
+Only the **nearest** file is discovered. Nested hierarchies must explicitly import parents:
+
+```xml
+<!-- src/Directory.Build.props -->
+<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..\'))" />
+```
+
+## Creating Your Own Extension Point
+
+```xml
+<!-- MySDK.targets -->
+<Project>
+  <Import Project="MySDK.props" Condition="'$(MySDKPropsImported)' != 'true'" />
+
+  <PropertyGroup>
+    <CustomBeforeMySDK Condition="'$(CustomBeforeMySDK)' == ''">$(MSBuildProjectDirectory)\MySDK.Before.targets</CustomBeforeMySDK>
+  </PropertyGroup>
+
+  <Import Project="$(CustomBeforeMySDK)" Condition="Exists('$(CustomBeforeMySDK)')" />
+
+  <PropertyGroup>
+    <MySDKBuildDependsOn>BeforeMySDKBuild;CoreMySDKBuild;AfterMySDKBuild</MySDKBuildDependsOn>
+  </PropertyGroup>
+  <Target Name="MySDKBuild" DependsOnTargets="$(MySDKBuildDependsOn)" />
+  <Target Name="BeforeMySDKBuild" />
+  <Target Name="AfterMySDKBuild" />
+  <Target Name="CoreMySDKBuild">
+    <!-- implementation -->
+  </Target>
+
+  <Import Project="$(CustomAfterMySDK)" Condition="Exists('$(CustomAfterMySDK)')" />
+</Project>
+```
+
+## Common Pitfalls
+
+- **Missing `Exists()` on optional imports** causes build failures when files are absent.
+- **Overwriting Custom* properties** drops prior hooks. Append with `;` separator.
+- **NuGet package file names not matching package ID** silently skips the import.
+- **Nested Directory.Build.props** without parent import loses repo-root settings.

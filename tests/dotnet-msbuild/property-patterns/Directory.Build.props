@@ -1,0 +1,26 @@
+<Project>
+  <!-- Anti-pattern: Overwrites DefineConstants instead of appending -->
+  <PropertyGroup>
+    <DefineConstants>CUSTOM_FEATURE</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Anti-pattern: Unquoted condition -->
+  <PropertyGroup Condition="$(IsLibrary) == true">
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- Anti-pattern: Hardcoded absolute path -->
+  <PropertyGroup>
+    <ToolsPath>C:\BuildTools\analyzers\</ToolsPath>
+  </PropertyGroup>
+
+  <!-- Anti-pattern: Default without condition — cannot be overridden by projects -->
+  <PropertyGroup>
+    <LangVersion>12</LangVersion>
+  </PropertyGroup>
+
+  <!-- Anti-pattern: Missing trailing-slash normalization -->
+  <PropertyGroup>
+    <CustomOutputDir>artifacts\bin</CustomOutputDir>
+  </PropertyGroup>
+</Project>

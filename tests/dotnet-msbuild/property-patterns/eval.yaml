@@ -1,0 +1,17 @@
+scenarios:
+  - name: "Review MSBuild properties for anti-patterns"
+    prompt: "Review the Directory.Build.props file for MSBuild property definition issues. Check for correct conditional defaults, proper composition patterns, path handling, and quoting."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "DefineConstants"
+      - type: "output_matches"
+        pattern: "(overwr|append|composition|concatenat)"
+    rubric:
+      - "Identified DefineConstants overwrites instead of appending with $(DefineConstants);CUSTOM_FEATURE"
+      - "Identified unquoted condition on $(IsLibrary) that can fail when property is empty"
+      - "Identified hardcoded absolute path C:\\BuildTools that breaks portability"
+      - "Identified LangVersion default missing Condition=\"'$(LangVersion)' == ''\" so projects cannot override"
+      - "Suggested using HasTrailingSlash or adding trailing slash to CustomOutputDir"
+    timeout: 120
