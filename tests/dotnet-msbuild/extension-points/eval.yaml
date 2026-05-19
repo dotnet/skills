@@ -13,4 +13,22 @@ scenarios:
       - "Identified that the CustomBeforeMicrosoftCommonTargets assignment drops any previously-set hooks (from NuGet packages or parent files)"
       - "Identified that the RunCodeGen target cannot be extended by other teams and suggested a way to make it extensible"
       - "Suggested concrete fixes with correct patterns for each issue"
-    timeout: 120
+    timeout: 180
+
+  - name: "Diagnose NuGet package and repo extension conflicts"
+    prompt: "After adding a NuGet package with build extensions and setting up Directory.Build files, our build has issues: the shared Common.props never gets imported, a package's hook got silently dropped, and builds fail on fresh clones. The files are in the hard/ subfolder. Can you review how the extension points interact across Directory.Build.props, Directory.Build.targets, and the project?"
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(guard|inverted|condition|CommonPropsImported)"
+      - type: "output_matches"
+        pattern: "(CustomBefore|overwr|append|drop)"
+    rubric:
+      - "Identified the inverted guard condition — imports Common.props when CommonPropsImported IS true (should be != true)"
+      - "Identified that ImportByWildcard properties set in Directory.Build.props are too late to affect SDK imports"
+      - "Identified that CustomBeforeMicrosoftCommonTargets is overwritten instead of appended"
+      - "Identified the missing Exists() guard on the Import of $(RepoToolsPath)/code-analysis.targets"
+      - "Identified that GenerateAssemblyInfo target name collides with the SDK's built-in target"
+      - "Identified that RunPostBuildChecks hooks into an internal SDK target (_CopyFilesMarkedCopyLocal) that may change between SDK versions"
+    timeout: 180

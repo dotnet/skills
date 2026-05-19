@@ -1,0 +1,26 @@
+<Project>
+  <!-- BUG 1: Redefines CoreCodeGen, silently replacing the SDK's implementation.
+       The SDK's CoreCodeGen with Inputs/Outputs and FileWrites is lost. -->
+  <Target Name="CoreCodeGen">
+    <Exec Command="custom-codegen.exe %(CodeGenSchema.Identity)" />
+  </Target>
+
+  <!-- BUG 2: Uses BeforeTargets to inject into CodeGen instead of appending
+       to $(CodeGenDependsOn). This is fragile and bypasses the chain. -->
+  <Target Name="RunLinter" BeforeTargets="CodeGen">
+    <Exec Command="lint-schemas.exe @(CodeGenSchema)" />
+  </Target>
+
+  <!-- BUG 3: Appends to CompileDependsOn AGAIN with the same target,
+       but also adds a new target that depends on CodeGen's outputs
+       without declaring that dependency explicitly -->
+  <PropertyGroup>
+    <CompileDependsOn>$(CompileDependsOn);CodeGen;PostCodeGenValidation</CompileDependsOn>
+  </PropertyGroup>
+
+  <Target Name="PostCodeGenValidation">
+    <!-- Reads generated files but doesn't declare DependsOnTargets="CodeGen"
+         and also duplicates CodeGen in the chain above -->
+    <Message Text="Validating generated files..." Importance="high" />
+  </Target>
+</Project>

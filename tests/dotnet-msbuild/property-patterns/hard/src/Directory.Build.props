@@ -1,0 +1,32 @@
+<Project>
+  <!-- BUG 2: Imports parent but AFTER setting properties unconditionally.
+       The parent's conditional defaults have no effect because this file's
+       unconditional values are set first, then the parent's Condition checks
+       see them as already set. But for DefineConstants, the parent OVERWRITES
+       what this file set because it has no condition. Evaluation order trap. -->
+  <PropertyGroup>
+    <LangVersion>preview</LangVersion>
+    <Nullable>disable</Nullable>
+    <DefineConstants>$(DefineConstants);SRC_LAYER</DefineConstants>
+  </PropertyGroup>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..\'))" />
+
+  <!-- BUG 3: OutputPath uses string concatenation without trailing slash guard.
+       When combined with TargetFramework in the full path, produces
+       artifacts\binnet8.0\ instead of artifacts\bin\net8.0\ -->
+  <PropertyGroup>
+    <OutputPath>$(MSBuildThisFileDirectory)artifacts\bin</OutputPath>
+  </PropertyGroup>
+
+  <!-- BUG 4: Condition uses unquoted comparison that fails when property is empty -->
+  <PropertyGroup Condition="$(EnableAot) == true">
+    <PublishAot>true</PublishAot>
+    <DefineConstants>$(DefineConstants);AOT_BUILD</DefineConstants>
+  </PropertyGroup>
+
+  <!-- BUG 5: NoWarn set without preserving existing suppressions -->
+  <PropertyGroup>
+    <NoWarn>CS1591;IDE0005</NoWarn>
+  </PropertyGroup>
+</Project>

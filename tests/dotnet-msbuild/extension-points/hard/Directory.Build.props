@@ -1,0 +1,14 @@
+<Project>
+  <!-- BUG 1: Tries to disable wildcard imports but sets it AFTER the SDK
+       has already imported. This is in a NESTED Directory.Build.props, but
+       the SDK import happens before this file is discovered. -->
+  <PropertyGroup>
+    <ImportByWildcardBeforeMicrosoftCommonProps>false</ImportByWildcardBeforeMicrosoftCommonProps>
+    <ImportByWildcardAfterMicrosoftCommonProps>false</ImportByWildcardAfterMicrosoftCommonProps>
+  </PropertyGroup>
+
+  <!-- BUG 2: Guard property check is inverted — this PREVENTS import
+       when the guard IS set, but the intent is to prevent DOUBLE import -->
+  <Import Project="shared\Common.props"
+      Condition="'$(CommonPropsImported)' == 'true'" />
+</Project>

@@ -1,0 +1,19 @@
+<Project>
+  <!-- Root: sets overridable defaults -->
+  <PropertyGroup>
+    <LangVersion Condition="'$(LangVersion)' == ''">12</LangVersion>
+    <Nullable Condition="'$(Nullable)' == ''">enable</Nullable>
+    <TreatWarningsAsErrors Condition="'$(TreatWarningsAsErrors)' == ''">true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- BUG 1: DefineConstants set without preserving existing values.
+       This drops any constants set by the SDK or command line. -->
+  <PropertyGroup>
+    <DefineConstants>REPO_BUILD</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Conditional feature flags — correct pattern -->
+  <PropertyGroup Condition="'$(IsTestProject)' != 'true'">
+    <AnalysisLevel>latest-All</AnalysisLevel>
+  </PropertyGroup>
+</Project>

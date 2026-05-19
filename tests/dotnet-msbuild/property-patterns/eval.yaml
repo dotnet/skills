@@ -14,4 +14,21 @@ scenarios:
       - "Identified hardcoded absolute path C:\\BuildTools that breaks portability across machines"
       - "Identified that LangVersion cannot be overridden by individual projects because it lacks a condition guard"
       - "Identified the missing trailing slash on CustomOutputDir that causes path concatenation issues"
-    timeout: 120
+    timeout: 180
+
+  - name: "Diagnose multi-level property hierarchy bugs"
+    prompt: "We have a nested Directory.Build.props setup (root + src/) but developers in src/ can't override LangVersion in their csproj, DefineConstants keep getting lost, and AOT builds fail with a cryptic condition error. The files are in the hard/ subfolder — the project is at hard/src/HardProperty.csproj. Can you trace through the property evaluation order and find all the issues?"
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(evaluation order|import order|overwrit|unconditional)"
+      - type: "output_matches"
+        pattern: "(DefineConstants|NoWarn|trailing)"
+    rubric:
+      - "Identified the import order bug in src/Directory.Build.props — properties set before the Import will be overwritten by the parent's unconditional DefineConstants assignment"
+      - "Identified that LangVersion in src/Directory.Build.props is set unconditionally, preventing project-level overrides"
+      - "Identified the unquoted condition on $(EnableAot) that fails when the property is empty"
+      - "Identified OutputPath missing trailing slash causing path concatenation issues"
+      - "Identified NoWarn overwrites existing suppressions instead of appending with $(NoWarn)"
+    timeout: 180

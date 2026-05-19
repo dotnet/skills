@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <!-- Input data files with metadata -->
+  <ItemGroup>
+    <ProtoFile Include="protos\service.proto" Service="Greeter" />
+    <ProtoFile Include="protos\messages.proto" Service="Messaging" />
+    <ProtoFile Include="protos\health.proto" Service="Health" />
+  </ItemGroup>
+
+  <!-- BUG 1: Uses Include instead of Update to set metadata on generated files.
+       SDK already globs *.cs, so this duplicates items. -->
+  <ItemGroup>
+    <Compile Include="**\*.g.cs">
+      <AutoGen>true</AutoGen>
+      <DependentUpon>%(Filename).proto</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <!-- Target that generates code from proto files -->
+  <Target Name="GenerateProtoCode" BeforeTargets="CoreCompile"
+      Inputs="@(ProtoFile)"
+      Outputs="@(ProtoFile->'$(IntermediateOutputPath)%(Filename).g.cs')">
+
+    <Message Text="Generating %(ProtoFile.Filename) for service %(ProtoFile.Service)"
+             Importance="high" />
+
+    <WriteLinesToFile
+        File="$(IntermediateOutputPath)%(ProtoFile.Filename).g.cs"
+        Lines="// Generated from %(ProtoFile.Identity)"
+        Overwrite="true" />
+
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)%(ProtoFile.Filename).g.cs" />
+      <!-- BUG 2: FileWrites registered outside the batched target —
+           only the last batch iteration's file gets registered -->
+    </ItemGroup>
+  </Target>
+
+  <!-- BUG 3: Separate FileWrites registration outside the target.
+       This uses a transform but the items aren't available yet because
+       the target above hasn't run at evaluation time. -->
+  <ItemGroup>
+    <FileWrites Include="@(ProtoFile->'$(IntermediateOutputPath)%(Filename).g.cs')" />
+  </ItemGroup>
+
+  <!-- Post-processing target with cross-product bug -->
+  <ItemGroup>
+    <ValidationRule Include="rules\required-fields.rule" />
+    <ValidationRule Include="rules\naming-conventions.rule" />
+  </ItemGroup>
+
+  <Target Name="ValidateGeneratedCode" AfterTargets="GenerateProtoCode">
+    <!-- BUG 4: Cross-product batching — mixing ProtoFile and ValidationRule
+         metadata produces N*M executions instead of validating each file
+         against all rules sequentially -->
+    <Message Text="Validating %(ProtoFile.Filename) with rule %(ValidationRule.Filename)"
+             Importance="high" />
+  </Target>
+
+  <!-- BUG 5: Remove with glob pattern that's too broad —
+       this accidentally removes ALL .cs files matching the pattern,
+       not just the generated ones -->
+  <Target Name="CleanGeneratedCode" BeforeTargets="Clean">
+    <ItemGroup>
+      <Compile Remove="**\*.g.cs" />
+      <!-- Should be scoped to $(IntermediateOutputPath) only -->
+    </ItemGroup>
+  </Target>
+</Project>

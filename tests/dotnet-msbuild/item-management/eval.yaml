@@ -14,4 +14,20 @@ scenarios:
       - "Identified that the generated Constants.g.cs is written to the wrong location, polluting the source tree"
       - "Identified that the generated file won't be removed by dotnet clean"
       - "Suggested concrete fixes for each issue"
-    timeout: 120
+    timeout: 180
+
+  - name: "Diagnose cascading item and batching bugs in code generation pipeline"
+    prompt: "Our proto code generation builds but has weird behavior: validation runs 6 times instead of 3, dotnet clean doesn't remove generated files, and we see CS2002 warnings about duplicate source files. The project is in hard/HardItem.csproj. Can you figure out what's going wrong with the item groups and targets?"
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(cross.product|6 times|N.M|duplicate)"
+      - type: "output_matches"
+        pattern: "(FileWrites|evaluation time|clean)"
+    rubric:
+      - "Identified the Include vs Update issue on *.g.cs files that duplicates items already globbed by the SDK"
+      - "Identified the cross-product batching in ValidateGeneratedCode mixing ProtoFile and ValidationRule metadata (3*2=6 instead of 3)"
+      - "Identified that FileWrites registered in a static ItemGroup at evaluation time won't capture files that don't exist yet"
+      - "Identified that the CleanGeneratedCode target's Remove pattern is too broad — it removes all *.g.cs files, not just those in $(IntermediateOutputPath)"
+    timeout: 180
