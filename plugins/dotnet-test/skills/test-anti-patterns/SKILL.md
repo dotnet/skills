@@ -1,18 +1,21 @@
 ---
 name: test-anti-patterns
 description: >
-  Detection-focused review of .NET test code for anti-patterns that
-  undermine reliability and diagnostic value.
-  USE FOR: audit test quality, review test code, find test anti-patterns,
-  tests pass but don't verify anything, flaky tests, ordering dependency,
-  duplicate tests, magic values, missing/no assertions, swallowed
-  exceptions, always-true assertions, over-mocking, test coupling, coverage
-  touching, coverage inflation.
-  DO NOT USE FOR: writing new tests (use writing-mstest-tests), direct
-  MSTest API rewrites or implementation-only fixes such as swapped
-  Assert.AreEqual argument order, running tests (use run-tests), migrating
-  between frameworks (use migration skills), deep formal audit based on
-  academic test smell taxonomy (use test-smell-detection).
+  Audits existing .NET test code (MSTest, xUnit, NUnit, TUnit) for
+  anti-patterns and quality issues that undermine reliability and diagnostic
+  value — produces a severity-ranked report (Critical / Warning / Info) with
+  concrete code-level fixes and acknowledgement of what the tests do well.
+  INVOKE THIS SKILL when the user asks to audit, review, rank, or find
+  problems in existing tests — including prompts about: "audit my tests",
+  "audit for .NET test anti-patterns", "test smell audit", "rank by
+  severity", "are these tests good", tests that pass but verify nothing,
+  no/missing assertions, swallowed exceptions, always-true / self-comparing
+  / self-referential / tautological assertions, broad exception types,
+  flakiness (Thread.Sleep, DateTime.Now), ordering dependency, shared
+  static state, reflection coupling, duplicated tests, magic values,
+  coverage touching, coverage inflation.
+  DO NOT USE FOR: writing new tests (use writing-mstest-tests); running
+  tests (use run-tests); framework migration (use migration skills).
 license: MIT
 ---
 
