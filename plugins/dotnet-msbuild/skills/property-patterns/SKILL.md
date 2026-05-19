@@ -73,7 +73,7 @@ Properties that hold lists use semicolons. Always include the existing value whe
 <!-- Make relative path absolute -->
 <PropertyGroup>
   <MSBuildProjectExtensionsPath
-      Condition="'$([System.IO.Path]::IsPathRooted($(MSBuildProjectExtensionsPath)))' == 'false'">
+      Condition="'$([System.IO.Path]::IsPathRooted('$(MSBuildProjectExtensionsPath)'))' == 'false'">
     $([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(MSBuildProjectExtensionsPath)'))
   </MSBuildProjectExtensionsPath>
 </PropertyGroup>
@@ -89,31 +89,6 @@ Properties that hold lists use semicolons. Always include the existing value whe
 | `HasTrailingSlash(...)` | Check for trailing slash |
 | `$([MSBuild]::GetDirectoryNameOfFileAbove(...))` | Walk up directory tree |
 | `$(MSBuildThisFileDirectory)` | Directory of current file |
-
-## String Functions in Conditions
-
-```xml
-<!-- StartsWith for TFM matching -->
-<PropertyGroup Condition="$(TargetFramework.StartsWith('net4'))">
-  <LegacyFramework>true</LegacyFramework>
-</PropertyGroup>
-
-<!-- Version comparison -->
-<PropertyGroup Condition="'$(VisualStudioVersion)' != '' and '$(VisualStudioVersion)' > '10.0'">
-  <ModernVS>true</ModernVS>
-</PropertyGroup>
-
-<!-- IsNullOrWhitespace -->
-<TargetFrameworkMoniker
-    Condition="'$([System.String]::IsNullOrWhitespace($(TargetFrameworkProfile)))' != 'true'">
-  $(TargetFrameworkIdentifier),Version=$(TargetFrameworkVersion),Profile=$(TargetFrameworkProfile)
-</TargetFrameworkMoniker>
-
-<!-- Hash for deterministic short names -->
-<MSBuildCopyMarkerName Condition="'$(MSBuildCopyMarkerName.Length)' &gt; '17'">
-  $([MSBuild]::SubstringByAsciiChars($(MSBuildProjectFile), 0, 8)).$([MSBuild]::StableStringHash($(MSBuildProjectFile)).ToString("X8"))
-</MSBuildCopyMarkerName>
-```
 
 ## Target Framework Detection Helpers
 

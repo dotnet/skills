@@ -1,6 +1,6 @@
 ---
 name: item-management
-description: "Patterns for managing MSBuild item groups: Include/Remove/Update semantics, item metadata, batching with %(Metadata), transforms with @(Item->'expression'), Exclude patterns, per-item filtering, and cross-product batching pitfall. USE FOR: adding/removing/modifying items in build, applying metadata conditionally, understanding item batching in targets, transforming item identities for Copy/Move operations, filtering items by metadata, and avoiding O(N*M) cross-product batching. DO NOT USE FOR: target chain architecture (use target-authoring), property patterns (use property-patterns), incrementality (use incremental-build), non-MSBuild build systems."
+description: "Patterns for managing MSBuild item groups: Include/Remove/Update semantics, item metadata, batching with %(Metadata), transforms with @(Item->'expression'), Exclude patterns, per-item filtering, and cross-product batching pitfall. USE FOR: adding/removing/modifying items in build, applying metadata conditionally, understanding item batching in targets, transforming item identities for Copy/Move operations, filtering items by metadata, avoiding O(N*M) cross-product batching, diagnosing CS2002 duplicate file warnings from SDK globbing, fixing targets that run more times than expected due to mixed-group batching, and generated file cleanup issues. DO NOT USE FOR: target chain architecture (use target-authoring), property patterns (use property-patterns), incrementality (use incremental-build), non-MSBuild build systems."
 license: MIT
 ---
 
@@ -56,19 +56,6 @@ Canonical patterns for working with item groups, from `Microsoft.Common.CurrentV
 
 `Update` does not add items — it only modifies items already in the group.
 
-## Remove + Re-Include — Replace with New Metadata
-
-When you need to change identity or replace metadata entirely:
-
-```xml
-<ItemGroup>
-  <Reference Remove="$(AdditionalExplicitAssemblyReferences)" />
-  <Reference Include="$(AdditionalExplicitAssemblyReferences)">
-    <Implicit>true</Implicit>
-  </Reference>
-</ItemGroup>
-```
-
 ## Item Batching — %(Metadata)
 
 When `%(Metadata)` appears in target attributes or task parameters, MSBuild **batches** execution per unique metadata value.
@@ -119,17 +106,6 @@ Transforms create new item lists by applying an expression to each item:
 <Message Text="Files: @(Compile->'%(Filename)', ', ')" />
 ```
 
-### Built-in metadata on all items
-
-| Metadata | Value |
-|---|---|
-| `%(Identity)` | The item spec (full Include value) |
-| `%(Filename)` | File name without extension |
-| `%(Extension)` | File extension including dot |
-| `%(Directory)` | Directory path |
-| `%(FullPath)` | Absolute path |
-| `%(RecursiveDir)` | Part matched by `**` in a glob |
-
 ## Exclude Pattern — Set Subtraction on Include
 
 ```xml
@@ -161,15 +137,6 @@ Transforms create new item lists by applying an expression to each item:
 <ItemGroup>
   <PackageReference Update="Microsoft.NETCore.App" PrivateAssets="All" />
   <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
-</ItemGroup>
-```
-
-## AdditionalFiles for Analyzers
-
-```xml
-<ItemGroup>
-  <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt"
-      Condition="'$(IsUnitTestProject)' != 'true'" />
 </ItemGroup>
 ```
 

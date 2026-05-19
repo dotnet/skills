@@ -13,5 +13,4 @@ scenarios:
       - "Identified that GetApiEndpoints query target should use Returns instead of Outputs to avoid caching stale results"
       - "Identified that GenerateApiClient is missing Inputs/Outputs, causing unnecessary rebuilds"
       - "Identified that generated file is not registered in FileWrites, so dotnet clean won't remove it"
-      - "Suggested a way to make the targets extensible by downstream consumers"
     timeout: 120

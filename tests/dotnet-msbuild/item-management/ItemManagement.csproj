@@ -28,7 +28,7 @@
   <!-- Anti-pattern: Generated file written to source tree instead of obj/ -->
   <Target Name="GenerateConstants" BeforeTargets="CoreCompile">
     <WriteLinesToFile File="$(MSBuildProjectDirectory)\Constants.g.cs"
-                     Lines="namespace ItemManagement { public static class Constants { public const int Version = 1%3B } }"
+                     Lines="namespace ItemManagement { public static class Constants { public const int Version = 1; } }"
                      Overwrite="true" />
     <ItemGroup>
       <Compile Include="Constants.g.cs" />

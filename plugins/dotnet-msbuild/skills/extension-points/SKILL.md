@@ -84,17 +84,6 @@ Every wildcard import is gated by a boolean property:
 | `ImportByWildcardBefore*` | Machine-level ImportBefore extensions |
 | `ImportByWildcardAfter*` | Machine-level ImportAfter extensions |
 
-## Feature Gating by MSBuild Version
-
-```xml
-<ImportProjectExtensionProps
-    Condition="$([MSBuild]::AreFeaturesEnabled('17.10'))
-               And '$(ImportProjectExtensionProps)' == ''
-               And '$(MSBuildIsRestoring)' == 'true'">false</ImportProjectExtensionProps>
-```
-
-Combine version gating with context detection (`$(MSBuildIsRestoring)`) to avoid importing stale files during restore.
-
 ## NuGet Package Build Extension Layout
 
 NuGet packages inject build logic via `build/` or `buildTransitive/` folders:
@@ -138,7 +127,7 @@ MSBuild walks up the directory tree to find the nearest `Directory.Build.props`:
 
 ```xml
 <_DirectoryBuildPropsBasePath>
-  $([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), 'Directory.Build.props'))
+  $([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildProjectDirectory)', 'Directory.Build.props'))
 </_DirectoryBuildPropsBasePath>
 ```
 

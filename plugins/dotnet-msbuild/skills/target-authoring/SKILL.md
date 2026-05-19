@@ -101,23 +101,6 @@ Validation targets use `BeforeTargets` to intercept all entry points:
 - **`Outputs`** on inner targets is for incrementality (timestamp checks). Use for up-to-date detection.
 - Never mix the two purposes. Query targets (`GetTargetPath`, `GetTargetFrameworks`) should use `Returns`, not `Outputs`.
 
-## Rebuild = Clean Then Build
-
-```xml
-<PropertyGroup>
-  <RebuildDependsOn>
-    BeforeRebuild;
-    Clean;
-    $(_ProjectDefaultTargets);
-    AfterRebuild;
-  </RebuildDependsOn>
-  <!-- Avoid infinite recursion if DefaultTargets="Rebuild" -->
-  <RebuildDependsOn Condition="'$(MSBuildProjectDefaultTargets)' == 'Rebuild'">
-    BeforeRebuild;Clean;Build;AfterRebuild;
-  </RebuildDependsOn>
-</PropertyGroup>
-```
-
 ## Target Naming Conventions
 
 | Pattern | Meaning | Example |
