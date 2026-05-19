@@ -1,6 +1,6 @@
 ---
 name: target-authoring
-description: "Canonical patterns for writing custom MSBuild targets. USE FOR: creating new build targets, understanding DependsOnTargets vs BeforeTargets vs AfterTargets, structuring target chains with the Build→CoreBuild three-level pattern, hooking into the build pipeline, using OnError for cleanup, declaring empty extensibility targets (BeforeBuild/AfterBuild), the $(XxxDependsOn) chain-extension pattern, Returns vs Outputs, and target naming conventions. DO NOT USE FOR: incrementality/Inputs/Outputs (use incremental-build), parallelization (use build-parallelism), property/item patterns (use other skills), non-MSBuild build systems."
+description: "Canonical patterns for writing custom MSBuild targets. USE FOR: creating new build targets, understanding DependsOnTargets vs BeforeTargets vs AfterTargets, structuring target chains with the Build→CoreBuild three-level pattern, hooking into the build pipeline, using OnError for cleanup, declaring empty extensibility targets (BeforeBuild/AfterBuild), the $(XxxDependsOn) chain-extension pattern, Returns vs Outputs, and target naming conventions. DO NOT USE FOR: deep incremental-build diagnostics such as diagnosing broken no-op builds or missing Inputs/Outputs on existing targets (use incremental-build), parallelization (use build-parallelism), property/item patterns (use other skills), non-MSBuild build systems."
 license: MIT
 ---
 

@@ -95,13 +95,19 @@ Properties that hold lists use semicolons. Always include the existing value whe
 ```xml
 <!-- StartsWith for TFM matching -->
 <PropertyGroup Condition="$(TargetFramework.StartsWith('net4'))">
+  <LegacyFramework>true</LegacyFramework>
+</PropertyGroup>
 
 <!-- Version comparison -->
 <PropertyGroup Condition="'$(VisualStudioVersion)' != '' and '$(VisualStudioVersion)' > '10.0'">
+  <ModernVS>true</ModernVS>
+</PropertyGroup>
 
 <!-- IsNullOrWhitespace -->
 <TargetFrameworkMoniker
     Condition="'$([System.String]::IsNullOrWhitespace($(TargetFrameworkProfile)))' != 'true'">
+  $(TargetFrameworkIdentifier),Version=$(TargetFrameworkVersion),Profile=$(TargetFrameworkProfile)
+</TargetFrameworkMoniker>
 
 <!-- Hash for deterministic short names -->
 <MSBuildCopyMarkerName Condition="'$(MSBuildCopyMarkerName.Length)' &gt; '17'">
