@@ -2,15 +2,15 @@ scenarios:
   - name: "Diagnose custom target build regression"
     prompt: >-
       After adding custom MSBuild targets to TargetAuthoring.csproj, our build
-      started behaving strangely. There are clearly target authoring mistakes:
-      dotnet build always recompiles everything because some MSBuild targets are
-      missing incremental build Inputs/Outputs declarations, and after cleaning
-      and rebuilding, some standard SDK compilation steps seem to have vanished
-      from the CompileDependsOn chain because the dependency chain was replaced
-      instead of extended. We also have a query target that returns API endpoint
-      metadata, but it keeps returning stale cached results from the first run.
-      Can you review the MSBuild target definitions and dependency chain in
-      TargetAuthoring.csproj and identify the target authoring mistakes?
+      pipeline has broken target dependency chains. Some standard SDK compilation
+      steps disappeared completely after we added custom targets — the dependency
+      chain was incorrectly replaced instead of extended using the $(DependsOn)
+      pattern. Our code generation target is also incorrectly wired into the
+      build pipeline and always runs even when nothing has changed. Additionally
+      we have a query target using the Returns attribute that keeps returning
+      stale results from the first run. Please review the MSBuild target
+      definitions, dependency chain patterns, and BeforeTargets/AfterTargets
+      usage in TargetAuthoring.csproj to identify the target authoring mistakes.
     setup:
       copy_test_files: true
     assertions:
@@ -51,13 +51,15 @@ scenarios:
   - name: "Fix custom target anti-patterns"
     prompt: >-
       The MSBuild targets in TargetAuthoring.csproj have target authoring
-      mistakes causing full rebuilds and lingering generated files. Please
-      edit TargetAuthoring.csproj directly to fix all the MSBuild target
-      authoring issues you find so that: (1) incremental builds work correctly
-      by adding proper Inputs/Outputs declarations — unchanged schemas shouldn't
-      trigger regeneration, (2) dotnet clean removes all generated files via
-      FileWrites registration, and (3) the existing SDK CompileDependsOn chain
-      isn't disrupted by our custom MSBuild targets.
+      mistakes: the dependency chains are incorrectly structured, generated
+      files are not registered for clean tracking, and the query target uses
+      the Returns attribute incorrectly. Please edit TargetAuthoring.csproj
+      directly to apply correct MSBuild target authoring patterns so that:
+      (1) incremental builds work correctly via proper Inputs/Outputs and
+      BeforeTargets/AfterTargets usage — unchanged schemas shouldn't trigger
+      regeneration, (2) dotnet clean removes all generated files via FileWrites
+      registration, and (3) the CompileDependsOn chain is extended rather than
+      replaced so SDK compilation targets aren't lost.
     setup:
       copy_test_files: true
     assertions:

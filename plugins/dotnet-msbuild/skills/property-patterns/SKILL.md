@@ -45,6 +45,8 @@ Group related properties under a shared condition:
 
 Use the outer `Condition` on `PropertyGroup` to avoid repeating the same condition on every property.
 
+> **Warning:** `$(TargetFramework)` is empty in `.props` files for single-targeting projects until the project body is evaluated. Place `TargetFramework`-conditioned property groups in `.targets` files (or the project file itself), where the value is always available.
+
 ## Composition — Semicolon Concatenation
 
 Properties that hold lists use semicolons. Always include the existing value when appending:

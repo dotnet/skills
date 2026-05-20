@@ -146,7 +146,7 @@ Validation targets use `BeforeTargets` to intercept all entry points:
   </ItemGroup>
 </Target>
 
-<!-- 6. Validation target uses BeforeTargets to intercept -->
+<!-- 6. Validation target runs first in the dependency chain -->
 <Target Name="_ValidateMyFeatureInputs">
   <Error Text="MyFeatureInput items are required."
          Condition="'@(MyFeatureInput)' == ''" />
