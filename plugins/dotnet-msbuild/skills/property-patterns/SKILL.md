@@ -94,7 +94,7 @@ Properties that hold lists use semicolons. Always include the existing value whe
 
 ```xml
 <!-- Get TFM identifier -->
-<PropertyGroup Condition="$([MSBuild]::GetTargetFrameworkIdentifier('$(TargetFramework)')) == '.NETCoreApp'">
+<PropertyGroup Condition="'$([MSBuild]::GetTargetFrameworkIdentifier('$(TargetFramework)'))' == '.NETCoreApp'">
   <NetCoreBuild>true</NetCoreBuild>
 </PropertyGroup>
 

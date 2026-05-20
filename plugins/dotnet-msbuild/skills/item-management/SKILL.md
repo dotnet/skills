@@ -135,7 +135,7 @@ Transforms create new item lists by applying an expression to each item:
 
 ```xml
 <ItemGroup>
-  <PackageReference Update="Microsoft.NETCore.App" PrivateAssets="All" />
+  <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" PrivateAssets="all" />
   <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
 </ItemGroup>
 ```
