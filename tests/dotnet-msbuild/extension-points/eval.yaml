@@ -51,9 +51,10 @@ scenarios:
   - name: "Fix extension point anti-patterns"
     prompt: >-
       Our Directory.Build.targets has MSBuild extension point issues that break
-      fresh clones and conflict with NuGet packages. Please fix all the
-      extension point problems so that: (1) imports don't break when files are
-      missing, (2) NuGet package hooks are preserved rather than silently
+      fresh clones and conflict with NuGet packages. Please review and fix the
+      MSBuild import and hook patterns so that: (1) imports don't break when
+      files are missing, (2) NuGet package hooks like
+      CustomBeforeMicrosoftCommonTargets are preserved rather than silently
       dropped, and (3) the code generation target can be extended by other
       projects or packages that need to hook into it.
     setup:

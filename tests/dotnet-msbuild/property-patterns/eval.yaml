@@ -4,12 +4,13 @@ scenarios:
       Our CI builds work fine but individual developers keep hitting strange
       issues with our shared MSBuild property settings in Directory.Build.props.
       Some report that conditional compilation symbols from NuGet packages or
-      the command line silently vanish, others can't use a different C# language
-      version even when they set it explicitly in their csproj, and one developer
-      on macOS says the build fails entirely with a path error. We also get
-      intermittent build failures that seem to depend on whether a certain
-      property happens to be set. Can you audit Directory.Build.props and
-      PropertyPatterns.csproj for MSBuild property patterns issues?
+      the command line silently vanish, others find that shared defaults like
+      the C# language version can't be overridden from earlier-imported layers
+      or the command line, and one developer on macOS says the build fails
+      entirely with a path error. We also get intermittent build failures that
+      seem to depend on whether a certain property happens to be set. Can you
+      audit Directory.Build.props and PropertyPatterns.csproj for MSBuild
+      property patterns issues?
     setup:
       copy_test_files: true
     assertions:
@@ -21,7 +22,7 @@ scenarios:
       - "Identified that conditional compilation symbols are lost because the assignment replaces all existing values instead of preserving and extending them"
       - "Identified the condition syntax issue that causes intermittent evaluation failures when the checked property is empty or unset"
       - "Identified the hardcoded absolute path that makes the build non-portable across operating systems"
-      - "Identified that the language version default cannot be overridden by individual projects because it lacks a conditional guard"
+      - "Identified that the language version default is set unconditionally, preventing it from being overridden by earlier-imported files or command-line properties"
       - "Identified the path construction bug from a missing trailing directory separator that causes path segments to merge"
     timeout: 240
 

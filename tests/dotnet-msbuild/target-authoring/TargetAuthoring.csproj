@@ -23,7 +23,7 @@
       <_GenOutput>$(IntermediateOutputPath)ApiClient.g.cs</_GenOutput>
     </PropertyGroup>
     <WriteLinesToFile File="$(_GenOutput)"
-                     Lines="namespace TargetAuthoring { public static class ApiClient { public static string BaseUrl => %22https://api.example.com%22%3B } }"
+                     Lines="namespace TargetAuthoring { public static class ApiClient { public static string BaseUrl =&gt; &quot;https://api.example.com&quot;; } }"
                      Overwrite="true" />
     <ItemGroup>
       <Compile Include="$(_GenOutput)" />
