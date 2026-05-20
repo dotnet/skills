@@ -7,8 +7,8 @@ scenarios:
       standard compilation steps seem to have vanished entirely. We also have a
       target that queries API endpoint metadata from schema files, but it keeps
       returning the first run's results even after we modify the schema files.
-      Can you investigate TargetAuthoring.csproj and identify what's causing these
-      regressions?
+      Can you review the MSBuild targets in TargetAuthoring.csproj and identify
+      what's causing these regressions?
     setup:
       copy_test_files: true
     assertions:
@@ -21,7 +21,7 @@ scenarios:
       - "Identified why the endpoint query target returns stale results — using Outputs causes the build engine to cache results and skip re-evaluation, whereas Returns always re-evaluates"
       - "Identified that the code generation target always re-runs because it lacks file-based incremental build declarations"
       - "Identified that generated files survive dotnet clean because they are not registered with the build's file tracking mechanism"
-    timeout: 180
+    timeout: 240
 
   - name: "Diagnose broken SDK target chain across files"
     prompt: >-
@@ -32,6 +32,8 @@ scenarios:
       clean leaves stale generated files behind, and the build seems slower than
       before. The setup is in the hard/ subfolder — start from hard/HardTarget.csproj
       and trace through how CustomSdk.targets and Directory.Build.targets interact.
+      Focus on target authoring patterns — DependsOnTargets chains, BeforeTargets
+      vs AfterTargets, and how targets should be extended.
     setup:
       copy_test_files: true
     assertions:
@@ -44,7 +46,7 @@ scenarios:
       - "Identified that a linting target bypasses the SDK's extensibility chain by using direct injection instead of the established dependency chain pattern"
       - "Identified the duplicate entry in the compilation dependency chain — the same target appears twice because both the SDK and customization file add it"
       - "Identified that a post-processing target reads generated files but doesn't declare an ordering dependency, risking execution before generation completes"
-    timeout: 180
+    timeout: 240
 
   - name: "Fix custom target anti-patterns"
     prompt: >-
@@ -69,4 +71,4 @@ scenarios:
       - "Added file-based incremental build support to the code generation target with proper input/output declarations"
       - "Registered generated files for clean tracking so dotnet clean removes them"
       - "The resulting project file follows canonical MSBuild target authoring patterns"
-    timeout: 180
+    timeout: 300
