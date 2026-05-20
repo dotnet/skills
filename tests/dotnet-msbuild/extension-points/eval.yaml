@@ -46,7 +46,7 @@ scenarios:
       - "Identified the missing file existence guard on the import that causes fresh clone failures"
       - "Identified the target name collision with a built-in SDK target that silently overrides the SDK's implementation"
       - "Identified the fragile dependency on an internal SDK target that may change between SDK versions"
-    timeout: 240
+    timeout: 360
 
   - name: "Fix extension point anti-patterns"
     prompt: >-

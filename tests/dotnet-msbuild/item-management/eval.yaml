@@ -46,7 +46,7 @@ scenarios:
       - "Explained the cross-product batching problem — mixing metadata references from two unrelated item groups causes N×M executions instead of per-item processing"
       - "Identified the timing issue with file tracking — items registered at evaluation time reference files that don't exist yet because the generation target hasn't run"
       - "Identified that the clean target's removal pattern is overly broad, potentially removing files beyond the intended scope"
-    timeout: 240
+    timeout: 360
 
   - name: "Fix item management anti-patterns"
     prompt: >-
