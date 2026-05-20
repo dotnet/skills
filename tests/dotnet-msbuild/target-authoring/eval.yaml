@@ -3,12 +3,13 @@ scenarios:
     prompt: >-
       After adding custom MSBuild targets to TargetAuthoring.csproj, our build
       started behaving strangely: dotnet build always recompiles everything even
-      when no source files have changed, and after cleaning and rebuilding, some
-      standard compilation steps seem to have vanished entirely. We also have a
-      query target that returns API endpoint metadata, but it keeps returning
-      the first run's results even after we update the endpoint list.
-      Can you review the MSBuild targets in TargetAuthoring.csproj and identify
-      what's causing these regressions?
+      when no source files have changed — suggesting missing incremental build
+      support — and after cleaning and rebuilding, some standard SDK compilation
+      steps seem to have vanished entirely from the CompileDependsOn chain. We
+      also have a query target that returns API endpoint metadata, but it keeps
+      returning the first run's stale results even after we update the endpoint
+      list. Can you review the MSBuild target definitions in TargetAuthoring.csproj
+      and identify what's causing these regressions in the build target pipeline?
     setup:
       copy_test_files: true
     assertions:
@@ -49,11 +50,12 @@ scenarios:
   - name: "Fix custom target anti-patterns"
     prompt: >-
       The custom MSBuild targets in TargetAuthoring.csproj cause full rebuilds
-      every time and leave generated files behind after dotnet clean. Please fix
-      all the target authoring issues you find so that: (1) incremental builds
-      work correctly — unchanged schemas shouldn't trigger regeneration,
-      (2) dotnet clean removes all generated files, and (3) the existing SDK
-      compilation pipeline isn't disrupted by our custom targets.
+      every time and leave generated files behind after dotnet clean. Please
+      edit TargetAuthoring.csproj directly to fix all the MSBuild target
+      authoring issues you find so that: (1) incremental builds work correctly
+      — unchanged schemas shouldn't trigger regeneration, (2) dotnet clean
+      removes all generated files, and (3) the existing SDK compilation pipeline
+      isn't disrupted by our custom MSBuild targets.
     setup:
       copy_test_files: true
     assertions:

@@ -52,11 +52,11 @@ scenarios:
     prompt: >-
       The MSBuild item groups and targets in ItemManagement.csproj have several
       issues causing duplicate file warnings and incorrect build behavior. Please
-      fix all the item management problems so that: (1) no duplicate source file
-      warnings are produced, (2) the validation target runs exactly once per
-      matching data-schema pair, (3) generated files go to the intermediate
-      output directory instead of the source tree, and (4) dotnet clean properly
-      removes generated files.
+      edit ItemManagement.csproj directly to fix all the MSBuild item management
+      problems so that: (1) no duplicate source file warnings are produced,
+      (2) the validation target runs exactly once per matching data-schema pair,
+      (3) generated files go to the intermediate output directory instead of the
+      source tree, and (4) dotnet clean properly removes generated files.
     setup:
       copy_test_files: true
     assertions:
