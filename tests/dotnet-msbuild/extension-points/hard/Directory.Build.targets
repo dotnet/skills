@@ -1,24 +1,18 @@
 <Project>
-  <!-- BUG 3: CustomBeforeMicrosoftCommonTargets overwritten instead of appended,
-       dropping any hooks from NuGet packages that set it earlier -->
+  <!-- Configure pre-build validation hook -->
   <PropertyGroup>
     <CustomBeforeMicrosoftCommonTargets>$(MSBuildThisFileDirectory)hooks\pre-build-validation.targets</CustomBeforeMicrosoftCommonTargets>
   </PropertyGroup>
 
-  <!-- BUG 4: Import without Exists guard AND references a property
-       that may not be set in all build contexts -->
+  <!-- Import shared code analysis rules -->
   <Import Project="$(RepoToolsPath)\code-analysis.targets" />
 
-  <!-- BUG 5: Defines a target with the same name as a common NuGet package
-       target, silently overriding the package's implementation -->
+  <!-- Custom assembly info generation -->
   <Target Name="GenerateAssemblyInfo" BeforeTargets="CoreCompile">
     <Message Text="Custom assembly info generation" Importance="high" />
   </Target>
 
-  <!-- BUG 6: Extension point target defined in .targets but with no
-       DependsOn chain — consumers cannot extend it. Also uses
-       AfterTargets on a target that might not exist if the SDK
-       version changes. -->
+  <!-- Run post-build checks after file copying -->
   <Target Name="RunPostBuildChecks" AfterTargets="_CopyFilesMarkedCopyLocal">
     <Exec Command="post-build-check.exe $(TargetPath)" />
   </Target>

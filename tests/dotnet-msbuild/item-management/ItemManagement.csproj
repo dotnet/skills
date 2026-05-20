@@ -4,14 +4,14 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
 
-  <!-- Anti-pattern: Uses Include when Update would be correct for modifying existing items -->
+  <!-- Mark all C# files as auto-generated for IDE purposes -->
   <ItemGroup>
     <Compile Include="**\*.cs">
       <AutoGen>true</AutoGen>
     </Compile>
   </ItemGroup>
 
-  <!-- Anti-pattern: Cross-product batching from two item groups -->
+  <!-- Data files and their validation schemas -->
   <ItemGroup>
     <DataFile Include="data\users.json" />
     <DataFile Include="data\orders.json" />
@@ -20,19 +20,18 @@
   </ItemGroup>
 
   <Target Name="ValidateData" BeforeTargets="Build">
-    <!-- BAD: %(DataFile.Identity) × %(SchemaFile.Identity) creates cross-product -->
+    <!-- Validate each data file against its schema -->
     <Message Text="Validating %(DataFile.Filename) against %(SchemaFile.Filename)"
              Importance="high" />
   </Target>
 
-  <!-- Anti-pattern: Generated file written to source tree instead of obj/ -->
+  <!-- Generate constants file from build configuration -->
   <Target Name="GenerateConstants" BeforeTargets="CoreCompile">
     <WriteLinesToFile File="$(MSBuildProjectDirectory)\Constants.g.cs"
                      Lines="namespace ItemManagement { public static class Constants { public const int Version = 1; } }"
                      Overwrite="true" />
     <ItemGroup>
       <Compile Include="Constants.g.cs" />
-      <!-- Missing FileWrites registration -->
     </ItemGroup>
   </Target>
 </Project>

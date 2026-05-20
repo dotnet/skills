@@ -1,13 +1,13 @@
 <Project>
-  <!-- Anti-pattern: Import without Exists() guard -->
+  <!-- Import shared analyzer configuration -->
   <Import Project="$(RepoRoot)eng\custom-analyzers.props" />
 
-  <!-- Anti-pattern: Overwrites CustomBeforeMicrosoftCommonTargets instead of appending -->
+  <!-- Configure pre-build hook -->
   <PropertyGroup>
     <CustomBeforeMicrosoftCommonTargets>$(MSBuildThisFileDirectory)MyHook.targets</CustomBeforeMicrosoftCommonTargets>
   </PropertyGroup>
 
-  <!-- Anti-pattern: Extension point target without Before/After extensibility or DependsOn chain -->
+  <!-- Run code generation before compilation -->
   <Target Name="RunCodeGen" BeforeTargets="CoreCompile">
     <Exec Command="codegen.exe --output $(IntermediateOutputPath)generated.cs" />
   </Target>

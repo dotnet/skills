@@ -4,6 +4,8 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
 
-  <!-- Anti-pattern: NuGet package extension with wrong file name (doesn't match package ID) -->
-  <!-- Package ID would be "ExtensionPoints" but the file is named "MyExtension.props" -->
+  <!-- Third-party build tasks package -->
+  <ItemGroup>
+    <PackageReference Include="MyAnalyzer.BuildTasks" Version="2.1.0" />
+  </ItemGroup>
 </Project>

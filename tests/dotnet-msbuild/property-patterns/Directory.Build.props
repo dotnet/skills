@@ -1,25 +1,25 @@
 <Project>
-  <!-- Anti-pattern: Overwrites DefineConstants instead of appending -->
+  <!-- Shared build properties for the repository -->
   <PropertyGroup>
     <DefineConstants>CUSTOM_FEATURE</DefineConstants>
   </PropertyGroup>
 
-  <!-- Anti-pattern: Unquoted condition -->
+  <!-- Enable documentation for library projects -->
   <PropertyGroup Condition="$(IsLibrary) == true">
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
-  <!-- Anti-pattern: Hardcoded absolute path -->
+  <!-- Path to shared build tools -->
   <PropertyGroup>
     <ToolsPath>C:\BuildTools\analyzers\</ToolsPath>
   </PropertyGroup>
 
-  <!-- Anti-pattern: Default without condition — cannot be overridden by projects -->
+  <!-- Default language version for the repository -->
   <PropertyGroup>
     <LangVersion>12</LangVersion>
   </PropertyGroup>
 
-  <!-- Anti-pattern: Missing trailing-slash normalization -->
+  <!-- Custom output directory -->
   <PropertyGroup>
     <CustomOutputDir>artifacts\bin</CustomOutputDir>
   </PropertyGroup>

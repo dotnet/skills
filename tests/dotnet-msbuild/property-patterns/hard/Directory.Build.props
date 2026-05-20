@@ -6,8 +6,7 @@
     <TreatWarningsAsErrors Condition="'$(TreatWarningsAsErrors)' == ''">true</TreatWarningsAsErrors>
   </PropertyGroup>
 
-  <!-- BUG 1: DefineConstants set without preserving existing values.
-       This drops any constants set by the SDK or command line. -->
+  <!-- Repository-wide build identifier -->
   <PropertyGroup>
     <DefineConstants>REPO_BUILD</DefineConstants>
   </PropertyGroup>
