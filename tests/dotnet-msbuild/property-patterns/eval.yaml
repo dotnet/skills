@@ -32,8 +32,8 @@ scenarios:
       mono-repo, but MSBuild properties behave unpredictably. Warning
       suppressions configured in the parent keep getting lost in child projects,
       AOT configuration causes cryptic build errors on some machines but not
-      others, and developers cannot override the C# language version from their
-      project files. The build output path also looks wrong — directory segments
+      others, and the child Directory.Build.props layer-specific settings are being
+      silently overwritten by the parent's unconditional assignments. The build output path also looks wrong — directory segments
       seem to run together without separators. The project is at
       hard/src/HardProperty.csproj. Can you trace through the MSBuild property
       evaluation order across both Directory.Build.props files and the project
@@ -47,7 +47,7 @@ scenarios:
         pattern: "(DefineConstants|NoWarn|separator|trailing)"
     rubric:
       - "Identified the import ordering trap — the child file sets properties before importing the parent, so the parent's unconditional assignment overwrites the child's carefully constructed values"
-      - "Identified that the language version is set without a conditional guard, making it impossible for projects to override"
+      - "Identified that the language version is set unconditionally in the child Directory.Build.props without a condition guard, so the parent's unconditional assignment overwrites the child's value after import"
       - "Identified the condition syntax issue that causes build failures when the AOT property is empty or unset"
       - "Identified the path construction bug where a missing directory separator causes output path segments to merge"
       - "Identified that warning suppressions are replaced rather than accumulated, losing parent-level suppressions"

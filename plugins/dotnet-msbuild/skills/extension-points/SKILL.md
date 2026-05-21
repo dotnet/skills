@@ -135,8 +135,10 @@ Only the **nearest** file is discovered. Nested hierarchies must explicitly impo
 
 ```xml
 <!-- src/Directory.Build.props -->
-<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..\'))"
-        Condition="'$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..\\'))' != ''" />
+<PropertyGroup>
+  <_ParentPropsPath>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_ParentPropsPath>
+</PropertyGroup>
+<Import Project="$(_ParentPropsPath)" Condition="'$(_ParentPropsPath)' != ''" />
 ```
 
 ## Creating Your Own Extension Point

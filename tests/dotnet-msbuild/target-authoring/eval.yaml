@@ -7,8 +7,9 @@ scenarios:
       chain was incorrectly replaced instead of extended using the $(DependsOn)
       pattern. Our code generation target is also incorrectly wired into the
       build pipeline and always runs even when nothing has changed. Additionally
-      we have a query target using the Returns attribute that keeps returning
-      stale results from the first run. Please review the MSBuild target
+      we have a query target using the Outputs attribute that keeps returning
+      stale results — MSBuild treats it as an incremental target and may skip
+      re-execution, returning cached empty results. Please review the MSBuild target
       definitions, dependency chain patterns, and BeforeTargets/AfterTargets
       usage in TargetAuthoring.csproj to identify the target authoring mistakes.
     setup:

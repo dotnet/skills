@@ -17,6 +17,10 @@
       Inputs="@(CodeGenSchema)"
       Outputs="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')">
     <Message Text="Generating code from %(CodeGenSchema.Identity)" Importance="high" />
+    <WriteLinesToFile
+        File="$(IntermediateOutputPath)%(CodeGenSchema.Filename).g.cs"
+        Lines="// Generated from %(CodeGenSchema.Identity)"
+        Overwrite="true" />
     <ItemGroup>
       <Compile Include="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')" />
       <FileWrites Include="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')" />
