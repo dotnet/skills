@@ -33,7 +33,7 @@ Use the available MCP server tools to query the binary log for:
 ## Fallback workflow — text-log replay (when MCP is unavailable)
 
 Use this only when the MCP server cannot be started (for example, on an older
-SDK or in an offline environment without access to the `dotnet-eng` NuGet feed).
+SDK or in an offline environment without access to the `dotnet-tools` NuGet feed).
 
 ### Replay the binlog to text logs
 
