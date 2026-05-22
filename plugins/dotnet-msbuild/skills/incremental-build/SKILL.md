@@ -60,7 +60,7 @@ Use binary logs (binlogs) to understand exactly why targets ran instead of being
 
 ### Primary: binlog MCP (preferred)
 
-Use the **binlog MCP server** (`AITools.BinlogMcp`, exposed under the `binlog` MCP namespace) to analyze the second binlog:
+Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the `binlog` MCP namespace) to analyze the second binlog:
 
 1. Use the overview tool to check overall build status and duration
 2. Use the search tool to find targets that executed vs were skipped — search for "Building target completely", "Building target incrementally", "Skipping target"

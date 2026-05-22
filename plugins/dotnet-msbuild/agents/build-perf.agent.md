@@ -22,7 +22,7 @@ Before starting any analysis, verify the context is MSBuild-related. If the work
 
 ### Step 2: Top-down Analysis — binlog MCP (preferred)
 
-Use the **binlog MCP server** (`AITools.BinlogMcp`, exposed under the `binlog` MCP namespace) which is bundled with this plugin. Call `tools/list` for the MCP first if you are unsure which tools are available.
+Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the `binlog` MCP namespace) which is bundled with this plugin. Call `tools/list` for the MCP first if you are unsure which tools are available.
 
 1. Use overview tool → understand build status and duration
 2. Use expensive_projects tool → find the slowest projects

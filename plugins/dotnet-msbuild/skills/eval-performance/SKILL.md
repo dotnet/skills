@@ -20,7 +20,7 @@ Key insight: evaluation happens BEFORE any targets run. Slow evaluation = slow b
 
 ### Primary: binlog MCP (preferred)
 
-Use the **binlog MCP server** (`AITools.BinlogMcp`, exposed under the `binlog` MCP namespace) to analyze evaluation performance:
+Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the `binlog` MCP namespace) to analyze evaluation performance:
 
 1. Use the evaluations tool to list all evaluations and their durations
 2. Use evaluation_global_properties to check for multiple evaluations with differing global properties

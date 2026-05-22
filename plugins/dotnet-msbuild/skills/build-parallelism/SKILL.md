@@ -53,7 +53,7 @@ license: MIT
 
 ### Primary: binlog MCP (preferred)
 
-Use the **binlog MCP server** (`AITools.BinlogMcp`, exposed under the `binlog` MCP namespace):
+Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the `binlog` MCP namespace):
 
 1. Use expensive_projects tool → find the slowest projects and compare individual vs total build time
 2. Use expensive_targets tool → find bottleneck targets

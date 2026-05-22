@@ -7,7 +7,7 @@ license: MIT
 # Analyzing MSBuild Failures with Binary Logs
 
 This skill diagnoses MSBuild build failures from a `.binlog` file. The preferred
-path uses the **binlog MCP server** (`AITools.BinlogMcp`, exposed under the
+path uses the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the
 `binlog` MCP namespace) which is bundled with this plugin. If the MCP server is
 not available, fall back to the **binlog replay** workflow at the bottom.
 
