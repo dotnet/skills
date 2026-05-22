@@ -51,7 +51,7 @@ Use the MCP overview and projects tools to understand the build and list all pro
 
 ### Step 3: Check evaluations and global properties
 
-Use the MCP evaluations and evaluation global properties tools to find all evaluations per project. Look for:
+Use the MCP `evaluations` and `evaluation_global_properties` tools to find all evaluations per project. Look for:
 - Multiple evaluations for the same project (indicates multi-targeting or multiple build configurations)
 - Differing global properties between evaluations (`TargetFramework`, `Configuration`, `RuntimeIdentifier`, `SolutionFileName`, `PublishReadyToRun`, etc.)
 
