@@ -336,13 +336,13 @@ See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, a
 
 **Exception — required imports**: Imports that are *required* for the build to work correctly should fail fast — don't guard those. Guard imports that are optional or environment-specific (e.g., local developer overrides, CI-specific settings).
 
-**Exception — NuGet package forwarders**: `.props`/`.targets` files inside a NuGet package's `build/<tfm>/` or `buildTransitive/<tfm>/` folder routinely import a sibling file under `buildTransitive/<tfm>/…` without an `Exists()` guard. These are a **package contract**: the target file is guaranteed to be present in the restored package, even if it doesn't appear in the source tree at that relative path. The package layout is typically produced by:
+**Exception — NuGet package forwarders**: `.props`/`.targets` files inside a NuGet package's per-TFM `build/` or `buildTransitive/` folder routinely import a sibling file under `buildTransitive/<tfm>/…` without an `Exists()` guard. These are a **package contract**: the target file is guaranteed to be present in the restored package, even if it doesn't appear in the source tree at that relative path. The package layout is typically produced by:
 
-- A custom `.nuspec` with `<file src="..." target="buildTransitive\<tfm>\..." />` entries that copy files from a single source folder (e.g. `buildTransitive/common/`) into per-TFM subfolders at pack time, or
-- `<None Update="..."><PackagePath>buildTransitive/<tfm>/</PackagePath></None>` / `<Content Include="..."><PackagePath>...</PackagePath></Content>` in the `.csproj`, or
+- A custom `.nuspec` with per-TFM `<file>` entries — e.g. `<file src="buildTransitive\common\MyAdapter.props" target="buildTransitive\net8.0\MyAdapter.props" />` — that copy files from a single source folder (such as `buildTransitive/common/`) into per-TFM subfolders at pack time, or
+- `<None Update="...">` / `<Content Include="...">` items in the `.csproj` with a per-TFM `<PackagePath>` (e.g. `<PackagePath>buildTransitive/net8.0/</PackagePath>`), declared once per target TFM, or
 - SDK conventions (e.g. `IncludeBuildOutput`, `BuildOutputTargetFolder`) that place built outputs under `build/<tfm>/`.
 
-Before flagging an unguarded `<Import>` inside a `build/` or `buildTransitive/` folder, **resolve it against the packed layout** — read every `*.nuspec` in the project directory **and any parent directory** (shared nuspecs are common in mono-repos), and any `<PackagePath>` metadata on `<None>`/`<Content>` items in the `.csproj`. Only flag if the target path is missing from **both** the source tree *and* the projected package layout. The `dotnet-msbuild/extension-points` skill — *Source tree vs packed layout* — documents the full cross-check procedure.
+Before flagging an unguarded `<Import>` inside a `build/` or `buildTransitive/` folder, **resolve it against the packed layout** — read every `*.nuspec` in the project directory **and its immediate parent directory** (shared nuspecs are common in mono-repos; do not walk further up), and any `<PackagePath>` metadata on `<None>`/`<Content>` items in the `.csproj`. Only flag if the target path is missing from **both** the source tree *and* the projected package layout. The `dotnet-msbuild/extension-points` skill — *Source tree vs packed layout* — documents the full cross-check procedure.
 
 ---
 
@@ -350,28 +350,28 @@ Before flagging an unguarded `<Import>` inside a `build/` or `buildTransitive/` 
 
 **Smell**: Backslash path separators in `.props`/`.targets` files meant to run cross-platform.
 
-**Where this is a real bug (🔴)** — paths that MSBuild does **not** route through its path normalizer:
+**Where this is a real bug (🔴 Error)** — paths that MSBuild does **not** route through its path normalizer:
 
 - Raw shell strings inside `<Exec Command="...\tools\foo.exe ..." />` — passed verbatim to `bash`/`sh` on Unix, which treats `\` as an escape.
 - Backslash-delimited paths inside CDATA blocks, embedded in source files written by `<WriteLinesToFile>`, or constructed for non-MSBuild consumers (custom scripts, response files, environment variables).
 - Paths handed to custom tasks that call OS file APIs directly without going through MSBuild path utilities.
 
-**Where this is only a style preference (🔵)** — paths that go through MSBuild's evaluator (`<Import Project="...">`, file-path properties consumed by built-in tasks like `<Copy>`/`<MakeDir>`/`<Delete>`, item `Include=`/`Exclude=` globs):
+**Where this is only a style preference (🔵 Style)** — paths that go through MSBuild's evaluator (`<Import Project="...">`, file-path properties consumed by built-in tasks like `<Copy>`/`<MakeDir>`/`<Delete>`, item `Include=`/`Exclude=` globs):
 
-MSBuild's evaluator normalizes `\` → `/` on Unix-like systems before resolving the path. See `FileUtilities.MaybeAdjustFilePath` and `ConvertToUnixSlashes` in [`microsoft/msbuild` `src/Framework/FileUtilities.cs`](https://github.com/dotnet/msbuild/blob/main/src/Framework/FileUtilities.cs). So `<Import Project="$(MSBuildThisFileDirectory)..\..\build\common.props" />` resolves correctly on Linux/macOS today. Forward slashes are still **preferred for consistency**, but the import will not break and existing backslash-style imports should not be flagged as 🔴 errors.
+MSBuild's evaluator normalizes `\` → `/` on Unix-like systems before resolving the path. See `FileUtilities.MaybeAdjustFilePath` and `ConvertToUnixSlashes` in [`microsoft/msbuild` `src/Framework/FileUtilities.cs`](https://github.com/dotnet/msbuild/blob/main/src/Framework/FileUtilities.cs). So `<Import Project="$(MSBuildThisFileDirectory)..\..\build\common.props" />` resolves correctly on Linux/macOS today. Forward slashes are still **preferred for consistency**, but the import will not break and existing backslash-style imports should not be flagged as 🔴 **Error**.
 
 ```xml
-<!-- 🔴 Real bug: \ in raw shell string breaks on Linux/macOS -->
+<!-- 🔴 Error: \ in raw shell string breaks on Linux/macOS -->
 <Exec Command="$(MSBuildThisFileDirectory)tools\release\sign.exe $(OutputPath)" />
 
-<!-- 🔵 Style preference: \ in Import is normalized on Unix, but / is nicer -->
+<!-- 🔵 Style: \ in Import is normalized on Unix, but / is nicer -->
 <Import Project="$(MSBuildThisFileDirectory)..\..\build\common.props" />
 
 <!-- ✅ Recommended in new code -->
 <Import Project="$(MSBuildThisFileDirectory)../../build/common.props" />
 ```
 
-**Verification rule**: Before flagging a backslash path as 🔴, ask *"does this string flow through MSBuild's evaluator, or is it handed verbatim to a non-MSBuild consumer?"* Only the second case is a correctness defect.
+**Verification rule**: Before flagging a backslash path as 🔴 **Error**, ask *"does this string flow through MSBuild's evaluator, or is it handed verbatim to a non-MSBuild consumer?"* Only the second case is a correctness defect.
 
 **Note**: `$(MSBuildThisFileDirectory)` already ends with a platform-appropriate separator, so `$(MSBuildThisFileDirectory)tools/mytool` works on both platforms.
 

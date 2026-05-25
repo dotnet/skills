@@ -154,7 +154,7 @@ A forwarder like the following inside a packed `build/net462/` folder is **not**
 
 Before flagging an unguarded `<Import>` inside a `build/<tfm>/` or `buildTransitive/<tfm>/` folder:
 
-1. Look for `*.nuspec` in the project directory and its parent. Read every `<file target=…>` whose `target` matches the imported path.
+1. Look for `*.nuspec` in the project directory and its immediate parent directory (do not walk further up). Read every `<file target=…>` whose `target` matches the imported path.
 2. Read the `.csproj` for `<PackagePath>` metadata on `<None>`/`<Content>` items.
 3. Only flag the import if the target path is missing from **both** the source tree *and* the projected package layout.
 
