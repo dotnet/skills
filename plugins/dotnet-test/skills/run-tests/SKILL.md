@@ -8,9 +8,10 @@ description: >
   MSTest / xUnit / NUnit / TUnit (--filter, --filter-class, --filter-trait,
   --filter-query, --treenode-filter); TRX and other reporting (--report-trx vs
   --logger trx); blame/hang/crash diagnostics (--blame-hang-timeout,
-  --blame-crash); multi-TFM projects (--framework); and avoiding MTP/VSTest
-  argument mixups (e.g., --logger trx on MTP, --report-trx on VSTest, --blame on
-  MTP).
+  --blame-crash); running tests against a single target framework when a project
+  targets multiple TFMs (e.g., `<TargetFrameworks>net8.0;net9.0</TargetFrameworks>`,
+  `dotnet test --framework <TFM>`); and avoiding MTP/VSTest argument mixups
+  (e.g., --logger trx on MTP, --report-trx on VSTest, --blame on MTP).
   DO NOT USE FOR: writing or generating test code, CI/CD pipeline
   configuration, or debugging failing test logic.
 license: MIT
