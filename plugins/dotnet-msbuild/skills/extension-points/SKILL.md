@@ -113,24 +113,31 @@ Three packaging mechanisms reshape the layout at pack time:
 1. **`.nuspec` `<file src=… target=…>` mappings** — copy a single source file into multiple per-TFM targets:
 
    ```xml
-   <!-- Source: src\MyAdapter\buildTransitive\common\MyAdapter.props
-        Packed: buildTransitive\net462\MyAdapter.props
-                buildTransitive\net8.0\MyAdapter.props
-                buildTransitive\net9.0\MyAdapter.props -->
+   <!-- Source tree has ONE shared file:
+          buildTransitive\common\MyAdapter.props
+        Pack rewrites it to per-TFM targets inside the .nupkg:
+          buildTransitive\net462\MyAdapter.props
+          buildTransitive\net8.0\MyAdapter.props
+          buildTransitive\net9.0\MyAdapter.props -->
    <files>
-     <file src="net462\buildTransitive\common\MyAdapter.props" target="buildTransitive\net462\" />
-     <file src="net8.0\buildTransitive\common\MyAdapter.props" target="buildTransitive\net8.0\MyAdapter.props" />
-     <file src="net9.0\buildTransitive\common\MyAdapter.props" target="buildTransitive\net9.0\MyAdapter.props" />
+     <file src="buildTransitive\common\MyAdapter.props" target="buildTransitive\net462\MyAdapter.props" />
+     <file src="buildTransitive\common\MyAdapter.props" target="buildTransitive\net8.0\MyAdapter.props" />
+     <file src="buildTransitive\common\MyAdapter.props" target="buildTransitive\net9.0\MyAdapter.props" />
    </files>
    ```
 
-2. **`.csproj` `<PackagePath>` metadata** on `<None Update=…>` or `<Content Include=…>` items — same effect via SDK pack:
+   In the `<file>` element, a `target` ending in `\` is treated as a folder (filename preserved from `src`); a `target` ending in a filename renames the file.
+
+2. **`.csproj` `<PackagePath>` metadata** on `<None Update=…>` or `<Content Include=…>` items — same effect via SDK pack. Use one item per destination to keep the mapping unambiguous:
 
    ```xml
    <ItemGroup>
-     <None Include="buildTransitive\common\MyAdapter.props" Pack="true" PackagePath="buildTransitive\net8.0\;buildTransitive\net9.0\" />
+     <None Include="buildTransitive\common\MyAdapter.props" Pack="true" PackagePath="buildTransitive\net8.0\MyAdapter.props" />
+     <None Include="buildTransitive\common\MyAdapter.props" Pack="true" PackagePath="buildTransitive\net9.0\MyAdapter.props" />
    </ItemGroup>
    ```
+
+   NuGet/SDK pack also accepts a semicolon-separated list (`PackagePath="buildTransitive\net8.0\;buildTransitive\net9.0\"`) to fan one source out to multiple destinations, but the multi-item form above is harder to misread.
 
 3. **SDK conventions** — `IncludeBuildOutput`, `BuildOutputTargetFolder`, `IncludeContentInPack` automatically place built outputs under `lib/<tfm>/` or `build/<tfm>/`.
 
