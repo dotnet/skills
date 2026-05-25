@@ -1,19 +1,16 @@
 ---
 name: run-tests
 description: >
-  Runs .NET tests with dotnet test. Use when user says "run tests", "run my
-  tests", "run these tests", "execute tests", "dotnet test", "test filter",
-  "filter by category", "filter by class", "combine filters",
-  "run only specific tests", "integration tests", "unit tests",
-  "tests not running", "hang timeout", "blame-hang", "blame-crash",
-  "crash dump", "TRX report", "TRX", "test report", "generate TRX",
-  "TUnit", "treenode-filter", "target framework", "multi-TFM", or needs
-  to detect the test platform (VSTest or Microsoft.Testing.Platform),
-  identify the test framework, apply test filters, or troubleshoot test
-  execution failures. Covers MSTest, xUnit, NUnit, and TUnit across both
-  VSTest and MTP platforms. Also use for --filter-class, --filter-trait,
-  --report-trx, --logger trx, --blame-hang-timeout, and other
-  platform-specific filter and reporting syntax.
+  Runs .NET tests with `dotnet test` and chooses the correct platform/SDK/framework
+  syntax. USE FOR: running, filtering, or troubleshooting `dotnet test`; selecting
+  VSTest vs Microsoft.Testing.Platform command syntax (including the `--`
+  separator rules on .NET SDK 8/9 vs 10+); choosing the right filter syntax for
+  MSTest / xUnit / NUnit / TUnit (--filter, --filter-class, --filter-trait,
+  --filter-query, --treenode-filter); TRX and other reporting (--report-trx vs
+  --logger trx); blame/hang/crash diagnostics (--blame-hang-timeout,
+  --blame-crash); multi-TFM projects (--framework); and avoiding MTP/VSTest
+  argument mixups (e.g., --logger trx on MTP, --report-trx on VSTest, --blame on
+  MTP).
   DO NOT USE FOR: writing or generating test code, CI/CD pipeline
   configuration, or debugging failing test logic.
 license: MIT

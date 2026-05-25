@@ -256,6 +256,38 @@ stimuli:
       - Translates Category=Smoke to --filter-trait "Category=Smoke"
       - Mentions --filter-query uses path-segment syntax (/<assembly>/<namespace>/<class>/<method>[trait=value])
       - References xUnit.net query filter language documentation or provides the link
+  - name: Set OutputType=Exe only for test projects in Directory.Build.props
+    prompt: |
+      I'm migrating my MSTest projects from VSTest to Microsoft.Testing.Platform.
+      My repo has a single Directory.Build.props at the root that is imported by
+      both production projects (e.g. `MyApp.csproj`) and test projects (e.g.
+      `MyApp.Tests.csproj`). I want to set `<OutputType>Exe</OutputType>` and the
+      MTP runner properties centrally, but I obviously don't want to turn my
+      library projects into executables. How do I write the condition in
+      Directory.Build.props so it only applies to the test projects?
+    environment:
+      files:
+        - src: ./fixtures/mstest-vstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/mstest-vstest/CalculatorTests.cs
+          dest: CalculatorTests.cs
+    graders:
+      - type: output-contains
+        config:
+          substring: MSBuildProjectName
+      - type: output-not-matches
+        config:
+          pattern: Condition\s*=\s*(['"]).*\$\(IsTestProject\).*\1
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recommends a condition based on a property available when Directory.Build.props is evaluated, such as
+        MSBuildProjectName
+      - Provides a concrete example condition (e.g., $(MSBuildProjectName.EndsWith('.Tests'))) that targets only test
+        projects by name
+      - Does NOT recommend Condition="'$(IsTestProject)' == 'true'" for properties set in Directory.Build.props
+      - Explains why an IsTestProject-based condition does not work in Directory.Build.props (the property is not yet
+        defined at that point in evaluation)
   - name: Full VSTest to MTP migration plan for MSTest solution
     prompt: |
       I have a solution with 5 MSTest test projects all using VSTest (MSTest.TestFramework 3.8.0,
