@@ -342,7 +342,7 @@ See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, a
 - `<None Update="..."><PackagePath>buildTransitive/<tfm>/</PackagePath></None>` / `<Content Include="..."><PackagePath>...</PackagePath></Content>` in the `.csproj`, or
 - SDK conventions (e.g. `IncludeBuildOutput`, `BuildOutputTargetFolder`) that place built outputs under `build/<tfm>/`.
 
-Before flagging an unguarded `<Import>` inside a `build/` or `buildTransitive/` folder, **resolve it against the packed layout** — read every `*.nuspec` in the project directory **and any parent directory** (shared nuspecs are common in mono-repos), and any `<PackagePath>` metadata on `<None>`/`<Content>` items in the `.csproj`. Only flag if the target path is missing from **both** the source tree *and* the projected package layout. See [`extension-points` skill — Source tree vs packed layout](../extension-points/SKILL.md) for the full cross-check procedure.
+Before flagging an unguarded `<Import>` inside a `build/` or `buildTransitive/` folder, **resolve it against the packed layout** — read every `*.nuspec` in the project directory **and any parent directory** (shared nuspecs are common in mono-repos), and any `<PackagePath>` metadata on `<None>`/`<Content>` items in the `.csproj`. Only flag if the target path is missing from **both** the source tree *and* the projected package layout. The `dotnet-msbuild/extension-points` skill — *Source tree vs packed layout* — documents the full cross-check procedure.
 
 ---
 
