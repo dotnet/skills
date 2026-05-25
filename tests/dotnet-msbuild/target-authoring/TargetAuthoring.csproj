@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <!-- Hook our code generator into the compilation pipeline -->
+  <PropertyGroup>
+    <CompileDependsOn>GenerateApiClient</CompileDependsOn>
+  </PropertyGroup>
+
+  <!-- Query target that returns API endpoint metadata -->
+  <Target Name="GetApiEndpoints" Outputs="@(ApiEndpoint)">
+    <ItemGroup>
+      <ApiEndpoint Include="https://api.example.com/v1/users" />
+      <ApiEndpoint Include="https://api.example.com/v1/orders" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Generate a typed API client from endpoint definitions -->
+  <Target Name="GenerateApiClient" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <_GenOutput>$(IntermediateOutputPath)ApiClient.g.cs</_GenOutput>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_GenOutput)"
+                     Lines="namespace TargetAuthoring { public static class ApiClient { public static string BaseUrl =&gt; &quot;https://api.example.com&quot;; } }"
+                     Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(_GenOutput)" />
+      <!-- TODO: should we track this for clean? -->
+    </ItemGroup>
+  </Target>
+</Project>

@@ -1,0 +1,14 @@
+<Project>
+  <!-- Import shared analyzer configuration -->
+  <Import Project="$(RepoRoot)eng\custom-analyzers.props" />
+
+  <!-- Configure pre-build hook -->
+  <PropertyGroup>
+    <CustomBeforeMicrosoftCommonTargets>$(MSBuildThisFileDirectory)MyHook.targets</CustomBeforeMicrosoftCommonTargets>
+  </PropertyGroup>
+
+  <!-- Run code generation before compilation -->
+  <Target Name="RunCodeGen" BeforeTargets="CoreCompile">
+    <Exec Command="codegen.exe --output $(IntermediateOutputPath)generated.cs" />
+  </Target>
+</Project>

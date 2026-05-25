@@ -1,0 +1,74 @@
+scenarios:
+  - name: "Diagnose item group and batching issues"
+    prompt: >-
+      Our build is producing CS2002 duplicate source file warnings, and a data
+      validation target seems to run against every possible combination of inputs
+      instead of matching pairs — we have 2 data files and 2 schemas but it
+      executes 4 times instead of 2. Generated files also accumulate in the
+      source tree across builds and aren't cleaned up by dotnet clean. Can you
+      review the MSBuild item groups and targets in ItemManagement.csproj and
+      explain what's going wrong with the item management patterns?
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(cross.product|batch|cartesian|combination|duplicate)"
+      - type: "output_matches"
+        pattern: "(FileWrites|clean|IntermediateOutput|obj)"
+    rubric:
+      - "Identified that explicitly including source files duplicates items already provided by the SDK's default globbing, and explained how to modify existing items without duplication"
+      - "Explained why the validation target runs 4 times instead of 2 — mixing metadata references from two unrelated item groups creates a cartesian product of executions"
+      - "Identified that the generated file is written to the source tree instead of the intermediate output directory, polluting the working copy"
+      - "Identified that generated files survive dotnet clean because they aren't registered with the build's file tracking"
+      - "Suggested concrete fixes using the correct item operations for each issue"
+    timeout: 240
+
+  - name: "Diagnose cascading item and batching bugs in code generation pipeline"
+    prompt: >-
+      Our proto code generation pipeline builds successfully but has confusing
+      behavior. The post-generation validation step runs far more times than
+      expected — we have 3 proto files and 2 validation rules, but it seems to
+      execute for every possible combination rather than validating each proto
+      file with all its rules sequentially. We also see CS2002 warnings about
+      duplicate source files, dotnet clean seems to remove too many files, and
+      generated files aren't properly tracked across builds. The project is in
+      hard/HardItem.csproj. Can you analyze the MSBuild item groups, metadata
+      batching, and target interactions?
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(cross.product|cartesian|N.M|3.*2|6|combination)"
+      - type: "output_matches"
+        pattern: "(FileWrites|evaluation.*time|clean|Remove)"
+    rubric:
+      - "Identified that explicitly including generated files duplicates items already captured by the SDK's default globbing, and explained the difference between Include and Update for modifying existing items"
+      - "Explained the cross-product batching problem — mixing metadata references from two unrelated item groups causes N×M executions instead of per-item processing"
+      - "Identified the timing issue with file tracking — items registered at evaluation time reference files that don't exist yet because the generation target hasn't run"
+      - "Identified that the clean target's removal pattern is overly broad, potentially removing files beyond the intended scope"
+    timeout: 360
+
+  - name: "Fix item management anti-patterns"
+    prompt: >-
+      The MSBuild item groups and targets in ItemManagement.csproj have several
+      issues causing duplicate file warnings and incorrect build behavior. Please
+      edit ItemManagement.csproj directly to fix all the MSBuild item management
+      problems so that: (1) no duplicate source file warnings are produced,
+      (2) the validation target runs exactly once per matching data-schema pair,
+      (3) generated files go to the intermediate output directory instead of the
+      source tree, and (4) dotnet clean properly removes generated files.
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "file_contains"
+        path: "ItemManagement.csproj"
+        value: "FileWrites"
+      - type: "file_contains"
+        path: "ItemManagement.csproj"
+        value: "IntermediateOutputPath"
+    rubric:
+      - "Fixed the duplicate source file issue by using Update instead of Include for modifying metadata on SDK-globbed items"
+      - "Fixed the validation target to avoid cross-product batching and process matched pairs correctly"
+      - "Moved the generated file output to the intermediate directory instead of the source tree"
+      - "Added proper file tracking registration so dotnet clean removes generated files"
+    timeout: 300

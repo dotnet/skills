@@ -1,0 +1,81 @@
+scenarios:
+  - name: "Diagnose shared build property issues"
+    prompt: >-
+      Our CI builds work fine but individual developers keep hitting strange
+      issues with our shared MSBuild property settings in Directory.Build.props.
+      Some report that conditional compilation symbols from NuGet packages or
+      the command line silently vanish, others find that shared defaults like
+      the C# language version can't be overridden from earlier-imported layers
+      or the command line, and one developer on macOS says the build fails
+      entirely with a path error. We also get intermittent build failures that
+      seem to depend on whether a certain property happens to be set. Can you
+      audit Directory.Build.props and PropertyPatterns.csproj for MSBuild
+      property patterns issues?
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(DefineConstants|define|symbol|constant)"
+      - type: "output_matches"
+        pattern: "(overrid|condition|guard|unconditional)"
+    rubric:
+      - "Identified that conditional compilation symbols are lost because the assignment replaces all existing values instead of preserving and extending them"
+      - "Identified the condition syntax issue that causes intermittent evaluation failures when the checked property is empty or unset"
+      - "Identified the hardcoded absolute path that makes the build non-portable across operating systems"
+      - "Identified that the language version default is set unconditionally, preventing it from being overridden by earlier-imported files or command-line properties"
+      - "Identified the path construction bug from a missing trailing directory separator that causes path segments to merge"
+    timeout: 240
+
+  - name: "Diagnose multi-level property hierarchy bugs"
+    prompt: >-
+      We set up a nested Directory.Build.props hierarchy (root + src/) for our
+      mono-repo, but MSBuild properties behave unpredictably. Warning
+      suppressions configured in the parent keep getting lost in child projects,
+      AOT configuration causes cryptic build errors on some machines but not
+      others, and the child Directory.Build.props layer-specific settings are being
+      silently overwritten by the parent's unconditional assignments. The build output path also looks wrong — directory segments
+      seem to run together without separators. The project is at
+      hard/src/HardProperty.csproj. Can you trace through the MSBuild property
+      evaluation order across both Directory.Build.props files and the project
+      to find what's wrong with the property definitions?
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(evaluation.*order|import.*order|overwr|unconditional)"
+      - type: "output_matches"
+        pattern: "(DefineConstants|NoWarn|separator|trailing)"
+    rubric:
+      - "Identified the import ordering trap — the child file sets properties before importing the parent, so the parent's unconditional assignment overwrites the child's carefully constructed values"
+      - "Identified that the language version is set unconditionally in the child Directory.Build.props without a condition guard, so the parent's unconditional assignment overwrites the child's value after import"
+      - "Identified the condition syntax issue that causes build failures when the AOT property is empty or unset"
+      - "Identified the path construction bug where a missing directory separator causes output path segments to merge"
+      - "Identified that warning suppressions are replaced rather than accumulated, losing parent-level suppressions"
+    timeout: 360
+
+  - name: "Fix shared property configuration"
+    prompt: >-
+      Our Directory.Build.props has several MSBuild property definition issues
+      that our team has been working around by duplicating settings in each
+      project file. Please edit Directory.Build.props directly to fix all the
+      MSBuild property pattern issues so that: (1) projects can override shared
+      defaults from their own .csproj files, (2) conditional compilation symbols
+      from packages and the command line are preserved when we add ours, (3) the
+      build works on any operating system, and (4) conditions work correctly
+      even when properties are unset.
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "file_contains"
+        path: "Directory.Build.props"
+        value: "$(DefineConstants)"
+      - type: "file_contains"
+        path: "Directory.Build.props"
+        value: "Condition"
+    rubric:
+      - "Fixed the conditional compilation symbols to preserve existing values by appending rather than replacing"
+      - "Added conditional guards to default property values so individual projects can override them"
+      - "Fixed or removed the hardcoded absolute path that broke cross-platform builds"
+      - "Fixed the condition syntax to use properly quoted string comparisons"
+      - "Fixed the path construction to include a proper trailing directory separator"
+    timeout: 300

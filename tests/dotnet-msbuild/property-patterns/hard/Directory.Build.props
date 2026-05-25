@@ -1,0 +1,23 @@
+<Project>
+  <!-- Root: sets overridable defaults -->
+  <PropertyGroup>
+    <LangVersion>12</LangVersion>
+    <Nullable Condition="'$(Nullable)' == ''">enable</Nullable>
+    <TreatWarningsAsErrors Condition="'$(TreatWarningsAsErrors)' == ''">true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- Repository-wide build identifier -->
+  <PropertyGroup>
+    <DefineConstants>REPO_BUILD</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Repository-wide warning suppressions — set as default so child layers can extend them -->
+  <PropertyGroup>
+    <NoWarn Condition="'$(NoWarn)' == ''">NU1702</NoWarn>
+  </PropertyGroup>
+
+  <!-- Conditional feature flags — correct pattern -->
+  <PropertyGroup Condition="'$(IsTestProject)' != 'true'">
+    <AnalysisLevel>latest-All</AnalysisLevel>
+  </PropertyGroup>
+</Project>

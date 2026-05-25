@@ -1,6 +1,6 @@
 ---
 name: check-bin-obj-clash
-description: "Detects MSBuild projects with conflicting OutputPath or IntermediateOutputPath. Only activate in MSBuild/.NET build context. USE FOR: builds failing with 'Cannot create a file when that file already exists', 'The process cannot access the file because it is being used by another process', intermittent build failures that succeed on retry, missing outputs in multi-project builds, multi-targeting builds where project.assets.json conflicts. Diagnoses when multiple projects or TFMs write to the same bin/obj directories due to shared OutputPath, missing AppendTargetFrameworkToOutputPath, or extra global properties like PublishReadyToRun creating redundant evaluations. DO NOT USE FOR: file access errors unrelated to MSBuild (OS-level locking), single-project single-TFM builds, non-MSBuild build systems. INVOKES: dotnet msbuild binlog replay, grep for output path analysis."
+description: "Detects MSBuild projects with conflicting OutputPath or IntermediateOutputPath. Only activate in MSBuild/.NET build context. USE FOR: builds failing with 'Cannot create a file when that file already exists', 'The process cannot access the file because it is being used by another process', intermittent build failures that succeed on retry, missing outputs in multi-project builds, multi-targeting builds where project.assets.json conflicts. Diagnoses when multiple projects or TFMs write to the same bin/obj directories due to shared OutputPath, missing AppendTargetFrameworkToOutputPath, or extra global properties like PublishReadyToRun creating redundant evaluations. DO NOT USE FOR: file access errors unrelated to MSBuild (OS-level locking), single-project single-TFM builds, non-MSBuild build systems. INVOKES: binlog MCP server tools (overview, projects, evaluations, properties, double_writes); falls back to dotnet msbuild binlog replay + grep when the MCP is unavailable."
 license: MIT
 ---
 
@@ -35,13 +35,53 @@ Clashes can occur between:
 
 Use the `binlog-generation` skill to generate a binary log with the correct naming convention.
 
-## Step 2: Replay the Binary Log to Text
+## Primary workflow — binlog MCP
+
+The MCP server exposes structured tools for inspecting a `.binlog` without
+parsing text logs. Call them directly instead of replaying the binlog to a text
+file. Call `tools/list` for the MCP first if you are unsure which tools are available.
+
+**Important constraints:**
+- The `.binlog` file is a **binary format** — do NOT try to `cat`, `head`, `strings`, or read it directly. Use only the MCP tools to query it.
+- **Synthesize findings as you go.** Do not spend all available time investigating — once you have enough evidence, present your conclusions.
+
+### Step 2: Get an overview and list projects
+
+Use the MCP overview and projects tools to understand the build and list all projects that participated.
+
+### Step 3: Check evaluations and global properties
+
+Use the MCP `evaluations` and `evaluation_global_properties` tools to find all evaluations per project. Look for:
+- Multiple evaluations for the same project (indicates multi-targeting or multiple build configurations)
+- Differing global properties between evaluations (`TargetFramework`, `Configuration`, `RuntimeIdentifier`, `SolutionFileName`, `PublishReadyToRun`, etc.)
+
+### Step 4: Get output paths for each evaluation
+
+Use the MCP properties tool to query `OutputPath`, `IntermediateOutputPath`, `BaseOutputPath`, and `BaseIntermediateOutputPath` for each project evaluation.
+
+### Step 5: Check for double writes
+
+Use the MCP double_writes tool if available — it directly detects files written by multiple project instances.
+
+### Step 6: Identify clashes
+
+Compare the `OutputPath` and `IntermediateOutputPath` values across all evaluations:
+1. **Normalize paths** - Convert to absolute paths and normalize separators
+2. **Group by path** - Find evaluations that share the same OutputPath or IntermediateOutputPath
+3. **Filter out non-build evaluations** - Exclude `BuildProjectReferences=false` instances (P2P queries)
+4. **Report clashes** - Any group with more than one evaluation indicates a clash
+
+## Fallback workflow — text-log replay (when MCP is unavailable)
+
+Use this only when the MCP server cannot be started.
+
+### Step 2: Replay the Binary Log to Text
 
 ```bash
 dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
 ```
 
-## Step 3: List All Projects
+### Step 3: List All Projects
 
 ```bash
 grep -i 'done building project\|Building project' full.log | grep -oP '"[^"]+\.csproj"' | sort -u
@@ -49,7 +89,7 @@ grep -i 'done building project\|Building project' full.log | grep -oP '"[^"]+\.c
 
 This lists all project files that participated in the build.
 
-## Step 4: Check for Multiple Evaluations per Project
+### Step 4: Check for Multiple Evaluations per Project
 
 Multiple evaluations for the same project indicate multi-targeting or multiple build configurations:
 
@@ -59,7 +99,7 @@ grep -c 'Evaluation started' full.log
 grep 'Evaluation started.*\.csproj' full.log
 ```
 
-## Step 5: Check Global Properties for Each Evaluation
+### Step 5: Check Global Properties for Each Evaluation
 
 For each project, query the build properties to understand the build configuration:
 
@@ -88,7 +128,7 @@ When analyzing clashes, filter evaluations based on the type of clash you're inv
 
 3. **Always exclude `BuildProjectReferences=false`**: These are P2P metadata queries, not actual builds that write files.
 
-## Step 6: Get Output Paths for Each Project
+### Step 6: Get Output Paths for Each Project
 
 Query each project's output path properties:
 
@@ -103,7 +143,7 @@ dotnet msbuild MyProject.csproj -getProperty:BaseOutputPath
 dotnet msbuild MyProject.csproj -getProperty:BaseIntermediateOutputPath
 ```
 
-## Step 7: Identify Clashes
+### Step 7: Identify Clashes
 
 Compare the `OutputPath` and `IntermediateOutputPath` values across all evaluations:
 
@@ -111,7 +151,7 @@ Compare the `OutputPath` and `IntermediateOutputPath` values across all evaluati
 2. **Group by path** - Find evaluations that share the same OutputPath or IntermediateOutputPath
 3. **Report clashes** - Any group with more than one evaluation indicates a clash
 
-## Step 8: Verify Clashes via CopyFilesToOutputDirectory (Optional)
+### Step 8: Verify Clashes via CopyFilesToOutputDirectory (Optional)
 
 As additional evidence for OutputPath clashes, check if multiple project builds execute the `CopyFilesToOutputDirectory` target to the same path. Note that not all clashes manifest here - compilation outputs and other targets may also conflict.
 
@@ -129,7 +169,7 @@ Look for evidence of clashes in the messages:
 
 The `SkipUnchangedFiles` skip message often masks clashes - the build succeeds but is vulnerable to race conditions in parallel builds.
 
-## Step 9: Check CoreCompile Execution Patterns (Optional)
+### Step 9: Check CoreCompile Execution Patterns (Optional)
 
 To understand which project instance did the actual compilation vs redundant work, check `CoreCompile`:
 

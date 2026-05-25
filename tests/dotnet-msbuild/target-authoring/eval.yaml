@@ -1,0 +1,78 @@
+scenarios:
+  - name: "Diagnose custom target build regression"
+    prompt: >-
+      After adding custom MSBuild targets to TargetAuthoring.csproj, our build
+      pipeline has broken target dependency chains. Some standard SDK compilation
+      steps disappeared completely after we added custom targets — the dependency
+      chain was incorrectly replaced instead of extended using the $(DependsOn)
+      pattern. Our code generation target is also incorrectly wired into the
+      build pipeline and always runs even when nothing has changed. Additionally
+      we have a query target using the Outputs attribute that keeps returning
+      stale results — MSBuild treats it as an incremental target and may skip
+      re-execution, returning cached empty results. Please review the MSBuild target
+      definitions, dependency chain patterns, and BeforeTargets/AfterTargets
+      usage in TargetAuthoring.csproj to identify the target authoring mistakes.
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(CompileDependsOn|compilation.*chain|SDK.*target|existing.*target)"
+      - type: "output_matches"
+        pattern: "(Returns|stale|cach|query.*target|re-evaluat)"
+    rubric:
+      - "Identified why standard compilation steps vanished — the dependency chain was replaced rather than extended"
+      - "Identified why the query target returns stale results across builds"
+      - "Identified that the code generation target always re-runs because it has no incremental build support"
+      - "Identified that generated files are not cleaned up by dotnet clean"
+    timeout: 240
+
+  - name: "Diagnose broken SDK target chain across files"
+    prompt: >-
+      We maintain a custom MSBuild SDK (CustomSdk.targets) that defines a code
+      generation pipeline with proper incremental build and clean support. It
+      worked perfectly until someone added customizations in Directory.Build.targets.
+      Now the generated code no longer updates when we modify schema files, dotnet
+      clean leaves stale generated files behind, and the build seems slower than
+      before. The setup is in the hard/ subfolder — start from hard/HardTarget.csproj
+      and trace through how CustomSdk.targets and Directory.Build.targets interact.
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(CoreCodeGen|redefin|replac|overrid|shadow)"
+      - type: "output_matches"
+        pattern: "(FileWrites|incremental|Inputs|Outputs|clean)"
+    rubric:
+      - "Identified that Directory.Build.targets redefines a target from the SDK, silently replacing the version that had incremental build tracking and clean file registration"
+      - "Identified that a target bypasses the SDK's extensibility chain by using direct injection instead of the dependency chain pattern"
+      - "Identified a duplicate entry in the compilation dependency chain"
+      - "Identified that a target reads generated files but doesn't declare an ordering dependency"
+    timeout: 240
+
+  - name: "Fix custom target anti-patterns"
+    prompt: >-
+      The MSBuild targets in TargetAuthoring.csproj have target authoring
+      mistakes: the dependency chains are incorrectly structured, generated
+      files are not registered for clean tracking, and the query target uses
+      the Returns attribute incorrectly. Please edit TargetAuthoring.csproj
+      directly to apply correct MSBuild target authoring patterns so that:
+      (1) incremental builds work correctly via proper Inputs/Outputs and
+      BeforeTargets/AfterTargets usage — unchanged schemas shouldn't trigger
+      regeneration, (2) dotnet clean removes all generated files via FileWrites
+      registration, and (3) the CompileDependsOn chain is extended rather than
+      replaced so SDK compilation targets aren't lost.
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "file_contains"
+        path: "TargetAuthoring.csproj"
+        value: "$(CompileDependsOn)"
+      - type: "file_contains"
+        path: "TargetAuthoring.csproj"
+        value: "FileWrites"
+    rubric:
+      - "Fixed the dependency chain to preserve existing SDK compilation targets"
+      - "Fixed the query target to avoid returning stale cached results"
+      - "Added incremental build support to the code generation target"
+      - "Registered generated files for clean tracking"
+    timeout: 360

@@ -1,6 +1,6 @@
 ---
 name: build-parallelism
-description: "Guide for optimizing MSBuild build parallelism and multi-project scheduling. Only activate in MSBuild/.NET build context. USE FOR: builds not utilizing all CPU cores, speeding up multi-project solutions, evaluating graph build mode (/graph), build time not improving with -m flag, understanding project dependency topology. Note: /maxcpucount default is 1 (sequential) — always use -m for parallel builds. Covers /maxcpucount, graph build for better scheduling and isolation, BuildInParallel on MSBuild task, reducing unnecessary ProjectReferences, solution filters (.slnf) for building subsets. DO NOT USE FOR: single-project builds, incremental build issues (use incremental-build), compilation slowness within a project (use build-perf-diagnostics), non-MSBuild build systems. INVOKES: dotnet build -m, dotnet build /graph, binlog analysis."
+description: "Guide for optimizing MSBuild build parallelism and multi-project scheduling. Only activate in MSBuild/.NET build context. USE FOR: builds not utilizing all CPU cores, speeding up multi-project solutions, evaluating graph build mode (/graph), build time not improving with -m flag, understanding project dependency topology. Note: /maxcpucount default is 1 (sequential) — always use -m for parallel builds. Covers /maxcpucount, graph build for better scheduling and isolation, BuildInParallel on MSBuild task, reducing unnecessary ProjectReferences, solution filters (.slnf) for building subsets. DO NOT USE FOR: single-project builds, incremental build issues (use incremental-build), compilation slowness within a project (use build-perf-diagnostics), non-MSBuild build systems. INVOKES: binlog MCP server tools (expensive_projects, expensive_targets, project_target_times); falls back to dotnet build -m, dotnet build /graph, binlog replay + grep."
 license: MIT
 ---
 
@@ -50,6 +50,18 @@ license: MIT
 - Tasks must declare thread-safety via `[MSBuildMultiThreadableTask]`
 
 ## Analyzing Parallelism with Binlog
+
+### Primary: binlog MCP (preferred)
+
+Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the `binlog` MCP namespace):
+
+1. Use expensive_projects tool → find the slowest projects and compare individual vs total build time
+2. Use expensive_targets tool → find bottleneck targets
+3. Use project_target_times tool → drill into a specific project's target-level timing
+4. Ideal: build time should be much less than sum of project times (parallelism)
+5. If build time ≈ sum of project times: too many serial dependencies, or one slow project blocking others
+
+### Fallback: text-log replay (when MCP is unavailable)
 
 Step-by-step:
 

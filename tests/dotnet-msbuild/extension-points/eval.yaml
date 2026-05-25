@@ -1,0 +1,74 @@
+scenarios:
+  - name: "Diagnose build extension point failures"
+    prompt: >-
+      Our build breaks on fresh clones with import errors, a NuGet package that
+      used to inject a pre-build hook stopped working after we added
+      Directory.Build.targets, and other teams in our mono-repo can't plug into
+      our code generation step to add their own pre/post processing. Can you
+      review the MSBuild extension points in Directory.Build.targets and the
+      project files to find what's wrong with the import and hook patterns?
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(Exists|guard|missing|import.*fail)"
+      - type: "output_matches"
+        pattern: "(CustomBefore|hook|overwr|drop|silently)"
+    rubric:
+      - "Identified that the import will fail on fresh clones because there's no file existence check, and showed how to guard it"
+      - "Explained why the NuGet package's hook stopped working — the hook property assignment replaces any previously-set value instead of appending, silently dropping the package's hook"
+      - "Identified that the code generation target cannot be extended by other teams and suggested a pattern for making it extensible (e.g., dependency chain or empty Before/After targets)"
+      - "Provided concrete, working fixes for each extension point issue"
+    timeout: 240
+
+  - name: "Diagnose NuGet package and repo extension conflicts"
+    prompt: >-
+      After setting up Directory.Build files and adding a NuGet package with
+      build extensions, our MSBuild extension points have multiple issues: a
+      shared Common.props file never gets imported even though we added an
+      Import for it, the NuGet package's pre-build hook was silently dropped,
+      builds fail on fresh clones with missing file errors, and we suspect one
+      of our custom targets is interfering with the SDK's built-in behavior.
+      The files are in the hard/ subfolder. Can you trace through how the
+      MSBuild extension points interact across Directory.Build.props,
+      Directory.Build.targets, and the project?
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(guard|inverted|condition|CommonPropsImported)"
+      - type: "output_matches"
+        pattern: "(CustomBefore|hook|overwr|append|drop)"
+    rubric:
+      - "Identified the inverted guard condition — the import logic is backwards, importing when the guard IS set instead of when it is NOT set"
+      - "Identified the timing issue — wildcard import control properties set in Directory.Build.props take effect too late because the SDK has already processed its imports"
+      - "Explained why the NuGet package's hook was dropped — the hook property is overwritten instead of appended to"
+      - "Identified the missing file existence guard on the import that causes fresh clone failures"
+      - "Identified the target name collision with a built-in SDK target that silently overrides the SDK's implementation"
+      - "Identified the fragile dependency on an internal SDK target that may change between SDK versions"
+    timeout: 360
+
+  - name: "Fix extension point anti-patterns"
+    prompt: >-
+      Our Directory.Build.targets has MSBuild extension point issues that break
+      fresh clones and conflict with NuGet packages. Please review and fix the
+      MSBuild import and hook patterns so that: (1) imports don't break when
+      files are missing, (2) NuGet package hooks like
+      CustomBeforeMicrosoftCommonTargets are preserved rather than silently
+      dropped, and (3) the code generation target can be extended by other
+      projects or packages that need to hook into it.
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "file_contains"
+        path: "Directory.Build.targets"
+        value: "Exists("
+      - type: "file_contains"
+        path: "Directory.Build.targets"
+        value: "$(CustomBeforeMicrosoftCommonTargets)"
+    rubric:
+      - "Added a file existence guard to the import so it doesn't fail on fresh clones"
+      - "Fixed the hook property to append rather than overwrite, preserving any previously-set hooks from NuGet packages"
+      - "Made the code generation target extensible so other projects can hook into it via a dependency chain or Before/After extensibility targets"
+      - "The resulting configuration follows canonical MSBuild extension point patterns"
+    timeout: 300

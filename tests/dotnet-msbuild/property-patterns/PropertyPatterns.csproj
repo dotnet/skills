@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <IsLibrary>true</IsLibrary>
+    <!-- Path concatenation using shared CustomOutputDir — missing trailing separator
+         causes segments to merge: artifacts\binPropertyPatterns\ instead of artifacts\bin\PropertyPatterns\ -->
+    <OutputPath>$(CustomOutputDir)$(MSBuildProjectName)\</OutputPath>
+  </PropertyGroup>
+</Project>

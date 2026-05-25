@@ -18,16 +18,29 @@ Before starting any analysis, verify the context is MSBuild-related. If the work
 
 ### Step 1: Establish Baseline
 - Run the build with binlog: `dotnet build /bl:perf-baseline.binlog -m`
-- Replay to diagnostic log: `dotnet msbuild perf-baseline.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary`
-- Record total build duration (from build output) and node count
+- Record total build duration from build output
 
-### Step 2: Top-down Analysis
-Analyze the replayed diagnostic log:
-1. `grep 'Target Performance Summary' -A 50 full.log` → find dominant targets and their cumulative time
-2. `grep 'Task Performance Summary' -A 50 full.log` → find dominant tasks
-3. `grep 'Project Performance Summary' -A 50 full.log` → find time-heavy projects
-4. `grep -i 'Total analyzer execution time\|analyzer.*elapsed' full.log` → check analyzer overhead
-5. `grep -i 'node.*assigned\|Building with' full.log | head -30` → assess parallelism
+### Step 2: Top-down Analysis — binlog MCP (preferred)
+
+Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the `binlog` MCP namespace) which is bundled with this plugin. Call `tools/list` for the MCP first if you are unsure which tools are available.
+
+1. Use overview tool → understand build status and duration
+2. Use expensive_projects tool → find the slowest projects
+3. Use expensive_targets tool → find dominant targets and their cumulative time
+4. Use expensive_tasks tool → find dominant tasks
+5. Use expensive_analyzers tool → check analyzer overhead
+6. Drill into specific projects with project_target_times tool
+
+**Important:** The `.binlog` file is a binary format — do NOT try to `cat`, `head`, `strings`, or read it directly. Use only the MCP tools to query it.
+
+### Alternate flow — text-log replay (when MCP is unavailable)
+
+1. Replay to diagnostic log: `dotnet msbuild perf-baseline.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary`
+2. `grep 'Target Performance Summary' -A 50 full.log` → find dominant targets and their cumulative time
+3. `grep 'Task Performance Summary' -A 50 full.log` → find dominant tasks
+4. `grep 'Project Performance Summary' -A 50 full.log` → find time-heavy projects
+5. `grep -i 'Total analyzer execution time\|analyzer.*elapsed' full.log` → check analyzer overhead
+6. `grep -i 'node.*assigned\|Building with' full.log | head -30` → assess parallelism
 
 ### Step 3: Bottleneck Classification
 Classify findings into categories:
@@ -39,7 +52,9 @@ Classify findings into categories:
 - **Analyzers**: disproportionate analyzer time → specific analyzer is expensive
 
 ### Step 4: Deep Dive
-For each identified bottleneck:
+For each identified bottleneck, use MCP tools (task_details, search, properties, items) to drill into specifics.
+
+When MCP is unavailable, fall back to text-log grep:
 - `grep 'Target "TargetName"' full.log` → find specific target execution across projects
 - `grep -i 'Csc.*elapsed\|Csc.*duration' full.log` → check compilation times
 - `grep 'specific pattern' full.log` → search for specific issues

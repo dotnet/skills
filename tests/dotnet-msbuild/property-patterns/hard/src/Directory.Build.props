@@ -1,0 +1,26 @@
+<Project>
+  <!-- Set our layer-specific properties -->
+  <PropertyGroup>
+    <LangVersion>preview</LangVersion>
+    <Nullable>disable</Nullable>
+    <DefineConstants>$(DefineConstants);SRC_LAYER</DefineConstants>
+  </PropertyGroup>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..\'))" />
+
+  <!-- Custom output directory for src projects -->
+  <PropertyGroup>
+    <OutputPath>$(MSBuildThisFileDirectory)artifacts\bin</OutputPath>
+  </PropertyGroup>
+
+  <!-- AOT configuration -->
+  <PropertyGroup Condition="$(EnableAot) == true">
+    <PublishAot>true</PublishAot>
+    <DefineConstants>$(DefineConstants);AOT_BUILD</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Suppress common warnings -->
+  <PropertyGroup>
+    <NoWarn>CS1591;IDE0005</NoWarn>
+  </PropertyGroup>
+</Project>
