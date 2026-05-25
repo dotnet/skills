@@ -166,12 +166,12 @@ dotnet test --project path/to/MyTests.csproj --report-trx --blame-hang-timeout 5
 
 These flags apply to MTP on both SDK versions. On SDK 8/9, pass after `--`; on SDK 10+, pass directly.
 
+> **Important:** `dotnet test`/MSBuild flags such as `--framework`, `--no-build`, `--configuration`, and `--verbosity` are consumed by `dotnet test` itself (they drive restore/build/host selection) and **always go BEFORE `--`**, regardless of platform or SDK. Only MTP test-platform arguments go after `--` on SDK 8/9. For example: `dotnet test --framework net9.0 -- --report-trx` (built-in flag before `--`, MTP extension flag after).
+
 **Built-in flags (always available):**
 
 | Flag | Description |
 |------|-------------|
-| `--no-build` | Skip build, use previously built output |
-| `--framework <TFM>` | Target a specific framework in multi-TFM projects |
 | `--results-directory <DIR>` | Directory for test result output |
 | `--diagnostic` | Enable diagnostic logging for the test platform |
 | `--diagnostic-output-directory <DIR>` | Directory for diagnostic log output |
