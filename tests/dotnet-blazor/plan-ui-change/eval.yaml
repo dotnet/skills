@@ -1,0 +1,306 @@
+scenarios:
+  - name: "Project management Kanban board"
+    prompt: |
+      Build a Blazor page for a project management Kanban board. This is a complex
+      multi-section layout. Here are the service contracts
+      already registered in DI:
+
+      ```csharp
+      public record TaskItem(int Id, string Title, string Assignee, string Priority, DateTime DueDate, string Status);
+
+      public interface ITaskService
+      {
+          Task<List<TaskItem>> GetAllTasksAsync();
+          Task<TaskItem> CreateTaskAsync(string title, string assignee, string priority, DateTime dueDate);
+          Task UpdateTaskStatusAsync(int taskId, string newStatus);
+      }
+      ```
+
+      The page should have:
+      - A summary stats bar at the top showing: total task count, count per column (To Do, In Progress, Done),
+        and a count of overdue tasks (DueDate < today)
+      - A search bar that filters visible tasks by title (client-side filtering)
+      - Three columns side by side: "To Do", "In Progress", "Done"
+      - Each column header shows the column name and the number of tasks in it
+      - Each column displays task cards showing: title, assignee name, a priority badge (High = red,
+        Medium = yellow, Low = green CSS class), and the due date formatted as "MMM dd"
+      - Each task card has "Move Left" and "Move Right" buttons to move the task to the adjacent column
+        (hide the button if there's no column in that direction). Moving a task calls UpdateTaskStatusAsync
+      - Each column has an "Add Task" button at the bottom. Clicking it reveals an inline form within that
+        column with inputs for title, assignee, priority (dropdown: High/Medium/Low), and due date.
+        A "Save" button calls CreateTaskAsync and a "Cancel" button hides the form
+      - The page loads all tasks on initialization and handles loading/error states
+
+      Route: `/board`
+    setup: &blazor_project
+      commands:
+        - "dotnet new blazor --interactivity Server --no-https"
+    assertions:
+      - type: "output_contains"
+        value: "[Parameter]"
+      - type: "output_contains"
+        value: "EventCallback"
+      - type: "output_matches"
+        pattern: "(ITaskService|TaskItem)"
+    rubric:
+      - "The board is organized into focused, reusable components — task cards, columns, and the stats bar are separate from the page itself"
+      - "State changes in child components propagate correctly to the parent and other siblings — e.g., moving a task updates the column counts"
+      - "Handles loading and error states with conditional rendering (@if/@else)"
+    timeout: 1800
+
+  - name: "E-commerce product catalog with filters and pagination"
+    prompt: |
+      Build a Blazor page for browsing a product catalog. Here are the service contracts
+      already registered in DI:
+
+      ```csharp
+      public record Product(int Id, string Name, decimal Price, string Category, double Rating, bool InStock, string ImageUrl);
+      public record ProductFilter(List<string>? Categories, decimal? MinPrice, decimal? MaxPrice, bool InStockOnly);
+      public record PagedResult<T>(List<T> Items, int TotalCount, int Page, int PageSize);
+
+      public interface IProductService
+      {
+          Task<PagedResult<Product>> SearchAsync(ProductFilter filter, string sortBy, int page, int pageSize);
+          Task<List<string>> GetCategoriesAsync();
+      }
+      ```
+
+      The page layout should have:
+      - A left sidebar (about 25% width) with filter controls:
+        - Category checkboxes (loaded from GetCategoriesAsync)
+        - Min price and max price number inputs
+        - An "In Stock Only" checkbox toggle
+        - An "Apply Filters" button that triggers a new search
+        - A "Clear Filters" button that resets all filters to defaults
+      - A main content area (about 75% width) with:
+        - A toolbar row containing: a sort dropdown (options: "Price: Low to High", "Price: High to Low",
+          "Name: A-Z", "Rating: Highest"), and a "Showing X–Y of Z products" label
+        - A product grid displaying product cards, each showing: a placeholder image div with the product name
+          as alt text, the product name, the price formatted as currency, a star rating display (e.g., "★★★★☆"
+          for 4/5), an "Out of Stock" badge if not in stock, and an "Add to Cart" button (disabled when out of stock)
+        - When a product card is clicked (not the Add to Cart button), the parent should be notified via
+          EventCallback so it can navigate to a detail page
+        - Pagination controls at the bottom: "Previous" button (disabled on first page), numbered page buttons,
+          "Next" button (disabled on last page)
+      - The page loads the first page of products and the category list on initialization
+      - Handle loading, empty results, and error states
+
+      Route: `/catalog`
+    setup: *blazor_project
+    assertions:
+      - type: "output_contains"
+        value: "[Parameter]"
+      - type: "output_contains"
+        value: "EventCallback"
+      - type: "output_matches"
+        pattern: "(IProductService|ProductFilter|PagedResult)"
+    rubric:
+      - "The catalog uses a multi-component architecture — product cards, filter sidebar, and pagination are separate reusable units"
+      - "Child components communicate changes back to the parent via defined interfaces — e.g., filter sidebar notifies the page when filters change, pagination notifies on page change"
+      - "Filtering, sorting, and pagination all work together — changing filters resets to page 1, changing sort re-fetches"
+      - "Handles loading, empty, and error states with conditional rendering"
+    timeout: 1800
+
+  - name: "Multi-step job application wizard"
+    prompt: |
+      Build a Blazor page for a multi-step job application form. This has many
+      distinct visual sections and shared state. Here are the service contracts already registered in DI:
+
+      ```csharp
+      public record JobApplication(PersonalInfo Personal, WorkHistory Work, List<Reference> References, string CoverLetter);
+      public record PersonalInfo(string FullName, string Email, string Phone, string Address);
+      public record WorkHistory(List<WorkEntry> Entries);
+      public record WorkEntry(string Company, string Title, DateTime StartDate, DateTime? EndDate, string Description);
+      public record Reference(string Name, string Relationship, string Email, string Phone);
+
+      public interface IApplicationService
+      {
+          Task<int> SubmitApplicationAsync(JobApplication application);
+          Task<bool> ValidateEmailAsync(string email);
+      }
+      ```
+
+      The page should have:
+
+      **Step indicator bar:**
+      - Shows all steps: "Personal Info" → "Work History" → "References" → "Cover Letter" → "Review & Submit"
+      - The current step is highlighted, completed steps show a checkmark, future steps are dimmed
+      - Users can click a completed step to go back and edit it
+
+      **Step 1 — Personal Info:**
+      - Inputs for full name, email, phone, and address
+      - Email is validated via ValidateEmailAsync when the user moves to the next step
+      - A "Next" button that validates required fields before advancing
+
+      **Step 2 — Work History:**
+      - A dynamic list of work entries — start with one empty entry
+      - Each entry has: company name, job title, start date, end date (optional, checkbox for "current"), description
+      - "Add Another Position" button to add more entries
+      - "Remove" button on each entry (except if it's the only one)
+      - "Back" and "Next" buttons
+
+      **Step 3 — References:**
+      - Space for 2-3 references, each with: name, relationship, email, phone
+      - "Add Reference" button (max 3)
+      - "Back" and "Next" buttons
+
+      **Step 4 — Cover Letter:**
+      - A large textarea for the cover letter
+      - A character count display (e.g., "342 / 2000 characters")
+      - "Back" and "Next" buttons
+
+      **Step 5 — Review & Submit:**
+      - Read-only summary of all entered data organized by section
+      - An "Edit" link next to each section that jumps back to that step
+      - A "Submit Application" button that calls SubmitApplicationAsync
+      - After submission, show a confirmation with the application ID
+
+      Route: `/apply`
+    setup: *blazor_project
+    assertions:
+      - type: "output_contains"
+        value: "[Parameter]"
+      - type: "output_contains"
+        value: "EventCallback"
+      - type: "output_matches"
+        pattern: "(IApplicationService|JobApplication)"
+    rubric:
+      - "The wizard is decomposed so each step lives in its own component — navigation flows between them rather than toggling visibility in one file"
+      - "Step data is passed down via parameters and changes flow up via callbacks — steps don't share or mutate parent state directly"
+      - "Navigation between steps validates before advancing — prevents skipping required fields"
+      - "The review step displays a read-only summary of all steps and supports going back to edit a specific step"
+    timeout: 2400
+
+  - name: "Application settings page with nested tab panels"
+    prompt: |
+      Build a Blazor page for an application settings dashboard. This has multiple
+      nested sections. Here are the service contracts
+      already registered in DI:
+
+      ```csharp
+      public record UserProfile(string DisplayName, string Email, string AvatarUrl, string Bio);
+      public record NotificationPrefs(bool EmailNotifications, bool PushNotifications, bool WeeklyDigest, List<string> MutedChannels);
+      public record SecuritySettings(bool TwoFactorEnabled, DateTime? LastPasswordChange, List<ActiveSession> Sessions);
+      public record ActiveSession(string Id, string Device, string Location, DateTime LastActive);
+      public record AppearanceSettings(string Theme, string FontSize, string Language, bool CompactMode);
+
+      public interface ISettingsService
+      {
+          Task<UserProfile> GetProfileAsync();
+          Task SaveProfileAsync(UserProfile profile);
+          Task<NotificationPrefs> GetNotificationPrefsAsync();
+          Task SaveNotificationPrefsAsync(NotificationPrefs prefs);
+          Task<SecuritySettings> GetSecuritySettingsAsync();
+          Task ChangePasswordAsync(string currentPassword, string newPassword);
+          Task RevokeSessionAsync(string sessionId);
+          Task<AppearanceSettings> GetAppearanceAsync();
+          Task SaveAppearanceAsync(AppearanceSettings settings);
+      }
+      ```
+
+      The page should have:
+
+      **Left sidebar navigation (vertical tabs):**
+      - Four sections: "Profile", "Notifications", "Security", "Appearance"
+      - The active section is highlighted
+      - Clicking a section loads its content in the main area
+
+      **Profile section:**
+      - Editable fields: display name, email, bio (textarea)
+      - An avatar preview area with the current URL displayed
+      - A "Save Changes" button — shows a success toast/message on save
+      - A "Discard Changes" button that reverts to the last saved state
+
+      **Notifications section:**
+      - Toggle switches for: email notifications, push notifications, weekly digest
+      - A list of channels with checkboxes to mute/unmute each
+      - A "Save Preferences" button
+
+      **Security section:**
+      - A "Change Password" expandable panel with: current password, new password, confirm password fields and a "Update Password" button
+      - Two-factor authentication toggle with status indicator
+      - An "Active Sessions" table showing: device, location, last active time, and a "Revoke" button for each session (except the current one)
+      - A confirmation dialog before revoking a session
+
+      **Appearance section:**
+      - Theme selector: radio buttons for "Light", "Dark", "System"
+      - Font size selector: "Small", "Medium", "Large"
+      - Language dropdown
+      - Compact mode toggle
+      - A live preview area that shows how the selected options look
+      - A "Save" button
+
+      Route: `/settings`
+    setup: *blazor_project
+    assertions:
+      - type: "output_contains"
+        value: "[Parameter]"
+      - type: "output_contains"
+        value: "EventCallback"
+      - type: "output_matches"
+        pattern: "(ISettingsService|UserProfile|SecuritySettings)"
+    rubric:
+      - "Each settings section (Profile, Notifications, Security, Appearance) is its own component — not all inlined in the page"
+      - "Switching tabs loads the correct section content without a full page reload"
+      - "Handles the save/discard flow with appropriate UI feedback (success message, disabled buttons during save)"
+    timeout: 2400
+
+  - name: "Team chat interface with message threads"
+    prompt: |
+      Build a Blazor page for a team messaging app. This is a complex multi-panel
+      layout with a sidebar, main area, and collapsible thread panel. Here are the service contracts
+      already registered in DI:
+
+      ```csharp
+      public record Channel(int Id, string Name, string Description, int UnreadCount);
+      public record Message(int Id, int ChannelId, string Author, string Content, DateTime SentAt, int? ReplyToId, List<Reaction> Reactions);
+      public record Reaction(string Emoji, List<string> Users);
+      public record ThreadSummary(int RootMessageId, int ReplyCount, DateTime LastReplyAt);
+
+      public interface IChatService
+      {
+          Task<List<Channel>> GetChannelsAsync();
+          Task<List<Message>> GetMessagesAsync(int channelId, int skip, int take);
+          Task<Message> SendMessageAsync(int channelId, string content, int? replyToId);
+          Task<List<Message>> GetThreadAsync(int rootMessageId);
+          Task AddReactionAsync(int messageId, string emoji);
+          Task MarkChannelReadAsync(int channelId);
+      }
+      ```
+
+      The page layout should have:
+
+      **Left sidebar (channel list, about 20% width):**
+      - A list of channels, each showing: channel name (with # prefix), description snippet, and an unread count badge
+      - The active channel is highlighted
+      - Clicking a channel loads its messages in the main area and marks it as read
+
+      **Main message area (about 55% width, or 80% if no thread is open):**
+      - A header showing the current channel name and description
+      - A scrollable message list showing messages for the selected channel
+      - Each message displays: author name, timestamp (relative — "2 min ago"), message content, and a row of reaction emoji badges (each showing emoji + count)
+      - Hovering a message reveals action buttons: "Reply" (opens thread panel), "React" (shows emoji picker with 5-6 common emojis)
+      - Messages that are thread starters show a "N replies" link below them
+      - A message input area at the bottom: a textarea and a "Send" button
+      - Load older messages on scroll-to-top (pagination via skip/take)
+
+      **Right panel (thread view, about 25% width, shown when a thread is open):**
+      - Header: "Thread" with the original message quoted and a close button
+      - A scrollable list of reply messages in the thread
+      - A reply input area at the bottom (textarea + "Reply" button)
+      - Closing the thread panel widens the main message area back
+
+      Route: `/chat`
+    setup: *blazor_project
+    assertions:
+      - type: "output_contains"
+        value: "[Parameter]"
+      - type: "output_contains"
+        value: "EventCallback"
+      - type: "output_matches"
+        pattern: "(IChatService|Message|Channel)"
+    rubric:
+      - "The chat interface is decomposed into focused components — channel list, message area, thread panel, and message input each have clear responsibilities"
+      - "The message input component is reused in both the main area and thread panel"
+      - "Channel selection, sending messages, and opening threads all work correctly — selecting a channel loads its messages, opening a thread shows replies"
+    timeout: 2400
