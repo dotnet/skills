@@ -26,8 +26,14 @@
 name: evaluation
 
 on:
-  # Manual trigger for one-off deploys (e.g., AGENTVIZ SPA update)
+  # Manual trigger for one-off deploys (e.g., AGENTVIZ SPA update) and
+  # targeted re-runs of a single plugin without committing to main.
   workflow_dispatch:
+    inputs:
+      plugin:
+        description: "Specific plugin to evaluate (leave blank for all)"
+        type: string
+        required: false
 
   # Same-repo PRs: post initial status
   pull_request:
@@ -273,7 +279,7 @@ jobs:
     needs: gate
     if: >-
       always() &&
-      (needs.gate.result == 'success' || github.event_name == 'schedule') &&
+      (needs.gate.result == 'success' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
       (github.event_name != 'schedule' || github.repository == 'dotnet/skills')
     runs-on: ubuntu-latest
     permissions:
@@ -328,7 +334,7 @@ jobs:
           fi
 
       - name: Checkout repository
-        if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true'
+        if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
@@ -339,11 +345,49 @@ jobs:
         run: git fetch origin +refs/pull/${{ needs.gate.outputs.pr_number }}/head:refs/remotes/origin/pr-head
 
       - name: Find skills to evaluate
-        if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true'
+        if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true' || github.event_name == 'workflow_dispatch'
         id: find
         run: |
           $entries = @()
           $plugins = @()
+
+          # Build matrix entries for a full-plugin evaluation, sharding the
+          # plugin's skills by the optional `executionShard:` top-level tag
+          # in tests/<plugin>/<skill>/eval.yaml. Untagged skills fall into a
+          # synthetic "default" bucket. Plugins with all skills in one bucket
+          # produce a single entry (unchanged behavior); plugins with multiple
+          # buckets fan out into one matrix entry per shard so each shard
+          # runs on a fresh GitHub-hosted runner. This is the mitigation for
+          # MCP-heavy plugins like dotnet-msbuild, where cumulative runner
+          # resource usage across ~90 min of continuous MCP traffic
+          # consistently triggered host-level termination.
+          function Get-PluginShardEntries {
+            param([string]$plugin, [string]$contentRoot = ".")
+            $skillsDir = "plugins/$plugin/skills"
+            $skillsRoot = Join-Path $contentRoot $skillsDir
+            $singleEntry = @{ name = $plugin; plugin = $plugin; skills_path = $skillsDir }
+            if (-not (Test-Path $skillsRoot)) { return @($singleEntry) }
+            $skillDirs = @(Get-ChildItem -Path $skillsRoot -Directory -ErrorAction SilentlyContinue |
+              Sort-Object Name | Select-Object -ExpandProperty Name)
+            if ($skillDirs.Count -eq 0) { return @($singleEntry) }
+            $shardGroups = @{}
+            foreach ($skill in $skillDirs) {
+              $evalPath = Join-Path $contentRoot "tests" $plugin $skill "eval.yaml"
+              $shard = "default"
+              if (Test-Path $evalPath) {
+                $m = Select-String -Path $evalPath -Pattern '^executionShard:\s*[\x27"]?([\w.\-]+)' -List
+                if ($m) { $shard = $m.Matches[0].Groups[1].Value }
+              }
+              if (-not $shardGroups.ContainsKey($shard)) { $shardGroups[$shard] = @() }
+              $shardGroups[$shard] += $skill
+            }
+            if ($shardGroups.Count -le 1) { return @($singleEntry) }
+            return @($shardGroups.Keys | Sort-Object | ForEach-Object {
+              $shardName = $_
+              $paths = ($shardGroups[$shardName] | ForEach-Object { "$skillsDir/$_" }) -join ' '
+              @{ name = "$plugin--shard-$shardName"; plugin = $plugin; skills_path = $paths }
+            })
+          }
 
           if ("${{ github.event_name }}" -eq "issue_comment") {
             # /evaluate command: detect individual changed skills using gate outputs
@@ -384,9 +428,7 @@ jobs:
                 Select-Object -ExpandProperty Name)
               $plugins = @($allPlugins | Get-Random -Count ([Math]::Min(2, $allPlugins.Count)))
               Write-Host "Infrastructure changes detected, evaluating random subset: $($plugins -join ', ')"
-              $entries = @($plugins | ForEach-Object {
-                @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
-              })
+              $entries = @($plugins | ForEach-Object { Get-PluginShardEntries -plugin $_ -contentRoot $contentRoot })
             } else {
               # Extract unique plugin/skill pairs from changed files
               $changedPairs = @($changedFiles |
@@ -397,7 +439,9 @@ jobs:
                 } |
                 Sort-Object -Unique)
 
-              # Filter to skills that have a SKILL.md and a tests directory
+              # Filter to skills that have a SKILL.md and a tests directory.
+              # Sharding does not apply to per-skill PR runs — each changed
+              # skill gets its own matrix entry already.
               $entries = @($changedPairs | ForEach-Object {
                 $parts = $_ -split '/'
                 $plugin = $parts[0]
@@ -418,16 +462,27 @@ jobs:
 
             git worktree remove /tmp/pr-content --force 2>$null
           } else {
-            # Schedule: evaluate all plugins with skills and tests
+            # Schedule and workflow_dispatch: evaluate full plugins.
+            # Schedule covers everything; workflow_dispatch can optionally
+            # narrow to a single plugin via the `plugin` input for ad-hoc
+            # smoke tests without committing to main.
             # Exclude experimental plugins from scheduled runs — they are
             # evaluated only on-demand via /evaluate on PRs.
             $excludeFromSchedule = @('dotnet-experimental')
-            $plugins = @(Get-ChildItem -Path "plugins" -Directory |
-              Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) -and ($_.Name -notin $excludeFromSchedule) } |
-              Select-Object -ExpandProperty Name)
-            $entries = @($plugins | ForEach-Object {
-              @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
-            })
+            $dispatchPlugin = "${{ inputs.plugin }}"
+            if ("${{ github.event_name }}" -eq "workflow_dispatch" -and $dispatchPlugin) {
+              if (-not (Test-Path (Join-Path "plugins" $dispatchPlugin "skills")) -or
+                  -not (Test-Path (Join-Path "tests" $dispatchPlugin))) {
+                throw "workflow_dispatch input plugin='$dispatchPlugin' is not a valid plugin (must have plugins/<name>/skills and tests/<name>)"
+              }
+              $plugins = @($dispatchPlugin)
+              Write-Host "workflow_dispatch: evaluating only $dispatchPlugin"
+            } else {
+              $plugins = @(Get-ChildItem -Path "plugins" -Directory |
+                Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) -and ($_.Name -notin $excludeFromSchedule) } |
+                Select-Object -ExpandProperty Name)
+            }
+            $entries = @($plugins | ForEach-Object { Get-PluginShardEntries -plugin $_ })
           }
 
           # Output entries for evaluate matrix
@@ -463,7 +518,7 @@ jobs:
       always() &&
       needs.discover.outputs.has_entries == 'true' &&
       needs.discover.result == 'success' &&
-      (needs.gate.result == 'success' || github.event_name == 'schedule')
+      (needs.gate.result == 'success' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -607,14 +662,38 @@ jobs:
           echo "::add-mask::${TOKENS[$IDX]}"
           echo "token=${TOKENS[$IDX]}" >> $GITHUB_OUTPUT
 
+      - name: Detect plugin MCP usage
+        id: detect-mcp
+        run: |
+          PLUGIN_JSON="plugins/${{ matrix.entry.plugin }}/plugin.json"
+          HAS_MCP=false
+          if [ -f "$PLUGIN_JSON" ] && grep -q '"mcpServers"' "$PLUGIN_JSON"; then
+            HAS_MCP=true
+            echo "::notice::Plugin ${{ matrix.entry.plugin }} declares MCP servers — forcing serial execution to avoid runner OOM."
+          fi
+          echo "has_mcp=$HAS_MCP" >> "$GITHUB_OUTPUT"
+
       - name: Run skill-validator
         env:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
+          HAS_MCP: ${{ steps.detect-mcp.outputs.has_mcp }}
+          # When a plugin declares MCP servers, every session spawns extra
+          # `dotnet dnx <mcp-package>` child processes. Two failure modes
+          # we mitigate independently:
+          #   1. Acute OOM at default 18-way concurrency (~17-30 min) —
+          #      capped here at 1 x 3 x 1 = 3 concurrent sessions.
+          #   2. Cumulative runner-host exhaustion at low concurrency
+          #      (~87 min) — addressed by sharding the plugin via the
+          #      `executionShard:` tag in eval.yaml, which fans out into
+          #      multiple matrix legs each on a fresh runner. See the
+          #      Get-PluginShardEntries helper in the discover job.
+          # Both mitigations are required; either alone reproduces a
+          # different failure. RUNS stays unchanged so CV remains meaningful.
           RUNS: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.event_name == 'schedule' && '5' || '3') }}
-          PARALLEL_SKILLS: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5' }}
-          PARALLEL_SCENARIOS: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
-          PARALLEL_RUNS: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
+          PARALLEL_SKILLS: ${{ steps.detect-mcp.outputs.has_mcp == 'true' && '1' || ((needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5') }}
+          PARALLEL_SCENARIOS: ${{ steps.detect-mcp.outputs.has_mcp == 'true' && '3' || ((needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5') }}
+          PARALLEL_RUNS: ${{ steps.detect-mcp.outputs.has_mcp == 'true' && '1' || ((needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5') }}
         run: |
           ARGS="--verdict-warn-only --verbose"
           ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
@@ -625,8 +704,20 @@ jobs:
           ARGS="$ARGS --parallel-scenarios $PARALLEL_SCENARIOS"
           ARGS="$ARGS --parallel-runs $PARALLEL_RUNS"
           ARGS="$ARGS --keep-sessions"
+          # When MCP servers are in play, the runner is memory-pressured and
+          # judge API calls can occasionally exceed the 300 s default before
+          # responses are parsed. Bump to 600 s to avoid retry storms.
+          if [ "$HAS_MCP" = "true" ]; then
+            ARGS="$ARGS --judge-timeout 600"
+          fi
 
-          artifacts/publish/SkillValidator/release/skill-validator evaluate $ARGS --tests-dir ./tests/${{ matrix.entry.plugin }} ./${{ matrix.entry.skills_path }}
+          echo "Effective parallelism: runs=$RUNS skills=$PARALLEL_SKILLS scenarios=$PARALLEL_SCENARIOS runs-parallel=$PARALLEL_RUNS (has_mcp=$HAS_MCP)"
+
+          # skills_path may be a single path ("plugins/foo/skills") or a
+          # space-separated list of paths ("plugins/foo/skills/a plugins/foo/skills/b")
+          # when the discover job has sharded a plugin across matrix legs.
+          # Intentionally unquoted so multiple paths expand as separate args.
+          artifacts/publish/SkillValidator/release/skill-validator evaluate $ARGS --tests-dir ./tests/${{ matrix.entry.plugin }} ${{ matrix.entry.skills_path }}
 
       - name: Upload results
         if: always()
