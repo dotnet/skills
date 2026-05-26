@@ -375,7 +375,10 @@ jobs:
               $evalPath = Join-Path $contentRoot "tests" $plugin $skill "eval.yaml"
               $shard = "default"
               if (Test-Path $evalPath) {
-                $m = Select-String -Path $evalPath -Pattern '^executionShard:\s*[\x27"]?([\w.\-]+)' -List
+                # Allow optional leading whitespace so an accidentally indented
+                # executionShard: key still groups correctly (rather than silently
+                # collapsing back to the default bucket).
+                $m = Select-String -Path $evalPath -Pattern '^\s*executionShard:\s*[\x27"]?([\w.\-]+)' -List
                 if ($m) { $shard = $m.Matches[0].Groups[1].Value }
               }
               if (-not $shardGroups.ContainsKey($shard)) { $shardGroups[$shard] = @() }
@@ -471,6 +474,12 @@ jobs:
             $excludeFromSchedule = @('dotnet-experimental')
             $dispatchPlugin = "${{ inputs.plugin }}"
             if ("${{ github.event_name }}" -eq "workflow_dispatch" -and $dispatchPlugin) {
+              # Restrict to a simple directory-name shape before any path
+              # construction, so values like '../foo' or 'foo/bar' cannot
+              # traverse outside plugins/ or tests/.
+              if ($dispatchPlugin -notmatch '^[a-zA-Z0-9._-]+$') {
+                throw "workflow_dispatch input plugin='$dispatchPlugin' must match ^[a-zA-Z0-9._-]+$ (single directory name, no path separators)"
+              }
               if (-not (Test-Path (Join-Path "plugins" $dispatchPlugin "skills")) -or
                   -not (Test-Path (Join-Path "tests" $dispatchPlugin))) {
                 throw "workflow_dispatch input plugin='$dispatchPlugin' is not a valid plugin (must have plugins/<name>/skills and tests/<name>)"
