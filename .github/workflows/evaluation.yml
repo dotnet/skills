@@ -673,12 +673,17 @@ jobs:
 
       - name: Detect plugin MCP usage
         id: detect-mcp
+        env:
+          # Pass matrix value through env so that hostile plugin directory
+          # names (e.g. containing $()/backticks) cannot be evaluated by
+          # bash at script-parse time.
+          PLUGIN: ${{ matrix.entry.plugin }}
         run: |
-          PLUGIN_JSON="plugins/${{ matrix.entry.plugin }}/plugin.json"
+          PLUGIN_JSON="plugins/${PLUGIN}/plugin.json"
           HAS_MCP=false
           if [ -f "$PLUGIN_JSON" ] && grep -q '"mcpServers"' "$PLUGIN_JSON"; then
             HAS_MCP=true
-            echo "::notice::Plugin ${{ matrix.entry.plugin }} declares MCP servers — forcing serial execution to avoid runner OOM."
+            echo "::notice::Plugin ${PLUGIN} declares MCP servers — forcing serial execution to avoid runner OOM."
           fi
           echo "has_mcp=$HAS_MCP" >> "$GITHUB_OUTPUT"
 
@@ -687,6 +692,14 @@ jobs:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
           HAS_MCP: ${{ steps.detect-mcp.outputs.has_mcp }}
+          # Matrix values are passed via env so they reach bash as data,
+          # not as script text — preventing shell metacharacters in
+          # user-controlled repo content (plugin / skill directory names)
+          # from being interpreted at parse time.
+          PLUGIN: ${{ matrix.entry.plugin }}
+          SKILLS_PATH: ${{ matrix.entry.skills_path }}
+          MODEL: ${{ env.MODEL }}
+          JUDGE_MODEL: ${{ env.JUDGE_MODEL }}
           # When a plugin declares MCP servers, every session spawns extra
           # `dotnet dnx <mcp-package>` child processes. Two failure modes
           # we mitigate independently:
@@ -706,8 +719,8 @@ jobs:
         run: |
           ARGS="--verdict-warn-only --verbose"
           ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
-          ARGS="$ARGS --model ${{ env.MODEL }}"
-          ARGS="$ARGS --judge-model ${{ env.JUDGE_MODEL }}"
+          ARGS="$ARGS --model $MODEL"
+          ARGS="$ARGS --judge-model $JUDGE_MODEL"
           ARGS="$ARGS --runs $RUNS"
           ARGS="$ARGS --parallel-skills $PARALLEL_SKILLS"
           ARGS="$ARGS --parallel-scenarios $PARALLEL_SCENARIOS"
@@ -722,11 +735,14 @@ jobs:
 
           echo "Effective parallelism: runs=$RUNS skills=$PARALLEL_SKILLS scenarios=$PARALLEL_SCENARIOS runs-parallel=$PARALLEL_RUNS (has_mcp=$HAS_MCP)"
 
-          # skills_path may be a single path ("plugins/foo/skills") or a
+          # SKILLS_PATH may be a single path ("plugins/foo/skills") or a
           # space-separated list of paths ("plugins/foo/skills/a plugins/foo/skills/b")
           # when the discover job has sharded a plugin across matrix legs.
           # Intentionally unquoted so multiple paths expand as separate args.
-          artifacts/publish/SkillValidator/release/skill-validator evaluate $ARGS --tests-dir ./tests/${{ matrix.entry.plugin }} ${{ matrix.entry.skills_path }}
+          # PLUGIN and SKILLS_PATH come in via env (see above) so shell
+          # metacharacters in user-controlled directory names cannot be
+          # evaluated at script-parse time.
+          artifacts/publish/SkillValidator/release/skill-validator evaluate $ARGS --tests-dir "./tests/${PLUGIN}" $SKILLS_PATH
 
       - name: Upload results
         if: always()
