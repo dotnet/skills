@@ -1,0 +1,201 @@
+name: dump-collect
+description: Evaluates the dotnet-diag/dump-collect skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Configure automatic crash dumps for CoreCLR app on Linux
+    prompt: |
+      I have a .NET 10 CoreCLR web API running on Linux. I need to configure
+      automatic crash dump collection so that when the app crashes, a full
+      dump is written to /var/dumps. Show me the environment variables to set
+      and how to verify the configuration.
+    graders:
+      - type: output-contains
+        config:
+          substring: DOTNET_DbgEnableMiniDump
+      - type: output-contains
+        config:
+          substring: DOTNET_DbgMiniDumpType
+      - type: output-contains
+        config:
+          substring: DOTNET_DbgMiniDumpName
+      - type: output-contains
+        config:
+          substring: /var/dumps
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Sets DOTNET_DbgEnableMiniDump=1 to enable crash dumps
+      - Sets DOTNET_DbgMiniDumpType=4 for full dumps
+      - Sets DOTNET_DbgMiniDumpName with the /var/dumps path
+      - Includes a verification step to confirm env vars are set
+      - Does not attempt to analyze dumps or install analysis tools
+  - name: Set up NativeAOT crash dumps with createdump in Kubernetes
+    prompt: |
+      I have a NativeAOT .NET 11 app running in Kubernetes. The createdump
+      tool is installed at /opt/tools/createdump. Configure automatic crash
+      dump collection and give me the pod spec changes I need.
+    graders:
+      - type: output-contains
+        config:
+          substring: DOTNET_DbgEnableMiniDump
+      - type: output-contains
+        config:
+          substring: DOTNET_DbgCreateDumpToolPath
+      - type: output-contains
+        config:
+          substring: SYS_PTRACE
+      - type: output-contains
+        config:
+          substring: /opt/tools/createdump
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Uses DOTNET_DbgCreateDumpToolPath for .NET 11 NativeAOT
+      - Adds SYS_PTRACE capability to the container securityContext
+      - Mounts a volume for dump output
+      - Sets DOTNET_DbgMiniDumpType=4 since NativeAOT only supports full dumps
+      - Does not attempt to analyze dumps
+  - name: Recover crash dump from macOS NativeAOT without createdump
+    prompt: |
+      My NativeAOT app just crashed on macOS. I don't have createdump
+      available. How can I find the crash dump or crash report?
+    graders:
+      - type: output-matches
+        config:
+          pattern: /cores
+      - type: output-matches
+        config:
+          pattern: DiagnosticReports|crash
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Checks /cores/ directory for core dump files
+      - Checks ~/Library/Logs/DiagnosticReports for .crash or .ips reports
+      - Explains that if ulimit -c unlimited was not set before the crash, the core dump may be lost
+      - Does not attempt to analyze the dump contents
+  - name: Configure CoreCLR dump collection in Alpine Docker as non-root
+    prompt: |
+      I need to set up crash dump collection for my CoreCLR app running in an
+      Alpine-based Docker container. The container runs as a non-root user.
+      Give me the Dockerfile changes and docker run command.
+    graders:
+      - type: output-contains
+        config:
+          substring: DOTNET_DbgEnableMiniDump
+      - type: output-contains
+        config:
+          substring: SYS_PTRACE
+      - type: output-matches
+        config:
+          pattern: chown|chmod|fsGroup
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Sets the DOTNET_DbgEnableMiniDump environment variable
+      - Adds SYS_PTRACE capability via --cap-add or securityContext
+      - Addresses dump directory permissions for non-root user
+      - Does not claim Alpine requires special workarounds for crash dumps
+      - Does not attempt to analyze dumps
+  - name: "Advisory: macOS NativeAOT crash dump recovery steps"
+    prompt: |
+      What steps would I follow to recover a crash dump on macOS if my
+      NativeAOT app crashed and I don't have createdump available?
+    graders:
+      - type: output-matches
+        config:
+          pattern: /cores
+      - type: output-matches
+        config:
+          pattern: DiagnosticReports|crash
+      - type: output-matches
+        config:
+          pattern: ulimit
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Describes checking /cores/ directory for core dump files
+      - Describes checking ~/Library/Logs/DiagnosticReports for crash reports
+      - Mentions that ulimit -c unlimited must have been set before the crash for a core dump to exist
+      - Provides guidance without attempting to execute commands or search the filesystem
+      - Does not attempt to analyze dump contents
+  - name: "Advisory: CoreCLR Alpine Docker non-root configuration"
+    prompt: |
+      If I had a CoreCLR app in an Alpine Docker container running as a
+      non-root user, what would I need to configure for crash dump collection?
+    graders:
+      - type: output-contains
+        config:
+          substring: DOTNET_DbgEnableMiniDump
+      - type: output-contains
+        config:
+          substring: SYS_PTRACE
+      - type: output-matches
+        config:
+          pattern: chown|chmod|mkdir|permission
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Explains DOTNET_DbgEnableMiniDump and related env vars
+      - Explains the need for SYS_PTRACE capability
+      - Explains dump directory ownership or permissions for non-root user
+      - Does not claim Alpine requires special workarounds for crash dumps
+      - Provides advisory guidance without attempting to execute commands
+  - name: "Advisory: NativeAOT Kubernetes dump collection setup"
+    prompt: |
+      Walk me through how I would set up crash dump collection for a
+      NativeAOT .NET 11 app in Kubernetes, assuming createdump is available
+      at /opt/tools/createdump. What pod spec changes are needed?
+    graders:
+      - type: output-contains
+        config:
+          substring: DOTNET_DbgEnableMiniDump
+      - type: output-contains
+        config:
+          substring: DOTNET_DbgCreateDumpToolPath
+      - type: output-contains
+        config:
+          substring: SYS_PTRACE
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Uses DOTNET_DbgCreateDumpToolPath since this is .NET 11 NativeAOT
+      - Adds SYS_PTRACE capability to the container securityContext
+      - Describes a volume mount for dump output
+      - Sets DOTNET_DbgMiniDumpType=4 since NativeAOT only supports full dumps
+      - Provides advisory guidance without attempting to modify actual cluster resources
+  - name: Detect runtime and configure crash dumps for unknown .NET app on Linux
+    prompt: |
+      I have a .NET 10 app running on Linux (PID 12345) and I need to set up
+      automatic crash dump collection. I'm not sure if it's CoreCLR or NativeAOT.
+      Help me figure out which runtime it's using and configure dumps accordingly.
+    graders:
+      - type: output-matches
+        config:
+          pattern: CorExeMain|Rhp|strings|readlink
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Attempts to detect the runtime before configuring dumps
+      - Uses binary inspection (strings, nm) or process inspection to distinguish CoreCLR from NativeAOT
+      - Provides appropriate configuration based on the detected runtime
+      - Does not assume one runtime or the other without checking
+      - Does not attempt to analyze dumps
+  - name: Decline dump analysis request
+    prompt: |
+      I already have a .dmp crash dump file from my .NET app. Can you help
+      me analyze it to find the root cause of the crash?
+    graders:
+      - type: output-matches
+        config:
+          pattern: out of scope|not cover|does not|cannot|only.*collect
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Clearly states that dump analysis is out of scope for this skill
+      - Does not attempt to open or analyze the dump file
+      - Does not install analysis tools like dotnet-dump analyze, lldb, or windbg
+    constraints:
+      reject_skills:
+        - "*"

@@ -85,3 +85,57 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-librari
 **Impact: Low.** The minimum supported date for the Japanese Calendar has been corrected. Code using very early dates in the Japanese Calendar may be affected.
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/globalization/11/japanese-calendar-min-date
+
+### ZipArchive now validates CRC32 when reading entries (Preview 3)
+
+**Impact: Low–Medium.** ZIP archive reads now validate the CRC32 checksum of each entry. Previously, corrupt or truncated archives were silently accepted; they now throw `InvalidDataException`.
+
+**Fix:** Ensure ZIP files are not corrupted. If processing partially-written or legacy archives, add error handling for `InvalidDataException`.
+
+Source: https://github.com/dotnet/runtime/pull/124766
+
+### Unhandled BackgroundService exceptions now stop the host (Preview 3)
+
+**Impact: Medium.** Unhandled exceptions thrown from `BackgroundService.ExecuteAsync()` now propagate and stop the host application. Previously they were silently swallowed.
+
+```csharp
+// .NET 10: exception silently swallowed, host continues
+// .NET 11: exception propagates, host stops
+protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+{
+    throw new InvalidOperationException("oops"); // now kills the host
+}
+
+// FIX: Add proper exception handling
+protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+{
+    try
+    {
+        // ... work ...
+    }
+    catch (Exception ex) when (ex is not OperationCanceledException)
+    {
+        _logger.LogError(ex, "Background service failed");
+    }
+}
+```
+
+**Fix:** Add try/catch in `ExecuteAsync()` for any `BackgroundService` that should not crash the host on failure.
+
+Source: https://github.com/dotnet/runtime/pull/124863
+
+### TarWriter emits HardLink entries for hard-linked files (Preview 3)
+
+**Impact: Low.** When `TarWriter` archives a directory containing hard links, the same inode encountered more than once is now written as a `HardLink` entry pointing back to the first occurrence, rather than duplicating the file data.
+
+**Fix:** If consuming tar archives produced by .NET code, ensure the reader handles `HardLink` entry types.
+
+Source: https://github.com/dotnet/runtime/pull/123874
+
+### Zstandard APIs moved from preview package to System.IO.Compression (Preview 3)
+
+**Impact: Low.** `ZstandardStream` and related APIs that were previously in the `System.IO.Compression.Zstandard` preview NuGet package are now in-box in `System.IO.Compression`.
+
+**Fix:** Remove the `<PackageReference Include="System.IO.Compression.Zstandard" />` preview package if present. The APIs are now available without any additional package reference.
+
+Source: https://github.com/dotnet/runtime/pull/114545

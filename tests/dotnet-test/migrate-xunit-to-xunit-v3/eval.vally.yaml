@@ -1,0 +1,367 @@
+name: migrate-xunit-to-xunit-v3
+description: Evaluates the dotnet-test/migrate-xunit-to-xunit-v3 skill
+type: capability
+config:
+  timeout: 12m
+stimuli:
+  - name: Migrate basic xUnit.net v2 project to v3
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3. Update all
+      package references and make any necessary project configuration changes.
+    environment:
+      files:
+        - src: ./fixtures/migrate-basic-xunit-net-v2-project-to-v3/global.json
+          dest: global.json
+        - src: ./fixtures/migrate-basic-xunit-net-v2-project-to-v3/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/migrate-basic-xunit-net-v2-project-to-v3/CalculatorTests.cs
+          dest: CalculatorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: xunit\.v3
+      - type: output-matches
+        config:
+          pattern: <OutputType>Exe</OutputType>
+      - type: output-matches
+        config:
+          pattern: <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+      - type: run-command
+        config:
+          command: dotnet test -p:TreatWarningsAsErrors=true
+          expected_exit_code: 0
+          timeout: 2m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Replaces 'xunit' package reference with 'xunit.v3'
+      - Sets OutputType to Exe in the test project
+      - Adds IsTestingPlatformApplication=false since the project was using VSTest (no MTP reference present)
+      - Updates xunit.runner.visualstudio to the latest version
+  - name: Detect incompatible target framework and stop migration
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    environment:
+      files:
+        - src: ./fixtures/detect-incompatible-target-framework-and-stop-migration/global.json
+          dest: global.json
+        - src: ./fixtures/detect-incompatible-target-framework-and-stop-migration/LegacyTests.csproj
+          dest: LegacyTests.csproj
+        - src: ./fixtures/detect-incompatible-target-framework-and-stop-migration/SampleTests.cs
+          dest: SampleTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (4\.7\.2|net472|incompatible|not
+            supported|cannot.{0,20}migrate|upgrade.{0,30}target.{0,10}framework|target.{0,10}framework.{0,30}upgrade)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies that net462 is below the minimum .NET Framework 4.7.2 required by xUnit.net v3
+      - Stops the migration and does NOT update package references to xunit.v3
+      - Advises the user to upgrade the target framework first before attempting the xUnit.net migration
+  - name: Convert async void test methods to async Task
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    environment:
+      files:
+        - src: ./fixtures/convert-async-void-test-methods-to-async-task/global.json
+          dest: global.json
+        - src: ./fixtures/convert-async-void-test-methods-to-async-task/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/convert-async-void-test-methods-to-async-task/AsyncTests.cs
+          dest: AsyncTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: async Task
+      - type: output-not-matches
+        config:
+          pattern: async void
+      - type: run-command
+        config:
+          command: dotnet test -p:TreatWarningsAsErrors=true
+          expected_exit_code: 0
+          timeout: 2m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Changes 'async void' to 'async Task' for test methods decorated with [Fact] or [Theory]
+      - Applies the change to both GetUser_ReturnsExpectedName and ProcessItem_Completes methods
+      - Explains that xUnit.net v3 no longer supports async void test methods and they will fail to compile
+  - name: Convert string-based attribute constructors to typeof syntax
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3. Pay special
+      attention to any attribute usages that may have changed.
+    environment:
+      files:
+        - src: ./fixtures/convert-string-based-attribute-constructors-to-typeof-syntax/global.json
+          dest: global.json
+        - src: ./fixtures/convert-string-based-attribute-constructors-to-typeof-syntax/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/convert-string-based-attribute-constructors-to-typeof-syntax/CustomCollectionFixture.cs
+          dest: CustomCollectionFixture.cs
+        - src: ./fixtures/convert-string-based-attribute-constructors-to-typeof-syntax/OrderedTests.cs
+          dest: OrderedTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: typeof
+      - type: output-not-matches
+        config:
+          pattern: CollectionBehavior\(\s*"MyApp
+      - type: run-command
+        config:
+          command: dotnet test -p:TreatWarningsAsErrors=true
+          expected_exit_code: 0
+          timeout: 2m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Converts CollectionBehavior from string-based constructor ('namespace.type', 'assembly') to typeof() syntax
+      - Converts TestCaseOrderer from string-based constructor to typeof() syntax
+      - Explains that xUnit.net v3 changed these attributes to accept System.Type instead of two strings
+  - name: Update custom FactAttribute to include source information parameters
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    environment:
+      files:
+        - src: ./fixtures/update-custom-factattribute-to-include-source-information-pa/global.json
+          dest: global.json
+        - src: ./fixtures/update-custom-factattribute-to-include-source-information-pa/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/update-custom-factattribute-to-include-source-information-pa/CustomAttributes.cs
+          dest: CustomAttributes.cs
+        - src: ./fixtures/update-custom-factattribute-to-include-source-information-pa/RetryTests.cs
+          dest: RetryTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: CallerFilePath
+      - type: output-matches
+        config:
+          pattern: CallerLineNumber
+      - type: run-command
+        config:
+          command: dotnet test -p:TreatWarningsAsErrors=true
+          expected_exit_code: 0
+          timeout: 2m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Adds [CallerFilePath] string? sourceFilePath = null parameter to the RetryFactAttribute constructor
+      - Adds [CallerLineNumber] int sourceLineNumber = -1 parameter to the RetryFactAttribute constructor
+      - Passes sourceFilePath and sourceLineNumber to base() constructor call
+      - Applies the same caller-info pattern to ConditionalTheoryAttribute (TheoryAttribute-derived)
+  - name: Update BeforeAfterTestAttribute overrides with IXunitTest parameter
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    environment:
+      files:
+        - src: ./fixtures/update-beforeaftertestattribute-overrides-with-ixunittest-pa/global.json
+          dest: global.json
+        - src: ./fixtures/update-beforeaftertestattribute-overrides-with-ixunittest-pa/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/update-beforeaftertestattribute-overrides-with-ixunittest-pa/DatabaseSetupAttribute.cs
+          dest: DatabaseSetupAttribute.cs
+        - src: ./fixtures/update-beforeaftertestattribute-overrides-with-ixunittest-pa/DatabaseTests.cs
+          dest: DatabaseTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: IXunitTest
+      - type: run-command
+        config:
+          command: dotnet test -p:TreatWarningsAsErrors=true
+          expected_exit_code: 0
+          timeout: 2m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Adds IXunitTest parameter to the Before(MethodInfo, IXunitTest) method override
+      - Adds IXunitTest parameter to the After(MethodInfo, IXunitTest) method override
+      - Updates base.Before and base.After calls to include the IXunitTest argument
+      - Explains that xUnit.net v3 changed the BeforeAfterTestAttribute method signatures
+  - name: Migrate project with YTest.MTP.XUnit2 to xUnit.net v3 preserving MTP
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    environment:
+      files:
+        - src: ./fixtures/migrate-project-with-ytest-mtp-xunit2-to-xunit-net-v3-preser/global.json
+          dest: global.json
+        - src: ./fixtures/migrate-project-with-ytest-mtp-xunit2-to-xunit-net-v3-preser/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/migrate-project-with-ytest-mtp-xunit2-to-xunit-net-v3-preser/Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./fixtures/migrate-project-with-ytest-mtp-xunit2-to-xunit-net-v3-preser/BasicTests.cs
+          dest: BasicTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: xunit\.v3
+      - type: output-matches
+        config:
+          pattern: UseMicrosoftTestingPlatformRunner
+      - type: output-not-matches
+        config:
+          pattern: IsTestingPlatformApplication.{0,5}false
+      - type: run-command
+        config:
+          command: dotnet test -p:TreatWarningsAsErrors=true
+          expected_exit_code: 0
+          timeout: 2m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Removes the YTest.MTP.XUnit2 package reference entirely
+      - Adds UseMicrosoftTestingPlatformRunner=true to Directory.Build.props to preserve MTP
+      - Does NOT add IsTestingPlatformApplication=false — the project was already using MTP
+      - Updates xunit to xunit.v3 and sets OutputType to Exe
+  - name: Migrate Xunit.SkippableFact to xUnit.net v3 built-in skip APIs
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    environment:
+      files:
+        - src: ./fixtures/migrate-xunit-skippablefact-to-xunit-net-v3-built-in-skip-ap/global.json
+          dest: global.json
+        - src: ./fixtures/migrate-xunit-skippablefact-to-xunit-net-v3-built-in-skip-ap/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/migrate-xunit-skippablefact-to-xunit-net-v3-built-in-skip-ap/ConditionalTests.cs
+          dest: ConditionalTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Assert\.SkipWhen|Assert\.SkipUnless)
+      - type: output-not-matches
+        config:
+          pattern: SkippableFact.{0,10}Version
+      - type: run-command
+        config:
+          command: dotnet test -p:TreatWarningsAsErrors=true
+          expected_exit_code: 0
+          timeout: 2m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Removes the Xunit.SkippableFact package reference entirely
+      - Converts [SkippableFact] to the regular [Fact] attribute
+      - Converts [SkippableTheory] to the regular [Theory] attribute
+      - Converts Skip.If calls to Assert.SkipWhen
+      - Converts Skip.IfNot calls to Assert.SkipUnless
+  - name: Migrate xUnit v2 packages managed via Central Package Management
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3. The solution
+      uses Central Package Management with Directory.Packages.props.
+    environment:
+      files:
+        - src: ./fixtures/migrate-xunit-v2-packages-managed-via-central-package-manage/global.json
+          dest: global.json
+        - src: ./fixtures/migrate-xunit-v2-packages-managed-via-central-package-manage/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/migrate-xunit-v2-packages-managed-via-central-package-manage/Directory.Packages.props
+          dest: Directory.Packages.props
+        - src: ./fixtures/migrate-xunit-v2-packages-managed-via-central-package-manage/BasicTests.cs
+          dest: BasicTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Directory\.Packages\.props|PackageVersion)
+      - type: output-matches
+        config:
+          pattern: xunit\.v3
+      - type: run-command
+        config:
+          command: dotnet test -p:TreatWarningsAsErrors=true
+          expected_exit_code: 0
+          timeout: 2m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Updates PackageVersion entries in Directory.Packages.props (not just the csproj)
+      - Renames xunit PackageVersion to xunit.v3 with appropriate version in Directory.Packages.props
+      - Updates the PackageReference in the csproj from xunit to xunit.v3
+      - Sets OutputType to Exe
+  - name: Recognize project already on xUnit.net v3 — no migration needed
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    environment:
+      files:
+        - src: ./fixtures/recognize-project-already-on-xunit-net-v3-no-migration-neede/global.json
+          dest: global.json
+        - src: ./fixtures/recognize-project-already-on-xunit-net-v3-no-migration-neede/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/recognize-project-already-on-xunit-net-v3-no-migration-neede/ExistingTests.cs
+          dest: ExistingTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (already|no.{0,30}migration|not.{0,20}need|already.{0,20}(v3|migrated|done))
+      - type: run-command
+        config:
+          command: dotnet test -p:TreatWarningsAsErrors=true
+          expected_exit_code: 0
+          timeout: 2m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Correctly identifies that the project already references xunit.v3 packages
+      - Does NOT make unnecessary changes to package references or project configuration
+      - Informs the user that migration is already complete or not needed
+  - name: Consolidate xunit.extensibility packages and remove xunit.abstractions
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3. The project
+      references xunit.extensibility.core, xunit.extensibility.execution, and
+      xunit.abstractions separately.
+    environment:
+      files:
+        - src: ./fixtures/consolidate-xunit-extensibility-packages-and-remove-xunit-ab/global.json
+          dest: global.json
+        - src: ./fixtures/consolidate-xunit-extensibility-packages-and-remove-xunit-ab/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/consolidate-xunit-extensibility-packages-and-remove-xunit-ab/CustomDiscoverer.cs
+          dest: CustomDiscoverer.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: xunit\.v3\.extensibility
+      - type: output-not-matches
+        config:
+          pattern: using Xunit\.Abstractions;
+      - type: run-command
+        config:
+          command: dotnet test -p:TreatWarningsAsErrors=true
+          expected_exit_code: 0
+          timeout: 2m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Consolidates xunit.extensibility.core and xunit.extensibility.execution into a single
+        xunit.v3.extensibility.core reference
+      - Removes the xunit.abstractions package reference entirely
+      - Removes 'using Xunit.Abstractions;' directives from C# files
+      - Explains that the two extensibility packages were merged into one in v3
+  - name: Update Xunit.Combinatorial and Xunit.StaFact companion packages
+    prompt: |
+      Migrate this test project from xUnit.net v2 to xUnit.net v3.
+    environment:
+      files:
+        - src: ./fixtures/update-xunit-combinatorial-and-xunit-stafact-companion-packa/global.json
+          dest: global.json
+        - src: ./fixtures/update-xunit-combinatorial-and-xunit-stafact-companion-packa/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/update-xunit-combinatorial-and-xunit-stafact-companion-packa/CombinatorialTests.cs
+          dest: CombinatorialTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: xunit\.v3
+      - type: output-matches
+        config:
+          pattern: (Combinatorial|combinatorial)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Updates Xunit.Combinatorial from 1.x to the latest compatible 2.x version
+      - Updates Xunit.StaFact from 1.x to the latest compatible 3.x version
+      - Also migrates the core xunit package to xunit.v3
+      - Sets OutputType to Exe

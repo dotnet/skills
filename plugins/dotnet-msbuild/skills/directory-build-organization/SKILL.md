@@ -41,7 +41,6 @@ Good candidates: language settings, assembly/package metadata, build warnings, c
 ```xml
 <Project>
   <PropertyGroup>
-    <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

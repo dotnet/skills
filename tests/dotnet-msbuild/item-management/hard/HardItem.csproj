@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <!-- Proto service definitions -->
+  <ItemGroup>
+    <ProtoFile Include="protos\service.proto" Service="Greeter" />
+    <ProtoFile Include="protos\messages.proto" Service="Messaging" />
+    <ProtoFile Include="protos\health.proto" Service="Health" />
+  </ItemGroup>
+
+  <!-- Mark generated files with metadata for IDE integration -->
+  <ItemGroup>
+    <Compile Include="**\*.g.cs">
+      <AutoGen>true</AutoGen>
+      <DependentUpon>%(Filename).proto</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <!-- Generate code from proto definitions -->
+  <Target Name="GenerateProtoCode" BeforeTargets="CoreCompile"
+      Inputs="@(ProtoFile)"
+      Outputs="@(ProtoFile->'$(IntermediateOutputPath)%(Filename).g.cs')">
+
+    <Message Text="Generating %(ProtoFile.Filename) for service %(ProtoFile.Service)"
+             Importance="high" />
+
+    <WriteLinesToFile
+        File="$(IntermediateOutputPath)%(ProtoFile.Filename).g.cs"
+        Lines="// Generated from %(ProtoFile.Identity)"
+        Overwrite="true" />
+
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)%(ProtoFile.Filename).g.cs" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Track generated files for clean -->
+  <ItemGroup>
+    <FileWrites Include="@(ProtoFile->'$(IntermediateOutputPath)%(Filename).g.cs')" />
+  </ItemGroup>
+
+  <!-- Validation rules for generated code -->
+  <ItemGroup>
+    <ValidationRule Include="rules\required-fields.rule" />
+    <ValidationRule Include="rules\naming-conventions.rule" />
+  </ItemGroup>
+
+  <Target Name="ValidateGeneratedCode" AfterTargets="GenerateProtoCode">
+    <!-- Validate each generated file against each rule -->
+    <Message Text="Validating %(ProtoFile.Filename) with rule %(ValidationRule.Filename)"
+             Importance="high" />
+  </Target>
+
+  <!-- Clean up generated files -->
+  <Target Name="CleanGeneratedCode" BeforeTargets="Clean">
+    <ItemGroup>
+      <Compile Remove="**\*.g.cs" />
+    </ItemGroup>
+  </Target>
+</Project>

@@ -51,6 +51,15 @@ For each test file in your phase:
 - Include tests for: happy path, edge cases (empty, null, boundary), error conditions
 - Mock all external dependencies — never call external URLs, bind ports, or depend on timing
 
+#### Edit boundaries (cross-language invariants)
+
+These rules apply to every language and override any pattern an existing test file may suggest. They keep generated changes additive so reviewers, CI gates, and test-quality benchmarks treat your output as a clean test addition rather than a refactor:
+
+- **Existing test files are append-only.** When growing an existing test file, insert new test methods/cases at the end of the relevant class/describe-block/module. Do not reformat, reorder, rename, or remove any existing line — even whitespace-only churn counts as a destructive edit.
+- **Do not modify non-test source files.** If a class, method, or symbol is hard to test (sealed, internal, no seam, tightly coupled), record the gap in `.testagent/plan.md` as a follow-up. Do not edit production code to make it testable as part of test generation — that is the scope of the `testability-migration` agent, not this one.
+- **Prefer new test files over edits to existing ones** when both options are equally valid (e.g., a new feature, a separate concern, or any case where the existing file isn't strictly required). A new file is always purely additive.
+- **One exception**: build-system manifests (`.csproj`/`.sln`/`pom.xml`/`build.gradle`/`Cargo.toml`/`package.json`/etc.) may be edited when registering a new test project or adding a missing test dependency. Keep these edits minimal and limited to the registration/dependency change.
+
 ### 5. Verify with Build
 
 Call the `code-testing-builder` sub-agent to compile. Build only the specific test project, not the full solution.
@@ -99,3 +108,4 @@ ISSUES:
 3. **Match patterns** — follow existing test style
 4. **Be thorough** — cover edge cases
 5. **Report clearly** — state what was done and any issues
+6. **Stay within edit boundaries** — existing test files are append-only; never modify non-test source files (see Step 4 for details)

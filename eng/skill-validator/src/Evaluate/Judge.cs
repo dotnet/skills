@@ -49,7 +49,7 @@ public static class Judge
                 // pure LLM task — no file access or tool execution needed.
                 return Task.FromResult(new PermissionRequestResult
                 {
-                    Kind = PermissionRequestResultKind.DeniedByRules,
+                    Kind = PermissionRequestResultKind.UserNotAvailable,
                 });
             },
             cancellationToken: cancellationToken);

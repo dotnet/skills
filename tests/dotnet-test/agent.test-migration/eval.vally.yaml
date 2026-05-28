@@ -1,0 +1,124 @@
+name: agent.test-migration
+description: Evaluates the dotnet-test/agent.test-migration orchestrator agent
+type: capability
+config:
+  timeout: 5m
+stimuli:
+  - name: Detect MSTest v2 on VSTest and recommend migration path
+    prompt: |
+      I have a test project that I think might be outdated. Can you check what
+      framework and version it uses and tell me what migrations are available?
+    environment:
+      files:
+        - src: fixtures/mstest-v2-vstest/OrderTests.csproj
+          dest: OrderTests/OrderTests.csproj
+        - src: fixtures/mstest-v2-vstest/OrderServiceTests.cs
+          dest: OrderTests/OrderServiceTests.cs
+      skills:
+        - ../../plugins/dotnet-test/skills/platform-detection
+        - ../../plugins/dotnet-test/skills/migrate-mstest-v1v2-to-v3
+        - ../../plugins/dotnet-test/skills/migrate-mstest-v3-to-v4
+        - ../../plugins/dotnet-test/skills/migrate-vstest-to-mtp
+    graders:
+      - type: output-matches
+        config:
+          pattern: (MSTest|mstest)
+      - type: output-matches
+        config:
+          pattern: (2\.2\.10|v2|version 2)
+      - type: output-matches
+        config:
+          pattern: (v3|v4|upgrade|migrat)
+      - type: output-matches
+        config:
+          pattern: (VSTest|vstest|Microsoft\.Testing\.Platform|MTP)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Correctly identified the project uses MSTest v2 (2.2.10)
+      - Detected the project is running on VSTest (not MTP)
+      - Recommended upgrading MSTest from v2 to v3 as a first step
+      - Mentioned the availability of further upgrades (v3 to v4, VSTest to MTP)
+
+  - name: Detect xUnit v2 and route to xUnit v3 migration
+    prompt: |
+      I want to upgrade my test project to the latest xUnit version. What do I
+      need to do?
+    environment:
+      files:
+        - src: fixtures/xunit-v2/CalcTests.csproj
+          dest: CalcTests/CalcTests.csproj
+        - src: fixtures/xunit-v2/CalculatorTests.cs
+          dest: CalcTests/CalculatorTests.cs
+      skills:
+        - ../../plugins/dotnet-test/skills/platform-detection
+        - ../../plugins/dotnet-test/skills/migrate-xunit-to-xunit-v3
+    graders:
+      - type: output-matches
+        config:
+          pattern: (xunit|xUnit)
+      - type: output-matches
+        config:
+          pattern: (v3|xunit\.v3|version 3)
+      - type: output-matches
+        config:
+          pattern: (VSTest|vstest|Microsoft\.Testing\.Platform|MTP)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified the project uses xUnit.net v2 (2.9.3)
+      - Recommended migrating to xUnit.net v3
+      - Mentioned key migration changes (package rename from xunit to xunit.v3, OutputType to Exe, or API changes)
+
+  - name: Execute targeted MSTest v2 to v3 migration
+    prompt: |
+      Please upgrade my MSTest project from v2 to v3. I know I'm on MSTest
+      2.2.10 and I want to get to v3. Apply the changes to my project.
+    environment:
+      files:
+        - src: fixtures/mstest-v2-vstest/OrderTests.csproj
+          dest: OrderTests/OrderTests.csproj
+        - src: fixtures/mstest-v2-vstest/OrderServiceTests.cs
+          dest: OrderTests/OrderServiceTests.cs
+      skills:
+        - ../../plugins/dotnet-test/skills/migrate-mstest-v1v2-to-v3
+    graders:
+      - type: file-contains
+        config:
+          path: "**/OrderTests.csproj"
+          value: "3."
+      - type: file-not-contains
+        config:
+          path: "**/OrderTests.csproj"
+          value: "2.2.10"
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Updated MSTest package versions from 2.2.10 to a 3.x version in the project file
+      - Addressed or warned about the Assert.AreEqual object overload removal
+      - Did not attempt additional migrations (v3 to v4, VSTest to MTP) that were not requested
+
+  - name: Decline request to write new tests
+    prompt: |
+      I need to add unit tests for my Calculator class. Can you generate
+      comprehensive tests with good coverage?
+    expect_activation: false
+    environment:
+      files:
+        - src: fixtures/xunit-v2/CalcTests.csproj
+          dest: CalcTests/CalcTests.csproj
+        - src: fixtures/xunit-v2/CalculatorTests.cs
+          dest: CalcTests/CalculatorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (out.*scope|not.*cover|cannot|does not|writ.*test|generat|different)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Did not attempt to perform any test framework migration
+      - Recognized that writing new tests is outside the migration scope

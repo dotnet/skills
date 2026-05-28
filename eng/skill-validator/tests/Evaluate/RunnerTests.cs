@@ -335,11 +335,11 @@ public class BuildSessionConfigTests
         Assert.NotNull(config.McpServers);
         Assert.True(config.McpServers.ContainsKey("ok"));
         // Dangerous keys are stripped; safe keys remain
-        var entry = (Dictionary<string, object>)config.McpServers["ok"];
-        var env = (Dictionary<string, string>)entry["env"];
-        Assert.False(env.ContainsKey("NODE_OPTIONS"));
-        Assert.False(env.ContainsKey("PATH"));
-        Assert.True(env.ContainsKey("MY_SETTING"));
+        var entry = (McpStdioServerConfig)config.McpServers["ok"];
+        Assert.NotNull(entry.Env);
+        Assert.False(entry.Env.ContainsKey("NODE_OPTIONS"));
+        Assert.False(entry.Env.ContainsKey("PATH"));
+        Assert.True(entry.Env.ContainsKey("MY_SETTING"));
     }
 
     [Fact]
@@ -355,8 +355,8 @@ public class BuildSessionConfigTests
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.NotNull(config.McpServers);
-        var entry = (Dictionary<string, object>)config.McpServers["ok"];
-        Assert.False(entry.ContainsKey("cwd"));
+        var entry = (McpStdioServerConfig)config.McpServers["ok"];
+        Assert.Null(entry.Cwd);
     }
 
     [Fact]

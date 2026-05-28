@@ -72,24 +72,28 @@ scenarios:
     expect_tools: ["bash"]
     timeout: 420
 
-  - name: "Run tests in a multi-TFM project targeting a specific framework"
-    prompt: "This test project targets both net8.0 and net9.0. I only want to run the tests on net9.0 using dotnet test."
+  - name: "Run tests on a specific TFM with TRX in a multi-TFM MTP project (SDK 9)"
+    prompt: "This MSTest project uses Microsoft.Testing.Platform and targets both net8.0 and net9.0. I'm on .NET SDK 9. I want to run only the net9.0 tests and produce a TRX report."
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "fixtures/multi-tfm/TestProject.csproj"
+          source: "fixtures/multi-tfm-mtp-sdk9/TestProject.csproj"
+        - path: "global.json"
+          source: "fixtures/multi-tfm-mtp-sdk9/global.json"
+        - path: "UserAuthTests.cs"
+          source: "fixtures/multi-tfm-mtp-sdk9/UserAuthTests.cs"
     assertions:
       - type: "output_matches"
-        pattern: "dotnet test"
-      - type: "output_matches"
-        pattern: "--framework\\s+net9\\.0"
+        pattern: "dotnet test[^\\r\\n]*--framework\\s+net9\\.0[^\\r\\n]*--\\s+--report-trx"
       - type: "exit_success"
     rubric:
-      - "Recognizes the multi-TFM project from the TargetFrameworks (plural) property"
-      - "Uses '--framework net9.0' to target the specific framework"
-      - "Does not suggest running all frameworks and filtering after the fact"
+      - "Runs only the net9.0 target framework rather than both TFMs"
+      - "Identifies that the project uses MTP (TestingPlatformDotnetTestSupport) with SDK 9 argument-separator behavior"
+      - "Keeps '--framework net9.0' before the '--' separator (built-in dotnet test flag)"
+      - "Passes '--report-trx' after the '--' separator (MTP extension flag, required on SDK 9)"
+      - "Avoids VSTest-style TRX syntax such as '--logger trx'"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 480
 
   # ============================================================================
   # Goal 2: Filtering tests correctly
@@ -184,6 +188,31 @@ scenarios:
       - "Uses --filter-trait \"Category=Integration\" instead of VSTest --filter \"Traits.Category=Integration\""
       - "xUnit v3 on MTP requires framework-specific filter flags, not VSTest expression syntax"
       - "Correctly handles the '--' separator for SDK 9"
+    expect_tools: ["bash"]
+    timeout: 120
+
+  - name: "Filter xUnit v3 tests by class pattern and trait using query filter language"
+    prompt: "I have an xUnit v3 project with several test classes. I need to run only the Smoke tests from classes whose name contains 'Integration' — I want a single combined filter expression for dotnet test rather than separate flags."
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          source: "fixtures/mtp-xunit-v3/TestProject.csproj"
+        - path: "EcommerceTests.cs"
+          source: "fixtures/mtp-xunit-v3-query/EcommerceTests.cs"
+        - path: "global.json"
+          source: "fixtures/mtp-xunit-v3/global.json"
+    assertions:
+      - type: "output_matches"
+        pattern: "--\\s+--filter-query"
+      - type: "output_matches"
+        pattern: '--filter-query\\s+"(?=[^"]*Integration)(?=[^"]*\\[Category=Smoke\\])[^"]+"'
+      - type: "exit_success"
+    rubric:
+      - "Recognized that xUnit v3 on MTP supports a query filter language for complex combined expressions"
+      - "Uses SDK 9 MTP argument passing with '-- --filter-query'"
+      - "Produced a filter-query expression that combines a class name pattern with a trait filter in square brackets"
+      - "The expression correctly targets only Smoke tests from integration test classes, not all Smoke tests or all integration tests"
+      - "Used the path-segment syntax with wildcard segments and a trait qualifier like [Category=Smoke]"
     expect_tools: ["bash"]
     timeout: 120
 

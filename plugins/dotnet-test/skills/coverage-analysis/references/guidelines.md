@@ -2,7 +2,7 @@
 
 **Don't modify source or production code.** The only permitted project file modifications are adding a coverage provider package to test projects that currently have no provider: `coverlet.collector` (coverlet/mixed modes) or `Microsoft.Testing.Extensions.CodeCoverage` (ms-codecoverage mode). Do not add a second provider to projects that already have one. Always log package additions and document revert commands in the report. Write all other output to `TestResults/coverage-analysis/` under the test project directory.
 
-**Always show and open the generated markdown report.** After writing `TestResults/coverage-analysis/coverage-analysis.md`, print its contents to the console and open the file in the current host editor/session automatically (when an editor is available).
+**Always show and open the generated markdown report — but only after the assistant response with the CRAP/risk-hotspot summary has been delivered.** Saving and opening `TestResults/coverage-analysis/coverage-analysis.md` is a follow-up action; it must never delay the user-facing summary.
 
 **Don't generate new tests during the initial analysis run.** This skill surfaces where tests are needed. Test generation is a separate follow-up step outside the scope of this skill.
 

@@ -11,7 +11,7 @@ description: >
   Dockerfiles for .NET 11.
   DO NOT USE FOR: .NET Framework migrations, upgrading from .NET 9 or earlier,
   greenfield .NET 11 projects, or cosmetic modernization unrelated to the upgrade.
-  NOTE: .NET 11 is in preview. Covers breaking changes through Preview 1.
+  NOTE: .NET 11 is in preview. Covers breaking changes through Preview 3.
 license: MIT
 ---
 
@@ -19,7 +19,7 @@ license: MIT
 
 Migrate a .NET 10 project or solution to .NET 11, systematically resolving all breaking changes. The outcome is a project targeting `net11.0` that builds cleanly, passes tests, and accounts for every behavioral, source-incompatible, and binary-incompatible change introduced in .NET 11.
 
-> **Note:** .NET 11 is currently in preview. This skill covers breaking changes documented through Preview 1. It will be updated as additional previews ship.
+> **Note:** .NET 11 is currently in preview. This skill covers breaking changes documented through Preview 3.
 
 ## When to Use
 
@@ -59,10 +59,14 @@ Migrate a .NET 10 project or solution to .NET 11, systematically resolving all b
    - **SDK attribute**: `Microsoft.NET.Sdk.Web` → ASP.NET Core; `Microsoft.NET.Sdk.WindowsDesktop` with `<UseWPF>` or `<UseWindowsForms>` → WPF/WinForms
    - **PackageReferences**: `Microsoft.EntityFrameworkCore.*` → EF Core; `Microsoft.EntityFrameworkCore.Cosmos` → Cosmos DB provider
    - **Dockerfile presence** → Container changes relevant
-   - **Cryptography API usage** → DSA on macOS affected
+   - **Cryptography API usage** → DSA on macOS affected; AIA cert download changes relevant
    - **Compression API usage** → DeflateStream/GZipStream/ZipArchive changes relevant
-   - **TAR API usage** → Header checksum validation change relevant
+   - **TAR API usage** → Header checksum validation and HardLink entry changes relevant
    - **`NamedPipeClientStream` usage with `SafePipeHandle`** → SYSLIB0063 constructor obsoletion relevant
+   - **`BackgroundService` usage** → Unhandled exceptions now stop the host
+   - **`Microsoft.OpenApi` direct usage** → v3 API breaking changes in ASP.NET Core OpenAPI
+   - **EF Core SQL Server with Entra ID auth** → SqlClient 7.0 auth dependency changes
+   - **NativeAOT native libraries on Unix** → Output filename prefix changed
 4. Record which reference documents are relevant (see the reference loading table in Step 3).
 5. Do a **clean build** (`dotnet build --no-incremental` or delete `bin`/`obj`) on the current `net10.0` target to establish a clean baseline. Record any pre-existing warnings.
 
@@ -93,9 +97,10 @@ Load reference documents based on the project's technology areas:
 | `references/csharp-compiler-dotnet10to11.md` | Always (C# 15 compiler breaking changes) |
 | `references/core-libraries-dotnet10to11.md` | Always (applies to all .NET 11 projects) |
 | `references/sdk-msbuild-dotnet10to11.md` | Always (SDK and build tooling changes) |
-| `references/efcore-dotnet10to11.md` | Project uses Entity Framework Core (especially Cosmos DB provider) |
-| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs or targets macOS |
-| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware or embedded devices |
+| `references/aspnetcore-dotnet10to11.md` | Project uses ASP.NET Core (OpenAPI, Blazor) |
+| `references/efcore-dotnet10to11.md` | Project uses Entity Framework Core |
+| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs, mTLS, or targets macOS |
+| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware, embedded devices, or using NativeAOT |
 
 Work through each build error systematically. Common patterns:
 
@@ -114,6 +119,12 @@ Work through each build error systematically. Common patterns:
 7. **SYSLIB0063: `NamedPipeClientStream` `isConnected` parameter obsoleted** — The constructor overload taking `bool isConnected` is obsoleted. Remove the `isConnected` argument and use the new 3-parameter constructor. Projects with `TreatWarningsAsErrors` will fail to build.
 
 8. **`when` switch-expression-arm parsing** — `(X.Y) when` is now parsed as a constant pattern with a `when` clause instead of a cast expression, which can cause existing code to fail to compile or change meaning. Review switch expressions using `when` and adjust syntax as needed.
+
+9. **Microsoft.OpenApi v3 breaking changes** — `Microsoft.AspNetCore.OpenApi` now depends on `Microsoft.OpenApi` 3.x. Code using `Microsoft.OpenApi` types directly (`OpenApiDocument`, `OpenApiSchema`, etc.) will have compile errors. Follow the v3 upgrade guide.
+
+10. **EF Core Design package no longer transitive** — `Microsoft.EntityFrameworkCore.Tools` and `.Tasks` no longer depend on `.Design`. Add an explicit `PackageReference` if needed.
+
+11. **EFOptimizeContext MSBuild property removed** — Replace with `<EFScaffoldModelStage>` and `<EFPrecompileQueriesStage>`.
 
 ### Step 4: Address behavioral changes
 
@@ -137,6 +148,24 @@ These changes compile successfully but alter runtime behavior. Review each one a
 
 9. **Mono launch target for .NET Framework** — No longer set automatically. If using Mono for .NET Framework apps on Linux, specify explicitly.
 
+10. **Unhandled BackgroundService exceptions stop the host** — Exceptions from `ExecuteAsync()` now propagate and crash the host. Add try/catch in background services that should not bring down the application.
+
+11. **ZipArchive CRC32 validation** — ZIP reads now validate CRC32 checksums. Corrupt or truncated archives that previously succeeded will now throw `InvalidDataException`.
+
+12. **TarWriter emits HardLink entries** — Hard-linked files are now written as `HardLink` entries instead of duplicated data. Consumers of .NET-produced tar archives must handle `HardLink` entries.
+
+13. **AIA certificate downloads disabled** — Server-side client-certificate validation no longer downloads intermediate CAs via AIA by default. Pre-install the full chain or have clients send intermediates.
+
+14. **Blazor Virtualize OverscanCount default changed** — Default `OverscanCount` changed from 3 to 15. Set explicitly if performance-sensitive.
+
+15. **Microsoft.Data.SqlClient 7.0 — Entra ID auth separated** — Azure/Entra ID authentication dependencies removed from the core SqlClient package. Add `Microsoft.Data.SqlClient.Extensions.Azure` if using Entra ID auth.
+
+16. **SqlVector&lt;T&gt; excluded from SELECT** — Vector properties are no longer auto-loaded. Use explicit projections to include vector values.
+
+17. **SQLitePCLRaw encryption bundles removed** — `bundle_e_sqlcipher` and other encryption bundle packages removed in SQLitePCLRaw 3.0.
+
+18. **NativeAOT Unix native library `lib` prefix** — Output filenames now include `lib` prefix on Linux/macOS (e.g., `libMyLib.so`).
+
 ### Step 5: Update infrastructure
 
 1. **Dockerfiles**: Update base images from 10.0 to 11.0:
@@ -155,7 +184,7 @@ These changes compile successfully but alter runtime behavior. Review each one a
       "sdk": {
    -    "version": "10.0.100",
    -    "rollForward": "latestFeature"
-   +    "version": "11.0.100-preview.1",
+   +    "version": "11.0.100-preview.3",
    +    "rollForward": "latestFeature"
       },
       "otherSettings": {
@@ -173,11 +202,15 @@ These changes compile successfully but alter runtime behavior. Review each one a
 3. If the application is containerized, build and test the container image
 4. Smoke-test the application, paying special attention to:
    - Compression behavior with empty streams
-   - TAR file reading
+   - TAR file reading (checksum validation and HardLink entries)
    - EF Core Cosmos DB operations (must be async)
    - DSA usage on macOS
    - Memory-intensive MemoryStream usage
    - Span collection expression assignments
+   - BackgroundService exception handling
+   - mTLS / client certificate chain validation
+   - EF Core SQL Server with Entra ID authentication
+   - NativeAOT output filenames on Unix
 5. Review the diff and ensure no unintended behavioral changes were introduced
 
 ## Reference Documents
@@ -189,6 +222,7 @@ The `references/` folder contains detailed breaking change information organized
 | `references/csharp-compiler-dotnet10to11.md` | Always (C# 15 compiler breaking changes) |
 | `references/core-libraries-dotnet10to11.md` | Always (applies to all .NET 11 projects) |
 | `references/sdk-msbuild-dotnet10to11.md` | Always (SDK and build tooling changes) |
-| `references/efcore-dotnet10to11.md` | Project uses Entity Framework Core (especially Cosmos DB provider) |
-| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs or targets macOS |
-| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware or embedded devices |
+| `references/aspnetcore-dotnet10to11.md` | Project uses ASP.NET Core (OpenAPI, Blazor) |
+| `references/efcore-dotnet10to11.md` | Project uses Entity Framework Core |
+| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs, mTLS, or targets macOS |
+| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware, embedded devices, or using NativeAOT |

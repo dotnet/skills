@@ -1,0 +1,33 @@
+name: check-bin-obj-clash
+description: Evaluates the dotnet-msbuild/check-bin-obj-clash skill
+type: capability
+config:
+  timeout: 2m40s
+stimuli:
+  - name: Diagnose bin/obj output path clashes
+    prompt: Build this solution and diagnose any build failures related to output path conflicts.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-contains
+        config:
+          substring: AppendTargetFrameworkToOutputPath
+      - type: output-contains
+        config:
+          substring: OutputPath
+      - type: output-contains
+        config:
+          substring: IntermediateOutputPath
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified MultiTargetLib has AppendTargetFrameworkToOutputPath=false causing net8.0 and net9.0 to write to the
+        same output directory
+      - Identified LibraryA and LibraryB share ../SharedOutput/ as OutputPath causing build artifacts to overwrite each
+        other
+      - Identified LibraryA and LibraryB share ../SharedObj/ as IntermediateOutputPath causing project.assets.json
+        conflicts
+      - Suggested giving each project unique output and intermediate output paths
+      - Referenced BaseIntermediateOutputPath vs IntermediateOutputPath concepts

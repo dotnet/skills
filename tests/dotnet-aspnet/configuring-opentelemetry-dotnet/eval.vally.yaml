@@ -1,0 +1,94 @@
+name: configuring-opentelemetry-dotnet
+description: Evaluates the dotnet-aspnet/configuring-opentelemetry-dotnet skill
+type: capability
+config:
+  timeout: 3m
+stimuli:
+  - name: Set up OpenTelemetry tracing and metrics with custom spans in ASP.NET Core
+    prompt: |
+      I'm adding OpenTelemetry to my ASP.NET Core 8 API. I need:
+      1. Distributed tracing with OTLP export to a collector
+      2. A custom span around my OrderService.ProcessOrder method
+      3. A custom counter metric for orders processed
+      Show me the complete Program.cs setup and the service class. Don't create files.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (OpenTelemetry\.Extensions\.Hosting|AddOpenTelemetry)
+      - type: output-matches
+        config:
+          pattern: (ActivitySource|StartActivity)
+      - type: output-matches
+        config:
+          pattern: (AddOtlpExporter|UseOtlpExporter|OtlpExporter)
+      - type: output-not-contains
+        config:
+          substring: OpenTelemetry.Exporter.Console
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Included OpenTelemetry.Extensions.Hosting and OpenTelemetry.Instrumentation.Http in the required NuGet packages
+      - Configured both .WithTracing() and .WithMetrics() in the same AddOpenTelemetry() call
+      - Registered custom ActivitySource names via AddSource() and showed that the ActivitySource name in the service
+        class must match exactly
+      - Used IMeterFactory via dependency injection to create the Meter instead of a static Meter constructor
+      - Did not include gratuitous custom activities, logs, or metrics beyond what was specifically asked for
+      - Used a service name appropriate to the application, not a generic placeholder like MyOrderService
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+  - name: Configure all three OpenTelemetry signals with correct OTLP export
+    prompt: |
+      I need to set up all three OpenTelemetry signals (traces, metrics, logs) in my
+      ASP.NET Core 8 app, all exporting via OTLP to my collector.
+      What NuGet packages do I need, and show me the complete Program.cs configuration?
+      Don't create files.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (AddOpenTelemetry|WithTracing|WithMetrics)
+      - type: output-matches
+        config:
+          pattern: (AddOtlpExporter|UseOtlpExporter|OtlpExporter)
+      - type: output-matches
+        config:
+          pattern: (Logging|WithLogging|AddOpenTelemetry|TraceId|SpanId)
+      - type: output-not-contains
+        config:
+          substring: OpenTelemetry.Exporter.Console
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - "Configured all three signals: tracing (WithTracing), metrics (WithMetrics), and logging"
+      - Used a unified OTLP exporter configuration rather than repeating exporter setup per signal
+      - Ensured logs carry the same service identity as traces and metrics
+      - Listed the complete set of required NuGet packages including the OTLP exporter package
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+  - name: Propagate trace context across a message queue
+    prompt: |
+      I have two ASP.NET Core 8 services communicating via RabbitMQ. Service A publishes
+      an order event and Service B consumes it. Traces show up fine within each service
+      but I can't see the end-to-end distributed trace across the queue boundary.
+      How do I propagate the trace context through message headers? Don't create files.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Propagat|TextMapPropagator|Inject|Extract)
+      - type: output-matches
+        config:
+          pattern: (ActivitySource|StartActivity)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Showed how to inject trace context into message headers on the sending side using a TextMapPropagator
+      - Showed how to extract trace context from message headers on the receiving side and link it as a parent
+      - Used the extracted context as the parent when starting a new Activity on the consumer so spans connect into one
+        distributed trace
+    constraints:
+      reject_tools:
+        - bash
+        - edit

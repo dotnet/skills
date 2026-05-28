@@ -1,0 +1,47 @@
+name: code-testing-agent
+description: Evaluates the dotnet-test/code-testing-agent skill
+type: capability
+config:
+  timeout: 60m
+stimuli:
+  - name: Generate tests for ContosoUniversity ASP.NET Core MVC app
+    prompt: |
+      I have an ASP.NET Core MVC application under ContosoUniversity/ — a university
+      enrollment system with multiple controllers, EF Core data access, and a
+      notification service. This is a project-wide, multi-file test generation task.
+
+      Please scaffold a new test project, then write comprehensive unit tests
+      across the controllers (Students, Courses, Departments, Instructors), the
+      services, and the data layer. Achieve high code coverage. The generated
+      tests should compile and pass, and the test project should be configured so
+      `dotnet test --collect:"XPlat Code Coverage"` produces a Cobertura XML
+      report under TestResults/ (add `coverlet.collector` to the test csproj if
+      it is not already there).
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: dotnet test ContosoUniversity.Tests/ContosoUniversity.Tests.csproj -v:q --collect:"XPlat Code Coverage"
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: run-command
+        config:
+          # dotnet test --collect:"XPlat Code Coverage" writes the report under
+          # <TestProject>/TestResults/<guid>/coverage.cobertura.xml — not at a
+          # workspace-root TestResults/ — so search recursively from cwd.
+          command: sh -c 'find . -type f -name coverage.cobertura.xml -print -quit | grep -q coverage.cobertura.xml'
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Achieved high line coverage (>70%) across the ContosoUniversity source files as reported by the Cobertura XML in
+        TestResults/
+      - Tests are organized logically with clear naming that describes test scenarios
+      - Generated tests that cover multiple controllers (Students, Courses, Departments, Instructors)
+      - Set up the EF Core SchoolContext correctly for testing without a real SQL Server (e.g., InMemory provider or
+        SQLite)

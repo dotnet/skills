@@ -1,0 +1,285 @@
+name: test-anti-patterns
+description: Evaluates the dotnet-test/test-anti-patterns skill
+type: capability
+config:
+  timeout: 5m
+stimuli:
+  - name: Detect mixed severity anti-patterns in repository service tests
+    prompt: |
+      We just had a prod incident traced back to tests that were passing but
+      not actually verifying anything. Audit the test class in
+      `UserRepo.Tests/UserRepositoryTests.cs` for .NET test anti-patterns
+      (use the production code at `UserRepo/UserRepository.cs` for context).
+      Look for the full anti-pattern catalog: missing/no assertions,
+      swallowed exceptions, always-true / self-comparing assertions, weak
+      negative assertions, broad exception types, unused fields, and
+      anything else that could let bugs sneak through.
+
+      Give me a severity-ranked list (Critical / Warning / Info) with each
+      finding named (e.g. "swallowed exception", "self-comparing assertion")
+      and a concrete code-level fix for each. Do not edit the files — this
+      is a read-only review.
+    environment:
+      files:
+        - src: ./fixtures/mixed-severity/UserRepo.Tests/UserRepo.Tests.csproj
+          dest: UserRepo.Tests/UserRepo.Tests.csproj
+        - src: ./fixtures/mixed-severity/UserRepo.Tests/UserRepositoryTests.cs
+          dest: UserRepo.Tests/UserRepositoryTests.cs
+        - src: ./fixtures/mixed-severity/UserRepo/UserRepository.cs
+          dest: UserRepo/UserRepository.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (no assertion|missing assertion|never assert|does.?n.?t assert|no.*verif)
+      - type: output-matches
+        config:
+          pattern: (swallow|catch.*return|exception.*silent|pass.*without)
+      - type: output-matches
+        config:
+          pattern: (Assert\.AreEqual.*itself|self.compar|always.pass|compare.*to itself)
+      - type: output-matches
+        config:
+          pattern: (Assert\.ThrowsException.*<Exception>|broad.*exception|specific.*exception)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified that GetUser_NonExistentId_ReturnsNull has no assertion — it checks nothing about the null result
+      - Identified that AddUser_DuplicateId catches the exception and returns without ever asserting, and also silently
+        passes when NO exception is thrown
+      - Identified that DeleteUser compares repo.Count to itself (always passes regardless of whether the delete worked)
+      - Identified that UpdateUser uses a negative assertion (not equal to old value) instead of asserting the expected
+        new value
+      - Identified that AddUser_NullUser uses broad Assert.ThrowsException<Exception> instead of the specific
+        ArgumentNullException
+      - Identified that the static HttpClient field is never disposed and appears unused
+      - Provided concrete fixes for the critical and high severity findings
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Detect flakiness indicators and test coupling
+    prompt: |
+      I have a test suite that sometimes passes and sometimes fails depending
+      on execution order. Audit `FlakyCoupled.Tests/OrderServiceTests.cs` for
+      .NET test anti-patterns. Specifically look for these named patterns:
+      flakiness indicators (Thread.Sleep, DateTime.Now, real network),
+      test ordering dependency, shared/static state across tests,
+      reflection-based access to private members (implementation coupling),
+      god tests that bundle many assertions, and broad exception types.
+
+      Give me a severity-ranked list (Critical / Warning / Info) with each
+      finding named (e.g. "shared static state", "Thread.Sleep flakiness",
+      "reflection coupling") and a concrete code-level fix for each. Do not
+      edit the files — this is a read-only review.
+    environment:
+      files:
+        - src: ./fixtures/flaky-coupled/FlakyCoupled.Tests.csproj
+          dest: FlakyCoupled.Tests/FlakyCoupled.Tests.csproj
+        - src: ./fixtures/flaky-coupled/OrderServiceTests.cs
+          dest: FlakyCoupled.Tests/OrderServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (static.*shared|shared.*state|_processedOrders|ordering|order.depend)
+      - type: output-matches
+        config:
+          pattern: (Thread\.Sleep|flak|timing|time.depend)
+      - type: output-matches
+        config:
+          pattern: (reflect|private|internal.*state|implementation.*detail|coupling)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified that Test2 depends on Test1 running first due to shared static state
+      - Identified that _processedOrders is never cleared between tests, causing ordering dependency
+      - Identified Thread.Sleep and DateTime.Now as flakiness risks in ProcessOrder_SetsTimestamp
+      - Identified reflection-based access to private _orders field as implementation coupling
+      - Recognized that CreateOrder_MultipleItems_Test is too large and tests multiple concerns
+      - Flagged the broad exception type in Assert.ThrowsException<Exception>
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Detect duplicated tests and magic values
+    prompt: |
+      My tests feel hard to maintain and there's a lot of repetition. Audit
+      `DuplicateMagic.Tests/DiscountServiceTests.cs` for .NET test
+      anti-patterns — duplicated test methods, magic values, multi-scenario
+      tests — and suggest improvements.
+
+      Give me a severity-ranked list with concrete code-level fixes (e.g.,
+      data-driven test refactors). Do not edit the files — this is a
+      read-only review.
+    environment:
+      files:
+        - src: ./fixtures/duplicate-magic/DuplicateMagic.Tests.csproj
+          dest: DuplicateMagic.Tests/DuplicateMagic.Tests.csproj
+        - src: ./fixtures/duplicate-magic/DiscountServiceTests.cs
+          dest: DuplicateMagic.Tests/DiscountServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (duplicat|repetit|data.?driven|DataRow|parameteriz)
+      - type: output-matches
+        config:
+          pattern: (magic|unexplained|42|7|hard.?coded|unclear)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identified that the six ApplyDiscount tests are duplicates that should be consolidated into data-driven tests
+      - Identified magic numbers in CalculateShipping tests (42, 7, 3) that lack explanation
+      - Identified that TestTaxCalculation packs multiple scenarios into a single test, making failures hard to diagnose
+      - Suggested using DataRow or DynamicData to parameterize the discount tests
+      - Called out at least something the tests do correctly (e.g., specific assertions, clear expected values, good
+        coverage of tiers)
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Recognize well-written tests without inventing false positives
+    prompt: |
+      I'm worried these tests might have problems. Audit
+      `Payments.Tests/PaymentProcessorTests.cs` for .NET test anti-patterns
+      using the full anti-pattern catalog (missing assertions, swallowed
+      exceptions, always-true/self-comparing assertions, flakiness, magic
+      values, duplicate tests, broad exception types, etc.) and tell me
+      what (if anything) genuinely needs fixing — be careful not to invent
+      issues that aren't really there.
+
+      Give me a severity-ranked list (Critical / Warning / Info / "no
+      issues found"). Each finding must be tied to a named anti-pattern
+      from the catalog and include a concrete code-level fix. Do not edit
+      the files — this is a read-only review.
+    environment:
+      files:
+        - src: ./fixtures/well-written/Payments.Tests/Payments.Tests.csproj
+          dest: Payments.Tests/Payments.Tests.csproj
+        - src: ./fixtures/well-written/Payments.Tests/PaymentProcessorTests.cs
+          dest: Payments.Tests/PaymentProcessorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (no (major|significant|critical|serious)|well.?written|good (shape|quality|structure)|clean|looks
+            good|solid|few issues|minor)
+      - type: output-not-contains
+        config:
+          substring: no assertion
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recognized that these tests are generally well-structured and do not have critical or high-severity anti-patterns
+      - Did not invent false positives or flag correct practices as problems
+      - Acknowledged positive patterns present in the tests (sealed class, specific exception types, data-driven tests,
+        clear AAA structure, proper use of fakes)
+      - If any suggestions were made, they were minor and correctly categorized as low severity
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Detect coverage-touching pattern across a service facade
+    prompt: |
+      We hit 95% code coverage on this service but keep finding bugs in
+      production. Audit `CatalogService.Tests/ProductCatalogTests.cs` for
+      .NET test anti-patterns (use `CatalogService/ProductCatalog.cs` for
+      production context) — pay special attention to coverage-touching
+      patterns where every method is called but nothing is verified.
+
+      Give me a severity-ranked list with concrete code-level fixes. Do not
+      edit the files — this is a read-only review.
+    environment:
+      files:
+        - src: ./fixtures/coverage-touching/CatalogService.Tests/CatalogService.Tests.csproj
+          dest: CatalogService.Tests/CatalogService.Tests.csproj
+        - src: ./fixtures/coverage-touching/CatalogService.Tests/ProductCatalogTests.cs
+          dest: CatalogService.Tests/ProductCatalogTests.cs
+        - src: ./fixtures/coverage-touching/CatalogService/ProductCatalog.cs
+          dest: CatalogService/ProductCatalog.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (no assert|missing assert|never verif|without.*assert|coverage.*touch|coverage.*inflat|surface.area|systematic.*call)
+      - type: output-matches
+        config:
+          pattern: (IsNotNull.*only|trivial|shallow|not.*verif|not.*check)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - "Identified the systematic pattern: nearly every method is called but most tests have no assertions or only
+        Assert.IsNotNull — this inflates coverage without verifying behavior"
+      - Called out specific assertion-free tests (AddProduct_Works, UpdatePrice_Works, RemoveProduct_Works,
+        GetProductCount_Works, ApplyBulkDiscount_Works, ImportFromCsv_Works) that execute code but prove nothing
+      - Identified that the few tests with assertions only use trivial IsNotNull checks that don't verify actual content
+        or correctness
+      - "Explained why this pattern is dangerous: coverage metrics look healthy but bugs in pricing, search logic, CSV
+        export format, or bulk discount calculations would go undetected"
+      - Suggested concrete assertions for at least some of the methods (e.g., verify price changed after UpdatePrice,
+        verify product is gone after RemoveProduct, verify CSV format in ExportToCsv)
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Detect self-referential assertions in round-trip and identity tests
+    prompt: |
+      I inherited this test suite from another team. Tests pass and coverage
+      looks decent but I don't trust them. Audit
+      `Serialization.Tests/SerializerTests.cs` for .NET test anti-patterns —
+      pay special attention to self-referential / tautological assertions
+      where the test asserts `output == input` for an operation that should
+      transform something. Use the production code under `Serialization/`
+      for context.
+
+      Give me a severity-ranked list with concrete code-level fixes. Do not
+      edit the files — this is a read-only review.
+    environment:
+      files:
+        - src: ./fixtures/self-referential/Serialization.Tests/Serialization.Tests.csproj
+          dest: Serialization.Tests/Serialization.Tests.csproj
+        - src: ./fixtures/self-referential/Serialization.Tests/SerializerTests.cs
+          dest: Serialization.Tests/SerializerTests.cs
+        - src: ./fixtures/self-referential/Serialization/Serialization.cs
+          dest: Serialization/Serialization.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (self.referent|tautolog|identity|round.?trip.*only|input.*equals.*output|circular|proves
+            nothing|assert.*same)
+      - type: output-matches
+        config:
+          pattern: (NormalizeName|GetDisplayName|Validate.*ValidInput|UpperCase.*ToUpper)
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - "Identified the self-referential pattern: multiple tests assert that output equals input, which is tautological
+        when the operation is identity or the input is already in the expected form"
+      - Flagged NormalizeName_AlreadyNormalized_NoChange as a self-referential test — it only proves the normalizer is a
+        no-op on already-normalized input, not that it actually normalizes anything
+      - Flagged GetDisplayName_ReturnsFormattedName — it asserts the display name equals the raw Name property, which
+        either means the method is trivial or the test isn't verifying the actual formatting
+      - Flagged Validate_ValidInput_ReturnsSameInput — asserting that valid input passes through unchanged doesn't test
+        the validation logic itself
+      - Flagged UpperCase_ToUpper_Works — calling ToUpper on an already-uppercase string and comparing to the input is a
+        self-fulfilling assertion
+      - Distinguished the round-trip tests (Serialize_ThenDeserialize, ToString_ParseBack, MapToDto_MapBack) as
+        potentially valid IF accompanied by tests using non-trivial inputs that exercise edge cases
+      - Noted that Clone_ProducesEqualObject is a legitimate equality check (testing deep copy), not self-referential
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create

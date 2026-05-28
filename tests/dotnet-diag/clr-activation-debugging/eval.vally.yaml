@@ -1,0 +1,193 @@
+name: clr-activation-debugging
+description: Evaluates the dotnet-diag/clr-activation-debugging skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Diagnose unexpected FOD dialog from native build tool
+    prompt: |
+      I'm running a build and getting unexpected .NET 3.5 Feature-on-Demand
+      install dialogs. I've captured CLR activation logs. Can you analyze
+      them and tell me what's triggering the FOD dialogs?
+    environment:
+      files:
+        - src: fixtures/mt-fod-launched.txt
+          dest: logs/mt.exe.CLRLoad00.txt
+        - src: fixtures/link-fod-suppressed.txt
+          dest: logs/link.exe.CLRLoad00.txt
+        - src: fixtures/csc-healthy.txt
+          dest: logs/csc.exe.CLRLoad00.txt
+    graders:
+      - type: output-contains
+        config:
+          substring: mt.exe
+      - type: output-contains
+        config:
+          substring: SEM_FAILCRITICALERRORS
+      - type: output-contains
+        config:
+          substring: DllGetClassObject
+      - type: output-matches
+        config:
+          pattern: fondue|feature-on-demand|FOD
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Correctly identifies mt.exe as the process launching the FOD dialog
+      - "Explains that the COM activation (DllGetClassObject) takes the legacy codepath with IsCapped: 1"
+      - Notes that no config file was found for mt.exe, so v4 is invisible to the capped legacy bind
+      - Identifies SEM_FAILCRITICALERRORS as the control for whether the FOD dialog is shown vs suppressed
+      - Distinguishes between link.exe (FOD suppressed) and mt.exe (FOD launched) based on error mode
+      - Does not blame MasterVersion for the capping behavior
+  - name: Diagnose FOD suppressed but activation still failing
+    prompt: |
+      My build tool is silently failing — I suspect CLR activation issues.
+      The tool is supposed to use .NET to process debug symbols but it's
+      not working. I have CLR activation logs. Can you tell me what's
+      happening?
+    environment:
+      files:
+        - src: fixtures/mt-fod-suppressed.txt
+          dest: logs/mt.exe.CLRLoad00.txt
+    graders:
+      - type: output-contains
+        config:
+          substring: Could have launched
+      - type: output-contains
+        config:
+          substring: IsCapped
+      - type: output-matches
+        config:
+          pattern: v2\.0\.50727|v2\.0
+      - type: output-matches
+        config:
+          pattern: config|\.config
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies that COM activation failed — the shim could not find a suitable runtime
+      - Explains that capping restricts the legacy codepath to v2.0 and v4 is invisible
+      - Notes SEM_FAILCRITICALERRORS is set, so the FOD dialog was suppressed (silent failure)
+      - Suggests that adding an exe.config with useLegacyV2RuntimeActivationPolicy and supportedRuntime v4.0 could
+        resolve it
+      - Correctly notes the missing config file as a key factor
+  - name: Explain why same binary behaves differently under different launch methods
+    prompt: |
+      I have two CLR activation logs for the same tool (mt.exe). When I run
+      the build from my script, it works fine. When I run MSBuild directly
+      from cmd.exe, I get FOD dialogs. Both logs show the same DllGetClassObject
+      activation for the same CLSID. Why is the behavior different?
+    environment:
+      files:
+        - src: fixtures/mt-fod-suppressed.txt
+          dest: logs/mt-from-script.CLRLoad00.txt
+        - src: fixtures/mt-fod-launched.txt
+          dest: logs/mt-from-cmdline.CLRLoad00.txt
+    graders:
+      - type: output-contains
+        config:
+          substring: SEM_FAILCRITICALERRORS
+      - type: output-matches
+        config:
+          pattern: inherit|parent
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies that the difference is SEM_FAILCRITICALERRORS (0 in one log, nonzero in the other)
+      - Explains that SEM_FAILCRITICALERRORS is inherited from the parent process
+      - Notes that both logs have the same underlying failure — capped legacy bind on a v4-only machine
+      - Explains that the script's process tree sets the error mode, suppressing the dialog
+      - Does not claim the COM activation or capping behavior is different between the two
+  - name: Analyze healthy managed EXE activation
+    prompt: |
+      Can you look at this CLR activation log and tell me if everything
+      looks normal? This is from a C# compiler invocation.
+    environment:
+      files:
+        - src: fixtures/csc-healthy.txt
+          dest: logs/csc.exe.CLRLoad00.txt
+    graders:
+      - type: output-contains
+        config:
+          substring: v4.0.30319
+      - type: output-matches
+        config:
+          pattern: success|normal|healthy|no.*(issue|error|problem)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies this as a managed EXE launch via _CorExeMain
+      - Notes the runtime was decided as v4.0.30319 successfully
+      - Confirms no errors or FOD triggers are present
+      - Does not raise false alarms about normal activation behavior
+  - name: Identify multiple activation sequences in a single log
+    prompt: |
+      I'm seeing intermittent CLR activation failures with link.exe.
+      Sometimes it works, sometimes it doesn't. Can you analyze this
+      activation log and explain what's happening?
+    environment:
+      files:
+        - src: fixtures/link-multi-activation.txt
+          dest: logs/link.exe.CLRLoad00.txt
+    graders:
+      - type: output-contains
+        config:
+          substring: DllGetClassObject
+      - type: output-matches
+        config:
+          pattern: two|multiple|second|separate
+      - type: output-contains
+        config:
+          substring: IsCapped
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies that the log contains multiple activation sequences
+      - Notes the first activation (ClrCreateInstance / GetRequestedRuntime) succeeds via config file and loads v4.0
+      - Notes the second activation (DllGetClassObject) is a legacy COM activation that is capped
+      - Explains why the second activation fails despite v4.0 already being loaded — it's a separate legacy bind
+      - Identifies the CLSID being activated in the COM path
+  - name: Explain useLegacyV2RuntimeActivationPolicy in activation log
+    prompt: |
+      I see 'UseLegacyV2RuntimeActivationPolicy is set to 1' in my CLR
+      activation log. What does this mean and how does it affect runtime
+      selection?
+    environment:
+      files:
+        - src: fixtures/tool-with-legacy-policy.txt
+          dest: logs/tool.exe.CLRLoad00.txt
+    graders:
+      - type: output-contains
+        config:
+          substring: useLegacyV2RuntimeActivationPolicy
+      - type: output-matches
+        config:
+          pattern: legacy|capp
+      - type: output-contains
+        config:
+          substring: v4.0
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Explains that useLegacyV2RuntimeActivationPolicy makes legacy shim API codepaths associate with v4
+      - Notes it is mostly equivalent to calling CorBindToRuntimeEx with the v4 version string
+      - "Mentions the trade-off: turns off in-proc SxS with pre-v4 runtimes"
+      - Shows that in this log, the runtime was successfully decided as v4.0 even for capped paths
+  - name: Decline non-CLR-activation issue
+    prompt: |
+      My .NET app crashes with a NullReferenceException after startup.
+      Can you analyze the CLR activation logs to find the bug?
+    graders:
+      - type: output-matches
+        config:
+          pattern: activation.*succeed|loaded.*success|not.*activation|after.*load|runtime.*error|not.*scope
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recognizes that a NullReferenceException is a runtime error, not an activation issue
+      - Explains that CLR activation logs cover runtime selection and loading, not runtime behavior after the CLR is
+        loaded
+      - Does not attempt to diagnose the NullReferenceException from activation logs
+    constraints:
+      reject_skills:
+        - "*"

@@ -1,0 +1,77 @@
+name: template-validation
+description: Evaluates the dotnet-template-engine/template-validation skill
+type: capability
+config:
+  timeout: 3m
+stimuli:
+  - name: Validate template with multiple errors
+    prompt: Check this template.json for any issues. It's at .template.config/template.json
+    environment:
+      files:
+        - src: ./fixtures/validate-template-with-multiple-errors/.template.config/template.json
+          dest: .template.config/template.json
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: identity
+      - type: output-matches
+        config:
+          pattern: (?i)shortName.*(restore|conflict|reserved|CLI)
+      - type: output-matches
+        config:
+          pattern: (?i)(net7\.0|default.*not in|not.*valid.*choice)
+      - type: output-matches
+        config:
+          pattern: (?i)((enableLogging|yes).*(bool|boolean).*(invalid|not\s+valid|must\s+be|expected)|(enableLogging|yes).*(invalid|not\s+valid|must\s+be|expected).*(bool|boolean))
+      - type: output-matches
+        config:
+          pattern: (?i)((maxRetries|abc).*(int|integer).*(invalid|not\s+valid|must\s+be|expected)|(maxRetries|abc).*(invalid|not\s+valid|must\s+be|expected).*(int|integer))
+      - type: output-matches
+        config:
+          pattern: (?i)computed.*(missing|no).*value
+      - type: output-matches
+        config:
+          pattern: (?i)generated.*(missing|no).*generator
+      - type: output-matches
+        config:
+          pattern: (?i)(actionId|post.?action).*(missing|required|no)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The agent identified the missing 'identity' field (required)
+      - The agent flagged 'restore' as a shortName that conflicts with a dotnet CLI command
+      - The agent found that defaultValue 'net7.0' is not in the choices (net8.0, net9.0)
+      - The agent reported that 'yes' is not a valid boolean defaultValue for enableLogging
+      - The agent reported that 'abc' is not a valid integer defaultValue for maxRetries
+      - The agent found the computed symbol missing its 'value' expression
+      - The agent found the generated symbol missing its 'generator' field
+      - The agent found the post-action missing its 'actionId'
+    constraints:
+      expect_tools:
+        - skill
+  - name: Validate correct template and suggest improvements
+    prompt: Review the template at .template.config/template.json and tell me if it's ready to publish to NuGet.
+    environment:
+      files:
+        - src: ./fixtures/validate-correct-template-and-suggest-improvements/.template.config/template.json
+          dest: .template.config/template.json
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)(no errors?\b|0 errors?\b|template (is|looks) (valid|good)|ready to publish|no issues? (found|identified)?)
+      - type: output-matches
+        config:
+          pattern: (?i)\b(identity|shortName|name)\b
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The agent confirmed the template has no errors
+      - The agent verified all required fields (identity, name, shortName) are present
+      - The agent checked that shortName doesn't conflict with CLI commands
+      - The agent noted the template is well-formed and ready to publish
+      - The agent may suggest optional improvements (defaultName, description) without flagging errors
+    constraints:
+      expect_tools:
+        - skill

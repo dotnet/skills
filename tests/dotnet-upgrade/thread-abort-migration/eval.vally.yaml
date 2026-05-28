@@ -1,0 +1,299 @@
+name: thread-abort-migration
+description: Evaluates the dotnet-upgrade/thread-abort-migration skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Worker thread with abort-based cancellation
+    prompt: |
+      Migrate this .NET Framework code to .NET 8. Provide complete migration guidance with code and pitfalls.
+
+      ```csharp
+      public class BackgroundProcessor
+      {
+          private Thread _workerThread;
+          private volatile bool _running;
+
+          public void Start()
+          {
+              _running = true;
+              _workerThread = new Thread(ProcessLoop);
+              _workerThread.IsBackground = true;
+              _workerThread.Start();
+          }
+
+          private void ProcessLoop()
+          {
+              while (_running)
+              {
+                  try
+                  {
+                      var item = GetNextItem(); // may block
+                      ProcessItem(item);
+                  }
+                  catch (ThreadAbortException)
+                  {
+                      // Clean up partial work
+                      RollbackCurrentTransaction();
+                      Thread.ResetAbort(); // prevent rethrow so finally runs cleanly
+                  }
+                  finally
+                  {
+                      FlushBuffers();
+                  }
+              }
+          }
+
+          public void Stop()
+          {
+              _running = false;
+              if (_workerThread != null && _workerThread.IsAlive)
+              {
+                  Thread.Sleep(2000); // give it time
+                  if (_workerThread.IsAlive)
+                      _workerThread.Abort(); // force stop
+              }
+          }
+      }
+      ```
+    graders:
+      - type: output-contains
+        config:
+          substring: CancellationToken
+      - type: output-contains
+        config:
+          substring: OperationCanceledException
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Replaces Thread.Abort with CancellationTokenSource.Cancel
+      - Migrates the ThreadAbortException catch block cleanup logic to a proper OperationCanceledException handler or
+        finally block
+      - Addresses Thread.ResetAbort removal and explains why it is no longer needed
+      - Warns about passing CancellationToken through the full call chain including to GetNextItem
+      - Mentions that CancellationToken must be actively checked — it will not interrupt blocking calls like the
+        original Thread.Abort did
+  - name: Timeout enforcement via Thread.Abort
+    prompt: |
+      Migrate this .NET Framework code to .NET 8. Provide complete migration guidance with code and pitfalls.
+
+      ```csharp
+      public class TimedExecutor
+      {
+          public T ExecuteWithTimeout<T>(Func<T> work, TimeSpan timeout)
+          {
+              T result = default;
+              Exception error = null;
+
+              var thread = new Thread(() =>
+              {
+                  try { result = work(); }
+                  catch (ThreadAbortException) { Thread.ResetAbort(); }
+                  catch (Exception ex) { error = ex; }
+              });
+
+              thread.Start();
+
+              if (!thread.Join(timeout))
+              {
+                  thread.Abort();
+                  throw new TimeoutException($"Operation exceeded {timeout.TotalSeconds}s timeout");
+              }
+
+              if (error != null)
+                  throw new AggregateException(error);
+
+              return result;
+          }
+      }
+      ```
+    graders:
+      - type: output-contains
+        config:
+          substring: CancellationTokenSource
+      - type: output-contains
+        config:
+          substring: CancelAfter
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Replaces the Thread+Abort timeout pattern with CancellationTokenSource.CancelAfter or Task.WhenAny with
+        Task.Delay
+      - Warns that the Func<T> work delegate must accept and check a CancellationToken for cancellation to actually work
+      - Mentions that if the work delegate cannot be modified (uncooperative code), the only safe option is process
+        isolation with Process.Kill
+      - Does NOT suggest that wrapping in a Task and abandoning the thread is safe — the thread continues running
+      - Handles the case where the original code caught ThreadAbortException and called ResetAbort
+  - name: Blocking WaitHandle with Thread.Interrupt
+    prompt: |
+      Migrate this .NET Framework code to .NET 8. Provide complete migration guidance with code and pitfalls.
+
+      ```csharp
+      public class EventProcessor
+      {
+          private readonly ManualResetEvent _newEvent = new ManualResetEvent(false);
+          private readonly Queue<string> _queue = new Queue<string>();
+          private Thread _thread;
+          private readonly object _lock = new object();
+
+          public void Start()
+          {
+              _thread = new Thread(RunLoop);
+              _thread.Start();
+          }
+
+          private void RunLoop()
+          {
+              while (true)
+              {
+                  _newEvent.WaitOne(); // blocks until signaled
+                  _newEvent.Reset();
+
+                  string item;
+                  lock (_lock) { item = _queue.Dequeue(); }
+                  Handle(item);
+              }
+          }
+
+          public void Enqueue(string item)
+          {
+              lock (_lock) { _queue.Enqueue(item); }
+              _newEvent.Set();
+          }
+
+          public void Stop()
+          {
+              _thread.Interrupt(); // wake from WaitOne
+              _thread.Join(5000);
+              if (_thread.IsAlive)
+                  _thread.Abort();
+          }
+      }
+      ```
+    graders:
+      - type: output-contains
+        config:
+          substring: CancellationToken
+      - type: output-contains
+        config:
+          substring: WaitHandle
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Replaces Thread.Interrupt with CancellationToken signaling
+      - Shows how to combine WaitHandle.WaitAny with CancellationToken.WaitHandle to make the WaitOne call cancellable
+      - Removes Thread.Abort fallback and explains why it cannot be used
+      - Suggests using a modern alternative like Channel<T> or BlockingCollection<T> with cancellation support
+      - Warns that Thread.Interrupt only works on threads in WaitSleepJoin state and is not a reliable cancellation
+        mechanism
+  - name: ASP.NET Response.End and Response.Redirect with Thread.Abort
+    prompt: >
+      Migrate this .NET Framework ASP.NET code to ASP.NET Core (.NET 8). Provide complete migration guidance with code
+      and pitfalls.
+
+
+      ```csharp
+
+      public class ReportController : Controller
+
+      {
+          protected void btnExport_Click(object sender, EventArgs e)
+          {
+              var data = GenerateReport();
+              Response.Clear();
+              Response.ContentType = "text/csv";
+              Response.AddHeader("Content-Disposition", "attachment; filename=report.csv");
+              Response.Write(data);
+              Response.End(); // throws ThreadAbortException internally
+          }
+
+          protected void btnRedirect_Click(object sender, EventArgs e)
+          {
+              if (!User.Identity.IsAuthenticated)
+              {
+                  Response.Redirect("/login", true); // true = endResponse, calls Thread.Abort
+                  return;
+              }
+
+              try
+              {
+                  ProcessRequest();
+                  Response.Redirect("/success", true);
+              }
+              catch (ThreadAbortException)
+              {
+                  // Expected from Response.Redirect — swallow it
+              }
+              catch (Exception ex)
+              {
+                  LogError(ex);
+                  Response.Redirect("/error", true);
+              }
+          }
+      }
+
+      ```
+    graders:
+      - type: output-contains
+        config:
+          substring: Redirect(
+      - type: output-not-matches
+        config:
+          pattern: Thread\.Abort\s*\(
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Explains that Response.End and Response.Redirect(url, true) internally call Thread.Abort in ASP.NET Framework
+      - Replaces Response.End with returning a FileResult or writing to the response body and returning
+      - Replaces Response.Redirect(url, true) with a redirect result or Response.Redirect(url) without the endResponse
+        parameter
+      - Removes the catch (ThreadAbortException) block and explains it is no longer needed
+      - Mentions HttpContext.RequestAborted as the cancellation mechanism in ASP.NET Core for long-running request work
+  - name: Thread.Join and Thread.Sleep only — should not migrate
+    prompt: |
+      I'm migrating this .NET Framework code to .NET 8 and need to ensure all Thread.Abort
+      usage is addressed. Check this code and provide your Thread.Abort migration guidance.
+
+      ```csharp
+      public class SimpleWorker
+      {
+          public void RunBatch(List<WorkItem> items)
+          {
+              var threads = new List<Thread>();
+
+              foreach (var item in items)
+              {
+                  var t = new Thread(() => Process(item));
+                  t.Start();
+                  threads.Add(t);
+              }
+
+              foreach (var t in threads)
+                  t.Join();
+          }
+
+          private void Process(WorkItem item)
+          {
+              // simulate work
+              Thread.Sleep(100);
+              item.Result = ComputeResult(item.Input);
+          }
+      }
+      ```
+    graders:
+      - type: output-matches
+        config:
+          pattern: (no|not|don't|doesn't|without).{0,50}(migration|migrat|changes needed|changes required)|(already
+            (compatible|works|supported))
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Correctly identifies that this code does NOT use Thread.Abort, Thread.Interrupt, or ThreadAbortException
+      - Does NOT fabricate Thread.Abort migration concerns that do not exist in the code
+      - May suggest modernization to Task.Run or Parallel.ForEach, but does NOT frame it as a Thread.Abort migration
+      - Does NOT over-migrate — any suggestions should be optional improvements, not required fixes

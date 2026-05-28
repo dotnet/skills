@@ -1,0 +1,126 @@
+name: system-text-json-net11
+description: Evaluates the dotnet11/system-text-json-net11 skill
+type: capability
+config:
+  timeout: 3m
+stimuli:
+  - name: Serialize JSON in .NET 11 with PascalCase property names
+    prompt: |
+      I'm starting a new console app on .NET 11 and I need to serialize this record to JSON:
+
+      ```csharp
+      public record Person(string name, int age);
+      ```
+
+      In the output JSON the property names should be PascalCase (so `Name` and `Age`,
+      not `name`/`age` or `firstName` style). I want to use whatever the framework
+      provides out of the box rather than writing my own naming-policy class.
+
+      Please show me the full program targeting `net11.0` and run it so I can see the
+      JSON output.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: JsonNamingPolicy\.PascalCase
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: output-not-matches
+        config:
+          pattern: class\s+\w+\s*:\s*JsonNamingPolicy
+      - type: output-matches
+        config:
+          pattern: '"Name"'
+      - type: output-matches
+        config:
+          pattern: '"Age"'
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Uses the new built-in JsonNamingPolicy.PascalCase static property (added in .NET 11) and does not implement a
+        custom JsonNamingPolicy subclass
+      - Targets net11.0 in the project / file-based app
+      - Actually runs the program and shows JSON output with PascalCase property names (e.g. "Name", "Age")
+
+  - name: Type-safe JsonTypeInfo access without exceptions in .NET 11
+    prompt: |
+      In a .NET 11 library I'm working on, I have a `JsonSerializerOptions` instance
+      and I want to get the JSON metadata for a specific type `T` in a strongly-typed
+      way (i.e. I want back a `JsonTypeInfo<T>`, not a non-generic `JsonTypeInfo` that
+      I have to cast).
+
+      I also need a way to *probe* whether metadata for `T` is available without
+      having an exception thrown at me if it isn't — so I can branch on "have it"
+      vs "don't have it". I'd rather not wrap things in try/catch.
+
+      Show me a minimal `net11.0` program that demonstrates both: getting the typed
+      metadata when it's available, and checking-without-throwing for a case where
+      it might not be. Run the program.
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: "GetTypeInfo<"
+      - type: output-contains
+        config:
+          substring: "TryGetTypeInfo<"
+      - type: output-matches
+        config:
+          pattern: out\s+(var|JsonTypeInfo)
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: output-not-matches
+        config:
+          pattern: \bcatch\b\s*(\(|\{)
+      - type: output-matches
+        config:
+          pattern: (True|False|found|Found|JsonTypeInfo)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Uses the new generic JsonSerializerOptions.GetTypeInfo<T>() overload (added in .NET 11) for the typed-access part
+      - Uses the new generic JsonSerializerOptions.TryGetTypeInfo<T>(out JsonTypeInfo<T>? info) overload (added in .NET
+        11) for the probing part
+      - Does NOT wrap GetTypeInfo in try/catch as a workaround
+      - Targets net11.0 and actually runs the program
+
+  - name: "Non-activation: camelCase JSON serialization on .NET 8"
+    prompt: |
+      I have a .NET 8 console app and I need to serialize this record to JSON with
+      camelCase property names:
+
+      ```csharp
+      public record Person(string Name, int Age);
+      ```
+
+      Show me a minimal program targeting `net8.0` that produces output like
+      `{"name":"Jane","age":30}` and run it.
+    expect_activation: false
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: net8\.0
+      - type: output-matches
+        config:
+          pattern: JsonNamingPolicy\.CamelCase
+      - type: output-not-matches
+        config:
+          pattern: JsonNamingPolicy\.PascalCase
+      - type: output-not-matches
+        config:
+          pattern: net11\.0
+      - type: output-matches
+        config:
+          pattern: '"name"'
+      - type: output-matches
+        config:
+          pattern: '"age"'
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Solves the task using only pre-.NET 11 APIs (JsonNamingPolicy.CamelCase, standard JsonSerializer.Serialize)
+      - Does NOT load or reference the system-text-json-net11 skill — none of its APIs are needed here
+      - Targets net8.0 and produces camelCase JSON output

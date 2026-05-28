@@ -89,7 +89,7 @@ public static class PairwiseJudge
                 // should operate purely on the provided text — no tool execution.
                 return Task.FromResult(new PermissionRequestResult
                 {
-                    Kind = PermissionRequestResultKind.DeniedByRules,
+                    Kind = PermissionRequestResultKind.UserNotAvailable,
                 });
             },
             cancellationToken: cancellationToken);

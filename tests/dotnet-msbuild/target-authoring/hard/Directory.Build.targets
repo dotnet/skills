@@ -1,0 +1,20 @@
+<Project>
+  <!-- Override code generation to use our custom tool -->
+  <Target Name="CoreCodeGen">
+    <Exec Command="custom-codegen.exe %(CodeGenSchema.Identity)" />
+  </Target>
+
+  <!-- Run linting before code generation -->
+  <Target Name="RunLinter" BeforeTargets="CodeGen">
+    <Exec Command="lint-schemas.exe @(CodeGenSchema)" />
+  </Target>
+
+  <!-- Ensure code generation and validation run during compilation -->
+  <PropertyGroup>
+    <CompileDependsOn>$(CompileDependsOn);CodeGen;PostCodeGenValidation</CompileDependsOn>
+  </PropertyGroup>
+
+  <Target Name="PostCodeGenValidation">
+    <Message Text="Validating generated files..." Importance="high" />
+  </Target>
+</Project>

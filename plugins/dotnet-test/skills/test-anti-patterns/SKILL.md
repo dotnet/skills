@@ -1,6 +1,21 @@
 ---
 name: test-anti-patterns
-description: "Quick pragmatic detection-focused review of .NET test code for anti-patterns that undermine reliability and diagnostic value. Use when asked to audit test quality, investigate flaky or coupled tests, find duplication or magic values, or when tests pass but don't actually verify anything. Best for identifying and prioritizing issues in existing tests with severity-ranked findings and targeted remediation guidance. Catches assertion gaps, swallowed exceptions, always-true assertions, flakiness indicators, test coupling, over-mocking, naming issues, magic values, duplicate tests, and structural problems. Do NOT use for direct MSTest API rewrites or implementation-only fixes (for example swapped Assert.AreEqual argument order or converting `DynamicData` from `IEnumerable<object[]>` to `ValueTuple`) — use writing-mstest-tests instead. For a deep formal audit based on academic test smell taxonomy, use exp-test-smell-detection instead. Works with MSTest, xUnit, NUnit, and TUnit."
+description: >
+  Audits existing .NET test code (MSTest, xUnit, NUnit, TUnit) for
+  anti-patterns and quality issues that undermine reliability and diagnostic
+  value — produces a severity-ranked report (Critical / Warning / Info) with
+  concrete code-level fixes and acknowledgement of what the tests do well.
+  INVOKE THIS SKILL when the user asks to audit, review, rank, or find
+  problems in existing tests — including prompts about: "audit my tests",
+  "audit for .NET test anti-patterns", "test smell audit", "rank by
+  severity", "are these tests good", tests that pass but verify nothing,
+  no/missing assertions, swallowed exceptions, always-true / self-comparing
+  / self-referential / tautological assertions, broad exception types,
+  flakiness (Thread.Sleep, DateTime.Now), ordering dependency, shared
+  static state, reflection coupling, duplicated tests, magic values,
+  coverage touching, coverage inflation.
+  DO NOT USE FOR: writing new tests (use writing-mstest-tests); running
+  tests (use run-tests); framework migration (use migration skills).
 license: MIT
 ---
 
@@ -25,7 +40,7 @@ Quick, pragmatic analysis of .NET test code for anti-patterns and quality issues
 - User wants to run or execute tests (use `run-tests`)
 - User wants to migrate between test frameworks or versions (use migration skills)
 - User wants to measure code coverage (out of scope)
-- User wants a deep formal test smell audit with academic taxonomy and extended catalog (use `exp-test-smell-detection`)
+- User wants a deep formal test smell audit with academic taxonomy and extended catalog (use `test-smell-detection`)
 
 ## Inputs
 
@@ -52,6 +67,8 @@ Check each test file against the anti-pattern catalog below. Report findings gro
 | Anti-Pattern | What to Look For |
 |---|---|
 | **No assertions** | Test methods that execute code but never assert anything. A passing test without assertions proves nothing. |
+| **Coverage touching** | Test class that methodically calls every public method on a type — often in alphabetical or declaration order — without asserting meaningful outcomes. Each test typically does `var result = sut.MethodName(...)` with no assertion, or only a trivial `Assert.IsNotNull(result)`. The intent is to inflate code-coverage metrics rather than verify behavior. Distinct from a single assertion-free test: the pattern is *systematic* coverage of the surface area with no real verification. |
+| **Self-referential assertion** | Asserts that the output of an operation equals its input when the operation is expected to be an identity or no-op, e.g. `Assert.AreEqual(input, Parse(input.ToString()))` or `Assert.AreEqual(x, Identity(x))`. The test is tautological — it can only fail if the round-trip is broken, but it never verifies that a *transformation* actually happened. Also catches `Assert.AreEqual(dto.Name, dto.Name)` (asserting a field against itself). |
 | **Swallowed exceptions** | `try { ... } catch { }` or `catch (Exception)` without rethrowing or asserting. Failures are silently hidden. |
 | **Assert in catch block only** | `try { Act(); } catch (Exception ex) { Assert.Fail(ex.Message); }` -- use `Assert.ThrowsException` or equivalent instead. The test passes when no exception is thrown even if the result is wrong. |
 | **Always-true assertions** | `Assert.IsTrue(true)`, `Assert.AreEqual(x, x)`, or conditions that can never fail. |

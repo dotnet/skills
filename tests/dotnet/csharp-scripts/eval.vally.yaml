@@ -1,0 +1,28 @@
+name: csharp-scripts
+description: Evaluates the dotnet/csharp-scripts skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Test a C# language feature with a script
+    prompt: Does C# support creating a stackalloc'd Span of native-sized integers? Can you test it and see?
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (nint|nuint|native)
+      - type: output-contains
+        config:
+          substring: stackalloc
+      - type: output-not-matches
+        config:
+          pattern: dotnet new console
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Runs the test using 'dotnet <file>.cs' (file-based app) rather than creating a full project with 'dotnet new
+        console'
+      - The code compiles and runs, demonstrating that stackalloc with Span<nint> works
+    constraints:
+      expect_tools:
+        - bash

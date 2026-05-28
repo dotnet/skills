@@ -74,8 +74,8 @@ public static class AgentRunner
                     InitialCwd = Environment.CurrentDirectory,
                     SessionStatePath = "session-state",
                     Conventions = OperatingSystem.IsWindows()
-                        ? GitHub.Copilot.SDK.Rpc.SessionFsSetProviderRequestConventions.Windows
-                        : GitHub.Copilot.SDK.Rpc.SessionFsSetProviderRequestConventions.Posix,
+                        ? GitHub.Copilot.SDK.Rpc.SessionFsSetProviderConventions.Windows
+                        : GitHub.Copilot.SDK.Rpc.SessionFsSetProviderConventions.Posix,
                 },
             };
 
@@ -284,18 +284,26 @@ public static class AgentRunner
             noiseDirs.Add(stageDir);
         }
 
-        // Convert MCPServerDef records to the SDK's Dictionary<string, object> shape
+        // Convert MCPServerDef records to the SDK's McpServerConfig shape
         // Security hardening: validate commands, sanitize args/env, drop custom cwd.
-        Dictionary<string, object>? sdkMcp = null;
+        IDictionary<string, McpServerConfig>? sdkMcp = null;
         if (mcpServers is { Count: > 0 })
         {
-            sdkMcp = new Dictionary<string, object>();
+            sdkMcp = new Dictionary<string, McpServerConfig>();
             foreach (var (name, def) in mcpServers)
             {
                 if (!IsAllowedMcpCommand(def.Command))
                 {
                     Console.Error.WriteLine(
                         $"Skipping MCP server '{name}': command '{def.Command}' is not in the allowlist");
+                    continue;
+                }
+
+                // Only stdio servers are supported; reject unknown types early.
+                if (def.Type is not null and not "stdio")
+                {
+                    Console.Error.WriteLine(
+                        $"Skipping MCP server '{name}': unsupported type '{def.Type}' (only 'stdio' is supported)");
                     continue;
                 }
 
@@ -307,17 +315,16 @@ public static class AgentRunner
                     continue;
                 }
 
-                var entry = new Dictionary<string, object>
+                var entry = new McpStdioServerConfig
                 {
-                    ["type"] = def.Type ?? "stdio",
-                    ["command"] = def.Command,
-                    ["args"] = sanitizedArgs,
-                    ["tools"] = def.Tools ?? ["*"],
+                    Command = def.Command,
+                    Args = sanitizedArgs,
+                    Tools = def.Tools ?? ["*"],
                 };
 
                 // Sanitize env: strip dangerous keys that could hijack the process.
                 var sanitizedEnv = SanitizeMcpEnv(def.Env);
-                if (sanitizedEnv is not null) entry["env"] = sanitizedEnv;
+                if (sanitizedEnv is not null) entry.Env = sanitizedEnv;
 
                 // Drop custom cwd — MCP servers run in workDir, not attacker-chosen dirs.
                 sdkMcp[name] = entry;
@@ -440,8 +447,8 @@ public static class AgentRunner
             McpServers = sdkMcp,
             CustomAgents = customAgents,
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
-            // SDK 0.2.x removed the built-in local-filesystem session-state
-            // handler.  Without this, events.jsonl files are never written and
+            // SDK 0.3.0 requires a SessionFsProvider (abstract base class).
+            // Without this, events.jsonl files are never written and
             // session replay data is lost.
             CreateSessionFsHandler = _ => new LocalSessionFsHandler(configDir),
             OnPermissionRequest = (request, _) =>

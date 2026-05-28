@@ -1,0 +1,102 @@
+scenarios:
+  - name: "Event registration with custom validation"
+    setup: &blazor_project
+      commands:
+        - "dotnet new blazor --interactivity server --no-https --force"
+    prompt: |
+      I have an existing Blazor Web App with Interactive Server (per-page).
+
+      I need an interactive /register page for event registration:
+      - Attendee name (required)
+      - Email (required, valid email)
+      - Number of guests (0-5)
+      - Preferred session (Morning, Afternoon, Evening)
+      - Special dietary requirements (free text, optional)
+
+      Here's the catch: after the user fills everything in and clicks Register,
+      I need to check with the server whether that email is already registered
+      for this event. If it is, show an error message on the email field saying
+      "This email is already registered" — not a generic error, but a field-specific
+      error that appears right next to the email input. The user should be able to
+      change the email and try again.
+
+      Create a RegistrationService with a stub ValidateAsync method that returns
+      field-specific errors (simulate the email already being registered for a
+      hardcoded test email like "taken@example.com").
+    assertions:
+      - type: "file_exists"
+        path: "**/Register.razor"
+      - type: "file_contains"
+        path: "**/Register.razor"
+        value: "EditForm"
+      - type: "file_contains"
+        path: "**/Register.razor"
+        value: "ValidationMessage"
+      - type: "file_contains"
+        path: "**/Register.razor"
+        value: "DataAnnotationsValidator"
+    rubric:
+      - "Uses a custom validator component (or ValidationMessageStore directly) to display server-returned field-specific errors — the email duplicate error appears next to the email field via ValidationMessage, not as a generic message"
+      - "Model uses data annotation attributes for basic validation (Required, EmailAddress, Range) with DataAnnotationsValidator"
+      - "Submit handler calls the registration service, checks for server-returned errors, and displays them on the correct fields without losing the user's input"
+      - "The form lets the user correct the email and resubmit — errors clear when the field changes"
+      - "Uses InputText, InputNumber, InputSelect or InputRadioGroup for the respective fields"
+    timeout: 600
+
+
+  - name: "Multi-step booking form with cross-field validation"
+    setup: *blazor_project
+    prompt: |
+      I have a Blazor Web App with per-page interactivity (Server mode).
+
+      I need a /book-appointment page for scheduling medical appointments.
+      The form has two steps on the same page (not separate routes):
+
+      STEP 1 (always visible):
+      - Patient name (required)
+      - Email (required, valid format)
+      - Phone (required)
+      - Insurance provider (dropdown: Aetna, BlueCross, Cigna, UnitedHealth, None)
+
+      STEP 2 (appears after step 1 validation passes):
+      - Preferred doctor (dropdown: loaded from an AppointmentService)
+      - Date (required, must be in the future)
+      - Time slot (dropdown: available slots from AppointmentService based on doctor + date)
+      - Reason for visit (required, max 500 chars)
+
+      When the user clicks "Check Availability" between steps, call
+      AppointmentService.ValidatePatientAsync which checks server-side rules:
+      - If the email belongs to a patient with an outstanding balance, return
+        an error on the Email field: "Account has outstanding balance"
+      - If the insurance provider is "None" and the selected doctor doesn't
+        accept self-pay, return an error on the Doctor field: "Selected doctor
+        does not accept self-pay patients"
+      - If the selected time slot was just taken (race condition), return an
+        error on the TimeSlot field: "This slot is no longer available"
+
+      These server errors must appear next to the specific fields — not as
+      a generic error banner. The user should be able to correct the field
+      and try again without losing other form data.
+
+      Create stub AppointmentService that simulates these validations:
+      reject "taken@example.com" for balance, reject "None" insurance
+      with doctor "Dr. Smith", and reject timeslot "10:00 AM" as taken.
+
+      Make this page interactive with @rendermode InteractiveServer.
+    assertions:
+      - type: "file_exists"
+        path: "**/BookAppointment.razor"
+      - type: "file_contains"
+        path: "**/BookAppointment.razor"
+        value: "EditForm"
+      - type: "file_contains"
+        path: "**/BookAppointment.razor"
+        value: "ValidationMessage"
+    rubric:
+      - "Server-returned errors appear next to the specific field via ValidationMessage — uses ValidationMessageStore or equivalent to add field-level errors from the service response, not manual conditional divs"
+      - "After server validation failure, the user can change the flagged field and resubmit — errors clear on the relevant field without losing other form data"
+      - "Uses data annotation attributes for client-side validation (Required, EmailAddress, MaxLength, custom date validator) with DataAnnotationsValidator"
+      - "Multi-step progression — step 2 fields only appear after step 1 validates successfully, providing progressive disclosure"
+      - "Time slots load dynamically based on doctor and date selection — cascading dropdown behavior within the form"
+    timeout: 900
+

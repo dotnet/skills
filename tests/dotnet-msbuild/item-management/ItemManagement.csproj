@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <!-- Mark all C# files as auto-generated for IDE purposes -->
+  <ItemGroup>
+    <Compile Include="**\*.cs">
+      <AutoGen>true</AutoGen>
+    </Compile>
+  </ItemGroup>
+
+  <!-- Data files and their validation schemas -->
+  <ItemGroup>
+    <DataFile Include="data\users.json" />
+    <DataFile Include="data\orders.json" />
+    <SchemaFile Include="schemas\users.xsd" />
+    <SchemaFile Include="schemas\orders.xsd" />
+  </ItemGroup>
+
+  <Target Name="ValidateData" BeforeTargets="Build">
+    <!-- Validate each data file against its schema -->
+    <Message Text="Validating %(DataFile.Filename) against %(SchemaFile.Filename)"
+             Importance="high" />
+  </Target>
+
+  <!-- Generate constants file from build configuration -->
+  <Target Name="GenerateConstants" BeforeTargets="CoreCompile">
+    <WriteLinesToFile File="$(MSBuildProjectDirectory)\Constants.g.cs"
+                     Lines="namespace ItemManagement { public static class Constants { public const int Version = 1; } }"
+                     Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="Constants.g.cs" />
+    </ItemGroup>
+  </Target>
+</Project>
