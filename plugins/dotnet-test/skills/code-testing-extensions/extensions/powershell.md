@@ -22,7 +22,7 @@ Prefer targets that match **all** of:
 3. Located under a conventional source root (`tools/`, `src/`, `Public/`, `Private/`, or the module root next to a `.psd1`).
 4. Have **no** existing matching `*.Tests.ps1` file.
 
-If a `.psd1` manifest's `FunctionsToExport` list references a specific module path, that module is almost certainly the target — start there.
+If a `.psd1` manifest's `RootModule` (or `ModuleToProcess`) points at a specific `.psm1`, that module is almost certainly the target — start there.
 
 ### Test Placement Contract
 
