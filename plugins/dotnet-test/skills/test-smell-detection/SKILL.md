@@ -1,6 +1,22 @@
 ---
 name: test-smell-detection
-description: "Deep formal test smell audit based on academic research taxonomy (testsmells.org). Detects 19 categorized smell types — conditional logic, mystery guests, sensitive equality, eager tests, and more — with calibrated severity and research-backed remediation. Use for comprehensive test suite health assessments. For a quick pragmatic review, use test-anti-patterns instead. DO NOT USE FOR: writing new tests (use writing-mstest-tests), evaluating assertion quality specifically (use assertion-quality), or finding test duplication and boilerplate (use exp-test-maintainability)."
+description: >
+  Deep-dive audit using the full testsmells.org 19-smell academic catalog
+  for .NET tests. Every finding maps to a named, citable smell from the
+  research literature (Assertion Roulette, Duplicate Assert, Constructor
+  Initialization, Default Test, Mystery Guest, Eager Test, Sensitive
+  Equality, Conditional Test Logic, Sleepy Test, Magic Number Test, etc.)
+  with research-backed severity and integration-test calibration. Works
+  with MSTest, xUnit, NUnit, TUnit.
+  INVOKE THIS SKILL ONLY when the user explicitly asks for the
+  testsmells.org / 19-smell academic catalog, a research-backed smell
+  taxonomy audit, citable smell names from the literature, or a catalog
+  deep-dive beyond pragmatic anti-patterns.
+  DO NOT USE FOR: any general or pragmatic test audit — "audit my tests",
+  "do a smell audit", "review test quality", severity-ranked anti-pattern
+  reviews — use test-anti-patterns (the umbrella audit skill); writing
+  new tests (use writing-mstest-tests); running tests (use run-tests);
+  framework migration (use migration skills).
 license: MIT
 ---
 

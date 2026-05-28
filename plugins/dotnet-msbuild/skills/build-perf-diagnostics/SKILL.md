@@ -7,7 +7,7 @@ license: MIT
 ## Performance Analysis Methodology
 
 1. **Generate a binlog**: `dotnet build /bl:{} -m`
-2. Use the **binlog MCP server** (`AITools.BinlogMcp`, exposed under the `binlog` MCP namespace) which is bundled with this plugin
+2. Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the `binlog` MCP namespace) which is bundled with this plugin
 
 ### Alternate flow when MCP is unavailable: binlog replay to text logs
 

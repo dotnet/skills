@@ -1,0 +1,38 @@
+<Project>
+  <!-- SDK defines a proper code generation pipeline -->
+  <PropertyGroup>
+    <CodeGenDependsOn>
+      _ValidateCodeGenInputs;
+      BeforeCodeGen;
+      CoreCodeGen;
+      AfterCodeGen
+    </CodeGenDependsOn>
+  </PropertyGroup>
+
+  <Target Name="CodeGen" DependsOnTargets="$(CodeGenDependsOn)" />
+  <Target Name="BeforeCodeGen" />
+  <Target Name="AfterCodeGen" />
+
+  <Target Name="CoreCodeGen"
+      Inputs="@(CodeGenSchema)"
+      Outputs="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')">
+    <Message Text="Generating code from %(CodeGenSchema.Identity)" Importance="high" />
+    <WriteLinesToFile
+        File="$(IntermediateOutputPath)%(CodeGenSchema.Filename).g.cs"
+        Lines="// Generated from %(CodeGenSchema.Identity)"
+        Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')" />
+      <FileWrites Include="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_ValidateCodeGenInputs">
+    <Error Text="No CodeGenSchema items defined." Condition="'@(CodeGenSchema)' == ''" />
+  </Target>
+
+  <!-- SDK hooks CodeGen into the build -->
+  <PropertyGroup>
+    <CompileDependsOn>$(CompileDependsOn);CodeGen</CompileDependsOn>
+  </PropertyGroup>
+</Project>

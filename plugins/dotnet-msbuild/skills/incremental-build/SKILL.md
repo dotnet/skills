@@ -1,6 +1,6 @@
 ---
 name: incremental-build
-description: "Guide for optimizing MSBuild incremental builds. Only activate in MSBuild/.NET build context. USE FOR: builds slower than expected on subsequent runs, 'nothing changed but it rebuilds anyway', diagnosing why targets re-execute unnecessarily, fixing broken no-op builds. Covers 8 common causes: missing Inputs/Outputs on custom targets, volatile properties in output paths (timestamps/GUIDs), file writes outside tracked Outputs, missing FileWrites registration, glob changes, Visual Studio Fast Up-to-Date Check (FUTDC) issues. Key diagnostic: look for 'Building target completely' vs 'Skipping target' in binlog. DO NOT USE FOR: first-time build slowness (use build-perf-baseline), parallelism issues (use build-parallelism), evaluation-phase slowness (use eval-performance), non-MSBuild build systems. INVOKES: dotnet build /bl, binlog replay with diagnostic verbosity."
+description: "Guide for optimizing MSBuild incremental builds. Only activate in MSBuild/.NET build context. USE FOR: builds slower than expected on subsequent runs, 'nothing changed but it rebuilds anyway', diagnosing why targets re-execute unnecessarily, fixing broken no-op builds. Covers 8 common causes: missing Inputs/Outputs on custom targets, volatile properties in output paths (timestamps/GUIDs), file writes outside tracked Outputs, missing FileWrites registration, glob changes, Visual Studio Fast Up-to-Date Check (FUTDC) issues. Key diagnostic: look for 'Building target completely' vs 'Skipping target' in binlog. DO NOT USE FOR: first-time build slowness (use build-perf-baseline), parallelism issues (use build-parallelism), evaluation-phase slowness (use eval-performance), non-MSBuild build systems. INVOKES: binlog MCP server tools (overview, search, target details); falls back to dotnet build /bl, binlog replay with diagnostic verbosity."
 license: MIT
 ---
 
@@ -57,6 +57,18 @@ Use binary logs (binlogs) to understand exactly why targets ran instead of being
    dotnet build /bl:second.binlog
    ```
    The first build establishes the baseline. The second build is the one you want to be incremental. Analyze `second.binlog`.
+
+### Primary: binlog MCP (preferred)
+
+Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the `binlog` MCP namespace) to analyze the second binlog:
+
+1. Use the overview tool to check overall build status and duration
+2. Use the search tool to find targets that executed vs were skipped — search for "Building target completely", "Building target incrementally", "Skipping target"
+3. Use the search tool to find "is newer than output" messages that reveal which input file triggered a rebuild
+4. Use target-related tools (target_reasons, project_targets) to inspect why specific targets ran
+5. Use the expensive_targets tool to find targets that consumed the most time in the second build — these are your optimization targets
+
+### Fallback: text-log replay (when MCP is unavailable)
 
 2. **Replay the second binlog** to a diagnostic text log:
    ```shell
