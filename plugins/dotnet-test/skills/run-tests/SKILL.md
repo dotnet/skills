@@ -73,6 +73,8 @@ These are the most common agent mistakes. Internalize before proceeding:
 
 **Detection files to always check** (in order): `global.json` -> `.csproj` -> `Directory.Build.props` -> `Directory.Packages.props`
 
+**If the prompt names a subset of tests** (e.g., "integration tests", "smoke tests", a specific class, a specific TFM), plan to apply the matching filter / `--framework` in [Step 3](#step-3-run-filtered-tests) — do not run the whole suite.
+
 ### Step 1: Detect the test platform and framework
 
 1. Run `dotnet --version` in the project directory to determine the SDK version. This accounts for `global.json` SDK pinning.
@@ -217,11 +219,39 @@ See the `filter-syntax` skill for the complete filter syntax for each platform a
 - **MTP -- xUnit v3**: Uses `--filter-class`, `--filter-method`, `--filter-trait` (not VSTest expression syntax)
 - **MTP -- TUnit**: Uses `--treenode-filter` with path-based syntax
 
+#### When the user names a test category, trait, or group
+
+When the prompt names a subset of tests by category (e.g., "integration tests", "unit tests", "smoke tests", "fast tests"), **do not run all tests** — translate the user's vocabulary into the platform-appropriate filter:
+
+1. **Inspect the test source files** for filter-attribute annotations that match the named group:
+
+   | Framework | Attribute | Filter property |
+   |-----------|-----------|-----------------|
+   | MSTest | `[TestCategory("Integration")]` | `TestCategory` |
+   | NUnit | `[Category("Integration")]` | `TestCategory` (mapped) |
+   | xUnit v2 | `[Trait("Category", "Integration")]` | `Category` |
+   | xUnit v3 | `[Trait("Category", "Integration")]` | `Category` (use `--filter-trait`) |
+   | TUnit | `[Category("Integration")]` | `Category` |
+
+2. **Build the filter expression** and combine it with the platform-correct invocation. For "run the integration tests" against an MSTest project:
+
+   | Platform | SDK | Command |
+   |----------|-----|---------|
+   | VSTest (MSTest) | any | `dotnet test --filter "TestCategory=Integration"` |
+   | MTP (MSTest) | 8 or 9 | `dotnet test -- --filter "TestCategory=Integration"` |
+   | MTP (MSTest) | 10+ | `dotnet test --filter "TestCategory=Integration"` |
+   | MTP (xUnit v3) | 8 or 9 | `dotnet test -- --filter-trait "Category=Integration"` |
+   | MTP (xUnit v3) | 10+ | `dotnet test --filter-trait "Category=Integration"` |
+   | MTP (TUnit) | 8 or 9 | `dotnet test -- --treenode-filter "/*/*/*/*[Category=Integration]"` |
+
+3. If you cannot find a matching attribute, ask the user to confirm the category name or fall back to a name-pattern filter (e.g., `--filter "FullyQualifiedName~Integration"`).
+
 ## Validation
 
 - [ ] Test platform (VSTest or MTP) was correctly identified
 - [ ] Test framework (MSTest, xUnit, NUnit, TUnit) was correctly identified
 - [ ] Correct `dotnet test` invocation was used for the detected platform and SDK version
+- [ ] When the user named a test category/trait/group, the appropriate filter was applied (not "run all tests")
 - [ ] Filter expressions used the syntax appropriate for the platform and framework
 - [ ] Test results were clearly reported to the user
 
