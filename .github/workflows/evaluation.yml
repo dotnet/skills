@@ -880,6 +880,10 @@ jobs:
               FULL_URL="${REPLAY_URL}?manifest=${MANIFEST_ENCODED}&tag=pr-${PR_NUMBER}"
               echo "" >> consolidated-comment.md
               echo "**[▶ Sessions Visualisation](${FULL_URL})** -- interactive replay of all evaluation sessions" >> consolidated-comment.md
+              ANALYTICS_BASE_URL="https://server.mangowater-996ff7b2.swedencentral.azurecontainerapps.io/"
+              FACET_ENCODED=$(printf '%s' "label:pr-${PR_NUMBER}" | jq -sRr @uri)
+              ANALYTICS_URL="${ANALYTICS_BASE_URL}?facet=${FACET_ENCODED}"
+              echo "**[📊 Session Analytics (preview)](${ANALYTICS_URL})** -- aggregated metrics across evaluation sessions" >> consolidated-comment.md
             fi
 
             # Action summary: full table (all columns) + investigation prompt
