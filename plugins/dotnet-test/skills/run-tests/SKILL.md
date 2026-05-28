@@ -2,19 +2,20 @@
 name: run-tests
 description: >
   Runs .NET tests with `dotnet test` and chooses the correct platform/SDK/framework
-  syntax. USE FOR: running, filtering, or troubleshooting `dotnet test`; detecting
-  test platform/framework from `global.json`, `.csproj`, `Directory.Build.props`;
-  selecting VSTest vs Microsoft.Testing.Platform syntax (incl. `--` separator
-  rules on .NET SDK 8/9 vs 10+); choosing the right filter syntax for MSTest /
-  xUnit / NUnit / TUnit (--filter, --filter-class, --filter-trait, --filter-query,
-  --treenode-filter); TRX and other reporting (--report-trx vs --logger trx);
-  blame/hang/crash diagnostics (--blame-hang-timeout, --blame-crash); running
-  tests against a single target framework when a project targets multiple TFMs
-  (e.g., `<TargetFrameworks>net8.0;net9.0</TargetFrameworks>`, `--framework <TFM>`);
-  and avoiding MTP/VSTest argument mixups (e.g., --logger trx on MTP,
-  --report-trx on VSTest, --blame on MTP).
-  DO NOT USE FOR: writing or generating test code, CI/CD pipeline
-  configuration, or debugging failing test logic.
+  syntax. USE FOR: running, filtering, or troubleshooting `dotnet test`; figuring
+  out which test platform (VSTest vs Microsoft.Testing.Platform) a project uses
+  from `global.json`, `.csproj`, `Directory.Build.props` and selecting the
+  matching syntax (incl. `--` separator rules on .NET SDK 8/9 vs 10+); choosing
+  the right filter syntax for MSTest / xUnit / NUnit / TUnit (--filter,
+  --filter-class, --filter-trait, --filter-query, --treenode-filter); TRX/reporting
+  (--report-trx vs --logger trx); blame/hang/crash diagnostics
+  (--blame-hang-timeout, --blame-crash); running tests against a single target
+  framework when a project targets multiple TFMs (e.g.,
+  `<TargetFrameworks>net8.0;net9.0</TargetFrameworks>`, `--framework <TFM>`); and
+  avoiding MTP/VSTest argument mixups (--logger trx on MTP, --report-trx on
+  VSTest, --blame on MTP).
+  DO NOT USE FOR: writing/generating test code, CI/CD config, or debugging
+  failing test logic.
 license: MIT
 ---
 
