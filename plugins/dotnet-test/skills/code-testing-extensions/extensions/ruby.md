@@ -6,14 +6,14 @@ Language-specific guidance for Ruby test generation.
 
 If the prompt does not name a specific file (e.g. "test the repository", "cover one core module", "comprehensive suite"), do **not** assume the largest or top-level upstream code is the intended target. In real workflows the user usually wants to test code they have just added, and large upstream repos contain hundreds of modules already covered by existing specs.
 
-Before planning, run these discovery commands and treat their output as ground truth:
+Run these **read-only** discovery commands first — they are the deliberate exception to Rule #1's "before writing any test or running any command" rule, and their output is the ground truth Rule #1's reading is meant to interpret. Do **not** write or execute any tests until Rule #0 and Rule #1 are both complete.
 
 | Goal | Command |
 |------|---------|
 | List uncommitted edits + untracked files | `git status -s` |
 | Untracked files only (typical for newly-added modules) | `git ls-files --others --exclude-standard` |
 | Recently added files under `lib/` or `app/` | `git log --diff-filter=A --name-only -5 -- 'lib/**' 'app/**'` |
-| Files referenced by `spec_helper.rb` / `rails_helper.rb` | `grep -nE "^require " spec/spec_helper.rb spec/rails_helper.rb 2>/dev/null` |
+| Files referenced by `spec_helper.rb` / `rails_helper.rb` | `grep -nE "^\s*require(_relative)?\s" spec/spec_helper.rb spec/rails_helper.rb 2>/dev/null` |
 | Modules with no matching spec | compare `lib/**/*.rb` against `spec/**/*_spec.rb` paths |
 
 Prefer targets that match **all** of:

@@ -6,7 +6,7 @@ Language-specific guidance for PowerShell test generation using Pester v5.
 
 If the prompt does not name a specific file (e.g. "test the repository", "cover one core module", "comprehensive suite"), do **not** assume the largest or top-level upstream code is the intended target. In real workflows the user usually wants to test code they have just added, and large upstream repos contain hundreds of scripts already covered by existing `*.Tests.ps1` files.
 
-Before planning, run these discovery commands and treat their output as ground truth:
+Run these **read-only** discovery commands first — they are the deliberate exception to Rule #1's "before writing any test or running any command" rule, and their output is the ground truth Rule #1's reading is meant to interpret. Do **not** write or execute any tests until Rule #0 and Rule #1 are both complete.
 
 | Goal | Command |
 |------|---------|
