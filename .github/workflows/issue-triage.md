@@ -128,7 +128,7 @@ Analyze the issue content and determine which area of the codebase it relates to
 | `area-msbuild` | MSBuild, build system, project files |
 | `area-dotnet` | General C#/.NET, common language features |
 | `area-dotnet-ai` | AI/ML, MCP, model context protocol |
-| `area-dotnet-aspnet` | ASP.NET Core, web development |
+| `area-dotnet-aspnetcore` | ASP.NET Core, web development |
 | `area-dotnet-data` | Data access, Entity Framework |
 | `area-dotnet-diag` | Diagnostics, performance, debugging, crash analysis |
 | `area-dotnet-experimental` | Experimental skills under evaluation |
