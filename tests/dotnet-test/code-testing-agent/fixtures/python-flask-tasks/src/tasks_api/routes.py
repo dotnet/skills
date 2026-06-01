@@ -30,7 +30,9 @@ bp = Blueprint("tasks", __name__, url_prefix="/tasks")
 
 @bp.post("")
 def create_task():
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "request body must be a JSON object"}), 400
     title = payload.get("title", "")
     try:
         task = _service().create(title)
