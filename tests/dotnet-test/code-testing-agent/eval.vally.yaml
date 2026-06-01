@@ -45,3 +45,101 @@ stimuli:
       - Generated tests that cover multiple controllers (Students, Courses, Departments, Instructors)
       - Set up the EF Core SchoolContext correctly for testing without a real SQL Server (e.g., InMemory provider or
         SQLite)
+
+  - name: Generate pytest tests for the Flask tasks API (Python polyglot)
+    prompt: |
+      I have a small Python Flask application under fixtures/python-flask-tasks/.
+      It exposes a /tasks REST API backed by a TaskService and an in-memory
+      repository (see fixtures/python-flask-tasks/README.md for the layout).
+      There are no tests yet — the tests/ directory is empty.
+
+      Please generate a comprehensive pytest suite under
+      fixtures/python-flask-tasks/tests/ that:
+        - Unit-tests TaskService with the repository mocked
+          (unittest.mock.Mock(spec=TaskRepository)) and an injected `now`
+          callable, covering happy path, validation errors (empty title,
+          title >200 chars), not-found, and already-done.
+        - Integration-tests the Flask blueprint using
+          `create_app(service=...).test_client()` — no real network ports.
+        - Asserts both HTTP status codes and JSON response bodies for the
+          POST /tasks, GET /tasks, GET /tasks/<id>, and POST /tasks/<id>/complete
+          endpoints, plus 400/404/409 error cases.
+
+      Tests should pass with: `python -m pip install -e ".[test]"` then
+      `python -m pytest` from the fixtures/python-flask-tasks/ directory.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/python-flask-tasks && python3 -m pip install -e '.[test]' --quiet && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "find fixtures/python-flask-tasks/tests -type f -name 'test_*.py' -print -quit | grep -q test_"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Created at least one test file under fixtures/python-flask-tasks/tests/ named test_*.py
+      - Uses Flask's test_client() (or werkzeug Client) for route tests rather than starting a real HTTP server
+      - Mocks TaskRepository (e.g. unittest.mock.Mock(spec=TaskRepository)) when unit-testing TaskService rather than
+        relying on InMemoryTaskRepository
+      - Asserts both HTTP status codes (201/200/400/404/409) and JSON body contents for the /tasks endpoints
+      - Covers TaskService.create validation errors (empty title and >200 char title) and complete()'s 'already done'
+        error
+
+  - name: Generate Vitest tests for the shopping-cart library (TypeScript polyglot)
+    prompt: |
+      I have a small TypeScript shopping-cart library under
+      fixtures/typescript-vitest-cart/ (see its README.md for the layout). It
+      exposes a Cart class with an injectable DiscountPolicy seam, plus
+      NoDiscountPolicy and PercentageDiscountPolicy implementations. There are
+      no tests yet — the tests/ directory is empty.
+
+      Please generate a comprehensive Vitest suite under
+      fixtures/typescript-vitest-cart/tests/ (one or more `*.test.ts` files)
+      that:
+        - Mocks DiscountPolicy with `vi.fn()` (or a hand-rolled stub
+          implementing the interface) when testing Cart, to isolate Cart from
+          its discount collaborator.
+        - Covers Cart.add merge semantics for repeated product ids, add's
+          guard against non-positive / non-integer quantities, updateQuantity
+          (including 0 removing the line and unknown-id throwing), remove
+          returning false for unknown ids, and totals() clamping the discount
+          when the policy returns a value greater than the subtotal.
+        - Includes boundary tests for PercentageDiscountPolicy's constructor
+          (rejects out-of-range percent) and computeDiscountCents (rounds
+          down, returns 0 for non-positive subtotals).
+
+      Tests should pass with: `npm ci` then `npx vitest run` from the
+      fixtures/typescript-vitest-cart/ directory.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/typescript-vitest-cart && npm ci --silent && npx vitest run"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "find fixtures/typescript-vitest-cart/tests -type f -name '*.test.ts' -print -quit | grep -q test"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Created at least one `*.test.ts` file under fixtures/typescript-vitest-cart/tests/
+      - Mocks DiscountPolicy (e.g. via vi.fn() or a hand-rolled stub) when testing Cart, rather than only exercising
+        the real policy implementations
+      - Exercises Cart.add merge semantics, updateQuantity zero-removes, and totals() clamping when the discount
+        exceeds the subtotal
+      - Includes constructor boundary tests for PercentageDiscountPolicy (rejects out-of-range percent)
+      - No real network or filesystem dependencies in the generated tests
