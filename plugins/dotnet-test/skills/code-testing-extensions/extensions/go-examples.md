@@ -162,6 +162,7 @@ package billing
 import (
     "context"
     "errors"
+    "strings"
     "testing"
     "time"
 )
@@ -225,7 +226,7 @@ func TestInvoiceService_CalculateTotal(t *testing.T) {
         t.Run(tt.name, func(t *testing.T) {
             got, err := sut.CalculateTotal(tt.invoice)
             if tt.wantErr != "" {
-                if err == nil || !contains(err.Error(), tt.wantErr) {
+                if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
                     t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
                 }
                 return
@@ -257,7 +258,7 @@ func TestInvoiceService_GetByID(t *testing.T) {
         repo := &fakeRepository{findFunc: func(_ context.Context, _ int) (*Invoice, error) { return nil, nil }}
         sut := NewInvoiceService(repo)
         _, err := sut.GetByID(ctx, 999)
-        if err == nil || !contains(err.Error(), "999") {
+        if err == nil || !strings.Contains(err.Error(), "999") {
             t.Fatalf("expected error mentioning 999, got %v", err)
         }
     })
@@ -301,7 +302,7 @@ func TestInvoiceService_MarkAsPaid(t *testing.T) {
         invoice := &Invoice{ID: 1, Status: StatusPaid}
         repo := &fakeRepository{findFunc: func(_ context.Context, _ int) (*Invoice, error) { return invoice, nil }}
         sut := NewInvoiceService(repo)
-        if err := sut.MarkAsPaid(ctx, 1); err == nil || !contains(err.Error(), "already paid") {
+        if err := sut.MarkAsPaid(ctx, 1); err == nil || !strings.Contains(err.Error(), "already paid") {
             t.Fatalf("expected already-paid error, got %v", err)
         }
         if repo.updated != nil {
@@ -312,23 +313,10 @@ func TestInvoiceService_MarkAsPaid(t *testing.T) {
     t.Run("returns not-found when missing", func(t *testing.T) {
         repo := &fakeRepository{findFunc: func(_ context.Context, _ int) (*Invoice, error) { return nil, nil }}
         sut := NewInvoiceService(repo)
-        if err := sut.MarkAsPaid(ctx, 999); err == nil || !contains(err.Error(), "999") {
+        if err := sut.MarkAsPaid(ctx, 999); err == nil || !strings.Contains(err.Error(), "999") {
             t.Fatalf("expected not-found error, got %v", err)
         }
     })
-}
-
-func contains(s, substr string) bool {
-    return len(s) >= len(substr) && (s == substr || (len(substr) > 0 && stringIndex(s, substr) >= 0))
-}
-
-func stringIndex(s, substr string) int {
-    for i := 0; i+len(substr) <= len(s); i++ {
-        if s[i:i+len(substr)] == substr {
-            return i
-        }
-    }
-    return -1
 }
 ```
 
@@ -364,8 +352,9 @@ testing: warning: no tests to run
 **Fix applied:**
 
 ```bash
-# Before
-go test -run TestInvoiceService_CalculateTotal/single item
+# Before — bare name without anchors, and an unquoted space would be parsed
+# by the shell as two separate arguments
+go test -run 'TestInvoiceService_CalculateTotal/single_item'
 
 # After — anchor the subtest name, replace spaces with underscores
 go test -run '^TestInvoiceService_CalculateTotal$/^single_item_with_10%_tax$' ./internal/billing

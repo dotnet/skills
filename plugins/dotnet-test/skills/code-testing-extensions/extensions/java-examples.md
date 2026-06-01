@@ -10,7 +10,7 @@ A simple `InvoiceService` in a Maven project using JUnit 5:
 pom.xml
 src/main/java/com/contoso/billing/
   InvoiceService.java
-  Invoice.java                       (record with status, taxRate, lineItems)
+  Invoice.java                       (mutable POJO with status, taxRate, lineItems and setStatus / setPaidDate mutators)
   InvoiceStatus.java                 (enum: PENDING, PAID)
   InvoiceRepository.java             (interface)
 src/test/java/com/contoso/billing/   (exists, empty)
