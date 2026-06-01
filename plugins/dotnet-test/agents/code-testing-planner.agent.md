@@ -126,7 +126,7 @@ What this phase accomplishes and why it's first.
 ...
 ```
 
-> **Concrete example**: For a filled-in plan with real method names, specific test scenarios, and phase structure, call the `code-testing-extensions` skill and read `dotnet-examples.md` ("Sample Plan Output" section).
+> **Concrete example**: For a filled-in plan with real method names, specific test scenarios, and phase structure, call the `code-testing-extensions` skill and read the matching `<language>-examples.md` file when one exists — `dotnet-examples.md`, `python-examples.md`, `typescript-examples.md`, `go-examples.md`, `java-examples.md` ("Sample Plan Output" section). For other languages, adapt the closest example.
 
 ## Rules
 

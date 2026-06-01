@@ -157,7 +157,7 @@ Summarize tests created, report any failures or issues, suggest next steps if ne
 - Consider adding integration tests for database layer
 ```
 
-> **Language-specific examples**: For a complete end-to-end walkthrough including sample source code, research output, plan, generated tests, and fix cycles, call the `code-testing-extensions` skill and read `dotnet-examples.md` for .NET.
+> **Language-specific examples**: For a complete end-to-end walkthrough including sample source code, research output, plan, generated tests, and fix cycles, call the `code-testing-extensions` skill and read the matching `<language>-examples.md` file when one exists — `dotnet-examples.md`, `python-examples.md`, `typescript-examples.md`, `go-examples.md`, and `java-examples.md` are currently available. For other languages, follow the base extension file (e.g., `rust.md`, `kotlin.md`) and adapt the pipeline shape shown in the closest example.
 
 ## State Management
 
