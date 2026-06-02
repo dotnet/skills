@@ -3,467 +3,6 @@
   "entries": {
     "Quality": [
       {
-        "model": "claude-opus-4.6",
-        "tool": "customBiggerIsBetter",
-        "commit": {
-          "author": {
-            "name": "Amaury Levé",
-            "username": "JanKrivanek"
-          },
-          "url": "https://github.com/dotnet/skills/commit/3d59e44c7e4d15fa87ea715f5b8150e096a96a5b",
-          "timestamp": "2026-05-14T17:41:31+00:00",
-          "message": "Fix coverage-analysis activation for plateau diagnosis prompts (#647)",
-          "id": "3d59e44c7e4d15fa87ea715f5b8150e096a96a5b"
-        },
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Quality",
-            "value": 8.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Quality",
-            "value": 8.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Quality",
-            "value": 6.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Quality",
-            "value": 8.800000190734863
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Quality",
-            "value": 9.600000381469727
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Quality",
-            "value": 4.800000190734863
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Quality",
-            "value": 8.800000190734863
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Quality",
-            "value": 8.800000190734863
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Quality",
-            "value": 6.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Quality",
-            "value": 9.199999809265137
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Quality",
-            "value": 10.0
-          },
-          {
-            "overfittingScore": 0.33,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Quality",
-            "value": 9.199999809265137
-          },
-          {
-            "overfittingScore": 0.33,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Quality",
-            "value": 5.599999904632568
-          },
-          {
-            "overfittingScore": 0.33,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Quality",
-            "value": 9.600000381469727
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.33,
-            "notActivated": true,
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Quality",
-            "value": 9.199999809265137
-          }
-        ],
-        "date": 1778817218082
-      },
-      {
-        "model": "claude-opus-4.6",
-        "date": 1778902348761,
-        "tool": "customBiggerIsBetter",
-        "benches": [
-          {
-            "value": 4.400000095367432,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Quality",
-            "timedOut": true,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 5.199999809265137,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Quality",
-            "timedOut": true,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.0,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.400000095367432,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Quality",
-            "timedOut": true,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.800000190734863,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Quality",
-            "timedOut": true,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.0,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.399999618530273,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 7.599999904632568,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.400000095367432,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.600000381469727,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Quality",
-            "timedOut": true,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.399999618530273,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Quality",
-            "timedOut": true,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.199999809265137,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.600000381469727,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.600000381469727,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 7.199999809265137,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfittingScore": 0.4,
-            "timedOut": true,
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Quality",
-            "overfitting": "moderate",
-            "value": 7.199999809265137
-          },
-          {
-            "overfittingScore": 0.4,
-            "timedOut": true,
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Quality",
-            "overfitting": "moderate",
-            "value": 8.800000190734863
-          },
-          {
-            "value": 5.199999809265137,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfittingScore": 0.4,
-            "timedOut": true,
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Quality",
-            "overfitting": "moderate",
-            "value": 10.0
-          },
-          {
-            "overfittingScore": 0.4,
-            "timedOut": true,
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Quality",
-            "overfitting": "moderate",
-            "notActivated": true,
-            "value": 8.800000190734863
-          },
-          {
-            "value": 9.600000381469727,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Quality",
-            "unit": "Score (0-10)"
-          }
-        ],
-        "commit": {
-          "timestamp": "2026-05-15T14:24:10+00:00",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Amaury Levé"
-          },
-          "message": "Tighten crap-score boundary to fix coverage-analysis plateau activation (#652)",
-          "url": "https://github.com/dotnet/skills/commit/b0c2336d49d0d86b0b25fea3b61f200a1a2d904e",
-          "id": "b0c2336d49d0d86b0b25fea3b61f200a1a2d904e"
-        }
-      },
-      {
-        "commit": {
-          "timestamp": "2026-05-18T12:47:49+00:00",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Jan Krivanek"
-          },
-          "url": "https://github.com/dotnet/skills/commit/92954153dd34a1a27df813da9d33c283905a2109",
-          "id": "92954153dd34a1a27df813da9d33c283905a2109",
-          "message": "Bump GitHub.Copilot.SDK to 0.3.0 and address breaking changes (#659)"
-        },
-        "tool": "customBiggerIsBetter",
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.22,
-            "value": 8.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.22,
-            "value": 8.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.22,
-            "value": 8.399999618530273,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.22,
-            "value": 9.199999809265137,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.22,
-            "value": 8.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.22,
-            "value": 8.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.599999904632568,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.199999809265137,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.400000095367432,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.31,
-            "value": 9.199999809265137,
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.31,
-            "value": 9.600000381469727,
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Quality",
-            "value": 10.0,
-            "overfittingScore": 0.31,
-            "notActivated": true,
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Quality",
-            "value": 10.0,
-            "overfittingScore": 0.31,
-            "notActivated": true,
-            "unit": "Score (0-10)"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Quality"
-          }
-        ],
-        "model": "claude-opus-4.6",
-        "date": 1779158588202
-      },
-      {
         "benches": [
           {
             "value": 8.0,
@@ -2118,880 +1657,155 @@
             "value": 9.199999809265137
           }
         ]
-      }
-    ],
-    "Efficiency": [
-      {
-        "model": "claude-opus-4.6",
-        "tool": "customSmallerIsBetter",
-        "commit": {
-          "author": {
-            "name": "Amaury Levé",
-            "username": "JanKrivanek"
-          },
-          "url": "https://github.com/dotnet/skills/commit/3d59e44c7e4d15fa87ea715f5b8150e096a96a5b",
-          "timestamp": "2026-05-14T17:41:31+00:00",
-          "message": "Fix coverage-analysis activation for plateau diagnosis prompts (#647)",
-          "id": "3d59e44c7e4d15fa87ea715f5b8150e096a96a5b"
-        },
-        "benches": [
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Time",
-            "value": 50.6
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Tokens In",
-            "value": 91538.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Time",
-            "value": 53.8
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Tokens In",
-            "value": 107844.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Time",
-            "value": 75.2
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Tokens In",
-            "value": 107374.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Time",
-            "value": 39.2
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Tokens In",
-            "value": 52221.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Time",
-            "value": 35.8
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Tokens In",
-            "value": 46549.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Time",
-            "value": 22.0
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Tokens In",
-            "value": 18197.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Time",
-            "value": 31.9
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Tokens In",
-            "value": 59486.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Time",
-            "value": 30.0
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Tokens In",
-            "value": 53762.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Time",
-            "value": 26.3
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Tokens In",
-            "value": 24742.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Time",
-            "value": 29.4
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Tokens In",
-            "value": 49707.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Time",
-            "value": 25.7
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Tokens In",
-            "value": 50764.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Time",
-            "value": 21.1
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Tokens In",
-            "value": 24813.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Time",
-            "value": 31.1
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Tokens In",
-            "value": 49774.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Time",
-            "value": 29.1
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Tokens In",
-            "value": 43513.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Time",
-            "value": 25.4
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Tokens In",
-            "value": 25367.0
-          },
-          {
-            "unit": "seconds",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Time",
-            "value": 25.0
-          },
-          {
-            "unit": "tokens",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Tokens In",
-            "value": 26299.0
-          },
-          {
-            "unit": "seconds",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Time",
-            "value": 24.2
-          },
-          {
-            "unit": "tokens",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Tokens In",
-            "value": 43716.0
-          },
-          {
-            "unit": "seconds",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Time",
-            "value": 16.7
-          },
-          {
-            "unit": "tokens",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Tokens In",
-            "value": 25370.0
-          },
-          {
-            "overfittingScore": 0.33,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Time",
-            "value": 42.2
-          },
-          {
-            "overfittingScore": 0.33,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Tokens In",
-            "value": 120291.0
-          },
-          {
-            "overfittingScore": 0.33,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Time",
-            "value": 34.0
-          },
-          {
-            "overfittingScore": 0.33,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Tokens In",
-            "value": 85028.0
-          },
-          {
-            "unit": "seconds",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Time",
-            "value": 47.6
-          },
-          {
-            "unit": "tokens",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Tokens In",
-            "value": 79895.0
-          },
-          {
-            "overfittingScore": 0.33,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Time",
-            "value": 48.1
-          },
-          {
-            "overfittingScore": 0.33,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Tokens In",
-            "value": 137471.0
-          },
-          {
-            "unit": "seconds",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.33,
-            "notActivated": true,
-            "value": 43.8
-          },
-          {
-            "unit": "tokens",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.33,
-            "notActivated": true,
-            "value": 108999.0
-          },
-          {
-            "unit": "seconds",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Time",
-            "value": 47.3
-          },
-          {
-            "unit": "tokens",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Tokens In",
-            "value": 109499.0
-          }
-        ],
-        "date": 1778817218082
       },
       {
-        "model": "claude-opus-4.6",
-        "date": 1778902348761,
-        "tool": "customSmallerIsBetter",
+        "tool": "customBiggerIsBetter",
         "benches": [
           {
-            "value": 92.0,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Time",
-            "timedOut": true,
-            "unit": "seconds"
+            "unit": "Score (0-10)",
+            "value": 6.400000095367432,
+            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Quality"
           },
           {
-            "value": 83559.0,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Tokens In",
-            "timedOut": true,
-            "unit": "tokens"
+            "unit": "Score (0-10)",
+            "value": 6.0,
+            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Quality"
           },
           {
-            "value": 89.1,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Time",
-            "timedOut": true,
-            "unit": "seconds"
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Quality"
           },
           {
-            "value": 86121.0,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Tokens In",
-            "timedOut": true,
-            "unit": "tokens"
-          },
-          {
-            "value": 49.0,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 62981.0,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 69.5,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Time",
-            "timedOut": true,
-            "unit": "seconds"
-          },
-          {
-            "value": 61750.0,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Tokens In",
-            "timedOut": true,
-            "unit": "tokens"
-          },
-          {
-            "value": 62.8,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Time",
-            "timedOut": true,
-            "unit": "seconds"
-          },
-          {
-            "value": 38693.0,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Tokens In",
-            "timedOut": true,
-            "unit": "tokens"
-          },
-          {
-            "value": 21.1,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 17884.0,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 32.1,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 62644.0,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 24.8,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 56772.0,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 20.9,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 24721.0,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 34.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Time",
-            "timedOut": true,
-            "unit": "seconds"
-          },
-          {
-            "value": 49852.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Tokens In",
-            "timedOut": true,
-            "unit": "tokens"
-          },
-          {
-            "value": 30.8,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Time",
-            "timedOut": true,
-            "unit": "seconds"
-          },
-          {
-            "value": 46875.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Tokens In",
-            "timedOut": true,
-            "unit": "tokens"
-          },
-          {
-            "value": 20.3,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 24936.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 26.3,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 49746.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 22.8,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 35520.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 21.3,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 25250.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 22.8,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 28753.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 32.3,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 79891.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 16.7,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 25392.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "overfittingScore": 0.4,
-            "timedOut": true,
-            "unit": "seconds",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Time",
             "overfitting": "moderate",
-            "value": 58.1
+            "unit": "Score (0-10)",
+            "value": 8.399999618530273,
+            "overfittingScore": 0.3,
+            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Quality"
           },
           {
-            "overfittingScore": 0.4,
-            "timedOut": true,
-            "unit": "tokens",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Tokens In",
             "overfitting": "moderate",
-            "value": 97324.0
+            "unit": "Score (0-10)",
+            "value": 8.800000190734863,
+            "overfittingScore": 0.3,
+            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Quality"
           },
           {
-            "overfittingScore": 0.4,
-            "timedOut": true,
-            "unit": "seconds",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Time",
+            "unit": "Score (0-10)",
+            "value": 6.0,
+            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Quality"
+          },
+          {
             "overfitting": "moderate",
-            "value": 36.0
-          },
-          {
-            "overfittingScore": 0.4,
-            "timedOut": true,
-            "unit": "tokens",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Tokens In",
-            "overfitting": "moderate",
-            "value": 90049.0
-          },
-          {
-            "value": 62.5,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 65560.0,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "overfittingScore": 0.4,
-            "timedOut": true,
-            "unit": "seconds",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Time",
-            "overfitting": "moderate",
-            "value": 50.2
-          },
-          {
-            "overfittingScore": 0.4,
-            "timedOut": true,
-            "unit": "tokens",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Tokens In",
-            "overfitting": "moderate",
-            "value": 138795.0
-          },
-          {
-            "overfittingScore": 0.4,
-            "timedOut": true,
-            "unit": "seconds",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Time",
-            "overfitting": "moderate",
+            "value": 10.0,
             "notActivated": true,
-            "value": 60.0
+            "unit": "Score (0-10)",
+            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Quality",
+            "overfittingScore": 0.3
           },
           {
-            "overfittingScore": 0.4,
-            "timedOut": true,
-            "unit": "tokens",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Tokens In",
             "overfitting": "moderate",
-            "notActivated": true,
-            "value": 102999.0
+            "unit": "Score (0-10)",
+            "value": 9.600000381469727,
+            "overfittingScore": 0.3,
+            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Quality"
           },
           {
-            "value": 49.5,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Time",
-            "unit": "seconds"
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Quality"
           },
           {
-            "value": 114860.0,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Tokens In",
-            "unit": "tokens"
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.599999904632568,
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.0,
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.399999618530273,
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.399999618530273,
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.0,
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.599999904632568,
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.0,
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.199999809265137,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.399999618530273,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Quality"
           }
         ],
         "commit": {
-          "timestamp": "2026-05-15T14:24:10+00:00",
           "author": {
             "username": "JanKrivanek",
             "name": "Amaury Levé"
           },
-          "message": "Tighten crap-score boundary to fix coverage-analysis plateau activation (#652)",
-          "url": "https://github.com/dotnet/skills/commit/b0c2336d49d0d86b0b25fea3b61f200a1a2d904e",
-          "id": "b0c2336d49d0d86b0b25fea3b61f200a1a2d904e"
-        }
-      },
-      {
-        "commit": {
-          "timestamp": "2026-05-18T12:47:49+00:00",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Jan Krivanek"
-          },
-          "url": "https://github.com/dotnet/skills/commit/92954153dd34a1a27df813da9d33c283905a2109",
-          "id": "92954153dd34a1a27df813da9d33c283905a2109",
-          "message": "Bump GitHub.Copilot.SDK to 0.3.0 and address breaking changes (#659)"
+          "id": "680292e04c6326ac07f43d7d286bda6bd202afa5",
+          "timestamp": "2026-06-01T14:46:26+00:00",
+          "message": "Make dotnet-test analysis skills and auditor agent polyglot (#707)",
+          "url": "https://github.com/dotnet/skills/commit/680292e04c6326ac07f43d7d286bda6bd202afa5"
         },
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.22,
-            "value": 38.2,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.22,
-            "value": 96168.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.22,
-            "value": 37.7,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.22,
-            "value": 100797.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 34.5,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 63349.0,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.22,
-            "value": 26.9,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.22,
-            "value": 46340.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.22,
-            "value": 25.7,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.22,
-            "value": 47252.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 17.1,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 13074.0,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.22,
-            "value": 28.8,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.22,
-            "value": 48037.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.22,
-            "value": 27.6,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.22,
-            "value": 45811.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 23.2,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 28369.0,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 26.2,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 43684.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 20.3,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 36398.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 17.6,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 25835.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 21.1,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 35879.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 20.7,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 36547.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 20.1,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 28786.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 29.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 62580.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 38.4,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 79801.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 26.9,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 26328.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.31,
-            "value": 50.9,
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.31,
-            "value": 119832.0,
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.31,
-            "value": 44.4,
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.31,
-            "value": 117908.0,
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 53.7,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 65799.0,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Time",
-            "value": 60.9,
-            "overfittingScore": 0.31,
-            "notActivated": true,
-            "unit": "seconds"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Tokens In",
-            "value": 102448.0,
-            "overfittingScore": 0.31,
-            "notActivated": true,
-            "unit": "tokens"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Time",
-            "value": 43.3,
-            "overfittingScore": 0.31,
-            "notActivated": true,
-            "unit": "seconds"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Tokens In",
-            "value": 101421.0,
-            "overfittingScore": 0.31,
-            "notActivated": true,
-            "unit": "tokens"
-          },
-          {
-            "unit": "seconds",
-            "value": 46.7,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 104365.0,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Tokens In"
-          }
-        ],
         "model": "claude-opus-4.6",
-        "date": 1779158588202
-      },
+        "date": 1780368228361
+      }
+    ],
+    "Efficiency": [
       {
         "benches": [
           {
@@ -6116,8 +4930,283 @@
             "value": 28621.0
           }
         ]
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "unit": "seconds",
+            "value": 56.3,
+            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 104800.0,
+            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 44.8,
+            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 86309.0,
+            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 26.6,
+            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 26212.0,
+            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "value": 60.1,
+            "overfittingScore": 0.3,
+            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "value": 118945.0,
+            "overfittingScore": 0.3,
+            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "value": 58.2,
+            "overfittingScore": 0.3,
+            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "value": 103841.0,
+            "overfittingScore": 0.3,
+            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 61.2,
+            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 65949.0,
+            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 68.7,
+            "notActivated": true,
+            "unit": "seconds",
+            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Time",
+            "overfittingScore": 0.3
+          },
+          {
+            "overfitting": "moderate",
+            "value": 110579.0,
+            "notActivated": true,
+            "unit": "tokens",
+            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Tokens In",
+            "overfittingScore": 0.3
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "value": 66.2,
+            "overfittingScore": 0.3,
+            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "value": 118888.0,
+            "overfittingScore": 0.3,
+            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 60.6,
+            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 110740.0,
+            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 63.4,
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 105971.0,
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 66.5,
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 110172.0,
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 52.3,
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 65956.0,
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 34.3,
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 46345.0,
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 29.9,
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 47197.0,
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 15.8,
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 13073.0,
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 34.9,
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 51168.0,
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 35.9,
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 45750.0,
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 16.1,
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 12999.0,
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 23.7,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 51541.0,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 15.9,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 40332.0,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 13.5,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 25835.0,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 22.1,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 35898.0,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 17.2,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 32635.0,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 16.5,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 25902.0,
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Tokens In"
+          }
+        ],
+        "commit": {
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Amaury Levé"
+          },
+          "id": "680292e04c6326ac07f43d7d286bda6bd202afa5",
+          "timestamp": "2026-06-01T14:46:26+00:00",
+          "message": "Make dotnet-test analysis skills and auditor agent polyglot (#707)",
+          "url": "https://github.com/dotnet/skills/commit/680292e04c6326ac07f43d7d286bda6bd202afa5"
+        },
+        "model": "claude-opus-4.6",
+        "date": 1780368228361
       }
     ]
   },
-  "lastUpdate": 1780022575394
+  "lastUpdate": 1780368228361
 }

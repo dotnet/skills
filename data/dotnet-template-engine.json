@@ -3,589 +3,6 @@
   "entries": {
     "Quality": [
       {
-        "model": "claude-opus-4.6",
-        "tool": "customBiggerIsBetter",
-        "commit": {
-          "author": {
-            "name": "Amaury Levé",
-            "username": "JanKrivanek"
-          },
-          "url": "https://github.com/dotnet/skills/commit/3d59e44c7e4d15fa87ea715f5b8150e096a96a5b",
-          "timestamp": "2026-05-14T17:41:31+00:00",
-          "message": "Fix coverage-analysis activation for plateau diagnosis prompts (#647)",
-          "id": "3d59e44c7e4d15fa87ea715f5b8150e096a96a5b"
-        },
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "name": "template-authoring/Validate a template.json file - Skilled Quality",
-            "value": 3.5999999046325684
-          },
-          {
-            "notActivated": true,
-            "unit": "Score (0-10)",
-            "name": "template-authoring/Validate a template.json file - Plugin Quality",
-            "value": 6.800000190734863
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-authoring/Validate a template.json file - Vanilla Quality",
-            "value": 4.400000095367432
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-authoring/Create template from existing project - Skilled Quality",
-            "value": 2.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-authoring/Create template from existing project - Plugin Quality",
-            "value": 4.400000095367432
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-authoring/Create template from existing project - Vanilla Quality",
-            "value": 2.0
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "template-discovery/Find template for web API project - Skilled Quality",
-            "value": 3.5999999046325684
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "template-discovery/Find template for web API project - Plugin Quality",
-            "value": 6.800000190734863
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-discovery/Find template for web API project - Vanilla Quality",
-            "value": 3.200000047683716
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "template-discovery/Inspect template parameters and compare choices - Skilled Quality",
-            "value": 4.400000095367432
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "template-discovery/Inspect template parameters and compare choices - Plugin Quality",
-            "value": 5.599999904632568
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-discovery/Inspect template parameters and compare choices - Vanilla Quality",
-            "value": 4.400000095367432
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "template-discovery/Search NuGet for specialized template - Skilled Quality",
-            "value": 4.0
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "template-discovery/Search NuGet for specialized template - Plugin Quality",
-            "value": 5.599999904632568
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-discovery/Search NuGet for specialized template - Vanilla Quality",
-            "value": 4.0
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Quality",
-            "value": 4.400000095367432
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Quality",
-            "value": 8.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Quality",
-            "value": 8.0
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "template-discovery/Preview project creation with dry run - Skilled Quality",
-            "value": 3.200000047683716
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "template-discovery/Preview project creation with dry run - Plugin Quality",
-            "value": 7.599999904632568
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-discovery/Preview project creation with dry run - Vanilla Quality",
-            "value": 4.800000190734863
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-validation/Validate template with multiple errors - Skilled Quality",
-            "value": 9.600000381469727
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-validation/Validate template with multiple errors - Plugin Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-validation/Validate template with multiple errors - Vanilla Quality",
-            "value": 8.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-validation/Validate correct template and suggest improvements - Skilled Quality",
-            "value": 8.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-validation/Validate correct template and suggest improvements - Plugin Quality",
-            "value": 8.399999618530273
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Quality",
-            "value": 3.5999999046325684
-          },
-          {
-            "overfittingScore": 0.35,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "template-instantiation/Create a console application - Skilled Quality",
-            "value": 10.0
-          },
-          {
-            "overfittingScore": 0.35,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "template-instantiation/Create a console application - Plugin Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "template-instantiation/Create a console application - Vanilla Quality",
-            "value": 8.800000190734863
-          }
-        ],
-        "date": 1778817227165
-      },
-      {
-        "model": "claude-opus-4.6",
-        "date": 1778902357627,
-        "tool": "customBiggerIsBetter",
-        "benches": [
-          {
-            "value": 8.800000190734863,
-            "name": "template-instantiation/Create a console application - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.27,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "template-instantiation/Create a console application - Plugin Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.27,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.0,
-            "name": "template-instantiation/Create a console application - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.0,
-            "name": "template-discovery/Find template for web API project - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.0,
-            "name": "template-discovery/Find template for web API project - Plugin Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 4.0,
-            "name": "template-discovery/Find template for web API project - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfittingScore": 0.21,
-            "timedOut": true,
-            "unit": "Score (0-10)",
-            "name": "template-discovery/Inspect template parameters and compare choices - Skilled Quality",
-            "overfitting": "moderate",
-            "value": 5.599999904632568
-          },
-          {
-            "overfittingScore": 0.21,
-            "timedOut": true,
-            "unit": "Score (0-10)",
-            "name": "template-discovery/Inspect template parameters and compare choices - Plugin Quality",
-            "overfitting": "moderate",
-            "value": 8.0
-          },
-          {
-            "value": 3.200000047683716,
-            "name": "template-discovery/Inspect template parameters and compare choices - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 4.800000190734863,
-            "name": "template-discovery/Search NuGet for specialized template - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 7.599999904632568,
-            "name": "template-discovery/Search NuGet for specialized template - Plugin Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.800000190734863,
-            "name": "template-discovery/Search NuGet for specialized template - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.0,
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.0,
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.0,
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.0,
-            "name": "template-discovery/Preview project creation with dry run - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.400000095367432,
-            "name": "template-discovery/Preview project creation with dry run - Plugin Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.0,
-            "name": "template-discovery/Preview project creation with dry run - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.800000190734863,
-            "name": "template-validation/Validate template with multiple errors - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "template-validation/Validate template with multiple errors - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.0,
-            "name": "template-validation/Validate template with multiple errors - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 7.199999809265137,
-            "name": "template-validation/Validate correct template and suggest improvements - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.399999618530273,
-            "name": "template-validation/Validate correct template and suggest improvements - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 3.200000047683716,
-            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 5.199999809265137,
-            "name": "template-authoring/Validate a template.json file - Skilled Quality",
-            "timedOut": true,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.199999809265137,
-            "name": "template-authoring/Validate a template.json file - Plugin Quality",
-            "timedOut": true,
-            "notActivated": true,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.0,
-            "name": "template-authoring/Validate a template.json file - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.0,
-            "name": "template-authoring/Create template from existing project - Skilled Quality",
-            "timedOut": true,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 7.599999904632568,
-            "name": "template-authoring/Create template from existing project - Plugin Quality",
-            "timedOut": true,
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 7.199999809265137,
-            "name": "template-authoring/Create template from existing project - Vanilla Quality",
-            "unit": "Score (0-10)"
-          }
-        ],
-        "commit": {
-          "timestamp": "2026-05-15T14:24:10+00:00",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Amaury Levé"
-          },
-          "message": "Tighten crap-score boundary to fix coverage-analysis plateau activation (#652)",
-          "url": "https://github.com/dotnet/skills/commit/b0c2336d49d0d86b0b25fea3b61f200a1a2d904e",
-          "id": "b0c2336d49d0d86b0b25fea3b61f200a1a2d904e"
-        }
-      },
-      {
-        "commit": {
-          "timestamp": "2026-05-18T12:47:49+00:00",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Jan Krivanek"
-          },
-          "url": "https://github.com/dotnet/skills/commit/92954153dd34a1a27df813da9d33c283905a2109",
-          "id": "92954153dd34a1a27df813da9d33c283905a2109",
-          "message": "Bump GitHub.Copilot.SDK to 0.3.0 and address breaking changes (#659)"
-        },
-        "tool": "customBiggerIsBetter",
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.23,
-            "value": 10.0,
-            "overfitting": "moderate",
-            "name": "template-instantiation/Create a console application - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.23,
-            "value": 9.600000381469727,
-            "overfitting": "moderate",
-            "name": "template-instantiation/Create a console application - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "template-instantiation/Create a console application - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.23,
-            "value": 8.0,
-            "overfitting": "moderate",
-            "name": "template-discovery/Find template for web API project - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.23,
-            "value": 8.0,
-            "overfitting": "moderate",
-            "name": "template-discovery/Find template for web API project - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 4.0,
-            "name": "template-discovery/Find template for web API project - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.23,
-            "value": 8.0,
-            "overfitting": "moderate",
-            "name": "template-discovery/Inspect template parameters and compare choices - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.23,
-            "value": 8.0,
-            "overfitting": "moderate",
-            "name": "template-discovery/Inspect template parameters and compare choices - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "template-discovery/Inspect template parameters and compare choices - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.23,
-            "value": 8.399999618530273,
-            "overfitting": "moderate",
-            "name": "template-discovery/Search NuGet for specialized template - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.23,
-            "value": 7.599999904632568,
-            "overfitting": "moderate",
-            "name": "template-discovery/Search NuGet for specialized template - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.199999809265137,
-            "name": "template-discovery/Search NuGet for specialized template - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.23,
-            "value": 6.800000190734863,
-            "overfitting": "moderate",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.23,
-            "value": 8.0,
-            "overfitting": "moderate",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.599999904632568,
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.23,
-            "value": 3.5999999046325684,
-            "overfitting": "moderate",
-            "name": "template-discovery/Preview project creation with dry run - Skilled Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "template-discovery/Preview project creation with dry run - Plugin Quality",
-            "value": 6.0,
-            "overfittingScore": 0.23,
-            "notActivated": true,
-            "unit": "Score (0-10)"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.400000095367432,
-            "name": "template-discovery/Preview project creation with dry run - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 4.800000190734863,
-            "name": "template-validation/Validate template with multiple errors - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "template-validation/Validate template with multiple errors - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 4.800000190734863,
-            "name": "template-validation/Validate template with multiple errors - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 4.400000095367432,
-            "name": "template-validation/Validate correct template and suggest improvements - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "name": "template-validation/Validate correct template and suggest improvements - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 2.4000000953674316,
-            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "template-authoring/Validate a template.json file - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "notActivated": true,
-            "name": "template-authoring/Validate a template.json file - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "template-authoring/Validate a template.json file - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "name": "template-authoring/Create template from existing project - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "name": "template-authoring/Create template from existing project - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.599999904632568,
-            "name": "template-authoring/Create template from existing project - Vanilla Quality"
-          }
-        ],
-        "model": "claude-opus-4.6",
-        "date": 1779158594040
-      },
-      {
         "benches": [
           {
             "value": 9.600000381469727,
@@ -2636,1124 +2053,182 @@
             "value": 8.0
           }
         ]
-      }
-    ],
-    "Efficiency": [
-      {
-        "model": "claude-opus-4.6",
-        "tool": "customSmallerIsBetter",
-        "commit": {
-          "author": {
-            "name": "Amaury Levé",
-            "username": "JanKrivanek"
-          },
-          "url": "https://github.com/dotnet/skills/commit/3d59e44c7e4d15fa87ea715f5b8150e096a96a5b",
-          "timestamp": "2026-05-14T17:41:31+00:00",
-          "message": "Fix coverage-analysis activation for plateau diagnosis prompts (#647)",
-          "id": "3d59e44c7e4d15fa87ea715f5b8150e096a96a5b"
-        },
-        "benches": [
-          {
-            "unit": "seconds",
-            "name": "template-authoring/Validate a template.json file - Skilled Time",
-            "value": 31.9
-          },
-          {
-            "unit": "tokens",
-            "name": "template-authoring/Validate a template.json file - Skilled Tokens In",
-            "value": 28976.0
-          },
-          {
-            "notActivated": true,
-            "unit": "seconds",
-            "name": "template-authoring/Validate a template.json file - Plugin Time",
-            "value": 30.8
-          },
-          {
-            "notActivated": true,
-            "unit": "tokens",
-            "name": "template-authoring/Validate a template.json file - Plugin Tokens In",
-            "value": 45079.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-authoring/Validate a template.json file - Vanilla Time",
-            "value": 29.5
-          },
-          {
-            "unit": "tokens",
-            "name": "template-authoring/Validate a template.json file - Vanilla Tokens In",
-            "value": 19648.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-authoring/Create template from existing project - Skilled Time",
-            "value": 41.6
-          },
-          {
-            "unit": "tokens",
-            "name": "template-authoring/Create template from existing project - Skilled Tokens In",
-            "value": 34752.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-authoring/Create template from existing project - Plugin Time",
-            "value": 109.8
-          },
-          {
-            "unit": "tokens",
-            "name": "template-authoring/Create template from existing project - Plugin Tokens In",
-            "value": 174283.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-authoring/Create template from existing project - Vanilla Time",
-            "value": 35.2
-          },
-          {
-            "unit": "tokens",
-            "name": "template-authoring/Create template from existing project - Vanilla Tokens In",
-            "value": 19680.0
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "template-discovery/Find template for web API project - Skilled Time",
-            "value": 39.4
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "template-discovery/Find template for web API project - Skilled Tokens In",
-            "value": 24047.0
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "template-discovery/Find template for web API project - Plugin Time",
-            "value": 32.9
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "template-discovery/Find template for web API project - Plugin Tokens In",
-            "value": 40216.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-discovery/Find template for web API project - Vanilla Time",
-            "value": 25.6
-          },
-          {
-            "unit": "tokens",
-            "name": "template-discovery/Find template for web API project - Vanilla Tokens In",
-            "value": 7336.0
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "template-discovery/Inspect template parameters and compare choices - Skilled Time",
-            "value": 38.8
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "template-discovery/Inspect template parameters and compare choices - Skilled Tokens In",
-            "value": 30477.0
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "template-discovery/Inspect template parameters and compare choices - Plugin Time",
-            "value": 38.6
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "template-discovery/Inspect template parameters and compare choices - Plugin Tokens In",
-            "value": 35778.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-discovery/Inspect template parameters and compare choices - Vanilla Time",
-            "value": 43.7
-          },
-          {
-            "unit": "tokens",
-            "name": "template-discovery/Inspect template parameters and compare choices - Vanilla Tokens In",
-            "value": 48526.0
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "template-discovery/Search NuGet for specialized template - Skilled Time",
-            "value": 35.3
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "template-discovery/Search NuGet for specialized template - Skilled Tokens In",
-            "value": 24093.0
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "template-discovery/Search NuGet for specialized template - Plugin Time",
-            "value": 33.7
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "template-discovery/Search NuGet for specialized template - Plugin Tokens In",
-            "value": 36896.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-discovery/Search NuGet for specialized template - Vanilla Time",
-            "value": 38.4
-          },
-          {
-            "unit": "tokens",
-            "name": "template-discovery/Search NuGet for specialized template - Vanilla Tokens In",
-            "value": 15238.0
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Time",
-            "value": 40.8
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Tokens In",
-            "value": 41106.0
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Time",
-            "value": 58.5
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Tokens In",
-            "value": 68576.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Time",
-            "value": 55.1
-          },
-          {
-            "unit": "tokens",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Tokens In",
-            "value": 48999.0
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "template-discovery/Preview project creation with dry run - Skilled Time",
-            "value": 22.7
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "template-discovery/Preview project creation with dry run - Skilled Tokens In",
-            "value": 19969.0
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "template-discovery/Preview project creation with dry run - Plugin Time",
-            "value": 22.8
-          },
-          {
-            "overfittingScore": 0.24,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "template-discovery/Preview project creation with dry run - Plugin Tokens In",
-            "value": 37353.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-discovery/Preview project creation with dry run - Vanilla Time",
-            "value": 25.5
-          },
-          {
-            "unit": "tokens",
-            "name": "template-discovery/Preview project creation with dry run - Vanilla Tokens In",
-            "value": 15768.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-validation/Validate template with multiple errors - Skilled Time",
-            "value": 26.4
-          },
-          {
-            "unit": "tokens",
-            "name": "template-validation/Validate template with multiple errors - Skilled Tokens In",
-            "value": 42380.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-validation/Validate template with multiple errors - Plugin Time",
-            "value": 29.9
-          },
-          {
-            "unit": "tokens",
-            "name": "template-validation/Validate template with multiple errors - Plugin Tokens In",
-            "value": 43273.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-validation/Validate template with multiple errors - Vanilla Time",
-            "value": 15.3
-          },
-          {
-            "unit": "tokens",
-            "name": "template-validation/Validate template with multiple errors - Vanilla Tokens In",
-            "value": 24891.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-validation/Validate correct template and suggest improvements - Skilled Time",
-            "value": 19.9
-          },
-          {
-            "unit": "tokens",
-            "name": "template-validation/Validate correct template and suggest improvements - Skilled Tokens In",
-            "value": 41739.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-validation/Validate correct template and suggest improvements - Plugin Time",
-            "value": 26.8
-          },
-          {
-            "unit": "tokens",
-            "name": "template-validation/Validate correct template and suggest improvements - Plugin Tokens In",
-            "value": 50380.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Time",
-            "value": 21.8
-          },
-          {
-            "unit": "tokens",
-            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Tokens In",
-            "value": 34864.0
-          },
-          {
-            "overfittingScore": 0.35,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "template-instantiation/Create a console application - Skilled Time",
-            "value": 29.5
-          },
-          {
-            "overfittingScore": 0.35,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "template-instantiation/Create a console application - Skilled Tokens In",
-            "value": 77824.0
-          },
-          {
-            "overfittingScore": 0.35,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "template-instantiation/Create a console application - Plugin Time",
-            "value": 29.2
-          },
-          {
-            "overfittingScore": 0.35,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "template-instantiation/Create a console application - Plugin Tokens In",
-            "value": 80954.0
-          },
-          {
-            "unit": "seconds",
-            "name": "template-instantiation/Create a console application - Vanilla Time",
-            "value": 12.6
-          },
-          {
-            "unit": "tokens",
-            "name": "template-instantiation/Create a console application - Vanilla Tokens In",
-            "value": 29370.0
-          }
-        ],
-        "date": 1778817227165
       },
       {
-        "model": "claude-opus-4.6",
-        "date": 1778902357627,
-        "tool": "customSmallerIsBetter",
+        "tool": "customBiggerIsBetter",
         "benches": [
           {
-            "value": 37.7,
-            "name": "template-instantiation/Create a console application - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.27,
-            "unit": "seconds"
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "template-authoring/Validate a template.json file - Skilled Quality"
           },
           {
-            "value": 74874.0,
-            "name": "template-instantiation/Create a console application - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.27,
-            "unit": "tokens"
-          },
-          {
-            "value": 40.1,
-            "name": "template-instantiation/Create a console application - Plugin Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.27,
-            "unit": "seconds"
-          },
-          {
-            "value": 81096.0,
-            "name": "template-instantiation/Create a console application - Plugin Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.27,
-            "unit": "tokens"
-          },
-          {
-            "value": 22.9,
-            "name": "template-instantiation/Create a console application - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 26899.0,
-            "name": "template-instantiation/Create a console application - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 26.7,
-            "name": "template-discovery/Find template for web API project - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "seconds"
-          },
-          {
-            "value": 41217.0,
-            "name": "template-discovery/Find template for web API project - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "tokens"
-          },
-          {
-            "value": 25.4,
-            "name": "template-discovery/Find template for web API project - Plugin Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "seconds"
-          },
-          {
-            "value": 43282.0,
-            "name": "template-discovery/Find template for web API project - Plugin Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "tokens"
-          },
-          {
-            "value": 10.2,
-            "name": "template-discovery/Find template for web API project - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 12190.0,
-            "name": "template-discovery/Find template for web API project - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "overfittingScore": 0.21,
-            "timedOut": true,
-            "unit": "seconds",
-            "name": "template-discovery/Inspect template parameters and compare choices - Skilled Time",
-            "overfitting": "moderate",
-            "value": 32.1
-          },
-          {
-            "overfittingScore": 0.21,
-            "timedOut": true,
-            "unit": "tokens",
-            "name": "template-discovery/Inspect template parameters and compare choices - Skilled Tokens In",
-            "overfitting": "moderate",
-            "value": 40313.0
-          },
-          {
-            "overfittingScore": 0.21,
-            "timedOut": true,
-            "unit": "seconds",
-            "name": "template-discovery/Inspect template parameters and compare choices - Plugin Time",
-            "overfitting": "moderate",
-            "value": 37.9
-          },
-          {
-            "overfittingScore": 0.21,
-            "timedOut": true,
-            "unit": "tokens",
-            "name": "template-discovery/Inspect template parameters and compare choices - Plugin Tokens In",
-            "overfitting": "moderate",
-            "value": 46103.0
-          },
-          {
-            "value": 62.0,
-            "name": "template-discovery/Inspect template parameters and compare choices - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 46238.0,
-            "name": "template-discovery/Inspect template parameters and compare choices - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 28.4,
-            "name": "template-discovery/Search NuGet for specialized template - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "seconds"
-          },
-          {
-            "value": 41443.0,
-            "name": "template-discovery/Search NuGet for specialized template - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "tokens"
-          },
-          {
-            "value": 26.2,
-            "name": "template-discovery/Search NuGet for specialized template - Plugin Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "seconds"
-          },
-          {
-            "value": 46364.0,
-            "name": "template-discovery/Search NuGet for specialized template - Plugin Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "tokens"
-          },
-          {
-            "value": 21.6,
-            "name": "template-discovery/Search NuGet for specialized template - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 25653.0,
-            "name": "template-discovery/Search NuGet for specialized template - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 38.9,
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "seconds"
-          },
-          {
-            "value": 60752.0,
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "tokens"
-          },
-          {
-            "value": 41.7,
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "seconds"
-          },
-          {
-            "value": 65969.0,
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "tokens"
-          },
-          {
-            "value": 26.9,
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 40550.0,
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 22.3,
-            "name": "template-discovery/Preview project creation with dry run - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "seconds"
-          },
-          {
-            "value": 54459.0,
-            "name": "template-discovery/Preview project creation with dry run - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "tokens"
-          },
-          {
-            "value": 16.6,
-            "name": "template-discovery/Preview project creation with dry run - Plugin Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "seconds"
-          },
-          {
-            "value": 31150.0,
-            "name": "template-discovery/Preview project creation with dry run - Plugin Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "unit": "tokens"
-          },
-          {
-            "value": 14.8,
-            "name": "template-discovery/Preview project creation with dry run - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 26221.0,
-            "name": "template-discovery/Preview project creation with dry run - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 22.9,
-            "name": "template-validation/Validate template with multiple errors - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 42185.0,
-            "name": "template-validation/Validate template with multiple errors - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 27.6,
-            "name": "template-validation/Validate template with multiple errors - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 43176.0,
-            "name": "template-validation/Validate template with multiple errors - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 22.6,
-            "name": "template-validation/Validate template with multiple errors - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 25430.0,
-            "name": "template-validation/Validate template with multiple errors - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 21.1,
-            "name": "template-validation/Validate correct template and suggest improvements - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 41930.0,
-            "name": "template-validation/Validate correct template and suggest improvements - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 29.6,
-            "name": "template-validation/Validate correct template and suggest improvements - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 45400.0,
-            "name": "template-validation/Validate correct template and suggest improvements - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 24.4,
-            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 39986.0,
-            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 82.9,
-            "name": "template-authoring/Validate a template.json file - Skilled Time",
-            "timedOut": true,
-            "unit": "seconds"
-          },
-          {
-            "value": 29363.0,
-            "name": "template-authoring/Validate a template.json file - Skilled Tokens In",
-            "timedOut": true,
-            "unit": "tokens"
-          },
-          {
-            "value": 21.4,
-            "name": "template-authoring/Validate a template.json file - Plugin Time",
-            "timedOut": true,
+            "unit": "Score (0-10)",
+            "value": 10.0,
             "notActivated": true,
-            "unit": "seconds"
+            "name": "template-authoring/Validate a template.json file - Plugin Quality"
           },
           {
-            "value": 43036.0,
-            "name": "template-authoring/Validate a template.json file - Plugin Tokens In",
-            "timedOut": true,
+            "unit": "Score (0-10)",
+            "value": 7.599999904632568,
+            "name": "template-authoring/Validate a template.json file - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "template-authoring/Create template from existing project - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.600000381469727,
+            "name": "template-authoring/Create template from existing project - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.599999904632568,
+            "name": "template-authoring/Create template from existing project - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.800000190734863,
+            "name": "template-validation/Validate template with multiple errors - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.800000190734863,
+            "name": "template-validation/Validate template with multiple errors - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "template-validation/Validate template with multiple errors - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.399999618530273,
+            "name": "template-validation/Validate correct template and suggest improvements - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.399999618530273,
+            "name": "template-validation/Validate correct template and suggest improvements - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 4.0,
+            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "template-discovery/Find template for web API project - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "template-discovery/Find template for web API project - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 4.400000095367432,
+            "name": "template-discovery/Find template for web API project - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "template-discovery/Inspect template parameters and compare choices - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "template-discovery/Inspect template parameters and compare choices - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.199999809265137,
+            "name": "template-discovery/Inspect template parameters and compare choices - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.800000190734863,
+            "name": "template-discovery/Search NuGet for specialized template - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "template-discovery/Search NuGet for specialized template - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "template-discovery/Search NuGet for specialized template - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.599999904632568,
+            "name": "template-discovery/Preview project creation with dry run - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.400000095367432,
             "notActivated": true,
-            "unit": "tokens"
+            "name": "template-discovery/Preview project creation with dry run - Plugin Quality"
           },
           {
-            "value": 81.4,
-            "name": "template-authoring/Validate a template.json file - Vanilla Time",
-            "unit": "seconds"
+            "unit": "Score (0-10)",
+            "value": 6.400000095367432,
+            "name": "template-discovery/Preview project creation with dry run - Vanilla Quality"
           },
           {
-            "value": 17289.0,
-            "name": "template-authoring/Validate a template.json file - Vanilla Tokens In",
-            "unit": "tokens"
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.24,
+            "name": "template-instantiation/Create a console application - Skilled Quality"
           },
           {
-            "value": 172.0,
-            "name": "template-authoring/Create template from existing project - Skilled Time",
-            "timedOut": true,
-            "unit": "seconds"
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.24,
+            "name": "template-instantiation/Create a console application - Plugin Quality"
           },
           {
-            "value": 240540.0,
-            "name": "template-authoring/Create template from existing project - Skilled Tokens In",
-            "timedOut": true,
-            "unit": "tokens"
-          },
-          {
-            "value": 184.9,
-            "name": "template-authoring/Create template from existing project - Plugin Time",
-            "timedOut": true,
-            "unit": "seconds"
-          },
-          {
-            "value": 256030.0,
-            "name": "template-authoring/Create template from existing project - Plugin Tokens In",
-            "timedOut": true,
-            "unit": "tokens"
-          },
-          {
-            "value": 95.9,
-            "name": "template-authoring/Create template from existing project - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 158761.0,
-            "name": "template-authoring/Create template from existing project - Vanilla Tokens In",
-            "unit": "tokens"
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "template-instantiation/Create a console application - Vanilla Quality"
           }
         ],
         "commit": {
-          "timestamp": "2026-05-15T14:24:10+00:00",
           "author": {
             "username": "JanKrivanek",
             "name": "Amaury Levé"
           },
-          "message": "Tighten crap-score boundary to fix coverage-analysis plateau activation (#652)",
-          "url": "https://github.com/dotnet/skills/commit/b0c2336d49d0d86b0b25fea3b61f200a1a2d904e",
-          "id": "b0c2336d49d0d86b0b25fea3b61f200a1a2d904e"
-        }
-      },
-      {
-        "commit": {
-          "timestamp": "2026-05-18T12:47:49+00:00",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Jan Krivanek"
-          },
-          "url": "https://github.com/dotnet/skills/commit/92954153dd34a1a27df813da9d33c283905a2109",
-          "id": "92954153dd34a1a27df813da9d33c283905a2109",
-          "message": "Bump GitHub.Copilot.SDK to 0.3.0 and address breaking changes (#659)"
+          "id": "680292e04c6326ac07f43d7d286bda6bd202afa5",
+          "timestamp": "2026-06-01T14:46:26+00:00",
+          "message": "Make dotnet-test analysis skills and auditor agent polyglot (#707)",
+          "url": "https://github.com/dotnet/skills/commit/680292e04c6326ac07f43d7d286bda6bd202afa5"
         },
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.23,
-            "value": 36.1,
-            "overfitting": "moderate",
-            "name": "template-instantiation/Create a console application - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.23,
-            "value": 87643.0,
-            "overfitting": "moderate",
-            "name": "template-instantiation/Create a console application - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.23,
-            "value": 29.6,
-            "overfitting": "moderate",
-            "name": "template-instantiation/Create a console application - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.23,
-            "value": 78651.0,
-            "overfitting": "moderate",
-            "name": "template-instantiation/Create a console application - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 12.0,
-            "name": "template-instantiation/Create a console application - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 25376.0,
-            "name": "template-instantiation/Create a console application - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.23,
-            "value": 26.2,
-            "overfitting": "moderate",
-            "name": "template-discovery/Find template for web API project - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.23,
-            "value": 42891.0,
-            "overfitting": "moderate",
-            "name": "template-discovery/Find template for web API project - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.23,
-            "value": 24.3,
-            "overfitting": "moderate",
-            "name": "template-discovery/Find template for web API project - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.23,
-            "value": 44740.0,
-            "overfitting": "moderate",
-            "name": "template-discovery/Find template for web API project - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 11.0,
-            "name": "template-discovery/Find template for web API project - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 12753.0,
-            "name": "template-discovery/Find template for web API project - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.23,
-            "value": 33.9,
-            "overfitting": "moderate",
-            "name": "template-discovery/Inspect template parameters and compare choices - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.23,
-            "value": 45555.0,
-            "overfitting": "moderate",
-            "name": "template-discovery/Inspect template parameters and compare choices - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.23,
-            "value": 33.4,
-            "overfitting": "moderate",
-            "name": "template-discovery/Inspect template parameters and compare choices - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.23,
-            "value": 47469.0,
-            "overfitting": "moderate",
-            "name": "template-discovery/Inspect template parameters and compare choices - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 38.1,
-            "name": "template-discovery/Inspect template parameters and compare choices - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 69847.0,
-            "name": "template-discovery/Inspect template parameters and compare choices - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.23,
-            "value": 26.4,
-            "overfitting": "moderate",
-            "name": "template-discovery/Search NuGet for specialized template - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.23,
-            "value": 46077.0,
-            "overfitting": "moderate",
-            "name": "template-discovery/Search NuGet for specialized template - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.23,
-            "value": 27.6,
-            "overfitting": "moderate",
-            "name": "template-discovery/Search NuGet for specialized template - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.23,
-            "value": 44763.0,
-            "overfitting": "moderate",
-            "name": "template-discovery/Search NuGet for specialized template - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 20.8,
-            "name": "template-discovery/Search NuGet for specialized template - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 26908.0,
-            "name": "template-discovery/Search NuGet for specialized template - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.23,
-            "value": 33.4,
-            "overfitting": "moderate",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.23,
-            "value": 54610.0,
-            "overfitting": "moderate",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.23,
-            "value": 38.5,
-            "overfitting": "moderate",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.23,
-            "value": 66412.0,
-            "overfitting": "moderate",
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 27.2,
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 58803.0,
-            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.23,
-            "value": 15.7,
-            "overfitting": "moderate",
-            "name": "template-discovery/Preview project creation with dry run - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.23,
-            "value": 33457.0,
-            "overfitting": "moderate",
-            "name": "template-discovery/Preview project creation with dry run - Skilled Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "template-discovery/Preview project creation with dry run - Plugin Time",
-            "value": 20.4,
-            "overfittingScore": 0.23,
-            "notActivated": true,
-            "unit": "seconds"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "template-discovery/Preview project creation with dry run - Plugin Tokens In",
-            "value": 46111.0,
-            "overfittingScore": 0.23,
-            "notActivated": true,
-            "unit": "tokens"
-          },
-          {
-            "unit": "seconds",
-            "value": 18.7,
-            "name": "template-discovery/Preview project creation with dry run - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 27370.0,
-            "name": "template-discovery/Preview project creation with dry run - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 14.1,
-            "name": "template-validation/Validate template with multiple errors - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 24367.0,
-            "name": "template-validation/Validate template with multiple errors - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 20.7,
-            "name": "template-validation/Validate template with multiple errors - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 43795.0,
-            "name": "template-validation/Validate template with multiple errors - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 12.7,
-            "name": "template-validation/Validate template with multiple errors - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 17970.0,
-            "name": "template-validation/Validate template with multiple errors - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 17.6,
-            "name": "template-validation/Validate correct template and suggest improvements - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 37830.0,
-            "name": "template-validation/Validate correct template and suggest improvements - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 19.3,
-            "name": "template-validation/Validate correct template and suggest improvements - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 54612.0,
-            "name": "template-validation/Validate correct template and suggest improvements - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 12.4,
-            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 17890.0,
-            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 14.7,
-            "name": "template-authoring/Validate a template.json file - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 55221.0,
-            "name": "template-authoring/Validate a template.json file - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 17.4,
-            "notActivated": true,
-            "name": "template-authoring/Validate a template.json file - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 48720.0,
-            "notActivated": true,
-            "name": "template-authoring/Validate a template.json file - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 13.7,
-            "name": "template-authoring/Validate a template.json file - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 33434.0,
-            "name": "template-authoring/Validate a template.json file - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 100.0,
-            "name": "template-authoring/Create template from existing project - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 299341.0,
-            "name": "template-authoring/Create template from existing project - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 97.3,
-            "name": "template-authoring/Create template from existing project - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 308827.0,
-            "name": "template-authoring/Create template from existing project - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 39.3,
-            "name": "template-authoring/Create template from existing project - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 125156.0,
-            "name": "template-authoring/Create template from existing project - Vanilla Tokens In"
-          }
-        ],
         "model": "claude-opus-4.6",
-        "date": 1779158594040
-      },
+        "date": 1780368243376
+      }
+    ],
+    "Efficiency": [
       {
         "benches": [
           {
@@ -7670,8 +6145,337 @@
             "value": 25495.0
           }
         ]
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "unit": "seconds",
+            "value": 28.0,
+            "name": "template-authoring/Validate a template.json file - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 52614.0,
+            "name": "template-authoring/Validate a template.json file - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 29.4,
+            "notActivated": true,
+            "name": "template-authoring/Validate a template.json file - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 57175.0,
+            "notActivated": true,
+            "name": "template-authoring/Validate a template.json file - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 23.7,
+            "name": "template-authoring/Validate a template.json file - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 46280.0,
+            "name": "template-authoring/Validate a template.json file - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 127.2,
+            "name": "template-authoring/Create template from existing project - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 282047.0,
+            "name": "template-authoring/Create template from existing project - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 111.4,
+            "name": "template-authoring/Create template from existing project - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 216194.0,
+            "name": "template-authoring/Create template from existing project - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 107.2,
+            "name": "template-authoring/Create template from existing project - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 182290.0,
+            "name": "template-authoring/Create template from existing project - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 26.9,
+            "name": "template-validation/Validate template with multiple errors - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 41859.0,
+            "name": "template-validation/Validate template with multiple errors - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 25.2,
+            "name": "template-validation/Validate template with multiple errors - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 43739.0,
+            "name": "template-validation/Validate template with multiple errors - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 18.5,
+            "name": "template-validation/Validate template with multiple errors - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 25909.0,
+            "name": "template-validation/Validate template with multiple errors - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 30.7,
+            "name": "template-validation/Validate correct template and suggest improvements - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 54468.0,
+            "name": "template-validation/Validate correct template and suggest improvements - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 32.1,
+            "name": "template-validation/Validate correct template and suggest improvements - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 54288.0,
+            "name": "template-validation/Validate correct template and suggest improvements - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 20.3,
+            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 25784.0,
+            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 20.0,
+            "name": "template-discovery/Find template for web API project - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 42676.0,
+            "name": "template-discovery/Find template for web API project - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 18.6,
+            "name": "template-discovery/Find template for web API project - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 44591.0,
+            "name": "template-discovery/Find template for web API project - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 10.0,
+            "name": "template-discovery/Find template for web API project - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 12786.0,
+            "name": "template-discovery/Find template for web API project - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 27.9,
+            "name": "template-discovery/Inspect template parameters and compare choices - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 45521.0,
+            "name": "template-discovery/Inspect template parameters and compare choices - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 27.3,
+            "name": "template-discovery/Inspect template parameters and compare choices - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 47469.0,
+            "name": "template-discovery/Inspect template parameters and compare choices - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 29.6,
+            "name": "template-discovery/Inspect template parameters and compare choices - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 66351.0,
+            "name": "template-discovery/Inspect template parameters and compare choices - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 25.0,
+            "name": "template-discovery/Search NuGet for specialized template - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 42848.0,
+            "name": "template-discovery/Search NuGet for specialized template - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 22.8,
+            "name": "template-discovery/Search NuGet for specialized template - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 44748.0,
+            "name": "template-discovery/Search NuGet for specialized template - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 19.1,
+            "name": "template-discovery/Search NuGet for specialized template - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 32368.0,
+            "name": "template-discovery/Search NuGet for specialized template - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 48.5,
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 62494.0,
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 50.6,
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 71081.0,
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 52.9,
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 65300.0,
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 26.2,
+            "name": "template-discovery/Preview project creation with dry run - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 43355.0,
+            "name": "template-discovery/Preview project creation with dry run - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 21.5,
+            "notActivated": true,
+            "name": "template-discovery/Preview project creation with dry run - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 46061.0,
+            "notActivated": true,
+            "name": "template-discovery/Preview project creation with dry run - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 18.9,
+            "name": "template-discovery/Preview project creation with dry run - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 27350.0,
+            "name": "template-discovery/Preview project creation with dry run - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "value": 27.4,
+            "overfittingScore": 0.24,
+            "name": "template-instantiation/Create a console application - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "value": 85891.0,
+            "overfittingScore": 0.24,
+            "name": "template-instantiation/Create a console application - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "value": 20.8,
+            "overfittingScore": 0.24,
+            "name": "template-instantiation/Create a console application - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "value": 66233.0,
+            "overfittingScore": 0.24,
+            "name": "template-instantiation/Create a console application - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 9.8,
+            "name": "template-instantiation/Create a console application - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 25504.0,
+            "name": "template-instantiation/Create a console application - Vanilla Tokens In"
+          }
+        ],
+        "commit": {
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Amaury Levé"
+          },
+          "id": "680292e04c6326ac07f43d7d286bda6bd202afa5",
+          "timestamp": "2026-06-01T14:46:26+00:00",
+          "message": "Make dotnet-test analysis skills and auditor agent polyglot (#707)",
+          "url": "https://github.com/dotnet/skills/commit/680292e04c6326ac07f43d7d286bda6bd202afa5"
+        },
+        "model": "claude-opus-4.6",
+        "date": 1780368243376
       }
     ]
   },
-  "lastUpdate": 1780022592697
+  "lastUpdate": 1780368243376
 }
