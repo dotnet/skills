@@ -53,31 +53,23 @@ scenarios:
   - name: "Generate pytest tests for the Flask tasks API (Python polyglot)"
     prompt: |
       I have a Python Flask web application under fixtures/python-flask-tasks/
-      — a small /tasks REST API with a service layer (TaskService with an
-      injected `now` clock), an in-memory repository implementing a Protocol,
-      and a Flask blueprint exposing the HTTP surface (see
-      fixtures/python-flask-tasks/README.md for the layout). There are no
-      tests yet — the tests/ directory is empty. This is a project-wide,
-      multi-file test generation task across the service, repository, and
-      routes layers.
+      — a tasks REST API with a TaskService layer, an in-memory repository
+      implementing a Protocol, and a Flask blueprint exposing the HTTP
+      surface (see fixtures/python-flask-tasks/README.md for the layout).
+      There are no tests yet — the tests/ directory is empty. This is a
+      project-wide, multi-file test generation task across the service,
+      repository, and routes layers.
 
-      Please scaffold a comprehensive pytest suite under
-      fixtures/python-flask-tasks/tests/ and achieve high code coverage
-      across the tasks_api package. The suite should:
-        - Unit-test TaskService with the repository mocked or stubbed (not
-          the real in-memory implementation), and an injected `now`
-          callable so completion timestamps are deterministic. Cover the
-          happy path, validation errors (empty title, oversized title),
-          not-found, and already-done cases.
-        - Integration-test the Flask blueprint in-process (Flask exposes a
-          test client for this — no real network ports).
-        - Assert both HTTP status codes and JSON response bodies for the
-          POST /tasks, GET /tasks, GET /tasks/<id>, and POST
-          /tasks/<id>/complete endpoints, including 400/404/409 error
-          cases.
-
-      Tests should pass with: `python -m pip install -e ".[test]"` then
-      `python -m pytest` from the fixtures/python-flask-tasks/ directory.
+      Please scaffold a comprehensive pytest test suite under
+      fixtures/python-flask-tasks/tests/, then write comprehensive unit
+      and integration tests across the tasks_api package — covering the
+      service layer, the repository, and the Flask routes. Achieve high
+      code coverage. The generated tests should pass with:
+      `python -m pip install -e ".[test]"` then `python -m pytest` from
+      the fixtures/python-flask-tasks/ directory, and the pyproject test
+      extra should be configured to produce a coverage XML report via
+      pytest-cov (add `pytest-cov` to the [test] extra and configure
+      `--cov=tasks_api --cov-report=xml` if not already there).
     setup:
       copy_test_files: true
     assertions:
@@ -109,31 +101,23 @@ scenarios:
   - name: "Generate Vitest tests for the shopping-cart library (TypeScript polyglot)"
     prompt: |
       I have a TypeScript shopping-cart library under
-      fixtures/typescript-vitest-cart/ — a small package with a Cart class,
+      fixtures/typescript-vitest-cart/ — a package with a Cart class,
       an injectable DiscountPolicy seam, and NoDiscountPolicy /
-      PercentageDiscountPolicy implementations (see its README.md for the
-      layout). There are no tests yet — the tests/ directory is empty. This
-      is a project-wide, multi-file test generation task across the cart
-      and pricing modules.
+      PercentageDiscountPolicy implementations (see its README.md for
+      the layout). There are no tests yet — the tests/ directory is
+      empty. This is a project-wide, multi-file test generation task
+      across the cart and pricing modules.
 
-      Please scaffold a comprehensive Vitest suite under
-      fixtures/typescript-vitest-cart/tests/ (one or more `*.test.ts` files)
-      and achieve high code coverage across the src/ modules. The suite
-      should:
-        - Use a mock or hand-written stub for DiscountPolicy when testing
-          Cart, so Cart is exercised in isolation from its discount
-          collaborator rather than only through the real policy classes.
-        - Cover Cart.add merge semantics for repeated product ids, add's
-          guard against non-positive / non-integer quantities, updateQuantity
-          (including 0 removing the line and unknown-id throwing), remove
-          returning false for unknown ids, and totals() clamping the discount
-          when the policy returns a value greater than the subtotal.
-        - Include boundary tests for PercentageDiscountPolicy's constructor
-          (rejects out-of-range percent) and computeDiscountCents (rounds
-          down, returns 0 for non-positive subtotals).
-
-      Tests should pass with: `npm ci` then `npx vitest run` from the
-      fixtures/typescript-vitest-cart/ directory.
+      Please scaffold a comprehensive Vitest test suite under
+      fixtures/typescript-vitest-cart/tests/, then write comprehensive
+      unit tests across the cart and pricing modules. Achieve high code
+      coverage. The generated tests should pass with: `npm ci` then
+      `npx vitest run` from the fixtures/typescript-vitest-cart/
+      directory, and the project should be configured so
+      `npx vitest run --coverage` produces an lcov coverage report
+      under coverage/ (add `@vitest/coverage-v8` to devDependencies and
+      configure the coverage provider in vitest.config.ts if not
+      already there).
     setup:
       copy_test_files: true
     assertions:
