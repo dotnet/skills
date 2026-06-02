@@ -25,6 +25,8 @@ class TaskService:
         self._now = now or (lambda: datetime.now(timezone.utc))
 
     def create(self, title: str) -> Task:
+        if not isinstance(title, str):
+            raise ValueError("title must be a string")
         if not title or not title.strip():
             raise ValueError("title must not be empty")
         if len(title) > 200:

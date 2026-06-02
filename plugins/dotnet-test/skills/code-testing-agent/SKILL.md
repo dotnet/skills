@@ -1,19 +1,22 @@
 ---
 name: code-testing-agent
 description: >-
-  Generates and writes new unit tests for any programming language. Use when
-  asked to generate tests, write unit tests, add tests, improve test
-  coverage, create test project, achieve high coverage, comprehensive
-  tests, or scaffold a new test project for an app, service, library,
-  API, or package — including project-wide or multi-file test
-  generation tasks. Supports C#/.NET, Python (pytest, Flask/Django apps),
-  TypeScript/JavaScript (Vitest, Jest, Mocha, Node libraries), Go,
-  Rust, Java (JUnit), and more. Orchestrates the code-testing-generator
+  Generates and writes new unit tests for any programming language —
+  scaffolds .NET test projects, pytest test suites, Vitest/Jest test
+  suites, Go test files, and JUnit test suites. Use when asked to
+  generate tests, generate pytest tests, generate Vitest tests, write
+  unit tests, add tests, improve coverage, comprehensive tests, or
+  scaffold a new test project / test suite for an app, web app,
+  service, library, REST API, blueprint, or package — including
+  project-wide and multi-file test generation across services,
+  repositories, routes, and modules. Supports C#/.NET, Python (pytest,
+  Flask/Django), TypeScript/JavaScript (Vitest, Jest, Mocha, Node),
+  Go, Rust, Java (JUnit). Orchestrates the code-testing-generator
   sub-agent through research, planning, and implementation phases so
   tests compile, pass, and follow project conventions. DO NOT USE FOR:
-  running existing tests (use run-tests); coverage/CRAP analysis without
-  writing tests (use coverage-analysis or crap-score); MSTest pattern
-  modernization or fixing existing MSTest code (use writing-mstest-tests).
+  running tests (use run-tests); coverage/CRAP analysis (use
+  coverage-analysis or crap-score); MSTest modernization (use
+  writing-mstest-tests).
 license: MIT
 ---
 

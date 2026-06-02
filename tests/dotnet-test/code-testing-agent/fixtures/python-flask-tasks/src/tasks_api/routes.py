@@ -34,6 +34,8 @@ def create_task():
     if not isinstance(payload, dict):
         return jsonify({"error": "request body must be a JSON object"}), 400
     title = payload.get("title", "")
+    if not isinstance(title, str):
+        return jsonify({"error": "title must be a string"}), 400
     try:
         task = _service().create(title)
     except ValueError as exc:

@@ -5,7 +5,10 @@
 export interface DiscountPolicy {
   /**
    * @param subtotalCents Sum of (unitPriceCents * quantity) across all lines, before any discount.
-   * @returns Discount amount in cents (non-negative integer). Must not exceed the subtotal.
+   * @returns Discount amount in cents as an integer. Cart.totals() clamps the returned value
+   *          into [0, subtotalCents], so policies should aim for that range but are not
+   *          required to — negative values are clamped to 0 and over-subtotal values are
+   *          clamped down to subtotalCents.
    */
   computeDiscountCents(subtotalCents: number): number;
 }
