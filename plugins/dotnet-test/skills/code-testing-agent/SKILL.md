@@ -2,21 +2,21 @@
 name: code-testing-agent
 description: >-
   Generates and writes new unit tests for any programming language —
-  scaffolds .NET test projects, pytest test suites, Vitest/Jest test
-  suites, Go test files, and JUnit test suites. Use when asked to
-  generate tests, generate pytest tests, generate Vitest tests, write
-  unit tests, add tests, improve coverage, comprehensive tests, or
-  scaffold a new test project / test suite for an app, web app,
-  service, library, REST API, blueprint, or package — including
-  project-wide and multi-file test generation across services,
-  repositories, routes, and modules. Supports C#/.NET, Python (pytest,
-  Flask/Django), TypeScript/JavaScript (Vitest, Jest, Mocha, Node),
-  Go, Rust, Java (JUnit). Orchestrates the code-testing-generator
-  sub-agent through research, planning, and implementation phases so
-  tests compile, pass, and follow project conventions. DO NOT USE FOR:
-  running tests (use run-tests); coverage/CRAP analysis (use
-  coverage-analysis or crap-score); MSTest modernization (use
-  writing-mstest-tests).
+  scaffolds .NET test projects, pytest suites, Vitest/Jest suites,
+  Go test files, and JUnit suites, and configures coverage tooling
+  (coverlet, pytest-cov, @vitest/coverage-v8) as part of test
+  generation. Use when asked to generate tests, generate pytest
+  tests, generate Vitest tests, write unit tests, add tests, improve
+  coverage, comprehensive tests, or scaffold a new test project or
+  suite for an app, service, library, REST API, blueprint, or
+  package — including project-wide, multi-file test generation
+  across services, repositories, routes, and modules. Supports
+  C#/.NET, Python (pytest, Flask/Django), TypeScript/JavaScript
+  (Vitest, Jest, Mocha), Go, Rust, Java (JUnit). Runs a research,
+  planning, and implementation pipeline so tests compile and pass.
+  DO NOT USE FOR: running existing tests (use run-tests); analyzing
+  existing coverage reports (use coverage-analysis or crap-score);
+  MSTest modernization (use writing-mstest-tests).
 license: MIT
 ---
 

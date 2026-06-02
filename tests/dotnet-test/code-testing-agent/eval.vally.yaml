@@ -85,6 +85,11 @@ stimuli:
           command: sh -c "find fixtures/python-flask-tasks/tests -type f -name 'test_*.py' -print -quit | grep -q test_"
           expected_exit_code: 0
           timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "test -f fixtures/python-flask-tasks/coverage.xml"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
       - type: pairwise
     rubric:
@@ -132,6 +137,16 @@ stimuli:
       - type: run-command
         config:
           command: sh -c "find fixtures/typescript-vitest-cart/tests -type f -name '*.test.ts' -print -quit | grep -q test"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/typescript-vitest-cart && npx vitest run --coverage --reporter=basic"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "test -f fixtures/typescript-vitest-cart/coverage/lcov.info"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
