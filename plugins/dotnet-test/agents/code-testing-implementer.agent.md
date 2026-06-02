@@ -99,7 +99,7 @@ ISSUES:
 - [Any unresolved issues]
 ```
 
-> **Concrete example**: For a complete generated test file and build-error fix cycle walkthrough, call the `code-testing-extensions` skill and read `dotnet-examples.md` ("Sample Generated Test File" and "Sample Fix Cycle" sections).
+> **Concrete example**: For a complete generated test file and build-error fix cycle walkthrough, call the `code-testing-extensions` skill and read the matching `<language>-examples.md` file when one exists — `dotnet-examples.md`, `python-examples.md`, `typescript-examples.md`, `go-examples.md`, `java-examples.md` ("Sample Generated Test File" and "Sample Fix Cycle" sections). For other languages, adapt the closest example to the project's framework.
 
 ## Rules
 

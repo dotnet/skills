@@ -29,7 +29,11 @@ This skill provides access to language-specific guidance files used by the code-
 | [extensions/swift.md](extensions/swift.md) | Swift | SPM and Xcode test commands, XCTest vs Swift Testing, `@testable import`, async/throws tests, common errors |
 | [extensions/kotlin.md](extensions/kotlin.md) | Kotlin | Gradle commands, JUnit/Kotest detection, MockK, coroutines test, KMP and Android specifics, common errors |
 | [extensions/dotnet-examples.md](extensions/dotnet-examples.md) | .NET (C#/F#/VB) | Concrete pipeline examples: sample research output, plan, generated tests, fix cycles, final report |
+| [extensions/python-examples.md](extensions/python-examples.md) | Python | Concrete pipeline examples (pytest): research, plan, generated test file, fix cycles, final report |
+| [extensions/typescript-examples.md](extensions/typescript-examples.md) | TypeScript/JavaScript | Concrete pipeline examples (Vitest, applicable to Jest): research, plan, generated test file, fix cycles, final report |
+| [extensions/go-examples.md](extensions/go-examples.md) | Go | Concrete pipeline examples (standard `testing`): research, plan, table-driven test file, fix cycles, final report |
+| [extensions/java-examples.md](extensions/java-examples.md) | Java | Concrete pipeline examples (JUnit 5 + Mockito on Maven): research, plan, generated test file, fix cycles, final report |
 
 ## Usage
 
-Read the appropriate extension file for the target language before writing test code.
+Read the appropriate extension file for the target language before writing test code. When an `<language>-examples.md` file exists for the target language, read it alongside the base extension to see a concrete end-to-end pipeline walkthrough (research output, plan, generated tests, fix cycles, final report).
