@@ -48,22 +48,29 @@ stimuli:
 
   - name: Generate pytest tests for the Flask tasks API (Python polyglot)
     prompt: |
-      I have a small Python Flask application under fixtures/python-flask-tasks/.
-      It exposes a /tasks REST API backed by a TaskService and an in-memory
-      repository (see fixtures/python-flask-tasks/README.md for the layout).
-      There are no tests yet — the tests/ directory is empty.
+      I have a Python Flask web application under fixtures/python-flask-tasks/
+      — a small /tasks REST API with a service layer (TaskService with an
+      injected `now` clock), an in-memory repository implementing a Protocol,
+      and a Flask blueprint exposing the HTTP surface (see
+      fixtures/python-flask-tasks/README.md for the layout). There are no
+      tests yet — the tests/ directory is empty. This is a project-wide,
+      multi-file test generation task across the service, repository, and
+      routes layers.
 
-      Please generate a comprehensive pytest suite under
-      fixtures/python-flask-tasks/tests/ that:
-        - Unit-tests TaskService with the repository mocked
-          (unittest.mock.Mock(spec=TaskRepository)) and an injected `now`
-          callable, covering happy path, validation errors (empty title,
-          title >200 chars), not-found, and already-done.
-        - Integration-tests the Flask blueprint using
-          `create_app(service=...).test_client()` — no real network ports.
-        - Asserts both HTTP status codes and JSON response bodies for the
-          POST /tasks, GET /tasks, GET /tasks/<id>, and POST /tasks/<id>/complete
-          endpoints, plus 400/404/409 error cases.
+      Please scaffold a comprehensive pytest suite under
+      fixtures/python-flask-tasks/tests/ and achieve high code coverage
+      across the tasks_api package. The suite should:
+        - Unit-test TaskService with the repository mocked or stubbed (not
+          the real in-memory implementation), and an injected `now`
+          callable so completion timestamps are deterministic. Cover the
+          happy path, validation errors (empty title, oversized title),
+          not-found, and already-done cases.
+        - Integration-test the Flask blueprint in-process (Flask exposes a
+          test client for this — no real network ports).
+        - Assert both HTTP status codes and JSON response bodies for the
+          POST /tasks, GET /tasks, GET /tasks/<id>, and POST
+          /tasks/<id>/complete endpoints, including 400/404/409 error
+          cases.
 
       Tests should pass with: `python -m pip install -e ".[test]"` then
       `python -m pytest` from the fixtures/python-flask-tasks/ directory.
@@ -95,24 +102,27 @@ stimuli:
 
   - name: Generate Vitest tests for the shopping-cart library (TypeScript polyglot)
     prompt: |
-      I have a small TypeScript shopping-cart library under
-      fixtures/typescript-vitest-cart/ (see its README.md for the layout). It
-      exposes a Cart class with an injectable DiscountPolicy seam, plus
-      NoDiscountPolicy and PercentageDiscountPolicy implementations. There are
-      no tests yet — the tests/ directory is empty.
+      I have a TypeScript shopping-cart library under
+      fixtures/typescript-vitest-cart/ — a small package with a Cart class,
+      an injectable DiscountPolicy seam, and NoDiscountPolicy /
+      PercentageDiscountPolicy implementations (see its README.md for the
+      layout). There are no tests yet — the tests/ directory is empty. This
+      is a project-wide, multi-file test generation task across the cart
+      and pricing modules.
 
-      Please generate a comprehensive Vitest suite under
+      Please scaffold a comprehensive Vitest suite under
       fixtures/typescript-vitest-cart/tests/ (one or more `*.test.ts` files)
-      that:
-        - Mocks DiscountPolicy with `vi.fn()` (or a hand-rolled stub
-          implementing the interface) when testing Cart, to isolate Cart from
-          its discount collaborator.
-        - Covers Cart.add merge semantics for repeated product ids, add's
+      and achieve high code coverage across the src/ modules. The suite
+      should:
+        - Use a mock or hand-written stub for DiscountPolicy when testing
+          Cart, so Cart is exercised in isolation from its discount
+          collaborator rather than only through the real policy classes.
+        - Cover Cart.add merge semantics for repeated product ids, add's
           guard against non-positive / non-integer quantities, updateQuantity
           (including 0 removing the line and unknown-id throwing), remove
           returning false for unknown ids, and totals() clamping the discount
           when the policy returns a value greater than the subtotal.
-        - Includes boundary tests for PercentageDiscountPolicy's constructor
+        - Include boundary tests for PercentageDiscountPolicy's constructor
           (rejects out-of-range percent) and computeDiscountCents (rounds
           down, returns 0 for non-positive subtotals).
 
