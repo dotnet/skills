@@ -73,14 +73,15 @@ scenarios:
       the queries.apply_query function over fixed Task lists,
       InMemoryTaskRepository, SqliteTaskRepository against an in-memory
       connection, and the Flask blueprint via Flask's test_client.
-      Achieve high code coverage. The generated tests should pass
-      with: `python -m pip install -e ".[test]"` then `python -m pytest`
-      from the fixtures/python-flask-tasks/ directory, and the project
-      should be configured so pytest produces a coverage XML report
-      under fixtures/python-flask-tasks/coverage.xml (add `pytest-cov`
-      to the [test] extra and configure `--cov=tasks_api
-      --cov-report=xml` in the pytest options if it is not already
-      there).
+
+      Coverage tooling (pytest-cov) is pre-configured in pyproject.toml
+      with a hard floor of 80% line + branch coverage on the tasks_api
+      package. The generated tests should pass with: `python -m pip
+      install -e ".[test]"` then `python -m pytest` from the
+      fixtures/python-flask-tasks/ directory — the run fails (and the
+      coverage XML report under fixtures/python-flask-tasks/coverage.xml
+      is not produced) if your tests do not clear the 80% floor across
+      every module.
     setup:
       copy_test_files: true
     assertions:
@@ -142,14 +143,16 @@ scenarios:
       discount / tax / shipping seams mocked) and every real policy /
       calculator implementation, and async checkout() (with
       PriceFetcher, InventoryChecker, and AsyncTaxRateProvider mocked
-      via vi.fn().mockResolvedValue / mockRejectedValue). Achieve high
-      code coverage. The generated tests should pass with: `npm ci`
-      then `npx vitest run` from the fixtures/typescript-vitest-cart/
-      directory, and the project should be configured so `npx vitest
-      run --coverage` produces an lcov coverage report at
-      fixtures/typescript-vitest-cart/coverage/lcov.info (add
-      `@vitest/coverage-v8` to devDependencies and configure the
-      coverage provider in vitest.config.ts if it is not already there).
+      via vi.fn().mockResolvedValue / mockRejectedValue).
+
+      Coverage tooling (@vitest/coverage-v8) is pre-configured in
+      vitest.config.ts with a hard floor of 80% line / statement /
+      function coverage and 70% branch coverage on src/. The generated
+      tests should pass with: `npm ci` then `npx vitest run` from the
+      fixtures/typescript-vitest-cart/ directory, and the run-with-
+      coverage step `npx vitest run --coverage` (which produces
+      fixtures/typescript-vitest-cart/coverage/lcov.info) fails if your
+      tests do not clear the configured thresholds across every module.
     setup:
       copy_test_files: true
     assertions:

@@ -25,7 +25,13 @@ tests/                                  # intentionally empty — the agent must
 ```bash
 npm ci
 npx vitest run
+npx vitest run --coverage
 ```
+
+Coverage (`@vitest/coverage-v8`) is pre-configured in `vitest.config.ts`
+and is enforced as a **hard floor** when `--coverage` is passed: lines /
+statements / functions ≥ 80%, branches ≥ 70%. The coverage run exits
+non-zero if any threshold is not met.
 
 ## What the agent should produce
 

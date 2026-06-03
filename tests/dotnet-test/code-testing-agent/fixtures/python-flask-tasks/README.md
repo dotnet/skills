@@ -35,6 +35,11 @@ py -m pip install -e ".[test]"
 py -m pytest
 ```
 
+Coverage (pytest-cov) is enabled by default via `pyproject.toml` and is
+enforced as a **hard 80% line + branch floor** on the `tasks_api` package
+— `pytest` exits non-zero (and `coverage.xml` is not produced) when the
+suite does not cover at least 80% of lines and branches.
+
 ## What the agent should produce
 
 A planned, layered test suite covering the multiple seams in this fixture:
