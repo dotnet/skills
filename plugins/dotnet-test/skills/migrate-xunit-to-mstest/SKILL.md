@@ -62,7 +62,7 @@ For writing idiomatic MSTest code (modern assertion APIs, lifecycle patterns, da
 
 ## Workflow
 
-> **Commit strategy:** Commit after Step 2 (packages updated, builds broken), after Step 5 (attributes converted, most asserts fixed), and after Step 9 (fixtures/lifecycle rewritten, tests pass). Commit before fixing follow-up cleanup so reviewers can bisect.
+> **Commit strategy:** Commit after Step 2 (packages updated, builds broken), after Step 6 (attributes converted, asserts fixed), and after Step 8 (fixtures/lifecycle rewritten, tests pass). Commit before fixing follow-up cleanup so reviewers can bisect.
 
 ### Step 1: Assess the project
 
@@ -80,7 +80,7 @@ For writing idiomatic MSTest code (modern assertion APIs, lifecycle patterns, da
 5. Inventory high-risk patterns -- scan for these and flag them now so you can plan judgement steps later:
    - **Parallelization differences (Step 11)** -- xUnit parallelizes test classes by default; MSTest does not. This is the **single most common source of post-migration regressions**: tests that depended on isolation by parallel scheduling, on the lack of it, or on shared static state can pass differently. Decide the target parallelization model now -- do not leave it as the MSTest default by accident.
    - `ICollectionFixture<T>` / `[CollectionDefinition]` (scope concern -- see Step 8)
-   - Custom `DataAttribute` / custom `FactAttribute` / custom `TheoryAttribute` subclasses (manual conversion to `ITestDataSource` / `TestMethodAttribute` -- see Step 6)
+   - Custom `DataAttribute` / custom `FactAttribute` / custom `TheoryAttribute` subclasses (manual conversion to `ITestDataSource` / `TestMethodAttribute` -- see Step 5)
    - `Assert.Throws<T>` (xUnit semantics = exact type; maps to `Assert.ThrowsExactly<T>`, **not** `Assert.Throws<T>`)
    - `Record.Exception` / `Record.ExceptionAsync` (manual conversion)
    - `Assert.Raises*` / event assertions (no MSTest equivalent -- manual)
@@ -227,7 +227,7 @@ Reversing these flips the assertion semantics silently. Verify by name, not by v
 
 | xUnit | MSTest |
 |---|---|
-| Constructor (sync setup) | Keep constructor (MSTest also instantiates per test). Drop xUnit-only `ITestOutputHelper` param -- see Step 8 |
+| Constructor (sync setup) | Keep constructor (MSTest also instantiates per test). Drop xUnit-only `ITestOutputHelper` param -- see Step 9 |
 | `Dispose()` (sync teardown) | Keep `Dispose()` (MSTest supports `IDisposable`) **or** rewrite as `[TestCleanup] public void Cleanup() { ... }` |
 | `DisposeAsync()` (async teardown) | Keep `IAsyncDisposable.DisposeAsync()` **or** rewrite as `[TestCleanup] public async Task CleanupAsync() { ... }` |
 | `IAsyncLifetime.InitializeAsync` | `[TestInitialize] public async Task InitAsync() { ... }` |
