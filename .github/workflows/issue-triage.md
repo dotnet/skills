@@ -15,6 +15,12 @@ on:
         description: "Issue number to triage"
         required: true
 
+  # Allow triggering on issues opened by any user, not just maintainers.
+  # The workflow only assigns labels and posts a triage comment, so it is
+  # safe to run for external contributors. Default would restrict to
+  # [admin, maintainer, write] and silently skip everyone else.
+  roles: all
+
   # ###############################################################
   # Override the COPILOT_GITHUB_TOKEN secret usage for the workflow
   # with a randomly-selected token from a pool of secrets.
