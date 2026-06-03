@@ -874,7 +874,8 @@ jobs:
 
             # Append AGENTVIZ replay link if session data was published
             if [[ "${{ needs.publish-session-data.result }}" == "success" ]]; then
-              MANIFEST_URL="https://raw.githubusercontent.com/${{ github.repository }}/dashboard-session-data/data/manifest.json"
+              # Session data lives in the standalone dotnet/skills-data repo.
+              MANIFEST_URL="https://raw.githubusercontent.com/dotnet/skills-data/dashboard-session-data/data/manifest.json"
               # Derive the Pages base URL from the repository (org.github.io/repo)
               ORG=$(echo "${{ github.repository }}" | cut -d/ -f1)
               REPO=$(echo "${{ github.repository }}" | cut -d/ -f2)
@@ -1112,6 +1113,7 @@ jobs:
   # ==========================================================================
   # PUBLISH SESSION DATA
   # Both scheduled and PR runs: flatten JSONL sessions → dashboard-session-data
+  # branch on dotnet/skills-data (separate repo to keep this one small).
   # ==========================================================================
   publish-session-data:
     needs: [gate, discover, evaluate]
@@ -1179,12 +1181,16 @@ jobs:
             -PrNumber "${{ steps.meta.outputs.pr_number }}"
 
       - name: Clone existing session data branch
+        env:
+          # Cross-repo PAT with contents:write on dotnet/skills-data.
+          # GITHUB_TOKEN cannot push to a different repo, so a fine-grained PAT is required.
+          SKILLS_DATA_TOKEN: ${{ secrets.SKILLS_DATA_TOKEN }}
         run: |
           cd /tmp
-          REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          REPO_URL="https://x-access-token:${SKILLS_DATA_TOKEN}@github.com/dotnet/skills-data.git"
 
           if git ls-remote --exit-code --heads "$REPO_URL" dashboard-session-data > /dev/null 2>&1; then
-            git clone --branch dashboard-session-data --single-branch "$REPO_URL" session-deploy
+            git clone --branch dashboard-session-data --single-branch --depth 1 "$REPO_URL" session-deploy
           else
             mkdir session-deploy && cd session-deploy && git init && git checkout -b dashboard-session-data
             git remote add origin "$REPO_URL"
@@ -1204,7 +1210,7 @@ jobs:
             -OutputDir /tmp/session-deploy/data `
             -RetentionDays 7
 
-      - name: Push to dashboard-session-data branch
+      - name: Push to dashboard-session-data branch (dotnet/skills-data)
         run: |
           cd /tmp/session-deploy
           git add data/
