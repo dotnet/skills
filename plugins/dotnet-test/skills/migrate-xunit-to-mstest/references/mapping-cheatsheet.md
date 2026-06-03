@@ -46,7 +46,7 @@ Target framework throughout: **MSTest v4** (the few v3-only spellings are explic
 | Custom `FactAttribute` subclass | Custom `TestMethodAttribute` subclass overriding `ExecuteAsync` (MSTest v4). See `writing-mstest-tests` and `migrate-mstest-v3-to-v4` for `CallerInfo` constructor pattern |
 | Custom `TheoryAttribute` subclass | Same -- subclass `TestMethodAttribute`; expose data via `ITestDataSource` |
 
-> Use `[TestCategory]` for conventional category traits (recognized by VSTest/MTP filter syntax: `--filter "TestCategory=Unit"` or `--filter-trait "TestCategory=Unit"`). Use `[TestProperty]` for arbitrary key/value metadata that does not need filter integration.
+> Use `[TestCategory]` for conventional category traits (recognized by VSTest/MTP filter syntax: `--filter "TestCategory=Unit"` or `--filter-trait "TestCategory=Unit"`). Use `[TestProperty]` for arbitrary key/value metadata that does not need filter integration. **Both target `Assembly`, `Class`, and `Method`** -- an `[assembly: Trait(...)]` in xUnit can be migrated to `[assembly: TestCategory(...)]` / `[assembly: TestProperty(...)]` (see Section 8).
 
 ## 2. Data-driven tests
 
@@ -304,7 +304,7 @@ xUnit v2 has no equivalent of `TestContext.Current.CancellationToken` -- skip th
 
 ## 8. Assembly-level attributes
 
-Remove these from `AssemblyInfo.cs` / global usings:
+xUnit assembly attributes split into two groups: a few have direct MSTest equivalents (and stay at assembly scope); the rest must be removed or reimplemented against MSTest extensibility.
 
 | xUnit | Disposition |
 |---|---|
@@ -313,7 +313,8 @@ Remove these from `AssemblyInfo.cs` / global usings:
 | `[assembly: TestCollectionOrderer(...)]` | Remove + flag for manual |
 | `[assembly: TestFramework(...)]` | Remove |
 | `[assembly: CaptureConsole]` (xUnit v3) | Remove -- MSTest does not capture console by default |
-| `[assembly: Xunit.Trait("k", "v")]` | Remove -- xUnit traits do not propagate to MSTest. Apply `[TestCategory]`/`[TestProperty]` per class/method instead |
+| `[assembly: Xunit.Trait("Category", "v")]` | `[assembly: TestCategory("v")]` (applies the category to every test in the assembly -- `TestCategoryAttribute` targets `Assembly`, `Class`, and `Method`) |
+| `[assembly: Xunit.Trait("k", "v")]` (non-category key) | `[assembly: TestProperty("k", "v")]` (`TestPropertyAttribute` also targets `Assembly`, `Class`, and `Method`) |
 
 ## 9. Packages
 

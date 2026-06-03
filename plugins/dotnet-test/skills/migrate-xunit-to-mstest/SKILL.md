@@ -166,7 +166,7 @@ Apply these rewrites to every C# test file. Class-level first, then method-level
 | `[Trait("Category", "Unit")]` | `[TestCategory("Unit")]` |
 | `[Trait("Owner", "alice")]` | `[TestProperty("Owner", "alice")]` |
 
-> Use `[TestCategory]` for the conventional category trait (it integrates with VSTest/MTP filter syntax); use `[TestProperty]` for arbitrary key/value metadata.
+> Use `[TestCategory]` for the conventional category trait (it integrates with VSTest/MTP filter syntax); use `[TestProperty]` for arbitrary key/value metadata. Both attributes target `Assembly`, `Class`, and `Method` -- so an xUnit `[Trait]` placed at any of those scopes (including `[assembly: Trait(...)]`) keeps the same scope under MSTest (see Step 12).
 
 ### Step 5: Convert data-driven tests
 
@@ -422,16 +422,22 @@ Delete `xunit.runner.json`. Port relevant settings:
 
 If the project uses xUnit traits in CI filter expressions (e.g., `--filter "Category=Unit"` with xUnit), the equivalent MSTest filter is `--filter "TestCategory=Unit"` (VSTest) or `--filter-trait "TestCategory=Unit"` (MTP). Update CI pipelines accordingly.
 
-### Step 12: Remove xUnit assembly attributes
+### Step 12: Convert xUnit assembly attributes
 
-Delete these from `AssemblyInfo.cs` / any `[assembly: ...]` declaration:
+Some xUnit assembly attributes have direct MSTest equivalents at assembly scope; others must be removed (and re-applied per class/method) or reimplemented against MSTest extensibility.
 
-- `[assembly: CollectionBehavior(...)]`
-- `[assembly: TestCaseOrderer(...)]`
-- `[assembly: TestCollectionOrderer(...)]`
+**Convert (assembly scope preserved):**
+
+- `[assembly: Xunit.Trait("Category", "v")]` -> `[assembly: TestCategory("v")]` -- `TestCategoryAttribute` targets `Assembly`, `Class`, and `Method`; assembly application propagates to every test.
+- `[assembly: Xunit.Trait("k", "v")]` (non-category key) -> `[assembly: TestProperty("k", "v")]` -- same `Assembly`/`Class`/`Method` targets.
+
+**Delete (no MSTest equivalent or now handled elsewhere):**
+
+- `[assembly: CollectionBehavior(...)]` -- replaced by `[assembly: Parallelize(...)]` (Step 11)
+- `[assembly: TestCaseOrderer(...)]` -- reimplement against MSTest extensibility; flag for manual conversion
+- `[assembly: TestCollectionOrderer(...)]` -- flag for manual conversion
 - `[assembly: TestFramework(...)]`
-- `[assembly: CaptureConsole]` (xUnit v3)
-- `[assembly: Xunit.Trait("k", "v")]` (replace with `[TestCategory]`/`[TestProperty]` on test classes/methods)
+- `[assembly: CaptureConsole]` (xUnit v3) -- MSTest does not capture console by default
 
 Custom orderers/test framework hooks must be reimplemented against MSTest's extensibility model (`TestMethodAttribute` subclasses, `ITestDataSource`, etc.) -- stop and flag for manual conversion if present.
 
