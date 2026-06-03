@@ -33,3 +33,65 @@ export class PercentageDiscountPolicy implements DiscountPolicy {
     return Math.floor((subtotalCents * this.percent) / 100);
   }
 }
+
+/** Flat amount off the subtotal. */
+export class FixedAmountDiscountPolicy implements DiscountPolicy {
+  constructor(private readonly amountCents: number) {
+    if (!Number.isInteger(amountCents) || amountCents < 0) {
+      throw new RangeError(
+        `amountCents must be a non-negative integer (got ${amountCents})`,
+      );
+    }
+  }
+
+  computeDiscountCents(subtotalCents: number): number {
+    if (subtotalCents <= 0) return 0;
+    return Math.min(this.amountCents, subtotalCents);
+  }
+}
+
+/**
+ * Stacks multiple discount policies. Two stacking modes are supported:
+ *
+ * - `"sum"`: each child policy receives the original subtotal; results are summed
+ *   then clamped to [0, subtotalCents] by the caller (Cart.totals).
+ * - `"chain"`: each child policy is applied to the *remaining* subtotal after
+ *   previous discounts (i.e. discounts compound). This is the typical "best
+ *   coupon first" semantics. The discount value returned is the sum of the
+ *   individual discount amounts, so the visible discountCents in CartTotals
+ *   still represents the total reduction.
+ */
+export type StackingMode = "sum" | "chain";
+
+export class CompositeDiscountPolicy implements DiscountPolicy {
+  constructor(
+    private readonly policies: readonly DiscountPolicy[],
+    private readonly mode: StackingMode = "sum",
+  ) {
+    if (policies.length === 0) {
+      throw new Error("CompositeDiscountPolicy requires at least one policy");
+    }
+  }
+
+  computeDiscountCents(subtotalCents: number): number {
+    if (subtotalCents <= 0) return 0;
+    if (this.mode === "sum") {
+      let total = 0;
+      for (const p of this.policies) {
+        total += Math.max(0, p.computeDiscountCents(subtotalCents));
+      }
+      return total;
+    }
+    let remaining = subtotalCents;
+    let total = 0;
+    for (const p of this.policies) {
+      const step = Math.min(
+        Math.max(0, p.computeDiscountCents(remaining)),
+        remaining,
+      );
+      remaining -= step;
+      total += step;
+    }
+    return total;
+  }
+}

@@ -10,9 +10,12 @@ package-lock.json                       # generated, committed for npm ci reprod
 tsconfig.json                           # bundler resolution, strict mode, allowImportingTsExtensions
 vitest.config.ts                        # tests/**/*.test.ts, node env, non-global API
 src/
-  product.ts                            # Product + CartLine value types
-  pricing.ts                            # DiscountPolicy interface + No/Percentage policies
-  cart.ts                               # Cart class with injected DiscountPolicy seam
+  product.ts                            # Product (+ optional weight / currency) + CartLine value types
+  pricing.ts                            # DiscountPolicy + No / Percentage / FixedAmount / CompositeDiscountPolicy (sum | chain)
+  tax.ts                                # TaxCalculator + No/RegionalTaxCalculator; AsyncTaxRateProvider + AsyncTaxCalculator
+  shipping.ts                           # ShippingCalculator + Free/Flat/WeightBasedShippingCalculator + WeightBracket
+  inventory.ts                          # PriceFetcher + InventoryChecker async seams + InventoryError + refreshPrices()
+  cart.ts                               # Cart: pricing pipeline (subtotal → discount → tax → shipping) + async checkout()
   index.ts                              # barrel export
 tests/                                  # intentionally empty — the agent must create this
 ```
@@ -26,7 +29,24 @@ npx vitest run
 
 ## What the agent should produce
 
-- Unit tests for `Cart` that mock `DiscountPolicy` (e.g. via `vi.fn()` returning a fixed discount) to exercise the seam.
-- Boundary tests for `PercentageDiscountPolicy` constructor (rejects out-of-range percent).
-- Coverage of `Cart.add` merge semantics, `updateQuantity` 0-removes, `remove` returns false for unknown id, and `totals()` clamping when policy returns a discount greater than subtotal.
+A planned, layered Vitest suite covering this fixture's multiple seams:
+
+- Unit tests for each discount policy (`No`, `Percentage`, `FixedAmount`, `Composite`) covering
+  rounding, boundary inputs (negative subtotal, zero subtotal, very large subtotal), and constructor
+  validation (`PercentageDiscountPolicy` rejects out-of-range percent, `FixedAmount` rejects negative,
+  `Composite` rejects empty list). For `CompositeDiscountPolicy`, cover both stacking modes
+  (`"sum"` vs `"chain"`) including ordering effects.
+- Unit tests for each tax calculator (`No`, `Regional`, `AsyncTaxCalculator`) covering region
+  fallback to the default rate, rejection of out-of-range rates, async-rate failure propagation,
+  and rounding behavior on the discounted subtotal.
+- Unit tests for each shipping calculator (`Free`, `Flat`, `WeightBased`) covering empty-cart
+  short-circuits, free-over-threshold, weight bracket selection (boundaries between brackets), and
+  the overflow cost path.
+- `Cart` tests covering: merge semantics on `add`, `updateQuantity` 0-removes, `remove` returns
+  false for unknown ids, `clear`, and the pricing pipeline composition (the order
+  subtotal → discount → tax → shipping must hold; tax is on the *discounted* subtotal).
+- Async `Cart.checkout()` tests using `vi.fn().mockResolvedValue(...)` (and `.mockRejectedValue(...)`)
+  for `PriceFetcher`, `InventoryChecker`, and `AsyncTaxRateProvider`. Cover: price refresh, inventory
+  denial (and partial-stock denial via `availableQuantity`), async tax with discount + shipping
+  composition, and the `InventoryError` shape (productId, requested, available).
 - No real network, no real filesystem.
