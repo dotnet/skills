@@ -201,24 +201,44 @@ If at least one **high**-severity finding exists, OR any `workflow-tamper` or
    - `{alerts_url}` = `https://github.com/${{ github.repository }}/security/code-scanning?query=pr%3A{pr_number}`.
 
 If only **medium** findings exist (and no `workflow-tamper` / `supply-chain`):
-emit the alerts but **no** comment and **no** label — the alerts surface in the
-Security tab and are sufficient.
+emit the alerts and post the **idempotency-marker comment** (see Step 5) — but
+do **not** apply the `pr-needs-security-review` label. The alerts surface in the
+Security tab and are sufficient for medium-only findings.
 
-If **no** findings exist: emit a single `noop` with reason
-`scanned-clean:{sha7}:{file_count}-files`. Do not post a comment. Do not apply
-labels.
+If **no** findings exist: emit a `noop` with reason
+`scanned-clean:{sha7}:{file_count}-files` **and** post the idempotency-marker
+comment (Step 5). Do not apply labels.
 
 ## Step 5 — Idempotency marker (always)
 
-Even when emitting `noop`, embed the marker comment string only inside the
-`noop` payload (not in any actual PR comment) so a future run can find this
-scan in workflow logs but not as PR noise. Marker format:
+Always post a single PR comment containing the marker so the orchestrator and
+the per-PR worker can detect that this head SHA has been scanned. Use
+`add_comment` with body shaped exactly:
 
-```
-pr-malicious-scan:fingerprint={sha7}:{yyyy-mm-dd}
-```
+- **Clean scan** (no findings):
 
-A real PR comment is only posted when there are actionable findings (per Step 4).
+  ```
+  <!-- pr-malicious-scan:fingerprint={sha7}:{yyyy-mm-dd} -->
+  ✅ Automated diff scan completed for `{sha7}` — no security concerns flagged.
+
+  _This is an automated static analysis of the PR diff._
+  ```
+
+- **Medium-only findings**:
+
+  ```
+  <!-- pr-malicious-scan:fingerprint={sha7}:{yyyy-mm-dd} -->
+  ℹ️ Automated diff scan flagged {N} medium-severity item(s) on `{sha7}`. See the [code-scanning alerts]({alerts_url}); no maintainer action required.
+
+  _This is an automated static analysis of the PR diff. False positives are common; closing the alerts is fine if the changes are intended._
+  ```
+
+- **Actionable (high or workflow-tamper / supply-chain) findings**: the comment
+  shaped under Step 4 already contains the marker — do **not** post a second one.
+
+The marker format `pr-malicious-scan:fingerprint={sha7}:{yyyy-mm-dd}` makes the
+scan idempotent per push: subsequent runs see the marker in Step 1 and emit
+`noop` with reason `already-scanned-this-head`.
 
 ## Output discipline
 

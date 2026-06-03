@@ -36,10 +36,15 @@ MERGE_APPROVERS_TEAM="@dotnet/skills-merge-approvers"
 
 STATE_LABELS=(
   "pr-state/ready-for-eval"
+  "waiting-on-review"
+  "ready-to-merge"
+  "waiting-on-author"
+  "pr-state/in-review"
+  # Legacy labels — folded into the existing taxonomy. Kept here so any PR that
+  # was tagged with the older names is reconciled away from them.
   "pr-state/ready-for-review"
   "pr-state/ready-for-merge"
   "pr-state/needs-author"
-  "pr-state/in-review"
 )
 
 log() { printf '[pr-triage] %s\n' "$*" >&2; }
@@ -116,12 +121,15 @@ reconcile_state_label() {
 # ----------------------------------------------------------------------
 # Helpers — comment markers (cool-down)
 # ----------------------------------------------------------------------
-# Returns "0" if no prior marker for this action variant, else seconds since most recent.
+# Returns "" if no prior marker for this action variant, else seconds since most recent.
 seconds_since_marker() {
   local marker_substr="$1"   # e.g. "<!-- pr-triage:fingerprint=author-ping:"
   local newest
+  # NB: --paginate runs --jq per page, so per-page aggregations (sort | last) would yield
+  # one value per page. Emit one .created_at per match and pick the max in the shell.
   newest=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
-    --jq "[.[] | select(.user.login == \"$BOT_LOGIN\") | select(.body | contains(\"$marker_substr\")) | .created_at] | sort | last")
+    --jq ".[] | select(.user.login == \"$BOT_LOGIN\") | select(.body | contains(\"$marker_substr\")) | .created_at" \
+    | sort | tail -n 1)
   if [ -z "$newest" ] || [ "$newest" = "null" ]; then
     echo ""
     return
@@ -307,10 +315,10 @@ summary "- PR #$PR_NUMBER: state=\`$STATE\` head=\`$HEAD_SHA_SHORT\` author=$AUT
 case "$STATE" in
   skip|needs-malicious-scan)
     : ;;  # do not reconcile labels for skip/scan-only states
-  needs-author-attention)         reconcile_state_label "pr-state/needs-author" ;;
+  needs-author-attention)         reconcile_state_label "waiting-on-author" ;;
   ready-for-eval)                 reconcile_state_label "pr-state/ready-for-eval" ;;
-  ready-for-review)               reconcile_state_label "pr-state/ready-for-review" ;;
-  ready-for-merge)                reconcile_state_label "pr-state/ready-for-merge" ;;
+  ready-for-review)               reconcile_state_label "waiting-on-review" ;;
+  ready-for-merge)                reconcile_state_label "ready-to-merge" ;;
   in-review)                      reconcile_state_label "pr-state/in-review" ;;
 esac
 
@@ -421,7 +429,10 @@ EOF
   else
     # ready-for-review: resolve CODEOWNERS for changed paths
     local files_json owners_str
-    files_json=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '[.[] | .filename]')
+    # NB: --paginate runs --jq per page, so '[.[] | .filename]' would emit one JSON array
+    # per page. Emit one filename per line, then slurp into a single JSON array.
+    files_json=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[] | .filename' \
+      | jq -R . | jq -s .)
     owners_str=""
     if [ -f ".github/CODEOWNERS" ]; then
       owners_str=$(codeowners_for_paths "$files_json" || true)

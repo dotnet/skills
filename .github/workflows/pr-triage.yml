@@ -24,7 +24,7 @@ on:
         type: string
         default: "4"
       first_ping_age_min:
-        description: "Suppress pings while PR.updated_at age < N minutes. Default 30."
+        description: "Suppress first ping while PR.created_at age < N minutes (bypassed once any prior ping marker exists). Default 30."
         required: false
         type: string
         default: "30"

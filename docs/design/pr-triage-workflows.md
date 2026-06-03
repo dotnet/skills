@@ -43,9 +43,9 @@ Order of evaluation; first match wins:
 |---|---|---|---|---|
 | 1 | draft, or `mergeable_state == unknown` | `skip` | — | none |
 | 2 | non-bot && non-trusted && no malicious-scan marker on head | `needs-malicious-scan` | — | dispatch scanner |
-| 3 | `CHANGES_REQUESTED` \|\| unresolved threads > 0 \|\| `mergeable_state == dirty` | `needs-author-attention` | `pr-state/needs-author` | author-ping |
-| 4 | eval == success && `APPROVED` | `ready-for-merge` | `pr-state/ready-for-merge` | maintainer-ping/C |
-| 5 | eval == success && `REVIEW_REQUIRED`/none | `ready-for-review` | `pr-state/ready-for-review` | maintainer-ping/A |
+| 3 | `CHANGES_REQUESTED` \|\| unresolved threads > 0 \|\| `mergeable_state == dirty` | `needs-author-attention` | `waiting-on-author` | author-ping |
+| 4 | eval == success && `APPROVED` | `ready-for-merge` | `ready-to-merge` | maintainer-ping/C |
+| 5 | eval == success && `REVIEW_REQUIRED`/none | `ready-for-review` | `waiting-on-review` | maintainer-ping/A |
 | 6 | eval == success && other decision | `in-review` | `pr-state/in-review` | reconcile only |
 | 7 | otherwise | `ready-for-eval` | `pr-state/ready-for-eval` | eval-trigger |
 
@@ -69,13 +69,15 @@ Marker shapes:
 
 ## Labels owned by these workflows
 
-State labels (exactly one is reconciled at a time):
+State labels (exactly one is reconciled at a time). Where the existing label
+taxonomy already covered a state, the workflow reuses it rather than introducing
+a duplicate `pr-state/*` name:
 
-- `pr-state/ready-for-eval`
-- `pr-state/ready-for-review`
-- `pr-state/ready-for-merge`
-- `pr-state/needs-author`
-- `pr-state/in-review`
+- `pr-state/ready-for-eval` *(new)*
+- `waiting-on-review` *(existing — reused for `ready-for-review`)*
+- `ready-to-merge` *(existing — reused for `ready-for-merge`)*
+- `waiting-on-author` *(existing — reused for `needs-author-attention`)*
+- `pr-state/in-review` *(new)*
 
 Triggers and opt-outs:
 
