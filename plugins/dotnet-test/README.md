@@ -6,7 +6,7 @@ Skills and agents for running, generating, analyzing, migrating, and improving t
 
 - **Run tests** *(.NET only)* — execute `dotnet test` with automatic platform/framework detection and filter syntax
 - **Generate tests** *(polyglot)* — scaffold comprehensive unit tests for any language via a multi-agent pipeline
-- **Migrate tests** *(.NET only)* — upgrade MSTest v1/v2 → v3 → v4, xUnit v2 → v3, or VSTest → Microsoft.Testing.Platform
+- **Migrate tests** *(.NET only)* — upgrade MSTest v1/v2 → v3 → v4, xUnit v2 → v3, xUnit (v2 or v3) → MSTest v4, or VSTest → Microsoft.Testing.Platform
 - **Audit test quality** *(polyglot)* — detect anti-patterns, test smells, assertion gaps, and (for .NET) coverage risks
 - **Improve testability** *(.NET only)* — find static dependencies, generate wrappers, and migrate call sites to injectable abstractions
 - **Measure coverage** *(.NET only)* — collect code coverage, compute CRAP scores, and surface risk hotspots
@@ -34,6 +34,7 @@ Skills and agents for running, generating, analyzing, migrating, and improving t
 | **migrate-mstest-v1v2-to-v3** | Upgrade MSTest v1 (assembly refs) or v2 (NuGet 1.x–2.x) to v3 |
 | **migrate-mstest-v3-to-v4** | Upgrade MSTest v3 to v4 — handles all source and behavioral breaking changes |
 | **migrate-xunit-to-xunit-v3** | Upgrade xUnit.net v2 to v3 |
+| **migrate-xunit-to-mstest** | Convert xUnit.net (v2 or v3) test projects to MSTest v4 — attributes, assertions, fixtures, lifecycle, output, parallelization |
 | **migrate-vstest-to-mtp** | Migrate from VSTest runner to Microsoft.Testing.Platform |
 
 ### Test quality & analysis *(polyglot)*
