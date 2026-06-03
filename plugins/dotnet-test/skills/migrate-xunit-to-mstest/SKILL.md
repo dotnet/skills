@@ -45,6 +45,10 @@ This is a **cross-framework** migration. Do not bundle it with a version upgrade
 
 - **Always identify the current xUnit version first.** State whether the project is on xUnit v2 (`xunit` 2.x) or xUnit v3 (`xunit.v3` / `xunit.v3.*`) before recommending changes. This grounds the migration advice -- some breaking-change steps only apply to one version.
 - **Always preserve the current test platform.** If the project runs on VSTest, keep VSTest. If it runs on MTP (e.g., xUnit v3 native MTP, or `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>`), keep MTP. Recommend `migrate-vstest-to-mtp` as a separate follow-up only if the user asks for it.
+- **Explicitly communicate every judgement-call decision** before applying it -- otherwise the user cannot tell what changed semantically. In particular:
+  - **Fixture scope changes** (Step 8): state the source scope (class / collection / assembly) and the target scope you chose, plus what gets shared and what gets serialized. A silent widening from collection to assembly is the most common way this migration regresses tests.
+  - **Parallelization** (Step 11): state that **MSTest defaults to serial execution** (xUnit parallelizes classes by default), so an explicit `[assembly: Parallelize(...)]` is **required** to match xUnit's behaviour -- omitting it silently halves CI throughput.
+  - **`Assert.Throws<T>` -> `Assert.ThrowsExactly<T>`** (Step 6): mention the exact-type-vs-any-derived semantic flip so reviewers know the assertion was deliberately renamed, not just translated.
 - **Specific API mapping questions** (assertions, fixtures, output helper, etc.): jump to the relevant step. Do not run the full workflow.
 - **Full migration requests**: follow the workflow end-to-end.
 - **Focused fix requests** (specific compile error after a partial migration): address only that error using the mapping reference. Do not walk the full workflow.
@@ -90,7 +94,7 @@ For writing idiomatic MSTest code (modern assertion APIs, lifecycle patterns, da
 
 ### Step 2: Replace packages
 
-> Choose the package option that matches what the project uses today. Default to the `MSTest` metapackage unless the user already uses `MSTest.Sdk` elsewhere in the solution. If you adopt `MSTest.Sdk`, you must preserve the platform from Step 1.
+> Choose the package option that matches what the project uses today. **When the user says "preserve VSTest" -- or the existing project uses explicit `PackageReference`s -- default to Option A (`MSTest` metapackage).** Reach for Option B (`MSTest.Sdk`) only when the user explicitly asks to modernize the SDK or already uses `MSTest.Sdk` elsewhere in the solution; if you adopt it, you must preserve the platform from Step 1.
 
 **Remove** every xUnit package reference (from `.csproj`, `Directory.Build.props`, `Directory.Packages.props`):
 
@@ -167,13 +171,15 @@ Apply these rewrites to every C# test file. Class-level first, then method-level
 
 **Methods:**
 
+> **`[Ignore]` and `[Timeout]` are modifiers, not discovery attributes.** Always emit `[TestMethod]` *alongside* them -- a method with `[Ignore]` but no `[TestMethod]` is silently skipped by the test runner (no error, no skip count). Same for `[Timeout]`.
+
 | xUnit | MSTest |
 |---|---|
 | `[Fact]` | `[TestMethod]` |
 | `[Theory]` | `[TestMethod]` (parameterized; MSTest 3+ no longer needs `[DataTestMethod]`) |
 | `[Fact(DisplayName = "x")]` | `[TestMethod("x")]` (v3 of MSTest) or `[TestMethod(DisplayName = "x")]` (v4) |
-| `[Fact(Skip = "reason")]` | `[TestMethod]` + `[Ignore("reason")]` (the `[Ignore]` attribute alone does not discover a test) |
-| `[Fact(Timeout = 5000)]` | `[TestMethod]` + `[Timeout(5000)]` (modifier -- not a discovery attribute) |
+| `[Fact(Skip = "reason")]` | `[TestMethod]` + `[Ignore("reason")]` (both attributes required) |
+| `[Fact(Timeout = 5000)]` | `[TestMethod]` + `[Timeout(5000)]` (both attributes required) |
 | `[Trait("Category", "Unit")]` | `[TestCategory("Unit")]` |
 | `[Trait("Owner", "alice")]` | `[TestProperty("Owner", "alice")]` |
 
@@ -288,7 +294,9 @@ xUnit collections do two things simultaneously: (1) share a fixture instance acr
 - **Many classes, fixture is genuinely assembly-wide** (e.g., process-wide TestServer): hoist to `[AssemblyInitialize]` / `[AssemblyCleanup]` in a dedicated `AssemblySetup` class **and** confirm with the user that widening the scope is acceptable. Note that this changes parallelization semantics.
 - **Custom collection behavior or test-collection-orderer**: stop and flag for manual review.
 
-**Always explain the scope change** -- silently widening fixture scope across the assembly is the most common way this migration regresses tests.
+> **REQUIRED -- communicate the scope decision before applying it.** Silently widening fixture scope across the assembly is the most common way this migration regresses tests. Use this template (replace bracketed text):
+>
+> "The xUnit `[Collection(\"<name>\")]` shared a `<Fixture>` between **\<N\> classes** and serialized them. I am mapping that to: a static `Lazy<<Fixture>>` shared by each class's `[ClassInitialize]` (scope: **per-class, shared via static** -- not widened to assembly), plus `[DoNotParallelize]` on `<ClassA>` and `<ClassB>` to preserve the serialization. The alternative -- `[AssemblyInitialize]` -- would widen the fixture to every test in the assembly, which I rejected because \<reason\>."
 
 ### Step 9: Convert output and TestContext
 
@@ -368,6 +376,12 @@ public TestContext TestContext { get; set; } = null!;
 ```
 
 Use this when the suite was healthy on xUnit and you want zero behavioural change. It preserves "parallel across classes, serial within a class" exactly.
+
+> **REQUIRED -- explicitly tell the user why this attribute is needed.** When applying Choice A, include this sentence (verbatim or near-verbatim) in your final summary:
+>
+> "MSTest defaults to **serial** execution across classes (unlike xUnit, which parallelizes classes by default), so this `[assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)]` is **required** to match the project's previous xUnit parallel-class behaviour. Without it, the suite would still pass but run roughly one-class-at-a-time and CI throughput would drop."
+>
+> The user must understand this is **opt-in** under MSTest -- a silent omission looks like a no-op but is actually a behavioural regression.
 
 **Choice B -- Adopt MSTest's serial default:**
 
