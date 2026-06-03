@@ -2,6 +2,50 @@
 
 Language-specific guidance for PowerShell test generation using Pester v5.
 
+## Rule #0: Confirm the Test Target
+
+If the prompt does not name a specific file (e.g. "test the repository", "cover one core module", "comprehensive suite"), do **not** assume the largest or top-level upstream code is the intended target. In real workflows the user usually wants to test code they have just added, and large upstream repos contain hundreds of scripts already covered by existing `*.Tests.ps1` files.
+
+Run these **read-only** discovery commands first — they are the deliberate exception to Rule #1's "before writing any test or running any command" rule, and their output is the ground truth Rule #1's reading is meant to interpret. Do **not** write or execute any tests until Rule #0 and Rule #1 are both complete.
+
+| Goal | Command |
+|------|---------|
+| List uncommitted edits + untracked files | `git status -s` |
+| Untracked files only (typical for newly-added modules) | `git ls-files --others --exclude-standard` |
+| Recently added scripts/modules | `git log --diff-filter=A --name-only -5 -- '*.ps1' '*.psm1' '*.psd1'` |
+| Modules with no matching `*.Tests.ps1` | compare `Get-ChildItem -Recurse -Include *.psm1,*.ps1` against `*.Tests.ps1` files |
+
+Prefer targets that match **all** of:
+
+1. Untracked or recently added (`git status` / `git log --diff-filter=A`).
+2. Small and pure (a few hundred lines, no external state, no `Invoke-WebRequest`/registry/filesystem side effects).
+3. Located under a conventional source root (`tools/`, `src/`, `Public/`, `Private/`, or the module root next to a `.psd1`).
+4. Have **no** existing matching `*.Tests.ps1` file.
+
+If a `.psd1` manifest's `RootModule` (or `ModuleToProcess`) points at a specific `.psm1`, that module is almost certainly the target — start there.
+
+### Test Placement Contract
+
+Pester only discovers tests under the path passed to `Invoke-Pester -Path` (or the current directory when no path is given). Verification harnesses (CI, msbench, coverage tools) typically scope discovery to a single directory such as `tools/` or `tests/`. Place every test file there, matching the existing convention in the repo:
+
+| Layout used by the repo | Test placement |
+|-------------------------|----------------|
+| Co-located convention (`Module.psm1` + `Module.Tests.ps1` side-by-side) | Drop `<Module>.Tests.ps1` next to the source file (`tools/StringUtils.psm1` → `tools/StringUtils.Tests.ps1`). |
+| Sibling `Tests/` directory | Mirror the source path (`src/Foo/Bar.psm1` → `Tests/Foo/Bar.Tests.ps1`). |
+| Mixed / unknown | Co-locate next to the source — this is what Pester discovers by default and what most harnesses scope to. |
+
+A `*.Tests.ps1` file placed outside the discovery root will be invisible to both `Invoke-Pester` and the harness.
+
+### First-Test Sanity Loop
+
+After writing the **first** `*.Tests.ps1` file — before writing any others:
+
+1. Run `Invoke-Pester -Path <dir> -PassThru` and confirm the `TotalCount` is `> 0`. If it is `0`, Pester is not discovering your file; fix the location, filename, or `Describe`/`It` structure before continuing.
+2. Run the test (`Invoke-Pester -Path <your.Tests.ps1> -Output Detailed`); fix `Import-Module` / dot-source / `BeforeAll` errors before adding more tests.
+3. Only then expand to cover the remaining functions.
+
+This catches placement and discovery mistakes on turn 1 instead of after dozens of failed-test iterations.
+
 ## Rule #1: Investigate the Repo First
 
 Before writing any test or running any command, read:

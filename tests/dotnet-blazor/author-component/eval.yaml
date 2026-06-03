@@ -1,0 +1,221 @@
+scenarios:
+  - name: "Author a data-loading search component"
+    prompt: |
+      Write a Blazor component called ProductSearch that will be used on a catalog browsing page. Here are the service contracts the application already registers in DI:
+
+      ```csharp
+      public record Product(int Id, string Name, decimal Price, string ImageUrl);
+
+      public interface IProductService
+      {
+          /// <summary>
+          /// Searches products by query string. Throws on network failure.
+          /// Respects the cancellation token — callers should cancel when results are no longer needed.
+          /// </summary>
+          Task<List<Product>> SearchAsync(string query, CancellationToken ct);
+      }
+      ```
+
+      The parent page will use the component like this:
+
+      ```razor
+      <ProductSearch OnProductSelected="HandleSelection" />
+      ```
+
+      The component should:
+      - Have a search text input. When the user stops typing for 300ms, search automatically
+      - Call IProductService.SearchAsync to fetch results
+      - Display each product as a card showing Name, Price, and ImageUrl
+      - Notify the parent when a card is clicked so it can navigate to the product detail page
+      - Handle all the states the component can be in (fetching, nothing found, failure, etc.)
+      - If the user types again while a search is in flight, the old search should be abandoned
+      - Clean up properly when the component is removed from the page
+    assertions:
+      - type: "output_contains"
+        value: "IAsyncDisposable"
+      - type: "output_contains"
+        value: "CancellationToken"
+      - type: "output_contains"
+        value: "EventCallback"
+      - type: "output_matches"
+        pattern: "(@if|@else)"
+    rubric:
+      - "Handles all visual states: loading, empty, error, and loaded — no missing branches"
+      - "Uses EventCallback<Product> for product selection notification to the parent"
+      - "Cancels the previous CancellationTokenSource when a new search starts"
+      - "Implements IAsyncDisposable and cancels/disposes resources in DisposeAsync"
+      - "Uses a private field for mutable state — does not mutate [Parameter] properties"
+      - "Debounces search input with Task.Delay + CancellationTokenSource"
+    timeout: 180
+
+  - name: "Author a multi-step wizard with async validation and shared state"
+    prompt: |
+      Author a set of Blazor components for a checkout wizard with async validation.
+      Here are the models and service:
+
+      ```csharp
+      public class ShippingInfo
+      {
+          public string Name { get; set; } = "";
+          public string Address { get; set; } = "";
+          public string City { get; set; } = "";
+          public string ZipCode { get; set; } = "";
+      }
+
+      public class PaymentInfo
+      {
+          public string CardNumber { get; set; } = "";
+          public string ExpiryDate { get; set; } = "";
+      }
+
+      public class Order
+      {
+          public ShippingInfo Shipping { get; set; } = new();
+          public PaymentInfo Payment { get; set; } = new();
+      }
+
+      public interface IAddressValidator
+      {
+          Task<bool> ValidateAddressAsync(string address, string city, string zip, CancellationToken ct);
+      }
+      ```
+
+      Write the .razor component code for:
+      1. CheckoutWizard.razor — manages which step is active and holds the order state.
+         When "Place Order" is clicked, the parent of CheckoutWizard receives the completed order.
+      2. ShippingStep.razor — collects shipping address fields. When "Next" is clicked,
+         validates the address asynchronously using IAddressValidator. While validating,
+         show a loading indicator and disable the button. If the user goes back and
+         changes fields then clicks Next again, cancel the previous validation.
+      3. PaymentStep.razor — collects payment info, has "Back" and "Place Order" buttons.
+
+      The wizard must handle disposal correctly — if the user navigates away mid-validation,
+      the pending async operation should be cancelled cleanly.
+    assertions:
+      - type: "output_contains"
+        value: "EventCallback"
+      - type: "output_contains"
+        value: "[Parameter]"
+      - type: "output_contains"
+        value: "CancellationToken"
+      - type: "output_matches"
+        pattern: "(CheckoutWizard|ShippingStep|PaymentStep)"
+    rubric:
+      - "Parent (CheckoutWizard) owns the order state and passes data to children via [Parameter]"
+      - "Children communicate back to the parent through EventCallback"
+      - "Steps are separate component files, not inline blocks in the parent"
+      - "ShippingStep cancels the previous validation when a new one starts — uses CancellationTokenSource that is replaced on each attempt"
+      - "Implements IAsyncDisposable and cancels the CTS in DisposeAsync — pending validations are cancelled when navigating away"
+      - "Parameters are public auto-properties with { get; set; }"
+    timeout: 120
+
+  - name: "Author a generic data table component"
+    prompt: |
+      Write a generic Blazor component called DataTable that works with any item type.
+      The parent should be able to customize how headers and rows are rendered by passing
+      in their own templates. Here's an example of how a consumer would use it:
+
+      ```razor
+      <DataTable Items="@people" OnRowClick="HandleRowClick">
+          <HeaderTemplate>
+              <th>Name</th>
+              <th>Email</th>
+          </HeaderTemplate>
+          <RowTemplate>
+              <td>@context.Name</td>
+              <td>@context.Email</td>
+          </RowTemplate>
+      </DataTable>
+      ```
+
+      When there are no items, it should show a sensible default empty state, but the
+      consumer should be able to override that too.
+    assertions:
+      - type: "output_contains"
+        value: "@typeparam"
+      - type: "output_matches"
+        pattern: "RenderFragment"
+      - type: "output_contains"
+        value: "EventCallback"
+    rubric:
+      - "Uses @typeparam to make the component generic"
+      - "RowTemplate is RenderFragment<TItem> — not RenderFragment or a delegate"
+      - "HeaderTemplate and EmptyTemplate are RenderFragment (non-generic)"
+      - "Uses @key on repeated row elements for efficient diffing in loops"
+      - "Handles the empty state with a default message and an optional override template"
+      - "Uses EventCallback<TItem> for OnRowClick"
+      - "Items parameter is IReadOnlyList<TItem> or List<TItem>"
+    timeout: 120
+
+  - name: "Author a real-time notification badge component"
+    prompt: |
+      Write a Blazor component called NotificationBadge. Here are the service contracts:
+
+      ```csharp
+      public record Notification(int Id, string Title, DateTime ReceivedAt);
+
+      public interface INotificationService
+      {
+          event Action<Notification> OnNotificationReceived;
+          Task<int> GetUnreadCountAsync();
+      }
+      ```
+
+      The component should:
+      - Show a badge with the current unread count
+      - Update the count in real time when OnNotificationReceived fires
+      - Also poll GetUnreadCountAsync every 30 seconds as a fallback
+      - When clicked, the parent needs to know so it can open a notification panel
+      - Clean up everything when the component is removed
+    assertions:
+      - type: "output_contains"
+        value: "IAsyncDisposable"
+      - type: "output_contains"
+        value: "DisposeAsync"
+      - type: "output_contains"
+        value: "InvokeAsync"
+      - type: "output_matches"
+        pattern: "(\\+=|OnNotificationReceived)"
+    rubric:
+      - "Implements IAsyncDisposable and unsubscribes from the event in DisposeAsync"
+      - "Subscribes to the event in OnInitialized and unsubscribes in DisposeAsync with -="
+      - "Uses InvokeAsync to marshal the event callback onto the Blazor sync context before calling StateHasChanged"
+      - "Cancels CTS in DisposeAsync to stop polling"
+      - "Event handler properly dispatches exceptions to the renderer"
+      - "Polls using Task.Delay in a loop or PeriodicTimer"
+    timeout: 120
+
+  - name: "Author a sortable list with code-behind pattern"
+    prompt: |
+      Write a Blazor component called SortableList using the code-behind pattern
+      (SortableList.razor + SortableList.razor.cs). It should work with any item type.
+
+      Here's an example of how a consumer would use it:
+
+      ```razor
+      <SortableList Items="@tasks" OnOrderChanged="HandleReorder">
+          <ItemTemplate>
+              <span>@context.Title</span>
+          </ItemTemplate>
+      </SortableList>
+      ```
+
+      Each item should have "Move Up" and "Move Down" buttons. After each reorder,
+      the parent needs the updated list. The component must not modify the list
+      that was passed in — it should work on its own internal copy.
+    assertions:
+      - type: "output_contains"
+        value: "partial class"
+      - type: "output_contains"
+        value: "EventCallback"
+      - type: "output_matches"
+        pattern: "(private|_items|localItems|internalItems)"
+      - type: "output_matches"
+        pattern: "RenderFragment"
+    rubric:
+      - "Uses the code-behind pattern: .razor file for markup, .razor.cs for logic with partial class"
+      - "Does NOT mutate the [Parameter] Items property — copies to a private field"
+      - "Copies Items to a local field in OnParametersSet"
+      - "Uses @key in the loop for efficient diffing"
+      - "Uses EventCallback to notify the parent of reorder"
+    timeout: 120

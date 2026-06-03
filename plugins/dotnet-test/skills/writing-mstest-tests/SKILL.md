@@ -13,7 +13,7 @@ description: >
   test parallelization, Parallelize, DoNotParallelize, MSTest.Sdk project setup.
   DO NOT USE FOR: broad test quality audits or test smell detection (use test-anti-patterns),
   running tests (use run-tests), MSTest version migration (use migrate-mstest-v1v2-to-v3 or
-  migrate-mstest-v3-to-v4).
+  migrate-mstest-v3-to-v4), or non-.NET languages (Python/JS/Go/Java/etc.) — this is .NET-only.
 license: MIT
 ---
 

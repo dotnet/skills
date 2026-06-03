@@ -25,22 +25,28 @@ Analyze a codebase and produce a comprehensive research document that will guide
 
 Search for key files:
 
-- Project files: `*.csproj`, `*.vcxproj`, `*.sln`, `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`
+- Project files: `*.csproj`, `*.vcxproj`, `*.sln`, `package.json`, `pyproject.toml`, `setup.cfg`, `setup.py`, `requirements*.txt`, `tox.ini`, `noxfile.py`, `uv.lock`, `poetry.lock`, `pdm.lock`, `Pipfile`, `Pipfile.lock`, `go.mod`, `go.work`, `Cargo.toml`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `settings.gradle*`, `Gemfile`, `Gemfile.lock`, `Package.swift`, `*.xcodeproj`, `CMakeLists.txt`, `BUILD.bazel`, `meson.build`, `Makefile`, `Taskfile.yml`
 - Property and Target files: `*.props`, `*.targets`
-- Source files: `*.cs`, `*.ts`, `*.py`, `*.go`, `*.rs`, `*.cpp`, `*.h`
-- Existing tests: `*test*`, `*Test*`, `*spec*`
-- Config files: `README*`, `Makefile`, `*.config`
+- Source files: `*.cs`, `*.ts`, `*.tsx`, `*.js`, `*.jsx`, `*.mts`, `*.cts`, `*.py`, `*.go`, `*.rs`, `*.cpp`, `*.cc`, `*.h`, `*.hpp`, `*.java`, `*.kt`, `*.kts`, `*.swift`, `*.rb`, `*.ps1`, `*.psm1`
+- Test runner config: `vitest.config.*`, `jest.config.*`, `mocha.config.*`, `pytest.ini`, `conftest.py`, `phpunit.xml`, `karma.conf.*`, `playwright.config.*`
+- Existing tests: `*test*`, `*Test*`, `*spec*`, `*_test.go`
+- Config files: `README*`, `Makefile`, `*.config`, `*.editorconfig`
 
 ### 2. Identify the Language and Framework
 
 Based on files found:
 
-- **C#/.NET**: `*.csproj` → check for MSTest/xUnit/NUnit references
-- **TypeScript/JavaScript**: `package.json` → check for Jest/Vitest/Mocha
-- **Python**: `pyproject.toml` or `pytest.ini` → check for pytest/unittest
-- **Go**: `go.mod` → tests use `*_test.go` pattern
-- **Rust**: `Cargo.toml` → tests go in same file or `tests/` directory
-- **C++**: `*.vcxproj` → check for GoogleTest (gtest) references
+- **C#/.NET**: `*.csproj` → check for MSTest/xUnit/NUnit/TUnit references
+- **TypeScript/JavaScript**: `package.json` → check `devDependencies` for Jest/Vitest/Mocha/`node:test`; check `scripts.test`; check for `vitest.config.*` / `jest.config.*`
+- **Python**: `pyproject.toml` / `setup.cfg` / `pytest.ini` / `tox.ini` / `noxfile.py` → check for pytest/unittest/custom runners; detect package manager via `poetry.lock` / `pdm.lock` / `uv.lock` / `Pipfile.lock`
+- **Go**: `go.mod` → tests use `*_test.go` pattern; `go.work` indicates a multi-module workspace
+- **Rust**: `Cargo.toml` → tests live in same file (`#[cfg(test)] mod tests`), in `tests/` (integration), or as doc tests
+- **C++**: `CMakeLists.txt` / `BUILD.bazel` / `meson.build` / `*.vcxproj` / `Makefile` → check for GoogleTest (`gtest`), Catch2, doctest, or Boost.Test
+- **Java**: `pom.xml` (Maven) or `build.gradle[.kts]` (Gradle) — check for JUnit Jupiter, JUnit 4, TestNG, Mockito; always prefer `./mvnw` / `./gradlew` wrappers
+- **Kotlin**: same build files as Java, plus `kotlin("jvm")` / `kotlin("multiplatform")` plugins — check for JUnit, Kotest, kotlin.test, MockK
+- **Ruby**: `Gemfile` / `Gemfile.lock` — check for RSpec (`spec/`) or Minitest (`test/`)
+- **Swift**: `Package.swift` (SPM) or `*.xcodeproj`/`*.xcworkspace` (Xcode) — distinguish XCTest vs Swift Testing
+- **PowerShell**: `*.ps1`/`*.psm1` files alongside `*.Tests.ps1` — Pester is the dominant framework
 
 ### 3. Identify the Scope of Testing
 
@@ -160,4 +166,4 @@ For each test project found, list:
 
 Write the research document to `.testagent/research.md` in the workspace root.
 
-> **Concrete example**: For a filled-in research document showing real file paths, detected frameworks, and prioritized file tables, call the `code-testing-extensions` skill and read `dotnet-examples.md` ("Sample Research Output" section).
+> **Concrete example**: For a filled-in research document showing real file paths, detected frameworks, and prioritized file tables, call the `code-testing-extensions` skill and read the matching `<language>-examples.md` file when one exists — `dotnet-examples.md`, `python-examples.md`, `typescript-examples.md`, `go-examples.md`, `java-examples.md` ("Sample Research Output" section). For other languages, adapt the closest example.

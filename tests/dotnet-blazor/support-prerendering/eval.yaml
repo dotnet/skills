@@ -1,0 +1,68 @@
+scenarios:
+  - name: "Equipment inventory loaded once"
+    prompt: |
+      I have an existing Blazor Web App with Interactive Server (per-page).
+
+      I need an interactive /inventory page that shows a table of equipment items
+      (Id, Name, Location, LastInspected date). The data comes from an EquipmentService
+      you should create (just return fake data, 5-10 items).
+
+      The page should show "Loading inventory..." until data is ready, then display
+      the table. The important thing is that when the page first loads I see the HTML
+      instantly (fast initial paint), but the equipment data should NOT be fetched
+      twice — once during the initial server render and again when the page becomes
+      interactive. It should only call the service once and carry that data across.
+    assertions:
+      - type: "file_exists"
+        path: "**/Inventory.razor"
+      - type: "file_contains"
+        path: "**/Inventory.razor"
+        value: "PersistentState"
+      - type: "file_contains"
+        path: "**/Inventory.razor"
+        value: "InteractiveServer"
+      - type: "file_contains"
+        path: "**/Inventory.razor"
+        value: "??="
+    rubric:
+      - "Data persists across the prerender-to-interactive handoff — uses state persistence ([PersistentState] or PersistentComponentState) with ??= pattern to avoid duplicate data fetches"
+      - "Component correctly shows loading state when data is null, then displays the equipment table when loaded"
+      - "Does NOT disable prerendering — preserves the fast initial HTML response while avoiding duplicate loads"
+      - "Creates a proper EquipmentService registered in DI, not inline data generation"
+    timeout: 600
+
+
+  - name: "Notifications page with live polling"
+    prompt: |
+      I have an existing Blazor Web App with Interactive Server (per-page).
+
+      I need an interactive /notifications page that:
+      - Loads an initial set of notifications from a NotificationService (create it with fake data)
+      - After the page becomes interactive, starts a background polling loop that
+        checks for new notifications every 5 seconds and updates the UI
+      - Shows a notification count badge and a list of notification messages
+
+      Important constraints:
+      - The initial notifications should appear in the fast server-rendered HTML
+        and NOT be fetched again when the page becomes interactive
+      - The polling loop must not run during the initial server render — only after
+        the page is live and interactive in the browser
+      - When the user navigates away, the polling should stop cleanly (no leaked tasks)
+    assertions:
+      - type: "file_exists"
+        path: "**/Notifications.razor"
+      - type: "file_contains"
+        path: "**/Notifications.razor"
+        value: "RendererInfo.IsInteractive"
+      - type: "file_contains"
+        path: "**/Notifications.razor"
+        value: "PersistentState"
+      - type: "file_contains"
+        path: "**/Notifications.razor"
+        value: "InteractiveServer"
+    rubric:
+      - "Guards the polling loop so it only runs when the component is interactive — not during prerendering"
+      - "Persists initial notification data across the prerender-to-interactive handoff so the service is not called twice"
+      - "Polling uses an async loop with CancellationTokenSource, cancelled in DisposeAsync — not System.Threading.Timer"
+      - "Component implements IAsyncDisposable and cancels the polling token in DisposeAsync to prevent resource leaks"
+    timeout: 600
