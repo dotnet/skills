@@ -333,11 +333,40 @@ If the project pins MSTest < 3.6 (rare after Step 2), use property injection ins
 public TestContext TestContext { get; set; } = null!;
 ```
 
-**xUnit v3 `TestContext.Current`:**
+**xUnit v3 `TestContext.Current`** (`TestContext.Current` is **static** in xUnit v3; in MSTest you must use the **instance** `TestContext` obtained via the same constructor or property injection shown above):
 
-- `TestContext.Current.CancellationToken` -> `TestContext.CancellationToken` (MSTest 3.6+, on the **instance** TestContext from constructor or property injection)
-- `TestContext.Current.AddAttachment(name, path)` -> `TestContext.AddResultFile(path)`
-- `TestContext.Current.TestOutputHelper.WriteLine(...)` -> `TestContext.WriteLine(...)`
+- `TestContext.Current.CancellationToken` -> `_testContext.CancellationToken` (MSTest 3.6+)
+- `TestContext.Current.AddAttachment(name, path)` -> `_testContext.AddResultFile(path)`
+- `TestContext.Current.TestOutputHelper.WriteLine(...)` -> `_testContext.WriteLine(...)`
+
+> **REQUIRED for CancellationToken:** Add the constructor injection from above even if the class only uses `TestContext.Current.CancellationToken` (no `ITestOutputHelper`). Do **NOT** replace `TestContext.Current.CancellationToken` with a new `CancellationTokenSource` -- that loses the test-host's cancellation linkage and changes behavior under timeouts.
+
+```csharp
+// xUnit v3
+[Fact]
+public async Task WorkRespectsCancellation()
+{
+    var ct = TestContext.Current.CancellationToken;
+    await Task.Delay(1, ct);
+    Assert.False(ct.IsCancellationRequested);
+}
+
+// MSTest (note: Assert.False -> Assert.IsFalse from Step 6)
+[TestClass]
+public sealed class MyTests
+{
+    private readonly TestContext _testContext;
+    public MyTests(TestContext testContext) => _testContext = testContext;
+
+    [TestMethod]
+    public async Task WorkRespectsCancellation()
+    {
+        var ct = _testContext.CancellationToken;
+        await Task.Delay(1, ct);
+        Assert.IsFalse(ct.IsCancellationRequested);
+    }
+}
+```
 
 ### Step 10: Convert companion packages
 

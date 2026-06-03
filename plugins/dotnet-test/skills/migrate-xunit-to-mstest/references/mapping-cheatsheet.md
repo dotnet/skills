@@ -292,7 +292,7 @@ Map deliberately:
 
 | xUnit v3 | MSTest |
 |---|---|
-| `TestContext.Current.CancellationToken` | `_testContext.CancellationToken` (MSTest 3.6+; instance `TestContext` from constructor or property injection) |
+| `TestContext.Current.CancellationToken` | `_testContext.CancellationToken` (MSTest 3.6+; instance `TestContext` from constructor or property injection -- **never** replace with a new `CancellationTokenSource`, that breaks linkage to test-host cancellation) |
 | `[Fact(Timeout = 5000)]` | `[Timeout(5000)]` |
 | `[Fact(Timeout = -1)]` (no timeout) | Omit `[Timeout]` (MSTest default = no timeout) |
 
