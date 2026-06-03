@@ -318,13 +318,20 @@ esac
 # Suppress pings while the PR is actively being iterated on
 # ----------------------------------------------------------------------
 ping_age_gate_ok() {
-  local updated_secs now_secs
-  updated_secs=$(date -u -d "$UPDATED_AT" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$UPDATED_AT" +%s)
+  # Only applies to the *first* ping on a PR. If we've already posted any
+  # triage ping marker, we rely on the per-variant cool-down instead.
+  local prior; prior=$(seconds_since_marker "<!-- pr-triage:fingerprint=")
+  if [ -n "$prior" ]; then
+    return 0
+  fi
+  local created_at; created_at=$(jq -r .created_at <<<"$PR_JSON")
+  local created_secs now_secs
+  created_secs=$(date -u -d "$created_at" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$created_at" +%s)
   now_secs=$(date -u +%s)
-  local age=$(( now_secs - updated_secs ))
+  local age=$(( now_secs - created_secs ))
   local min=$(( FIRST_PING_AGE_MIN * 60 ))
   if [ "$age" -lt "$min" ]; then
-    log "first-ping age gate: PR updated_at age ${age}s < ${min}s — suppressing ping"
+    log "first-ping age gate: PR created_at age ${age}s < ${min}s — suppressing ping"
     return 1
   fi
   return 0
