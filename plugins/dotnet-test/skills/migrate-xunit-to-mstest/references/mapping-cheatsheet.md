@@ -38,15 +38,21 @@ Target framework throughout: **MSTest v4** (the few v3-only spellings are explic
 | `[Theory]` | `[TestMethod]` (MSTest 3+ unified; `[DataTestMethod]` still works but is not needed) |
 | `[Fact(DisplayName = "x")]` | MSTest 4: `[TestMethod(DisplayName = "x")]`; MSTest 3: `[TestMethod("x")]` |
 | `[Theory(DisplayName = "x")]` | Same as above on the `[TestMethod]` |
-| `[Fact(Skip = "reason")]` | `[Ignore("reason")]` |
-| `[Fact(Timeout = 5000)]` | `[Timeout(5000)]` |
+| `[Fact(Skip = "reason")]` | `[TestMethod]` + `[Ignore("reason")]` (the `[Ignore]` attribute alone does not discover a test -- you still need `[TestMethod]`) |
+| `[Fact(Timeout = 5000)]` | `[TestMethod]` + `[Timeout(5000)]` (same -- `[Timeout]` is a modifier, not a discovery attribute) |
 | `[Trait("Category", "Unit")]` | `[TestCategory("Unit")]` |
 | `[Trait("Owner", "alice")]` | `[TestProperty("Owner", "alice")]` |
 | `[Collection("Db")]` | Step 8 + Step 11: `[DoNotParallelize]` (serialization) + `[ClassInitialize]` (sharing) -- preserve scope explicitly |
 | Custom `FactAttribute` subclass | Custom `TestMethodAttribute` subclass overriding `ExecuteAsync` (MSTest v4). See `writing-mstest-tests` and `migrate-mstest-v3-to-v4` for `CallerInfo` constructor pattern |
 | Custom `TheoryAttribute` subclass | Same -- subclass `TestMethodAttribute`; expose data via `ITestDataSource` |
 
-> Use `[TestCategory]` for conventional category traits (recognized by VSTest/MTP filter syntax: `--filter "TestCategory=Unit"` or `--filter-trait "TestCategory=Unit"`). Use `[TestProperty]` for arbitrary key/value metadata that does not need filter integration. **Both target `Assembly`, `Class`, and `Method`** -- an `[assembly: Trait(...)]` in xUnit can be migrated to `[assembly: TestCategory(...)]` / `[assembly: TestProperty(...)]` (see Section 8).
+> Both `[TestCategory]` and `[TestProperty]` are **filterable** at runtime and target `Assembly`, `Class`, and `Method`:
+> - `[TestCategory("Unit")]` -> `--filter "TestCategory=Unit"` (VSTest) / `--filter-trait "TestCategory=Unit"` (MTP)
+> - `[TestProperty("Owner", "alice")]` -> `--filter "Owner=alice"` (VSTest) / `--filter-trait "Owner=alice"` (MTP)
+>
+> Use `[TestCategory]` for the conventional category trait; use `[TestProperty]` for arbitrary key/value metadata. An `[assembly: Trait(...)]` in xUnit can be migrated to `[assembly: TestCategory(...)]` / `[assembly: TestProperty(...)]` (see Section 8).
+>
+> **Conditional skips** (xUnit `[Trait("OS", "Windows")]` patterns that gate execution): MSTest 3.10+ offers dedicated condition attributes -- `[OSCondition]`, `[CICondition]`, `[ArchitectureCondition]`, `[NonParallelizableCondition]` -- which are usually a better fit than overloading `[TestCategory]` for environmental gating. See Section 3.9.
 
 ## 2. Data-driven tests
 
@@ -57,7 +63,7 @@ Target framework throughout: **MSTest v4** (the few v3-only spellings are explic
 | `[InlineData(null)]` | `[DataRow(null)]` |
 | `[MemberData(nameof(Cases))]` returning `IEnumerable<object[]>` | `[DynamicData(nameof(Cases))]` returning `IEnumerable<object[]>` |
 | `[MemberData(nameof(Cases), MemberType = typeof(X))]` | `[DynamicData(nameof(Cases), typeof(X))]` |
-| `[MemberData(nameof(Cases))]` returning `TheoryData<int, string>` | `[DynamicData(nameof(Cases))]` returning `IEnumerable<object[]>` or `IEnumerable<(int, string)>` (MSTest 3.7+ ValueTuple support) |
+| `[MemberData(nameof(Cases))]` returning `TheoryData<int, string>` | `[DynamicData(nameof(Cases))]` returning `IEnumerable<object[]>`, `IEnumerable<(int, string)>` (MSTest 3.7+ ValueTuple), or `IEnumerable<TestDataRow<(int, string)>>` (strongly-typed with per-row `DisplayName`/`Ignore` metadata -- see [docs](https://learn.microsoft.com/en-us/dotnet/core/testing/unit-testing-mstest-writing-tests-data-driven#supported-data-source-types)) |
 | `[MemberData(nameof(Method), arg1, arg2)]` (parameterized member) | **Manual** -- convert to a parameterless property/method, or move parameter logic into the test method |
 | `[ClassData(typeof(MyData))]` where `MyData : IEnumerable<object[]>` | Expose a static `IEnumerable<object[]> Cases => new MyData();` and use `[DynamicData(nameof(Cases))]` |
 | `[ClassData(typeof(MyData))]` where `MyData : TheoryData<...>` | Same approach; convert `TheoryData<...>` to `IEnumerable<object[]>` or ValueTuples |
@@ -171,15 +177,17 @@ Target framework throughout: **MSTest v4** (the few v3-only spellings are explic
 ### 3.9 Skip / inconclusive
 
 > xUnit `Assert.Skip*` is **runtime** (decided inside the test body). MSTest `[Ignore]` is **compile-time** (decided at discovery). They are not interchangeable -- mapping `SkipUnless` to `[Ignore]` will permanently exclude the test on machines where it should have run.
+>
+> **Prefer MSTest's condition attributes** (`[OSCondition]`, `[CICondition]`, `[ArchitectureCondition]`, `[NonParallelizableCondition]` -- MSTest 3.10+) over `Assert.Inconclusive` when the condition is environmental. They are discoverable, reportable per-condition, and do not pollute the test body with skip plumbing.
 
 | xUnit | MSTest |
 |---|---|
-| `[Fact(Skip = "reason")]` | `[Ignore("reason")]` |
+| `[Fact(Skip = "reason")]` | `[TestMethod]` + `[Ignore("reason")]` |
 | `Assert.Skip("reason")` (xUnit v3) | `Assert.Inconclusive("reason")` |
-| `Assert.SkipWhen(condition, "reason")` (xUnit v3) | `if (condition) Assert.Inconclusive("reason");` |
-| `Assert.SkipUnless(condition, "reason")` (xUnit v3) | `if (!condition) Assert.Inconclusive("reason");` |
-
-For OS- or environment-conditional skips, MSTest 3.10+ offers `[OSCondition]`, `[CICondition]`, `[NonParallelizableCondition]` -- prefer these over runtime `Assert.Inconclusive` when the condition is environmental.
+| `Assert.SkipWhen(condition, "reason")` (xUnit v3) | If `condition` is environmental: `[OSCondition(...)]` / `[CICondition(...)]` / etc. Otherwise: `if (condition) Assert.Inconclusive("reason");` |
+| `Assert.SkipUnless(condition, "reason")` (xUnit v3) | Same -- prefer a condition attribute when the predicate is environmental; otherwise `if (!condition) Assert.Inconclusive("reason");` |
+| `Assert.SkipUnless(OperatingSystem.IsWindows(), "...")` | `[OSCondition(OperatingSystems.Windows)]` on the method |
+| `Assert.SkipWhen(Environment.GetEnvironmentVariable("CI") != null, "...")` | `[CICondition(ConditionMode.Exclude)]` on the method |
 
 ### 3.10 Fail
 
@@ -335,16 +343,34 @@ xUnit assembly attributes split into two groups: a few have direct MSTest equiva
 ```
 
 ```xml
-<!-- Option B: MSTest.Sdk (MTP-first; add Microsoft.NET.Test.Sdk if you need VSTest) -->
+<!-- Option B: MSTest.Sdk -- defaults to MTP; set <UseVSTest>true</UseVSTest> to preserve VSTest. -->
+<!--           UseVSTest pulls in Microsoft.NET.Test.Sdk automatically -- no extra PackageReference needed. -->
 <Project Sdk="MSTest.Sdk/4.1.0">
+  <PropertyGroup>
+    <!-- Keep the project's existing TargetFramework; do not change it during migration. -->
+    <UseVSTest>true</UseVSTest> <!-- omit this line to stay on MTP -->
+  </PropertyGroup>
+</Project>
 ```
+
+Prefer pinning the `MSTest.Sdk` version in `global.json` (especially in solutions with several test projects) so the version lives in one place:
+
+```json
+{
+  "msbuild-sdks": {
+    "MSTest.Sdk": "4.1.0"
+  }
+}
+```
+
+With the pin in `global.json`, the project line simplifies to `<Project Sdk="MSTest.Sdk">`.
 
 ## 10. Companion / extension libraries
 
 | xUnit companion | MSTest equivalent |
 |---|---|
 | `Xunit.SkippableFact` (`[SkippableFact]`, `Skip.If`, `Skip.IfNot`) | `[Ignore]` (compile-time) or `Assert.Inconclusive("reason")` (runtime). Remove the package |
-| `Xunit.Combinatorial` (`[CombinatorialData]`, `[CombinatorialValues]`) | No equivalent -- expand to explicit `[DataRow]` or `[DynamicData]` |
+| `Xunit.Combinatorial` (`[CombinatorialData]`, `[CombinatorialValues]`) | [`Combinatorial.MSTest`](https://github.com/Youssef1313/Combinatorial.MSTest) (community port) -- attribute surface is the same as xUnit.Combinatorial. Alternatively, expand combinations into explicit `[DataRow]`s or compute them in `[DynamicData]` |
 | `Xunit.StaFact` (`[StaFact]`, `[WpfFact]`) | No equivalent -- manual STA thread or flag for review |
 | `Xunit.Priority` (`[TestCaseOrderer]`) | MSTest ordering is different -- flag for manual |
 | `Verify.Xunit` | `Verify.MSTest` (swap the package; same usage) |

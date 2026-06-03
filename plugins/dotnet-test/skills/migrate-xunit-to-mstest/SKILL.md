@@ -119,28 +119,38 @@ The `MSTest` metapackage pulls in `MSTest.TestFramework`, `MSTest.TestAdapter`, 
 ```xml
 <Project Sdk="MSTest.Sdk/4.1.0">
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <!-- Keep the project's existing TargetFramework -- do NOT retarget during migration. -->
+    <TargetFramework>$(ExistingTargetFramework)</TargetFramework>
   </PropertyGroup>
 </Project>
 ```
 
-`MSTest.Sdk` defaults to **MTP** and does *not* include `Microsoft.NET.Test.Sdk`. To preserve a VSTest project, you must opt back in:
+`MSTest.Sdk` defaults to **MTP**. To preserve a VSTest project, opt back in with `<UseVSTest>true</UseVSTest>` -- the SDK then pulls in `Microsoft.NET.Test.Sdk` automatically (no extra `PackageReference` needed):
 
 ```xml
 <PropertyGroup>
   <UseVSTest>true</UseVSTest>
 </PropertyGroup>
-<ItemGroup>
-  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-</ItemGroup>
 ```
+
+For solutions with several test projects, prefer pinning the `MSTest.Sdk` version in `global.json` so it lives in one place:
+
+```json
+{
+  "msbuild-sdks": {
+    "MSTest.Sdk": "4.1.0"
+  }
+}
+```
+
+With the pin in `global.json`, the project line simplifies to `<Project Sdk="MSTest.Sdk">`.
 
 When switching to `MSTest.Sdk`, also remove now-redundant properties: `<OutputType>Exe</OutputType>`, `<IsPackable>false</IsPackable>`, `<IsTestProject>true</IsTestProject>`, `<EnableMSTestRunner>`.
 
 ### Step 3: Update project configuration
 
 1. **Preserve the runner.** Confirm the platform decision from Step 1 still holds after Step 2. Common mistakes:
-   - Switching to `MSTest.Sdk` without `UseVSTest=true` silently flips a VSTest project to MTP. Add `Microsoft.NET.Test.Sdk` back.
+   - Switching to `MSTest.Sdk` without `UseVSTest=true` silently flips a VSTest project to MTP. Add `<UseVSTest>true</UseVSTest>` to the project (the SDK pulls in `Microsoft.NET.Test.Sdk` automatically -- no manual `PackageReference` needed).
    - Leaving `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` in `Directory.Build.props` will keep MTP on -- that is correct only if the project was already on MTP.
 2. Remove xUnit-only properties from `.csproj` / `Directory.Build.props`: anything referencing `xunit.runner.*`, `<CaptureConsoleOutput>`, `<UseRoslynCompilers>` set just for xUnit, etc.
 3. Remove `using Xunit;` and `using Xunit.Abstractions;` from C# files (the rewriter will add `using Microsoft.VisualStudio.TestTools.UnitTesting;` instead in Step 4).
@@ -162,11 +172,12 @@ Apply these rewrites to every C# test file. Class-level first, then method-level
 | `[Fact]` | `[TestMethod]` |
 | `[Theory]` | `[TestMethod]` (parameterized; MSTest 3+ no longer needs `[DataTestMethod]`) |
 | `[Fact(DisplayName = "x")]` | `[TestMethod("x")]` (v3 of MSTest) or `[TestMethod(DisplayName = "x")]` (v4) |
-| `[Fact(Skip = "reason")]` | `[Ignore("reason")]` |
+| `[Fact(Skip = "reason")]` | `[TestMethod]` + `[Ignore("reason")]` (the `[Ignore]` attribute alone does not discover a test) |
+| `[Fact(Timeout = 5000)]` | `[TestMethod]` + `[Timeout(5000)]` (modifier -- not a discovery attribute) |
 | `[Trait("Category", "Unit")]` | `[TestCategory("Unit")]` |
 | `[Trait("Owner", "alice")]` | `[TestProperty("Owner", "alice")]` |
 
-> Use `[TestCategory]` for the conventional category trait (it integrates with VSTest/MTP filter syntax); use `[TestProperty]` for arbitrary key/value metadata. Both attributes target `Assembly`, `Class`, and `Method` -- so an xUnit `[Trait]` placed at any of those scopes (including `[assembly: Trait(...)]`) keeps the same scope under MSTest (see Step 12).
+> Both `[TestCategory]` and `[TestProperty]` are filterable at runtime (`--filter "TestCategory=Unit"` / `--filter "Owner=alice"`) and target `Assembly`, `Class`, and `Method` -- so an xUnit `[Trait]` placed at any of those scopes (including `[assembly: Trait(...)]`) keeps the same scope under MSTest (see Step 12). Use `[TestCategory]` for the conventional category trait; use `[TestProperty]` for arbitrary key/value metadata. For environmental skips (OS-specific, CI-only, architecture-gated), MSTest 3.10+'s `[OSCondition]` / `[CICondition]` / `[ArchitectureCondition]` are usually a better fit than overloading a trait -- see Step 6 / cheatsheet §3.9.
 
 ### Step 5: Convert data-driven tests
 
@@ -178,7 +189,7 @@ Apply these rewrites to every C# test file. Class-level first, then method-level
 | `[MemberData(nameof(Cases), MemberType = typeof(X))]` | `[DynamicData(nameof(Cases), typeof(X))]` |
 | `[MemberData(nameof(Method), arg1, arg2)]` (parameterized member) | **Manual**: convert to a parameterless property or compute the inputs inside the test |
 | `[ClassData(typeof(MyData))]` (class implementing `IEnumerable<object[]>`) | Add a static property `=> new MyData()` on the test class, then `[DynamicData(nameof(Cases))]` |
-| `TheoryData<int, string>` | `IEnumerable<object[]>` or `IEnumerable<(int, string)>` (MSTest 3.7+ ValueTuple support) |
+| `TheoryData<int, string>` | `IEnumerable<object[]>`, `IEnumerable<(int, string)>` (MSTest 3.7+ ValueTuple), or `IEnumerable<TestDataRow<(int, string)>>` (strongly-typed with per-row metadata) |
 | Custom `DataAttribute` subclass | **Manual**: implement `ITestDataSource` (`GetData`, `GetDisplayName`) |
 
 Prefer ValueTuple data sources for new MSTest tests (see `writing-mstest-tests`), but for migration keep `IEnumerable<object[]>` -- it minimizes diff churn and works in both MSTest 3 and 4.
@@ -203,8 +214,8 @@ Most common cases inline. For the full table including string/collection/type/nu
 | `Assert.Contains(item, coll)` / `Assert.DoesNotContain(...)` | Same -- `Assert.Contains` / `Assert.DoesNotContain` |
 | `Assert.Contains("sub", str)` / `StartsWith` / `EndsWith` / `Matches` | Same (MSTest 3.8+) or `StringAssert.*` |
 | `Assert.Skip("reason")` (v3 runtime) | `Assert.Inconclusive("reason")` |
-| `Assert.SkipWhen(cond, "reason")` (v3) | `if (cond) Assert.Inconclusive("reason");` |
-| `Assert.SkipUnless(cond, "reason")` (v3) | `if (!cond) Assert.Inconclusive("reason");` |
+| `Assert.SkipWhen(cond, "reason")` (v3) | If `cond` is environmental: `[OSCondition]` / `[CICondition]` / `[ArchitectureCondition]` (MSTest 3.10+); otherwise `if (cond) Assert.Inconclusive("reason");` |
+| `Assert.SkipUnless(cond, "reason")` (v3) | Same -- prefer a condition attribute when the predicate is environmental; otherwise `if (!cond) Assert.Inconclusive("reason");` |
 
 **Critical semantic trap -- exception assertions:**
 
@@ -324,8 +335,8 @@ public TestContext TestContext { get; set; } = null!;
 
 | xUnit companion | MSTest equivalent |
 |---|---|
-| `Xunit.SkippableFact` (`[SkippableFact]`, `Skip.If`, `Skip.IfNot`) | `[Ignore]` (compile-time) or `Assert.Inconclusive("reason")` (runtime). Remove the package |
-| `Xunit.Combinatorial` (`[CombinatorialData]`, `[CombinatorialValues]`) | No equivalent. Convert to explicit `[DataRow]`s or compute combinations with `[DynamicData]`. Remove the package |
+| `Xunit.SkippableFact` (`[SkippableFact]`, `Skip.If`, `Skip.IfNot`) | For environmental predicates (OS/CI/arch): MSTest 3.10+ condition attributes (`[OSCondition]`, `[CICondition]`, etc.). Otherwise: `[Ignore]` (compile-time) or `Assert.Inconclusive("reason")` (runtime). Remove the package |
+| `Xunit.Combinatorial` (`[CombinatorialData]`, `[CombinatorialValues]`) | [`Combinatorial.MSTest`](https://github.com/Youssef1313/Combinatorial.MSTest) (community port; attribute surface matches xUnit.Combinatorial). Or expand combinations into explicit `[DataRow]`s / `[DynamicData]` |
 | `Xunit.StaFact` (`[StaFact]`, `[WpfFact]`) | `[TestMethod]` + manual STA thread. No MSTest equivalent for `[WpfFact]`; flag for manual conversion |
 | `Verify.Xunit` | `Verify.MSTest` -- swap the package; usage is similar |
 | `FluentAssertions` / `Shouldly` / `AwesomeAssertions` | Keep -- assertion library is framework-agnostic |
@@ -475,9 +486,9 @@ Custom orderers/test framework hooks must be reimplemented against MSTest's exte
 | Picking `ExecutionScope.MethodLevel` to "match xUnit" | New flakiness on tests sharing instance state within a class | Use `ExecutionScope.ClassLevel` -- it matches xUnit exactly |
 | Mapping `Assert.Throws<T>` to `Assert.Throws<T>` | Tests pass for derived exception types they shouldn't | Map xUnit `Assert.Throws<T>` to MSTest `Assert.ThrowsExactly<T>` |
 | Silently widening `ICollectionFixture` to assembly scope | State leak between unrelated tests; new flakiness | Step 8 -- pick scope explicitly and disclose to the user |
-| `MSTest.Sdk` flipping VSTest project to MTP | `vstest.console` finds zero tests; CI breaks | Add `<UseVSTest>true</UseVSTest>` + `Microsoft.NET.Test.Sdk` package |
+| `MSTest.Sdk` flipping VSTest project to MTP | `vstest.console` finds zero tests; CI breaks | Add `<UseVSTest>true</UseVSTest>` (no separate `Microsoft.NET.Test.Sdk` package needed -- the SDK pulls it in) |
 | `[DataRow]` type mismatch | Theory cases compile in xUnit but produce MSTest runtime errors | Use exact literal types: `1` int, `1L` long, `1.0f` float |
-| `Assert.SkipUnless` becomes `[Ignore]` | Tests that *would* have run on this machine now silently skip everywhere | Use runtime `Assert.Inconclusive` instead |
+| `Assert.SkipUnless` becomes `[Ignore]` | Tests that *would* have run on this machine now silently skip everywhere | Use a condition attribute (`[OSCondition]`/`[CICondition]`/`[ArchitectureCondition]`, MSTest 3.10+) when the predicate is environmental; otherwise runtime `Assert.Inconclusive` |
 | Dropping `Assert.Collection` / `Assert.All` without replacement | Test passes but verifies nothing | Restore as explicit `foreach` + per-element assertions |
 | Leaving `xunit.runner.json` in the project | Build warning + dead config | Delete the file after porting settings |
 

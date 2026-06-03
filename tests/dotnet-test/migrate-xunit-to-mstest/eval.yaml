@@ -650,10 +650,10 @@ scenarios:
         expected_exit_code: 0
         command_timeout: 180
     rubric:
-      - "Converts [Fact(Skip = ...)] to [Ignore(...)]"
+      - "Converts [Fact(Skip = ...)] to [TestMethod] + [Ignore(...)] (both attributes required -- [Ignore] alone does not discover the test)"
       - "Converts [Trait(\"Category\", X)] to [TestCategory(X)]"
       - "Converts other [Trait(k, v)] to [TestProperty(k, v)]"
-      - "Converts [Fact(Timeout = N)] to [Timeout(N)]"
+      - "Converts [Fact(Timeout = N)] to [TestMethod] + [Timeout(N)]"
     timeout: 720
 
   # ============================================================================
