@@ -490,5 +490,3 @@ case "$STATE" in
 esac
 
 log "done"
-
-# trigger: 2026-06-03T18:05:25.4530646+02:00

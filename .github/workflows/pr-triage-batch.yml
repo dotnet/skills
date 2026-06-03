@@ -7,14 +7,6 @@ name: "PR Triage — Batch"
 # side effects.
 
 on:
-  # TEMPORARY: trigger from branch pushes during pre-merge testing.
-  # Remove this `push` block before merging.
-  push:
-    branches: [pr-triage-workflows]
-    paths:
-      - .github/workflows/pr-triage-batch.yml
-      - .github/workflows/pr-triage.yml
-      - .github/scripts/pr-triage-act.sh
   schedule:
     # Off-the-hour to avoid colliding with evaluation.yml's daily 00:00 UTC cron.
     - cron: "17 * * * *"
@@ -55,9 +47,8 @@ jobs:
       - name: Enumerate open PRs and dispatch workers
         env:
           GH_TOKEN:       ${{ github.token }}
-          # On `push` (the temporary test trigger), force dry-run on PR #713.
-          DRY_RUN:        ${{ github.event_name == 'push' && 'true' || (inputs.dry_run || 'false') }}
-          ONLY_PR:        ${{ github.event_name == 'push' && '713' || inputs.pr_number }}
+          DRY_RUN:        ${{ inputs.dry_run || 'false' }}
+          ONLY_PR:        ${{ inputs.pr_number }}
           MAX_DISPATCHES: ${{ inputs.max_dispatches || '30' }}
         run: |
           set -euo pipefail

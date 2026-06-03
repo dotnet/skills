@@ -8,13 +8,6 @@ name: "PR Triage — Worker"
 #   - workflow_dispatch (orchestrator and manual reruns)
 
 on:
-  # TEMPORARY: trigger from branch pushes during pre-merge testing.
-  # Remove this `push` block before merging.
-  push:
-    branches: [pr-triage-workflows]
-    paths:
-      - .github/workflows/pr-triage.yml
-      - .github/scripts/pr-triage-act.sh
   workflow_dispatch:
     inputs:
       pr_number:
@@ -72,12 +65,11 @@ jobs:
       - name: Run pr-triage-act.sh
         env:
           GH_TOKEN:           ${{ github.token }}
-          PR_NUMBER:          ${{ inputs.pr_number || '713' }}
+          PR_NUMBER:          ${{ inputs.pr_number }}
           INTENDED_STATE:     ${{ inputs.intended_state }}
-          COOLDOWN_DAYS:      ${{ inputs.cooldown_days || '4' }}
-          FIRST_PING_AGE_MIN: ${{ inputs.first_ping_age_min || '30' }}
-          # Force dry-run for push-triggered test runs.
-          DRY_RUN:            ${{ github.event_name == 'push' && 'false' || (inputs.dry_run || 'false') }}
+          COOLDOWN_DAYS:      ${{ inputs.cooldown_days }}
+          FIRST_PING_AGE_MIN: ${{ inputs.first_ping_age_min }}
+          DRY_RUN:            ${{ inputs.dry_run }}
         run: |
           chmod +x .github/scripts/pr-triage-act.sh
           ./.github/scripts/pr-triage-act.sh
