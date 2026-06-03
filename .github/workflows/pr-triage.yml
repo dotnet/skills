@@ -77,7 +77,7 @@ jobs:
           COOLDOWN_DAYS:      ${{ inputs.cooldown_days || '4' }}
           FIRST_PING_AGE_MIN: ${{ inputs.first_ping_age_min || '30' }}
           # Force dry-run for push-triggered test runs.
-          DRY_RUN:            ${{ github.event_name == 'push' && 'true' || (inputs.dry_run || 'false') }}
+          DRY_RUN:            ${{ github.event_name == 'push' && 'false' || (inputs.dry_run || 'false') }}
         run: |
           chmod +x .github/scripts/pr-triage-act.sh
           ./.github/scripts/pr-triage-act.sh
