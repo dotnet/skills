@@ -144,6 +144,26 @@ cooldown_seconds() {
   echo $(( COOLDOWN_DAYS * 86400 ))
 }
 
+# Same as seconds_since_marker but matches a comment that contains TWO substrings
+# (both must be present). Useful when the bot's HTML marker is missing and we
+# fall back to the visible-body sentinel.
+seconds_since_marker_visible() {
+  local sub_a="$1"
+  local sub_b="$2"
+  local newest
+  newest=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+    --jq ".[] | select(.user.login == \"$BOT_LOGIN\") | select((.body | contains(\"$sub_a\")) and (.body | contains(\"$sub_b\"))) | .created_at" \
+    | sort | tail -n 1)
+  if [ -z "$newest" ] || [ "$newest" = "null" ]; then
+    echo ""
+    return
+  fi
+  local then now
+  then=$(date -u -d "$newest" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$newest" +%s)
+  now=$(date -u +%s)
+  echo $(( now - then ))
+}
+
 post_comment() {
   local body="$1"
   if [ "$DRY_RUN" = "true" ]; then
@@ -277,9 +297,15 @@ if [ -z "$STATE" ]; then
   EVAL_STATE=$(eval_status_state)
   log "reviewDecision=$REVIEW_DECISION unresolved_threads=$UNRESOLVED eval_status=$EVAL_STATE"
 
-  # Malicious scan precedence (non-bot, untrusted, no marker for current head)
+  # Malicious scan precedence (non-bot, untrusted, no marker for current head).
+  # Match either the HTML marker (preferred) or the visible-body sentinel —
+  # the scanner agent has been observed to drop the HTML comment line, in which
+  # case we still must not re-dispatch the scanner.
   if [ "$IS_BOT" = "false" ] && [ "$IS_TRUSTED" = "false" ]; then
     SECS=$(seconds_since_marker "<!-- pr-malicious-scan:fingerprint=$HEAD_SHA_SHORT:")
+    if [ -z "$SECS" ]; then
+      SECS=$(seconds_since_marker_visible "Automated diff scan" "\`$HEAD_SHA_SHORT\`")
+    fi
     if [ -z "$SECS" ]; then
       STATE="needs-malicious-scan"
     fi

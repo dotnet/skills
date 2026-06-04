@@ -129,12 +129,15 @@ jobs:
             # Compute state — same logic as worker, kept simple and deterministic.
             STATE=""
             if [ "$IS_BOT" = "false" ] && [ "$IS_TRUSTED" = "false" ]; then
-              # Look for prior malicious-scan marker on this head
+              # Look for prior malicious-scan signal on this head. Match either the
+              # HTML marker (preferred) or the visible-body sentinel — the agent has
+              # been observed to occasionally drop the HTML comment line, and we
+              # must not re-dispatch the scanner in that case.
               SHORT="${HEAD_SHA:0:7}"
               # NB: --paginate runs --jq per page, so aggregations like 'length' would emit one
               # number per page. Emit one .id per matching comment and count lines in the shell.
               MARKER=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
-                --jq ".[] | select(.user.login == \"github-actions[bot]\") | select(.body | contains(\"<!-- pr-malicious-scan:fingerprint=$SHORT:\")) | .id" \
+                --jq ".[] | select(.user.login == \"github-actions[bot]\") | select((.body | contains(\"<!-- pr-malicious-scan:fingerprint=$SHORT:\")) or ((.body | contains(\"Automated diff scan\")) and (.body | contains(\"\`$SHORT\`\")))) | .id" \
                 | wc -l | tr -d ' ')
               if [ "${MARKER:-0}" -eq 0 ]; then
                 STATE="needs-malicious-scan"
