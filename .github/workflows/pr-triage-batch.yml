@@ -29,6 +29,7 @@ on:
 
 permissions:
   pull-requests: read
+  issues: write
   statuses: read
   actions: write
   contents: read
@@ -129,15 +130,17 @@ jobs:
             # Compute state — same logic as worker, kept simple and deterministic.
             STATE=""
             if [ "$IS_BOT" = "false" ] && [ "$IS_TRUSTED" = "false" ]; then
-              # Look for prior malicious-scan signal on this head. Match either the
-              # HTML marker (preferred) or the visible-body sentinel — the agent has
-              # been observed to occasionally drop the HTML comment line, and we
-              # must not re-dispatch the scanner in that case.
+              # Look for prior malicious-scan signal on this head. Match either:
+              #   <!-- pr-malicious-scan:dispatched=SHORT --> (orchestrator-authored, posted
+              #     just before `gh workflow run`; survives any agent-side failure mode), OR
+              #   <!-- pr-malicious-scan:fingerprint=SHORT:DATE --> (agent-authored, posted by
+              #     a successful scan run).
+              # Either marker means "do not re-dispatch for this head SHA".
               SHORT="${HEAD_SHA:0:7}"
               # NB: --paginate runs --jq per page, so aggregations like 'length' would emit one
               # number per page. Emit one .id per matching comment and count lines in the shell.
               MARKER=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
-                --jq ".[] | select(.user.login == \"github-actions[bot]\") | select((.body | contains(\"<!-- pr-malicious-scan:fingerprint=$SHORT:\")) or ((.body | contains(\"Automated diff scan\")) and (.body | contains(\"\`$SHORT\`\")))) | .id" \
+                --jq ".[] | select(.user.login == \"github-actions[bot]\") | select((.body | contains(\"<!-- pr-malicious-scan:dispatched=$SHORT -->\")) or (.body | contains(\"<!-- pr-malicious-scan:fingerprint=$SHORT:\"))) | .id" \
                 | wc -l | tr -d ' ')
               if [ "${MARKER:-0}" -eq 0 ]; then
                 STATE="needs-malicious-scan"
@@ -183,9 +186,28 @@ jobs:
               dispatch-scanner)
                 if gh workflow list --repo "$REPO" --json path --jq '.[].path' \
                     | grep -q 'pr-malicious-scan\.agent\.lock\.yml'; then
-                  gh workflow run pr-malicious-scan.agent.lock.yml --repo "$REPO" \
-                    -f pr_number="$PR" || echo "::warning::failed to dispatch scanner for PR #$PR"
-                  DISPATCHED=$((DISPATCHED + 1))
+                  SHORT="${HEAD_SHA:0:7}"
+                  # Post the pre-dispatch idempotency marker BEFORE triggering the scanner.
+                  # This is the source of truth for "a scan has been initiated for this head SHA".
+                  # Even if the scanner fails to start, never starts (e.g. missing PAT), drops
+                  # its own fingerprint marker, or is blocked by an integrity filter, this marker
+                  # prevents re-dispatch. A new push (= new SHA) creates no marker, so the
+                  # scanner re-runs as expected.
+                  PRE_DISPATCH_BODY=$(printf '%s\n%s\n\n%s\n' \
+                    "<!-- pr-malicious-scan:dispatched=$SHORT -->" \
+                    "🔍 Automated malicious-diff scan dispatched for \`$SHORT\`." \
+                    "_Results will be posted as code-scanning alerts and a follow-up comment by github-actions[bot]._")
+                  if ! gh api -X POST "repos/$REPO/issues/$PR/comments" \
+                       -f body="$PRE_DISPATCH_BODY" >/dev/null 2>&1; then
+                    echo "::warning::failed to post pre-dispatch marker for PR #$PR — skipping scanner dispatch"
+                    continue
+                  fi
+                  if gh workflow run pr-malicious-scan.agent.lock.yml --repo "$REPO" \
+                       -f pr_number="$PR"; then
+                    DISPATCHED=$((DISPATCHED + 1))
+                  else
+                    echo "::warning::failed to dispatch scanner for PR #$PR"
+                  fi
                 else
                   echo "::notice::scanner workflow not yet present; would dispatch for PR #$PR"
                 fi
