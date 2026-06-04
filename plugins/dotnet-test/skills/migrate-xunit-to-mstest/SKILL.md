@@ -74,10 +74,7 @@ For writing idiomatic MSTest code (modern assertion APIs, lifecycle patterns, da
 2. Identify the **xUnit version**:
    - `xunit` 2.x (+ `xunit.assert` / `xunit.core` / `xunit.abstractions`) -> **xUnit v2**
    - `xunit.v3` / `xunit.v3.*` -> **xUnit v3**
-3. Identify the **current test platform** (this dictates what to keep, not what to change):
-   - `xunit.runner.visualstudio` (v2) or no MTP signals (v3) and no `<UseMicrosoftTestingPlatformRunner>` -> **VSTest**
-   - xUnit v3 with `xunit.v3.mtp-v*` / `xunit.v3.core.mtp-v*`, or `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>`, or `YTest.MTP.XUnit2` (v2 MTP shim) -> **MTP**
-   - Use the `platform-detection` skill if you are unsure.
+3. Identify the **current test platform** (this dictates what to keep, not what to change) by invoking the `platform-detection` skill. The xUnit/MTP matrix is nuanced -- xunit.v3 inside Test Explorer is MTP by default unless opted out, while xunit.v3 inside `dotnet test` depends on the `xunit.v3.mtp-v*` packages -- so do not try to inline a shortcut here. Quick signals to feed into that skill: `xunit.runner.visualstudio` (v2) usually means VSTest; `xunit.v3.mtp-v*` / `xunit.v3.core.mtp-v*` packages or `YTest.MTP.XUnit2` (v2 MTP shim) usually mean MTP. `<UseMicrosoftTestingPlatformRunner>` only affects `dotnet run` and is **not** a reliable VSTest-vs-MTP signal on its own.
 4. Verify the `TargetFramework` is supported by MSTest v4:
    - **Supported**: `net8.0`, `net9.0`, `net462`+, `netstandard2.0` (test library only), `uap10.0.16299`, `net8.0-windows10.0.18362.0` (WinUI), `net9.0-windows10.0.17763.0` (modern UWP).
    - **Unsupported**: .NET Core 3.1, `net5.0`-`net7.0`. **STOP** and ask the user to upgrade the TFM first, or migrate to MSTest v3 (then use `migrate-mstest-v3-to-v4` after a TFM bump).
@@ -118,6 +115,8 @@ For writing idiomatic MSTest code (modern assertion APIs, lifecycle patterns, da
 
 The `MSTest` metapackage pulls in `MSTest.TestFramework`, `MSTest.TestAdapter`, `MSTest.Analyzers`, and `Microsoft.NET.Test.Sdk` -- so VSTest discovery (`vstest.console`, classic `dotnet test`) still works.
 
+> **MTP code-coverage caveat for Option A:** `Microsoft.NET.Test.Sdk` pulls VSTest's `Microsoft.CodeCoverage` transitively. If the project from Step 1 is on **MTP** and uses code coverage, that transitive dependency can interfere with MTP's collector (`Microsoft.Testing.Extensions.CodeCoverage`). Prefer **Option B** (`MSTest.Sdk` without `UseVSTest`) for MTP projects -- the SDK omits `Microsoft.NET.Test.Sdk` and wires the MTP coverage collector instead. If you must stay on Option A for an MTP project, verify coverage works on a representative test run before merging.
+
 **Option B -- `MSTest.Sdk`:**
 
 ```xml
@@ -155,8 +154,8 @@ When switching to `MSTest.Sdk`, also remove now-redundant properties: `<OutputTy
 
 1. **Preserve the runner.** Confirm the platform decision from Step 1 still holds after Step 2. Common mistakes:
    - Switching to `MSTest.Sdk` without `UseVSTest=true` silently flips a VSTest project to MTP. Add `<UseVSTest>true</UseVSTest>` to the project (the SDK pulls in `Microsoft.NET.Test.Sdk` automatically -- no manual `PackageReference` needed).
-   - Leaving `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` in `Directory.Build.props` will keep MTP on -- that is correct only if the project was already on MTP.
-2. Remove xUnit-only properties from `.csproj` / `Directory.Build.props`: anything referencing `xunit.runner.*`, `<CaptureConsoleOutput>`, `<UseRoslynCompilers>` set just for xUnit, etc.
+   - `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` only affects the `dotnet run` entry point and is **not** a runner switch in Test Explorer or `dotnet test`. Do not infer the platform from this property in either direction -- defer to the `platform-detection` skill (see Step 1).
+2. Delete `xunit.runner.json` and port any settings you need (parallelization, `[CollectionBehavior]`, `appDomain`) per Step 11's "xunit.runner.json -> MSTest" sub-table. The settings have no direct MSBuild-property mapping.
 3. Remove `using Xunit;` and `using Xunit.Abstractions;` from C# files (the rewriter will add `using Microsoft.VisualStudio.TestTools.UnitTesting;` instead in Step 4).
 
 ### Step 4: Convert test classes and methods
@@ -183,7 +182,7 @@ Apply these rewrites to every C# test file. Class-level first, then method-level
 | `[Trait("Category", "Unit")]` | `[TestCategory("Unit")]` |
 | `[Trait("Owner", "alice")]` | `[TestProperty("Owner", "alice")]` |
 
-> Both `[TestCategory]` and `[TestProperty]` are filterable at runtime (`--filter "TestCategory=Unit"` / `--filter "Owner=alice"`) and target `Assembly`, `Class`, and `Method` -- so an xUnit `[Trait]` placed at any of those scopes (including `[assembly: Trait(...)]`) keeps the same scope under MSTest (see Step 12). Use `[TestCategory]` for the conventional category trait; use `[TestProperty]` for arbitrary key/value metadata. For environmental skips (OS-specific, CI-only, architecture-gated), MSTest 3.10+'s `[OSCondition]` / `[CICondition]` / `[ArchitectureCondition]` are usually a better fit than overloading a trait -- see Step 6 / cheatsheet §3.9.
+> Both `[TestCategory]` and `[TestProperty]` are filterable at runtime (`--filter "TestCategory=Unit"` / `--filter "Owner=alice"`). `[TestCategory]` targets `Assembly`, `Class`, and `Method`, so an xUnit `[assembly: Trait("Category", ...)]` keeps its assembly scope under MSTest as `[assembly: TestCategory(...)]`. **`[TestProperty]` targets only `Class` and `Method`** — there is no `AttributeTargets.Assembly`, so an assembly-level xUnit trait with an arbitrary key must collapse to `[assembly: TestCategory(...)]` (or be pushed down to every class). Use `[TestCategory]` for the conventional category trait; use `[TestProperty]` for arbitrary key/value metadata at class/method scope. For environmental skips (OS-specific, CI-only), MSTest 3.10+'s `[OSCondition]` / `[CICondition]` are usually a better fit than overloading a trait -- see Step 6 / cheatsheet §3.9.
 
 ### Step 5: Convert data-driven tests
 
@@ -220,7 +219,7 @@ Most common cases inline. For the full table including string/collection/type/nu
 | `Assert.Contains(item, coll)` / `Assert.DoesNotContain(...)` | Same -- `Assert.Contains` / `Assert.DoesNotContain` |
 | `Assert.Contains("sub", str)` / `StartsWith` / `EndsWith` / `Matches` | Same (MSTest 3.8+) or `StringAssert.*` |
 | `Assert.Skip("reason")` (v3 runtime) | `Assert.Inconclusive("reason")` |
-| `Assert.SkipWhen(cond, "reason")` (v3) | If `cond` is environmental: `[OSCondition]` / `[CICondition]` / `[ArchitectureCondition]` (MSTest 3.10+); otherwise `if (cond) Assert.Inconclusive("reason");` |
+| `Assert.SkipWhen(cond, "reason")` (v3) | If `cond` is environmental: `[OSCondition]` / `[CICondition]` (MSTest 3.10+); otherwise `if (cond) Assert.Inconclusive("reason");` |
 | `Assert.SkipUnless(cond, "reason")` (v3) | Same -- prefer a condition attribute when the predicate is environmental; otherwise `if (!cond) Assert.Inconclusive("reason");` |
 
 **Critical semantic trap -- exception assertions:**
@@ -483,7 +482,10 @@ Some xUnit assembly attributes have direct MSTest equivalents at assembly scope;
 **Convert (assembly scope preserved):**
 
 - `[assembly: Xunit.Trait("Category", "v")]` -> `[assembly: TestCategory("v")]` -- `TestCategoryAttribute` targets `Assembly`, `Class`, and `Method`; assembly application propagates to every test.
-- `[assembly: Xunit.Trait("k", "v")]` (non-category key) -> `[assembly: TestProperty("k", "v")]` -- same `Assembly`/`Class`/`Method` targets.
+
+**Convert (assembly scope NOT preserved):**
+
+- `[assembly: Xunit.Trait("k", "v")]` (non-category key) -> **collapse to** `[assembly: TestCategory("v")]` if the value alone is sufficient as a filter, or move the trait down to every test class as `[TestProperty("k", "v")]`. `TestPropertyAttribute` only targets `Class` and `Method` (no `AttributeTargets.Assembly`) -- `[assembly: TestProperty(...)]` will not compile.
 
 **Delete (no MSTest equivalent or now handled elsewhere):**
 
@@ -531,7 +533,7 @@ Custom orderers/test framework hooks must be reimplemented against MSTest's exte
 | Silently widening `ICollectionFixture` to assembly scope | State leak between unrelated tests; new flakiness | Step 8 -- pick scope explicitly and disclose to the user |
 | `MSTest.Sdk` flipping VSTest project to MTP | `vstest.console` finds zero tests; CI breaks | Add `<UseVSTest>true</UseVSTest>` (no separate `Microsoft.NET.Test.Sdk` package needed -- the SDK pulls it in) |
 | `[DataRow]` type mismatch | Theory cases compile in xUnit but produce MSTest runtime errors | Use exact literal types: `1` int, `1L` long, `1.0f` float |
-| `Assert.SkipUnless` becomes `[Ignore]` | Tests that *would* have run on this machine now silently skip everywhere | Use a condition attribute (`[OSCondition]`/`[CICondition]`/`[ArchitectureCondition]`, MSTest 3.10+) when the predicate is environmental; otherwise runtime `Assert.Inconclusive` |
+| `Assert.SkipUnless` becomes `[Ignore]` | Tests that *would* have run on this machine now silently skip everywhere | Use a condition attribute (`[OSCondition]`/`[CICondition]`, MSTest 3.10+) when the predicate is environmental; otherwise runtime `Assert.Inconclusive` |
 | Dropping `Assert.Collection` / `Assert.All` without replacement | Test passes but verifies nothing | Restore as explicit `foreach` + per-element assertions |
 | Leaving `xunit.runner.json` in the project | Build warning + dead config | Delete the file after porting settings |
 

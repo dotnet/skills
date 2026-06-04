@@ -46,13 +46,13 @@ Target framework throughout: **MSTest v4** (the few v3-only spellings are explic
 | Custom `FactAttribute` subclass | Custom `TestMethodAttribute` subclass overriding `ExecuteAsync` (MSTest v4). See `writing-mstest-tests` and `migrate-mstest-v3-to-v4` for `CallerInfo` constructor pattern |
 | Custom `TheoryAttribute` subclass | Same -- subclass `TestMethodAttribute`; expose data via `ITestDataSource` |
 
-> Both `[TestCategory]` and `[TestProperty]` are **filterable** at runtime and target `Assembly`, `Class`, and `Method`:
-> - `[TestCategory("Unit")]` -> `--filter "TestCategory=Unit"` (VSTest) / `--filter-trait "TestCategory=Unit"` (MTP)
-> - `[TestProperty("Owner", "alice")]` -> `--filter "Owner=alice"` (VSTest) / `--filter-trait "Owner=alice"` (MTP)
+> Both `[TestCategory]` and `[TestProperty]` are **filterable** at runtime:
+> - `[TestCategory("Unit")]` -> `--filter "TestCategory=Unit"` (VSTest) / `--filter-trait "TestCategory=Unit"` (MTP); targets `Assembly`, `Class`, and `Method`
+> - `[TestProperty("Owner", "alice")]` -> `--filter "Owner=alice"` (VSTest) / `--filter-trait "Owner=alice"` (MTP); targets `Class` and `Method` only (no `AttributeTargets.Assembly`)
 >
-> Use `[TestCategory]` for the conventional category trait; use `[TestProperty]` for arbitrary key/value metadata. An `[assembly: Trait(...)]` in xUnit can be migrated to `[assembly: TestCategory(...)]` / `[assembly: TestProperty(...)]` (see Section 8).
+> Use `[TestCategory]` for the conventional category trait; use `[TestProperty]` for arbitrary key/value metadata at class/method scope. An `[assembly: Trait("Category", ...)]` in xUnit can be migrated to `[assembly: TestCategory(...)]`. An assembly-level `[Trait]` with an arbitrary key cannot map to `[assembly: TestProperty(...)]` -- collapse it to `[assembly: TestCategory(...)]` or move it down to every class (see Section 8).
 >
-> **Conditional skips** (xUnit `[Trait("OS", "Windows")]` patterns that gate execution): MSTest 3.10+ offers dedicated condition attributes -- `[OSCondition]`, `[CICondition]`, `[ArchitectureCondition]`, `[NonParallelizableCondition]` -- which are usually a better fit than overloading `[TestCategory]` for environmental gating. See Section 3.9.
+> **Conditional skips** (xUnit `[Trait("OS", "Windows")]` patterns that gate execution): MSTest 3.10+ offers dedicated condition attributes -- `[OSCondition]` and `[CICondition]` -- which are usually a better fit than overloading `[TestCategory]` for environmental gating. (There is no `ArchitectureCondition` or `NonParallelizableCondition` attribute in MSTest; for non-parallel intent use `[DoNotParallelize]`, and for architecture gating fall back to `if (RuntimeInformation.OSArchitecture != ...) Assert.Inconclusive(...)`.) See Section 3.9.
 
 ## 2. Data-driven tests
 
@@ -178,7 +178,7 @@ Target framework throughout: **MSTest v4** (the few v3-only spellings are explic
 
 > xUnit `Assert.Skip*` is **runtime** (decided inside the test body). MSTest `[Ignore]` is **compile-time** (decided at discovery). They are not interchangeable -- mapping `SkipUnless` to `[Ignore]` will permanently exclude the test on machines where it should have run.
 >
-> **Prefer MSTest's condition attributes** (`[OSCondition]`, `[CICondition]`, `[ArchitectureCondition]`, `[NonParallelizableCondition]` -- MSTest 3.10+) over `Assert.Inconclusive` when the condition is environmental. They are discoverable, reportable per-condition, and do not pollute the test body with skip plumbing.
+> **Prefer MSTest's condition attributes** (`[OSCondition]` and `[CICondition]` -- MSTest 3.10+) over `Assert.Inconclusive` when the condition is OS- or CI-environmental. They are discoverable, reportable per-condition, and do not pollute the test body with skip plumbing. (MSTest does **not** ship an `ArchitectureCondition` or `NonParallelizableCondition` attribute -- for architecture gating fall back to runtime `Assert.Inconclusive`; for "do not run in parallel" use `[DoNotParallelize]`.)
 
 | xUnit | MSTest |
 |---|---|
@@ -322,7 +322,7 @@ xUnit assembly attributes split into two groups: a few have direct MSTest equiva
 | `[assembly: TestFramework(...)]` | Remove |
 | `[assembly: CaptureConsole]` (xUnit v3) | Remove -- MSTest does not capture console by default |
 | `[assembly: Xunit.Trait("Category", "v")]` | `[assembly: TestCategory("v")]` (applies the category to every test in the assembly -- `TestCategoryAttribute` targets `Assembly`, `Class`, and `Method`) |
-| `[assembly: Xunit.Trait("k", "v")]` (non-category key) | `[assembly: TestProperty("k", "v")]` (`TestPropertyAttribute` also targets `Assembly`, `Class`, and `Method`) |
+| `[assembly: Xunit.Trait("k", "v")]` (non-category key) | **No direct equivalent at assembly scope** -- `TestPropertyAttribute` targets only `Class`/`Method`. Either collapse to `[assembly: TestCategory("v")]` if the value alone filters cleanly, or push down to every test class as `[TestProperty("k", "v")]` |
 
 ## 9. Packages
 
