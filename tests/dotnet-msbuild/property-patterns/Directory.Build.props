@@ -1,0 +1,26 @@
+<Project>
+  <!-- Shared build properties for the repository -->
+  <PropertyGroup>
+    <DefineConstants>CUSTOM_FEATURE</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Enable documentation for library projects -->
+  <PropertyGroup Condition="$(IsLibrary) == true">
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- Path to shared build tools -->
+  <PropertyGroup>
+    <ToolsPath>C:\BuildTools\analyzers\</ToolsPath>
+  </PropertyGroup>
+
+  <!-- Default language version for the repository -->
+  <PropertyGroup>
+    <LangVersion>12</LangVersion>
+  </PropertyGroup>
+
+  <!-- Custom output directory -->
+  <PropertyGroup>
+    <CustomOutputDir>artifacts\bin</CustomOutputDir>
+  </PropertyGroup>
+</Project>

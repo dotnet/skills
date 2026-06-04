@@ -1,0 +1,19 @@
+<Project>
+  <!-- Configure pre-build validation hook -->
+  <PropertyGroup>
+    <CustomBeforeMicrosoftCommonTargets>$(MSBuildThisFileDirectory)hooks\pre-build-validation.targets</CustomBeforeMicrosoftCommonTargets>
+  </PropertyGroup>
+
+  <!-- Import shared code analysis rules -->
+  <Import Project="$(RepoToolsPath)\code-analysis.targets" />
+
+  <!-- Custom assembly info generation -->
+  <Target Name="GenerateAssemblyInfo" BeforeTargets="CoreCompile">
+    <Message Text="Custom assembly info generation" Importance="high" />
+  </Target>
+
+  <!-- Run post-build checks after file copying -->
+  <Target Name="RunPostBuildChecks" AfterTargets="_CopyFilesMarkedCopyLocal">
+    <Exec Command="post-build-check.exe $(TargetPath)" />
+  </Target>
+</Project>

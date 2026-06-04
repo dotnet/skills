@@ -1,6 +1,6 @@
 ---
 name: eval-performance
-description: "Guide for diagnosing and improving MSBuild project evaluation performance. Only activate in MSBuild/.NET build context. USE FOR: builds slow before any compilation starts, high evaluation time in binlog analysis, expensive glob patterns walking large directories (node_modules, .git, bin/obj), deep import chains (>20 levels), preprocessed output >10K lines indicating heavy evaluation, property functions with file I/O ($([System.IO.File]::ReadAllText(...))), multiple evaluations per project. Covers the 5 MSBuild evaluation phases, glob optimization via DefaultItemExcludes, import chain analysis with /pp preprocessing. DO NOT USE FOR: compilation-time slowness (use build-perf-diagnostics), incremental build issues (use incremental-build), non-MSBuild build systems. INVOKES: dotnet msbuild -pp:full.xml for preprocessing, /clp:PerformanceSummary."
+description: "Guide for diagnosing and improving MSBuild project evaluation performance. Only activate in MSBuild/.NET build context. USE FOR: builds slow before any compilation starts, high evaluation time in binlog analysis, expensive glob patterns walking large directories (node_modules, .git, bin/obj), deep import chains (>20 levels), preprocessed output >10K lines indicating heavy evaluation, property functions with file I/O ($([System.IO.File]::ReadAllText(...))), multiple evaluations per project. Covers the 5 MSBuild evaluation phases, glob optimization via DefaultItemExcludes, import chain analysis with /pp preprocessing. DO NOT USE FOR: compilation-time slowness (use build-perf-diagnostics), incremental build issues (use incremental-build), non-MSBuild build systems. INVOKES: binlog MCP server tools (evaluations, evaluation_global_properties, evaluation_properties, imports, properties); falls back to dotnet msbuild -pp:full.xml for preprocessing, /clp:PerformanceSummary."
 license: MIT
 ---
 
@@ -17,6 +17,18 @@ For a comprehensive overview of MSBuild's evaluation and execution model, see [B
 Key insight: evaluation happens BEFORE any targets run. Slow evaluation = slow build start even when nothing needs compiling.
 
 ## Diagnosing Evaluation Performance
+
+### Primary: binlog MCP (preferred)
+
+Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the `binlog` MCP namespace) to analyze evaluation performance:
+
+1. Use the evaluations tool to list all evaluations and their durations
+2. Use evaluation_global_properties to check for multiple evaluations with differing global properties
+3. Use evaluation_properties to inspect evaluated properties for a specific project+TFM
+4. Use imports tool to analyze the import chain depth and structure
+5. Use properties tool to check for expensive property function evaluations
+
+### Fallback: text-log replay and preprocessing (when MCP is unavailable)
 
 ### Using binlog
 

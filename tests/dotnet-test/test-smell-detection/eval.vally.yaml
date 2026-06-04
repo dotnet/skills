@@ -7,8 +7,11 @@ stimuli:
   - name: Detect multiple test smells in order processing test suite
     prompt: |
       I'm worried about the quality of our OrderProcessor test suite.
-      The tests all pass but some of them feel off — can you review them
-      and tell me if there are any problematic patterns?
+      Please run a full testsmells.org 19-smell catalog audit on this
+      suite and name each finding using the academic taxonomy
+      (Conditional Test Logic, Mystery Guest, Sleepy Test,
+      Assertion-Free Test, etc.) so I can cite the research catalog
+      when I share the results.
     environment:
       files:
         - src: fixtures/smelly-tests/OrderService.Tests/OrderService.Tests.csproj
@@ -42,9 +45,11 @@ stimuli:
       - Provided concrete fix suggestions showing how to rewrite at least some of the smelly tests
   - name: Recognize well-written tests with no significant smells
     prompt: |
-      Can you check my Calculator tests for any test design problems or
-      anti-patterns? I want to make sure they follow best practices before
-      we use them as a template for other test suites.
+      Can you do a research-backed academic test-smell taxonomy review
+      of my Calculator tests using the full testsmells.org 19-smell
+      catalog? I want each finding (or "no smell detected") to map to
+      a named smell from the academic literature so we can use these
+      tests as a clean reference template.
     environment:
       files:
         - src: fixtures/clean-tests/Calculator.Tests/Calculator.Tests.csproj
@@ -67,8 +72,10 @@ stimuli:
   - name: Recognize integration tests and avoid false positives for external resources
     prompt: |
       Our team has been arguing about whether our integration tests are
-      well-designed. Some people say they have too many smells. Can you
-      review them and give us an objective assessment?
+      well-designed. Please use the academic testsmells.org 19-smell
+      catalog to give us an objective severity-ranked assessment, with
+      each finding tagged by its formal taxonomy name and integration-
+      test calibration rules applied.
     environment:
       files:
         - src: fixtures/integration-tests/DataAccess.IntegrationTests/DataAccess.IntegrationTests.csproj

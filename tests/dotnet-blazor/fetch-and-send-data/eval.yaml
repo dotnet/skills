@@ -1,0 +1,117 @@
+scenarios:
+  - name: "Recipe browser with resilient data loading"
+    setup: &server_project
+      commands:
+        - "dotnet new blazor --interactivity server --no-https --force"
+    prompt: |
+      I have a Blazor Web App with Interactive Server (per-page).
+
+      I need an interactive /recipes/{CuisineId:int} page that calls a
+      backend service to fetch and display recipe data for a given cuisine.
+      It also accepts a ?sort= query parameter (newest or popular) that only
+      controls display order.
+
+      Create a RecipeService with a GetByCuisineAsync(int cuisineId,
+      CancellationToken cancellationToken) method that simulates a slow API
+      call (Task.Delay(2000, cancellationToken)) and returns a list of
+      recipes (Id, Title, Description, PrepTimeMinutes). Seed data for 3
+      cuisines.
+
+      The data fetching should handle the full async lifecycle correctly —
+      here are the specific behaviors I need:
+
+      1. If the user picks a different cuisine while the current one is still
+         loading, stop loading the current cuisine and start loading the new one.
+         Changing only the sort parameter should not trigger a data reload.
+
+      2. The first time the page loads (no data yet), show a loading placeholder.
+         When navigating to a different cuisine after data is already on screen,
+         keep the existing recipes visible and show a small "Refreshing…" indicator.
+         When the new data arrives, swap it in and hide the indicator.
+
+      3. If something goes wrong — timeout, network error, whatever — show
+         the user a friendly message and a Retry button so they can try again.
+         If it's a timeout specifically, say so. Never show raw exception
+         details to the user — log errors properly through ILogger.
+
+      4. If the user navigates away from the page, all ongoing work should stop
+         immediately.
+    assertions:
+      - type: "file_exists"
+        path: "**/Recipes.razor"
+      - type: "file_contains"
+        path: "**/Recipes.razor"
+        value: "CancellationTokenSource"
+      - type: "file_contains"
+        path: "**/Recipes.razor"
+        value: "IAsyncDisposable"
+      - type: "file_contains"
+        path: "**/Recipes.razor"
+        value: "ILogger"
+    rubric:
+      - "Uses OnParametersSetAsync (not OnInitializedAsync) because the data depends on a route parameter that changes during navigation — guards with a tracked value to skip reloading when only the sort parameter changes"
+      - "Cancels the previous in-flight request when CuisineId changes by cancelling the existing CancellationTokenSource and creating a new one — the token is captured into a local variable BEFORE the await to avoid races with a replaced CTS"
+      - "On the first load (data is null), shows a loading placeholder. On subsequent loads (data already exists), keeps the existing data visible and shows an additional loading indicator — does NOT clear existing data on subsequent loads"
+      - "Catches external OperationCanceledException using 'when (!cancellationToken.IsCancellationRequested)' — this means a timeout or external cancellation that the component did NOT trigger. Self-initiated cancellation (parameter change, disposal) is NOT caught because ComponentBase silently swallows it"
+      - "Catches general Exception separately for non-cancellation errors — both catch blocks log via ILogger and set a user-facing error string that is a hardcoded generic message, NEVER exception.Message (PII risk)"
+      - "Shows a Retry button when an error is set, wired to the load method so the user can attempt the operation again"
+      - "Implements IAsyncDisposable that cancels and disposes the CancellationTokenSource — does NOT catch OperationCanceledException in DisposeAsync because ComponentBase handles self-cancellation automatically"
+    timeout: 900
+
+  - name: "Real-time shipment tracker with Auto interactivity"
+    setup:
+      commands:
+        - "dotnet new blazor --interactivity auto --no-https --force"
+    prompt: |
+      I have a Blazor Web App using Auto interactivity mode (per-page). Pages
+      may run on Server first, then switch to WebAssembly.
+
+      I need an interactive /shipments/{TrackingNumber} page that tracks a
+      package.
+
+      Create a ShipmentService interface with:
+      - GetShipmentAsync(string trackingNumber, CancellationToken ct) — returns
+        shipment details (TrackingNumber, Status, Location, EstimatedDelivery,
+        and a list of StatusUpdate events with timestamps).
+
+      On the server side, implement a concrete ShipmentService that simulates a
+      slow backend (Task.Delay(1500, ct)) and returns fake data. Seed data for
+      3 tracking numbers.
+
+      Behaviors I need:
+
+      1. When the page loads, fetch the shipment details and display them. While
+         loading, show a loading placeholder with the tracking number.
+
+      2. The component should work correctly regardless of whether it's running
+         on Server or WebAssembly — the data access pattern must be the same in
+         both environments.
+
+      3. If the user navigates to a different tracking number while data is
+         loading, cancel the previous load and start fresh for the new tracking
+         number.
+
+      4. If something goes wrong — timeout, network error, anything — show the
+         user a friendly message and let them retry. If it's a timeout, say so.
+         Don't show raw exception details. Log errors through ILogger.
+
+      5. When the user leaves the page, all pending requests must stop
+         immediately.
+    assertions:
+      - type: "file_exists"
+        path: "**/*.Client/**/*.razor"
+      - type: "file_contains"
+        path: "**/*.Client/**/Program.cs"
+        value: "HttpClient"
+      - type: "file_contains"
+        path: "**/*.razor"
+        value: "CancellationTokenSource"
+      - type: "file_contains"
+        path: "**/*.razor"
+        value: "IAsyncDisposable"
+    rubric:
+      - "Uses OnParametersSetAsync because the route parameter changes during navigation — cancels previous in-flight requests when TrackingNumber changes"
+      - "Handles errors with user-facing messages and a retry mechanism — logs through ILogger and never displays exception.Message"
+      - "Implements IAsyncDisposable that cancels and disposes the CancellationTokenSource — stops all pending requests on disposal"
+      - "The data access pattern works regardless of execution environment — component depends on an abstraction, not a concrete server-only service"
+    timeout: 900
