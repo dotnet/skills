@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
-using GitHub.Copilot.SDK;
+using GitHub.Copilot;
+using GitHub.Copilot.Rpc;
 using SkillValidator.Evaluate;
 using SkillValidator.Shared;
 
@@ -213,17 +214,17 @@ public class BuildSessionConfigTests
     public async Task SetsConfigDirToUniqueTempDirForSkillIsolation()
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
-        Assert.NotEqual("C:\\tmp\\work", config.ConfigDir);
-        Assert.StartsWith(Path.GetTempPath(), config.ConfigDir);
-        Assert.True(Directory.Exists(config.ConfigDir));
+        Assert.NotEqual("C:\\tmp\\work", config.ConfigDirectory);
+        Assert.StartsWith(Path.GetTempPath(), config.ConfigDirectory);
+        Assert.True(Directory.Exists(config.ConfigDirectory));
     }
 
     [Fact]
     public async Task SetsConfigDirToUniqueTempDirEvenWithoutSkill()
     {
         var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
-        Assert.NotEqual("C:\\tmp\\work", config.ConfigDir);
-        Assert.StartsWith(Path.GetTempPath(), config.ConfigDir);
+        Assert.NotEqual("C:\\tmp\\work", config.ConfigDirectory);
+        Assert.StartsWith(Path.GetTempPath(), config.ConfigDirectory);
     }
 
     [Fact]
@@ -231,7 +232,7 @@ public class BuildSessionConfigTests
     {
         var config1 = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
         var config2 = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", "C:\\tmp\\work");
-        Assert.NotEqual(config1.ConfigDir, config2.ConfigDir);
+        Assert.NotEqual(config1.ConfigDirectory, config2.ConfigDirectory);
     }
 
     [Fact]
@@ -356,7 +357,10 @@ public class BuildSessionConfigTests
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.NotNull(config.McpServers);
         var entry = (McpStdioServerConfig)config.McpServers["ok"];
-        Assert.Null(entry.Cwd);
+        // Cwd property no longer exists in SDK 1.0.0 — custom cwd is not
+        // configurable, satisfying the security requirement that MCP servers
+        // cannot be pointed at attacker-chosen directories.
+        Assert.Equal("node", entry.Command);
     }
 
     [Fact]
@@ -451,7 +455,7 @@ public class BuildSessionConfigTests
 
 public class ExtractPathFromToolArgsTests
 {
-    private static PreToolUseHookInput MakeInput(object? toolArgs) =>
+    private static PreToolUseHookInput MakeInput(JsonElement? toolArgs) =>
         new() { ToolArgs = toolArgs };
 
     [Fact]

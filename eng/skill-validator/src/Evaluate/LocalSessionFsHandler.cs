@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
-using GitHub.Copilot.SDK;
-using GitHub.Copilot.SDK.Rpc;
+using GitHub.Copilot;
+using GitHub.Copilot.Rpc;
 
 namespace SkillValidator.Evaluate;
 
@@ -117,14 +117,14 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
         throw new FileNotFoundException($"Not found: {path}");
     }
 
-    protected override Task MkdirAsync(string path, bool recursive, int? mode, CancellationToken cancellationToken)
+    protected override Task MakeDirectoryAsync(string path, bool recursive, int? mode, CancellationToken cancellationToken)
     {
         var resolved = ResolvePath(path);
         Directory.CreateDirectory(resolved);
         return Task.CompletedTask;
     }
 
-    protected override Task<IList<string>> ReaddirAsync(string path, CancellationToken cancellationToken)
+    protected override Task<IList<string>> ReadDirectoryAsync(string path, CancellationToken cancellationToken)
     {
         var resolved = ResolvePath(path);
         var entries = new List<string>();
@@ -136,7 +136,7 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
         return Task.FromResult<IList<string>>(entries);
     }
 
-    protected override Task<IList<SessionFsReaddirWithTypesEntry>> ReaddirWithTypesAsync(string path, CancellationToken cancellationToken)
+    protected override Task<IList<SessionFsReaddirWithTypesEntry>> ReadDirectoryWithTypesAsync(string path, CancellationToken cancellationToken)
     {
         var resolved = ResolvePath(path);
         var entries = new List<SessionFsReaddirWithTypesEntry>();
@@ -154,7 +154,7 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
         return Task.FromResult<IList<SessionFsReaddirWithTypesEntry>>(entries);
     }
 
-    protected override Task RmAsync(string path, bool recursive, bool force, CancellationToken cancellationToken)
+    protected override Task RemoveAsync(string path, bool recursive, bool force, CancellationToken cancellationToken)
     {
         var resolved = ResolvePath(path);
         if (File.Exists(resolved))
