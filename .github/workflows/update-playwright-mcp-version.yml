@@ -1,0 +1,155 @@
+name: Update Playwright MCP version for dotnet-blazor
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Weekly on Monday at 9:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: true
+
+      - name: Use Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 'lts/*'
+
+      - name: Find latest stable Playwright MCP version published more than 24h ago
+        id: find-version
+        run: |
+          set -euo pipefail
+
+          # Fetch all version publish times from the npm registry
+          NPM_TIMES=$(npm view @playwright/mcp time --json)
+
+          # Find the latest stable version published more than 24h ago
+          # Pass the JSON via env var to avoid double-quote conflicts in bash interpolation
+          LATEST=$(NPM_TIMES="$NPM_TIMES" node -e '
+            const times = JSON.parse(process.env.NPM_TIMES);
+            const now = Date.now();
+            const threshold = now - 24 * 60 * 60 * 1000;
+
+            const candidates = Object.entries(times)
+              .filter(([v]) => v !== "modified" && v !== "created")
+              .filter(([v]) => !/-(alpha|beta|rc|next|dev|canary)/.test(v))
+              .filter(([, t]) => new Date(t).getTime() < threshold)
+              .sort(([, a], [, b]) => new Date(b) - new Date(a));
+
+            const latest = candidates[0];
+            if (latest) {
+              process.stdout.write(latest[0]);
+            }
+          ')
+
+          if [ -z "$LATEST" ]; then
+            echo "No eligible version found. Exiting."
+            echo "latest_version=" >> "$GITHUB_OUTPUT"
+          else
+            echo "Latest eligible version: $LATEST"
+            echo "latest_version=$LATEST" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check current version in plugin.json
+        id: check-version
+        if: steps.find-version.outputs.latest_version != ''
+        run: |
+          set -euo pipefail
+
+          CURRENT=$(node -e "
+            const fs = require('fs');
+            const plugin = JSON.parse(fs.readFileSync('plugins/dotnet-blazor/plugin.json', 'utf8'));
+            const args = plugin.mcpServers.playwright.args;
+            const entry = args.find(a => a.startsWith('@playwright/mcp@'));
+            if (entry) {
+              process.stdout.write(entry.replace('@playwright/mcp@', ''));
+            }
+          ")
+
+          echo "Current version: $CURRENT"
+          echo "Latest version: ${{ steps.find-version.outputs.latest_version }}"
+          echo "current_version=$CURRENT" >> "$GITHUB_OUTPUT"
+
+          if [ "$CURRENT" = "${{ steps.find-version.outputs.latest_version }}" ]; then
+            echo "already_up_to_date=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_up_to_date=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update plugin.json with new version
+        if: steps.check-version.outputs.already_up_to_date == 'false'
+        run: |
+          set -euo pipefail
+
+          NEW_VERSION="${{ steps.find-version.outputs.latest_version }}"
+          CURRENT_VERSION="${{ steps.check-version.outputs.current_version }}"
+
+          NEW_PLAYWRIGHT_VERSION="$NEW_VERSION" node -e '
+            const fs = require("fs");
+            const pluginPath = "plugins/dotnet-blazor/plugin.json";
+            const plugin = JSON.parse(fs.readFileSync(pluginPath, "utf8"));
+            const args = plugin.mcpServers.playwright.args;
+            const idx = args.findIndex(a => a.startsWith("@playwright/mcp@"));
+            if (idx !== -1) {
+              args[idx] = "@playwright/mcp@" + process.env.NEW_PLAYWRIGHT_VERSION;
+            }
+            fs.writeFileSync(pluginPath, JSON.stringify(plugin, null, 2) + "\n");
+          '
+
+          echo "Updated plugin.json: @playwright/mcp@$CURRENT_VERSION -> @playwright/mcp@$NEW_VERSION"
+
+      - name: Setup .NET SDK
+        if: steps.check-version.outputs.already_up_to_date == 'false'
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Validate plugin with skill-validator
+        if: steps.check-version.outputs.already_up_to_date == 'false'
+        run: |
+          set -euo pipefail
+
+          dotnet publish eng/skill-validator/src/SkillValidator.csproj
+          artifacts/publish/SkillValidator/release/skill-validator check \
+            --plugin plugins/dotnet-blazor \
+            --allowed-external-deps eng/allowed-external-deps.txt \
+            --known-domains eng/known-domains.txt
+        env:
+          DOTNET_NOLOGO: true
+
+      - name: Create PR
+        if: steps.check-version.outputs.already_up_to_date == 'false'
+        run: |
+          set -euo pipefail
+
+          NEW_VERSION="${{ steps.find-version.outputs.latest_version }}"
+          TODAY=$(date -u '+%Y-%m-%d')
+          BRANCH="automated/dotnet-blazor-playwright-mcp-${NEW_VERSION}"
+          TITLE="[dotnet-blazor] ${TODAY} - Update playwright MCP version to ${NEW_VERSION}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add plugins/dotnet-blazor/plugin.json
+          git commit -m "chore(dotnet-blazor): update playwright MCP to $NEW_VERSION"
+          git push -f origin "$BRANCH"
+
+          existing_pr=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$existing_pr" ]; then
+            gh pr edit "$existing_pr" --title "$TITLE"
+          else
+            gh pr create \
+              --title "$TITLE" \
+              --body "Automated weekly update of the \`@playwright/mcp\` version in \`plugins/dotnet-blazor/plugin.json\` from \`${{ steps.check-version.outputs.current_version }}\` to \`${NEW_VERSION}\`." \
+              --head "$BRANCH"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
