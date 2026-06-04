@@ -8,7 +8,8 @@
   }
 
   // AGENTVIZ session replay configuration
-  const sessionManifestUrl = 'https://raw.githubusercontent.com/dotnet/skills/dashboard-session-data/data/manifest.json';
+  // Session data lives in the standalone dotnet/skills-data repo to keep this repo small.
+  const sessionManifestUrl = 'https://raw.githubusercontent.com/dotnet/skills-data/dashboard-session-data/data/manifest.json';
   const replayBaseUrl = 'replay/index.html';
 
   // Fetch plugin manifest
