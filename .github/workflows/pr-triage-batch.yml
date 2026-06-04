@@ -3,8 +3,13 @@ name: "PR Triage — Batch"
 # Hourly orchestrator. Enumerates open PRs, computes a deterministic state
 # for each, and dispatches the per-PR worker (pr-triage.yml) or the malicious-
 # code scanner (pr-malicious-scan.agent.lock.yml) for PRs that need action.
-# No model calls; no comments; no labels are applied here. The worker owns the
-# side effects.
+# No model calls; no labels are applied here. The worker owns label and
+# author-ping side effects. The orchestrator itself posts at most ONE comment
+# per scanner dispatch — a deterministic
+# `<!-- pr-malicious-scan:dispatched=<sha7> -->` idempotency marker — before
+# triggering the scanner workflow. That marker is the source of truth that
+# survives any scanner-side failure mode (PAT outage, integrity block,
+# dropped HTML marker by the agent).
 
 on:
   schedule:
