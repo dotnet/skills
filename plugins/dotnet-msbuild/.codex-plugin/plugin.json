@@ -1,0 +1,26 @@
+{
+  "name": "dotnet-msbuild",
+  "version": "0.1.0",
+  "description": "Comprehensive MSBuild and .NET build skills: failure diagnosis, performance optimization, code quality, and modernization.",
+  "skills": ["./skills/"],
+  "agents": [
+      "./agents/build-perf.agent.md",
+      "./agents/msbuild-code-review.agent.md",
+      "./agents/msbuild.agent.md"
+  ],
+  "mcpServers": {
+    "binlog": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "dnx",
+        "Microsoft.AITools.BinlogMcp",
+        "--yes",
+        "--prerelease",
+        "--add-source",
+        "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json"
+      ],
+      "tools": ["*"]
+    }
+  }
+}
