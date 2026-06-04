@@ -165,7 +165,7 @@ Apply these rewrites to every C# test file. Class-level first, then method-level
 **Class:**
 
 - Add `[TestClass]` to every class that contained xUnit `[Fact]`/`[Theory]` methods (xUnit had no class-level requirement).
-- Mark the class `sealed` (MSTest idiom -- see `writing-mstest-tests`).
+- **Preserve the original class hierarchy.** xUnit projects often use base/derived test classes (shared setup, helper assertions, generic base fixtures); marking classes `sealed` would break that pattern. Sealing is an optional follow-up handled by `writing-mstest-tests`, not part of the mechanical migration.
 - Replace `using Xunit;` / `using Xunit.Abstractions;` with `using Microsoft.VisualStudio.TestTools.UnitTesting;`.
 
 **Methods:**

@@ -33,7 +33,7 @@ Target framework throughout: **MSTest v4** (the few v3-only spellings are explic
 | xUnit | MSTest |
 |---|---|
 | *(no class attribute)* | `[TestClass]` (required) |
-| *(no class modifier)* | `sealed` (MSTest idiom -- see `writing-mstest-tests`) |
+| *(no class modifier)* | Preserve the original hierarchy. Do **not** add `sealed` mechanically -- base/derived test classes are common in xUnit and sealing would break them. `writing-mstest-tests` can apply `sealed` as a follow-up where appropriate. |
 | `[Fact]` | `[TestMethod]` |
 | `[Theory]` | `[TestMethod]` (MSTest 3+ unified; `[DataTestMethod]` still works but is not needed) |
 | `[Fact(DisplayName = "x")]` | MSTest 4: `[TestMethod(DisplayName = "x")]`; MSTest 3: `[TestMethod("x")]` |
@@ -143,7 +143,7 @@ Target framework throughout: **MSTest v4** (the few v3-only spellings are explic
 |---|---|
 | `Assert.Contains(item, collection)` | `Assert.Contains(item, collection)` |
 | `Assert.DoesNotContain(item, collection)` | `Assert.DoesNotContain(item, collection)` |
-| `Assert.Contains(collection, x => predicate)` | `Assert.Contains(collection.First(x => predicate), collection)` or `Assert.IsTrue(collection.Any(x => predicate))` |
+| `Assert.Contains(collection, x => predicate)` | `Assert.IsTrue(collection.Any(x => predicate))` |
 | `Assert.Empty(collection)` | `Assert.IsEmpty(collection)` |
 | `Assert.NotEmpty(collection)` | `Assert.IsNotEmpty(collection)` |
 | `Assert.Single(collection)` | `var item = Assert.ContainsSingle(collection);` (returns the element) |
