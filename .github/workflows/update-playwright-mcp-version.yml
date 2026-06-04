@@ -42,9 +42,9 @@ jobs:
               .filter(([v]) => v !== "modified" && v !== "created")
               .filter(([v]) => !/-(alpha|beta|rc|next|dev|canary)/.test(v))
               .filter(([, t]) => new Date(t).getTime() < threshold)
-              .sort(([, a], [, b]) => new Date(a) - new Date(b));
+              .sort(([, a], [, b]) => new Date(b) - new Date(a));
 
-            const latest = candidates[candidates.length - 1];
+            const latest = candidates[0];
             if (latest) {
               process.stdout.write(latest[0]);
             }
@@ -92,17 +92,17 @@ jobs:
           NEW_VERSION="${{ steps.find-version.outputs.latest_version }}"
           CURRENT_VERSION="${{ steps.check-version.outputs.current_version }}"
 
-          node -e "
-            const fs = require('fs');
-            const path = 'plugins/dotnet-blazor/plugin.json';
-            const plugin = JSON.parse(fs.readFileSync(path, 'utf8'));
+          NEW_PLAYWRIGHT_VERSION="$NEW_VERSION" node -e '
+            const fs = require("fs");
+            const pluginPath = "plugins/dotnet-blazor/plugin.json";
+            const plugin = JSON.parse(fs.readFileSync(pluginPath, "utf8"));
             const args = plugin.mcpServers.playwright.args;
-            const idx = args.findIndex(a => a.startsWith('@playwright/mcp@'));
+            const idx = args.findIndex(a => a.startsWith("@playwright/mcp@"));
             if (idx !== -1) {
-              args[idx] = '@playwright/mcp@$NEW_VERSION';
+              args[idx] = "@playwright/mcp@" + process.env.NEW_PLAYWRIGHT_VERSION;
             }
-            fs.writeFileSync(path, JSON.stringify(plugin, null, 2) + '\n');
-          "
+            fs.writeFileSync(pluginPath, JSON.stringify(plugin, null, 2) + "\n");
+          '
 
           echo "Updated plugin.json: @playwright/mcp@$CURRENT_VERSION -> @playwright/mcp@$NEW_VERSION"
 
