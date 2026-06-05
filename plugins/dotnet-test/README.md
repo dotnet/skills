@@ -48,6 +48,7 @@ These five skills work across all supported languages by loading a per-language 
 | **assertion-quality** | Measure assertion variety and depth — find shallow tests that barely verify anything (any language) |
 | **test-gap-analysis** | Pseudo-mutation analysis to find test blind spots that coverage numbers miss (any language) |
 | **test-tagging** | Tag tests with standardized traits (smoke, regression, boundary, critical-path, etc.); auto-edits where the framework has canonical syntax, report-only otherwise |
+| **grade-tests** | Grade a curated list of test methods individually and produce a compact, PR-comment-friendly table of letter grades (A–F), score bands, and one-line notes — designed for per-PR test-quality feedback (any language) |
 
 ### Coverage & risk *(.NET only)*
 
