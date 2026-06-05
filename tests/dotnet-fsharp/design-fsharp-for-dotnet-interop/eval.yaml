@@ -1,0 +1,28 @@
+scenarios:
+  - name: "Make an F# API consumable from C#"
+    prompt: |
+      I have this F# that I want to expose to C# consumers:
+
+      module Calc
+      let add x y = x + y
+      let tryParse (s: string) : int option = match System.Int32.TryParse s with true, v -> Some v | _ -> None
+
+      Redesign the public surface so it is natural to call from C#. Explain each change.
+    assertions:
+      - type: "output_matches"
+        pattern: "(static member|AbstractClass|TryGetValue|Func)"
+    rubric:
+      - "Replaces the module of let-functions with a static-member type (e.g. [<AbstractClass; Sealed>])"
+      - "Uses tupled parameters (Add(x, y)) rather than curried"
+      - "Replaces the option return with a TryGetValue-style bool + out parameter"
+    timeout: 150
+
+  - name: "Convert an Async-returning member to Task"
+    prompt: "In F#, I have a member that returns Async<int> but C# callers need it. How should the public member look? Show it."
+    assertions:
+      - type: "output_matches"
+        pattern: "(Task|StartAsTask)"
+    rubric:
+      - "Public member returns Task<int>, e.g. via Async.StartAsTask"
+      - "Mentions accepting/forwarding a CancellationToken"
+    timeout: 120

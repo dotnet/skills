@@ -1,0 +1,22 @@
+scenarios:
+  - name: "Add a property-based test for an invariant"
+    prompt: |
+      I have an F# function that reverses a list. I want a test proving that reversing twice
+      returns the original list for any input, not just a couple of examples. Show how, and run it.
+    assertions:
+      - type: "output_matches"
+        pattern: "(FsCheck|testProperty|Check.Quick)"
+    rubric:
+      - "Uses property-based testing (FsCheck / Expecto testProperty) for the round-trip invariant"
+      - "The property is stated over arbitrary lists, not fixed examples"
+    timeout: 180
+
+  - name: "Recommend property tests where invariants exist"
+    prompt: "In F#, what kinds of tests should I write for an encode/decode pair of functions?"
+    assertions:
+      - type: "output_matches"
+        pattern: "(round-trip|property|FsCheck)"
+    rubric:
+      - "Recommends a round-trip property test (decode(encode x) = x) with FsCheck"
+      - "Mentions example-based tests for specific known cases as a complement"
+    timeout: 120

@@ -1,0 +1,30 @@
+scenarios:
+  - name: "Replace exception control flow with Result"
+    prompt: |
+      Refactor this F# so it does not use exceptions for the divide-by-zero case; the caller
+      should get a Result instead. Demonstrate both the success and failure path with dotnet fsi.
+
+      let divide x y = x / y
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(Ok|Error)"
+    expect_tools: ["bash"]
+    rubric:
+      - "divide returns a Result (Ok value / Error message) rather than throwing"
+      - "The agent demonstrated both a successful division and the divide-by-zero error via dotnet fsi"
+    timeout: 180
+
+  - name: "Accumulate validation errors instead of stopping at the first"
+    prompt: |
+      In F#, validate a form with a Name (non-empty) and an Age (between 0 and 130). When BOTH
+      are invalid, the caller must receive BOTH error messages, not just the first one. Implement
+      it and demonstrate the both-invalid case with dotnet fsi.
+    assertions:
+      - type: "exit_success"
+    expect_tools: ["bash"]
+    rubric:
+      - "Uses applicative validation (and! / a Validation type) so errors accumulate"
+      - "Does NOT use Result.bind / let! chaining that would short-circuit on the first error"
+      - "The both-invalid run reports two errors"
+    timeout: 180

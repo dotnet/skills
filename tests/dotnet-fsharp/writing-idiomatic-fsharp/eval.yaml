@@ -1,0 +1,51 @@
+scenarios:
+  - name: "Refactor imperative loop to a pipeline"
+    prompt: |
+      Here is some F#:
+
+      let sumOfSquares xs =
+          let mutable total = 0
+          for x in xs do
+              total <- total + x * x
+          total
+
+      Rewrite it in idiomatic F#, then run it on [1; 2; 3; 4] with dotnet fsi to prove it works.
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: "30"
+      - type: "output_matches"
+        pattern: "\\|>"
+      - type: "output_not_matches"
+        pattern: "mutable"
+    expect_tools: ["bash"]
+    rubric:
+      - "The rewrite removes the mutable accumulator and for-loop"
+      - "The rewrite uses a collection function (List.sumBy / List.map + List.sum) with the pipe operator"
+      - "The agent ran the code with dotnet fsi and it produced 30"
+    timeout: 180
+
+  - name: "Replace null handling with Option"
+    prompt: |
+      Make this F# idiomatic - it should not use null. Then demonstrate it with dotnet fsi.
+
+      let displayName name =
+          if name <> null then name.ToString().ToUpper() else "ANONYMOUS"
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(Option|Some|None)"
+      - type: "output_not_matches"
+        pattern: "<> null"
+    expect_tools: ["bash"]
+    rubric:
+      - "The rewrite models absence with Option instead of null"
+      - "The agent verified the behavior by running it with dotnet fsi"
+    timeout: 180
+
+  - name: "Does not activate for unrelated language-agnostic request"
+    prompt: "Write me a quick throwaway script in whatever language to print the first 10 prime numbers."
+    expect_activation: false
+    rubric:
+      - "The writing-idiomatic-fsharp skill does not activate because the request is not about F#"
+    timeout: 120

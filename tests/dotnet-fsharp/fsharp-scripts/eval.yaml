@@ -1,0 +1,35 @@
+scenarios:
+  - name: "Run a quick F# experiment as a script"
+    prompt: "I want to try out F# list comprehensions quickly - no project. Generate the first 10 triangular numbers and print them."
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: "55"
+      - type: "output_not_matches"
+        pattern: "dotnet new"
+    expect_tools: ["bash"]
+    rubric:
+      - "Creates a .fsx script and runs it with dotnet fsi (not a full project via dotnet new)"
+      - "Output includes the 10th triangular number, 55"
+    timeout: 150
+
+  - name: "Reference a NuGet package from a script"
+    prompt: "Without creating a project, write an F# script that uses the Humanizer NuGet package to turn the number 1234567 into words, and run it."
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "#r \"nuget:"
+      - type: "output_not_matches"
+        pattern: "dotnet add package"
+    expect_tools: ["bash"]
+    rubric:
+      - "Uses #r \"nuget: Humanizer\" inside a .fsx script rather than dotnet add package"
+      - "Runs the script with dotnet fsi and prints the number in words"
+    timeout: 180
+
+  - name: "Does not activate for a full project request"
+    prompt: "Create a new F# console application project that I can keep building on with dotnet build."
+    expect_activation: false
+    rubric:
+      - "The fsharp-scripts skill does not activate because the user wants a full project, not a throwaway script"
+    timeout: 120

@@ -1,0 +1,27 @@
+scenarios:
+  - name: "Catch a unit mismatch at compile time"
+    prompt: |
+      In F#, use units of measure to model meters and seconds. Compute a speed from a distance
+      and a time, and show with dotnet fsi that the correct computation works while adding meters
+      to seconds is rejected by the compiler (show the error or explain it).
+    assertions:
+      - type: "output_matches"
+        pattern: "\\[<Measure>\\]"
+    expect_tools: ["bash"]
+    rubric:
+      - "Declares [<Measure>] types for meters and seconds"
+      - "Computes speed as distance / time yielding float<m/s>"
+      - "Demonstrates that adding incompatible units fails to compile"
+    timeout: 180
+
+  - name: "Typed conversion function"
+    prompt: "In F# with units of measure, write a typed function that converts a distance in meters (float<m>) to feet (float<ft>). Run a quick check with dotnet fsi."
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "\\[<Measure>\\]"
+    expect_tools: ["bash"]
+    rubric:
+      - "Conversion function has type float<m> -> float<ft>"
+      - "Uses a conversion constant with the compound unit ft/m"
+    timeout: 150

@@ -23,6 +23,7 @@ This repository contains the .NET team's curated set of core skills and custom a
 | [dotnet-aspnet](plugins/dotnet-aspnet/) | ASP.NET Core web development skills including middleware, endpoints, real-time communication, and API patterns. |
 | [dotnet-blazor](plugins/dotnet-blazor/) | Skills for Blazor development: component authoring, interactivity, and web application patterns. |
 | [dotnet11](plugins/dotnet11/) | Skills for new .NET 11 APIs and language features. |
+| [dotnet-fsharp](plugins/dotnet-fsharp/) | Idiomatic F# coding skills: functional-first design, domain modeling, error handling, scripting, and .NET interop. |
 
 ## Installation
 

@@ -1,0 +1,47 @@
+scenarios:
+  - name: "Port a C# class to idiomatic F#"
+    prompt: |
+      Convert this C# to idiomatic F# (not a line-by-line port), then run the F# with dotnet fsi
+      to show it works:
+
+      public class Money {
+          public decimal Amount { get; }
+          public string Currency { get; }
+          public Money(decimal amount, string currency) { Amount = amount; Currency = currency; }
+          public Money Add(Money other) {
+              if (other.Currency != Currency) throw new InvalidOperationException("currency mismatch");
+              return new Money(Amount + other.Amount, Currency);
+          }
+      }
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(type Money|Result|Ok|Error)"
+      - type: "output_not_matches"
+        pattern: "(get; set;|public class)"
+    expect_tools: ["bash"]
+    rubric:
+      - "Uses an immutable record (or single-case type) instead of a mutable C# class"
+      - "Replaces the thrown exception for currency mismatch with a Result (Ok/Error)"
+      - "Ran the F# with dotnet fsi demonstrating both same-currency add and the mismatch case"
+    timeout: 240
+
+  - name: "Map a C# enum and switch to F#"
+    prompt: |
+      Convert this C# to idiomatic F#:
+
+      enum Direction { North, South, East, West }
+      string Describe(Direction d) {
+          switch (d) {
+              case Direction.North: return "up";
+              case Direction.South: return "down";
+              default: return "sideways";
+          }
+      }
+    assertions:
+      - type: "output_matches"
+        pattern: "match"
+    rubric:
+      - "Models Direction as a discriminated union (or enum) and uses match instead of switch"
+      - "Handles all cases (ideally exhaustively rather than a catch-all where cases are closed)"
+    timeout: 150

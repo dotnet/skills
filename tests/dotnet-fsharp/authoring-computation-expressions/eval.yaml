@@ -1,0 +1,25 @@
+scenarios:
+  - name: "Author a result computation expression"
+    prompt: |
+      In F#, I keep writing Result.bind chains. Author a custom 'result' computation expression
+      builder (do not pull in a NuGet library) so I can write let!/return over Result, then show
+      a two-step computation that short-circuits on the first Error, using dotnet fsi.
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "member"
+      - type: "output_matches"
+        pattern: "(Bind|Return)"
+    expect_tools: ["bash"]
+    rubric:
+      - "Defines a builder type with Bind and Return members with correct Result semantics"
+      - "Instantiates it as a lowercase 'result' value and uses a result { } block"
+      - "Demonstrates first-Error short-circuiting via dotnet fsi"
+    timeout: 180
+
+  - name: "Does not over-engineer when a library or pipeline suffices"
+    prompt: "I have a single two-step Option chain: parse a string then look it up in a map. What's the simplest idiomatic F#?"
+    expect_activation: false
+    rubric:
+      - "Recommends a plain Option.bind / pipeline rather than authoring a custom computation expression for a one-off two-step chain"
+    timeout: 120

@@ -1,0 +1,28 @@
+scenarios:
+  - name: "Turn a string classifier into an active pattern match"
+    prompt: |
+      In F#, I want to classify a string as either a valid integer, a valid float, or text.
+      Use active patterns so the logic reads as a single match expression, and demonstrate it on
+      "42", "3.14", and "hello" with dotnet fsi.
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "\\(\\|"
+    expect_tools: ["bash"]
+    rubric:
+      - "Defines partial active patterns (|Int|_|) / (|Float|_|) returning Option"
+      - "The classification is expressed as a single match over those patterns"
+      - "Demonstrated on the three sample inputs via dotnet fsi"
+    timeout: 180
+
+  - name: "FizzBuzz with a parameterized active pattern"
+    prompt: "Write FizzBuzz for 1..20 in F# using a parameterized active pattern for divisibility, and run it with dotnet fsi."
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: "FizzBuzz"
+    expect_tools: ["bash"]
+    rubric:
+      - "Uses a parameterized active pattern such as (|DivisibleBy|_|)"
+      - "Output contains Fizz, Buzz, and FizzBuzz in the right places"
+    timeout: 150

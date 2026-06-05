@@ -1,0 +1,23 @@
+scenarios:
+  - name: "Format F# with Fantomas"
+    prompt: "How do I format all the F# files in my repo's src/ directory with Fantomas, pinned per-repo, and add a formatting check to CI?"
+    assertions:
+      - type: "output_matches"
+        pattern: "fantomas"
+      - type: "output_matches"
+        pattern: "(--check|tool-manifest|tool install)"
+    rubric:
+      - "Installs Fantomas as a pinned local dotnet tool (tool manifest)"
+      - "Runs dotnet fantomas on src/ to format"
+      - "Uses dotnet fantomas --check for the CI gate"
+    timeout: 120
+
+  - name: "Configure a style deviation via .editorconfig"
+    prompt: "I want F# lines to wrap at 100 characters instead of the Fantomas default. Where and how do I set that?"
+    assertions:
+      - type: "output_matches"
+        pattern: "(editorconfig|max_line_length)"
+    rubric:
+      - "Sets max_line_length = 100 in an [*.fs] (or *.{fs,fsx,fsi}) section of .editorconfig"
+      - "Notes Fantomas reads style from .editorconfig"
+    timeout: 120

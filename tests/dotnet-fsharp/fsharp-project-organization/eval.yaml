@@ -1,0 +1,24 @@
+scenarios:
+  - name: "Diagnose an order-dependent compile error"
+    prompt: |
+      My F# project fails to build with "The value or constructor 'Customer' is not defined",
+      even though the Customer type clearly exists in Domain/Types.fs. In the .fsproj the Compile
+      items are listed as Workflows/PlaceOrder.fs first, then Domain/Types.fs. What is wrong and
+      how do I fix it?
+    assertions:
+      - type: "output_matches"
+        pattern: "(order|Compile)"
+    rubric:
+      - "Identifies that F# compiles files in .fsproj <Compile> order with no forward references"
+      - "Fix is to move Domain/Types.fs above Workflows/PlaceOrder.fs in the .fsproj"
+    timeout: 150
+
+  - name: "Choose namespace vs module"
+    prompt: "In F#, when should the top of a file be 'namespace Foo' versus 'module Foo'? Give a one-line rule and an example of each."
+    assertions:
+      - type: "output_matches"
+        pattern: "(namespace|module)"
+    rubric:
+      - "Explains namespace spans files and holds types (functions need an inner module); top-level module is one file and can hold functions directly"
+      - "Gives a correct small example of each"
+    timeout: 120

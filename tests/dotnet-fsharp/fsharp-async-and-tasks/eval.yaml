@@ -1,0 +1,34 @@
+scenarios:
+  - name: "Remove a blocking .Result call"
+    prompt: |
+      This F# blocks a thread and can deadlock:
+
+      let getLength (client: System.Net.Http.HttpClient) url =
+          client.GetStringAsync(url).Result.Length
+
+      Rewrite it to be properly asynchronous and explain which of async {} or task {} you chose
+      and why.
+    assertions:
+      - type: "output_matches"
+        pattern: "(task \\{|async \\{)"
+      - type: "output_not_matches"
+        pattern: "\\.Result"
+    rubric:
+      - "Replaces .Result with a let! inside task {} or async {} (using Async.AwaitTask if async)"
+      - "Explains the async vs task choice (interop/Task-centric vs composition)"
+    timeout: 150
+
+  - name: "Run independent async work in parallel"
+    prompt: |
+      In F#, I fetch three independent values, each via an async function. Right now I await them
+      one after another. Show how to run them in parallel and collect all results. Demonstrate the
+      shape with dotnet fsi using simple async functions that return after a short delay.
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(Async.Parallel|Task.WhenAll)"
+    expect_tools: ["bash"]
+    rubric:
+      - "Uses Async.Parallel (or Task.WhenAll) instead of sequential awaits"
+      - "Demonstrated collecting all results via dotnet fsi"
+    timeout: 180

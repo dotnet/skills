@@ -1,0 +1,33 @@
+scenarios:
+  - name: "Constrain a primitive with a smart constructor"
+    prompt: |
+      In F#, model an EmailAddress so that an invalid email (no '@') can never be constructed.
+      A caller must go through validation that returns a Result. Show the type and demonstrate
+      with dotnet fsi that creating "bad" fails and "a@b.com" succeeds.
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(private)"
+      - type: "output_matches"
+        pattern: "(Ok|Error)"
+    expect_tools: ["bash"]
+    rubric:
+      - "Uses a single-case discriminated union with a private constructor"
+      - "Provides a create function returning Result (Ok/Error), not a throwing constructor"
+      - "Demonstrated that invalid input is rejected and valid input is accepted via dotnet fsi"
+    timeout: 180
+
+  - name: "Replace boolean flags and parallel options with a DU"
+    prompt: |
+      This F# record allows illegal states:
+
+      type Account = { Email: string option; VerifiedAt: System.DateTime option }
+
+      Redesign it so that "verified but no email" is impossible to represent. Explain the new type.
+    assertions:
+      - type: "output_matches"
+        pattern: "(type|\\|)"
+    rubric:
+      - "Replaces the two parallel option fields with a discriminated union that names the real states"
+      - "The new model makes 'verified without an email' unrepresentable"
+    timeout: 150

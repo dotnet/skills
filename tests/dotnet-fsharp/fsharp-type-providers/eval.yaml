@@ -1,0 +1,26 @@
+scenarios:
+  - name: "Read JSON with a type provider"
+    prompt: |
+      Without hand-writing record types, give me strongly-typed access to this JSON in F#:
+      { "city": "Oslo", "tempC": 12.5 }
+      Then parse { "city": "Bergen", "tempC": 9.0 } and print the city and temperature. Run it
+      with dotnet fsi.
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(JsonProvider|FSharp.Data)"
+      - type: "output_contains"
+        value: "Bergen"
+    expect_tools: ["bash"]
+    rubric:
+      - "Uses FSharp.Data JsonProvider with the first JSON as the sample"
+      - "Accesses .City and .TempC as typed members, not string keys"
+      - "Runs via dotnet fsi and prints Bergen and its temperature"
+    timeout: 240
+
+  - name: "Does not reach for a provider for trivial parsing"
+    prompt: "In F#, I just need to read a single integer out of the string \"42\". What's the simplest way?"
+    expect_activation: false
+    rubric:
+      - "Recommends Int32.TryParse / simple parsing rather than a type provider for a single value"
+    timeout: 120
