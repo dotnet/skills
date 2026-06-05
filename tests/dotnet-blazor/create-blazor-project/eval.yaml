@@ -1,0 +1,94 @@
+scenarios:
+  - name: "University course catalog with enrollment form"
+    prompt: |
+      Create a Blazor Web App for a university course catalog.
+
+      Requirements:
+      - Browse departments and courses in a searchable, filterable list
+      - View course detail pages (description, schedule, credits, instructor bio)
+      - Students submit an enrollment request form (name, student ID, course selection) — standard HTML form, no wizards or real-time validation
+      - Homepage shows featured courses and department links
+      - No authentication — open to all students and visitors
+      - Hosted on the university intranet with fast, reliable connectivity
+    assertions:
+      - type: "output_contains"
+        value: "dotnet new blazor"
+      - type: "output_matches"
+        pattern: "-int(eractivity)? None"
+      - type: "output_not_contains"
+        value: "blazorwasm"
+      - type: "output_not_contains"
+        value: "blazorserver"
+      - type: "output_matches"
+        pattern: "(Static SSR|no.interactive|None.*interactivity)"
+    rubric:
+      - "Correct template and configuration — single-project structure (no .Client project), Program.cs calls AddRazorComponents() without any AddInteractive* chains, App.razor does NOT set @rendermode on Routes or HeadOutlet"
+      - "Recognizes that Static SSR uses standard HTML POST forms and enhanced navigation — no interactivity needed for a course catalog with enrollment"
+      - "Documents the static rendering choice — explains why the app uses no interactive render mode"
+      - "Plans the domain features — identifies the pages/components needed for browsing courses and submitting enrollments"
+    timeout: 600
+
+  - name: "Recipe community with interactive ratings on static pages"
+    prompt: |
+      Create a new Blazor Web App project for a recipe sharing community.
+      Run `dotnet new blazor` with the appropriate options, create the project structure,
+      and implement the pages.
+
+      Requirements:
+      - Browse recipes by category — read-only content pages
+      - Each recipe page has a star-rating widget (click to rate 1–5 stars)
+      - A "Submit Recipe" page with a form (title, ingredients, steps)
+      - Homepage displays recipe categories (static content)
+      - Most pages are read-only; only the rating widget and submit form need interactivity
+    assertions:
+      - type: "output_contains"
+        value: "dotnet new blazor"
+      - type: "output_matches"
+        pattern: "-int(eractivity)? Server"
+      - type: "output_not_matches"
+        pattern: "dotnet new blazor[^\\n]*-ai"
+      - type: "output_not_contains"
+        value: "blazorwasm"
+      - type: "output_not_contains"
+        value: "blazorserver"
+      - type: "output_matches"
+        pattern: "(per.page|per-page|opt.in)"
+    rubric:
+      - "Correct template and configuration — Program.cs registers AddInteractiveServerComponents() and AddInteractiveServerRenderMode(), App.razor does NOT set @rendermode on Routes so interactivity is per-page opt-in"
+      - "Static pages (browse, homepage, recipe content) remain SSR for performance while interactive components (rating widget, comments) opt in with @rendermode InteractiveServer"
+      - "Documents the per-page strategy — explains why most pages are static and only specific features opt in to interactivity"
+      - "Differentiates which features need interactivity (rating widget, form submission) vs which can be static (content browsing)"
+    timeout: 600
+
+  - name: "Global logistics tracking for worldwide users"
+    prompt: |
+      Create a Blazor Web App for a logistics company that tracks shipments.
+
+      Requirements:
+      - Dispatchers view a list of shipments with status and destination
+      - Customers check their shipment status and estimated delivery
+      - Users are worldwide — round-trip latency to a single server is noticeable
+      - The app must load fast on first visit, then feel snappy without server round-trips
+      - Every page involves interactive controls
+      - Staff and customers authenticate with individual accounts
+    assertions:
+      - type: "output_contains"
+        value: "dotnet new blazor"
+      - type: "output_matches"
+        pattern: "-int(eractivity)? Auto"
+      - type: "output_matches"
+        pattern: "(-ai|--all-interactive)"
+      - type: "output_not_contains"
+        value: "blazorwasm"
+      - type: "output_not_contains"
+        value: "blazorserver"
+      - type: "output_matches"
+        pattern: "(-au|--auth) Individual"
+      - type: "output_matches"
+        pattern: "(\\.Client|Auto.*mode|dual.*execution)"
+    rubric:
+      - "Correct template and configuration — two-project structure with .Client project, Server Program.cs registers both AddInteractiveServerComponents() and AddInteractiveWebAssemblyComponents(), interactive components live in .Client"
+      - "Components cannot directly access server resources — all data through HTTP APIs, both server and client Program.cs register matching services, component code must not assume execution environment"
+      - "Documents the Auto mode trade-offs — explains why this rendering strategy suits the requirements"
+      - "Addresses the latency requirement — explains why Auto mode solves worldwide latency (Server first, then switches to WebAssembly for client-side speed)"
+    timeout: 1200

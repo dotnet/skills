@@ -1,0 +1,11 @@
+<Project>
+  <!-- Disable wildcard imports for controlled build behavior -->
+  <PropertyGroup>
+    <ImportByWildcardBeforeMicrosoftCommonProps>false</ImportByWildcardBeforeMicrosoftCommonProps>
+    <ImportByWildcardAfterMicrosoftCommonProps>false</ImportByWildcardAfterMicrosoftCommonProps>
+  </PropertyGroup>
+
+  <!-- Import shared repository settings -->
+  <Import Project="shared\Common.props"
+      Condition="'$(CommonPropsImported)' == 'true'" />
+</Project>

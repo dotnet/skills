@@ -55,7 +55,7 @@ internal static class LlmSession
             CreateSessionFsHandler = _ => new LocalSessionFsHandler(tempConfigDir),
             OnPermissionRequest = onPermissionRequest ?? ((_, _) => Task.FromResult(new PermissionRequestResult
             {
-                Kind = PermissionRequestResultKind.DeniedByRules,
+                Kind = PermissionRequestResultKind.UserNotAvailable,
             })),
         });
 

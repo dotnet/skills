@@ -1,0 +1,107 @@
+scenarios:
+  - name: "Warehouse dashboard with site selector and live stock alerts"
+    setup: &server_project
+      commands:
+        - "dotnet new blazor --interactivity server --no-https --force"
+    prompt: |
+      I have a Blazor Web App using per-page interactivity (InteractiveServer).
+
+      I need to coordinate shared state between components that are NOT in a
+      parent-child relationship. The scenario is a warehouse management page
+      where several unrelated components must stay synchronized through a
+      shared service — they can't pass parameters to each other directly.
+
+      1. A "current warehouse" dropdown that lives in the MainLayout. The
+         layout renders statically (no interactivity attribute). The dropdown
+         itself must be interactive so it can handle change events. Every
+         interactive component on every page should automatically know which
+         warehouse is currently selected without manually querying for it.
+         When the user switches warehouses, everything on the current page
+         should immediately update to reflect the new site.
+
+      2. A live low-stock alert count that checks for items below minimum
+         levels every 10 seconds. Create an InventoryAlertService with a
+         GetLowStockCountAsync(string warehouseId) method that simulates a
+         database query (return a random number between 0 and 15). The alert
+         count should appear as a badge in the sidebar navigation AND on the
+         main dashboard page. Polling should start when the dashboard is
+         visible and stop when the user leaves the page. The sidebar badge
+         should also refresh when new data arrives.
+
+      3. When polling detects new data, ALL components subscribed to alerts
+         should update — not just the one that triggered the poll. This means
+         you need a proper notification/event mechanism between components
+         that aren't in a parent-child relationship.
+
+      4. Multiple warehouse managers using the app simultaneously must each
+         see their own independent warehouse selection and alert counts.
+         One manager switching to "Warehouse B" must not affect another
+         manager viewing "Warehouse A".
+
+      Build the shared state service with change notification events, the
+      polling mechanism, a warehouse selector component, an alert badge
+      component, and a page that ties it all together.
+    assertions:
+      - type: "file_contains"
+        path: "**/Program.cs"
+        value: "AddScoped"
+      - type: "file_contains"
+        path: "**/*.razor"
+        value: "InvokeAsync"
+      - type: "file_contains"
+        path: "**/*.razor"
+        value: "IDisposable"
+    rubric:
+      - "The selected warehouse is available to all interactive page components without each one fetching it independently — shared state works despite the static layout boundary"
+      - "When the user picks a different warehouse, all subscribed components re-render with the new value without a full page reload"
+      - "Polling fires on a background timer, so the component marshals UI updates through InvokeAsync(StateHasChanged) — calling StateHasChanged directly from a non-Blazor thread would throw"
+      - "Each user's state is isolated: state services use scoped lifetime (per circuit) — not singleton, which would leak one user's selection to another"
+      - "Polling is stopped and event subscriptions are removed when components are disposed — implements IDisposable or IAsyncDisposable and cleans up all resources"
+      - "Alert updates notify ALL subscribed components (sidebar badge AND dashboard) — multiple subscribers react to the same state change"
+    timeout: 900
+
+  - name: "Multi-tenant notification hub with cross-component fan-out"
+    setup:
+      commands:
+        - "dotnet new blazor --interactivity server --no-https --force"
+    prompt: |
+      I have a Blazor Web App with per-page Interactive Server mode (not global).
+      The MainLayout renders statically (no @rendermode attribute on it).
+
+      I need to build an app-wide theme system with these requirements:
+
+      1. A theme service that holds the current theme (Light/Dark/System) and
+         a user's preferred accent color (string). Any component on any page
+         should be able to read AND change these values.
+
+      2. When ANY component changes the theme (e.g., a toggle in the sidebar
+         on one page), all OTHER components consuming the theme must immediately
+         update — including components in the static layout area (like a theme
+         indicator in the header).
+
+      3. I also want a "user preferences" panel on a /settings page where the
+         user can change both theme and accent color. Saving here must update
+         the header theme indicator AND any themed components on any page.
+
+      4. Each user (circuit) must have independent theme state — one user
+         switching to dark mode must not affect another user.
+
+      5. When navigating between pages (enhanced nav), the theme choice must
+         persist without page reload.
+
+      What's the best pattern for sharing this state app-wide across all
+      pages and components, given the per-page interactivity setup?
+    assertions:
+      - type: "file_contains"
+        path: "**/Program.cs"
+        value: "CascadingValue"
+      - type: "file_contains"
+        path: "**/Program.cs"
+        value: "NotifyChangedAsync"
+    rubric:
+      - "Uses CascadingValueSource<T> registered in DI (not <CascadingValue> in the layout) — explains this is required because CascadingValue in a static layout cannot reach interactive children"
+      - "Calls NotifyChangedAsync when the theme changes — without this call, subscribers don't re-render even though the value object was mutated"
+      - "Components consume the theme via [CascadingParameter] — same consumption pattern as CascadingValue but backed by DI-registered source"
+      - "State is isolated per user — the CascadingValueSource registration is scoped (or effectively per-circuit), not singleton"
+      - "Theme persists across enhanced navigations without page reload — the DI-registered source survives nav events within the same circuit"
+    timeout: 900

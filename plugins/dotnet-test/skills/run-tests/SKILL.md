@@ -1,21 +1,21 @@
 ---
 name: run-tests
 description: >
-  Runs .NET tests with dotnet test. Use when user says "run tests", "run my
-  tests", "run these tests", "execute tests", "dotnet test", "test filter",
-  "filter by category", "filter by class", "combine filters",
-  "run only specific tests", "integration tests", "unit tests",
-  "tests not running", "hang timeout", "blame-hang", "blame-crash",
-  "crash dump", "TRX report", "TRX", "test report", "generate TRX",
-  "TUnit", "treenode-filter", "target framework", "multi-TFM", or needs
-  to detect the test platform (VSTest or Microsoft.Testing.Platform),
-  identify the test framework, apply test filters, or troubleshoot test
-  execution failures. Covers MSTest, xUnit, NUnit, and TUnit across both
-  VSTest and MTP platforms. Also use for --filter-class, --filter-trait,
-  --report-trx, --logger trx, --blame-hang-timeout, and other
-  platform-specific filter and reporting syntax.
-  DO NOT USE FOR: writing or generating test code, CI/CD pipeline
-  configuration, or debugging failing test logic.
+  For `dotnet test`: figures out which test platform (VSTest vs
+  Microsoft.Testing.Platform) a project uses from `Directory.Build.props`,
+  `global.json`, and `.csproj`, then picks the matching command syntax. USE
+  FOR: running, filtering, or troubleshooting `dotnet test`; identifying the
+  test runner/platform from project files; `--` separator rules on .NET SDK
+  8/9 vs 10+; choosing the right filter syntax for MSTest / xUnit / NUnit /
+  TUnit (--filter, --filter-class, --filter-trait, --filter-query,
+  --treenode-filter); TRX/reporting (--report-trx vs --logger trx);
+  blame/hang/crash diagnostics (--blame-hang-timeout, --blame-crash); running
+  tests against a single target framework when a project targets multiple
+  TFMs (e.g., `<TargetFrameworks>net8.0;net9.0</TargetFrameworks>`,
+  `--framework <TFM>`); and avoiding MTP/VSTest argument mixups (--logger
+  trx on MTP, --report-trx on VSTest, --blame on MTP).
+  DO NOT USE FOR: writing/generating test code, CI/CD config, or debugging
+  failing test logic.
 license: MIT
 ---
 
@@ -72,6 +72,8 @@ These are the most common agent mistakes. Internalize before proceeding:
 | MTP | 10+ | `dotnet test --project <path> <MTP_ARGS>` |
 
 **Detection files to always check** (in order): `global.json` -> `.csproj` -> `Directory.Build.props` -> `Directory.Packages.props`
+
+**If the prompt names a subset of tests** (e.g., "integration tests", "smoke tests", a specific class, a specific TFM), plan to apply the matching filter / `--framework` in [Step 3](#step-3-run-filtered-tests) — do not run the whole suite.
 
 ### Step 1: Detect the test platform and framework
 
@@ -168,12 +170,12 @@ dotnet test --project path/to/MyTests.csproj --report-trx --blame-hang-timeout 5
 
 These flags apply to MTP on both SDK versions. On SDK 8/9, pass after `--`; on SDK 10+, pass directly.
 
+> **Important:** `dotnet test`/MSBuild flags such as `--framework`, `--no-build`, `--configuration`, and `--verbosity` are consumed by `dotnet test` itself (they drive restore/build/host selection) and **always go BEFORE `--`**, regardless of platform or SDK. Only MTP test-platform arguments go after `--` on SDK 8/9. For example: `dotnet test --framework net9.0 -- --report-trx` (built-in flag before `--`, MTP extension flag after).
+
 **Built-in flags (always available):**
 
 | Flag | Description |
 |------|-------------|
-| `--no-build` | Skip build, use previously built output |
-| `--framework <TFM>` | Target a specific framework in multi-TFM projects |
 | `--results-directory <DIR>` | Directory for test result output |
 | `--diagnostic` | Enable diagnostic logging for the test platform |
 | `--diagnostic-output-directory <DIR>` | Directory for diagnostic log output |
@@ -217,11 +219,39 @@ See the `filter-syntax` skill for the complete filter syntax for each platform a
 - **MTP -- xUnit v3**: Uses `--filter-class`, `--filter-method`, `--filter-trait` (not VSTest expression syntax)
 - **MTP -- TUnit**: Uses `--treenode-filter` with path-based syntax
 
+#### When the user names a test category, trait, or group
+
+When the prompt names a subset of tests by category (e.g., "integration tests", "unit tests", "smoke tests", "fast tests"), **do not run all tests** — translate the user's vocabulary into the platform-appropriate filter:
+
+1. **Inspect the test source files** for filter-attribute annotations that match the named group:
+
+   | Framework | Attribute | Filter property |
+   |-----------|-----------|-----------------|
+   | MSTest | `[TestCategory("Integration")]` | `TestCategory` |
+   | NUnit | `[Category("Integration")]` | `TestCategory` (mapped) |
+   | xUnit v2 | `[Trait("Category", "Integration")]` | `Category` |
+   | xUnit v3 | `[Trait("Category", "Integration")]` | `Category` (use `--filter-trait`) |
+   | TUnit | `[Category("Integration")]` | `Category` |
+
+2. **Build the filter expression** and combine it with the platform-correct invocation. For "run the integration tests" against an MSTest project:
+
+   | Platform | SDK | Command |
+   |----------|-----|---------|
+   | VSTest (MSTest) | any | `dotnet test --filter "TestCategory=Integration"` |
+   | MTP (MSTest) | 8 or 9 | `dotnet test -- --filter "TestCategory=Integration"` |
+   | MTP (MSTest) | 10+ | `dotnet test --filter "TestCategory=Integration"` |
+   | MTP (xUnit v3) | 8 or 9 | `dotnet test -- --filter-trait "Category=Integration"` |
+   | MTP (xUnit v3) | 10+ | `dotnet test --filter-trait "Category=Integration"` |
+   | MTP (TUnit) | 8 or 9 | `dotnet test -- --treenode-filter "/*/*/*/*[Category=Integration]"` |
+
+3. If you cannot find a matching attribute, ask the user to confirm the category name or fall back to a name-pattern filter (e.g., `--filter "FullyQualifiedName~Integration"`).
+
 ## Validation
 
 - [ ] Test platform (VSTest or MTP) was correctly identified
 - [ ] Test framework (MSTest, xUnit, NUnit, TUnit) was correctly identified
 - [ ] Correct `dotnet test` invocation was used for the detected platform and SDK version
+- [ ] When the user named a test category/trait/group, the appropriate filter was applied (not "run all tests")
 - [ ] Filter expressions used the syntax appropriate for the platform and framework
 - [ ] Test results were clearly reported to the user
 

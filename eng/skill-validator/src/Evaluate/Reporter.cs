@@ -243,7 +243,11 @@ public static class Reporter
 
         if (scenario.HighVariance)
         {
-            Console.WriteLine($"      {Ansi.Yellow}⚠️  HIGH VARIANCE{Ansi.Reset} — CV={scenario.VarianceCV:F2} across runs; results may be unreliable. Consider re-running with --runs 5 or tightening the eval prompt.");
+            var runCount = scenario.PerRunScores?.Count ?? 0;
+            var rerunSuggestion = runCount >= 5
+                ? "Consider re-running with a higher --runs setting or tightening the eval prompt."
+                : "Consider re-running with --runs 5 or tightening the eval prompt.";
+            Console.WriteLine($"      {Ansi.Yellow}⚠️  HIGH VARIANCE{Ansi.Reset} — CV={scenario.VarianceCV * 100:F0}% across runs; results may be unreliable. {rerunSuggestion}");
         }
 
         foreach (var (label, baseline, isolated, plugin) in metricRows)
@@ -918,7 +922,13 @@ public static class Reporter
         var parts = new List<string>();
 
         if (s.HighVariance)
-            parts.Add($"⚠️ High run-to-run variance (CV={s.VarianceCV:F2}) — consider re-running with `--runs 5`");
+        {
+            var runCount = s.PerRunScores?.Count ?? 0;
+            var rerunSuggestion = runCount >= 5
+                ? "consider re-running with a higher `--runs` setting"
+                : "consider re-running with `--runs 5`";
+            parts.Add($"⚠️ High run-to-run variance (CV={s.VarianceCV * 100:F0}%) — {rerunSuggestion}");
+        }
 
         // No quality-direction footnote for neutral verdicts (🟡) or when quality delta is unknown
         if (s.ImprovementScore != 0 && qualityDelta.HasValue)

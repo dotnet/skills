@@ -1,0 +1,414 @@
+name: migrate-xunit-to-mstest
+description: Evaluates the dotnet-test/migrate-xunit-to-mstest skill
+type: capability
+config:
+  timeout: 20m
+stimuli:
+  - name: Migrate basic xUnit v2 project to MSTest v4 preserving VSTest
+    prompt: |
+      Convert this test project from xUnit.net v2 to MSTest. Update package
+      references, attributes, and assertions. Keep the project on the same
+      test runner (VSTest) -- do not also migrate to Microsoft.Testing.Platform.
+    environment:
+      files:
+        - src: ./fixtures/migrate-basic-xunit-v2-project-to-mstest-v4-preserving-vstest/global.json
+          dest: global.json
+        - src: ./fixtures/migrate-basic-xunit-v2-project-to-mstest-v4-preserving-vstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/migrate-basic-xunit-v2-project-to-mstest-v4-preserving-vstest/CalculatorTests.cs
+          dest: CalculatorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: Microsoft\.VisualStudio\.TestTools\.UnitTesting
+      - type: output-matches
+        config:
+          pattern: \[TestClass\]
+      - type: output-matches
+        config:
+          pattern: \[TestMethod\]
+      - type: output-matches
+        config:
+          pattern: Assert\.AreEqual
+      - type: output-matches
+        config:
+          pattern: Assert\.IsTrue
+      - type: output-not-matches
+        config:
+          pattern: PackageReference Include="xunit
+      - type: output-not-matches
+        config:
+          pattern: using Xunit;
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Removes xunit, xunit.runner.visualstudio package references
+      - Adds the MSTest metapackage (Microsoft.NET.Test.Sdk stays for VSTest)
+      - Replaces 'using Xunit;' with 'using Microsoft.VisualStudio.TestTools.UnitTesting;'
+      - Adds [TestClass] to the test class and converts [Fact] to [TestMethod]
+      - Converts Assert.Equal -> Assert.AreEqual and Assert.True -> Assert.IsTrue
+      - Does NOT switch the project to Microsoft.Testing.Platform (no MSTest.Sdk default flip)
+  - name: Migrate basic xUnit v3 project to MSTest v4 preserving VSTest
+    prompt: |
+      Convert this test project from xUnit.net v3 to MSTest. Preserve the
+      VSTest runner (do not switch to MTP).
+    environment:
+      files:
+        - src: ./fixtures/migrate-basic-xunit-v3-project-to-mstest-v4-preserving-vstest/global.json
+          dest: global.json
+        - src: ./fixtures/migrate-basic-xunit-v3-project-to-mstest-v4-preserving-vstest/Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./fixtures/migrate-basic-xunit-v3-project-to-mstest-v4-preserving-vstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/migrate-basic-xunit-v3-project-to-mstest-v4-preserving-vstest/OrderTests.cs
+          dest: OrderTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: Microsoft\.VisualStudio\.TestTools\.UnitTesting
+      - type: output-matches
+        config:
+          pattern: \[DataRow\(
+      - type: output-not-matches
+        config:
+          pattern: xunit\.v3
+      - type: output-not-matches
+        config:
+          pattern: InlineData
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Removes all xunit.v3.* and xunit.runner.visualstudio packages and adds MSTest
+      - Converts [Theory] + [InlineData(...)] to [TestMethod] + [DataRow(...)]
+      - 'Preserves the VSTest runner: keeps Microsoft.NET.Test.Sdk, does not switch to MSTest.Sdk default MTP'
+      - Does NOT silently change TargetFramework
+  - name: Stop when target framework is unsupported by MSTest v4
+    prompt: |
+      Convert this test project from xUnit.net v2 to MSTest (latest version).
+    environment:
+      files:
+        - src: ./fixtures/stop-when-target-framework-is-unsupported-by-mstest-v4/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/stop-when-target-framework-is-unsupported-by-mstest-v4/SampleTests.cs
+          dest: SampleTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (net7\.0|net6\.0|net8\.0|unsupported|not supported|upgrade.{0,30}target.{0,10}framework|target.{0,10}framework.{0,30}upgrade|MSTest v?3)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - 'Identifies net7.0 as unsupported by MSTest v4 (supported: net8.0, net9.0, net462+, etc.)'
+      - Stops or pauses for user confirmation -- does NOT silently retarget the TFM
+      - Suggests either upgrading the TFM to net8.0/net9.0, or falling back to MSTest v3
+  - name: Convert IClassFixture to ClassInitialize
+    prompt: |
+      Convert this test project from xUnit.net v2 to MSTest.
+    environment:
+      files:
+        - src: ./fixtures/convert-iclassfixture-to-classinitialize/global.json
+          dest: global.json
+        - src: ./fixtures/convert-iclassfixture-to-classinitialize/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/convert-iclassfixture-to-classinitialize/DbFixture.cs
+          dest: DbFixture.cs
+        - src: ./fixtures/convert-iclassfixture-to-classinitialize/OrderTests.cs
+          dest: OrderTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: \[ClassInitialize\]
+      - type: output-matches
+        config:
+          pattern: \[ClassCleanup\]
+      - type: output-not-matches
+        config:
+          pattern: IClassFixture
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Removes 'IClassFixture<DbFixture>' from the class declaration
+      - Adds a static field holding the fixture and a [ClassInitialize] method that constructs it
+      - Adds a [ClassCleanup] method that disposes the fixture
+      - Tests still reference the fixture instance through the static field
+  - name: Handle ICollectionFixture explicitly (do not silently widen scope)
+    prompt: |
+      Convert this test project from xUnit.net v2 to MSTest. Two test classes
+      share a database fixture via xUnit's collection mechanism and must NOT
+      run in parallel against each other.
+    environment:
+      files:
+        - src: ./fixtures/handle-icollectionfixture-explicitly-do-not-silently-widen-scope/global.json
+          dest: global.json
+        - src: ./fixtures/handle-icollectionfixture-explicitly-do-not-silently-widen-scope/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/handle-icollectionfixture-explicitly-do-not-silently-widen-scope/DbCollection.cs
+          dest: DbCollection.cs
+        - src: ./fixtures/handle-icollectionfixture-explicitly-do-not-silently-widen-scope/OrdersTests.cs
+          dest: OrdersTests.cs
+        - src: ./fixtures/handle-icollectionfixture-explicitly-do-not-silently-widen-scope/CustomersTests.cs
+          dest: CustomersTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: \[DoNotParallelize\]
+      - type: output-matches
+        config:
+          pattern: (scope|sharing|parallelization|preserve|collection)
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Preserves serialization of the two classes by adding [DoNotParallelize] (matches DisableParallelization = true)
+      - Preserves the shared fixture by either an [AssemblyInitialize] singleton or a static Lazy<T> helper used from each class's [ClassInitialize]
+      - Explicitly explains the scope decision (collection scope -> chosen scope) instead of silently widening
+      - Removes [Collection(...)] / [CollectionDefinition(...)] attributes
+  - name: Convert ITestOutputHelper to TestContext
+    prompt: |
+      Convert this test project from xUnit.net v2 to MSTest.
+    environment:
+      files:
+        - src: ./fixtures/convert-itestoutputhelper-to-testcontext/global.json
+          dest: global.json
+        - src: ./fixtures/convert-itestoutputhelper-to-testcontext/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/convert-itestoutputhelper-to-testcontext/LoggingTests.cs
+          dest: LoggingTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: TestContext
+      - type: output-matches
+        config:
+          pattern: WriteLine
+      - type: output-not-matches
+        config:
+          pattern: ITestOutputHelper
+      - type: output-not-matches
+        config:
+          pattern: Xunit\.Abstractions
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Removes the ITestOutputHelper constructor parameter and replaces with TestContext (constructor injection or property)
+      - Replaces _output.WriteLine(...) with _testContext.WriteLine(...) (or TestContext.WriteLine via the property)
+      - Removes 'using Xunit.Abstractions;'
+  - name: Map exception assertions correctly (xUnit Throws -> MSTest ThrowsExactly)
+    prompt: |
+      Convert this test project from xUnit.net v2 to MSTest. Be careful with
+      exception assertions.
+    environment:
+      files:
+        - src: ./fixtures/map-exception-assertions-correctly-xunit-throws-mstest-throwsexactly/global.json
+          dest: global.json
+        - src: ./fixtures/map-exception-assertions-correctly-xunit-throws-mstest-throwsexactly/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/map-exception-assertions-correctly-xunit-throws-mstest-throwsexactly/ExceptionTests.cs
+          dest: ExceptionTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: Assert\.ThrowsExactly<InvalidOperationException>
+      - type: output-matches
+        config:
+          pattern: Assert\.Throws<Exception>
+      - type: output-matches
+        config:
+          pattern: Assert\.ThrowsExactlyAsync<InvalidOperationException>
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Maps xUnit Assert.Throws<T> to MSTest Assert.ThrowsExactly<T> (preserves exact-type semantics)
+      - Maps xUnit Assert.ThrowsAny<T> to MSTest Assert.Throws<T> (preserves derived-type semantics)
+      - Maps xUnit Assert.ThrowsAsync<T> to MSTest Assert.ThrowsExactlyAsync<T>
+      - Does NOT silently flip the semantic by mapping Throws -> Throws
+  - name: Convert MemberData and TheoryData to DynamicData
+    prompt: |
+      Convert this test project from xUnit.net v2 to MSTest.
+    environment:
+      files:
+        - src: ./fixtures/convert-memberdata-and-theorydata-to-dynamicdata/global.json
+          dest: global.json
+        - src: ./fixtures/convert-memberdata-and-theorydata-to-dynamicdata/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/convert-memberdata-and-theorydata-to-dynamicdata/DiscountTests.cs
+          dest: DiscountTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: \[DynamicData\(
+      - type: output-not-matches
+        config:
+          pattern: \[MemberData\(
+      - type: output-not-matches
+        config:
+          pattern: \[Theory\]
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Replaces [MemberData(nameof(Cases))] with [DynamicData(nameof(Cases))]
+      - Converts [Theory] to [TestMethod] (or keeps [DataTestMethod])
+      - Preserves the existing IEnumerable<object[]> data source signature
+      - Both data rows still execute -- pass count matches the pre-migration baseline
+  - name: Convert Skip, Trait, and Timeout
+    prompt: |
+      Convert this test project from xUnit.net v2 to MSTest.
+    environment:
+      files:
+        - src: ./fixtures/convert-skip-trait-and-timeout/global.json
+          dest: global.json
+        - src: ./fixtures/convert-skip-trait-and-timeout/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/convert-skip-trait-and-timeout/AnnotatedTests.cs
+          dest: AnnotatedTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: \[Ignore\("broken"\)\]
+      - type: output-matches
+        config:
+          pattern: \[TestCategory\("Unit"\)\]
+      - type: output-matches
+        config:
+          pattern: \[TestProperty\("Owner"
+      - type: output-matches
+        config:
+          pattern: \[Timeout\(5000\)\]
+      - type: output-not-matches
+        config:
+          pattern: Trait\(
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Converts [Fact(Skip = ...)] to [TestMethod] + [Ignore(...)] (both attributes required -- [Ignore] alone does not discover the test)
+      - Converts [Trait("Category", X)] to [TestCategory(X)]
+      - Converts other [Trait(k, v)] to [TestProperty(k, v)]
+      - Converts [Fact(Timeout = N)] to [TestMethod] + [Timeout(N)]
+  - name: 'Preserve xUnit parallelization default with [assembly: Parallelize]'
+    prompt: |
+      Convert this test project from xUnit.net v2 to MSTest. Preserve the
+      same parallelization behavior the project had under xUnit (which by
+      default parallelizes across test classes).
+    environment:
+      files:
+        - src: ./fixtures/preserve-xunit-parallelization-default-with-assembly-parallelize/global.json
+          dest: global.json
+        - src: ./fixtures/preserve-xunit-parallelization-default-with-assembly-parallelize/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/preserve-xunit-parallelization-default-with-assembly-parallelize/AlphaTests.cs
+          dest: AlphaTests.cs
+        - src: ./fixtures/preserve-xunit-parallelization-default-with-assembly-parallelize/BetaTests.cs
+          dest: BetaTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: assembly:\s*Parallelize
+      - type: output-matches
+        config:
+          pattern: ExecutionScope\.ClassLevel
+      - type: output-not-matches
+        config:
+          pattern: ExecutionScope\.MethodLevel
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - 'Adds [assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)] to preserve xUnit''s class-level parallelization'
+      - Does NOT pick ExecutionScope.MethodLevel (which is more aggressive than xUnit)
+      - Mentions that MSTest's default is serial, so explicit Parallelize is required to match xUnit
+  - name: Convert xUnit v3 TestContext.Current.CancellationToken
+    prompt: |
+      Convert this test project from xUnit.net v3 to MSTest.
+    environment:
+      files:
+        - src: ./fixtures/convert-xunit-v3-testcontext-current-cancellationtoken/global.json
+          dest: global.json
+        - src: ./fixtures/convert-xunit-v3-testcontext-current-cancellationtoken/Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./fixtures/convert-xunit-v3-testcontext-current-cancellationtoken/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/convert-xunit-v3-testcontext-current-cancellationtoken/CancellationTests.cs
+          dest: CancellationTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: TestContext\.CancellationToken|_testContext\.CancellationToken
+      - type: output-not-matches
+        config:
+          pattern: TestContext\.Current\.CancellationToken
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Replaces 'TestContext.Current.CancellationToken' with the instance TestContext's CancellationToken
+      - Uses MSTest's instance TestContext (constructor injection or property) rather than a static 'Current'
+      - Does NOT introduce CancellationTokenSource as a fake replacement
+  - name: Recognize project already on MSTest
+    prompt: |
+      Convert this test project from xUnit.net to MSTest.
+    environment:
+      files:
+        - src: ./fixtures/recognize-project-already-on-mstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/recognize-project-already-on-mstest/ExistingTests.cs
+          dest: ExistingTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (already|no.{0,30}migration|not.{0,20}need|already.{0,20}MSTest)
+      - type: output-not-matches
+        config:
+          pattern: PackageReference Include="xunit
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Recognizes the project already references MSTest packages -- no xUnit present
+      - Does NOT make changes (no destructive 'migration' of MSTest tests)
+      - Tells the user the migration is not needed (and may optionally suggest migrate-mstest-v3-to-v4 if v4 is desired)

@@ -24,7 +24,8 @@ Copy the template below **verbatim** for all fixed elements (headings, table hea
 | **Test Result** | <Passed / N tests failed> | — | ✅ / ⚠️ |
 
 > Coverage collected from **<N> of <M> test project(s)**.
-> Reports saved to: `<coverageDir>/reports/`
+> Outputs saved to: `<coverageDir>/` (markdown summary + raw Cobertura XML).
+> *If Phase 5 ran:* HTML/CSV reports also at `<coverageDir>/reports/`.
 
 If any coverage provider package was added to test projects, include this note after the summary:
 
@@ -75,9 +76,12 @@ Files below the line or branch coverage threshold, ordered by uncovered lines de
 
 | Report | Path |
 |--------|------|
-| HTML (browsable) | `<coverageDir>/reports/index.html` |
-| Text summary | `<coverageDir>/reports/Summary.txt` |
-| GitHub markdown | `<coverageDir>/reports/SummaryGithub.md` |
-| CSV data | `<coverageDir>/reports/Summary.csv` |
-| Raw data | `<coverageDir>/raw/` |
+| Markdown summary (this file) | `<coverageDir>/coverage-analysis.md` |
+| Raw Cobertura XML | `<coberturaXmlPathsUsedForAnalysis>` |
+| HTML (browsable) | `<coverageDir>/reports/index.html` *or* `Not generated (optional — request HTML reports to enable)` |
+| Text summary | `<coverageDir>/reports/Summary.txt` *or* `Not generated` |
+| GitHub markdown | `<coverageDir>/reports/SummaryGithub.md` *or* `Not generated` |
+| CSV data | `<coverageDir>/reports/Summary.csv` *or* `Not generated` |
 ```
+
+If ReportGenerator (Phase 5) has not run, mark the HTML/Text/GitHub-markdown/CSV rows as `Not generated (optional — request HTML reports to enable)`. Do not invent paths for files that have not been produced. For **Raw Cobertura XML**, list the actual XML file path(s) used in analysis (for from-scratch runs this is typically under `<coverageDir>/raw/`; for existing-data runs this may be under `TestResults/` or another user-supplied location).

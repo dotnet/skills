@@ -1,0 +1,79 @@
+paths:
+  evals:
+    - tests/
+  skills:
+    - plugins/
+  evalFilenames:
+    - eval.vally.yaml
+  results: vally-results/
+
+suites:
+  all:
+    description: All vally evals
+    evals:
+      - "tests/**/eval.vally.yaml"
+
+  dotnet:
+    description: Core dotnet evals
+    evals:
+      - "tests/dotnet/*/eval.vally.yaml"
+
+  dotnet-ai:
+    description: AI/ML technology evals
+    evals:
+      - "tests/dotnet-ai/*/eval.vally.yaml"
+
+  dotnet-aspnet:
+    description: ASP.NET evals
+    evals:
+      - "tests/dotnet-aspnet/*/eval.vally.yaml"
+
+  dotnet-data:
+    description: Data/EF Core evals
+    evals:
+      - "tests/dotnet-data/*/eval.vally.yaml"
+
+  dotnet-diag:
+    description: Diagnostics evals
+    evals:
+      - "tests/dotnet-diag/*/eval.vally.yaml"
+
+  dotnet-experimental:
+    description: Experimental test quality evals
+    evals:
+      - "tests/dotnet-experimental/*/eval.vally.yaml"
+
+  dotnet-maui:
+    description: MAUI evals
+    evals:
+      - "tests/dotnet-maui/*/eval.vally.yaml"
+
+  dotnet-msbuild:
+    description: MSBuild evals
+    evals:
+      - "tests/dotnet-msbuild/*/eval.vally.yaml"
+
+  dotnet-nuget:
+    description: NuGet evals
+    evals:
+      - "tests/dotnet-nuget/*/eval.vally.yaml"
+
+  dotnet-template-engine:
+    description: Template engine evals
+    evals:
+      - "tests/dotnet-template-engine/*/eval.vally.yaml"
+
+  dotnet-test:
+    description: Testing evals
+    evals:
+      - "tests/dotnet-test/*/eval.vally.yaml"
+
+  dotnet-upgrade:
+    description: Upgrade/migration evals
+    evals:
+      - "tests/dotnet-upgrade/*/eval.vally.yaml"
+
+  dotnet11:
+    description: .NET 11 evals
+    evals:
+      - "tests/dotnet11/*/eval.vally.yaml"

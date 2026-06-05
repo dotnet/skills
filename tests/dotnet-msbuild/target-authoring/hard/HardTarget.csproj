@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <Import Project="CustomSdk.targets" />
+
+  <ItemGroup>
+    <CodeGenSchema Include="schemas\api.xsd" />
+    <CodeGenSchema Include="schemas\events.xsd" />
+  </ItemGroup>
+</Project>

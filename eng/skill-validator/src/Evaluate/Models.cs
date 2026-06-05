@@ -293,6 +293,10 @@ public sealed class ScenarioComparison
     public int? TimeoutSeconds { get; set; }
     /// <summary>When false, non-activation is expected (negative test) and should not flag the verdict.</summary>
     public bool ExpectActivation { get; set; } = true;
+    /// <summary>Number of individual runs that failed with exceptions and were excluded from aggregation.</summary>
+    public int FailedRunCount { get; set; }
+    /// <summary>Non-null when the entire scenario failed with an execution error (not a timeout).</summary>
+    public string? ExecutionError { get; set; }
 
     // Backward-compatible aliases for JSON deserialization of older results files.
     [JsonPropertyName("withSkill")]

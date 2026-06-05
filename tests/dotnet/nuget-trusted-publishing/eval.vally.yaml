@@ -1,0 +1,71 @@
+name: nuget-trusted-publishing
+description: Evaluates the dotnet/nuget-trusted-publishing skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Set up trusted publishing for a new NuGet library
+    prompt: |
+      I have a .NET class library at src/MyLib/MyLib.csproj that I want to publish
+      to nuget.org using trusted publishing (OIDC) instead of an API key.
+      The repo is hosted on GitHub at myorg/mylib. Help me set this up.
+    graders:
+      - type: output-contains
+        config:
+          substring: NuGet/login
+      - type: output-contains
+        config:
+          substring: id-token
+      - type: output-matches
+        config:
+          pattern: (trusted.?publishing|OIDC)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Guides the user to create a trusted publishing policy on nuget.org
+      - Mentions the workflow filename must match the nuget.org policy exactly
+      - "Includes id-token: write in the workflow permissions"
+      - Recommends local pack verification before publishing
+  - name: Set up NuGet publishing without mentioning trusted publishing
+    prompt: |
+      I have a .NET library at src/MyLib/MyLib.csproj and I want to publish it
+      to nuget.org securely from GitHub Actions without storing API keys.
+      The repo is at myorg/mylib. How do I set this up?
+    graders:
+      - type: output-contains
+        config:
+          substring: NuGet/login
+      - type: output-contains
+        config:
+          substring: id-token
+      - type: output-matches
+        config:
+          pattern: (trusted.?publishing|OIDC)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies that OIDC/trusted publishing is the right approach for keyless publishing
+      - "Creates or shows a workflow with NuGet/login and id-token: write"
+      - Guides the user to configure a trusted publishing policy on nuget.org
+      - Recommends local pack verification before publishing
+  - name: Migrate existing workflow from API key to trusted publishing
+    prompt: |
+      My current publish workflow uses secrets.NUGET_API_KEY to push packages.
+      I want to switch to NuGet trusted publishing (OIDC). What do I need to change?
+    graders:
+      - type: output-contains
+        config:
+          substring: NuGet/login
+      - type: output-contains
+        config:
+          substring: id-token
+      - type: output-matches
+        config:
+          pattern: (api.?key|API.?KEY|NUGET_API_KEY)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Explains how to replace the API key with NuGet/login OIDC step
+      - "Mentions adding id-token: write permission to the job"
+      - Advises keeping the old API key secret until trusted publishing is verified
+      - Mentions creating a trusted publishing policy on nuget.org

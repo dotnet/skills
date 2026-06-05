@@ -1,0 +1,105 @@
+name: maui-data-binding
+description: Evaluates the dotnet-maui/maui-data-binding skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Set up compiled bindings with x:DataType on a page
+    prompt: |
+      I have a .NET MAUI ContentPage called SettingsPage.xaml that currently uses
+      plain bindings with no x:DataType. The page's BindingContext is a
+      SettingsViewModel with properties: string Theme, bool NotificationsEnabled,
+      and int FontSize. Convert this page to use compiled bindings and tell me
+      how to catch binding errors at build time.
+    graders:
+      - type: output-contains
+        config:
+          substring: x:DataType
+      - type: output-matches
+        config:
+          pattern: (?i)SettingsViewModel
+      - type: output-matches
+        config:
+          pattern: XC0022|XC0025|WarningsAsErrors
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Places x:DataType on the ContentPage root element pointing to SettingsViewModel
+      - Does not scatter x:DataType on child elements or use x:DataType='x:Object'
+      - Recommends enabling XC0022 and/or XC0025 as warnings-as-errors in the .csproj
+      - Explains that compiled bindings are faster and required for NativeAOT/trimming
+  - name: Implement MVVM ViewModel with ObservableObject
+    prompt: |
+      I need to create a ProductDetailViewModel for a .NET MAUI app. It should
+      have properties for Name (string), Price (decimal), IsAvailable (bool),
+      and a LoadCommand that fetches data asynchronously. Show me how to
+      implement this with proper change notification so bindings update the UI.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)ObservableObject|INotifyPropertyChanged
+      - type: output-matches
+        config:
+          pattern: (?i)ObservableProperty|PropertyChanged
+      - type: output-matches
+        config:
+          pattern: (?i)RelayCommand|ICommand
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Uses CommunityToolkit.Mvvm ObservableObject with [ObservableProperty] or implements INotifyPropertyChanged
+        manually
+      - "Includes all four members: Name, Price, IsAvailable, and a load command"
+      - Shows how the generated properties raise PropertyChanged automatically when using the toolkit
+      - Does not use a base class that doesn't implement INotifyPropertyChanged
+  - name: Create and use an IValueConverter
+    prompt: |
+      In my .NET MAUI app I have a status field that is an enum:
+      enum OrderStatus { Pending, Shipped, Delivered, Cancelled }.
+      I want to display a different color for each status in a Label's TextColor.
+      Show me how to create a value converter and wire it up in XAML.
+    graders:
+      - type: output-contains
+        config:
+          substring: IValueConverter
+      - type: output-matches
+        config:
+          pattern: (?i)Convert
+      - type: output-matches
+        config:
+          pattern: (?i)StaticResource|x:Key
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Implements IValueConverter with a Convert method that maps each enum value to a Color
+      - Declares the converter in XAML resources with an x:Key
+      - Shows the binding syntax with Converter={StaticResource ...}
+      - Handles the default/fallback case in the converter
+  - name: Diagnose missing BindingContext and non-compiled bindings
+    prompt: |
+      My .NET MAUI page shows blank labels even though my ViewModel properties
+      have values. Here is my XAML:
+      ```xml
+      <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                   xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+          <VerticalStackLayout>
+              <Label Text="{Binding Title}" />
+              <Label Text="{Binding Description}" />
+          </VerticalStackLayout>
+      </ContentPage>
+      ```
+      What am I doing wrong?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)BindingContext
+      - type: output-matches
+        config:
+          pattern: (?i)x:DataType
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Identifies that BindingContext is never set on the page
+      - Shows how to set BindingContext either in XAML or code-behind
+      - Points out the missing x:DataType and recommends compiled bindings
+      - Explains that without BindingContext, bindings resolve to null and display empty

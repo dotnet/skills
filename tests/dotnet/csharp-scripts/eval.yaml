@@ -1,5 +1,29 @@
 scenarios:
-  - name: "Test a C# language feature with a script"
+  - name: "Avoid activating for language-agnostic calendar script"
+    prompt: >
+      Write a quick script to experiment with finding the earliest Friday the
+      13th starting at 0001-01-01 in the proleptic Gregorian calendar. Also
+      count how many Friday the 13ths exist in a full 400-year cycle. Execute it and show results --
+      no need for a full project, just a small script for quick prototyping.
+    expect_activation: false
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: "Friday"
+      - type: "output_matches"
+        pattern: "(April|4/13|0001-04-13)"
+      - type: "output_contains"
+        value: "688"
+    expect_tools: ["bash"]
+    max_turns: 10
+    rubric:
+      - "The agent correctly finds April 13, 0001 as the earliest Friday the 13th"
+      - "The agent correctly counts 688 Friday the 13ths in 400 years"
+      - "The agent verified by running code"
+      - "The csharp-scripts skill does not activate because the prompt does not ask for C# or .NET"
+    timeout: 120
+
+  - name: "Test a C# language feature with a file-based app"
     prompt: "Does C# support creating a stackalloc'd Span of native-sized integers? Can you test it and see?"
     assertions:
       - type: "exit_success"
@@ -13,4 +37,63 @@ scenarios:
     rubric:
       - "Runs the test using 'dotnet <file>.cs' (file-based app) rather than creating a full project with 'dotnet new console'"
       - "The code compiles and runs, demonstrating that stackalloc with Span<nint> works"
+    timeout: 120
+
+  - name: "Compose a file-based app from helper files"
+    prompt: |
+      Create a tiny file-based C# app in the current directory using these exact files:
+      hello.cs, Helpers.cs, Models/Person.cs, and Scratch.cs.
+
+      Requirements:
+      - hello.cs is the entry point.
+      - hello.cs uses #:include *.cs to include Helpers.cs and #:include Models/*.cs to include Models/Person.cs.
+      - hello.cs uses #:exclude Scratch.cs so Scratch.cs is not compiled.
+      - Scratch.cs should contain invalid C# with the identifier ThisShouldNotCompile, so the app would fail if Scratch.cs were included.
+      - Helpers.cs should contain a helper that transforms a person's name.
+      - Models/Person.cs should contain a Person model.
+      - Run the app with dotnet hello.cs and make it print exactly: ADA LOVELACE
+    assertions:
+      - type: "exit_success"
+      - type: "file_contains"
+        path: "hello.cs"
+        value: "#:include"
+      - type: "file_contains"
+        path: "hello.cs"
+        value: "#:exclude"
+      - type: "file_contains"
+        path: "hello.cs"
+        value: "#:include *.cs"
+      - type: "file_contains"
+        path: "hello.cs"
+        value: "#:include Models/*.cs"
+      - type: "file_contains"
+        path: "hello.cs"
+        value: "#:exclude Scratch.cs"
+      - type: "file_contains"
+        path: "Helpers.cs"
+        value: "Formatter"
+      - type: "file_contains"
+        path: "Models/Person.cs"
+        value: "Person"
+      - type: "file_contains"
+        path: "Scratch.cs"
+        value: "ThisShouldNotCompile"
+      - type: "file_not_contains"
+        path: "hello.cs"
+        value: "#:include Scratch.cs"
+      - type: "output_not_matches"
+        pattern: "dotnet new console"
+      - type: "run_command_and_assert"
+        command_to_run: "dotnet"
+        command_arguments: "hello.cs"
+        expected_exit_code: 0
+        expected_std_output_contains: "ADA LOVELACE"
+        command_timeout: 120
+    expect_tools: ["bash"]
+    rubric:
+      - "Uses a file-based app with an entry-point .cs file rather than creating a project"
+      - "Creates hello.cs, Helpers.cs, Models/Person.cs, and Scratch.cs with the requested responsibilities"
+      - "Uses #:include to compile helper/model .cs files with the entry point"
+      - "Uses #:exclude to keep Scratch.cs out of the build even though *.cs is included"
+      - "Runs the app with dotnet <file>.cs and reports the successful output"
     timeout: 120

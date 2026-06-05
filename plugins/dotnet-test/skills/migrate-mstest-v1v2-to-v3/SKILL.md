@@ -34,7 +34,7 @@ Migrate a test project from MSTest v1 (assembly references) or MSTest v2 (NuGet 
 
 ## When Not to Use
 
-- Project already uses MSTest v3 (3.x packages)
+- Project already on MSTest v3 with no migration-related build errors (fully migrated)
 - Upgrading v3 to v4 -- use `migrate-mstest-v3-to-v4`
 - Migrating between frameworks (MSTest to xUnit/NUnit)
 

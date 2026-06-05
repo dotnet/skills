@@ -10,8 +10,8 @@
 /tests/dotnet-msbuild/ @ViktorHofer @JanKrivanek @dotnet/skills-msbuild-reviewers
 
 # dotnet (common everyday C#/.NET)
-/plugins/dotnet/skills/csharp-scripts/ @dotnet/roslyn @dotnet/skills-csharp-language-reviewers
-/tests/dotnet/csharp-scripts/ @dotnet/roslyn @dotnet/skills-csharp-language-reviewers
+/plugins/dotnet/skills/csharp-scripts/ @dotnet/run-file @dotnet/skills-csharp-language-reviewers
+/tests/dotnet/csharp-scripts/ @dotnet/run-file @dotnet/skills-csharp-language-reviewers
 
 /plugins/dotnet/lsp.json @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
 
@@ -85,6 +85,10 @@
 /plugins/dotnet-aspnet/ @dotnet/aspnet
 /tests/dotnet-aspnet/ @dotnet/aspnet
 
+# dotnet-blazor (Blazor component and app development)
+/plugins/dotnet-blazor/ @dotnet/aspnet
+/tests/dotnet-blazor/ @dotnet/aspnet
+
 # dotnet-data (data access, Entity Framework)
 /plugins/dotnet-data/skills/optimizing-ef-core-queries/ @dotnet/efteam @dotnet/skills-data-reviewers
 /tests/dotnet-data/optimizing-ef-core-queries/ @dotnet/efteam @dotnet/skills-data-reviewers
@@ -97,25 +101,12 @@
 /plugins/dotnet-experimental/plugin.json @JanKrivanek @ViktorHofer @Evangelink @ManishJayaswal @AbhitejJohn
 
 # dotnet-experimental-tests (everything experimental test related)
-/plugins/dotnet-experimental/skills/exp-dotnet-test-frameworks/ @dotnet/dotnet-testing
-
-/plugins/dotnet-experimental/skills/exp-test-tagging/ @dotnet/dotnet-testing
-/tests/dotnet-experimental/exp-test-tagging/ @dotnet/dotnet-testing
 
 /plugins/dotnet-experimental/skills/exp-test-maintainability/ @dotnet/dotnet-testing
 /tests/dotnet-experimental/exp-test-maintainability/ @dotnet/dotnet-testing
 
-/plugins/dotnet-experimental/skills/exp-assertion-quality/ @dotnet/dotnet-testing
-/tests/dotnet-experimental/exp-assertion-quality/ @dotnet/dotnet-testing
-
-/plugins/dotnet-experimental/skills/exp-test-gap-analysis/ @dotnet/dotnet-testing
-/tests/dotnet-experimental/exp-test-gap-analysis/ @dotnet/dotnet-testing
-
 /plugins/dotnet-experimental/skills/exp-mock-usage-analysis/ @dotnet/dotnet-testing
 /tests/dotnet-experimental/exp-mock-usage-analysis/ @dotnet/dotnet-testing
-
-/plugins/dotnet-experimental/skills/exp-test-smell-detection/ @dotnet/dotnet-testing
-/tests/dotnet-experimental/exp-test-smell-detection/ @dotnet/dotnet-testing
 
 /plugins/dotnet-experimental/skills/exp-simd-vectorization/ @jeffschw @artl93
 /tests/dotnet-experimental/exp-simd-vectorization/ @jeffschw @artl93
@@ -146,4 +137,11 @@
 # dotnet-nuget (package and dependency management)
 /plugins/dotnet-nuget/ @dotnet/area-infrastructure-libraries @kartheekp-ms
 /tests/dotnet-nuget/ @dotnet/area-infrastructure-libraries @kartheekp-ms
+
+# dotnet11 (.NET 11 new APIs and language features)
+/plugins/dotnet11/ @ManishJayaswal @JanKrivanek @ViktorHofer
+/tests/dotnet11/ @ManishJayaswal @JanKrivanek @ViktorHofer
+
+/plugins/dotnet11/skills/system-text-json-net11/ @ManishJayaswal @JanKrivanek @ViktorHofer
+/tests/dotnet11/system-text-json-net11/ @ManishJayaswal @JanKrivanek @ViktorHofer
 

@@ -1,0 +1,263 @@
+# Shadow evaluation with vally — runs alongside skill-validator for comparison.
+#
+# This workflow reuses the gate and discover jobs from evaluation.yml via
+# workflow_call, or can be triggered manually. Results are informational
+# only — they never gate PRs.
+#
+# NOTE: This is a transitional workflow for the replat. It will be removed
+# once vally fully replaces skill-validator.
+name: vally-evaluation
+
+on:
+  # Triggered by the main evaluation workflow after discover completes
+  workflow_call:
+    inputs:
+      entries:
+        description: 'JSON array of matrix entries from discover job'
+        required: true
+        type: string
+      head_sha:
+        description: 'PR head SHA to checkout'
+        required: false
+        type: string
+        default: ''
+  # Manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      plugin:
+        description: 'Plugin to evaluate (e.g., dotnet-maui)'
+        required: true
+        type: string
+      skill:
+        description: 'Skill to evaluate (optional, evaluates whole plugin if empty)'
+        required: false
+        type: string
+
+env:
+  MODEL: claude-opus-4.6
+  JUDGE_MODEL: claude-opus-4.6
+
+permissions:
+  contents: read
+
+jobs:
+  # --------------------------------------------------------------------------
+  # For workflow_dispatch: build a single-entry matrix
+  # --------------------------------------------------------------------------
+  prepare:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      entries: ${{ steps.build.outputs.entries }}
+    steps:
+      - id: build
+        run: |
+          PLUGIN="${{ inputs.plugin }}"
+          SKILL="${{ inputs.skill }}"
+          if [ -n "$SKILL" ]; then
+            echo "entries=[{\"name\":\"${PLUGIN}--${SKILL}\",\"plugin\":\"${PLUGIN}\",\"skills_path\":\"plugins/${PLUGIN}/skills/${SKILL}\"}]" >> $GITHUB_OUTPUT
+          else
+            echo "entries=[{\"name\":\"${PLUGIN}\",\"plugin\":\"${PLUGIN}\",\"skills_path\":\"plugins/${PLUGIN}/skills\"}]" >> $GITHUB_OUTPUT
+          fi
+
+  # --------------------------------------------------------------------------
+  # Run vally evaluation (shadow mode)
+  # --------------------------------------------------------------------------
+  vally-evaluate:
+    needs: [prepare]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    continue-on-error: true
+    name: vally (${{ matrix.entry.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJson(inputs.entries || needs.prepare.outputs.entries || '[]') }}
+
+    steps:
+      - name: Checkout skills content
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ inputs.head_sha || '' }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+
+      - name: Install vally
+        run: npm install -g @microsoft/vally-cli
+
+      - name: Select Copilot token
+        id: select-token
+        env:
+          TOKEN_1: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+        run: |
+          TOKENS=()
+          for i in 1 2; do
+            var="TOKEN_$i"
+            val="${!var}"
+            if [ -n "$val" ]; then TOKENS+=("$val"); fi
+          done
+          if [ ${#TOKENS[@]} -eq 0 ]; then
+            echo "::error::No COPILOT_GITHUB_TOKEN secrets are configured"
+            exit 1
+          fi
+          IDX=$(( ${RANDOM} % ${#TOKENS[@]} ))
+          echo "::add-mask::${TOKENS[$IDX]}"
+          echo "token=${TOKENS[$IDX]}" >> $GITHUB_OUTPUT
+
+      - name: Find eval specs
+        id: find-evals
+        env:
+          DISPATCH_SKILL: ${{ inputs.skill }}
+        run: |
+          # For workflow_dispatch targeting a specific skill, only run that one
+          # eval. Otherwise run every eval discovered under the plugin's tests
+          # directory.
+          if [ -n "$DISPATCH_SKILL" ]; then
+            CANDIDATE="tests/${{ matrix.entry.plugin }}/${DISPATCH_SKILL}/eval.vally.yaml"
+            if [ ! -f "$CANDIDATE" ]; then
+              echo "::error::workflow_dispatch requested skill '${DISPATCH_SKILL}' in plugin '${{ matrix.entry.plugin }}' but no eval spec exists at '${CANDIDATE}'. Check the skill name (case-sensitive) and that the eval file is present."
+              exit 1
+            fi
+            EVALS="$CANDIDATE"
+          else
+            EVALS=$(find tests/${{ matrix.entry.plugin }} -name "eval.vally.yaml" -type f | sort)
+          fi
+          if [ -z "$EVALS" ]; then
+            echo "No eval.vally.yaml files found for ${{ matrix.entry.plugin }}"
+            echo "has_evals=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_evals=true" >> $GITHUB_OUTPUT
+            echo "$EVALS" > /tmp/eval-specs.txt
+            echo "Found $(wc -l < /tmp/eval-specs.txt) eval specs"
+          fi
+
+      - name: Run vally evaluations
+        if: steps.find-evals.outputs.has_evals == 'true'
+        env:
+          GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
+          RESULTS_DIR: artifacts/TestResults/vally/${{ matrix.entry.name }}
+        run: |
+          PLUGIN="${{ matrix.entry.plugin }}"
+
+          while IFS= read -r EVAL_SPEC; do
+            EVAL_NAME=$(basename $(dirname "$EVAL_SPEC"))
+            echo "::group::Evaluating $EVAL_NAME"
+
+            BASELINE_DIR="$RESULTS_DIR/$EVAL_NAME/baseline"
+            SKILLED_DIR="$RESULTS_DIR/$EVAL_NAME/skilled"
+            mkdir -p "$BASELINE_DIR" "$SKILLED_DIR"
+
+            # Each eval targets a single skill named after the eval folder.
+            # Evals that do not map 1:1 to a skill (e.g. `agent.*` evals that
+            # exercise multi-skill orchestrator agents and declare their own
+            # `environment.skills`) are skipped — they are out of scope for
+            # the skill-vs-baseline pipeline.
+            PER_SKILL_DIR="./plugins/$PLUGIN/skills/$EVAL_NAME"
+            if [ ! -f "$PER_SKILL_DIR/SKILL.md" ]; then
+              echo "::warning::Skipping $EVAL_NAME — no SKILL.md at $PER_SKILL_DIR (likely an agent eval; not supported by the skill-isolation pipeline)"
+              echo "::endgroup::"
+              continue
+            fi
+
+            # Empty dir used as `--skill-dir` for the baseline so vally
+            # discovers zero skills. Without this, vally walks up to the repo's
+            # .vally.yaml and loads every skill under plugins/, contaminating
+            # the baseline.
+            EMPTY_SKILL_DIR=$(mktemp -d -t vally-empty-skills-XXXXXX)
+
+            # Baseline run (no skills)
+            echo "--- Baseline run ---"
+            vally eval \
+              --eval-spec "$EVAL_SPEC" \
+              --skill-dir "$EMPTY_SKILL_DIR" \
+              --model ${{ env.MODEL }} \
+              --runs 1 --workers 3 \
+              --skip-validate \
+              --judge-model ${{ env.JUDGE_MODEL }} \
+              --output-dir "$BASELINE_DIR" \
+              2>&1 || echo "::warning::Baseline eval failed for $EVAL_NAME"
+
+            # Skilled run (exactly the one skill under evaluation)
+            echo "--- Skilled run ---"
+            vally eval \
+              --eval-spec "$EVAL_SPEC" \
+              --skill-dir "$PER_SKILL_DIR" \
+              --model ${{ env.MODEL }} \
+              --runs 1 --workers 3 \
+              --skip-validate \
+              --judge-model ${{ env.JUDGE_MODEL }} \
+              --output-dir "$SKILLED_DIR" \
+              2>&1 || echo "::warning::Skilled eval failed for $EVAL_NAME"
+
+            rm -rf "$EMPTY_SKILL_DIR"
+
+            # Adapt results — find JSONL in timestamped subdirs
+            BASELINE_JSONL=$(find "$BASELINE_DIR" -name "*.jsonl" -type f 2>/dev/null | head -1)
+            SKILLED_JSONL=$(find "$SKILLED_DIR" -name "*.jsonl" -type f 2>/dev/null | head -1)
+
+            if [ -n "$BASELINE_JSONL" ] && [ -n "$SKILLED_JSONL" ]; then
+              echo "--- Adapting results ---"
+              node eng/vally-adapter/adapt.mjs \
+                --baseline "$(dirname "$BASELINE_JSONL")" \
+                --skilled "$(dirname "$SKILLED_JSONL")" \
+                --skill-name "$EVAL_NAME" \
+                --skill-path "plugins/$PLUGIN/skills/$EVAL_NAME" \
+                --model "${{ env.MODEL }}" \
+                --judge-model "${{ env.JUDGE_MODEL }}" \
+                --output "$RESULTS_DIR/$EVAL_NAME/results.json"
+            else
+              echo "::warning::Skipping adapt for $EVAL_NAME — missing JSONL output"
+            fi
+
+            echo "::endgroup::"
+          done < /tmp/eval-specs.txt
+
+      - name: Upload results
+        if: always() && steps.find-evals.outputs.has_evals == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: vally-results-${{ matrix.entry.name }}
+          path: artifacts/TestResults/vally/${{ matrix.entry.name }}/
+          include-hidden-files: true
+          retention-days: 14
+
+      - name: Write summary
+        if: always() && steps.find-evals.outputs.has_evals == 'true'
+        run: |
+          echo "## 🔬 Vally Shadow Results: ${{ matrix.entry.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          RESULTS_DIR="artifacts/TestResults/vally/${{ matrix.entry.name }}"
+          for RESULTS_JSON in "$RESULTS_DIR"/*/results.json; do
+            if [ ! -f "$RESULTS_JSON" ]; then continue; fi
+            EVAL_NAME=$(basename $(dirname "$RESULTS_JSON"))
+
+            # Extract verdict from JSON
+            PASSED=$(node -e "const r=JSON.parse(require('fs').readFileSync('$RESULTS_JSON','utf-8')); console.log(r.verdicts[0].passed)")
+            REASON=$(node -e "const r=JSON.parse(require('fs').readFileSync('$RESULTS_JSON','utf-8')); console.log(r.verdicts[0].reason)")
+            ICON=$([ "$PASSED" = "true" ] && echo "✅" || echo "❌")
+
+            echo "### $ICON $EVAL_NAME" >> $GITHUB_STEP_SUMMARY
+            echo "$REASON" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Per-scenario table
+            echo "| Scenario | Assertions | Improvement |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|------------|-------------|" >> $GITHUB_STEP_SUMMARY
+            node -e "
+              const r = JSON.parse(require('fs').readFileSync('$RESULTS_JSON', 'utf-8'));
+              for (const s of r.verdicts[0].scenarios) {
+                const allPass = s.withSkill.metrics.assertionResults.every(a => a.passed);
+                const icon = allPass ? '✔' : '✘';
+                const pct = (s.improvementScore * 100).toFixed(1);
+                console.log('| ' + icon + ' ' + s.scenarioName + ' | ' + s.withSkill.metrics.assertionResults.length + ' passed | ' + pct + '% |');
+              }
+            " >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          done
