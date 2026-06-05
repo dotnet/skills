@@ -18,7 +18,7 @@ public sealed class OrderProcessorTests
         var items = new[] { new OrderItem("SKU-1", 2), new OrderItem("SKU-2", 1) };
 
         // Act
-        Order placed = processor.PlaceOrder(customerId: 42, items);
+        Order placed = processor.PlaceOrder(customerId: 42, items: items);
 
         // Assert
         Assert.IsNotNull(placed.Id);
@@ -52,7 +52,7 @@ public sealed class OrderProcessorTests
     {
         var repository = new InMemoryOrderRepository();
         var processor = new OrderProcessor(repository);
-        processor.PlaceOrder(customerId: 7, new[] { new OrderItem("SKU-1", 1) });
+        processor.PlaceOrder(customerId: 7, items: new[] { new OrderItem("SKU-1", 1) });
 
         var result = processor.GetOrderById("ORD-1");
 
@@ -67,7 +67,7 @@ public sealed class OrderProcessorTests
     public void CancelOrder_ExistingOrder_Works()
     {
         var processor = new OrderProcessor(new InMemoryOrderRepository());
-        var order = processor.PlaceOrder(customerId: 1, new[] { new OrderItem("SKU-1", 1) });
+        var order = processor.PlaceOrder(customerId: 1, items: new[] { new OrderItem("SKU-1", 1) });
         processor.CancelOrder(order.Id);
     }
 
@@ -96,7 +96,7 @@ public sealed class OrderProcessorTests
     {
         var processor = new OrderProcessor(new InMemoryOrderRepository());
 
-        processor.PlaceOrderAsync(customerId: 1, new[] { new OrderItem("SKU-1", 1) });
+        processor.PlaceOrderAsync(customerId: 1, items: new[] { new OrderItem("SKU-1", 1) });
         Thread.Sleep(2000);
 
         Assert.IsTrue(processor.HasPendingOrders == false);
