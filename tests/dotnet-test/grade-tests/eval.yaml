@@ -108,16 +108,20 @@ scenarios:
       files:
         - path: "Some.Tests/Some.Tests.csproj"
           source: "fixtures/no-list-provided/Some.Tests/Some.Tests.csproj"
-        - path: "Some.Tests/WhateverTests.cs"
-          source: "fixtures/no-list-provided/Some.Tests/WhateverTests.cs"
+        - path: "Some.Tests/AccountTests.cs"
+          source: "fixtures/no-list-provided/Some.Tests/AccountTests.cs"
+        - path: "Some.Tests/InvoiceTests.cs"
+          source: "fixtures/no-list-provided/Some.Tests/InvoiceTests.cs"
+        - path: "Some.Tests/ReportingTests.cs"
+          source: "fixtures/no-list-provided/Some.Tests/ReportingTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(specific|explicit|list|which tests|scope|provide|name|specify|curated)"
       - type: "exit_success"
     rubric:
-      - "Recognized that no specific list of test methods was provided"
+      - "Recognized that no specific list of test methods was provided across the three test files (AccountTests, InvoiceTests, ReportingTests)"
       - "Asked the user to provide an explicit list of test methods, file paths, or a diff hunk to grade"
-      - "Did NOT silently scan and grade the entire workspace"
+      - "Did NOT silently scan and grade all ~21 tests across the workspace"
       - "Optionally pointed the user at `test-quality-auditor` agent or `test-anti-patterns` skill for full-suite analysis"
     reject_tools: ["edit", "create"]
     timeout: 120
