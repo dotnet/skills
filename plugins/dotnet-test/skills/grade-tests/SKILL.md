@@ -69,10 +69,26 @@ that question with a one-row-per-test verdict that fits in a comment table.
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Test methods | Yes | A list of test methods to grade. Each entry should include the fully-qualified test name (e.g., `Namespace.ClassName.TestMethodName`) and the file path. If only file paths are provided, parse the file(s) and grade every test method declared in them. |
+| Test methods | Yes | An **explicit** list of test methods to grade. Each entry should include the fully-qualified test name (e.g., `Namespace.ClassName.TestMethodName`) and the file path. If the caller provides only file paths (without naming specific methods) **and** explicitly asks for "every test in this file" or "all tests in this PR diff", parse those files and grade every test declared. Otherwise — including an ambiguous request like *"grade my tests"* with no scope — **stop and ask the caller for an explicit list, file(s), or diff hunk**. This skill is for curated input; do not auto-grade an entire workspace. |
 | Test bodies / spans | Recommended | The exact source lines for each test method. If omitted, read them from the listed files. |
 | Production code | No | The code under test, for judging whether assertions cover the meaningful behaviors. When unavailable, mark relevant findings as "Unverified" rather than guessing. |
 | Diff context | No | When grading PR changes, the unified diff for each test method helps focus on what actually changed. |
+
+### Step 0: Validate the input
+
+Before doing anything else, check that the caller provided one of:
+
+1. An explicit list of test method names, **or**
+2. One or more file paths plus an explicit instruction to grade every test
+   declared in those files (e.g., "grade every test in `OrderTests.cs`"), **or**
+3. A diff hunk or PR identifier whose changed tests should be graded.
+
+If the request is ambiguous (e.g., *"Grade my tests"*, *"Are these tests
+any good?"* with no scope, *"Review the test suite"*), **do not load
+extensions, do not read files, and do not grade anything**. Reply with a
+short message asking the caller to provide an explicit list / file(s) /
+diff, and optionally point them at `test-quality-auditor` agent or
+`test-anti-patterns` skill for full-suite analysis. Stop there.
 
 ## Workflow
 
