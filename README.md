@@ -84,7 +84,29 @@ For local development or unpublished changes, import plugins from a local checko
 Skills in this repository follow the [agentskills.io](https://agentskills.io) open standard
 and are compatible with [OpenAI Codex](https://developers.openai.com/codex/skills).
 
-Install individual skills using the `skill-installer` CLI with the GitHub URL:
+#### Plugin marketplace (recommended)
+
+Codex CLI v0.121.0 and later supports a [plugin marketplace](https://developers.openai.com/codex/plugins).
+This repository ships a Codex-native marketplace manifest at `.agents/plugins/marketplace.json`,
+so you can register `dotnet/skills` as a marketplace and install plugins from it directly.
+
+1. Add the marketplace:
+   ```bash
+   codex plugin marketplace add dotnet/skills
+   ```
+2. Launch Codex and open the plugin browser:
+   ```
+   /plugins
+   ```
+3. Browse the `dotnet-agent-skills` tab and install the desired plugins.
+4. Update plugins on demand:
+   ```bash
+   codex plugin marketplace upgrade dotnet-agent-skills
+   ```
+
+#### Individual skills
+
+You can also install individual skills using the `skill-installer` CLI with the GitHub URL:
 
 ```bash
 $ skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<plugin>/skills/<skill-name>

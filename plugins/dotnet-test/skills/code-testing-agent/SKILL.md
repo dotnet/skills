@@ -166,6 +166,12 @@ Given a request like *"Generate unit tests for my InvoiceService"*, the pipeline
 The `code-testing-extensions` skill provides concrete, filled-in examples for each pipeline phase showing real source code, real research output, real plans, and real generated tests. Call the `code-testing-extensions` skill to discover available extension files, then read:
 
 - **`dotnet-examples.md`** — MSTest example with InvoiceService: research output, plan output, generated test file, fix cycle walkthrough, and final report
+- **`python-examples.md`** — pytest example with the same InvoiceService scenario: research, plan, generated test file (parametrized, `unittest.mock`), fix cycles (`ModuleNotFoundError`, patch target, `Mock(spec=...)`), and final report
+- **`typescript-examples.md`** — Vitest example (also applicable to Jest) showing `it.each` parameterization, async tests, fake timers, and ESM/CJS fix cycles
+- **`go-examples.md`** — Standard `testing` package example with table-driven subtests, hand-written fake repository, injected clock, and `-run` regex fix cycle
+- **`java-examples.md`** — JUnit 5 + Mockito example on Maven showing `@ExtendWith(MockitoExtension.class)`, `@ParameterizedTest` + `@CsvSource`, `Clock.fixed(...)` for time, and Surefire fix cycles
+
+For languages without a dedicated examples file (Rust, Ruby, Swift, Kotlin, C++, PowerShell), use the base extension file (`<language>.md`) plus the example file for the closest paradigm — the pipeline shape (research → plan → generate → fix) and the categories of decisions (test layout, mocking strategy, fixed clock for time-dependent code, parameterization style) translate directly.
 
 ## Agent Reference
 

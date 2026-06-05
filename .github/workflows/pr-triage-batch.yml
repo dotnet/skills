@@ -1,0 +1,223 @@
+name: "PR Triage — Batch"
+
+# Hourly orchestrator. Enumerates open PRs, computes a deterministic state
+# for each, and dispatches the per-PR worker (pr-triage.yml) or the malicious-
+# code scanner (pr-malicious-scan.agent.lock.yml) for PRs that need action.
+# No model calls; no labels are applied here. The worker owns label and
+# author-ping side effects. The orchestrator itself posts at most ONE comment
+# per scanner dispatch — a deterministic
+# `<!-- pr-malicious-scan:dispatched=<sha7> -->` idempotency marker — before
+# triggering the scanner workflow. That marker is the source of truth that
+# survives any scanner-side failure mode (PAT outage, integrity block,
+# dropped HTML marker by the agent).
+
+on:
+  schedule:
+    # Off-the-hour to avoid colliding with evaluation.yml's daily 00:00 UTC cron.
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "If 'true', list states without dispatching worker runs."
+        required: false
+        type: string
+        default: "false"
+      pr_number:
+        description: "Optional: triage only this single PR (for ad-hoc smoke tests)."
+        required: false
+        type: string
+      max_dispatches:
+        description: "Hard cap on dispatched workers per run. Default 30."
+        required: false
+        type: string
+        default: "30"
+
+permissions:
+  pull-requests: read
+  issues: write
+  statuses: read
+  actions: write
+  contents: read
+
+concurrency:
+  group: pr-triage-batch
+  cancel-in-progress: false
+
+run-name: "PR triage batch${{ inputs.pr_number && format(' (PR #{0})', inputs.pr_number) || '' }}${{ inputs.dry_run == 'true' && ' [dry-run]' || '' }}"
+
+jobs:
+  dispatch:
+    if: ${{ !github.event.repository.fork }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enumerate open PRs and dispatch workers
+        env:
+          GH_TOKEN:       ${{ github.token }}
+          DRY_RUN:        ${{ inputs.dry_run || 'false' }}
+          ONLY_PR:        ${{ inputs.pr_number }}
+          MAX_DISPATCHES: ${{ inputs.max_dispatches || '30' }}
+        run: |
+          set -euo pipefail
+          REPO="${GITHUB_REPOSITORY}"
+          MAX="${MAX_DISPATCHES}"
+
+          if [ -n "${ONLY_PR:-}" ]; then
+            PR_NUMBERS="${ONLY_PR}"
+          else
+            PR_NUMBERS=$(gh pr list --repo "$REPO" --state open --limit 200 \
+              --json number,isDraft \
+              --jq '.[] | select(.isDraft == false) | .number')
+          fi
+
+          if [ -z "$PR_NUMBERS" ]; then
+            echo "No open PRs to triage."
+            exit 0
+          fi
+
+          echo "## Triage plan" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| PR | author | author_assoc | mergeable_state | reviewDecision | eval_status | state | action |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---:|---|---|---|---|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+
+          DISPATCHED=0
+          for PR in $PR_NUMBERS; do
+            if [ "$DISPATCHED" -ge "$MAX" ]; then
+              echo "Reached MAX_DISPATCHES=$MAX — stopping enumeration."
+              break
+            fi
+
+            PR_JSON=$(gh api "repos/$REPO/pulls/$PR" 2>/dev/null) || { echo "PR #$PR: fetch failed — skipping"; continue; }
+            HEAD_SHA=$(jq -r .head.sha <<<"$PR_JSON")
+            AUTHOR=$(jq -r .user.login <<<"$PR_JSON")
+            AUTHOR_TYPE=$(jq -r .user.type <<<"$PR_JSON")
+            AUTHOR_ASSOC=$(jq -r .author_association <<<"$PR_JSON")
+            IS_DRAFT=$(jq -r .draft <<<"$PR_JSON")
+            MERGEABLE_STATE=$(jq -r .mergeable_state <<<"$PR_JSON")
+            LABELS=$(jq -r '[.labels[].name] | join(",")' <<<"$PR_JSON")
+
+            # Skip drafts unconditionally
+            if [ "$IS_DRAFT" = "true" ]; then
+              echo "| #$PR | $AUTHOR | $AUTHOR_ASSOC | $MERGEABLE_STATE | - | - | skip(draft) | none |" >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            # Skip PRs whose mergeable_state hasn't settled yet
+            if [ "$MERGEABLE_STATE" = "unknown" ]; then
+              echo "| #$PR | $AUTHOR | $AUTHOR_ASSOC | $MERGEABLE_STATE | - | - | skip(unsettled) | none |" >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+
+            # GraphQL: review decision (cheap, one call)
+            RV=$(gh api graphql -f query='
+              query($owner:String!,$repo:String!,$num:Int!){
+                repository(owner:$owner,name:$repo){
+                  pullRequest(number:$num){
+                    reviewDecision
+                    reviewThreads(first:100){ nodes { isResolved } }
+                  }
+                }
+              }' -F owner="${REPO%/*}" -F repo="${REPO#*/}" -F num="$PR" \
+              --jq '.data.repository.pullRequest')
+            REVIEW_DECISION=$(jq -r '.reviewDecision // ""' <<<"$RV")
+            UNRESOLVED=$(jq -r '[.reviewThreads.nodes[] | select(.isResolved == false)] | length' <<<"$RV")
+
+            # Eval status
+            EVAL_STATE=$(gh api "repos/$REPO/statuses/$HEAD_SHA" \
+              --jq '[.[] | select(.context == "evaluation-status")] | (sort_by(.created_at) | last) | .state // "pending"' 2>/dev/null || echo "pending")
+            [ -z "$EVAL_STATE" ] && EVAL_STATE="pending"
+
+            # Bot author?
+            IS_BOT="false"
+            if [ "$AUTHOR_TYPE" = "Bot" ] || [[ "$AUTHOR" == *"[bot]" ]]; then IS_BOT="true"; fi
+            # Trusted contributor?
+            IS_TRUSTED="false"
+            case "$AUTHOR_ASSOC" in OWNER|MEMBER|COLLABORATOR) IS_TRUSTED="true" ;; esac
+
+            # Compute state — same logic as worker, kept simple and deterministic.
+            STATE=""
+            if [ "$IS_BOT" = "false" ] && [ "$IS_TRUSTED" = "false" ]; then
+              # Look for prior malicious-scan signal on this head. Match either:
+              #   <!-- pr-malicious-scan:dispatched=SHORT --> (orchestrator-authored, posted
+              #     just before `gh workflow run`; survives any agent-side failure mode), OR
+              #   <!-- pr-malicious-scan:fingerprint=SHORT:DATE --> (agent-authored, posted by
+              #     a successful scan run).
+              # Either marker means "do not re-dispatch for this head SHA".
+              SHORT="${HEAD_SHA:0:7}"
+              # NB: --paginate runs --jq per page, so aggregations like 'length' would emit one
+              # number per page. Emit one .id per matching comment and count lines in the shell.
+              MARKER=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+                --jq ".[] | select(.user.login == \"github-actions[bot]\") | select((.body | contains(\"<!-- pr-malicious-scan:dispatched=$SHORT -->\")) or (.body | contains(\"<!-- pr-malicious-scan:fingerprint=$SHORT:\"))) | .id" \
+                | wc -l | tr -d ' ')
+              if [ "${MARKER:-0}" -eq 0 ]; then
+                STATE="needs-malicious-scan"
+              fi
+            fi
+            if [ -z "$STATE" ]; then
+              if [ "$REVIEW_DECISION" = "CHANGES_REQUESTED" ] || [ "${UNRESOLVED:-0}" -gt 0 ] || [ "$MERGEABLE_STATE" = "dirty" ]; then
+                STATE="needs-author-attention"
+              elif [ "$EVAL_STATE" = "success" ] && [ "$REVIEW_DECISION" = "APPROVED" ]; then
+                STATE="ready-for-merge"
+              elif [ "$EVAL_STATE" = "success" ]; then
+                if [ "$REVIEW_DECISION" = "" ] || [ "$REVIEW_DECISION" = "REVIEW_REQUIRED" ]; then
+                  STATE="ready-for-review"
+                else
+                  STATE="in-review"
+                fi
+              else
+                STATE="ready-for-eval"
+              fi
+            fi
+
+            # Decide whether to dispatch. in-review and skip never dispatch the worker;
+            # but we still dispatch the worker to reconcile the in-review label.
+            ACTION="dispatch-worker"
+            case "$STATE" in
+              needs-malicious-scan) ACTION="dispatch-scanner" ;;
+              skip)                  ACTION="none" ;;
+            esac
+
+            echo "| #$PR | $AUTHOR | $AUTHOR_ASSOC | $MERGEABLE_STATE | ${REVIEW_DECISION:-none} | $EVAL_STATE | $STATE | $ACTION |" >> "$GITHUB_STEP_SUMMARY"
+
+            if [ "$DRY_RUN" = "true" ] || [ "$ACTION" = "none" ]; then
+              continue
+            fi
+
+            case "$ACTION" in
+              dispatch-worker)
+                gh workflow run pr-triage.yml --repo "$REPO" \
+                  -f pr_number="$PR" \
+                  -f intended_state="$STATE" || echo "::warning::failed to dispatch worker for PR #$PR"
+                DISPATCHED=$((DISPATCHED + 1))
+                ;;
+              dispatch-scanner)
+                if gh workflow list --repo "$REPO" --json path --jq '.[].path' \
+                    | grep -q 'pr-malicious-scan\.agent\.lock\.yml'; then
+                  SHORT="${HEAD_SHA:0:7}"
+                  # Post the pre-dispatch idempotency marker BEFORE triggering the scanner.
+                  # This is the source of truth for "a scan has been initiated for this head SHA".
+                  # Even if the scanner fails to start, never starts (e.g. missing PAT), drops
+                  # its own fingerprint marker, or is blocked by an integrity filter, this marker
+                  # prevents re-dispatch. A new push (= new SHA) creates no marker, so the
+                  # scanner re-runs as expected.
+                  PRE_DISPATCH_BODY=$(printf '%s\n%s\n\n%s\n' \
+                    "<!-- pr-malicious-scan:dispatched=$SHORT -->" \
+                    "🔍 Automated malicious-diff scan dispatched for \`$SHORT\`." \
+                    "_Results will be posted as code-scanning alerts and a follow-up comment by github-actions[bot]._")
+                  if ! gh api -X POST "repos/$REPO/issues/$PR/comments" \
+                       -f body="$PRE_DISPATCH_BODY" >/dev/null 2>&1; then
+                    echo "::warning::failed to post pre-dispatch marker for PR #$PR — skipping scanner dispatch"
+                    continue
+                  fi
+                  if gh workflow run pr-malicious-scan.agent.lock.yml --repo "$REPO" \
+                       -f pr_number="$PR"; then
+                    DISPATCHED=$((DISPATCHED + 1))
+                  else
+                    echo "::warning::failed to dispatch scanner for PR #$PR"
+                  fi
+                else
+                  echo "::notice::scanner workflow not yet present; would dispatch for PR #$PR"
+                fi
+                ;;
+            esac
+          done
+
+          echo "Dispatched $DISPATCHED worker run(s)."

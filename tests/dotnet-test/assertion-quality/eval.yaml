@@ -157,3 +157,51 @@ scenarios:
       - "Wrote test methods for the InventoryTracker class"
       - "Covered multiple methods of the class"
     timeout: 300
+
+  # ==========================================================================
+  # Scenario: Polyglot — shallow assertions in a Jest/TypeScript suite
+  # ==========================================================================
+
+  - name: "Polyglot: evaluate shallow assertions in a Jest/TypeScript OrderService suite"
+    prompt: |
+      Audit the assertion quality and depth of `tests/order.test.ts`. The
+      production code is `src/order.ts`. This is a Jest/TypeScript suite,
+      not .NET — apply the same assertion-quality catalog using
+      Jest equivalents (`toBeDefined`, `toBeTruthy`, `not.toBeNull`,
+      `toBe`, `.resolves`, `toThrow`).
+
+      Specifically check for: shallow / trivial-only assertions, always-true
+      assertions, missing `await` on async assertion chains (a silent-pass
+      smell), identity / self-comparing assertions, and call out any tests
+      that ARE well-targeted. Do not edit the files — read-only review.
+    setup:
+      files:
+        - path: "package.json"
+          source: "fixtures/jest-shallow/package.json"
+        - path: "src/order.ts"
+          source: "fixtures/jest-shallow/src/order.ts"
+        - path: "tests/order.test.ts"
+          source: "fixtures/jest-shallow/tests/order.test.ts"
+    assertions:
+      - type: "output_matches"
+        pattern: "(shallow|trivial|toBeDefined|toBeTruthy|not\\.toBeNull|weak|low.*depth)"
+      - type: "output_matches"
+        pattern: "(always.*true|true.*true|tautolog)"
+      - type: "output_matches"
+        pattern: "(await|missing.*await|\\.resolves|async|silently.*pass)"
+      - type: "output_matches"
+        pattern: "(identity|same|self.compar|toBe\\(.*\\.id\\)|o\\.id.*o\\.id)"
+      - type: "exit_success"
+    rubric:
+      - "Identified Jest/TS-specific patterns correctly (did NOT mention MSTest/xUnit APIs as if present)"
+      - "Flagged the cluster of toBeDefined / toBeTruthy / not.toBeNull / Array.isArray assertions as trivial / low-depth"
+      - "Flagged the `expect(true).toBe(true)` always-true assertion"
+      - "Flagged the missing `await` on `expect(Promise.resolve(...)).resolves.toBeDefined()` as a silent-pass smell that lets rejections slip through"
+      - "Flagged `expect(o.id).toBe(o.id)` as an identity / self-comparing assertion that proves nothing"
+      - "Flagged `expect(o.id).not.toBe('totally unrelated string')` as a vacuous negative assertion"
+      - "Acknowledged 'legitimate equality on returned customer' (toBe('alice')) as a well-targeted assertion"
+      - "Acknowledged 'legitimate exception assertion' (toThrow('customer is required')) as a well-targeted assertion"
+      - "Recommended concrete higher-value assertions: verifying status='pending', itemCount, totalCents, id format, list() contents after multiple creates"
+    reject_tools: ["bash", "edit", "create"]
+    timeout: 180
+

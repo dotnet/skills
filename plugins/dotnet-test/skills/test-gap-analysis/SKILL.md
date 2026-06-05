@@ -1,12 +1,14 @@
 ---
 name: test-gap-analysis
-description: "Performs pseudo-mutation analysis on .NET production code to find gaps in existing test suites. Use when the user asks to find weak tests, discover untested edge cases, check if tests would catch a bug, or evaluate test effectiveness through mutation-style reasoning. Analyzes production code for mutation points (boundary conditions, boolean flips, null returns, exception removal, arithmetic changes) and checks whether existing tests would detect each mutation. Works with MSTest, xUnit, NUnit, and TUnit. DO NOT USE FOR: writing new tests (use writing-mstest-tests), detecting test anti-patterns (use test-anti-patterns), measuring assertion diversity (use assertion-quality), or running actual mutation testing tools."
+description: "Performs pseudo-mutation analysis on production code in any language to find gaps in existing test suites. Use when the user asks to find weak tests, discover untested edge cases, check if tests would catch a bug, or evaluate test effectiveness through mutation-style reasoning. Analyzes production code for mutation points (boundaries, boolean flips, null/None/nil returns, exception/error removal, arithmetic changes) and checks whether tests would detect each mutation. Polyglot: .NET (MSTest/xUnit/NUnit/TUnit), Python (pytest/unittest), TS/JS (Jest/Vitest/Mocha/node:test), Java (JUnit/TestNG), Go, Ruby (RSpec/Minitest), Rust, Swift, Kotlin (JUnit/Kotest), PowerShell (Pester), C++ (GoogleTest/Catch2). DO NOT USE FOR: writing new tests (use code-testing-agent, or writing-mstest-tests for MSTest), detecting anti-patterns (use test-anti-patterns), measuring assertion diversity (use assertion-quality), or running actual mutation testing tools (Stryker, mutmut, PIT, cargo-mutants)."
 license: MIT
 ---
 
 # Test Gap Analysis via Pseudo-Mutation
 
-Analyze .NET production code by reasoning about hypothetical mutations and checking whether existing tests would catch them. This reveals blind spots where tests pass but would continue to pass even if the code were broken.
+Analyze production code in any supported language by reasoning about hypothetical mutations and checking whether existing tests would catch them. This reveals blind spots where tests pass but would continue to pass even if the code were broken.
+
+> **Language-specific guidance**: Call the `test-analysis-extensions` skill to discover available extension files, then read the file matching the target codebase (e.g., `extensions/dotnet.md`, `extensions/python.md`, `extensions/typescript.md`). The extension file helps you find test files, recognize framework-specific assertion APIs, and identify language-specific null/None/nil patterns and error-handling idioms that map to the mutation catalog below.
 
 ## Why Pseudo-Mutation Matters
 
@@ -33,10 +35,10 @@ This skill performs **static pseudo-mutation** — reasoning about mutations wit
 
 ## When Not to Use
 
-- User wants to write new tests from scratch (use `writing-mstest-tests`)
+- User wants to write new tests from scratch (use `code-testing-agent` for any language, or `writing-mstest-tests` for MSTest specifically)
 - User wants to detect test anti-patterns like flakiness or poor naming (use `test-anti-patterns`)
 - User wants to measure assertion variety (use `assertion-quality`)
-- User wants to run an actual mutation testing framework like Stryker (help them directly)
+- User wants to run an actual mutation testing framework (Stryker for .NET/JS/TS, mutmut for Python, PIT for Java, go-mutesting for Go, cargo-mutants for Rust, mutant for Ruby) — help them directly with the tool
 - User only wants code coverage numbers (out of scope)
 
 ## Inputs
@@ -49,13 +51,17 @@ This skill performs **static pseudo-mutation** — reasoning about mutations wit
 
 ## Workflow
 
-### Step 1: Gather production and test code
+### Step 1: Detect language and load extension
 
-Read both the production code and its corresponding test files. If the user points to a directory, identify production/test pairs by convention (e.g., `Calculator.cs` tested by `CalculatorTests.cs`).
+Identify the target codebase's language and test framework. Call the `test-analysis-extensions` skill and read the matching extension file. The mutation catalog below uses language-neutral concepts; the extension file tells you how each concept maps in the language you are analyzing (e.g., `null` vs `None` vs `nil` vs `undefined`, `throw` vs `raise` vs `panic!` vs `return err`).
 
-Establish which production methods are exercised by which test methods — trace this through method calls in test code, setup, and helper methods.
+### Step 2: Gather production and test code
 
-### Step 2: Identify mutation points
+Read both the production code and its corresponding test files. If the user points to a directory, identify production/test pairs by convention — defaults differ by language: `.cs` ↔ `*Tests.cs`/`*.Tests.cs` (.NET), `foo.py` ↔ `test_foo.py`/`foo_test.py` (Python), `foo.ts` ↔ `foo.test.ts`/`foo.spec.ts` (JS/TS), `Foo.java` ↔ `FooTest.java`/`FooTests.java` (Java), `foo.go` ↔ `foo_test.go` (Go), `foo.rb` ↔ `foo_spec.rb`/`test_foo.rb` (Ruby), `lib.rs` ↔ inline `#[cfg(test)] mod tests` or `tests/foo.rs` (Rust), `Foo.swift` ↔ `FooTests.swift` (Swift), `Foo.kt` ↔ `FooTest.kt`/`FooSpec.kt` (Kotlin), `Foo.ps1` ↔ `Foo.Tests.ps1` (Pester), `foo.cpp` ↔ `foo_test.cpp`/`test_foo.cpp` (C++).
+
+Establish which production methods are exercised by which test methods — trace this through method calls in test code, setup, helper methods, and shared examples.
+
+### Step 3: Identify mutation points
 
 Scan the production code and annotate every location where a mutation could reveal a test gap. Use the mutation catalog below.
 
@@ -86,21 +92,24 @@ Scan the production code and annotate every location where a mutation could reve
 
 | Original | Mutation | What it tests |
 |----------|----------|---------------|
-| `return result` | `return null` | Null handling downstream |
-| `return result` | `return default` | Default value handling |
+| `return result` | `return null` / `return None` / `return nil` / `return undefined` | Null/None/nil handling downstream |
+| `return result` | `return default(T)` / `return T()` / `return ""` / `return 0` | Default value handling |
 | `return true` | `return false` | Boolean return verification |
-| `return list` | `return new List<T>()` | Empty collection handling |
+| `return list` | `return new List<T>()` / `return []` / `return Array.Empty<T>()` / `return make([]T, 0)` / `return Vec::new()` / `return @[]` | Empty collection handling |
 | `return count` | `return 0` or `return count + 1` | Numeric return verification |
-| `return string` | `return ""` or `return null` | String return verification |
+| `return string` | `return ""` or `return null`/`None`/`nil` | String return verification |
+| `return Ok(x)` | `return Err(...)` (Rust) | Result/error variant |
+| `return value, nil` | `return zero, err` (Go) | Error tuple |
 
-#### Exception Removal Mutations
+#### Exception / Error Removal Mutations
 
 | Original | Mutation | What it tests |
 |----------|----------|---------------|
-| `throw new ArgumentNullException(...)` | _(remove entire throw)_ | Guard clause verification |
-| `throw new InvalidOperationException(...)` | _(remove entire throw)_ | State validation testing |
-| `if (x == null) throw ...` | _(remove entire guard)_ | Null guard testing |
-| `if (!IsValid()) throw ...` | _(remove entire check)_ | Validation testing |
+| `throw new ArgumentNullException(...)` (.NET) / `raise ValueError(...)` (Python) / `throw new Error(...)` (JS) / `throw new IllegalArgumentException(...)` (Java) / `panic!(...)` (Rust) / `panic(...)` (Go) / `raise ArgumentError` (Ruby) / `throw RuntimeException(...)` (Kotlin) / `throw FooError.bar` (Swift) / `throw "..."` (Pester) / `throw std::invalid_argument(...)` (C++) | _(remove entire throw/raise/panic)_ | Guard clause verification |
+| `if (x == null) throw ...` / `if x is None: raise ...` / `if (!x) throw ...` / `if x == nil { return err }` (Go) / `assert!(x.is_some())` (Rust) | _(remove entire guard)_ | Null/None/nil guard testing |
+| `if (!IsValid()) throw ...` / `if not is_valid(): raise ...` / etc. | _(remove entire check)_ | Validation testing |
+| `return err` after error check (Go) | _(remove or swallow error)_ | Error propagation |
+| `?` operator (Rust) | `.unwrap()` or `.expect(...)` | Error short-circuit |
 
 #### Arithmetic Mutations
 
@@ -114,17 +123,17 @@ Scan the production code and annotate every location where a mutation could reve
 | `x++` | `x--` | Increment direction |
 | `-value` | `value` | Sign flip |
 
-#### Null-Check Removal Mutations
+#### Null / None / Nil-Check Removal Mutations
 
 | Original | Mutation | What it tests |
 |----------|----------|---------------|
-| `if (x == null) return ...` | _(remove null check)_ | Null path coverage |
-| `if (x != null) { ... }` | _(always enter block)_ | Null guard necessity |
-| `x ?? defaultValue` | `x` | Null coalescing coverage |
-| `x?.Method()` | `x.Method()` | Null-conditional coverage |
-| `x!` | `x` | Null-forgiving operator necessity |
+| `if (x == null) return ...` / `if x is None: return ...` / `if (!x) return ...` / `if x == nil { return ... }` / `unless x; return; end` (Ruby) / `if x.is_none() { return ... }` (Rust) | _(remove null/None/nil check)_ | Null path coverage |
+| `if (x != null) { ... }` / `if x is not None: ...` / `if x: ...` / `if x != nil { ... }` / `x?.let { ... }` (Kotlin) / `if let Some(x) = ... { ... }` (Rust) | _(always enter block)_ | Null/None/nil guard necessity |
+| `x ?? defaultValue` (.NET/JS/Swift) / `x or defaultValue` (Python) / `x \|\| defaultValue` (JS) / `x.unwrap_or(defaultValue)` (Rust) / `x \|\| defaultValue` (Kotlin: `x ?: defaultValue`) | `x` (drop coalescing) | Null coalescing coverage |
+| `x?.Method()` (.NET/Swift/Kotlin) / `x && x.method()` (JS) / `x and x.method()` (Python) | `x.Method()` | Null-conditional coverage |
+| `x!` (.NET/TS/Swift) / `x!!` (Kotlin) / `.unwrap()` (Rust) | `x` | Null-forgiving / unwrap necessity |
 
-### Step 3: Evaluate each mutation against tests
+### Step 4: Evaluate each mutation against tests
 
 For each identified mutation point, reason about whether existing tests would detect the change:
 
@@ -139,7 +148,7 @@ For each identified mutation point, reason about whether existing tests would de
 | **No coverage** | No test exercises this code path at all | Worse than survived — the code is untested |
 | **Equivalent** | The mutation produces identical behavior (e.g., `x * 1` → `x / 1`) | Skip — not a real mutation |
 
-### Step 4: Calibrate findings
+### Step 5: Calibrate findings
 
 Before reporting, apply these calibration rules:
 
@@ -149,7 +158,7 @@ Before reporting, apply these calibration rules:
 - **Private methods reached through public API are valid targets.** Trace through the call chain — a private method called from a tested public method may still have survived mutations if the test doesn't assert the specific behavior affected.
 - **Rate by risk, not count.** A single survived mutation in payment calculation logic is more important than five survived mutations in logging code.
 
-### Step 5: Report findings
+### Step 6: Report findings
 
 Present the analysis in this structure:
 
@@ -198,11 +207,13 @@ Present the analysis in this structure:
 
 | Pitfall | Solution |
 |---------|----------|
-| Analyzing trivial code | Skip auto-properties, simple getters, and boilerplate — focus on logic |
+| Analyzing trivial code | Skip auto-properties, simple getters, `@dataclass`/`record`/`data class` accessors, `#[derive]` impls — focus on logic |
 | Reporting equivalent mutations as gaps | If the mutation doesn't change behavior, it's not a gap — mark Equivalent |
-| Ignoring call chains | A private helper called from a tested public method is reachable — trace the chain |
-| Over-counting mutations in generated code | Skip auto-generated code, designer files, and migration files |
+| Ignoring call chains | A private/internal/unexported helper called from a tested public method is reachable — trace the chain |
+| Over-counting mutations in generated code | Skip auto-generated code (`*.g.cs`, `*.designer.cs`, `*_pb.go`, `*.pb.dart`), designer files, migration files, generated mocks/stubs |
 | Recommending a new test for every survived mutation | Multiple survived mutations in the same method often share a single missing test — recommend one test that kills several |
-| Ignoring production context | A survived mutation in `ToString()` formatting is less important than one in `CalculateTotal()` — prioritize by business risk |
+| Ignoring production context | A survived mutation in `ToString()` / `__repr__` / `toString()` formatting is less important than one in `CalculateTotal()` — prioritize by business risk |
 | Claiming 100% kill rate is required | Some mutations in low-risk code are acceptable to leave — acknowledge this in the report |
-| Not considering integration with other skills | If gaps are found, mention that `writing-mstest-tests` can help write the missing tests, and `test-anti-patterns` can audit existing test quality |
+| Not considering integration with other skills | If gaps are found, mention that `code-testing-agent` (any language) or `writing-mstest-tests` (MSTest-specific) can help write the missing tests, and `test-anti-patterns` can audit existing test quality |
+| Forgetting Go's error idiom | Removing `if err != nil { return err }` is a valid mutation target only when the function actually does something else with `err` (e.g., wrap, log, branch). Bare passthroughs in idiomatic Go are not meaningful gaps. |
+| Forgetting Rust's `?` operator | `?` propagates `Err`/`None` short-circuits. Mutating `expr?` → `expr.unwrap()` panics instead of returning — flag as Exception/Panic mutation when tests should observe the propagated error. |

@@ -43,15 +43,15 @@
     <PackageReference Include="System.CommandLine" Version="2.0.7" />
     <!-- external -->
     <PackageReference Include="GitHub.Copilot.SDK" Version="0.3.0" />
-    <PackageReference Include="YamlDotNet" Version="17.1.0" />
-    <PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="17.0.0" />
+    <PackageReference Include="YamlDotNet" Version="18.0.0" />
+    <PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="18.0.0" />
 
     <!--
       Transitive pin: GitHub.Copilot.SDK still drags in Nerdbank.MessagePack
       1.0.2 which has a known high-severity vulnerability (GHSA-2cwq-pwfr-wcw3).
       Fixed in 1.1.62.  Drop this once the upstream chain bumps past 1.1.62.
     -->
-    <PackageReference Include="Nerdbank.MessagePack" Version="1.1.62" />
+    <PackageReference Include="Nerdbank.MessagePack" Version="1.2.4" />
   </ItemGroup>
 
 </Project>

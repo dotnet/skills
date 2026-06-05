@@ -215,3 +215,60 @@ scenarios:
       - "Noted that Clone_ProducesEqualObject is a legitimate equality check (testing deep copy), not self-referential"
     reject_tools: ["bash", "edit", "create"]
     timeout: 180
+
+  - name: "Polyglot: detect anti-patterns in a Python pytest suite"
+    prompt: |
+      Audit `tests/test_user_service.py` for test anti-patterns. The
+      production code is at `src/user_service.py`. This is a Python pytest
+      suite, not .NET — apply the same anti-pattern catalog but use
+      Python/pytest equivalents (e.g., `time.sleep` instead of
+      `Thread.Sleep`, `datetime.now()` instead of `DateTime.Now`,
+      module-level globals instead of static fields, `pytest.raises(Exception)`
+      instead of `Assert.ThrowsException<Exception>`, bare pytest `assert`
+      is canonical and not a smell).
+
+      Give me a severity-ranked list (Critical / Warning / Info) with each
+      finding named (e.g. "no assertions", "swallowed exception", "shared
+      module-level state", "broad exception", "time.sleep flakiness",
+      "duplicate tests", "self-comparing assertion") and a concrete
+      code-level fix for each. Do not edit the files — this is a
+      read-only review.
+    setup:
+      files:
+        - path: "pyproject.toml"
+          source: "fixtures/pytest-mixed/pyproject.toml"
+        - path: "src/user_service.py"
+          source: "fixtures/pytest-mixed/src/user_service.py"
+        - path: "tests/test_user_service.py"
+          source: "fixtures/pytest-mixed/tests/test_user_service.py"
+    assertions:
+      - type: "output_matches"
+        pattern: "(no assertion|missing assertion|never assert|does.?n.?t assert|no.*verif)"
+      - type: "output_matches"
+        pattern: "(swallow|except.*pass|silently|empty except)"
+      - type: "output_matches"
+        pattern: "(self.compar|compare.*to itself|count\\(\\) == .*count\\(\\)|always.pass|tautolog)"
+      - type: "output_matches"
+        pattern: "(time\\.sleep|datetime\\.now|random|flak|non.?determin)"
+      - type: "output_matches"
+        pattern: "(shared|global|module.level|_SHARED_SERVICE|ordering|order.depend)"
+      - type: "output_matches"
+        pattern: "(broad|pytest\\.raises\\(Exception\\)|specific.*exception|ValueError)"
+      - type: "output_matches"
+        pattern: "(duplicat|repeat|parametrize|parameteriz)"
+      - type: "exit_success"
+    rubric:
+      - "Identified Python/pytest patterns correctly (did NOT flag bare `assert` as a missing assertion library, did NOT mention .NET-specific APIs as if they were present)"
+      - "Identified test_add_user_runs_without_error has no assertion"
+      - "Identified test_get_missing_swallows_exception swallows the exception with a bare `except Exception: pass`"
+      - "Identified test_delete_compares_count_to_itself as a self-comparing / tautological assertion"
+      - "Identified test_flaky_sleep_and_now uses time.sleep and datetime.now() — both flakiness indicators"
+      - "Identified the _SHARED_SERVICE module-level global as shared state creating test ordering dependency between test_ordering_dependency_shared_state_part_one and _part_two"
+      - "Identified test_random_unseeded uses unseeded randomness — non-deterministic"
+      - "Identified test_add_raises_broad_exception uses pytest.raises(Exception) — too broad, should be ValueError"
+      - "Identified the four test_repeated_value_assertion_* tests as duplicates that should be parametrized with @pytest.mark.parametrize"
+      - "Did NOT flag bare `assert` statements as missing-framework issues — bare assert is the canonical pytest form"
+      - "Acknowledged test_get_user_returns_correct_name as a well-written test"
+    reject_tools: ["bash", "edit", "create"]
+    timeout: 180
+
