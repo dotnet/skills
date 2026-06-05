@@ -39,7 +39,7 @@ Skills and agents for running, generating, analyzing, migrating, and improving t
 
 ### Test quality & analysis *(polyglot)*
 
-These six skills are all polyglot. Five of them (`test-anti-patterns`, `test-smell-detection`, `assertion-quality`, `test-gap-analysis`, `test-tagging`) work across all supported languages by loading a per-language reference file from `test-analysis-extensions`; `grade-tests` uses an inline rubric instead.
+These six skills are all polyglot. They work across all supported languages by loading a per-language reference file from `test-analysis-extensions`. `grade-tests` additionally embeds its own scoring rubric (sub-grades, weighting, anti-pattern catalog) so the per-test grades stay consistent across calls.
 
 | Skill | Description |
 |---|---|

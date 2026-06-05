@@ -120,8 +120,8 @@ assertion in the test body. Score from highest to lowest:
 | **A** | At least one meaningful value assertion (equality / structural / exception / state) plus, where appropriate, additional checks (negative, type, collection contents). Mock-call verifications (`Verify`, `toHaveBeenCalledWith`, `Should -Invoke`) and bare assertion forms (pytest `assert`, Go `if got != want { t.Errorf(...) }`, Rust `assert!()`) count as real assertions. |
 | **B** | One clear meaningful assertion that verifies the behavior under test. |
 | **C** | Only trivial assertions (single `IsNotNull` / `toBeDefined` / `assert x is not None`), or assertions that check a single field while the operation produces a richer result. |
-| **D** | One self-referential / tautological assertion (`Assert.AreEqual(x, x)`, `assert dto.name == dto.name`, round-trip identity without a non-trivial input), broad exception assertions (`Assert.ThrowsException<Exception>`), or always-true assertions. |
-| **F** | No assertions at all, or all assertions are silently un-awaited (e.g., `expect(promise).resolves.toBe(x)` without `await`/`return`, async TUnit/xUnit `Assert.ThrowsAsync` without `await`, pytest-asyncio with un-awaited coroutine). |
+| **D** | One self-referential / tautological assertion (`Assert.AreEqual(x, x)`, `assert dto.name == dto.name`, round-trip identity without a non-trivial input), or broad exception assertions (`Assert.ThrowsException<Exception>`). |
+| **F** | No assertions at all; **all** assertions are always-true literals (`Assert.IsTrue(true)`, `assert True`, `expect(true).toBe(true)`) — these verify nothing and are equivalent to having no assertions; or all assertions are silently un-awaited (e.g., `expect(promise).resolves.toBe(x)` without `await`/`return`, async TUnit/xUnit `Assert.ThrowsAsync` without `await`, pytest-asyncio with un-awaited coroutine). |
 
 Exception tests (`Assert.ThrowsException<T>`, `pytest.raises`, `expect(fn).toThrow`,
 `assertThrows`, `#[should_panic]`, `Should -Throw`, `EXPECT_THROW`) are
@@ -151,8 +151,11 @@ Scan against the catalog below. Each finding deducts one sub-grade level
   empty `catch` (Kotlin/Swift) → F
 - Assert-in-catch pattern (`Assert.Fail(ex.Message)` instead of
   `Assert.ThrowsException`) → D
-- Always-true / tautological assertions (`Assert.IsTrue(true)`,
-  `assert True`, `expect(true).toBe(true)`, `Assert.AreEqual(x, x)`) → D
+- Always-true literal assertions (`Assert.IsTrue(true)`, `assert True`,
+  `expect(true).toBe(true)`) → **F** (verifies nothing; also drives
+  Assertion sub-grade to F)
+- Self-referential / tautological assertions on bound values
+  (`Assert.AreEqual(x, x)`, `assert dto.name == dto.name`) → D
 - Commented-out assertions → D
 
 **High (drop one or two sub-grades)**
@@ -205,9 +208,10 @@ Convert sub-grades to numeric points: A=4, B=3, C=2, D=1, F=0.
   - ≥ 2.0 → **C** (band 70–79)
   - ≥ 1.2 → **D** (band 60–69)
   - < 1.2 → **F** (band 0–59)
-- If any sub-grade is **F**, the overall grade is capped at **D**.
-- If Assertion sub-grade is **F**, the overall grade is **F** regardless of
-  the other dimensions (a test that asserts nothing cannot pass).
+- The overall grade is **capped at the worst sub-grade** — if any sub-grade
+  is **F**, the overall grade is **F**; if the worst sub-grade is **D**,
+  the overall grade is at most **D**; and so on. A test that fails on any
+  one dimension cannot earn a higher overall grade than that dimension.
 
 Report the **letter grade** and the **score band** (not a single 0–100
 number). False precision invites bikeshedding; bands keep the conversation
@@ -271,7 +275,7 @@ prefix each section with the language name and framework.
 - [ ] Mock-call verifications and bare assertion forms count as real
       assertions of the appropriate category.
 - [ ] Boolean assertions on meaningful properties (`Assert.IsTrue(result.IsValid)`)
-      are not classified as trivial; only always-true literals are.
+      are not classified as always-true; only literal `true`/`false` constants are.
 - [ ] Self-referential assertions are flagged separately from normal
       equality assertions.
 - [ ] Idiomatic patterns are not flagged: Go/Rust table-driven sub-tests,
@@ -290,7 +294,7 @@ prefix each section with the language name and framework.
 | Inflating deductions to justify the grade | Start at A; deduct only for observable issues. |
 | Penalizing exception tests for low assertion count | Exception assertions are complete on their own. |
 | Treating `IsNotNull` before a value assertion as trivial | Only flag when the null check is the **only** assertion. |
-| Treating any Boolean assertion as trivial | Only always-true literals (`Assert.IsTrue(true)`) are trivial. |
+| Treating any Boolean assertion as effectively assertion-free | Only always-true literals (`Assert.IsTrue(true)`, `assert True`) are; meaningful `Assert.IsTrue(result.IsValid)` is a real assertion. |
 | Flagging Go/Rust table-driven loops as conditional logic | They are idiomatic; do not deduct. |
 | Treating pytest bare `assert` or Go `if got != want { t.Error… }` as missing-framework | Both are canonical; count in the correct assertion category. |
 | Penalizing tests when production code is unavailable | Mark concerns about uncovered behaviors as `Unverified` and do not deduct. |
