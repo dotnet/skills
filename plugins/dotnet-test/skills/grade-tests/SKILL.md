@@ -69,7 +69,7 @@ that question with a one-row-per-test verdict that fits in a comment table.
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Test methods | Yes | An **explicit** list of test methods to grade. Each entry should include the fully-qualified test name (e.g., `Namespace.ClassName.TestMethodName`) and the file path. If the caller provides only file paths (without naming specific methods) **and** explicitly asks for "every test in this file" or "all tests in this PR diff", parse those files and grade every test declared. Otherwise — including an ambiguous request like *"grade my tests"* with no scope — **stop and ask the caller for an explicit list, file(s), or diff hunk**. This skill is for curated input; do not auto-grade an entire workspace. |
+| Test methods | Yes | A scope to grade. Provide one of: (a) an explicit list of test method names (fully-qualified, e.g. `Namespace.ClassName.TestMethodName`); (b) one or more file paths plus an explicit instruction to grade every test declared in those files; or (c) a diff hunk / PR identifier whose changed tests should be graded. File paths are recommended but optional when method names are unambiguous in the workspace. Ambiguous requests like *"grade my tests"* with no scope are rejected up-front (see Step 0); this skill is for curated input and does not auto-grade an entire workspace. |
 | Test bodies / spans | Recommended | The exact source lines for each test method. If omitted, read them from the listed files. |
 | Production code | No | The code under test, for judging whether assertions cover the meaningful behaviors. When unavailable, mark relevant findings as "Unverified" rather than guessing. |
 | Diff context | No | When grading PR changes, the unified diff for each test method helps focus on what actually changed. |
@@ -155,8 +155,29 @@ complete on their own — do not require additional assertions.
 
 ##### C. Anti-pattern hygiene
 
-Scan against the catalog below. Each finding deducts one sub-grade level
-(A→B→C→D→F). Use the **lowest** sub-grade among all findings.
+Scan against the catalog below. The Anti-pattern sub-grade is computed
+in two passes and combined deterministically:
+
+1. **Hard ceiling pass.** Every **Critical** or **High** finding sets a
+   maximum sub-grade (F, D, or C as labeled). Take the **worst** ceiling
+   across all matched Critical/High findings — these do not accumulate
+   (a single F finding caps the sub-grade at F regardless of how many
+   other Critical/High findings are present).
+2. **Medium-deduction pass.** Start from **A**, then for each **Medium**
+   finding deduct one sub-grade level (A→B, B→C, C→D, D→F). These do
+   accumulate across findings.
+
+The final Anti-pattern sub-grade is the **worse** of the two passes
+(i.e., `min(hard_ceiling, A − medium_count)`). **Low** findings never
+affect the grade — mention them in the note only.
+
+Examples (Critical/High and Medium counts → Anti-pattern sub-grade):
+
+- Zero Critical/High, 1 Medium → **B** (A − 1)
+- Zero Critical/High, 3 Medium → **D** (A − 3)
+- One C-ceiling (e.g., over-mocking), 0 Medium → **C**
+- One C-ceiling, 2 Medium → **D** (`min(C, A − 2 = C) = C`, but a third Medium would tip to **D**)
+- One F-finding (e.g., swallowed exception) plus any number of Medium → **F**
 
 **Critical (drop straight to F or D)**
 
