@@ -182,9 +182,26 @@ eval_status_state() {
 }
 
 eval_run_exists_for_head() {
+  # Count only runs that actually triggered evaluation, not the pr-status
+  # placeholder runs that exist for every PR push. Real triggers:
+  #   - issue_comment       (/evaluate)
+  #   - workflow_dispatch   (manual one-off)
+  #   - pull_request_target (evaluate-now label, or fork status). The runs API
+  #     doesn't expose the event action, but status-only pull_request_target
+  #     runs end conclusion=skipped because no job's `if:` matches; the
+  #     label-driven gate job actually does work and reports a non-skipped
+  #     conclusion (success/failure/cancelled/in_progress/null).
+  # Without this filter, the always-present pr-status pull_request run for the
+  # current head_sha makes us think evaluation already ran and we never apply
+  # the evaluate-now label.
   local count
-  count=$(gh api "repos/$REPO/actions/workflows/evaluation.yml/runs?head_sha=$HEAD_SHA" \
-    --jq '.total_count // (.workflow_runs | length)')
+  count=$(gh api --paginate "repos/$REPO/actions/workflows/evaluation.yml/runs?head_sha=$HEAD_SHA" \
+    --jq '[.workflow_runs[] | select(
+             .event == "issue_comment" or
+             .event == "workflow_dispatch" or
+             (.event == "pull_request_target" and .conclusion != "skipped")
+           )] | length' \
+    | awk '{s+=$1} END{print s+0}')
   [ "${count:-0}" -gt 0 ]
 }
 
