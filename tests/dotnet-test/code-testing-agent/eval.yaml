@@ -47,8 +47,9 @@ scenarios:
   # (InMemoryTaskRepository, SqliteTaskRepository). A queries module handles
   # filter/sort/pagination. A Flask blueprint exposes /tasks CRUD, tag
   # endpoints, and listing with status/tag/q/overdue/sort/order/limit/offset.
-  # The fixture lives under fixtures/python-flask-tasks/ with an empty tests/
-  # directory so passing pytest proves the agent generated the test files.
+  # The fixture lives under fixtures/python-flask-tasks/ and ships with no
+  # test files (only a .gitkeep marker), so passing pytest proves the agent
+  # generated the test files.
   # ============================================================================
 
   - name: "Generate pytest tests for the Flask tasks API (Python polyglot)"
@@ -62,9 +63,10 @@ scenarios:
       tag endpoints, and listing with status / tag / q / overdue / sort /
       order / limit / offset query parameters (see
       fixtures/python-flask-tasks/README.md for the layout). There are no
-      tests yet — the tests/ directory is empty. This is a project-wide,
-      multi-file test generation task across the service layer, the query
-      layer, both repositories, and the Flask blueprint.
+      test files yet — the tests/ directory contains only a .gitkeep
+      marker. This is a project-wide, multi-file test generation task
+      across the service layer, the query layer, both repositories, and
+      the Flask blueprint.
 
       Please scaffold a comprehensive pytest test suite under
       fixtures/python-flask-tasks/tests/, then write comprehensive unit
@@ -133,9 +135,10 @@ scenarios:
       WeightBasedShippingCalculator with WeightBracket boundaries), and
       async PriceFetcher / InventoryChecker seams plus an InventoryError
       type used by checkout() (see its README.md for the layout). There
-      are no tests yet — the tests/ directory is empty. This is a
-      project-wide, multi-file test generation task across the cart,
-      pricing, tax, shipping, and inventory modules.
+      are no test files yet — the tests/ directory contains only a
+      .gitkeep marker. This is a project-wide, multi-file test
+      generation task across the cart, pricing, tax, shipping, and
+      inventory modules.
 
       Please scaffold a comprehensive Vitest test suite under
       fixtures/typescript-vitest-cart/tests/, then write comprehensive

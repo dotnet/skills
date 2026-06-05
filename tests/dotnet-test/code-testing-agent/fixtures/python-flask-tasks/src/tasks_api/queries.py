@@ -78,8 +78,11 @@ def _sort_key(task: Task, field: str):
     if field == "created_at":
         return task.created_at
     if field == "due_at":
-        # None due_at sorts last (ascending). Use a sentinel max datetime for natural ordering.
-        return task.due_at or datetime.max
+        # None due_at sorts last (ascending). Use a (is_none, sortable) tuple
+        # so we never compare across the None / not-None boundary, and key on
+        # `isoformat()` rather than the raw datetime so a stray naive datetime
+        # mixed with timezone-aware ones cannot raise a TypeError mid-sort.
+        return (task.due_at is None, task.due_at.isoformat() if task.due_at else "")
     if field == "priority":
         return TaskPriority.order_key(task.priority)
     if field == "title":

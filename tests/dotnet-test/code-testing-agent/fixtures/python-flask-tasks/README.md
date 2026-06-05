@@ -16,7 +16,7 @@ src/tasks_api/
                                         #             priority / due_at / tag mutations; injected clock
   routes.py                             # Flask blueprint: /tasks CRUD, filtering, tag endpoints
   app.py                                # create_app() — selects backend from TASKS_BACKEND env / config
-tests/                                  # intentionally empty — the agent must create this
+tests/                                  # no test files yet (only a .gitkeep marker) — the agent must create the suite here
 ```
 
 ## Running tests locally

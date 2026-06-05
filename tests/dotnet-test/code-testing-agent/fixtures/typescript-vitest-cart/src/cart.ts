@@ -116,7 +116,12 @@ export class Cart {
   }
 
   snapshot(): readonly CartLine[] {
-    return Array.from(this.lines.values()).map((line) => ({ ...line }));
+    // Deep-copy both the CartLine and its Product so callers mutating the
+    // returned snapshot cannot reach back into the cart's internal state.
+    return Array.from(this.lines.values()).map((line) => ({
+      product: { ...line.product },
+      quantity: line.quantity,
+    }));
   }
 
   /**

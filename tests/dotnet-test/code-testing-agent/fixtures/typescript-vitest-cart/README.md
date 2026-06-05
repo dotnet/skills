@@ -17,7 +17,7 @@ src/
   inventory.ts                          # PriceFetcher + InventoryChecker async seams + InventoryError + refreshPrices()
   cart.ts                               # Cart: pricing pipeline (subtotal → discount → tax → shipping) + async checkout()
   index.ts                              # barrel export
-tests/                                  # intentionally empty — the agent must create this
+tests/                                  # no test files yet (only a .gitkeep marker) — the agent must create the suite here
 ```
 
 ## Running tests locally
