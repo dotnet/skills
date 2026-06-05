@@ -5,10 +5,11 @@ scenarios:
 
   - name: "Grade a curated list of MSTest tests with mixed quality"
     prompt: |
-      Please grade the following test methods individually using the
-      grade-tests skill. They live in
-      `OrderService.Tests/OrderProcessorTests.cs`. Produce the per-test
-      table and a short summary. Do not modify any files.
+      Please grade each of the following test methods individually for
+      test quality and produce a compact per-test table (one row per
+      test) plus a short summary. They live in
+      `OrderService.Tests/OrderProcessorTests.cs`. Do not modify any
+      files.
 
       Test methods to grade:
         - OrderService.Tests.OrderProcessorTests.PlaceOrder_ValidItems_AssignsOrderIdAndPersistsOrder
@@ -56,10 +57,10 @@ scenarios:
 
   - name: "Grade pytest test methods using the same rubric"
     prompt: |
-      Grade the following pytest test functions individually using the
-      grade-tests skill. They live in `tests/test_shopping_cart.py`.
-      Produce the per-test table and a short summary. Do not modify any
-      files.
+      Please grade each of the following pytest test functions
+      individually for test quality and produce a compact per-test
+      table (one row per test) plus a short summary. They live in
+      `tests/test_shopping_cart.py`. Do not modify any files.
 
       Test methods to grade:
         - test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount
