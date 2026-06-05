@@ -182,27 +182,34 @@ eval_status_state() {
 }
 
 eval_run_exists_for_head() {
-  # Count only runs that actually triggered evaluation, not the pr-status
-  # placeholder runs that exist for every PR push. Real triggers:
-  #   - issue_comment       (/evaluate)
-  #   - workflow_dispatch   (manual one-off)
-  #   - pull_request_target (evaluate-now label, or fork status). The runs API
-  #     doesn't expose the event action, but status-only pull_request_target
-  #     runs end conclusion=skipped because no job's `if:` matches; the
-  #     label-driven gate job actually does work and reports a non-skipped
-  #     conclusion (success/failure/cancelled/in_progress/null).
-  # Without this filter, the always-present pr-status pull_request run for the
-  # current head_sha makes us think evaluation already ran and we never apply
-  # the evaluate-now label.
-  local count
-  count=$(gh api --paginate "repos/$REPO/actions/workflows/evaluation.yml/runs?head_sha=$HEAD_SHA" \
-    --jq '[.workflow_runs[] | select(
-             .event == "issue_comment" or
-             .event == "workflow_dispatch" or
-             (.event == "pull_request_target" and .conclusion != "skipped")
-           )] | length' \
-    | awk '{s+=$1} END{print s+0}')
-  [ "${count:-0}" -gt 0 ]
+  # Decide whether a *real* evaluation has already run (or is running) for the
+  # current head_sha. Filtering by event alone is not reliable: every PR push
+  # produces placeholder status runs (`pr-status` on pull_request, and
+  # `fork-pr-status` on pull_request_target — the latter concludes "success",
+  # not "skipped"), so an event/conclusion filter would count those and we'd
+  # never apply the evaluate-now label. See
+  # https://github.com/dotnet/skills/pull/703 and
+  # https://github.com/dotnet/skills/pull/720 for the original repro.
+  #
+  # The reliable discriminator is whether the run actually executed the `gate`
+  # job (the /evaluate and evaluate-now label entry points) or the `discover`
+  # job (manual/scheduled runs). In placeholder status runs both of those jobs
+  # are present but conclusion=="skipped"; in a real evaluation at least one of
+  # them is non-skipped (success/failure, or null while still in progress).
+  local run_ids
+  run_ids=$(gh api --paginate "repos/$REPO/actions/workflows/evaluation.yml/runs?head_sha=$HEAD_SHA" \
+    --jq '.workflow_runs[].id')
+  [ -z "$run_ids" ] && return 1
+  local id real
+  for id in $run_ids; do
+    real=$(gh api --paginate "repos/$REPO/actions/runs/$id/jobs" \
+      --jq '[.jobs[] | select((.name == "gate" or .name == "discover") and .conclusion != "skipped")] | length' \
+      | awk '{s+=$1} END{print s+0}')
+    if [ "${real:-0}" -gt 0 ]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 # ----------------------------------------------------------------------
