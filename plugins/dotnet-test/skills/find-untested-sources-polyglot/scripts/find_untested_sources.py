@@ -250,17 +250,29 @@ def parse_file(path: Path, root: Path) -> FileInfo | None:
     except Exception:
         return info
 
-    # Top-level declarations: from structure (preferred) or symbols (fallback).
-    if getattr(result, "structure", None):
-        for item in result.structure:
-            name = getattr(item, "name", None)
-            if name:
-                info.declarations.add(name)
-    if not info.declarations and getattr(result, "symbols", None):
-        for sym in result.symbols:
-            name = getattr(sym, "name", None)
-            if name:
-                info.declarations.add(name)
+    # Top-level declarations: union of structure + symbols. The two views are
+    # complementary depending on the language — e.g. for Go, `structure` lists
+    # functions/methods but not `type` declarations, while `symbols` lists the
+    # types. We filter `module`/`namespace` kinds (they're packaging, not
+    # declarations) to avoid false-positive pairings on package names.
+    excluded_kinds = {"module", "namespace"}
+
+    def _kind_str(item: object) -> str:
+        k = getattr(item, "kind", None)
+        return str(k).lower() if k is not None else ""
+
+    for item in getattr(result, "structure", None) or []:
+        if _kind_str(item) in excluded_kinds:
+            continue
+        name = getattr(item, "name", None)
+        if name:
+            info.declarations.add(name)
+    for sym in getattr(result, "symbols", None) or []:
+        if _kind_str(sym) in excluded_kinds:
+            continue
+        name = getattr(sym, "name", None)
+        if name:
+            info.declarations.add(name)
 
     # Imports: keep the raw `source` field; we'll normalize per language.
     if getattr(result, "imports", None):
