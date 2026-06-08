@@ -99,6 +99,8 @@ The `code-testing-researcher` agent analyzes your codebase to understand:
 - **Project Structure**: Maps source files, existing tests, and dependencies
 - **Build Commands**: Discovers how to build and test the project
 
+For **C# / .NET** repos with a multi-file scope, the researcher should prefer the `find-untested-sources` skill (when available) over manual `find`/`grep`/`glob` walks to build the source-to-test pairing map. It is a parse-only Roslyn analyzer (no build, no coverage — seconds on multi-thousand-file repos) that emits a deterministic JSON list of untested files ordered by API surface, plus a `suggested_test_path` derived from `<ProjectReference>` edges.
+
 Output: `.testagent/research.md`
 
 ### Step 4: Planning Phase (Automatic)
