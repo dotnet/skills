@@ -34,7 +34,7 @@ on:
 
 # Skip on forks (no secrets, no point). Drafts are filtered out by the
 # orchestrator before dispatch.
-if: ${{ !github.event.repository.fork }}
+if: ${{ (!github.event.repository.fork) }}
 
 concurrency:
   group: gh-aw-${{ github.workflow }}-${{ inputs.pr_number }}
