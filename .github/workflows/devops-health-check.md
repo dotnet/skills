@@ -331,14 +331,22 @@ index — when that happens to the dashboard, searching by label alone returns
 nothing and a **duplicate dashboard gets created**, abandoning the real (often
 pinned) one. To be resilient, resolve the dashboard issue in this priority order:
 
-1. **Cached issue number (authoritative).** Load the `health-dashboard-issue`
+1. **Cached issue number (validated).** Load the `health-dashboard-issue`
    key from `cache-memory`. If it holds a number, fetch that issue **directly by
-   number** (`GET /repos/{owner}/{repo}/issues/{number}`). Fetching and updating
-   an issue by number works **even when it is missing from label search/list
-   results**. If that issue is open, it IS the dashboard — use it.
+   number** (`GET /repos/{owner}/{repo}/issues/{number}`) — this works **even
+   when the issue is missing from label search/list results**. Accept it as the
+   dashboard ONLY if it passes every check below:
+   - the fetch succeeds (treat `404`/`410` as a **cache miss**),
+   - the issue is **open**, and
+   - it still looks like the dashboard — it carries the `devops-health` label
+     **or** its title is `🏥 Repository Health Dashboard`.
+   If any check fails (the number was deleted, closed, or now points at an
+   unrelated issue), discard the cached number, treat it as a **cache miss**, and
+   fall through to discovery (step 2). This prevents a stale or corrupted cache
+   from silently overwriting an unrelated open issue on every run.
 2. **Label search + pinned issues.** If there is no cached number (first run or
-   cache loss) or the cached issue is closed, build the candidate set two ways
-   and union them: (a) search open issues with the `devops-health` label; and
+   cache loss) or the cached number failed validation above, build the candidate
+   set two ways and union them: (a) search open issues with the `devops-health` label; and
    (b) if the GitHub tools expose pinned issues, include any open pinned issue
    titled `🏥 Repository Health Dashboard`. Pinned-issue lookup does not use the
    label index, so it finds dashboards that label search misses.
@@ -356,9 +364,9 @@ update it directly by number and never create a duplicate — even if the label
 index drops it again.
 
 > This workflow cannot pin issues itself. If the canonical dashboard is **not**
-> currently pinned, add a single line at the very top of the issue body asking a
-> maintainer to pin it (and to unpin/close any stale duplicate). Keep exactly
-> one dashboard pinned.
+> currently pinned, surface a one-line pin request **inside** the body template
+> (immediately below the Status / Since-yesterday block — see §4.2), never above
+> the `# 🏥 Daily Health Check — {date}` header. Keep exactly one dashboard pinned.
 
 Before creating/updating, ensure the `devops-health` label exists. If not, create
 it with color `#0E8A16` and description `Daily automated health check report`.
@@ -372,6 +380,9 @@ Replace the entire issue body with the following structure:
 
 **Status:** 🔴 {critical_count} critical · 🟡 {warning_count} warnings · 🔵 {info_count} info
 **Since yesterday:** 🆕 {new_count} new · ✅ {resolved_count} resolved · 📌 {existing_count} unchanged
+
+{Pin request — include this line ONLY when the dashboard issue is not currently pinned; omit it entirely when already pinned:}
+> 📌 **Maintainer action needed:** please pin this issue as the canonical health dashboard and unpin/close any stale duplicate.
 
 ---
 
