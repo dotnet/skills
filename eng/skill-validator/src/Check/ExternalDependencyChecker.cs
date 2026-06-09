@@ -161,13 +161,18 @@ public static partial class ExternalDependencyChecker
 
             if (doc.TryGetProperty("mcpServers", out var serversEl))
             {
-                System.Text.Json.JsonElement? mcpObject = serversEl.ValueKind switch
+                System.Text.Json.JsonElement? mcpObject = null;
+                if (serversEl.ValueKind == System.Text.Json.JsonValueKind.Object)
                 {
-                    System.Text.Json.JsonValueKind.Object => serversEl,
-                    System.Text.Json.JsonValueKind.String => ResolveMcpFileSync(
-                        Path.Combine(Path.GetDirectoryName(pluginJsonPath)!, serversEl.GetString()!)),
-                    _ => null
-                };
+                    mcpObject = serversEl;
+                }
+                else if (serversEl.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var refPath = serversEl.GetString()!;
+                    if (!Path.IsPathRooted(refPath) && !refPath.Contains(".."))
+                        mcpObject = ResolveMcpFileSync(
+                            Path.Combine(Path.GetDirectoryName(pluginJsonPath)!, refPath));
+                }
 
                 if (mcpObject is { } obj)
                 {

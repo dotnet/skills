@@ -1724,9 +1724,17 @@ public static class EvaluateCommand
                         SkillValidatorJsonContext.Default.JsonElement);
                     if (raw.TryGetProperty("mcpServers", out var serversEl))
                     {
-                        var mcpObject = serversEl.ValueKind == JsonValueKind.String
-                            ? await ResolveMcpFile(Path.Combine(dir, serversEl.GetString()!))
-                            : serversEl.ValueKind == JsonValueKind.Object ? serversEl : (JsonElement?)null;
+                        JsonElement? mcpObject = null;
+                        if (serversEl.ValueKind == JsonValueKind.String)
+                        {
+                            var refPath = serversEl.GetString()!;
+                            if (!Path.IsPathRooted(refPath) && !refPath.Contains(".."))
+                                mcpObject = await ResolveMcpFile(Path.Combine(dir, refPath));
+                        }
+                        else if (serversEl.ValueKind == JsonValueKind.Object)
+                        {
+                            mcpObject = serversEl;
+                        }
 
                         if (mcpObject is { } obj)
                         {
@@ -1772,7 +1780,11 @@ public static class EvaluateCommand
             return doc.TryGetProperty("mcpServers", out var obj) && obj.ValueKind == JsonValueKind.Object
                 ? obj : null;
         }
-        catch { return null; }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to parse .mcp.json at {mcpPath}: {ex.GetType().Name}: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>
