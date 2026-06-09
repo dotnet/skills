@@ -1,70 +1,8 @@
 {
-  "lastUpdate": 1780889224971,
+  "lastUpdate": 1780973892872,
   "repoUrl": "",
   "entries": {
     "Quality": [
-      {
-        "tool": "customBiggerIsBetter",
-        "model": "claude-opus-4.6",
-        "commit": {
-          "id": "198e58c98363999372f38553bd4ab89e2e8a18ba",
-          "url": "https://github.com/dotnet/skills/commit/198e58c98363999372f38553bd4ab89e2e8a18ba",
-          "message": "Add blazor skills to dotnet-blazor plugin (#357)",
-          "timestamp": "2026-05-25T16:25:27+00:00",
-          "author": {
-            "name": "Javier Calvarro Nelson",
-            "username": "JanKrivanek"
-          }
-        },
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Quality",
-            "value": 9.600000381469727
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Quality",
-            "value": 9.199999809265137
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Quality",
-            "value": 5.599999904632568
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Quality",
-            "value": 9.199999809265137
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Quality",
-            "value": 9.600000381469727
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Quality",
-            "value": 10.0
-          }
-        ],
-        "date": 1779764224802
-      },
       {
         "tool": "customBiggerIsBetter",
         "benches": [
@@ -694,116 +632,73 @@
           }
         ],
         "date": 1780889224971
-      }
-    ],
-    "Efficiency": [
+      },
       {
-        "tool": "customSmallerIsBetter",
+        "tool": "customBiggerIsBetter",
         "model": "claude-opus-4.6",
+        "date": 1780973892872,
         "commit": {
-          "id": "198e58c98363999372f38553bd4ab89e2e8a18ba",
-          "url": "https://github.com/dotnet/skills/commit/198e58c98363999372f38553bd4ab89e2e8a18ba",
-          "message": "Add blazor skills to dotnet-blazor plugin (#357)",
-          "timestamp": "2026-05-25T16:25:27+00:00",
+          "message": "Rename ASP.NET Core plugin from `dotnet-aspnet` to `dotnet-aspnetcore` (#711)",
+          "url": "https://github.com/dotnet/skills/commit/2d163bb6003b74973c8a6e90f06011abf502dd32",
+          "timestamp": "2026-06-08T16:20:31+00:00",
           "author": {
-            "name": "Javier Calvarro Nelson",
-            "username": "JanKrivanek"
-          }
+            "username": "JanKrivanek",
+            "name": "Copilot"
+          },
+          "id": "2d163bb6003b74973c8a6e90f06011abf502dd32"
         },
         "benches": [
           {
-            "unit": "seconds",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Time",
-            "value": 52.7
+            "unit": "Score (0-10)",
+            "timedOut": true,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Quality",
+            "value": 10.0
           },
           {
-            "unit": "tokens",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Tokens In",
-            "value": 78309.0
+            "unit": "Score (0-10)",
+            "timedOut": true,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Quality",
+            "value": 8.399999618530273
           },
           {
-            "unit": "seconds",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Time",
-            "value": 52.7
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Quality",
+            "value": 10.0
           },
           {
-            "unit": "tokens",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Tokens In",
-            "value": 75323.0
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Quality",
+            "value": 10.0
           },
           {
-            "unit": "seconds",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Time",
-            "value": 63.7
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Quality",
+            "value": 9.600000381469727
           },
           {
-            "unit": "tokens",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Tokens In",
-            "value": 79743.0
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Quality",
+            "value": 5.199999809265137
           },
           {
-            "unit": "seconds",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Time",
-            "value": 81.6
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Quality",
+            "value": 10.0
           },
           {
-            "unit": "tokens",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Tokens In",
-            "value": 131046.0
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Quality",
+            "value": 10.0
           },
           {
-            "unit": "seconds",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Time",
-            "value": 85.0
-          },
-          {
-            "unit": "tokens",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Tokens In",
-            "value": 136576.0
-          },
-          {
-            "unit": "seconds",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Time",
-            "value": 67.0
-          },
-          {
-            "unit": "tokens",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Tokens In",
-            "value": 91551.0
-          },
-          {
-            "unit": "seconds",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Time",
-            "value": 51.4
-          },
-          {
-            "unit": "tokens",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Tokens In",
-            "value": 48410.0
-          },
-          {
-            "unit": "seconds",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Time",
-            "value": 46.1
-          },
-          {
-            "unit": "tokens",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Tokens In",
-            "value": 53504.0
-          },
-          {
-            "unit": "seconds",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Time",
-            "value": 54.0
-          },
-          {
-            "unit": "tokens",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Tokens In",
-            "value": 72004.0
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Quality",
+            "value": 10.0
           }
-        ],
-        "date": 1779764224802
-      },
+        ]
+      }
+    ],
+    "Efficiency": [
       {
         "tool": "customSmallerIsBetter",
         "benches": [
@@ -1893,6 +1788,117 @@
           }
         ],
         "date": 1780889224971
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "model": "claude-opus-4.6",
+        "date": 1780973892872,
+        "commit": {
+          "message": "Rename ASP.NET Core plugin from `dotnet-aspnet` to `dotnet-aspnetcore` (#711)",
+          "url": "https://github.com/dotnet/skills/commit/2d163bb6003b74973c8a6e90f06011abf502dd32",
+          "timestamp": "2026-06-08T16:20:31+00:00",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Copilot"
+          },
+          "id": "2d163bb6003b74973c8a6e90f06011abf502dd32"
+        },
+        "benches": [
+          {
+            "unit": "seconds",
+            "timedOut": true,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Time",
+            "value": 62.0
+          },
+          {
+            "unit": "tokens",
+            "timedOut": true,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Tokens In",
+            "value": 90026.0
+          },
+          {
+            "unit": "seconds",
+            "timedOut": true,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Time",
+            "value": 85.1
+          },
+          {
+            "unit": "tokens",
+            "timedOut": true,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Tokens In",
+            "value": 77865.0
+          },
+          {
+            "unit": "seconds",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Time",
+            "value": 68.0
+          },
+          {
+            "unit": "tokens",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Tokens In",
+            "value": 90795.0
+          },
+          {
+            "unit": "seconds",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Time",
+            "value": 77.8
+          },
+          {
+            "unit": "tokens",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Tokens In",
+            "value": 124676.0
+          },
+          {
+            "unit": "seconds",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Time",
+            "value": 107.5
+          },
+          {
+            "unit": "tokens",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Tokens In",
+            "value": 173836.0
+          },
+          {
+            "unit": "seconds",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Time",
+            "value": 71.3
+          },
+          {
+            "unit": "tokens",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Tokens In",
+            "value": 90674.0
+          },
+          {
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Time",
+            "value": 54.4
+          },
+          {
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Tokens In",
+            "value": 58935.0
+          },
+          {
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Time",
+            "value": 52.2
+          },
+          {
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Tokens In",
+            "value": 53258.0
+          },
+          {
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Time",
+            "value": 53.1
+          },
+          {
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Tokens In",
+            "value": 57632.0
+          }
+        ]
       }
     ]
   }
