@@ -323,14 +323,45 @@ Using the classified findings, generate:
 
 ## Step 4: Output
 
-### 4.1 Find or Create the Pinned Issue
+### 4.1 Find or Create the Dashboard Issue
 
-Search for open issues with label `devops-health`:
-- If exactly one exists → update it
-- If none exist → create one with title `🏥 Repository Health Dashboard` and label `devops-health`
-- If multiple exist → update the most recently created one, close the others
+The dashboard MUST be the **same issue on every run**. GitHub's label search and
+issue-list APIs occasionally drop an open, correctly-labeled issue from their
+index — when that happens to the dashboard, searching by label alone returns
+nothing and a **duplicate dashboard gets created**, abandoning the real (often
+pinned) one. To be resilient, resolve the dashboard issue in this priority order:
 
-Before creating/updating, ensure the `devops-health` label exists. If not, create it with color `#0E8A16` and description `Daily automated health check report`.
+1. **Cached issue number (authoritative).** Load the `health-dashboard-issue`
+   key from `cache-memory`. If it holds a number, fetch that issue **directly by
+   number** (`GET /repos/{owner}/{repo}/issues/{number}`). Fetching and updating
+   an issue by number works **even when it is missing from label search/list
+   results**. If that issue is open, it IS the dashboard — use it.
+2. **Label search + pinned issues.** If there is no cached number (first run or
+   cache loss) or the cached issue is closed, build the candidate set two ways
+   and union them: (a) search open issues with the `devops-health` label; and
+   (b) if the GitHub tools expose pinned issues, include any open pinned issue
+   titled `🏥 Repository Health Dashboard`. Pinned-issue lookup does not use the
+   label index, so it finds dashboards that label search misses.
+3. **Create.** Only if no dashboard issue is found by any method above, create
+   one titled `🏥 Repository Health Dashboard` with the `devops-health` label.
+
+**Never leave two open dashboards.** If more than one distinct open dashboard is
+found, choose a single canonical issue — prefer the cached number, else the
+pinned one, else the oldest — update only that one, and close each other with a
+one-line comment: `Superseded by #{canonical} — duplicate health dashboard.`
+
+**Persist every run.** After resolving, always save the canonical dashboard's
+number back to `cache-memory` under `health-dashboard-issue`, so future runs
+update it directly by number and never create a duplicate — even if the label
+index drops it again.
+
+> This workflow cannot pin issues itself. If the canonical dashboard is **not**
+> currently pinned, add a single line at the very top of the issue body asking a
+> maintainer to pin it (and to unpin/close any stale duplicate). Keep exactly
+> one dashboard pinned.
+
+Before creating/updating, ensure the `devops-health` label exists. If not, create
+it with color `#0E8A16` and description `Daily automated health check report`.
 
 ### 4.2 Issue Body Format
 
@@ -487,6 +518,7 @@ Before finishing, verify:
 - **Be data-driven**: Include specific numbers, durations, percentages, and links.
 - **Be precise with fingerprints**: Use the exact fingerprint formulas from the knowledge file. Consistency is critical — the same finding MUST produce the same fingerprint across runs.
 - **First run handling**: If `cache-memory` has no previous state, note: "⚠️ This is the first health check run. All findings appear as new. Diff will resume from next run."
+- **Stable dashboard (don't duplicate)**: Always reuse the existing dashboard issue and update it **by number** (see §4.1). Persist its number in `cache-memory` (`health-dashboard-issue`) every run. Never create a second dashboard just because a label search came back empty — the issue may simply be missing from GitHub's search index.
 - **Graceful degradation**: If an API call fails, skip that check category and note the skip in the output. Don't fail the entire workflow.
 - **Noise awareness**: Demote known-noise findings (matching patterns in `cache-memory` `known-noise` list) to 🔵 Info severity, but still show them in the output for audit.
 - **Issue body limit**: Keep under 60k characters. Truncate EXISTING section if needed.
