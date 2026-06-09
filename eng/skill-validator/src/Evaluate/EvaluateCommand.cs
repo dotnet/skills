@@ -1722,19 +1722,25 @@ public static class EvaluateCommand
                     var raw = JsonSerializer.Deserialize(
                         await File.ReadAllTextAsync(candidate),
                         SkillValidatorJsonContext.Default.JsonElement);
-                    if (raw.TryGetProperty("mcpServers", out var serversEl)
-                        && serversEl.ValueKind == JsonValueKind.Object)
+                    if (raw.TryGetProperty("mcpServers", out var serversEl))
                     {
-                        var result = new Dictionary<string, MCPServerDef>();
-                        foreach (var prop in serversEl.EnumerateObject())
+                        var mcpObject = serversEl.ValueKind == JsonValueKind.String
+                            ? await ResolveMcpFile(Path.Combine(dir, serversEl.GetString()!))
+                            : serversEl.ValueKind == JsonValueKind.Object ? serversEl : (JsonElement?)null;
+
+                        if (mcpObject is { } obj)
                         {
-                            var def = JsonSerializer.Deserialize(
-                                prop.Value.GetRawText(),
-                                SkillValidatorJsonContext.Default.MCPServerDef);
-                            if (def is not null)
-                                result[prop.Name] = def;
+                            var result = new Dictionary<string, MCPServerDef>();
+                            foreach (var prop in obj.EnumerateObject())
+                            {
+                                var def = JsonSerializer.Deserialize(
+                                    prop.Value.GetRawText(),
+                                    SkillValidatorJsonContext.Default.MCPServerDef);
+                                if (def is not null)
+                                    result[prop.Name] = def;
+                            }
+                            return result.Count > 0 ? result : null;
                         }
-                        return result.Count > 0 ? result : null;
                     }
                 }
                 catch (Exception ex)
@@ -1749,6 +1755,24 @@ public static class EvaluateCommand
             dir = parent;
         }
         return null;
+    }
+
+    /// <summary>
+    /// Resolve a .mcp.json file path and return the mcpServers object element, or null.
+    /// Codex plugins use a string path in plugin.json to reference an external .mcp.json file.
+    /// </summary>
+    private static async Task<JsonElement?> ResolveMcpFile(string mcpPath)
+    {
+        if (!File.Exists(mcpPath)) return null;
+        try
+        {
+            var doc = JsonSerializer.Deserialize(
+                await File.ReadAllTextAsync(mcpPath),
+                SkillValidatorJsonContext.Default.JsonElement);
+            return doc.TryGetProperty("mcpServers", out var obj) && obj.ValueKind == JsonValueKind.Object
+                ? obj : null;
+        }
+        catch { return null; }
     }
 
     /// <summary>
