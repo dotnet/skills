@@ -58,7 +58,8 @@ stimuli:
     expect_activation: false
     prompt: |
       I inherited a project with this test file and I'm not sure what testing framework it uses.
-      Can you identify it and explain the key attributes?
+      Can you identify it and explain the key attributes — in particular whether the test class
+      needs any marker attribute, and what `[ClassDataSource<T>]` actually does?
 
       ```csharp
       using TUnit.Core;
@@ -104,8 +105,11 @@ stimuli:
       - type: pairwise
     rubric:
       - Correctly identified the framework as TUnit
-      - Explained that [ClassDataSource] is used for shared fixture/dependency injection into the test class
+      - Clarified that TUnit test classes do NOT require a class-level marker attribute (convention-based, like xUnit) — `[ClassDataSource<T>]` is a fixture / data source, not the class marker
+      - Explained that `[ClassDataSource<DatabaseFixture>]` injects a shared fixture instance into the class constructor
+      - Identified `[Test]` as the test method marker
       - Noted the [Skip] attribute with required reason string as TUnit's mechanism for skipping tests
+      - Mentioned that TUnit assertions are async and must be awaited (e.g. `await Assert.That(...).IsNotNull()`)
 
   - name: Replace try-catch with framework-native exception assertions
     expect_activation: false
@@ -342,6 +346,24 @@ stimuli:
           }
       }
       ```
+
+      Project D (TUnit):
+      ```csharp
+      using TUnit.Core;
+
+      public class InventoryServiceTests
+      {
+          [Test]
+          public async Task ReserveStock_AgainstLiveWarehouse_ReducesAvailableQuantity()
+          {
+              using var conn = new SqlConnection("Server=warehouse-db;...");
+              await conn.OpenAsync();
+              var service = new InventoryService(conn);
+              var ok = await service.ReserveAsync(sku: "WIDGET-1", quantity: 5);
+              await Assert.That(ok).IsTrue();
+          }
+      }
+      ```
     graders:
       - type: output-matches
         config:
@@ -355,6 +377,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: \[Category\("Integration"\)\]|Category.*Integration.*NUnit|NUnit.*Category
+      - type: output-matches
+        config:
+          pattern: "[Tt][Uu]nit"
       - type: exit-success
       - type: prompt
       - type: pairwise
@@ -363,4 +388,250 @@ stimuli:
       - Identified Project B as integration test via the [Trait("Category", "Integration")] marker
       - Identified Project C as integration test based on direct database access (SqlConnection), even without an explicit
         category marker
-      - Recommended adding a framework-appropriate integration category marker to Project C
+      - Identified Project D as an integration test based on direct database access against a live warehouse server
+      - Recommended adding a framework-appropriate integration category marker to Project C (NUnit `[Category("Integration")]`)
+        and Project D (TUnit `[Category("Integration")]`)
+
+  - name: Convert cross-framework assertions to TUnit syntax
+    expect_activation: false
+    prompt: |
+      I'm porting a small test class from MSTest to TUnit. Can you rewrite each of these
+      assertions in the TUnit equivalent? Please show me the exact line each one becomes.
+
+      ```csharp
+      Assert.AreEqual(expected, actual);
+      Assert.IsTrue(order.IsValid);
+      Assert.IsNull(result.Error);
+      Assert.IsInstanceOfType(handler, typeof(IOrderHandler));
+      CollectionAssert.Contains(processedIds, 42);
+      var ex = Assert.ThrowsException<InvalidOperationException>(() => processor.Run());
+      Assert.AreEqual("Order is empty", ex.Message);
+      ```
+    graders:
+      - type: output-matches
+        config:
+          pattern: await\s+Assert\.That
+      - type: output-matches
+        config:
+          pattern: \.IsEqualTo\(
+      - type: output-matches
+        config:
+          pattern: \.IsTrue\(\)
+      - type: output-matches
+        config:
+          pattern: \.IsNull\(\)
+      - type: output-matches
+        config:
+          pattern: \.IsAssignableTo<|\.IsTypeOf<
+      - type: output-matches
+        config:
+          pattern: \.Contains\(
+      - type: output-matches
+        config:
+          pattern: \.Throws(Exactly)?<InvalidOperationException>
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Used `await Assert.That(...)` for every converted assertion (TUnit assertions are async and must be awaited)
+      - Mapped equality, boolean, null, type, and collection-contains assertions to the correct TUnit fluent member
+        (IsEqualTo / IsTrue / IsNull / IsAssignableTo or IsTypeOf / Contains)
+      - Converted the exception assertion to `await Assert.That(() => ...).Throws<T>()` (or `ThrowsExactly<T>()`) and
+        preserved the message check (e.g. via `.WithMessage(...)` or a follow-up awaited assertion on the exception)
+      - Did not silently drop the `await` on any assertion or leave NUnit/xUnit-style `Assert.Throws<T>` syntax in the
+        TUnit output
+
+  - name: Diagnose silently-passing TUnit test with missing await
+    expect_activation: false
+    prompt: |
+      This TUnit test is green in CI, but I'm certain `CalculateTotal` is returning the wrong
+      value (I added a deliberate bug that returns 0 instead of the sum). Why is the test still
+      passing, and how do I fix it?
+
+      ```csharp
+      using TUnit.Core;
+
+      public class CartTests
+      {
+          [Test]
+          public async Task CalculateTotal_TwoItems_ReturnsSum()
+          {
+              var cart = new Cart();
+              cart.Add(new Item(price: 10m));
+              cart.Add(new Item(price: 32m));
+
+              var total = cart.CalculateTotal();
+
+              Assert.That(total).IsEqualTo(42m);
+          }
+      }
+      ```
+    graders:
+      - type: output-matches
+        config:
+          pattern: await
+      - type: output-matches
+        config:
+          pattern: (never (run|execute|awaited)|not (run|awaited|executed)|silently|discard|fire[- ]and[- ]forget|unobserved)
+      - type: output-matches
+        config:
+          pattern: await\s+Assert\.That\(total\)\.IsEqualTo
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Correctly identified the missing `await` on the `Assert.That(...).IsEqualTo(...)` expression as the root cause
+      - Explained that TUnit assertions are async and produce a task — without `await`, the assertion is never observed
+        and the test passes regardless of the actual value
+      - "Provided the corrected line: `await Assert.That(total).IsEqualTo(42m);`"
+      - Optionally mentioned the built-in TUnit analyzer that warns when an assertion is not awaited, or suggested
+        treating that analyzer warning as an error in CI
+      - Did NOT misdiagnose the failure as a bug in `Cart.CalculateTotal`, a comparison-precision issue (decimal vs
+        double), or a missing test discovery problem
+
+  - name: Refactor TUnit try/catch to native exception assertion
+    expect_activation: false
+    prompt: |
+      My team lead wants this TUnit test to use the framework's native exception assertion
+      instead of try/catch, and to verify both the exception type and the message in one
+      idiomatic expression. Please refactor it.
+
+      ```csharp
+      using TUnit.Core;
+
+      public class OrderProcessorTests
+      {
+          [Test]
+          public async Task ProcessOrder_EmptyOrder_ThrowsInvalidOperation()
+          {
+              var processor = new OrderProcessor();
+              try
+              {
+                  processor.ProcessOrder(new Order());
+                  Assert.Fail("Expected exception was not thrown");
+              }
+              catch (InvalidOperationException ex)
+              {
+                  await Assert.That(ex.Message).IsEqualTo("Order must contain at least one item");
+              }
+          }
+      }
+      ```
+    graders:
+      - type: output-matches
+        config:
+          pattern: await\s+Assert\.That\(
+      - type: output-matches
+        config:
+          pattern: \.Throws(Exactly)?<InvalidOperationException>
+      - type: output-matches
+        config:
+          pattern: (WithMessage|IsEqualTo).*Order must contain at least one item|Order must contain at least one item
+      - type: output-not-matches
+        config:
+          pattern: try\s*\{[\s\S]*catch\s*\(InvalidOperationException
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Removed the try/catch block entirely and replaced it with a single awaited TUnit exception assertion on the
+        throwing delegate
+      - Used `Throws<InvalidOperationException>()` (or `ThrowsExactly<InvalidOperationException>()`) to assert the
+        exception type
+      - Verified the message in an idiomatic way (e.g. `.WithMessage("Order must contain at least one item")` chained on
+        the throw assertion, or an awaited follow-up assertion on the captured exception)
+      - Kept the `await` on every assertion call in the refactored test
+
+  - name: TUnit lifecycle hooks at test, class, assembly, and session scope
+    expect_activation: false
+    prompt: |
+      In a TUnit test project, I need code that runs:
+
+      1. Before every individual test in a class (e.g. reset a shared in-memory database).
+      2. Once before the first test in a class and once after the last (e.g. open / dispose
+         a class-scoped fixture).
+      3. Once before any test in the assembly starts and once after they all finish
+         (e.g. start / stop an in-process WireMock server for the whole assembly).
+      4. Once at the very start of the whole test run and once at the very end
+         (e.g. apply EF Core migrations and tear down the database for the entire session).
+
+      What attributes / methods does TUnit use for each of these, and where do they go?
+      A short C# sketch for each scope would be ideal.
+    graders:
+      - type: output-matches
+        config:
+          pattern: \[Before\(Test\)\]
+      - type: output-matches
+        config:
+          pattern: \[After\(Test\)\]
+      - type: output-matches
+        config:
+          pattern: \[Before\(Class\)\]
+      - type: output-matches
+        config:
+          pattern: \[After\(Class\)\]
+      - type: output-matches
+        config:
+          pattern: \[Before\(Assembly\)\]
+      - type: output-matches
+        config:
+          pattern: \[After\(Assembly\)\]
+      - type: output-matches
+        config:
+          pattern: \[Before\(TestSession\)\]
+      - type: output-matches
+        config:
+          pattern: \[After\(TestSession\)\]
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Provided per-test hooks using `[Before(Test)]` / `[After(Test)]` (or noted the constructor + IAsyncDisposable
+        alternative) on instance methods of the test class
+      - Provided per-class hooks using `[Before(Class)]` / `[After(Class)]` on static methods of the test class
+      - Provided per-assembly hooks using `[Before(Assembly)]` / `[After(Assembly)]` on static methods, noting they
+        apply to every test in the assembly
+      - Provided per-session hooks using `[Before(TestSession)]` / `[After(TestSession)]` on static methods, noting they
+        run exactly once across the whole test run
+      - Did NOT confuse TUnit's scoped `[Before(...)]` / `[After(...)]` attributes with NUnit's
+        `[SetUp]`/`[TearDown]`/`[OneTimeSetUp]`/`[OneTimeTearDown]` or xUnit's `IClassFixture<T>` / `IAsyncLifetime`
+      - Optionally mentioned that hook methods may accept a context object (e.g. `TestContext`, `ClassHookContext`)
+        and/or a `CancellationToken`, or that `[BeforeEvery(Test)]` / `[AfterEvery(Test)]` (and the `Class`/`Assembly`
+        variants) run for every test/class/assembly across the run
+
+  - name: TUnit skip mechanisms — attribute, assembly-wide, and dynamic
+    expect_activation: false
+    prompt: |
+      In a TUnit test project I need three different ways to skip tests, each with a clear
+      reason message:
+
+      1. Skip one specific test method (it's waiting on a payment-gateway sandbox).
+      2. Skip every test in an entire assembly when that assembly is built in a special
+         "smoke" configuration.
+      3. Inside a test method, decide at runtime to skip the test if the current machine
+         is not joined to the corporate VPN.
+
+      What does each one look like in TUnit?
+    graders:
+      - type: output-matches
+        config:
+          pattern: \[Skip\(
+      - type: output-matches
+        config:
+          pattern: assembly\s*:\s*Skip
+      - type: output-matches
+        config:
+          pattern: Skip\.Test\(
+      - type: exit-success
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - For the single-test case, used the `[Skip("reason")]` attribute on the test method with a required reason string
+      - >-
+        For the assembly-wide case, used an assembly-level attribute such as `[assembly: Skip("…")]`
+        (or equivalent class-level `[Skip(...)]` on a base class) rather than annotating each test
+        individually
+      - For the runtime case, used the dynamic `Skip.Test("reason")` call inside the test method, after the VPN check,
+        and explained that this is TUnit's equivalent of a runtime skip (distinct from a true "inconclusive" state)
+      - Did NOT propose xUnit's `[Fact(Skip = "…")]`, MSTest's `Assert.Inconclusive()`, or NUnit's `Assume.That(...)` as
+        TUnit answers

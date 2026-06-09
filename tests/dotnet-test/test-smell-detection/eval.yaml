@@ -125,3 +125,66 @@ scenarios:
       - "Wrote test methods for the ShoppingCart class"
       - "Covered multiple methods of the class"
     timeout: 300
+
+  # ==========================================================================
+  # Scenario: Polyglot — canonical smells in a JUnit/Java suite
+  # ==========================================================================
+
+  - name: "Polyglot: detect canonical test smells in a JUnit/Java Catalog suite"
+    prompt: |
+      Audit `src/test/java/com/example/CatalogTest.java` for test smells.
+      The production code is at `src/main/java/com/example/Catalog.java`.
+
+      This is JUnit 5 / Java, not .NET — apply the same smell catalog
+      using JUnit equivalents (`@Test`, `@BeforeEach`, `@Disabled`,
+      `Thread.sleep`, `assertThrows`, etc.).
+
+      Walk through each test method by name and identify which canonical
+      smell it exhibits. Recommend a concrete refactor for each. Do not
+      edit the files — read-only review.
+    setup:
+      files:
+        - path: "pom.xml"
+          source: "fixtures/junit-smells/pom.xml"
+        - path: "src/main/java/com/example/Catalog.java"
+          source: "fixtures/junit-smells/src/main/java/com/example/Catalog.java"
+        - path: "src/test/java/com/example/CatalogTest.java"
+          source: "fixtures/junit-smells/src/test/java/com/example/CatalogTest.java"
+    assertions:
+      - type: "output_matches"
+        pattern: "(conditional|if/else|branch|loop with if)"
+      - type: "output_matches"
+        pattern: "(mystery guest|file|external|temp)"
+      - type: "output_matches"
+        pattern: "(sleep|Thread\\.sleep|sleepy|wall.clock)"
+      - type: "output_matches"
+        pattern: "(no assertion|assertion.?free|empty test|missing assert)"
+      - type: "output_matches"
+        pattern: "(eager|multiple.*method|too many|doing too much)"
+      - type: "output_matches"
+        pattern: "(magic|literal|unexplain|42|hard.?coded)"
+      - type: "output_matches"
+        pattern: "(sensitiv|toString|format.*equal)"
+      - type: "output_matches"
+        pattern: "(try.catch|exception handling|manual.*catch|assertThrows)"
+      - type: "output_matches"
+        pattern: "(general fixture|unused|rng|over.*setup)"
+      - type: "output_matches"
+        pattern: "(disabled|ignored|@Disabled|skipped)"
+      - type: "exit_success"
+    rubric:
+      - "Identified JUnit-specific patterns correctly (did NOT mention MSTest/xUnit attributes as if present)"
+      - "Mapped addConditionalLogic → Conditional Test Logic (branching inside test)"
+      - "Mapped addLoadsFromFile → Mystery Guest (reads from the file system)"
+      - "Mapped addSleepy → Sleepy Test (Thread.sleep used for synchronization)"
+      - "Mapped addAndDoNothing → Assertion-Free Test"
+      - "Mapped doEverythingAtOnce → Eager Test (exercises many methods in one test)"
+      - "Mapped quantityAfterAdds → Magic Number Test (unexplained 41, 1, 42)"
+      - "Mapped toStringFormat → Sensitive Equality (asserts on toString() output)"
+      - "Mapped addNullSkuManualCatch → Exception Handling in Tests (recommended assertThrows)"
+      - "Mapped quantityZeroOnUnknownSku → General Fixture (rng is set up in @BeforeEach but never used)"
+      - "Mapped disabledTest → Ignored / Disabled Test (@Disabled with vague reason)"
+      - "Acknowledged addThrowsOnNegativeCount as a well-written test that uses assertThrows correctly"
+    reject_tools: ["bash", "edit", "create"]
+    timeout: 180
+

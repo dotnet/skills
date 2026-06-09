@@ -49,6 +49,7 @@ Classify the user's request and route to the appropriate skill or agent:
 | "Upgrade MSTest" / "latest MSTest" (v3 detected) | `migrate-mstest-v3-to-v4` skill |
 | "Upgrade MSTest" (v1/v2 detected, user wants v4) | `migrate-mstest-v1v2-to-v3` first, then `migrate-mstest-v3-to-v4` |
 | "Migrate to xUnit v3" / "upgrade xUnit" | `migrate-xunit-to-xunit-v3` skill |
+| "Convert xUnit to MSTest" / "switch from xUnit to MSTest" / "port xUnit tests to MSTest" (xUnit v2 or v3 detected) | `migrate-xunit-to-mstest` skill |
 | "Migrate to MTP" / "switch from VSTest" / "modern test runner" | `migrate-vstest-to-mtp` skill |
 | "Make code testable" / "remove static dependencies" | Hand off to `testability-migration` agent |
 | "Migrate my tests" (no specifics) | Run detection, then recommend and confirm the migration path |
@@ -106,6 +107,8 @@ Some migrations must happen in sequence:
 | MSTest v1/v2 | MSTest v3 + MTP | `migrate-mstest-v1v2-to-v3` → `migrate-vstest-to-mtp` |
 | MSTest v3 | MSTest v4 + MTP | `migrate-mstest-v3-to-v4` → `migrate-vstest-to-mtp` (order flexible) |
 | xUnit v2 | xUnit v3 | `migrate-xunit-to-xunit-v3` (single step; v3 has native MTP support) |
+| xUnit v2 or v3 | MSTest v4 | `migrate-xunit-to-mstest` (single step; preserves current test platform — VSTest stays VSTest, MTP stays MTP) |
+| xUnit v2 or v3 | MSTest v4 + MTP | `migrate-xunit-to-mstest` → `migrate-vstest-to-mtp` (only if the project was on VSTest before; commit between) |
 | Any framework | MTP only | `migrate-vstest-to-mtp` (single step) |
 
 **Always commit between migration steps.** Each step should leave the project in a buildable, test-passing state.

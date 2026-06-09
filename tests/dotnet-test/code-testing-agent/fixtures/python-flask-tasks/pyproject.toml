@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tasks-api"
+version = "0.0.1"
+description = "Small Flask tasks API used as a polyglot fixture for code-testing-agent."
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.0,<4.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0,<9.0",
+    "pytest-cov>=5.0,<7.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Coverage is enforced as a hard floor: the run fails when line coverage on the
+# tasks_api package is below 80%. The agent must plan its tests to cover every
+# module (models / repository / repository_sqlite / queries / service / routes /
+# app) — incidental coverage from a few happy-path tests will not clear the bar.
+addopts = "-q --cov=tasks_api --cov-branch --cov-report=xml --cov-report=term-missing --cov-fail-under=80"

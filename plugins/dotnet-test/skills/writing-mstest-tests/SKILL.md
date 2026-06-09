@@ -1,19 +1,21 @@
 ---
 name: writing-mstest-tests
 description: >
-  Write new MSTest unit tests and implement concrete fixes in existing MSTest code using
-  MSTest 3.x/4.x modern APIs and best practices.
-  USE FOR: write unit tests for a class, write MSTest tests, create test class,
-  fix test assertions, MSTest assertion APIs (StartsWith, EndsWith, MatchesRegex,
-  IsGreaterThan, IsInRange, HasCount, IsNull), something seems off with my tests,
-  review tests and fix issues,
-  fix swapped Assert.AreEqual arguments, replace ExpectedException with Assert.Throws, modernize
-  test patterns, convert DynamicData to ValueTuples, data-driven tests, test lifecycle setup,
-  sealed test classes, async test patterns, cancellation token testing,
-  test parallelization, Parallelize, DoNotParallelize, MSTest.Sdk project setup.
-  DO NOT USE FOR: broad test quality audits or test smell detection (use test-anti-patterns),
-  running tests (use run-tests), MSTest version migration (use migrate-mstest-v1v2-to-v3 or
-  migrate-mstest-v3-to-v4).
+  Write new MSTest unit tests and fix existing MSTest code using MSTest 3.x/4.x
+  modern APIs and best practices.
+  USE FOR: write or create MSTest unit tests, fix or modernize MSTest assertions,
+  better MSTest assertion than Assert.IsTrue, replace hard cast with MSTest type assertion,
+  MSTest assertion APIs (IsInstanceOfType, Contains, ContainsSingle, HasCount,
+  IsEmpty, IsNotEmpty, DoesNotContain, StartsWith, EndsWith, MatchesRegex,
+  IsGreaterThan, IsInRange, IsNull),
+  fix swapped Assert.AreEqual arguments, replace ExpectedException with Assert.Throws,
+  data-driven tests (DataRow, DynamicData, ValueTuples),
+  test lifecycle (sealed classes, TestInitialize, TestCleanup),
+  async tests and cancellation tokens, test parallelization (Parallelize / DoNotParallelize),
+  MSTest.Sdk project setup.
+  DO NOT USE FOR: broad test quality audits (use test-anti-patterns),
+  running tests (use run-tests), MSTest version migration (use migrate-mstest-v1v2-to-v3
+  or migrate-mstest-v3-to-v4), xUnit/NUnit/TUnit, or non-.NET languages.
 license: MIT
 ---
 

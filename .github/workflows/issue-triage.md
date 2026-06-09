@@ -15,6 +15,12 @@ on:
         description: "Issue number to triage"
         required: true
 
+  # Allow triggering on issues opened by any user, not just maintainers.
+  # The workflow only assigns labels and posts a triage comment, so it is
+  # safe to run for external contributors. Default would restrict to
+  # [admin, maintainer, write] and silently skip everyone else.
+  roles: all
+
   # ###############################################################
   # Override the COPILOT_GITHUB_TOKEN secret usage for the workflow
   # with a randomly-selected token from a pool of secrets.
@@ -128,7 +134,7 @@ Analyze the issue content and determine which area of the codebase it relates to
 | `area-msbuild` | MSBuild, build system, project files |
 | `area-dotnet` | General C#/.NET, common language features |
 | `area-dotnet-ai` | AI/ML, MCP, model context protocol |
-| `area-dotnet-aspnet` | ASP.NET Core, web development |
+| `area-dotnet-aspnetcore` | ASP.NET Core, web development |
 | `area-dotnet-data` | Data access, Entity Framework |
 | `area-dotnet-diag` | Diagnostics, performance, debugging, crash analysis |
 | `area-dotnet-experimental` | Experimental skills under evaluation |

@@ -2,6 +2,51 @@
 
 Language-specific guidance for Ruby test generation.
 
+## Rule #0: Confirm the Test Target
+
+If the prompt does not name a specific file (e.g. "test the repository", "cover one core module", "comprehensive suite"), do **not** assume the largest or top-level upstream code is the intended target. In real workflows the user usually wants to test code they have just added, and large upstream repos contain hundreds of modules already covered by existing specs.
+
+Run these **read-only** discovery commands first — they are the deliberate exception to Rule #1's "before writing any test or running any command" rule, and their output is the ground truth Rule #1's reading is meant to interpret. Do **not** write or execute any tests until Rule #0 and Rule #1 are both complete.
+
+| Goal | Command |
+|------|---------|
+| List uncommitted edits + untracked files | `git status -s` |
+| Untracked files only (typical for newly-added modules) | `git ls-files --others --exclude-standard` |
+| Recently added files under `lib/` or `app/` | `git log --diff-filter=A --name-only -5 -- 'lib/**' 'app/**'` |
+| Files referenced by `spec_helper.rb` / `rails_helper.rb` | `grep -nE "^\s*require(_relative)?\s" spec/spec_helper.rb spec/rails_helper.rb 2>/dev/null` |
+| Modules with no matching spec | compare `lib/**/*.rb` against `spec/**/*_spec.rb` paths |
+
+Prefer targets that match **all** of:
+
+1. Untracked or recently added (`git status` / `git log --diff-filter=A`).
+2. Small and pure (a few hundred lines, no I/O, no global state).
+3. Located under a conventional source root (`lib/`, `app/models/`, `app/services/`).
+4. Have **no** existing matching `*_spec.rb` / `*_test.rb`.
+
+If `spec/spec_helper.rb` already `require`s one specific file (e.g. `require "string_utils"`), that file is almost certainly the target — start there.
+
+### Test Placement Contract
+
+RSpec only discovers specs under `spec/` by default, and verification harnesses (CI, msbench, coverage tools) typically scope discovery to `spec/` alone. Place every spec there, mirroring the source layout:
+
+| Source | Spec |
+|--------|------|
+| `lib/string_utils.rb` | `spec/string_utils_spec.rb` |
+| `lib/foo/bar.rb` | `spec/foo/bar_spec.rb` |
+| `app/models/user.rb` (Rails) | `spec/models/user_spec.rb` |
+
+A spec placed anywhere outside `spec/` (e.g. next to the source under `lib/`) will be invisible to `bundle exec rspec` and to the harness. The same applies to Minitest: place tests under `test/` and use `*_test.rb` naming.
+
+### First-Test Sanity Loop
+
+After writing the **first** spec — before writing any others:
+
+1. Run `bundle exec rspec --dry-run` and confirm the example count is `> 0`. If it is `0`, RSpec is not seeing your file; fix the location, filename, or `$LOAD_PATH` before continuing.
+2. Run the spec (`bundle exec rspec spec/<your_spec>.rb`); fix `LoadError`, missing `require`, or constant errors before adding more tests.
+3. Only then expand to cover the remaining methods.
+
+This catches placement and load-path mistakes on turn 1 instead of after dozens of failed-test iterations.
+
 ## Rule #1: Investigate the Repo First
 
 Before writing any test or running any command, read:

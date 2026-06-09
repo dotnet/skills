@@ -39,3 +39,150 @@ scenarios:
       - "Generated tests that cover multiple controllers (Students, Courses, Departments, Instructors)"
       - "Set up the EF Core SchoolContext correctly for testing without a real SQL Server (e.g., InMemory provider or SQLite)"
     timeout: 3600
+
+  # ============================================================================
+  # Goal: Verify the agent can generate idiomatic pytest tests for a Flask app
+  # The tasks_api package layers a TaskService (with injected clock and
+  # max-title-length config) over a TaskRepository Protocol with two backends
+  # (InMemoryTaskRepository, SqliteTaskRepository). A queries module handles
+  # filter/sort/pagination. A Flask blueprint exposes /tasks CRUD, tag
+  # endpoints, and listing with status/tag/q/overdue/sort/order/limit/offset.
+  # The fixture lives under fixtures/python-flask-tasks/ and ships with no
+  # test files (only a .gitkeep marker), so passing pytest proves the agent
+  # generated the test files.
+  # ============================================================================
+
+  - name: "Generate pytest tests for the Flask tasks API (Python polyglot)"
+    prompt: |
+      I have a Python Flask web application under fixtures/python-flask-tasks/
+      — a tasks REST API with a TaskService layer (with an injected clock and
+      configurable max title length), a TaskRepository Protocol with two
+      backends (InMemoryTaskRepository, SqliteTaskRepository), a separate
+      queries module (TaskQuery / TaskPage / apply_query) for
+      filter/sort/pagination, and a Flask blueprint exposing /tasks CRUD,
+      tag endpoints, and listing with status / tag / q / overdue / sort /
+      order / limit / offset query parameters (see
+      fixtures/python-flask-tasks/README.md for the layout). There are no
+      test files yet — the tests/ directory contains only a .gitkeep
+      marker. This is a project-wide, multi-file test generation task
+      across the service layer, the query layer, both repositories, and
+      the Flask blueprint.
+
+      Please scaffold a comprehensive pytest test suite under
+      fixtures/python-flask-tasks/tests/, then write comprehensive unit
+      and integration tests across the tasks_api package — covering
+      TaskService (with the repository mocked and the clock injected),
+      the queries.apply_query function over fixed Task lists,
+      InMemoryTaskRepository, SqliteTaskRepository against an in-memory
+      connection, and the Flask blueprint via Flask's test_client.
+
+      Coverage tooling (pytest-cov) is pre-configured in pyproject.toml
+      with a hard floor of 80% line + branch coverage on the tasks_api
+      package. The generated tests should pass with: `python -m pip
+      install -e ".[test]"` then `python -m pytest` from the
+      fixtures/python-flask-tasks/ directory — the run fails (and the
+      coverage XML report under fixtures/python-flask-tasks/coverage.xml
+      is not produced) if your tests do not clear the 80% floor across
+      every module.
+    setup:
+      copy_test_files: true
+    assertions:
+      # The generated pytest suite must install cleanly and pass
+      - type: run_command_and_assert
+        command_to_run: "bash"
+        command_arguments: "-c \"cd fixtures/python-flask-tasks && python3 -m pip install -e '.[test]' --quiet && python3 -m pytest -q\""
+        expected_exit_code: 0
+        command_timeout: 600
+      # The agent must actually create at least one test file
+      - type: file_exists
+        path: "fixtures/python-flask-tasks/tests/**/test_*.py"
+      # And configure coverage reporting
+      - type: file_exists
+        path: "fixtures/python-flask-tasks/coverage.xml"
+    rubric:
+      - "Created at least one test file under fixtures/python-flask-tasks/tests/ named test_*.py"
+      - "Uses Flask's test_client() (or werkzeug Client) for route tests rather than starting a real HTTP server"
+      - "Mocks TaskRepository (e.g. unittest.mock.Mock(spec=TaskRepository)) when unit-testing TaskService rather than relying on InMemoryTaskRepository"
+      - "Asserts both HTTP status codes (200/201/204/400/404/409) and JSON body contents for the /tasks endpoints, including the tag and listing endpoints"
+      - "Covers TaskService validation paths: empty / over-length title, naive (timezone-unaware) due_at rejection, invalid priority, tag normalization & deduplication, and 'already done' / 'already pending' state transition errors"
+      - "Covers queries.apply_query directly against fixed Task lists, including at least one sort option (priority or due_at), the overdue filter, and pagination boundaries (offset, limit, has_more)"
+      - "Exercises SqliteTaskRepository against an in-memory connection (SqliteTaskRepository.in_memory() or a sqlite3.connect(':memory:') fixture), covering at least add/get, update of tags, and delete"
+    timeout: 1800
+
+  # ============================================================================
+  # Goal: Verify the agent can generate idiomatic Vitest tests for a TS library
+  # The shopping-cart fixture has a Cart class with a fixed pricing pipeline
+  # (subtotal → discount → tax → shipping), composable discount policies
+  # (No / Percentage / FixedAmount / Composite), tax calculators (Regional,
+  # AsyncTax via AsyncTaxRateProvider), shipping calculators (Free / Flat /
+  # WeightBased), and an async checkout() that uses a PriceFetcher and an
+  # InventoryChecker. The agent must mock the discount/tax/shipping seams
+  # and the async collaborators via vi.fn() / mockResolvedValue.
+  # ============================================================================
+
+  - name: "Generate Vitest tests for the shopping-cart library (TypeScript polyglot)"
+    prompt: |
+      I have a TypeScript shopping-cart library under
+      fixtures/typescript-vitest-cart/ — a package with a Cart class
+      that exposes a fixed pricing pipeline (subtotal → discount → tax
+      → shipping) and an async checkout(), composable discount policies
+      (NoDiscountPolicy, PercentageDiscountPolicy,
+      FixedAmountDiscountPolicy, CompositeDiscountPolicy with sum and
+      chain stacking modes), tax calculators (NoTaxCalculator,
+      RegionalTaxCalculator, AsyncTaxCalculator backed by an
+      AsyncTaxRateProvider), shipping calculators (FreeShippingCalculator,
+      FlatShippingCalculator with free-over threshold, and
+      WeightBasedShippingCalculator with WeightBracket boundaries), and
+      async PriceFetcher / InventoryChecker seams plus an InventoryError
+      type used by checkout() (see its README.md for the layout). There
+      are no test files yet — the tests/ directory contains only a
+      .gitkeep marker. This is a project-wide, multi-file test
+      generation task across the cart, pricing, tax, shipping, and
+      inventory modules.
+
+      Please scaffold a comprehensive Vitest test suite under
+      fixtures/typescript-vitest-cart/tests/, then write comprehensive
+      unit tests across all of these modules — covering Cart (with the
+      discount / tax / shipping seams mocked) and every real policy /
+      calculator implementation, and async checkout() (with
+      PriceFetcher, InventoryChecker, and AsyncTaxRateProvider mocked
+      via vi.fn().mockResolvedValue / mockRejectedValue).
+
+      Coverage tooling (@vitest/coverage-v8) is pre-configured in
+      vitest.config.ts with a hard floor of 80% line / statement /
+      function coverage and 70% branch coverage on src/. The generated
+      tests should pass with: `npm ci` then `npx vitest run` from the
+      fixtures/typescript-vitest-cart/ directory, and the run-with-
+      coverage step `npx vitest run --coverage` (which produces
+      fixtures/typescript-vitest-cart/coverage/lcov.info) fails if your
+      tests do not clear the configured thresholds across every module.
+    setup:
+      copy_test_files: true
+    assertions:
+      # The generated Vitest suite must install cleanly and pass
+      - type: run_command_and_assert
+        command_to_run: "bash"
+        command_arguments: "-c \"cd fixtures/typescript-vitest-cart && npm ci --silent && npx vitest run\""
+        expected_exit_code: 0
+        command_timeout: 600
+      # The agent must actually create at least one test file
+      - type: file_exists
+        path: "fixtures/typescript-vitest-cart/tests/**/*.test.ts"
+      # And configure coverage reporting (must run --coverage to generate lcov)
+      - type: run_command_and_assert
+        command_to_run: "bash"
+        command_arguments: "-c \"cd fixtures/typescript-vitest-cart && npx vitest run --coverage --reporter=basic\""
+        expected_exit_code: 0
+        command_timeout: 600
+      - type: file_exists
+        path: "fixtures/typescript-vitest-cart/coverage/lcov.info"
+    rubric:
+      - "Created at least one `*.test.ts` file under fixtures/typescript-vitest-cart/tests/"
+      - "Mocks DiscountPolicy, TaxCalculator, and ShippingCalculator (e.g. via vi.fn() or hand-rolled stubs) when testing Cart, rather than only exercising the real implementations"
+      - "Asserts the Cart pricing pipeline composition: tax is computed on the *discounted* subtotal, and totalCents = (subtotal - discount) + tax + shipping"
+      - "Tests CompositeDiscountPolicy in both stacking modes (\"sum\" vs \"chain\") and demonstrates the difference in computed discount for an overlapping policy set"
+      - "Covers WeightBasedShippingCalculator bracket boundaries (a weight that equals a bracket's upToGrams falls inside that bracket) and the overflow path"
+      - "Exercises async Cart.checkout() with vi.fn().mockResolvedValue / mockRejectedValue for PriceFetcher (price refresh), InventoryChecker (denial via available=false and via availableQuantity < requested), and AsyncTaxRateProvider, including asserting the InventoryError shape (productId / requested / available)"
+      - "Includes constructor boundary tests for PercentageDiscountPolicy, FixedAmountDiscountPolicy, RegionalTaxCalculator, and WeightBasedShippingCalculator (rejects empty bracket list, out-of-range / negative inputs)"
+      - "No real network or filesystem dependencies in the generated tests"
+    timeout: 1800
