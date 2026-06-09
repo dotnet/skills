@@ -1,4 +1,4 @@
-# gh-aw-metadata: {"schema_version":"v4","frontmatter_hash":"ee29ca97c2a03f3ba3f332142713417e8a76fc2a91d400daf0eec6c2eda6a970","body_hash":"73a044497f0e054bc45cac64ecbe2e3cdfeb85425ac6ab7de1cfdda007e14fbd","compiler_version":"v0.77.5","strict":true,"agent_id":"copilot"}
+# gh-aw-metadata: {"schema_version":"v4","frontmatter_hash":"4fda3bb0d660353cadb6f2dc3f9d968f7599eb4ec2220cbe1d654017129800c4","body_hash":"8a0ee37353425842ad0e7226a6f87139333b3c5d9d78b2ba027424c90487bc55","compiler_version":"v0.77.5","strict":true,"agent_id":"copilot"}
 # gh-aw-manifest: {"version":1,"secrets":["COPILOT_GITHUB_TOKEN","COPILOT_GITHUB_TOKEN_2","COPILOT_GITHUB_TOKEN_3","COPILOT_GITHUB_TOKEN_4","COPILOT_GITHUB_TOKEN_5","COPILOT_GITHUB_TOKEN_6","COPILOT_GITHUB_TOKEN_7","COPILOT_GITHUB_TOKEN_8","GH_AW_GITHUB_MCP_SERVER_TOKEN","GH_AW_GITHUB_TOKEN","GITHUB_TOKEN"],"actions":[{"repo":"actions/checkout","sha":"de0fac2e4500dabe0009e67214ff5f5447ce83dd","version":"v6.0.2"},{"repo":"actions/download-artifact","sha":"3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c","version":"v8.0.1"},{"repo":"actions/github-script","sha":"373c709c69115d41ff229c7e5df9f8788daa9553","version":"v9"},{"repo":"actions/github-script","sha":"3a2844b7e9c422d3c10d287c895573f7108da1b3","version":"v9.0.0"},{"repo":"actions/setup-node","sha":"48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e","version":"v6.4.0"},{"repo":"actions/upload-artifact","sha":"043fb46d1a93c77aae656e7c1c64a875d1fc6a0a","version":"v7.0.1"},{"repo":"github/gh-aw-actions/setup","sha":"v0.77.5","version":"v0.77.5"}],"containers":[{"image":"ghcr.io/github/gh-aw-firewall/agent:0.25.58"},{"image":"ghcr.io/github/gh-aw-firewall/api-proxy:0.25.58"},{"image":"ghcr.io/github/gh-aw-firewall/squid:0.25.58"},{"image":"ghcr.io/github/gh-aw-mcpg:v0.3.22"},{"image":"ghcr.io/github/github-mcp-server:v1.1.0"},{"image":"node:lts-alpine","digest":"sha256:2bdb65ed1dab192432bc31c95f94155ca5ad7fc1392fb7eb7526ab682fa5bf14","pinned_image":"node:lts-alpine@sha256:2bdb65ed1dab192432bc31c95f94155ca5ad7fc1392fb7eb7526ab682fa5bf14"}]}
 #    ___                   _   _      
 #   / _ \                 | | (_)     
@@ -27,6 +27,7 @@
 # Resolved workflow manifest:
 #   Imports:
 #     - ../aw/shared/devops-investigate.lock.md
+#     - shared/pat_pool.md
 #
 # Secrets used:
 #   - COPILOT_GITHUB_TOKEN
@@ -61,7 +62,7 @@
 name: "DevOps Health — Deep Investigation"
 on:
   # needs: # Needs processed as dependency in pre-activation job
-  # - select_copilot_pat # Needs processed as dependency in pre-activation job
+  # - pat_pool # Needs processed as dependency in pre-activation job
   workflow_dispatch:
     inputs:
       aw_context:
@@ -101,8 +102,8 @@ run-name: "DevOps Health — Deep Investigation"
 jobs:
   activation:
     needs:
+      - pat_pool
       - pre_activation
-      - select_copilot_pat
     if: needs.pre_activation.outputs.activated == 'true'
     runs-on: ubuntu-slim
     permissions:
@@ -164,7 +165,7 @@ jobs:
         id: validate-secret
         run: bash "${RUNNER_TEMP}/gh-aw/actions/validate_multi_secret.sh" COPILOT_GITHUB_TOKEN 'GitHub Copilot CLI' https://github.github.com/gh-aw/reference/engines/#github-copilot-default
         env:
-          COPILOT_GITHUB_TOKEN: ${{ case(needs.select_copilot_pat.outputs.copilot_pat_number == '0', secrets.COPILOT_GITHUB_TOKEN, needs.select_copilot_pat.outputs.copilot_pat_number == '1', secrets.COPILOT_GITHUB_TOKEN_2, needs.select_copilot_pat.outputs.copilot_pat_number == '2', secrets.COPILOT_GITHUB_TOKEN_3, needs.select_copilot_pat.outputs.copilot_pat_number == '3', secrets.COPILOT_GITHUB_TOKEN_4, needs.select_copilot_pat.outputs.copilot_pat_number == '4', secrets.COPILOT_GITHUB_TOKEN_5, needs.select_copilot_pat.outputs.copilot_pat_number == '5', secrets.COPILOT_GITHUB_TOKEN_6, needs.select_copilot_pat.outputs.copilot_pat_number == '6', secrets.COPILOT_GITHUB_TOKEN_7, needs.select_copilot_pat.outputs.copilot_pat_number == '7', secrets.COPILOT_GITHUB_TOKEN_8, secrets.COPILOT_GITHUB_TOKEN) }}
+          COPILOT_GITHUB_TOKEN: ${{ case(needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_GITHUB_TOKEN, needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_GITHUB_TOKEN_2, needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_GITHUB_TOKEN_3, needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_GITHUB_TOKEN_4, needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_GITHUB_TOKEN_5, needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_GITHUB_TOKEN_6, needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_GITHUB_TOKEN_7, needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_GITHUB_TOKEN_8, secrets.COPILOT_GITHUB_TOKEN) }}
       - name: Checkout .github and .agents folders
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -232,20 +233,20 @@ jobs:
         run: |
           bash "${RUNNER_TEMP}/gh-aw/actions/create_prompt_first.sh"
           {
-          cat << 'GH_AW_PROMPT_86ec03f3567a8c5c_EOF'
+          cat << 'GH_AW_PROMPT_5ed10bab1f9c457b_EOF'
           <system>
-          GH_AW_PROMPT_86ec03f3567a8c5c_EOF
+          GH_AW_PROMPT_5ed10bab1f9c457b_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/xpia.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/temp_folder_prompt.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/markdown.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_prompt.md"
-          cat << 'GH_AW_PROMPT_86ec03f3567a8c5c_EOF'
+          cat << 'GH_AW_PROMPT_5ed10bab1f9c457b_EOF'
           <safe-output-tools>
           Tools: add_comment, missing_tool, missing_data, noop
           </safe-output-tools>
-          GH_AW_PROMPT_86ec03f3567a8c5c_EOF
+          GH_AW_PROMPT_5ed10bab1f9c457b_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/mcp_cli_tools_prompt.md"
-          cat << 'GH_AW_PROMPT_86ec03f3567a8c5c_EOF'
+          cat << 'GH_AW_PROMPT_5ed10bab1f9c457b_EOF'
           <github-context>
           The following GitHub context information is available for this workflow:
           {{#if github.actor}}
@@ -274,13 +275,13 @@ jobs:
           {{/if}}
           </github-context>
           
-          GH_AW_PROMPT_86ec03f3567a8c5c_EOF
+          GH_AW_PROMPT_5ed10bab1f9c457b_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/github_mcp_tools_with_safeoutputs_prompt.md"
-          cat << 'GH_AW_PROMPT_86ec03f3567a8c5c_EOF'
+          cat << 'GH_AW_PROMPT_5ed10bab1f9c457b_EOF'
           </system>
           {{#runtime-import .github/aw/shared/devops-investigate.lock.md}}
           {{#runtime-import .github/workflows/devops-health-investigate.md}}
-          GH_AW_PROMPT_86ec03f3567a8c5c_EOF
+          GH_AW_PROMPT_5ed10bab1f9c457b_EOF
           } > "$GH_AW_PROMPT"
       - name: Interpolate variables and render templates
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -383,7 +384,7 @@ jobs:
   agent:
     needs:
       - activation
-      - select_copilot_pat
+      - pat_pool
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -515,9 +516,9 @@ jobs:
           mkdir -p "${RUNNER_TEMP}/gh-aw/safeoutputs"
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
-          cat > "${RUNNER_TEMP}/gh-aw/safeoutputs/config.json" << 'GH_AW_SAFE_OUTPUTS_CONFIG_5db388f3d239112f_EOF'
+          cat > "${RUNNER_TEMP}/gh-aw/safeoutputs/config.json" << 'GH_AW_SAFE_OUTPUTS_CONFIG_afe51687fdbd716b_EOF'
           {"add_comment":{"max":1},"create_report_incomplete_issue":{},"missing_data":{},"missing_tool":{},"noop":{"max":1,"report-as-issue":"false"},"report_incomplete":{}}
-          GH_AW_SAFE_OUTPUTS_CONFIG_5db388f3d239112f_EOF
+          GH_AW_SAFE_OUTPUTS_CONFIG_afe51687fdbd716b_EOF
       - name: Generate Safe Outputs Tools
         env:
           GH_AW_TOOLS_META_JSON: |
@@ -711,7 +712,7 @@ jobs:
           
           mkdir -p /home/runner/.copilot
           GH_AW_NODE=$(which node 2>/dev/null || command -v node 2>/dev/null || echo node)
-          cat << GH_AW_MCP_CONFIG_179fd96c07103880_EOF | "$GH_AW_NODE" "${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.cjs"
+          cat << GH_AW_MCP_CONFIG_903f9364ffb9ce0e_EOF | "$GH_AW_NODE" "${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.cjs"
           {
             "mcpServers": {
               "github": {
@@ -752,7 +753,7 @@ jobs:
               "payloadDir": "${MCP_GATEWAY_PAYLOAD_DIR}"
             }
           }
-          GH_AW_MCP_CONFIG_179fd96c07103880_EOF
+          GH_AW_MCP_CONFIG_903f9364ffb9ce0e_EOF
       - name: Mount MCP servers as CLIs
         id: mount-mcp-clis
         continue-on-error: true
@@ -829,7 +830,7 @@ jobs:
           AWF_REFLECT_ENABLED: 1
           COPILOT_AGENT_RUNNER_TYPE: STANDALONE
           COPILOT_DUMMY_BYOK: dummy-byok-key-for-offline-mode
-          COPILOT_GITHUB_TOKEN: ${{ case(needs.select_copilot_pat.outputs.copilot_pat_number == '0', secrets.COPILOT_GITHUB_TOKEN, needs.select_copilot_pat.outputs.copilot_pat_number == '1', secrets.COPILOT_GITHUB_TOKEN_2, needs.select_copilot_pat.outputs.copilot_pat_number == '2', secrets.COPILOT_GITHUB_TOKEN_3, needs.select_copilot_pat.outputs.copilot_pat_number == '3', secrets.COPILOT_GITHUB_TOKEN_4, needs.select_copilot_pat.outputs.copilot_pat_number == '4', secrets.COPILOT_GITHUB_TOKEN_5, needs.select_copilot_pat.outputs.copilot_pat_number == '5', secrets.COPILOT_GITHUB_TOKEN_6, needs.select_copilot_pat.outputs.copilot_pat_number == '6', secrets.COPILOT_GITHUB_TOKEN_7, needs.select_copilot_pat.outputs.copilot_pat_number == '7', secrets.COPILOT_GITHUB_TOKEN_8, secrets.COPILOT_GITHUB_TOKEN) }}
+          COPILOT_GITHUB_TOKEN: ${{ case(needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_GITHUB_TOKEN, needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_GITHUB_TOKEN_2, needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_GITHUB_TOKEN_3, needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_GITHUB_TOKEN_4, needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_GITHUB_TOKEN_5, needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_GITHUB_TOKEN_6, needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_GITHUB_TOKEN_7, needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_GITHUB_TOKEN_8, secrets.COPILOT_GITHUB_TOKEN) }}
           COPILOT_MODEL: ${{ vars.GH_AW_MODEL_AGENT_COPILOT || vars.GH_AW_DEFAULT_MODEL_COPILOT || 'claude-sonnet-4.6' }}
           GH_AW_MCP_CONFIG: /home/runner/.copilot/mcp-config.json
           GH_AW_PHASE: agent
@@ -1022,8 +1023,8 @@ jobs:
       - activation
       - agent
       - detection
+      - pat_pool
       - safe_outputs
-      - select_copilot_pat
     if: >
       always() && (needs.agent.result != 'skipped' || needs.activation.outputs.lockdown_check_failed == 'true' ||
       needs.activation.outputs.stale_lock_file_failed == 'true')
@@ -1331,7 +1332,7 @@ jobs:
           AWF_REFLECT_ENABLED: 1
           COPILOT_AGENT_RUNNER_TYPE: STANDALONE
           COPILOT_DUMMY_BYOK: dummy-byok-key-for-offline-mode
-          COPILOT_GITHUB_TOKEN: ${{ case(needs.select_copilot_pat.outputs.copilot_pat_number == '0', secrets.COPILOT_GITHUB_TOKEN, needs.select_copilot_pat.outputs.copilot_pat_number == '1', secrets.COPILOT_GITHUB_TOKEN_2, needs.select_copilot_pat.outputs.copilot_pat_number == '2', secrets.COPILOT_GITHUB_TOKEN_3, needs.select_copilot_pat.outputs.copilot_pat_number == '3', secrets.COPILOT_GITHUB_TOKEN_4, needs.select_copilot_pat.outputs.copilot_pat_number == '4', secrets.COPILOT_GITHUB_TOKEN_5, needs.select_copilot_pat.outputs.copilot_pat_number == '5', secrets.COPILOT_GITHUB_TOKEN_6, needs.select_copilot_pat.outputs.copilot_pat_number == '6', secrets.COPILOT_GITHUB_TOKEN_7, needs.select_copilot_pat.outputs.copilot_pat_number == '7', secrets.COPILOT_GITHUB_TOKEN_8, secrets.COPILOT_GITHUB_TOKEN) }}
+          COPILOT_GITHUB_TOKEN: ${{ case(needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_GITHUB_TOKEN, needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_GITHUB_TOKEN_2, needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_GITHUB_TOKEN_3, needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_GITHUB_TOKEN_4, needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_GITHUB_TOKEN_5, needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_GITHUB_TOKEN_6, needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_GITHUB_TOKEN_7, needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_GITHUB_TOKEN_8, secrets.COPILOT_GITHUB_TOKEN) }}
           COPILOT_MODEL: ${{ vars.GH_AW_MODEL_DETECTION_COPILOT || vars.GH_AW_DEFAULT_MODEL_COPILOT || 'claude-sonnet-4.6' }}
           GH_AW_PHASE: detection
           GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
@@ -1390,8 +1391,79 @@ jobs:
               }
             }
 
+  pat_pool:
+    runs-on: ubuntu-slim
+    outputs:
+      pat_number: ${{ steps.select-pat-number.outputs.copilot_pat_number }}
+    steps:
+      - name: Configure GH_HOST for enterprise compatibility
+        id: ghes-host-config
+        shell: bash
+        run: |
+          # Derive GH_HOST from GITHUB_SERVER_URL so the gh CLI targets the correct
+          # GitHub instance (GHES/GHEC). On github.com this is a harmless no-op.
+          GH_HOST="${GITHUB_SERVER_URL#https://}"
+          GH_HOST="${GH_HOST#http://}"
+          echo "GH_HOST=${GH_HOST}" >> "$GITHUB_ENV"
+      - name: Select Copilot token from pool
+        id: select-pat-number
+        run: |
+          # Collect pool entries with non-empty secrets from COPILOT_PAT_0..COPILOT_PAT_7.
+          PAT_NUMBERS=()
+          POOL_INDICATORS=(➖ ➖ ➖ ➖ ➖ ➖ ➖ ➖)
+
+          for i in $(seq 0 7); do
+            var="COPILOT_PAT_${i}"
+            val="${!var}"
+            if [ -n "$val" ]; then
+              PAT_NUMBERS+=(${i})
+              POOL_INDICATORS[${i}]="🟪"
+            fi
+          done
+
+          # If none of the entries in the pool have values, emit a warning
+          # and do not set an output value. The consumer can fall back to
+          # using COPILOT_GITHUB_TOKEN.
+          if [ ${#PAT_NUMBERS[@]} -eq 0 ]; then
+            warning_message="::warning::None of the PAT pool entries had values "
+            warning_message+="(checked COPILOT_PAT_0 through COPILOT_PAT_7)"
+            echo "$warning_message"
+            exit 0
+          fi
+
+          # Select a random index using the seed if specified
+          if [ -n "$RANDOM_SEED" ]; then
+            RANDOM=$RANDOM_SEED
+          fi
+
+          PAT_INDEX=$(( RANDOM % ${#PAT_NUMBERS[@]} ))
+          PAT_NUMBER="${PAT_NUMBERS[$PAT_INDEX]}"
+          POOL_INDICATORS[${PAT_NUMBER}]="✅"
+
+          echo "Pool size: ${#PAT_NUMBERS[@]}"
+          echo "Selected PAT number ${PAT_NUMBER} (index: ${PAT_INDEX})"
+
+          # Emit a markdown table of the pool entries to the step summary
+          echo "|0|1|2|3|4|5|6|7|" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-|-|-|-|-|-|-|-|" >> "$GITHUB_STEP_SUMMARY"
+          (IFS='|'; printf '|%s' "${POOL_INDICATORS[@]}"; printf '|\n') >> "$GITHUB_STEP_SUMMARY"
+
+          # Set the PAT number as the output
+          echo "copilot_pat_number=${PAT_NUMBER}" >> "$GITHUB_OUTPUT"
+        env:
+          COPILOT_PAT_0: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          COPILOT_PAT_1: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+          COPILOT_PAT_2: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+          COPILOT_PAT_3: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
+          COPILOT_PAT_4: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
+          COPILOT_PAT_5: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
+          COPILOT_PAT_6: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
+          COPILOT_PAT_7: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
+          RANDOM_SEED: ${{ github.aw.import-inputs.random_seed }}
+        shell: bash
+
   pre_activation:
-    needs: select_copilot_pat
+    needs: pat_pool
     runs-on: ubuntu-slim
     outputs:
       activated: ${{ steps.check_membership.outputs.is_team_member == 'true' }}
@@ -1522,41 +1594,4 @@ jobs:
             /tmp/gh-aw/safe-output-items.jsonl
             /tmp/gh-aw/temporary-id-map.json
           if-no-files-found: ignore
-
-  select_copilot_pat:
-    runs-on: ubuntu-slim
-    permissions:
-      contents: read
-
-    outputs:
-      copilot_pat_number: ${{ steps.select-copilot-pat.outputs.copilot_pat_number }}
-    steps:
-      - name: Configure GH_HOST for enterprise compatibility
-        id: ghes-host-config
-        shell: bash
-        run: |
-          # Derive GH_HOST from GITHUB_SERVER_URL so the gh CLI targets the correct
-          # GitHub instance (GHES/GHEC). On github.com this is a harmless no-op.
-          GH_HOST="${GITHUB_SERVER_URL#https://}"
-          GH_HOST="${GH_HOST#http://}"
-          echo "GH_HOST=${GH_HOST}" >> "$GITHUB_ENV"
-      - name: Checkout the select-copilot-pat action folder
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 1
-          persist-credentials: false
-          sparse-checkout: .github/actions/select-copilot-pat
-          sparse-checkout-cone-mode: true
-      - name: Select Copilot token from pool
-        id: select-copilot-pat
-        uses: ./.github/actions/select-copilot-pat
-        env:
-          SECRET_0: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          SECRET_1: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
-          SECRET_2: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
-          SECRET_3: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
-          SECRET_4: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
-          SECRET_5: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
-          SECRET_6: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
-          SECRET_7: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
 
