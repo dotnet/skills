@@ -97,6 +97,8 @@ These are starting guesses. Always confirm the real parameter names/choices with
 
 Some mapped short names are not present in a default SDK install — templates like `maui`, `winui3`, `aspire-starter`/`aspire`, `func`, and `orleans` typically require a workload (`dotnet workload install <id>`) and/or an additional template package (`dotnet new install <package>`). If a mapped short name does not appear in `dotnet new list`, fall back to `dotnet new list`/`dotnet new search` to find the right template and the package/workload that provides it before recommending it.
 
+> **Resilience — always answer, even if the CLI fails.** The intent mapping above is a usable answer on its own. Run `dotnet new` commands **sequentially, one at a time** — the template engine uses a global mutex, so firing several `dotnet new <template> --help`/`--dry-run` calls concurrently can produce a transient "mutex"/"persistence" error and empty output. If a command fails, retry it once; if it still fails, **fall back to this intent/parameter mapping and give the user a concrete recommendation**, noting that the exact parameter names/choices could not be CLI-confirmed. Never end the turn with no answer because a CLI call errored.
+
 ### Step 2: Search for templates
 
 Use `dotnet new search` to find templates by keyword across both locally installed templates and NuGet.org:
@@ -149,6 +151,7 @@ Summarize the best template match with:
 | Not searching NuGet for templates | If `dotnet new list` shows no matches, use `dotnet new search <keyword>` to find installable templates on NuGet.org. |
 | Not checking template constraints | Some templates require specific SDKs or workloads. Use `dotnet new <template> --help` to surface constraints before recommending. |
 | Recommending a template without previewing output | Always use `dotnet new <template> --dry-run` to confirm the template produces what the user expects. |
+| A `dotnet new` call fails with a "mutex"/"persistence" error and you return nothing | These are transient (often from concurrent invocations). Run `dotnet new` calls sequentially, retry once, then fall back to the Step 1 intent mapping and still give the user a concrete answer. |
 
 ## More Info
 

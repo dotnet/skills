@@ -52,6 +52,12 @@ dotnet new webapp --help
 If a template is not installed, find and install it first (`dotnet new search <keyword>`,
 then `dotnet new install <package>`).
 
+> **Run `--help` calls sequentially.** The template engine uses a global mutex, so running
+> several `dotnet new <template> --help` commands concurrently can fail with a transient
+> "mutex"/"persistence" error and empty output. Inspect templates one at a time; if a call
+> fails, retry it once before moving on, and still produce the comparison from whatever
+> parameter knowledge you have rather than ending with no answer.
+
 ### Step 2: Build the comparison table
 
 Produce a side-by-side table covering:
