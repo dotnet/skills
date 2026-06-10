@@ -51,58 +51,97 @@ Up to 10 `SECRET_#` environment variables can be passed to the action, numbered 
 
 ```yml
 on:
-  # Add the pre-activation step of selecting a random PAT from the supplied secrets
-  steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      name: Checkout the select-copilot-pat action folder
-      with:
-        persist-credentials: false
-        sparse-checkout: .github/actions/select-copilot-pat
-        sparse-checkout-cone-mode: true
-        fetch-depth: 1
+  # ... your workflow's real triggers go here (schedule, issues, workflow_dispatch, etc.) ...
 
-    - id: select-copilot-pat
-      name: Select Copilot token from pool
-      uses: ./.github/actions/select-copilot-pat
-      env:
-        # If the secret names are changed here, they must also be changed
-        # in the `engine: env` case expression
-        SECRET_0: ${{ secrets.COPILOT_PAT_0 }}
-        SECRET_1: ${{ secrets.COPILOT_PAT_1 }}
-        SECRET_2: ${{ secrets.COPILOT_PAT_2 }}
-        SECRET_3: ${{ secrets.COPILOT_PAT_3 }}
-        SECRET_4: ${{ secrets.COPILOT_PAT_4 }}
-        SECRET_5: ${{ secrets.COPILOT_PAT_5 }}
-        SECRET_6: ${{ secrets.COPILOT_PAT_6 }}
-        SECRET_7: ${{ secrets.COPILOT_PAT_7 }}
-        SECRET_8: ${{ secrets.COPILOT_PAT_8 }}
-        SECRET_9: ${{ secrets.COPILOT_PAT_9 }}
+  # Run the `select_copilot_pat` custom job (defined under `jobs:` below) before
+  # the activation gate, so its `copilot_pat_number` output is available to the
+  # activation and agent jobs that consume it in `engine: env`.
+  needs: [select_copilot_pat]
 
-# Add the pre-activation output of the randomly selected PAT
+# Custom job that randomly selects one PAT number from the pool of secrets.
+# It MUST be a user-defined (non-built-in) job: because it is referenced in
+# `engine: env`, the compiler wires it as a *direct* dependency of the agent
+# job, so `needs.select_copilot_pat.outputs.*` resolves at runtime in BOTH the
+# activation and agent jobs. (Referencing the built-in `pre_activation` job here
+# does NOT work: the agent job only depends on `activation`, so
+# `needs.pre_activation.*` evaluates to an empty string in the agent job and the
+# rotation silently falls back to the default token.)
 jobs:
-  pre-activation:
+  select_copilot_pat:
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    # Optional: mirror your workflow's top-level `if:` here so PAT selection is
+    # gated the same way (e.g. skip scheduled runs on forks). If that condition
+    # starts with `!`, wrap it in parentheses — see the note after this block.
     outputs:
       copilot_pat_number: ${{ steps.select-copilot-pat.outputs.copilot_pat_number }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        name: Checkout the select-copilot-pat action folder
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions/select-copilot-pat
+          sparse-checkout-cone-mode: true
+          fetch-depth: 1
 
-# Override the COPILOT_GITHUB_TOKEN expression used in the activation job
-# Consume the PAT number from the pre-activation step and select the corresponding secret
+      - id: select-copilot-pat
+        name: Select Copilot token from pool
+        uses: ./.github/actions/select-copilot-pat
+        env:
+          # If the secret names are changed here, they must also be changed
+          # in the `engine: env` case expression
+          SECRET_0: ${{ secrets.COPILOT_PAT_0 }}
+          SECRET_1: ${{ secrets.COPILOT_PAT_1 }}
+          SECRET_2: ${{ secrets.COPILOT_PAT_2 }}
+          SECRET_3: ${{ secrets.COPILOT_PAT_3 }}
+          SECRET_4: ${{ secrets.COPILOT_PAT_4 }}
+          SECRET_5: ${{ secrets.COPILOT_PAT_5 }}
+          SECRET_6: ${{ secrets.COPILOT_PAT_6 }}
+          SECRET_7: ${{ secrets.COPILOT_PAT_7 }}
+          SECRET_8: ${{ secrets.COPILOT_PAT_8 }}
+          SECRET_9: ${{ secrets.COPILOT_PAT_9 }}
+
+# Override the COPILOT_GITHUB_TOKEN expression used by the Copilot engine.
+# Consume the PAT number from the select_copilot_pat job and select the corresponding secret.
 engine:
   id: copilot
   env:
     # We cannot use line breaks in this expression as it leads to a syntax error in the compiled workflow
     # If none of the `COPILOT_PAT_#` secrets were selected, then the default COPILOT_GITHUB_TOKEN is used
-    COPILOT_GITHUB_TOKEN: ${{ case(needs.pre_activation.outputs.copilot_pat_number == '0', secrets.COPILOT_PAT_0, needs.pre_activation.outputs.copilot_pat_number == '1', secrets.COPILOT_PAT_1, needs.pre_activation.outputs.copilot_pat_number == '2', secrets.COPILOT_PAT_2, needs.pre_activation.outputs.copilot_pat_number == '3', secrets.COPILOT_PAT_3, needs.pre_activation.outputs.copilot_pat_number == '4', secrets.COPILOT_PAT_4, needs.pre_activation.outputs.copilot_pat_number == '5', secrets.COPILOT_PAT_5, needs.pre_activation.outputs.copilot_pat_number == '6', secrets.COPILOT_PAT_6, needs.pre_activation.outputs.copilot_pat_number == '7', secrets.COPILOT_PAT_7, needs.pre_activation.outputs.copilot_pat_number == '8', secrets.COPILOT_PAT_8, needs.pre_activation.outputs.copilot_pat_number == '9', secrets.COPILOT_PAT_9, secrets.COPILOT_GITHUB_TOKEN) }}
+    COPILOT_GITHUB_TOKEN: ${{ case(needs.select_copilot_pat.outputs.copilot_pat_number == '0', secrets.COPILOT_PAT_0, needs.select_copilot_pat.outputs.copilot_pat_number == '1', secrets.COPILOT_PAT_1, needs.select_copilot_pat.outputs.copilot_pat_number == '2', secrets.COPILOT_PAT_2, needs.select_copilot_pat.outputs.copilot_pat_number == '3', secrets.COPILOT_PAT_3, needs.select_copilot_pat.outputs.copilot_pat_number == '4', secrets.COPILOT_PAT_4, needs.select_copilot_pat.outputs.copilot_pat_number == '5', secrets.COPILOT_PAT_5, needs.select_copilot_pat.outputs.copilot_pat_number == '6', secrets.COPILOT_PAT_6, needs.select_copilot_pat.outputs.copilot_pat_number == '7', secrets.COPILOT_PAT_7, needs.select_copilot_pat.outputs.copilot_pat_number == '8', secrets.COPILOT_PAT_8, needs.select_copilot_pat.outputs.copilot_pat_number == '9', secrets.COPILOT_PAT_9, secrets.COPILOT_GITHUB_TOKEN) }}
 ```
+
+> **Why a custom job and `on.needs` (not `pre_activation`)?** The agent job that
+> runs the engine only depends on the built-in `activation` job. GitHub Actions'
+> `needs` context exposes **only direct dependencies**, so a
+> `needs.pre_activation.*` reference inside `engine: env` evaluates to an empty
+> string in the agent job — the `case()` silently falls back to the default
+> `COPILOT_GITHUB_TOKEN` and rotation never reaches the agent. Declaring a
+> user-defined `select_copilot_pat` job and referencing it in `engine: env`
+> makes the compiler add it as a **direct** dependency of the agent job, so the
+> value resolves correctly. `on.needs` makes it run before the activation gate.
+
+> **gh-aw note (fork guards / `if:` starting with `!`).** gh-aw renders the
+> top-level frontmatter `if:` onto the built-in `pre_activation` job **without** a
+> `${{ }}` wrapper. A YAML scalar that starts with `!` is parsed as a tag, so an
+> emitted `if: !(...)` is invalid YAML and GitHub rejects the workflow with a
+> startup failure. If your top-level `if:` (or the optional `if:` you add to
+> `select_copilot_pat`) starts with `!`, wrap it in parentheses so the emitted
+> scalar starts with `(`, e.g.
+> `if: ${{ (!(github.event_name == 'schedule' && github.event.repository.fork)) }}`.
 
 ## Design / Security
 
 There are several details of this implementation that keep our workflows and repositories safe.
 
 1. **Secrets adhere to existing trust boundaries.** The pool of PAT secrets is
-   provided to the `select-copilot-pat` action within the `pre_activation`
-   job, which is a deterministic and trusted portion of the workflow. No
-   untrusted context or input is within scope during this job. The action step
-   runs within that job, and the secrets do not get passed across contexts. The
+   provided to the `select-copilot-pat` action within the `select_copilot_pat`
+   job, which is a deterministic and trusted portion of the workflow (declared
+   as an `on.needs` dependency so it runs before activation). No untrusted
+   context or input is within scope during this job, and on fork pull requests
+   the pool secrets are simply unavailable. The action step runs within that
+   job, and the secrets do not get passed across contexts. The
    `select-copilot-pat` action only references the secret values to determine
    which values are non-empty, filtering the secret numbers to those with
    values.
@@ -112,10 +151,11 @@ There are several details of this implementation that keep our workflows and rep
    returned secret number to provide the corresponding PAT to the agent job.
 1. **The implementation uses existing extensibility hooks in Agentic
    Workflows.** Everything is supported by `gh aw compile` in this approach,
-   and no hand-editing of the compiled output is required. The `pre_activation`
-   job is designed for this type of extensibility, and the
-   [secret override][secret-override] capability was added to support using a
-   secret with a name different from the default `COPILOT_GITHUB_TOKEN`.
+   and no hand-editing of the compiled output is required. Custom jobs,
+   `on.needs` (which sequences a custom job before the activation gate), and the
+   [secret override][secret-override] capability (which supports using a secret
+   with a name different from the default `COPILOT_GITHUB_TOKEN`) are all
+   first-class features.
 
 Each of the references below contributed to the design and implementation to ensure a secure and reliable design.
 
