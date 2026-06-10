@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using SkillValidator.Check;
 using SkillValidator.Evaluate;
 using SkillValidator.Shared;
 
@@ -11,8 +10,7 @@ namespace SkillValidator;
     WriteIndented = true,
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     PropertyNameCaseInsensitive = true,
-    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    UseStringEnumConverter = true)]
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(ResultsOutput))]
 [JsonSerializable(typeof(ConsolidateData))]
 [JsonSerializable(typeof(SkillVerdict))]
@@ -44,7 +42,6 @@ namespace SkillValidator;
 [JsonSerializable(typeof(Dictionary<string, int>))]
 [JsonSerializable(typeof(Dictionary<string, JsonNode?>))]
 [JsonSerializable(typeof(string[]))]
-[JsonSerializable(typeof(CheckJsonOutput))]
 [JsonSerializable(typeof(List<SkillVerdict>))]
 [JsonSerializable(typeof(IReadOnlyList<SkillVerdict>))]
 internal partial class SkillValidatorJsonContext : JsonSerializerContext;

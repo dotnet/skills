@@ -6,6 +6,10 @@ namespace SkillValidator.Check;
 
 public static class CheckCommand
 {
+    private static readonly StringComparison s_pathComparison = OperatingSystem.IsWindows()
+        ? StringComparison.OrdinalIgnoreCase
+        : StringComparison.Ordinal;
+
     public static Command Create()
     {
         var pluginOpt = new Option<string[]>("--plugin") { Description = "Plugin directories to check (discovers skills, agents, plugin.json)", AllowMultipleArgumentsPerToken = true };
@@ -85,19 +89,19 @@ public static class CheckCommand
 
         if (!hasPlugin && !hasSkills && !hasAgents)
         {
-            builder.AddPlainError("Specify one of --plugin, --skills, or --agents. Use --plugin to check an entire plugin directory.");
+            builder.AddGeneralError("Specify one of --plugin, --skills, or --agents. Use --plugin to check an entire plugin directory.");
             return false;
         }
 
         if (hasPlugin && (hasSkills || hasAgents))
         {
-            builder.AddPlainError("--plugin cannot be combined with --skills or --agents. Use --plugin alone to check an entire plugin directory.");
+            builder.AddGeneralError("--plugin cannot be combined with --skills or --agents. Use --plugin alone to check an entire plugin directory.");
             return false;
         }
 
         if (config.CheckOptions.AllowRepoTraversal && hasPlugin)
         {
-            builder.AddPlainError("--allow-repo-traversal cannot be used with --plugin. Plugins must be portable — use --skills or --agents instead.");
+            builder.AddGeneralError("--allow-repo-traversal cannot be used with --plugin. Plugins must be portable — use --skills or --agents instead.");
             return false;
         }
 
@@ -128,7 +132,6 @@ public static class CheckCommand
         foreach (var pluginDir in config.PluginPaths)
         {
             var fullPath = Path.GetFullPath(pluginDir);
-            var pluginName = Path.GetFileName(fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
             var pluginJsonPath = Path.Combine(fullPath, "plugin.json");
 
             if (!File.Exists(pluginJsonPath))
@@ -162,10 +165,10 @@ public static class CheckCommand
                     continue;
 
                 var skills = await SkillDiscovery.DiscoverSkills(dir!);
-                if (!pluginSkills.TryGetValue(pluginName, out var pluginSkillList))
+                if (!pluginSkills.TryGetValue(plugin.DirectoryPath, out var pluginSkillList))
                 {
                     pluginSkillList = [];
-                    pluginSkills[pluginName] = pluginSkillList;
+                    pluginSkills[plugin.DirectoryPath] = pluginSkillList;
                 }
 
                 pluginSkillList.AddRange(skills);
@@ -206,19 +209,25 @@ public static class CheckCommand
 
         if (allSkillsList.Count == 0 && allAgents.Count == 0)
         {
-            builder.AddPlainError("No skills or agents found in the specified plugin(s).");
+            builder.AddGeneralError("No skills or agents found in the specified plugin(s).");
             return 1;
         }
 
-        foreach (var (pluginName, skills) in pluginSkills)
+        foreach (var (pluginDirectoryPath, skills) in pluginSkills)
         {
             int totalChars = skills.Sum(s => s.Description.Length);
             if (totalChars <= SkillProfiler.MaxAggregateDescriptionLength)
                 continue;
 
-            var message = $"Plugin '{pluginName}' aggregate description size is {totalChars:N0} characters — maximum is {SkillProfiler.MaxAggregateDescriptionLength:N0}.";
-            if (builder.Plugins.FirstOrDefault(p => string.Equals(p.Name, pluginName, StringComparison.Ordinal)) is { } pluginResult)
+            var pluginResult = builder.Plugins.FirstOrDefault(p => string.Equals(p.DirectoryPath, pluginDirectoryPath, StringComparison.Ordinal));
+            var pluginLabel = pluginResult?.Name
+                ?? Path.GetFileName(pluginDirectoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            var message = $"Plugin '{pluginLabel}' aggregate description size is {totalChars:N0} characters — maximum is {SkillProfiler.MaxAggregateDescriptionLength:N0}.";
+            if (pluginResult is not null)
                 pluginResult.Errors.Add(message);
+            else
+                builder.AddGeneralError(message);
+
             return 1;
         }
 
@@ -294,7 +303,7 @@ public static class CheckCommand
             if (skillPaths.Count > 0)
             {
                 var searched = string.Join(", ", skillPaths.Select(p => $"\"{Path.GetFullPath(p)}\""));
-                builder.AddPlainError($"No skills found in the specified paths: {searched}");
+                builder.AddGeneralError($"No skills found in the specified paths: {searched}");
                 return ([], 1);
             }
 
@@ -323,7 +332,7 @@ public static class CheckCommand
             if (agentPaths.Count > 0)
             {
                 var searched = string.Join(", ", agentPaths.Select(p => $"\"{Path.GetFullPath(p)}\""));
-                builder.AddPlainError($"No agents found in the specified paths: {searched}");
+                builder.AddGeneralError($"No agents found in the specified paths: {searched}");
                 return ([], [], 1);
             }
 
@@ -460,7 +469,7 @@ public static class CheckCommand
         if (report.Invocation.OutputMode == CheckOutputMode.Json)
         {
             var jsonOutput = CreateJsonOutput(report);
-            Console.Out.WriteLine(JsonSerializer.Serialize(jsonOutput, SkillValidatorJsonContext.Default.CheckJsonOutput));
+            Console.Out.WriteLine(JsonSerializer.Serialize(jsonOutput, CheckJsonSerializerContext.Default.CheckJsonOutput));
             return;
         }
 
@@ -522,20 +531,32 @@ public static class CheckCommand
                     .ToList()))
             .ToList();
 
+        var pluginsByName = new Dictionary<string, CheckJsonPlugin>(StringComparer.Ordinal);
+        foreach (var plugin in plugins)
+            pluginsByName.TryAdd(plugin.Name, plugin);
+
+        var skillsByName = new Dictionary<string, CheckJsonSkill>(StringComparer.Ordinal);
+        foreach (var skill in skills)
+            skillsByName.TryAdd(skill.Name, skill);
+
+        var agentsByName = new Dictionary<string, CheckJsonAgent>(StringComparer.Ordinal);
+        foreach (var agent in agents)
+            agentsByName.TryAdd(agent.Name, agent);
+
         foreach (var dependency in report.ExternalDependencies)
         {
             switch (dependency.Kind)
             {
                 case "plugin":
-                    if (plugins.FirstOrDefault(plugin => string.Equals(plugin.Name, dependency.Name, StringComparison.Ordinal)) is { } plugin)
+                    if (pluginsByName.TryGetValue(dependency.Name, out var plugin))
                         plugin.Warnings.Add(new CheckJsonWarning("externalDependency", dependency.Message));
                     break;
                 case "skill":
-                    if (skills.FirstOrDefault(skill => string.Equals(skill.Name, dependency.Name, StringComparison.Ordinal)) is { } skill)
+                    if (skillsByName.TryGetValue(dependency.Name, out var skill))
                         skill.Warnings.Add(new CheckJsonWarning("externalDependency", dependency.Message));
                     break;
                 case "agent":
-                    if (agents.FirstOrDefault(agent => string.Equals(agent.Name, dependency.Name, StringComparison.Ordinal)) is { } agent)
+                    if (agentsByName.TryGetValue(dependency.Name, out var agent))
                         agent.Warnings.Add(new CheckJsonWarning("externalDependency", dependency.Message));
                     break;
             }
@@ -722,7 +743,7 @@ public static class CheckCommand
         var fullCandidatePath = Path.GetFullPath(candidatePath);
         var fullContainerPath = Path.GetFullPath(containerPath);
 
-        if (string.Equals(fullCandidatePath, fullContainerPath, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(fullCandidatePath, fullContainerPath, s_pathComparison))
             return true;
 
         if (File.Exists(fullContainerPath))
@@ -731,7 +752,7 @@ public static class CheckCommand
         var normalizedContainer = fullContainerPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar;
 
-        return fullCandidatePath.StartsWith(normalizedContainer, StringComparison.OrdinalIgnoreCase);
+        return fullCandidatePath.StartsWith(normalizedContainer, s_pathComparison);
     }
 
     private sealed class CheckReportBuilder(CheckConfig config, string scope)
@@ -747,8 +768,6 @@ public static class CheckCommand
         public List<ExternalDependencyResult> ExternalDependencies { get; } = [];
 
         public ReferenceScanReport? ReferenceScan { get; set; }
-
-        public void AddPlainError(string text) => GeneralErrors.Add(text);
 
         public void AddGeneralError(string text) => GeneralErrors.Add(text);
 
