@@ -2,61 +2,6 @@
   "entries": {
     "Efficiency": [
       {
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "overfittingScore": 0.3,
-            "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
-            "unit": "seconds",
-            "value": 14.0
-          },
-          {
-            "overfittingScore": 0.3,
-            "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 25085.0
-          },
-          {
-            "overfittingScore": 0.3,
-            "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time",
-            "unit": "seconds",
-            "value": 12.3
-          },
-          {
-            "overfittingScore": 0.3,
-            "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 19048.0
-          },
-          {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time",
-            "unit": "seconds",
-            "value": 10.4
-          },
-          {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 13058.0
-          }
-        ],
-        "model": "claude-opus-4.6",
-        "commit": {
-          "url": "https://github.com/dotnet/skills/commit/a9c35454f22bb2c6c640bb90ae56625e826f9a82",
-          "id": "a9c35454f22bb2c6c640bb90ae56625e826f9a82",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "dependabot[bot]"
-          },
-          "message": "Bump github/gh-aw-actions in the github-actions-dependencies group (#678)",
-          "timestamp": "2026-05-26T09:04:16+00:00"
-        },
-        "date": 1779850010659
-      },
-      {
         "benches": [
           {
             "unit": "seconds",
@@ -385,45 +330,64 @@
             "value": 13055.0
           }
         ]
-      }
-    ],
-    "Quality": [
+      },
       {
-        "tool": "customBiggerIsBetter",
         "benches": [
           {
-            "overfittingScore": 0.3,
+            "overfittingScore": 0.31,
             "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 9.600000381469727
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
+            "unit": "seconds",
+            "value": 17.2
           },
           {
-            "overfittingScore": 0.3,
+            "overfittingScore": 0.31,
             "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 24957.0
           },
           {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 10.0
+            "overfittingScore": 0.31,
+            "overfitting": "moderate",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time",
+            "unit": "seconds",
+            "value": 16.4
+          },
+          {
+            "overfittingScore": 0.31,
+            "overfitting": "moderate",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 16027.0
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time",
+            "unit": "seconds",
+            "value": 10.8
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 13036.0
           }
         ],
         "model": "claude-opus-4.6",
+        "date": 1781061363872,
+        "tool": "customSmallerIsBetter",
         "commit": {
-          "url": "https://github.com/dotnet/skills/commit/a9c35454f22bb2c6c640bb90ae56625e826f9a82",
-          "id": "a9c35454f22bb2c6c640bb90ae56625e826f9a82",
+          "message": "Fix dotnet-msbuild Codex plugin install by externalizing mcpServers (#740)",
+          "url": "https://github.com/dotnet/skills/commit/c85a2d8d9f1bbb8258038e5be22f8b723dc778cc",
           "author": {
-            "username": "JanKrivanek",
-            "name": "dependabot[bot]"
+            "name": "Abhitej John",
+            "username": "JanKrivanek"
           },
-          "message": "Bump github/gh-aw-actions in the github-actions-dependencies group (#678)",
-          "timestamp": "2026-05-26T09:04:16+00:00"
-        },
-        "date": 1779850010659
-      },
+          "timestamp": "2026-06-10T00:07:14+00:00",
+          "id": "c85a2d8d9f1bbb8258038e5be22f8b723dc778cc"
+        }
+      }
+    ],
+    "Quality": [
       {
         "benches": [
           {
@@ -639,9 +603,45 @@
             "value": 10.0
           }
         ]
+      },
+      {
+        "benches": [
+          {
+            "overfittingScore": 0.31,
+            "overfitting": "moderate",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 9.199999809265137
+          },
+          {
+            "overfittingScore": 0.31,
+            "overfitting": "moderate",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 9.199999809265137
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 9.600000381469727
+          }
+        ],
+        "model": "claude-opus-4.6",
+        "date": 1781061363872,
+        "tool": "customBiggerIsBetter",
+        "commit": {
+          "message": "Fix dotnet-msbuild Codex plugin install by externalizing mcpServers (#740)",
+          "url": "https://github.com/dotnet/skills/commit/c85a2d8d9f1bbb8258038e5be22f8b723dc778cc",
+          "author": {
+            "name": "Abhitej John",
+            "username": "JanKrivanek"
+          },
+          "timestamp": "2026-06-10T00:07:14+00:00",
+          "id": "c85a2d8d9f1bbb8258038e5be22f8b723dc778cc"
+        }
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1780973874655
+  "lastUpdate": 1781061363872
 }
