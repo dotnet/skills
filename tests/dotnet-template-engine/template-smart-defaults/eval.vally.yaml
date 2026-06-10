@@ -26,15 +26,15 @@ stimuli:
       expect_tools:
         - skill
   - name: Auth implies HTTPS stays enabled
-    prompt: "I want to create a webapi with Individual authentication. Pick sensible related defaults for me and explain them before creating anything."
+    prompt: "I want to create a webapi with Individual authentication. List the exact set of dotnet new flags you would pass (then a brief explanation) before creating anything."
     graders:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)(individual)
-      - type: output-matches
+          pattern: (?i)individual
+      - type: output-not-contains
         config:
-          pattern: (?i)(https|no-https)
+          substring: --no-https
       - type: prompt
       - type: pairwise
     rubric:
@@ -52,6 +52,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)(use-controllers|controllers)
+      - type: output-not-matches
+        config:
+          pattern: (?i)--[a-z-]*minimal
       - type: prompt
       - type: pairwise
     rubric:
@@ -69,6 +72,9 @@ stimuli:
       - type: output-contains
         config:
           substring: net8.0
+      - type: output-not-matches
+        config:
+          pattern: (?i)--framework[ =]+net(9|10)\.0
       - type: prompt
       - type: pairwise
     rubric:

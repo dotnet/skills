@@ -16,7 +16,16 @@ stimuli:
           pattern: (?i)webapp
       - type: output-matches
         config:
-          pattern: (?i)(auth|aot|docker|controllers)
+          pattern: (?i)auth
+      - type: output-matches
+        config:
+          pattern: (?i)aot
+      - type: output-matches
+        config:
+          pattern: (?i)docker
+      - type: output-matches
+        config:
+          pattern: (?i)controllers
       - type: prompt
       - type: pairwise
     rubric:

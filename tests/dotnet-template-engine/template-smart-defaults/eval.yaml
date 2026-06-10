@@ -18,13 +18,13 @@ scenarios:
     timeout: 180
 
   - name: "Auth implies HTTPS stays enabled"
-    prompt: "I want to create a webapi with Individual authentication. Pick sensible related defaults for me and explain them before creating anything."
+    prompt: "I want to create a webapi with Individual authentication. List the exact set of dotnet new flags you would pass (then a brief explanation) before creating anything."
     assertions:
       - type: "exit_success"
       - type: "output_matches"
-        pattern: "(?i)(individual)"
-      - type: "output_matches"
-        pattern: "(?i)(https|no-https)"
+        pattern: "(?i)individual"
+      - type: "output_not_contains"
+        value: "--no-https"
     rubric:
       - "The agent used the template-smart-defaults skill"
       - "Because auth is not None, the agent did NOT add a --no-https flag"
@@ -40,6 +40,8 @@ scenarios:
       - type: "exit_success"
       - type: "output_matches"
         pattern: "(?i)(use-controllers|controllers)"
+      - type: "output_not_matches"
+        pattern: "(?i)--[a-z-]*minimal"
     rubric:
       - "The agent used the template-smart-defaults skill"
       - "The agent passed the controllers flag"
@@ -55,6 +57,8 @@ scenarios:
       - type: "exit_success"
       - type: "output_contains"
         value: "net8.0"
+      - type: "output_not_matches"
+        pattern: "(?i)--framework[ =]+net(9|10)\\.0"
     rubric:
       - "The agent used the template-smart-defaults skill"
       - "The agent respected the explicit net8.0 framework the user set"
