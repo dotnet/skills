@@ -84,10 +84,13 @@ dotnet new webapi --name MyApi --output ./src/MyApi --framework net10.0 --auth I
 
 Note: Use `dotnet new <template> --help` to see all available parameters for any template.
 
-After creation, if the workspace uses CPM:
-1. Check `.csproj` for inline `<PackageReference>` versions
-2. Move version attributes to `Directory.Packages.props` as `<PackageVersion>` entries
-3. Remove `Version` attributes from the `.csproj`
+After creation, adapt the project to Central Package Management and refresh stale versions:
+
+1. **Detect CPM** — walk up the directory tree from the new project looking for a `Directory.Packages.props`.
+2. **Strip inline versions** — if found, for each `<PackageReference Include="X" Version="Y" />` the template generated, remove the `Version` attribute from the `.csproj` (leaving `<PackageReference Include="X" />`).
+3. **Centralize the version** — add or merge a `<PackageVersion Include="X" Version="Y" />` entry in `Directory.Packages.props`.
+4. **Optionally refresh stale template-default versions** — templates often hardcode old versions. Query the latest **stable** version per package (e.g., the NuGet V3 flat-container `index.json` endpoint for that package ID) and use that instead of the template's hardcoded version. This is opt-out-able: keep the original versions if the user prefers reproducibility.
+5. **Build** — run `dotnet build` to confirm the centralized/refreshed versions resolve.
 
 ### Step 5: Multi-project composition (optional)
 

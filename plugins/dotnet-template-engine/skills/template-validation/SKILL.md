@@ -61,9 +61,11 @@ When reviewing a template.json, check ALL of the following categories systematic
 
 ### 3. ShortName Conflicts
 
-The following short names conflict with dotnet CLI commands and will cause problems:
+The following short names conflict with `dotnet new` subcommands and will cause problems:
 
-`new`, `build`, `run`, `test`, `publish`, `restore`, `clean`, `pack`, `add`, `remove`, `list`, `nuget`, `tool`, `sln`, `help`
+`install`, `uninstall`, `update`, `list`, `search`, `details`, `create`
+
+These conflict because `dotnet new <name>` would be parsed as the `dotnet new` subcommand of the same name. Note that top-level `dotnet` verbs like `build`, `run`, `test`, and `publish` do NOT conflict — `dotnet new test` does not collide with `dotnet test`.
 
 - ERROR if shortName matches any reserved name (case-insensitive)
 - WARNING if shortName is only 1 character — too short for discoverability
@@ -147,7 +149,7 @@ Include the total: "X error(s), Y warning(s), Z suggestion(s)"
 
 | Pitfall | Impact |
 |---------|--------|
-| ShortName = "test" or "build" | Template can never be created — conflicts with CLI |
+| ShortName = "list" or "search" | Template can never be created — conflicts with a `dotnet new` subcommand |
 | Missing `sourceName` | `--name MyProject` doesn't rename anything in the generated files |
 | Choice parameter without `defaultValue` | Confusing user experience on optional choice params |
 | Invalid `datatype` value | Template engine ignores the symbol, causing silent failures |

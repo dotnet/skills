@@ -9,7 +9,8 @@ description: >
   produces before creating a project, resolving intent like "web API with auth" to
   concrete template + parameters.
   DO NOT USE FOR: actually creating projects (use template-instantiation), authoring
-  custom templates (use template-authoring), MSBuild or build issues (use dotnet-msbuild
+  custom templates (use template-authoring), comparing templates side by side in detail
+  (use template-comparison), MSBuild or build issues (use dotnet-msbuild
   plugin), NuGet package management unrelated to template packages.
 license: MIT
 ---
@@ -29,6 +30,7 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 
 - User wants to create a project — route to `template-instantiation` skill
 - User wants to author or validate a custom template — route to `template-authoring` skill
+- User wants a detailed side-by-side comparison of templates — route to `template-comparison` skill
 - User is troubleshooting build issues — route to `dotnet-msbuild` plugin
 
 ## Inputs
@@ -43,19 +45,55 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 
 ### Step 1: Resolve intent to template candidates
 
-Map the user's natural-language description to template short names using these common keyword mappings:
+Map the user's natural-language description to template short names and parameters using these mappings.
 
-| User Intent | Template | Suggested Parameters |
-|-------------|----------|---------------------|
-| web API, REST API | `webapi` | `--auth Individual --use-controllers` if auth requested |
-| web app, website | `webapp` | |
-| Blazor, interactive web | `blazor` | |
-| console app, CLI tool | `console` | |
-| class library, shared code | `classlib` | |
-| worker service, background job | `worker` | |
-| gRPC service | `grpc` | |
-| MAUI app, mobile app | `maui` | |
-| test project, unit tests | `xunit`, `mstest`, or `nunit` | |
+**Intent → template short name(s):**
+
+| Intent / phrase | Template short name(s) |
+|---|---|
+| web api, web service, rest api, restful, api, minimal api | `webapi` |
+| web app, web application | `webapp`, `blazorserver` |
+| mvc | `mvc` |
+| razor, razor pages | `webapp` |
+| blazor, blazor web app | `blazor` |
+| blazor server | `blazorserver` |
+| blazor wasm, blazor webassembly | `blazorwasm` |
+| grpc | `grpc` |
+| signalr | `webapi`, `webapp` |
+| console, console app, command line, cli | `console` |
+| worker, background service, daemon, windows service | `worker` |
+| class library, library, lib, nuget package | `classlib` |
+| maui, mobile, cross-platform app, ios, android | `maui` |
+| desktop | `maui`, `wpf`, `winforms` |
+| wpf | `wpf` |
+| winforms, windows forms | `winforms` |
+| winui, winui3 | `winui3` |
+| test, unit test | `xunit`, `nunit`, `mstest` |
+| xunit / nunit / mstest | `xunit` / `nunit` / `mstest` |
+| solution | `sln` |
+| aspire, .net aspire | `aspire-starter`, `aspire` |
+| azure functions, function app, serverless | `func` |
+| orleans | `orleans` |
+| razor component, web component | `razorcomponent` |
+| razor class library | `razorclasslib` |
+| gitignore / editorconfig / nuget config / global json | `gitignore` / `editorconfig` / `nugetconfig` / `globaljson` |
+
+**Keyword → parameter:**
+
+| Keyword / phrase | Parameter | Value |
+|---|---|---|
+| authentication, auth, individual auth, individual accounts | `--auth` | `Individual` |
+| windows auth, azure ad, entra | `--auth` | `SingleOrg` |
+| no auth, no authentication | `--auth` | `None` |
+| controllers, with controllers | `--use-controllers` | (flag) |
+| minimal api | (default) | — |
+| aot, native aot | `--aot` | (flag) |
+| docker, container | `--enable-docker` | (flag) |
+| net8 / .net 8 / dotnet 8 | `--framework` | `net8.0` |
+| net9 / .net 9 / dotnet 9 | `--framework` | `net9.0` |
+| net10 / .net 10 / dotnet 10 | `--framework` | `net10.0` |
+
+These are starting guesses. Always confirm the real parameter names/choices with `dotnet new <template> --help`, because parameter names vary by template (e.g., `--auth` vs `--Authentication`).
 
 ### Step 2: Search for templates
 
