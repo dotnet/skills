@@ -65,7 +65,7 @@ The following short names conflict with `dotnet new` subcommands and will cause 
 
 `install`, `uninstall`, `update`, `list`, `search`, `details`, `create`
 
-These conflict because `dotnet new <name>` would be parsed as the `dotnet new` subcommand of the same name. Note that top-level `dotnet` verbs like `build`, `run`, `test`, and `publish` do NOT conflict — `dotnet new test` does not collide with `dotnet test`.
+This list reflects the current `dotnet new` subcommands — `dotnet new --help` is the authoritative source, so treat it as the reserved set for the installed SDK rather than a frozen, exhaustive list (e.g., `create` is the alias subcommand behind `dotnet new <template>`). These conflict because `dotnet new <name>` would be parsed as the `dotnet new` subcommand of the same name. Note that top-level `dotnet` verbs like `build`, `run`, `test`, and `publish` do NOT conflict — `dotnet new test` does not collide with `dotnet test`.
 
 - ERROR if shortName matches any reserved name (case-insensitive)
 - WARNING if shortName is only 1 character — too short for discoverability

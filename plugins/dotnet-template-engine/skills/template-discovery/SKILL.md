@@ -95,6 +95,8 @@ Map the user's natural-language description to template short names and paramete
 
 These are starting guesses. Always confirm the real parameter names/choices with `dotnet new <template> --help`, because parameter names vary by template (e.g., `--auth` vs `--Authentication`).
 
+Some mapped short names are not present in a default SDK install — templates like `maui`, `winui3`, `aspire-starter`/`aspire`, `func`, and `orleans` typically require a workload (`dotnet workload install <id>`) and/or an additional template package (`dotnet new install <package>`). If a mapped short name does not appear in `dotnet new list`, fall back to `dotnet new list`/`dotnet new search` to find the right template and the package/workload that provides it before recommending it.
+
 ### Step 2: Search for templates
 
 Use `dotnet new search` to find templates by keyword across both locally installed templates and NuGet.org:

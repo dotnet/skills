@@ -89,7 +89,10 @@ After creation, adapt the project to Central Package Management and refresh stal
 1. **Detect CPM** — walk up the directory tree from the new project looking for a `Directory.Packages.props`.
 2. **Strip inline versions** — if found, for each `<PackageReference Include="X" Version="Y" />` the template generated, remove the `Version` attribute from the `.csproj` (leaving `<PackageReference Include="X" />`).
 3. **Centralize the version** — add or merge a `<PackageVersion Include="X" Version="Y" />` entry in `Directory.Packages.props`.
-4. **Optionally refresh stale template-default versions** — templates often hardcode old versions. Query the latest **stable** version per package (e.g., the NuGet V3 flat-container `index.json` endpoint for that package ID) and use that instead of the template's hardcoded version. This is opt-out-able: keep the original versions if the user prefers reproducibility.
+4. **Optionally refresh stale template-default versions** — templates often hardcode old versions. Keep the template's versions by default (safest for reproducibility and controlled upgrades). Only refresh when the user asks, and when you do:
+   - Prefer a tooling-driven flow: run `dotnet list package --outdated` and confirm the proposed bumps with the user before changing anything.
+   - Constrain upgrades to the same **major** (or major/minor) version unless the user explicitly opts into larger upgrades, since cross-major bumps can introduce breaking changes.
+   - When checking the latest **stable** version of a package conceptually, the NuGet V3 flat-container `index.json` endpoint for that package ID lists published versions; never select a prerelease unless requested.
 5. **Build** — run `dotnet build` to confirm the centralized/refreshed versions resolve.
 
 ### Step 5: Multi-project composition (optional)
