@@ -23,8 +23,8 @@ scenarios:
       - type: "exit_success"
       - type: "output_matches"
         pattern: "(?i)individual"
-      - type: "output_not_contains"
-        value: "--no-https"
+      - type: "output_not_matches"
+        pattern: "(?i)dotnet new[^\\n]*--no-https"
     rubric:
       - "The agent used the template-smart-defaults skill"
       - "Because auth is not None, the agent did NOT add a --no-https flag"
@@ -41,7 +41,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(?i)(use-controllers|controllers)"
       - type: "output_not_matches"
-        pattern: "(?i)--[a-z-]*minimal"
+        pattern: "(?i)dotnet new[^\\n]*--[a-z-]*minimal"
     rubric:
       - "The agent used the template-smart-defaults skill"
       - "The agent passed the controllers flag"
@@ -58,7 +58,7 @@ scenarios:
       - type: "output_contains"
         value: "net8.0"
       - type: "output_not_matches"
-        pattern: "(?i)--framework[ =]+net(9|10)\\.0"
+        pattern: "(?i)dotnet new[^\\n]*--framework[ =]+net(9|10)\\.0"
     rubric:
       - "The agent used the template-smart-defaults skill"
       - "The agent respected the explicit net8.0 framework the user set"

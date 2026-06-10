@@ -63,7 +63,7 @@ When reviewing a template.json, check ALL of the following categories systematic
 
 A shortName that matches a `dotnet new` subcommand conflicts, because `dotnet new <name>` is then parsed as that subcommand instead of instantiating the template. Read the reserved set for the installed SDK from the `Commands:` section of `dotnet new --help` — that is the authoritative source and avoids this rule going stale.
 
-As of current SDKs the subcommands include (non-exhaustive examples): `install`, `uninstall`, `update`, `list`, `search`, `details`, `create`. Note that top-level `dotnet` verbs like `build`, `run`, `test`, and `publish` do NOT conflict — `dotnet new test` does not collide with `dotnet test`.
+As of current SDKs the subcommands include (illustrative only — version-dependent, do not hardcode this list; the live `dotnet new --help` output is canonical): `install`, `uninstall`, `update`, `list`, `search`, `details`, `create`. Note that top-level `dotnet` verbs like `build`, `run`, `test`, and `publish` do NOT conflict — `dotnet new test` does not collide with `dotnet test`.
 
 - ERROR if shortName matches any subcommand reported by `dotnet new --help` (case-insensitive)
 - WARNING if shortName is only 1 character — too short for discoverability

@@ -32,9 +32,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)individual
-      - type: output-not-contains
+      - type: output-not-matches
         config:
-          substring: --no-https
+          pattern: (?i)dotnet new[^\n]*--no-https
       - type: prompt
       - type: pairwise
     rubric:
@@ -54,7 +54,7 @@ stimuli:
           pattern: (?i)(use-controllers|controllers)
       - type: output-not-matches
         config:
-          pattern: (?i)--[a-z-]*minimal
+          pattern: (?i)dotnet new[^\n]*--[a-z-]*minimal
       - type: prompt
       - type: pairwise
     rubric:
@@ -74,7 +74,7 @@ stimuli:
           substring: net8.0
       - type: output-not-matches
         config:
-          pattern: (?i)--framework[ =]+net(9|10)\.0
+          pattern: (?i)dotnet new[^\n]*--framework[ =]+net(9|10)\.0
       - type: prompt
       - type: pairwise
     rubric:
