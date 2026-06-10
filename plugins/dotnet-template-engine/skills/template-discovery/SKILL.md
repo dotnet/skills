@@ -88,7 +88,7 @@ Map the user's natural-language description to template short names and paramete
 | controllers, with controllers | `--use-controllers` | (flag) |
 | minimal api | (default) | — |
 | aot, native aot | `--aot` | (flag) |
-| docker, container | `--enable-docker` | (flag) |
+| docker, container | the template's Docker/container option | varies by template — confirm with `--help` (not all templates expose one) |
 | net8 / .net 8 / dotnet 8 | `--framework` | `net8.0` |
 | net9 / .net 9 / dotnet 9 | `--framework` | `net9.0` |
 | net10 / .net 10 / dotnet 10 | `--framework` | `net10.0` |

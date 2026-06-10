@@ -5,7 +5,7 @@ config:
   timeout: 3m
 stimuli:
   - name: AOT implies a compatible framework
-    prompt: "Create a native AOT web API. I haven't picked a target framework — choose an appropriate one for me and explain why. Don't write any files yet, just tell me the parameters you'd use."
+    prompt: "Create a native AOT worker service. I haven't picked a target framework — choose an appropriate one for me and explain why. Don't write any files yet, just tell me the parameters you'd use."
     graders:
       - type: exit-success
       - type: output-matches
@@ -26,7 +26,7 @@ stimuli:
       expect_tools:
         - skill
   - name: Auth implies HTTPS stays enabled
-    prompt: "I want to create a webapi with Individual authentication. List the exact set of dotnet new flags you would pass (then a brief explanation) before creating anything."
+    prompt: "I want to create a webapi with Individual authentication. First output the exact single `dotnet new` command line you would run — include only the flags you will actually pass, and do not mention any flags you are not using. Then give a brief explanation. Don't create anything yet."
     graders:
       - type: exit-success
       - type: output-matches
@@ -46,7 +46,7 @@ stimuli:
       expect_tools:
         - skill
   - name: Controllers exclude the minimal-API flag
-    prompt: "Create a web API that uses controllers. What parameters would you pass? List them and explain. Do not create files."
+    prompt: "Create a web API that uses controllers. First output the exact single `dotnet new` command line you would run — include only the flags you will actually pass, and do not mention any flags you are not using. Then explain. Do not create files."
     graders:
       - type: exit-success
       - type: output-matches
@@ -66,7 +66,7 @@ stimuli:
       expect_tools:
         - skill
   - name: Never override an explicit user value
-    prompt: "Create a native AOT console app, but I specifically want it targeting net8.0 — keep it on net8.0 no matter what. Tell me the parameters first."
+    prompt: "Create a native AOT console app, but I specifically want it targeting net8.0 — keep it on net8.0 no matter what. First output the exact single `dotnet new` command line you would run — include only the flags and framework value you will actually pass, and do not mention any flags or framework versions you are not using. Then tell me the parameters."
     graders:
       - type: exit-success
       - type: output-contains
