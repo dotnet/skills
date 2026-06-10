@@ -37,13 +37,13 @@ stimuli:
     constraints:
       expect_tools:
         - skill
-  - name: Choose between blazorserver and blazorwasm
-    prompt: "Which template should I use: 'blazorserver' or 'blazorwasm'? Compare them and explain the trade-offs for an app that needs offline support."
+  - name: Choose between blazor and blazorwasm
+    prompt: "Which template should I use for an app that needs offline support: 'blazor' (Blazor Web App) or 'blazorwasm' (Blazor WebAssembly Standalone)? Inspect both with `dotnet new <template> --help`, compare the interactivity/hosting trade-offs, and recommend one."
     graders:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)blazorserver
+          pattern: (?i)\bblazor\b
       - type: output-matches
         config:
           pattern: (?i)blazorwasm
@@ -52,7 +52,7 @@ stimuli:
     rubric:
       - The agent used the template-comparison skill to compare both Blazor templates
       - The agent inspected each template's parameters via `dotnet new <template> --help`
-      - The agent explained the hosting/interactivity trade-offs (server vs WebAssembly)
+      - The agent explained the hosting/interactivity trade-offs (server-rendered vs WebAssembly)
       - The agent connected the offline-support requirement to a concrete recommendation
     constraints:
       expect_tools:

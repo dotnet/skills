@@ -3,7 +3,7 @@ name: template-comparison
 description: >
   Compares two or more dotnet new templates side by side to help users choose between
   them based on parameters, feature support, frameworks, and classifications.
-  USE FOR: deciding between similar templates (webapi vs webapp, blazorserver vs
+  USE FOR: deciding between similar templates (webapi vs webapp, blazor vs
   blazorwasm, console vs worker), producing a side-by-side comparison of parameters and
   feature support, understanding how templates differ before creating a project.
   DO NOT USE FOR: creating a project from a template (use template-instantiation),
@@ -20,7 +20,7 @@ a comparison table.
 
 ## When to Use
 
-- User is deciding between similar templates (e.g., `webapi` vs `webapp`, `blazorserver` vs `blazorwasm`)
+- User is deciding between similar templates (e.g., `webapi` vs `webapp`, `blazor` vs `blazorwasm`)
 - User asks "which template should I use for X?"
 - User wants to understand how two or more templates differ before creating a project
 
