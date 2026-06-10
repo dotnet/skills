@@ -8,7 +8,7 @@ Three GitHub Actions workflows keep open PRs moving without manual nudging:
   calls.
 - **`pr-triage.yml`** — per-PR worker (`workflow_dispatch`). Re-validates the
   PR's state, reconciles a single `pr-state/*` label, and performs at most one
-  of: trigger evaluation (via the `evaluate-now` label), ping the author, or
+  of: trigger evaluation (by dispatching `evaluation.yml`), ping the author, or
   ping maintainers. Cool-down (default 4 days) is enforced via marker comments.
 - **`pr-malicious-scan.agent.md`** — per-PR malicious-code scanner (gh-aw).
   Static diff review for untrusted contributors. Reports findings as
@@ -21,19 +21,28 @@ flowchart TD
     Cron["cron: every hour"] --> Batch["pr-triage-batch.yml<br/>(orchestrator)"]
     Batch -->|workflow_dispatch| Worker["pr-triage.yml<br/>(per-PR worker)"]
     Batch -->|workflow_dispatch| Scan["pr-malicious-scan.agent.lock.yml<br/>(per-PR scanner)"]
-    Worker -->|adds 'evaluate-now' label| Eval["evaluation.yml<br/>(existing)"]
+    Worker -->|workflow_dispatch: pr_number| Eval["evaluation.yml<br/>(existing)"]
     Worker -->|adds pr-state/* label| PR[("PR")]
     Worker -->|posts ping comment| PR
     Scan -->|code-scanning alert + comment| PR
-    PR -.->|labeled: evaluate-now| Eval
+    PR -.->|human adds label: evaluate-now| Eval
 ```
 
 ## Entry points into `evaluation.yml`
 
-The existing `/evaluate` slash command continues to work. In addition, applying
-the **`evaluate-now`** label fires evaluation via `pull_request_target [labeled]`.
-Both paths share a per-PR concurrency group so a race collapses to a single run.
-The label is consumed (removed) by the `gate` job so reapplying re-fires.
+Three entry points feed the `gate` job, all sharing a per-PR concurrency group
+so a race collapses to a single run:
+
+1. The existing **`/evaluate`** slash command (`issue_comment`) — humans.
+2. The **`evaluate-now`** label (`pull_request_target [labeled]`) — humans. The
+   `gate` job consumes (removes) the label so reapplying re-fires.
+3. **`workflow_dispatch`** with a `pr_number` input — the triage worker. The
+   worker runs as `github-actions[bot]`, and label events emitted by
+   `GITHUB_TOKEN` do **not** start workflows (GitHub's recursion guard), so the
+   bot cannot use entry point 2. `workflow_dispatch` is exempt from that guard,
+   so the worker dispatches `evaluation.yml` directly. A dispatched run's
+   `head_sha` is the default branch (not the PR head), so the worker matches the
+   run by `evaluation.yml`'s run name (`Evaluate PR #<n> @ <sha7>`) for idempotency.
 
 ## State machine (worker)
 

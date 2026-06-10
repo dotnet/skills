@@ -183,24 +183,23 @@ eval_status_state() {
 
 eval_run_exists_for_head() {
   # Decide whether a *real* evaluation has already run (or is running) for the
-  # current head_sha. Filtering by event alone is not reliable: every PR push
-  # produces placeholder status runs (`pr-status` on pull_request, and
-  # `fork-pr-status` on pull_request_target — the latter concludes "success",
-  # not "skipped"), so an event/conclusion filter would count those and we'd
-  # never apply the evaluate-now label. See
-  # https://github.com/dotnet/skills/pull/703 and
-  # https://github.com/dotnet/skills/pull/720 for the original repro.
+  # current head, so we never trigger a duplicate.
   #
-  # The reliable discriminator is whether the run actually executed the `gate`
-  # job (the /evaluate and evaluate-now label entry points) or the `discover`
-  # job (manual/scheduled runs). In placeholder status runs both of those jobs
-  # are present but conclusion=="skipped"; in a real evaluation at least one of
-  # them is non-skipped (success/failure, or null while still in progress).
-  local run_ids
+  # Path 1 — runs whose head_sha == the PR head. These come from the /evaluate
+  # comment (issue_comment) and from a human applying the evaluate-now label
+  # (pull_request_target). Filtering by event alone is not reliable: every PR
+  # push also produces placeholder status runs (`pr-status` on pull_request, and
+  # `fork-pr-status` on pull_request_target — the latter concludes "success",
+  # not "skipped"), so an event/conclusion filter would count those. See
+  # https://github.com/dotnet/skills/pull/703 and
+  # https://github.com/dotnet/skills/pull/720 for the original repro. The
+  # reliable discriminator is whether the run actually executed the `gate` job
+  # or the `discover` job: in placeholder runs both are present but
+  # conclusion=="skipped"; in a real evaluation at least one is non-skipped
+  # (success/failure, or null while still in progress).
+  local run_ids id real
   run_ids=$(gh api --paginate "repos/$REPO/actions/workflows/evaluation.yml/runs?head_sha=$HEAD_SHA" \
     --jq '.workflow_runs[].id')
-  [ -z "$run_ids" ] && return 1
-  local id real
   for id in $run_ids; do
     real=$(gh api --paginate "repos/$REPO/actions/runs/$id/jobs" \
       --jq '[.jobs[] | select((.name == "gate" or .name == "discover") and .conclusion != "skipped")] | length' \
@@ -209,6 +208,18 @@ eval_run_exists_for_head() {
       return 0
     fi
   done
+  # Path 2 — runs this worker dispatched via workflow_dispatch. Those execute
+  # against the default branch, so their head_sha is main's HEAD (not the PR
+  # head) and Path 1 cannot see them. Match them instead by the deterministic
+  # run name evaluation.yml derives from the pr_number/head_sha dispatch inputs
+  # ("Evaluate PR #<n> @ <sha7>"). A new push changes <sha7>, so a stale run for
+  # an older head never masks a head that still needs evaluation. The 100
+  # most-recent dispatch runs are ample given the hourly triage cadence.
+  local dispatched
+  dispatched=$(gh api "repos/$REPO/actions/workflows/evaluation.yml/runs?event=workflow_dispatch&per_page=100" \
+    --jq ".workflow_runs[] | select(.display_title == \"Evaluate PR #$PR_NUMBER @ $HEAD_SHA_SHORT\") | .id" \
+    | head -n 1)
+  [ -n "$dispatched" ] && return 0
   return 1
 }
 
@@ -379,21 +390,31 @@ ping_age_gate_ok() {
 # ----------------------------------------------------------------------
 do_eval_trigger() {
   if eval_run_exists_for_head; then
-    log "eval-trigger: a workflow run already exists for $HEAD_SHA_SHORT — skipping"
-    return
-  fi
-  if has_label "evaluate-now"; then
-    log "eval-trigger: evaluate-now label already present — skipping"
+    log "eval-trigger: an evaluation run already exists for $HEAD_SHA_SHORT — skipping"
     return
   fi
   if [ "$DRY_RUN" = "true" ]; then
-    log "[DRY_RUN] would add label 'evaluate-now'"
+    log "[DRY_RUN] would dispatch evaluation.yml for PR #$PR_NUMBER @ $HEAD_SHA_SHORT"
     summary "  - action: eval-trigger (DRY_RUN)"
     return
   fi
-  gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "evaluate-now" >/dev/null
-  log "eval-trigger: added 'evaluate-now' label"
-  summary "  - action: eval-trigger"
+  # Trigger evaluation by dispatching evaluation.yml directly. We deliberately do
+  # NOT add the `evaluate-now` label here: label events emitted by this workflow's
+  # GITHUB_TOKEN do not start new workflow runs (GitHub's recursion guard), so the
+  # pull_request_target:[labeled] entry point never fires for the bot.
+  # workflow_dispatch is exempt from that guard, so it does fire. The label
+  # remains a valid *human* entry point and is still honoured by evaluation.yml.
+  # The head_sha (short) feeds evaluation.yml's run name, which is the idempotency
+  # key eval_run_exists_for_head matches on (Path 2).
+  if gh workflow run evaluation.yml --repo "$REPO" \
+       -f pr_number="$PR_NUMBER" \
+       -f head_sha="$HEAD_SHA_SHORT" >/dev/null; then
+    log "eval-trigger: dispatched evaluation.yml for PR #$PR_NUMBER @ $HEAD_SHA_SHORT"
+    summary "  - action: eval-trigger (dispatched evaluation.yml)"
+  else
+    echo "::warning::eval-trigger: failed to dispatch evaluation.yml for PR #$PR_NUMBER" >&2
+    summary "  - action: eval-trigger (dispatch FAILED)"
+  fi
 }
 
 # ----------------------------------------------------------------------

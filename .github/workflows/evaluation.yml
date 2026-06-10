@@ -25,13 +25,33 @@
 #   - Secret access: only users with write+ permission can trigger evaluation
 name: evaluation
 
+# For a triage/manual single-PR dispatch, surface the PR + head in the run name.
+# This run name also doubles as the idempotency key the PR-triage worker matches
+# on (eval_run_exists_for_head in pr-triage-act.sh): a workflow_dispatch run's
+# head_sha is the default branch — not the PR head — so the run name is how the
+# worker recognises that an evaluation has already been dispatched for this head.
+# For all other events the expression yields '' and GitHub uses the default name.
+run-name: ${{ inputs.pr_number != '' && format('Evaluate PR #{0} @ {1}', inputs.pr_number, inputs.head_sha) || '' }}
+
 on:
   # Manual trigger for one-off deploys (e.g., AGENTVIZ SPA update) and
   # targeted re-runs of a single plugin without committing to main.
+  # The pr_number/head_sha inputs are also the PR-triage worker's entry point:
+  # the worker dispatches this workflow directly (workflow_dispatch is exempt
+  # from GitHub's GITHUB_TOKEN recursion guard) instead of relying on the
+  # `evaluate-now` label, which never fires when applied by the bot.
   workflow_dispatch:
     inputs:
       plugin:
         description: "Specific plugin to evaluate (leave blank for all)"
+        type: string
+        required: false
+      pr_number:
+        description: "PR number to evaluate. Routes the dispatch through the gate/PR pipeline instead of a full/plugin run."
+        type: string
+        required: false
+      head_sha:
+        description: "Short head SHA of the PR (informational; used for the run name and triage idempotency). The gate re-fetches the live head."
         type: string
         required: false
 
@@ -39,9 +59,11 @@ on:
   pull_request:
 
   # Fork PRs: post initial status (runs from base branch for security).
-  # Also receives label events: the `evaluate-now` label is the second
-  # entry point into this pipeline (alongside `/evaluate`), driven by the
-  # PR triage workflow.
+  # Also receives `labeled` events: a human applying the `evaluate-now` label
+  # is one entry point into this pipeline (alongside `/evaluate`). The triage
+  # worker runs as github-actions[bot] and cannot use the label (label events
+  # emitted by GITHUB_TOKEN do not start workflows), so it uses the
+  # workflow_dispatch pr_number input above instead.
   pull_request_target:
     types: [opened, synchronize, reopened, labeled]
 
@@ -54,10 +76,11 @@ on:
     - cron: '0 0 * * *'  # Once daily at midnight UTC
 
 concurrency:
-  # Both /evaluate (issue_comment) and the `evaluate-now` label
-  # (pull_request_target labeled) share the same `eval-<pr_number>` group so
-  # a race between them collapses to a single run for the PR.
-  group: ${{ github.workflow }}-${{ (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/evaluate')) && format('eval-{0}', github.event.issue.number) || (github.event_name == 'pull_request_target' && github.event.action == 'labeled' && github.event.label.name == 'evaluate-now') && format('eval-{0}', github.event.pull_request.number) || (github.event_name == 'issue_comment' && format('eval-noop-{0}-{1}', github.event.issue.number, github.event.comment.id)) || (github.event_name == 'pull_request' && format('eval-status-{0}', github.event.pull_request.number)) || (github.event_name == 'pull_request_target' && format('eval-fork-status-{0}', github.event.pull_request.number)) || github.run_id }}
+  # /evaluate (issue_comment), the human-applied `evaluate-now` label
+  # (pull_request_target labeled), and the triage worker's workflow_dispatch
+  # (pr_number input) all share the same `eval-<pr_number>` group, so a race
+  # between any of them collapses to a single run for the PR.
+  group: ${{ github.workflow }}-${{ (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/evaluate')) && format('eval-{0}', github.event.issue.number) || (github.event_name == 'pull_request_target' && github.event.action == 'labeled' && github.event.label.name == 'evaluate-now') && format('eval-{0}', github.event.pull_request.number) || (github.event_name == 'workflow_dispatch' && inputs.pr_number != '') && format('eval-{0}', inputs.pr_number) || (github.event_name == 'issue_comment' && format('eval-noop-{0}-{1}', github.event.issue.number, github.event.comment.id)) || (github.event_name == 'pull_request' && format('eval-status-{0}', github.event.pull_request.number)) || (github.event_name == 'pull_request_target' && format('eval-fork-status-{0}', github.event.pull_request.number)) || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -209,12 +232,15 @@ jobs:
 
   # ==========================================================================
   # GATE JOB
-  # Validate evaluation trigger. Two entry points:
+  # Validate evaluation trigger. Three entry points:
   #   1. /evaluate comment (issue_comment) — original human path
-  #   2. evaluate-now label (pull_request_target labeled) — driven by
-  #      pr-triage worker (or applied manually by a maintainer)
-  # Both must come from a trusted actor (write+ on the repo, or the
-  # workflow's own github-actions[bot] identity for the label path).
+  #   2. evaluate-now label (pull_request_target labeled) — a human applying
+  #      the label (the bot cannot: GITHUB_TOKEN label events don't start runs)
+  #   3. workflow_dispatch with pr_number — the pr-triage worker's path. It runs
+  #      as github-actions[bot] and dispatches this workflow directly, since
+  #      workflow_dispatch is exempt from the GITHUB_TOKEN recursion guard.
+  # All must come from a trusted actor (write+ on the repo, or the workflow's
+  # own github-actions[bot] identity for paths 2 and 3).
   # ==========================================================================
   gate:
     if: >-
@@ -224,6 +250,9 @@ jobs:
       (github.event_name == 'pull_request_target' &&
        github.event.action == 'labeled' &&
        github.event.label.name == 'evaluate-now')
+      ||
+      (github.event_name == 'workflow_dispatch' &&
+       inputs.pr_number != '')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -246,9 +275,11 @@ jobs:
           else
             ACTOR='${{ github.event.sender.login }}'
           fi
-          # The triage worker applies the evaluate-now label as github-actions[bot].
-          # That identity has no entry in /collaborators/* but is implicitly trusted
-          # because only this workflow's own GITHUB_TOKEN can act under it.
+          # The triage worker dispatches this workflow as github-actions[bot]
+          # (workflow_dispatch). A human may instead apply the evaluate-now label,
+          # which arrives under that human's identity. The bot identity has no
+          # entry in /collaborators/* but is implicitly trusted because only this
+          # repository's own GITHUB_TOKEN can act under it.
           if [[ "$ACTOR" == "github-actions[bot]" ]]; then
             echo "Actor is github-actions[bot] — trusted by construction"
             exit 0
@@ -264,9 +295,19 @@ jobs:
         id: pr
         env:
           GH_TOKEN: ${{ github.token }}
+          # Read the dispatch input via env (not direct interpolation) so the
+          # numeric validation below runs before the value reaches any gh api
+          # call — a crafted input cannot inject shell or path traversal.
+          PR_NUMBER_INPUT: ${{ inputs.pr_number }}
         run: |
           if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
             PR_NUMBER='${{ github.event.issue.number }}'
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            PR_NUMBER="$PR_NUMBER_INPUT"
+            if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+              echo "::error::workflow_dispatch input pr_number='$PR_NUMBER' must be a positive integer"
+              exit 1
+            fi
           else
             PR_NUMBER='${{ github.event.pull_request.number }}'
           fi
@@ -296,15 +337,17 @@ jobs:
             -X POST -f content='eyes' || true
 
       - name: Remove evaluate-now label
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' || github.event_name == 'workflow_dispatch'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Remove the label as the first thing we do so the trigger is
-          # consumed and re-applying re-fires. Removal is performed via the
-          # workflow's own GITHUB_TOKEN; per GitHub's recursion rules, events
-          # emitted by GITHUB_TOKEN do not trigger new workflow runs.
+          # For the label entry point, removing the label consumes the trigger so
+          # re-applying re-fires. For the workflow_dispatch entry point there is no
+          # label to consume, but we still strip any stale human-applied
+          # evaluate-now label so it doesn't linger. Removal uses the workflow's
+          # own GITHUB_TOKEN; per GitHub's recursion rules, label events emitted by
+          # GITHUB_TOKEN do not start new workflow runs.
           gh pr edit "${{ steps.pr.outputs.pr_number }}" \
             --repo "${{ github.repository }}" \
             --remove-label "evaluate-now" || true
@@ -328,7 +371,7 @@ jobs:
     needs: gate
     if: >-
       always() &&
-      (needs.gate.result == 'success' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
+      (needs.gate.result == 'success' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.pr_number == '')) &&
       (github.event_name != 'schedule' || github.repository == 'dotnet/skills')
     runs-on: ubuntu-latest
     permissions:
