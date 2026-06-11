@@ -427,6 +427,12 @@ public sealed record ValidatorConfig
     public string? NoiseSkillsDir { get; init; }
     public double NoiseDegradationLimit { get; init; } = 0.2;
     public double NoiseMaxScenarioDegradation { get; init; } = 0.4;
+
+    /// <summary>When set, persist each scenario's averaged baseline to this file after the run.</summary>
+    public string? BaselineOut { get; init; }
+
+    /// <summary>When set, reuse the precomputed baseline from this file instead of re-running the baseline arm.</summary>
+    public string? BaselineFrom { get; init; }
 }
 
 public static class DefaultWeights

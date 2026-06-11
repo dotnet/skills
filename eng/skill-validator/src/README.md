@@ -73,6 +73,10 @@ skill-validator evaluate --model gpt-5.3-codex --judge-model claude-opus-4.6-fas
 # Multiple runs for stability
 skill-validator evaluate --runs 5 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
+# Compute a shared baseline once, then reuse it across multiple skills/agents
+skill-validator evaluate --baseline-out baseline.json --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills/skill-a
+skill-validator evaluate --baseline-from baseline.json --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills/skill-b
+
 # Override the default results directory (.skill-validator-results)
 skill-validator evaluate --results-dir ./my-results --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
@@ -142,6 +146,8 @@ skill-validator check --json --plugin ./plugins/my-plugin
 | `--confidence-level <n>` | `0.95` | Confidence level for statistical intervals (0–1) |
 | `--judge-timeout <n>` | `300` | Judge LLM timeout in seconds |
 | `--require-completion` | `true` | Fail if skill regresses task completion |
+| `--baseline-out <path>` | *(none)* | After running, persist each scenario's averaged baseline (no-skill/no-agent reference) to this file for reuse. Mutually exclusive with `--baseline-from`. |
+| `--baseline-from <path>` | *(none)* | Reuse a precomputed baseline from this file instead of re-running the baseline arm. Must match `--model` and every scenario prompt. Mutually exclusive with `--baseline-out`. |
 | `--verdict-warn-only` | `false` | Treat verdict failures as warnings (exit 0). Execution errors still fail. |
 | `--no-overfitting-check` | `false` | Disable the LLM-based overfitting analysis (on by default) |
 | `--overfitting-fix` | `false` | Generate `eval.fixed.yaml` with improved rubric items/assertions |
@@ -150,6 +156,19 @@ skill-validator check --json --plugin ./plugins/my-plugin
 | `--results-dir <path>` | `.skill-validator-results` | Directory for file reporter output. |
 
 Models are validated on startup — invalid model names fail fast with a list of available models.
+
+### Shared baseline reuse
+
+Every evaluation runs each scenario through a **baseline arm** (the agent with no skill / no agent loaded) to establish a reference the skill-enhanced run is compared against. When you evaluate many skills or agents against the same test scenarios, that baseline arm is re-run every time — redundant work that also introduces run-to-run variance into the comparison.
+
+`--baseline-out` and `--baseline-from` let you compute the baseline **once** and reuse it as a shared control group:
+
+1. **Produce** a baseline file with `--baseline-out baseline.json`. After the run, each scenario's averaged baseline result (honoring `--runs`) is written to the file.
+2. **Reuse** it with `--baseline-from baseline.json` on subsequent runs. The baseline arm is skipped entirely; the cached baseline is used for assertions, pairwise/independent judging, and metric deltas.
+
+The baseline file records the `--model` and a SHA-256 of each scenario prompt. On reuse the validator fails fast if the model differs or any scenario prompt is missing from the file, so a stale or mismatched baseline can never be silently applied. Scenarios reused from the file are reported with the `baseline-reused` session phase and a `reused` baseline status.
+
+The two options are mutually exclusive.
 
 ## Output
 

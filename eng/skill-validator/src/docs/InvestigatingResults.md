@@ -83,6 +83,8 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 
 > **Note:** Scenarios do not have a `passed` field. To determine pass/fail for an individual scenario, check whether `improvementScore >= 0`. This is the effective score: when no plugin run is present it equals `isolatedImprovementScore`; when a plugin run is present it is the min of isolated and plugin scores. The `passed` field exists only at the verdict level (per-skill).
 
+> **Reused baselines:** When the run was invoked with `--baseline-from`, the `baseline` arm is not executed — its `metrics` and `judgeResult` come from the shared baseline file produced earlier with `--baseline-out` (computed once, honoring `--runs`). Such scenarios are reported with the `baseline-reused` session phase and a `reused` baseline status. The baseline file is keyed on `--model` and a SHA-256 of each scenario prompt; reuse fails fast if the model differs or any prompt is missing, so the baseline you compare against is always identity-matched. Because the baseline output is identical across every skill/agent that consumes the same file, this acts as a shared control group and removes baseline run-to-run variance from cross-skill comparisons.
+
 ### Breakdown fields
 
 The `isolatedBreakdown` and `pluginBreakdown` objects show how each metric contributed to the improvement score. Each field is a raw delta (not yet weighted). The final score is computed as a weighted sum:
