@@ -229,16 +229,18 @@ internal sealed class BaselineStore
     /// <summary>
     /// Yields the exact set of files <see cref="AgentRunner.SetupWorkDir"/> copies into the
     /// work dir under <c>copy_test_files</c>: every top-level sibling except <c>eval.yaml</c>,
-    /// recursing into directories.  Reparse points (symlinks/junctions) and junctions that
-    /// resolve outside their top-level fixture directory are skipped, mirroring
-    /// <c>CopyDirectory</c>, so the hash only ever covers files genuinely materialized for the
-    /// run rather than whatever else happens to live under the eval directory.
+    /// recursing into directories.  Reparse points (symlinks/junctions) — at the top level and
+    /// nested — and junctions that resolve outside their top-level fixture directory are
+    /// skipped, so the hash only ever covers files genuinely materialized for the run rather
+    /// than data linked from outside the eval directory.
     /// </summary>
     private static IEnumerable<(string Rel, string Full)> EnumerateCopiedFixtures(string evalDir)
     {
         foreach (var entry in new DirectoryInfo(evalDir).EnumerateFileSystemInfos())
         {
             if (string.Equals(entry.Name, "eval.yaml", StringComparison.Ordinal))
+                continue;
+            if ((entry.Attributes & FileAttributes.ReparsePoint) != 0)
                 continue;
             if (entry is FileInfo file)
                 yield return (file.Name, file.FullName);
@@ -346,12 +348,18 @@ internal sealed class BaselineStore
             ? entry.Baseline
             : null;
 
-    /// <summary>Record a scenario's averaged baseline for later persistence (write mode).</summary>
+    /// <summary>
+    /// Record a scenario's averaged baseline for later persistence (write mode).  The
+    /// baseline arm is target-independent, so when several targets evaluated in parallel
+    /// share the same scenario identity they produce the same key; a <b>first-writer-wins</b>
+    /// strategy keeps the persisted file deterministic regardless of completion order
+    /// (later identical-key records — differing only by run-to-run noise — are ignored).
+    /// </summary>
     public void Record(EvalScenario scenario, int runs, RunResult averagedBaseline, string? evalPath = null)
     {
         var promptSha = ComputePromptSha(scenario.Prompt);
         var targetSha = TargetShaFor(scenario, evalPath);
-        _entries[MakeKey(promptSha, targetSha)] = new BaselineScenarioEntry(scenario.Name, promptSha, targetSha, runs, averagedBaseline);
+        _entries.TryAdd(MakeKey(promptSha, targetSha), new BaselineScenarioEntry(scenario.Name, promptSha, targetSha, runs, averagedBaseline));
     }
 
     /// <summary>Serialize all recorded baselines to <paramref name="path"/>.</summary>

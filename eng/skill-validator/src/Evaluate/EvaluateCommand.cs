@@ -1434,8 +1434,10 @@ public static class EvaluateCommand
 
         if (sessionDb is not null)
         {
-            if (reusedBaseline is null)
-                sessionDb.SaveJudgeResult(baselineSessionId, JsonSerializer.Serialize(baselineJudge, SkillValidatorJsonContext.Default.JudgeResult));
+            // Persist the baseline judge result even when reused so the baseline session
+            // record (registered with the "baseline-reused" phase) is complete for
+            // downstream investigation tooling — baselineJudge is valid in both cases.
+            sessionDb.SaveJudgeResult(baselineSessionId, JsonSerializer.Serialize(baselineJudge, SkillValidatorJsonContext.Default.JudgeResult));
             sessionDb.SaveJudgeResult(isolatedSessionId, JsonSerializer.Serialize(isolatedJudge, SkillValidatorJsonContext.Default.JudgeResult));
             sessionDb.SaveJudgeResult(pluginSessionId, JsonSerializer.Serialize(pluginJudge, SkillValidatorJsonContext.Default.JudgeResult));
         }

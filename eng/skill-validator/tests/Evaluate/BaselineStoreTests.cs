@@ -238,6 +238,32 @@ public class BaselineStoreTests
     }
 
     [Fact]
+    public void Record_IsFirstWriterWins_ForSameScenarioIdentity()
+    {
+        var path = TempPath();
+        try
+        {
+            var store = BaselineStore.ForWrite(Model, Judge);
+            var scenario = Scenario("alpha", "prompt one");
+
+            // Same identity recorded twice (e.g. two parallel targets sharing a scenario)
+            // with differing run-to-run results: the first record must win so --baseline-out
+            // is deterministic regardless of completion order.
+            store.Record(scenario, runs: 5, MakeBaseline(output: "first"));
+            store.Record(scenario, runs: 5, MakeBaseline(output: "second"));
+
+            Assert.Equal(1, store.Count);
+            store.Save(path);
+            var loaded = BaselineStore.Load(path, Model, Judge);
+            Assert.Equal("first", loaded.TryGetBaseline(scenario)!.Metrics.AgentOutput);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void ComputeTargetSha_IncludesNestedFixtureFiles()
     {
         // copy_test_files copies subdirectories recursively, so nested fixture content
