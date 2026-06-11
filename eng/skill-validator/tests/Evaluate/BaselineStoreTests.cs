@@ -157,7 +157,7 @@ public class BaselineStoreTests
             var missing = loaded.FindMissingScenarios([(present, null), (Scenario("beta", "prompt two"), null)]);
 
             Assert.Single(missing);
-            Assert.Equal("beta", missing[0]);
+            Assert.StartsWith("beta", missing[0]);
         }
         finally
         {
@@ -235,6 +235,33 @@ public class BaselineStoreTests
         Assert.Equal(
             BaselineStore.ComputeTargetSha(withRubric, null),
             BaselineStore.ComputeTargetSha(baseScenario with { Rubric = ["Did it find the root cause?"] }, null));
+    }
+
+    [Fact]
+    public void ComputeTargetSha_IncludesNestedFixtureFiles()
+    {
+        // copy_test_files copies subdirectories recursively, so nested fixture content
+        // must participate in the target identity (mirrors AgentRunner.CopyDirectory).
+        var evalPath = MakeEvalDirWithFixture("top.txt", "top");
+        var evalDir = Path.GetDirectoryName(evalPath)!;
+        var nestedDir = Path.Combine(evalDir, "sub");
+        Directory.CreateDirectory(nestedDir);
+        var nestedFile = Path.Combine(nestedDir, "data.bin");
+        File.WriteAllText(nestedFile, "v1");
+        try
+        {
+            var scenario = FixtureScenario("s", "investigate");
+            var before = BaselineStore.ComputeTargetSha(scenario, evalPath);
+
+            File.WriteAllText(nestedFile, "v2");
+            var after = BaselineStore.ComputeTargetSha(scenario, evalPath);
+
+            Assert.NotEqual(before, after); // nested file change invalidates reuse
+        }
+        finally
+        {
+            Directory.Delete(evalDir, recursive: true);
+        }
     }
 
     [Fact]

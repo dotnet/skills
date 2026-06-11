@@ -83,7 +83,8 @@ internal sealed class BaselineStore
         BaselineFile? file;
         try
         {
-            file = JsonSerializer.Deserialize(File.ReadAllText(path), SkillValidatorJsonContext.Default.BaselineFile);
+            using var stream = File.OpenRead(path);
+            file = JsonSerializer.Deserialize(stream, SkillValidatorJsonContext.Default.BaselineFile);
         }
         catch (JsonException ex)
         {
@@ -182,17 +183,15 @@ internal sealed class BaselineStore
         var sb = new StringBuilder();
 
         // 1. Sibling files auto-copied into the work dir (copy_test_files: true).  Mirror
-        //    AgentRunner.SetupWorkDir, which excludes only the top-level eval.yaml.
+        //    AgentRunner.SetupWorkDir/CopyDirectory exactly so the hash reflects precisely
+        //    the files the agent is given — no more (e.g. reparse points are skipped) and
+        //    no fewer (nested files are included).
         if (setup.CopyTestFiles && evalPath is not null)
         {
             var evalDir = Path.GetDirectoryName(evalPath);
             if (!string.IsNullOrEmpty(evalDir) && Directory.Exists(evalDir))
             {
-                var files = Directory.EnumerateFiles(evalDir, "*", SearchOption.AllDirectories)
-                    .Select(f => (Rel: Path.GetRelativePath(evalDir, f).Replace('\\', '/'), Full: f))
-                    .Where(x => !string.Equals(x.Rel, "eval.yaml", StringComparison.Ordinal))
-                    .OrderBy(x => x.Rel, StringComparer.Ordinal);
-                foreach (var (rel, full) in files)
+                foreach (var (rel, full) in EnumerateCopiedFixtures(evalDir).OrderBy(x => x.Rel, StringComparer.Ordinal))
                     sb.Append("F:").Append(rel).Append('=').Append(HashFile(full)).Append('\n');
             }
         }
@@ -222,6 +221,54 @@ internal sealed class BaselineStore
         }
 
         return Sha256Hex(Encoding.UTF8.GetBytes(sb.ToString()));
+    }
+
+    private static readonly StringComparison PathComparison =
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+    /// <summary>
+    /// Yields the exact set of files <see cref="AgentRunner.SetupWorkDir"/> copies into the
+    /// work dir under <c>copy_test_files</c>: every top-level sibling except <c>eval.yaml</c>,
+    /// recursing into directories.  Reparse points (symlinks/junctions) and junctions that
+    /// resolve outside their top-level fixture directory are skipped, mirroring
+    /// <c>CopyDirectory</c>, so the hash only ever covers files genuinely materialized for the
+    /// run rather than whatever else happens to live under the eval directory.
+    /// </summary>
+    private static IEnumerable<(string Rel, string Full)> EnumerateCopiedFixtures(string evalDir)
+    {
+        foreach (var entry in new DirectoryInfo(evalDir).EnumerateFileSystemInfos())
+        {
+            if (string.Equals(entry.Name, "eval.yaml", StringComparison.Ordinal))
+                continue;
+            if (entry is FileInfo file)
+                yield return (file.Name, file.FullName);
+            else if (entry is DirectoryInfo dir)
+            {
+                var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(dir.FullName));
+                foreach (var nested in EnumerateDirFixtures(dir.FullName, dir.Name, root))
+                    yield return nested;
+            }
+        }
+    }
+
+    private static IEnumerable<(string Rel, string Full)> EnumerateDirFixtures(string dir, string relBase, string sourceRoot)
+    {
+        foreach (var entry in new DirectoryInfo(dir).EnumerateFileSystemInfos())
+        {
+            if ((entry.Attributes & FileAttributes.ReparsePoint) != 0)
+                continue;
+            var rel = string.Concat(relBase, "/", entry.Name);
+            if (entry is DirectoryInfo sub)
+            {
+                var subFull = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sub.FullName));
+                if (!subFull.StartsWith(sourceRoot + Path.DirectorySeparatorChar, PathComparison))
+                    continue;
+                foreach (var nested in EnumerateDirFixtures(sub.FullName, rel, sourceRoot))
+                    yield return nested;
+            }
+            else
+                yield return (rel, entry.FullName);
+        }
     }
 
     /// <summary>
@@ -273,15 +320,24 @@ internal sealed class BaselineStore
     private static string MakeKey(string promptSha, string targetSha) => string.Concat(promptSha, ":", targetSha);
 
     /// <summary>
-    /// In reuse mode, return human-readable identifiers (name + eval path) of scenarios that
-    /// have no matching cached baseline (keyed by prompt + setup/criteria identity).  Empty
-    /// when every scenario is covered.  Each scenario is paired with the eval.yaml path it
-    /// originates from so its input artifacts can be fingerprinted and reported unambiguously.
+    /// In reuse mode, return human-readable identifiers of scenarios that have no matching
+    /// cached baseline (keyed by prompt + setup/criteria identity).  Empty when every scenario
+    /// is covered.  Each entry carries the originating eval path plus short prompt/target SHA
+    /// prefixes so a missing scenario is actionable even when names collide across eval files.
     /// </summary>
     public IReadOnlyList<string> FindMissingScenarios(IEnumerable<(EvalScenario Scenario, string? EvalPath)> scenarios) =>
         scenarios
-            .Where(s => !_entries.ContainsKey(MakeKey(ComputePromptSha(s.Scenario.Prompt), TargetShaFor(s.Scenario, s.EvalPath))))
-            .Select(s => s.EvalPath is null ? s.Scenario.Name : $"{s.Scenario.Name} ({s.EvalPath})")
+            .Select(s => (
+                s.Scenario,
+                s.EvalPath,
+                PromptSha: ComputePromptSha(s.Scenario.Prompt),
+                TargetSha: TargetShaFor(s.Scenario, s.EvalPath)))
+            .Where(x => !_entries.ContainsKey(MakeKey(x.PromptSha, x.TargetSha)))
+            .Select(x =>
+            {
+                var where = x.EvalPath is null ? "" : $" in {x.EvalPath}";
+                return $"{x.Scenario.Name}{where} [prompt {x.PromptSha[..8]}, target {x.TargetSha[..8]}]";
+            })
             .ToList();
 
     /// <summary>Get the cached averaged baseline for a scenario, or null when absent.</summary>
@@ -317,7 +373,10 @@ internal sealed class BaselineStore
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
 
-        File.WriteAllText(path, JsonSerializer.Serialize(file, SkillValidatorJsonContext.Default.BaselineFile));
+        // Stream directly to disk so large baselines (many scenarios with full
+        // RunMetrics/AgentOutput) never materialize as one giant in-memory string.
+        using var stream = File.Create(path);
+        JsonSerializer.Serialize(stream, file, SkillValidatorJsonContext.Default.BaselineFile);
     }
 
     /// <summary>Number of baselines currently held.</summary>
