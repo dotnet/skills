@@ -6,47 +6,19 @@ config:
 stimuli:
   - name: "Production code review"
     prompt: |
-      Assess this method and suggest a focused fix without
-      changing project settings or adding new abstractions:
+      A caller passes a stream into this method, then tries to read from the same
+      stream afterward and gets an ObjectDisposedException. Review the method for
+      that bug plus any async/error-handling problems, and suggest a focused fix:
       `public async void Import(Stream stream, string? name) { using var reader =
       new StreamReader(stream); try { var text = reader.ReadToEndAsync().Result;
       if (name == null) return; _cache.Save(name, text); } catch (Exception) { } }`
     assertions:
       - type: output_matches
-        pattern: "(async void|StreamReader|leaveOpen|sync-over-async|exception|nullable|project settings)"
+        pattern: "(async void|StreamReader|ObjectDisposedException|ReadToEndAsync|exception|Task)"
       - type: exit_success
     rubric:
-      - "Replaces fire-and-forget or sync-over-async with awaitable async flow"
-      - "Preserves caller-owned stream lifetime when wrapping it for text reading"
-      - "Uses explicit validation or precise error handling instead of returning silently or swallowing broad exceptions"
-      - "Avoids project-setting changes and unrelated abstractions"
-    timeout: 120
-- name: "Small feature implementation"
-    prompt: |
-      Provide code for an existing C# project: add an async method that loads customer
-      records from a stream, skips blank lines, supports cancellation, and
-      returns parsed records. Do not create or change project files or settings.
-    assertions:
-      - type: output_matches
-        pattern: "(async|CancellationToken|ReadLineAsync|blank lines|project files|settings|record)"
-      - type: exit_success
-    rubric:
-      - "Provides a focused C# implementation for the requested feature"
-      - "Supports cancellation and async I/O without sync-over-async"
-      - "Skips blank lines and avoids changing TFM, SDK, LangVersion, or other project settings"
-    timeout: 120
-
-      - name: "Nullable validation and error handling"
-    prompt: |
-      Review this C# API shape and implement validation
-      without hiding nullable warnings: `public Customer Create(string? id,
-      string? displayName)`. Keep the public API minimal and use precise exceptions.
-    assertions:
-      - type: output_matches
-        pattern: "(ArgumentNullException|ArgumentException|string\\.IsNullOrWhiteSpace|null|nullable|public API)"
-      - type: exit_success
-    rubric:
-      - "Distinguishes null validation from empty or whitespace validation"
-      - "Avoids nullable suppression as the primary solution"
-      - "Keeps public surface area minimal and exceptions precise"
+      - "Returns an awaitable method and avoids blocking on asynchronous work"
+      - "Keeps the supplied stream usable after the import completes"
+      - "Reports invalid input or failures explicitly instead of silently doing nothing"
+      - "Keeps the fix local and proportionate to the method"
     timeout: 120
