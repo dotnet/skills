@@ -147,7 +147,7 @@ skill-validator check --json --plugin ./plugins/my-plugin
 | `--judge-timeout <n>` | `300` | Judge LLM timeout in seconds |
 | `--require-completion` | `true` | Fail if skill regresses task completion |
 | `--baseline-out <path>` | *(none)* | After running, persist each scenario's averaged baseline (no-skill/no-agent reference) to this file for reuse. Mutually exclusive with `--baseline-from`. |
-| `--baseline-from <path>` | *(none)* | Reuse a precomputed baseline from this file instead of re-running the baseline arm. Must match `--model` and every scenario prompt. Mutually exclusive with `--baseline-out`. |
+| `--baseline-from <path>` | *(none)* | Reuse a precomputed baseline from this file instead of re-running the baseline arm. Must match `--model`, `--judge-model`, and every scenario's prompt, setup inputs, and evaluation criteria. Mutually exclusive with `--baseline-out`. |
 | `--verdict-warn-only` | `false` | Treat verdict failures as warnings (exit 0). Execution errors still fail. |
 | `--no-overfitting-check` | `false` | Disable the LLM-based overfitting analysis (on by default) |
 | `--overfitting-fix` | `false` | Generate `eval.fixed.yaml` with improved rubric items/assertions |
@@ -166,7 +166,9 @@ Every evaluation runs each scenario through a **baseline arm** (the agent with n
 1. **Produce** a baseline file with `--baseline-out baseline.json`. After the run, each scenario's averaged baseline result (honoring `--runs`) is written to the file.
 2. **Reuse** it with `--baseline-from baseline.json` on subsequent runs. The baseline arm is skipped entirely; the cached baseline is used for assertions, pairwise/independent judging, and metric deltas.
 
-The baseline file records the `--model` and, per scenario, a SHA-256 of the prompt **and** a SHA-256 of its setup inputs (the fixtures copied via `copy_test_files`, explicit setup files, and setup commands — the analog of a target/input SHA). On reuse the validator fails fast if the model differs or any scenario's prompt-plus-fixture identity is missing from the file, so a stale or mismatched baseline can never be silently applied — and two scenarios that share a prompt but feed the agent different fixtures (e.g. a different `build.binlog`) never reuse each other's baseline. Scenarios reused from the file are reported with the `baseline-reused` session phase and a `reused` baseline status.
+The baseline file records the `--model` **and** `--judge-model`, and per scenario a SHA-256 of the prompt plus a composite SHA-256 over (a) its setup inputs — the fixtures copied via `copy_test_files`, explicit setup files, and setup commands — and (b) the evaluation criteria that shape the stored result (rubric, assertions, expect/reject tools, and the turn/token/timeout limits). This is the analog of a target/input SHA. On reuse the validator fails fast if the agent model, the judge model, or any scenario's prompt-plus-setup-plus-criteria identity is missing from the file, so a stale or mismatched baseline can never be silently applied — and two scenarios that share a prompt but feed the agent different fixtures (e.g. a different `build.binlog`) or use different rubrics never reuse each other's baseline. Scenarios reused from the file are reported with the `baseline-reused` session phase and a `reused` baseline status.
+
+> **Note:** Setup `commands` are fingerprinted by their text (the recipe), not the artifacts they produce, so baseline reuse assumes setup commands are deterministic/hermetic — a command whose output changes between runs (e.g. fetching `latest`) will not invalidate a cached baseline.
 
 The two options are mutually exclusive.
 

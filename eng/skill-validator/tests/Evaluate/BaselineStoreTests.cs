@@ -6,6 +6,9 @@ namespace SkillValidator.Tests;
 
 public class BaselineStoreTests
 {
+    private const string Model = "model-x";
+    private const string Judge = "judge-x";
+
     private static RunResult MakeBaseline(double overallScore = 3, string output = "baseline output") =>
         new(
             new RunMetrics
@@ -42,7 +45,7 @@ public class BaselineStoreTests
         var path = TempPath();
         try
         {
-            var store = BaselineStore.ForWrite("model-x");
+            var store = BaselineStore.ForWrite(Model, Judge);
             var s1 = Scenario("alpha", "prompt one");
             var s2 = Scenario("beta", "prompt two");
             store.Record(s1, runs: 5, MakeBaseline(overallScore: 4, output: "out-1"));
@@ -51,7 +54,7 @@ public class BaselineStoreTests
 
             Assert.True(File.Exists(path));
 
-            var loaded = BaselineStore.Load(path, "model-x");
+            var loaded = BaselineStore.Load(path, Model, Judge);
             Assert.True(loaded.IsReuse);
             Assert.Equal(2, loaded.Count);
 
@@ -75,13 +78,33 @@ public class BaselineStoreTests
         var path = TempPath();
         try
         {
-            var store = BaselineStore.ForWrite("model-x");
+            var store = BaselineStore.ForWrite(Model, Judge);
             store.Record(Scenario("alpha", "prompt one"), runs: 3, MakeBaseline());
             store.Save(path);
 
-            var ex = Assert.Throws<InvalidOperationException>(() => BaselineStore.Load(path, "model-y"));
-            Assert.Contains("model-x", ex.Message);
+            var ex = Assert.Throws<InvalidOperationException>(() => BaselineStore.Load(path, "model-y", Judge));
+            Assert.Contains(Model, ex.Message);
             Assert.Contains("model-y", ex.Message);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Load_ThrowsOnJudgeModelMismatch()
+    {
+        var path = TempPath();
+        try
+        {
+            var store = BaselineStore.ForWrite(Model, Judge);
+            store.Record(Scenario("alpha", "prompt one"), runs: 3, MakeBaseline());
+            store.Save(path);
+
+            var ex = Assert.Throws<InvalidOperationException>(() => BaselineStore.Load(path, Model, "judge-y"));
+            Assert.Contains(Judge, ex.Message);
+            Assert.Contains("judge-y", ex.Message);
         }
         finally
         {
@@ -97,13 +120,14 @@ public class BaselineStoreTests
         {
             var file = new BaselineFile(
                 Version: BaselineStore.CurrentVersion + 1,
-                Model: "model-x",
+                Model: Model,
+                JudgeModel: Judge,
                 ValidatorVersion: "9.9.9",
                 CreatedAt: DateTime.UtcNow.ToString("o"),
                 Scenarios: []);
             File.WriteAllText(path, JsonSerializer.Serialize(file, SkillValidatorJsonContext.Default.BaselineFile));
 
-            var ex = Assert.Throws<InvalidOperationException>(() => BaselineStore.Load(path, "model-x"));
+            var ex = Assert.Throws<InvalidOperationException>(() => BaselineStore.Load(path, Model, Judge));
             Assert.Contains("unsupported version", ex.Message);
         }
         finally
@@ -115,7 +139,7 @@ public class BaselineStoreTests
     [Fact]
     public void Load_ThrowsWhenFileMissing()
     {
-        Assert.Throws<FileNotFoundException>(() => BaselineStore.Load(TempPath(), "model-x"));
+        Assert.Throws<FileNotFoundException>(() => BaselineStore.Load(TempPath(), Model, Judge));
     }
 
     [Fact]
@@ -124,12 +148,12 @@ public class BaselineStoreTests
         var path = TempPath();
         try
         {
-            var store = BaselineStore.ForWrite("model-x");
+            var store = BaselineStore.ForWrite(Model, Judge);
             var present = Scenario("alpha", "prompt one");
             store.Record(present, runs: 5, MakeBaseline());
             store.Save(path);
 
-            var loaded = BaselineStore.Load(path, "model-x");
+            var loaded = BaselineStore.Load(path, Model, Judge);
             var missing = loaded.FindMissingScenarios([(present, null), (Scenario("beta", "prompt two"), null)]);
 
             Assert.Single(missing);
@@ -144,7 +168,7 @@ public class BaselineStoreTests
     [Fact]
     public void WriteStore_IsNotReuse()
     {
-        var store = BaselineStore.ForWrite("model-x");
+        var store = BaselineStore.ForWrite(Model, Judge);
         Assert.False(store.IsReuse);
         Assert.Null(store.TryGetBaseline(Scenario("alpha", "prompt one")));
     }
@@ -190,6 +214,30 @@ public class BaselineStoreTests
     }
 
     [Fact]
+    public void ComputeTargetSha_DiffersByEvaluationCriteria()
+    {
+        const string prompt = "investigate the failure";
+        var baseScenario = Scenario("s", prompt);
+        var withRubric = baseScenario with { Rubric = ["Did it find the root cause?"] };
+        var withAssertion = baseScenario with { Assertions = [new Assertion(AssertionType.OutputContains, Value: "error")] };
+        var withTurns = baseScenario with { MaxTurns = 5 };
+        var withExpectTools = baseScenario with { ExpectTools = ["bash"] };
+
+        var shaBase = BaselineStore.ComputeTargetSha(baseScenario, null);
+
+        // Each criterion that shapes the cached result must change the identity.
+        Assert.NotEqual(shaBase, BaselineStore.ComputeTargetSha(withRubric, null));
+        Assert.NotEqual(shaBase, BaselineStore.ComputeTargetSha(withAssertion, null));
+        Assert.NotEqual(shaBase, BaselineStore.ComputeTargetSha(withTurns, null));
+        Assert.NotEqual(shaBase, BaselineStore.ComputeTargetSha(withExpectTools, null));
+
+        // Same criteria → stable identity.
+        Assert.Equal(
+            BaselineStore.ComputeTargetSha(withRubric, null),
+            BaselineStore.ComputeTargetSha(baseScenario with { Rubric = ["Did it find the root cause?"] }, null));
+    }
+
+    [Fact]
     public void SamePromptDifferentFixture_DoesNotReuseBaseline()
     {
         var path = TempPath();
@@ -203,21 +251,22 @@ public class BaselineStoreTests
             var scenarioB = FixtureScenario("case-B", sharedPrompt);
 
             // Persist a baseline only for case A.
-            var store = BaselineStore.ForWrite("model-x");
+            var store = BaselineStore.ForWrite(Model, Judge);
             store.Record(scenarioA, runs: 5, MakeBaseline(output: "A-baseline"), evalA);
             store.Save(path);
 
-            var loaded = BaselineStore.Load(path, "model-x");
+            var loaded = BaselineStore.Load(path, Model, Judge);
 
             // Case A reuses its baseline; case B must NOT (different targetSha).
             Assert.NotNull(loaded.TryGetBaseline(scenarioA, evalA));
             Assert.Equal("A-baseline", loaded.TryGetBaseline(scenarioA, evalA)!.Metrics.AgentOutput);
             Assert.Null(loaded.TryGetBaseline(scenarioB, evalB));
 
-            // FindMissingScenarios surfaces case B by name despite the shared prompt.
+            // FindMissingScenarios surfaces case B (with its eval path) despite the shared prompt.
             var missing = loaded.FindMissingScenarios([(scenarioA, evalA), (scenarioB, evalB)]);
             Assert.Single(missing);
-            Assert.Equal("case-B", missing[0]);
+            Assert.StartsWith("case-B", missing[0]);
+            Assert.Contains(evalB, missing[0]);
         }
         finally
         {

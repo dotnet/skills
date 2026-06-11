@@ -34,7 +34,7 @@ public static class EvaluateCommand
         var noiseMaxDegradationOpt = new Option<double>("--noise-max-degradation") { Description = "Maximum acceptable average quality degradation (0-1) in noise test (only positive degradations count)", DefaultValueFactory = _ => 0.2 };
         var noiseMaxScenarioDegradationOpt = new Option<double>("--noise-max-scenario-degradation") { Description = "Maximum acceptable quality degradation (0-1) for any single noise-test scenario", DefaultValueFactory = _ => 0.4 };
         var baselineOutOpt = new Option<string?>("--baseline-out") { Description = "After running, persist each scenario's averaged baseline (no-skill/no-agent reference) to this file for later reuse with --baseline-from." };
-        var baselineFromOpt = new Option<string?>("--baseline-from") { Description = "Reuse a precomputed baseline from this file instead of re-running the no-skill/no-agent baseline arm. Must match --model and the scenario prompts. Mutually exclusive with --baseline-out." };
+        var baselineFromOpt = new Option<string?>("--baseline-from") { Description = "Reuse a precomputed baseline from this file instead of re-running the no-skill/no-agent baseline arm. Must match --model, --judge-model, and each scenario's prompt, setup inputs, and evaluation criteria. Mutually exclusive with --baseline-out." };
 
         var command = new Command("evaluate", "Evaluate agent skills via LLM-based testing")
         {
@@ -310,7 +310,7 @@ public static class EvaluateCommand
         {
             try
             {
-                baselineStore = BaselineStore.Load(config.BaselineFrom, config.Model);
+                baselineStore = BaselineStore.Load(config.BaselineFrom, config.Model, config.JudgeModel);
             }
             catch (Exception ex) when (ex is FileNotFoundException or InvalidOperationException)
             {
@@ -336,7 +336,7 @@ public static class EvaluateCommand
         }
         else if (config.BaselineOut is not null)
         {
-            baselineStore = BaselineStore.ForWrite(config.Model);
+            baselineStore = BaselineStore.ForWrite(config.Model, config.JudgeModel);
             Console.WriteLine($"Baseline will be persisted to {config.BaselineOut} after the run.");
         }
 
