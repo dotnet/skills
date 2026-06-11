@@ -92,6 +92,7 @@ let validateForm input =
 ```
 
 `and!` (not `let!`) is what makes the validators independent and accumulating.
+`validation { }` and the `Validation` type come from FsToolkit.ErrorHandling, not FSharp.Core.
 
 ### 5. Flip a list of Results: sequence / traverse
 
@@ -103,6 +104,8 @@ let parseAll lines =
     |> List.map parseLine          // string list -> Result<Row,string> list
     |> List.sequenceResultM        // -> Result<Row list, string>
 ```
+
+`List.sequenceResultM` (and `traverseResultM`) come from FsToolkit.ErrorHandling, not FSharp.Core.
 
 ### 6. Convert exceptions at the boundary
 

@@ -1,6 +1,8 @@
 # C#-ism to idiomatic F# rewrites
 
-A before/after catalog for the most common ways C# habits leak into F#. Each pair compiles.
+A before/after catalog for the most common ways C# habits leak into F#. Each pair is a minimal
+fragment focused on the rewrite; some reference identifiers (e.g. `numbers`, `httpClient`) are
+assumed already in scope.
 
 ## 1. Loop + mutable accumulator to a collection function
 
