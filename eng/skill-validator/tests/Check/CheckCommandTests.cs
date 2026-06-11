@@ -381,6 +381,24 @@ public class CheckCommandJsonOutputTests
         return root;
     }
 
+    private static string CreatePluginFixture(string pluginName, string skillName, string description, string body = "Content.")
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"json-plugin-test-{Guid.NewGuid():N}");
+        var pluginDir = Path.Combine(root, pluginName);
+        var skillsDir = Path.Combine(pluginDir, "skills");
+        var skillDir = Path.Combine(skillsDir, skillName);
+
+        Directory.CreateDirectory(skillDir);
+
+        File.WriteAllText(Path.Combine(pluginDir, "plugin.json"),
+            $$"""{"name":"{{pluginName}}","version":"1.0.0","description":"Test plugin.","skills":"./skills/"}""");
+
+        File.WriteAllText(Path.Combine(skillDir, "SKILL.md"),
+            $"---\nname: {skillName}\ndescription: {description}\n---\n# {skillName}\n\n{body}\n");
+
+        return root;
+    }
+
     [Fact]
     public async Task JsonOutput_WithSkills_WritesStructuredReportToStdout()
     {
@@ -471,8 +489,8 @@ public class CheckCommandJsonOutputTests
     [Fact]
     public async Task JsonOutput_WithDuplicateSkillNames_AttachesExternalDependencyWarningsByPath()
     {
-        var rootOne = CreateSkillFixture("shared-skill", "First description.", "#tool:custom/tool");
-        var rootTwo = CreateSkillFixture("shared-skill", "Second description.", "#tool:custom/tool");
+        var rootOne = CreatePluginFixture("plugin-one", "shared-skill", "First description.", "#tool:custom/tool");
+        var rootTwo = CreatePluginFixture("plugin-two", "shared-skill", "Second description.", "#tool:custom/tool");
 
         var allowListPath = Path.Combine(Path.GetTempPath(), $"allowlist-{Guid.NewGuid():N}.txt");
 
@@ -480,7 +498,7 @@ public class CheckCommandJsonOutputTests
         {
             var capture = await ConsoleCapture.RunAsync(() => CheckCommand.Run(new CheckConfig
             {
-                SkillPaths = [Path.Combine(rootOne, "shared-skill"), Path.Combine(rootTwo, "shared-skill")],
+                PluginPaths = [Path.Combine(rootOne, "plugin-one"), Path.Combine(rootTwo, "plugin-two")],
                 AllowedExternalDepsFile = allowListPath,
                 OutputMode = CheckOutputMode.Json,
             }));
