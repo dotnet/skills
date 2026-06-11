@@ -57,6 +57,8 @@ Follow the project's established naming, formatting, visibility, dependency inje
 
 - Use modern C# features when the target framework and language version already support them
 - Use `ArgumentNullException.ThrowIfNull` for null guards and `string.IsNullOrWhiteSpace` for meaningful string validation
+- When exception precision matters, keep null validation separate from empty or whitespace validation instead of collapsing distinct failures into one broader guard
+- When reviewing or refactoring code that accepts external input, explicitly check whether existing validation is missing, overly broad, or inconsistent with nearby code
 - Prefer precise exception types such as `ArgumentException` or `InvalidOperationException`
 - Match nullable behavior to the project: do not suppress nullable warnings with `!` unless the invariant is explicit and local
 - Do not catch or throw base `Exception` unless the surrounding codebase has a specific, justified pattern
@@ -72,6 +74,7 @@ Follow the project's established naming, formatting, visibility, dependency inje
 - In library/helper code, use `ConfigureAwait(false)` when consistent with the codebase
 - Stream large payloads instead of materializing them all at once
 - Dispose owned synchronous and asynchronous resources with `using` or `await using`
+- Do not dispose caller-owned streams or services; when wrapping a stream you do not own, preserve ownership with APIs such as `leaveOpen: true` when available
 
 ### Step 6: Make production concerns explicit
 

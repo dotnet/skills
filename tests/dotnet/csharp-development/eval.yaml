@@ -1,21 +1,22 @@
 scenarios:
-  - name: "General C# refactoring guidance"
+  - name: "Production code review"
     prompt: |
-      I need to refactor a C# service method in an existing project. Give concise
-      guidance for keeping the
-      change clean, maintainable, async-safe, and consistent with existing
-      .NET conventions.
+      Assess this method and suggest a focused fix without
+      changing project settings or adding new abstractions:
+      `public async void Import(Stream stream, string? name) { using var reader =
+      new StreamReader(stream); try { var text = reader.ReadToEndAsync().Result;
+      if (name == null) return; _cache.Save(name, text); } catch (Exception) { } }`
     assertions:
       - type: output_matches
-        pattern: "(nearby|existing|convention|async|CancellationToken|exception|public API|abstraction)"
+        pattern: "(async void|StreamReader|leaveOpen|sync-over-async|exception|nullable|project settings)"
       - type: exit_success
     rubric:
-      - "Preserves local project conventions before recommending generic patterns"
-      - "Covers async/cancellation and precise error handling where relevant"
-      - "Avoids unnecessary abstractions or broad project-setting changes"
+      - "Replaces fire-and-forget or sync-over-async with awaitable async flow"
+      - "Preserves caller-owned stream lifetime when wrapping it for text reading"
+      - "Uses explicit validation or precise error handling instead of returning silently or swallowing broad exceptions"
+      - "Avoids project-setting changes and unrelated abstractions"
     timeout: 120
-
-  - name: "Small feature implementation"
+- name: "Small feature implementation"
     prompt: |
       Provide code for an existing C# project: add an async method that loads customer
       records from a stream, skips blank lines, supports cancellation, and
@@ -30,9 +31,9 @@ scenarios:
       - "Skips blank lines and avoids changing TFM, SDK, LangVersion, or other project settings"
     timeout: 120
 
-  - name: "Nullable validation and error handling"
+      - name: "Nullable validation and error handling"
     prompt: |
-      Review this C# API shape and explain how you would implement validation
+      Review this C# API shape and implement validation
       without hiding nullable warnings: `public Customer Create(string? id,
       string? displayName)`. Keep the public API minimal and use precise exceptions.
     assertions:
@@ -43,19 +44,4 @@ scenarios:
       - "Distinguishes null validation from empty or whitespace validation"
       - "Avoids nullable suppression as the primary solution"
       - "Keeps public surface area minimal and exceptions precise"
-    timeout: 120
-
-  - name: "Constraint-respecting review"
-    prompt: |
-      A teammate suggests changing LangVersion and the target framework so a
-      small helper can use newer C# syntax. Review that suggestion for an
-      existing library where project settings should stay stable.
-    assertions:
-      - type: output_matches
-        pattern: "(LangVersion|target framework|project settings|existing|syntax|stable)"
-      - type: exit_success
-    rubric:
-      - "Rejects unnecessary project-setting changes for a small helper"
-      - "Recommends syntax compatible with the existing project context"
-      - "Balances maintainability with minimal, focused changes"
     timeout: 120
