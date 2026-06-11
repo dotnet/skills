@@ -4,8 +4,10 @@ scenarios:
       I have an F# function that reverses a list. I want a test proving that reversing twice
       returns the original list for any input, not just a couple of examples. Show how, and run it.
     assertions:
+      - type: "exit_success"
       - type: "output_matches"
         pattern: "(FsCheck|testProperty|Check.Quick)"
+    expect_tools: ["bash"]
     rubric:
       - "Uses property-based testing (FsCheck / Expecto testProperty) for the round-trip invariant"
       - "The property is stated over arbitrary lists, not fixed examples"

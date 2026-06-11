@@ -22,6 +22,8 @@ scenarios:
       it and demonstrate the both-invalid case with dotnet fsi.
     assertions:
       - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(?s)(?=.*Name)(?=.*Age)"
     expect_tools: ["bash"]
     rubric:
       - "Uses applicative validation (and! / a Validation type) so errors accumulate"

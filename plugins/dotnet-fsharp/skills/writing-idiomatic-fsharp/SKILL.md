@@ -91,7 +91,7 @@ See the `fsharp-scripts` skill for the `.fsx` workflow.
 | `let mutable sum = 0` + `for x in xs do sum <- sum + x` | `xs \|> List.sum` |
 | `let mutable acc = []` + loop with `acc <- f x :: acc` | `xs \|> List.map f` |
 | `if x <> null then f x else d` | `x \|> Option.map f \|> Option.defaultValue d` |
-| `let r = if c then a else b` (statement style) | `let r = if c then a else b` (used as a value, single expression) |
+| `let mutable r = 0` + `if c then r <- a else r <- b` | `let r = if c then a else b` |
 | `g(f(x))` | `x \|> f \|> g` |
 | nested `if/else if` over a closed set | `match value with ...` |
 
