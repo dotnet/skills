@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace SkillValidator;
+namespace SkillValidator.Check;
 
 [JsonSourceGenerationOptions(
     WriteIndented = true,
@@ -8,5 +8,5 @@ namespace SkillValidator;
     PropertyNameCaseInsensitive = true,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     UseStringEnumConverter = true)]
-[JsonSerializable(typeof(Check.CheckJsonOutput))]
+[JsonSerializable(typeof(CheckJsonOutput))]
 internal partial class CheckJsonSerializerContext : JsonSerializerContext;

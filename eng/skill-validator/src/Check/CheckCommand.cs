@@ -10,6 +10,10 @@ public static class CheckCommand
         ? StringComparison.OrdinalIgnoreCase
         : StringComparison.Ordinal;
 
+    private static readonly StringComparer s_pathComparer = OperatingSystem.IsWindows()
+        ? StringComparer.OrdinalIgnoreCase
+        : StringComparer.Ordinal;
+
     public static Command Create()
     {
         var pluginOpt = new Option<string[]>("--plugin") { Description = "Plugin directories to check (discovers skills, agents, plugin.json)", AllowMultipleArgumentsPerToken = true };
@@ -125,7 +129,7 @@ public static class CheckCommand
     private static async Task<int> RunPluginCheck(CheckConfig config, CheckReportBuilder builder)
     {
         var allPlugins = new List<PluginInfo>();
-        var pluginSkills = new Dictionary<string, List<SkillInfo>>(StringComparer.Ordinal);
+        var pluginSkills = new Dictionary<string, List<SkillInfo>>(s_pathComparer);
         var allSkillsList = new List<SkillInfo>();
         var agentDirs = new List<string>();
 
@@ -219,7 +223,7 @@ public static class CheckCommand
             if (totalChars <= SkillProfiler.MaxAggregateDescriptionLength)
                 continue;
 
-            var pluginResult = builder.Plugins.FirstOrDefault(p => string.Equals(p.DirectoryPath, pluginDirectoryPath, StringComparison.Ordinal));
+            var pluginResult = builder.Plugins.FirstOrDefault(p => string.Equals(p.DirectoryPath, pluginDirectoryPath, s_pathComparison));
             var pluginLabel = pluginResult?.Name
                 ?? Path.GetFileName(pluginDirectoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
             var message = $"Plugin '{pluginLabel}' aggregate description size is {totalChars:N0} characters — maximum is {SkillProfiler.MaxAggregateDescriptionLength:N0}.";
@@ -422,19 +426,19 @@ public static class CheckCommand
         foreach (var skill in skills)
         {
             foreach (var warning in ExternalDependencyChecker.CheckSkill(skill, allowed))
-                builder.ExternalDependencies.Add(new ExternalDependencyResult("skill", skill.Name, warning));
+                builder.ExternalDependencies.Add(new ExternalDependencyResult("skill", skill.Name, skill.SkillMdPath, warning));
         }
 
         foreach (var agent in agents)
         {
             foreach (var warning in ExternalDependencyChecker.CheckAgent(agent, allowed))
-                builder.ExternalDependencies.Add(new ExternalDependencyResult("agent", agent.Name, warning));
+                builder.ExternalDependencies.Add(new ExternalDependencyResult("agent", agent.Name, agent.Path, warning));
         }
 
         foreach (var plugin in plugins)
         {
             foreach (var warning in ExternalDependencyChecker.CheckPlugin(plugin, allowed))
-                builder.ExternalDependencies.Add(new ExternalDependencyResult("plugin", plugin.Name, warning));
+                builder.ExternalDependencies.Add(new ExternalDependencyResult("plugin", plugin.Name, plugin.DirectoryPath, warning));
         }
     }
 
@@ -531,36 +535,40 @@ public static class CheckCommand
                     .ToList()))
             .ToList();
 
-        var pluginsByName = new Dictionary<string, CheckJsonPlugin>(StringComparer.Ordinal);
+        var pluginsByPath = new Dictionary<string, CheckJsonPlugin>(s_pathComparer);
         foreach (var plugin in plugins)
-            pluginsByName.TryAdd(plugin.Name, plugin);
+            pluginsByPath.TryAdd(NormalizePathKey(plugin.DirectoryPath), plugin);
 
-        var skillsByName = new Dictionary<string, CheckJsonSkill>(StringComparer.Ordinal);
+        var skillsByPath = new Dictionary<string, CheckJsonSkill>(s_pathComparer);
         foreach (var skill in skills)
-            skillsByName.TryAdd(skill.Name, skill);
+            skillsByPath.TryAdd(NormalizePathKey(skill.SkillMdPath), skill);
 
-        var agentsByName = new Dictionary<string, CheckJsonAgent>(StringComparer.Ordinal);
+        var agentsByPath = new Dictionary<string, CheckJsonAgent>(s_pathComparer);
         foreach (var agent in agents)
-            agentsByName.TryAdd(agent.Name, agent);
+            agentsByPath.TryAdd(NormalizePathKey(agent.Path), agent);
 
         foreach (var dependency in report.ExternalDependencies)
         {
+            var dependencyPath = NormalizePathKey(dependency.TargetPath);
+
             switch (dependency.Kind)
             {
                 case "plugin":
-                    if (pluginsByName.TryGetValue(dependency.Name, out var plugin))
+                    if (pluginsByPath.TryGetValue(dependencyPath, out var plugin))
                         plugin.Warnings.Add(new CheckJsonWarning("externalDependency", dependency.Message));
                     break;
                 case "skill":
-                    if (skillsByName.TryGetValue(dependency.Name, out var skill))
+                    if (skillsByPath.TryGetValue(dependencyPath, out var skill))
                         skill.Warnings.Add(new CheckJsonWarning("externalDependency", dependency.Message));
                     break;
                 case "agent":
-                    if (agentsByName.TryGetValue(dependency.Name, out var agent))
+                    if (agentsByPath.TryGetValue(dependencyPath, out var agent))
                         agent.Warnings.Add(new CheckJsonWarning("externalDependency", dependency.Message));
                     break;
             }
         }
+
+        var referenceTargets = CreateReferenceTargets(skills, agents, plugins);
 
         var topLevelErrors = report.GeneralErrors.ToList();
 
@@ -569,7 +577,7 @@ public static class CheckCommand
             foreach (var finding in report.ReferenceScan.Findings)
             {
                 var formattedFinding = $"{finding.Path}:{finding.LineNum} [{finding.Code}] {finding.Message}";
-                if (TryAttachReferenceFinding(skills, agents, plugins, finding.Path, formattedFinding))
+                if (TryAttachReferenceFinding(referenceTargets, finding.Path, formattedFinding))
                     continue;
 
                 topLevelErrors.Add(formattedFinding);
@@ -621,8 +629,12 @@ public static class CheckCommand
             foreach (var error in skill.Errors)
                 Console.Error.WriteLine($"{Ansi.Red}❌ [{skill.Name}] {error}{Ansi.Reset}");
 
-            foreach (var warning in skill.Warnings)
-                Console.WriteLine($"[{skill.Name}]    ⚠  {warning}");
+            var formattedWarnings = skill.Profile is null
+                ? skill.Warnings
+                : SkillProfiler.FormatProfileWarnings(skill.Profile);
+
+            foreach (var warning in formattedWarnings)
+                Console.WriteLine($"[{skill.Name}] {warning}");
         }
 
         if (report.Skills.Any(skill => skill.Errors.Count > 0))
@@ -698,36 +710,59 @@ public static class CheckCommand
             _ => "All checks passed",
         };
 
-    private static bool TryAttachReferenceFinding(
+    private static IReadOnlyList<JsonReferenceTarget> CreateReferenceTargets(
         IReadOnlyList<CheckJsonSkill> skills,
         IReadOnlyList<CheckJsonAgent> agents,
-        IReadOnlyList<CheckJsonPlugin> plugins,
-        string findingPath,
-        string formattedFinding)
+        IReadOnlyList<CheckJsonPlugin> plugins)
     {
+        var targets = new List<JsonReferenceTarget>(skills.Count * 2 + agents.Count * 2 + plugins.Count);
+
         foreach (var skill in skills)
         {
-            if (IsPathWithin(findingPath, skill.Path) || IsPathWithin(findingPath, skill.SkillMdPath))
-            {
-                skill.Errors.Add(formattedFinding);
-                return true;
-            }
+            TryAddReferenceTarget(targets, skill.Path, error => skill.Errors.Add(error));
+            TryAddReferenceTarget(targets, skill.SkillMdPath, error => skill.Errors.Add(error));
         }
 
         foreach (var agent in agents)
         {
-            if (IsPathWithin(findingPath, agent.Path) || IsPathWithin(findingPath, Path.GetDirectoryName(agent.Path)))
-            {
-                agent.Errors.Add(formattedFinding);
-                return true;
-            }
+            TryAddReferenceTarget(targets, agent.Path, error => agent.Errors.Add(error));
+            TryAddReferenceTarget(targets, Path.GetDirectoryName(agent.Path), error => agent.Errors.Add(error));
         }
 
         foreach (var plugin in plugins)
+            TryAddReferenceTarget(targets, plugin.DirectoryPath, error => plugin.Errors.Add(error));
+
+        return targets;
+    }
+
+    private static void TryAddReferenceTarget(List<JsonReferenceTarget> targets, string? containerPath, Action<string> addError)
+    {
+        if (string.IsNullOrWhiteSpace(containerPath))
+            return;
+
+        var normalizedPath = NormalizePathKey(containerPath);
+        var normalizedDirectoryPath = File.Exists(normalizedPath)
+            ? Path.GetDirectoryName(normalizedPath) ?? normalizedPath
+            : normalizedPath;
+        var normalizedDirectoryPrefix = normalizedDirectoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
+        targets.Add(new JsonReferenceTarget(normalizedPath, normalizedDirectoryPrefix, addError));
+    }
+
+    private static bool TryAttachReferenceFinding(
+        IReadOnlyList<JsonReferenceTarget> targets,
+        string findingPath,
+        string formattedFinding)
+    {
+        var normalizedFindingPath = NormalizePathKey(findingPath);
+
+        foreach (var target in targets)
         {
-            if (IsPathWithin(findingPath, plugin.DirectoryPath))
+            if (string.Equals(normalizedFindingPath, target.ExactPath, s_pathComparison)
+                || normalizedFindingPath.StartsWith(target.DirectoryPrefix, s_pathComparison))
             {
-                plugin.Errors.Add(formattedFinding);
+                target.AddError(formattedFinding);
                 return true;
             }
         }
@@ -735,25 +770,12 @@ public static class CheckCommand
         return false;
     }
 
-    private static bool IsPathWithin(string candidatePath, string? containerPath)
-    {
-        if (string.IsNullOrWhiteSpace(containerPath))
-            return false;
+    private static string NormalizePathKey(string path) => Path.GetFullPath(path);
 
-        var fullCandidatePath = Path.GetFullPath(candidatePath);
-        var fullContainerPath = Path.GetFullPath(containerPath);
-
-        if (string.Equals(fullCandidatePath, fullContainerPath, s_pathComparison))
-            return true;
-
-        if (File.Exists(fullContainerPath))
-            fullContainerPath = Path.GetDirectoryName(fullContainerPath)!;
-
-        var normalizedContainer = fullContainerPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            + Path.DirectorySeparatorChar;
-
-        return fullCandidatePath.StartsWith(normalizedContainer, s_pathComparison);
-    }
+    private sealed record JsonReferenceTarget(
+        string ExactPath,
+        string DirectoryPrefix,
+        Action<string> AddError);
 
     private sealed class CheckReportBuilder(CheckConfig config, string scope)
     {

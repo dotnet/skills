@@ -371,13 +371,13 @@ public class CheckCommandFilePathTests
 [Collection("CheckCommandConsole")]
 public class CheckCommandJsonOutputTests
 {
-    private static string CreateSkillFixture(string skillName, string description)
+    private static string CreateSkillFixture(string skillName, string description, string body = "Content.")
     {
         var root = Path.Combine(Path.GetTempPath(), $"json-test-{Guid.NewGuid():N}");
         var skillDir = Path.Combine(root, skillName);
         Directory.CreateDirectory(skillDir);
         File.WriteAllText(Path.Combine(skillDir, "SKILL.md"),
-            $"---\nname: {skillName}\ndescription: {description}\n---\n# {skillName}\n\nContent.\n");
+            $"---\nname: {skillName}\ndescription: {description}\n---\n# {skillName}\n\n{body}\n");
         return root;
     }
 
@@ -465,6 +465,52 @@ public class CheckCommandJsonOutputTests
         finally
         {
             Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task JsonOutput_WithDuplicateSkillNames_AttachesExternalDependencyWarningsByPath()
+    {
+        var rootOne = CreateSkillFixture("shared-skill", "First description.", "#tool:custom/tool");
+        var rootTwo = CreateSkillFixture("shared-skill", "Second description.", "#tool:custom/tool");
+
+        var allowListPath = Path.Combine(Path.GetTempPath(), $"allowlist-{Guid.NewGuid():N}.txt");
+
+        try
+        {
+            var capture = await ConsoleCapture.RunAsync(() => CheckCommand.Run(new CheckConfig
+            {
+                SkillPaths = [Path.Combine(rootOne, "shared-skill"), Path.Combine(rootTwo, "shared-skill")],
+                AllowedExternalDepsFile = allowListPath,
+                OutputMode = CheckOutputMode.Json,
+            }));
+
+            Assert.Equal(1, capture.ExitCode);
+            Assert.Equal("", capture.StandardError);
+
+            using var document = JsonDocument.Parse(capture.StandardOutput);
+            var report = document.RootElement;
+            var skills = report.GetProperty("skills").EnumerateArray().ToList();
+
+            Assert.Equal(2, skills.Count);
+
+            foreach (var skill in skills)
+            {
+                var warningKinds = skill.GetProperty("warnings")
+                    .EnumerateArray()
+                    .Select(warning => warning.GetProperty("kind").GetString())
+                    .ToList();
+
+                Assert.Contains("externalDependency", warningKinds);
+            }
+        }
+        finally
+        {
+            if (File.Exists(allowListPath))
+                File.Delete(allowListPath);
+
+            Directory.Delete(rootOne, true);
+            Directory.Delete(rootTwo, true);
         }
     }
 }

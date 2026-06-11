@@ -37,6 +37,7 @@ public sealed class AgentCheckResult
 public sealed record ExternalDependencyResult(
     string Kind,
     string Name,
+    string TargetPath,
     string Message);
 
 public sealed record CheckInvocation(
