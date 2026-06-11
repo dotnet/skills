@@ -322,7 +322,7 @@ public static class EvaluateCommand
             // incomplete baseline can never silently skew results.
             var allScenarios = allTargets
                 .Where(t => t.EvalConfig is not null)
-                .SelectMany(t => t.EvalConfig!.Scenarios)
+                .SelectMany(t => t.EvalConfig!.Scenarios.Select(s => (Scenario: s, t.EvalPath)))
                 .ToList();
             var missing = baselineStore.FindMissingScenarios(allScenarios);
             if (missing.Count > 0)
@@ -657,7 +657,7 @@ public static class EvaluateCommand
 
         // Persist the averaged baseline (skill/agent-independent) for shared reuse.
         if (baselineStore is { IsReuse: false })
-            baselineStore.Record(scenario, runResults.Length, avgBaseline);
+            baselineStore.Record(scenario, runResults.Length, avgBaseline, target.EvalPath);
 
         int bestPairwiseIdx = -1;
         for (int i = 0; i < perRunPairwise.Count; i++)
@@ -772,7 +772,7 @@ public static class EvaluateCommand
 
         // Reuse a precomputed shared baseline when available (--baseline-from). The
         // baseline arm is agent-independent, so this skips a redundant agent run.
-        var reusedBaseline = baselineStore?.TryGetBaseline(scenario);
+        var reusedBaseline = baselineStore?.TryGetBaseline(scenario, target.EvalPath);
 
         sessionDb?.RegisterSession(baselineSessionId, agent.Name, agent.Path, scenario.Name, runIndex,
             reusedBaseline is not null ? "baseline-reused" : "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, targetSha, rubricJson);
@@ -1179,7 +1179,7 @@ public static class EvaluateCommand
         var avgPlugin = AverageResults(pluginRuns);
         // Persist the averaged baseline (skill/agent-independent) for shared reuse.
         if (baselineStore is { IsReuse: false })
-            baselineStore.Record(scenario, runResults.Length, avgBaseline);
+            baselineStore.Record(scenario, runResults.Length, avgBaseline, evalSkill.EvalPath);
         // Select the best pairwise result and track which run it came from
         int bestPairwiseIdx = -1;
         for (int i = 0; i < perRunPairwise.Count; i++)
@@ -1311,7 +1311,7 @@ public static class EvaluateCommand
 
         // Reuse a precomputed shared baseline when available (--baseline-from). The
         // baseline arm is skill-independent, so this skips a redundant agent run.
-        var reusedBaseline = baselineStore?.TryGetBaseline(scenario);
+        var reusedBaseline = baselineStore?.TryGetBaseline(scenario, evalSkill.EvalPath);
 
         sessionDb?.RegisterSession(baselineSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
             reusedBaseline is not null ? "baseline-reused" : "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, skillSha, rubricJson);

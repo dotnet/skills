@@ -130,7 +130,7 @@ public class BaselineStoreTests
             store.Save(path);
 
             var loaded = BaselineStore.Load(path, "model-x");
-            var missing = loaded.FindMissingScenarios([present, Scenario("beta", "prompt two")]);
+            var missing = loaded.FindMissingScenarios([(present, null), (Scenario("beta", "prompt two"), null)]);
 
             Assert.Single(missing);
             Assert.Equal("beta", missing[0]);
@@ -147,5 +147,83 @@ public class BaselineStoreTests
         var store = BaselineStore.ForWrite("model-x");
         Assert.False(store.IsReuse);
         Assert.Null(store.TryGetBaseline(Scenario("alpha", "prompt one")));
+    }
+
+    private static string MakeEvalDirWithFixture(string fixtureName, string fixtureContent)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"sv-baseline-fixture-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "eval.yaml"), "scenarios: []");
+        File.WriteAllText(Path.Combine(dir, fixtureName), fixtureContent);
+        return Path.Combine(dir, "eval.yaml");
+    }
+
+    private static EvalScenario FixtureScenario(string name, string prompt) =>
+        new(name, prompt, new SetupConfig(CopyTestFiles: true));
+
+    [Fact]
+    public void ComputeTargetSha_DiffersByFixtureContentAndIsStable()
+    {
+        var evalA = MakeEvalDirWithFixture("build.binlog", "AAAA");
+        var evalB = MakeEvalDirWithFixture("build.binlog", "BBBB");
+        try
+        {
+            var scenario = FixtureScenario("s", "investigate build.binlog");
+
+            var shaA1 = BaselineStore.ComputeTargetSha(scenario, evalA);
+            var shaA2 = BaselineStore.ComputeTargetSha(scenario, evalA);
+            var shaB = BaselineStore.ComputeTargetSha(scenario, evalB);
+
+            Assert.Equal(shaA1, shaA2);     // stable for identical inputs
+            Assert.NotEqual(shaA1, shaB);   // sensitive to fixture content
+            Assert.Equal(64, shaA1.Length);
+
+            // No setup → a stable, distinct constant.
+            var noSetup = BaselineStore.ComputeTargetSha(Scenario("s", "investigate build.binlog"), evalA);
+            Assert.NotEqual(shaA1, noSetup);
+        }
+        finally
+        {
+            Directory.Delete(Path.GetDirectoryName(evalA)!, recursive: true);
+            Directory.Delete(Path.GetDirectoryName(evalB)!, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SamePromptDifferentFixture_DoesNotReuseBaseline()
+    {
+        var path = TempPath();
+        var evalA = MakeEvalDirWithFixture("build.binlog", "case-A-binlog");
+        var evalB = MakeEvalDirWithFixture("build.binlog", "case-B-binlog");
+        try
+        {
+            // Two cases share an identical prompt but feed different fixtures.
+            const string sharedPrompt = "The binlog is at build.binlog. What went wrong?";
+            var scenarioA = FixtureScenario("case-A", sharedPrompt);
+            var scenarioB = FixtureScenario("case-B", sharedPrompt);
+
+            // Persist a baseline only for case A.
+            var store = BaselineStore.ForWrite("model-x");
+            store.Record(scenarioA, runs: 5, MakeBaseline(output: "A-baseline"), evalA);
+            store.Save(path);
+
+            var loaded = BaselineStore.Load(path, "model-x");
+
+            // Case A reuses its baseline; case B must NOT (different targetSha).
+            Assert.NotNull(loaded.TryGetBaseline(scenarioA, evalA));
+            Assert.Equal("A-baseline", loaded.TryGetBaseline(scenarioA, evalA)!.Metrics.AgentOutput);
+            Assert.Null(loaded.TryGetBaseline(scenarioB, evalB));
+
+            // FindMissingScenarios surfaces case B by name despite the shared prompt.
+            var missing = loaded.FindMissingScenarios([(scenarioA, evalA), (scenarioB, evalB)]);
+            Assert.Single(missing);
+            Assert.Equal("case-B", missing[0]);
+        }
+        finally
+        {
+            File.Delete(path);
+            Directory.Delete(Path.GetDirectoryName(evalA)!, recursive: true);
+            Directory.Delete(Path.GetDirectoryName(evalB)!, recursive: true);
+        }
     }
 }

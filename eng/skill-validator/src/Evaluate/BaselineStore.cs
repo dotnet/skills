@@ -6,13 +6,18 @@ using System.Text.Json;
 namespace SkillValidator.Evaluate;
 
 /// <summary>
-/// One scenario's precomputed baseline, keyed by the SHA-256 of its prompt.
+/// One scenario's precomputed baseline, keyed by the SHA-256 of its prompt
+/// (<see cref="PromptSha"/>) <em>and</em> the SHA-256 of its setup/fixture inputs
+/// (<see cref="TargetSha"/>).  Both must match for a baseline to be reused, so two
+/// scenarios that share a prompt but feed the agent different input artifacts
+/// (e.g. different <c>build.binlog</c> fixtures) never collide.
 /// <see cref="Runs"/> records how many baseline runs were averaged into
 /// <see cref="Baseline"/> so reuse can report the robustness of the reference.
 /// </summary>
 public sealed record BaselineScenarioEntry(
     string Name,
     string PromptSha,
+    string TargetSha,
     int Runs,
     RunResult Baseline);
 
@@ -38,9 +43,10 @@ public sealed record BaselineFile(
 internal sealed class BaselineStore
 {
     /// <summary>Current on-disk schema version.</summary>
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     private readonly ConcurrentDictionary<string, BaselineScenarioEntry> _entries = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, string> _targetShaCache = new(StringComparer.Ordinal);
     private readonly string _model;
 
     /// <summary>True when serving cached baselines (<c>--baseline-from</c>).</summary>
@@ -58,8 +64,8 @@ internal sealed class BaselineStore
     /// <summary>
     /// Load a baseline file for reuse.  Validates the schema version and that the model
     /// matches, throwing on mismatch so a stale or wrong baseline can never silently
-    /// skew results.  Per-scenario prompt identity is validated later via
-    /// <see cref="FindMissingScenarios"/>.
+    /// skew results.  Per-scenario identity (prompt + setup/fixture inputs) is validated
+    /// later via <see cref="FindMissingScenarios"/>.
     /// </summary>
     public static BaselineStore Load(string path, string expectedModel)
     {
@@ -90,37 +96,140 @@ internal sealed class BaselineStore
         foreach (var entry in file.Scenarios)
         {
             if (entry.Baseline is not null)
-                store._entries[entry.PromptSha] = entry;
+                store._entries[MakeKey(entry.PromptSha, entry.TargetSha)] = entry;
         }
         return store;
     }
 
-    /// <summary>SHA-256 (lower-case hex) of the scenario prompt — the per-scenario reuse key.</summary>
-    public static string ComputePromptSha(string prompt)
+    /// <summary>SHA-256 (lower-case hex) of the scenario prompt.</summary>
+    public static string ComputePromptSha(string prompt) => Sha256Hex(Encoding.UTF8.GetBytes(prompt));
+
+    /// <summary>
+    /// SHA-256 (lower-case hex) identifying the scenario's input artifacts — the analog
+    /// of the issue's <c>targetSha</c>.  It folds in the contents of every file the agent
+    /// is given for the run: sibling files auto-copied via <c>copy_test_files</c>, explicit
+    /// setup files (inline content or copied sources), and the setup command recipe.  This
+    /// binds a cached baseline to the exact inputs it was measured against, so two scenarios
+    /// that share prompt text but differ in fixtures (e.g. a different <c>build.binlog</c>)
+    /// resolve to distinct keys and never reuse each other's baseline.
+    /// </summary>
+    public static string ComputeTargetSha(EvalScenario scenario, string? evalPath)
     {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(prompt));
-        return Convert.ToHexString(bytes).ToLowerInvariant();
+        var cacheKey = BuildTargetCacheKey(scenario, evalPath);
+        return _targetShaCache.GetOrAdd(cacheKey, _ => ComputeTargetShaCore(scenario, evalPath));
     }
 
     /// <summary>
-    /// In reuse mode, return the names of scenarios that have no matching cached
-    /// baseline (keyed by prompt hash).  Empty when every scenario is covered.
+    /// Cheap, file-I/O-free signature of a scenario's setup inputs, used only to memoize
+    /// the (expensive) content hashing in <see cref="ComputeTargetShaCore"/> within a
+    /// single process.  It must distinguish any two scenarios whose materialized inputs
+    /// could differ, so it folds in the eval directory, the copy flag, the explicit setup
+    /// file recipe, and the command list — but not the on-disk file contents themselves.
     /// </summary>
-    public IReadOnlyList<string> FindMissingScenarios(IEnumerable<EvalScenario> scenarios) =>
+    private static string BuildTargetCacheKey(EvalScenario scenario, string? evalPath)
+    {
+        var setup = scenario.Setup;
+        var sb = new StringBuilder().Append(evalPath ?? "").Append('\0');
+        if (setup is null)
+            return sb.Append("none").ToString();
+        sb.Append("copy=").Append(setup.CopyTestFiles).Append('\0');
+        if (setup.Files is { } files)
+            foreach (var f in files)
+                sb.Append("f=").Append(f.Path).Append('|').Append(f.Source ?? "").Append('|').Append(f.Content ?? "").Append('\0');
+        if (setup.Commands is { } commands)
+            foreach (var c in commands)
+                sb.Append("c=").Append(c).Append('\0');
+        return sb.ToString();
+    }
+
+    private static string ComputeTargetShaCore(EvalScenario scenario, string? evalPath)
+    {
+        var setup = scenario.Setup;
+        if (setup is null)
+            return Sha256Hex(Encoding.UTF8.GetBytes("\0no-setup\0"));
+
+        var sb = new StringBuilder();
+
+        // 1. Sibling files auto-copied into the work dir (copy_test_files: true).
+        if (setup.CopyTestFiles && evalPath is not null)
+        {
+            var evalDir = Path.GetDirectoryName(evalPath);
+            if (!string.IsNullOrEmpty(evalDir) && Directory.Exists(evalDir))
+            {
+                var files = Directory.EnumerateFiles(evalDir, "*", SearchOption.AllDirectories)
+                    .Where(f => !string.Equals(Path.GetFileName(f), "eval.yaml", StringComparison.Ordinal))
+                    .Select(f => (Rel: Path.GetRelativePath(evalDir, f).Replace('\\', '/'), Full: f))
+                    .OrderBy(x => x.Rel, StringComparer.Ordinal);
+                foreach (var (rel, full) in files)
+                    sb.Append("F:").Append(rel).Append('=').Append(HashFile(full)).Append('\n');
+            }
+        }
+
+        // 2. Explicit setup files — inline content or a copied source.
+        if (setup.Files is { } setupFiles)
+        {
+            foreach (var f in setupFiles.OrderBy(f => f.Path, StringComparer.Ordinal))
+            {
+                sb.Append("E:").Append(f.Path.Replace('\\', '/')).Append('=');
+                if (f.Content is not null)
+                    sb.Append("c:").Append(Sha256Hex(Encoding.UTF8.GetBytes(f.Content)));
+                else if (f.Source is not null)
+                {
+                    var resolved = AgentRunner.ResolveSourcePath(f.Source, evalPath, skillPath: null);
+                    sb.Append("s:").Append(resolved is not null && File.Exists(resolved) ? HashFile(resolved) : "missing");
+                }
+                sb.Append('\n');
+            }
+        }
+
+        // 3. Setup commands define part of the input recipe (e.g. building a binlog).
+        if (setup.Commands is { } commands)
+        {
+            foreach (var c in commands)
+                sb.Append("C:").Append(c).Append('\n');
+        }
+
+        return Sha256Hex(Encoding.UTF8.GetBytes(sb.ToString()));
+    }
+
+    private static string HashFile(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Sha256Hex(SHA256.HashData(stream));
+    }
+
+    private static string Sha256Hex(byte[] data)
+    {
+        var bytes = data.Length == 32 ? data : SHA256.HashData(data);
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    private static string MakeKey(string promptSha, string targetSha) => string.Concat(promptSha, ":", targetSha);
+
+    /// <summary>
+    /// In reuse mode, return the names of scenarios that have no matching cached
+    /// baseline (keyed by prompt + setup/fixture identity).  Empty when every
+    /// scenario is covered.  Each scenario is paired with the eval.yaml path it
+    /// originates from so its input artifacts can be fingerprinted.
+    /// </summary>
+    public IReadOnlyList<string> FindMissingScenarios(IEnumerable<(EvalScenario Scenario, string? EvalPath)> scenarios) =>
         scenarios
-            .Where(s => !_entries.ContainsKey(ComputePromptSha(s.Prompt)))
-            .Select(s => s.Name)
+            .Where(s => !_entries.ContainsKey(MakeKey(ComputePromptSha(s.Scenario.Prompt), ComputeTargetSha(s.Scenario, s.EvalPath))))
+            .Select(s => s.Scenario.Name)
             .ToList();
 
     /// <summary>Get the cached averaged baseline for a scenario, or null when absent.</summary>
-    public RunResult? TryGetBaseline(EvalScenario scenario) =>
-        _entries.TryGetValue(ComputePromptSha(scenario.Prompt), out var entry) ? entry.Baseline : null;
+    public RunResult? TryGetBaseline(EvalScenario scenario, string? evalPath = null) =>
+        _entries.TryGetValue(MakeKey(ComputePromptSha(scenario.Prompt), ComputeTargetSha(scenario, evalPath)), out var entry)
+            ? entry.Baseline
+            : null;
 
     /// <summary>Record a scenario's averaged baseline for later persistence (write mode).</summary>
-    public void Record(EvalScenario scenario, int runs, RunResult averagedBaseline)
+    public void Record(EvalScenario scenario, int runs, RunResult averagedBaseline, string? evalPath = null)
     {
-        var sha = ComputePromptSha(scenario.Prompt);
-        _entries[sha] = new BaselineScenarioEntry(scenario.Name, sha, runs, averagedBaseline);
+        var promptSha = ComputePromptSha(scenario.Prompt);
+        var targetSha = ComputeTargetSha(scenario, evalPath);
+        _entries[MakeKey(promptSha, targetSha)] = new BaselineScenarioEntry(scenario.Name, promptSha, targetSha, runs, averagedBaseline);
     }
 
     /// <summary>Serialize all recorded baselines to <paramref name="path"/>.</summary>

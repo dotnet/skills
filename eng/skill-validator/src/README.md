@@ -166,7 +166,7 @@ Every evaluation runs each scenario through a **baseline arm** (the agent with n
 1. **Produce** a baseline file with `--baseline-out baseline.json`. After the run, each scenario's averaged baseline result (honoring `--runs`) is written to the file.
 2. **Reuse** it with `--baseline-from baseline.json` on subsequent runs. The baseline arm is skipped entirely; the cached baseline is used for assertions, pairwise/independent judging, and metric deltas.
 
-The baseline file records the `--model` and a SHA-256 of each scenario prompt. On reuse the validator fails fast if the model differs or any scenario prompt is missing from the file, so a stale or mismatched baseline can never be silently applied. Scenarios reused from the file are reported with the `baseline-reused` session phase and a `reused` baseline status.
+The baseline file records the `--model` and, per scenario, a SHA-256 of the prompt **and** a SHA-256 of its setup inputs (the fixtures copied via `copy_test_files`, explicit setup files, and setup commands — the analog of a target/input SHA). On reuse the validator fails fast if the model differs or any scenario's prompt-plus-fixture identity is missing from the file, so a stale or mismatched baseline can never be silently applied — and two scenarios that share a prompt but feed the agent different fixtures (e.g. a different `build.binlog`) never reuse each other's baseline. Scenarios reused from the file are reported with the `baseline-reused` session phase and a `reused` baseline status.
 
 The two options are mutually exclusive.
 
