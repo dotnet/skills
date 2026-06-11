@@ -17,6 +17,7 @@ Prerequisites:
 
 ## Skills
 
+- csharp-development
 - csharp-scripts
 - dotnet-pinvoke
 - nuget-trusted-publishing

@@ -1,0 +1,54 @@
+name: csharp-development
+description: Evaluates the dotnet/csharp-development skill
+type: capability
+config:
+  timeout: 5m
+stimuli:
+  - name: General C# refactoring guidance
+    prompt: I need to refactor a C# service method in an existing project. Give concise guidance for keeping the change clean, maintainable, async-safe, and consistent with nearby .NET conventions.
+    graders:
+      - type: output-matches
+        config:
+          pattern: nearby|existing|convention|async|CancellationToken|exception|public API|abstraction
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Preserves local project conventions before recommending generic patterns
+      - Covers async/cancellation and precise error handling where relevant
+      - Avoids unnecessary abstractions or broad project-setting changes
+  - name: Small feature implementation
+    prompt: Provide code for an existing C# project: add an async method that loads customer records from a stream, skips blank lines, supports cancellation, and returns parsed records. Do not create or change project files or settings.
+    graders:
+      - type: output-matches
+        config:
+          pattern: async|CancellationToken|ReadLineAsync|blank lines|project files|settings|record
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Provides a focused C# implementation for the requested feature
+      - Supports cancellation and async I/O without sync-over-async
+      - Skips blank lines and avoids changing TFM, SDK, LangVersion, or other project settings
+  - name: Nullable validation and error handling
+    prompt: Review this C# API shape and explain how you would implement validation without hiding nullable warnings: `public Customer Create(string? id, string? displayName)`. Keep the public API minimal and use precise exceptions.
+    graders:
+      - type: output-matches
+        config:
+          pattern: ArgumentNullException|ArgumentException|string.IsNullOrWhiteSpace|null|nullable|public API
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Distinguishes null validation from empty or whitespace validation
+      - Avoids nullable suppression as the primary solution
+      - Keeps public surface area minimal and exceptions precise
+  - name: Constraint-respecting review
+    prompt: A teammate suggests changing LangVersion and the target framework so a small helper can use newer C# syntax. Review that suggestion for an existing library where project settings should stay stable.
+    graders:
+      - type: output-matches
+        config:
+          pattern: LangVersion|target framework|project settings|existing|syntax|stable
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Rejects unnecessary project-setting changes for a small helper
+      - Recommends syntax compatible with the existing project context
+      - Balances maintainability with minimal, focused changes
