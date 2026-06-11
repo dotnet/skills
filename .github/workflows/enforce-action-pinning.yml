@@ -1,0 +1,49 @@
+name: Enforce Action Pinning
+
+# Fails if any workflow references a GitHub Action by a mutable tag or branch
+# instead of a full-length commit SHA. This guards against a regeneration
+# (e.g. `gh aw compile`) or a hand edit silently re-introducing an unpinned
+# action, independently of GitHub's org-level SHA-pinning policy.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-pins:
+    name: Verify actions are pinned to a commit SHA
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Check for unpinned action references
+        run: |
+          set -euo pipefail
+          # Collect every `uses:` reference that is NOT pinned to a 40-character
+          # commit SHA. Exemptions:
+          #   - local reusable workflows / composite actions (./ or ../)
+          #   - Docker image references (docker://...)
+          violations=$(
+            grep -rnE '^[[:space:]]*-?[[:space:]]*uses:[[:space:]]' \
+              .github/workflows --include='*.yml' --include='*.yaml' \
+            | grep -vE "uses:[[:space:]]*[\"']?(\./|\.\./)" \
+            | grep -vE "uses:[[:space:]]*[\"']?docker://" \
+            | grep -vE "@[0-9a-fA-F]{40}([[:space:]\"']|\$)" \
+            || true
+          )
+          if [ -n "$violations" ]; then
+            echo "::error::Unpinned action reference(s) found. Pin every action to a full-length commit SHA (e.g. actions/checkout@<sha> # v6.0.2)."
+            echo "$violations"
+            exit 1
+          fi
+          echo "All action references are pinned to a full-length commit SHA."
