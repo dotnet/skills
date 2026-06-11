@@ -395,14 +395,13 @@ public static class CheckCommand
         foreach (var skill in skills)
         {
             var profile = SkillProfiler.AnalyzeSkill(skill, checkOptions);
-            var profileLine = SkillProfiler.FormatProfileLine(profile);
             var result = new SkillCheckResult
             {
                 Name = skill.Name,
                 Path = skill.Path,
                 SkillMdPath = skill.SkillMdPath,
                 Profile = profile,
-                ProfileLine = verbose ? profileLine : null,
+                ProfileLine = verbose ? SkillProfiler.FormatProfileLine(profile) : null,
             };
 
             result.Errors.AddRange(profile.Errors);
@@ -426,19 +425,19 @@ public static class CheckCommand
         foreach (var skill in skills)
         {
             foreach (var warning in ExternalDependencyChecker.CheckSkill(skill, allowed))
-                builder.ExternalDependencies.Add(new ExternalDependencyResult("skill", skill.Name, skill.SkillMdPath, warning));
+                builder.ExternalDependencies.Add(new ExternalDependencyResult(ExternalDependencyKind.Skill, skill.Name, skill.SkillMdPath, warning));
         }
 
         foreach (var agent in agents)
         {
             foreach (var warning in ExternalDependencyChecker.CheckAgent(agent, allowed))
-                builder.ExternalDependencies.Add(new ExternalDependencyResult("agent", agent.Name, agent.Path, warning));
+                builder.ExternalDependencies.Add(new ExternalDependencyResult(ExternalDependencyKind.Agent, agent.Name, agent.Path, warning));
         }
 
         foreach (var plugin in plugins)
         {
             foreach (var warning in ExternalDependencyChecker.CheckPlugin(plugin, allowed))
-                builder.ExternalDependencies.Add(new ExternalDependencyResult("plugin", plugin.Name, plugin.DirectoryPath, warning));
+                builder.ExternalDependencies.Add(new ExternalDependencyResult(ExternalDependencyKind.Plugin, plugin.Name, plugin.DirectoryPath, warning));
         }
     }
 
@@ -496,7 +495,7 @@ public static class CheckCommand
                 DirectoryPath: source.DirectoryPath,
                 Errors: [.. source.Errors],
                 Warnings: source.Warnings
-                    .Select(warning => new CheckJsonWarning("validation", warning))
+                    .Select(warning => new CheckJsonWarning(CheckJsonWarningKinds.Validation, warning))
                     .ToList()))
             .ToList();
 
@@ -507,7 +506,7 @@ public static class CheckCommand
                 SkillMdPath: source.SkillMdPath,
                 Errors: [.. source.Errors],
                 Warnings: source.Warnings
-                    .Select(warning => new CheckJsonWarning("profile", warning))
+                    .Select(warning => new CheckJsonWarning(CheckJsonWarningKinds.Profile, warning))
                     .ToList(),
                 Profile: source.Profile is null ? null : new CheckJsonSkillProfile(
                     Name: source.Profile.Name,
@@ -531,7 +530,7 @@ public static class CheckCommand
                 Path: source.Path,
                 Errors: [.. source.Errors],
                 Warnings: source.Warnings
-                    .Select(warning => new CheckJsonWarning("validation", warning))
+                    .Select(warning => new CheckJsonWarning(CheckJsonWarningKinds.Validation, warning))
                     .ToList()))
             .ToList();
 
@@ -553,17 +552,17 @@ public static class CheckCommand
 
             switch (dependency.Kind)
             {
-                case "plugin":
+                case ExternalDependencyKind.Plugin:
                     if (pluginsByPath.TryGetValue(dependencyPath, out var plugin))
-                        plugin.Warnings.Add(new CheckJsonWarning("externalDependency", dependency.Message));
+                        plugin.Warnings.Add(new CheckJsonWarning(CheckJsonWarningKinds.ExternalDependency, dependency.Message));
                     break;
-                case "skill":
+                case ExternalDependencyKind.Skill:
                     if (skillsByPath.TryGetValue(dependencyPath, out var skill))
-                        skill.Warnings.Add(new CheckJsonWarning("externalDependency", dependency.Message));
+                        skill.Warnings.Add(new CheckJsonWarning(CheckJsonWarningKinds.ExternalDependency, dependency.Message));
                     break;
-                case "agent":
+                case ExternalDependencyKind.Agent:
                     if (agentsByPath.TryGetValue(dependencyPath, out var agent))
-                        agent.Warnings.Add(new CheckJsonWarning("externalDependency", dependency.Message));
+                        agent.Warnings.Add(new CheckJsonWarning(CheckJsonWarningKinds.ExternalDependency, dependency.Message));
                     break;
             }
         }

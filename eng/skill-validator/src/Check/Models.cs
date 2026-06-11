@@ -14,6 +14,12 @@ public sealed class PluginCheckResult
     public List<string> Warnings { get; } = [];
 }
 
+[Obsolete("Use PluginCheckResult.")]
+public sealed record PluginValidationResult(
+    string Name,
+    IReadOnlyList<string> Errors,
+    IReadOnlyList<string> Warnings);
+
 public sealed class SkillCheckResult
 {
     public string Name { get; init; } = "";
@@ -34,8 +40,15 @@ public sealed class AgentCheckResult
     public List<string> Warnings { get; } = [];
 }
 
+public enum ExternalDependencyKind
+{
+    Plugin,
+    Skill,
+    Agent,
+}
+
 public sealed record ExternalDependencyResult(
-    string Kind,
+    ExternalDependencyKind Kind,
     string Name,
     string TargetPath,
     string Message);
@@ -63,6 +76,13 @@ public sealed record CheckJsonCounts(
     int PluginCount,
     int SkillCount,
     int AgentCount);
+
+public static class CheckJsonWarningKinds
+{
+    public const string Validation = "validation";
+    public const string Profile = "profile";
+    public const string ExternalDependency = "externalDependency";
+}
 
 public sealed record CheckJsonWarning(
     string Kind,
