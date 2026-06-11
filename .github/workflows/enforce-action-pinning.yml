@@ -38,7 +38,7 @@ jobs:
               .github/workflows --include='*.yml' --include='*.yaml' \
             | grep -vE "uses:[[:space:]]*[\"']?(\./|\.\./)" \
             | grep -vE "uses:[[:space:]]*[\"']?docker://" \
-            | grep -vE "@[0-9a-fA-F]{40}([[:space:]\"']|\$)" \
+            | grep -vE "@[0-9a-fA-F]{40}([[:space:]\"']|$)" \
             || true
           )
           if [ -n "$violations" ]; then
