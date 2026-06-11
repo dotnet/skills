@@ -1,6 +1,6 @@
 # dotnet-test
 
-Skills and agents for running, generating, analyzing, migrating, and improving tests. Originally built for .NET (MSTest, xUnit, NUnit, TUnit) and platforms (VSTest, Microsoft.Testing.Platform); the test-generation pipeline and the five test-analysis skills (anti-patterns, smells, assertion quality, gap analysis, tagging) plus the `test-quality-auditor` agent are **polyglot** and also work with Python (pytest/unittest), TypeScript/JavaScript (Jest/Vitest/Mocha/Jasmine/node:test), Java (JUnit 4/5/TestNG), Go (testing/testify), Ruby (RSpec/Minitest), Rust (built-in/proptest), Swift (XCTest/Swift Testing), Kotlin (JUnit/Kotest), PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
+Skills and agents for running, generating, analyzing, migrating, and improving tests. Originally built for .NET (MSTest, xUnit, NUnit, TUnit) and platforms (VSTest, Microsoft.Testing.Platform); the test-generation pipeline and the six test-analysis skills (anti-patterns, smells, assertion quality, gap analysis, tagging, grade tests) plus the `test-quality-auditor` agent are **polyglot** and also work with Python (pytest/unittest), TypeScript/JavaScript (Jest/Vitest/Mocha/Jasmine/node:test), Java (JUnit 4/5/TestNG), Go (testing/testify), Ruby (RSpec/Minitest), Rust (built-in/proptest), Swift (XCTest/Swift Testing), Kotlin (JUnit/Kotest), PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
 
 ## When to use this plugin
 
@@ -39,7 +39,7 @@ Skills and agents for running, generating, analyzing, migrating, and improving t
 
 ### Test quality & analysis *(polyglot)*
 
-These five skills work across all supported languages by loading a per-language reference file from `test-analysis-extensions`.
+These six skills are all polyglot. They work across all supported languages by loading a per-language reference file from `test-analysis-extensions`. `grade-tests` additionally embeds its own scoring rubric (sub-grades, weighting, anti-pattern catalog) so the per-test grades stay consistent across calls.
 
 | Skill | Description |
 |---|---|
@@ -48,6 +48,7 @@ These five skills work across all supported languages by loading a per-language 
 | **assertion-quality** | Measure assertion variety and depth — find shallow tests that barely verify anything (any language) |
 | **test-gap-analysis** | Pseudo-mutation analysis to find test blind spots that coverage numbers miss (any language) |
 | **test-tagging** | Tag tests with standardized traits (smoke, regression, boundary, critical-path, etc.); auto-edits where the framework has canonical syntax, report-only otherwise |
+| **grade-tests** | Grade a curated list of test methods individually and produce a compact, PR-comment-friendly table of letter grades (A–F), score bands, and one-line notes — designed for per-PR test-quality feedback (any language) |
 
 ### Coverage & risk *(.NET only)*
 
@@ -107,7 +108,7 @@ These are pipeline stages invoked automatically by the agents above (`user-invoc
 
 ### For polyglot skills and agents
 
-The test-generation pipeline (`code-testing-generator` and friends) and the five test-analysis skills (`test-anti-patterns`, `test-smell-detection`, `assertion-quality`, `test-gap-analysis`, `test-tagging`) plus the `test-quality-auditor` agent work with any of the supported languages above. You just need a working test runtime for the language you're targeting (e.g., `python` + `pytest`, `node` + `npm test`, `mvn` / `gradle`, `go`, `bundle exec rspec`, `cargo test`, `swift test`, `pwsh` + Pester, `cmake` + your C++ test runner). The skills will detect the framework automatically.
+The test-generation pipeline (`code-testing-generator` and friends) and the six test-analysis skills (`test-anti-patterns`, `test-smell-detection`, `assertion-quality`, `test-gap-analysis`, `test-tagging`, `grade-tests`) plus the `test-quality-auditor` agent work with any of the supported languages above. You just need a working test runtime for the language you're targeting (e.g., `python` + `pytest`, `node` + `npm test`, `mvn` / `gradle`, `go`, `bundle exec rspec`, `cargo test`, `swift test`, `pwsh` + Pester, `cmake` + your C++ test runner). The skills will detect the framework automatically.
 
 ### For .NET-only skills and agents
 
