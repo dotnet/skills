@@ -159,14 +159,29 @@ public static partial class ExternalDependencyChecker
             var doc = System.Text.Json.JsonSerializer.Deserialize(
                 json, SkillValidatorJsonContext.Default.JsonElement);
 
-            if (doc.TryGetProperty("mcpServers", out var serversEl)
-                && serversEl.ValueKind == System.Text.Json.JsonValueKind.Object)
+            if (doc.TryGetProperty("mcpServers", out var serversEl))
             {
-                foreach (var prop in serversEl.EnumerateObject())
+                System.Text.Json.JsonElement? mcpObject = null;
+                if (serversEl.ValueKind == System.Text.Json.JsonValueKind.Object)
                 {
-                    var key = $"mcp-server:{plugin.Name}:{prop.Name}";
-                    if (allowed?.Contains(key) != true)
-                        findings.Add($"MCP server '{prop.Name}' — review needed: verify this MCP server dependency is intentional and necessary. (allow: {key})");
+                    mcpObject = serversEl;
+                }
+                else if (serversEl.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var refPath = serversEl.GetString()!;
+                    if (!Path.IsPathRooted(refPath) && !refPath.Contains(".."))
+                        mcpObject = ResolveMcpFileSync(
+                            Path.Combine(Path.GetDirectoryName(pluginJsonPath)!, refPath));
+                }
+
+                if (mcpObject is { } obj)
+                {
+                    foreach (var prop in obj.EnumerateObject())
+                    {
+                        var key = $"mcp-server:{plugin.Name}:{prop.Name}";
+                        if (allowed?.Contains(key) != true)
+                            findings.Add($"MCP server '{prop.Name}' — review needed: verify this MCP server dependency is intentional and necessary. (allow: {key})");
+                    }
                 }
             }
         }
@@ -176,6 +191,19 @@ public static partial class ExternalDependencyChecker
         }
 
         return findings;
+    }
+
+    private static System.Text.Json.JsonElement? ResolveMcpFileSync(string mcpPath)
+    {
+        if (!File.Exists(mcpPath)) return null;
+        try
+        {
+            var doc = System.Text.Json.JsonSerializer.Deserialize(
+                File.ReadAllText(mcpPath), SkillValidatorJsonContext.Default.JsonElement);
+            return doc.TryGetProperty("mcpServers", out var obj)
+                && obj.ValueKind == System.Text.Json.JsonValueKind.Object ? obj : null;
+        }
+        catch { return null; }
     }
 
     // Matches "INVOKES" followed by a script-like filename (word.ext)

@@ -110,10 +110,12 @@ Target framework throughout: **MSTest v4** (the few v3-only spellings are explic
 
 | xUnit | MSTest |
 |---|---|
-| `Assert.IsType<T>(x)` (exact type, returns `T`) | MSTest v4: `var t = Assert.IsInstanceOfType<T>(x);` (semantically *assignable*, not exact); for exact-type, follow with `Assert.AreEqual(typeof(T), x.GetType())` |
-| `Assert.IsNotType<T>(x)` (exact type) | `Assert.IsNotInstanceOfType<T>(x);` plus `Assert.AreNotEqual(typeof(T), x.GetType())` if exact-type matters |
-| `Assert.IsAssignableFrom<T>(x)` | `Assert.IsInstanceOfType<T>(x)` -- semantically equivalent |
+| `Assert.IsType<T>(x)` (exact type, returns `T`) | `var t = Assert.IsExactInstanceOfType<T>(x);` (MSTest 4.1+; returns the typed value, exact match) |
+| `Assert.IsNotType<T>(x)` (exact type) | `Assert.IsNotExactInstanceOfType<T>(x);` (MSTest 4.1+) |
+| `Assert.IsAssignableFrom<T>(x)` | `Assert.IsInstanceOfType<T>(x)` -- semantically equivalent (assignable-from check) |
 
+> MSTest 4.1+ adds `Assert.IsExactInstanceOfType<T>(x)` -- the proper equivalent of xUnit's exact-type `Assert.IsType<T>` (returns `T`, single call). On pre-4.1 MSTest, fall back to `var t = Assert.IsInstanceOfType<T>(x); Assert.AreEqual(typeof(T), x.GetType());`. `Assert.IsInstanceOfType<T>(x)` on its own is **assignable-only** (= xUnit `Assert.IsAssignableFrom<T>`); silently mapping `IsType<T>` to it loses exact-type semantics.
+>
 > MSTest v4's `Assert.IsInstanceOfType<T>(x)` returns the typed value (no out param). MSTest v3 uses `Assert.IsInstanceOfType<T>(x, out var typed)`.
 
 ### 3.4 Numeric / comparison
@@ -150,8 +152,8 @@ Target framework throughout: **MSTest v4** (the few v3-only spellings are explic
 | `Assert.Single(collection, predicate)` | `var item = Assert.ContainsSingle(collection.Where(predicate));` |
 | `Assert.Collection(items, e1 => ..., e2 => ...)` | **Manual** -- assert count, then per-element. No idiomatic MSTest equivalent |
 | `Assert.All(items, x => assertion(x))` | **Manual** -- `foreach (var x in items) assertion(x);` |
-| `Assert.Equal(expected, actual)` on `IEnumerable<T>` (element-wise) | `CollectionAssert.AreEqual(expected.ToList(), actual.ToList())` (`IList` required) |
-| `Assert.Equal(expected, actual, comparer)` on collections | `CollectionAssert.AreEqual(expected.ToList(), actual.ToList(), comparer)` |
+| `Assert.Equal(expected, actual)` on `IEnumerable<T>` (element-wise) | `Assert.AreSequenceEqual(expected, actual)` (MSTest 4.3+); pre-4.3: `CollectionAssert.AreEqual(expected.ToList(), actual.ToList())` (`IList` required). Plain `Assert.AreEqual` does **not** compare element-wise (MSTEST0065). |
+| `Assert.Equal(expected, actual, comparer)` on collections | `Assert.AreSequenceEqual(expected, actual, comparer)` (MSTest 4.3+); pre-4.3: `CollectionAssert.AreEqual(expected.ToList(), actual.ToList(), comparer)` |
 | `Assert.Distinct(collection)` | **Manual** -- `Assert.AreEqual(collection.Count, collection.Distinct().Count())` |
 | `Assert.Superset(expected, actual)` | **Manual** -- `Assert.IsTrue(expected.IsSubsetOf(actual))` if both are `HashSet<T>` |
 
@@ -365,6 +367,13 @@ Prefer pinning the `MSTest.Sdk` version in `global.json` (especially in solution
 
 With the pin in `global.json`, the project line simplifies to `<Project Sdk="MSTest.Sdk">`.
 
+`MSTest.Sdk` adds `Microsoft.VisualStudio.TestTools.UnitTesting` as an **implicit global using**, so:
+
+- **Do not** add `<Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />` to the project file -- it's redundant noise.
+- **Do not** add `using Microsoft.VisualStudio.TestTools.UnitTesting;` to each test file -- it's already in scope.
+
+(Option A -- the `MSTest` metapackage -- does not bring the global using; per-file `using Microsoft.VisualStudio.TestTools.UnitTesting;` is still required there.)
+
 ## 10. Companion / extension libraries
 
 | xUnit companion | MSTest equivalent |
@@ -374,6 +383,6 @@ With the pin in `global.json`, the project line simplifies to `<Project Sdk="MST
 | `Xunit.StaFact` (`[StaFact]`, `[WpfFact]`) | No equivalent -- manual STA thread or flag for review |
 | `Xunit.Priority` (`[TestCaseOrderer]`) | MSTest ordering is different -- flag for manual |
 | `Verify.Xunit` | `Verify.MSTest` (swap the package; same usage) |
-| `FluentAssertions` / `Shouldly` / `AwesomeAssertions` | Keep -- assertion libraries are framework-agnostic |
+| `FluentAssertions` / `Shouldly` / `AwesomeAssertions` | Keep -- assertion libraries are framework-agnostic. (`AwesomeAssertions` is a fork of `FluentAssertions` and ships in the `FluentAssertions` namespace for API compat -- no source changes needed.) |
 | `Moq` / `NSubstitute` / `FakeItEasy` | Keep -- mocking libraries are framework-agnostic |
 | `AutoFixture.Xunit2` (`[AutoData]`) | `AutoFixture` core works, but the auto-data attribute integration requires the xUnit-specific package -- flag for manual |

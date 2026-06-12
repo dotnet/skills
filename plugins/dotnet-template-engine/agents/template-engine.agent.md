@@ -37,12 +37,23 @@ Classify the user's request and invoke the appropriate skill:
 | "Create a new project/app/service" | `template-instantiation` skill |
 | "What templates are available for X?" | `template-discovery` skill |
 | "Show me template details/parameters" | `template-discovery` skill (inspect via `dotnet new <template> --help`) |
+| "Compare templates X vs Y" / "which template should I use" | `template-comparison` skill |
+| "Apply smart defaults" / cross-parameter questions during creation | `template-smart-defaults` skill |
 | "Create a template from my project" | `template-authoring` skill |
-| "Validate my custom template" | `template-authoring` skill |
+| "Validate my custom template" / "check my template.json" / "my template doesn't show up after install" | `template-validation` skill |
 | "Add a parameter to my template" | `template-authoring` skill |
 | "Install a template package" | `template-instantiation` skill (install via `dotnet new install`) |
 | "Create solution + API + tests" | `template-instantiation` skill (sequential creation) |
 | "Show me the solution structure" | Inspect `.sln` and `.csproj` files directly |
+
+## Skills Inventory
+
+- `template-discovery` — find, inspect, and select templates from natural-language intent
+- `template-comparison` — compare 2+ templates side by side to help users choose
+- `template-instantiation` — create projects/solutions, manage template packages, adapt to CPM
+- `template-smart-defaults` — apply cross-parameter default rules during creation
+- `template-authoring` — create custom templates from existing projects
+- `template-validation` — validate `template.json` for correctness before publishing
 
 ## Workflow: Creating a Project
 
@@ -59,7 +70,7 @@ Ask clarifying questions if needed:
 Map the user's description to a template short name (see template-discovery skill for keyword mappings), or use `dotnet new search` for keyword-based search. Present options if multiple matches exist.
 
 ### 3. Inspect Parameters
-Use `dotnet new <template> --help` to show available parameters and their defaults, types, and choices.
+Use `dotnet new <template> --help` to show available parameters and their defaults, types, and choices. Apply cross-parameter defaults via the `template-smart-defaults` skill (e.g., AOT → latest compatible framework; auth set → don't disable HTTPS) without overriding values the user set explicitly.
 
 ### 4. Analyze Workspace
 Inspect the existing project structure: check for `Directory.Packages.props` (CPM), `global.json`, and existing `.csproj` files to determine framework conventions.
@@ -83,7 +94,7 @@ When a user asks to create a custom template:
 Read the `.csproj` and create a `.template.config/template.json` that preserves the project's conventions (SDK type, packages, properties). Review the generated template.json.
 
 ### 2. Validate
-Review the generated `template.json` for required fields (`identity`, `name`, `shortName`), valid parameter datatypes, shortName conflicts with CLI commands, and complete post-action configuration. Use `dotnet new <template> --help` on the installed template to verify metadata.
+Validate the generated `template.json` with the `template-validation` skill — it owns the full rule set (required fields, identity format, reserved shortName conflicts, parameter datatypes, post-actions, constraints, tags). Then use `dotnet new <template> --help` on the installed template to verify metadata.
 
 ### 3. Refine
 Help the user add parameters, conditional content, post-actions, and constraints.

@@ -37,10 +37,13 @@ For each file in your phase:
 - **Trace the logic** for each code path you plan to test — understand what the function actually does, not what you think it should do
 - Note dependencies and how to mock them
 - **Validate project references**: Read the test project file and verify it references the source project(s) you'll test. Add missing references before creating test files
+- **Capture the baseline test count**: run the harness-equivalent discovery command from the repo root (see the "Harness Discovery Check" section of your language extension) and record the count. You will compare against this in Step 7.
 
 ### 3. Register Test Project with Build System
 
 If the test project is new, register it with the project's build system so the test command can discover it. Call the `code-testing-extensions` skill and read the relevant language extension (e.g., `dotnet.md` for .NET solution registration).
+
+> **Reminder**: If Step 4 below creates a *new* test project (`dotnet new`, scaffolded gem, new module), come back here before Step 5 — a new project that is not registered will pass your scoped build/test but will be invisible to the harness, every CI pipeline, and the final solution-level test command.
 
 ### 4. Write Test Files
 
@@ -82,17 +85,30 @@ If tests fail:
 - Never mark a test `[Ignore]`, `[Skip]`, or `[Inconclusive]`
 - Retry the fix-test cycle up to 5 times
 
-### 7. Format Code (Optional)
+### 7. Verify Harness Discovery (MANDATORY)
+
+Tests that pass via your *scoped* build/test command but are invisible to a generic CI/benchmark harness count as 0 generated tests. Every "Harness Discovery Check" section in the language extension exists because we have seen this fail in production:
+
+- A new C# test project that was never `dotnet sln add`ed: passes locally, invisible to the solution-level harness.
+- A Pester test file placed under a custom directory (`pester/`, `tst/`): passes when you pass `-Path` explicitly, invisible to the default `Invoke-Pester` the harness runs.
+- An RSpec spec placed in a sub-gem's `spec/` dir of a monorepo: passes via `bundle exec rspec <subdir>/spec`, invisible to `bundle exec rspec` from the repo root.
+
+Read the **"Harness Discovery Check"** section in your language's extension file and run the command it specifies *from the repo root* (not from the test project / sub-gem directory). Compute the delta against the initial test count you captured in Step 2. If the delta does not match what you generated, fix the root cause — registration, placement, or harness configuration — and re-run. **Do not proceed to Step 8 until the harness-equivalent command sees your new tests.**
+
+If your language extension has no "Harness Discovery Check" section, use the canonical default-discovery command for the test framework (`pytest --collect-only -q | tail -n 1`, `npx vitest --reporter=verbose --run 2>&1 | grep -E '^\s*[√×]'` from repo root, `go test -list '.*' ./...`, `mvn test -DskipTests=false -Dtest.failure.ignore=true`, etc.) and apply the same delta logic.
+
+### 8. Format Code (Optional)
 
 If a lint command is available, call the `code-testing-linter` sub-agent.
 
-### 8. Report Results
+### 9. Report Results
 
 ```text
 PHASE: [N]
 STATUS: SUCCESS | PARTIAL | FAILED
 TESTS_CREATED: [count]
 TESTS_PASSING: [count]
+HARNESS_DISCOVERY: [count delta from Step 7]
 FILES:
 - path/to/TestFile.ext (N tests)
 ISSUES:

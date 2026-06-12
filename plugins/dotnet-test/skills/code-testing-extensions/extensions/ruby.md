@@ -37,6 +37,13 @@ RSpec only discovers specs under `spec/` by default, and verification harnesses 
 
 A spec placed anywhere outside `spec/` (e.g. next to the source under `lib/`) will be invisible to `bundle exec rspec` and to the harness. The same applies to Minitest: place tests under `test/` and use `*_test.rb` naming.
 
+**Gem-monorepo trap (fastlane, ruby/ruby, large gems with sub-gems):** if the repo contains multiple `*/spec/` directories (each sub-gem with its own specs), `bundle exec rspec` from the repo root only loads `./spec/` by default — sub-gem specs are invisible to the harness. Either:
+
+- place the new spec inside the **root** `./spec/` (with a `require_relative` to the sub-gem's `lib/`), or
+- run the sub-gem's `bundle exec rspec` from the sub-gem dir AND verify in the Harness Discovery Check below that the root command also enumerates it (often it won't — you'll need to extend `.rspec` with `--default-path` or the root `Rakefile`'s test task).
+
+For interpreter-build repos (ruby/ruby itself) the test runner requires `make test-all` after `make miniruby` — `ruby test/foo_test.rb` alone is not what the harness runs.
+
 ### First-Test Sanity Loop
 
 After writing the **first** spec — before writing any others:
@@ -46,6 +53,24 @@ After writing the **first** spec — before writing any others:
 3. Only then expand to cover the remaining methods.
 
 This catches placement and load-path mistakes on turn 1 instead of after dozens of failed-test iterations.
+
+### Harness Discovery Check
+
+Before reporting success, run the **harness-equivalent** discovery command from the repo root and confirm the example count went up by at least the number of tests you generated. CI/msbench/coverage harnesses do not know which file or sub-gem dir you targeted; they run the framework's default discovery from the repo root, so a spec that passes via `bundle exec rspec fastlane_core/spec/foo_spec.rb` is still worthless if `bundle exec rspec --dry-run` from the repo root doesn't enumerate it.
+
+```bash
+# RSpec — from repo root
+bundle exec rspec --dry-run 2>&1 | grep -E '^[0-9]+ example'
+
+# Minitest (Rails)
+{ bundle exec rake test --dry-run 2>/dev/null || bin/rails test --list-tests; } | wc -l
+
+# Custom runner (Homebrew, ruby/ruby, etc.)
+# Use the repo's own runner — `./bin/brew tests --list`, `make test-all`, etc.
+# If no `--list`/`--dry-run` mode exists, run a single matching test by name and confirm exit 0.
+```
+
+If the count did not increase, your spec is invisible to the harness. Move it into `./spec/`, extend `.rspec`/`Rakefile` so the harness picks up the sub-gem dir, or switch to a `require_relative` strategy from a root-level spec. Do **not** report success until the harness-equivalent command sees your new tests.
 
 ## Rule #1: Investigate the Repo First
 

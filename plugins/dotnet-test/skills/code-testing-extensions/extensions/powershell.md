@@ -46,6 +46,18 @@ After writing the **first** `*.Tests.ps1` file — before writing any others:
 
 This catches placement and discovery mistakes on turn 1 instead of after dozens of failed-test iterations.
 
+### Harness Discovery Check
+
+Before reporting success, run the **harness-equivalent** discovery command from the repo root and confirm the test count went up by at least the number of tests you generated. CI/msbench/coverage harnesses do not know which directory you targeted with `-Path`; they invoke Pester from the repo root with default discovery, so a test that passes via `Invoke-Pester -Path ./tools/Foo.Tests.ps1` is still worthless if `Invoke-Pester` from the repo root does not enumerate it.
+
+```powershell
+# From repo root — mirrors what a generic harness sees
+$result = Invoke-Pester -Configuration @{ Run = @{ PassThru = $true; SkipRun = $true } }
+"$($result.TotalCount) tests discovered"
+```
+
+If the count did not increase, your `*.Tests.ps1` file is outside the harness discovery root. Move it to the convention the repo's existing tests use (or, if there are no existing tests, prefer the repo root's `tests/`, `Tests/`, `tst/`, `test/`, or co-locate next to the source). Do **not** report success until the harness-equivalent command sees your new tests.
+
 ## Rule #1: Investigate the Repo First
 
 Before writing any test or running any command, read:
