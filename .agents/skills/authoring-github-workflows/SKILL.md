@@ -23,7 +23,7 @@ GitHub Actions workflow files are YAML, but **valid YAML is not the same as a va
 
 ## The #1 Trap: `#` inside an unquoted expression becomes a YAML comment
 
-In YAML, a space followed by `#` starts a **comment**. In an unquoted (plain) scalar, everything from ` #` to end-of-line is silently discarded:
+In YAML, a space followed by `#` starts a **comment**. In an unquoted (plain) scalar, everything from that space-then-`#` to end-of-line is silently discarded:
 
 ```yaml
 # BAD — the run-name is silently truncated at " #"
@@ -43,10 +43,10 @@ The inner expression already uses single quotes, so double-quoting the scalar is
 
 | Character / pattern | Why it breaks | Fix |
 |---------------------|---------------|-----|
-| ` #` (space-hash) | Starts a YAML comment; truncates the value | Quote the whole value |
+| space then `#` (space-hash) | Starts a YAML comment; truncates the value | Quote the whole value |
 | Leading `*`, `&`, `!`, `?`, `\|`, `>`, `@`, `` ` `` | YAML anchors/aliases/tags/block scalars | Quote the value |
 | Leading `{` or `[` | Parsed as flow mapping/sequence (a bare `${{ }}` starts with `$`, which is safe, but `{{` after a leading char is risky) | Quote the value |
-| `: ` (colon-space) inside the value | Parsed as a nested mapping key | Quote the value |
+| `:` then space (colon-space) inside the value | Parsed as a nested mapping key | Quote the value |
 | Leading/trailing spaces that matter | Plain scalars strip them | Quote the value |
 | Values that are `true`/`false`/`yes`/`no`/`on`/`off`/numbers but must stay strings | YAML type coercion | Quote the value |
 
@@ -60,7 +60,7 @@ The inner expression already uses single quotes, so double-quoting the scalar is
 git diff --name-only origin/main... -- .github/workflows/
 ```
 
-For each file, scan every line that contains `${{` together with a `#`, a `: `, or a leading special character.
+For each file, scan every line that contains `${{` together with a `#`, a colon-space, or a leading special character.
 
 ### Step 2: Quote risky expression scalars
 
@@ -99,7 +99,7 @@ This repository runs `actionlint` automatically (see `.github/workflows/actionli
 
 ## Validation
 
-- [ ] Every `${{ }}` value containing `#`, `: `, or a leading special character is wrapped in quotes.
+- [ ] Every `${{ }}` value containing `#`, a colon-space, or a leading special character is wrapped in quotes.
 - [ ] `actionlint -shellcheck= -pyflakes= .github/workflows/*.yml` exits `0`.
 - [ ] No workflow run reports *"This run likely failed because of a workflow file issue"*.
 - [ ] The `actionlint` CI check is green on the PR.
