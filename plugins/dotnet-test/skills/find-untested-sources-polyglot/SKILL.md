@@ -1,24 +1,13 @@
 ---
 name: find-untested-sources-polyglot
 description: >
-  Polyglot, parse-only static analysis that maps source files to the test files
-  that reference them, and lists production source files with **no** test file
-  referencing any of their declared symbols. Designed to answer "which source
-  files have no tests yet?" in seconds, without running a build or coverage,
-  across Python, TypeScript/JavaScript, Go, Java, Rust, C#, and Ruby (any
-  language tree-sitter can parse and classify as test vs. source). Emits JSON
-  with the same shape as the C# `find-untested-sources` skill so prompts and
-  tooling can consume both.
-  USE FOR: where should I write tests next, find untested files, list source
-  files without tests, build a test-pairing map for a polyglot or non-.NET
-  repo, suggest a test-file path for a source file, prioritize test work by
-  declared API surface, audit which source files any test references.
-  DO NOT USE FOR: measuring branch/line coverage (use language-native coverage
-  tools), ranking risk by complexity-vs-coverage (use `coverage-analysis` for
-  .NET CRAP scores), finding weak assertions in existing tests (use
-  `test-gap-analysis` or `assertion-quality`), or running actual mutation
-  testing. For a .NET-only repo, prefer `find-untested-sources` (Roslyn-based,
-  has richer namespace disambiguation).
+  Polyglot, parse-only static analysis that pairs source files with
+  referencing tests across Python, TypeScript/JavaScript, Go, Java, Rust,
+  C#, and Ruby. JSON shape matches `find-untested-sources`.
+  USE FOR: where to write tests next, find untested files, list sources
+  without tests, polyglot test-pairing map.
+  DO NOT USE FOR: coverage, CRAP risk. For .NET-only repos prefer
+  `find-untested-sources`.
 license: MIT
 ---
 
@@ -157,8 +146,9 @@ path). Omitted by default to keep the payload small for LLM consumption.
      traits, ...) with their names. Used as the declared-symbol set.
    - `imports` — raw import statements (e.g. `from foo import bar`,
      `import "pkg/util"`, `using System.IO;`, `use crate::foo::Bar;`).
-   - `symbols` — flat declared-name list, used as a fallback when
-     `structure` is empty.
+   - `symbols` — flat declared-name list, unioned with `structure` (acts as
+     a fallback when `structure` is empty, and broadens coverage when both
+     are populated; declaration counts may exceed pure structure parsing).
 
 5. **Pairing** — for each test file, union the results of:
    - **Import resolution** (per language):

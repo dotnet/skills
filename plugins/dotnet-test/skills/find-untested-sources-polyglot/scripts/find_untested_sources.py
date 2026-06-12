@@ -139,7 +139,7 @@ def is_test_path(rel: PurePosixPath, lang: str) -> bool:
     if lang == "java":
         if "test" in parts or "tests" in parts:
             return True
-        return name.endswith("test.java") or name.endswith("tests.java") or name.startswith("test")
+        return name.endswith("test.java") or name.endswith("tests.java")
 
     if lang == "rust":
         if any(p in ("tests", "benches") for p in parts):
@@ -152,7 +152,14 @@ def is_test_path(rel: PurePosixPath, lang: str) -> bool:
         for p in parts:
             if p.endswith(".tests") or p.endswith(".test") or p.endswith(".unittests") or p.endswith(".integrationtests"):
                 return True
-        if stem.endswith("tests") or stem.endswith("test"):
+        # Tokenize the original (un-lowered) stem on PascalCase boundaries
+        # and treat it as a test file when the final word is "Test" / "Tests".
+        # This matches the .NET convention (`UserServiceTests`, `MyTest`)
+        # without misclassifying non-test files whose lower-cased stem
+        # coincidentally ends in "test"/"tests" (e.g. "Contest.cs",
+        # "Latest.cs", "Manifest.cs").
+        words = re.findall(r"[A-Z][a-z]*|[a-z]+|[0-9]+", rel.stem)
+        if words and words[-1] in ("Test", "Tests"):
             return True
         return False
 
@@ -308,8 +315,17 @@ def _resolve_relative_js(test_rel: PurePosixPath, target: str) -> set[PurePosixP
     if target.startswith("/"):
         joined = PurePosixPath(target.lstrip("/"))
     else:
-        joined = (test_rel.parent / base).as_posix()
-        joined = PurePosixPath(re.sub(r"/[^/]+/\.\./", "/", joined))
+        joined_str = (test_rel.parent / base).as_posix()
+        # Collapse any number of "<seg>/../" pairs, including chained ones
+        # like "a/b/../../c" → "c". The previous regex only collapsed a single
+        # occurrence so chained "../../foo" imports stayed partially
+        # un-normalized and failed to match indexed paths.
+        prev = None
+        while prev != joined_str:
+            prev = joined_str
+            joined_str = re.sub(r"(?:^|/)[^/]+/\.\./", "/", joined_str)
+        joined_str = joined_str.lstrip("/")
+        joined = PurePosixPath(joined_str)
     # Try various extensions and /index suffix.
     candidates = set()
     stems = [str(joined)]
@@ -480,14 +496,19 @@ def _resolve_test_by_identifiers(
     """Pair test with sources whose declarations appear in the test's token set."""
     found: set[FileInfo] = set()
     by_decl = indexes["by_decl"]
-    # Limit to declarations that are >=4 chars to avoid noise.
-    for decl, sources in by_decl.items():
-        if len(decl) < 4:
+    # Iterate the test's referenced identifiers (typically O(hundreds))
+    # rather than scanning every declaration in the index (O(#decls × #tests)
+    # across all tests), so pairing stays linear in repo size on large
+    # codebases.
+    for ident in test.referenced_identifiers:
+        if len(ident) < 4:
             continue
-        if decl in test.referenced_identifiers:
-            for s in sources:
-                if s.lang == test.lang:
-                    found.add(s)
+        sources = by_decl.get(ident)
+        if not sources:
+            continue
+        for s in sources:
+            if s.lang == test.lang:
+                found.add(s)
     return found
 
 
