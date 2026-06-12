@@ -1,23 +1,13 @@
 ---
 name: find-untested-sources
 description: >
-  Fast, parse-only static analysis that maps C# source files to the test files
-  that reference them, and lists production source files with **no** test file
-  referencing any of their declared types. Designed to answer the question
-  "which source files have no tests yet?" in seconds, without running a build
-  or coverage. Use as the **first** step before test-generation work to pick
-  the next file to test, or as a sanity check after generating tests to confirm
-  pairing. Emits JSON with `source_to_tests`, an `untested` list ordered by
-  declaration count (highest API surface first), and a `suggested_test_path`
-  derived from `ProjectReference` edges.
-  USE FOR: where should I write tests next, find untested files, list source
-  files without tests, build a test-pairing map, suggest a test-file path for
-  a source file, prioritize test work by API surface, audit which source files
-  any test references.
-  DO NOT USE FOR: measuring branch/line coverage (use `coverage-analysis`),
-  ranking risk by complexity-vs-coverage (use `coverage-analysis` for CRAP),
-  finding weak assertions in existing tests (use `test-gap-analysis` or
-  `assertion-quality`), or running actual mutation testing.
+  Parse-only C# analysis that pairs source files with referencing tests and
+  emits JSON: `source_to_tests`, `untested` ordered by declaration count, and
+  `suggested_test_path` from `ProjectReference` edges.
+  USE FOR: where to write tests next, find untested files, list sources
+  without tests, build a test-pairing map.
+  DO NOT USE FOR: coverage (use `coverage-analysis`), CRAP risk ranking,
+  assertion gaps.
 license: MIT
 ---
 

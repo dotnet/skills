@@ -86,10 +86,15 @@ string? ProjectFor(string filePath)
         var cur = d;
         while (cur is not null && cur.Length >= root.Length)
         {
-            var csproj = Directory.EnumerateFiles(cur, "*.csproj").FirstOrDefault();
-            if (csproj is not null)
+            string[] csprojs;
+            try { csprojs = Directory.GetFiles(cur, "*.csproj"); }
+            catch { csprojs = Array.Empty<string>(); }
+            if (csprojs.Length > 0)
             {
-                return csproj;
+                // Sort to keep selection deterministic when multiple .csproj
+                // files coexist in the same directory.
+                Array.Sort(csprojs, StringComparer.Ordinal);
+                return csprojs[0];
             }
             cur = Path.GetDirectoryName(cur);
         }
@@ -208,11 +213,12 @@ Parallel.ForEach(testFiles, file =>
         List<Decl>? preferred = null;
         foreach (var d in decls)
         {
-            if (d.Namespace.Length == 0)
-            {
-                continue;
-            }
-            if (usings.Contains(d.Namespace)
+            // Declarations in the global namespace are visible without a
+            // using directive, so accept them unconditionally. (Skipping
+            // them previously meant types declared without a namespace were
+            // never attributed to any test file.)
+            if (d.Namespace.Length == 0
+                || usings.Contains(d.Namespace)
                 || d.Namespace == localNs
                 || (localNs.Length > 0 && localNs.StartsWith(d.Namespace + ".", StringComparison.Ordinal))
                 || IsUsingPrefix(usings, d.Namespace))
@@ -370,25 +376,20 @@ static IEnumerable<string> EnumerateCsFiles(string root)
 
 static bool IsSkippedFile(string path)
 {
-    if (path.EndsWith(".g.cs", StringComparison.Ordinal))
+    string[] skippedSuffixes =
     {
-        return true;
-    }
-    if (path.EndsWith(".Designer.cs", StringComparison.Ordinal))
+        ".g.cs",
+        ".Designer.cs",
+        ".AssemblyInfo.cs",
+        ".AssemblyAttributes.cs",
+        ".GlobalUsings.g.cs",
+    };
+    foreach (var suffix in skippedSuffixes)
     {
-        return true;
-    }
-    if (path.EndsWith(".AssemblyInfo.cs", StringComparison.Ordinal))
-    {
-        return true;
-    }
-    if (path.EndsWith(".AssemblyAttributes.cs", StringComparison.Ordinal))
-    {
-        return true;
-    }
-    if (path.EndsWith(".GlobalUsings.g.cs", StringComparison.Ordinal))
-    {
-        return true;
+        if (path.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
     }
     return false;
 }
@@ -423,8 +424,20 @@ static bool ClassifyProjectAsTest(string csproj)
 
 static string GetNamespaceFor(SyntaxNode node)
 {
-    var ns = node.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().FirstOrDefault();
-    return ns?.Name.ToString() ?? "";
+    // Walk all enclosing namespace declarations and join from outermost to
+    // innermost so nested blocks (namespace A { namespace B { ... } }) yield
+    // "A.B" rather than just "B".
+    List<string>? parts = null;
+    foreach (var ns in node.Ancestors().OfType<BaseNamespaceDeclarationSyntax>())
+    {
+        (parts ??= new List<string>()).Add(ns.Name.ToString());
+    }
+    if (parts is null)
+    {
+        return "";
+    }
+    parts.Reverse();
+    return string.Join(".", parts);
 }
 
 static bool IsUsingPrefix(HashSet<string> usings, string ns)
@@ -446,7 +459,19 @@ static bool IsUsingPrefix(HashSet<string> usings, string ns)
 static Dictionary<string, string> BuildProductionToTestProjectMap(string root)
 {
     var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    var allCsproj = Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories).ToList();
+    List<string> allCsproj;
+    try
+    {
+        allCsproj = Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories).ToList();
+    }
+    catch
+    {
+        return map;
+    }
+    // Sort so the deterministic "first write wins" rule below selects the
+    // same test project across runs/machines regardless of filesystem
+    // enumeration order.
+    allCsproj.Sort(StringComparer.Ordinal);
     foreach (var testProj in allCsproj)
     {
         if (!ClassifyProjectAsTest(testProj))
