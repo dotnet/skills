@@ -31,7 +31,7 @@ name: evaluation
 # head_sha is the default branch — not the PR head — so the run name is how the
 # worker recognises that an evaluation has already been dispatched for this head.
 # For all other events the expression yields '' and GitHub uses the default name.
-run-name: ${{ inputs.pr_number != '' && format('Evaluate PR #{0} @ {1}', inputs.pr_number, inputs.head_sha) || '' }}
+run-name: "${{ inputs.pr_number != '' && format('Evaluate PR #{0} @ {1}', inputs.pr_number, inputs.head_sha) || '' }}"
 
 on:
   # Manual trigger for one-off deploys (e.g., AGENTVIZ SPA update) and
