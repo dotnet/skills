@@ -806,7 +806,7 @@ public static class EvaluateCommand
         {
             if (config.Verbose)
                 runLog("↩︎ reusing precomputed baseline");
-            baselineMetrics = reusedBaseline.Metrics;
+            baselineMetrics = reusedBaseline.Metrics.Clone();
             var skilled = await Task.WhenAll(isolatedTask, pluginTask);
             isolatedMetrics = skilled[0];
             pluginMetrics = skilled[1];
@@ -908,8 +908,11 @@ public static class EvaluateCommand
                     new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, pairwiseWorkDir, agent.Path, worseSkilled.WorkDir),
                     runLog, cancellationToken);
                 pairwise = pairwiseResult;
-                if (reusedBaseline is null)
-                    AccumulateJudgeTokens(baselineMetrics, pairwiseTokens);
+                // Attribute pairwise judge tokens consistently to both compared runs in
+                // every mode so token deltas stay comparable regardless of --baseline-from.
+                // baselineMetrics is a per-run clone when reused, so this never mutates the
+                // shared cached baseline.
+                AccumulateJudgeTokens(baselineMetrics, pairwiseTokens);
                 AccumulateJudgeTokens(worseSkilled, pairwiseTokens);
             }
             catch (Exception error)
@@ -1344,7 +1347,7 @@ public static class EvaluateCommand
         {
             if (config.Verbose)
                 runLog("↩︎ reusing precomputed baseline");
-            baselineMetrics = reusedBaseline.Metrics;
+            baselineMetrics = reusedBaseline.Metrics.Clone();
             var skilled = await Task.WhenAll(isolatedTask, pluginTask);
             isolatedMetrics = skilled[0];
             pluginMetrics = skilled[1];
@@ -1466,10 +1469,11 @@ public static class EvaluateCommand
                     new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, pairwiseWorkDir, skill.Path, worseSkilled.WorkDir),
                     runLog, cancellationToken);
                 pairwise = pairwiseResult;
-                // Attribute pairwise judge tokens to the compared run (and to the baseline
-                // only when it was freshly executed, to avoid double-counting reused cost).
-                if (reusedBaseline is null)
-                    AccumulateJudgeTokens(baselineMetrics, pairwiseTokens);
+                // Attribute pairwise judge tokens consistently to both compared runs in
+                // every mode so token deltas stay comparable regardless of --baseline-from.
+                // baselineMetrics is a per-run clone when reused, so this never mutates the
+                // shared cached baseline.
+                AccumulateJudgeTokens(baselineMetrics, pairwiseTokens);
                 AccumulateJudgeTokens(worseSkilled, pairwiseTokens);
                 if (sessionDb is not null && pairwise is not null)
                 {

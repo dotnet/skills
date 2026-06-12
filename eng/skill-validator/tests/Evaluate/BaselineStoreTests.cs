@@ -291,6 +291,54 @@ public class BaselineStoreTests
     }
 
     [Fact]
+    public void ComputeTargetSha_HashesFixtures_WhenEvalPathIsBareFilename()
+    {
+        // A bare filename (no directory component) must still hash sibling fixtures:
+        // Path.GetDirectoryName returns "" for "eval.yaml", so without normalization
+        // fixture hashing is silently skipped and distinct fixtures collide.
+        var evalPath = MakeEvalDirWithFixture("build.binlog", "AAAA");
+        var evalDir = Path.GetDirectoryName(evalPath)!;
+        var originalCwd = Directory.GetCurrentDirectory();
+        try
+        {
+            Directory.SetCurrentDirectory(evalDir);
+            var scenario = FixtureScenario("s", "investigate build.binlog");
+
+            var shaA = BaselineStore.ComputeTargetSha(scenario, "eval.yaml");
+            File.WriteAllText(Path.Combine(evalDir, "build.binlog"), "BBBB");
+            var shaB = BaselineStore.ComputeTargetSha(scenario, "eval.yaml");
+
+            Assert.NotEqual(shaA, shaB); // fixture content participates in identity
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(originalCwd);
+            Directory.Delete(evalDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Clone_ProducesIndependentCopy()
+    {
+        var source = MakeBaseline(output: "src").Metrics;
+        source.JudgeInputTokens = 10;
+        source.ToolCallBreakdown["bash"] = 4;
+
+        var clone = source.Clone();
+        clone.JudgeInputTokens = 99;
+        clone.ToolCallBreakdown["bash"] = 1;
+        clone.AssertionResults.Add(new AssertionResult(new Assertion(AssertionType.OutputContains, Value: "x"), true, ""));
+
+        // Mutating the clone must not leak back into the source — the cached baseline
+        // can be reused concurrently across parallel target evaluations.
+        Assert.Equal(10, source.JudgeInputTokens);
+        Assert.Equal(4, source.ToolCallBreakdown["bash"]);
+        Assert.Empty(source.AssertionResults);
+        Assert.NotSame(source.ToolCallBreakdown, clone.ToolCallBreakdown);
+        Assert.NotSame(source.AssertionResults, clone.AssertionResults);
+    }
+
+    [Fact]
     public void SamePromptDifferentFixture_DoesNotReuseBaseline()
     {
         var path = TempPath();

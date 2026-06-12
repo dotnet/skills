@@ -188,7 +188,12 @@ internal sealed class BaselineStore
         //    no fewer (nested files are included).
         if (setup.CopyTestFiles && evalPath is not null)
         {
-            var evalDir = Path.GetDirectoryName(evalPath);
+            // Normalize first: Path.GetDirectoryName returns "" for a bare filename
+            // (e.g. "eval.yaml" in the cwd), which would silently skip fixture hashing
+            // even though copy_test_files still copies the sibling files — risking
+            // TargetSha collisions and unsafe baseline reuse.  GetFullPath resolves the
+            // bare name against the current directory so its real parent is hashed.
+            var evalDir = Path.GetDirectoryName(Path.GetFullPath(evalPath));
             if (!string.IsNullOrEmpty(evalDir) && Directory.Exists(evalDir))
             {
                 foreach (var (rel, full) in EnumerateCopiedFixtures(evalDir).OrderBy(x => x.Rel, StringComparer.Ordinal))
@@ -351,9 +356,13 @@ internal sealed class BaselineStore
     /// <summary>
     /// Record a scenario's averaged baseline for later persistence (write mode).  The
     /// baseline arm is target-independent, so when several targets evaluated in parallel
-    /// share the same scenario identity they produce the same key; a <b>first-writer-wins</b>
-    /// strategy keeps the persisted file deterministic regardless of completion order
-    /// (later identical-key records — differing only by run-to-run noise — are ignored).
+    /// share the same scenario identity they produce the same key.  A <b>first-writer-wins</b>
+    /// strategy stabilizes the baseline chosen <i>within a single run</i>: once a value is
+    /// recorded for a key the first writer's value is kept and later records for that key
+    /// are ignored, preventing non-deterministic late overwrites under parallelism.  The
+    /// competing records differ only by run-to-run noise, so which writer wins the race is
+    /// immaterial — the guarantee is that the persisted value is not clobbered afterward,
+    /// not that it is independent of thread scheduling.
     /// </summary>
     public void Record(EvalScenario scenario, int runs, RunResult averagedBaseline, string? evalPath = null)
     {
