@@ -342,7 +342,7 @@ public TestContext TestContext { get; set; } = null!;
 - `TestContext.Current.AddAttachment(name, path)` -> `_testContext.AddResultFile(path)`
 - `TestContext.Current.TestOutputHelper.WriteLine(...)` -> `_testContext.WriteLine(...)`
 
-> **REQUIRED for CancellationToken:** Add the constructor injection from above even if the class only uses `TestContext.Current.CancellationToken` (no `ITestOutputHelper`). Do **NOT** replace `TestContext.Current.CancellationToken` with a new `CancellationTokenSource` -- that loses the test-host's cancellation linkage and changes behavior under timeouts.
+> **REQUIRED for CancellationToken:** Add the constructor injection from above even if the class only uses `TestContext.Current.CancellationToken` (no `ITestOutputHelper`). Do **NOT** replace `TestContext.Current.CancellationToken` with `CancellationToken.None` or a freshly-constructed `CancellationTokenSource` -- both lose the test-host's cancellation linkage and change behavior under timeouts.
 
 ```csharp
 // xUnit v3
