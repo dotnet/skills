@@ -52,6 +52,14 @@
       Fixed in 1.1.62.  Drop this once the upstream chain bumps past 1.1.62.
     -->
     <PackageReference Include="Nerdbank.MessagePack" Version="1.2.4" />
+
+    <!--
+      Transitive pin: GitHub.Copilot.SDK -> StreamJsonRpc 2.24.84 drags in
+      MessagePack 2.5.198 which has a known high-severity vulnerability
+      (GHSA-hv8m-jj95-wg3x, out-of-bounds read in LZ4 decompression). Patched in
+      the v2 line as of 2.5.301.  Drop this once the upstream chain bumps past it.
+    -->
+    <PackageReference Include="MessagePack" Version="2.5.301" />
   </ItemGroup>
 
 </Project>
