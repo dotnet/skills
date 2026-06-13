@@ -385,6 +385,61 @@
           "url": "https://github.com/dotnet/skills/commit/8b7867331c3c8f64862b9be45f921ec35cd8ca39",
           "timestamp": "2026-06-11T17:26:52+00:00"
         }
+      },
+      {
+        "commit": {
+          "id": "c8be21018fc4ee4c566ed65a313cea56690f8cab",
+          "message": "Fix evaluation.yml: quote run-name so '#' is not parsed as a YAML comment (#759)",
+          "author": {
+            "name": "YuliiaKovalova",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/c8be21018fc4ee4c566ed65a313cea56690f8cab",
+          "timestamp": "2026-06-12T18:27:44+00:00"
+        },
+        "benches": [
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
+            "value": 20.2,
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.21
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
+            "value": 27949.0,
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.21
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time",
+            "value": 23.3,
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.21
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In",
+            "value": 27918.0,
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.21
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time",
+            "value": 17.5,
+            "unit": "seconds"
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In",
+            "value": 13001.0,
+            "unit": "tokens"
+          }
+        ],
+        "date": 1781319911403,
+        "tool": "customSmallerIsBetter",
+        "model": "claude-opus-4.6"
       }
     ],
     "Quality": [
@@ -639,9 +694,45 @@
           "url": "https://github.com/dotnet/skills/commit/8b7867331c3c8f64862b9be45f921ec35cd8ca39",
           "timestamp": "2026-06-11T17:26:52+00:00"
         }
+      },
+      {
+        "commit": {
+          "id": "c8be21018fc4ee4c566ed65a313cea56690f8cab",
+          "message": "Fix evaluation.yml: quote run-name so '#' is not parsed as a YAML comment (#759)",
+          "author": {
+            "name": "YuliiaKovalova",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/c8be21018fc4ee4c566ed65a313cea56690f8cab",
+          "timestamp": "2026-06-12T18:27:44+00:00"
+        },
+        "benches": [
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
+            "value": 8.800000190734863,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.21
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality",
+            "value": 9.199999809265137,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.21
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          }
+        ],
+        "date": 1781319911403,
+        "tool": "customBiggerIsBetter",
+        "model": "claude-opus-4.6"
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1781234133787
+  "lastUpdate": 1781319911403
 }
