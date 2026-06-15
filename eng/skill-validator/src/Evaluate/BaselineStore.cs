@@ -327,6 +327,16 @@ internal sealed class BaselineStore
     private static string MakeKey(string promptSha, string targetSha) => string.Concat(promptSha, ":", targetSha);
 
     /// <summary>
+    /// The combined cross-invocation identity of a scenario — its prompt SHA and target SHA
+    /// joined exactly as the internal reuse key (<see cref="MakeKey"/>).  Persisting this with
+    /// each run lets a deferred, central judge pair a treatment run with the matching baseline
+    /// run even when the two were produced by separate <c>evaluate</c> invocations writing to
+    /// different results directories.
+    /// </summary>
+    public static string ComputeScenarioKey(EvalScenario scenario, string? evalPath) =>
+        MakeKey(ComputePromptSha(scenario.Prompt), ComputeTargetSha(scenario, evalPath));
+
+    /// <summary>
     /// In reuse mode, return human-readable identifiers of scenarios that have no matching
     /// cached baseline (keyed by prompt + setup/criteria identity).  Empty when every scenario
     /// is covered.  Each entry carries the originating eval path plus short prompt/target SHA
