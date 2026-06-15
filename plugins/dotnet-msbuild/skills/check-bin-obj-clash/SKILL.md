@@ -316,6 +316,50 @@ This is particularly wasteful for projects where the extra property has no effec
 2. **Use `RemoveGlobalProperties` metadata** - On `ProjectReference` items, use `RemoveGlobalProperties="PublishReadyToRun"` to strip the property before building the referenced project
 3. **Condition the property** - Only set the property on projects that actually use it (e.g., only for executable projects, not class libraries)
 
+### Explicit `<MSBuild>` Build/Publish with extra global properties (self or cross-project)
+
+**Problem:** A target uses the `<MSBuild>` task to build or publish a project with an extra global property, most commonly a "publish-on-build" target. The offending call can be in the target project itself **or in another project** that consumes it (e.g. a test or layout project publishing a tool):
+
+```xml
+<!-- (a) same project (publish-on-build) -->
+<Target Name="PublishOnBuild" AfterTargets="Build">
+  <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties="_IsPublishing=true" />
+</Target>
+
+<!-- (b) project A publishes project B that it consumes -->
+<MSBuild Projects="..\tool\tool.csproj" Targets="Publish" Properties="_IsPublishing=true" />
+```
+
+Either way this forks a distinct instance of the target project (`path` + `{_IsPublishing=true}`) that shares the same `OutputPath`/`IntermediateOutputPath` as the instance the solution/graph already builds. Both write the same files — for NativeAOT this includes the `*.sourcelink` intermediate, which produces `SourceLinkWriter` / "file in use" failures under parallel builds.
+
+**How to detect:** Follow the Primary workflow above — the `evaluations` and `evaluation_global_properties` tools surface two evaluations of the target project that share the same `OutputPath`/`IntermediateOutputPath` but differ only by a path-neutral publish flag such as `_IsPublishing`, and the `double_writes` tool flags the resulting shared-file writes directly. To tell case (a) from (b), see which project the extra `{_IsPublishing=true}` evaluation runs *under* in the build tree (from the overview/projects tools): the target project itself for (a), or a consumer project that invoked the `<MSBuild>` task for (b).
+
+**Fix:** Depends on where the call lives:
+
+- **Same project (a):** you can't strip the property with `RemoveGlobalProperties` (the project injects it on itself). Set the flag as a **static** (non-global) property and run the target in the **same** instance via `DependsOnTargets`/`CallTarget`, with a guard against a target cycle when publish is the entry point:
+
+```xml
+<PropertyGroup>
+  <_PublishWasInvokedDirectly Condition="'$(_IsPublishing)' == 'true'">true</_PublishWasInvokedDirectly>
+  <_IsPublishing>true</_IsPublishing>
+</PropertyGroup>
+<Target Name="PublishOnBuild"
+        AfterTargets="Build"
+        DependsOnTargets="Publish"
+        Condition="'$(_PublishWasInvokedDirectly)' != 'true'" />
+```
+
+- **Cross-project (b):** the consumer must not fork the producer with path-neutral global properties. Make the producer publish as part of its own build (the (a) fix in *its* project), then have the consumer **sequence** it and read its output instead of re-publishing it:
+
+```xml
+<ItemGroup>
+  <ProjectReference Include="..\tool\tool.csproj" ReferenceOutputAssembly="false" />
+</ItemGroup>
+<!-- consumer reads tool's publish dir; it does NOT invoke Publish on tool -->
+```
+
+See the `msbuild-antipatterns` skill (AP-22) for the authoring-time smell and rationale.
+
 ## Example Workflow
 
 ```bash
@@ -369,6 +413,7 @@ When multiple evaluations share an output path, compare these global properties 
 | `BuildProjectReferences` | No | `false` = P2P query, not a real build - ignore these |
 | `MSBuildRestoreSessionId` | No | Present = restore phase evaluation |
 | `PublishReadyToRun` | No | Publish setting, doesn't change build output path but creates distinct project instances |
+| `_IsPublishing` | No | Publish flag; an `<MSBuild>` Build/Publish call with this set (in this project or another that consumes it) forks a publish instance sharing the build output path (see "Explicit `<MSBuild>` Build/Publish with extra global properties") |
 
 ## Testing Fixes
 
