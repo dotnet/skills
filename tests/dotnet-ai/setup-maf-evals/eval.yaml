@@ -1,0 +1,86 @@
+name: setup-maf-evals
+required_skills:
+  - setup-maf-evals
+
+scenarios:
+  - name: scaffold-evals-project-fresh
+    prompt: |
+      Run setup-maf-evals on the project at ./fixture. Wire all three modes
+      (telemetry, quality, compare). Skip the Aspire panel.
+    setup:
+      files:
+        - path: fixture/MyApp.sln
+          content: |
+            Microsoft Visual Studio Solution File, Format Version 12.00
+        - path: fixture/MyApp.AppHost/MyApp.AppHost.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+        - path: fixture/MyApp.Coach/MyApp.Coach.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+    assertions:
+      - type: file_exists
+        path: fixture/MyApp.Evals/MyApp.Evals.csproj
+      - type: file_exists
+        path: fixture/MyApp.Evals/Telemetry/inputs.json
+      - type: file_exists
+        path: fixture/MyApp.Evals/Quality/rubric.md
+      - type: file_exists
+        path: fixture/MyApp.Evals/Quality/golden.json
+      - type: file_exists
+        path: fixture/MyApp.Evals/Compare/matrix.json
+      - type: file_contains
+        path: fixture/MyApp.Evals/MyApp.Evals.csproj
+        text: "Microsoft.Extensions.AI.Evaluation"
+
+  - name: skip-when-no-app-host
+    prompt: |
+      Run setup-maf-evals on the project at ./fixture.
+    setup:
+      files:
+        - path: fixture/PlainApi/PlainApi.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+    assertions:
+      - type: output_contains
+        text: "agentic"
+
+  - name: telemetry-stub-run-produces-report
+    prompt: |
+      Run setup-maf-evals on the project at ./fixture, then run
+      "dotnet run --project MyApp.Evals -- telemetry" with EVAL_USE_REAL_MODELS unset.
+    setup:
+      files:
+        - path: fixture/MyApp.AppHost/MyApp.AppHost.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+        - path: fixture/MyApp.Coach/MyApp.Coach.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+    assertions:
+      - type: file_contains
+        path: fixture/.gitignore
+        text: ".copilot/perf-reports/evals/"
+      - type: output_contains
+        text: "stub"
+
+  - name: update-mode-preserves-user-edits
+    prompt: |
+      Run setup-maf-evals on the project at ./fixture. A MyApp.Evals project
+      already exists with a custom rubric. Do not overwrite it.
+    setup:
+      files:
+        - path: fixture/MyApp.AppHost/MyApp.AppHost.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+        - path: fixture/MyApp.Evals/MyApp.Evals.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+        - path: fixture/MyApp.Evals/Quality/rubric.md
+          content: |
+            # Custom rubric — DO NOT OVERWRITE
+            - my_trait: ...
+    assertions:
+      - type: file_contains
+        path: fixture/MyApp.Evals/Quality/rubric.md
+        text: "DO NOT OVERWRITE"
