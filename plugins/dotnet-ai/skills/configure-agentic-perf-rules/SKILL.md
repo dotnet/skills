@@ -1,5 +1,6 @@
 ---
 name: configure-agentic-perf-rules
+version: 0.1.0
 description: >
   Installs or updates an always-on rules block in a .NET agentic app that makes coding
   agents volunteer perf and cost concerns by default — agent count, handoff edges,
@@ -7,10 +8,10 @@ description: >
   post-change measurement. The rules are written into the project's agent-instructions
   file (`.github/copilot-instructions.md` by default) inside a sentinel-delimited managed
   block that is idempotent and version-aware on update.
-  USE FOR: a .NET project using Microsoft Agent Framework (`Microsoft.Agents.AI`) with
-  Aspire and Microsoft Foundry where the user reports "Copilot doesn't catch perf
+  USE FOR: a .NET project using Microsoft Agent Framework (`Microsoft.Agents.AI`),
+  optionally with Aspire/Foundry, where the user reports "Copilot doesn't catch perf
   issues", wants up-front guard-rails before adding more agents/handoffs/tools, or is
-  scaffolding a new MAF/Aspire/Foundry agentic .NET app.
+  scaffolding a new agentic .NET app.
   DO NOT USE FOR: non-agentic .NET projects (use `optimizing-dotnet-performance`),
   non-.NET agentic projects, auditing existing code (use `audit-agentic-app-perf`), or
   measuring runtime telemetry (use `setup-maf-evals`).
@@ -84,12 +85,53 @@ A managed block is delimited by sentinel HTML comments:
 Scan the target file. If a managed block is present, parse its version from the
 `BEGIN` comment.
 
+**Sentinel parse rules** (apply in order; fail closed if any rule trips):
+
+1. The full-line BEGIN regex is `^<!-- BEGIN: managed by configure-agentic-perf-rules v(?<ver>\d+\.\d+\.\d+) -->\s*$`.
+2. The full-line END regex is `^<!-- END: managed by configure-agentic-perf-rules -->\s*$`.
+3. The file must contain **exactly one** matching BEGIN and **exactly one** matching END,
+   with BEGIN appearing before END.
+4. If zero, multiple, mismatched, or out-of-order sentinels are detected, **refuse to
+   edit** and report the malformed state to the user. Do not attempt to repair the file
+   automatically.
+5. Versions are compared numerically as semver triples; a leading `v` is optional in
+   either side of the comparison.
+
+The current skill version is the `version:` field at the top of this SKILL.md.
+
 | Detected state | Action |
 |----------------|--------|
 | No block present | Append a new managed block at the end of the file |
-| Block present, same version as this skill | No-op — report "already current" and stop |
+| Block present, same version, structurally valid (all six rule headings present, threshold YAML parses) | No-op — report "already current" and stop |
+| Block present, same version, structurally invalid | Treat as "older version": show diff and offer to repair after explicit user confirmation |
 | Block present, older version | Show a diff to the user; replace the block on confirm; preserve any user-edited threshold values from the existing frontmatter |
 | Block present, newer version than this skill | Refuse to downgrade — report version mismatch and stop |
+
+**Threshold preservation algorithm** (used in the older-version path):
+
+1. Parse the existing managed block's `thresholds:` YAML map into a `prev_user` dict.
+   If parsing fails, refuse to edit and ask the user to repair the YAML manually.
+2. Construct the new defaults map `new_defaults` from `references/threshold-defaults.md`.
+3. For each known key in `new_defaults`, override with the value from `prev_user` if
+   present and the value passes type validation (e.g. integer for `agent_count_max`).
+4. Drop unknown keys from `prev_user` with a chat warning naming each dropped key.
+5. The merged map becomes the new managed block's `thresholds:` content.
+
+**Path safety:** before any write, resolve the project root and the target path.
+Refuse to write to any path outside the project root (after normalization, including
+following symlinks). Reject absolute paths and paths containing `..` segments unless
+they normalize back inside the project root.
+
+### Target-file selection (when both `.github/copilot-instructions.md` and `AGENTS.md` exist)
+
+Scan **both** files for an existing managed block before choosing a target.
+
+| Situation | Action |
+|-----------|--------|
+| Neither file has a block | Write the managed block into `.github/copilot-instructions.md`; add a one-line stub to `AGENTS.md` if it exists |
+| Only `AGENTS.md` has a block | Migrate it to `.github/copilot-instructions.md` (with diff + user confirmation), then replace the `AGENTS.md` block with the stub |
+| Only `.github/copilot-instructions.md` has a block | Update there as usual; add a stub to `AGENTS.md` if it exists and is missing one |
+| Both have a block | Refuse to edit and ask the user to consolidate; report which file was last modified |
 
 ### Step 3: Render the managed block
 

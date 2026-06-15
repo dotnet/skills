@@ -1,9 +1,11 @@
 # Managed Block Template
 
 This is the exact content the skill writes into the target instructions file. Variables
-in `<UPPER_SNAKE>` are filled in at install time.
+in `<UPPER_SNAKE>` are filled in at install time. The outer fence below is **four
+backticks** so the inner three-backtick fences in the rendered Markdown are not
+interpreted as closing it.
 
-```markdown
+````markdown
 <!-- BEGIN: managed by configure-agentic-perf-rules v<SKILL_VERSION> -->
 
 ## Agentic Performance Rules
@@ -75,15 +77,16 @@ the change is net-positive on the metrics that matter — or explicitly note why
 measurement is not warranted (e.g. cosmetic refactor with no behavioral change).
 
 <!-- END: managed by configure-agentic-perf-rules -->
-```
+````
 
 ## Notes for the skill implementation
 
-- The fenced YAML block uses three backticks. When the skill renders this template into
-  a markdown file, it must escape or otherwise preserve those backticks correctly.
-- The `<SKILL_VERSION>` placeholder is filled in from the skill's own version, embedded
-  via the install step. Use semver (e.g. `v0.1.0`).
+- The outer fence in this file is **four backticks** so the inner three-backtick YAML
+  fence in the rendered output is preserved verbatim. When transcribing the template,
+  agents must reproduce the inner three-backtick fences exactly.
+- The `<SKILL_VERSION>` placeholder is filled from the `version:` field in
+  `SKILL.md`'s frontmatter. Render as `v0.1.0` (lowercase `v`, semver triple).
 - The threshold frontmatter is intentionally inside the managed block (not top-of-file
   YAML) so it does not interfere with any other YAML frontmatter the project may have.
-- Update mode preserves user-edited threshold values by parsing the existing block's
-  `thresholds:` map, then merging onto the new defaults map (user values win).
+- Update mode preserves user-edited threshold values per the algorithm in `SKILL.md`
+  step 2 ("Threshold preservation algorithm"). Do not duplicate that logic here.
