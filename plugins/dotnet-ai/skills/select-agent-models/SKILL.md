@@ -91,19 +91,52 @@ changes")
 Apply mode is **off by default**. To run it, the user must say "apply",
 "make the changes", "switch to recommended models", or similar.
 
+**Confirmation contract** — the initial apply request only enables
+preview mode. The actual write requires a *second* user response after
+the diff is shown. Wording in the initial request like "apply and
+confirm", "yes do it", or "proceed" is treated as *intent*, not as
+*confirmation* — the agent must still show the diff and ask.
+
 Steps:
 
-1. Show a unified diff preview of every change you intend to make:
-   - AppHost connection-string updates (`builder.AddAzureOpenAI` / `AddOpenAI`
-     model parameters)
+1. **Provider resolution.** Detect whether the project uses public
+   OpenAI ids, Azure OpenAI deployment aliases, Foundry deployments,
+   or another provider:
+   - Check the AppHost connection string type (`AddAzureOpenAI` vs
+     `AddOpenAI` vs others).
+   - Check `appsettings.json` for keys ending in `-deployment-name`,
+     `-deployment`, or values that look like custom names (not the
+     OpenAI public id pattern).
+   - If Azure is detected, refuse to write a public OpenAI id like
+     `gpt-4o-mini` directly. Map the recommendation to an existing
+     deployment alias by:
+     a. enumerating deployment aliases from `appsettings.json` /
+        AppHost parameters, and
+     b. asking the user to pick which alias maps to each role, or
+     c. recommending creating a new deployment if no suitable alias
+        exists (and stopping apply mode in that case).
+2. **Pre-write validation.** For every file that would be modified,
+   verify it parses (JSON / C# compiles via `dotnet build` dry-run on
+   the AppHost). If any target file is unparseable, abort apply mode
+   before any write.
+3. **Diff preview.** Show a unified diff of every change you intend to
+   make:
+   - AppHost connection-string updates / parameter values
    - Per-agent `IChatClient` registrations
    - `appsettings.json` model-id keys
-2. Ask the user to confirm.
-3. Only on `yes` / explicit confirmation, write the changes.
-4. After writing, run `dotnet build` on the touched projects and report
-   pass/fail. Do not declare success if the build fails.
-5. Recommend running `setup-maf-evals` to validate the change does not
-   regress quality.
+4. **Confirm.** Ask the user to confirm. Only on `yes` / explicit
+   confirmation, proceed.
+5. **Atomic write.** Write all changes. If any write fails midway,
+   restore *all* touched files from their pre-write content. Do not
+   leave the project in a partially-applied state.
+6. **Build.** Run `dotnet build` on the touched projects.
+   - On success: record the apply timestamp and per-agent old → new
+     mapping in the plan file.
+   - On failure: revert all changes from step 5, surface the build
+     output, and report `apply: failed (build)`. Do not declare
+     success on a failing build.
+7. **Recommend follow-up.** After a successful apply, recommend running
+   `setup-maf-evals` quality mode to validate no quality regression.
 
 If the user says no or anything other than yes, discard the diff and
 leave files untouched.
