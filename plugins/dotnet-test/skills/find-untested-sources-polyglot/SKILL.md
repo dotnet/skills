@@ -132,7 +132,7 @@ path). Omitted by default to keep the payload small for LLM consumption.
    | Language | Test rule |
    |---|---|
    | Python | path contains `tests/` or `test/`; or filename starts with `test_` or ends with `_test.py`; or `conftest.py`. |
-   | JS/TS/TSX | path contains `__tests__`, `tests`, `spec`, or `e2e`; or filename contains `.test.` or `.spec.`. |
+   | JS/TS/TSX | path contains `__tests__`, `tests`, `test`, `spec`, or `e2e`; or filename contains `.test.` or `.spec.`. |
    | Go | filename ends with `_test.go` (Go's standard convention). |
    | Java | path contains `test` or `tests`; or filename ends with `Test.java` / `Tests.java`. |
    | Rust | path contains `tests/` or `benches/`. |

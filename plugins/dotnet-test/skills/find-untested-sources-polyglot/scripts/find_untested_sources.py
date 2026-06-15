@@ -254,7 +254,11 @@ def parse_file(path: Path, root: Path) -> FileInfo | None:
     try:
         cfg = ProcessConfig(language=lang, structure=True, imports=True, symbols=True)
         result = process(text, cfg)
-    except Exception:
+    except Exception as exc:
+        # Emit a diagnostic so users can see when tree-sitter parsing silently
+        # degrades results (e.g. 0-declaration sources because the parser
+        # blew up on an unusual construct). Keep it short — one line per file.
+        print(f"WARN: tree-sitter parse failed for {rel_str} ({lang}): {exc}", file=sys.stderr)
         return info
 
     # Top-level declarations: union of structure + symbols. The two views are
@@ -352,8 +356,35 @@ def _extract_python_module(import_text: str) -> str | None:
     return None
 
 
-def _python_module_to_path(module: str) -> set[PurePosixPath]:
-    parts = module.lstrip(".").split(".")
+def _python_module_to_path(
+    module: str, test_rel: PurePosixPath | None = None
+) -> set[PurePosixPath]:
+    """Resolve a Python import target to candidate source paths.
+
+    Leading dots (PEP 328 relative imports) are resolved against `test_rel`'s
+    directory: one dot = same package as the test file, each extra dot walks
+    one directory up. Without a `test_rel` context we cannot resolve them
+    safely, so we return an empty set rather than risk pairing the test with
+    an unrelated `utils.py` at the repo root.
+    """
+    leading_dots = len(module) - len(module.lstrip("."))
+    rest = module[leading_dots:]
+    if leading_dots > 0:
+        if test_rel is None or not rest:
+            # Either we have no context to resolve against, or this is a
+            # `from . import x` form where the regex captured only the dots
+            # and we don't know the imported name. Skip rather than guess.
+            return set()
+        base_dir = test_rel.parent
+        for _ in range(leading_dots - 1):
+            base_dir = base_dir.parent
+        parts = rest.split(".")
+        base_path = base_dir.joinpath(*parts) if base_dir.parts else PurePosixPath(*parts)
+        return {
+            PurePosixPath(str(base_path) + ".py"),
+            PurePosixPath(str(base_path) + "/__init__.py"),
+        }
+    parts = rest.split(".")
     candidates: set[PurePosixPath] = set()
     base = "/".join(parts)
     candidates.add(PurePosixPath(base + ".py"))
@@ -412,16 +443,21 @@ def _build_indexes(sources: list[FileInfo]) -> dict:
             by_decl.setdefault(d, []).append(s)
     # For Java/C#: index by FQCN-like trailing path.
     by_path_suffix: dict[str, list[FileInfo]] = {}
+    # For Go: index by basename so import resolution is O(1) per target
+    # instead of O(#sources) per import target.
+    by_filename: dict[str, list[FileInfo]] = {}
     for s in sources:
         p = s.rel.as_posix().lower()
         parts = p.split("/")
         for i in range(len(parts)):
             suffix = "/".join(parts[i:])
             by_path_suffix.setdefault(suffix, []).append(s)
+        by_filename.setdefault(s.rel.name.lower(), []).append(s)
     return {
         "by_rel": by_rel,
         "by_decl": by_decl,
         "by_path_suffix": by_path_suffix,
+        "by_filename": by_filename,
     }
 
 
@@ -450,19 +486,19 @@ def _resolve_test_imports(test: FileInfo, indexes: dict, lang: str) -> set[FileI
             module = _extract_python_module(raw)
             if module is None:
                 continue
-            for c in _python_module_to_path(module):
+            for c in _python_module_to_path(module, test.rel):
                 add_candidate(c)
         elif lang == "go":
+            by_filename = indexes["by_filename"]
             for tgt in _extract_go_import_targets(raw):
                 segs = tgt.split("/")
                 if not segs:
                     continue
                 last = segs[-1]
-                key = last + ".go"
-                for source_path, info in by_rel.items():
-                    if source_path.endswith("/" + key) or source_path == key:
-                        if not info.is_test:
-                            found.add(info)
+                key = (last + ".go").lower()
+                for info in by_filename.get(key, ()):
+                    if not info.is_test:
+                        found.add(info)
         elif lang == "java":
             fqcn = _extract_java_fqcn(raw)
             if fqcn:
@@ -604,7 +640,7 @@ def build_output(
             "languages": sorted({s.lang for s in sources} | {t.lang for t in tests}),
         },
         "untested_sources": sorted(untested, key=lambda e: (-e["declaration_count"], e["path"])),
-        "tested_sources": tested,
+        "tested_sources": sorted(tested, key=lambda e: e["path"]),
         "orphan_tests": [
             {"path": t.rel.as_posix(), "language": t.lang} for t in sorted(orphans, key=lambda t: t.rel.as_posix())
         ],
