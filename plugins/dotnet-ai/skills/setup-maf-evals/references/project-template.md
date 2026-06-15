@@ -5,8 +5,11 @@ The exact files written when scaffolding the eval harness.
 ## `<App>.Evals.csproj`
 
 Use the actual current package versions from NuGet at scaffold time
-(query `nuget.org` or `dotnet package search`). The versions below are
-illustrative — replace with the latest stable when you scaffold.
+(query `nuget.org` or `dotnet package search`). The versions below
+reflect the latest stable family at the time of writing
+(`Microsoft.Extensions.AI.Evaluation` 10.x is GA on nuget.org); query
+`dotnet package search "Microsoft.Extensions.AI.Evaluation"` and bump
+to the latest stable when you scaffold.
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -20,12 +23,12 @@ illustrative — replace with the latest stable when you scaffold.
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.AI" Version="9.4.0-preview.1.*" />
-    <PackageReference Include="Microsoft.Extensions.AI.Evaluation" Version="9.4.0-preview.1.*" />
-    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Quality" Version="9.4.0-preview.1.*" />
-    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Reporting" Version="9.4.0-preview.1.*" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.*" />
+    <PackageReference Include="Microsoft.Extensions.AI.Evaluation" Version="10.*" />
+    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Quality" Version="10.*" />
+    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Reporting" Version="10.*" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.*" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.*" />
   </ItemGroup>
 
   <ItemGroup>
