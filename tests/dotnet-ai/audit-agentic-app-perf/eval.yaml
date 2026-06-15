@@ -1,0 +1,126 @@
+name: audit-agentic-app-perf
+required_skills:
+  - audit-agentic-app-perf
+
+scenarios:
+  - name: clean-project-zero-criticals
+    prompt: |
+      Run audit-agentic-app-perf on the project at ./fixture and report findings.
+      Read-only audit; do not edit any source files.
+    setup:
+      files:
+        - path: fixture/MyApp.AppHost/Program.cs
+          content: |
+            var builder = DistributedApplication.CreateBuilder(args);
+            builder.AddServiceDefaults();
+            var openai = builder.AddConnectionString("openai");
+            builder.AddProject<Projects.MyApp_Coach>("coach")
+                   .WithReference(openai);
+            builder.Build().Run();
+        - path: fixture/MyApp.Coach/Program.cs
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            builder.AddServiceDefaults();
+            builder.Services.AddOpenTelemetry();
+            builder.Services.AddSingleton<IChatClient>(sp =>
+                new ChatClient(model: builder.Configuration["Model"], apiKey: "..."));
+            builder.Services.AddSingleton(sp => new ChatClientAgent(
+                sp.GetRequiredService<IChatClient>(),
+                instructions: "You are a concise coach."));
+            var app = builder.Build();
+            app.MapDefaultEndpoints();
+            app.Run();
+        - path: fixture/MyApp.Coach/appsettings.json
+          content: |
+            { "Model": "gpt-4o-mini" }
+    assertions:
+      - type: file_exists
+        path: fixture/.copilot/perf-reports/latest-audit.md
+      - type: file_contains
+        path: fixture/.copilot/perf-reports/latest-audit.md
+        text: "## Findings"
+      - type: file_contains
+        path: fixture/.copilot/perf-reports/latest-audit.md
+        text: "critical: 0"
+
+  - name: sprawl-fixture-flags-topology
+    prompt: |
+      Run audit-agentic-app-perf on the project at ./fixture.
+    setup:
+      files:
+        - path: fixture/Sprawl.AppHost/Program.cs
+          content: |
+            var builder = DistributedApplication.CreateBuilder(args);
+            builder.AddProject<Projects.Agent_A>("a");
+            builder.AddProject<Projects.Agent_B>("b");
+            builder.AddProject<Projects.Agent_C>("c");
+            builder.AddProject<Projects.Agent_D>("d");
+            builder.AddProject<Projects.Agent_E>("e");
+            builder.AddProject<Projects.Agent_F>("f");
+            builder.Build().Run();
+        - path: fixture/Agent.A/Program.cs
+          content: |
+            var agent = new ChatClientAgent(client, instructions: "router");
+            agent.AddHandoff("b"); agent.AddHandoff("c");
+        - path: fixture/Agent.B/Program.cs
+          content: |
+            var agent = new ChatClientAgent(client, instructions: "router");
+            agent.AddHandoff("c"); agent.AddHandoff("d");
+    assertions:
+      - type: file_exists
+        path: fixture/.copilot/perf-reports/latest-audit.md
+      - type: file_contains
+        path: fixture/.copilot/perf-reports/latest-audit.md
+        text: "topology"
+      - type: output_contains
+        text: "critical"
+
+  - name: full-history-fixture-flags-message-history
+    prompt: |
+      Run audit-agentic-app-perf on the project at ./fixture.
+    setup:
+      files:
+        - path: fixture/HistoryHog.AppHost/Program.cs
+          content: |
+            var builder = DistributedApplication.CreateBuilder(args);
+            builder.AddProject<Projects.Coach>("coach");
+            builder.AddProject<Projects.Critic>("critic");
+            builder.Build().Run();
+        - path: fixture/Coach/Program.cs
+          content: |
+            await critic.RunAsync(history, cancellationToken);
+    assertions:
+      - type: file_contains
+        path: fixture/.copilot/perf-reports/latest-audit.md
+        text: "history"
+
+  - name: prompt-bloat-fixture-flags-prompt-weight
+    prompt: |
+      Run audit-agentic-app-perf on the project at ./fixture.
+    setup:
+      files:
+        - path: fixture/PromptHog.AppHost/Program.cs
+          content: |
+            var agent = new ChatClientAgent(client, instructions: HUGE_PROMPT);
+        - path: fixture/PromptHog.AppHost/HugePrompt.cs
+          content: |
+            const string HUGE_PROMPT = @"...PLACEHOLDER 12000 CHARS OF RULES AND EXAMPLES...";
+    assertions:
+      - type: file_contains
+        path: fixture/.copilot/perf-reports/latest-audit.md
+        text: "prompt"
+
+  - name: missing-otel-fixture-flags-otel-coverage
+    prompt: |
+      Run audit-agentic-app-perf on the project at ./fixture.
+    setup:
+      files:
+        - path: fixture/NoOtel.AppHost/Program.cs
+          content: |
+            var builder = DistributedApplication.CreateBuilder(args);
+            builder.AddProject<Projects.Coach>("coach");
+            builder.Build().Run();
+    assertions:
+      - type: file_contains
+        path: fixture/.copilot/perf-reports/latest-audit.md
+        text: "otel"
