@@ -51,14 +51,21 @@ Every finding is a dict with these fields:
 ```yaml
 severity: critical | warn | info
 category: topology | tools | history | prompt | parallelism | otel | models
+check_id: T1 | T2 | TI1 | MH1 | PW1 | P1 | O1 | MA1 | ...   # see references/
 title:    short imperative phrase
 file:     path relative to repo root
 line:     1-based line number, or null
-evidence: 1-3 line code snippet or measurement
+evidence: 1-3 line code snippet or measurement (must be present in the cited file)
 why:      one paragraph explaining the impact
 next:     concrete action the developer can take next
 ref:      optional cross-skill route (e.g. "skill:select-agent-models")
 ```
+
+**Evidence gate** — before adding a finding to the report, re-open the
+cited file and confirm the `evidence` snippet is present at or near
+the cited line. Drop any finding that fails this check. Findings whose
+evidence is "absence of X" must list the exact files and patterns
+that were searched in the `evidence` field instead of a snippet.
 
 Severity rules:
 
@@ -77,8 +84,12 @@ to:
 
 See `references/report-template.md` for the exact layout.
 
-Create `.copilot/perf-reports/` if it does not exist. Add it to `.gitignore`
-if a `.gitignore` exists at the repo root and the entry is not already there.
+Create `.copilot/perf-reports/` if it does not exist.
+
+This skill never touches `.gitignore`. If the user wants the report
+folder ignored, recommend in chat that they add
+`.copilot/perf-reports/` to their `.gitignore` themselves; do not edit
+it from this skill.
 
 ### 5. Surface top findings in chat
 
@@ -109,12 +120,17 @@ After running:
 
 ## Common pitfalls
 
-- **Editing source code.** This skill is read-only. If a check tempts you to
-  fix the issue inline, stop and add it as a finding instead.
-- **Hallucinating findings.** Every finding must cite a real file and (where
-  applicable) a real line. If you cannot point to evidence, drop the finding.
-- **Burying critical findings.** Always lift the top 3 critical findings into
-  chat. Do not say "see the report" without surfacing the worst issues.
+- **Editing source code.** This skill is read-only and only writes to
+  `.copilot/perf-reports/`. Never edit `.gitignore`, source files,
+  config files, or anything else. If a check tempts you to fix the
+  issue inline, stop and add it as a finding instead.
+- **Hallucinating findings.** Every finding must cite a real file and
+  (where applicable) a real line. Before adding a finding to the
+  report, re-open the cited file and verify the snippet exists at the
+  cited line. If you cannot point to evidence, drop the finding.
+- **Burying critical findings.** Always lift the top 3 critical
+  findings into chat. Do not say "see the report" without surfacing
+  the worst issues.
 - **Confusing this with rules install.** If the user wants the rules
   themselves embedded into their instructions file, run
   `configure-agentic-perf-rules` instead.

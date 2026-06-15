@@ -27,7 +27,7 @@ Project: {{ relative_project_path }}
 ## Findings
 
 ### [critical] {{ title }}
-- **Category:** {{ category }}
+- **Check:** {{ check_id }} ({{ category }})
 - **File:** `{{ file }}:{{ line }}`
 - **Evidence:**
   ```csharp
