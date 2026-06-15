@@ -21,8 +21,21 @@ Detect:
 - Existing test / eval projects (avoid clobbering)
 
 If no agentic app is detected, abort. If a `*.Evals` project already
-exists, switch to update mode (do not overwrite tests; only add missing
-infra).
+exists, switch to update mode (see step 1a).
+
+### 1a. Update mode (when `*.Evals` project already exists)
+
+File classes:
+
+| Class            | Files                                                                  | Behavior on update         |
+|------------------|------------------------------------------------------------------------|----------------------------|
+| **infra**        | `*.Evals.csproj`, `Program.cs`, runner classes, `Abstractions.cs`      | merge package refs; create file if missing; do **not** overwrite |
+| **user data**    | `Quality/rubric.md`, `Quality/golden.json`, `Compare/matrix.json`, `Telemetry/inputs.json`, `Telemetry/prices.json`, `quality.thresholds.json` | never overwrite; create if missing |
+| **generated**    | `Reports/`, `.copilot/perf-reports/evals/`                             | regenerate freely          |
+
+If an existing infra file differs from the current template, surface
+the diff in the chat output but do not overwrite. Recommend the user
+review and merge manually.
 
 ### 2. Confirm scope with the user
 
@@ -93,13 +106,24 @@ See `references/compare-mode.md`.
 - Produces `compare.md` with side-by-side latency / token / cost /
   quality columns and a recommendation row.
 
-### 7. Optional Aspire panel
+### 7. Optional Aspire panel (apply mode)
 
 See `references/aspire-dashboard-panel.md`.
 
-- Static-file v1: an HTML page served from the AppHost reading the
-  latest `telemetry.json`. Tabular per-agent view.
-- Refreshes on file change.
+This step is **off by default** and modifies the AppHost project. To
+enable it, the user must say "wire the panel" / "add the dashboard
+panel" / equivalent.
+
+When enabled:
+
+1. Show a unified diff of the AppHost edit (`app.UseStaticFiles()` and
+   the panel files under `wwwroot/eval-panel/`).
+2. Ask for confirmation.
+3. Only on `yes` / explicit confirmation, write the changes.
+4. Run `dotnet build` and report pass/fail.
+
+If declined, scaffold the static files into `<App>.Evals/Panel/` so the
+user can move them into the AppHost manually.
 
 ### 8. Validation
 

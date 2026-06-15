@@ -4,6 +4,10 @@ The exact files written when scaffolding the eval harness.
 
 ## `<App>.Evals.csproj`
 
+Use the actual current package versions from NuGet at scaffold time
+(query `nuget.org` or `dotnet package search`). The versions below are
+illustrative — replace with the latest stable when you scaffold.
+
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
 
@@ -16,32 +20,65 @@ The exact files written when scaffolding the eval harness.
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.AI" />
-    <PackageReference Include="Microsoft.Extensions.AI.Evaluation" />
-    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Quality" />
-    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Reporting" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="9.4.0-preview.1.*" />
+    <PackageReference Include="Microsoft.Extensions.AI.Evaluation" Version="9.4.0-preview.1.*" />
+    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Quality" Version="9.4.0-preview.1.*" />
+    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Reporting" Version="9.4.0-preview.1.*" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Telemetry/inputs.json"; CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Telemetry/prices.json"; CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Quality/rubric.md"; CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Quality/golden.json"; CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Compare/matrix.json"; CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="..\{{ AgentProject }}\{{ AgentProject }}.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Telemetry/inputs.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Telemetry/prices.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Quality/rubric.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Quality/golden.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Compare/matrix.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
 ```
 
+If the consumer repo uses Central Package Management
+(`Directory.Packages.props` with `ManagePackageVersionsCentrally=true`),
+omit the `Version=` attributes and add matching `<PackageVersion>`
+entries to the central props file instead.
+
+The `ProjectReference` line points to the agent service the evals will
+exercise (typically the agent service, not the AppHost). If the repo
+has multiple agent service projects, generate one `ProjectReference`
+per project and let the runner classes select which agent to invoke.
+
+## `Abstractions.cs` (generated alongside Program.cs)
+
+```csharp
+public interface IEvalRunner
+{
+    Task<EvalReport> RunAsync(CancellationToken ct = default);
+}
+
+public sealed record EvalReport(
+    bool Success,
+    string OneLineSummary,
+    string ReportDirectory);
+```
+
+The three runner classes (`TelemetryEvalRunner`, `QualityEvalRunner`,
+`CompareEvalRunner`) each implement `IEvalRunner` and write their
+report files under `ReportDirectory`. See `telemetry-capture.md`,
+`quality-modes.md`, and `compare-mode.md` for each runner's body.
+
 ## `Program.cs`
 
 ```csharp
 var mode = args.FirstOrDefault() ?? "telemetry";
-var runner = mode switch
+IEvalRunner runner = mode switch
 {
-    "telemetry" => (IEvalRunner)new TelemetryEvalRunner(),
+    "telemetry" => new TelemetryEvalRunner(),
     "quality"   => new QualityEvalRunner(),
     "compare"   => new CompareEvalRunner(),
     _           => throw new ArgumentException($"Unknown mode: {mode}")

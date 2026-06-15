@@ -68,6 +68,16 @@ them up.
 
 ## Stub mode
 
-If `EVAL_USE_REAL_MODELS` is unset or `0`, the wrapper short-circuits
-the inner client and returns a deterministic canned response. The
-report is marked `(stub)` and the cost column shows `$0.00`.
+Two independent toggles control whether real models are called:
+
+- `EVAL_USE_REAL_AGENT` (default `0`) — when `0`, the wrapper
+  short-circuits the agent-under-test client and returns a deterministic
+  canned response. Telemetry numbers reflect the stub, marked `(stub)`.
+- `EVAL_USE_REAL_JUDGE` (default `0`) — when `0`, quality mode skips
+  the real judge call and emits per-input scores of `null` with a
+  rationale of `"(stub) judge disabled"`. The pass-rate row reports
+  `(stub)`.
+
+Compare mode honors both toggles independently. Setting only
+`EVAL_USE_REAL_AGENT=1` is a valid local-dev configuration: real
+agent calls, no judge cost.
