@@ -665,12 +665,17 @@ public static class EvaluateCommand
         if (!singleScenario)
             scenarioLog("📋 Starting scenario");
 
+        // Compute the cross-invocation scenario key (prompt SHA + target SHA) once per scenario.
+        // ComputeScenarioKey hashes setup fixtures, so computing it here (rather than per run)
+        // avoids re-hashing the same files for every run of the scenario.
+        var baselineKey = sessionDb is not null ? BaselineStore.ComputeScenarioKey(scenario, target.EvalPath) : null;
+
         var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
             runLimit.RunAsync(async () =>
             {
                 try
                 {
-                    return (Result: await ExecuteAgentRun(i, scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha, baselineStore, cancellationToken), Error: (Exception?)null);
+                    return (Result: await ExecuteAgentRun(i, scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha, baselineStore, baselineKey, cancellationToken), Error: (Exception?)null);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
@@ -813,6 +818,7 @@ public static class EvaluateCommand
         SessionDatabase? sessionDb,
         string? targetSha,
         BaselineStore? baselineStore,
+        string? baselineKey,
         CancellationToken cancellationToken)
     {
         var agent = target.Agent!;
@@ -833,8 +839,6 @@ public static class EvaluateCommand
         var isolatedConfigDir = sessionsDir is not null ? Path.Combine("sessions", isolatedSessionId) : null;
         var pluginConfigDir = sessionsDir is not null ? Path.Combine("sessions", pluginSessionId) : null;
         var rubricJson = JsonSerializer.Serialize(scenario.Rubric?.ToArray() ?? [], SkillValidatorJsonContext.Default.StringArray);
-        // Cross-invocation scenario key (prompt SHA + target SHA) for deferred cross-directory judging.
-        var baselineKey = sessionDb is not null ? BaselineStore.ComputeScenarioKey(scenario, target.EvalPath) : null;
 
         // Reuse a precomputed shared baseline when available (--baseline-from). The
         // baseline arm is agent-independent, so this skips a redundant agent run.
@@ -1219,12 +1223,17 @@ public static class EvaluateCommand
         if (!singleScenario)
             scenarioLog("📋 Starting scenario");
 
+        // Compute the cross-invocation scenario key (prompt SHA + target SHA) once per scenario.
+        // ComputeScenarioKey hashes setup fixtures, so computing it here (rather than per run)
+        // avoids re-hashing the same files for every run of the scenario.
+        var baselineKey = sessionDb is not null ? BaselineStore.ComputeScenarioKey(scenario, evalSkill.EvalPath) : null;
+
         var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
             runLimit.RunAsync(async () =>
             {
                 try
                 {
-                    return (Result: await ExecuteRun(i, scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha, baselineStore, cancellationToken), Error: (Exception?)null);
+                    return (Result: await ExecuteRun(i, scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha, baselineStore, baselineKey, cancellationToken), Error: (Exception?)null);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
@@ -1421,6 +1430,7 @@ public static class EvaluateCommand
         SessionDatabase? sessionDb,
         string? skillSha,
         BaselineStore? baselineStore,
+        string? baselineKey,
         CancellationToken cancellationToken)
     {
         var skill = evalSkill.Skill;
@@ -1441,9 +1451,6 @@ public static class EvaluateCommand
         var isolatedConfigDir = sessionsDir is not null ? Path.Combine("sessions", isolatedSessionId) : null;
         var pluginConfigDir = sessionsDir is not null ? Path.Combine("sessions", pluginSessionId) : null;
         var rubricJson = JsonSerializer.Serialize(scenario.Rubric?.ToArray() ?? [], SkillValidatorJsonContext.Default.StringArray);
-        // Cross-invocation scenario key (prompt SHA + target SHA). Persisting it lets a deferred
-        // judge pair this treatment run with a baseline run from a different results directory.
-        var baselineKey = sessionDb is not null ? BaselineStore.ComputeScenarioKey(scenario, evalSkill.EvalPath) : null;
 
         // Reuse a precomputed shared baseline when available (--baseline-from). The
         // baseline arm is skill-independent, so this skips a redundant agent run.
