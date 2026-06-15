@@ -145,78 +145,81 @@ jobs:
         run: |
           PLUGIN="${{ matrix.entry.plugin }}"
 
+          # Build the explicit eval set for this plugin. Each eval targets a
+          # single skill named after the eval folder. Evals that do not map 1:1
+          # to a skill (e.g. `agent.*` evals that exercise multi-skill
+          # orchestrator agents and declare their own `environment.skills`) are
+          # skipped — they are out of scope for the skill-vs-baseline pipeline.
+          EVAL_ARGS=()
           while IFS= read -r EVAL_SPEC; do
-            EVAL_NAME=$(basename $(dirname "$EVAL_SPEC"))
-            echo "::group::Evaluating $EVAL_NAME"
-
-            BASELINE_DIR="$RESULTS_DIR/$EVAL_NAME/baseline"
-            SKILLED_DIR="$RESULTS_DIR/$EVAL_NAME/skilled"
-            mkdir -p "$BASELINE_DIR" "$SKILLED_DIR"
-
-            # Each eval targets a single skill named after the eval folder.
-            # Evals that do not map 1:1 to a skill (e.g. `agent.*` evals that
-            # exercise multi-skill orchestrator agents and declare their own
-            # `environment.skills`) are skipped — they are out of scope for
-            # the skill-vs-baseline pipeline.
-            PER_SKILL_DIR="./plugins/$PLUGIN/skills/$EVAL_NAME"
-            if [ ! -f "$PER_SKILL_DIR/SKILL.md" ]; then
-              echo "::warning::Skipping $EVAL_NAME — no SKILL.md at $PER_SKILL_DIR (likely an agent eval; not supported by the skill-isolation pipeline)"
-              echo "::endgroup::"
+            EVAL_NAME=$(basename "$(dirname "$EVAL_SPEC")")
+            case "$EVAL_NAME" in
+              agent.*)
+                echo "::warning::Skipping $EVAL_NAME — agent eval (not supported by the skill-isolation pipeline)"
+                continue
+                ;;
+            esac
+            # The skilled variant loads plugins/<plugin>/skills/<skill>; vally
+            # fails fast if that directory is missing.
+            if [ ! -d "plugins/$PLUGIN/skills/$EVAL_NAME" ]; then
+              echo "::warning::Skipping $EVAL_NAME — no skill dir at plugins/$PLUGIN/skills/$EVAL_NAME"
               continue
             fi
-
-            # Empty dir used as `--skill-dir` for the baseline so vally
-            # discovers zero skills. Without this, vally walks up to the repo's
-            # .vally.yaml and loads every skill under plugins/, contaminating
-            # the baseline.
-            EMPTY_SKILL_DIR=$(mktemp -d -t vally-empty-skills-XXXXXX)
-
-            # Baseline run (no skills)
-            echo "--- Baseline run ---"
-            vally eval \
-              --eval-spec "$EVAL_SPEC" \
-              --skill-dir "$EMPTY_SKILL_DIR" \
-              --model ${{ env.MODEL }} \
-              --runs 1 --workers 3 \
-              --skip-validate \
-              --judge-model ${{ env.JUDGE_MODEL }} \
-              --output-dir "$BASELINE_DIR" \
-              2>&1 || echo "::warning::Baseline eval failed for $EVAL_NAME"
-
-            # Skilled run (exactly the one skill under evaluation)
-            echo "--- Skilled run ---"
-            vally eval \
-              --eval-spec "$EVAL_SPEC" \
-              --skill-dir "$PER_SKILL_DIR" \
-              --model ${{ env.MODEL }} \
-              --runs 1 --workers 3 \
-              --skip-validate \
-              --judge-model ${{ env.JUDGE_MODEL }} \
-              --output-dir "$SKILLED_DIR" \
-              2>&1 || echo "::warning::Skilled eval failed for $EVAL_NAME"
-
-            rm -rf "$EMPTY_SKILL_DIR"
-
-            # Adapt results — find JSONL in timestamped subdirs
-            BASELINE_JSONL=$(find "$BASELINE_DIR" -name "*.jsonl" -type f 2>/dev/null | head -1)
-            SKILLED_JSONL=$(find "$SKILLED_DIR" -name "*.jsonl" -type f 2>/dev/null | head -1)
-
-            if [ -n "$BASELINE_JSONL" ] && [ -n "$SKILLED_JSONL" ]; then
-              echo "--- Adapting results ---"
-              node eng/vally-adapter/adapt.mjs \
-                --baseline "$(dirname "$BASELINE_JSONL")" \
-                --skilled "$(dirname "$SKILLED_JSONL")" \
-                --skill-name "$EVAL_NAME" \
-                --skill-path "plugins/$PLUGIN/skills/$EVAL_NAME" \
-                --model "${{ env.MODEL }}" \
-                --judge-model "${{ env.JUDGE_MODEL }}" \
-                --output "$RESULTS_DIR/$EVAL_NAME/results.json"
-            else
-              echo "::warning::Skipping adapt for $EVAL_NAME — missing JSONL output"
-            fi
-
-            echo "::endgroup::"
+            EVAL_ARGS+=("$EVAL_SPEC")
           done < /tmp/eval-specs.txt
+
+          if [ ${#EVAL_ARGS[@]} -eq 0 ]; then
+            echo "::warning::No skill-backed evals to run for $PLUGIN"
+            exit 0
+          fi
+
+          # Scope the canonical experiment to this plugin's evals and pin the
+          # model/judge. The scoped file lives at the repo root because vally
+          # resolves eval and skill paths relative to the experiment file's dir.
+          SCOPED_EXPERIMENT=".vally-experiment-scoped.yaml"
+          node eng/vally-adapter/scope-experiment.mjs \
+            --base dotnet-skills.experiment.yaml \
+            --out "$SCOPED_EXPERIMENT" \
+            --model "${{ env.MODEL }}" \
+            --judge-model "${{ env.JUDGE_MODEL }}" \
+            --runs 1 \
+            "${EVAL_ARGS[@]}"
+
+          # Run baseline (no skills) + skilled (the one skill) in a single
+          # experiment pass. The baseline is a true skill-free control because
+          # vally 0.6.0 does no ambient skill discovery — skills load only from
+          # environment.skills.
+          EXPERIMENT_OUT="$RESULTS_DIR/_experiment"
+          mkdir -p "$EXPERIMENT_OUT"
+          vally experiment run "$SCOPED_EXPERIMENT" \
+            --output-dir "$EXPERIMENT_OUT" \
+            --workers 5 \
+            2>&1 || echo "::warning::vally experiment run reported failures for $PLUGIN"
+          rm -f "$SCOPED_EXPERIMENT"
+
+          RUN_DIR=$(find "$EXPERIMENT_OUT" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)
+          if [ -z "$RUN_DIR" ]; then
+            echo "::warning::No experiment output produced for $PLUGIN"
+            exit 0
+          fi
+
+          # Split the per-variant experiment output into the per-skill
+          # results.json the shadow summary (and skill-validator) consume.
+          node eng/vally-adapter/adapt.mjs \
+            --experiment-dir "$RUN_DIR" \
+            --output-root "$RESULTS_DIR" \
+            --model "${{ env.MODEL }}" \
+            --judge-model "${{ env.JUDGE_MODEL }}"
+
+          # vally adapts whatever it produced, so surface any shortfall between
+          # the verdicts written and the evals we asked for. This is the
+          # informational shadow job, so a gap is an annotation, not a failure.
+          PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')
+          EXPECTED=${#EVAL_ARGS[@]}
+          echo "Produced $PRODUCED of $EXPECTED expected skill verdict(s) for $PLUGIN"
+          if [ "$PRODUCED" -lt "$EXPECTED" ]; then
+            echo "::warning::vally produced $PRODUCED of $EXPECTED expected skill verdicts for $PLUGIN — some evals failed to run or validate (see logs above)"
+          fi
 
       - name: Upload results
         if: always() && steps.find-evals.outputs.has_evals == 'true'
@@ -234,7 +237,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           RESULTS_DIR="artifacts/TestResults/vally/${{ matrix.entry.name }}"
-          for RESULTS_JSON in "$RESULTS_DIR"/*/results.json; do
+          while IFS= read -r RESULTS_JSON; do
             if [ ! -f "$RESULTS_JSON" ]; then continue; fi
             EVAL_NAME=$(basename $(dirname "$RESULTS_JSON"))
 
@@ -260,4 +263,4 @@ jobs:
               }
             " >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-          done
+          done < <(find "$RESULTS_DIR" -name results.json | sort)

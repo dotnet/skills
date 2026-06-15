@@ -14,8 +14,8 @@
  *     [--output results.json]
  */
 
-import { readFileSync, writeFileSync, readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { readFileSync, writeFileSync, readdirSync, mkdirSync } from "node:fs";
+import { join, resolve, dirname, basename } from "node:path";
 import { parseArgs } from "node:util";
 
 // ---------------------------------------------------------------------------
@@ -24,6 +24,12 @@ import { parseArgs } from "node:util";
 
 const { values: opts } = parseArgs({
   options: {
+    // Experiment mode: split one `vally experiment run` output into per-eval verdicts.
+    "experiment-dir": { type: "string" },
+    "output-root": { type: "string" },
+    "baseline-variant": { type: "string", default: "baseline" },
+    "skilled-variant": { type: "string", default: "skilled" },
+    // Legacy single-eval mode: one baseline dir + one skilled dir.
     baseline: { type: "string" },
     skilled: { type: "string" },
     output: { type: "string", default: "results.json" },
@@ -36,18 +42,32 @@ const { values: opts } = parseArgs({
   strict: true,
 });
 
-if (opts.help || !opts.baseline || !opts.skilled) {
-  console.log(`Usage: node adapt.mjs --baseline <dir> --skilled <dir> --skill-name <name> [options]
+const experimentMode = Boolean(opts["experiment-dir"]);
+const legacyMode = Boolean(opts.baseline && opts.skilled);
+
+if (opts.help || (!experimentMode && !legacyMode)) {
+  console.log(`Usage:
+  Experiment mode (split a 'vally experiment run' output into per-eval verdicts):
+    node adapt.mjs --experiment-dir <run-dir> --output-root <dir> [options]
+
+  Legacy single-eval mode:
+    node adapt.mjs --baseline <dir> --skilled <dir> --skill-name <name> [options]
 
 Options:
-  --baseline <dir>       Directory with baseline eval JSONL (required)
-  --skilled <dir>        Directory with skilled eval JSONL (required)
-  --skill-name <name>    Skill name for the verdict (default: unknown)
-  --skill-path <path>    Skill path for the verdict
-  --model <model>        Agent model (default: claude-sonnet-4.6)
-  --judge-model <model>  Judge model (default: claude-sonnet-4.6)
-  --output <path>        Output file (default: results.json)
-  --help                 Show this help`);
+  --experiment-dir <dir>    Timestamped 'vally experiment run' output directory
+                            (contains <variant>/results.jsonl). Triggers experiment mode.
+  --output-root <dir>       Root for per-eval results.json (written to
+                            <root>/<plugin>/<skill>/results.json). Default: vally-results
+  --baseline-variant <name> Variant treated as the skill-free control (default: baseline)
+  --skilled-variant <name>  Variant treated as the skilled run (default: skilled)
+  --baseline <dir>          [legacy] Directory with baseline eval JSONL
+  --skilled <dir>           [legacy] Directory with skilled eval JSONL
+  --skill-name <name>       [legacy] Skill name for the verdict (default: unknown)
+  --skill-path <path>       [legacy] Skill path for the verdict
+  --model <model>           Agent model (default: claude-sonnet-4.6)
+  --judge-model <model>     Judge model (default: claude-sonnet-4.6)
+  --output <path>           [legacy] Output file (default: results.json)
+  --help                    Show this help`);
   process.exit(opts.help ? 0 : 1);
 }
 
@@ -61,11 +81,32 @@ function loadJsonlFromDir(dir) {
   if (files.length === 0) throw new Error(`No .jsonl files found in ${resolved}`);
   files.sort();
   const content = readFileSync(join(resolved, files[files.length - 1]), "utf-8");
+  return parseJsonl(content);
+}
+
+function loadJsonlFile(file) {
+  return parseJsonl(readFileSync(resolve(file), "utf-8"));
+}
+
+function parseJsonl(content) {
   return content
     .trim()
     .split("\n")
     .filter((line) => line.trim())
     .map((line) => JSON.parse(line));
+}
+
+// Derive the skill name + path from an eval file path, using the repo
+// convention tests/<plugin>/<skill>/eval.vally.yaml -> plugins/<plugin>/skills/<skill>.
+function evalIdentity(evalFile) {
+  const dir = dirname(evalFile);
+  const skill = basename(dir);
+  const plugin = basename(dirname(dir));
+  return { skill, plugin, skillPath: `plugins/${plugin}/skills/${skill}` };
+}
+
+function evalFileOf(record) {
+  return record.experiment?.evalFile ?? record.evalFilePath ?? "";
 }
 
 // ---------------------------------------------------------------------------
@@ -266,10 +307,116 @@ function adapt(baselineOutcomes, skilledOutcomes, options) {
 }
 
 // ---------------------------------------------------------------------------
-// Run
+// Drivers
 // ---------------------------------------------------------------------------
 
-try {
+function verdictSummaryLine(verdict) {
+  const icon = verdict.passed ? "✅" : "❌";
+  const scenarios = verdict.scenarios
+    .map(
+      (s) =>
+        `    ${s.withSkill.metrics.assertionResults.every((a) => a.passed) ? "✔" : "✘"} ${s.scenarioName} (${(s.improvementScore * 100).toFixed(1)}%)`,
+    )
+    .join("\n");
+  return `${icon} ${verdict.skillName}: ${verdict.reason}${scenarios ? "\n" + scenarios : ""}`;
+}
+
+// Surface partial/incomplete experiment output. In CI this becomes a GitHub
+// annotation; locally it's a plain stderr warning. Either way an eval that
+// dropped out of a variant is visible rather than silently absent.
+function warn(msg) {
+  if (process.env.GITHUB_ACTIONS === "true") console.log(`::warning::${msg}`);
+  else console.warn(`⚠ ${msg}`);
+}
+
+// Experiment mode: one `vally experiment run` writes a single
+// <variant>/results.jsonl per variant containing every eval. Split it back into
+// the per-eval results.json the skill-validator pipeline expects.
+function runExperimentMode() {
+  const runDir = resolve(opts["experiment-dir"]);
+  const outputRoot = resolve(opts["output-root"] ?? "vally-results");
+  const baselineFile = join(runDir, opts["baseline-variant"], "results.jsonl");
+  const skilledFile = join(runDir, opts["skilled-variant"], "results.jsonl");
+
+  const baselineRecords = loadJsonlFile(baselineFile);
+  const skilledRecords = loadJsonlFile(skilledFile);
+  console.log(
+    `Loaded ${baselineRecords.length} baseline + ${skilledRecords.length} skilled outcomes from ${runDir}`,
+  );
+
+  const groupByEval = (records) => {
+    const groups = new Map();
+    for (const r of records) {
+      const key = evalFileOf(r);
+      if (!key) continue;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(r);
+    }
+    return groups;
+  };
+
+  const baselineByEval = groupByEval(baselineRecords);
+  const skilledByEval = groupByEval(skilledRecords);
+
+  // A verdict needs the skilled variant's records. Iterate the union of evals
+  // seen in either variant so an eval that dropped out of one variant (e.g. it
+  // failed validation and produced no records) is surfaced rather than
+  // silently disappearing from the output.
+  const allEvals = [
+    ...new Set([...baselineByEval.keys(), ...skilledByEval.keys()]),
+  ].sort();
+
+  let written = 0;
+  let incomplete = 0;
+  for (const evalFile of allEvals) {
+    const { skill, plugin, skillPath } = evalIdentity(evalFile);
+    const skilledOutcomes = skilledByEval.get(evalFile) ?? [];
+    const baselineOutcomes = baselineByEval.get(evalFile) ?? [];
+
+    if (skilledOutcomes.length === 0) {
+      warn(
+        `${plugin}/${skill}: skilled variant produced no records — no verdict written (check the experiment run for validation/runtime failures)`,
+      );
+      incomplete++;
+      continue;
+    }
+    if (baselineOutcomes.length === 0) {
+      warn(
+        `${plugin}/${skill}: baseline variant produced no records — improvement scored with no baseline credit`,
+      );
+    }
+
+    const results = adapt(baselineOutcomes, skilledOutcomes, {
+      skillName: skill,
+      skillPath,
+      model: opts.model,
+      judgeModel: opts["judge-model"],
+    });
+
+    if (results.verdicts[0].scenarios.length === 0) {
+      warn(
+        `${plugin}/${skill}: no successful skilled trials — verdict has no scenarios`,
+      );
+      incomplete++;
+    }
+
+    const evalOutDir = join(outputRoot, plugin, skill);
+    mkdirSync(evalOutDir, { recursive: true });
+    const outputPath = join(evalOutDir, "results.json");
+    writeFileSync(outputPath, JSON.stringify(results, null, 2));
+    written++;
+
+    console.log(`\n${verdictSummaryLine(results.verdicts[0])}\n  → ${outputPath}`);
+  }
+
+  const incompleteNote =
+    incomplete > 0 ? ` (${incomplete} eval(s) incomplete — see warnings above)` : "";
+  console.log(
+    `\nWrote ${written} results.json file(s) under ${outputRoot}${incompleteNote}`,
+  );
+}
+
+function runLegacyMode() {
   const baselineOutcomes = loadJsonlFromDir(opts.baseline);
   const skilledOutcomes = loadJsonlFromDir(opts.skilled);
   console.log(`Loaded ${baselineOutcomes.length} baseline + ${skilledOutcomes.length} skilled outcomes`);
@@ -283,14 +430,20 @@ try {
 
   const outputPath = resolve(opts.output);
   writeFileSync(outputPath, JSON.stringify(results, null, 2));
-
-  const verdict = results.verdicts[0];
-  const summary = verdict.scenarios
-    .map((s) => `  ${s.withSkill.metrics.assertionResults.every((a) => a.passed) ? "✔" : "✘"} ${s.scenarioName} (${(s.improvementScore * 100).toFixed(1)}%)`)
-    .join("\n");
-  console.log(`\n${verdict.passed ? "✅" : "❌"} ${verdict.skillName}: ${verdict.reason}`);
-  console.log(summary);
+  console.log(`\n${verdictSummaryLine(results.verdicts[0])}`);
   console.log(`\nWritten to ${outputPath}`);
+}
+
+// ---------------------------------------------------------------------------
+// Run
+// ---------------------------------------------------------------------------
+
+try {
+  if (experimentMode) {
+    runExperimentMode();
+  } else {
+    runLegacyMode();
+  }
 } catch (err) {
   console.error(`Error: ${err.message}`);
   process.exitCode = 1;

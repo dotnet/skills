@@ -2,7 +2,7 @@ name: check-bin-obj-clash
 description: Evaluates the dotnet-msbuild/check-bin-obj-clash skill
 type: capability
 config:
-  timeout: 2m40s
+  timeout: 160s
 stimuli:
   - name: Diagnose bin/obj output path clashes
     prompt: Build this solution and diagnose any build failures related to output path conflicts.
