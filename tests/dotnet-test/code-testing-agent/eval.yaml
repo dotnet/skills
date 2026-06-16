@@ -38,6 +38,7 @@ scenarios:
       - "Tests are organized logically with clear naming that describes test scenarios"
       - "Generated tests that cover multiple controllers (Students, Courses, Departments, Instructors)"
       - "Set up the EF Core SchoolContext correctly for testing without a real SQL Server (e.g., InMemory provider or SQLite)"
+      - "When the `find-untested-sources` skill is available in the workspace, the research phase leveraged it (e.g., `.testagent/research.md` cites the helper's `source_to_tests` / `untested` JSON output, or the skill's bundled `Find-UntestedSources.cs` helper script was executed) instead of building the source-to-test pairing map purely through manual `find` / `grep` / `glob` walks"
     timeout: 3600
 
   # ============================================================================
