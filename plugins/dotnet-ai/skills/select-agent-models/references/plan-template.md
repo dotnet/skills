@@ -43,7 +43,7 @@ Diff:
 ## Next steps
 
 - Run `setup-maf-evals` quality mode against the new assignments.
-- Re-run `audit-agentic-app-perf` after evals confirm parity.
+- Re-run `scan-agentic-app-perf` after evals confirm parity.
 - If quality regresses, revert the affected agent only via this skill.
 ```
 
