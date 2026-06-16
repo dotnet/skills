@@ -1,0 +1,206 @@
+config:
+  max_parallel_scenarios: 1
+  max_parallel_runs: 2
+
+scenarios:
+  - name: "Fresh install — creates copilot-instructions.md with managed block"
+    prompt: "I have a new MAF/Aspire/Foundry agentic .NET app and Copilot keeps missing perf issues. Install the agentic-perf rules into this project."
+    setup:
+      files:
+        - path: "MyAgentApp.sln"
+          content: |
+            Microsoft Visual Studio Solution File, Format Version 12.00
+        - path: "MyAgentApp.Agent/MyAgentApp.Agent.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.Agents.AI" Version="1.*-*" />
+                <PackageReference Include="Aspire.Hosting" Version="13.*" />
+              </ItemGroup>
+            </Project>
+        - path: "MyAgentApp.Agent/Program.cs"
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            var app = builder.Build();
+            app.Run();
+    assertions:
+      - type: "file_exists"
+        path: ".github/copilot-instructions.md"
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "BEGIN: managed by configure-agentic-perf-rules"
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "END: managed by configure-agentic-perf-rules"
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "agent_count_max"
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "Agent count"
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "Handoff edges"
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "Model selection"
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "Message-history strategy"
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "Token / cost surfacing"
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "Post-change measurement"
+      - type: "exit_success"
+    rubric:
+      - "Created .github/copilot-instructions.md (or detected an existing one) and added a managed block delimited by sentinel HTML comments"
+      - "The managed block contains all six rule categories in the canonical order: agent count, handoff edges, model selection, message-history strategy, token/cost surfacing, post-change measurement"
+      - "The managed block contains a thresholds YAML map with default values"
+      - "Did not modify content outside the sentinel-delimited block"
+      - "Embedded the skill version in the BEGIN sentinel comment"
+    timeout: 360
+
+  - name: "Append to existing copilot-instructions.md without disturbing user content"
+    prompt: "Install the agentic-perf rules into this project. There is already a copilot-instructions.md with team conventions — preserve them."
+    setup:
+      files:
+        - path: ".github/copilot-instructions.md"
+          content: |
+            # Team conventions
+
+            - Always use `IChatClient` from `Microsoft.Extensions.AI`, never the provider SDK directly.
+            - Commit messages follow conventional-commits.
+            - Run `dotnet format` before pushing.
+        - path: "MyAgentApp.Agent/MyAgentApp.Agent.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.Agents.AI" Version="1.*-*" />
+              </ItemGroup>
+            </Project>
+    assertions:
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "Team conventions"
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "conventional-commits"
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "BEGIN: managed by configure-agentic-perf-rules"
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "Agentic Performance Rules"
+      - type: "exit_success"
+    rubric:
+      - "Preserved every line of the existing 'Team conventions' content unchanged"
+      - "Appended the managed block after the existing content (or in a clearly delimited section)"
+      - "Did not duplicate or restate the user's existing rules inside the managed block"
+    timeout: 360
+
+  - name: "Idempotent re-install — current-version managed block is a no-op"
+    prompt: "Run configure-agentic-perf-rules on this project."
+    setup:
+      files:
+        - path: ".github/copilot-instructions.md"
+          content: |
+            # Project notes
+
+            <!-- BEGIN: managed by configure-agentic-perf-rules v0.1.0 -->
+
+            ## Agentic Performance Rules
+
+            ```yaml
+            thresholds:
+              agent_count_max: 3
+              llm_routed_edges_max_per_turn: 2
+              per_turn_input_token_warn: 8000
+              per_turn_output_token_warn: 2000
+              baseline_token_increase_warn_pct: 20
+              unbounded_history_warn: true
+            ```
+
+            (rule sections elided for fixture brevity)
+
+            <!-- END: managed by configure-agentic-perf-rules -->
+    assertions:
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "v0.1.0"
+      - type: "exit_success"
+    rubric:
+      - "Detected the existing managed block at the current skill version"
+      - "Reported 'already current' (or equivalent) and made no changes to the file"
+      - "Did not duplicate the managed block"
+    timeout: 360
+
+  - name: "Update older version — preserves user-edited threshold values"
+    prompt: "Update the agentic-perf rules in this project to the latest version. I had to bump the input-token warn level for our RAG workflow — keep that override."
+    setup:
+      files:
+        - path: ".github/copilot-instructions.md"
+          content: |
+            <!-- BEGIN: managed by configure-agentic-perf-rules v0.0.1 -->
+
+            ## Agentic Performance Rules
+
+            ```yaml
+            thresholds:
+              agent_count_max: 3
+              llm_routed_edges_max_per_turn: 2
+              per_turn_input_token_warn: 25000
+              per_turn_output_token_warn: 2000
+              baseline_token_increase_warn_pct: 20
+              unbounded_history_warn: true
+            ```
+
+            (older content)
+
+            <!-- END: managed by configure-agentic-perf-rules -->
+    assertions:
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "per_turn_input_token_warn: 25000"
+      - type: "exit_success"
+    rubric:
+      - "Detected the existing managed block at an older version (v0.0.1)"
+      - "Replaced the block with the current-version template"
+      - "Preserved the user-edited per_turn_input_token_warn value of 25000 in the new block — did NOT reset to the 8000 default"
+      - "Showed the user a diff or summary of what changed before applying"
+    timeout: 360
+
+  - name: "AGENTS.md stub when both instructions files exist"
+    prompt: "Install the agentic-perf rules. The project uses both AGENTS.md and .github/copilot-instructions.md."
+    setup:
+      files:
+        - path: "AGENTS.md"
+          content: |
+            # Agent guidelines for this repository
+
+            See `.github/copilot-instructions.md` for repository conventions.
+        - path: ".github/copilot-instructions.md"
+          content: |
+            # Repository conventions
+
+            - Use `IChatClient` for all LLM calls.
+    assertions:
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "BEGIN: managed by configure-agentic-perf-rules"
+      - type: "file_contains"
+        path: "AGENTS.md"
+        value: "managed by"
+      - type: "exit_success"
+    rubric:
+      - "Wrote the managed block into .github/copilot-instructions.md (the GitHub-native primary location)"
+      - "Added a single-line stub to AGENTS.md pointing readers to .github/copilot-instructions.md for the agentic-perf rules"
+      - "Did NOT duplicate the rule prose into AGENTS.md"
+      - "Preserved the existing content of both files outside the managed block / stub line"
+    timeout: 360
