@@ -154,6 +154,21 @@ public static class EvaluateCommand
             return 1;
         }
 
+        // The noise test and overfitting fix are judging-dependent features that cannot run while
+        // judging is deferred. Reject them up front rather than silently ignoring the user's intent.
+        if (config.NoJudge)
+        {
+            var incompatible = new List<string>();
+            if (config.NoiseSkillsDir is not null) incompatible.Add("--noise-skills-dir");
+            if (config.OverfittingFix) incompatible.Add("--overfitting-fix");
+            if (incompatible.Count > 0)
+            {
+                Console.Error.WriteLine(
+                    $"--no-judge cannot be combined with {string.Join(" or ", incompatible)} (these require judging; defer them to the rejudge step).");
+                return 1;
+            }
+        }
+
         // Validate model early
         try
         {

@@ -178,7 +178,7 @@ The two options are mutually exclusive.
 
 The expensive part of an evaluation is the agent investigation, not the judging. The baseline and treatment **runs** have no dependency on each other — only the judge step pairs them. You can therefore split a run into two phases so baseline and treatment arms execute in one parallel pool, with judging deferred to a final barrier:
 
-1. **Run** every arm with `evaluate --no-judge --results-dir <dir>`. This runs the requested agent arms, persists `sessions.db` (including each run's baseline key — the prompt-plus-target SHA used for pairing), and performs **no** judge calls. It does not require a baseline file and exits `0` on successful runs. Run the baseline directory and each treatment directory concurrently.
+1. **Run** every arm with `skill-validator evaluate --no-judge --results-dir <dir>`. This runs the requested agent arms, persists `sessions.db` (including each run's baseline key — the prompt-plus-target SHA used for pairing), and performs **no** judge calls. It does not require a baseline file and exits `0` on successful runs. Run the baseline directory and each treatment directory concurrently.
 2. **Judge** with `rejudge`, pointing it at a treatment results directory and the separate baseline results directory:
 
    ```bash
