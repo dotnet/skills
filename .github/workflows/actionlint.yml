@@ -12,11 +12,13 @@ on:
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
+      - ".github/actionlint.yaml"
   push:
     branches: [main]
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
+      - ".github/actionlint.yaml"
   workflow_dispatch:
 
 permissions:
@@ -34,7 +36,7 @@ jobs:
           ACTIONLINT_VERSION: "1.7.7"
         run: |
           set -euo pipefail
-          curl -sSLo actionlint.tar.gz \
+          curl -fsSLo actionlint.tar.gz \
             "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           tar -xzf actionlint.tar.gz actionlint
 

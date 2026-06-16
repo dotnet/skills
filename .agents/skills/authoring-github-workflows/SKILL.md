@@ -1,12 +1,14 @@
 ---
 name: authoring-github-workflows
-description: "Author and review GitHub Actions workflow YAML safely so syntactically-valid YAML can't ship a workflow that GitHub Actions refuses to run. USE FOR: editing, adding, or reviewing any file under .github/workflows/, writing run-name/name/if/env/run values that contain ${{ }} expressions, diagnosing a run that fails with 'This run likely failed because of a workflow file issue' and no jobs starting, deciding when a workflow scalar must be quoted, validating workflows with actionlint. DO NOT USE FOR: authoring application YAML unrelated to GitHub Actions, Azure Pipelines, GitLab CI, or non-workflow YAML. INVOKES: actionlint (downloaded pinned binary) plus git/grep for inspection."
+description: "Author and review GitHub Actions workflow YAML safely so syntactically-valid YAML can't ship a workflow that GitHub Actions refuses to run. USE FOR: editing, adding, or reviewing any file under .github/workflows/, writing run-name/name/if/env/run values that contain ${{ }} expressions, diagnosing a run that fails with 'This run likely failed because of a workflow file issue' and no jobs starting, deciding when a workflow scalar must be quoted, validating workflows with actionlint. DO NOT USE FOR: authoring application YAML unrelated to GitHub Actions, Azure Pipelines, GitLab CI, or non-workflow YAML. SCOPE: this skill covers *syntactic/structural* correctness of workflow YAML (quoting, parsing, actionlint); for *semantic and functional* workflow design (what a workflow should do, agentic-workflow behavior), see .github/agents/agentic-workflows.agent.md — the two are complementary. INVOKES: actionlint (downloaded pinned binary) plus git/grep for inspection."
 license: MIT
 ---
 
 # Authoring GitHub Actions Workflows Safely
 
 GitHub Actions workflow files are YAML, but **valid YAML is not the same as a valid workflow**. A workflow can parse cleanly with `yaml.safe_load` (or a casual review) yet still be rejected by GitHub Actions at load time — producing the opaque failure *"This run likely failed because of a workflow file issue"* with **zero jobs started**. This skill teaches the YAML-vs-Actions traps (the `#`-as-comment trap above all), how to quote expression scalars correctly, and how to validate with `actionlint` before merge.
+
+> **Scope: syntactic vs. semantic.** This skill is about the *syntactic and structural* correctness of workflow YAML — quoting, parsing, and `actionlint`-level validity that determines whether GitHub Actions will load and run a file at all. It is **not** about *what* a workflow should do or how an agentic workflow should behave. For *semantic and functional* guidance (designing workflow logic, agentic-workflow patterns, gh-aw authoring), use [`.github/agents/agentic-workflows.agent.md`](../../../.github/agents/agentic-workflows.agent.md). The two are complementary: get the behavior right with the agent, get the YAML right with this skill.
 
 ## When to Use
 
@@ -72,7 +74,7 @@ Wrap the full value in double quotes when the value embeds an expression and con
 
 ```bash
 ACTIONLINT_VERSION=1.7.7
-curl -sSLo actionlint.tar.gz \
+curl -fsSLo actionlint.tar.gz \
   "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
 tar -xzf actionlint.tar.gz actionlint
 # Focus on workflow/expression correctness; silence shell/py style noise:
