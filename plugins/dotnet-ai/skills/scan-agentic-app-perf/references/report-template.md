@@ -1,0 +1,55 @@
+# Report template
+
+The exact Markdown layout written to
+`.copilot/perf-reports/scan-<timestamp>.md` and `latest-scan.md`.
+
+```markdown
+# Agentic perf audit — {{ project_name }}
+
+Run: {{ utc_timestamp }}
+Project: {{ relative_project_path }}
+
+## Inventory
+
+- AppHost: `{{ apphost_path }}`
+- Agents: {{ agent_count }} ({{ agent_list }})
+- Handoff edges: {{ edge_count }}
+- Tools (total): {{ tool_count }}
+- Distinct models: {{ model_set }}
+- OTel wired: {{ true | false }}
+
+## Summary
+
+- critical: {{ count }}
+- warn:     {{ count }}
+- info:     {{ count }}
+
+## Findings
+
+> **Check ID prefixes:** `T*` topology · `TI*` tool inventory · `MH*` message history · `PW*` prompt weight · `P*` parallelism · `O*` OTel · `MA*` model assignment.
+
+### [critical] [{{ check_id }}] {{ title }}
+- **File:** `{{ file }}:{{ line }}`
+- **Evidence:**
+  ```csharp
+  {{ snippet }}
+  ```
+- **Why:** {{ paragraph }}
+- **Next:** {{ action }}
+- **Cross-ref:** {{ skill: ... | omit if none }}
+
+(... repeat per finding, ordered: critical → warn → info, then by `check_id` ...)
+
+## Next steps
+
+- If you want to fix the model assignments above, run `select-agent-models`.
+- If you want to capture token/quality numbers before vs after, run
+  `setup-maf-evals`.
+- If you do not yet have always-on rules to prevent regressions, run
+  `configure-agentic-perf-rules`.
+```
+
+## Empty-report contract
+
+If there are zero findings, the `## Findings` section still appears with the
+literal text `_No findings._`. The `## Summary` section shows zeros.
