@@ -53,20 +53,29 @@ scenarios:
                 }
             }
     assertions:
-      - type: "output_matches"
-        pattern: "Microsoft\\.VisualStudio\\.TestTools\\.UnitTesting"
-      - type: "output_matches"
-        pattern: "\\[TestClass\\]"
-      - type: "output_matches"
-        pattern: "\\[TestMethod\\]"
-      - type: "output_matches"
-        pattern: "Assert\\.AreEqual"
-      - type: "output_matches"
-        pattern: "Assert\\.IsTrue"
-      - type: "output_not_matches"
-        pattern: "PackageReference Include=\"xunit"
-      - type: "output_not_matches"
-        pattern: "using Xunit;"
+      # File-state assertions: assert against the migrated source/project files
+      # so the assertion is not tripped by agent prose that quotes the same tokens.
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "Microsoft.VisualStudio.TestTools.UnitTesting"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "[TestClass]"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "[TestMethod]"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "Assert.AreEqual"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "Assert.IsTrue"
+      - type: "file_not_contains"
+        path: "**/*.csproj"
+        value: "PackageReference Include=\"xunit"
+      - type: "file_not_contains"
+        path: "**/*.cs"
+        value: "using Xunit;"
       - type: run_command_and_assert
         command_to_run: "dotnet"
         command_arguments: "test"
@@ -143,14 +152,18 @@ scenarios:
                 }
             }
     assertions:
-      - type: "output_matches"
-        pattern: "Microsoft\\.VisualStudio\\.TestTools\\.UnitTesting"
-      - type: "output_matches"
-        pattern: "\\[DataRow\\("
-      - type: "output_not_matches"
-        pattern: "xunit\\.v3"
-      - type: "output_not_matches"
-        pattern: "InlineData"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "Microsoft.VisualStudio.TestTools.UnitTesting"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "[DataRow("
+      - type: "file_not_contains"
+        path: "**/*.csproj"
+        value: "xunit.v3"
+      - type: "file_not_contains"
+        path: "**/*.cs"
+        value: "InlineData"
       - type: run_command_and_assert
         command_to_run: "dotnet"
         command_arguments: "test"
@@ -259,12 +272,15 @@ scenarios:
                 }
             }
     assertions:
-      - type: "output_matches"
-        pattern: "\\[ClassInitialize\\]"
-      - type: "output_matches"
-        pattern: "\\[ClassCleanup\\]"
-      - type: "output_not_matches"
-        pattern: "IClassFixture"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "[ClassInitialize]"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "[ClassCleanup]"
+      - type: "file_not_contains"
+        path: "**/*.cs"
+        value: "IClassFixture"
       - type: run_command_and_assert
         command_to_run: "dotnet"
         command_arguments: "test"
@@ -351,8 +367,11 @@ scenarios:
                 public void Connects() => Assert.NotNull(_fixture.Connection);
             }
     assertions:
-      - type: "output_matches"
-        pattern: "\\[DoNotParallelize\\]"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "[DoNotParallelize]"
+      # Agent prose assertion: the rubric requires an explicit scope-decision
+      # explanation, so this stays on the response (not the file).
       - type: "output_matches"
         pattern: "(scope|sharing|parallelization|preserve|collection)"
       - type: run_command_and_assert
@@ -417,14 +436,18 @@ scenarios:
                 }
             }
     assertions:
-      - type: "output_matches"
-        pattern: "TestContext"
-      - type: "output_matches"
-        pattern: "WriteLine"
-      - type: "output_not_matches"
-        pattern: "ITestOutputHelper"
-      - type: "output_not_matches"
-        pattern: "Xunit\\.Abstractions"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "TestContext"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "WriteLine"
+      - type: "file_not_contains"
+        path: "**/*.cs"
+        value: "ITestOutputHelper"
+      - type: "file_not_contains"
+        path: "**/*.cs"
+        value: "Xunit.Abstractions"
       - type: run_command_and_assert
         command_to_run: "dotnet"
         command_arguments: "test"
@@ -497,12 +520,15 @@ scenarios:
                 }
             }
     assertions:
-      - type: "output_matches"
-        pattern: "Assert\\.ThrowsExactly<InvalidOperationException>"
-      - type: "output_matches"
-        pattern: "Assert\\.Throws<Exception>"
-      - type: "output_matches"
-        pattern: "Assert\\.ThrowsExactlyAsync<InvalidOperationException>"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "Assert.ThrowsExactly<InvalidOperationException>"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "Assert.Throws<Exception>"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "Assert.ThrowsExactlyAsync<InvalidOperationException>"
       - type: run_command_and_assert
         command_to_run: "dotnet"
         command_arguments: "test"
@@ -570,12 +596,15 @@ scenarios:
                 }
             }
     assertions:
-      - type: "output_matches"
-        pattern: "\\[DynamicData\\("
-      - type: "output_not_matches"
-        pattern: "\\[MemberData\\("
-      - type: "output_not_matches"
-        pattern: "\\[Theory\\]"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "[DynamicData("
+      - type: "file_not_contains"
+        path: "**/*.cs"
+        value: "[MemberData("
+      - type: "file_not_contains"
+        path: "**/*.cs"
+        value: "[Theory]"
       - type: run_command_and_assert
         command_to_run: "dotnet"
         command_arguments: "test"
@@ -634,16 +663,21 @@ scenarios:
                 public void Slow() => Assert.True(true);
             }
     assertions:
-      - type: "output_matches"
-        pattern: "\\[Ignore\\(\"broken\"\\)\\]"
-      - type: "output_matches"
-        pattern: "\\[TestCategory\\(\"Unit\"\\)\\]"
-      - type: "output_matches"
-        pattern: "\\[TestProperty\\(\"Owner\""
-      - type: "output_matches"
-        pattern: "\\[Timeout\\(5000\\)\\]"
-      - type: "output_not_matches"
-        pattern: "Trait\\("
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "[Ignore(\"broken\")]"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "[TestCategory(\"Unit\")]"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "[TestProperty(\"Owner\""
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "[Timeout(5000)]"
+      - type: "file_not_contains"
+        path: "**/*.cs"
+        value: "Trait("
       - type: run_command_and_assert
         command_to_run: "dotnet"
         command_arguments: "test"
@@ -699,12 +733,15 @@ scenarios:
             namespace MyApp.Tests;
             public class BetaTests { [Fact] public void T() => Assert.True(true); }
     assertions:
-      - type: "output_matches"
-        pattern: "assembly:\\s*Parallelize"
-      - type: "output_matches"
-        pattern: "ExecutionScope\\.ClassLevel"
-      - type: "output_not_matches"
-        pattern: "ExecutionScope\\.MethodLevel"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "assembly: Parallelize"
+      - type: "file_contains"
+        path: "**/*.cs"
+        value: "ExecutionScope.ClassLevel"
+      - type: "file_not_contains"
+        path: "**/*.cs"
+        value: "ExecutionScope.MethodLevel"
       - type: run_command_and_assert
         command_to_run: "dotnet"
         command_arguments: "test"
@@ -773,10 +810,15 @@ scenarios:
                 }
             }
     assertions:
+      # Positive assertion stays on prose because it uses regex alternation
+      # (TestContext.CancellationToken or _testContext.CancellationToken);
+      # file_contains is literal-only and cannot express OR. The file shape
+      # is still checked indirectly via the build/test run-command below.
       - type: "output_matches"
         pattern: "TestContext\\.CancellationToken|_testContext\\.CancellationToken"
-      - type: "output_not_matches"
-        pattern: "TestContext\\.Current\\.CancellationToken"
+      - type: "file_not_contains"
+        path: "**/*.cs"
+        value: "TestContext.Current.CancellationToken"
       - type: run_command_and_assert
         command_to_run: "dotnet"
         command_arguments: "test"
@@ -821,10 +863,13 @@ scenarios:
                 public void Works() => Assert.IsTrue(true);
             }
     assertions:
+      # Positive assertion stays on prose: rubric requires the agent to TELL
+      # the user no migration is needed.
       - type: "output_matches"
         pattern: "(already|no.{0,30}migration|not.{0,20}need|already.{0,20}MSTest)"
-      - type: "output_not_matches"
-        pattern: "PackageReference Include=\"xunit"
+      - type: "file_not_contains"
+        path: "**/*.csproj"
+        value: "PackageReference Include=\"xunit"
     rubric:
       - "Recognizes the project already references MSTest packages -- no xUnit present"
       - "Does NOT make changes (no destructive 'migration' of MSTest tests)"
