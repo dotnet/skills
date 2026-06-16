@@ -13,7 +13,7 @@ description: >
   issues", wants up-front guard-rails before adding more agents/handoffs/tools, or is
   scaffolding a new agentic .NET app.
   DO NOT USE FOR: non-agentic .NET projects (use `optimizing-dotnet-performance`),
-  non-.NET agentic projects, auditing existing code (use `audit-agentic-app-perf`), or
+  non-.NET agentic projects, auditing existing code (use `scan-agentic-app-perf`), or
   measuring runtime telemetry (use `setup-maf-evals`).
 license: MIT
 ---
@@ -41,7 +41,7 @@ clobbering user-edited threshold values.
 - The project is not a .NET agentic app — use `optimizing-dotnet-performance` for general
   .NET performance guidance.
 - The user wants the agent to actually audit existing code right now — use
-  `audit-agentic-app-perf` instead. This skill only installs guidance.
+  `scan-agentic-app-perf` instead. This skill only installs guidance.
 - The user wants to measure tokens, latency, or quality scores — use `setup-maf-evals`.
 - The user wants to pick or change per-agent model assignments — use `select-agent-models`.
 - Generic prompt-engineering or non-perf coding-agent rules (keep those in the user's own
@@ -238,4 +238,4 @@ If `AGENTS.md` was updated, also confirm the stub line is present exactly once.
 - `references/threshold-defaults.md` — default numeric values and the rationale for each.
 - `references/rule-rationales.md` — long-form prose for each of the six rule categories,
   with examples and counter-examples.
-- Companion skills: `audit-agentic-app-perf`, `select-agent-models`, `setup-maf-evals`.
+- Companion skills: `scan-agentic-app-perf`, `select-agent-models`, `setup-maf-evals`.
