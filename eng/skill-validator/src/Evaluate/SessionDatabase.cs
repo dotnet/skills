@@ -12,6 +12,13 @@ namespace SkillValidator.Evaluate;
 /// </summary>
 public sealed class SessionDatabase : IDisposable
 {
+    /// <summary>
+    /// Current schema version stamped into <c>schema_info</c>. Bump whenever the persisted
+    /// shape changes (e.g. a new column) so external tools can detect the change. History:
+    /// 2 = added <c>sessions.rubric</c>; 3 = added <c>sessions.baseline_key</c>.
+    /// </summary>
+    private const string SchemaVersion = "3";
+
     private readonly SqliteConnection _connection;
     private readonly Lock _lock = new();
 
@@ -36,7 +43,6 @@ public sealed class SessionDatabase : IDisposable
                 value TEXT NOT NULL
             );
             INSERT OR IGNORE INTO schema_info (key, value) VALUES ('type', 'skill-validator');
-            INSERT OR IGNORE INTO schema_info (key, value) VALUES ('version', '2');
 
             CREATE TABLE IF NOT EXISTS sessions (
                 id TEXT PRIMARY KEY,
@@ -67,7 +73,9 @@ public sealed class SessionDatabase : IDisposable
         cmd.ExecuteNonQuery();
         EnsureSessionsRubricColumn();
         EnsureSessionsBaselineKeyColumn();
-        SetSchemaInfo("version", "2");
+        // Stamp the version after migrations so the recorded value always reflects the
+        // columns that are actually present (single source of truth: SchemaVersion).
+        SetSchemaInfo("version", SchemaVersion);
     }
 
     private void EnsureSessionsRubricColumn()

@@ -249,7 +249,7 @@ public class SessionDatabaseTests : IDisposable
     {
         var info = _db.GetSchemaInfo();
         Assert.Equal("skill-validator", info["type"]);
-        Assert.Equal("2", info["version"]);
+        Assert.Equal("3", info["version"]);
     }
 
     [Fact]
@@ -404,7 +404,7 @@ public class SessionDatabaseTests : IDisposable
             using var upgradedDb = new SessionDatabase(legacyDbPath);
             var legacySession = Assert.Single(upgradedDb.GetCompletedSessions());
             Assert.Null(legacySession.RubricJson);
-            Assert.Equal("2", upgradedDb.GetSchemaInfo()["version"]);
+            Assert.Equal("3", upgradedDb.GetSchemaInfo()["version"]);
 
             var rubricJson = JsonSerializer.Serialize(new[] { "Quality" });
             upgradedDb.RegisterSession("s2", "skill", "/p", "scn", 1, "with-skill", "model", null, null, "Prompt", null, rubricJson);
