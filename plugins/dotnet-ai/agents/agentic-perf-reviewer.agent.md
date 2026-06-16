@@ -1,5 +1,5 @@
 ---
-description: "Reviews .NET agentic applications (Microsoft Agent Framework + Aspire + Foundry) for performance, cost, and reliability issues across topology, tools, message history, prompts, parallelism, OTel coverage, and per-agent model selection. Orchestrates audit-agentic-app-perf, select-agent-models, setup-maf-evals, and configure-agentic-perf-rules to produce a single end-to-end review with actionable recommendations. Use when reviewing an MAF agentic app for perf or cost, when an agent app feels slow, or after non-trivial topology changes. Do NOT use for non-agentic .NET performance reviews (hot-path optimization, allocations, LINQ, async, serialization, general code perf) — use optimizing-dotnet-performance instead."
+description: "Reviews .NET agentic applications (Microsoft Agent Framework + Aspire + Foundry) for performance, cost, and reliability issues across topology, tools, message history, prompts, parallelism, OTel coverage, and per-agent model selection. Orchestrates scan-agentic-app-perf, select-agent-models, setup-maf-evals, and configure-agentic-perf-rules to produce a single end-to-end review with actionable recommendations. Use when reviewing an MAF agentic app for perf or cost, when an agent app feels slow, or after non-trivial topology changes. Do NOT use for non-agentic .NET performance reviews (hot-path optimization, allocations, LINQ, async, serialization, general code perf) — use optimizing-dotnet-performance instead."
 name: agentic-perf-reviewer
 tools: ['read', 'search', 'task', 'skill', 'ask_user']
 license: MIT
@@ -47,8 +47,8 @@ Label this section **"Pass 1: Initial Review"**.
 **Always execute after Pass 1** unless the user asked for quick
 triage. Do not ask whether to proceed.
 
-1. Load **audit-agentic-app-perf** and run it. Capture the report
-   path at `.copilot/perf-reports/audit-<timestamp>.md`.
+1. Load **scan-agentic-app-perf** and run it. Capture the report
+   path at `.copilot/perf-reports/scan-<timestamp>.md`.
 2. Read the report file. For each finding, look at the `check_id`. The
    prefix encodes the category — `T*` topology, `TI*` tool inventory,
    `MH*` message history, `PW*` prompt weight, `P*` parallelism, `O*`
@@ -122,7 +122,7 @@ Keep reports concise and actionable.
 
 ## Skills used
 
-- `audit-agentic-app-perf` — read-only audit, the workhorse of Pass 2.
+- `scan-agentic-app-perf` — read-only audit, the workhorse of Pass 2.
 - `select-agent-models` — per-agent model recommendations.
 - `setup-maf-evals` — telemetry / quality / compare harness.
 - `configure-agentic-perf-rules` — install always-on rules.
