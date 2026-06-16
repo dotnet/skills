@@ -70,6 +70,14 @@ internal sealed class BaselineStore
     public static BaselineStore ForWrite(string model, string judgeModel) => new(model, judgeModel, isReuse: false);
 
     /// <summary>
+    /// Create a store used purely as an evaluation-scoped cache for <see cref="ComputeScenarioKeyCached"/>.
+    /// It records no baselines and is never persisted; its only role is to memoize the expensive
+    /// fixture-input hashing (via <see cref="TargetShaFor"/>) so the same scenario's setup files are
+    /// hashed at most once per evaluation, even across many runs and arms.
+    /// </summary>
+    public static BaselineStore ForKeyCache() => new(model: "", judgeModel: "", isReuse: false);
+
+    /// <summary>
     /// Load a baseline file for reuse.  Validates the schema version and that both the
     /// agent model and judge model match, throwing on mismatch so a stale or wrong
     /// baseline can never silently skew results.  Per-scenario identity (prompt + setup
@@ -335,6 +343,16 @@ internal sealed class BaselineStore
     /// </summary>
     public static string ComputeScenarioKey(EvalScenario scenario, string? evalPath) =>
         MakeKey(ComputePromptSha(scenario.Prompt), ComputeTargetSha(scenario, evalPath));
+
+    /// <summary>
+    /// Cached variant of <see cref="ComputeScenarioKey(EvalScenario, string?)"/> that reuses this
+    /// store's <see cref="_inputsShaCache"/> so a scenario's fixture files are hashed at most once for
+    /// the lifetime of the store.  Returns a value identical to the static method (it differs only in
+    /// memoizing the input hash), letting an evaluation compute the persisted <c>baseline_key</c> for
+    /// every run and arm without re-walking large fixture directories.
+    /// </summary>
+    public string ComputeScenarioKeyCached(EvalScenario scenario, string? evalPath) =>
+        MakeKey(ComputePromptSha(scenario.Prompt), TargetShaFor(scenario, evalPath));
 
     /// <summary>
     /// In reuse mode, return human-readable identifiers of scenarios that have no matching

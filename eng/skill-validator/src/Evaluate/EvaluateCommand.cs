@@ -362,6 +362,11 @@ public static class EvaluateCommand
             Console.WriteLine($"Baseline will be persisted to {config.BaselineOut} after the run.");
         }
 
+        // Evaluation-scoped cache for the persisted baseline_key. Reuse the baseline store when one
+        // exists (its input-hash cache is already warm from FindMissingScenarios); otherwise use a
+        // dedicated, side-effect-free cache so fixtures are hashed at most once across all scenarios.
+        var scenarioKeyCache = baselineStore ?? BaselineStore.ForKeyCache();
+
         string? sessionsDir = null;
         SessionDatabase? sessionDb = null;
         string? timestampedResultsDir = null;
@@ -386,7 +391,7 @@ public static class EvaluateCommand
         // Evaluate all targets (skills and agents)
         spinner.Start($"Evaluating {allTargets.Count} target(s)...");
         var skillTasks = allTargets.Select(target =>
-            skillLimit.RunAsync(() => EvaluateTarget(target, config, usePairwise, spinner, noiseEvalSkills, sessionsDir, sessionDb, baselineStore, cancellationToken), cancellationToken));
+            skillLimit.RunAsync(() => EvaluateTarget(target, config, usePairwise, spinner, noiseEvalSkills, sessionsDir, sessionDb, baselineStore, scenarioKeyCache, cancellationToken), cancellationToken));
         var settled = await Task.WhenAll(skillTasks.Select(async t =>
         {
             try { return (Result: await t, Error: (Exception?)null); }
@@ -506,16 +511,17 @@ public static class EvaluateCommand
         string? sessionsDir,
         SessionDatabase? sessionDb,
         BaselineStore? baselineStore,
+        BaselineStore scenarioKeyCache,
         CancellationToken cancellationToken)
     {
         if (target.Kind == EvalTargetKind.Skill && target.Skill is not null)
         {
             var evalSkill = new EvalSkillInfo(target.Skill, target.EvalPath, target.EvalConfig, target.McpServers);
-            return await EvaluateSkill(evalSkill, config, usePairwise, spinner, noiseSkills, sessionsDir, sessionDb, baselineStore, cancellationToken);
+            return await EvaluateSkill(evalSkill, config, usePairwise, spinner, noiseSkills, sessionsDir, sessionDb, baselineStore, scenarioKeyCache, cancellationToken);
         }
         else if (target.Kind == EvalTargetKind.Agent && target.Agent is not null)
         {
-            return await EvaluateAgent(target, config, usePairwise, spinner, sessionsDir, sessionDb, baselineStore, cancellationToken);
+            return await EvaluateAgent(target, config, usePairwise, spinner, sessionsDir, sessionDb, baselineStore, scenarioKeyCache, cancellationToken);
         }
         return null;
     }
@@ -532,6 +538,7 @@ public static class EvaluateCommand
         string? sessionsDir,
         SessionDatabase? sessionDb,
         BaselineStore? baselineStore,
+        BaselineStore scenarioKeyCache,
         CancellationToken cancellationToken)
     {
         var agent = target.Agent!;
@@ -584,7 +591,7 @@ public static class EvaluateCommand
             {
                 try
                 {
-                    return await ExecuteAgentScenario(scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha, baselineStore, cancellationToken);
+                    return await ExecuteAgentScenario(scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha, baselineStore, scenarioKeyCache, cancellationToken);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
@@ -651,6 +658,7 @@ public static class EvaluateCommand
         SessionDatabase? sessionDb,
         string? targetSha,
         BaselineStore? baselineStore,
+        BaselineStore scenarioKeyCache,
         CancellationToken cancellationToken)
     {
         var agent = target.Agent!;
@@ -666,9 +674,9 @@ public static class EvaluateCommand
             scenarioLog("📋 Starting scenario");
 
         // Compute the cross-invocation scenario key (prompt SHA + target SHA) once per scenario.
-        // ComputeScenarioKey hashes setup fixtures, so computing it here (rather than per run)
-        // avoids re-hashing the same files for every run of the scenario.
-        var baselineKey = sessionDb is not null ? BaselineStore.ComputeScenarioKey(scenario, target.EvalPath) : null;
+        // ComputeScenarioKey hashes setup fixtures, so the evaluation-scoped cache ensures those
+        // files are hashed at most once across every run and arm of the evaluation.
+        var baselineKey = sessionDb is not null ? scenarioKeyCache.ComputeScenarioKeyCached(scenario, target.EvalPath) : null;
 
         var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
             runLimit.RunAsync(async () =>
@@ -1037,6 +1045,7 @@ public static class EvaluateCommand
         string? sessionsDir,
         SessionDatabase? sessionDb,
         BaselineStore? baselineStore,
+        BaselineStore scenarioKeyCache,
         CancellationToken cancellationToken)
     {
         var skill = evalSkill.Skill;
@@ -1107,7 +1116,7 @@ public static class EvaluateCommand
             {
                 try
                 {
-                    return await ExecuteScenario(scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha, baselineStore, cancellationToken);
+                    return await ExecuteScenario(scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha, baselineStore, scenarioKeyCache, cancellationToken);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
@@ -1209,6 +1218,7 @@ public static class EvaluateCommand
         SessionDatabase? sessionDb,
         string? skillSha,
         BaselineStore? baselineStore,
+        BaselineStore scenarioKeyCache,
         CancellationToken cancellationToken)
     {
         var skill = evalSkill.Skill;
@@ -1224,9 +1234,9 @@ public static class EvaluateCommand
             scenarioLog("📋 Starting scenario");
 
         // Compute the cross-invocation scenario key (prompt SHA + target SHA) once per scenario.
-        // ComputeScenarioKey hashes setup fixtures, so computing it here (rather than per run)
-        // avoids re-hashing the same files for every run of the scenario.
-        var baselineKey = sessionDb is not null ? BaselineStore.ComputeScenarioKey(scenario, evalSkill.EvalPath) : null;
+        // ComputeScenarioKey hashes setup fixtures, so the evaluation-scoped cache ensures those
+        // files are hashed at most once across every run and arm of the evaluation.
+        var baselineKey = sessionDb is not null ? scenarioKeyCache.ComputeScenarioKeyCached(scenario, evalSkill.EvalPath) : null;
 
         var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
             runLimit.RunAsync(async () =>

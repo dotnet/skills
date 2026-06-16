@@ -90,6 +90,20 @@ public class BaselineStoreTests
     }
 
     [Fact]
+    public void ComputeScenarioKeyCached_MatchesStaticAndIsStableAcrossCalls()
+    {
+        var cache = BaselineStore.ForKeyCache();
+        var scenario = Scenario("s", "prompt one");
+
+        var expected = BaselineStore.ComputeScenarioKey(scenario, null);
+        var first = cache.ComputeScenarioKeyCached(scenario, null);
+        var second = cache.ComputeScenarioKeyCached(scenario, null);
+
+        Assert.Equal(expected, first);   // cached variant equals the canonical static computation
+        Assert.Equal(first, second);     // repeated lookups (memoized) stay identical
+    }
+
+    [Fact]
     public void Load_ThrowsOnModelMismatch()
     {
         var path = TempPath();
