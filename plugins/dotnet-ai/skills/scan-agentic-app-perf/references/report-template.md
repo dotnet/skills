@@ -1,7 +1,7 @@
 # Report template
 
 The exact Markdown layout written to
-`.copilot/perf-reports/audit-<timestamp>.md` and `latest-audit.md`.
+`.copilot/perf-reports/scan-<timestamp>.md` and `latest-scan.md`.
 
 ```markdown
 # Agentic perf audit — {{ project_name }}

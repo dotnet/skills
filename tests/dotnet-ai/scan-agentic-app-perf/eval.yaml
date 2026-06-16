@@ -1,11 +1,11 @@
-name: audit-agentic-app-perf
+name: scan-agentic-app-perf
 required_skills:
-  - audit-agentic-app-perf
+  - scan-agentic-app-perf
 
 scenarios:
   - name: clean-project-zero-criticals
     prompt: |
-      Run audit-agentic-app-perf on the project at ./fixture and report findings.
+      Run scan-agentic-app-perf on the project at ./fixture and report findings.
       Read-only audit; do not edit any source files.
     setup:
       files:
@@ -35,17 +35,17 @@ scenarios:
             { "Model": "gpt-4o-mini" }
     assertions:
       - type: file_exists
-        path: fixture/.copilot/perf-reports/latest-audit.md
+        path: fixture/.copilot/perf-reports/latest-scan.md
       - type: file_contains
-        path: fixture/.copilot/perf-reports/latest-audit.md
+        path: fixture/.copilot/perf-reports/latest-scan.md
         text: "## Findings"
       - type: file_contains
-        path: fixture/.copilot/perf-reports/latest-audit.md
+        path: fixture/.copilot/perf-reports/latest-scan.md
         text: "critical: 0"
 
   - name: sprawl-fixture-flags-topology
     prompt: |
-      Run audit-agentic-app-perf on the project at ./fixture.
+      Run scan-agentic-app-perf on the project at ./fixture.
     setup:
       files:
         - path: fixture/Sprawl.AppHost/Program.cs
@@ -68,16 +68,16 @@ scenarios:
             agent.AddHandoff("c"); agent.AddHandoff("d");
     assertions:
       - type: file_exists
-        path: fixture/.copilot/perf-reports/latest-audit.md
+        path: fixture/.copilot/perf-reports/latest-scan.md
       - type: file_contains
-        path: fixture/.copilot/perf-reports/latest-audit.md
+        path: fixture/.copilot/perf-reports/latest-scan.md
         text: "topology"
       - type: output_contains
         text: "critical"
 
   - name: full-history-fixture-flags-message-history
     prompt: |
-      Run audit-agentic-app-perf on the project at ./fixture.
+      Run scan-agentic-app-perf on the project at ./fixture.
     setup:
       files:
         - path: fixture/HistoryHog.AppHost/Program.cs
@@ -91,12 +91,12 @@ scenarios:
             await critic.RunAsync(history, cancellationToken);
     assertions:
       - type: file_contains
-        path: fixture/.copilot/perf-reports/latest-audit.md
+        path: fixture/.copilot/perf-reports/latest-scan.md
         text: "history"
 
   - name: prompt-bloat-fixture-flags-prompt-weight
     prompt: |
-      Run audit-agentic-app-perf on the project at ./fixture.
+      Run scan-agentic-app-perf on the project at ./fixture.
     setup:
       files:
         - path: fixture/PromptHog.AppHost/Program.cs
@@ -107,12 +107,12 @@ scenarios:
             const string HUGE_PROMPT = @"...PLACEHOLDER 12000 CHARS OF RULES AND EXAMPLES...";
     assertions:
       - type: file_contains
-        path: fixture/.copilot/perf-reports/latest-audit.md
+        path: fixture/.copilot/perf-reports/latest-scan.md
         text: "prompt"
 
   - name: missing-otel-fixture-flags-otel-coverage
     prompt: |
-      Run audit-agentic-app-perf on the project at ./fixture.
+      Run scan-agentic-app-perf on the project at ./fixture.
     setup:
       files:
         - path: fixture/NoOtel.AppHost/Program.cs
@@ -122,5 +122,5 @@ scenarios:
             builder.Build().Run();
     assertions:
       - type: file_contains
-        path: fixture/.copilot/perf-reports/latest-audit.md
+        path: fixture/.copilot/perf-reports/latest-scan.md
         text: "otel"

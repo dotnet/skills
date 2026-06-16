@@ -1,10 +1,10 @@
 ---
-name: audit-agentic-app-perf
+name: scan-agentic-app-perf
 description: |
-  Audit a .NET agentic application (Microsoft Agent Framework + Aspire + Foundry) for performance, cost, and reliability issues across seven check categories: topology, tool inventory, message-history strategy, prompt weight, parallelism, OTel coverage, and per-agent model assignment. Produces a Markdown report at .copilot/perf-reports/audit-<timestamp>.md (plus latest-audit.md) with severity-tagged findings (critical/warn/info), file:line citations, evidence, and concrete next actions that can route into select-agent-models, setup-maf-evals, or configure-agentic-perf-rules. WHEN: user asks "why is my agent slow", "audit my agentic app", "review perf of MAF app", "find perf issues", "is my topology too complex", or has just modified an agent topology. NOT-WHEN: user wants to install always-on rules (use configure-agentic-perf-rules), pick models per role (use select-agent-models), or wire up evaluations (use setup-maf-evals); not for non-agentic .NET apps. Read-only — never edits source files.
+  Scan a .NET agentic application (Microsoft Agent Framework + Aspire + Foundry) for performance, cost, and reliability issues across seven check categories: topology, tool inventory, message-history strategy, prompt weight, parallelism, OTel coverage, and per-agent model assignment. Produces a Markdown report at .copilot/perf-reports/scan-<timestamp>.md (plus latest-scan.md) with severity-tagged findings (critical/warn/info), file:line citations, evidence, and concrete next actions that can route into select-agent-models, setup-maf-evals, or configure-agentic-perf-rules. WHEN: user asks "why is my agent slow", "scan my agentic app", "audit my agentic app", "find perf issues", "is my topology too complex", or has just modified an agent topology. NOT-WHEN: user wants to install always-on rules (use configure-agentic-perf-rules), pick models per role (use select-agent-models), or wire up evaluations (use setup-maf-evals); not for non-agentic .NET apps. Read-only — never edits source files.
 ---
 
-# audit-agentic-app-perf
+# scan-agentic-app-perf
 
 Run a structured audit of a .NET agentic application and produce a single
 Markdown report listing the perf, cost, and reliability issues that matter,
@@ -92,8 +92,8 @@ Severity rules:
 Sort findings by severity (critical → warn → info), then by `check_id`
 (stable lexical order so `T1` < `T2` < `TI1` < `MH1` < ...). Write to:
 
-- `.copilot/perf-reports/audit-<UTC-timestamp>.md` (timestamped, kept)
-- `.copilot/perf-reports/latest-audit.md` (overwritten each run)
+- `.copilot/perf-reports/scan-<UTC-timestamp>.md` (timestamped, kept)
+- `.copilot/perf-reports/latest-scan.md` (overwritten each run)
 
 See `references/report-template.md` for the exact layout.
 
@@ -150,8 +150,8 @@ ends here.
 
 After running:
 
-- A new file exists at `.copilot/perf-reports/audit-<timestamp>.md`.
-- `latest-audit.md` exists in the same folder and matches the timestamped
+- A new file exists at `.copilot/perf-reports/scan-<timestamp>.md`.
+- `latest-scan.md` exists in the same folder and matches the timestamped
   file byte-for-byte.
 - The report has a `## Findings` section, even if empty (containing
   `_No findings._`).
