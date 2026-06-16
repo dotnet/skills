@@ -49,13 +49,14 @@ triage. Do not ask whether to proceed.
 
 1. Load **audit-agentic-app-perf** and run it. Capture the report
    path at `.copilot/perf-reports/audit-<timestamp>.md`.
-2. Read the report file. For each finding, look at the
-   `Check: <id> (<category>)` line. Routing rules:
-   - Any finding with category `models` (check ids `MA1`–`MA4`) →
-     suggest loading `select-agent-models` in recommend mode.
-   - Any finding with category `otel` (check ids `O1`–`O4`) → suggest
-     loading `setup-maf-evals` so telemetry/cost are surfaced going
-     forward.
+2. Read the report file. For each finding, look at the `check_id`. The
+   prefix encodes the category — `T*` topology, `TI*` tool inventory,
+   `MH*` message history, `PW*` prompt weight, `P*` parallelism, `O*`
+   OTel coverage, `MA*` model assignment. Routing rules:
+   - Any `MA*` finding (model assignment) → suggest loading
+     `select-agent-models` in recommend mode.
+   - Any `O*` finding (OTel coverage) → suggest loading
+     `setup-maf-evals` so telemetry/cost are surfaced going forward.
    - If the project has no `.github/copilot-instructions.md` managed
      block from `configure-agentic-perf-rules`, suggest installing it
      so future sessions volunteer perf concerns by default.
@@ -75,6 +76,20 @@ After Pass 2, produce a single prioritized action list:
    estimates only if `setup-maf-evals` has already produced a report
    you can cite.
 4. The risk and how to validate (almost always: run setup-maf-evals).
+5. **Offer the follow-ups.** Once the action list is on screen, ask
+   the user **once** whether they want to invoke any of the routed
+   skills now. Render only the lettered options whose target skill is
+   actually referenced in the synthesis, e.g.:
+   > Want me to run any of these now?
+   > - **A.** `select-agent-models` (recommend mode) for the model
+   >   findings.
+   > - **B.** `setup-maf-evals` to capture token/quality numbers.
+   > - **C.** `configure-agentic-perf-rules` to install always-on rules.
+   > - **D.** No — leave the report and stop.
+   If the user picks a letter, hand off to that skill with the audit
+   report path as context. The invoked skill still owns its own
+   diff-and-confirm flow — do not pre-confirm on the user's behalf
+   (see Boundaries).
 
 ## Boundaries
 
