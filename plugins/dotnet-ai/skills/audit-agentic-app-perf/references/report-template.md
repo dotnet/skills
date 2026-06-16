@@ -26,8 +26,9 @@ Project: {{ relative_project_path }}
 
 ## Findings
 
-### [critical] {{ title }}
-- **Check:** {{ check_id }} ({{ category }})
+> **Check ID prefixes:** `T*` topology · `TI*` tool inventory · `MH*` message history · `PW*` prompt weight · `P*` parallelism · `O*` OTel · `MA*` model assignment.
+
+### [critical] [{{ check_id }}] {{ title }}
 - **File:** `{{ file }}:{{ line }}`
 - **Evidence:**
   ```csharp
@@ -37,7 +38,7 @@ Project: {{ relative_project_path }}
 - **Next:** {{ action }}
 - **Cross-ref:** {{ skill: ... | omit if none }}
 
-(... repeat per finding, ordered: critical → warn → info, then by category ...)
+(... repeat per finding, ordered: critical → warn → info, then by `check_id` ...)
 
 ## Next steps
 

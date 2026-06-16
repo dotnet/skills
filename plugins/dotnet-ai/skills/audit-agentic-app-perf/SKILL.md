@@ -50,8 +50,7 @@ Every finding is a dict with these fields:
 
 ```yaml
 severity: critical | warn | info
-category: topology | tools | history | prompt | parallelism | otel | models
-check_id: T1 | T2 | TI1 | MH1 | PW1 | P1 | O1 | MA1 | ...   # see references/
+check_id: T1 | T2 | T3 | T4 | TI1 | TI2 | TI3 | TI4 | MH1 | MH2 | MH3 | PW1 | PW2 | PW3 | P1 | P2 | P3 | O1 | O2 | O3 | O4 | MA1 | MA2 | MA3 | MA4
 title:    short imperative phrase
 file:     path relative to repo root
 line:     1-based line number, or null
@@ -60,6 +59,20 @@ why:      one paragraph explaining the impact
 next:     concrete action the developer can take next
 ref:      optional cross-skill route (e.g. "skill:select-agent-models")
 ```
+
+The `check_id` prefix encodes the category — there is no separate
+`category` field. Prefix glossary (also rendered at the top of the
+report's `## Findings` section):
+
+| Prefix | Category                | Reference                              |
+|--------|-------------------------|----------------------------------------|
+| `T`    | topology                | `references/topology-checks.md`        |
+| `TI`   | tool inventory          | `references/tool-inventory-checks.md`  |
+| `MH`   | message history         | `references/message-history-checks.md` |
+| `PW`   | prompt weight           | `references/prompt-weight-checks.md`   |
+| `P`    | parallelism             | `references/parallelism-checks.md`     |
+| `O`    | OTel coverage           | `references/otel-coverage-checks.md`   |
+| `MA`   | model assignment        | `references/model-assignment-checks.md`|
 
 **Evidence gate** — before adding a finding to the report, re-open the
 cited file and confirm the `evidence` snippet is present at or near
@@ -76,8 +89,8 @@ Severity rules:
 
 ### 4. Aggregate and write the report
 
-Sort findings by severity (critical → warn → info), then by category. Write
-to:
+Sort findings by severity (critical → warn → info), then by `check_id`
+(stable lexical order so `T1` < `T2` < `TI1` < `MH1` < ...). Write to:
 
 - `.copilot/perf-reports/audit-<UTC-timestamp>.md` (timestamped, kept)
 - `.copilot/perf-reports/latest-audit.md` (overwritten each run)
@@ -96,16 +109,42 @@ it from this skill.
 Print:
 
 1. Total counts (critical / warn / info).
-2. The first up to 3 critical findings with title + file:line + next action.
+2. The first up to 3 critical findings with title + check_id + file:line + next action.
 3. The full report path.
 4. If any findings have a `ref:` field, list the suggested follow-up skills.
 
 Do not paste the entire report into chat.
 
-### 6. Stop
+### 6. Offer to route into follow-up skills
 
-This skill never edits source. If the user wants to fix a finding, route to
-the appropriate skill named in the `ref:` field.
+After surfacing the top findings, **ask the user once** whether they
+want to act on the routed follow-ups. The skill itself never edits
+source — this step only routes into a sibling skill that owns its own
+diff-and-confirm flow.
+
+1. Aggregate the unique `ref:` values across all findings.
+2. If the set is non-empty, print one prompt of the form:
+   > Want me to follow up on any of these?
+   > - **A.** Run `select-agent-models` (recommend mode) for the `MA*` findings.
+   > - **B.** Run `setup-maf-evals` to capture token/quality numbers.
+   > - **C.** Run `configure-agentic-perf-rules` to install always-on rules.
+   > - **D.** No — just leave the report.
+   Render only the lettered options that correspond to refs actually
+   present in the findings (skip letters whose target skill is not
+   referenced).
+3. Wait for the user's response. If they pick a letter, hand off to the
+   named skill with the audit report path as context. If they pick
+   "no" or anything else, stop.
+4. Do **not** infer intent from the original audit-request prompt
+   ("audit and fix it" is *intent* — the follow-up skill must still
+   present its own diff and obtain its own confirmation before any
+   write). This skill's job ends at the routing offer.
+
+### 7. Stop
+
+This skill never edits source. If the user declined the offer in
+step 6, or if there were no `ref:` fields in any finding, the skill
+ends here.
 
 ## Validation
 
