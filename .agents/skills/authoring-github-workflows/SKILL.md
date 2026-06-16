@@ -74,8 +74,11 @@ Wrap the full value in double quotes when the value embeds an expression and con
 
 ```bash
 ACTIONLINT_VERSION=1.7.7
+ACTIONLINT_SHA256=023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757
 curl -fsSLo actionlint.tar.gz \
   "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+# Verify the download against the pinned checksum before extracting/executing it:
+echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
 tar -xzf actionlint.tar.gz actionlint
 # Focus on workflow/expression correctness; silence shell/py style noise:
 ./actionlint -shellcheck= -pyflakes= -color .github/workflows/*.yml
