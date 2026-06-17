@@ -42,7 +42,7 @@
     <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.0.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.7" />
     <!-- external -->
-    <PackageReference Include="GitHub.Copilot.SDK" Version="0.3.0" />
+    <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.1" />
     <PackageReference Include="YamlDotNet" Version="18.0.0" />
     <PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="18.0.0" />
 
@@ -59,7 +59,7 @@
       (GHSA-hv8m-jj95-wg3x, out-of-bounds read in LZ4 decompression). Patched in
       the v2 line as of 2.5.301.  Drop this once the upstream chain bumps past it.
     -->
-    <PackageReference Include="MessagePack" Version="2.5.301" />
+    <PackageReference Include="MessagePack" Version="3.1.7" />
   </ItemGroup>
 
 </Project>
