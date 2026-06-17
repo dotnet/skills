@@ -167,8 +167,8 @@ scenarios:
       Audit the assertion quality and depth of `tests/order.test.ts`. The
       production code is `src/order.ts`. This is a Jest/TypeScript suite,
       not .NET — apply the same assertion quality catalog using
-      Jest equivalents (`toBeDefined`, `toBeTruthy`, `not.toBeNull`,
-      `toBe`, `.resolves`, `toThrow`).
+      Jest equivalents (`toBeDefined()`, `toBeTruthy()`, `not.toBeNull()`,
+      `toBe()`, `.resolves`, `toThrow()`).
 
       Specifically check for: shallow / trivial-only assertions, always-true
       assertions, missing `await` on async assertion chains (a silent-pass
