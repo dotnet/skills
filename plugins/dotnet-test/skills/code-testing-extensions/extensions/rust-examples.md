@@ -178,7 +178,7 @@ mod tests {
         }
     }
 
-    fn service_with(repository: FakeRepository) -> InvoiceService<FakeRepository, impl Fn() -> std::time::SystemTime> {
+    fn service_with(repository: FakeRepository) -> InvoiceService<FakeRepository, fn() -> std::time::SystemTime> {
         InvoiceService::new(repository, || UNIX_EPOCH + Duration::from_secs(123))
     }
 

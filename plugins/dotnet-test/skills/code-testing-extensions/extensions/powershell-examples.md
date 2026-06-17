@@ -22,7 +22,7 @@ enum InvoiceStatus {
 
 function Get-InvoiceTotal {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][hashtable]$Invoice)
+    param([Parameter(Mandatory)][pscustomobject]$Invoice)
 
     if (-not $Invoice.LineItems -or $Invoice.LineItems.Count -eq 0) {
         throw 'Invoice has no line items.'
@@ -204,7 +204,7 @@ Describe 'Contoso.Billing invoice functions' {
 
             $invoice.Status | Should -Be ([InvoiceStatus]::Paid)
             $invoice.PaidDate | Should -Be $fixedNow
-            $updatedInvoice | Should -BeSame $invoice
+            $script:updatedInvoice | Should -BeSame $invoice
         }
 
         It 'throws and does not update an already-paid invoice' {
@@ -214,7 +214,7 @@ Describe 'Contoso.Billing invoice functions' {
             $updateInvoice = { param($Invoice) $script:updatedInvoice = $Invoice }
 
             { Set-InvoicePaid -Id 1 -FindInvoice $findInvoice -UpdateInvoice $updateInvoice } | Should -Throw '*already paid*'
-            $updatedInvoice | Should -BeNullOrEmpty
+            $script:updatedInvoice | Should -BeNullOrEmpty
         }
     }
 }

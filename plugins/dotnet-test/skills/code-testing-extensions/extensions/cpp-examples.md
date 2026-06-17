@@ -204,7 +204,7 @@ TEST_CASE("InvoiceService calculates totals", "[invoice-service]") {
         Invoice invoice = make_invoice();
         invoice.line_items.clear();
 
-        REQUIRE_THROWS_MATCHES(sut.calculate_total(invoice), std::invalid_argument, ContainsSubstring("no line items"));
+        REQUIRE_THROWS_WITH(sut.calculate_total(invoice), ContainsSubstring("no line items"));
     }
 }
 
@@ -219,7 +219,7 @@ TEST_CASE("InvoiceService uses the repository", "[invoice-service]") {
     }
 
     SECTION("get_by_id throws when missing") {
-        REQUIRE_THROWS_MATCHES(sut.get_by_id(999), std::out_of_range, ContainsSubstring("not found"));
+        REQUIRE_THROWS_WITH(sut.get_by_id(999), ContainsSubstring("not found"));
     }
 
     SECTION("mark_as_paid updates status, date, and repository") {
@@ -237,7 +237,7 @@ TEST_CASE("InvoiceService uses the repository", "[invoice-service]") {
         invoice.status = InvoiceStatus::paid;
         repository.invoices.emplace(2, invoice);
 
-        REQUIRE_THROWS_MATCHES(sut.mark_as_paid(2), std::logic_error, ContainsSubstring("already paid"));
+        REQUIRE_THROWS_WITH(sut.mark_as_paid(2), ContainsSubstring("already paid"));
     }
 }
 
