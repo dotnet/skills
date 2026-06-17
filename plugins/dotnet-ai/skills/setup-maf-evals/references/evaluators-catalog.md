@@ -1,0 +1,106 @@
+# Evaluators catalog
+
+Full catalog of evaluators wired by `setup-maf-evals`, grouped by tier.
+The skill defaults to Tier 1 (NLP) always on, Tier 2 (Quality) on but
+gated by `EVAL_USE_REAL_JUDGE`, Tier 3 (Safety) off unless opted in.
+
+Source: [learn.microsoft.com/en-us/dotnet/ai/evaluation/libraries](https://learn.microsoft.com/en-us/dotnet/ai/evaluation/libraries)
+
+## Tier 1 — NLP (deterministic, no LLM)
+
+Package: `Microsoft.Extensions.AI.Evaluation.NLP` (preview 10.7.0).
+
+| Evaluator | Metric | Context type needed | Notes |
+|-----------|--------|---------------------|-------|
+| `BLEUEvaluator` | `BLEU` | `BLEUEvaluatorContext(IEnumerable<string> references)` | n-gram overlap with one or more reference strings |
+| `GLEUEvaluator` | `GLEU` | `GLEUEvaluatorContext(IEnumerable<string> references)` | sentence-level BLEU variant |
+| `F1Evaluator` | `F1` | `F1EvaluatorContext(string groundTruth)` | unigram-level F1 |
+
+Plus a built-in custom evaluator the skill always scaffolds:
+
+| Evaluator | Metric | Why |
+|-----------|--------|-----|
+| `WordCountEvaluator` (custom) | `Words` | Sanity check: response is non-empty and reasonable length. Same pattern as the Learn doc tutorial. |
+
+## Tier 2 — Quality (LLM-as-judge)
+
+Package: `Microsoft.Extensions.AI.Evaluation.Quality` (GA 10.7.0).
+
+Requires `EVAL_USE_REAL_JUDGE=1` and a real `IChatClient`. The skill
+wires the following by default:
+
+| Evaluator | Metric | Context type | Notes |
+|-----------|--------|--------------|-------|
+| `RelevanceEvaluator` | `Relevance` | none | how relevant is the response to the query |
+| `CoherenceEvaluator` | `Coherence` | none | logical, orderly presentation |
+| `FluencyEvaluator` | `Fluency` | none | grammar, readability |
+| `CompletenessEvaluator` | `Completeness` | `CompletenessEvaluatorContext(string groundTruth)` | comprehensive and accurate |
+| `EquivalenceEvaluator` | `Equivalence` | `EquivalenceEvaluatorContext(string groundTruth)` | similarity vs ground truth wrt query |
+| `GroundednessEvaluator` | `Groundedness` | `GroundednessEvaluatorContext(string context)` | alignment with given context |
+
+Agent-focused (added when `*.AppHost.csproj` is detected, indicating
+this is an agentic app and not just a chat completion app):
+
+| Evaluator | Metric | Context type | Notes |
+|-----------|--------|--------------|-------|
+| `IntentResolutionEvaluator` | `Intent Resolution` | none | identifies + resolves user intent |
+| `TaskAdherenceEvaluator` | `Task Adherence` | none | sticks to assigned task |
+| `ToolCallAccuracyEvaluator` | `Tool Call Accuracy` | `ToolCallAccuracyEvaluatorContext(...)` | uses tools correctly |
+
+**Not wired by default:** `RelevanceTruthAndCompletenessEvaluator`
+(marked experimental in upstream docs), `RetrievalEvaluator` (specific
+to RAG pipelines — separate skill territory).
+
+## Tier 3 — Safety (Foundry Evaluation service)
+
+Package: `Microsoft.Extensions.AI.Evaluation.Safety` (preview 10.7.0).
+
+Off by default. Enabled when user opts in during step 2 of the
+workflow. Requires `EVAL_USE_FOUNDRY_SAFETY=1` and an Azure AI Foundry
+endpoint (the skill prompts for `AZURE_AI_FOUNDRY_ENDPOINT` + Entra credentials).
+
+**Always wire the bundle, not the 4 separate evaluators:**
+
+| Evaluator | Metrics produced | Notes |
+|-----------|------------------|-------|
+| `ContentHarmEvaluator` | `Hate And Unfairness`, `Self Harm`, `Violence`, `Sexual` | **Single-shot — one Foundry call returns all 4 metrics.** Always prefer this over the 4 separate evaluators below. |
+
+Additional safety evaluators (each wired as separate `[TestMethod]`):
+
+| Evaluator | Metric | Notes |
+|-----------|--------|-------|
+| `ProtectedMaterialEvaluator` | `Protected Material` | copyrighted material in output |
+| `IndirectAttackEvaluator` | `Indirect Attack` | prompt-injection-style indirect attacks |
+| `CodeVulnerabilityEvaluator` | `Code Vulnerability` | vulnerable code in output |
+| `UngroundedAttributesEvaluator` | `Ungrounded Attributes` | inferred human attributes |
+| `GroundednessProEvaluator` | `Groundedness Pro` | fine-tuned Foundry-hosted groundedness check |
+
+The 4 separate evaluators (`HateAndUnfairnessEvaluator`,
+`SelfHarmEvaluator`, `ViolenceEvaluator`, `SexualEvaluator`) are
+**not** scaffolded — they're a strict subset of `ContentHarmEvaluator`
+and cost 4× more Foundry calls for the same metrics.
+
+## Threshold mapping
+
+`quality.thresholds.json` maps **real MEAI metric names** to minimum
+`EvaluationRating` enum values:
+
+```json
+{
+  "schema_version": 2,
+  "hard_fail": false,
+  "thresholds": {
+    "Relevance":   { "min_rating": "Good" },
+    "Coherence":   { "min_rating": "Good" },
+    "Fluency":     { "min_rating": "Average" },
+    "Groundedness":{ "min_rating": "Good" },
+    "BLEU":        { "min_value": 0.20 },
+    "F1":          { "min_value": 0.30 },
+    "Words":       { "min_value": 5, "max_value": 500 }
+  }
+}
+```
+
+`hard_fail: true` makes any below-threshold metric fail the test.
+Default `false` makes the test pass-through informational — failures
+show in the report only.

@@ -1,156 +1,134 @@
-# Project template — `<App>.Evals`
+# Project template (MSTest shape)
 
-The exact files written when scaffolding the eval harness.
+The scaffold creates `<App>.Evals.Tests` as a **MSTest** project. This
+matches the
+[upstream Learn doc tutorial](https://learn.microsoft.com/en-us/dotnet/ai/evaluation/evaluate-with-reporting)
+and the [dotnet/ai-samples evaluation unit tests](https://github.com/dotnet/ai-samples/blob/main/src/microsoft-extensions-ai-evaluation/api/),
+which is the canonical pattern for `Microsoft.Extensions.AI.Evaluation`.
 
-## `<App>.Evals.csproj`
+A console-runner shape is available behind an explicit
+`--shape console` flag for users who can't take an MSTest dependency,
+but is no longer the default — every CI system understands `dotnet test`
+out of the box, and Test Explorer integration is automatic.
 
-Use the actual current package versions from NuGet at scaffold time
-(query `nuget.org` or `dotnet package search`). The versions below
-reflect the latest stable family at the time of writing
-(`Microsoft.Extensions.AI.Evaluation` 10.x is GA on nuget.org); query
-`dotnet package search "Microsoft.Extensions.AI.Evaluation"` and bump
-to the latest stable when you scaffold.
+## File tree
+
+```
+<App>.Evals.Tests/
+  <App>.Evals.Tests.csproj
+  dotnet-tools.json
+  GlobalUsings.cs
+  Reporting/
+    ReportingConfig.cs              # DiskBasedReportingConfiguration factory; tier-aware evaluator list
+    Tier.cs                         # EvalTier enum + EvalEnv reader
+    AievalReport.cs                 # [AssemblyCleanup] that invokes the dotnet tool
+  Wire/
+    AgentChatClientFactory.cs       # auto-generated from IChatClient detection
+    StubChatClient.cs               # used when EVAL_USE_REAL_AGENT is unset
+  Telemetry/
+    TelemetryTests.cs
+    inputs.json
+    prices.json
+  Quality/
+    QualityTests.cs
+    rubric.md
+    golden.json
+  Compare/
+    CompareTests.cs
+    matrix.json
+  Safety/                           # only if user opted in
+    SafetyTests.cs
+  quality.thresholds.json
+.github/
+  workflows/
+    evals.yml                       # optional, opt-in
+```
+
+`.gitignore` additions (idempotent):
+
+```
+# setup-maf-evals
+.copilot/perf-reports/evals/
+<App>.Evals.Tests/_store/
+```
+
+## `.csproj` template
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>{{ AppName }}.Evals</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>{{AppName}}.Evals.Tests</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.AI" Version="10.*" />
-    <PackageReference Include="Microsoft.Extensions.AI.Evaluation" Version="10.*" />
-    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Quality" Version="10.*" />
-    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Reporting" Version="10.*" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.*" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.*" />
+    <!-- MSTest -->
+    <PackageReference Include="MSTest" Version="3.6.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+
+    <!-- MEAI Evaluation: GA -->
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.7.0" />
+    <PackageReference Include="Microsoft.Extensions.AI.Evaluation" Version="10.7.0" />
+    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Quality" Version="10.7.0" />
+    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Reporting" Version="10.7.0" />
+
+    <!-- MEAI Evaluation: preview (still useful — NLP works without an API key) -->
+    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.NLP" Version="10.7.0-preview.1.26309.5" />
+
+    <!-- Safety: only added when user opts in -->
+    <!-- <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Safety" Version="10.7.0-preview.1.26309.5" /> -->
+
+    <!-- Hosting (matches existing app pkgs to avoid NU1605) -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.1" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\{{ AgentProject }}\{{ AgentProject }}.csproj" />
+    <ProjectReference Include="..\{{AppName}}.Agent\{{AppName}}.Agent.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Telemetry/inputs.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Telemetry/prices.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Quality/rubric.md" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Quality/golden.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Compare/matrix.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Telemetry\inputs.json;Telemetry\prices.json;Quality\rubric.md;Quality\golden.json;Compare\matrix.json;quality.thresholds.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-
 </Project>
 ```
 
-If the consumer repo uses Central Package Management
-(`Directory.Packages.props` with `ManagePackageVersionsCentrally=true`),
-omit the `Version=` attributes and add matching `<PackageVersion>`
-entries to the central props file instead.
+**Why these versions:**
 
-The `ProjectReference` line points to the agent service the evals will
-exercise (typically the agent service, not the AppHost). If the repo
-has multiple agent service projects, generate one `ProjectReference`
-per project and let the runner classes select which agent to invoke.
+- `Microsoft.Extensions.AI.Evaluation.{Reporting,Quality,Console}` are GA at `10.7.0`.
+- `Microsoft.Extensions.AI.Evaluation.{NLP,Safety}` are still preview at `10.7.0-preview.1.26309.5`. NLP is opt-in-on; Safety is opt-in-off.
+- `Microsoft.Extensions.Hosting` and `Microsoft.Extensions.Configuration.*` must be `10.0.1` (not `10.0.0`) to satisfy the transitive constraint from `Microsoft.Agents.AI.Hosting`. Pinning `10.0.0` produces `NU1605`.
 
-## `Abstractions.cs` (generated alongside Program.cs)
-
-```csharp
-public interface IEvalRunner
-{
-    Task<EvalReport> RunAsync(CancellationToken ct = default);
-}
-
-public sealed record EvalReport(
-    bool Success,
-    string OneLineSummary,
-    string ReportDirectory);
-```
-
-The three runner classes (`TelemetryEvalRunner`, `QualityEvalRunner`,
-`CompareEvalRunner`) each implement `IEvalRunner` and write their
-report files under `ReportDirectory`. See `telemetry-capture.md`,
-`quality-modes.md`, and `compare-mode.md` for each runner's body.
-
-## `Program.cs`
-
-```csharp
-var mode = args.FirstOrDefault() ?? "telemetry";
-IEvalRunner runner = mode switch
-{
-    "telemetry" => new TelemetryEvalRunner(),
-    "quality"   => new QualityEvalRunner(),
-    "compare"   => new CompareEvalRunner(),
-    _           => throw new ArgumentException($"Unknown mode: {mode}")
-};
-
-var report = await runner.RunAsync();
-Console.WriteLine(report.OneLineSummary);
-return report.Success ? 0 : 1;
-```
-
-## `Telemetry/inputs.json` (starter)
-
-```json
-[
-  { "id": "smoke-1", "user_message": "Say hi in five words." },
-  { "id": "smoke-2", "user_message": "Plan a one-day trip to Seattle." },
-  { "id": "smoke-3", "user_message": "Summarize the previous answer in 20 words." }
-]
-```
-
-## `Telemetry/prices.json` (starter — user edits)
+## `dotnet-tools.json`
 
 ```json
 {
-  "gpt-4o-mini":  { "input_per_1k": 0.00015, "output_per_1k": 0.00060 },
-  "gpt-4o":       { "input_per_1k": 0.00250, "output_per_1k": 0.01000 },
-  "o4-mini":      { "input_per_1k": 0.00110, "output_per_1k": 0.00440 }
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "microsoft.extensions.ai.evaluation.console": {
+      "version": "10.7.0",
+      "commands": ["aieval"],
+      "rollForward": false
+    }
+  }
 }
 ```
 
-## `Quality/rubric.md` (starter)
+After scaffold: `dotnet tool restore` (the skill runs this automatically).
 
-```markdown
-# Quality rubric
+## `GlobalUsings.cs`
 
-Score each response on a 1-5 scale per trait. The judge model returns
-a JSON object: `{ trait: score, ... }`.
-
-- **on_topic** — answers the user's actual question.
-- **concise** — no filler; under 4 sentences unless asked otherwise.
-- **safe** — no PII leakage, no instructions to violate policy.
-- **format_correct** — Markdown / JSON shape matches the contract.
-
-Pass threshold (default): mean ≥ 4.0 AND no trait < 3.
-```
-
-## `Quality/golden.json` (starter)
-
-```json
-[
-  {
-    "id": "g1",
-    "user_message": "Plan a one-day trip to Seattle.",
-    "expected_traits": ["on_topic", "concise", "format_correct"]
-  }
-]
-```
-
-## `Compare/matrix.json` (starter)
-
-```json
-[
-  {
-    "name": "baseline",
-    "model_assignments": { "router": "gpt-4o-mini", "planner": "gpt-4o", "worker": "gpt-4o-mini" }
-  },
-  {
-    "name": "candidate",
-    "model_assignments": { "router": "gpt-4o-mini", "planner": "o4-mini",  "worker": "gpt-4o-mini" }
-  }
-]
+```csharp
+global using Microsoft.Extensions.AI;
+global using Microsoft.Extensions.AI.Evaluation;
+global using Microsoft.Extensions.AI.Evaluation.Reporting;
+global using Microsoft.Extensions.AI.Evaluation.Reporting.Storage;
+global using Microsoft.Extensions.AI.Evaluation.NLP;
+global using Microsoft.Extensions.AI.Evaluation.Quality;
+global using Microsoft.VisualStudio.TestTools.UnitTesting;
 ```

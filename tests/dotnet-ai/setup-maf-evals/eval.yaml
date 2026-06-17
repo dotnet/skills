@@ -3,35 +3,179 @@ required_skills:
   - setup-maf-evals
 
 scenarios:
-  - name: scaffold-evals-project-fresh
+  - name: scaffold-evals-tests-project-fresh
     prompt: |
-      Run setup-maf-evals on the project at ./fixture. Wire all three modes
-      (telemetry, quality, compare). Skip the Aspire panel.
+      Run setup-maf-evals on the project at ./fixture. Wire telemetry,
+      quality, and compare modes. Skip Safety, Aspire panel, and CI workflow.
     setup:
       files:
-        - path: fixture/MyApp.sln
+        - path: fixture/MyApp.slnx
           content: |
-            Microsoft Visual Studio Solution File, Format Version 12.00
+            <Solution>
+              <Project Path="MyApp.AppHost/MyApp.AppHost.csproj" />
+              <Project Path="MyApp.Coach/MyApp.Coach.csproj" />
+            </Solution>
         - path: fixture/MyApp.AppHost/MyApp.AppHost.csproj
           content: |
             <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+        - path: fixture/MyApp.AppHost/AppHost.cs
+          content: |
+            var builder = DistributedApplication.CreateBuilder(args);
+            builder.AddAzureOpenAIChatClient("chat", "gpt-4o-mini");
+            builder.Build().Run();
         - path: fixture/MyApp.Coach/MyApp.Coach.csproj
           content: |
             <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
     assertions:
       - type: file_exists
-        path: fixture/MyApp.Evals/MyApp.Evals.csproj
+        path: fixture/MyApp.Evals.Tests/MyApp.Evals.Tests.csproj
       - type: file_exists
-        path: fixture/MyApp.Evals/Telemetry/inputs.json
+        path: fixture/MyApp.Evals.Tests/dotnet-tools.json
       - type: file_exists
-        path: fixture/MyApp.Evals/Quality/rubric.md
+        path: fixture/MyApp.Evals.Tests/Reporting/ReportingConfig.cs
       - type: file_exists
-        path: fixture/MyApp.Evals/Quality/golden.json
+        path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
       - type: file_exists
-        path: fixture/MyApp.Evals/Compare/matrix.json
+        path: fixture/MyApp.Evals.Tests/Quality/QualityTests.cs
+      - type: file_exists
+        path: fixture/MyApp.Evals.Tests/Quality/golden.json
+      - type: file_exists
+        path: fixture/MyApp.Evals.Tests/Telemetry/TelemetryTests.cs
+      - type: file_exists
+        path: fixture/MyApp.Evals.Tests/Compare/CompareTests.cs
       - type: file_contains
-        path: fixture/MyApp.Evals/MyApp.Evals.csproj
-        text: "Microsoft.Extensions.AI.Evaluation"
+        path: fixture/MyApp.Evals.Tests/MyApp.Evals.Tests.csproj
+        text: "Microsoft.Extensions.AI.Evaluation.Reporting"
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/MyApp.Evals.Tests.csproj
+        text: "Microsoft.Extensions.AI.Evaluation.NLP"
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/MyApp.Evals.Tests.csproj
+        text: "MSTest"
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/dotnet-tools.json
+        text: "microsoft.extensions.ai.evaluation.console"
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/Quality/QualityTests.cs
+        text: "DiskBasedReportingConfiguration"
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/Quality/QualityTests.cs
+        text: "BLEUEvaluator"
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/Quality/golden.json
+        text: "reference_response"
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/Quality/golden.json
+        text: "schema_version"
+      - type: file_contains
+        path: fixture/.gitignore
+        text: ".copilot/perf-reports/evals/"
+      - type: file_contains
+        path: fixture/.gitignore
+        text: "_store/"
+
+  - name: scaffold-with-safety-tier
+    prompt: |
+      Run setup-maf-evals on the project at ./fixture. Include the Safety tier.
+    setup:
+      files:
+        - path: fixture/MyApp.slnx
+          content: |
+            <Solution>
+              <Project Path="MyApp.AppHost/MyApp.AppHost.csproj" />
+            </Solution>
+        - path: fixture/MyApp.AppHost/MyApp.AppHost.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+        - path: fixture/MyApp.AppHost/AppHost.cs
+          content: |
+            var builder = DistributedApplication.CreateBuilder(args);
+            builder.AddAzureOpenAIChatClient("chat", "gpt-4o-mini");
+    assertions:
+      - type: file_exists
+        path: fixture/MyApp.Evals.Tests/Safety/SafetyTests.cs
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/Safety/SafetyTests.cs
+        text: "ContentHarmEvaluator"
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/Safety/SafetyTests.cs
+        text: "Assert.Inconclusive"
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/MyApp.Evals.Tests.csproj
+        text: "Microsoft.Extensions.AI.Evaluation.Safety"
+
+  - name: scaffold-with-ci-workflow
+    prompt: |
+      Run setup-maf-evals on the project at ./fixture. Include the GitHub Actions workflow.
+    setup:
+      files:
+        - path: fixture/MyApp.slnx
+          content: |
+            <Solution>
+              <Project Path="MyApp.AppHost/MyApp.AppHost.csproj" />
+            </Solution>
+        - path: fixture/MyApp.AppHost/MyApp.AppHost.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+        - path: fixture/MyApp.AppHost/AppHost.cs
+          content: "var b = DistributedApplication.CreateBuilder(args); b.AddAzureOpenAIChatClient(\"chat\", \"gpt-4o-mini\");"
+    assertions:
+      - type: file_exists
+        path: fixture/.github/workflows/evals.yml
+      - type: file_contains
+        path: fixture/.github/workflows/evals.yml
+        text: "aieval report"
+      - type: file_contains
+        path: fixture/.github/workflows/evals.yml
+        text: "upload-artifact"
+
+  - name: ichatclient-detection-azure-openai
+    prompt: |
+      Run setup-maf-evals on the project at ./fixture.
+    setup:
+      files:
+        - path: fixture/MyApp.slnx
+          content: |
+            <Solution>
+              <Project Path="MyApp.AppHost/MyApp.AppHost.csproj" />
+            </Solution>
+        - path: fixture/MyApp.AppHost/MyApp.AppHost.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+        - path: fixture/MyApp.AppHost/AppHost.cs
+          content: |
+            var builder = DistributedApplication.CreateBuilder(args);
+            builder.AddAzureOpenAIChatClient("chat", "gpt-4o-mini");
+    assertions:
+      - type: file_exists
+        path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
+        text: "AddAzureOpenAIChatClient"
+      - type: output_contains
+        text: "AppHost.cs"
+
+  - name: ichatclient-detection-missing-emits-stub
+    prompt: |
+      Run setup-maf-evals on the project at ./fixture.
+    setup:
+      files:
+        - path: fixture/MyApp.slnx
+          content: |
+            <Solution>
+              <Project Path="MyApp.AppHost/MyApp.AppHost.csproj" />
+            </Solution>
+        - path: fixture/MyApp.AppHost/MyApp.AppHost.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+        - path: fixture/MyApp.AppHost/AppHost.cs
+          content: "var b = DistributedApplication.CreateBuilder(args); b.Build().Run();"
+    assertions:
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
+        text: "NotImplementedException"
+      - type: output_contains
+        text: "no registration found"
 
   - name: skip-when-no-app-host
     prompt: |
@@ -45,42 +189,58 @@ scenarios:
       - type: output_contains
         text: "agentic"
 
-  - name: telemetry-stub-run-produces-report
+  - name: update-mode-preserves-user-data
     prompt: |
-      Run setup-maf-evals on the project at ./fixture, then run
-      "dotnet run --project MyApp.Evals -- telemetry" with EVAL_USE_REAL_MODELS unset.
+      Run setup-maf-evals on the project at ./fixture. A MyApp.Evals.Tests project
+      already exists with a custom rubric and golden.json. Do not overwrite either.
     setup:
       files:
+        - path: fixture/MyApp.slnx
+          content: |
+            <Solution>
+              <Project Path="MyApp.AppHost/MyApp.AppHost.csproj" />
+              <Project Path="MyApp.Evals.Tests/MyApp.Evals.Tests.csproj" />
+            </Solution>
         - path: fixture/MyApp.AppHost/MyApp.AppHost.csproj
           content: |
             <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
-        - path: fixture/MyApp.Coach/MyApp.Coach.csproj
+        - path: fixture/MyApp.Evals.Tests/MyApp.Evals.Tests.csproj
           content: |
             <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
-    assertions:
-      - type: file_contains
-        path: fixture/.gitignore
-        text: ".copilot/perf-reports/evals/"
-      - type: output_contains
-        text: "stub"
-
-  - name: update-mode-preserves-user-edits
-    prompt: |
-      Run setup-maf-evals on the project at ./fixture. A MyApp.Evals project
-      already exists with a custom rubric. Do not overwrite it.
-    setup:
-      files:
-        - path: fixture/MyApp.AppHost/MyApp.AppHost.csproj
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
-        - path: fixture/MyApp.Evals/MyApp.Evals.csproj
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
-        - path: fixture/MyApp.Evals/Quality/rubric.md
+        - path: fixture/MyApp.Evals.Tests/Quality/rubric.md
           content: |
             # Custom rubric — DO NOT OVERWRITE
             - my_trait: ...
+        - path: fixture/MyApp.Evals.Tests/Quality/golden.json
+          content: |
+            [{"id": "custom", "user_message": "preserve me", "expected_traits": ["unique"]}]
     assertions:
       - type: file_contains
-        path: fixture/MyApp.Evals/Quality/rubric.md
+        path: fixture/MyApp.Evals.Tests/Quality/rubric.md
         text: "DO NOT OVERWRITE"
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/Quality/golden.json
+        text: "preserve me"
+
+  - name: tier-banner-surfaces-in-chat-output
+    prompt: |
+      Run setup-maf-evals on the project at ./fixture.
+    setup:
+      files:
+        - path: fixture/MyApp.slnx
+          content: |
+            <Solution>
+              <Project Path="MyApp.AppHost/MyApp.AppHost.csproj" />
+            </Solution>
+        - path: fixture/MyApp.AppHost/MyApp.AppHost.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+        - path: fixture/MyApp.AppHost/AppHost.cs
+          content: "var b = DistributedApplication.CreateBuilder(args); b.AddAzureOpenAIChatClient(\"chat\", \"gpt-4o-mini\");"
+    assertions:
+      - type: output_contains
+        text: "EVAL_USE_REAL_AGENT"
+      - type: output_contains
+        text: "EVAL_USE_REAL_JUDGE"
+      - type: output_contains
+        text: "EVAL_USE_FOUNDRY_SAFETY"

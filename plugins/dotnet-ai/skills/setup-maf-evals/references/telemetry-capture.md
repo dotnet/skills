@@ -1,83 +1,111 @@
-# Telemetry capture
+# Telemetry mode
 
-How telemetry mode wraps the existing `IChatClient` and writes per-call
-records to disk.
+Telemetry mode captures **latency, input tokens, output tokens, and
+cost** per agent call across a fixed input set. It is **not** the same
+as the MEAI eval report — it produces a separate cost/latency capture.
 
-## Wrapper
+## Why separate from quality
+
+Quality mode answers "is the response any good?" via
+`Microsoft.Extensions.AI.Evaluation.Reporting` and produces
+`report.html`.
+
+Telemetry mode answers "how much does it cost and how slow is it?"
+via a delegating `IChatClient` wrapper. Different question, different
+artifact. Conflating them is the #1 most common scaffolding mistake.
+
+## Artifacts (each in `.copilot/perf-reports/evals/<timestamp>/`)
+
+- `telemetry.md` — human-readable per-input table.
+- `telemetry.json` — machine-readable for CI scraping.
+- `telemetry.junit.xml` — for test-result dashboards.
+
+These are **distinct** from `report.html` (which only quality mode
+writes). The skill output should never refer to `telemetry.md` as
+"the eval report."
+
+## Test shape
 
 ```csharp
-public sealed class TelemetryChatClient(IChatClient inner, TelemetrySink sink) : IChatClient
+[TestClass]
+public sealed class TelemetryTests
 {
-    public async Task<ChatResponse> GetResponseAsync(IList<ChatMessage> messages,
-        ChatOptions? options = null, CancellationToken ct = default)
+    public static IEnumerable<object[]> Inputs() =>
+        InputsLoader.Load().Select(i => new object[] { i });
+
+    [TestMethod, DynamicData(nameof(Inputs), DynamicDataSourceType.Method)]
+    public async Task Capture(TelemetryInput input)
     {
+        var inner = Wire.ResolveAgentClient();
+        var wrapped = new TelemetryCapturingChatClient(inner, PriceTable.Load());
+
+        var messages = new List<ChatMessage> { new(ChatRole.User, input.Text) };
         var sw = Stopwatch.StartNew();
-        var resp = await inner.GetResponseAsync(messages, options, ct);
+        var response = await wrapped.GetResponseAsync(messages);
         sw.Stop();
 
-        sink.Record(new TelemetryRecord(
-            AgentName: options?.AdditionalProperties?["agent"] as string ?? "unknown",
-            Model: options?.ModelId ?? "unknown",
-            InputTokens: resp.Usage?.InputTokenCount ?? 0,
-            OutputTokens: resp.Usage?.OutputTokenCount ?? 0,
+        TelemetryStore.Record(new TelemetryRecord(
+            AgentName: input.Agent,
+            Model: response.ModelId ?? "unknown",
+            InputTokens:  response.Usage?.InputTokenCount  ?? 0,
+            OutputTokens: response.Usage?.OutputTokenCount ?? 0,
             LatencyMs: sw.ElapsedMilliseconds,
-            CostUsd: PriceTable.Cost(options?.ModelId, resp.Usage)));
-
-        return resp;
+            CostUsd: wrapped.LastCostUsd));
     }
+
+    [ClassCleanup]
+    public static void WriteReports() => TelemetryStore.FlushTo(
+        Path.Combine(RepoRoot.Find(), ".copilot", "perf-reports", "evals",
+                     ReportingConfig.ExecutionName));
 }
 ```
 
-Register in DI as a decorator over the real client.
+## Delegating client (sketch)
 
-## Report — `telemetry.md`
+```csharp
+internal sealed class TelemetryCapturingChatClient(IChatClient inner, PriceTable prices) : IChatClient
+{
+    public decimal LastCostUsd { get; private set; }
 
-```markdown
-# Telemetry — {{ utc_timestamp }}
+    public async Task<ChatResponse> GetResponseAsync(
+        IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        var resp = await inner.GetResponseAsync(messages, options, cancellationToken);
+        var usage = resp.Usage;
+        LastCostUsd = prices.Cost(resp.ModelId,
+            usage?.InputTokenCount ?? 0, usage?.OutputTokenCount ?? 0);
+        return resp;
+    }
 
-Inputs: {{ count }}    Stub mode: {{ true | false }}
+    // GetStreamingResponseAsync delegates similarly; usage parsed off the last update.
 
-| Agent     | Model        | Calls | Avg ms | p95 ms | Avg in tok | Avg out tok | Cost (USD) |
-|-----------|--------------|-------|--------|--------|------------|-------------|------------|
-| router    | gpt-4o-mini  |    12 |    340 |    520 |        180 |          22 |  $0.00031  |
-| planner   | gpt-4o       |     6 |   1240 |   1880 |       1100 |         260 |  $0.00385  |
-| worker    | gpt-4o-mini  |    18 |    410 |    640 |        320 |         180 |  $0.00118  |
+    public object? GetService(Type serviceType, object? serviceKey = null) =>
+        inner.GetService(serviceType, serviceKey);
 
-Total cost: $0.00534
+    public void Dispose() => inner.Dispose();
+}
 ```
 
-## Machine-readable — `telemetry.json`
+## `inputs.json`
+
+```json
+[
+  { "agent": "receptionist", "text": "Hi" },
+  { "agent": "behavioural",  "text": "Tell me about a tough project" },
+  { "agent": "technical",    "text": "How would you throttle requests?" },
+  { "agent": "summariser",   "text": "Wrap up the interview" }
+]
+```
+
+## `prices.json`
 
 ```json
 {
-  "timestamp": "2026-06-15T17:00:00Z",
-  "stub": false,
-  "records": [
-    { "agent": "router", "model": "gpt-4o-mini", "input_tokens": 178, "output_tokens": 21, "latency_ms": 332, "cost_usd": 0.0000256 }
-  ],
-  "aggregate": { "calls": 36, "total_cost_usd": 0.00534 }
+  "gpt-4o-mini": { "input_per_1k": 0.00015, "output_per_1k": 0.0006 },
+  "gpt-4o":      { "input_per_1k": 0.0025,  "output_per_1k": 0.01   },
+  "o4-mini":     { "input_per_1k": 0.003,   "output_per_1k": 0.012  }
 }
 ```
 
-## JUnit-XML — `telemetry.junit.xml`
-
-Standard JUnit suite where each test case is one input id, marked
-passed if the run succeeded (no thrown exception). Latency/token
-metrics are emitted as `<system-out>` per test case so CI can pick
-them up.
-
-## Stub mode
-
-Two independent toggles control whether real models are called:
-
-- `EVAL_USE_REAL_AGENT` (default `0`) — when `0`, the wrapper
-  short-circuits the agent-under-test client and returns a deterministic
-  canned response. Telemetry numbers reflect the stub, marked `(stub)`.
-- `EVAL_USE_REAL_JUDGE` (default `0`) — when `0`, quality mode skips
-  the real judge call and emits per-input scores of `null` with a
-  rationale of `"(stub) judge disabled"`. The pass-rate row reports
-  `(stub)`.
-
-Compare mode honors both toggles independently. Setting only
-`EVAL_USE_REAL_AGENT=1` is a valid local-dev configuration: real
-agent calls, no judge cost.
+Edit freely — costs change. The price table is **never** baked into source.
