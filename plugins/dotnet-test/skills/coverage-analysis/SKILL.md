@@ -10,8 +10,12 @@ description: >
   blocking coverage, coverage gap, CRAP scores, risk hotspots, where to add
   tests, coverage analysis, coverage report.
   DO NOT USE FOR: targeted single-method CRAP analysis (use crap-score),
-  writing tests, running tests without coverage, or troubleshooting test
-  execution (use run-tests).
+  auditing test code for the "coverage-touching" anti-pattern (tests that
+  execute / call code but assert nothing, inflating coverage without
+  verifying behavior) — that is a test-code quality audit, use
+  test-anti-patterns; writing tests; running tests without coverage, or
+  troubleshooting test execution (use run-tests). This skill requires or
+  produces coverage (Cobertura) and CRAP metrics.
 license: MIT
 ---
 
