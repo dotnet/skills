@@ -150,8 +150,9 @@ stimuli:
       - Notes that MSTest.Sdk defaults to Microsoft.Testing.Platform
   - name: Handle dropped target framework during v3 migration
     prompt: |
-      My test project multi-targets several frameworks and currently uses MSTest v2.
-      I want to migrate to MSTest v3. Will I run into any target framework compatibility issues?
+      I want to migrate my MSTest v2 test project to MSTest v3. The project
+      multi-targets net5.0, net462, and netcoreapp3.1. Help me upgrade to MSTest v3 --
+      which of these target frameworks are no longer supported, and what do I need to change?
     environment:
       files:
         - src: ./fixtures/handle-dropped-target-framework-during-v3-migration/TestProject.csproj
