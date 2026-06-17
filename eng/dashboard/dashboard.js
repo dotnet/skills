@@ -542,6 +542,7 @@
             pointRadius: 5,
             pointHoverRadius: 7,
             tension: 0.3,
+            borderDash: [8, 6],
             fill: false,
             yAxisID: 'y'
           });
