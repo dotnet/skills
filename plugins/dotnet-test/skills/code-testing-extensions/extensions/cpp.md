@@ -33,8 +33,8 @@ Useful discovery commands:
 cmake --version
 g++ --version
 clang++ --version
-find . -name CMakeLists.txt -o -name CMakePresets.json -o -name Makefile -o -name BUILD -o -name BUILD.bazel
-find . -name '*test*.cpp' -o -name '*test*.cc' -o -name '*tests*.cpp' -o -name '*tests*.cc'
+find . \( -name CMakeLists.txt -o -name CMakePresets.json -o -name Makefile -o -name BUILD -o -name BUILD.bazel \)
+find . \( -name '*test*.cpp' -o -name '*test*.cc' -o -name '*tests*.cpp' -o -name '*tests*.cc' \)
 ```
 
 Do not change the project's C++ standard to make a test compile. Match the production target's standard and include directories.
@@ -229,7 +229,7 @@ target_link_libraries(calculator_tests
         GTest::gtest_main
 )
 
-if(CODE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+if(CODE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
     target_compile_options(calculator_tests PRIVATE --coverage -O0 -g)
     target_link_options(calculator_tests PRIVATE --coverage)
 endif()
@@ -238,7 +238,7 @@ endif()
 For libraries built into the test binary, instrument the library target too, otherwise coverage only reports test files:
 
 ```cmake
-if(CODE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+if(CODE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
     target_compile_options(calculator_lib PRIVATE --coverage -O0 -g)
     target_link_options(calculator_lib PRIVATE --coverage)
     target_compile_options(calculator_tests PRIVATE --coverage -O0 -g)
@@ -492,6 +492,8 @@ Package manager examples:
 | Conan | `conan install . --build=missing` |
 | apt | `sudo apt-get install libgtest-dev catch2 gcovr lcov` |
 | Homebrew | `brew install googletest catch2 gcovr lcov` |
+
+On Debian/Ubuntu, `libgtest-dev` historically installs only GoogleTest *sources* (no prebuilt libraries or CMake package config), so `find_package(GTest REQUIRED)` can still fail. On those systems either build/install GoogleTest from the packaged sources, add it via `FetchContent`, or use vcpkg/Conan instead of relying on apt alone.
 
 Do not vendor dependencies by copying source into the repo unless that is already the project's dependency policy.
 
