@@ -158,9 +158,10 @@ stimuli:
       - Mentions TreatDiscoveryWarningsAsErrors now defaults to true as another potential behavioral change
   - name: Handle MSTest.Sdk and MTP changes in v4
     prompt: |
-      I'm using MSTest.Sdk/3.8.0 with Microsoft.Testing.Platform. After upgrading to
-      MSTest.Sdk/4.1.0, my CI pipeline that uses vstest.console no longer discovers tests.
-      What changed?
+      I upgraded my test project to MSTest v4 -- it uses MSTest.Sdk/4.1.0 (previously
+      MSTest.Sdk/3.8.0) with Microsoft.Testing.Platform. Now my CI pipeline that runs
+      vstest.console no longer discovers any tests. Help me fix this MSTest v4 breaking
+      change: what changed in MSTest.Sdk v4 and how do I restore test discovery?
     environment:
       files:
         - src: ./fixtures/handle-mstest-sdk-and-mtp-changes-in-v4/TestProject.csproj
