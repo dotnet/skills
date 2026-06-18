@@ -70,126 +70,76 @@ Present the detection summary, then confirm:
 
 ### 3. Scaffold the project
 
-Use `references/project-template.md`. Creates:
+See `references/project-template.md` for the file tree, csproj, and
+`GlobalUsings.cs` template. The project is **MSTest** by default
+(`<App>.Evals.Tests`); a console-runner shape is available behind an
+explicit `--shape console` flag.
 
-```
-<App>.Evals.Tests/
-  <App>.Evals.Tests.csproj         # MSTest + MEAI.Evaluation refs (Reporting, NLP, Quality, optional Safety)
-  Reporting/
-    ReportingConfig.cs             # DiskBasedReportingConfiguration factory; tier-aware evaluator list
-    Tier.cs                        # EVAL_USE_REAL_AGENT / EVAL_USE_REAL_JUDGE / EVAL_USE_FOUNDRY_SAFETY enum
-  Wire/
-    AgentChatClientFactory.cs      # auto-generated from IChatClient detection (step 1)
-    StubChatClient.cs              # used when EVAL_USE_REAL_AGENT is unset
-  Telemetry/
-    TelemetryTests.cs              # [TestMethod] per input
-    inputs.json
-    prices.json
-  Quality/
-    QualityTests.cs                # [TestMethod] per golden scenario; NLP always, Quality when judge on
-    rubric.md
-    golden.json                    # schema_version, user_message, reference_response, expected_traits, optional context, optional expected_tool_calls
-  Compare/
-    CompareTests.cs                # [DataRow] per matrix entry; distinct executionName per entry
-    matrix.json
-  Safety/                          # only emitted if user opted in
-    SafetyTests.cs                 # ContentHarmEvaluator + ProtectedMaterial + IndirectAttack
-  quality.thresholds.json          # per-metric (Relevance / Coherence / BLEU / ...) -> minimum EvaluationRating
-  GlobalUsings.cs
-  dotnet-tools.json                # NEW — pins aieval (Microsoft.Extensions.AI.Evaluation.Console, GA)
-  .github/workflows/evals.yml      # OPTIONAL — only if user opted in
-```
+Always emit: `Reporting/{ReportingConfig.cs, Tier.cs, AievalReport.cs,
+WordCountEvaluator.cs, MetricsGlossary.cs}`, `Wire/{AgentChatClientFactory.cs,
+StubChatClient.cs}`, `Quality/{QualityTests.cs, rubric.md, golden.json}`,
+`Telemetry/{TelemetryTests.cs, inputs.json, prices.json}`,
+`Compare/{CompareTests.cs, matrix.json}`, `quality.thresholds.json`,
+`GlobalUsings.cs`, `dotnet-tools.json`. Emit `Safety/SafetyTests.cs` and
+`.github/workflows/evals.yml` only if the user opted in (steps 7 and 9).
 
 After writing files:
 
-1. `dotnet sln <SolutionFile> add <App>.Evals.Tests/<App>.Evals.Tests.csproj`
-2. Update `.gitignore`: append `.copilot/perf-reports/evals/` and `<App>.Evals.Tests/_store/` if missing.
-3. `dotnet tool restore` (installs `aieval`).
+```pwsh
+dotnet sln <SolutionFile> add <App>.Evals.Tests/<App>.Evals.Tests.csproj
+dotnet tool restore                  # installs aieval
+# .gitignore additions
+echo ".copilot/perf-reports/evals/`n<App>.Evals.Tests/_store/" >> .gitignore
+```
 
 ### 4. Wire telemetry mode
 
-See `references/telemetry-capture.md`.
-
-- `TelemetryTests` hooks into the resolved `IChatClient` via a
-  delegating wrapper that records `gen_ai.usage.input_tokens`,
-  `gen_ai.usage.output_tokens`, per-call latency, and a
-  price-table-driven cost estimate.
-- Emits a Markdown report at
-  `.copilot/perf-reports/evals/<timestamp>/telemetry.md`,
-  a machine-readable `telemetry.json`, and a `telemetry.junit.xml`.
-- **Note:** Telemetry mode is *not* an MEAI eval report. It's a
-  cost/latency capture. The HTML report comes from quality mode.
+See `references/telemetry-capture.md`. Default ON. Captures latency,
+input/output tokens, and price-table-driven cost via a delegating
+`IChatClient`. Writes `telemetry.{md,json,junit.xml}` next to
+`report.html`. **Not** the MEAI HTML report — that's quality mode's job.
 
 ### 5. Wire quality mode
 
-See `references/quality-modes.md`.
-
-- `QualityTests` uses `DiskBasedReportingConfiguration` +
-  `ScenarioRun.EvaluateAsync` — the actual MEAI reporting pipeline.
-- Stub tier registers `WordCountEvaluator`, `BLEUEvaluator`,
-  `GLEUEvaluator`, `F1Evaluator`. Judge tier adds the LLM-judge
-  evaluators listed in step 2.
-- Each evaluator gets its required `EvaluationContext` from
-  `golden.json` (`BLEUEvaluatorContext(references)`,
-  `F1EvaluatorContext(groundTruth)`, etc.).
-- After all `[TestMethod]`s run, an `[AssemblyCleanup]` invokes
-  `dotnet tool run aieval report --path _store --output .copilot/perf-reports/evals/<timestamp>/report.html`.
+See `references/quality-modes.md`. Default ON. The **only** runner that
+produces `report.html`. Uses `DiskBasedReportingConfiguration` +
+`ScenarioRun.EvaluateAsync` + `[AssemblyCleanup]` invokes
+`dotnet tool run aieval report`. Stub tier registers the 4 NLP
+evaluators; judge tier (`EVAL_USE_REAL_JUDGE=1`) adds the LLM-as-judge
+evaluators from `references/evaluators-catalog.md`.
 
 ### 6. Wire compare mode
 
-See `references/compare-mode.md`.
-
-- `CompareTests` uses `[DynamicData]` to feed each `matrix.json` entry
-  to a single test method.
-- Each entry gets its own `executionName` so `aieval report` aggregates
-  the comparison view automatically.
-- Produces `compare.md` (side-by-side latency / token / cost / quality
-  per matrix entry) **in addition to** the unified HTML report.
+See `references/compare-mode.md`. Default ON. Reads `matrix.json`,
+each entry runs through the **same** `ReportingConfiguration` with a
+distinct `executionName`, so `aieval report` aggregates the comparison
+columns into a single HTML view. Also writes a `compare.md` delta
+table.
 
 ### 7. Wire safety mode (opt-in)
 
-See `references/safety-mode.md`.
-
-Off by default. When enabled in step 2:
-
-- Adds `Microsoft.Extensions.AI.Evaluation.Safety` package.
-- Generates `SafetyTests` using `ContentHarmEvaluator` (covers Hate +
-  SelfHarm + Violence + Sexual in one Foundry call), plus
-  `ProtectedMaterialEvaluator`, `IndirectAttackEvaluator`,
-  `CodeVulnerabilityEvaluator`, `UngroundedAttributesEvaluator`, and
-  optionally `GroundednessProEvaluator`.
-- Skipped at runtime via `Assert.Inconclusive` if
-  `EVAL_USE_FOUNDRY_SAFETY` is unset — never fails the build for
-  missing creds.
+See `references/safety-mode.md`. **Default OFF.** When enabled, adds
+`Microsoft.Extensions.AI.Evaluation.Safety` and emits `SafetyTests.cs`
+with `ContentHarmEvaluator` (single-shot 4-metric bundle), plus
+ProtectedMaterial / IndirectAttack / CodeVulnerability /
+UngroundedAttributes. Skipped at runtime via `Assert.Inconclusive`
+when `EVAL_USE_FOUNDRY_SAFETY` is unset — never fails the build for
+missing creds.
 
 ### 8. Optional Aspire panel (apply mode)
 
-See `references/aspire-dashboard-panel.md`. Off by default; modifies
+See `references/aspire-dashboard-panel.md`. Default OFF; modifies
 the AppHost project. To enable, user must say "wire the panel" /
-equivalent.
-
-When enabled:
-
-1. Show a unified diff of the AppHost edit (`app.UseStaticFiles()` and
-   the panel files under `wwwroot/eval-panel/`).
-2. Ask for confirmation.
-3. Only on `yes` / explicit confirmation, write the changes.
-4. Run `dotnet build` and report pass/fail.
-
-If declined, scaffold the static files into `<App>.Evals.Tests/Panel/`
-so the user can move them into the AppHost manually.
+equivalent. Always show a unified diff + ask for confirmation before
+writing AppHost edits.
 
 ### 9. Optional CI workflow (opt-in)
 
-See `references/ci-workflow.md`. Off by default.
-
-When enabled, emits `.github/workflows/evals.yml`:
-
-- Runs `dotnet test` on every PR.
-- Checks for repo secrets `AZURE_OPENAI_ENDPOINT` and `AZURE_TENANT_ID`;
-  if present, sets `EVAL_USE_REAL_JUDGE=1`. Otherwise stub tier.
-- Runs `dotnet tool run aieval report` and uploads `report.html` as a
-  build artifact (PR comment optional).
+See `references/ci-workflow.md`. Default OFF. Emits
+`.github/workflows/evals.yml` that runs `dotnet test` on every PR,
+auto-detects tier from repo secrets (`AZURE_OPENAI_ENDPOINT` →
+judge; `AZURE_AI_FOUNDRY_ENDPOINT` → safety), and uploads
+`report.html` as a workflow artifact.
 
 ### 10. Validation
 
@@ -208,7 +158,9 @@ Print a 3-block summary:
 
 1. **Tier banner.** Which tier is active (Stub / Judge / Foundry-Safety)
    and the exact env-var commands to upgrade.
-2. **Paths.** Project path, HTML report path, persistent `_store/` path.
+2. **Paths.** Project path, HTML report path, **glossary path**
+   (`metrics-glossary.md` co-located with `report.html`), persistent
+   `_store/` path.
 3. **CLI invocations.** `dotnet test`, `dotnet tool run aieval report`,
    and the IChatClient detection result so the user knows what was
    auto-wired.
@@ -216,50 +168,25 @@ Print a 3-block summary:
    `select-agent-models` recommendation to confirm no quality
    regression."
 
-Also link `references/evaluators-catalog.md` so the user can see what
-each metric means.
+Also link `references/evaluators-catalog.md` and
+`references/metrics-glossary.md` so the user can see what each metric
+means.
 
 ## Common pitfalls
 
-- **Hand-rolling reports instead of using the Reporting pipeline.**
-  The whole point of GA 10.7.0 is `DiskBasedReportingConfiguration` +
-  `aieval`. Never write a hand-rolled markdown report and call it the
-  "quality report" — that's an MEAI report (HTML) vs a cost/latency
-  capture (markdown).
-- **Calling real models from the default test run.** Stub tier uses
-  `StubChatClient`; report is clearly marked `(stub IChatClient)`.
-  Real-model runs are opt-in via the three env vars.
-- **Conflating agent and judge clients.** They're two different
-  `IChatClient` roles. The skill exposes them as two independent env
-  vars (`EVAL_USE_REAL_AGENT`, `EVAL_USE_REAL_JUDGE`) — one can be
-  real while the other is stubbed.
-- **Hard-coding a price table.** Lives in `Telemetry/prices.json`,
-  user-editable.
-- **Wiring 4 separate safety evaluators.** Use `ContentHarmEvaluator`
-  for the Hate/SelfHarm/Violence/Sexual bundle — single Foundry call,
-  4 metrics back.
-- **Auto-failing the build on quality regressions.** Quality mode is
-  informational by default. Users opt into a hard-fail by editing
-  `quality.thresholds.json` (which maps to real MEAI metric names like
-  `Relevance` / `BLEU` / `F1` and `EvaluationRating` levels).
-- **Forgetting `.gitignore` entries.** Must include both
-  `.copilot/perf-reports/evals/` and `<App>.Evals.Tests/_store/`.
-- **Treating telemetry/compare/quality as separate report streams.**
-  Compare mode goes through `ReportingConfiguration` with a distinct
-  `executionName` per matrix entry, so `aieval report` aggregates them
-  into the same HTML.
+See `references/common-pitfalls.md`.
 
 ## References
 
-- `references/project-template.md` — exact files and `.csproj` layout (MSTest shape).
-- `references/ichatclient-detection.md` — how to scan AppHost + agent for `IChatClient` registration and emit `AgentChatClientFactory.cs`.
-- `references/evaluators-catalog.md` — full catalog of NLP + Quality + Safety evaluators with required `EvaluationContext` types and which tier they belong to.
-- `references/telemetry-capture.md` — per-call hook + cost report format. Calls out: this is NOT the MEAI HTML report.
-- `references/quality-modes.md` — `DiskBasedReportingConfiguration` wiring, tier-based evaluator registration, `aieval report` invocation.
-- `references/compare-mode.md` — `matrix.json` layout, `[DynamicData]` test shape, per-entry `executionName`.
-- `references/safety-mode.md` — opt-in safety scaffold, Foundry runtime check, `ContentHarmEvaluator` default.
+- `references/project-template.md` — file tree + `.csproj` layout.
+- `references/ichatclient-detection.md` — registration scan + factory emission.
+- `references/evaluators-catalog.md` — NLP + Quality + Safety catalog with required `EvaluationContext` types.
+- `references/metrics-glossary.md` — per-run glossary content + `MetricsGlossary.cs` template.
+- `references/telemetry-capture.md` — per-call hook + cost report format.
+- `references/quality-modes.md` — `DiskBasedReportingConfiguration` wiring + `aieval report` invocation.
+- `references/compare-mode.md` — `matrix.json` + per-entry `executionName`.
+- `references/safety-mode.md` — opt-in safety scaffold + `ContentHarmEvaluator` default.
 - `references/ci-workflow.md` — `.github/workflows/evals.yml` template.
 - `references/aspire-dashboard-panel.md` — optional static-file panel.
-- [Microsoft.Extensions.AI.Evaluation libraries](https://learn.microsoft.com/en-us/dotnet/ai/evaluation/libraries) — upstream catalog of evaluators.
-- [Tutorial: evaluate with reporting](https://learn.microsoft.com/en-us/dotnet/ai/evaluation/evaluate-with-reporting) — canonical MSTest pattern.
-- [dotnet/ai-samples → microsoft-extensions-ai-evaluation/api](https://github.com/dotnet/ai-samples/blob/main/src/microsoft-extensions-ai-evaluation/api/) — canonical unit-test examples.
+- `references/common-pitfalls.md` — known footguns to avoid when scaffolding.
+- [MEAI.Evaluation libraries](https://learn.microsoft.com/en-us/dotnet/ai/evaluation/libraries) | [Tutorial: evaluate with reporting](https://learn.microsoft.com/en-us/dotnet/ai/evaluation/evaluate-with-reporting) | [dotnet/ai-samples](https://github.com/dotnet/ai-samples/blob/main/src/microsoft-extensions-ai-evaluation/api/)
