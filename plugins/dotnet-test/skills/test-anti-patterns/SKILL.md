@@ -1,21 +1,22 @@
 ---
 name: test-anti-patterns
 description: >
-  Audits existing test code in any language for anti-patterns and quality
-  issues — produces a severity-ranked report (Critical/Warning/Info). The
-  default umbrella skill for "audit / review my tests for anti-patterns",
-  "what's wrong with my tests", or "are these tests any good" requests,
-  even when one dominates, whatever the language (.NET, Python, TS, Java,
-  Go, Ruby, C++). INVOKE for: tests that pass but verify nothing,
-  no/missing assertions, swallowed exceptions, self-comparing /
-  self-referential / tautological assertions (output-equals-input on
-  round-trip/identity ops), coverage-touching tests (every method called
-  but nothing verified), broad exceptions, flaky tests
-  (ordering/timing/shared state), duplicated tests, magic values. DO NOT
-  USE FOR: writing new tests (use code-testing-agent); running tests (use
-  run-tests); migration; assertion-diversity metrics (use
-  assertion-quality); coverage / CRAP metrics (use coverage-analysis); the
-  testsmells.org academic catalog (use test-smell-detection).
+  Audits an existing test file or suite in any language for anti-patterns
+  and quality issues — produces a severity-ranked report
+  (Critical/Warning/Info). INVOKE whenever asked to audit or review tests,
+  find what's wrong with a suite, judge whether tests are any good, or
+  check tests for: tests that pass but verify nothing, no/missing
+  assertions, swallowed exceptions, self-comparing/self-referential/
+  tautological assertions (output==input on round-trip/identity ops),
+  coverage-touching tests (every method called but nothing verified),
+  broad exceptions, flaky or order-dependent tests (Thread.Sleep,
+  DateTime.Now, time.sleep, shared state, reflection coupling),
+  duplicated tests, magic values — in .NET, Python/pytest, TS/Jest, Java,
+  Go, Ruby or C++. DO NOT USE FOR: writing new tests (use
+  code-testing-agent); running tests (use run-tests); migration;
+  assertion-diversity metrics (use assertion-quality); coverage/CRAP
+  metrics (use coverage-analysis); the testsmells.org academic catalog
+  (use test-smell-detection).
 license: MIT
 ---
 
