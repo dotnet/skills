@@ -10,10 +10,8 @@ stimuli:
       not actually verifying anything. Audit the test class in
       `UserRepo.Tests/UserRepositoryTests.cs` for .NET test anti-patterns
       (use the production code at `UserRepo/UserRepository.cs` for context).
-      Look for the full anti-pattern catalog: missing/no assertions,
-      swallowed exceptions, always-true / self-comparing assertions, weak
-      negative assertions, broad exception types, unused fields, and
-      anything else that could let bugs sneak through.
+      I want to know which tests look like they pass but wouldn't actually
+      catch a regression.
 
       Give me a severity-ranked list (Critical / Warning / Info) with each
       finding named (e.g. "swallowed exception", "self-comparing assertion")
@@ -64,11 +62,9 @@ stimuli:
     prompt: |
       I have a test suite that sometimes passes and sometimes fails depending
       on execution order. Audit `FlakyCoupled.Tests/OrderServiceTests.cs` for
-      .NET test anti-patterns. Specifically look for these named patterns:
-      flakiness indicators (Thread.Sleep, DateTime.Now, real network),
-      test ordering dependency, shared/static state across tests,
-      reflection-based access to private members (implementation coupling),
-      god tests that bundle many assertions, and broad exception types.
+      .NET test anti-patterns. Help me figure out why it's order-dependent
+      and what else about these tests is fragile, non-deterministic, or
+      coupled to implementation details.
 
       Give me a severity-ranked list (Critical / Warning / Info) with each
       finding named (e.g. "shared static state", "Thread.Sleep flakiness",
