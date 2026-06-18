@@ -164,7 +164,21 @@ Print a 3-block summary:
 3. **CLI invocations.** `dotnet test`, `dotnet tool run aieval report`,
    and the IChatClient detection result so the user knows what was
    auto-wired.
-4. **Follow-up recommendation.** "Re-run after applying a
+4. **Promoting to the judge tier.** If the app's `IChatClient` reads from
+   a connection string (Aspire pattern), include the exact two commands:
+
+   ```pwsh
+   dotnet user-secrets init --project <App>.Evals.Tests
+   dotnet user-secrets set "ConnectionStrings:<alias>" `
+     "Endpoint=https://<host>.services.ai.azure.com/models;DeploymentId=<alias>" `
+     --project <App>.Evals.Tests
+   # then: $env:EVAL_USE_REAL_AGENT="1"; $env:EVAL_USE_REAL_JUDGE="1"; dotnet test
+   ```
+
+   Note the two endpoint gotchas (dash stripping; key auth often disabled
+   → drop the `Key=` segment and rely on `DefaultAzureCredential`). Full
+   details in `references/ichatclient-detection.md`.
+5. **Follow-up recommendation.** "Re-run after applying a
    `select-agent-models` recommendation to confirm no quality
    regression."
 

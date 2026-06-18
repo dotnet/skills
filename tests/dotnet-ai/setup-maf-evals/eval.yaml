@@ -296,3 +296,28 @@ scenarios:
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
         text: "ConnectionStrings"
+
+  - name: factory-loads-user-secrets-explicitly
+    prompt: |
+      Run setup-maf-evals on the project at ./fixture.
+    setup:
+      files:
+        - path: fixture/MyApp.slnx
+          content: |
+            <Solution>
+              <Project Path="MyApp.AppHost/MyApp.AppHost.csproj" />
+            </Solution>
+        - path: fixture/MyApp.AppHost/MyApp.AppHost.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+        - path: fixture/MyApp.AppHost/AppHost.cs
+          content: |
+            var builder = DistributedApplication.CreateBuilder(args);
+            builder.AddAzureChatCompletionsClient("chat").AddChatClient("chat");
+    assertions:
+      # Without explicit AddUserSecrets, dotnet test never reads the user-secrets store
+      # because the entry assembly is testhost.exe, not the test project.
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
+        text: "AddUserSecrets"
+

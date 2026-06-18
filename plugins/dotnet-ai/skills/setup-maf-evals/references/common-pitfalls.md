@@ -44,6 +44,26 @@ Avoid them when scaffolding `<App>.Evals.Tests`.
   `try / catch` that throws a friendly `InvalidOperationException`
   naming the connection-string key and the user-secrets command. Don't
   strip this when adapting the template.
+- **User-secrets silently not loading in `dotnet test`.** `dotnet test`
+  runs under `testhost.exe` as the entry assembly, so
+  `Host.CreateApplicationBuilder()` does NOT pick up the secrets store
+  bound to your test project's `UserSecretsId`. The factory must call
+  `builder.Configuration.AddUserSecrets(typeof(...).Assembly, optional: true)`
+  explicitly. Without it the secret is set on disk but the friendly NRE
+  still fires.
+- **`services.ai.azure.com` hostname strips dashes.** Resource
+  `foundry-abc` resolves to host `foundryabc.services.ai.azure.com` (no
+  dash). Authoritative endpoints are in
+  `az cognitiveservices account show -n <name> -g <rg> --query properties.endpoints`.
+  Use the `AI Foundry API` or `Azure AI Model Inference API` entries —
+  not the legacy `properties.endpoint` value, which points at the
+  `cognitiveservices.azure.com` hostname that 404s for the `/models` route.
+- **Key-based auth disabled (`403`).** Foundry resources provisioned by
+  Aspire/azd usually set `disableLocalAuth=true`. Drop the `Key=`
+  segment from the connection string and rely on `DefaultAzureCredential`
+  (`az login` + a Cognitive Services User role assignment on the
+  resource). The Aspire `AddAzureChatCompletionsClient` registration
+  picks the credential automatically when the key is absent.
 
 ## Evaluators
 

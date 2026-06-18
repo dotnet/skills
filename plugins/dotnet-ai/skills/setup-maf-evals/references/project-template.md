@@ -130,5 +130,8 @@ global using Microsoft.Extensions.AI.Evaluation.Reporting;
 global using Microsoft.Extensions.AI.Evaluation.Reporting.Storage;
 global using Microsoft.Extensions.AI.Evaluation.NLP;
 global using Microsoft.Extensions.AI.Evaluation.Quality;
+global using Microsoft.Extensions.Configuration;       // AddUserSecrets in AgentChatClientFactory
+global using Microsoft.Extensions.DependencyInjection; // GetRequiredService in AgentChatClientFactory
+global using Microsoft.Extensions.Hosting;             // Host.CreateApplicationBuilder
 global using Microsoft.VisualStudio.TestTools.UnitTesting;
 ```

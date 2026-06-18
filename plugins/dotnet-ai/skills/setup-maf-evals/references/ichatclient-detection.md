@@ -49,6 +49,12 @@ internal static class AgentChatClientFactory
     public static IChatClient Create()
     {
         var builder = Host.CreateApplicationBuilder();
+
+        // In test hosts (`dotnet test`), the entry assembly is testhost.exe so
+        // user-secrets are NOT auto-loaded by CreateApplicationBuilder.
+        // Add them explicitly from THIS assembly's UserSecretsId.
+        builder.Configuration.AddUserSecrets(typeof(AgentChatClientFactory).Assembly, optional: true);
+
         // {{InsertDetectedRegistrationCallVerbatim}}
         var host = builder.Build();
         try
@@ -63,11 +69,16 @@ internal static class AgentChatClientFactory
                 "string \"{{ConnStrName}}\" from configuration. Aspire's AppHost " +
                 "populates this at runtime, but `dotnet test` runs standalone. " +
                 "Wire one of:\n" +
+                "  # Key-based auth (only if the resource has it enabled):\n" +
                 "  dotnet user-secrets set \"ConnectionStrings:{{ConnStrName}}\" " +
-                "\"Endpoint=https://...;Key=...\" --project {{AppName}}.Evals.Tests\n" +
-                "or set the env var:\n" +
-                "  $env:ConnectionStrings__{{ConnStrName}} = \"Endpoint=...;Key=...\"\n" +
-                "Get the value from `azd env get-values` against the deployment resource.",
+                "\"Endpoint=https://<host>.services.ai.azure.com/models;Key=<key>;DeploymentId={{ConnStrName}}\" --project {{AppName}}.Evals.Tests\n" +
+                "  # Entra-ID auth (DefaultAzureCredential — works when key auth is disabled):\n" +
+                "  dotnet user-secrets set \"ConnectionStrings:{{ConnStrName}}\" " +
+                "\"Endpoint=https://<host>.services.ai.azure.com/models;DeploymentId={{ConnStrName}}\" --project {{AppName}}.Evals.Tests\n" +
+                "Note: the hostname strips dashes from the resource name " +
+                "(resource `foundry-abc` -> host `foundryabc.services.ai.azure.com`).\n" +
+                "Get the exact endpoint from `azd env get-values` or " +
+                "`az cognitiveservices account show -n <name> -g <rg> --query properties.endpoints`.",
                 ex);
         }
     }
@@ -127,16 +138,44 @@ output any time the detected pattern reads from a connection string
 (`AddAzureChatCompletionsClient`, `AddAIInference`, `AddOllamaChatClient`,
 or `AddAzureOpenAIChatClient` without an explicit endpoint).
 
+> **Important — the factory must opt into user-secrets explicitly.** In a
+> `dotnet test` process the entry assembly is `testhost.exe`, so the
+> `dotnet user-secrets` payload tied to *your* `UserSecretsId` is NOT auto
+> loaded by `Host.CreateApplicationBuilder()`. The Case A template above
+> calls `builder.Configuration.AddUserSecrets(typeof(...).Assembly)` for
+> this reason. Without that line, the secret is set on disk but never read.
+
 Recommend the user wire one of:
 
 ```pwsh
-# Option A — user secrets (recommended for local dev)
+# 0 — one-time: bind the test project to a secrets store
 dotnet user-secrets init --project <App>.Evals.Tests
-dotnet user-secrets set "ConnectionStrings:<alias>" "Endpoint=https://...;Key=..." --project <App>.Evals.Tests
 
-# Option B — env var (works in CI)
-$env:ConnectionStrings__<alias> = "Endpoint=https://...;Key=..."
+# Option A — Key-based auth (only if the resource has key auth enabled)
+dotnet user-secrets set "ConnectionStrings:<alias>" `
+  "Endpoint=https://<host>.services.ai.azure.com/models;Key=<key>;DeploymentId=<alias>" `
+  --project <App>.Evals.Tests
+
+# Option B — Entra-ID auth (DefaultAzureCredential; works when key auth disabled)
+dotnet user-secrets set "ConnectionStrings:<alias>" `
+  "Endpoint=https://<host>.services.ai.azure.com/models;DeploymentId=<alias>" `
+  --project <App>.Evals.Tests
+# requires `az login` and a Cognitive Services User / Azure AI User role
+# on the resource for the signed-in identity.
+
+# Option C — env var (works in CI without a secrets file)
+$env:ConnectionStrings__<alias> = "Endpoint=https://...;DeploymentId=<alias>"
 ```
+
+**Two endpoint gotchas to call out in chat:**
+
+1. The `services.ai.azure.com/models` hostname **strips dashes** from the
+   resource name. Resource `foundry-abc` -> host `foundryabc.services.ai.azure.com`.
+   Use `az cognitiveservices account show -n <name> -g <rg> --query properties.endpoints`
+   to see all valid endpoint hostnames (`AI Foundry API` / `Azure AI Model Inference API`).
+2. If the resource has `disableLocalAuth=true` (common on Foundry resources
+   provisioned by Aspire/azd), key-based auth returns `403 Key based authentication
+   is disabled for this resource`. Drop the `Key=` segment and use Entra (Option B).
 
 For Foundry-routed clients the connection string is what `azd env get-values`
 prints for `connectionString` against the deployment resource. Document this
