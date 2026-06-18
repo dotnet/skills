@@ -22,6 +22,43 @@ Plus a built-in custom evaluator the skill always scaffolds:
 |-----------|--------|-----|
 | `WordCountEvaluator` (custom) | `Words` | Sanity check: response is non-empty and reasonable length. Same pattern as the Learn doc tutorial. |
 
+### `WordCountEvaluator` reference implementation
+
+Scaffold this file verbatim (the Learn-doc canonical pattern) into
+`Reporting/WordCountEvaluator.cs`. It runs in stub tier with no API key.
+
+```csharp
+public sealed class WordCountEvaluator : IEvaluator
+{
+    public const string MetricName = "Words";
+    public IReadOnlyCollection<string> EvaluationMetricNames { get; } = [MetricName];
+
+    public ValueTask<EvaluationResult> EvaluateAsync(
+        IEnumerable<ChatMessage> messages,
+        ChatResponse modelResponse,
+        ChatConfiguration? chatConfiguration = null,
+        IEnumerable<EvaluationContext>? additionalContext = null,
+        CancellationToken cancellationToken = default)
+    {
+        var text = modelResponse?.Text ?? string.Empty;
+        var count = text.Split(
+            new[] { ' ', '\t', '\r', '\n' },
+            StringSplitOptions.RemoveEmptyEntries).Length;
+
+        var metric = new NumericMetric(MetricName, value: count)
+        {
+            Interpretation = count switch
+            {
+                < 5   => new EvaluationMetricInterpretation(EvaluationRating.Poor,    reason: "Response too short"),
+                > 500 => new EvaluationMetricInterpretation(EvaluationRating.Average, reason: "Response very long"),
+                _     => new EvaluationMetricInterpretation(EvaluationRating.Good),
+            }
+        };
+        return new ValueTask<EvaluationResult>(new EvaluationResult(metric));
+    }
+}
+```
+
 ## Tier 2 — Quality (LLM-as-judge)
 
 Package: `Microsoft.Extensions.AI.Evaluation.Quality` (GA 10.7.0).

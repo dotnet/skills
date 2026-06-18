@@ -16,8 +16,15 @@ directories**. Match (case-insensitive, multi-line):
 | `AddOpenAIChatClient\s*\(` | OpenAI direct | `Program.cs` |
 | `AddOllamaChatClient\s*\(` | Ollama | `Program.cs` |
 | `AddAIInference\s*\(` (Foundry deployment alias) | Azure AI Foundry | `AppHost.cs` |
+| `AddAzureChatCompletionsClient\s*\([^)]*\)\s*\.AddChatClient\s*\(` | Aspire `Aspire.Azure.AI.Inference` (Foundry-routed) | `Program.cs` |
 | `services\.AddSingleton<IChatClient>` (any explicit registration) | custom | varies |
 | `\.AsIChatClient\(\)` (after an SDK client) | manual wrap | varies |
+
+> The `AddAzureChatCompletionsClient(...).AddChatClient(...)` chain is the
+> standard Aspire 13.2 way of wiring an `IChatClient` against a Foundry chat
+> deployment. The argument is the **connection-string name**, which Aspire's
+> AppHost populates automatically (`AddDeployment("chat", ...)` -> connection
+> string `chat`). The factory mirrors both calls verbatim.
 
 Capture the deployment alias / model id literal if present (e.g.,
 `builder.AddAIInference("chat", "gpt-4o-mini")` → alias `chat`).
@@ -91,6 +98,31 @@ internal static IChatClient ResolveAgentClient() =>
 And by default the judge client is the **same** instance (saves a
 duplicate Azure credential setup). The user can override by setting
 `EVAL_JUDGE_DEPLOYMENT_NAME` to a different deployment alias.
+
+## Connection-string setup for standalone test runs
+
+When the target app uses Aspire orchestration, the AppHost populates
+`ConnectionStrings:<alias>` automatically. **`dotnet test` runs outside
+the AppHost and does not get this for free.** Surface this in the chat
+output any time the detected pattern reads from a connection string
+(`AddAzureChatCompletionsClient`, `AddAIInference`, `AddOllamaChatClient`,
+or `AddAzureOpenAIChatClient` without an explicit endpoint).
+
+Recommend the user wire one of:
+
+```pwsh
+# Option A — user secrets (recommended for local dev)
+dotnet user-secrets init --project <App>.Evals.Tests
+dotnet user-secrets set "ConnectionStrings:<alias>" "Endpoint=https://...;Key=..." --project <App>.Evals.Tests
+
+# Option B — env var (works in CI)
+$env:ConnectionStrings__<alias> = "Endpoint=https://...;Key=..."
+```
+
+For Foundry-routed clients the connection string is what `azd env get-values`
+prints for `connectionString` against the deployment resource. Document this
+in the chat output along with the tier banner so the user doesn't see a
+silent NRE on first real-agent run.
 
 ## Chat output (step 2)
 
