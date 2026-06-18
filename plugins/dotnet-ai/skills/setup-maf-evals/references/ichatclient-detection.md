@@ -51,14 +51,33 @@ internal static class AgentChatClientFactory
         var builder = Host.CreateApplicationBuilder();
         // {{InsertDetectedRegistrationCallVerbatim}}
         var host = builder.Build();
-        return host.Services.GetRequiredService<IChatClient>();
+        try
+        {
+            return host.Services.GetRequiredService<IChatClient>();
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new InvalidOperationException(
+                "EVAL_USE_REAL_AGENT=1 but IChatClient could not be resolved. " +
+                "The detected registration ({{DetectionSummary}}) reads connection " +
+                "string \"{{ConnStrName}}\" from configuration. Aspire's AppHost " +
+                "populates this at runtime, but `dotnet test` runs standalone. " +
+                "Wire one of:\n" +
+                "  dotnet user-secrets set \"ConnectionStrings:{{ConnStrName}}\" " +
+                "\"Endpoint=https://...;Key=...\" --project {{AppName}}.Evals.Tests\n" +
+                "or set the env var:\n" +
+                "  $env:ConnectionStrings__{{ConnStrName}} = \"Endpoint=...;Key=...\"\n" +
+                "Get the value from `azd env get-values` against the deployment resource.",
+                ex);
+        }
     }
 }
 ```
 
 Where `{{InsertDetectedRegistrationCallVerbatim}}` is the literal call
 copied from the detection source (with any required `using`s in scope
-via `GlobalUsings.cs`).
+via `GlobalUsings.cs`), and `{{ConnStrName}}` is the connection-string
+literal extracted from the call (e.g., the `"chat"` argument).
 
 ### Case B — multiple registrations found
 

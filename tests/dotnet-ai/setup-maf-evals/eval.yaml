@@ -244,3 +244,55 @@ scenarios:
         text: "EVAL_USE_REAL_JUDGE"
       - type: output_contains
         text: "EVAL_USE_FOUNDRY_SAFETY"
+
+  - name: scaffold-emits-metrics-glossary
+    prompt: |
+      Run setup-maf-evals on the project at ./fixture.
+    setup:
+      files:
+        - path: fixture/MyApp.slnx
+          content: |
+            <Solution>
+              <Project Path="MyApp.AppHost/MyApp.AppHost.csproj" />
+            </Solution>
+        - path: fixture/MyApp.AppHost/MyApp.AppHost.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+        - path: fixture/MyApp.AppHost/AppHost.cs
+          content: "var b = DistributedApplication.CreateBuilder(args); b.AddAzureOpenAIChatClient(\"chat\", \"gpt-4o-mini\");"
+    assertions:
+      - type: file_exists
+        path: fixture/MyApp.Evals.Tests/Reporting/MetricsGlossary.cs
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/Reporting/MetricsGlossary.cs
+        text: "metrics-glossary.md"
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/Reporting/MetricsGlossary.cs
+        text: "[AssemblyCleanup]"
+      - type: output_contains
+        text: "metrics-glossary.md"
+
+  - name: factory-emits-friendly-secrets-diagnostic
+    prompt: |
+      Run setup-maf-evals on the project at ./fixture.
+    setup:
+      files:
+        - path: fixture/MyApp.slnx
+          content: |
+            <Solution>
+              <Project Path="MyApp.AppHost/MyApp.AppHost.csproj" />
+            </Solution>
+        - path: fixture/MyApp.AppHost/MyApp.AppHost.csproj
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
+        - path: fixture/MyApp.AppHost/AppHost.cs
+          content: |
+            var builder = DistributedApplication.CreateBuilder(args);
+            builder.AddAzureChatCompletionsClient("chat").AddChatClient("chat");
+    assertions:
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
+        text: "dotnet user-secrets"
+      - type: file_contains
+        path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
+        text: "ConnectionStrings"

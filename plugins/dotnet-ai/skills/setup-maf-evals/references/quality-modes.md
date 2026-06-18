@@ -26,6 +26,9 @@ internal static class ReportingConfig
     public static readonly string StorageRoot =
         Path.Combine(RepoRoot.Find(), "_store");
 
+    // Resolved once at class load — must NOT re-evaluate DateTime.UtcNow per
+    // call, otherwise AievalReport and MetricsGlossary land in different
+    // timestamped output folders.
     public static readonly string ExecutionName =
         Environment.GetEnvironmentVariable("EVAL_EXECUTION_NAME")
             ?? DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
