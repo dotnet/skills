@@ -47,7 +47,13 @@ public static partial class SkillProfiler
     // actually degrade selection accuracy or just cost more tokens up-front.
     // Until then, keep the cap aligned with current enforcement as a hard
     // validation failure, while leaving enough headroom for reasonable plugin growth.
-    internal const int MaxAggregateDescriptionLength = 20_000;
+    //
+    // Raised 20,000 -> 22,000: the dotnet-test plugin (the largest and most
+    // active) reached ~20,400 aggregate chars after adding the
+    // find-untested-sources-polyglot skill, legitimate growth that exceeded the
+    // previous cap. Bumped to restore ~1.6k headroom rather than degrade the
+    // routing keywords of existing skills. Prior precedent: 15,000 -> 20,000.
+    internal const int MaxAggregateDescriptionLength = 22_000;
     private const int MaxNameLength = 64;
     internal const int MinDescriptionLength = 10;
     private const int MaxCompatibilityLength = 500;

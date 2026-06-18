@@ -88,6 +88,11 @@ Search for commands in:
 - `README.md` instructions
 - Project files
 
+Identify **two** test commands and record both in `.testagent/research.md`:
+
+1. **Scoped test command** — what the implementer should run during fix cycles (e.g., `dotnet test <test.csproj>`, `bundle exec rspec spec/foo_spec.rb`, `Invoke-Pester -Path ./Tests/Foo.Tests.ps1`). Optimized for speed and locality.
+2. **Harness-equivalent discovery command** — what a generic CI/benchmark verifier would run from the repo root with no args (e.g., `dotnet test <solution> --list-tests`, `bundle exec rspec --dry-run`, `Invoke-Pester` with default config, `pytest --collect-only -q`). This is the command the implementer's "Verify Harness Discovery" step uses to confirm new tests are visible to outside tooling. Call the `code-testing-extensions` skill and consult the "Harness Discovery Check" section of the relevant language extension.
+
 ### 7. Discover Preexisting Tests
 
 Locate all existing test files and analyze what they cover:
@@ -98,6 +103,8 @@ Locate all existing test files and analyze what they cover:
   - Number of test methods vs. number of public methods in the source
   - Whether tests cover only happy paths or also edge cases and error paths
 - Record the estimated coverage level per source file so the planner can prioritize gaps
+
+**For C# / .NET repos**, before manually pairing source ↔ test files, invoke the `find-untested-sources` skill (when available in the workspace). It parses every `.cs` file with Roslyn — no build, no `Compilation`, no `MetadataReferences` — and returns a deterministic JSON map: `source_to_tests` (which test files reference which source), an `untested` list ordered by API surface (`decl_count`) descending, and a `suggested_test_path` derived from existing `<ProjectReference>` edges. Use its `untested` list as your prioritized worklist instead of walking the test tree; use `source_to_tests` to fill the "Existing Tests & Estimated Coverage" section. The skill is parse-only and intentionally cheap — runs in seconds even on multi-thousand-file repos. Fall back to manual discovery when the skill is not installed or for non-C# code.
 
 ### 8. Generate Research Document
 
@@ -119,7 +126,8 @@ Create `.testagent/research.md` with this structure:
 
 ## Build & Test Commands
 - **Build**: `[command]`
-- **Test**: `[command]`
+- **Test (scoped — fix cycles)**: `[command run on the specific test project/file]`
+- **Test (harness-equivalent — discovery check)**: `[command run from repo root that mirrors what a CI/benchmark verifier sees]`
 - **Lint**: `[command]` (if available)
 
 ## Project Structure

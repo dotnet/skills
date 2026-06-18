@@ -32,6 +32,7 @@ This skill performs **static pseudo-mutation** — reasoning about mutations wit
 - User asks for mutation testing or mutation analysis
 - User asks "where are my tests blind?"
 - User wants to prioritize which tests to strengthen
+- The `code-testing-generator` agent (or any test-generation workflow) calls this skill as a pre-completion self-review step on freshly generated tests, before declaring the run finished
 
 ## When Not to Use
 

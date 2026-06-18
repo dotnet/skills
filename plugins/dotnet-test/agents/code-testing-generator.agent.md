@@ -110,9 +110,26 @@ Run tests from the **full workspace scope** with a fresh build (never use `--no-
 - **Environment-dependent** — remove tests that call external URLs, bind ports, or depend on timing. Prefer mocked unit tests.
 - **Pre-existing failures** — note them but don't block.
 
-**Verify tests are implementation-specific:**
+**Verify tests pin down behavior (mandatory pre-completion gate):**
 
-- Each test should assert on **concrete values** returned by the function — not just type checks, non-null checks, or other assertions that would still pass if the function body were empty or returned a default value. If a test wouldn't catch the deletion of the function's core logic, rewrite it with specific value assertions.
+For any non-trivial test addition (≥5 generated tests, or any task whose prompt describes specific behaviors to verify), run a quick self-review pass *before* reporting completion — and **after** any Step 8 coverage-gap iteration that adds or modifies tests, so the gate always runs against the final test set. The first two checks below use skills that ship in this plugin; the third is a self-review against the prompt:
+
+1. **Pseudo-mutation check** — invoke the `test-gap-analysis` skill against the source file(s) you tested and the test file(s) you produced. The skill reasons about plausible mutations (boundary flips, dropped null checks, removed exceptions, sign flips) and reports which would slip past your tests. For every gap it flags, either strengthen the existing assertion or add a follow-up test. Re-run until no gap is reported, or until the remaining gaps are explicitly out of scope (e.g., production bugs you cannot fix in a test-only PR).
+
+2. **Assertion-depth check** — invoke the `assertion-quality` skill against the test file(s) you produced. If it flags trivial-only assertions (`IsNotNull` / `toBeDefined` / `assert x is not None`-only tests, tautological round-trip assertions, single-observable tests where the production code touches multiple observables), revise those tests — replace existence checks with concrete-value assertions, and add a secondary observable per behavior-radius guidance.
+
+3. **Prompt-scenario coverage check** — when the prompt enumerates specific behaviors or scenarios to verify, map each one to a dedicated test before reporting completion. This guards against the common failure of testing an *adjacent* function and leaving the requested behavior uncovered:
+   - **Target the exact function/feature named in the objective**, not a neighboring helper that merely looks related. Test the named symbol directly — do not substitute a similarly-named sibling and assume it transitively covers the target. Prefer extending the canonical existing test file for that feature over creating a new, narrower file.
+   - **Cover the full range each scenario's wording implies, not a single representative case.** Phrasing like "when the dimensions stay the same *or* change", "wider *or* narrower", or "first character *or* anywhere in the string" calls for multiple variations — exercise each variation (and combine them in one test when the wording groups them) rather than asserting a single instance.
+   - **Honor positional and structural qualifiers literally.** When a scenario pins a condition to a specific position or shape (e.g. "the *first* character after the prefix", "a filename containing a literal space"), construct an input that satisfies that exact qualifier — an input where the condition merely appears *somewhere* does not cover it.
+
+Skip the gate only for trivially small tasks — fewer than 5 generated tests *and* no behaviors specified in the prompt (the exact inverse of the threshold above). For every other run, the gate is mandatory: a test that passes vacuously — that would still pass if the function body were emptied or returned a default — is a bug, not a test.
+
+Additional self-review heuristics (still required, even when running the skills):
+
+- Each test should assert on **concrete values** returned by the function — not just type checks, non-null checks, or other assertions that would still pass if the function body were empty or returned a default value.
+- Each test should assert on at least one **secondary observable** (related state, log output, neighboring field, retry counter) when the operation under test touches more than just its return value.
+- No test should be tautological — never assert that a value you just wrote can be read back unchanged on an identity/round-trip operation.
 
 ### Step 8: Coverage Gap Iteration
 
@@ -123,6 +140,7 @@ After the previous phases complete, check for uncovered source files:
 3. Identify source files with no corresponding test file.
 4. Generate tests for each uncovered file, build, test, and fix.
 5. Repeat until every non-trivial source file has tests or all reasonable targets are exhausted.
+6. If this step added or modified any tests, re-run the full Step 7 pre-completion gate (`test-gap-analysis` + `assertion-quality` + prompt-scenario coverage) on the new/changed tests before reporting completion — Step 8 output must not bypass the gate.
 
 ### Step 9: Report Results
 
@@ -173,11 +191,12 @@ All state is stored in `.testagent/` folder:
 2. **Polyglot** — detect the language and use appropriate patterns
 3. **Verify** — each phase must produce compiling, passing tests
 4. **Don't skip** — report failures rather than skipping phases
-5. **Clean git first** — stash pre-existing changes before starting
+5. **Treat the workspace as delivered** — generate tests against the exact working tree you are given. Never run `git checkout`, `git restore`, `git reset`, `git clean`, `git stash`, `git rm`, or `rm`/`del` on tracked files, and never "repair", revert, regenerate, or reconstruct source that looks deleted, gutted, synthetic, or incomplete. An unusual, sparse, or scaffolded repository layout is intentional, not corruption — test what is actually present. If the workspace genuinely contains nothing testable, say so and stop; do not rebuild it.
 6. **Scoped builds during phases, full build at the end** — build specific test projects during implementation for speed; run a full-workspace non-incremental build after all phases to catch cross-project errors
 7. **No environment-dependent tests** — mock all external dependencies; never call external URLs, bind ports, or depend on timing
 8. **Fix assertions, don't skip tests** — when tests fail, read production code and fix the expected value; never `[Ignore]` or `[Skip]`
 9. **Clean up `.testagent/`** — after pipeline completion, delete the `.testagent/` folder or advise the user to add it to `.gitignore` so ephemeral state is not committed
 10. **Read language extensions first** — always call the `code-testing-extensions` skill and read the relevant extension file before writing any code; it contains critical project registration and build validation steps
-11. **Always validate** — final build, final test, coverage-gap review, and reporting are mandatory for ALL strategies including Direct; never skip final validation
+11. **Always validate** — final build, final test, coverage-gap review, and reporting are mandatory for ALL strategies including Direct; never skip final validation. The pre-completion self-review gate from Step 7 (`test-gap-analysis` + `assertion-quality` skills, plus the prompt-scenario coverage check) is mandatory for every non-trivial test addition and may be skipped only for trivially small tasks (fewer than 5 generated tests *and* no behaviors specified in the prompt), per Step 7
 12. **Preserve existing tests** — never delete or overwrite existing test files; create new files or append to existing ones
+13. **Never mutate version control** — your only outputs are additive test files plus minimal build-manifest edits to register a new test project. Any command that reverts, restores, resets, stashes, or cleans the tree, or deletes tracked files, is out of scope — even when the workspace looks broken or incomplete.

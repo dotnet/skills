@@ -5,9 +5,10 @@ scenarios:
 
   - name: "Migrate custom TestMethodAttribute from Execute to ExecuteAsync"
     prompt: |
-      I have a custom RetryTestMethodAttribute that overrides Execute.
-      After upgrading to MSTest v4, I get an error that Execute is not virtual or doesn't exist.
-      How do I fix this?
+      I upgraded my test project to MSTest v4 and now it won't compile. I have a custom
+      RetryTestMethodAttribute that overrides Execute, and I get an error that Execute is
+      not virtual or doesn't exist. Help me fix this MSTest v4 breaking change -- how do I
+      migrate my custom TestMethodAttribute from Execute to ExecuteAsync?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -32,8 +33,9 @@ scenarios:
 
   - name: "Replace ExpectedExceptionAttribute with Assert.ThrowsExactly"
     prompt: |
-      My MSTest v3 project uses [ExpectedException] on several test methods.
-      After upgrading to MSTest v4, these no longer compile. What's the replacement?
+      I upgraded my test project to MSTest v4 and several test methods that use
+      [ExpectedException] no longer compile. Help me fix this MSTest v4 breaking change:
+      what's the replacement after the ExpectedExceptionAttribute removal?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -58,9 +60,9 @@ scenarios:
 
   - name: "Fix multiple v4 breaking changes: Assert, ClassCleanup, TestContext, Timeout"
     prompt: |
-      I upgraded from MSTest 3.8 to MSTest 4.0 and my test project has compilation errors.
-      The errors mention ThrowsException, ClassCleanupBehavior, and TestTimeout.
-      Can you review my code and fix the breaking changes?
+      I upgraded my test project to MSTest v4 (from 3.8 to 4.0) and now it won't compile.
+      The errors mention ThrowsException, ClassCleanupBehavior, and TestTimeout. Help me
+      fix these MSTest v4 breaking changes -- can you review my code and fix them?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -240,9 +242,10 @@ scenarios:
 
   - name: "Handle MSTest.Sdk and MTP changes in v4"
     prompt: |
-      I'm using MSTest.Sdk/3.8.0 with Microsoft.Testing.Platform. After upgrading to
-      MSTest.Sdk/4.1.0, my CI pipeline that uses vstest.console no longer discovers tests.
-      What changed?
+      I upgraded my test project to MSTest v4 -- it uses MSTest.Sdk/4.1.0 (previously
+      MSTest.Sdk/3.8.0) with Microsoft.Testing.Platform. Now my CI pipeline that runs
+      vstest.console no longer discovers any tests. Help me fix this MSTest v4 breaking
+      change: what changed in MSTest.Sdk v4 and how do I restore test discovery?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -475,10 +478,10 @@ scenarios:
 
   - name: "Fix TestMethodAttribute and TestMethod display name constructor"
     prompt: |
-      My MSTest v3 project uses [TestMethod("display name")] and
-      [TestMethodAttribute("display name")] to set custom display names on tests.
-      After upgrading to MSTest v4, these constructors no longer work because of
-      CallerInfo parameter changes. How should I update them?
+      I upgraded my test project to MSTest v4 and it no longer compiles. I use
+      [TestMethod("display name")] and [TestMethodAttribute("display name")] to set custom
+      display names, and those constructors now break. Help me fix this MSTest v4 breaking
+      change -- the CallerInfo constructor on TestMethodAttribute. How should I update them?
     setup:
       files:
         - path: "TestProject.csproj"
@@ -503,9 +506,10 @@ scenarios:
 
   - name: "Fix Assert.IsInstanceOfType out parameter removal"
     prompt: |
-      After upgrading to MSTest 4.x, my tests that use Assert.IsInstanceOfType with
-      an out parameter no longer compile. I get errors like:
+      I upgraded my test project to MSTest v4 and my tests that use Assert.IsInstanceOfType
+      with an out parameter no longer compile. I get errors like:
       - CS1615: Argument 2 should not be passed with the 'out' keyword
+      Help me fix this MSTest v4 breaking change -- the Assert.IsInstanceOfType out parameter removal.
       How do I update these assertions?
     setup:
       files:

@@ -18,27 +18,36 @@ stimuli:
         - src: ./fixtures/migrate-basic-xunit-v2-project-to-mstest-v4-preserving-vstest/CalculatorTests.cs
           dest: CalculatorTests.cs
     graders:
-      - type: output-matches
+      # File-state graders: assert against the migrated source/project files so
+      # the grader is not tripped by agent prose that quotes the same tokens.
+      - type: file-contains
         config:
-          pattern: Microsoft\.VisualStudio\.TestTools\.UnitTesting
-      - type: output-matches
+          path: '**/*.cs'
+          value: Microsoft.VisualStudio.TestTools.UnitTesting
+      - type: file-contains
         config:
-          pattern: \[TestClass\]
-      - type: output-matches
+          path: '**/*.cs'
+          value: '[TestClass]'
+      - type: file-contains
         config:
-          pattern: \[TestMethod\]
-      - type: output-matches
+          path: '**/*.cs'
+          value: '[TestMethod]'
+      - type: file-contains
         config:
-          pattern: Assert\.AreEqual
-      - type: output-matches
+          path: '**/*.cs'
+          value: Assert.AreEqual
+      - type: file-contains
         config:
-          pattern: Assert\.IsTrue
-      - type: output-not-matches
+          path: '**/*.cs'
+          value: Assert.IsTrue
+      - type: file-not-contains
         config:
-          pattern: PackageReference Include="xunit
-      - type: output-not-matches
+          path: '**/*.csproj'
+          value: PackageReference Include="xunit
+      - type: file-not-contains
         config:
-          pattern: using Xunit;
+          path: '**/*.cs'
+          value: using Xunit;
       - type: run-command
         config:
           command: dotnet test
@@ -68,18 +77,22 @@ stimuli:
         - src: ./fixtures/migrate-basic-xunit-v3-project-to-mstest-v4-preserving-vstest/OrderTests.cs
           dest: OrderTests.cs
     graders:
-      - type: output-matches
+      - type: file-contains
         config:
-          pattern: Microsoft\.VisualStudio\.TestTools\.UnitTesting
-      - type: output-matches
+          path: '**/*.cs'
+          value: Microsoft.VisualStudio.TestTools.UnitTesting
+      - type: file-contains
         config:
-          pattern: \[DataRow\(
-      - type: output-not-matches
+          path: '**/*.cs'
+          value: '[DataRow('
+      - type: file-not-contains
         config:
-          pattern: xunit\.v3
-      - type: output-not-matches
+          path: '**/*.csproj'
+          value: xunit.v3
+      - type: file-not-contains
         config:
-          pattern: InlineData
+          path: '**/*.cs'
+          value: InlineData
       - type: run-command
         config:
           command: dotnet test
@@ -125,15 +138,18 @@ stimuli:
         - src: ./fixtures/convert-iclassfixture-to-classinitialize/OrderTests.cs
           dest: OrderTests.cs
     graders:
-      - type: output-matches
+      - type: file-contains
         config:
-          pattern: \[ClassInitialize\]
-      - type: output-matches
+          path: '**/*.cs'
+          value: '[ClassInitialize]'
+      - type: file-contains
         config:
-          pattern: \[ClassCleanup\]
-      - type: output-not-matches
+          path: '**/*.cs'
+          value: '[ClassCleanup]'
+      - type: file-not-contains
         config:
-          pattern: IClassFixture
+          path: '**/*.cs'
+          value: IClassFixture
       - type: run-command
         config:
           command: dotnet test
@@ -164,9 +180,12 @@ stimuli:
         - src: ./fixtures/handle-icollectionfixture-explicitly-do-not-silently-widen-scope/CustomersTests.cs
           dest: CustomersTests.cs
     graders:
-      - type: output-matches
+      - type: file-contains
         config:
-          pattern: \[DoNotParallelize\]
+          path: '**/*.cs'
+          value: '[DoNotParallelize]'
+      # Agent prose grader: the rubric requires an explicit scope-decision
+      # explanation, so this stays on the response (not the file).
       - type: output-matches
         config:
           pattern: (scope|sharing|parallelization|preserve|collection)
@@ -194,18 +213,22 @@ stimuli:
         - src: ./fixtures/convert-itestoutputhelper-to-testcontext/LoggingTests.cs
           dest: LoggingTests.cs
     graders:
-      - type: output-matches
+      - type: file-contains
         config:
-          pattern: TestContext
-      - type: output-matches
+          path: '**/*.cs'
+          value: TestContext
+      - type: file-contains
         config:
-          pattern: WriteLine
-      - type: output-not-matches
+          path: '**/*.cs'
+          value: WriteLine
+      - type: file-not-contains
         config:
-          pattern: ITestOutputHelper
-      - type: output-not-matches
+          path: '**/*.cs'
+          value: ITestOutputHelper
+      - type: file-not-contains
         config:
-          pattern: Xunit\.Abstractions
+          path: '**/*.cs'
+          value: Xunit.Abstractions
       - type: run-command
         config:
           command: dotnet test
@@ -230,15 +253,18 @@ stimuli:
         - src: ./fixtures/map-exception-assertions-correctly-xunit-throws-mstest-throwsexactly/ExceptionTests.cs
           dest: ExceptionTests.cs
     graders:
-      - type: output-matches
+      - type: file-contains
         config:
-          pattern: Assert\.ThrowsExactly<InvalidOperationException>
-      - type: output-matches
+          path: '**/*.cs'
+          value: Assert.ThrowsExactly<InvalidOperationException>
+      - type: file-contains
         config:
-          pattern: Assert\.Throws<Exception>
-      - type: output-matches
+          path: '**/*.cs'
+          value: Assert.Throws<Exception>
+      - type: file-contains
         config:
-          pattern: Assert\.ThrowsExactlyAsync<InvalidOperationException>
+          path: '**/*.cs'
+          value: Assert.ThrowsExactlyAsync<InvalidOperationException>
       - type: run-command
         config:
           command: dotnet test
@@ -263,15 +289,18 @@ stimuli:
         - src: ./fixtures/convert-memberdata-and-theorydata-to-dynamicdata/DiscountTests.cs
           dest: DiscountTests.cs
     graders:
-      - type: output-matches
+      - type: file-contains
         config:
-          pattern: \[DynamicData\(
-      - type: output-not-matches
+          path: '**/*.cs'
+          value: '[DynamicData('
+      - type: file-not-contains
         config:
-          pattern: \[MemberData\(
-      - type: output-not-matches
+          path: '**/*.cs'
+          value: '[MemberData('
+      - type: file-not-contains
         config:
-          pattern: \[Theory\]
+          path: '**/*.cs'
+          value: '[Theory]'
       - type: run-command
         config:
           command: dotnet test
@@ -296,21 +325,26 @@ stimuli:
         - src: ./fixtures/convert-skip-trait-and-timeout/AnnotatedTests.cs
           dest: AnnotatedTests.cs
     graders:
-      - type: output-matches
+      - type: file-contains
         config:
-          pattern: \[Ignore\("broken"\)\]
-      - type: output-matches
+          path: '**/*.cs'
+          value: '[Ignore("broken")]'
+      - type: file-contains
         config:
-          pattern: \[TestCategory\("Unit"\)\]
-      - type: output-matches
+          path: '**/*.cs'
+          value: '[TestCategory("Unit")]'
+      - type: file-contains
         config:
-          pattern: \[TestProperty\("Owner"
-      - type: output-matches
+          path: '**/*.cs'
+          value: '[TestProperty("Owner"'
+      - type: file-contains
         config:
-          pattern: \[Timeout\(5000\)\]
-      - type: output-not-matches
+          path: '**/*.cs'
+          value: '[Timeout(5000)]'
+      - type: file-not-contains
         config:
-          pattern: Trait\(
+          path: '**/*.cs'
+          value: 'Trait('
       - type: run-command
         config:
           command: dotnet test
@@ -339,15 +373,18 @@ stimuli:
         - src: ./fixtures/preserve-xunit-parallelization-default-with-assembly-parallelize/BetaTests.cs
           dest: BetaTests.cs
     graders:
-      - type: output-matches
+      - type: file-contains
         config:
-          pattern: assembly:\s*Parallelize
-      - type: output-matches
+          path: '**/*.cs'
+          value: 'assembly: Parallelize'
+      - type: file-contains
         config:
-          pattern: ExecutionScope\.ClassLevel
-      - type: output-not-matches
+          path: '**/*.cs'
+          value: ExecutionScope.ClassLevel
+      - type: file-not-contains
         config:
-          pattern: ExecutionScope\.MethodLevel
+          path: '**/*.cs'
+          value: ExecutionScope.MethodLevel
       - type: run-command
         config:
           command: dotnet test
@@ -373,12 +410,17 @@ stimuli:
         - src: ./fixtures/convert-xunit-v3-testcontext-current-cancellationtoken/CancellationTests.cs
           dest: CancellationTests.cs
     graders:
+      # Positive grader stays on prose because it uses regex alternation
+      # (TestContext.CancellationToken or _testContext.CancellationToken);
+      # file-contains is literal-only and cannot express OR. The file is
+      # still checked indirectly via the build/test run-command below.
       - type: output-matches
         config:
           pattern: TestContext\.CancellationToken|_testContext\.CancellationToken
-      - type: output-not-matches
+      - type: file-not-contains
         config:
-          pattern: TestContext\.Current\.CancellationToken
+          path: '**/*.cs'
+          value: TestContext.Current.CancellationToken
       - type: run-command
         config:
           command: dotnet test
@@ -400,12 +442,15 @@ stimuli:
         - src: ./fixtures/recognize-project-already-on-mstest/ExistingTests.cs
           dest: ExistingTests.cs
     graders:
+      # Positive grader stays on prose: rubric requires the agent to TELL
+      # the user no migration is needed.
       - type: output-matches
         config:
           pattern: (already|no.{0,30}migration|not.{0,20}need|already.{0,20}MSTest)
-      - type: output-not-matches
+      - type: file-not-contains
         config:
-          pattern: PackageReference Include="xunit
+          path: '**/*.csproj'
+          value: PackageReference Include="xunit
       - type: prompt
       - type: pairwise
     rubric:

@@ -46,7 +46,13 @@ Analyze the source `.csproj` and create a `.template.config/template.json`:
 
 1. Create `.template.config` directory next to the project
 2. Generate `template.json` with `identity` (reverse-DNS), `name`, `shortName`, `sourceName` (project name for replacement), `classifications`, and `tags`
-3. Preserve from source: SDK type, package references with metadata (PrivateAssets, IncludeAssets), properties (OutputType, TreatWarningsAsErrors), CPM patterns
+3. Preserve from source — generic `dotnet new` templates frequently get these wrong, so verify each is carried over from the original `.csproj`:
+   1. **SDK type** — `Microsoft.NET.Sdk`, `Microsoft.NET.Sdk.Web`, `Microsoft.NET.Sdk.Worker`, etc.
+   2. **Analyzer/package reference metadata** — `PrivateAssets`, `IncludeAssets`, `ExcludeAssets`
+   3. **`OutputType` and other key properties** — `TreatWarningsAsErrors`, `Nullable`, `LangVersion`
+   4. **CPM participation** — no inline `Version` attributes when a `Directory.Packages.props` is present
+   5. **Custom build props/targets** and `Directory.Build.props` conventions
+   6. **Repo conventions** — folder layout, naming, `global.json` SDK pin
 
 Minimal example:
 ```json
@@ -64,15 +70,12 @@ Minimal example:
 
 ### Step 2: Validate template.json
 
-Read and review the `template.json` for common authoring issues:
+Validate the generated `template.json` using the **template-validation** skill (it owns the full rule set — required fields, identity format, reserved shortName conflicts, parameter datatypes, post-actions, constraints, and tags).
 
-Validation checks to perform:
-- **Required fields** — verify `identity`, `name`, and `shortName` are present
-- **Identity format** — use reverse-DNS format (e.g., `MyOrg.Templates.WebApi`)
-- **Parameter issues** — check datatypes are valid (`string`, `bool`, `choice`, `int`, `float`), choices have defaults, descriptions are present
-- **ShortName conflicts** — avoid names that collide with built-in CLI commands (`build`, `run`, `test`, `publish`). Check with `dotnet new list` to see if the name is already taken
-- **Post-action completeness** — verify post-actions have all required configuration
-- **Tags** — ensure language, type, and classification tags are set for discoverability
+Quick summary of what gets checked:
+- **Required fields** — `identity`, `name`, and `shortName` must be present.
+- **ShortName conflicts** — avoid names that collide with `dotnet new` subcommands. Read the authoritative set from the `Commands:` section of `dotnet new --help` for the installed SDK and do not hardcode it (it can change between versions); illustrative examples from current SDKs are `install`, `uninstall`, `update`, `list`, `search`, `details`, `create`. A conflict happens because `dotnet new <name>` would be parsed as the subcommand of the same name. Top-level `dotnet` verbs like `build`, `run`, `test`, and `publish` do NOT conflict. Run `dotnet new list` to confirm the name is not already taken.
+- **Parameters, post-actions, tags** — see template-validation for the complete rules, including the valid datatype list.
 
 ### Step 3: Refine the template
 
@@ -107,7 +110,7 @@ dotnet build ./test-output/TestProject
 | Pitfall | Solution |
 |---------|----------|
 | Identity format issues | Use reverse-DNS format (e.g., `MyOrg.Templates.WebApi`). Avoid spaces or special characters. |
-| ShortName conflicts with CLI commands | Avoid names like `build`, `run`, `test`, `publish`. Check by running `dotnet new list` to see if the name is already taken. |
+| ShortName conflicts with CLI commands | Avoid names that match a `dotnet new` subcommand; read the live set from `dotnet new --help` and don't hardcode it (illustrative examples: `install`, `uninstall`, `update`, `list`, `search`, `details`, `create`). Top-level verbs like `build`/`run`/`test`/`publish` are fine. Run `dotnet new list` to see if the name is already taken. |
 | Missing parameter descriptions | Every parameter should have a `description` and `displayName` for discoverability. |
 | Not testing all parameter combinations | Use `dotnet new <template> --dry-run` with different parameter values to verify conditional content works correctly. |
 | Hardcoded versions in template | Use `sourceName` replacement for project names and consider parameterizing framework versions. |

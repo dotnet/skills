@@ -3,17 +3,17 @@ name: migrate-vstest-to-mtp
 description: >
   Migrates .NET test projects from VSTest to Microsoft.Testing.Platform (MTP).
   Use when user asks to "migrate to MTP", "switch from VSTest", "enable
-  Microsoft.Testing.Platform", "use MTP runner", or mentions EnableMSTestRunner,
+  Microsoft.Testing.Platform", "use MTP runner", set OutputType=Exe only for
+  test projects in Directory.Build.props, or mentions EnableMSTestRunner,
   EnableNUnitRunner, or UseMicrosoftTestingPlatformRunner.
   USE FOR: MTP behavioral differences vs VSTest (exit code 8, zero tests
-  discovered, --ignore-exit-code, TESTINGPLATFORM_EXITCODE_IGNORE),
-  conditioning OutputType=Exe to test projects when centralizing MTP
-  properties in Directory.Build.props.
+  discovered, --ignore-exit-code, TESTINGPLATFORM_EXITCODE_IGNORE);
+  centralizing MTP properties in Directory.Build.props and conditioning
+  OutputType=Exe to only test projects via MSBuildProjectName, not
+  IsTestProject.
   Supports MSTest, NUnit, xUnit.net v2 (via YTest.MTP.XUnit2), and
-  xUnit.net v3 (native MTP). Covers runner enablement, CLI argument
-  translation, xUnit.net v3 filter migration (--filter-class,
-  --filter-trait, --filter-query), Directory.Build.props and global.json
-  config, CI/CD pipeline updates, and MTP extension packages.
+  xUnit.net v3. Covers runner enablement, CLI argument and filter
+  translation, global.json config, CI/CD updates, and extension packages.
   DO NOT USE FOR: migrating between test frameworks (MSTest/xUnit/NUnit),
   xUnit.net v2 to v3 API migration, MSTest version upgrades, TFM upgrades,
   or UWP/WinUI test projects.

@@ -404,4 +404,4 @@ MSBuild's evaluator normalizes `\` → `/` on Unix-like systems before resolving
 
 ---
 
-For additional anti-patterns (AP-16 through AP-21) and a quick-reference checklist, see [additional-antipatterns.md](references/additional-antipatterns.md).
+For additional anti-patterns (AP-16 through AP-22) and a quick-reference checklist, see [additional-antipatterns.md](references/additional-antipatterns.md).

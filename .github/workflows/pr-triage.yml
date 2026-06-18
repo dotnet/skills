@@ -39,7 +39,10 @@ permissions:
   pull-requests: write
   issues: write
   statuses: read
-  actions: read
+  # actions: write lets the worker dispatch evaluation.yml via `gh workflow run`
+  # (the GITHUB_TOKEN-exempt trigger that replaces the bot-applied `evaluate-now`
+  # label). It also covers the runs/jobs reads in eval_run_exists_for_head.
+  actions: write
 
 concurrency:
   group: pr-triage-${{ inputs.pr_number }}
