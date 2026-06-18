@@ -321,3 +321,14 @@ scenarios:
         path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
         text: "AddUserSecrets"
 
+  - name: pitfalls-doc-warns-reasoning-models-reject-max-tokens
+    prompt: |
+      Read references/common-pitfalls.md from the setup-maf-evals skill.
+    assertions:
+      - type: file_contains
+        path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
+        text: "max_tokens"
+      - type: file_contains
+        path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
+        text: "EVAL_JUDGE_DEPLOYMENT_NAME"
+

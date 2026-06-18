@@ -64,6 +64,21 @@ Avoid them when scaffolding `<App>.Evals.Tests`.
   (`az login` + a Cognitive Services User role assignment on the
   resource). The Aspire `AddAzureChatCompletionsClient` registration
   picks the credential automatically when the key is absent.
+- **Reasoning models (gpt-5, gpt-5-mini, o1, o3) reject `max_tokens`.**
+  The Azure.AI.Inference SDK still sends `max_tokens`; reasoning models
+  require `max_completion_tokens` and return 400
+  `unsupported_parameter`. **The MEAI Quality evaluators swallow the
+  400 and record it as a per-metric error row, so tests pass but every
+  Quality column is an error.** Pick a non-reasoning judge model
+  (gpt-4o, gpt-4o-mini, gpt-4-turbo). Tip: when picking a Foundry
+  deployment to point `ConnectionStrings:<alias>` at, check
+  `az cognitiveservices account deployment list -n <name> -g <rg>
+  --query "[].{name:name, model:properties.model.name}" -o tsv`
+  and avoid any deployment whose model is `gpt-5*` or `o*`. When the
+  agent uses a reasoning model in production, set
+  `EVAL_JUDGE_DEPLOYMENT_NAME=<non-reasoning-alias>` so the judge
+  client points at a compatible deployment while the agent client
+  keeps the production model.
 
 ## Evaluators
 

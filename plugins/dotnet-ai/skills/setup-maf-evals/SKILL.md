@@ -175,9 +175,16 @@ Print a 3-block summary:
    # then: $env:EVAL_USE_REAL_AGENT="1"; $env:EVAL_USE_REAL_JUDGE="1"; dotnet test
    ```
 
-   Note the two endpoint gotchas (dash stripping; key auth often disabled
-   → drop the `Key=` segment and rely on `DefaultAzureCredential`). Full
-   details in `references/ichatclient-detection.md`.
+   Note the **three** endpoint gotchas: (a) hostname strips dashes on
+   some resources, (b) key auth is often disabled → drop the `Key=`
+   segment and rely on `DefaultAzureCredential`, (c) **the judge
+   deployment must be a non-reasoning model** (gpt-4o / gpt-4o-mini /
+   gpt-4-turbo). Reasoning models (gpt-5*, o-series) reject `max_tokens`
+   with HTTP 400 and MEAI silently records that as a per-metric error
+   row. If the production model is a reasoning one, set
+   `EVAL_JUDGE_DEPLOYMENT_NAME=<non-reasoning-alias>` so the judge
+   points at a different deployment than the agent. Full details in
+   `references/ichatclient-detection.md`.
 5. **Follow-up recommendation.** "Re-run after applying a
    `select-agent-models` recommendation to confirm no quality
    regression."
