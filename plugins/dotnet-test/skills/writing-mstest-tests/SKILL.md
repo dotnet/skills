@@ -371,7 +371,7 @@ public sealed class DatabaseIntegrationTests { }
 
 The `MSTest.Analyzers` package reports `MSTESTxxxx` diagnostics during build and in the IDE. The analyzers come in automatically with the modern `MSTest` metapackage and `MSTest.Sdk` (and are bundled with `MSTest.TestFramework` 3.7+); for other setups, reference `MSTest.Analyzers` explicitly. Most rules have an automated code fix (light bulb) in Visual Studio. When fixing one by hand, apply the idiomatic change below rather than suppressing the rule.
 
-When asked to "fix MSTESTxxxx", look up the rule in the table, apply the fix, and rebuild to confirm the diagnostic is gone. Full reference: <https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/overview>.
+When asked to "fix MSTESTxxxx", look it up in the table of common diagnostics below, apply the fix, and rebuild to confirm the diagnostic is gone. The table is not exhaustive — for any rule it does not list, consult the full reference and apply the documented guidance: <https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/overview>.
 
 #### Common diagnostics and their fixes
 
