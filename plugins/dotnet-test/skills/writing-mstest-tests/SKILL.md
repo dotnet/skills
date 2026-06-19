@@ -1,20 +1,19 @@
 ---
 name: writing-mstest-tests
 description: >
-  Write new MSTest unit tests and fix existing MSTest code using MSTest 3.x/4.x
-  modern APIs and best practices.
-  USE FOR: write, create, or modernize comprehensive MSTest unit tests, fix MSTest assertions,
-  better MSTest assertion than Assert.IsTrue, replace hard cast with MSTest type assertion,
-  MSTest assertion APIs (IsInstanceOfType, Contains, ContainsSingle, HasCount,
-  IsEmpty, IsNotEmpty, DoesNotContain, IsNull),
-  fix swapped Assert.AreEqual arguments, replace ExpectedException with Assert.Throws,
-  data-driven tests (DataRow, DynamicData, ValueTuples),
-  test lifecycle (sealed classes, TestInitialize, TestCleanup),
-  async tests and cancellation tokens, test parallelization (Parallelize / DoNotParallelize),
-  MSTest.Sdk project setup, fix MSTEST analyzer diagnostics (MSTESTxxxx rules).
-  DO NOT USE FOR: broad test quality audits (use test-anti-patterns),
-  running tests (use run-tests), MSTest version migration (use migrate-mstest-v1v2-to-v3
-  or migrate-mstest-v3-to-v4), xUnit/NUnit/TUnit, or non-.NET languages.
+  Write, create, modernize, or fix comprehensive MSTest unit tests with MSTest 3.x/4.x APIs.
+  USE FOR: write or create MSTest unit tests, fix/modernize MSTest assertions,
+  better MSTest assertion than Assert.IsTrue, replace hard cast with type check (IsInstanceOfType),
+  MSTest assertion APIs (Contains, ContainsSingle, HasCount, IsEmpty, IsNotEmpty, DoesNotContain,
+  AreSame, IsNull, StartsWith, EndsWith, MatchesRegex, IsGreaterThan, IsLessThan, IsInRange),
+  swapped Assert.AreEqual args, replace ExpectedException with Assert.Throws,
+  data-driven (DataRow, DynamicData, ValueTuples),
+  lifecycle (TestInitialize, TestCleanup, TestContext),
+  async tests and cancellation tokens, conditional execution/retry/cleanup (OSCondition, Retry),
+  parallelization (Parallelize/DoNotParallelize), MSTest.Sdk setup, MSTESTxxxx analyzer fixes.
+  DO NOT USE FOR: test quality audits (use test-anti-patterns),
+  running tests (use run-tests), MSTest version migration (use the migrate-mstest skills),
+  xUnit/NUnit/TUnit, or non-.NET languages.
 license: MIT
 ---
 
