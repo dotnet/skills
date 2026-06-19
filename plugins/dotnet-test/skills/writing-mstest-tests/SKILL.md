@@ -409,4 +409,3 @@ Use the `MSTestAnalysisMode` MSBuild property (MSTest 3.8+) to control the rule 
 - `Recommended` escalates info-level rules to warnings and is the mode most projects should adopt.
 - A handful of rules are completely opt-in (e.g. MSTEST0015, MSTEST0019–0022); enable them per project via `.editorconfig` when you want their convention enforced.
 - Prefer fixing the underlying code over suppressing a diagnostic. Suppress only with a documented justification.
-
