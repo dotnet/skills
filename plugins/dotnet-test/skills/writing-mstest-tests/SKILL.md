@@ -369,7 +369,7 @@ public sealed class DatabaseIntegrationTests { }
 
 ### Step 8: Fix MSTest analyzer diagnostics (MSTESTxxxx)
 
-Starting with MSTest.TestFramework 3.7, the `MSTest.Analyzers` package ships with the framework and reports `MSTESTxxxx` diagnostics during build and in the IDE. Most rules have an automated code fix (light bulb) in Visual Studio. When fixing one by hand, apply the idiomatic change below rather than suppressing the rule.
+The `MSTest.Analyzers` package reports `MSTESTxxxx` diagnostics during build and in the IDE. The analyzers come in automatically with the modern `MSTest` metapackage and `MSTest.Sdk` (and are bundled with `MSTest.TestFramework` 3.7+); for other setups, reference `MSTest.Analyzers` explicitly. Most rules have an automated code fix (light bulb) in Visual Studio. When fixing one by hand, apply the idiomatic change below rather than suppressing the rule.
 
 When asked to "fix MSTESTxxxx", look up the rule in the table, apply the fix, and rebuild to confirm the diagnostic is gone. Full reference: <https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/overview>.
 
@@ -393,7 +393,7 @@ When asked to "fix MSTESTxxxx", look up the rule in the table, apply the fix, an
 | MSTEST0045 / MSTEST0049 / MSTEST0054 | Timeout/token not cooperative | Flow `TestContext.CancellationToken` into the awaited call (Step 6) |
 | MSTEST0036 | Member shadows a base test member | Rename or use `override` instead of `new` |
 | MSTEST0061 | Runtime OS check inside a test | Use `[OSCondition(...)]` (Step 7) |
-| MSTEST0002 / MSTEST0003 / MSTEST0005 / MSTEST0007–0014 | Invalid test class / method / fixture / `TestContext` / data-source layout | Fix the signature (public, correct return type, parameters, `static` where required) the rule names |
+| MSTEST0002 / MSTEST0003 / MSTEST0005 / MSTEST0007–0014 | Invalid test class / method / fixture / `TestContext` / data-source layout | Correct the signature named by the rule (e.g. make it public, fix the return type and parameters, add `static` where required) |
 
 #### Tuning which rules are enforced
 
