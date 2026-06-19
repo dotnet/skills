@@ -3,7 +3,7 @@ name: writing-mstest-tests
 description: >
   Write new MSTest unit tests and fix existing MSTest code using MSTest 3.x/4.x
   modern APIs and best practices.
-  USE FOR: write or create MSTest unit tests, fix or modernize MSTest assertions,
+  USE FOR: write, create, or modernize comprehensive MSTest unit tests, fix MSTest assertions,
   better MSTest assertion than Assert.IsTrue, replace hard cast with MSTest type assertion,
   MSTest assertion APIs (IsInstanceOfType, Contains, ContainsSingle, HasCount,
   IsEmpty, IsNotEmpty, DoesNotContain, IsNull),
