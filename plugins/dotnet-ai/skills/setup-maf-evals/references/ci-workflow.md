@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 20
 
     env:
-      EVAL_EXECUTION_NAME: ${{ github.run_id }}-${{ github.run_attempt }}
+      EVAL_REPORT_FOLDER: ${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - uses: actions/checkout@v4
@@ -80,17 +80,17 @@ jobs:
       - name: Generate report (already invoked by [AssemblyCleanup], this is a safety net)
         if: always()
         run: |
-          mkdir -p .copilot/perf-reports/evals/${{ env.EVAL_EXECUTION_NAME }}
+          mkdir -p .copilot/perf-reports/evals/${{ env.EVAL_REPORT_FOLDER }}
           dotnet tool run aieval report \
             --path  {{AppName}}.Evals.Tests/_store \
-            --output .copilot/perf-reports/evals/${{ env.EVAL_EXECUTION_NAME }}/report.html
+            --output .copilot/perf-reports/evals/${{ env.EVAL_REPORT_FOLDER }}/report.html
 
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: eval-report-${{ steps.tier.outputs.tier }}
-          path: .copilot/perf-reports/evals/${{ env.EVAL_EXECUTION_NAME }}/report.html
+          path: .copilot/perf-reports/evals/${{ env.EVAL_REPORT_FOLDER }}/report.html
 
       - name: Upload trx
         if: always()

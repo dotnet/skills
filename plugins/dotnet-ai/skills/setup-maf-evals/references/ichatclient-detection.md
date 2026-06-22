@@ -125,9 +125,19 @@ internal static IChatClient ResolveAgentClient() =>
     EvalEnv.UseRealAgent ? AgentChatClientFactory.Create() : new StubChatClient();
 ```
 
-And by default the judge client is the **same** instance (saves a
-duplicate Azure credential setup). The user can override by setting
-`EVAL_JUDGE_DEPLOYMENT_NAME` to a different deployment alias.
+And by default the judge client is the **same** instance as the agent
+client. This saves a duplicate Azure credential setup AND lets the
+MEAI response cache serve both the agent call and the judge call from
+one cache (because `QualityTests` uses `run.ChatConfiguration!.ChatClient`
+for the agent call — that's the cached wrapper around the shared
+instance). The user can override by setting `EVAL_JUDGE_DEPLOYMENT_NAME`
+to a different deployment alias when (e.g.) the production model is a
+reasoning model that can't be used as a judge. Trade-off: with the
+override active, `run.ChatConfiguration!.ChatClient` becomes the
+**judge** client, so the agent call would silently use the judge
+model. To avoid that, `QualityTests` falls back to
+`Wire.ResolveAgentClient()` (uncached) for agent calls whenever the
+override is set; cache hits then apply only to judge calls.
 
 ## Connection-string setup for standalone test runs
 

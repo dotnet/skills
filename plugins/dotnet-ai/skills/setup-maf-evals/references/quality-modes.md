@@ -4,16 +4,40 @@
 `Microsoft.Extensions.AI.Evaluation.Reporting`. It's the **only**
 runner that produces `report.html`.
 
+## Response cache (read first)
+
+`DiskBasedReportingConfiguration.Create(..., enableResponseCaching: true)`
+wraps the supplied `IChatClient` with a content-addressable cache stored
+under `_store/cache/`. The first `dotnet test` run populates it; every
+subsequent run against the same scenarios is **near-instant with zero
+LLM cost** because both the agent call and the judge call are served
+from disk.
+
+Two rules MUST be followed to make the cache work:
+
+1. **The agent call must go through `run.ChatConfiguration!.ChatClient`**
+   (NOT `Wire.ResolveAgentClient()` directly). The run-scoped client is
+   the cached wrapper. Calling the factory directly bypasses the cache.
+2. **Do not pass a per-run `executionName`** to `Create(...)`. The
+   `executionName` is part of the cache scope; a fresh timestamp per run
+   guarantees misses. Use a separate `EvalEnv.ReportFolder` value for
+   the report-output directory if you want per-run history.
+
+If both rules are followed, the only legitimate reasons to see Miss in
+the report's Diagnostic Data section are: (a) the cache directory was
+deleted, (b) the rubric / golden / scenario input changed, (c) the
+judge model or chat options changed, or (d) it's the first run.
+
 ## Pipeline
 
 ```
 [ClassInitialize]  → build ReportingConfig (tier-aware evaluator list)
 [TestMethod]       → one per golden.json entry
                      ├─ CreateScenarioRunAsync(scenarioName)
-                     ├─ resolve IChatClient (real or stub per EVAL_USE_REAL_AGENT)
-                     ├─ get agent response
+                     ├─ get cached IChatClient from run.ChatConfiguration
+                     ├─ get agent response (cached)
                      ├─ build per-evaluator EvaluationContext (BLEU refs, F1 ground truth, ...)
-                     └─ scenarioRun.EvaluateAsync(messages, response, contexts)
+                     └─ scenarioRun.EvaluateAsync(messages, response, contexts)  // judge calls cached
 [AssemblyCleanup]  → dotnet tool run aieval report --path _store --output <ts>/report.html
 ```
 
@@ -26,15 +50,15 @@ internal static class ReportingConfig
     public static readonly string StorageRoot =
         Path.Combine(RepoRoot.Find(), "_store");
 
-    // Resolved once at class load — must NOT re-evaluate DateTime.UtcNow per
-    // call, otherwise AievalReport and MetricsGlossary land in different
-    // timestamped output folders.
-    public static readonly string ExecutionName =
-        Environment.GetEnvironmentVariable("EVAL_EXECUTION_NAME")
-            ?? DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-
     public static ReportingConfiguration ForQuality()
     {
+        // ONE client serves both the agent call and the judge call. MEAI wraps
+        // it with the response cache when handed to ChatConfiguration, so the
+        // *agent* call gets cached too when QualityTests calls it through
+        // `run.ChatConfiguration!.ChatClient` (see "Test class" below).
+        // On re-runs against unchanged inputs, the entire run is a cache hit
+        // and finishes in seconds with zero LLM cost. Override the judge with
+        // a separate model via EVAL_JUDGE_DEPLOYMENT_NAME (advanced).
         var agent = Wire.ResolveAgentClient();
         var judge = Wire.ResolveJudgeClient(agent);
 
@@ -65,12 +89,14 @@ internal static class ReportingConfig
             }
         }
 
+        // executionName: deliberately omitted. MEAI's default keeps the cache
+        // scope stable across runs so re-runs hit. The report folder
+        // timestamp lives separately in EvalEnv.ReportFolder.
         return DiskBasedReportingConfiguration.Create(
             storageRootPath: StorageRoot,
             evaluators: evaluators,
             chatConfiguration: new ChatConfiguration(judge),
-            enableResponseCaching: true,
-            executionName: ExecutionName);
+            enableResponseCaching: true);
     }
 }
 ```
@@ -96,7 +122,22 @@ public sealed class QualityTests
         var scenarioName = $"{nameof(QualityTests)}.{g.Id}";
         await using var run = await s_reporting.CreateScenarioRunAsync(scenarioName);
 
-        var agent = Wire.ResolveAgentClient();
+        // IMPORTANT: use the run's ChatClient, NOT Wire.ResolveAgentClient(),
+        // for the agent call. The run-scoped client is wrapped with MEAI's
+        // response cache (set up by ReportingConfig.ForQuality), so identical
+        // inputs across runs return cached responses instead of paying for
+        // a fresh LLM call. Calling AgentChatClientFactory directly bypasses
+        // the cache and guarantees a cache miss on every judge call too
+        // (judge cache key includes the agent response, which then varies).
+        //
+        // EDGE CASE: when EVAL_JUDGE_DEPLOYMENT_NAME splits judge from agent,
+        // run.ChatConfiguration.ChatClient IS the judge client — using it as
+        // the agent would silently call the wrong model. Fall back to the
+        // uncached agent factory in that case (judge calls still cache).
+        var agent = string.IsNullOrEmpty(
+            Environment.GetEnvironmentVariable("EVAL_JUDGE_DEPLOYMENT_NAME"))
+                ? run.ChatConfiguration!.ChatClient
+                : Wire.ResolveAgentClient();
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, RubricLoader.SystemPrompt()),
@@ -134,7 +175,7 @@ public static class AievalReport
     {
         var outDir = Path.Combine(
             RepoRoot.Find(), ".copilot", "perf-reports", "evals",
-            ReportingConfig.ExecutionName);
+            EvalEnv.ReportFolder);
         Directory.CreateDirectory(outDir);
         var html = Path.Combine(outDir, "report.html");
 
@@ -151,6 +192,34 @@ public static class AievalReport
         p.WaitForExit();
         TestContext.Out?.WriteLine($"Eval report: {html}");
     }
+}
+```
+
+## EvalEnv (sketch, in `Reporting/Tier.cs`)
+
+```csharp
+internal static class EvalEnv
+{
+    public static bool UseRealAgent =>
+        Environment.GetEnvironmentVariable("EVAL_USE_REAL_AGENT") == "1";
+
+    public static bool UseRealJudge =>
+        Environment.GetEnvironmentVariable("EVAL_USE_REAL_JUDGE") == "1";
+
+    public static bool UseFoundrySafety =>
+        Environment.GetEnvironmentVariable("EVAL_USE_FOUNDRY_SAFETY") == "1";
+
+    public static string Tier =>
+        UseFoundrySafety ? "Safety" : UseRealJudge ? "Judge" : "Stub";
+
+    // Per-run timestamp ONLY for the report output folder under
+    // .copilot/perf-reports/evals/<ReportFolder>/. NOT passed to MEAI's
+    // ReportingConfiguration — that would scope the response cache per
+    // run and defeat caching. Override with EVAL_REPORT_FOLDER in CI to
+    // align with a build number.
+    public static readonly string ReportFolder =
+        Environment.GetEnvironmentVariable("EVAL_REPORT_FOLDER")
+            ?? DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
 }
 ```
 

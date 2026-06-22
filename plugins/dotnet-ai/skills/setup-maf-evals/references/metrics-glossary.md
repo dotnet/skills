@@ -163,7 +163,7 @@ internal static class MetricsGlossary
     public static void WriteGlossary()
     {
         var outDir = Path.Combine(
-            RepoRoot.Find(), ".copilot", "perf-reports", "evals", EvalEnv.ExecutionName);
+            RepoRoot.Find(), ".copilot", "perf-reports", "evals", EvalEnv.ReportFolder);
         Directory.CreateDirectory(outDir);
         var path = Path.Combine(outDir, "metrics-glossary.md");
 

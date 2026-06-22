@@ -204,10 +204,10 @@ zero-config sanity check and Safety/Compare as additions.
 3. **NLP (zero-config sanity).** "`report.html` already populates with
    Words / BLEU / GLEU / F1 from `golden.json` without any creds — run
    `dotnet test` now to see it."
-4. **Additional categories you can wire.** List Safety (`EVAL_USE_FOUNDRY_SAFETY=1`
-   + opt-in scaffold) and Compare (re-run the skill with `compare: true`
-   if it wasn't opted in originally) as one-line bullets — not in the
-   main flow.
+4. **Additional categories you can wire.** List Safety
+   (`EVAL_USE_FOUNDRY_SAFETY=1`, opt-in scaffold) and Compare (re-run
+   the skill with `compare: true` if it wasn't opted in originally)
+   as one-line bullets — not in the main flow.
 5. **Paths.** Project path, `report.html` path, **glossary path**
    (`metrics-glossary.md` co-located with `report.html`), persistent
    `_store/` path.
@@ -217,6 +217,12 @@ zero-config sanity check and Safety/Compare as additions.
 7. **Follow-up recommendation.** "Re-run after applying a
    `select-agent-models` recommendation to confirm no quality
    regression."
+8. **Cache payoff.** "First `dotnet test` populates `_store/cache/` and
+   takes the full ~60s. Every subsequent run against unchanged inputs
+   reuses cached agent + judge responses — typically ~5s with zero LLM
+   cost. The Diagnostic Data section of `report.html` shows per-call
+   Hit/Miss. To force a fresh run, delete `_store/cache/` or change the
+   rubric / golden inputs."
 
 Also link `references/evaluators-catalog.md` and
 `references/metrics-glossary.md` so the user can see what each metric

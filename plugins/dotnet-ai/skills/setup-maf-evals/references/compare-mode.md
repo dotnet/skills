@@ -56,7 +56,9 @@ public sealed class CompareTests
             chatConfiguration: new ChatConfiguration(
                 Wire.ResolveJudgeClient(Wire.ResolveAgentClient(entry.ModelAssignments))),
             enableResponseCaching: true,
-            executionName: $"{ReportingConfig.ExecutionName}-{entry.Name}");
+            // Stable per-entry name (NOT prefixed with a per-run timestamp)
+            // so re-running compare reuses the cache for unchanged entries.
+            executionName: $"compare-{entry.Name}");
 
         foreach (var g in GoldenLoader.Load())
         {

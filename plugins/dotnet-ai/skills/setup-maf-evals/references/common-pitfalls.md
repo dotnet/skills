@@ -26,19 +26,20 @@ Avoid them when scaffolding `<App>.Evals.Tests`.
   `metrics-glossary.md` (tier-aware) so a first-time reader can decode
   the columns. The `Reporting/MetricsGlossary.cs` template handles
   this — don't strip it.
-- **Misreading "Cache Miss" in the Diagnostic Data section.** With
-  `enableResponseCaching: true`, the report's per-call `cacheHit` flag
-  records whether the judge response cache was hit. Expect **Miss on
-  every call** in the `real agent + real judge` workflow — the cache
-  key is the judge's input prompt, which includes the agent's response,
-  and a live LLM agent's output varies run-to-run even at low
-  temperature. Hit/Miss is informational; it does not affect
-  correctness or scores. The cache pays off when you (a) capture agent
-  responses to fixtures and re-evaluate them while iterating on
-  rubrics, or (b) run a stub agent with deterministic output. To get
-  hits across runs you ALSO need to pin `executionName` (the cache is
-  scoped per execution name; a fresh timestamp per run guarantees
-  misses regardless of input).
+- **Misreading "Cache Miss" in the Diagnostic Data section.** With the
+  default template (`enableResponseCaching: true`, agent resolved via
+  `run.ChatConfiguration!.ChatClient`, no per-run `executionName`),
+  the **first** `dotnet test` run shows Miss everywhere (cache empty)
+  and **subsequent runs against unchanged inputs show Hit everywhere**
+  in ~5s with zero LLM cost. Persistent Miss after run 1 means one of:
+  (a) the rubric / golden / scenario inputs changed, (b) the judge
+  model or chat options changed, (c) `_store/cache/` was deleted, or
+  (d) something is bypassing the cache — most commonly calling
+  `Wire.ResolveAgentClient()` (uncached) instead of
+  `run.ChatConfiguration!.ChatClient`, OR passing a fresh
+  `executionName` to `DiskBasedReportingConfiguration.Create(...)`.
+  Hit/Miss never affects correctness; it just tells you whether the
+  LLM was actually called this run.
 
 ## Clients (agent vs judge vs stub)
 
