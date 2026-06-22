@@ -1,7 +1,7 @@
 ---
 name: select-agent-models
 description: |
-  Recommend a per-agent model assignment for a .NET agentic application (Microsoft Agent Framework + Aspire + Foundry). Reads the existing topology, classifies each agent (router, planner, decomposer, worker, validator, formatter, summarizer), then maps each role to a model from a curated role-model matrix balancing latency, quality, and per-call cost. Two modes: read-only "recommend" (default, writes a plan to .copilot/perf-reports/model-plan-<timestamp>.md) and "apply" (diff-preview-and-confirm, edits AppHost connection strings and per-agent IChatClient registrations). Never applies without explicit confirmation. WHEN: user asks "which model should each agent use", "audit my model selection", "everyone defaults to gpt-4o-mini", or has just received an MA finding from scan-agentic-app-perf. NOT-WHEN: user is comparing providers, tuning prompts, or has only one agent (run scan-agentic-app-perf first).
+  Recommend a per-agent model assignment for a .NET agentic application (Microsoft Agent Framework + Aspire + Foundry). Reads the existing topology, classifies each agent (router, planner, decomposer, worker, validator, formatter, summarizer), then maps each role to a model from a curated role-model matrix balancing latency, quality, and per-call cost. Three modes: read-only "recommend" (default, scans existing source and writes a plan to .copilot/perf-reports/model-plan-<timestamp>.md), "plan" (greenfield/design-time — no source scan; user declares intended roles, skill emits a plan + recommended Foundry deployment shape), and "apply" (diff-preview-and-confirm, edits AppHost connection strings and per-agent IChatClient registrations). Never applies without explicit confirmation. WHEN: user asks "which model should each agent use", "audit my model selection", "everyone defaults to gpt-4o-mini", "I'm planning a new agentic app — what models should I use", "design my topology before I write code", or has just received an MA finding from scan-agentic-app-perf. NOT-WHEN: user is comparing providers, tuning prompts, or has only one agent (run scan-agentic-app-perf first).
 ---
 
 # select-agent-models
@@ -10,7 +10,19 @@ Recommend per-agent model assignments based on each agent's role.
 
 ## Workflow
 
-### 1. Inventory agents and current models
+### 0. Pick the mode
+
+| Mode        | When to use                                                            | Source scan? | Edits files? |
+|-------------|------------------------------------------------------------------------|--------------|--------------|
+| `recommend` | App already exists; you want a per-agent recommendation (default)      | yes          | no           |
+| `plan`      | Greenfield — user is **about to** build an agentic app, no code yet    | no           | no           |
+| `apply`     | After `recommend`, user explicitly says "apply" / "make the changes"   | yes          | yes (with confirmation) |
+
+If the user says "design", "planning", "haven't written code yet",
+"about to build", or "what should I use" with no source repo in scope,
+default to `plan` mode (see step 1a). Otherwise default to `recommend`.
+
+### 1. Inventory agents and current models (recommend mode)
 
 For each agent in the project, record:
 
@@ -20,8 +32,29 @@ For each agent in the project, record:
   `IChatClient` builder)
 - Estimated per-turn input tokens (system prompt + history + tool descs)
 
-If fewer than 2 agents are detected, abort. Single-agent apps do not benefit
-from this skill.
+If fewer than 2 agents are detected, abort recommend mode. Single-agent
+apps do not benefit from this skill. If the user truly has only one
+agent planned, route them to `plan` mode instead.
+
+### 1a. Collect intended topology (plan mode)
+
+Plan mode is **read-only** and does not scan source. Ask the user for:
+
+- **Agents** — a list of `{ name, intended_role, brief_purpose }`.
+  `intended_role` must be one of the seven roles from step 2; if the
+  user is unsure, walk them through the role list and pick together.
+- **Quality priority** — `cost` (default) | `latency` | `quality`.
+  Biases tie-breaks between matrix-primary and acceptable-alternatives.
+- **Provider constraint** — `foundry` (default) | `azure-openai` |
+  `openai` | `any`. Filters out matrix entries that can't be hosted on
+  the declared provider.
+
+Plan mode requires at least **1** agent (single-agent plans are valid
+here — the matrix still gives useful guidance for a greenfield single
+agent). Skip step 1's "abort if < 2" guard in this mode.
+
+Continue to step 2 with the user-declared roles instead of classifying
+from source.
 
 ### 2. Classify each agent's role
 
@@ -74,12 +107,40 @@ Aggregate notes:
 - Net latency change estimate (qualitative: ↓ / ↔ / ↑)
 - Risks to validate (e.g. "downgrading <X> requires a quality eval first")
 
+### 4a. Plan-mode extras — deployment shape
+
+In `plan` mode only, after step 4 also produce a **deployment-shape**
+recommendation derived from the per-agent rows:
+
+- Group agents by `recommended_model` and emit one Foundry / Azure
+  OpenAI deployment alias per distinct model id.
+- Use stable alias names (e.g. `chat`, `chat-high`, `chat-reasoning`)
+  not the model id directly, so the AppHost stays decoupled.
+- For each alias, list which agents will resolve it.
+
+Also emit a **verify-checklist** the user runs after wiring the code:
+
+1. Re-run `select-agent-models` in `recommend` mode against the built app.
+2. Confirm `delta: same` for every agent — that means the plan held.
+3. Any `delta: upgrade|downgrade` means a role was classified
+   differently from source than the user declared at plan time —
+   reconcile before continuing.
+
 ### 5. Write the recommendation file
 
-Write to:
+In `recommend` mode write to:
 
 - `.copilot/perf-reports/model-plan-<UTC-timestamp>.md`
 - `.copilot/perf-reports/latest-model-plan.md`
+
+In `plan` mode write to:
+
+- `.copilot/perf-reports/model-plan-design-<UTC-timestamp>.md`
+- `.copilot/perf-reports/latest-model-plan-design.md`
+
+The two file series stay separate so a later `recommend` run can sit
+next to the original design-time plan and the verify-checklist can
+compare them.
 
 Layout in `references/plan-template.md`.
 
@@ -177,4 +238,5 @@ After apply mode:
   `IChatClient`s in the AppHost with distinct model ids.
 - `references/agent-resolution-template.md` — per-agent service
   registration patterns.
-- `references/plan-template.md` — exact Markdown layout for the plan file.
+- `references/plan-template.md` — exact Markdown layout for the plan file
+  (recommend-mode + plan-mode extras).
