@@ -2,8 +2,7 @@
 name: code-testing-agent
 description: >-
   Generates and writes new unit tests for any programming language —
-  scaffolds .NET test projects, pytest suites, Vitest/Jest suites,
-  Go test files, and JUnit suites, and configures coverage tooling
+  scaffolds test projects and configures coverage tooling
   (coverlet, pytest-cov, @vitest/coverage-v8) as part of test
   generation. Use when asked to generate tests, generate pytest
   tests, generate Vitest tests, write unit tests, add tests, improve
@@ -16,7 +15,8 @@ description: >-
   planning, and implementation pipeline so tests compile and pass.
   DO NOT USE FOR: running existing tests (use run-tests); analyzing
   existing coverage reports (use coverage-analysis or crap-score);
-  MSTest modernization (use writing-mstest-tests).
+  writing, fixing, or modernizing MSTest-specific tests, assertions,
+  attributes, or lifecycle (use writing-mstest-tests).
 license: MIT
 ---
 
@@ -151,7 +151,7 @@ The generator picks a strategy based on request scope:
 
 | User Request | Strategy | Why |
 |---|---|---|
-| "Generate tests for `src/services/UserService.ts`" | **Direct** | Single file, small scope — write tests immediately, skip sub-agents |
+| "Generate tests for `src/services/UserService.ts`" | **Direct** | Single file, small scope — write tests immediately, skip sub-agents (but still run the generator's Step 7 pre-completion gate — `test-gap-analysis` + `assertion-quality` — before finishing) |
 | "Add unit tests for my billing project" | **Single pass** | Moderate scope — one Research → Plan → Implement cycle covers it |
 | "Achieve 80% coverage across the entire solution" | **Iterative** | Large scope — multiple R→P→I cycles, each narrowing remaining gaps |
 
