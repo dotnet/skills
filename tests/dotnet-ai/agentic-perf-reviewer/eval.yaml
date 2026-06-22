@@ -1,0 +1,105 @@
+name: agentic-perf-reviewer
+required_agents:
+  - agentic-perf-reviewer
+
+# Routing-discrimination scenarios for the agent.
+# These exercise whether the agent description matches the right prompts
+# AND correctly punts non-agentic .NET perf questions to other agents.
+# Static / no-fixture tests — the assertions are over which agent the
+# host's description-matcher routes the prompt to.
+
+scenarios:
+  # ─── Should route TO agentic-perf-reviewer ─────────────────────────
+
+  - name: prompt-mentions-agentic-app-and-slowness
+    prompt: |
+      My agentic .NET app feels slow during multi-agent handoffs.
+      Can you review it?
+    assertions:
+      - type: agent_invoked
+        name: agentic-perf-reviewer
+
+  - name: prompt-mentions-aspire-foundry-perf-review
+    prompt: |
+      Review the perf of my Aspire + Foundry agent project at
+      ./MyApp for cost and latency issues.
+    assertions:
+      - type: agent_invoked
+        name: agentic-perf-reviewer
+
+  - name: prompt-mentions-topology-and-model-selection
+    prompt: |
+      Audit my Microsoft Agent Framework topology and per-agent
+      model selection — I think we have too many handoffs.
+    assertions:
+      - type: agent_invoked
+        name: agentic-perf-reviewer
+
+  - name: prompt-after-non-trivial-topology-change
+    prompt: |
+      I just added two new agents and an LLM-routed handoff edge.
+      Anything we should worry about before merging?
+    assertions:
+      - type: agent_invoked
+        name: agentic-perf-reviewer
+
+  # ─── Should NOT route to agentic-perf-reviewer ─────────────────────
+
+  - name: plain-dotnet-allocation-question-routes-to-perf-agent
+    prompt: |
+      My .NET service has high LOH allocations from string concatenation
+      in a hot loop. How do I fix?
+    assertions:
+      - type: agent_invoked
+        name: optimizing-dotnet-performance
+        # explicitly NOT agentic-perf-reviewer per the description's
+        # "Do NOT use for non-agentic .NET performance reviews" carve-out
+
+  - name: linq-hot-path-question-routes-to-perf-agent
+    prompt: |
+      Replace this LINQ-heavy hot path with something faster.
+    assertions:
+      - type: agent_invoked
+        name: optimizing-dotnet-performance
+
+  - name: async-anti-pattern-question-routes-to-perf-agent
+    prompt: |
+      I'm seeing thread-pool starvation. Where are my sync-over-async bugs?
+    assertions:
+      - type: agent_invoked
+        name: optimizing-dotnet-performance
+
+  - name: non-dotnet-project-no-invocation
+    prompt: |
+      Review my Python LangChain agent app for perf issues.
+    assertions:
+      - type: agent_invoked
+        name: none
+        # the description scopes to .NET MAF + Aspire + Foundry;
+        # Python LangChain should not match.
+
+  # ─── Should route to a child skill, NOT the agent ──────────────────
+
+  - name: install-perf-rules-directly-routes-to-skill
+    prompt: |
+      Install the agentic perf rules into my project's copilot instructions.
+    assertions:
+      - type: skill_invoked
+        name: configure-agentic-perf-rules
+        # direct rules-install requests should hit the skill, not the
+        # umbrella agent. The agent's description says "review ... +
+        # orchestrates", but pure install requests skip the review pass.
+
+  - name: pick-models-directly-routes-to-skill
+    prompt: |
+      Which model should each agent in my workflow use?
+    assertions:
+      - type: skill_invoked
+        name: select-agent-models
+
+  - name: wire-evals-directly-routes-to-skill
+    prompt: |
+      Set up evals for my agent app.
+    assertions:
+      - type: skill_invoked
+        name: setup-maf-evals

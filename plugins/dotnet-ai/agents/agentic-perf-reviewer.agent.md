@@ -126,3 +126,57 @@ Keep reports concise and actionable.
 - `select-agent-models` — per-agent model recommendations.
 - `setup-maf-evals` — telemetry / quality / compare harness.
 - `configure-agentic-perf-rules` — install always-on rules.
+
+## Common pitfalls
+
+Real-world failure modes for this agent — observed across the four
+target apps used during dogfooding.
+
+- **Routing to this agent when the project is non-agentic.** The
+  description string explicitly carves out plain .NET perf reviews
+  (allocations, async, LINQ, serialization, hot-path optimization) →
+  `optimizing-dotnet-performance`. If Pass 1 detection finds no
+  AppHost AND no `Microsoft.Agents.AI` reference AND no
+  `IChatClient` builders, abort cleanly. Do not "audit" a plain
+  ASP.NET API or a console app — surface the wrong-agent message
+  and recommend the .NET perf agent instead.
+- **Skipping Pass 2 because Pass 1 looks "fine".** Even when Pass 1
+  finds nothing alarming, Pass 2 (running `scan-agentic-app-perf`)
+  is mandatory. The scan has 24 checks the human eye misses (e.g.
+  T3 cycles in `WorkflowBuilder`, MH1 full-history sharing buried
+  in `WithChatOptions`). Quick-triage exit is only when the user
+  explicitly says "quick triage only".
+- **Citing findings from memory.** Always re-read
+  `.copilot/perf-reports/scan-<ts>.md` between Pass 2 and Pass 3.
+  Token-stream context drift will mangle line numbers and code
+  snippets if you cite from working memory. Open the file path,
+  re-read each finding's `file:line`, then write the synthesis.
+- **Pre-confirming a fix on the user's behalf.** When the user says
+  "audit and apply the fixes" in one turn, treat it as INTENT but
+  not as CONFIRMATION. The invoked skill (e.g. `select-agent-models`
+  apply mode, `configure-agentic-perf-rules`) must present its OWN
+  diff and obtain its OWN confirmation before any write. Pre-
+  confirming with "since you said apply, I'll go ahead" is a real
+  source of regressions.
+- **Recommending a model downgrade without an eval gate.** Any Pass
+  3 action that says "downgrade Agent X from gpt-4o to gpt-4o-mini"
+  must be paired with "validate via `setup-maf-evals` quality mode
+  before shipping". Apparent free wins on cost frequently regress
+  quality on edge cases.
+- **Producing numeric estimates without evidence.** Pass 1's
+  qualitative-only rule applies to the entire agent. Never write
+  "this will save 40% latency" without a `setup-maf-evals` compare
+  report you can cite. Replace with "should lower per-turn token
+  cost" or "may reduce critical-path latency".
+- **Single-agent apps reaching Pass 2.** Pass 2 will route to
+  `select-agent-models`, which then aborts (single-agent apps don't
+  benefit from per-agent model selection). When Pass 1 detects only
+  1 agent, skip the `select-agent-models` route in Pass 3's
+  follow-up offer — keep only the routes that actually apply
+  (typically `setup-maf-evals` + `configure-agentic-perf-rules`).
+- **Forgetting `configure-agentic-perf-rules` when no managed
+  block exists.** Pass 2 step 3 mandates this check. If the project
+  has no `.github/copilot-instructions.md` managed block, list it
+  as a Pass 3 follow-up regardless of other findings — installing
+  rules is the only durable way to prevent future regressions
+  between reviews.

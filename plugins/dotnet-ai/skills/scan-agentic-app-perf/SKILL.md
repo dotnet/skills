@@ -94,6 +94,11 @@ Sort findings by severity (critical → warn → info), then by `check_id`
 
 - `.copilot/perf-reports/scan-<UTC-timestamp>.md` (timestamped, kept)
 - `.copilot/perf-reports/latest-scan.md` (overwritten each run)
+- `.copilot/perf-reports/check-id-glossary.md` (overwritten each run)
+  — a one-line-per-code reference card so first-time readers of a
+  report can decode `T1`/`TI3`/`MA4` without opening the skill repo.
+  Source: copy the "Reference card" section verbatim from
+  `references/check-id-glossary.md`.
 
 See `references/report-template.md` for the exact layout.
 
@@ -185,4 +190,5 @@ After running:
 - `references/parallelism-checks.md` — sequential calls that could fan out.
 - `references/otel-coverage-checks.md` — Aspire dashboard, token/cost telemetry.
 - `references/model-assignment-checks.md` — single-model defaulting, role mismatch.
+- `references/check-id-glossary.md` — the reference card written alongside each report.
 - `references/report-template.md` — exact Markdown layout for the report.
