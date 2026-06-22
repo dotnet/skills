@@ -12,7 +12,7 @@ in the AppHost and agent service projects.
 **Why:** more agents = more LLM hops per turn. Every additional agent that
 can be routed to costs at least one extra round trip.
 
-**Next:** "Collapse <names> into a single agent with two tool calls instead
+**Next:** "Collapse `<names>` into a single agent with two tool calls instead
 of two agents."
 
 **Ref:** `skill:configure-agentic-perf-rules` if the project has no rules
@@ -29,7 +29,7 @@ chat completion.
 next agent before the work even starts is the most common cause of "why
 is my agent so slow".
 
-**Next:** "Replace the LLM router between <A> and <B> with a deterministic
+**Next:** "Replace the LLM router between `<A>` and `<B>` with a deterministic
 intent classifier or a tool call on the source agent."
 
 ### T3. Cycles in the agent graph (critical)
@@ -39,7 +39,7 @@ intent classifier or a tool call on the source agent."
 **Why:** cycles risk infinite loops if the loop-break condition is
 LLM-judged. Even with a turn cap, a cycle burns budget on retries.
 
-**Next:** "Break the cycle <A> → <B> → <A> by making <B>'s exit condition
+**Next:** "Break the cycle `<A>` → `<B>` → `<A>` by making `<B>`'s exit condition
 deterministic."
 
 ### T4. Single-leaf graph with > 2 hops (warn)
@@ -51,7 +51,7 @@ agents to reach it.
 could be one tool call.
 
 **Next:** "Move the routing logic into a tool on the entry agent and call
-<leaf> directly."
+`<leaf>` directly."
 
 ## Out of scope here
 

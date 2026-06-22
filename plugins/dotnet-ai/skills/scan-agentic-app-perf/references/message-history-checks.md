@@ -15,7 +15,7 @@ token cost. With 4 agents and a 6K-token history, you spend 24K input
 tokens per turn doing nothing.
 
 **Next:** "Pass only the last user message and a one-paragraph summary to
-<downstream>. Use `IChatHistoryReducer` or a manual slice."
+`<downstream>`. Use `IChatHistoryReducer` or a manual slice."
 
 ### MH2. No history cap (warn)
 
@@ -35,5 +35,5 @@ validator, tool router) is given full chat history.
 **Why:** deterministic steps do not need conversational context. Their
 prompt cost should be near-constant.
 
-**Next:** "Pass only the immediate input artifact to <agent>; drop the
+**Next:** "Pass only the immediate input artifact to `<agent>`; drop the
 chat history."

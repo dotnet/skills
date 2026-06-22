@@ -29,7 +29,7 @@ is using a frontier reasoning model.
 **Why:** the marginal quality is near-zero; you are paying for unused
 capability and per-call latency.
 
-**Next:** "Downgrade <agent> to a small model. Validate via
+**Next:** "Downgrade `<agent>` to a small model. Validate via
 `setup-maf-evals` quality mode."
 
 **Ref:** `skill:select-agent-models`

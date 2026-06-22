@@ -32,7 +32,7 @@ input does not depend on A's output.
 
 **Why:** the second call could start as soon as the inputs are known.
 
-**Next:** "Run <A> and <B> with `Task.WhenAll`. Rejoin in the parent
+**Next:** "Run `<A>` and `<B>` with `Task.WhenAll`. Rejoin in the parent
 agent for the consolidation step."
 
 ### P3. Tool fan-out behind a single tool wrapper (info)
@@ -44,5 +44,5 @@ APIs sequentially.
 that is internally serial is the hardest kind of latency to find from
 the outside.
 
-**Next:** "Parallelize the inner calls in <tool-name>; document the
+**Next:** "Parallelize the inner calls in `<tool-name>`; document the
 expected bound in the tool description so the agent can plan around it."
