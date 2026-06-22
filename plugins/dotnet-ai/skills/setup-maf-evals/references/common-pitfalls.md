@@ -26,6 +26,19 @@ Avoid them when scaffolding `<App>.Evals.Tests`.
   `metrics-glossary.md` (tier-aware) so a first-time reader can decode
   the columns. The `Reporting/MetricsGlossary.cs` template handles
   this — don't strip it.
+- **Misreading "Cache Miss" in the Diagnostic Data section.** With
+  `enableResponseCaching: true`, the report's per-call `cacheHit` flag
+  records whether the judge response cache was hit. Expect **Miss on
+  every call** in the `real agent + real judge` workflow — the cache
+  key is the judge's input prompt, which includes the agent's response,
+  and a live LLM agent's output varies run-to-run even at low
+  temperature. Hit/Miss is informational; it does not affect
+  correctness or scores. The cache pays off when you (a) capture agent
+  responses to fixtures and re-evaluate them while iterating on
+  rubrics, or (b) run a stub agent with deterministic output. To get
+  hits across runs you ALSO need to pin `executionName` (the cache is
+  scoped per execution name; a fresh timestamp per run guarantees
+  misses regardless of input).
 
 ## Clients (agent vs judge vs stub)
 
