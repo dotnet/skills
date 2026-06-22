@@ -8,6 +8,7 @@ description: >
   without tests, polyglot test-pairing map.
   DO NOT USE FOR: coverage, CRAP risk. For .NET-only repos prefer
   `find-untested-sources`.
+disable-model-invocation: true
 license: MIT
 ---
 

@@ -6,16 +6,14 @@ description: >
   specific test class, category, or trait) via filters; running a single
   target framework in a multi-TFM project (`--framework`); producing TRX
   reports; collecting crash or hang dumps; diagnosing why `dotnet test`
-  fails or uses the wrong argument syntax. Detects which test platform
-  (VSTest vs Microsoft.Testing.Platform) and framework (MSTest / xUnit /
-  NUnit / TUnit) a project uses from `global.json`, `.csproj`, and
-  `Directory.Build.props`, then picks the matching command: `--` separator
-  rules on .NET SDK 8/9 vs 10+; the filter flag (--filter, --filter-class,
-  --filter-trait, --filter-query, --treenode-filter); TRX (--report-trx vs
-  --logger trx); blame flags (--blame-hang-timeout, --blame-crash). DO NOT
-  USE FOR: writing/generating test code (use code-testing-agent), iterating
-  on failing tests without rebuilding (use mtp-hot-reload), CI/CD config, or
-  debugging test logic.
+  fails or uses the wrong argument syntax. Detects the test platform
+  (VSTest vs Microsoft.Testing.Platform) and framework
+  (MSTest/xUnit/NUnit/TUnit), then picks the matching command: the `--`
+  separator on .NET SDK 8/9 vs 10+, the right filter flag (--filter,
+  --filter-class, --filter-trait, --filter-query, --treenode-filter), and
+  TRX/blame flags. DO NOT USE FOR: writing test code (use
+  code-testing-agent), iterating on failing tests without rebuilding (use
+  mtp-hot-reload), CI/CD config, or debugging test logic.
 license: MIT
 ---
 
