@@ -216,7 +216,7 @@ See the `filter-syntax` skill for the complete filter syntax for each platform a
 
 - **VSTest** (MSTest, xUnit v2, NUnit): `dotnet test --filter <EXPRESSION>` with `=`, `!=`, `~`, `!~` operators
 - **MTP -- MSTest and NUnit**: Same `--filter` syntax as VSTest; pass after `--` on SDK 8/9, directly on SDK 10+
-- **MTP -- xUnit v3**: Uses `--filter-class`, `--filter-method`, `--filter-trait` (not VSTest expression syntax)
+- **MTP -- xUnit v3**: Uses `--filter-class`, `--filter-method`, `--filter-trait` (not VSTest expression syntax). For a **single combined expression** (e.g., a class-name pattern AND a trait), use `--filter-query` with the xUnit v3 query filter language: path segments `/<assembly>/<namespace>/<class>/<method>` with `*` wildcards and a `[Trait=Value]` qualifier — for example `dotnet test -- --filter-query "/*/*/*IntegrationTests*/*[Category=Smoke]"`. See the `filter-syntax` skill for the full query language.
 - **MTP -- TUnit**: Uses `--treenode-filter` with path-based syntax
 
 #### When the user names a test category, trait, or group
