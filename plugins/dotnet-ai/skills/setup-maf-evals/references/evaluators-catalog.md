@@ -193,19 +193,22 @@ public sealed class RubricEvaluator : IEvaluator
         var userQuery = string.Join("\n", messages.Select(m => m.Text));
         var responseText = modelResponse.Text ?? string.Empty;
 
-        var prompt = $"""
+        // NOTE: $$"""...""" (double-$) raw string. Inside, single { } is literal
+        // (matters for the JSON braces below), and {{var}} is interpolation.
+        // Plain $"""...""" would reject `{{ ... }}` as literal with CS9006.
+        var prompt = $$"""
             You are scoring an assistant response against the rubric below.
 
             ## Rubric
-            {_rubric}
+            {{_rubric}}
 
             ## User query
-            {userQuery}
+            {{userQuery}}
 
             ## Assistant response
-            {responseText}
+            {{responseText}}
 
-            Respond with strict JSON: {{ "score": <1-5 int>, "rationale": "<1-2 sentences>" }}.
+            Respond with strict JSON: { "score": <1-5 int>, "rationale": "<1-2 sentences>" }.
             5 = perfectly satisfies every rubric clause. 1 = ignores the rubric.
             """;
 
