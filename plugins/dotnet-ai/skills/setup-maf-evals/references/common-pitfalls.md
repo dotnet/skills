@@ -94,6 +94,58 @@ Avoid them when scaffolding `<App>.Evals.Tests`.
   `reference_response`, NLP evaluators emit `(no reference)` and the
   scenario shows blanks in the report.
 
+### Tuning Quality for stylistic agents
+
+The built-in Quality evaluators (`RelevanceEvaluator`,
+`CoherenceEvaluator`, `FluencyEvaluator`, `CompletenessEvaluator`,
+`EquivalenceEvaluator`) use **generic rubrics baked into the
+evaluator's judge prompt**. They don't know about *your* agent's
+contract.
+
+- **`CompletenessEvaluator` explicitly rewards thoroughness.** Any
+  agent whose contract is "compress / summarize / dumb-down" (ELI5,
+  TL;DR summarizers, tweet-length responders, structured-extractor
+  agents) will score 1-2 even when working perfectly. The score is
+  measuring conformance to a generic "answer thoroughly" rubric, not
+  conformance to your agent's contract.
+- **`EquivalenceEvaluator` rewards lexical/semantic match to a
+  reference.** If your `golden.json` references are full-form
+  explanations but your agent emits paraphrases or stylized variants,
+  Equivalence will flag drift that isn't a real regression.
+- **`CoherenceEvaluator` and `FluencyEvaluator`** penalize
+  fragmentary / one-line / heavily-structured outputs (JSON-only,
+  bullet-only, single-sentence). Agents that respond in a strict
+  format will be marked down.
+- **Only `RelevanceEvaluator` is largely intent-agnostic** — it
+  checks "did the response address the query" without preferring
+  long-form. It's the one Quality metric that's mostly safe to leave
+  on for any agent.
+
+**Three remediation patterns, in increasing order of effort:**
+
+1. **Drop the offending evaluators per app.** Edit
+   `Reporting/ReportingConfig.cs` and remove `CompletenessEvaluator`
+   / `EquivalenceEvaluator` from the judge-tier evaluator list.
+   Keep Relevance + Coherence + Fluency. Document the choice in a
+   `// per-app: ELI5 contract → drop Completeness` comment so future
+   re-scaffolds don't add them back.
+2. **Rewrite goldens in the agent's voice.** Edit `Quality/golden.json`
+   so `reference_response` is itself ELI5-style (or tweet-style, or
+   bullet-style). Equivalence becomes meaningful again; Completeness
+   still complains.
+3. **Add a custom rubric-driven evaluator.** Write a `RubricEvaluator`
+   that reads `Quality/rubric.md` and asks the judge to score the
+   response against *your* criteria ("Is the explanation appropriate
+   for a 5-year-old? Score 1-5."). See
+   `references/evaluators-catalog.md#custom-rubric-driven-evaluator`
+   for the template. This is the right long-term answer for any
+   non-generic agent.
+
+> **Surface this in the chat output on first scaffold.** The user
+> shouldn't have to interpret bad Quality scores against a bad-fit
+> rubric and conclude their agent is broken. Step 11 of `SKILL.md`
+> calls this out explicitly in the Quality headline block.
+
 ## Configuration
 
 - **Hard-coding a price table.** Lives in `Telemetry/prices.json`,

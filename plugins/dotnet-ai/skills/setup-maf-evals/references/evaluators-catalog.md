@@ -141,3 +141,128 @@ and cost 4× more Foundry calls for the same metrics.
 `hard_fail: true` makes any below-threshold metric fail the test.
 Default `false` makes the test pass-through informational — failures
 show in the report only.
+
+## Custom rubric-driven evaluator
+
+The built-in Quality evaluators (Relevance, Coherence, Fluency,
+Completeness, Equivalence) judge against generic rubrics baked into
+the evaluator's judge prompt. They cannot read `Quality/rubric.md`.
+That makes them ill-fitting for agents with deliberate stylistic
+constraints (ELI5 / summarizer / strict-format / persona-bound
+agents) — see `common-pitfalls.md#tuning-quality-for-stylistic-agents`.
+
+For those agents, scaffold a `RubricEvaluator` that reads
+`Quality/rubric.md` and asks the judge to score against *your*
+criteria. The pattern is shape-identical to `WordCountEvaluator` —
+it just delegates to the judge chat client.
+
+```csharp
+// Reporting/RubricEvaluator.cs
+// Custom rubric-driven evaluator. Reads Quality/rubric.md and asks
+// the judge to score the response against per-app criteria. Emits a
+// single "RubricFit" metric (numeric 1-5) plus a free-text rationale.
+public sealed class RubricEvaluator : IEvaluator
+{
+    public const string MetricName = "RubricFit";
+    public IReadOnlyCollection<string> EvaluationMetricNames { get; } = [MetricName];
+
+    private readonly string _rubric;
+
+    public RubricEvaluator(string rubricMarkdown) => _rubric = rubricMarkdown;
+
+    public static RubricEvaluator FromFile(string path) =>
+        new(File.ReadAllText(path));
+
+    public async ValueTask<EvaluationResult> EvaluateAsync(
+        IEnumerable<ChatMessage> messages,
+        ChatResponse modelResponse,
+        ChatConfiguration? chatConfiguration = null,
+        IEnumerable<EvaluationContext>? additionalContext = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (chatConfiguration?.ChatClient is null)
+        {
+            // Judge tier not active — return a stubbed Inconclusive metric.
+            return new EvaluationResult(new NumericMetric(MetricName)
+            {
+                Interpretation = new EvaluationMetricInterpretation(
+                    EvaluationRating.Inconclusive, reason: "Judge not wired.")
+            });
+        }
+
+        var userQuery = string.Join("\n", messages.Select(m => m.Text));
+        var responseText = modelResponse.Text ?? string.Empty;
+
+        var prompt = $"""
+            You are scoring an assistant response against the rubric below.
+
+            ## Rubric
+            {_rubric}
+
+            ## User query
+            {userQuery}
+
+            ## Assistant response
+            {responseText}
+
+            Respond with strict JSON: {{ "score": <1-5 int>, "rationale": "<1-2 sentences>" }}.
+            5 = perfectly satisfies every rubric clause. 1 = ignores the rubric.
+            """;
+
+        var judge = await chatConfiguration.ChatClient.GetResponseAsync(
+            prompt, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        // Tolerant parse: fall back to Inconclusive on bad JSON.
+        var (score, rationale) = TryParse(judge.Text ?? "");
+
+        var metric = new NumericMetric(MetricName, value: score)
+        {
+            Interpretation = new EvaluationMetricInterpretation(
+                rating: score switch { >= 4 => EvaluationRating.Good,
+                                       3    => EvaluationRating.Average,
+                                       _    => EvaluationRating.Poor },
+                reason: rationale)
+        };
+        return new EvaluationResult(metric);
+    }
+
+    private static (int score, string rationale) TryParse(string raw)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(raw.Trim().Trim('`', ' ', '\n', '\r'));
+            return (doc.RootElement.GetProperty("score").GetInt32(),
+                    doc.RootElement.GetProperty("rationale").GetString() ?? "");
+        }
+        catch { return (3, "Judge response was unparseable; defaulted to Average."); }
+    }
+}
+```
+
+Wire it from `Reporting/ReportingConfig.cs`'s judge-tier evaluator
+list **alongside** Relevance/Coherence/Fluency (drop Completeness +
+Equivalence per the pitfall guidance):
+
+```csharp
+// In ReportingConfig.ForQuality(), when EvalEnv.UseRealJudge:
+evaluators.Add(new RelevanceEvaluator());
+evaluators.Add(new CoherenceEvaluator());
+evaluators.Add(new FluencyEvaluator());
+evaluators.Add(RubricEvaluator.FromFile(
+    Path.Combine(AppContext.BaseDirectory, "Quality", "rubric.md")));
+// CompletenessEvaluator + EquivalenceEvaluator deliberately dropped
+// for this app — see common-pitfalls.md tuning section.
+```
+
+Ensure `Quality/rubric.md` is copied to output by adding to the csproj:
+
+```xml
+<ItemGroup>
+  <None Update="Quality/rubric.md" CopyToOutputDirectory="PreserveNewest" />
+</ItemGroup>
+```
+
+This `RubricFit` metric will appear in `report.html` alongside the
+built-ins, and the rationale shows in the per-scenario detail drawer.
+Update `Reporting/MetricsGlossary.cs`'s `QualityEntries` constant to
+add a one-line `RubricFit` definition pointing at `Quality/rubric.md`.

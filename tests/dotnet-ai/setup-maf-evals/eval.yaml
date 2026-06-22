@@ -332,3 +332,28 @@ scenarios:
         path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
         text: "EVAL_JUDGE_DEPLOYMENT_NAME"
 
+  - name: pitfalls-doc-warns-stylistic-agents-fail-completeness
+    prompt: |
+      Read references/common-pitfalls.md and references/evaluators-catalog.md from setup-maf-evals.
+    assertions:
+      - type: file_contains
+        path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
+        text: "Tuning Quality for stylistic agents"
+      - type: file_contains
+        path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
+        text: "CompletenessEvaluator"
+      - type: file_contains
+        path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/evaluators-catalog.md
+        text: "RubricEvaluator"
+
+  - name: compare-mode-is-opt-in-not-default
+    prompt: |
+      Read SKILL.md for setup-maf-evals; what's the default for compare mode?
+    assertions:
+      - type: file_contains
+        path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/SKILL.md
+        text: "Wire compare mode (opt-in)"
+      - type: file_contains
+        path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/SKILL.md
+        text: "Compare mode is opt-in"
+

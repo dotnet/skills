@@ -53,19 +53,27 @@ Present the detection summary, then confirm:
 
 1. **Project shape** (default: MSTest). Alternative: console runner
    (legacy v1 shape) — only emit if user explicitly asks for it.
-2. **Evaluator tiers to enable.** Defaults shown; user can override.
+2. **Evaluator categories to enable.** Defaults shown; user can override.
 
-   | Tier | Evaluators | Cost | Needs |
-   |------|-----------|------|-------|
-   | 1 — NLP (default ON) | BLEU, GLEU, F1, Words | free | reference responses in golden.json |
-   | 2 — Quality (default ON, but stubbed) | Relevance, Coherence, Fluency, Completeness, Equivalence, Groundedness; agent: IntentResolution, TaskAdherence, ToolCallAccuracy | per-call judge tokens | real `IChatClient` + `EVAL_USE_REAL_JUDGE=1` |
-   | 3 — Safety (default OFF) | `ContentHarmEvaluator` (Hate+SelfHarm+Violence+Sexual single-shot), ProtectedMaterial, IndirectAttack, CodeVulnerability, UngroundedAttributes, GroundednessPro | Foundry evaluation service charges | Azure AI Foundry endpoint + `EVAL_USE_FOUNDRY_SAFETY=1` |
+   | Category | Evaluators | Cost | Needs | Default |
+   |------|-----------|------|-------|---------|
+   | **Quality** *(headline)* | Relevance, Coherence, Fluency, Completeness, Equivalence, Groundedness; agent: IntentResolution, TaskAdherence, ToolCallAccuracy | per-call judge tokens | real `IChatClient` + `EVAL_USE_REAL_JUDGE=1` | **ON** (stubbed until judge wired) |
+   | NLP (zero-config sanity) | BLEU, GLEU, F1, Words | free | reference responses in golden.json | ON |
+   | Safety | `ContentHarmEvaluator` (Hate+SelfHarm+Violence+Sexual single-shot), ProtectedMaterial, IndirectAttack, CodeVulnerability, UngroundedAttributes, GroundednessPro | Foundry evaluation service charges | Azure AI Foundry endpoint + `EVAL_USE_FOUNDRY_SAFETY=1` | **OFF** — prompt the user: "Wire safety evaluators too? (y/N)" |
+
+   Frame Quality as the headline evaluation; NLP is the zero-config
+   first-run experience that emits a real `report.html` before any
+   creds exist; Safety is the opt-in for production-bound apps.
 
 3. **IChatClient detection result.** Show what was detected (e.g., "Found
    `AddAzureOpenAIChatClient` in `AppHost.cs:41` with deployment alias `chat`").
    Ask the user to confirm or override. If detection failed, generate a
    stub factory the user will fill in.
-4. **Run modes to scaffold** (telemetry / quality / compare). Default: all three.
+4. **Run modes to scaffold.** Telemetry (default ON) and Quality (default
+   ON). **Compare mode is opt-in** — prompt the user: "Wire compare
+   mode for side-by-side matrix.json runs? (y/N)". Compare adds the
+   largest scaffold (extra runner + matrix.json + delta-table generator)
+   and is the least commonly used surface.
 5. **Optional add-ons:** Aspire dashboard panel, GitHub Actions workflow.
 
 ### 3. Scaffold the project
@@ -79,8 +87,9 @@ Always emit: `Reporting/{ReportingConfig.cs, Tier.cs, AievalReport.cs,
 WordCountEvaluator.cs, MetricsGlossary.cs}`, `Wire/{AgentChatClientFactory.cs,
 StubChatClient.cs}`, `Quality/{QualityTests.cs, rubric.md, golden.json}`,
 `Telemetry/{TelemetryTests.cs, inputs.json, prices.json}`,
-`Compare/{CompareTests.cs, matrix.json}`, `quality.thresholds.json`,
-`GlobalUsings.cs`, `dotnet-tools.json`. Emit `Safety/SafetyTests.cs` and
+`quality.thresholds.json`, `GlobalUsings.cs`, `dotnet-tools.json`.
+Emit `Compare/{CompareTests.cs, matrix.json}` only if the user opted into
+compare mode (step 2 #4). Emit `Safety/SafetyTests.cs` and
 `.github/workflows/evals.yml` only if the user opted in (steps 7 and 9).
 
 After writing files:
@@ -108,9 +117,10 @@ produces `report.html`. Uses `DiskBasedReportingConfiguration` +
 evaluators; judge tier (`EVAL_USE_REAL_JUDGE=1`) adds the LLM-as-judge
 evaluators from `references/evaluators-catalog.md`.
 
-### 6. Wire compare mode
+### 6. Wire compare mode (opt-in)
 
-See `references/compare-mode.md`. Default ON. Reads `matrix.json`,
+See `references/compare-mode.md`. **Default OFF.** Only scaffold when
+the user opted in at step 2 (#4). When enabled, reads `matrix.json`;
 each entry runs through the **same** `ReportingConfiguration` with a
 distinct `executionName`, so `aieval report` aggregates the comparison
 columns into a single HTML view. Also writes a `compare.md` delta
@@ -154,18 +164,24 @@ judge; `AZURE_AI_FOUNDRY_ENDPOINT` → safety), and uploads
 
 ### 11. Surface in chat
 
-Print a 3-block summary:
+Lead with **Quality** as the headline evaluation; frame NLP as the
+zero-config sanity check and Safety/Compare as additions.
 
-1. **Tier banner.** Which tier is active (Stub / Judge / Foundry-Safety)
-   and the exact env-var commands to upgrade.
-2. **Paths.** Project path, HTML report path, **glossary path**
-   (`metrics-glossary.md` co-located with `report.html`), persistent
-   `_store/` path.
-3. **CLI invocations.** `dotnet test`, `dotnet tool run aieval report`,
-   and the IChatClient detection result so the user knows what was
-   auto-wired.
-4. **Promoting to the judge tier.** If the app's `IChatClient` reads from
-   a connection string (Aspire pattern), include the exact two commands:
+1. **Quality (headline).** State whether the judge is wired:
+   - *Stubbed* — "Quality scaffolded; judge will run once you wire
+     `EVAL_USE_REAL_JUDGE=1` + a chat endpoint. The next block tells
+     you how."
+   - *Live* — "Quality judge active against `<deployment>`; report
+     shows Relevance / Coherence / Fluency / Completeness / Equivalence."
+   - Caveat the user **must** know up-front: *"The built-in Quality
+     rubrics are generic. Agents with deliberate stylistic constraints
+     (brevity, persona, format adherence) will score low on
+     Completeness / Equivalence even when working as designed. See
+     `references/common-pitfalls.md#tuning-quality-for-stylistic-agents`
+     for the per-app override pattern."*
+2. **Promoting Quality to the judge tier.** If the app's `IChatClient`
+   reads from a connection string (Aspire pattern), include the exact
+   two commands:
 
    ```pwsh
    dotnet user-secrets init --project <App>.Evals.Tests
@@ -185,7 +201,20 @@ Print a 3-block summary:
    `EVAL_JUDGE_DEPLOYMENT_NAME=<non-reasoning-alias>` so the judge
    points at a different deployment than the agent. Full details in
    `references/ichatclient-detection.md`.
-5. **Follow-up recommendation.** "Re-run after applying a
+3. **NLP (zero-config sanity).** "`report.html` already populates with
+   Words / BLEU / GLEU / F1 from `golden.json` without any creds — run
+   `dotnet test` now to see it."
+4. **Additional categories you can wire.** List Safety (`EVAL_USE_FOUNDRY_SAFETY=1`
+   + opt-in scaffold) and Compare (re-run the skill with `compare: true`
+   if it wasn't opted in originally) as one-line bullets — not in the
+   main flow.
+5. **Paths.** Project path, `report.html` path, **glossary path**
+   (`metrics-glossary.md` co-located with `report.html`), persistent
+   `_store/` path.
+6. **CLI invocations.** `dotnet test`, `dotnet tool run aieval report`,
+   and the IChatClient detection result so the user knows what was
+   auto-wired.
+7. **Follow-up recommendation.** "Re-run after applying a
    `select-agent-models` recommendation to confirm no quality
    regression."
 
