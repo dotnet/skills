@@ -9,6 +9,7 @@ description: >
   protocol messages, configuring logging for stdio and HTTP servers.
   DO NOT USE FOR: creating new MCP servers (use mcp-csharp-create), writing automated tests
   (use mcp-csharp-test), publishing or deploying to production (use mcp-csharp-publish).
+license: MIT
 ---
 
 # C# MCP Server Debugging
@@ -209,5 +210,5 @@ builder.Logging.AddConsole(options =>
 
 ## More Info
 
-- [MCP Inspector](https://www.npmjs.com/package/@modelcontextprotocol/inspector) — Interactive debugging tool for MCP servers
+- [MCP Inspector](https://www.npmjs.com/package/@modelcontextprotocol/inspector/v/0.21.1) — Interactive debugging tool for MCP servers
 - [VS Code MCP documentation](https://code.visualstudio.com/docs/copilot/chat/mcp-servers) — Configuring MCP servers in VS Code

@@ -1,10 +1,12 @@
 ---
 description: >-
-  Creates structured test implementation plans from research
-  findings. Organizes tests into phases by priority and complexity. Works with any
-  language.
+  Creates structured test implementation plans from research findings.
+
+  Use when: organizing tests into phases, prioritizing test generation,
+  creating .testagent/plan.md from research.
 name: code-testing-planner
 user-invocable: false
+license: MIT
 ---
 
 # Test Planner
@@ -25,13 +27,14 @@ Read `.testagent/research.md` to understand:
 - Files that need tests
 - Testing framework and patterns
 - Build/test commands
-- **Coverage baseline** and strategy (broad vs targeted)
+- **Dependency graph** (leaf types, mid-layer, top-layer)
+- **Estimated coverage** per source file (untested / partially tested / well tested)
 
-### 2. Choose Strategy Based on Coverage
+### 2. Choose Strategy Based on Estimated Coverage
 
-Check the **Coverage Baseline** section:
+Check the **Estimated Coverage** information in the research:
 
-**Broad strategy** (coverage <60% or unknown):
+**Broad strategy** (most files are untested or estimated coverage is unknown):
 
 - Generate tests for **all** source files systematically
 - Organize into phases by priority and complexity (2-5 phases)
@@ -39,18 +42,19 @@ Check the **Coverage Baseline** section:
 - If >15 source files, use more phases (up to 8-10)
 - List ALL source files and assign each to a phase
 
-**Targeted strategy** (coverage >60%):
+**Targeted strategy** (most files are well tested):
 
-- Focus exclusively on coverage gaps from the research
-- Prioritize completely uncovered functions, then partially covered complex paths
-- Skip files with >90% coverage
+- Focus on files estimated as **untested** or **partially tested**
+- Prioritize completely untested files, then partially tested files with complex logic
+- Put less focus on files estimated as **well tested**
 - Fewer, more focused phases (1-3)
 
 ### 3. Organize into Phases
 
 Group files by:
 
-- **Priority**: High priority / uncovered files first
+- **Dependency graph layer**: Test leaf types first (no mocking needed), then mid-layer types (mock the leaves), then top-layer types
+- **Priority**: Untested files before partially tested ones
 - **Dependencies**: Base classes before derived
 - **Complexity**: Simpler files first to establish patterns
 - **Logical grouping**: Related files together
@@ -121,6 +125,8 @@ What this phase accomplishes and why it's first.
 ## Phase 2: [Descriptive Name]
 ...
 ```
+
+> **Concrete example**: For a filled-in plan with real method names, specific test scenarios, and phase structure, call the `code-testing-extensions` skill and read the matching `<language>-examples.md` file when one exists — `dotnet-examples.md`, `python-examples.md`, `typescript-examples.md`, `go-examples.md`, `java-examples.md` ("Sample Plan Output" section). For other languages, adapt the closest example.
 
 ## Rules
 

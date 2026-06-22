@@ -41,6 +41,27 @@ Generate concise, parameterized, and effective unit tests using discovered conve
 | **Best Practices**            | Use Arrange-Act-Assert pattern and proper naming (`Method_Condition_ExpectedResult`)                 |
 | **Buildable & Complete**      | Tests must compile, run, and contain no hallucinated or missed logic                                 |
 
+## Quality over Quantity
+
+When the task specifies particular test scenarios or behaviors to cover:
+
+1. **Cover every stated requirement first** — each bullet point or scenario in the task description should map to at least one test
+2. **Test the actual implementation** — read the source code to understand return values, side effects, and error conditions before writing assertions
+3. **Fewer focused tests beat many shallow ones** — 5 tests that thoroughly exercise the function are better than 20 that only check surface behavior
+4. **Every test must pass** — run tests after writing them; fix immediately if they fail
+
+## Write Tests That Pin Down Behavior
+
+A test that passes coincidentally gives a false signal. Beyond covering code, every test must *pin down behavior* — it should fail under a plausible bug. These principles are language-agnostic (MSTest, xUnit, NUnit, pytest, Jest, Go `testing`, JUnit, RSpec, ...):
+
+- **Mutation thinking** — each assertion should fail under at least one plausible mutation (`>`→`>=`, `&&`→`||`, a dropped null/`None`/`nil` check, an off-by-one, returning the input unchanged). If it survives every mutation, replace weak checks (`IsNotNull`/`toBeDefined`) with a concrete expected value.
+- **No tautologies** — never assert that a value you just wrote reads back unchanged; assert on the *transformation* the code performs, not that storage works.
+- **Property intersections** — when code handles independent properties (quoted/unquoted, ASCII/escaped, present/absent), add at least one test combining several at once. Bugs live at intersections, not on single axes.
+- **Behavior radius** — assert on at least one *secondary* observable (related state, log output, neighboring field, retry counter, event), not only the return value.
+- **Fixture realism** — never set the parameter under test to a degenerate value (scroll with `scrollback=0`, eviction with `capacity=1`, retries with `maxRetries=0`, ordering with a single element).
+
+Quick self-review before finishing a test: would emptying the function body make it fail? If not, the assertions are too weak.
+
 ## Parameterization
 
 - Prefer parameterized tests (e.g., `[DataRow]`, `[Theory]`, `@pytest.mark.parametrize`) over multiple similar methods
@@ -163,7 +184,7 @@ class TestCalculator:
 - **Scoped builds during development**: Build the specific test project during implementation for faster iteration
 - **Final full-workspace build**: After all test generation is complete, run a full non-incremental build from the workspace root to catch cross-project errors
 - **API signature verification**: Before calling any method in test code, verify the exact parameter types, count, and order by reading the source code
-- **Project reference validation**: Before writing test code, verify the test project references all source projects the tests will use. Check the `extensions/` folder for language-specific guidance (e.g., `extensions/dotnet.md` for .NET)
+- **Project reference validation**: Before writing test code, verify the test project references all source projects the tests will use. Call the `code-testing-extensions` skill and read the language-specific extension file for guidance (e.g., `dotnet.md` for .NET)
 
 ## Test Scope Guidelines
 

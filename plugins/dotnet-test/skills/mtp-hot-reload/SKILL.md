@@ -7,9 +7,11 @@ description: >
   "fix test faster", or needs to set up MTP hot reload to rapidly iterate on
   test failures. Covers setup (NuGet package, environment variable,
   launchSettings.json) and the iterative workflow for fixing tests.
-  DO NOT USE FOR: writing test code, diagnosing test failures, CI/CD pipeline
-  configuration, or Visual Studio Test Explorer hot reload (which is a
-  different feature).
+  DO NOT USE FOR: writing test code, diagnosing test failures, running tests
+  normally with dotnet test (use run-tests), applying test filters, producing
+  TRX reports, CI/CD pipeline configuration, or Visual Studio Test Explorer
+  hot reload (which is a different feature).
+license: MIT
 ---
 
 # MTP Hot Reload for Iterative Test Fixing
@@ -44,7 +46,7 @@ Set up and use Microsoft Testing Platform hot reload to rapidly iterate fixes on
 
 Hot reload requires MTP. It does **not** work with VSTest.
 
-Follow the detection procedure in [references/platform-detection.md](references/platform-detection.md) to determine the test platform.
+Follow the detection procedure in the `platform-detection` skill to determine the test platform.
 
 If the project uses VSTest, inform the user that MTP hot reload is not available and suggest migrating to MTP first (see `migrate-vstest-to-mtp`), or using Visual Studio's built-in Test Explorer hot reload feature instead.
 
@@ -97,7 +99,7 @@ Run the test project directly (not through `dotnet test`) to use hot reload in c
 dotnet run --project <project-path>
 ```
 
-To filter to specific failing tests, pass the filter after `--`. The syntax depends on the test framework -- see [references/filter-syntax.md](references/filter-syntax.md) for full details. Quick examples:
+To filter to specific failing tests, pass the filter after `--`. The syntax depends on the test framework -- see the `filter-syntax` skill for full details. Quick examples:
 
 | Framework | Filter syntax |
 |-----------|--------------|

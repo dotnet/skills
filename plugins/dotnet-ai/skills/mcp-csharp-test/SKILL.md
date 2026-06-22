@@ -9,6 +9,7 @@ description: >
   creating evaluations for MCP servers, writing eval questions, measuring tool quality.
   DO NOT USE FOR: testing MCP clients (this is server testing only), load or performance
   testing, testing non-.NET MCP servers, debugging server issues (use mcp-csharp-debug).
+license: MIT
 ---
 
 # C# MCP Server Testing
@@ -188,4 +189,3 @@ For the evaluation format, example questions, and detailed guidance, see [refere
 ## More Info
 
 - [xUnit documentation](https://xunit.net/docs/getting-started/netcore/cmdline) — Getting started with xUnit for .NET
-- [FluentAssertions](https://fluentassertions.com/) — Readable assertion library for .NET

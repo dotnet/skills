@@ -1,0 +1,369 @@
+name: skill-coverage
+# NOTE: The issue_comment trigger sources this workflow from the default branch.
+# The /skill-coverage slash command will only work after this workflow is merged to main.
+
+on:
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - 'tests/**'
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  #  Job 1: Analyze — runs trusted script with read-only permissions
+  #         Checks out base branch for tooling, PR head into a
+  #         separate worktree so untrusted code is never executed.
+  # ──────────────────────────────────────────────────────────────
+  analyze:
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       (github.event.comment.body == '/skill-coverage' ||
+        startsWith(github.event.comment.body, '/skill-coverage ') ||
+        startsWith(github.event.comment.body, '/skill-coverage\n')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      count: ${{ steps.detect.outputs.count }}
+      pr_number: ${{ github.event.pull_request.number || steps.pr-ref.outputs.pr_number }}
+
+    steps:
+      - name: Check commenter permissions
+        id: check-perms
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          script: |
+            const { data: perm } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: context.actor
+            });
+            const allowed = ['admin', 'write', 'maintain'];
+            if (!allowed.includes(perm.permission)) {
+              core.setFailed(`User ${context.actor} does not have write access (permission: ${perm.permission}).`);
+            }
+
+      - name: Parse slash command arguments
+        id: parse-command
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          # Extract the first line of the command
+          cmd_line=$(echo "$COMMENT_BODY" | head -n 1)
+
+          # Strip the command prefix
+          args="${cmd_line#/skill-coverage}"
+          args="$(echo "$args" | xargs)"  # trim whitespace
+
+          if [ -z "$args" ]; then
+            echo "mode=auto" >> "$GITHUB_OUTPUT"
+            echo "plugin=" >> "$GITHUB_OUTPUT"
+            echo "skill=" >> "$GITHUB_OUTPUT"
+          else
+            # Parse: plugin [skill]
+            plugin=$(echo "$args" | awk '{print $1}')
+            skill=$(echo "$args" | awk '{print $2}')
+            echo "mode=explicit" >> "$GITHUB_OUTPUT"
+            echo "plugin=$plugin" >> "$GITHUB_OUTPUT"
+            echo "skill=$skill" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Add reaction to comment
+        if: github.event_name == 'issue_comment'
+        continue-on-error: true
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'eyes'
+            });
+
+      - name: Get PR ref for comment trigger
+        id: pr-ref
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            core.setOutput('sha', pr.data.head.sha);
+            core.setOutput('base_sha', pr.data.base.sha);
+            core.setOutput('pr_number', context.issue.number);
+
+      # Checkout the default branch for trusted tooling (Measure-SkillCoverage.ps1),
+      # then fetch the PR head into a separate worktree so untrusted code is never executed.
+      - name: Checkout base branch (trusted tooling)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Fetch PR head into worktree
+        shell: bash
+        env:
+          PR_REF: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', steps.pr-ref.outputs.pr_number) || format('refs/pull/{0}/head', github.event.pull_request.number) }}
+        run: |
+          git fetch --depth=1 origin "$PR_REF":pr-head-ref
+          git worktree add pr-head pr-head-ref
+
+      - name: Fetch full history for diff
+        run: git fetch --unshallow || true
+
+      - name: Detect changed plugins and skills
+        id: detect
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CMD_MODE: ${{ steps.parse-command.outputs.mode }}
+          CMD_PLUGIN: ${{ steps.parse-command.outputs.plugin }}
+          CMD_SKILL: ${{ steps.parse-command.outputs.skill }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || steps.pr-ref.outputs.base_sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || steps.pr-ref.outputs.sha }}
+        run: |
+          # If explicit plugin/skill was provided via slash command, use that directly
+          if ($env:EVENT_NAME -eq 'issue_comment' -and $env:CMD_MODE -eq 'explicit') {
+            $targets = @([PSCustomObject]@{ Plugin = $env:CMD_PLUGIN; Skill = $env:CMD_SKILL })
+            $json = $targets | ConvertTo-Json -Compress -AsArray
+            "targets=$json" >> $env:GITHUB_OUTPUT
+            "count=$($targets.Count)" >> $env:GITHUB_OUTPUT
+            return
+          }
+
+          # Detect changed files between base and head
+          $diff = git diff --name-only "$env:PR_BASE_SHA" "$env:PR_HEAD_SHA" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            # Fallback: diff against merge-base
+            $mergeBase = git merge-base "$env:PR_BASE_SHA" "$env:PR_HEAD_SHA"
+            $diff = git diff --name-only $mergeBase "$env:PR_HEAD_SHA"
+          }
+
+          $changedFiles = $diff -split "`n" | Where-Object { $_ }
+
+          # Collect unique plugin/skill pairs from changed paths
+          $seen = @{}
+          $pluginWide = @{}
+          $targets = @()
+
+          foreach ($file in $changedFiles) {
+            # Match plugins/<plugin>/skills/<skill>/...
+            if ($file -match '^plugins/([^/]+)/skills/([^/]+)/') {
+              $key = "$($Matches[1])/$($Matches[2])"
+              if (-not $seen.ContainsKey($key)) {
+                $seen[$key] = $true
+                $targets += [PSCustomObject]@{ Plugin = $Matches[1]; Skill = $Matches[2] }
+              }
+            }
+            # Match tests/<plugin>/<skill>/...
+            elseif ($file -match '^tests/([^/]+)/([^/]+)/') {
+              $key = "$($Matches[1])/$($Matches[2])"
+              if (-not $seen.ContainsKey($key)) {
+                $seen[$key] = $true
+                $targets += [PSCustomObject]@{ Plugin = $Matches[1]; Skill = $Matches[2] }
+              }
+            }
+            # Match plugins/<plugin>/ level changes (plugin.json etc.) - run all skills
+            elseif ($file -match '^plugins/([^/]+)/[^/]+$') {
+              $pluginWide[$Matches[1]] = $true
+            }
+          }
+
+          # For plugin-wide changes, replace per-skill targets with a single plugin-wide target
+          foreach ($plugin in $pluginWide.Keys) {
+            $targets = @($targets | Where-Object { $_.Plugin -ne $plugin })
+            $targets += [PSCustomObject]@{ Plugin = $plugin; Skill = '' }
+          }
+
+          if ($targets.Count -eq 0) {
+            Write-Host "No plugin/skill changes detected."
+            "count=0" >> $env:GITHUB_OUTPUT
+            "targets=[]" >> $env:GITHUB_OUTPUT
+            return
+          }
+
+          Write-Host "Detected $($targets.Count) target(s):"
+          $targets | ForEach-Object { Write-Host "  - $($_.Plugin)$(if ($_.Skill) { "/$($_.Skill)" })" }
+
+          $json = $targets | ConvertTo-Json -Compress -AsArray
+          "targets=$json" >> $env:GITHUB_OUTPUT
+          "count=$($targets.Count)" >> $env:GITHUB_OUTPUT
+
+      - name: Run skill coverage
+        if: steps.detect.outputs.count != '0'
+        id: coverage
+        shell: pwsh
+        env:
+          TARGETS_JSON: ${{ steps.detect.outputs.targets }}
+        run: |
+          $targets = $env:TARGETS_JSON | ConvertFrom-Json
+          $allJson = @()
+          $summary = @()
+
+          # Run the trusted script from base branch against PR content in the worktree
+          $scriptPath = "$env:GITHUB_WORKSPACE/eng/skill-coverage/Measure-SkillCoverage.ps1"
+          $prRoot = "$env:GITHUB_WORKSPACE/pr-head"
+
+          foreach ($t in $targets) {
+            $args = @{ Format = 'Json'; RepoRoot = $prRoot }
+
+            if ($t.Plugin) { $args.PluginName = $t.Plugin }
+            if ($t.Skill) { $args.SkillName = $t.Skill }
+
+            Write-Host "::group::Coverage: $($t.Plugin)$(if ($t.Skill) { "/$($t.Skill)" })"
+
+            try {
+              $result = & $scriptPath @args
+              $parsed = ($result | Out-String) | ConvertFrom-Json
+
+              # Handle single or array results
+              $reports = if ($parsed -is [array]) { $parsed } else { @($parsed) }
+
+              foreach ($r in $reports) {
+                $allJson += $r
+                $pct = $r.summary.percentage
+                $icon = if ($pct -ge 80) { ':white_check_mark:' }
+                        elseif ($pct -ge 50) { ':warning:' }
+                        else { ':x:' }
+                $summary += "| $icon | ``$($r.plugin)`` | ``$($r.skill)`` | $($r.summary.coveredPoints)/$($r.summary.totalPoints) | **$pct%** |"
+              }
+            }
+            catch {
+              Write-Host "::warning::Failed to analyze $($t.Plugin)/$($t.Skill): $_"
+              $summary += "| :grey_question: | ``$($t.Plugin)`` | ``$($t.Skill)`` | — | error |"
+            }
+
+            Write-Host "::endgroup::"
+          }
+
+          # Build markdown report
+          $md = @()
+          $md += '## Skill Coverage Report'
+          $md += ''
+          $md += '| | Plugin | Skill | Covered | Coverage |'
+          $md += '|---|--------|-------|---------|----------|'
+          $md += $summary
+          $md += ''
+
+          # Add uncovered items details if any
+          $uncoveredDetails = @()
+          foreach ($r in $allJson) {
+            if ($r.uncovered.Count -gt 0) {
+              $uncoveredDetails += "<details><summary>Uncovered: <code>$($r.plugin)/$($r.skill)</code></summary>"
+              $uncoveredDetails += ''
+              foreach ($u in $r.uncovered) {
+                $uncoveredDetails += "- **[$($u.category)]** $($u.description) (line $($u.line))"
+              }
+              $uncoveredDetails += ''
+              $uncoveredDetails += '</details>'
+              $uncoveredDetails += ''
+            }
+          }
+          if ($uncoveredDetails.Count -gt 0) {
+            $md += $uncoveredDetails
+          }
+
+          # Write the report to a file for the comment job
+          $report = $md -join "`n"
+          $report | Out-File -FilePath coverage-report.md -Encoding utf8
+
+          # Also write to step summary
+          $report >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload coverage report
+        if: steps.detect.outputs.count != '0'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-report
+          path: coverage-report.md
+          retention-days: 1
+
+  # ──────────────────────────────────────────────────────────────
+  #  Job 2: Comment — posts results with write permissions only.
+  #         No PR code is checked out or executed in this job.
+  # ──────────────────────────────────────────────────────────────
+  comment:
+    needs: analyze
+    if: >-
+      needs.analyze.outputs.count != '0' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Download coverage report
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-report
+
+      - name: Post or update PR comment
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        env:
+          PR_NUMBER: ${{ needs.analyze.outputs.pr_number }}
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('coverage-report.md', 'utf8');
+            const marker = '<!-- skill-coverage-report -->';
+            const fullBody = `${marker}\n${body}`;
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+
+            // Paginate to find existing marker comment (handles PRs with >100 comments)
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100
+            });
+
+            const existing = comments.find(c => c.body && c.body.startsWith(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: fullBody
+              });
+              core.info(`Updated comment ${existing.id}`);
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: fullBody
+              });
+              core.info('Created new coverage comment');
+            }
+
+      - name: Post no-changes comment
+        if: needs.analyze.outputs.count == '0' && github.event_name == 'issue_comment'
+        continue-on-error: true
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '**Skill Coverage:** No plugin/skill changes detected in this PR. Use `/skill-coverage <plugin> [skill]` to target specific skills.'
+            });

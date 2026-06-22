@@ -25,12 +25,47 @@
 #   - Secret access: only users with write+ permission can trigger evaluation
 name: evaluation
 
+# For a triage/manual single-PR dispatch, surface the PR + head in the run name.
+# This run name also doubles as the idempotency key the PR-triage worker matches
+# on (eval_run_exists_for_head in pr-triage-act.sh): a workflow_dispatch run's
+# head_sha is the default branch — not the PR head — so the run name is how the
+# worker recognises that an evaluation has already been dispatched for this head.
+# For all other events the expression yields '' and GitHub uses the default name.
+run-name: "${{ inputs.pr_number != '' && format('Evaluate PR #{0} @ {1}', inputs.pr_number, inputs.head_sha) || '' }}"
+
 on:
+  # Manual trigger for one-off deploys (e.g., AGENTVIZ SPA update) and
+  # targeted re-runs of a single plugin without committing to main.
+  # The pr_number/head_sha inputs are also the PR-triage worker's entry point:
+  # the worker dispatches this workflow directly (workflow_dispatch is exempt
+  # from GitHub's GITHUB_TOKEN recursion guard) instead of relying on the
+  # `evaluate-now` label, which never fires when applied by the bot.
+  workflow_dispatch:
+    inputs:
+      plugin:
+        description: "Specific plugin to evaluate (leave blank for all)"
+        type: string
+        required: false
+      pr_number:
+        description: "PR number to evaluate. Routes the dispatch through the gate/PR pipeline instead of a full/plugin run."
+        type: string
+        required: false
+      head_sha:
+        description: "Short head SHA of the PR (informational; used for the run name and triage idempotency). The gate re-fetches the live head."
+        type: string
+        required: false
+
   # Same-repo PRs: post initial status
   pull_request:
 
-  # Fork PRs: post initial status (runs from base branch for security)
+  # Fork PRs: post initial status (runs from base branch for security).
+  # Also receives `labeled` events: a human applying the `evaluate-now` label
+  # is one entry point into this pipeline (alongside `/evaluate`). The triage
+  # worker runs as github-actions[bot] and cannot use the label (label events
+  # emitted by GITHUB_TOKEN do not start workflows), so it uses the
+  # workflow_dispatch pr_number input above instead.
   pull_request_target:
+    types: [opened, synchronize, reopened, labeled]
 
   # /evaluate command trigger
   issue_comment:
@@ -41,7 +76,11 @@ on:
     - cron: '0 0 * * *'  # Once daily at midnight UTC
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'issue_comment' && (startsWith(github.event.comment.body, '/evaluate') && format('eval-{0}', github.event.issue.number) || format('eval-noop-{0}-{1}', github.event.issue.number, github.event.comment.id)) || (github.event_name == 'pull_request' && format('eval-status-{0}', github.event.pull_request.number) || (github.event_name == 'pull_request_target' && format('eval-fork-status-{0}', github.event.pull_request.number) || github.run_id)) }}
+  # /evaluate (issue_comment), the human-applied `evaluate-now` label
+  # (pull_request_target labeled), and the triage worker's workflow_dispatch
+  # (pr_number input) all share the same `eval-<pr_number>` group, so a race
+  # between any of them collapses to a single run for the PR.
+  group: ${{ github.workflow }}-${{ (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/evaluate')) && format('eval-{0}', github.event.issue.number) || (github.event_name == 'pull_request_target' && github.event.action == 'labeled' && github.event.label.name == 'evaluate-now') && format('eval-{0}', github.event.pull_request.number) || (github.event_name == 'workflow_dispatch' && inputs.pr_number != '') && format('eval-{0}', inputs.pr_number) || (github.event_name == 'issue_comment' && format('eval-noop-{0}-{1}', github.event.issue.number, github.event.comment.id)) || (github.event_name == 'pull_request' && format('eval-status-{0}', github.event.pull_request.number)) || (github.event_name == 'pull_request_target' && format('eval-fork-status-{0}', github.event.pull_request.number)) || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -90,12 +129,14 @@ jobs:
             Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
             Select-Object -First 1
 
-          # Skill-validator changes need evaluation. Workflow YAML changes don't
-          # require /evaluate because the issue_comment trigger always runs from
-          # main anyway — workflow changes are only effective after merge.
-          # Documentation files don't affect evaluation.
+          # Skill-validator and evaluation pipeline changes need evaluation.
+          # Documentation files under src/ don't affect evaluation.
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
+            Where-Object {
+              ($_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)') -or
+              ($_ -match '^eng/vally-adapter/') -or
+              $_ -match '^\.github/workflows/(evaluation|vally-evaluation)\.yml$'
+            } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -126,6 +167,8 @@ jobs:
   fork-pr-status:
     if: >-
       github.event_name == 'pull_request_target' &&
+      github.event.action != 'labeled' &&
+      github.event.action != 'unlabeled' &&
       github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     permissions:
@@ -156,7 +199,11 @@ jobs:
             Select-Object -First 1
 
           $hasInfraChanges = $changedFiles |
-            Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
+            Where-Object {
+              ($_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)') -or
+              ($_ -match '^eng/vally-adapter/') -or
+              $_ -match '^\.github/workflows/(evaluation|vally-evaluation)\.yml$'
+            } |
             Select-Object -First 1
 
           if ($hasSkillChanges -or $hasInfraChanges) {
@@ -185,12 +232,27 @@ jobs:
 
   # ==========================================================================
   # GATE JOB
-  # Validate /evaluate command: must be on a PR from a user with write+ permissions.
+  # Validate evaluation trigger. Three entry points:
+  #   1. /evaluate comment (issue_comment) — original human path
+  #   2. evaluate-now label (pull_request_target labeled) — a human applying
+  #      the label (the bot cannot: GITHUB_TOKEN label events don't start runs)
+  #   3. workflow_dispatch with pr_number — the pr-triage worker's path. It runs
+  #      as github-actions[bot] and dispatches this workflow directly, since
+  #      workflow_dispatch is exempt from the GITHUB_TOKEN recursion guard.
+  # All must come from a trusted actor (write+ on the repo, or the workflow's
+  # own github-actions[bot] identity for paths 2 and 3).
   # ==========================================================================
   gate:
     if: >-
-      github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '/evaluate')
+      (github.event.issue.pull_request &&
+       startsWith(github.event.comment.body, '/evaluate'))
+      ||
+      (github.event_name == 'pull_request_target' &&
+       github.event.action == 'labeled' &&
+       github.event.label.name == 'evaluate-now')
+      ||
+      (github.event_name == 'workflow_dispatch' &&
+       inputs.pr_number != '')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -203,15 +265,29 @@ jobs:
       pr_number: ${{ steps.pr.outputs.pr_number }}
       is_fork: ${{ steps.pr.outputs.is_fork }}
     steps:
-      - name: Check commenter permissions
+      - name: Check actor permissions
         id: perms
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PERMISSION=$(gh api "repos/${{ github.repository }}/collaborators/${{ github.event.comment.user.login }}/permission" --jq '.permission')
-          echo "Commenter ${{ github.event.comment.user.login }} has permission: $PERMISSION"
+          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+            ACTOR='${{ github.event.comment.user.login }}'
+          else
+            ACTOR='${{ github.event.sender.login }}'
+          fi
+          # The triage worker dispatches this workflow as github-actions[bot]
+          # (workflow_dispatch). A human may instead apply the evaluate-now label,
+          # which arrives under that human's identity. The bot identity has no
+          # entry in /collaborators/* but is implicitly trusted because only this
+          # repository's own GITHUB_TOKEN can act under it.
+          if [[ "$ACTOR" == "github-actions[bot]" ]]; then
+            echo "Actor is github-actions[bot] — trusted by construction"
+            exit 0
+          fi
+          PERMISSION=$(gh api "repos/${{ github.repository }}/collaborators/${ACTOR}/permission" --jq '.permission')
+          echo "Actor ${ACTOR} has permission: $PERMISSION"
           if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "write" && "$PERMISSION" != "maintain" ]]; then
-            echo "::error::User does not have write access"
+            echo "::error::Actor does not have write access"
             exit 1
           fi
 
@@ -219,8 +295,22 @@ jobs:
         id: pr
         env:
           GH_TOKEN: ${{ github.token }}
+          # Read the dispatch input via env (not direct interpolation) so the
+          # numeric validation below runs before the value reaches any gh api
+          # call — a crafted input cannot inject shell or path traversal.
+          PR_NUMBER_INPUT: ${{ inputs.pr_number }}
         run: |
-          PR_NUMBER=${{ github.event.issue.number }}
+          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+            PR_NUMBER='${{ github.event.issue.number }}'
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            PR_NUMBER="$PR_NUMBER_INPUT"
+            if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+              echo "::error::workflow_dispatch input pr_number='$PR_NUMBER' must be a positive integer"
+              exit 1
+            fi
+          else
+            PR_NUMBER='${{ github.event.pull_request.number }}'
+          fi
           PR_DATA=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}")
           HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
           HEAD_REPO=$(echo "$PR_DATA" | jq -r '.head.repo.full_name')
@@ -239,11 +329,28 @@ jobs:
           echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
 
       - name: Add reaction to comment
+        if: github.event_name == 'issue_comment'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
             -X POST -f content='eyes' || true
+
+      - name: Remove evaluate-now label
+        if: github.event_name == 'pull_request_target' || github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # For the label entry point, removing the label consumes the trigger so
+          # re-applying re-fires. For the workflow_dispatch entry point there is no
+          # label to consume, but we still strip any stale human-applied
+          # evaluate-now label so it doesn't linger. Removal uses the workflow's
+          # own GITHUB_TOKEN; per GitHub's recursion rules, label events emitted by
+          # GITHUB_TOKEN do not start new workflow runs.
+          gh pr edit "${{ steps.pr.outputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --remove-label "evaluate-now" || true
 
       - name: Set pending commit status
         continue-on-error: true
@@ -264,7 +371,7 @@ jobs:
     needs: gate
     if: >-
       always() &&
-      (needs.gate.result == 'success' || github.event_name == 'schedule') &&
+      (needs.gate.result == 'success' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.pr_number == '')) &&
       (github.event_name != 'schedule' || github.repository == 'dotnet/skills')
     runs-on: ubuntu-latest
     permissions:
@@ -319,25 +426,67 @@ jobs:
           fi
 
       - name: Checkout repository
-        if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true'
+        if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Fetch PR head
-        if: github.event_name == 'issue_comment'
+        if: needs.gate.outputs.pr_number != ''
         run: git fetch origin +refs/pull/${{ needs.gate.outputs.pr_number }}/head:refs/remotes/origin/pr-head
 
       - name: Find skills to evaluate
-        if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true'
+        if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true' || github.event_name == 'workflow_dispatch'
         id: find
         run: |
           $entries = @()
           $plugins = @()
 
-          if ("${{ github.event_name }}" -eq "issue_comment") {
-            # /evaluate command: detect individual changed skills using gate outputs
+          # Build matrix entries for a full-plugin evaluation, sharding the
+          # plugin's skills by the optional `executionShard:` top-level tag
+          # in tests/<plugin>/<skill>/eval.yaml. Untagged skills fall into a
+          # synthetic "default" bucket. Plugins with all skills in one bucket
+          # produce a single entry (unchanged behavior); plugins with multiple
+          # buckets fan out into one matrix entry per shard so each shard
+          # runs on a fresh GitHub-hosted runner. This is the mitigation for
+          # MCP-heavy plugins like dotnet-msbuild, where cumulative runner
+          # resource usage across ~90 min of continuous MCP traffic
+          # consistently triggered host-level termination.
+          function Get-PluginShardEntries {
+            param([string]$plugin, [string]$contentRoot = ".")
+            $skillsDir = "plugins/$plugin/skills"
+            $skillsRoot = Join-Path $contentRoot $skillsDir
+            $singleEntry = @{ name = $plugin; plugin = $plugin; skills_path = $skillsDir }
+            if (-not (Test-Path $skillsRoot)) { return @($singleEntry) }
+            $skillDirs = @(Get-ChildItem -Path $skillsRoot -Directory -ErrorAction SilentlyContinue |
+              Sort-Object Name | Select-Object -ExpandProperty Name)
+            if ($skillDirs.Count -eq 0) { return @($singleEntry) }
+            $shardGroups = @{}
+            foreach ($skill in $skillDirs) {
+              $evalPath = Join-Path $contentRoot "tests" $plugin $skill "eval.yaml"
+              $shard = "default"
+              if (Test-Path $evalPath) {
+                # Allow optional leading whitespace so an accidentally indented
+                # executionShard: key still groups correctly (rather than silently
+                # collapsing back to the default bucket).
+                $m = Select-String -Path $evalPath -Pattern '^\s*executionShard:\s*[\x27"]?([\w.\-]+)' -List
+                if ($m) { $shard = $m.Matches[0].Groups[1].Value }
+              }
+              if (-not $shardGroups.ContainsKey($shard)) { $shardGroups[$shard] = @() }
+              $shardGroups[$shard] += $skill
+            }
+            if ($shardGroups.Count -le 1) { return @($singleEntry) }
+            return @($shardGroups.Keys | Sort-Object | ForEach-Object {
+              $shardName = $_
+              $paths = ($shardGroups[$shardName] | ForEach-Object { "$skillsDir/$_" }) -join ' '
+              @{ name = "$plugin--shard-$shardName"; plugin = $plugin; skills_path = $paths }
+            })
+          }
+
+          if ("${{ needs.gate.outputs.pr_number }}" -ne "") {
+            # Single-PR run (either /evaluate or evaluate-now label):
+            # detect individual changed skills using gate outputs
             $base = "${{ needs.gate.outputs.base_sha }}"
             $head = (git rev-parse origin/pr-head)
 
@@ -351,21 +500,31 @@ jobs:
             # Check if any changed files are in infrastructure paths
             # Documentation files under src/ don't affect evaluation.
             $hasInfraChanges = $changedFiles |
-              Where-Object { $_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)' } |
+              Where-Object {
+                ($_ -match '^eng/skill-validator/' -and $_ -notmatch '^eng/skill-validator/src/(README\.md|docs/)') -or
+                ($_ -match '^eng/vally-adapter/') -or
+                $_ -match '^\.github/workflows/(evaluation|vally-evaluation)\.yml$'
+              } |
               Select-Object -First 1
 
-            if ($hasInfraChanges) {
-              Write-Host "Infrastructure changes detected, evaluating all plugins"
+            # Also check for skill/test changes so we don't lose them
+            $hasSkillChanges = $changedFiles |
+              Where-Object { $_ -match '^(?:plugins/([^/]+)/skills|tests/([^/]+))/([^/]+)/' } |
+              Select-Object -First 1
+
+            if ($hasInfraChanges -and -not $hasSkillChanges) {
               echo "is_infra=true" >> $env:GITHUB_OUTPUT
-              $plugins = @(Get-ChildItem -Path (Join-Path $contentRoot "plugins") -Directory -ErrorAction SilentlyContinue |
+              # Infra-only: evaluate a small random subset of plugins to keep
+              # the smoke-test fast while still catching regressions.
+              $allPlugins = @(Get-ChildItem -Path (Join-Path $contentRoot "plugins") -Directory -ErrorAction SilentlyContinue |
                 Where-Object {
                   (Test-Path (Join-Path $_.FullName "skills")) -and
                   (Test-Path (Join-Path $contentRoot "tests" $_.Name))
                 } |
                 Select-Object -ExpandProperty Name)
-              $entries = @($plugins | ForEach-Object {
-                @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
-              })
+              $plugins = @($allPlugins | Get-Random -Count ([Math]::Min(2, $allPlugins.Count)))
+              Write-Host "Infrastructure changes detected, evaluating random subset: $($plugins -join ', ')"
+              $entries = @($plugins | ForEach-Object { Get-PluginShardEntries -plugin $_ -contentRoot $contentRoot })
             } else {
               # Extract unique plugin/skill pairs from changed files
               $changedPairs = @($changedFiles |
@@ -376,7 +535,9 @@ jobs:
                 } |
                 Sort-Object -Unique)
 
-              # Filter to skills that have a SKILL.md and a tests directory
+              # Filter to skills that have a SKILL.md and a tests directory.
+              # Sharding does not apply to per-skill PR runs — each changed
+              # skill gets its own matrix entry already.
               $entries = @($changedPairs | ForEach-Object {
                 $parts = $_ -split '/'
                 $plugin = $parts[0]
@@ -397,16 +558,33 @@ jobs:
 
             git worktree remove /tmp/pr-content --force 2>$null
           } else {
-            # Schedule: evaluate all plugins with skills and tests
+            # Schedule and workflow_dispatch: evaluate full plugins.
+            # Schedule covers everything; workflow_dispatch can optionally
+            # narrow to a single plugin via the `plugin` input for ad-hoc
+            # smoke tests without committing to main.
             # Exclude experimental plugins from scheduled runs — they are
             # evaluated only on-demand via /evaluate on PRs.
             $excludeFromSchedule = @('dotnet-experimental')
-            $plugins = @(Get-ChildItem -Path "plugins" -Directory |
-              Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) -and ($_.Name -notin $excludeFromSchedule) } |
-              Select-Object -ExpandProperty Name)
-            $entries = @($plugins | ForEach-Object {
-              @{ name = $_; plugin = $_; skills_path = "plugins/$_/skills" }
-            })
+            $dispatchPlugin = "${{ inputs.plugin }}"
+            if ("${{ github.event_name }}" -eq "workflow_dispatch" -and $dispatchPlugin) {
+              # Restrict to a simple directory-name shape before any path
+              # construction, so values like '../foo' or 'foo/bar' cannot
+              # traverse outside plugins/ or tests/.
+              if ($dispatchPlugin -notmatch '^[a-zA-Z0-9._-]+$') {
+                throw "workflow_dispatch input plugin='$dispatchPlugin' must match ^[a-zA-Z0-9._-]+$ (single directory name, no path separators)"
+              }
+              if (-not (Test-Path (Join-Path "plugins" $dispatchPlugin "skills")) -or
+                  -not (Test-Path (Join-Path "tests" $dispatchPlugin))) {
+                throw "workflow_dispatch input plugin='$dispatchPlugin' is not a valid plugin (must have plugins/<name>/skills and tests/<name>)"
+              }
+              $plugins = @($dispatchPlugin)
+              Write-Host "workflow_dispatch: evaluating only $dispatchPlugin"
+            } else {
+              $plugins = @(Get-ChildItem -Path "plugins" -Directory |
+                Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) -and ($_.Name -notin $excludeFromSchedule) } |
+                Select-Object -ExpandProperty Name)
+            }
+            $entries = @($plugins | ForEach-Object { Get-PluginShardEntries -plugin $_ })
           }
 
           # Output entries for evaluate matrix
@@ -442,10 +620,12 @@ jobs:
       always() &&
       needs.discover.outputs.has_entries == 'true' &&
       needs.discover.result == 'success' &&
-      (needs.gate.result == 'success' || github.event_name == 'schedule')
+      (needs.gate.result == 'success' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      cache-key: ${{ steps.compute-key.outputs.cache-key }}
     steps:
       # For same-repo PRs (trusted), build from the PR branch so skill-validator
       # changes are tested. For fork PRs (untrusted), always build from the
@@ -456,19 +636,34 @@ jobs:
           ref: ${{ needs.gate.outputs.is_fork != 'true' && needs.gate.outputs.head_sha || '' }}
           persist-credentials: false
 
+      - name: Compute cache key
+        id: compute-key
+        run: echo "cache-key=skill-validator-${{ runner.os }}-${{ hashFiles('eng/skill-validator/src/**', 'eng/skill-validator/Directory.Build.props', 'global.json') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache validator archive
+        id: cache-validator
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
+        with:
+          path: skill-validator-dist.tar.gz
+          key: ${{ steps.compute-key.outputs.cache-key }}
+
       - name: Setup .NET SDK
+        if: steps.cache-validator.outputs.cache-hit != 'true'
         uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
         with:
           global-json-file: global.json
 
       - name: Build skill-validator
+        if: steps.cache-validator.outputs.cache-hit != 'true'
         run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
 
       - name: Create validator archive
+        if: steps.cache-validator.outputs.cache-hit != 'true'
         run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
 
       - name: Upload built validator
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        if: steps.cache-validator.outputs.cache-hit != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: skill-validator-dist.tar.gz
           path: skill-validator-dist.tar.gz
@@ -504,7 +699,15 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Restore cached validator
+        id: cache-validator
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
+        with:
+          path: skill-validator-dist.tar.gz
+          key: ${{ needs.build-validator.outputs.cache-key }}
+
       - name: Download built validator
+        if: steps.cache-validator.outputs.cache-hit != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: skill-validator-dist.tar.gz
@@ -561,29 +764,82 @@ jobs:
           echo "::add-mask::${TOKENS[$IDX]}"
           echo "token=${TOKENS[$IDX]}" >> $GITHUB_OUTPUT
 
+      - name: Detect plugin MCP usage
+        id: detect-mcp
+        env:
+          # Pass matrix value through env so that hostile plugin directory
+          # names (e.g. containing $()/backticks) cannot be evaluated by
+          # bash at script-parse time.
+          PLUGIN: ${{ matrix.entry.plugin }}
+        run: |
+          PLUGIN_JSON="plugins/${PLUGIN}/plugin.json"
+          HAS_MCP=false
+          if [ -f "$PLUGIN_JSON" ] && grep -q '"mcpServers"' "$PLUGIN_JSON"; then
+            HAS_MCP=true
+            echo "::notice::Plugin ${PLUGIN} declares MCP servers — forcing serial execution to avoid runner OOM."
+          fi
+          echo "has_mcp=$HAS_MCP" >> "$GITHUB_OUTPUT"
+
       - name: Run skill-validator
         env:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_PATH: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}
+          HAS_MCP: ${{ steps.detect-mcp.outputs.has_mcp }}
+          # Matrix values are passed via env so they reach bash as data,
+          # not as script text — preventing shell metacharacters in
+          # user-controlled repo content (plugin / skill directory names)
+          # from being interpreted at parse time.
+          PLUGIN: ${{ matrix.entry.plugin }}
+          SKILLS_PATH: ${{ matrix.entry.skills_path }}
+          MODEL: ${{ env.MODEL }}
+          JUDGE_MODEL: ${{ env.JUDGE_MODEL }}
+          # When a plugin declares MCP servers, every session spawns extra
+          # `dotnet dnx <mcp-package>` child processes. Two failure modes
+          # we mitigate independently:
+          #   1. Acute OOM at default 18-way concurrency (~17-30 min) —
+          #      capped here at 1 x 3 x 1 = 3 concurrent sessions.
+          #   2. Cumulative runner-host exhaustion at low concurrency
+          #      (~87 min) — addressed by sharding the plugin via the
+          #      `executionShard:` tag in eval.yaml, which fans out into
+          #      multiple matrix legs each on a fresh runner. See the
+          #      Get-PluginShardEntries helper in the discover job.
+          # Both mitigations are required; either alone reproduces a
+          # different failure. RUNS stays unchanged so CV remains meaningful.
           RUNS: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.event_name == 'schedule' && '5' || '3') }}
-          PARALLEL_SKILLS: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5' }}
-          PARALLEL_SCENARIOS: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
-          PARALLEL_RUNS: ${{ (needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5' }}
+          PARALLEL_SKILLS: ${{ steps.detect-mcp.outputs.has_mcp == 'true' && '1' || ((needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5') }}
+          PARALLEL_SCENARIOS: ${{ steps.detect-mcp.outputs.has_mcp == 'true' && '3' || ((needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5') }}
+          PARALLEL_RUNS: ${{ steps.detect-mcp.outputs.has_mcp == 'true' && '1' || ((needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5') }}
         run: |
           ARGS="--verdict-warn-only --verbose"
           ARGS="$ARGS --results-dir $RESULTS_PATH --reporter console --reporter json --reporter markdown"
-          ARGS="$ARGS --model ${{ env.MODEL }}"
-          ARGS="$ARGS --judge-model ${{ env.JUDGE_MODEL }}"
+          ARGS="$ARGS --model $MODEL"
+          ARGS="$ARGS --judge-model $JUDGE_MODEL"
           ARGS="$ARGS --runs $RUNS"
           ARGS="$ARGS --parallel-skills $PARALLEL_SKILLS"
           ARGS="$ARGS --parallel-scenarios $PARALLEL_SCENARIOS"
           ARGS="$ARGS --parallel-runs $PARALLEL_RUNS"
+          ARGS="$ARGS --keep-sessions"
+          # When MCP servers are in play, the runner is memory-pressured and
+          # judge API calls can occasionally exceed the 300 s default before
+          # responses are parsed. Bump to 600 s to avoid retry storms.
+          if [ "$HAS_MCP" = "true" ]; then
+            ARGS="$ARGS --judge-timeout 600"
+          fi
 
-          artifacts/publish/SkillValidator/release/skill-validator evaluate $ARGS --tests-dir ./tests/${{ matrix.entry.plugin }} ./${{ matrix.entry.skills_path }}
+          echo "Effective parallelism: runs=$RUNS skills=$PARALLEL_SKILLS scenarios=$PARALLEL_SCENARIOS runs-parallel=$PARALLEL_RUNS (has_mcp=$HAS_MCP)"
+
+          # SKILLS_PATH may be a single path ("plugins/foo/skills") or a
+          # space-separated list of paths ("plugins/foo/skills/a plugins/foo/skills/b")
+          # when the discover job has sharded a plugin across matrix legs.
+          # Intentionally unquoted so multiple paths expand as separate args.
+          # PLUGIN and SKILLS_PATH come in via env (see above) so shell
+          # metacharacters in user-controlled directory names cannot be
+          # evaluated at script-parse time.
+          artifacts/publish/SkillValidator/release/skill-validator evaluate $ARGS --tests-dir "./tests/${PLUGIN}" $SKILLS_PATH
 
       - name: Upload results
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: skill-validator-results-${{ matrix.entry.name }}
           path: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}/
@@ -591,11 +847,28 @@ jobs:
           retention-days: 30
 
   # ==========================================================================
+  # VALLY EVALUATION
+  # Runs vally evaluations in parallel with skill-validator.
+  # NOTE: These results do not gate PRs for now.
+  # ==========================================================================
+  vally-evaluate:
+    needs: [gate, discover]
+    if: >-
+      always() && !cancelled() &&
+      needs.discover.outputs.has_entries == 'true' &&
+      needs.discover.result == 'success'
+    uses: ./.github/workflows/vally-evaluation.yml
+    with:
+      entries: ${{ needs.discover.outputs.entries }}
+      head_sha: ${{ needs.gate.outputs.head_sha }}
+    secrets: inherit
+
+  # ==========================================================================
   # COMMENT ON PR
   # Post consolidated evaluation results as a PR comment.
   # ==========================================================================
   comment-on-pr:
-    needs: [gate, discover, evaluate]
+    needs: [gate, discover, build-validator, evaluate, publish-session-data]
     if: >-
       always() &&
       needs.evaluate.result != 'cancelled' &&
@@ -614,8 +887,17 @@ jobs:
           merge-multiple: false
         continue-on-error: ${{ needs.evaluate.result != 'success' }}
 
-      - name: Download built validator
+      - name: Restore cached validator
         if: needs.evaluate.result != 'skipped'
+        id: cache-validator
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
+        with:
+          path: skill-validator-dist.tar.gz
+          key: ${{ needs.build-validator.outputs.cache-key }}
+        continue-on-error: true
+
+      - name: Download built validator
+        if: needs.evaluate.result != 'skipped' && steps.cache-validator.outputs.cache-hit != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: skill-validator-dist.tar.gz
@@ -673,12 +955,33 @@ jobs:
                 "${PR_NUMBER}" "${{ github.repository }}" "${RUN_ID}" "${{ github.repository }}" "${{ github.repository }}" "${{ needs.gate.outputs.head_sha }}")
             fi
 
-            # PR comment: simplified table + "Full results" link
+            # PR comment: simplified table + "Full results" link + investigation prompt
             {
               cat simplified-body.md
               echo ""
               echo "[🔍 Full Results - additional metrics and failure investigation steps]($RUN_URL)"
+              if [ -n "$INVESTIGATE_PROMPT" ]; then
+                echo "$INVESTIGATE_PROMPT"
+              fi
             } > consolidated-comment.md
+
+            # Append AGENTVIZ replay link if session data was published
+            if [[ "${{ needs.publish-session-data.result }}" == "success" ]]; then
+              # Session data lives in the standalone dotnet/skills-data repo.
+              MANIFEST_URL="https://raw.githubusercontent.com/dotnet/skills-data/dashboard-session-data/data/manifest.json"
+              # Derive the Pages base URL from the repository (org.github.io/repo)
+              ORG=$(echo "${{ github.repository }}" | cut -d/ -f1)
+              REPO=$(echo "${{ github.repository }}" | cut -d/ -f2)
+              REPLAY_URL="https://${ORG}.github.io/${REPO}/replay/index.html"
+              MANIFEST_ENCODED=$(printf '%s' "$MANIFEST_URL" | jq -sRr @uri)
+              FULL_URL="${REPLAY_URL}?manifest=${MANIFEST_ENCODED}&tag=pr-${PR_NUMBER}"
+              echo "" >> consolidated-comment.md
+              echo "**[▶ Sessions Visualisation](${FULL_URL})** -- interactive replay of all evaluation sessions" >> consolidated-comment.md
+              ANALYTICS_BASE_URL="https://server.mangowater-996ff7b2.swedencentral.azurecontainerapps.io/"
+              FACET_ENCODED=$(printf '%s' "label:pr-${PR_NUMBER}" | jq -sRr @uri)
+              ANALYTICS_URL="${ANALYTICS_BASE_URL}?facet=${FACET_ENCODED}"
+              echo "**[📊 Session Analytics (preview)](${ANALYTICS_URL})** -- aggregated metrics across evaluation sessions" >> consolidated-comment.md
+            fi
 
             # Action summary: full table (all columns) + investigation prompt
             {
@@ -707,7 +1010,7 @@ jobs:
   # ==========================================================================
   report-status:
     needs: [gate, discover, build-validator, evaluate]
-    if: always() && github.event_name == 'issue_comment' && needs.gate.result == 'success'
+    if: always() && needs.gate.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       statuses: write
@@ -715,6 +1018,7 @@ jobs:
       issues: write
     steps:
       - name: Remove eyes reaction from trigger comment
+        if: github.event_name == 'issue_comment'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -780,7 +1084,7 @@ jobs:
       needs.discover.outputs.has_plugins == 'true' &&
       (
         github.ref == 'refs/heads/main' ||
-        (github.event_name == 'issue_comment' && needs.gate.result == 'success')
+        needs.gate.result == 'success'
       )
     concurrency:
       group: publish-token-data
@@ -809,7 +1113,7 @@ jobs:
             git checkout HEAD -- . || true
 
       - name: Get PR title
-        if: github.event_name == 'issue_comment'
+        if: needs.gate.outputs.pr_number != ''
         id: pr-info
         env:
           GH_TOKEN: ${{ github.token }}
@@ -821,7 +1125,7 @@ jobs:
         env:
           PR_TITLE: ${{ steps.pr-info.outputs.pr_title }}
         run: |
-          $source = if ("${{ github.event_name }}" -eq "issue_comment") { "pr" } else { "scheduled" }
+          $source = if ("${{ needs.gate.outputs.pr_number }}" -ne "") { "pr" } else { "scheduled" }
           $plugins = '${{ needs.discover.outputs.plugins }}' | ConvertFrom-Json
           foreach ($plugin in $plugins) {
             # For scheduled runs and infra-change PRs, artifacts are named
@@ -893,12 +1197,125 @@ jobs:
           git add data/token-usage.json
           git diff --cached --quiet && echo "No changes to deploy" && exit 0
 
-          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+          if [[ -n "${{ needs.gate.outputs.pr_number }}" ]]; then
             git commit -m "Update PR token usage data (PR #${{ needs.gate.outputs.pr_number }})"
           else
             git commit -m "Update scheduled token usage data"
           fi
           git push origin dashboard-token-data
+
+  # ==========================================================================
+  # PUBLISH SESSION DATA
+  # Both scheduled and PR runs: flatten JSONL sessions → dashboard-session-data
+  # branch on dotnet/skills-data (separate repo to keep this one small).
+  # ==========================================================================
+  publish-session-data:
+    needs: [gate, discover, evaluate]
+    if: >-
+      always() && !cancelled() &&
+      needs.discover.result == 'success' &&
+      needs.discover.outputs.has_plugins == 'true' &&
+      (
+        github.ref == 'refs/heads/main' ||
+        needs.gate.result == 'success'
+      )
+    runs-on: ubuntu-latest
+    concurrency:
+      group: publish-session-data
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Download evaluation artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: skill-validator-results-*
+          path: all-results/
+          merge-multiple: false
+        continue-on-error: ${{ needs.evaluate.result != 'success' }}
+
+      - name: Inspect downloaded artifacts
+        if: always()
+        run: |
+          echo "=== all-results/ directory listing (3 levels) ==="
+          if [ -d all-results ]; then
+            find all-results -maxdepth 3 -ls 2>/dev/null | head -80
+            echo "---"
+            echo "sessions.db files:"
+            find all-results -name 'sessions.db' -ls 2>/dev/null
+            echo "events.jsonl files:"
+            find all-results -name 'events.jsonl' 2>/dev/null | head -20
+          else
+            echo "all-results/ directory does not exist!"
+          fi
+
+      - name: Determine source metadata
+        id: meta
+        run: |
+          if [ -n "${{ needs.gate.outputs.pr_number }}" ]; then
+            echo "source=pr" >> "$GITHUB_OUTPUT"
+            echo "pr_number=${{ needs.gate.outputs.pr_number }}" >> "$GITHUB_OUTPUT"
+            echo "subdir=pr/${{ needs.gate.outputs.pr_number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "source=scheduled" >> "$GITHUB_OUTPUT"
+            echo "pr_number=" >> "$GITHUB_OUTPUT"
+            echo "subdir=scheduled/$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build session manifest
+        shell: pwsh
+        run: |
+          ./eng/dashboard/build-replay-sessions.ps1 `
+            -ResultsDir all-results `
+            -OutputDir staging `
+            -Source ${{ steps.meta.outputs.source }} `
+            -PrNumber "${{ steps.meta.outputs.pr_number }}"
+
+      - name: Clone existing session data branch
+        env:
+          # Cross-repo PAT with contents:write on dotnet/skills-data.
+          # GITHUB_TOKEN cannot push to a different repo, so a fine-grained PAT is required.
+          SKILLS_DATA_TOKEN: ${{ secrets.SKILLS_DATA_TOKEN }}
+        run: |
+          cd /tmp
+          REPO_URL="https://x-access-token:${SKILLS_DATA_TOKEN}@github.com/dotnet/skills-data.git"
+
+          if git ls-remote --exit-code --heads "$REPO_URL" dashboard-session-data > /dev/null 2>&1; then
+            git clone --branch dashboard-session-data --single-branch --depth 1 "$REPO_URL" session-deploy
+          else
+            mkdir session-deploy && cd session-deploy && git init && git checkout -b dashboard-session-data
+            git remote add origin "$REPO_URL"
+            cd /tmp
+          fi
+
+          cd /tmp/session-deploy
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge and purge old sessions
+        shell: pwsh
+        run: |
+          ./eng/dashboard/purge-replay-sessions.ps1 `
+            -ExistingDir /tmp/session-deploy/data `
+            -NewDir staging `
+            -OutputDir /tmp/session-deploy/data `
+            -RetentionDays 7
+
+      - name: Push to dashboard-session-data branch (dotnet/skills-data)
+        run: |
+          cd /tmp/session-deploy
+          git add data/
+          git diff --cached --quiet && echo "No changes to deploy" && exit 0
+
+          if [[ -n "${{ needs.gate.outputs.pr_number }}" ]]; then
+            git commit -m "Update session data (PR #${{ needs.gate.outputs.pr_number }})"
+          else
+            git commit -m "Update scheduled session data"
+          fi
+          git push origin dashboard-session-data
 
   # ==========================================================================
   # PUBLISH EVAL DATA
@@ -955,17 +1372,59 @@ jobs:
 
           $plugins = '${{ needs.discover.outputs.plugins }}' | ConvertFrom-Json
           foreach ($plugin in $plugins) {
-            $artifactDir = "all-results/skill-validator-results-$plugin"
-            $runDir = Get-ChildItem -Path $artifactDir -Directory -ErrorAction SilentlyContinue |
-              Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
-              Sort-Object Name -Descending |
-              Select-Object -First 1
-            if (-not $runDir) {
+            # A plugin may have been fanned out into multiple shards by the
+            # discover job (artifact names "skill-validator-results-<plugin>--shard-<tag>"),
+            # or it may be a single artifact ("skill-validator-results-<plugin>").
+            # Collect the latest run dir from every matching artifact and
+            # merge their verdicts into a single results.json so the dashboard
+            # records ONE datapoint per plugin per scheduled run.
+            $artifactDirs = @(Get-ChildItem -Path "all-results" -Directory -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -eq "skill-validator-results-$plugin" -or $_.Name -like "skill-validator-results-$plugin--shard-*" })
+
+            if ($artifactDirs.Count -eq 0) {
               Write-Warning "No run results found for $plugin, skipping"
               continue
             }
 
-            $resultsFile = Join-Path $runDir.FullName "results.json"
+            $resultsFiles = @()
+            foreach ($ad in $artifactDirs) {
+              $runDir = Get-ChildItem -Path $ad.FullName -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
+                Sort-Object Name -Descending |
+                Select-Object -First 1
+              if ($runDir) {
+                $rf = Join-Path $runDir.FullName "results.json"
+                if (Test-Path $rf) { $resultsFiles += $rf }
+              }
+            }
+
+            if ($resultsFiles.Count -eq 0) {
+              Write-Warning "No results.json found in any artifact for $plugin, skipping"
+              continue
+            }
+
+            if ($resultsFiles.Count -eq 1) {
+              $resultsFile = $resultsFiles[0]
+            } else {
+              # Merge shard verdicts into a single synthetic results.json.
+              # Schema: { model, verdicts[], ... }. We concat verdicts arrays
+              # and keep top-level scalars from the first shard.
+              Write-Host "Merging $($resultsFiles.Count) shard results.json files for $plugin"
+              $merged = $null
+              $allVerdicts = [System.Collections.Generic.List[object]]::new()
+              foreach ($rf in ($resultsFiles | Sort-Object)) {
+                $r = Get-Content $rf -Raw | ConvertFrom-Json
+                if ($null -eq $merged) { $merged = $r }
+                if ($r.verdicts) { foreach ($v in $r.verdicts) { $allVerdicts.Add($v) } }
+              }
+              $merged.verdicts = $allVerdicts.ToArray()
+              $mergedDir = "all-results/_merged"
+              New-Item -ItemType Directory -Force -Path $mergedDir | Out-Null
+              $resultsFile = Join-Path $mergedDir "$plugin.results.json"
+              $merged | ConvertTo-Json -Depth 100 | Out-File -FilePath $resultsFile -Encoding utf8
+              Write-Host "  Merged verdict count: $($allVerdicts.Count) -> $resultsFile"
+            }
+
             Write-Host "`n=== Generating benchmark data for: $plugin ==="
             $existingFile = "/tmp/eval-data/data/$plugin.json"
             $params = @{
@@ -1028,17 +1487,18 @@ jobs:
 
   # ==========================================================================
   # DEPLOY DASHBOARD
-  # Scheduled runs only: assemble data from both branches + UI → gh-pages
-  # No data generation — pure copy and deploy.
+  # Scheduled runs + manual dispatch on main: assemble data from both
+  # branches + UI → gh-pages. No data generation — pure copy and deploy.
   # ==========================================================================
   deploy-dashboard:
-    needs: [discover, publish-token-data, publish-eval-data]
+    needs: [discover, publish-token-data, publish-eval-data, publish-session-data]
     if: >-
       always() &&
       !cancelled() &&
-      needs.discover.result == 'success' &&
-      needs.discover.outputs.has_plugins == 'true' &&
-      github.ref == 'refs/heads/main'
+      (
+        (needs.discover.result == 'success' && needs.discover.outputs.has_plugins == 'true' && github.event_name == 'schedule') ||
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+      )
     concurrency:
       group: deploy-dashboard
       cancel-in-progress: false
@@ -1048,6 +1508,10 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20
 
       - name: Fetch eval data from dashboard-eval-data branch
         run: |
@@ -1062,6 +1526,63 @@ jobs:
           git fetch origin dashboard-token-data:dashboard-token-data 2>/dev/null || true
           git show dashboard-token-data:data/token-usage.json > /tmp/gh-pages/data/token-usage.json 2>/dev/null || \
             echo '{"entries":[]}' > /tmp/gh-pages/data/token-usage.json
+
+      - name: Check if AGENTVIZ SPA needs update
+        id: check-replay
+        run: |
+          AGENTVIZ_REPO="https://github.com/jayparikh/agentviz.git"
+          AGENTVIZ_BRANCH="main"
+
+          # Resolve the latest commit on the AGENTVIZ branch (no clone needed)
+          TARGET_SHA=$(git ls-remote "$AGENTVIZ_REPO" "refs/heads/$AGENTVIZ_BRANCH" | cut -f1)
+          if [ -z "$TARGET_SHA" ]; then
+            echo "::error::Could not resolve AGENTVIZ branch $AGENTVIZ_BRANCH"
+            exit 1
+          fi
+          echo "target_sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "AGENTVIZ target commit: $TARGET_SHA"
+
+          # Read the currently deployed commit SHA from gh-pages (no clone needed)
+          DEPLOYED_SHA=""
+          DEPLOYED_SHA=$(curl -fsSL \
+            "https://raw.githubusercontent.com/${{ github.repository }}/gh-pages/replay/.agentviz-commit" \
+            2>/dev/null) || true
+          echo "deployed_sha=$DEPLOYED_SHA" >> "$GITHUB_OUTPUT"
+
+          if [ "$TARGET_SHA" = "$DEPLOYED_SHA" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "AGENTVIZ SPA is up-to-date (commit $TARGET_SHA), skipping build."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "AGENTVIZ SPA needs update: deployed=$DEPLOYED_SHA target=$TARGET_SHA"
+          fi
+
+      - name: Build AGENTVIZ SPA
+        if: steps.check-replay.outputs.skip != 'true'
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
+        id: agentviz-cache
+        with:
+          path: /tmp/agentviz-dist
+          key: agentviz-dist-${{ steps.check-replay.outputs.target_sha }}
+
+      - name: Build AGENTVIZ SPA (on cache miss)
+        if: steps.check-replay.outputs.skip != 'true' && steps.agentviz-cache.outputs.cache-hit != 'true'
+        run: |
+          TARGET_SHA="${{ steps.check-replay.outputs.target_sha }}"
+
+          git clone https://github.com/jayparikh/agentviz.git /tmp/agentviz-src
+          cd /tmp/agentviz-src
+
+          # Check out the exact resolved commit for deterministic builds
+          if ! git checkout "$TARGET_SHA"; then
+            echo "::error::Failed to check out AGENTVIZ commit $TARGET_SHA"
+            exit 1
+          fi
+
+          npm ci
+          npm run build
+          mkdir -p /tmp/agentviz-dist
+          cp -r dist/* /tmp/agentviz-dist/
 
       - name: Deploy to GitHub Pages
         run: |
@@ -1090,6 +1611,19 @@ jobs:
           cp ${{ github.workspace }}/eng/dashboard/dashboard.html index.html
           cp ${{ github.workspace }}/eng/dashboard/dashboard.js dashboard.js
           cp ${{ github.workspace }}/eng/dashboard/token-usage.js token-usage.js
+
+          # Deploy AGENTVIZ SPA (skip if already present and unchanged)
+          if [ "${{ steps.check-replay.outputs.skip }}" != "true" ]; then
+            rm -rf replay
+            mkdir -p replay
+            if [ -d /tmp/agentviz-dist ]; then
+              cp -r /tmp/agentviz-dist/* replay/
+            else
+              echo "::error::No AGENTVIZ build artifacts found"
+              exit 1
+            fi
+            echo "${{ steps.check-replay.outputs.target_sha }}" > replay/.agentviz-commit
+          fi
 
           git add .
           git diff --cached --quiet && echo "No changes to deploy" && exit 0

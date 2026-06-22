@@ -33,6 +33,9 @@ public static class EvaluateCommand
         var noiseSkillsDirOpt = new Option<string?>("--noise-skills-dir") { Description = "Directory containing skills to load as noise. Enables the noise test: re-runs scenarios with all noise skills loaded and measures degradation." };
         var noiseMaxDegradationOpt = new Option<double>("--noise-max-degradation") { Description = "Maximum acceptable average quality degradation (0-1) in noise test (only positive degradations count)", DefaultValueFactory = _ => 0.2 };
         var noiseMaxScenarioDegradationOpt = new Option<double>("--noise-max-scenario-degradation") { Description = "Maximum acceptable quality degradation (0-1) for any single noise-test scenario", DefaultValueFactory = _ => 0.4 };
+        var baselineOutOpt = new Option<string?>("--baseline-out") { Description = "After running, persist each scenario's averaged baseline (no-skill/no-agent reference) to this file for later reuse with --baseline-from." };
+        var baselineFromOpt = new Option<string?>("--baseline-from") { Description = "Reuse a precomputed baseline from this file instead of re-running the no-skill/no-agent baseline arm. Must match --model, --judge-model, and each scenario's prompt, setup inputs, and evaluation criteria. Mutually exclusive with --baseline-out." };
+        var noJudgeOpt = new Option<bool>("--no-judge") { Description = "Run the agent arms and persist sessions/metrics but skip all judging. Judging can be deferred to a later 'rejudge' step (optionally cross-directory). Implies session persistence and requires no baseline." };
 
         var command = new Command("evaluate", "Evaluate agent skills via LLM-based testing")
         {
@@ -59,12 +62,15 @@ public static class EvaluateCommand
             noiseSkillsDirOpt,
             noiseMaxDegradationOpt,
             noiseMaxScenarioDegradationOpt,
+            baselineOutOpt,
+            baselineFromOpt,
+            noJudgeOpt,
         };
 
         command.Add(RejudgeCommand.Create());
         command.Add(ConsolidateCommand.Create());
 
-        command.SetAction(async (parseResult, _) =>
+        command.SetAction(async (parseResult, cancellationToken) =>
         {
             var paths = parseResult.GetValue(pathsArg) ?? [];
             var reporterValues = parseResult.GetValue(reporterOpt) ?? [];
@@ -110,9 +116,12 @@ public static class EvaluateCommand
                 NoiseSkillsDir = parseResult.GetValue(noiseSkillsDirOpt),
                 NoiseDegradationLimit = parseResult.GetValue(noiseMaxDegradationOpt),
                 NoiseMaxScenarioDegradation = parseResult.GetValue(noiseMaxScenarioDegradationOpt),
+                BaselineOut = parseResult.GetValue(baselineOutOpt),
+                BaselineFrom = parseResult.GetValue(baselineFromOpt),
+                NoJudge = parseResult.GetValue(noJudgeOpt),
             };
 
-            return await Run(config);
+            return await Run(config, cancellationToken);
         });
 
         return command;
@@ -127,8 +136,39 @@ public static class EvaluateCommand
         _ => throw new ArgumentException($"Unknown reporter type: {value}"),
     };
 
-    public static async Task<int> Run(ValidatorConfig config)
+    public static async Task<int> Run(ValidatorConfig config, CancellationToken cancellationToken = default)
     {
+        // --baseline-out and --baseline-from are mutually exclusive: one writes a
+        // shared baseline, the other consumes one.
+        if (config.BaselineOut is not null && config.BaselineFrom is not null)
+        {
+            Console.Error.WriteLine("--baseline-out and --baseline-from cannot be used together.");
+            return 1;
+        }
+
+        // --no-judge defers judging to a later step, so it neither produces nor consumes a
+        // judged baseline. Combining it with the baseline-reuse flags is contradictory.
+        if (config.NoJudge && (config.BaselineOut is not null || config.BaselineFrom is not null))
+        {
+            Console.Error.WriteLine("--no-judge cannot be combined with --baseline-out or --baseline-from.");
+            return 1;
+        }
+
+        // The noise test and overfitting fix are judging-dependent features that cannot run while
+        // judging is deferred. Reject them up front rather than silently ignoring the user's intent.
+        if (config.NoJudge)
+        {
+            var incompatible = new List<string>();
+            if (config.NoiseSkillsDir is not null) incompatible.Add("--noise-skills-dir");
+            if (config.OverfittingFix) incompatible.Add("--overfitting-fix");
+            if (incompatible.Count > 0)
+            {
+                Console.Error.WriteLine(
+                    $"--no-judge cannot be combined with {string.Join(" or ", incompatible)} (these require judging; defer them to the rejudge step).");
+                return 1;
+            }
+        }
+
         // Validate model early
         try
         {
@@ -141,7 +181,9 @@ public static class EvaluateCommand
                 totalTimeoutMs: 60_000);
             var modelIds = models.Select(m => m.Id).ToList();
             var modelsToValidate = new List<string> { config.Model };
-            if (config.JudgeModel != config.Model) modelsToValidate.Add(config.JudgeModel);
+            // Under --no-judge no judging occurs, so the judge model need not be available now;
+            // it is only recorded as metadata for a later rejudge step to validate.
+            if (!config.NoJudge && config.JudgeModel != config.Model) modelsToValidate.Add(config.JudgeModel);
 
             foreach (var m in modelsToValidate)
             {
@@ -153,7 +195,8 @@ public static class EvaluateCommand
             }
 
             Console.WriteLine($"Using model: {config.Model}" +
-                (config.JudgeModel != config.Model ? $", judge: {config.JudgeModel}" : "") +
+                (config.NoJudge ? " (judging deferred; --no-judge)"
+                    : config.JudgeModel != config.Model ? $", judge: {config.JudgeModel}" : "") +
                 $", judge-mode: {config.JudgeMode}");
         }
         catch (Exception error)
@@ -288,7 +331,56 @@ public static class EvaluateCommand
             Console.WriteLine($"{Ansi.Yellow}⚠  Running with {config.Runs} run(s). For statistically significant results, use --runs 5 or higher.{Ansi.Reset}");
 
         bool usePairwise = config.JudgeMode is JudgeMode.Pairwise or JudgeMode.Both;
-        bool effectiveKeepSessions = config.KeepSessions && config.ResultsDir is not null;
+        // --no-judge defers judging to a later rejudge step, which reads sessions.db, so it
+        // must persist sessions even when --keep-sessions was not passed.
+        bool effectiveKeepSessions = (config.KeepSessions || config.NoJudge) && config.ResultsDir is not null;
+
+        if (config.NoJudge && config.ResultsDir is null)
+        {
+            Console.Error.WriteLine("--no-judge requires --results-dir so the runs can be persisted for later judging.");
+            return 1;
+        }
+
+        // Set up shared-baseline reuse/persistence.
+        BaselineStore? baselineStore = null;
+        if (config.BaselineFrom is not null)
+        {
+            try
+            {
+                baselineStore = BaselineStore.Load(config.BaselineFrom, config.Model, config.JudgeModel);
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or InvalidOperationException)
+            {
+                Console.Error.WriteLine($"{Ansi.Red}❌ Failed to load baseline from '{config.BaselineFrom}': {ex.Message}{Ansi.Reset}");
+                return 1;
+            }
+
+            // Fail fast if any scenario lacks a matching cached baseline so a stale or
+            // incomplete baseline can never silently skew results.
+            var allScenarios = allTargets
+                .Where(t => t.EvalConfig is not null)
+                .SelectMany(t => t.EvalConfig!.Scenarios.Select(s => (Scenario: s, t.EvalPath)))
+                .ToList();
+            var missing = baselineStore.FindMissingScenarios(allScenarios);
+            if (missing.Count > 0)
+            {
+                Console.Error.WriteLine(
+                    $"{Ansi.Red}❌ Baseline file '{config.BaselineFrom}' has no entry for scenario(s): {string.Join(", ", missing.Distinct())}. " +
+                    $"Recompute the baseline with --baseline-out for the current tests and model.{Ansi.Reset}");
+                return 1;
+            }
+            Console.WriteLine($"Reusing precomputed baseline from {config.BaselineFrom} ({baselineStore.Count} scenario(s)).");
+        }
+        else if (config.BaselineOut is not null)
+        {
+            baselineStore = BaselineStore.ForWrite(config.Model, config.JudgeModel);
+            Console.WriteLine($"Baseline will be persisted to {config.BaselineOut} after the run.");
+        }
+
+        // Evaluation-scoped cache for the persisted baseline_key. Reuse the baseline store when one
+        // exists (its input-hash cache is already warm from FindMissingScenarios); otherwise use a
+        // dedicated, side-effect-free cache so fixtures are hashed at most once across all scenarios.
+        var scenarioKeyCache = baselineStore ?? BaselineStore.ForKeyCache();
 
         string? sessionsDir = null;
         SessionDatabase? sessionDb = null;
@@ -314,10 +406,11 @@ public static class EvaluateCommand
         // Evaluate all targets (skills and agents)
         spinner.Start($"Evaluating {allTargets.Count} target(s)...");
         var skillTasks = allTargets.Select(target =>
-            skillLimit.RunAsync(() => EvaluateTarget(target, config, usePairwise, spinner, noiseEvalSkills, sessionsDir, sessionDb)));
+            skillLimit.RunAsync(() => EvaluateTarget(target, config, usePairwise, spinner, noiseEvalSkills, sessionsDir, sessionDb, baselineStore, scenarioKeyCache, cancellationToken), cancellationToken));
         var settled = await Task.WhenAll(skillTasks.Select(async t =>
         {
             try { return (Result: await t, Error: (Exception?)null); }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception ex) { return (Result: (SkillVerdict?)null, Error: ex); }
         }));
         spinner.Stop();
@@ -336,6 +429,37 @@ public static class EvaluateCommand
             }
         }
 
+        // --no-judge: runs are persisted but no judging/comparison happened, so there are no
+        // verdicts to report. Surface execution errors, clean up, and exit 0 on success.
+        if (config.NoJudge)
+        {
+            await AgentRunner.StopAllClients();
+            await AgentRunner.CleanupWorkDirs(effectiveKeepSessions);
+
+            // Count persisted runs before disposing so we can warn on an empty results dir.
+            int persistedRuns = sessionDb?.GetCompletedSessions().Count ?? 0;
+            sessionDb?.Dispose();
+
+            if (rejectionMessages.Count > 0)
+            {
+                Console.Error.WriteLine($"{Ansi.Red}❗ {rejectionMessages.Count} target(s) failed with execution errors:{Ansi.Reset}");
+                foreach (var msg in rejectionMessages)
+                    Console.Error.WriteLine($"{Ansi.Red}   • {msg}{Ansi.Reset}");
+                return 1;
+            }
+
+            if (persistedRuns == 0)
+            {
+                Console.WriteLine($"{Ansi.Yellow}⚠  No completed runs were persisted (no scenarios ran); there will be nothing to judge later.{Ansi.Reset}");
+            }
+            else if (timestampedResultsDir is not null)
+            {
+                Console.WriteLine($"{Ansi.Green}✓ Runs complete (no judging). {persistedRuns} session(s) persisted to {timestampedResultsDir}.{Ansi.Reset}");
+            }
+            Console.WriteLine("Judge later with: skill-validator evaluate rejudge <results-dir> [--baseline-dir <baseline-results-dir>]");
+            return 0;
+        }
+
         await Reporter.ReportResults(verdicts, config.Reporters, config.Verbose,
             config.Model, config.JudgeModel, config.ResultsDir, timestampedResultsDir,
             rejectedCount: rejectionMessages.Count);
@@ -351,6 +475,28 @@ public static class EvaluateCommand
         await AgentRunner.StopAllClients();
         await AgentRunner.CleanupWorkDirs(effectiveKeepSessions);
         sessionDb?.Dispose();
+
+        // Persist the shared baseline for later reuse with --baseline-from.
+        if (config.BaselineOut is not null && baselineStore is not null)
+        {
+            if (baselineStore.Count > 0)
+            {
+                try
+                {
+                    baselineStore.Save(config.BaselineOut);
+                    Console.WriteLine($"Baseline written to {config.BaselineOut} ({baselineStore.Count} scenario(s)).");
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"{Ansi.Red}❌ Failed to write baseline to '{config.BaselineOut}': {ex.Message}{Ansi.Reset}");
+                    return 1;
+                }
+            }
+            else
+            {
+                Console.Error.WriteLine($"{Ansi.Yellow}⚠  No baselines were produced; nothing written to {config.BaselineOut}.{Ansi.Reset}");
+            }
+        }
 
         // Always fail on execution errors, even in --verdict-warn-only mode
         if (rejectionMessages.Count > 0) return 1;
@@ -378,16 +524,19 @@ public static class EvaluateCommand
         Spinner spinner,
         IReadOnlyList<EvalSkillInfo> noiseSkills,
         string? sessionsDir,
-        SessionDatabase? sessionDb)
+        SessionDatabase? sessionDb,
+        BaselineStore? baselineStore,
+        BaselineStore scenarioKeyCache,
+        CancellationToken cancellationToken)
     {
         if (target.Kind == EvalTargetKind.Skill && target.Skill is not null)
         {
             var evalSkill = new EvalSkillInfo(target.Skill, target.EvalPath, target.EvalConfig, target.McpServers);
-            return await EvaluateSkill(evalSkill, config, usePairwise, spinner, noiseSkills, sessionsDir, sessionDb);
+            return await EvaluateSkill(evalSkill, config, usePairwise, spinner, noiseSkills, sessionsDir, sessionDb, baselineStore, scenarioKeyCache, cancellationToken);
         }
         else if (target.Kind == EvalTargetKind.Agent && target.Agent is not null)
         {
-            return await EvaluateAgent(target, config, usePairwise, spinner, sessionsDir, sessionDb);
+            return await EvaluateAgent(target, config, usePairwise, spinner, sessionsDir, sessionDb, baselineStore, scenarioKeyCache, cancellationToken);
         }
         return null;
     }
@@ -402,7 +551,10 @@ public static class EvaluateCommand
         bool usePairwise,
         Spinner spinner,
         string? sessionsDir,
-        SessionDatabase? sessionDb)
+        SessionDatabase? sessionDb,
+        BaselineStore? baselineStore,
+        BaselineStore scenarioKeyCache,
+        CancellationToken cancellationToken)
     {
         var agent = target.Agent!;
         var prefix = $"[{agent.Name}]";
@@ -436,7 +588,7 @@ public static class EvaluateCommand
                 Scenarios = [],
                 OverallImprovementScore = 0,
                 Reason = string.Join(" ", promptErrors),
-                FailureKind = "spec_conformance_failure",
+                FailureKind = FailureKind.SpecConformanceFailure,
             };
         }
 
@@ -450,8 +602,27 @@ public static class EvaluateCommand
         using var scenarioLimit = new ConcurrencyLimiter(effectiveParallelScenarios);
 
         var scenarioTasks = target.EvalConfig.Scenarios.Select(scenario =>
-            scenarioLimit.RunAsync(() => ExecuteAgentScenario(scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha)));
+            scenarioLimit.RunAsync(async () =>
+            {
+                try
+                {
+                    return await ExecuteAgentScenario(scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha, baselineStore, scenarioKeyCache, cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                {
+                    var tag = singleScenario ? $"[{agent.Name}]" : $"[{agent.Name}/{scenario.Name}]";
+                    spinner.Log($"{tag} {Ansi.Yellow}⚠️  Scenario failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
+                    return CreateFailedScenarioComparison(scenario.Name, SanitizeErrorMessage(ex.Message));
+                }
+            }, cancellationToken));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
+
+        // --no-judge: agents ran and sessions were persisted, but no judging happened.
+        if (config.NoJudge)
+        {
+            log($"✓ Runs complete (no judging) for {comparisons.Count} scenario(s)");
+            return null;
+        }
 
         var verdict = Comparator.ComputeVerdict(
             new SkillInfo(agent.Name, agent.Description, agent.Path, agent.Path, agent.AgentMdContent),
@@ -471,7 +642,7 @@ public static class EvaluateCommand
             log($"{Ansi.Yellow}⚠️  Agent NOT activated (isolated) in: {names}{Ansi.Reset}");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
-            verdict.FailureKind = "skill_not_activated";
+            verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [AGENT NOT ACTIVATED (isolated) in {notActivatedIsolated.Count} scenario(s)]";
         }
         if (notActivatedPlugin.Count > 0)
@@ -480,7 +651,7 @@ public static class EvaluateCommand
             log($"{Ansi.Yellow}⚠️  Agent NOT activated (plugin) in: {names}{Ansi.Reset}");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
-            verdict.FailureKind = "skill_not_activated";
+            verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [AGENT NOT ACTIVATED (plugin) in {notActivatedPlugin.Count} scenario(s)]";
         }
 
@@ -500,7 +671,10 @@ public static class EvaluateCommand
         Spinner spinner,
         string? sessionsDir,
         SessionDatabase? sessionDb,
-        string? targetSha)
+        string? targetSha,
+        BaselineStore? baselineStore,
+        BaselineStore scenarioKeyCache,
+        CancellationToken cancellationToken)
     {
         var agent = target.Agent!;
         var tag = singleScenario ? $"[{agent.Name}]" : $"[{agent.Name}/{scenario.Name}]";
@@ -514,11 +688,37 @@ public static class EvaluateCommand
         if (!singleScenario)
             scenarioLog("📋 Starting scenario");
 
-        var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
-            runLimit.RunAsync(() => ExecuteAgentRun(i, scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha)));
-        var runResults = await Task.WhenAll(runTasks);
+        // Compute the cross-invocation scenario key (prompt SHA + target SHA) once per scenario.
+        // ComputeScenarioKey hashes setup fixtures, so the evaluation-scoped cache ensures those
+        // files are hashed at most once across every run and arm of the evaluation.
+        var baselineKey = sessionDb is not null ? scenarioKeyCache.ComputeScenarioKeyCached(scenario, target.EvalPath) : null;
 
-        scenarioLog($"✓ All {config.Runs} run(s) complete");
+        var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
+            runLimit.RunAsync(async () =>
+            {
+                try
+                {
+                    return (Result: await ExecuteAgentRun(i, scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha, baselineStore, baselineKey, cancellationToken), Error: (Exception?)null);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                {
+                    scenarioLog($"{Ansi.Yellow}⚠️  Run {i + 1} failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
+                    return (Result: (RunExecutionResult?)null, Error: ex);
+                }
+            }, cancellationToken));
+        var settledRuns = await Task.WhenAll(runTasks);
+        var runResults = settledRuns.Where(s => s.Result is not null).Select(s => s.Result!).ToArray();
+        var failedRunCount = settledRuns.Count(s => s.Error is not null);
+        if (failedRunCount > 0)
+            scenarioLog($"{Ansi.Yellow}⚠️  {failedRunCount}/{config.Runs} run(s) failed{Ansi.Reset}");
+        if (runResults.Length == 0)
+            throw new InvalidOperationException($"All {config.Runs} run(s) failed for scenario '{scenario.Name}'");
+
+        scenarioLog($"✓ {runResults.Length}/{config.Runs} run(s) complete");
+
+        // --no-judge: runs executed and persisted; no judging/comparison is performed.
+        if (config.NoJudge)
+            return UnjudgedScenarioComparison(scenario, runResults[0]);
 
         var baselineRuns = runResults.Select(r => r.Baseline).ToList();
         var isolatedRuns = runResults.Select(r => r.SkilledIsolated).ToList();
@@ -546,6 +746,10 @@ public static class EvaluateCommand
         var avgBaseline = AverageResults(baselineRuns);
         var avgIsolated = AverageResults(isolatedRuns);
         var avgPlugin = AverageResults(pluginRuns);
+
+        // Persist the averaged baseline (skill/agent-independent) for shared reuse.
+        if (baselineStore is { IsReuse: false })
+            baselineStore.Record(scenario, runResults.Length, avgBaseline, target.EvalPath);
 
         int bestPairwiseIdx = -1;
         for (int i = 0; i < perRunPairwise.Count; i++)
@@ -583,6 +787,8 @@ public static class EvaluateCommand
             PairwiseResult = bestPairwise,
         };
         comparison.PerRunScores = perRunScores;
+        comparison.VarianceCV = Statistics.CoefficientOfVariation(perRunScores);
+        comparison.HighVariance = comparison.VarianceCV is > 0.5;
 
         // Aggregate subagent activation across runs (primary activation signal for agents)
         var allIsoSubagents = runResults.Select(r => r.SubagentActivationIsolated).ToList();
@@ -615,6 +821,7 @@ public static class EvaluateCommand
         comparison.TimedOut = runResults.Any(r =>
             r.Baseline.Metrics.TimedOut || r.SkilledIsolated.Metrics.TimedOut || r.SkilledPlugin.Metrics.TimedOut);
         comparison.ExpectActivation = scenario.ExpectActivation;
+        comparison.FailedRunCount = failedRunCount;
 
         return comparison;
     }
@@ -632,7 +839,10 @@ public static class EvaluateCommand
         Spinner spinner,
         string? sessionsDir,
         SessionDatabase? sessionDb,
-        string? targetSha)
+        string? targetSha,
+        BaselineStore? baselineStore,
+        string? baselineKey,
+        CancellationToken cancellationToken)
     {
         var agent = target.Agent!;
         var runTag = config.Runs > 1
@@ -653,12 +863,16 @@ public static class EvaluateCommand
         var pluginConfigDir = sessionsDir is not null ? Path.Combine("sessions", pluginSessionId) : null;
         var rubricJson = JsonSerializer.Serialize(scenario.Rubric?.ToArray() ?? [], SkillValidatorJsonContext.Default.StringArray);
 
+        // Reuse a precomputed shared baseline when available (--baseline-from). The
+        // baseline arm is agent-independent, so this skips a redundant agent run.
+        var reusedBaseline = baselineStore?.TryGetBaseline(scenario, target.EvalPath);
+
         sessionDb?.RegisterSession(baselineSessionId, agent.Name, agent.Path, scenario.Name, runIndex,
-            "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, targetSha, rubricJson);
+            reusedBaseline is not null ? "baseline-reused" : "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, targetSha, rubricJson, baselineKey);
         sessionDb?.RegisterSession(isolatedSessionId, agent.Name, agent.Path, scenario.Name, runIndex,
-            "with-agent-isolated", config.Model, isolatedConfigDir, null, scenario.Prompt, targetSha, rubricJson);
+            "with-agent-isolated", config.Model, isolatedConfigDir, null, scenario.Prompt, targetSha, rubricJson, baselineKey);
         sessionDb?.RegisterSession(pluginSessionId, agent.Name, agent.Path, scenario.Name, runIndex,
-            "with-agent-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, targetSha, rubricJson);
+            "with-agent-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, targetSha, rubricJson, baselineKey);
 
         // Resolve additional_required_skills/agents for the isolated run
         IReadOnlyList<SkillInfo>? additionalSkills = null;
@@ -669,25 +883,41 @@ public static class EvaluateCommand
             additionalAgents = await ResolveAdditionalAgents(scenario.Setup.AdditionalRequiredAgents, pluginRoot);
         }
 
-        var agentTasks = await Task.WhenAll(
+        // 2. Agent-isolated: target agent only (+ scenario deps)
+        var isolatedTask = AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
+            PluginRoot: null, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
+            SessionId: isolatedSessionId, Agent: agent, AdditionalSkills: additionalSkills, AdditionalAgents: additionalAgents), cancellationToken);
+        // 3. Agent-plugin: full plugin context + agent selected
+        var pluginTask = AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
+            PluginRoot: pluginRoot, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
+            SessionId: pluginSessionId, Agent: agent), cancellationToken);
+
+        RunMetrics baselineMetrics;
+        RunMetrics isolatedMetrics;
+        RunMetrics pluginMetrics;
+        if (reusedBaseline is not null)
+        {
+            if (config.Verbose)
+                runLog("↩︎ reusing precomputed baseline");
+            baselineMetrics = reusedBaseline.Metrics.Clone();
+            var skilled = await Task.WhenAll(isolatedTask, pluginTask);
+            isolatedMetrics = skilled[0];
+            pluginMetrics = skilled[1];
+        }
+        else
+        {
             // 1. Baseline: no agent, no skills — vanilla
-            AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
-                PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId)),
-            // 2. Agent-isolated: target agent only (+ scenario deps)
-            AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
-                PluginRoot: null, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
-                SessionId: isolatedSessionId, Agent: agent, AdditionalSkills: additionalSkills, AdditionalAgents: additionalAgents)),
-            // 3. Agent-plugin: full plugin context + agent selected
-            AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
-                PluginRoot: pluginRoot, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
-                SessionId: pluginSessionId, Agent: agent)));
-        var baselineMetrics = agentTasks[0];
-        var isolatedMetrics = agentTasks[1];
-        var pluginMetrics = agentTasks[2];
+            var baselineTask = AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
+                PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId), cancellationToken);
+            var all = await Task.WhenAll(baselineTask, isolatedTask, pluginTask);
+            baselineMetrics = all[0];
+            isolatedMetrics = all[1];
+            pluginMetrics = all[2];
+        }
 
         if (sessionDb is not null)
         {
-            sessionDb.CompleteSession(baselineSessionId, baselineMetrics.TimedOut ? "timed_out" : "completed",
+            sessionDb.CompleteSession(baselineSessionId, reusedBaseline is not null ? "reused" : (baselineMetrics.TimedOut ? "timed_out" : "completed"),
                 JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
             sessionDb.CompleteSession(isolatedSessionId, isolatedMetrics.TimedOut ? "timed_out" : "completed",
                 JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
@@ -695,43 +925,75 @@ public static class EvaluateCommand
                 JsonSerializer.Serialize(pluginMetrics, SkillValidatorJsonContext.Default.RunMetrics));
         }
 
-        // Assertions, constraints, task completion, judging — same as skills
+        // Assertions, constraints, task completion, judging — same as skills.
+        // Baseline arm is skipped when reused (its results are cached).
         if (scenario.Assertions is { Count: > 0 })
         {
-            baselineMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, baselineMetrics.AgentOutput, baselineMetrics.WorkDir, scenario.Timeout);
+            if (reusedBaseline is null)
+                baselineMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, baselineMetrics.AgentOutput, baselineMetrics.WorkDir, scenario.Timeout);
             isolatedMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, isolatedMetrics.AgentOutput, isolatedMetrics.WorkDir, scenario.Timeout);
             pluginMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, pluginMetrics.AgentOutput, pluginMetrics.WorkDir, scenario.Timeout);
         }
 
-        var baselineConstraints = AssertionEvaluator.EvaluateConstraints(scenario, baselineMetrics);
+        var baselineConstraints = reusedBaseline is null ? AssertionEvaluator.EvaluateConstraints(scenario, baselineMetrics) : [];
         var isolatedConstraints = AssertionEvaluator.EvaluateConstraints(scenario, isolatedMetrics);
         var pluginConstraints = AssertionEvaluator.EvaluateConstraints(scenario, pluginMetrics);
-        baselineMetrics.AssertionResults = [..baselineMetrics.AssertionResults, ..baselineConstraints];
+        if (reusedBaseline is null)
+            baselineMetrics.AssertionResults = [..baselineMetrics.AssertionResults, ..baselineConstraints];
         isolatedMetrics.AssertionResults = [..isolatedMetrics.AssertionResults, ..isolatedConstraints];
         pluginMetrics.AssertionResults = [..pluginMetrics.AssertionResults, ..pluginConstraints];
 
-        if (scenario.Assertions is { Count: > 0 } || baselineConstraints.Count > 0)
+        if (scenario.Assertions is { Count: > 0 } || baselineConstraints.Count > 0 || isolatedConstraints.Count > 0 || pluginConstraints.Count > 0)
         {
-            baselineMetrics.TaskCompleted = baselineMetrics.AssertionResults.All(a => a.Passed);
+            if (reusedBaseline is null)
+                baselineMetrics.TaskCompleted = baselineMetrics.AssertionResults.All(a => a.Passed);
             isolatedMetrics.TaskCompleted = isolatedMetrics.AssertionResults.All(a => a.Passed);
             pluginMetrics.TaskCompleted = pluginMetrics.AssertionResults.All(a => a.Passed);
         }
         else
         {
-            baselineMetrics.TaskCompleted = baselineMetrics.ErrorCount == 0;
+            if (reusedBaseline is null)
+                baselineMetrics.TaskCompleted = baselineMetrics.ErrorCount == 0;
             isolatedMetrics.TaskCompleted = isolatedMetrics.ErrorCount == 0;
             pluginMetrics.TaskCompleted = pluginMetrics.ErrorCount == 0;
         }
 
-        var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, agent.Path);
+        // --no-judge: re-persist enriched metrics and return without any LLM judging.
+        if (config.NoJudge)
+        {
+            if (sessionDb is not null)
+            {
+                sessionDb.CompleteSession(baselineSessionId, baselineMetrics.TimedOut ? "timed_out" : "completed",
+                    JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
+                sessionDb.CompleteSession(isolatedSessionId, isolatedMetrics.TimedOut ? "timed_out" : "completed",
+                    JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
+                sessionDb.CompleteSession(pluginSessionId, pluginMetrics.TimedOut ? "timed_out" : "completed",
+                    JsonSerializer.Serialize(pluginMetrics, SkillValidatorJsonContext.Default.RunMetrics));
+            }
+            if (config.Verbose)
+                runLog("✓ run complete (judging deferred)");
+            return UnjudgedRunResult(baselineMetrics, isolatedMetrics, pluginMetrics);
+        }
 
-        var (baselineJudge, baselineJudgeTokens) = await SafeJudge(Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, runLog), "baseline", runLog);
+        var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, isolatedMetrics.WorkDir, agent.Path);
+
+        JudgeResult baselineJudge;
+        if (reusedBaseline is not null)
+        {
+            baselineJudge = reusedBaseline.JudgeResult;
+        }
+        else
+        {
+            var (judged, baselineJudgeTokens) = await SafeJudge(Judge.JudgeRun(
+                scenario, baselineMetrics, judgeOpts with { WorkDir = baselineMetrics.WorkDir }, runLog, cancellationToken), "baseline", runLog);
+            baselineJudge = judged;
+            AccumulateJudgeTokens(baselineMetrics, baselineJudgeTokens);
+        }
         var (isolatedJudge, isolatedJudgeTokens) = await SafeJudge(Judge.JudgeRun(
-            scenario, isolatedMetrics, judgeOpts with { WorkDir = isolatedMetrics.WorkDir }, runLog), "isolated", runLog);
+            scenario, isolatedMetrics, judgeOpts with { WorkDir = isolatedMetrics.WorkDir }, runLog, cancellationToken), "isolated", runLog);
         var (pluginJudge, pluginJudgeTokens) = await SafeJudge(Judge.JudgeRun(
-            scenario, pluginMetrics, judgeOpts with { WorkDir = pluginMetrics.WorkDir }, runLog), "plugin", runLog);
+            scenario, pluginMetrics, judgeOpts with { WorkDir = pluginMetrics.WorkDir }, runLog, cancellationToken), "plugin", runLog);
 
-        AccumulateJudgeTokens(baselineMetrics, baselineJudgeTokens);
         AccumulateJudgeTokens(isolatedMetrics, isolatedJudgeTokens);
         AccumulateJudgeTokens(pluginMetrics, pluginJudgeTokens);
 
@@ -748,11 +1010,18 @@ public static class EvaluateCommand
             var worseSkilled = pairwiseFromPlugin ? pluginMetrics : isolatedMetrics;
             try
             {
+                // Reused baseline work dir no longer exists; run the judge in the skilled
+                // run's work dir (judge reads only the provided metrics text).
+                var pairwiseWorkDir = reusedBaseline is not null ? worseSkilled.WorkDir : baselineMetrics.WorkDir;
                 var (pairwiseResult, pairwiseTokens) = await PairwiseJudge.Judge(
                     scenario, baselineMetrics, worseSkilled,
-                    new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, agent.Path, worseSkilled.WorkDir),
-                    runLog);
+                    new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, pairwiseWorkDir, agent.Path, worseSkilled.WorkDir),
+                    runLog, cancellationToken);
                 pairwise = pairwiseResult;
+                // Attribute pairwise judge tokens consistently to both compared runs in
+                // every mode so token deltas stay comparable regardless of --baseline-from.
+                // baselineMetrics is a per-run clone when reused, so this never mutates the
+                // shared cached baseline.
                 AccumulateJudgeTokens(baselineMetrics, pairwiseTokens);
                 AccumulateJudgeTokens(worseSkilled, pairwiseTokens);
             }
@@ -789,7 +1058,10 @@ public static class EvaluateCommand
         Spinner spinner,
         IReadOnlyList<EvalSkillInfo> noiseSkills,
         string? sessionsDir,
-        SessionDatabase? sessionDb)
+        SessionDatabase? sessionDb,
+        BaselineStore? baselineStore,
+        BaselineStore scenarioKeyCache,
+        CancellationToken cancellationToken)
     {
         var skill = evalSkill.Skill;
         var prefix = $"[{skill.Name}]";
@@ -824,24 +1096,25 @@ public static class EvaluateCommand
                 Scenarios = [],
                 OverallImprovementScore = 0,
                 Reason = string.Join(" ", promptErrors),
-                FailureKind = "spec_conformance_failure",
+                FailureKind = FailureKind.SpecConformanceFailure,
             };
         }
 
         // --- Noise-only path: skip normal baseline-vs-skill eval, run only skill-only vs all-skills ---
-        if (config.NoiseSkillsDir is not null && noiseSkills.Count > 0)
+        if (config.NoiseSkillsDir is not null && noiseSkills.Count > 0 && !config.NoJudge)
         {
-            return await EvaluateSkillNoise(evalSkill, noiseSkills, config, spinner);
+            return await EvaluateSkillNoise(evalSkill, noiseSkills, config, spinner, cancellationToken);
         }
 
-        // Launch overfitting check in parallel with scenario execution
+        // Launch overfitting check in parallel with scenario execution (skipped under --no-judge,
+        // which defers all LLM judging to a later step).
         var workDir = Path.GetTempPath();
         Task<OverfittingResult?> overfittingTask = Task.FromResult<OverfittingResult?>(null);
-        if (config.OverfittingCheck && evalSkill.EvalConfig is not null)
+        if (config.OverfittingCheck && evalSkill.EvalConfig is not null && !config.NoJudge)
         {
             log("🔍 Running overfitting check (parallel)...");
             overfittingTask = OverfittingJudge.Analyze(evalSkill, new OverfittingJudgeOptions(
-                config.JudgeModel, config.Verbose, config.JudgeTimeout, workDir));
+                config.JudgeModel, config.Verbose, config.JudgeTimeout, workDir), cancellationToken);
         }
 
         var skillSha = sessionDb is not null ? SessionDatabase.ComputeDirectorySha(skill.Path) : null;
@@ -854,8 +1127,28 @@ public static class EvaluateCommand
         using var scenarioLimit = new ConcurrencyLimiter(effectiveParallelScenarios);
 
         var scenarioTasks = evalSkill.EvalConfig.Scenarios.Select(scenario =>
-            scenarioLimit.RunAsync(() => ExecuteScenario(scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha)));
+            scenarioLimit.RunAsync(async () =>
+            {
+                try
+                {
+                    return await ExecuteScenario(scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha, baselineStore, scenarioKeyCache, cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                {
+                    var tag = singleScenario ? $"[{skill.Name}]" : $"[{skill.Name}/{scenario.Name}]";
+                    spinner.Log($"{tag} {Ansi.Yellow}⚠️  Scenario failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
+                    return CreateFailedScenarioComparison(scenario.Name, SanitizeErrorMessage(ex.Message));
+                }
+            }, cancellationToken));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
+
+        // --no-judge: the scenarios above ran the agents and persisted their sessions/metrics,
+        // but no judging or comparison was performed. There is no verdict to compute or report.
+        if (config.NoJudge)
+        {
+            log($"✓ Runs complete (no judging) for {comparisons.Count} scenario(s)");
+            return null;
+        }
 
         // Await overfitting result (non-fatal — never blocks an otherwise-successful evaluation)
         OverfittingResult? overfittingResult = null;
@@ -905,7 +1198,7 @@ public static class EvaluateCommand
             log($"{Ansi.Yellow}⚠️  Skill NOT activated (isolated) in: {names}{Ansi.Reset}");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
-            verdict.FailureKind = "skill_not_activated";
+            verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [NOT ACTIVATED (isolated) in {notActivatedIsolated.Count} scenario(s)]";
         }
         if (notActivatedPlugin.Count > 0)
@@ -914,7 +1207,7 @@ public static class EvaluateCommand
             log($"{Ansi.Yellow}⚠️  Skill NOT activated (plugin) in: {names}{Ansi.Reset}");
             verdict.SkillNotActivated = true;
             verdict.Passed = false;
-            verdict.FailureKind = "skill_not_activated";
+            verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [NOT ACTIVATED (plugin) in {notActivatedPlugin.Count} scenario(s)]";
         }
 
@@ -938,7 +1231,10 @@ public static class EvaluateCommand
         Spinner spinner,
         string? sessionsDir,
         SessionDatabase? sessionDb,
-        string? skillSha)
+        string? skillSha,
+        BaselineStore? baselineStore,
+        BaselineStore scenarioKeyCache,
+        CancellationToken cancellationToken)
     {
         var skill = evalSkill.Skill;
         var tag = singleScenario ? $"[{skill.Name}]" : $"[{skill.Name}/{scenario.Name}]";
@@ -952,11 +1248,37 @@ public static class EvaluateCommand
         if (!singleScenario)
             scenarioLog("📋 Starting scenario");
 
-        var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
-            runLimit.RunAsync(() => ExecuteRun(i, scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha)));
-        var runResults = await Task.WhenAll(runTasks);
+        // Compute the cross-invocation scenario key (prompt SHA + target SHA) once per scenario.
+        // ComputeScenarioKey hashes setup fixtures, so the evaluation-scoped cache ensures those
+        // files are hashed at most once across every run and arm of the evaluation.
+        var baselineKey = sessionDb is not null ? scenarioKeyCache.ComputeScenarioKeyCached(scenario, evalSkill.EvalPath) : null;
 
-        scenarioLog($"✓ All {config.Runs} run(s) complete");
+        var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
+            runLimit.RunAsync(async () =>
+            {
+                try
+                {
+                    return (Result: await ExecuteRun(i, scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha, baselineStore, baselineKey, cancellationToken), Error: (Exception?)null);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                {
+                    scenarioLog($"{Ansi.Yellow}⚠️  Run {i + 1} failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
+                    return (Result: (RunExecutionResult?)null, Error: ex);
+                }
+            }, cancellationToken));
+        var settledRuns = await Task.WhenAll(runTasks);
+        var runResults = settledRuns.Where(s => s.Result is not null).Select(s => s.Result!).ToArray();
+        var failedRunCount = settledRuns.Count(s => s.Error is not null);
+        if (failedRunCount > 0)
+            scenarioLog($"{Ansi.Yellow}⚠️  {failedRunCount}/{config.Runs} run(s) failed{Ansi.Reset}");
+        if (runResults.Length == 0)
+            throw new InvalidOperationException($"All {config.Runs} run(s) failed for scenario '{scenario.Name}'");
+
+        scenarioLog($"✓ {runResults.Length}/{config.Runs} run(s) complete");
+
+        // --no-judge: runs executed and persisted; no judging/comparison is performed.
+        if (config.NoJudge)
+            return UnjudgedScenarioComparison(scenario, runResults[0]);
 
         var baselineRuns = runResults.Select(r => r.Baseline).ToList();
         var isolatedRuns = runResults.Select(r => r.SkilledIsolated).ToList();
@@ -988,6 +1310,9 @@ public static class EvaluateCommand
         var avgBaseline = AverageResults(baselineRuns);
         var avgIsolated = AverageResults(isolatedRuns);
         var avgPlugin = AverageResults(pluginRuns);
+        // Persist the averaged baseline (skill/agent-independent) for shared reuse.
+        if (baselineStore is { IsReuse: false })
+            baselineStore.Record(scenario, runResults.Length, avgBaseline, evalSkill.EvalPath);
         // Select the best pairwise result and track which run it came from
         int bestPairwiseIdx = -1;
         for (int i = 0; i < perRunPairwise.Count; i++)
@@ -1028,6 +1353,8 @@ public static class EvaluateCommand
             PairwiseResult = bestPairwise,
         };
         comparison.PerRunScores = perRunScores;
+        comparison.VarianceCV = Statistics.CoefficientOfVariation(perRunScores);
+        comparison.HighVariance = comparison.VarianceCV is > 0.5;
 
         // Aggregate skill activation — BOTH skilled runs independently
         var allIsoActivations = runResults.Select(r => r.SkillActivationIsolated).ToList();
@@ -1066,6 +1393,7 @@ public static class EvaluateCommand
         // Propagate timeout and expect_activation from scenario config
         comparison.TimeoutSeconds = scenario.Timeout;
         comparison.ExpectActivation = scenario.ExpectActivation;
+        comparison.FailedRunCount = failedRunCount;
 
         return comparison;
     }
@@ -1081,6 +1409,40 @@ public static class EvaluateCommand
         SubagentActivationInfo SubagentActivationIsolated,
         SubagentActivationInfo SubagentActivationPlugin);
 
+    // Placeholder result for --no-judge runs: metrics are persisted but no judging is performed,
+    // so judge scores and activation aggregates are empty. The scenario aggregator discards this.
+    private static RunExecutionResult UnjudgedRunResult(RunMetrics baseline, RunMetrics isolated, RunMetrics plugin)
+    {
+        var emptyJudge = new JudgeResult([], 0, "");
+        var emptyActivation = new SkillActivationInfo(false, [], [], 0);
+        var emptySubagent = new SubagentActivationInfo([], 0);
+        return new RunExecutionResult(
+            new RunResult(baseline, emptyJudge),
+            new RunResult(isolated, emptyJudge),
+            new RunResult(plugin, emptyJudge),
+            Pairwise: null,
+            PairwiseFromPlugin: false,
+            emptyActivation,
+            emptyActivation,
+            emptySubagent,
+            emptySubagent);
+    }
+
+    // Placeholder scenario comparison for --no-judge: no scores are computed. Discarded by the
+    // skill/agent evaluator, which produces no verdict when judging is deferred.
+    private static ScenarioComparison UnjudgedScenarioComparison(EvalScenario scenario, RunExecutionResult firstRun) =>
+        new()
+        {
+            ScenarioName = scenario.Name,
+            Baseline = firstRun.Baseline,
+            SkilledIsolated = firstRun.SkilledIsolated,
+            SkilledPlugin = firstRun.SkilledPlugin,
+            ImprovementScore = 0,
+            Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+            TimeoutSeconds = scenario.Timeout,
+            ExpectActivation = scenario.ExpectActivation,
+        };
+
     private static async Task<RunExecutionResult> ExecuteRun(
         int runIndex,
         EvalScenario scenario,
@@ -1091,7 +1453,10 @@ public static class EvaluateCommand
         Spinner spinner,
         string? sessionsDir,
         SessionDatabase? sessionDb,
-        string? skillSha)
+        string? skillSha,
+        BaselineStore? baselineStore,
+        string? baselineKey,
+        CancellationToken cancellationToken)
     {
         var skill = evalSkill.Skill;
         var runTag = config.Runs > 1
@@ -1112,12 +1477,16 @@ public static class EvaluateCommand
         var pluginConfigDir = sessionsDir is not null ? Path.Combine("sessions", pluginSessionId) : null;
         var rubricJson = JsonSerializer.Serialize(scenario.Rubric?.ToArray() ?? [], SkillValidatorJsonContext.Default.StringArray);
 
+        // Reuse a precomputed shared baseline when available (--baseline-from). The
+        // baseline arm is skill-independent, so this skips a redundant agent run.
+        var reusedBaseline = baselineStore?.TryGetBaseline(scenario, evalSkill.EvalPath);
+
         sessionDb?.RegisterSession(baselineSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
-            "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, skillSha, rubricJson);
+            reusedBaseline is not null ? "baseline-reused" : "baseline", config.Model, baselineConfigDir, null, scenario.Prompt, skillSha, rubricJson, baselineKey);
         sessionDb?.RegisterSession(isolatedSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
-            "with-skill-isolated", config.Model, isolatedConfigDir, null, scenario.Prompt, skillSha, rubricJson);
+            "with-skill-isolated", config.Model, isolatedConfigDir, null, scenario.Prompt, skillSha, rubricJson, baselineKey);
         sessionDb?.RegisterSession(pluginSessionId, skill.Name, skill.Path, scenario.Name, runIndex,
-            "with-skill-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, skillSha, rubricJson);
+            "with-skill-plugin", config.Model, pluginConfigDir, null, scenario.Prompt, skillSha, rubricJson, baselineKey);
 
         // Resolve additional_required_skills/agents for the isolated skill run
         IReadOnlyList<SkillInfo>? additionalSkills = null;
@@ -1128,24 +1497,40 @@ public static class EvaluateCommand
             additionalAgents = await ResolveAdditionalAgents(scenario.Setup.AdditionalRequiredAgents, pluginRoot);
         }
 
-        var agentTasks = await Task.WhenAll(
+        // 2. Skilled-isolated: target skill + declared dependencies
+        var isolatedTask = AgentRunner.RunAgent(new RunOptions(scenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
+            PluginRoot: null, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir,
+            SessionId: isolatedSessionId, AdditionalSkills: additionalSkills, AdditionalAgents: additionalAgents), cancellationToken);
+        // 3. Skilled-plugin: load entire plugin from plugin root directory
+        var pluginTask = AgentRunner.RunAgent(new RunOptions(scenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
+            PluginRoot: pluginRoot, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir, SessionId: pluginSessionId), cancellationToken);
+
+        RunMetrics baselineMetrics;
+        RunMetrics isolatedMetrics;
+        RunMetrics pluginMetrics;
+        if (reusedBaseline is not null)
+        {
+            if (config.Verbose)
+                runLog("↩︎ reusing precomputed baseline");
+            baselineMetrics = reusedBaseline.Metrics.Clone();
+            var skilled = await Task.WhenAll(isolatedTask, pluginTask);
+            isolatedMetrics = skilled[0];
+            pluginMetrics = skilled[1];
+        }
+        else
+        {
             // 1. Baseline: no plugin, no skills — vanilla agent
-            AgentRunner.RunAgent(new RunOptions(scenario, null, evalSkill.EvalPath, config.Model, config.Verbose,
-                PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId)),
-            // 2. Skilled-isolated: target skill + declared dependencies
-            AgentRunner.RunAgent(new RunOptions(scenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
-                PluginRoot: null, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir,
-                SessionId: isolatedSessionId, AdditionalSkills: additionalSkills, AdditionalAgents: additionalAgents)),
-            // 3. Skilled-plugin: load entire plugin from plugin root directory
-            AgentRunner.RunAgent(new RunOptions(scenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
-                PluginRoot: pluginRoot, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir, SessionId: pluginSessionId)));
-        var baselineMetrics = agentTasks[0];
-        var isolatedMetrics = agentTasks[1];
-        var pluginMetrics = agentTasks[2];
+            var baselineTask = AgentRunner.RunAgent(new RunOptions(scenario, null, evalSkill.EvalPath, config.Model, config.Verbose,
+                PluginRoot: null, Log: runLog, SessionsDir: sessionsDir, SessionId: baselineSessionId), cancellationToken);
+            var all = await Task.WhenAll(baselineTask, isolatedTask, pluginTask);
+            baselineMetrics = all[0];
+            isolatedMetrics = all[1];
+            pluginMetrics = all[2];
+        }
 
         if (sessionDb is not null)
         {
-            var baselineStatus = baselineMetrics.TimedOut ? "timed_out" : "completed";
+            var baselineStatus = reusedBaseline is not null ? "reused" : (baselineMetrics.TimedOut ? "timed_out" : "completed");
             var isolatedStatus = isolatedMetrics.TimedOut ? "timed_out" : "completed";
             var pluginStatus = pluginMetrics.TimedOut ? "timed_out" : "completed";
             sessionDb.CompleteSession(baselineSessionId, baselineStatus, JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
@@ -1153,56 +1538,93 @@ public static class EvaluateCommand
             sessionDb.CompleteSession(pluginSessionId, pluginStatus, JsonSerializer.Serialize(pluginMetrics, SkillValidatorJsonContext.Default.RunMetrics));
         }
 
-        // Evaluate assertions on all three runs
+        // Evaluate assertions on the skilled runs (baseline assertions are cached when reused)
         if (scenario.Assertions is { Count: > 0 })
         {
-            baselineMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, baselineMetrics.AgentOutput, baselineMetrics.WorkDir, scenario.Timeout);
+            if (reusedBaseline is null)
+                baselineMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, baselineMetrics.AgentOutput, baselineMetrics.WorkDir, scenario.Timeout);
             isolatedMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, isolatedMetrics.AgentOutput, isolatedMetrics.WorkDir, scenario.Timeout);
             pluginMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, pluginMetrics.AgentOutput, pluginMetrics.WorkDir, scenario.Timeout);
         }
 
-        // Evaluate constraints on all three runs
-        var baselineConstraints = AssertionEvaluator.EvaluateConstraints(scenario, baselineMetrics);
+        // Evaluate constraints on the skilled runs (baseline constraints are cached when reused)
+        var baselineConstraints = reusedBaseline is null ? AssertionEvaluator.EvaluateConstraints(scenario, baselineMetrics) : [];
         var isolatedConstraints = AssertionEvaluator.EvaluateConstraints(scenario, isolatedMetrics);
         var pluginConstraints = AssertionEvaluator.EvaluateConstraints(scenario, pluginMetrics);
-        baselineMetrics.AssertionResults = [..baselineMetrics.AssertionResults, ..baselineConstraints];
+        if (reusedBaseline is null)
+            baselineMetrics.AssertionResults = [..baselineMetrics.AssertionResults, ..baselineConstraints];
         isolatedMetrics.AssertionResults = [..isolatedMetrics.AssertionResults, ..isolatedConstraints];
         pluginMetrics.AssertionResults = [..pluginMetrics.AssertionResults, ..pluginConstraints];
 
-        // Task completion for all three
-        if (scenario.Assertions is { Count: > 0 } || baselineConstraints.Count > 0)
+        // Task completion for the skilled runs (baseline completion is cached when reused)
+        if (scenario.Assertions is { Count: > 0 } || baselineConstraints.Count > 0 || isolatedConstraints.Count > 0 || pluginConstraints.Count > 0)
         {
-            baselineMetrics.TaskCompleted = baselineMetrics.AssertionResults.All(a => a.Passed);
+            if (reusedBaseline is null)
+                baselineMetrics.TaskCompleted = baselineMetrics.AssertionResults.All(a => a.Passed);
             isolatedMetrics.TaskCompleted = isolatedMetrics.AssertionResults.All(a => a.Passed);
             pluginMetrics.TaskCompleted = pluginMetrics.AssertionResults.All(a => a.Passed);
         }
         else
         {
-            baselineMetrics.TaskCompleted = baselineMetrics.ErrorCount == 0;
+            if (reusedBaseline is null)
+                baselineMetrics.TaskCompleted = baselineMetrics.ErrorCount == 0;
             isolatedMetrics.TaskCompleted = isolatedMetrics.ErrorCount == 0;
             pluginMetrics.TaskCompleted = pluginMetrics.ErrorCount == 0;
         }
 
-        // Judge all three runs independently (failures are non-fatal)
-        var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path);
+        // --no-judge: re-persist the enriched metrics (assertions/constraints/task-completion
+        // now included) so a deferred judge scores exactly what an inline run would have, then
+        // return without performing any LLM judging. The returned result is discarded by the
+        // scenario aggregator, which also short-circuits under --no-judge.
+        if (config.NoJudge)
+        {
+            if (sessionDb is not null)
+            {
+                sessionDb.CompleteSession(baselineSessionId, baselineMetrics.TimedOut ? "timed_out" : "completed",
+                    JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
+                sessionDb.CompleteSession(isolatedSessionId, isolatedMetrics.TimedOut ? "timed_out" : "completed",
+                    JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
+                sessionDb.CompleteSession(pluginSessionId, pluginMetrics.TimedOut ? "timed_out" : "completed",
+                    JsonSerializer.Serialize(pluginMetrics, SkillValidatorJsonContext.Default.RunMetrics));
+            }
+            if (config.Verbose)
+                runLog("✓ run complete (judging deferred)");
+            return UnjudgedRunResult(baselineMetrics, isolatedMetrics, pluginMetrics);
+        }
 
-        var baselineJudgeTask = Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, runLog);
+        // Judge the skilled runs independently (failures are non-fatal). The baseline
+        // judge result is reused from the precomputed baseline when available.
+        var judgeOpts = new JudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, isolatedMetrics.WorkDir, skill.Path);
+
         var isolatedJudgeTask = Judge.JudgeRun(
-            scenario, isolatedMetrics, judgeOpts with { WorkDir = isolatedMetrics.WorkDir }, runLog);
+            scenario, isolatedMetrics, judgeOpts with { WorkDir = isolatedMetrics.WorkDir }, runLog, cancellationToken);
         var pluginJudgeTask = Judge.JudgeRun(
-            scenario, pluginMetrics, judgeOpts with { WorkDir = pluginMetrics.WorkDir }, runLog);
+            scenario, pluginMetrics, judgeOpts with { WorkDir = pluginMetrics.WorkDir }, runLog, cancellationToken);
 
-        var (baselineJudge, baselineJudgeTokens) = await SafeJudge(baselineJudgeTask, "baseline", runLog);
+        JudgeResult baselineJudge;
+        if (reusedBaseline is not null)
+        {
+            baselineJudge = reusedBaseline.JudgeResult;
+        }
+        else
+        {
+            var (judged, baselineJudgeTokens) = await SafeJudge(
+                Judge.JudgeRun(scenario, baselineMetrics, judgeOpts with { WorkDir = baselineMetrics.WorkDir }, runLog, cancellationToken), "baseline", runLog);
+            baselineJudge = judged;
+            AccumulateJudgeTokens(baselineMetrics, baselineJudgeTokens);
+        }
         var (isolatedJudge, isolatedJudgeTokens) = await SafeJudge(isolatedJudgeTask, "isolated", runLog);
         var (pluginJudge, pluginJudgeTokens) = await SafeJudge(pluginJudgeTask, "plugin", runLog);
 
-        // Accumulate judge tokens into each run's metrics
-        AccumulateJudgeTokens(baselineMetrics, baselineJudgeTokens);
+        // Accumulate judge tokens into each skilled run's metrics
         AccumulateJudgeTokens(isolatedMetrics, isolatedJudgeTokens);
         AccumulateJudgeTokens(pluginMetrics, pluginJudgeTokens);
 
         if (sessionDb is not null)
         {
+            // Persist the baseline judge result even when reused so the baseline session
+            // record (registered with the "baseline-reused" phase) is complete for
+            // downstream investigation tooling — baselineJudge is valid in both cases.
             sessionDb.SaveJudgeResult(baselineSessionId, JsonSerializer.Serialize(baselineJudge, SkillValidatorJsonContext.Default.JudgeResult));
             sessionDb.SaveJudgeResult(isolatedSessionId, JsonSerializer.Serialize(isolatedJudge, SkillValidatorJsonContext.Default.JudgeResult));
             sessionDb.SaveJudgeResult(pluginSessionId, JsonSerializer.Serialize(pluginJudge, SkillValidatorJsonContext.Default.JudgeResult));
@@ -1223,12 +1645,19 @@ public static class EvaluateCommand
                 ? pluginMetrics : isolatedMetrics;
             try
             {
+                // When the baseline is reused its work dir no longer exists; run the
+                // judge session in the skilled run's work dir instead (the judge only
+                // reads the provided metrics text and is denied tool access).
+                var pairwiseWorkDir = reusedBaseline is not null ? worseSkilled.WorkDir : baselineMetrics.WorkDir;
                 var (pairwiseResult, pairwiseTokens) = await PairwiseJudge.Judge(
                     scenario, baselineMetrics, worseSkilled,
-                    new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, baselineMetrics.WorkDir, skill.Path, worseSkilled.WorkDir),
-                    runLog);
+                    new PairwiseJudgeOptions(config.JudgeModel, config.Verbose, config.JudgeTimeout, pairwiseWorkDir, skill.Path, worseSkilled.WorkDir),
+                    runLog, cancellationToken);
                 pairwise = pairwiseResult;
-                // Attribute pairwise judge tokens to both the baseline and the compared run
+                // Attribute pairwise judge tokens consistently to both compared runs in
+                // every mode so token deltas stay comparable regardless of --baseline-from.
+                // baselineMetrics is a per-run clone when reused, so this never mutates the
+                // shared cached baseline.
                 AccumulateJudgeTokens(baselineMetrics, pairwiseTokens);
                 AccumulateJudgeTokens(worseSkilled, pairwiseTokens);
                 if (sessionDb is not null && pairwise is not null)
@@ -1293,7 +1722,8 @@ public static class EvaluateCommand
         EvalSkillInfo evalSkill,
         IReadOnlyList<EvalSkillInfo> noiseEvalSkills,
         ValidatorConfig config,
-        Spinner spinner)
+        Spinner spinner,
+        CancellationToken cancellationToken)
     {
         var skill = evalSkill.Skill;
         var prefix = $"[{skill.Name}]";
@@ -1302,7 +1732,7 @@ public static class EvaluateCommand
         NoiseTestResult noiseResult;
         try
         {
-            noiseResult = await ExecuteNoiseTest(evalSkill, noiseEvalSkills, config, spinner);
+            noiseResult = await ExecuteNoiseTest(evalSkill, noiseEvalSkills, config, spinner, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -1315,7 +1745,7 @@ public static class EvaluateCommand
                 Scenarios = [],
                 OverallImprovementScore = 0,
                 Reason = $"Noise test execution failed: {ex.Message}",
-                FailureKind = "noise_degradation",
+                FailureKind = FailureKind.NoiseDegradation,
             };
         }
 
@@ -1327,7 +1757,7 @@ public static class EvaluateCommand
             Scenarios = [],
             OverallImprovementScore = 0,
             Reason = noiseResult.Reason,
-            FailureKind = noiseResult.Passed ? null : "noise_degradation",
+            FailureKind = noiseResult.Passed ? null : FailureKind.NoiseDegradation,
             NoiseTestResult = noiseResult,
         };
 
@@ -1357,7 +1787,8 @@ public static class EvaluateCommand
         EvalSkillInfo targetEvalSkill,
         IReadOnlyList<EvalSkillInfo> allEvalSkills,
         ValidatorConfig config,
-        Spinner spinner)
+        Spinner spinner,
+        CancellationToken cancellationToken)
     {
         var targetSkill = targetEvalSkill.Skill;
         var prefix = $"[{targetSkill.Name}/noise]";
@@ -1399,12 +1830,12 @@ public static class EvaluateCommand
                         // Run with target skill only
                         var skillOnlyMetrics = await AgentRunner.RunAgent(new RunOptions(
                             scenario, targetSkill, targetEvalSkill.EvalPath, config.Model, config.Verbose,
-                            Log: scenarioLog, McpServers: targetEvalSkill.McpServers));
+                            Log: scenarioLog, McpServers: targetEvalSkill.McpServers), cancellationToken);
 
                         // Run with all skills loaded
                         var allSkillsMetrics = await AgentRunner.RunAgent(new RunOptions(
                             scenario, targetSkill, targetEvalSkill.EvalPath, config.Model, config.Verbose,
-                            Log: scenarioLog, AdditionalSkills: otherSkills, McpServers: targetEvalSkill.McpServers));
+                            Log: scenarioLog, AdditionalSkills: otherSkills, McpServers: targetEvalSkill.McpServers), cancellationToken);
 
                         // Evaluate assertions on both
                         if (scenario.Assertions is { Count: > 0 })
@@ -1431,7 +1862,7 @@ public static class EvaluateCommand
                         JudgeResult skillOnlyJudge, allSkillsJudge;
                         try
                         {
-                            var (result, tokens) = await Judge.JudgeRun(scenario, skillOnlyMetrics, judgeOpts, log);
+                            var (result, tokens) = await Judge.JudgeRun(scenario, skillOnlyMetrics, judgeOpts, log, cancellationToken);
                             skillOnlyJudge = result;
                             AccumulateJudgeTokens(skillOnlyMetrics, tokens);
                         }
@@ -1442,7 +1873,7 @@ public static class EvaluateCommand
                         try
                         {
                             var (result, tokens) = await Judge.JudgeRun(scenario, allSkillsMetrics,
-                                judgeOpts with { WorkDir = allSkillsMetrics.WorkDir }, log);
+                                judgeOpts with { WorkDir = allSkillsMetrics.WorkDir }, log, cancellationToken);
                             allSkillsJudge = result;
                             AccumulateJudgeTokens(allSkillsMetrics, tokens);
                         }
@@ -1457,7 +1888,7 @@ public static class EvaluateCommand
                             allSkillsMetrics.Events, skillOnlyMetrics.ToolCallBreakdown);
 
                         return (SkillOnly: skillOnly, AllSkills: allSkills, Activation: activation);
-                    })));
+                    }, cancellationToken)));
 
                 scenarioLog($"✓ All {config.Runs} noise run(s) complete");
 
@@ -1487,7 +1918,7 @@ public static class EvaluateCommand
                     comparison.Breakdown,
                     activation,
                     totalLoaded);
-            }));
+            }, cancellationToken));
 
         noiseScenarios = (await Task.WhenAll(tasks)).ToList();
 
@@ -1581,6 +2012,28 @@ public static class EvaluateCommand
     }
 
     /// <summary>
+    /// Creates a degraded ScenarioComparison for a scenario that failed with an exception.
+    /// This allows the evaluation to continue with other scenarios instead of aborting.
+    /// </summary>
+    internal static ScenarioComparison CreateFailedScenarioComparison(string scenarioName, string errorMessage)
+    {
+        var emptyMetrics = new RunMetrics { ErrorCount = 1 };
+        var emptyJudge = new JudgeResult([], 0, $"Scenario failed: {errorMessage}");
+        var emptyResult = new RunResult(emptyMetrics, emptyJudge);
+        var emptyBreakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0);
+        return new ScenarioComparison
+        {
+            ScenarioName = scenarioName,
+            Baseline = emptyResult,
+            SkilledIsolated = emptyResult,
+            SkilledPlugin = emptyResult,
+            ImprovementScore = 0,
+            Breakdown = emptyBreakdown,
+            ExecutionError = errorMessage,
+        };
+    }
+
+    /// <summary>
     /// Discover eval data (paths, MCP servers) and parse eval configs.
     /// </summary>
     internal static async Task<IReadOnlyList<EvalSkillInfo>> LoadAndParseEvalData(IReadOnlyList<SkillInfo> skills, string? testsDir)
@@ -1626,19 +2079,33 @@ public static class EvaluateCommand
                     var raw = JsonSerializer.Deserialize(
                         await File.ReadAllTextAsync(candidate),
                         SkillValidatorJsonContext.Default.JsonElement);
-                    if (raw.TryGetProperty("mcpServers", out var serversEl)
-                        && serversEl.ValueKind == JsonValueKind.Object)
+                    if (raw.TryGetProperty("mcpServers", out var serversEl))
                     {
-                        var result = new Dictionary<string, MCPServerDef>();
-                        foreach (var prop in serversEl.EnumerateObject())
+                        JsonElement? mcpObject = null;
+                        if (serversEl.ValueKind == JsonValueKind.String)
                         {
-                            var def = JsonSerializer.Deserialize(
-                                prop.Value.GetRawText(),
-                                SkillValidatorJsonContext.Default.MCPServerDef);
-                            if (def is not null)
-                                result[prop.Name] = def;
+                            var refPath = serversEl.GetString()!;
+                            if (!Path.IsPathRooted(refPath) && !refPath.Contains(".."))
+                                mcpObject = await ResolveMcpFile(Path.Combine(dir, refPath));
                         }
-                        return result.Count > 0 ? result : null;
+                        else if (serversEl.ValueKind == JsonValueKind.Object)
+                        {
+                            mcpObject = serversEl;
+                        }
+
+                        if (mcpObject is { } obj)
+                        {
+                            var result = new Dictionary<string, MCPServerDef>();
+                            foreach (var prop in obj.EnumerateObject())
+                            {
+                                var def = JsonSerializer.Deserialize(
+                                    prop.Value.GetRawText(),
+                                    SkillValidatorJsonContext.Default.MCPServerDef);
+                                if (def is not null)
+                                    result[prop.Name] = def;
+                            }
+                            return result.Count > 0 ? result : null;
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -1653,6 +2120,28 @@ public static class EvaluateCommand
             dir = parent;
         }
         return null;
+    }
+
+    /// <summary>
+    /// Resolve a .mcp.json file path and return the mcpServers object element, or null.
+    /// Codex plugins use a string path in plugin.json to reference an external .mcp.json file.
+    /// </summary>
+    private static async Task<JsonElement?> ResolveMcpFile(string mcpPath)
+    {
+        if (!File.Exists(mcpPath)) return null;
+        try
+        {
+            var doc = JsonSerializer.Deserialize(
+                await File.ReadAllTextAsync(mcpPath),
+                SkillValidatorJsonContext.Default.JsonElement);
+            return doc.TryGetProperty("mcpServers", out var obj) && obj.ValueKind == JsonValueKind.Object
+                ? obj : null;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to parse .mcp.json at {mcpPath}: {ex.GetType().Name}: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>

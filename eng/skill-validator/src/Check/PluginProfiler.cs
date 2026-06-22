@@ -9,7 +9,7 @@ namespace SkillValidator.Check;
 /// </summary>
 public static class PluginProfiler
 {
-    public static PluginValidationResult ValidatePlugin(PluginInfo plugin)
+    public static PluginCheckResult ValidatePlugin(PluginInfo plugin)
     {
         var errors = new List<string>();
         var warnings = new List<string>();
@@ -85,7 +85,13 @@ public static class PluginProfiler
             ? plugin.Name
             : (!string.IsNullOrWhiteSpace(plugin.DirectoryName) ? plugin.DirectoryName : "(unknown)");
 
-        return new PluginValidationResult(resultName, plugin.DirectoryPath, errors, warnings);
+        var result = new PluginCheckResult
+        {
+            Name = resultName,
+            DirectoryPath = plugin.DirectoryPath,
+        };
+        result.Errors.AddRange(errors);
+        result.Warnings.AddRange(warnings);
+        return result;
     }
 }
-

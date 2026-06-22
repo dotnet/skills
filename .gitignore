@@ -3,6 +3,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# Installed skills (other authors' content)
+.agents/skills/
+
 # User-specific files
 *.rsuser
 *.suo
@@ -39,6 +42,9 @@ bld/
 # Uncomment if you have tasks that rely on *.refresh files to move binaries
 # (https://github.com/github/gitignore/pull/3736)
 #!**/[Bb]in/*.refresh
+
+# Language server cache files
+*.lscache
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
@@ -417,4 +423,14 @@ FodyWeavers.xsd
 *.msm
 *.msp
 .skill-validator-results/
+.DS_Store
 .nuget/
+validation_report.md
+vally-results/
+
+# Roslyn / C# language server cache files
+*.lscache
+.dotnet/
+
+# Local design plan kept out of the PR
+docs/design/pr-triage-workflows-plan.md

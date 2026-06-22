@@ -1,0 +1,127 @@
+scenarios:
+  # ==========================================================================
+  # Scenario 1: Mixed-quality MSTest suite — verify per-test grade differentiation
+  # ==========================================================================
+
+  - name: "Grade a curated list of MSTest tests with mixed quality"
+    prompt: |
+      Please grade each of the following test methods individually for
+      test quality and produce a compact per-test table (one row per
+      test) plus a short summary. They live in
+      `OrderService.Tests/OrderProcessorTests.cs`. Do not modify any
+      files.
+
+      Test methods to grade:
+        - OrderService.Tests.OrderProcessorTests.PlaceOrder_ValidItems_AssignsOrderIdAndPersistsOrder
+        - OrderService.Tests.OrderProcessorTests.PlaceOrder_EmptyItems_ThrowsArgumentException
+        - OrderService.Tests.OrderProcessorTests.GetOrderById_ExistingId_ReturnsOrder
+        - OrderService.Tests.OrderProcessorTests.CancelOrder_ExistingOrder_Works
+        - OrderService.Tests.OrderProcessorTests.SerializeOrderId_RoundTrip_ReturnsSameId
+        - OrderService.Tests.OrderProcessorTests.PlaceOrder_LongRunning_CompletesEventually
+        - OrderService.Tests.OrderProcessorTests.Test1
+    setup:
+      files:
+        - path: "OrderService.Tests/OrderService.Tests.csproj"
+          source: "fixtures/mixed-quality/OrderService.Tests/OrderService.Tests.csproj"
+        - path: "OrderService.Tests/OrderProcessorTests.cs"
+          source: "fixtures/mixed-quality/OrderService.Tests/OrderProcessorTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(\\|\\s*Test\\s*\\|\\s*Grade\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(PlaceOrder_ValidItems_AssignsOrderIdAndPersistsOrder.*\\|\\s*A\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(PlaceOrder_EmptyItems_ThrowsArgumentException.*\\|\\s*A\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(CancelOrder_ExistingOrder_Works.*\\|\\s*F\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(Test1.*\\|\\s*F\\s*\\|)"
+      - type: "exit_success"
+    rubric:
+      - "Produced a markdown table with columns Test, Grade, Band (or Score Band), and Notes"
+      - "Graded `PlaceOrder_ValidItems_AssignsOrderIdAndPersistsOrder` as A (band 90–100) and acknowledged its AAA structure plus multi-faceted assertions"
+      - "Graded `PlaceOrder_EmptyItems_ThrowsArgumentException` as A (band 90–100) and did NOT penalize it for having few assertions — exception tests are complete on their own"
+      - "Graded `GetOrderById_ExistingId_ReturnsOrder` as C (band 70–79) because the only assertion is a trivial IsNotNull on the returned order"
+      - "Graded `CancelOrder_ExistingOrder_Works` as F (band 0–59) because it has no assertions at all"
+      - "Graded `SerializeOrderId_RoundTrip_ReturnsSameId` as D (band 60–69) and called out the self-referential / tautological round-trip assertion"
+      - "Graded `PlaceOrder_LongRunning_CompletesEventually` as D (band 60–69) and called out the Thread.Sleep flakiness anti-pattern"
+      - "Graded `Test1` as F (band 0–59) and called out the poor name, magic values, and swallowed exception"
+      - "Each grade includes a one-line note explaining the most important reason for that grade"
+      - "The summary leads with the highest-leverage observation (e.g., several tests give false confidence) rather than recapping the table row-by-row"
+    reject_tools: ["edit", "create"]
+    timeout: 300
+
+  # ==========================================================================
+  # Scenario 2: Polyglot — pytest fixture, verify the same rubric applies
+  # ==========================================================================
+
+  - name: "Grade pytest test methods using the same rubric"
+    prompt: |
+      Please grade each of the following pytest test functions
+      individually for test quality and produce a compact per-test
+      table (one row per test) plus a short summary. They live in
+      `tests/test_shopping_cart.py`. Do not modify any files.
+
+      Test methods to grade:
+        - test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount
+        - test_calculate_total_with_negative_discount_raises_value_error
+        - test_get_cart_returns_cart
+        - test_clear_cart_works
+        - test_async_checkout_completes
+    setup:
+      files:
+        - path: "tests/test_shopping_cart.py"
+          source: "fixtures/python-pytest/test_shopping_cart.py"
+    assertions:
+      - type: "output_matches"
+        pattern: "(\\|\\s*Test\\s*\\|\\s*Grade\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount.*\\|\\s*A\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(test_calculate_total_with_negative_discount_raises_value_error.*\\|\\s*A\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(test_clear_cart_works.*\\|\\s*F\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(test_async_checkout_completes.*\\|\\s*F\\s*\\|)"
+      - type: "exit_success"
+    rubric:
+      - "Detected pytest as the framework and loaded the python language extension before grading"
+      - "Graded `test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount` as A — recognized the multi-assertion AAA structure with equality + state checks"
+      - "Graded `test_calculate_total_with_negative_discount_raises_value_error` as A — recognized that `pytest.raises(ValueError, match=...)` is a complete exception assertion"
+      - "Graded `test_get_cart_returns_cart` as C — trivial `assert ... is not None` only"
+      - "Graded `test_clear_cart_works` as F — no assertions"
+      - "Graded `test_async_checkout_completes` as F — combines `time.sleep` flakiness with an always-true `assert True`"
+      - "Did NOT flag `pytest.raises(ValueError, match=\"discount must be non-negative\")` as a broad exception assertion — the match argument constrains it"
+      - "Did NOT flag the bare `assert` form as missing-framework — pytest bare `assert` is canonical"
+    reject_tools: ["edit", "create"]
+    timeout: 300
+
+  # ==========================================================================
+  # Scenario 3: No list provided — skill should ask for an explicit list,
+  # not silently grade the entire workspace
+  # ==========================================================================
+
+  - name: "Decline to grade the entire workspace when no test list is provided"
+    prompt: |
+      Grade my tests.
+    setup:
+      files:
+        - path: "Some.Tests/Some.Tests.csproj"
+          source: "fixtures/no-list-provided/Some.Tests/Some.Tests.csproj"
+        - path: "Some.Tests/AccountTests.cs"
+          source: "fixtures/no-list-provided/Some.Tests/AccountTests.cs"
+        - path: "Some.Tests/InvoiceTests.cs"
+          source: "fixtures/no-list-provided/Some.Tests/InvoiceTests.cs"
+        - path: "Some.Tests/ReportingTests.cs"
+          source: "fixtures/no-list-provided/Some.Tests/ReportingTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(specific|explicit|list|which tests|scope|provide|name|specify|curated)"
+      - type: "exit_success"
+    rubric:
+      - "Recognized that no specific list of test methods was provided across the three test files (AccountTests, InvoiceTests, ReportingTests)"
+      - "Asked the user to provide an explicit list of test methods, file paths, or a diff hunk to grade"
+      - "Did NOT silently scan and grade all ~21 tests across the workspace"
+      - "Optionally pointed the user at `test-quality-auditor` agent or `test-anti-patterns` skill for full-suite analysis"
+    reject_tools: ["edit", "create"]
+    timeout: 120

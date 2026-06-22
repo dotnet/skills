@@ -1,0 +1,86 @@
+scenarios:
+  - name: "Generate TimeProvider adoption for DateTime.UtcNow"
+    prompt: |
+      My ReportGenerator class uses DateTime.UtcNow and I can't write deterministic
+      unit tests for it. I'm on .NET 10. Can you create the right abstraction so
+      I can mock time in tests?
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(TimeProvider|time provider)"
+      - type: "output_matches"
+        pattern: "(FakeTimeProvider|fake.*time|mock.*time|test.*time)"
+      - type: "output_matches"
+        pattern: "(AddSingleton|Register|services\\.Add)"
+      - type: "exit_success"
+    rubric:
+      - "Recommended TimeProvider as the built-in abstraction since the project targets .NET 10"
+      - "Showed how to register TimeProvider.System in the DI container"
+      - "Showed how to inject TimeProvider into the ReportGenerator class"
+      - "Showed how to use FakeTimeProvider in tests to pin time"
+      - "Mentioned the Microsoft.Extensions.TimeProvider.Testing NuGet package for testing"
+    timeout: 240
+
+  - name: "Generate custom Environment wrapper"
+    prompt: |
+      My code calls Environment.GetEnvironmentVariable and Environment.MachineName
+      directly. I need to make these testable. Can you generate a wrapper interface
+      and implementation I can inject?
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(interface|IEnvironment)"
+      - type: "output_matches"
+        pattern: "(GetEnvironmentVariable|MachineName)"
+      - type: "exit_success"
+    rubric:
+      - "Generated an interface with methods for GetEnvironmentVariable and MachineName"
+      - "Generated a default implementation that delegates to the real Environment static class"
+      - "Provided DI registration code for the wrapper"
+      - "Only wrapped the two members actually used in the code, not every Environment member"
+    timeout: 240
+
+  - name: "Recommend System.IO.Abstractions for file system calls"
+    prompt: |
+      I've got File.WriteAllText, File.ReadAllText, and Directory.Exists scattered
+      across my project. What's the best way to make these testable?
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_matches"
+        pattern: "(System\\.IO\\.Abstractions|IFileSystem)"
+      - type: "output_matches"
+        pattern: "(MockFileSystem|mock.*file)"
+      - type: "exit_success"
+    rubric:
+      - "Recommended System.IO.Abstractions NuGet package instead of writing a custom wrapper"
+      - "Showed how to register IFileSystem in DI"
+      - "Showed how to use MockFileSystem in tests"
+      - "Did not generate a custom file system wrapper when the established package exists"
+    timeout: 240
+
+  - name: "Decline wrapper generation for already-abstracted code"
+    prompt: |
+      My code already uses IFileSystem from System.IO.Abstractions everywhere.
+      Can you generate a file system wrapper for me?
+    expect_activation: false
+    setup:
+      files:
+        - path: "Services/DataService.cs"
+          content: |
+            using System.IO.Abstractions;
+            namespace MyApp.Services;
+            public class DataService(IFileSystem fileSystem)
+            {
+                public string ReadData(string path) => fileSystem.File.ReadAllText(path);
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "(already|exists|abstracted|no need|unnecessary)"
+    rubric:
+      - "Recognized that IFileSystem is already in use and no wrapper generation is needed"
+      - "Did not generate a redundant wrapper interface"
+      - "May have suggested other improvements but did not create duplicate abstractions"
+    timeout: 120

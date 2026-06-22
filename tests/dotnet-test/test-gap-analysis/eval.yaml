@@ -1,0 +1,143 @@
+scenarios:
+  # ==========================================================================
+  # Scenario 1: Boundary mutation gaps in pricing logic
+  # ==========================================================================
+
+  - name: "Find boundary mutation gaps in tiered discount and shipping logic"
+    prompt: |
+      I want to know if my tests are actually strong enough to catch subtle bugs.
+      Look at my PricingEngine code and its tests — could a small change like an
+      off-by-one error or a flipped comparison slip through without any test failing?
+    setup:
+      files:
+        - path: "PricingEngine/PricingEngine.csproj"
+          source: "fixtures/boundary-gaps/PricingEngine/PricingEngine.csproj"
+        - path: "PricingEngine/DiscountCalculator.cs"
+          source: "fixtures/boundary-gaps/PricingEngine/DiscountCalculator.cs"
+        - path: "PricingEngine.Tests/PricingEngine.Tests.csproj"
+          source: "fixtures/boundary-gaps/PricingEngine.Tests/PricingEngine.Tests.csproj"
+        - path: "PricingEngine.Tests/DiscountCalculatorTests.cs"
+          source: "fixtures/boundary-gaps/PricingEngine.Tests/DiscountCalculatorTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(boundar|off.by.one|>=.*>|>.*>=|threshold|exact.*(value|boundary|point)|edge)"
+      - type: "output_matches"
+        pattern: "(1000|500|100|250)"
+      - type: "output_matches"
+        pattern: "(surviv|not.*caught|not.*detected|would.*pass|miss|blind|gap|weak)"
+      - type: "output_matches"
+        pattern: "(express|heavy|10.*kg|coupon|minimum|floor|1\\.00)"
+      - type: "exit_success"
+    rubric:
+      - "Identified that no test exercises the exact discount tier boundaries (1000, 500, 100) — mutations like >= to > at those points would survive"
+      - "Identified that the free shipping boundary at 250 is not tested — order of exactly 250 is not covered"
+      - "Identified that the express shipping surcharge is never tested"
+      - "Identified that the heavy item fee boundary (weight > 10kg) is not tested"
+      - "Identified that the coupon minimum floor (total cannot go below 1.00) is not tested"
+      - "Recommended concrete test cases that would kill the survived mutations"
+    timeout: 300
+
+  # ==========================================================================
+  # Scenario 2: Boolean/logic and null-check mutation gaps in access control
+  # ==========================================================================
+
+  - name: "Find logic and null-check mutation gaps in access control code"
+    prompt: |
+      I have an access control system and I'm worried the tests might not catch
+      all security-related bugs. Can you analyze whether a subtle logic change
+      in the permission checks would go undetected by the current tests?
+    setup:
+      files:
+        - path: "AccessControl/AccessControl.csproj"
+          source: "fixtures/logic-gaps/AccessControl/AccessControl.csproj"
+        - path: "AccessControl/AccessChecker.cs"
+          source: "fixtures/logic-gaps/AccessControl/AccessChecker.cs"
+        - path: "AccessControl.Tests/AccessControl.Tests.csproj"
+          source: "fixtures/logic-gaps/AccessControl.Tests/AccessControl.Tests.csproj"
+        - path: "AccessControl.Tests/AccessCheckerTests.cs"
+          source: "fixtures/logic-gaps/AccessControl.Tests/AccessCheckerTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(Guest|guest|denied|no.access)"
+      - type: "output_matches"
+        pattern: "(write|CanWrite|writeAccess)"
+      - type: "output_matches"
+        pattern: "(null|empty|token|elevat)"
+      - type: "output_matches"
+        pattern: "(surviv|not.*caught|not.*detected|gap|miss|blind|weak)"
+      - type: "exit_success"
+    rubric:
+      - "Identified that Guest access denial is never tested — removing the default deny branch would survive"
+      - "Identified that User's CanWrite=false is never asserted — flipping it to true would survive"
+      - "Identified that CanPerform is only tested with writeAccess=false — the write path is not verified"
+      - "Identified that ElevateRole is not tested with null or empty tokens — removing the null guard would survive"
+      - "Identified that Editor on system resources getting read-only (CanWrite=false) is not tested"
+      - "Recommended concrete test cases targeting the specific survived mutations"
+    timeout: 300
+
+  # ==========================================================================
+  # Scenario 3: Recognize well-tested code with high mutation kill rate
+  # ==========================================================================
+
+  - name: "Acknowledge well-tested code with few surviving mutations"
+    prompt: |
+      Can you check if my inventory management tests would actually catch
+      bugs if someone introduced a subtle mistake in the code?
+    setup:
+      files:
+        - path: "Inventory/Inventory.csproj"
+          source: "fixtures/well-tested/Inventory/Inventory.csproj"
+        - path: "Inventory/StockManager.cs"
+          source: "fixtures/well-tested/Inventory/StockManager.cs"
+        - path: "Inventory.Tests/Inventory.Tests.csproj"
+          source: "fixtures/well-tested/Inventory.Tests/Inventory.Tests.csproj"
+        - path: "Inventory.Tests/StockManagerTests.cs"
+          source: "fixtures/well-tested/Inventory.Tests/StockManagerTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(strong|solid|good|well.tested|thorough|effective|high.*kill|most.*killed|most.*caught)"
+      - type: "exit_success"
+    rubric:
+      - "Recognized that the test suite has good mutation coverage — most mutations at boundaries and guards would be caught"
+      - "Acknowledged the boundary tests for NeedsReorder (below, at, and above threshold)"
+      - "Acknowledged that both zero and negative quantities are tested for guard clauses"
+      - "Acknowledged that RemoveStock verifies both the return value and the resulting stock level"
+      - "If any gaps were found, they were presented as minor improvements rather than critical weaknesses"
+    timeout: 300
+
+  # ==========================================================================
+  # Scenario 4: Non-activation — user wants to write new tests
+  # ==========================================================================
+
+  - name: "Decline request to write new tests from scratch"
+    prompt: |
+      I need to write unit tests for my ShoppingCart class. It handles
+      adding items, removing items, calculating totals, and applying promo codes.
+      Can you write a complete MSTest test suite for me?
+    expect_activation: false
+    setup:
+      files:
+        - path: "ShoppingCart.cs"
+          content: |
+            namespace Commerce;
+
+            public sealed class ShoppingCart
+            {
+                private readonly List<(string Sku, decimal Price, int Qty)> _items = new();
+
+                public void AddItem(string sku, decimal price, int qty) =>
+                    _items.Add((sku, price, qty));
+
+                public bool RemoveItem(string sku) =>
+                    _items.RemoveAll(i => i.Sku == sku) > 0;
+
+                public decimal GetTotal() =>
+                    _items.Sum(i => i.Price * i.Qty);
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "(TestMethod|TestClass|\\[Fact\\]|test)"
+    rubric:
+      - "Wrote test methods for the ShoppingCart class"
+      - "Covered the AddItem and GetTotal methods"
+    timeout: 120

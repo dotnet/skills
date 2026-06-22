@@ -10,6 +10,7 @@ public static class RejudgeCommand
     {
         var resultsDirArg = new Argument<string>("results-dir") { Description = "Path to a timestamped results directory containing sessions.db" };
         var judgeModelOpt = new Option<string?>("--judge-model") { Description = "Model to use for judging (defaults to the persisted judge model when available)" };
+        var baselineDirOpt = new Option<string?>("--baseline-dir") { Description = "Path to a separate results directory whose sessions.db holds the baseline runs to pair against (cross-directory judging)" };
         var judgeModeOpt = new Option<string>("--judge-mode") { Description = "Judge mode: pairwise, independent, or both", DefaultValueFactory = _ => "pairwise" }
             .AcceptOnlyFromAmong("pairwise", "independent", "both");
         var judgeTimeoutOpt = new Option<int>("--judge-timeout") { Description = "Judge timeout in seconds", DefaultValueFactory = _ => 300 };
@@ -22,6 +23,7 @@ public static class RejudgeCommand
         {
             resultsDirArg,
             judgeModelOpt,
+            baselineDirOpt,
             judgeModeOpt,
             judgeTimeoutOpt,
             verboseOpt,
@@ -34,6 +36,7 @@ public static class RejudgeCommand
         {
             var resultsDir = parseResult.GetValue(resultsDirArg)!;
             var judgeModel = parseResult.GetValue(judgeModelOpt);
+            var baselineDir = parseResult.GetValue(baselineDirOpt);
             var verbose = parseResult.GetValue(verboseOpt);
             var judgeTimeout = parseResult.GetValue(judgeTimeoutOpt) * 1000;
             var minImprovement = parseResult.GetValue(minImprovementOpt);
@@ -46,6 +49,12 @@ public static class RejudgeCommand
                 "both" => JudgeMode.Both,
                 _ => JudgeMode.Pairwise,
             };
+
+            if (!string.IsNullOrWhiteSpace(baselineDir))
+            {
+                return await RunCrossDir(resultsDir, baselineDir, judgeModel, judgeMode, judgeTimeout,
+                    verbose, minImprovement, requireCompletion, confidenceLevel);
+            }
 
             return await Run(resultsDir, judgeModel, judgeMode, judgeTimeout, verbose,
                 minImprovement, requireCompletion, confidenceLevel);
@@ -150,118 +159,11 @@ public static class RejudgeCommand
                     var scenario = new EvalScenario(scenarioName, prompt, Rubric: storedRubric);
                     Action<string>? log = verbose ? msg => Console.WriteLine($"  [{scenarioName}/{runGroup.Key.RunIndex + 1}] {msg}") : null;
 
-                    var baselineMetrics = JsonSerializer.Deserialize(baselineSess.MetricsJson!, SkillValidatorJsonContext.Default.RunMetrics)!;
-                    var isolatedMetrics = JsonSerializer.Deserialize(isolatedSess.MetricsJson!, SkillValidatorJsonContext.Default.RunMetrics)!;
-                    var pluginMetrics = pluginSess?.MetricsJson is not null
-                        ? JsonSerializer.Deserialize(pluginSess.MetricsJson, SkillValidatorJsonContext.Default.RunMetrics)
-                        : null;
-
-                    var judgeWorkRoot = CreateJudgeWorkDir("rejudge");
-                    try
-                    {
-                        var judgeOpts = new JudgeOptions(
-                            effectiveJudgeModel,
-                            verbose,
-                            judgeTimeout,
-                            CreateJudgeWorkDir(judgeWorkRoot, "baseline"),
-                            firstSkillSession.SkillPath);
-                        var baselineJudge = await SafeJudge(
-                            Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, log),
-                            "baseline",
-                            log);
-                        var isolatedJudge = await SafeJudge(
-                            Judge.JudgeRun(scenario, isolatedMetrics, judgeOpts with { WorkDir = CreateJudgeWorkDir(judgeWorkRoot, "isolated") }, log),
-                            "isolated",
-                            log);
-                        var pluginJudge = pluginMetrics is not null
-                            ? await SafeJudge(
-                                Judge.JudgeRun(scenario, pluginMetrics, judgeOpts with { WorkDir = CreateJudgeWorkDir(judgeWorkRoot, "plugin") }, log),
-                                "plugin",
-                                log)
-                            : ((JudgeResult Result, TokenUsage Tokens)?)null;
-
-                        // Accumulate judge tokens into metrics
-                        baselineMetrics.JudgeInputTokens += baselineJudge.Tokens.InputTokens;
-                        baselineMetrics.JudgeOutputTokens += baselineJudge.Tokens.OutputTokens;
-                        baselineMetrics.JudgeCacheReadTokens += baselineJudge.Tokens.CacheReadTokens;
-                        baselineMetrics.JudgeCacheWriteTokens += baselineJudge.Tokens.CacheWriteTokens;
-                        isolatedMetrics.JudgeInputTokens += isolatedJudge.Tokens.InputTokens;
-                        isolatedMetrics.JudgeOutputTokens += isolatedJudge.Tokens.OutputTokens;
-                        isolatedMetrics.JudgeCacheReadTokens += isolatedJudge.Tokens.CacheReadTokens;
-                        isolatedMetrics.JudgeCacheWriteTokens += isolatedJudge.Tokens.CacheWriteTokens;
-                        if (pluginMetrics is not null && pluginJudge is not null)
-                        {
-                            pluginMetrics.JudgeInputTokens += pluginJudge.Value.Tokens.InputTokens;
-                            pluginMetrics.JudgeOutputTokens += pluginJudge.Value.Tokens.OutputTokens;
-                            pluginMetrics.JudgeCacheReadTokens += pluginJudge.Value.Tokens.CacheReadTokens;
-                            pluginMetrics.JudgeCacheWriteTokens += pluginJudge.Value.Tokens.CacheWriteTokens;
-                        }
-
-                        sessionDb.SaveJudgeResult(baselineSess.Id, JsonSerializer.Serialize(baselineJudge.Result, SkillValidatorJsonContext.Default.JudgeResult));
-                        sessionDb.SaveJudgeResult(isolatedSess.Id, JsonSerializer.Serialize(isolatedJudge.Result, SkillValidatorJsonContext.Default.JudgeResult));
-                        if (pluginSess is not null && pluginJudge is not null)
-                        {
-                            sessionDb.SaveJudgeResult(pluginSess.Id, JsonSerializer.Serialize(pluginJudge.Value.Result, SkillValidatorJsonContext.Default.JudgeResult));
-                        }
-
-                        var baselineResult = new RunResult(baselineMetrics, baselineJudge.Result);
-                        var isolatedResult = new RunResult(isolatedMetrics, isolatedJudge.Result);
-                        var pluginResult = pluginMetrics is not null && pluginJudge is not null
-                            ? new RunResult(pluginMetrics, pluginJudge.Value.Result)
-                            : null;
-
-                        PairwiseJudgeResult? pairwise = null;
-                        bool pairwiseFromPlugin = false;
-                        if (usePairwise)
-                        {
-                            try
-                            {
-                                var pairwiseTarget = pluginResult is not null && pluginResult.JudgeResult.OverallScore < isolatedResult.JudgeResult.OverallScore
-                                    ? pluginResult
-                                    : isolatedResult;
-                                pairwiseFromPlugin = ReferenceEquals(pairwiseTarget, pluginResult);
-                                var (pairwiseResult, _) = await PairwiseJudge.Judge(
-                                    scenario,
-                                    baselineMetrics,
-                                    pairwiseTarget.Metrics,
-                                    new PairwiseJudgeOptions(
-                                        effectiveJudgeModel,
-                                        verbose,
-                                        judgeTimeout,
-                                        CreateJudgeWorkDir(judgeWorkRoot, "pairwise"),
-                                        firstSkillSession.SkillPath,
-                                        CreateJudgeWorkDir(judgeWorkRoot, "pairwise-skilled")),
-                                    log);
-                                pairwise = pairwiseResult;
-                                sessionDb.SavePairwiseResult(baselineSess.Id, JsonSerializer.Serialize(pairwise, SkillValidatorJsonContext.Default.PairwiseJudgeResult));
-                            }
-                            catch (Exception error)
-                            {
-                                log?.Invoke($"⚠️  Pairwise judge failed: {error.Message}");
-                            }
-                        }
-
-                        var isolatedActivation = MetricsCollector.ExtractSkillActivation(
-                            isolatedMetrics.Events,
-                            baselineMetrics.ToolCallBreakdown,
-                            skillName);
-                        var pluginActivation = pluginMetrics is not null
-                            ? MetricsCollector.ExtractSkillActivation(pluginMetrics.Events, baselineMetrics.ToolCallBreakdown, skillName)
-                            : null;
-
-                        rejudgedRuns.Add(new RejudgedRun(
-                            Baseline: baselineResult,
-                            Isolated: isolatedResult,
-                            Plugin: pluginResult,
-                            Pairwise: pairwise,
-                            PairwiseFromPlugin: pairwiseFromPlugin,
-                            IsolatedActivation: isolatedActivation,
-                            PluginActivation: pluginActivation));
-                    }
-                    finally
-                    {
-                        TryDeleteDirectory(judgeWorkRoot);
-                    }
+                    rejudgedRuns.Add(await JudgeRunGroup(
+                        scenario, skillName, firstSkillSession.SkillPath,
+                        baselineSess, isolatedSess, pluginSess,
+                        effectiveJudgeModel, verbose, judgeTimeout, usePairwise,
+                        baselineSaveDb: sessionDb, treatmentSaveDb: sessionDb, log));
                 }
 
                 if (rejudgedRuns.Count == 0)
@@ -290,6 +192,394 @@ public static class RejudgeCommand
 
         await AgentRunner.StopAllClients();
         return verdicts.All(v => v.Passed) ? 0 : 1;
+    }
+
+    /// <summary>
+    /// Cross-directory judging: pair treatment runs in <paramref name="treatmentDir"/> with baseline
+    /// runs in <paramref name="baselineDir"/> by their baseline key, judge each pair, and apply the
+    /// same scoring and pass/fail gates as an inline <c>evaluate</c> run.
+    /// </summary>
+    public static async Task<int> RunCrossDir(
+        string treatmentDir,
+        string baselineDir,
+        string? judgeModel,
+        JudgeMode judgeMode,
+        int judgeTimeout,
+        bool verbose,
+        double minImprovement,
+        bool requireCompletion,
+        double confidenceLevel)
+    {
+        var treatmentDbPath = Path.Combine(treatmentDir, "sessions.db");
+        var baselineDbPath = Path.Combine(baselineDir, "sessions.db");
+        if (!File.Exists(treatmentDbPath))
+        {
+            Console.Error.WriteLine($"No sessions.db found at {treatmentDbPath}");
+            return 1;
+        }
+        if (!File.Exists(baselineDbPath))
+        {
+            Console.Error.WriteLine($"No baseline sessions.db found at {baselineDbPath}");
+            return 1;
+        }
+
+        using var treatmentDb = new SessionDatabase(treatmentDbPath);
+        using var baselineDb = new SessionDatabase(baselineDbPath);
+
+        var treatmentSessions = treatmentDb.GetCompletedSessions();
+        var baselineSessions = baselineDb.GetCompletedSessions();
+        if (treatmentSessions.Count == 0)
+        {
+            Console.Error.WriteLine("No completed treatment sessions found in the database.");
+            return 1;
+        }
+        if (baselineSessions.Count == 0)
+        {
+            Console.Error.WriteLine("No completed baseline sessions found in the database.");
+            return 1;
+        }
+
+        var treatmentModels = treatmentSessions.Select(s => s.Model).Distinct().ToList();
+        var baselineModels = baselineSessions.Select(s => s.Model).Distinct().ToList();
+        if (treatmentModels.Count > 1)
+        {
+            Console.Error.WriteLine($"Treatment sessions use multiple models ({string.Join(", ", treatmentModels)}); cross-directory judging requires a single agent model.");
+            return 1;
+        }
+        if (baselineModels.Count > 1)
+        {
+            Console.Error.WriteLine($"Baseline sessions use multiple models ({string.Join(", ", baselineModels)}); cross-directory judging requires a single agent model.");
+            return 1;
+        }
+        var treatmentModel = treatmentModels[0];
+        var baselineModel = baselineModels[0];
+        var treatmentJudgeModel = treatmentDb.GetSchemaInfo().GetValueOrDefault("judge_model");
+        var baselineJudgeModel = baselineDb.GetSchemaInfo().GetValueOrDefault("judge_model");
+
+        var (compatOk, effectiveJudgeModel, compatError) = ValidateCrossDirCompat(
+            baselineModel, treatmentModel, baselineJudgeModel, treatmentJudgeModel, judgeModel);
+        if (!compatOk)
+        {
+            Console.Error.WriteLine(compatError);
+            return 1;
+        }
+
+        try
+        {
+            var client = await AgentRunner.GetSharedClient(verbose);
+            var models = await client.ListModelsAsync();
+            if (!models.Any(m => m.Id == effectiveJudgeModel))
+            {
+                Console.Error.WriteLine($"Invalid model: \"{effectiveJudgeModel}\"\nAvailable models: {string.Join(", ", models.Select(m => m.Id))}");
+                return 1;
+            }
+        }
+        catch (Exception error)
+        {
+            Console.Error.WriteLine($"Failed to validate model: {error}");
+            return 1;
+        }
+
+        var pairing = PairCrossDir(baselineSessions, treatmentSessions);
+        foreach (var unmatched in pairing.Unmatched)
+            Console.WriteLine($"⚠️  No baseline match for treatment run {unmatched}; skipping.");
+
+        if (pairing.Pairs.Count == 0)
+        {
+            Console.Error.WriteLine("No treatment runs could be paired with a baseline.");
+            return 1;
+        }
+
+        Console.WriteLine($"Judging {pairing.Pairs.Count} paired run(s) with model: {effectiveJudgeModel}, mode: {judgeMode}\n");
+
+        bool usePairwise = judgeMode is JudgeMode.Pairwise or JudgeMode.Both;
+        var verdicts = new List<SkillVerdict>();
+        foreach (var skillGroup in pairing.Pairs.GroupBy(p => p.SkillName))
+        {
+            var skillName = skillGroup.Key;
+            var skillPath = skillGroup.First().Isolated.SkillPath;
+            Console.WriteLine($"[{skillName}] Judging...");
+
+            var comparisons = new List<ScenarioComparison>();
+            foreach (var scenarioGroup in skillGroup.GroupBy(p => p.ScenarioName))
+            {
+                var scenarioName = scenarioGroup.Key;
+                var storedRubric = GetStoredRubric(skillName, scenarioName,
+                    scenarioGroup.SelectMany(p => p.Plugin is null
+                        ? new[] { p.Baseline, p.Isolated }
+                        : new[] { p.Baseline, p.Isolated, p.Plugin }));
+                var rejudgedRuns = new List<RejudgedRun>();
+
+                foreach (var pair in scenarioGroup)
+                {
+                    var prompt = pair.Baseline.Prompt ?? pair.Isolated.Prompt ?? pair.Plugin?.Prompt ?? "";
+                    var scenario = new EvalScenario(scenarioName, prompt, Rubric: storedRubric);
+                    Action<string>? log = verbose ? msg => Console.WriteLine($"  [{scenarioName}/{pair.RunIndex + 1}] {msg}") : null;
+
+                    rejudgedRuns.Add(await JudgeRunGroup(
+                        scenario, skillName, skillPath,
+                        pair.Baseline, pair.Isolated, pair.Plugin,
+                        effectiveJudgeModel!, verbose, judgeTimeout, usePairwise,
+                        baselineSaveDb: baselineDb, treatmentSaveDb: treatmentDb, log));
+                }
+
+                if (rejudgedRuns.Count == 0)
+                    continue;
+
+                comparisons.Add(BuildScenarioComparison(scenarioName, rejudgedRuns));
+            }
+
+            if (comparisons.Count == 0)
+                continue;
+
+            var skill = new SkillInfo(skillName, "", skillPath, skillPath, "");
+            var verdict = Comparator.ComputeVerdict(skill, comparisons, minImprovement, requireCompletion, confidenceLevel);
+            Console.WriteLine($"[{skillName}] {(verdict.Passed ? "✅" : "❌")} Score: {verdict.OverallImprovementScore * 100:F1}%");
+            verdicts.Add(verdict);
+        }
+
+        var reporters = new List<ReporterSpec>
+        {
+            new(ReporterType.Console),
+            new(ReporterType.Json),
+            new(ReporterType.Markdown),
+        };
+        await Reporter.ReportResults(verdicts, reporters, verbose,
+            treatmentModel, effectiveJudgeModel!, treatmentDir, treatmentDir);
+
+        await AgentRunner.StopAllClients();
+        return verdicts.All(v => v.Passed) ? 0 : 1;
+    }
+
+    private static readonly string[] CrossDirIsolatedRoles = { "with-skill-isolated", "with-skill", "with-agent-isolated" };
+    private static readonly string[] CrossDirPluginRoles = { "with-skill-plugin", "with-agent-plugin" };
+    private static readonly string[] CrossDirBaselineRoles = { "baseline", "baseline-reused" };
+
+    /// <summary>
+    /// Pure pairing of baseline sessions to treatment sessions by their shared baseline key
+    /// (prompt SHA + target SHA). Treatment runs are grouped by skill/scenario/run-index; each
+    /// run's baseline is the baseline session sharing its key, preferring the matching run index.
+    /// </summary>
+    public static CrossDirPairing PairCrossDir(
+        IReadOnlyList<SessionRecord> baselineSessions,
+        IReadOnlyList<SessionRecord> treatmentSessions)
+    {
+        var baselineByKey = baselineSessions
+            .Where(s => CrossDirBaselineRoles.Contains(s.Role) && !string.IsNullOrEmpty(s.BaselineKey))
+            .GroupBy(s => s.BaselineKey!)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var pairs = new List<CrossDirPair>();
+        var unmatched = new List<string>();
+
+        foreach (var group in treatmentSessions.GroupBy(s => (s.SkillName, s.ScenarioName, s.RunIndex)))
+        {
+            var isolated = CrossDirIsolatedRoles
+                .Select(role => group.FirstOrDefault(s => s.Role == role))
+                .FirstOrDefault(s => s is not null);
+            if (isolated is null)
+                continue;
+
+            var plugin = CrossDirPluginRoles
+                .Select(role => group.FirstOrDefault(s => s.Role == role))
+                .FirstOrDefault(s => s is not null);
+
+            var key = isolated.BaselineKey;
+            if (string.IsNullOrEmpty(key) || !baselineByKey.TryGetValue(key, out var candidates) || candidates.Count == 0)
+            {
+                unmatched.Add($"{group.Key.SkillName}/{group.Key.ScenarioName}#{group.Key.RunIndex + 1}");
+                continue;
+            }
+
+            var baseline = candidates.FirstOrDefault(b => b.RunIndex == group.Key.RunIndex) ?? candidates[0];
+            pairs.Add(new CrossDirPair(
+                group.Key.SkillName,
+                group.Key.ScenarioName,
+                group.Key.RunIndex,
+                baseline,
+                isolated,
+                plugin));
+        }
+
+        return new CrossDirPairing(pairs, unmatched);
+    }
+
+    /// <summary>
+    /// Pure validation of cross-directory model/judge-model compatibility. Baseline and treatment
+    /// must share the same agent model; the effective judge model is the explicit override, then the
+    /// treatment's persisted judge model, then the baseline's. A mismatch between the two persisted
+    /// judge models (with no override) is rejected.
+    /// </summary>
+    public static (bool Ok, string? EffectiveJudgeModel, string? Error) ValidateCrossDirCompat(
+        string baselineModel,
+        string treatmentModel,
+        string? baselineJudgeModel,
+        string? treatmentJudgeModel,
+        string? explicitJudgeModel)
+    {
+        if (!string.Equals(baselineModel, treatmentModel, StringComparison.Ordinal))
+        {
+            return (false, null,
+                $"Model mismatch: baseline sessions used \"{baselineModel}\" but treatment sessions used \"{treatmentModel}\". Baseline and treatment must share the same --model.");
+        }
+
+        if (string.IsNullOrWhiteSpace(explicitJudgeModel)
+            && !string.IsNullOrWhiteSpace(baselineJudgeModel)
+            && !string.IsNullOrWhiteSpace(treatmentJudgeModel)
+            && !string.Equals(baselineJudgeModel, treatmentJudgeModel, StringComparison.Ordinal))
+        {
+            return (false, null,
+                $"Judge-model mismatch: baseline sessions were judged with \"{baselineJudgeModel}\" but treatment sessions with \"{treatmentJudgeModel}\". Pass --judge-model to override.");
+        }
+
+        var effective = !string.IsNullOrWhiteSpace(explicitJudgeModel)
+            ? explicitJudgeModel
+            : !string.IsNullOrWhiteSpace(treatmentJudgeModel)
+                ? treatmentJudgeModel
+                : baselineJudgeModel;
+
+        if (string.IsNullOrWhiteSpace(effective))
+        {
+            return (false, null,
+                "No persisted judge model found in either sessions.db. Re-run with --judge-model to specify the judge explicitly.");
+        }
+
+        return (true, effective, null);
+    }
+
+    /// <summary>
+    /// Judges a single baseline/treatment run group and persists the judge results.
+    /// Baseline judge + pairwise are saved to <paramref name="baselineSaveDb"/>; the
+    /// isolated/plugin judge results are saved to <paramref name="treatmentSaveDb"/>.
+    /// When judging within a single directory, both arguments are the same database.
+    /// </summary>
+    private static async Task<RejudgedRun> JudgeRunGroup(
+        EvalScenario scenario,
+        string skillName,
+        string skillPath,
+        SessionRecord baselineSess,
+        SessionRecord isolatedSess,
+        SessionRecord? pluginSess,
+        string effectiveJudgeModel,
+        bool verbose,
+        int judgeTimeout,
+        bool usePairwise,
+        SessionDatabase baselineSaveDb,
+        SessionDatabase treatmentSaveDb,
+        Action<string>? log)
+    {
+        var baselineMetrics = JsonSerializer.Deserialize(baselineSess.MetricsJson!, SkillValidatorJsonContext.Default.RunMetrics)!;
+        var isolatedMetrics = JsonSerializer.Deserialize(isolatedSess.MetricsJson!, SkillValidatorJsonContext.Default.RunMetrics)!;
+        var pluginMetrics = pluginSess?.MetricsJson is not null
+            ? JsonSerializer.Deserialize(pluginSess.MetricsJson, SkillValidatorJsonContext.Default.RunMetrics)
+            : null;
+
+        var judgeWorkRoot = CreateJudgeWorkDir("rejudge");
+        try
+        {
+            var judgeOpts = new JudgeOptions(
+                effectiveJudgeModel,
+                verbose,
+                judgeTimeout,
+                CreateJudgeWorkDir(judgeWorkRoot, "baseline"),
+                skillPath);
+            var baselineJudge = await SafeJudge(
+                Judge.JudgeRun(scenario, baselineMetrics, judgeOpts, log),
+                "baseline",
+                log);
+            var isolatedJudge = await SafeJudge(
+                Judge.JudgeRun(scenario, isolatedMetrics, judgeOpts with { WorkDir = CreateJudgeWorkDir(judgeWorkRoot, "isolated") }, log),
+                "isolated",
+                log);
+            var pluginJudge = pluginMetrics is not null
+                ? await SafeJudge(
+                    Judge.JudgeRun(scenario, pluginMetrics, judgeOpts with { WorkDir = CreateJudgeWorkDir(judgeWorkRoot, "plugin") }, log),
+                    "plugin",
+                    log)
+                : ((JudgeResult Result, TokenUsage Tokens)?)null;
+
+            // Accumulate judge tokens into metrics
+            baselineMetrics.JudgeInputTokens += baselineJudge.Tokens.InputTokens;
+            baselineMetrics.JudgeOutputTokens += baselineJudge.Tokens.OutputTokens;
+            baselineMetrics.JudgeCacheReadTokens += baselineJudge.Tokens.CacheReadTokens;
+            baselineMetrics.JudgeCacheWriteTokens += baselineJudge.Tokens.CacheWriteTokens;
+            isolatedMetrics.JudgeInputTokens += isolatedJudge.Tokens.InputTokens;
+            isolatedMetrics.JudgeOutputTokens += isolatedJudge.Tokens.OutputTokens;
+            isolatedMetrics.JudgeCacheReadTokens += isolatedJudge.Tokens.CacheReadTokens;
+            isolatedMetrics.JudgeCacheWriteTokens += isolatedJudge.Tokens.CacheWriteTokens;
+            if (pluginMetrics is not null && pluginJudge is not null)
+            {
+                pluginMetrics.JudgeInputTokens += pluginJudge.Value.Tokens.InputTokens;
+                pluginMetrics.JudgeOutputTokens += pluginJudge.Value.Tokens.OutputTokens;
+                pluginMetrics.JudgeCacheReadTokens += pluginJudge.Value.Tokens.CacheReadTokens;
+                pluginMetrics.JudgeCacheWriteTokens += pluginJudge.Value.Tokens.CacheWriteTokens;
+            }
+
+            baselineSaveDb.SaveJudgeResult(baselineSess.Id, JsonSerializer.Serialize(baselineJudge.Result, SkillValidatorJsonContext.Default.JudgeResult));
+            treatmentSaveDb.SaveJudgeResult(isolatedSess.Id, JsonSerializer.Serialize(isolatedJudge.Result, SkillValidatorJsonContext.Default.JudgeResult));
+            if (pluginSess is not null && pluginJudge is not null)
+            {
+                treatmentSaveDb.SaveJudgeResult(pluginSess.Id, JsonSerializer.Serialize(pluginJudge.Value.Result, SkillValidatorJsonContext.Default.JudgeResult));
+            }
+
+            var baselineResult = new RunResult(baselineMetrics, baselineJudge.Result);
+            var isolatedResult = new RunResult(isolatedMetrics, isolatedJudge.Result);
+            var pluginResult = pluginMetrics is not null && pluginJudge is not null
+                ? new RunResult(pluginMetrics, pluginJudge.Value.Result)
+                : null;
+
+            PairwiseJudgeResult? pairwise = null;
+            bool pairwiseFromPlugin = false;
+            if (usePairwise)
+            {
+                try
+                {
+                    var pairwiseTarget = pluginResult is not null && pluginResult.JudgeResult.OverallScore < isolatedResult.JudgeResult.OverallScore
+                        ? pluginResult
+                        : isolatedResult;
+                    pairwiseFromPlugin = ReferenceEquals(pairwiseTarget, pluginResult);
+                    var (pairwiseResult, _) = await PairwiseJudge.Judge(
+                        scenario,
+                        baselineMetrics,
+                        pairwiseTarget.Metrics,
+                        new PairwiseJudgeOptions(
+                            effectiveJudgeModel,
+                            verbose,
+                            judgeTimeout,
+                            CreateJudgeWorkDir(judgeWorkRoot, "pairwise"),
+                            skillPath,
+                            CreateJudgeWorkDir(judgeWorkRoot, "pairwise-skilled")),
+                        log);
+                    pairwise = pairwiseResult;
+                    baselineSaveDb.SavePairwiseResult(baselineSess.Id, JsonSerializer.Serialize(pairwise, SkillValidatorJsonContext.Default.PairwiseJudgeResult));
+                }
+                catch (Exception error)
+                {
+                    log?.Invoke($"⚠️  Pairwise judge failed: {error.Message}");
+                }
+            }
+
+            var isolatedActivation = MetricsCollector.ExtractSkillActivation(
+                isolatedMetrics.Events,
+                baselineMetrics.ToolCallBreakdown,
+                skillName);
+            var pluginActivation = pluginMetrics is not null
+                ? MetricsCollector.ExtractSkillActivation(pluginMetrics.Events, baselineMetrics.ToolCallBreakdown, skillName)
+                : null;
+
+            return new RejudgedRun(
+                Baseline: baselineResult,
+                Isolated: isolatedResult,
+                Plugin: pluginResult,
+                Pairwise: pairwise,
+                PairwiseFromPlugin: pairwiseFromPlugin,
+                IsolatedActivation: isolatedActivation,
+                PluginActivation: pluginActivation);
+        }
+        finally
+        {
+            TryDeleteDirectory(judgeWorkRoot);
+        }
     }
 
     private static string CreateJudgeWorkDir(string prefix)
@@ -488,3 +778,17 @@ public static class RejudgeCommand
         SkillActivationInfo IsolatedActivation,
         SkillActivationInfo? PluginActivation);
 }
+
+/// <summary>A treatment run paired with its matching baseline run for cross-directory judging.</summary>
+public sealed record CrossDirPair(
+    string SkillName,
+    string ScenarioName,
+    int RunIndex,
+    SessionRecord Baseline,
+    SessionRecord Isolated,
+    SessionRecord? Plugin);
+
+/// <summary>Result of pairing treatment runs to baseline runs across two results directories.</summary>
+public sealed record CrossDirPairing(
+    IReadOnlyList<CrossDirPair> Pairs,
+    IReadOnlyList<string> Unmatched);

@@ -1,32 +1,33 @@
-version: 2
 updates:
-  - package-ecosystem: nuget
-    directories:
-      - "/eng/skill-validator/src"
-      - "/eng/skill-validator/tests"
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 10
-    groups:
-      microsoft-and-system:
-        patterns:
-          - "Microsoft.*"
-          - "System.*"
-      all-other-nuget:
-        patterns:
-          - "*"
-        exclude-patterns:
-          - "Microsoft.*"
-          - "System.*"
-
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    groups:
-      github-actions-dependencies:
-        patterns:
-          - "*"
-    exclude-paths:
-      - "**/*.lock.yml"
+- directories:
+  - /eng/skill-validator/src
+  - /eng/skill-validator/tests
+  groups:
+    all-other-nuget:
+      exclude-patterns:
+      - Microsoft.*
+      - System.*
+      patterns:
+      - "*"
+    microsoft-and-system:
+      patterns:
+      - Microsoft.*
+      - System.*
+  open-pull-requests-limit: 10
+  package-ecosystem: nuget
+  schedule:
+    interval: weekly
+- directory: /
+  exclude-paths:
+  - "**/*.lock.yml"
+  groups:
+    github-actions-dependencies:
+      patterns:
+      - "*"
+  ignore:
+  - dependency-name: "github/gh-aw-actions/**" # Managed by gh aw compile. Version-locked to the gh-aw compiler; do not bump.
+  open-pull-requests-limit: 5
+  package-ecosystem: github-actions
+  schedule:
+    interval: weekly
+version: 2

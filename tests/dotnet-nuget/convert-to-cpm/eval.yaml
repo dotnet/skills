@@ -185,7 +185,7 @@ scenarios:
       - "Identified the PackageReference in Common.props that applies to all projects"
       - "Presented the findings and applied the user's chosen strategy of using the highest version for conflicts and inlining MSBuild property values"
       - "Created Directory.Packages.props reflecting the user's directed resolution strategy"
-      - "Preserved non-version properties (LangVersion, ImplicitUsings) in Directory.Build.props"
+      - "Preserved non-version properties (ImplicitUsings) in Directory.Build.props"
       - "Ran dotnet restore and dotnet build to validate the conversion"
       - "Produced a markdown report summarizing all package references, resolved versions, and decisions across projects, comparing baseline state against the CPM result"
       - "Guided the user through reconciliation or explicit acceptance of each differing version, including version conflicts, property-based versions, and conditional references"

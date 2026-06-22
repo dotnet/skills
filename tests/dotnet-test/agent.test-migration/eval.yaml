@@ -1,0 +1,123 @@
+scenarios:
+  # ============================================================================
+  # Goal 1: Auto-detect MSTest v2 and recommend migration path
+  # The agent should detect MSTest v2 on VSTest and recommend upgrading to v3
+  # (then v4) and migrating to MTP.
+  # ============================================================================
+
+  - name: "Detect MSTest v2 on VSTest and recommend migration path"
+    prompt: |
+      I have a test project that I think might be outdated. Can you check what
+      framework and version it uses and tell me what migrations are available?
+    setup:
+      files:
+        - path: "OrderTests/OrderTests.csproj"
+          source: "fixtures/mstest-v2-vstest/OrderTests.csproj"
+        - path: "OrderTests/OrderServiceTests.cs"
+          source: "fixtures/mstest-v2-vstest/OrderServiceTests.cs"
+      additional_required_skills:
+        - platform-detection
+        - migrate-mstest-v1v2-to-v3
+        - migrate-mstest-v3-to-v4
+        - migrate-vstest-to-mtp
+    assertions:
+      - type: "output_matches"
+        pattern: "(MSTest|mstest)"
+      - type: "output_matches"
+        pattern: "(2\\.2\\.10|v2|version 2)"
+      - type: "output_matches"
+        pattern: "(v3|v4|upgrade|migrat)"
+      - type: "output_matches"
+        pattern: "(VSTest|vstest|Microsoft\\.Testing\\.Platform|MTP)"
+      - type: "exit_success"
+    rubric:
+      - "Correctly identified the project uses MSTest v2 (2.2.10)"
+      - "Detected the project is running on VSTest (not MTP)"
+      - "Recommended upgrading MSTest from v2 to v3 as a first step"
+      - "Mentioned the availability of further upgrades (v3 to v4, VSTest to MTP)"
+    timeout: 180
+
+  # ============================================================================
+  # Goal 2: Route to xUnit v3 migration when xUnit v2 is detected
+  # ============================================================================
+
+  - name: "Detect xUnit v2 and route to xUnit v3 migration"
+    prompt: |
+      I want to upgrade my test project to the latest xUnit version. What do I
+      need to do?
+    setup:
+      files:
+        - path: "CalcTests/CalcTests.csproj"
+          source: "fixtures/xunit-v2/CalcTests.csproj"
+        - path: "CalcTests/CalculatorTests.cs"
+          source: "fixtures/xunit-v2/CalculatorTests.cs"
+      additional_required_skills:
+        - platform-detection
+        - migrate-xunit-to-xunit-v3
+    assertions:
+      - type: "output_matches"
+        pattern: "(xunit|xUnit)"
+      - type: "output_matches"
+        pattern: "(v3|xunit\\.v3|version 3)"
+      - type: "output_matches"
+        pattern: "(VSTest|vstest|Microsoft\\.Testing\\.Platform|MTP)"
+      - type: "exit_success"
+    rubric:
+      - "Identified the project uses xUnit.net v2 (2.9.3)"
+      - "Recommended migrating to xUnit.net v3"
+      - "Mentioned key migration changes (package rename from xunit to xunit.v3, OutputType to Exe, or API changes)"
+    timeout: 180
+
+  # ============================================================================
+  # Goal 3: Handle targeted migration request without auto-detection
+  # ============================================================================
+
+  - name: "Execute targeted MSTest v2 to v3 migration"
+    prompt: |
+      Please upgrade my MSTest project from v2 to v3. I know I'm on MSTest
+      2.2.10 and I want to get to v3. Apply the changes to my project.
+    setup:
+      files:
+        - path: "OrderTests/OrderTests.csproj"
+          source: "fixtures/mstest-v2-vstest/OrderTests.csproj"
+        - path: "OrderTests/OrderServiceTests.cs"
+          source: "fixtures/mstest-v2-vstest/OrderServiceTests.cs"
+      additional_required_skills:
+        - migrate-mstest-v1v2-to-v3
+    assertions:
+      - type: "file_contains"
+        path: "**/OrderTests.csproj"
+        value: "3."
+      - type: "file_not_contains"
+        path: "**/OrderTests.csproj"
+        value: "2.2.10"
+      - type: "exit_success"
+    rubric:
+      - "Updated MSTest package versions from 2.2.10 to a 3.x version in the project file"
+      - "Addressed or warned about the Assert.AreEqual object overload removal"
+      - "Did not attempt additional migrations (v3 to v4, VSTest to MTP) that were not requested"
+    timeout: 300
+
+  # ============================================================================
+  # Goal 4: Decline non-migration request (expect_activation: false)
+  # ============================================================================
+
+  - name: "Decline request to write new tests"
+    prompt: |
+      I need to add unit tests for my Calculator class. Can you generate
+      comprehensive tests with good coverage?
+    expect_activation: false
+    setup:
+      files:
+        - path: "CalcTests/CalcTests.csproj"
+          source: "fixtures/xunit-v2/CalcTests.csproj"
+        - path: "CalcTests/CalculatorTests.cs"
+          source: "fixtures/xunit-v2/CalculatorTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(out.*scope|not.*cover|cannot|does not|writ.*test|generat|different)"
+      - type: "exit_success"
+    rubric:
+      - "Did not attempt to perform any test framework migration"
+      - "Recognized that writing new tests is outside the migration scope"
+    timeout: 60

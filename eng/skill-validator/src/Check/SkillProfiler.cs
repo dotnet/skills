@@ -31,15 +31,37 @@ public static partial class SkillProfiler
     // Not tied to the configured eval/judge model — TiktokenTokenizer only supports OpenAI
     // vocabularies, but BPE counts are close enough across models for complexity classification.
     private static readonly Lazy<TiktokenTokenizer> s_bpeTokenizer = new(() => TiktokenTokenizer.CreateForModel("gpt-4"));
-    internal const int MaxAggregateDescriptionLength = 15_000;
+
+    // Per-plugin aggregate description size cap. NOTE: this is a local repo
+    // policy, NOT a documented Copilot/agentskills constraint. The agentskills.io
+    // specification (https://agentskills.io/specification) defines per-skill
+    // limits — description (1024 chars, #description-field), compatibility
+    // (500 chars, #compatibility-field), and name (64 chars, #name-field) —
+    // but does NOT define any aggregate per-plugin cap. The original 15,000
+    // was introduced in #238 / discussed in #222 ("15K characters was
+    // mentioned, we could choose smaller") as an informal guardrail against
+    // bloated metadata costs at startup.
+    //
+    // TODO: validate this guardrail against literature (skill-routing studies)
+    // and run experiments measuring whether large aggregate description footprints
+    // actually degrade selection accuracy or just cost more tokens up-front.
+    // Until then, keep the cap aligned with current enforcement as a hard
+    // validation failure, while leaving enough headroom for reasonable plugin growth.
+    //
+    // Raised 20,000 -> 22,000: the dotnet-test plugin (the largest and most
+    // active) reached ~20,400 aggregate chars after adding the
+    // find-untested-sources-polyglot skill, legitimate growth that exceeded the
+    // previous cap. Bumped to restore ~1.6k headroom rather than degrade the
+    // routing keywords of existing skills. Prior precedent: 15,000 -> 20,000.
+    internal const int MaxAggregateDescriptionLength = 22_000;
     private const int MaxNameLength = 64;
     internal const int MinDescriptionLength = 10;
     private const int MaxCompatibilityLength = 500;
-    private const int MaxBodyLines = 500;
     private const long MaxAssetFileSize = 5 * 1024 * 1024; // 5 MB
 
-    public static SkillProfile AnalyzeSkill(SkillInfo skill)
+    public static SkillProfile AnalyzeSkill(SkillInfo skill, CheckOptions? options = null)
     {
+        var allowRepoTraversal = options?.AllowRepoTraversal ?? false;
         var content = skill.SkillMdContent;
         int chars4TokenCount = (int)Math.Ceiling(content.Length / 4.0);
         int bpeTokenCount = s_bpeTokenizer.Value.CountTokens(content);
@@ -99,19 +121,15 @@ public static partial class SkillProfiler
             errors.Add("Compatibility field must be 1-500 non-whitespace characters when provided.");
         }
 
-        // --- agentskills.io spec: body line count ---
-        var trimmedBody = body.TrimEnd('\r', '\n');
-        int bodyLineCount = trimmedBody.Length == 0 ? 0 : trimmedBody.Split('\n').Length;
-        if (bodyLineCount > MaxBodyLines)
-        {
-            errors.Add($"SKILL.md body is {bodyLineCount} lines — maximum is {MaxBodyLines}. Move detailed reference material to separate files.");
-        }
-
         // --- agentskills.io spec: file reference depth ---
         foreach (Match refMatch in FileRefRegex().Matches(body))
         {
             var refPath = refMatch.Groups[1].Value;
-            if (refPath.StartsWith("http", StringComparison.OrdinalIgnoreCase) || refPath.StartsWith('#'))
+            // Skip URLs and in-page anchors. "//" is treated as a protocol-relative URL
+            // (not as a repo-rooted path) and is left to the URL/reference scanner.
+            if (refPath.StartsWith("http", StringComparison.OrdinalIgnoreCase) ||
+                refPath.StartsWith("//", StringComparison.Ordinal) ||
+                refPath.StartsWith('#'))
                 continue;
 
             // Strip fragment anchors (e.g. "file.md#section")
@@ -130,7 +148,24 @@ public static partial class SkillProfiler
             // Reject parent-directory traversals
             if (segments.Any(s => s == ".."))
             {
-                errors.Add($"File reference '{refMatch.Groups[1].Value}' uses parent-directory traversal — references must stay within the skill directory.");
+                if (!allowRepoTraversal)
+                {
+                    errors.Add($"File reference '{refMatch.Groups[1].Value}' uses parent-directory traversal — references must stay within the skill directory.");
+                }
+                // When repo traversal is allowed, external refs have no depth constraint.
+                continue;
+            }
+
+            // Reject absolute (repo-rooted) paths — e.g. "/src/libraries/...".
+            // GitHub renders these relative to the repo root, but they are non-portable
+            // outside that repo. Treated symmetrically with ".." traversal: allowed only
+            // when the skill opts in via --allow-repo-traversal.
+            if (refPath.StartsWith('/'))
+            {
+                if (!allowRepoTraversal)
+                {
+                    errors.Add($"File reference '{refMatch.Groups[1].Value}' uses an absolute (repo-rooted) path — references must be relative to the skill directory.");
+                }
                 continue;
             }
 

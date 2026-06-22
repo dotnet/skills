@@ -1,0 +1,97 @@
+name: apple-crash-symbolication
+description: Evaluates the dotnet-diag/apple-crash-symbolication skill
+type: capability
+config:
+  timeout: 5m
+stimuli:
+  - name: Parse .NET frames and locate dSYMs from an iOS crash log
+    prompt: >
+      I have an iOS .ips crash log at ios_crash.ips from a crashed .NET MAUI
+      app. Parse the crash log, identify the .NET runtime frames that need
+      symbolication, locate the dSYM debug symbols, and show me the atos
+      commands to symbolicate them.
+    environment:
+      files:
+        - src: ./ios_crash.ips
+          dest: ios_crash.ips
+    graders:
+      - type: output-matches
+        config:
+          pattern: libcoreclr
+      - type: output-matches
+        config:
+          pattern: (dSYM|dsym|SDK.packs|NuGet.cache|nuget)
+      - type: output-matches
+        config:
+          pattern: (SIGABRT|EXC_CRASH)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - >-
+        Correctly handled the .ips two-part JSON format — line 1 is a metadata
+        header and the remaining lines are a separate crash body JSON — and
+        extracted usedImages, threads, and exception information
+      - >-
+        Identified all .NET binary images by filtering usedImages for
+        libcoreclr and libSystem.* BCL native components (not just the crashing
+        thread), listing their UUIDs and base load addresses
+      - >-
+        Provided .NET-specific dSYM search paths: build output, SDK packs
+        ($DOTNET_ROOT/packs/), NuGet cache (~/.nuget/packages/), or the
+        Microsoft symbol server
+      - >-
+        Generated correct atos commands where -o points inside the .dSYM
+        bundle (Contents/Resources/DWARF/<binary>), -l is the base load
+        address from usedImages, and -arch matches the crash log architecture
+      - >-
+        Explained UUID verification with dwarfdump --uuid and named the
+        correct NuGet runtime package for the platform (e.g.,
+        Microsoft.NETCore.App.Runtime.ios-arm64)
+
+  - name: Investigate root cause of a .NET MAUI iOS crash
+    prompt: >
+      I have an iOS .ips crash log at ios_crash.ips from a crashed .NET MAUI
+      app. Please analyze the crash log and help me figure out what went wrong.
+    environment:
+      files:
+        - src: ./ios_crash.ips
+          dest: ios_crash.ips
+    graders:
+      - type: output-matches
+        config:
+          pattern: (SIGABRT|EXC_CRASH|abort)
+      - type: output-matches
+        config:
+          pattern: (SampleMAUI|libcoreclr)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Extracted the exception type and any application-specific crash messages from the crash log
+      - Identified that the crash is a SIGABRT / EXC_CRASH in a CoreCLR .NET MAUI app
+      - Examined both the faulting thread and lastExceptionBacktrace for .NET frames
+      - Provided specific dSYM search paths (SDK packs or NuGet cache) for symbolicating the CoreCLR frames
+
+  - name: Reject Android tombstone passed as iOS crash log
+    prompt: >
+      I have a crash file at crash_android.txt from a crashed .NET app. Please
+      parse this crash log, identify the .NET runtime frames, and help me
+      symbolicate them.
+    environment:
+      files:
+        - src: ./tombstone_sample.txt
+          dest: crash_android.txt
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Android|tombstone|not.*(iOS|\.ips)|wrong.*(format|type)|different.*(format|process))
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - >-
+        Recognized that the crash file is an Android tombstone (not an Apple
+        .ips crash log) and clearly communicated the format mismatch to the
+        user
+      - >-
+        Recommended using Android-specific crash analysis tools (such as
+        ndk-stack, addr2line, or a tombstone analysis workflow) rather than iOS
+        symbolication tools like atos or dSYMs

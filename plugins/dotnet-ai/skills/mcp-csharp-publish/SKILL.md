@@ -11,6 +11,7 @@ description: >
   DO NOT USE FOR: publishing general NuGet libraries (not MCP-specific), general Docker
   guidance unrelated to MCP, creating new servers (use mcp-csharp-create), debugging
   (use mcp-csharp-debug), writing tests (use mcp-csharp-test).
+license: MIT
 ---
 
 # C# MCP Server Publishing

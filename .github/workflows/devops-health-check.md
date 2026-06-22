@@ -1,33 +1,52 @@
 ---
 name: "DevOps Daily Health Check"
 description: >
-  Orchestrator workflow that collects repo health signals daily (pipelines,
-  skill quality, PRs, infrastructure), computes a fingerprint-based diff
-  against the previous run, updates a pinned health dashboard issue, and
-  dispatches investigation workers for new critical/warning findings.
+  Orchestrator workflow that collects repo infrastructure health signals
+  daily (pipelines, CI/CD infrastructure, resource usage), computes a
+  fingerprint-based diff against the previous run, updates a pinned health
+  dashboard issue, and dispatches investigation workers for new
+  critical/warning findings. Focused on pipeline, infrastructure, and
+  resource usage health only — does not track individual skill quality or
+  PR review status.
 
 on:
   schedule:
     - cron: "0 3 * * *"  # 03:00 UTC daily
   workflow_dispatch:
 
+  # Run the imported pat_pool job before the activation gate so its pat_number
+  # output is available to the activation and agent jobs (which consume it in
+  # engine.env). See: shared/pat_pool.README.md.
+  needs: [pat_pool]
+
 # Don't run scheduled triggers on forked repositories — forks lack the
 # secrets and context required, and scheduled runs would consume the
 # fork owner's minutes.
-if: ${{ !(github.event_name == 'schedule' && github.event.repository.fork) }}
+if: ${{ (!(github.event_name == 'schedule' && github.event.repository.fork)) }}
+
+engine:
+  id: copilot
+  env:
+    # If none of the COPILOT_GITHUB_TOKEN[_#] pool secrets were selected, the default COPILOT_GITHUB_TOKEN is used.
+    COPILOT_GITHUB_TOKEN: ${{ case(needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_GITHUB_TOKEN, needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_GITHUB_TOKEN_2, needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_GITHUB_TOKEN_3, needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_GITHUB_TOKEN_4, needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_GITHUB_TOKEN_5, needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_GITHUB_TOKEN_6, needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_GITHUB_TOKEN_7, needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_GITHUB_TOKEN_8, secrets.COPILOT_GITHUB_TOKEN) }}
 
 permissions:
   contents: read
   actions: read
   issues: read
-  pull-requests: read
 
+# ###############################################################
+# Select a PAT from the pool and override COPILOT_GITHUB_TOKEN.
+# When org-level billing is available, this will be removed.
+# See `shared/pat_pool.README.md` for more information.
+# ###############################################################
 imports:
+  - shared/pat_pool.md
   - ../aw/shared/devops-health.lock.md
 
 tools:
   github:
-    toolsets: [repos, issues, pull_requests, actions]
+    toolsets: [repos, issues, actions]
   cache-memory:
   bash: ["cat", "grep", "head", "tail", "find", "ls", "wc", "jq", "date", "sort", "uniq", "diff"]
   edit:
@@ -47,8 +66,6 @@ safe-outputs:
     max: 5
   noop:
     report-as-issue: false
-  failure:
-    report-as-issue: false
 
 network:
   allowed:
@@ -59,7 +76,10 @@ timeout-minutes: 60
 
 # DevOps Daily Health Check — Orchestrator
 
-You are a DevOps health monitoring agent. Your job is to collect repo health signals, compute a diff against the previous run, and produce a comprehensive yet actionable health dashboard.
+You are a DevOps infrastructure health monitoring agent. Your job is to collect pipeline and infrastructure health signals, compute a diff against the previous run, and produce a comprehensive yet actionable health dashboard.
+
+> **Scope**: You monitor CI/CD pipeline health, infrastructure configuration, and resource usage ONLY.
+> You do NOT investigate individual skill quality, benchmark scores, or PR review status.
 
 ## High-Level Workflow
 
@@ -73,17 +93,11 @@ You are a DevOps health monitoring agent. Your job is to collect repo health sig
 
 ## Step 1: Data Collection
 
-### 1.1 Discover Components
+> **Scope**: This workflow focuses exclusively on **pipeline/infrastructure health**.
+> It does NOT check individual skill quality, benchmark scores, or PR review status.
+> Those concerns are tracked separately.
 
-Scan the repository to find all skill components:
-
-```
-find plugins/*/plugin.json -maxdepth 2
-```
-
-Each `plugins/{name}/` directory containing a `plugin.json` is a component. The corresponding dashboard data file is `data/{name}.json` on `gh-pages`.
-
-### 1.2 Pipeline Health (P1–P6)
+### 1.1 Pipeline Health (P1–P6)
 
 **P1 — Failed workflow runs on `main` in last 24h:**
 ```
@@ -153,103 +167,7 @@ Severity thresholds:
 
 This detects when the evaluation pipeline consistently takes longer than the schedule interval (e.g., runs every 2h but takes >2h to complete), causing the concurrency group to cancel in-flight runs.
 
-### 1.3 Skill Quality (Q1–Q7)
-
-Fetch benchmark data for each discovered component:
-```
-GET https://raw.githubusercontent.com/{owner}/{repo}/gh-pages/data/{component}.json
-```
-
-**Q1 — Skill inventory overview table:**
-Compile a comprehensive table of all skills combining local discovery with benchmark data. For each skill, classify its health status:
-- **🟢 OK** — Skill has tests, scenarios pass, skilled > vanilla, no anomaly flags
-- **🟡 Warning** — Skill is functional but has issues: timeouts, overfitting, or high variance (stddev > 1.5)
-- **🟡 Low Value** — Some scenarios show skilled ≤ vanilla (but others show uplift)
-- **🔴 No Value** — All scenarios show skilled ≤ vanilla (skill adds nothing)
-- **🔴 Critical** — Skill not activated by the agent (`notActivated` flag)
-- **⚪ Untested** — No test directory, no eval.yaml, or eval.yaml has 0 scenarios
-- **⚪ No Data** — Skill exists locally but has no benchmark data
-
-This table is informational (🔵 Info) and not fingerprinted. It is rendered in the issue body as a dedicated "Skill Inventory" section.
-
-For each skill, compute:
-- **Avg Skilled score**: average of all scenario "Skilled Quality" bench values in the latest entry
-- **Avg Vanilla score**: average of all scenario "Vanilla Quality" bench values in the latest entry
-- **Delta**: Skilled − Vanilla
-- **Scenario count**: number of scenarios with benchmark data
-- **Issue summary**: comma-separated list of issues (timeout, overfitting, no-uplift, high-variance, etc.)
-
-**Q2 — Bench entries with anomaly flags:**
-Scan the latest entry in **both** `entries.Quality` and `entries.Efficiency` arrays. For each bench entry, check for any property beyond the standard `name`/`unit`/`value` fields. Any extra boolean property is an anomaly flag (e.g., `notActivated`, `timedOut`, `testOverfitted`, or future flags).
-- Extract the skill name and scenario from the bench `name` field (format: `"{skill}/{scenario} - {metric}"`)
-- 🔴 Critical if `notActivated` (skill broken)
-- 🟡 Warning for all other flags
-- Fingerprint: `quality:{skill}:{scenario}:{flag-name}`
-- **Deduplicate:** If the same skill/scenario/flag appears in both Quality and Efficiency arrays, report it only once.
-
-**Q3 — Quality regression (>1.0 point drop vs 7-day rolling avg):**
-For each scenario's "Skilled Quality" bench, compare the latest value to the rolling average of all entries from the last 7 calendar days (filter by `date` field).
-- 🔴 Critical if drop > 2.0 points
-- 🟡 Warning if drop > 1.0 points
-- Fingerprint: `quality:{skill}:{scenario}:regressed`
-
-**Q4 — Skilled ≤ Vanilla (skill adds no value):**
-For the latest entry, compare `"{skill}/{scenario} - Skilled Quality"` vs `"{skill}/{scenario} - Vanilla Quality"` bench values.
-- 🟡 Warning if Skilled ≤ Vanilla
-- Fingerprint: `quality:{skill}:{scenario}:no-uplift`
-
-**Q5 — High variance across runs:**
-Compute the standard deviation of `"Skilled Quality"` scores across all entries from the last 7 calendar days.
-- 🟡 Warning if stddev > 1.5
-- Fingerprint: `quality:{skill}:{scenario}:high-variance`
-
-**Q6 — Skills without eval tests:**
-```
-find plugins/*/skills/ -mindepth 1 -maxdepth 1 -type d
-```
-For each skill directory, check if a corresponding test directory exists under `tests/{component}/{skill-name}/`.
-If the test directory exists, verify that `eval.yaml` exists and contains at least one scenario.
-- 🟡 Warning if no test directory, no eval.yaml, or eval.yaml has no scenarios
-- Fingerprint: `coverage:{skill}:no-tests`
-
-**Q7 — Benchmark data staleness:**
-Check if the latest entry's `date` timestamp is > 24h old (compare to current time).
-- 🟡 Warning (pipeline may not be publishing)
-- Fingerprint: `quality:benchmark-stale:{component}`
-
-### 1.4 PR & Review Health (R1–R5)
-
-```
-GET /repos/{owner}/{repo}/pulls?state=open&sort=created&direction=asc&per_page=50
-```
-
-**R1 — PRs open > 7 days without review:**
-Filter by `created_at` older than 7 days, then check review count (0 reviews).
-- 🟡 Warning
-- Fingerprint: `pr:{pr_number}:no-review`
-
-**R2 — PRs open > 14 days (any state of review):**
-- 🟡 Warning (possibly abandoned)
-- Fingerprint: `pr:{pr_number}:stale`
-
-**R3 — PRs with all checks failing:**
-For each open PR, check its check runs. If all checks are failing:
-- 🟡 Warning
-- Fingerprint: `pr:{pr_number}:failing-checks`
-
-**R4 — Draft PRs with no activity > 7 days:**
-Filter for `draft=true` and `updated_at` older than 7 days.
-- 🔵 Info
-- Fingerprint: `pr:{pr_number}:stale-draft`
-
-**R5 — PR merge velocity trend:**
-```
-GET /repos/{owner}/{repo}/pulls?state=closed&sort=updated&direction=desc&per_page=50
-```
-Count merged PRs per day over the last 7 days.
-- 🔵 Info (metric only — reported in trends table, not fingerprinted)
-
-### 1.5 Infrastructure Checks (I1–I8)
+### 1.2 Infrastructure Checks (I1–I8)
 
 **I1 — Missing CODEOWNERS:**
 ```
@@ -315,7 +233,7 @@ For each plugin directory under `plugins/` that contains a `plugin.json`:
 - 🟡 Warning for each orphan plugin found
 - Fingerprint: `infra:orphan-plugin:{directory_basename}` (uses on-disk directory name, not the `name` field)
 
-### 1.6 Resource Usage (U1–U3)
+### 1.3 Resource Usage (U1–U3)
 
 **U1 — Daily compute hours:**
 Sum all workflow run durations from the last 24h.
@@ -353,7 +271,7 @@ After collecting all findings, perform the diff:
 
 6. **Sort findings** within each diff category:
    - Primary sort: severity (🔴 → 🟡 → 🔵)
-   - Secondary sort: category (pipeline → quality → pr → infra → resource)
+   - Secondary sort: category (pipeline → infra → resource)
 
 ---
 
@@ -361,13 +279,12 @@ After collecting all findings, perform the diff:
 
 Using the classified findings, generate:
 
-1. **Executive summary**: One sentence describing what changed (e.g., "2 new issues detected, 1 resolved — eval pipeline is now healthy but a skill quality regression appeared")
+1. **Executive summary**: One sentence describing what changed (e.g., "2 new issues detected, 1 resolved — eval pipeline is now healthy but Pages deployment is failing")
 
 2. **Correlation insights**: Identify connections between findings. For example:
-   - A pipeline failure AND stale benchmark data → pipeline likely blocking data publication
-   - Multiple quality regressions after the same date → look for a common commit
-   - High eval failure rate across all branches (P5) AND timeouts in quality checks → systemic model/infrastructure issue, not skill-specific
+   - High eval failure rate across all branches (P5) AND eval duration warning (P3) → systemic infrastructure issue
    - High scheduled cancellation rate (P6) AND eval duration warning (P3) → pipeline consistently exceeds schedule interval, consider increasing interval or optimizing eval
+   - Pages deployment failure (I5) AND pipeline failures → infrastructure-wide issue
 
 3. **Recommendations**: Prioritized list of suggested actions.
 
@@ -375,14 +292,53 @@ Using the classified findings, generate:
 
 ## Step 4: Output
 
-### 4.1 Find or Create the Pinned Issue
+### 4.1 Find or Create the Dashboard Issue
 
-Search for open issues with label `devops-health`:
-- If exactly one exists → update it
-- If none exist → create one with title `🏥 Repository Health Dashboard` and label `devops-health`
-- If multiple exist → update the most recently created one, close the others
+The dashboard MUST be the **same issue on every run**. GitHub's label search and
+issue-list APIs occasionally drop an open, correctly-labeled issue from their
+index — when that happens to the dashboard, searching by label alone returns
+nothing and a **duplicate dashboard gets created**, abandoning the real (often
+pinned) one. To be resilient, resolve the dashboard issue in this priority order:
 
-Before creating/updating, ensure the `devops-health` label exists. If not, create it with color `#0E8A16` and description `Daily automated health check report`.
+1. **Cached issue number (validated).** Load the `health-dashboard-issue`
+   key from `cache-memory`. If it holds a number, fetch that issue **directly by
+   number** (`GET /repos/{owner}/{repo}/issues/{number}`) — this works **even
+   when the issue is missing from label search/list results**. Accept it as the
+   dashboard ONLY if it passes every check below:
+   - the fetch succeeds (treat `404`/`410` as a **cache miss**),
+   - the issue is **open**, and
+   - it still looks like the dashboard — it carries the `devops-health` label
+     **or** its title is `🏥 Repository Health Dashboard`.
+   If any check fails (the number was deleted, closed, or now points at an
+   unrelated issue), discard the cached number, treat it as a **cache miss**, and
+   fall through to discovery (step 2). This prevents a stale or corrupted cache
+   from silently overwriting an unrelated open issue on every run.
+2. **Label search + pinned issues.** If there is no cached number (first run or
+   cache loss) or the cached number failed validation above, build the candidate
+   set two ways and union them: (a) search open issues with the `devops-health` label; and
+   (b) if the GitHub tools expose pinned issues, include any open pinned issue
+   titled `🏥 Repository Health Dashboard`. Pinned-issue lookup does not use the
+   label index, so it finds dashboards that label search misses.
+3. **Create.** Only if no dashboard issue is found by any method above, create
+   one titled `🏥 Repository Health Dashboard` with the `devops-health` label.
+
+**Never leave two open dashboards.** If more than one distinct open dashboard is
+found, choose a single canonical issue — prefer the cached number, else the
+pinned one, else the oldest — update only that one, and close each other with a
+one-line comment: `Superseded by #{canonical} — duplicate health dashboard.`
+
+**Persist every run.** After resolving, always save the canonical dashboard's
+number back to `cache-memory` under `health-dashboard-issue`, so future runs
+update it directly by number and never create a duplicate — even if the label
+index drops it again.
+
+> This workflow cannot pin issues itself. If the canonical dashboard is **not**
+> currently pinned, surface a one-line pin request **inside** the body template
+> (immediately below the Status / Since-yesterday block — see §4.2), never above
+> the `# 🏥 Daily Health Check — {date}` header. Keep exactly one dashboard pinned.
+
+Before creating/updating, ensure the `devops-health` label exists. If not, create
+it with color `#0E8A16` and description `Daily automated health check report`.
 
 ### 4.2 Issue Body Format
 
@@ -394,18 +350,8 @@ Replace the entire issue body with the following structure:
 **Status:** 🔴 {critical_count} critical · 🟡 {warning_count} warnings · 🔵 {info_count} info
 **Since yesterday:** 🆕 {new_count} new · ✅ {resolved_count} resolved · 📌 {existing_count} unchanged
 
----
-
-## 🧩 Skill Inventory
-
-> Comprehensive health status of all skills derived from Q1–Q7 checks.
-
-| Status | Component | Skill | Skilled | Vanilla | Δ | Scenarios | Issues |
-|--------|-----------|-------|--------:|--------:|--:|----------:|--------|
-{For each skill, sorted by component then skill name:}
-| {status_emoji} {status_label} | {component} | {skill_name} | {avg_skilled} | {avg_vanilla} | {delta} | {scenario_count} | {issue_summary} |
-
-**Legend:** 🟢 OK · 🟡 Warning / Low Value · 🔴 No Value / Critical · ⚪ Untested / No Data
+{Pin request — include this line ONLY when the dashboard issue is not currently pinned; omit it entirely when already pinned:}
+> 📌 **Maintainer action needed:** please pin this issue as the canonical health dashboard and unpin/close any stale duplicate.
 
 ---
 
@@ -422,11 +368,11 @@ Replace the entire issue body with the following structure:
 > Deep investigations are dispatched for new critical/warning findings.
 > The [grooming workflow](../workflows/devops-health-groom.md) links results ~3 hours after this run.
 
-| Finding | Severity | Status | Result |
-|---------|----------|--------|--------|
-{For each finding dispatched in the current run:}
-| {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | [Workflow Run]({workflow_actions_url}) |
-{Preserve any rows from the previous issue body that already show ✅ Done or ✅ Resolved — do not remove them}
+| Finding | Severity | Investigation | First Seen | Result |
+|---------|----------|---------------|------------|--------|
+{Preserve rows from the previous issue body's Investigation Results table (look inside the `<!-- gh-aw-island-start:devops-health-groom -->` block if present). Copy all rows as-is for findings that are still active (appear in New Findings or Existing Findings). Drop rows whose finding is no longer active (resolved). If the previous table uses the old 4-column schema (`| Finding | Severity | Status | Result |`), migrate each row to the new 5-column schema: rename Status to Investigation, and populate First Seen from the finding's `<summary>` line (`first seen YYYY-MM-DD`) or use today's date as fallback. Then append new rows for findings dispatched in the current run:}
+| {finding_title} | {severity_emoji} {severity} | 🔄 Dispatched | {first_seen date} | [⏳ Investigation dispatched — results arriving shortly...]({link_to_dispatched_investigate_run_or_this_health_check_run}) |
+{If no dispatched findings AND no previous rows exist, render the table header with zero data rows.}
 
 ---
 
@@ -454,11 +400,8 @@ Replace the entire issue body with the following structure:
 | Eval success rate (main) | {today} | {avg} | {delta} | {arrow} |
 | Eval success rate (all branches) | {today} | {avg} | {delta} | {arrow} |
 | Eval scheduled cancellation rate | {today} | {avg} | {delta} | {arrow} |
-| PRs merged/day | {today} | {avg} | {delta} | {arrow} |
-| Open PRs | {today} | {avg} | {delta} | {arrow} |
+| Workflow failure rate (7d) | {today} | {avg} | {delta} | {arrow} |
 | Compute hours/day | {today} | {avg} | {delta} | {arrow} |
-| Active skills | {count} | {avg} | {delta} | {arrow} |
-| Skills with issues | {count} | {avg} | {delta} | {arrow} |
 
 ---
 
@@ -504,8 +447,8 @@ For each 🆕 NEW finding that qualifies for investigation, dispatch a worker us
 | Condition | Action |
 |-----------|--------|
 | 🆕 NEW + 🔴 Critical | **Always dispatch** — no exceptions |
-| 🆕 NEW + 🟡 Warning + category `pipeline` or `quality` | **Dispatch** |
-| 🆕 NEW + 🟡 Warning + category `pr` or `infra` | **Skip** (self-explanatory) |
+| 🆕 NEW + 🟡 Warning + category `pipeline` | **Dispatch** |
+| 🆕 NEW + 🟡 Warning + category `infra` or `resource` | **Skip** (self-explanatory) |
 | 🆕 NEW + 🔵 Info | **Never dispatch** |
 | 📌 EXISTING (any) | **Never dispatch** |
 | ✅ RESOLVED (any) | **Never dispatch** |
@@ -515,7 +458,7 @@ For each 🆕 NEW finding that qualifies for investigation, dispatch a worker us
 **Budget:** Maximum **2** dispatches per run (limited to avoid investigation runs cancelling each other due to a shared agent concurrency group — see [gh-aw#20187](https://github.com/github/gh-aw/issues/20187)). If more than 2 qualify, prioritize by:
 1. Severity descending (🔴 first)
 2. Pipeline findings first
-3. Quality findings second
+3. Infrastructure findings second
 
 ### 5.2 For Each Dispatched Finding
 
@@ -541,8 +484,7 @@ dispatch-workflow:
 Before finishing, verify:
 - [ ] At least one `dispatch-workflow` call was made (if any 🔴 critical or qualifying 🟡 warning findings exist)
 - [ ] All 🔴 critical NEW findings have been dispatched (up to budget cap)
-- [ ] The "🔍 Investigation Results" section in the issue body shows newly dispatched findings as "🔄 Dispatched"
-- [ ] Any existing "✅ Done" or "✅ Resolved" rows from the previous issue body are preserved
+- [ ] The "🔍 Investigation Results" section in the issue body includes newly dispatched findings as "🔄 Dispatched" and preserves existing rows from the previous body
 - [ ] The noop summary message mentions how many investigations were dispatched
 
 ---
@@ -552,9 +494,11 @@ Before finishing, verify:
 - **Time budget**: You have a 60-minute timeout. Prioritize reaching Steps 4 and 5 (issue update + dispatch). Do NOT write intermediate scripts or analysis files. Work through each check, collect findings in memory, and proceed directly to output. Aim to complete data collection (Step 1) within 30 minutes.
 - **Efficiency**: Process API responses in memory. Do NOT create Python/bash scripts to analyze data — parse JSON directly using `jq` or inline analysis. Do NOT write intermediate files unless explicitly required by the output format.
 - **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **complete, literal issue body text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. Pass the body directly as the string value.
+- **CRITICAL — Investigation Results section**: The `## 🔍 Investigation Results` section MUST always appear in the issue body template. The downstream [grooming workflow](../workflows/devops-health-groom.md) manages this section via a `replace-island` block — so the health-check must **preserve existing rows** from the previous issue body (look inside `<!-- gh-aw-island-start:devops-health-groom -->` markers if present, and copy those table rows into the new section). Do NOT wrap the section in island markers yourself — the groom adds those. Only append new "🔄 Dispatched" rows for findings dispatched in the current run.
 - **Be data-driven**: Include specific numbers, durations, percentages, and links.
 - **Be precise with fingerprints**: Use the exact fingerprint formulas from the knowledge file. Consistency is critical — the same finding MUST produce the same fingerprint across runs.
 - **First run handling**: If `cache-memory` has no previous state, note: "⚠️ This is the first health check run. All findings appear as new. Diff will resume from next run."
+- **Stable dashboard (don't duplicate)**: Always reuse the existing dashboard issue and update it **by number** (see §4.1). Persist its number in `cache-memory` (`health-dashboard-issue`) every run. Never create a second dashboard just because a label search came back empty — the issue may simply be missing from GitHub's search index.
 - **Graceful degradation**: If an API call fails, skip that check category and note the skip in the output. Don't fail the entire workflow.
 - **Noise awareness**: Demote known-noise findings (matching patterns in `cache-memory` `known-noise` list) to 🔵 Info severity, but still show them in the output for audit.
 - **Issue body limit**: Keep under 60k characters. Truncate EXISTING section if needed.

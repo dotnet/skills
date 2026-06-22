@@ -1,6 +1,7 @@
 ---
 name: resolve-project-references
 description: "Guide for interpreting ResolveProjectReferences time in MSBuild performance summaries. Only activate in MSBuild/.NET build context. Activate when ResolveProjectReferences appears as the most expensive target and developers are trying to optimize it directly. Explains that the reported time includes wait time for dependent project builds and is misleading. Guides users to focus on task self-time instead. Do not activate for general build performance -- use build-perf-diagnostics instead."
+license: MIT
 ---
 
 # Misleading ResolveProjectReferences Time
@@ -37,7 +38,13 @@ The reported time includes **waiting for dependent projects to build** while the
 
 ### Step 3: Redirect to task self-time
 
-Guide the user to use the **Task** Performance Summary instead:
+Use the **Task** Performance Summary to identify the real bottleneck.
+
+#### Primary: binlog MCP (preferred)
+
+Use the **binlog MCP server** expensive_tasks tool to get task self-time rankings directly from the binlog.
+
+#### Fallback: text-log replay (when MCP is unavailable)
 
 ```bash
 dotnet msbuild build.binlog -noconlog -fl "-flp:v=diag;logfile=full.log;performancesummary"

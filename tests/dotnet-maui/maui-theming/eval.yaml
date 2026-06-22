@@ -1,0 +1,82 @@
+scenarios:
+  - name: "Add light/dark mode support using AppThemeBinding"
+    prompt: |
+      I have a .NET MAUI app with a ContentPage containing labels, buttons, and
+      a background color. Everything is hardcoded to light colors right now.
+      I want the app to automatically switch between light and dark mode based
+      on the device's system theme. Show me how to use AppThemeBinding to make
+      this page theme-aware in XAML and explain the C# alternative.
+    assertions:
+      - type: "output_contains"
+        value: "AppThemeBinding"
+      - type: "output_matches"
+        pattern: "(?i)Light.*Dark"
+      - type: "output_matches"
+        pattern: "SetAppThemeColor|SetAppTheme"
+    rubric:
+      - "Shows XAML AppThemeBinding syntax with Light and Dark values on visual properties"
+      - "Demonstrates the C# SetAppThemeColor or SetAppTheme<T> extension method"
+      - "Does not suggest hardcoded color values as a final solution"
+    timeout: 120
+
+  - name: "Create custom themes with ResourceDictionary switching"
+    prompt: |
+      I need to support three branded themes in my .NET MAUI app — a light theme,
+      a dark theme, and a high-contrast theme. Users should be able to pick their
+      preferred theme from a settings page and it should apply immediately across
+      the app. How do I set this up?
+    assertions:
+      - type: "output_contains"
+        value: "ResourceDictionary"
+      - type: "output_contains"
+        value: "DynamicResource"
+      - type: "output_contains"
+        value: "MergedDictionaries"
+    rubric:
+      - "Creates separate ResourceDictionary files with matching keys for each theme"
+      - "Uses DynamicResource (not StaticResource) for consuming theme values"
+      - "Shows how to swap theme dictionaries at runtime via MergedDictionaries"
+      - "Mentions how theme ResourceDictionaries are structured and loaded (compiled XAML with x:Class or Source-based)"
+    timeout: 120
+
+  - name: "Detect and respond to system theme changes"
+    prompt: |
+      My .NET MAUI app needs to detect when the user toggles dark mode in their
+      device settings and respond in real time — both updating the UI and logging
+      the change. How do I detect the current system theme and subscribe to
+      theme change events? Also, how do I let the user force a specific theme
+      regardless of system setting?
+    assertions:
+      - type: "output_contains"
+        value: "RequestedThemeChanged"
+      - type: "output_contains"
+        value: "UserAppTheme"
+      - type: "output_matches"
+        pattern: "RequestedTheme"
+    rubric:
+      - "Shows how to read the current theme via Application.Current.RequestedTheme"
+      - "Subscribes to the RequestedThemeChanged event for real-time detection"
+      - "Demonstrates forcing a theme with Application.Current.UserAppTheme"
+      - "Shows resetting to system default with AppTheme.Unspecified"
+    timeout: 120
+
+  - name: "Avoid common theming mistakes"
+    prompt: |
+      I'm adding dark mode to my .NET MAUI Android app. I created ResourceDictionary
+      themes and used StaticResource to bind colors in my XAML pages. When I
+      switch themes at runtime nothing changes — the colors stay the same. Also,
+      when the user toggles dark mode in Android settings my app seems to restart
+      completely. What am I doing wrong?
+    assertions:
+      - type: "output_contains"
+        value: "DynamicResource"
+      - type: "output_contains"
+        value: "StaticResource"
+      - type: "output_contains"
+        value: "UiMode"
+    rubric:
+      - "Identifies StaticResource as the root cause of colors not updating and recommends DynamicResource"
+      - "Explains that StaticResource is frozen at first load and does not respond to dictionary changes"
+      - "Identifies the missing ConfigChanges.UiMode on MainActivity as the cause of the activity restart"
+      - "Provides the correct Activity attribute with ConfigChanges.UiMode included"
+    timeout: 120

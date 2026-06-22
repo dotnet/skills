@@ -1,0 +1,96 @@
+scenarios:
+  - name: "Login and account management in a globally interactive app"
+    setup: &server_project
+      commands:
+        - "dotnet new blazor --interactivity server --all-interactive --no-https --force"
+    prompt: |
+      I have a Blazor Web App with Interactive Server mode applied globally
+      (all pages are interactive by default).
+
+      I need to add ASP.NET Core Identity-based authentication. Here's where
+      I'm stuck:
+
+      1. I need a /account/login page with email/password that calls
+         SignInManager.PasswordSignInAsync. But when I try to use SignInManager
+         in my interactive page, I get an error about HttpContext not being
+         available. The whole app is globally interactive — how do I make
+         login work?
+
+      2. Same problem for /account/register using UserManager.CreateAsync —
+         it also needs HttpContext for cookie authentication.
+
+      3. After login, the user should be redirected to / (homepage). After
+         registration, redirect to login. Both pages need proper form
+         validation (required fields, email format).
+
+      4. I also need a /account/logout endpoint that signs out. But wait —
+         signing out also needs HttpContext... same problem again?
+
+      5. Add a "Logged in as {email} | Logout" display in the nav when
+         authenticated, and "Login | Register" links when not.
+
+      6. The rest of the app must stay fully interactive — I don't want to
+         lose global interactivity for my normal pages just because auth
+         pages have special needs.
+
+      Set up Identity services in Program.cs with an in-memory EF store.
+      I don't need user seeding — just the pages and plumbing.
+    assertions:
+      - type: "file_contains"
+        path: "**/*ogin*"
+        value: "ExcludeFromInteractiveRouting"
+      - type: "file_contains"
+        path: "**/App.razor"
+        value: "AcceptsInteractiveRouting"
+      - type: "file_contains"
+        path: "**/*ogin*"
+        value: "SignInManager"
+    rubric:
+      - "Login and register pages use [ExcludeFromInteractiveRouting] to render as static SSR — explains that SignInManager and UserManager need HttpContext which is unavailable in interactive components"
+      - "App.razor conditionally applies the render mode using HttpContext.AcceptsInteractiveRouting() — returns null for excluded pages and InteractiveServer for everything else"
+      - "Identity services are registered in Program.cs (AddIdentity or AddIdentityCore with AddEntityFrameworkStores and AddSignInManager) and authentication middleware is added"
+      - "Logout is handled correctly (either a static page or a minimal API endpoint) — does not attempt HttpContext operations inside an interactive component"
+      - "Auth state is reflected in the UI — shows user info when logged in, login/register links when not"
+    timeout: 1200
+
+  - name: "Multi-tier app with WebAssembly auth"
+    setup:
+      commands:
+        - "dotnet new blazor --interactivity auto --no-https --force"
+    prompt: |
+      I have a Blazor Web App using Auto interactivity mode (per-page). Some
+      pages will run on Server, others on WebAssembly.
+
+      I need to add authentication that works across both render modes:
+
+      1. Create a custom AuthenticationStateProvider on the server that
+         simulates a logged-in user "bob@example.com" with roles "User" and
+         "Editor". No real database needed — just hardcode the claims.
+
+      2. A /profile page (interactive, any mode) that displays the authenticated
+         user's name and all their roles. It should work regardless of whether
+         it's currently running on Server or WebAssembly.
+
+      3. A /editor page (interactive, any mode) restricted to the "Editor" role.
+         Show an "Access denied" message for users without the role.
+
+      4. A /viewer page (interactive, any mode) accessible to any authenticated
+         user.
+
+      The key requirement: after the page initially loads and the WebAssembly
+      runtime takes over, the user's identity and roles must still be available.
+      I've heard that auth state can get lost when the client-side runtime
+      activates — make sure that doesn't happen.
+    assertions:
+      - type: "file_contains"
+        path: "**/Program.cs"
+        value: "AddAuthenticationStateSerialization"
+      - type: "file_contains"
+        path: "**/*.razor"
+        value: '[Authorize'
+    rubric:
+      - "Server Program.cs calls AddAuthenticationStateSerialization so auth state is serialized into the prerendered HTML — without this the WebAssembly runtime starts with an anonymous user"
+      - "Client Program.cs calls AddAuthenticationStateDeserialization so the WASM runtime can reconstitute the auth state from the serialized data"
+      - "Profile page displays user name and roles that remain correct after WebAssembly takes over from prerendering — the auth state is not lost during the handoff"
+      - "Editor page enforces role-based access via [Authorize(Roles = ...)] or AuthorizeView with Roles — unauthorized users see a denied message, not the page content"
+    timeout: 600

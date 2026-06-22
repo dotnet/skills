@@ -1,0 +1,75 @@
+{
+  // Glob patterns to ignore
+  "ignores": [
+    "node_modules/**",
+    "artifacts/**"
+  ],
+
+  // Inline markdownlint configuration (merged from .markdownlint.jsonc)
+  "config": {
+    // Default: enable all rules
+    "default": true,
+
+    // MD013 - Line length: disable because skill files and docs routinely have long lines
+    "MD013": false,
+
+    // MD001 - Heading increment: disable because reference files use ### without preceding ##
+    "MD001": false,
+
+    // MD007 - Unordered list indentation: disable because skills use varied nesting depths
+    "MD007": false,
+
+    // MD014 - Dollar signs before commands: disable because $ prompts are conventional
+    "MD014": false,
+
+    // MD022 - Blanks around headings: disable because skills use tight heading-to-content spacing
+    "MD022": false,
+
+    // MD024 - Multiple headings with the same content: allow siblings with same text
+    "MD024": {
+      "siblings_only": true
+    },
+
+    // MD026 - Trailing punctuation in heading: disable because headings may end with ? or :
+    "MD026": false,
+
+    // MD028 - Blank line inside blockquote: disable because skills use spaced blockquotes
+    "MD028": false,
+
+    // MD029 - Ordered list item prefix: disable because skills use incremental numbering
+    "MD029": false,
+
+    // MD031 - Blanks around fences: disable because skills embed code blocks tightly
+    "MD031": false,
+
+    // MD032 - Blanks around lists: disable because reference files use tight list formatting
+    "MD032": false,
+
+    // MD033 - Inline HTML: allow specific elements commonly used in docs
+    "MD033": {
+      "allowed_elements": ["br", "char", "details", "summary", "img", "a", "sub", "sup", "T"]
+    },
+
+    // MD034 - Bare URLs: disable because reference files use bare URLs on Source: lines
+    "MD034": false,
+
+    // MD036 - Emphasis used instead of heading: disable because skills use bold/italic sub-labels
+    "MD036": false,
+
+    // MD040 - Fenced code language: disable because many code blocks are generic output/pseudocode
+    "MD040": false,
+
+    // MD041 - First line in a file should be a top-level heading:
+    // Disable because SKILL.md files start with YAML frontmatter
+    "MD041": false,
+
+    // MD056 - Table column count: disable because some tables intentionally vary column spans
+    "MD056": false,
+
+    // MD058 - Tables surrounded by blank lines: disable for same reasons as MD031/MD032
+    "MD058": false,
+
+    // MD060 - Table column style: disable because skills use compact pipe-delimited tables
+    "MD060": false
+  }
+}

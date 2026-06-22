@@ -1,6 +1,7 @@
 ---
 name: technology-selection
 description: "Guides technology selection and implementation of AI and ML features in .NET 8+ applications using ML.NET, Microsoft.Extensions.AI (MEAI), Microsoft Agent Framework (MAF), GitHub Copilot SDK, ONNX Runtime, and OllamaSharp. Covers the full spectrum from classic ML through modern LLM orchestration to local inference. Use when adding classification, regression, clustering, anomaly detection, recommendation, LLM integration (text generation, summarization, reasoning), RAG pipelines with vector search, agentic workflows with tool calling, Copilot extensions, or custom model inference via ONNX Runtime to a .NET project. DO NOT USE FOR projects targeting .NET Framework (requires .NET 8+), the task is pure data engineering or ETL with no ML/AI component, or the project needs a custom deep learning training loop (use Python with PyTorch/TensorFlow, then export to ONNX for .NET inference)."
+license: MIT
 ---
 
 # .NET AI and Machine Learning
@@ -57,7 +58,7 @@ After identifying the task type, select the right library layer. These libraries
    - Agentic loops that iterate until a goal is met
    - Multi-agent collaboration with handoff protocols
    - Graph-based or durable workflows
-   
+
    Do **not** implement these patterns by hand with `IChatClient` — the Agent Framework provides iteration limits, observability, and tool dispatch that are error-prone to reimplement.
 
 4. **Add Copilot SDK only when building Copilot extensions.** Use `GitHub.Copilot.SDK` when the goal is to build a custom agent or tool that runs inside the GitHub Copilot platform (CLI, IDE, or Copilot Chat). This is not a general-purpose LLM orchestration library — it is specifically for Copilot extensibility.

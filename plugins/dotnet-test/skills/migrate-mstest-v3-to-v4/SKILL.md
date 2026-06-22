@@ -1,21 +1,20 @@
 ---
 name: migrate-mstest-v3-to-v4
 description: >
-  Migrate an MSTest v3 test project to MSTest v4. Use when user says
-  "upgrade to MSTest v4", "update to latest MSTest", "MSTest 4 migration",
-  "MSTest v4 breaking changes", "MSTest v4 compatibility", or has build errors
-  after updating MSTest packages from 3.x to 4.x. Also use for target
-  framework compatibility (e.g. net6.0/net7.0 support with MSTest v4).
-  USE FOR: upgrading MSTest packages from 3.x to 4.x, fixing source breaking
-  changes (Execute -> ExecuteAsync, CallerInfo constructor, ClassCleanupBehavior
-  removal, TestContext.Properties, Assert API changes, ExpectedExceptionAttribute
-  removal, TestTimeout enum removal), resolving behavioral changes
-  (TreatDiscoveryWarningsAsErrors, TestContext lifecycle, TestCase.Id changes,
-  MSTest.Sdk MTP changes), handling dropped TFMs (net5.0-net7.0 dropped,
-  only net8.0+, net462, uap10.0 supported).
+  Fix build errors and breaking changes after upgrading MSTest from v3 to v4,
+  or plan a complete MSTest v3-to-v4 migration. Use when user says "upgrade to
+  MSTest v4", "MSTest 4 migration", "MSTest v4 breaking changes", "tests don't
+  compile after upgrading MSTest", or has errors CS0507, CS0103, CS1061, CS1615 after updating MSTest packages from 3.x to 4.x.
+  USE FOR: Execute to ExecuteAsync, CallerInfo constructor on TestMethodAttribute,
+  sealed custom attributes, ClassCleanupBehavior removal, TestContext.Properties
+  Contains to ContainsKey, Assert.ThrowsException to ThrowsExactly,
+  Assert.IsInstanceOfType out parameter removal, ExpectedExceptionAttribute
+  removal, TestTimeout enum removal, [TestMethod("name")] to DisplayName syntax,
+  TreatDiscoveryWarningsAsErrors, TestContext.TestName in ClassInitialize,
+  MSTest.Sdk MTP changes, dropped TFMs (net6.0/net7.0 to net8.0+).
   DO NOT USE FOR: migrating from MSTest v1/v2 to v3 (use migrate-mstest-v1v2-to-v3
-  first), migrating between test frameworks, or general .NET upgrades unrelated
-  to MSTest.
+  first), migrating between test frameworks, or general .NET upgrades.
+license: MIT
 ---
 
 # MSTest v3 -> v4 Migration
@@ -348,6 +347,7 @@ The `ConditionBaseAttribute.ShouldRun` property is renamed to `IsConditionMet`.
 #### 3.12 Internal/removed types
 
 Several types previously public are now internal or removed:
+
 - `MSTestDiscoverer`, `MSTestExecutor`, `AssemblyResolver`, `LogMessageListener`
 - `TestExecutionManager`, `TestMethodInfo`, `TestResultExtensions`
 - `UnitTestOutcomeExtensions`, `GenericParameterHelper`
@@ -383,6 +383,7 @@ AppDomains are disabled by default. On .NET Framework, when running inside testh
 #### 4.2 TestContext throws when used incorrectly
 
 MSTest v4 now throws when accessing test-specific properties in the wrong lifecycle stage:
+
 - `TestContext.FullyQualifiedTestClassName` -- cannot be accessed in `[AssemblyInitialize]`
 - `TestContext.TestName` -- cannot be accessed in `[AssemblyInitialize]` or `[ClassInitialize]`
 
@@ -428,6 +429,7 @@ If you need VSTest during a transition period, Option A works without changing C
 #### 4.6 Analyzer severity changes
 
 Multiple analyzers have been upgraded from Info to Warning by default:
+
 - MSTEST0001, MSTEST0007, MSTEST0017, MSTEST0023, MSTEST0024, MSTEST0025
 - MSTEST0030, MSTEST0031, MSTEST0032, MSTEST0035, MSTEST0037, MSTEST0045
 

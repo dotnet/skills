@@ -69,6 +69,14 @@ public static class AgentRunner
             var options = new CopilotClientOptions
             {
                 LogLevel = verbose ? "info" : "none",
+                SessionFs = new SessionFsConfig
+                {
+                    InitialCwd = Environment.CurrentDirectory,
+                    SessionStatePath = "session-state",
+                    Conventions = OperatingSystem.IsWindows()
+                        ? GitHub.Copilot.SDK.Rpc.SessionFsSetProviderConventions.Windows
+                        : GitHub.Copilot.SDK.Rpc.SessionFsSetProviderConventions.Posix,
+                },
             };
 
             if (!string.IsNullOrEmpty(_capturedGitHubToken))
@@ -276,18 +284,26 @@ public static class AgentRunner
             noiseDirs.Add(stageDir);
         }
 
-        // Convert MCPServerDef records to the SDK's Dictionary<string, object> shape
+        // Convert MCPServerDef records to the SDK's McpServerConfig shape
         // Security hardening: validate commands, sanitize args/env, drop custom cwd.
-        Dictionary<string, object>? sdkMcp = null;
+        IDictionary<string, McpServerConfig>? sdkMcp = null;
         if (mcpServers is { Count: > 0 })
         {
-            sdkMcp = new Dictionary<string, object>();
+            sdkMcp = new Dictionary<string, McpServerConfig>();
             foreach (var (name, def) in mcpServers)
             {
                 if (!IsAllowedMcpCommand(def.Command))
                 {
                     Console.Error.WriteLine(
                         $"Skipping MCP server '{name}': command '{def.Command}' is not in the allowlist");
+                    continue;
+                }
+
+                // Only stdio servers are supported; reject unknown types early.
+                if (def.Type is not null and not "stdio")
+                {
+                    Console.Error.WriteLine(
+                        $"Skipping MCP server '{name}': unsupported type '{def.Type}' (only 'stdio' is supported)");
                     continue;
                 }
 
@@ -299,17 +315,16 @@ public static class AgentRunner
                     continue;
                 }
 
-                var entry = new Dictionary<string, object>
+                var entry = new McpStdioServerConfig
                 {
-                    ["type"] = def.Type ?? "stdio",
-                    ["command"] = def.Command,
-                    ["args"] = sanitizedArgs,
-                    ["tools"] = def.Tools ?? ["*"],
+                    Command = def.Command,
+                    Args = sanitizedArgs,
+                    Tools = def.Tools ?? ["*"],
                 };
 
                 // Sanitize env: strip dangerous keys that could hijack the process.
                 var sanitizedEnv = SanitizeMcpEnv(def.Env);
-                if (sanitizedEnv is not null) entry["env"] = sanitizedEnv;
+                if (sanitizedEnv is not null) entry.Env = sanitizedEnv;
 
                 // Drop custom cwd — MCP servers run in workDir, not attacker-chosen dirs.
                 sdkMcp[name] = entry;
@@ -432,6 +447,10 @@ public static class AgentRunner
             McpServers = sdkMcp,
             CustomAgents = customAgents,
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
+            // SDK 0.3.0 requires a SessionFsProvider (abstract base class).
+            // Without this, events.jsonl files are never written and
+            // session replay data is lost.
+            CreateSessionFsHandler = _ => new LocalSessionFsHandler(configDir),
             OnPermissionRequest = (request, _) =>
             {
                 // SDK 0.2.0: PermissionRequest only has Kind, no path data.
@@ -508,7 +527,7 @@ public static class AgentRunner
         return dirs.ToArray();
     }
 
-    public static async Task<RunMetrics> RunAgent(RunOptions options)
+    public static async Task<RunMetrics> RunAgent(RunOptions options, CancellationToken cancellationToken = default)
     {
         // Validate mutual exclusivity
         if (options.Skill is not null && options.Agent is not null)
@@ -523,7 +542,8 @@ public static class AgentRunner
             label: $"RunAgent({options.Scenario.Name}, {runType})",
             maxRetries: 2,
             baseDelayMs: 5_000,
-            totalTimeoutMs: (options.Scenario.Timeout + 60) * 1000);
+            totalTimeoutMs: (options.Scenario.Timeout + 60) * 1000,
+            cancellationToken: cancellationToken);
     }
 
     private static async Task<RunMetrics> RunAgentCore(RunOptions options, CancellationToken cancellationToken)

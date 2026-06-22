@@ -1,28 +1,90 @@
 scenarios:
   - name: "Find template for web API project"
-    prompt: "I need to create a web API project with authentication. What template should I use?"
+    prompt: "I need to create a web API project with authentication. What template should I use and what are the authentication options?"
     assertions:
       - type: "exit_success"
       - type: "output_contains"
         value: "webapi"
+      - type: "output_matches"
+        pattern: "(?i)(individual|windows|none)"
     rubric:
       - "The agent used the template-discovery skill to find suitable templates"
       - "The agent identified the webapi template as the best match"
-      - "The agent mentioned authentication-related parameters"
+      - "The agent explained available authentication options (Individual, None, Windows, etc.)"
+      - "The agent mentioned how to set the auth parameter"
     expect_tools:
       - skill
-    timeout: 120
+    timeout: 180
 
-  - name: "Inspect template parameters"
-    prompt: "Show me all the parameters available for the webapi template"
+  - name: "Inspect template parameters and compare choices"
+    prompt: "I'm choosing between the 'webapi' and 'webapp' templates. Compare their parameters side by side — which one supports authentication? Which one supports AOT? Show me the details."
     assertions:
       - type: "exit_success"
       - type: "output_contains"
         value: "Framework"
+      - type: "output_matches"
+        pattern: "(?i)webapi"
+      - type: "output_matches"
+        pattern: "(?i)webapp"
     rubric:
-      - "The agent retrieved the webapi template metadata via the template-discovery skill or dotnet new webapi --help"
-      - "The agent listed parameters with their types and defaults"
-      - "The agent included the Framework parameter"
+      - "The agent used the template-discovery skill to inspect both the webapi and webapp templates"
+      - "The agent compared parameters between the two templates"
+      - "The agent identified which template supports authentication parameters"
+      - "The agent identified AOT-related parameters where available"
+      - "The agent presented a clear comparison rather than just listing parameters"
     expect_tools:
       - skill
-    timeout: 120
+    timeout: 180
+
+  - name: "Search NuGet for specialized template"
+    prompt: "I need a template for creating gRPC services in .NET. Search for available gRPC templates — both installed locally and on NuGet.org. Tell me which package to install."
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(?i)grpc"
+      - type: "output_matches"
+        pattern: "(?i)(Microsoft\\.Grpc|grpc.*service|ASP\\.NET.*gRPC)"
+    rubric:
+      - "The agent used the template-discovery skill to search for gRPC templates"
+      - "The agent searched both local and NuGet.org sources"
+      - "The agent identified the grpc template or a relevant NuGet package"
+      - "The agent provided the package name and install instructions"
+    expect_tools:
+      - skill
+    timeout: 180
+
+  - name: "Resolve ambiguous project intent to multiple candidates"
+    prompt: "I want to build a real-time collaborative dashboard where users can see live updates. What .NET project templates could work? I need you to search available templates and show me the top 3 options with their key parameters."
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "(?i)blazor"
+      - type: "output_matches"
+        pattern: "(?i)(server|webassembly|wasm|interactive)"
+    rubric:
+      - "The agent used the template-discovery skill to find matching templates"
+      - "The agent presented at least 2-3 template options"
+      - "The agent explained the trade-offs between different approaches (Blazor Server vs WebAssembly, SignalR, etc.)"
+      - "The agent showed key parameters for the recommended templates"
+    expect_tools:
+      - skill
+    timeout: 180
+
+  - name: "Preview project creation with dry run"
+    prompt: "Before creating anything, show me exactly what files would be generated if I create a Blazor Web App called MyBlazorApp in ./test-output with interactive server rendering. Don't actually create the project yet."
+    assertions:
+      - type: "exit_success"
+      - type: "output_contains"
+        value: "MyBlazorApp"
+      - type: "file_not_exists"
+        path: "test-output/**/MyBlazorApp.csproj"
+      - type: "output_matches"
+        pattern: "(?i)(Program\\.cs|App\\.razor|\\.csproj)"
+    rubric:
+      - "The agent used the template-discovery skill to preview output with dotnet new --dry-run"
+      - "The agent listed the files and directories that would be created"
+      - "The agent did NOT actually create the project"
+      - "The agent explained what key generated files are for"
+    expect_tools:
+      - skill
+    timeout: 180

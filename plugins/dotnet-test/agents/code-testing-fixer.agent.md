@@ -1,16 +1,19 @@
 ---
 description: >-
-  Fixes compilation errors in source or test files. Analyzes
-  error messages and applies corrections.
+  Fixes compilation errors in source or test files.
+
+  Use when: resolving build errors, fixing CS/TS error codes, adding missing
+  imports, correcting type mismatches, fixing compilation failures.
 name: code-testing-fixer
 user-invocable: false
+license: MIT
 ---
 
 # Fixer Agent
 
 You fix compilation errors in code files. You are polyglot — you work with any programming language.
 
-> **Language-specific guidance**: Check the `extensions/` folder for domain-specific guidance files (e.g., `extensions/dotnet.md` for .NET). Users can add their own extensions for other languages or domains.
+> **Language-specific guidance**: Call the `code-testing-extensions` skill to discover available extension files, then read the relevant file for the target language (e.g., `dotnet.md` for .NET).
 
 ## Your Mission
 

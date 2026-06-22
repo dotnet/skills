@@ -259,35 +259,6 @@ public class AnalyzeSkillTests
         Assert.Contains(profile.Errors, e => e.Contains("Compatibility"));
     }
 
-    // --- Body line count tests ---
-
-    [Fact]
-    public void BodyOver500LinesErrors()
-    {
-        var body = string.Join("\n", Enumerable.Range(1, 501).Select(i => $"Line {i}"));
-        var content = "---\nname: test-skill\n---\n" + body;
-        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.Contains(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
-    }
-
-    [Fact]
-    public void BodyAt500LinesNoError()
-    {
-        var body = string.Join("\n", Enumerable.Range(1, 500).Select(i => $"Line {i}"));
-        var content = "---\nname: test-skill\n---\n" + body;
-        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.DoesNotContain(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
-    }
-
-    [Fact]
-    public void BodyAt500LinesWithTrailingNewlineNoError()
-    {
-        var body = string.Join("\n", Enumerable.Range(1, 500).Select(i => $"Line {i}")) + "\n";
-        var content = "---\nname: test-skill\n---\n" + body;
-        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
-        Assert.DoesNotContain(profile.Errors, e => e.Contains("lines") && e.Contains("500"));
-    }
-
     // --- File reference depth tests ---
 
     [Fact]
@@ -336,6 +307,119 @@ public class AnalyzeSkillTests
         var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](./references/file.md)\n" + new string('x', 4000);
         var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content));
         Assert.DoesNotContain(profile.Errors, e => e.Contains("directories deep") || e.Contains("traversal"));
+    }
+
+    // --- CheckOptions: AllowRepoTraversal ---
+
+    [Fact]
+    public void AllowRepoTraversalSuppressesParentTraversalError()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](../SKILL.md)\n" + new string('x', 4000);
+        var options = new CheckOptions { AllowRepoTraversal = true };
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), options);
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("traversal") || e.Contains("directories deep"));
+    }
+
+    [Fact]
+    public void AllowRepoTraversalAllowsDeepExternalRefs()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](../../../documentation/guides/setup.md)\n" + new string('x', 4000);
+        var options = new CheckOptions { AllowRepoTraversal = true };
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), options);
+        Assert.DoesNotContain(profile.Errors, e => e.Contains("traversal") || e.Contains("directories deep"));
+    }
+
+    [Fact]
+    public void AllowRepoTraversalStillChecksDepthForInternalRefs()
+    {
+        var content = "---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref](refs/utils/foo/readme.md)\n" + new string('x', 4000);
+        var options = new CheckOptions { AllowRepoTraversal = true };
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), options);
+        Assert.Contains(profile.Errors, e => e.Contains("directories deep"));
+    }
+
+    // --- Absolute (repo-rooted) path handling ---
+
+    public enum LinkExpectation
+    {
+        Pass,
+        DepthError,
+        ParentTraversalError,
+        AbsolutePathError,
+    }
+
+    /// <summary>
+    /// Path-classification contract matrix. Locks down the four kinds of file references
+    /// the validator distinguishes, against both flag settings.
+    ///
+    /// Skill-relative forms (always permitted, no flag needed):
+    ///   - sibling files                               file.md, ./file.md
+    ///   - one directory below SKILL.md                references/file.md, references/file.md#anchor
+    /// Skill-relative but too deep (rejected by design, even with the flag — keeps skills self-contained):
+    ///   - more than 1 dir below SKILL.md              deep/nested/file.md
+    /// Repo-root-scoped forms (only valid with --allow-repo-traversal):
+    ///   - leading-slash absolute                      /src/file.md, /src/libraries/Common/Interop/
+    ///   - parent traversal                            ../sibling.md, ../../up/two.md
+    /// Always permitted (orthogonal to the flag):
+    ///   - in-page anchors                             #section
+    ///   - HTTP(S) URLs                                https://example.com/a/b/c
+    ///   - protocol-relative URLs (treated as URL)     //github.com/dotnet/runtime
+    /// </summary>
+    [Theory]
+    // --- Skill-relative (always pass, both flag values) ---
+    [InlineData("file.md",                                false, LinkExpectation.Pass)]
+    [InlineData("file.md",                                true,  LinkExpectation.Pass)]
+    [InlineData("./file.md",                              false, LinkExpectation.Pass)]
+    [InlineData("./file.md",                              true,  LinkExpectation.Pass)]
+    [InlineData("references/file.md",                     false, LinkExpectation.Pass)]
+    [InlineData("references/file.md",                     true,  LinkExpectation.Pass)]
+    [InlineData("references/file.md#section",             false, LinkExpectation.Pass)]
+    [InlineData("references/file.md#section",             true,  LinkExpectation.Pass)]
+    // --- Skill-relative but too deep (rejected regardless of flag — internal-portability rule) ---
+    [InlineData("deep/nested/file.md",                    false, LinkExpectation.DepthError)]
+    [InlineData("deep/nested/file.md",                    true,  LinkExpectation.DepthError)]
+    // --- Parent traversal (allowed iff flag) ---
+    [InlineData("../sibling.md",                          false, LinkExpectation.ParentTraversalError)]
+    [InlineData("../sibling.md",                          true,  LinkExpectation.Pass)]
+    [InlineData("../../deep/file.md",                     false, LinkExpectation.ParentTraversalError)]
+    [InlineData("../../deep/file.md",                     true,  LinkExpectation.Pass)]
+    // --- Absolute repo-rooted (allowed iff flag) ---
+    [InlineData("/src/file.md",                           false, LinkExpectation.AbsolutePathError)]
+    [InlineData("/src/file.md",                           true,  LinkExpectation.Pass)]
+    [InlineData("/src/libraries/Common/src/Interop/",     false, LinkExpectation.AbsolutePathError)]
+    [InlineData("/src/libraries/Common/src/Interop/",     true,  LinkExpectation.Pass)]
+    // --- Always permitted, independent of flag ---
+    [InlineData("#anchor",                                false, LinkExpectation.Pass)]
+    [InlineData("#anchor",                                true,  LinkExpectation.Pass)]
+    [InlineData("https://example.com/a/b/c",              false, LinkExpectation.Pass)]
+    [InlineData("https://example.com/a/b/c",              true,  LinkExpectation.Pass)]
+    [InlineData("//github.com/dotnet/runtime",            false, LinkExpectation.Pass)]
+    [InlineData("//github.com/dotnet/runtime",            true,  LinkExpectation.Pass)]
+    public void PathClassificationMatrix(string refPath, bool allowRepoTraversal, LinkExpectation expected)
+    {
+        var content = $"---\nname: test-skill\n---\n# Title\n1. Step\n```bash\necho\n```\nSee [ref]({refPath})\n" + new string('x', 4000);
+        var options = new CheckOptions { AllowRepoTraversal = allowRepoTraversal };
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content), options);
+        var errorsForThisRef = profile.Errors.Where(e => e.Contains($"'{refPath}'")).ToList();
+
+        switch (expected)
+        {
+            case LinkExpectation.Pass:
+                Assert.Empty(errorsForThisRef);
+                break;
+            case LinkExpectation.DepthError:
+                Assert.Contains(errorsForThisRef, e => e.Contains("directories deep"));
+                Assert.DoesNotContain(errorsForThisRef, e => e.Contains("traversal") || e.Contains("absolute"));
+                break;
+            case LinkExpectation.ParentTraversalError:
+                Assert.Contains(errorsForThisRef, e => e.Contains("parent-directory traversal"));
+                Assert.DoesNotContain(errorsForThisRef, e => e.Contains("directories deep") || e.Contains("absolute"));
+                break;
+            case LinkExpectation.AbsolutePathError:
+                Assert.Contains(errorsForThisRef, e => e.Contains("absolute (repo-rooted) path"));
+                Assert.DoesNotContain(errorsForThisRef, e => e.Contains("directories deep") || e.Contains("parent-directory traversal"));
+                break;
+        }
     }
 }
 

@@ -1,0 +1,103 @@
+name: maui-dependency-injection
+description: Evaluates the dotnet-maui/maui-dependency-injection skill
+type: capability
+config:
+  timeout: 2m
+stimuli:
+  - name: Register services with correct lifetimes in MauiProgram.cs
+    prompt: |
+      I'm building a .NET MAUI app with a data service, two ViewModels
+      (MainViewModel and DetailViewModel), and two pages (MainPage and DetailPage).
+      The data service talks to a REST API and should be shared across the app.
+      Show me how to register everything in MauiProgram.cs with the right
+      lifetimes and explain why you chose each lifetime.
+    graders:
+      - type: output-contains
+        config:
+          substring: AddSingleton
+      - type: output-contains
+        config:
+          substring: AddTransient
+      - type: output-matches
+        config:
+          pattern: (?i)MauiProgram|CreateMauiApp
+      - type: output-matches
+        config:
+          pattern: (?i)builder\.Services
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Registers the data service as Singleton because it holds shared state or is expensive to create
+      - Registers ViewModels as Transient so each navigation gets a fresh instance
+      - Registers Pages as Transient so constructor injection runs each time
+      - Shows the registrations inside CreateMauiApp on builder.Services
+  - name: Shell navigation auto-resolves DI-registered pages
+    prompt: |
+      I have a DetailPage and DetailViewModel registered in DI. I'm using
+      Shell navigation. How does Shell resolve my page and its ViewModel
+      automatically? Show me the full wiring from MauiProgram.cs through
+      route registration to the GoToAsync call.
+    graders:
+      - type: output-contains
+        config:
+          substring: AddTransient
+      - type: output-matches
+        config:
+          pattern: (?i)RegisterRoute|Routing
+      - type: output-matches
+        config:
+          pattern: GoToAsync
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Shows registering both DetailPage and DetailViewModel as Transient in MauiProgram.cs
+      - Shows Routing.RegisterRoute for the DetailPage
+      - Explains that Shell.Current.GoToAsync triggers DI resolution of the page and its constructor dependencies
+      - Shows the Page constructor accepting the ViewModel and assigning BindingContext
+  - name: Platform-specific service registration with fallback
+    prompt: |
+      I need to register an INotificationService with different implementations
+      for Android, iOS, and Windows. How do I set this up in MauiProgram.cs so
+      it doesn't break on any platform?
+    graders:
+      - type: output-matches
+        config:
+          pattern: "#if ANDROID"
+      - type: output-matches
+        config:
+          pattern: (?i)IOS|MACCATALYST
+      - type: output-matches
+        config:
+          pattern: (?i)WINDOWS
+      - type: output-matches
+        config:
+          pattern: (?i)fallback|#else|all platform
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - "Uses #if / #elif preprocessor directives for each platform"
+      - Covers Android, iOS/Mac Catalyst, and Windows
+      - Warns about the risk of missing a platform causing a null service at runtime
+      - "Recommends an #else fallback or no-op stub for uncovered platforms"
+  - name: Avoid AddScoped pitfall in MAUI
+    prompt: |
+      I'm coming from ASP.NET Core and I registered my DbContext with
+      AddScoped in my MAUI app. My data seems to persist across page
+      navigations when it shouldn't. What's going on?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)scoped?
+      - type: output-matches
+        config:
+          pattern: (?i)singleton|single.?instance
+      - type: output-matches
+        config:
+          pattern: (?i)(no|not|doesn.t|lacks|without).*(built.?in|request|http).*(scope|pipeline)
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Explains that MAUI has no built-in request scope like ASP.NET Core's HTTP pipeline
+      - States that AddScoped without a manually created IServiceScope behaves like Singleton
+      - Recommends switching to AddTransient for per-navigation freshness or AddSingleton if sharing is intended
+      - Mentions IServiceScope as the mechanism needed if Scoped lifetime is truly required

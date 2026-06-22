@@ -1,9 +1,8 @@
 {
   "lspServers": {
     "csharp": {
-      "command": "dotnet",
+      "command": "dnx",
       "args": [
-        "dnx",
         "roslyn-language-server",
         "--yes",
         "--prerelease",
@@ -11,9 +10,13 @@
         "--stdio",
         "--autoLoadProjects"
       ],
+      "cwd": "${PLUGIN_ROOT}",
       "fileExtensions": {
-        ".cs": "csharp"
-      }
+        ".cs": "csharp",
+        ".razor": "aspnetcorerazor",
+        ".cshtml": "aspnetcorerazor"
+      },
+      "warmupTimeoutMs": 120000
     }
   }
 }

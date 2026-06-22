@@ -1,0 +1,6 @@
+<Project>
+  <!-- Empty: intentionally short-circuits the parent Directory.Build.props
+       which exists only as a C# antipattern fixture and would otherwise
+       leak C#-specific settings (analyzers, TreatWarningsAsErrors) into
+       these F# fixtures. -->
+</Project>

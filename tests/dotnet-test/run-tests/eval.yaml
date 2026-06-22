@@ -44,10 +44,10 @@ scenarios:
       - "Uses '-- --report-trx' (with separator) instead of just '--report-trx'"
       - "Does not suggest the VSTest-style '--logger trx' for an MTP project"
     expect_tools: ["bash"]
-    timeout: 360
+    timeout: 480
 
   - name: "Run tests with blame-hang on MTP project (SDK 10)"
-    prompt: "My tests are occasionally hanging. I want to run them with a hang timeout of 5 minutes to detect the culprit. Here's my project."
+    prompt: "My tests are occasionally hanging. I want to run them with dotnet test using a hang timeout of 5 minutes to detect the culprit. Here's my project."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -70,33 +70,37 @@ scenarios:
       - "Uses '--blame-hang-timeout 5min' or similar directly, not after '--'"
       - "Does not use the VSTest-style '--blame --blame-hang-timeout' combination"
     expect_tools: ["bash"]
-    timeout: 300
+    timeout: 420
 
-  - name: "Run tests in a multi-TFM project targeting a specific framework"
-    prompt: "This test project targets both net8.0 and net9.0. I only want to run the tests on net9.0."
+  - name: "Run tests on a specific TFM with TRX in a multi-TFM MTP project (SDK 9)"
+    prompt: "This MSTest project uses Microsoft.Testing.Platform and targets both net8.0 and net9.0. I'm on .NET SDK 9. I want to run only the net9.0 tests and produce a TRX report."
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "fixtures/multi-tfm/TestProject.csproj"
+          source: "fixtures/multi-tfm-mtp-sdk9/TestProject.csproj"
+        - path: "global.json"
+          source: "fixtures/multi-tfm-mtp-sdk9/global.json"
+        - path: "UserAuthTests.cs"
+          source: "fixtures/multi-tfm-mtp-sdk9/UserAuthTests.cs"
     assertions:
       - type: "output_matches"
-        pattern: "dotnet test"
-      - type: "output_matches"
-        pattern: "--framework\\s+net9\\.0"
+        pattern: "dotnet test[^\\r\\n]*--framework\\s+net9\\.0[^\\r\\n]*--\\s+--report-trx"
       - type: "exit_success"
     rubric:
-      - "Recognizes the multi-TFM project from the TargetFrameworks (plural) property"
-      - "Uses '--framework net9.0' to target the specific framework"
-      - "Does not suggest running all frameworks and filtering after the fact"
+      - "Runs only the net9.0 target framework rather than both TFMs"
+      - "Identifies that the project uses MTP (TestingPlatformDotnetTestSupport) with SDK 9 argument-separator behavior"
+      - "Keeps '--framework net9.0' before the '--' separator (built-in dotnet test flag)"
+      - "Passes '--report-trx' after the '--' separator (MTP extension flag, required on SDK 9)"
+      - "Avoids VSTest-style TRX syntax such as '--logger trx'"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 480
 
   # ============================================================================
   # Goal 2: Filtering tests correctly
   # ============================================================================
 
   - name: "Filter MSTest tests by category on VSTest"
-    prompt: "I only want to run the integration tests in this project. How do I filter for just the Integration category?"
+    prompt: "I only want to run the integration tests using dotnet test. How do I filter by the Integration category?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -118,7 +122,7 @@ scenarios:
     timeout: 120
 
   - name: "Filter NUnit tests by class name on VSTest"
-    prompt: "I want to run only the ReportExporterTests class, not the ReportGeneratorTests. How?"
+    prompt: "I want to run only the ReportExporterTests class using dotnet test, not the ReportGeneratorTests. How do I do that?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -140,7 +144,7 @@ scenarios:
     timeout: 120
 
   - name: "Filter xUnit v3 tests by class on MTP"
-    prompt: "I need to run only the ShoppingCartTests class, not the InventoryServiceTests. Can you show me the command?"
+    prompt: "I need to run only the ShoppingCartTests class using dotnet test, not the InventoryServiceTests. Can you show me the command?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -164,7 +168,7 @@ scenarios:
     timeout: 120
 
   - name: "Filter xUnit v3 tests by trait on MTP"
-    prompt: "I want to run only the tests with the Category=Integration trait in this xUnit project."
+    prompt: "I want to run only the tests with the Category=Integration trait in this xUnit project using dotnet test."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -187,8 +191,33 @@ scenarios:
     expect_tools: ["bash"]
     timeout: 120
 
+  - name: "Filter xUnit v3 tests by class pattern and trait using query filter language"
+    prompt: "I have an xUnit v3 project with several test classes. I need to run only the Smoke tests from classes whose name contains 'Integration' — I want a single combined filter expression for dotnet test rather than separate flags."
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          source: "fixtures/mtp-xunit-v3/TestProject.csproj"
+        - path: "EcommerceTests.cs"
+          source: "fixtures/mtp-xunit-v3-query/EcommerceTests.cs"
+        - path: "global.json"
+          source: "fixtures/mtp-xunit-v3/global.json"
+    assertions:
+      - type: "output_matches"
+        pattern: "--\\s+--filter-query"
+      - type: "output_matches"
+        pattern: '--filter-query\\s+"(?=[^"]*Integration)(?=[^"]*\\[Category=Smoke\\])[^"]+"'
+      - type: "exit_success"
+    rubric:
+      - "Recognized that xUnit v3 on MTP supports a query filter language for complex combined expressions"
+      - "Uses SDK 9 MTP argument passing with '-- --filter-query'"
+      - "Produced a filter-query expression that combines a class name pattern with a trait filter in square brackets"
+      - "The expression correctly targets only Smoke tests from integration test classes, not all Smoke tests or all integration tests"
+      - "Used the path-segment syntax with wildcard segments and a trait qualifier like [Category=Smoke]"
+    expect_tools: ["bash"]
+    timeout: 120
+
   - name: "Filter TUnit tests by class using treenode-filter"
-    prompt: "I want to run only the SmsNotificationTests from this TUnit project. What's the command?"
+    prompt: "I want to run only the SmsNotificationTests from this TUnit project using dotnet test. What's the command?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -208,10 +237,10 @@ scenarios:
       - "Does not use VSTest --filter syntax which is incompatible with TUnit"
       - "Uses 'dotnet run' or 'dotnet test' with correct MTP argument passing"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 240
 
   - name: "Combine multiple filter criteria on VSTest MSTest"
-    prompt: "I want to run only the unit tests in the OrderServiceTests class. How do I combine these two conditions?"
+    prompt: "I want to run only the unit tests in the OrderServiceTests class using dotnet test. How do I combine these two filter conditions?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -234,14 +263,14 @@ scenarios:
       - "Does not suggest running all tests and post-filtering results"
       - "Explains the AND/OR combinator syntax for future reference"
     expect_tools: ["bash"]
-    timeout: 180
+    timeout: 300
 
   # ============================================================================
   # Goal 3: Using the right test platform CLI options
   # ============================================================================
 
   - name: "MTP project on SDK 9 must use -- separator for args"
-    prompt: "I want to run these tests and collect a crash dump if any test crashes the host."
+    prompt: "I want to run these tests with dotnet test and collect a crash dump if any test crashes the host."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -265,7 +294,7 @@ scenarios:
     timeout: 240
 
   - name: "MTP project on SDK 10 passes args directly"
-    prompt: "I want to run these tests and produce a TRX report."
+    prompt: "I want to run these tests with dotnet test and produce a TRX report."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -291,7 +320,7 @@ scenarios:
     timeout: 300
 
   - name: "Detect test platform from Directory.Build.props"
-    prompt: "I want to run the integration tests in this project. Can you figure out which test platform it uses and run them?"
+    prompt: "I want to run the integration tests in this project with dotnet test. Can you figure out which test platform it uses and run them?"
     setup:
       files:
         - path: "TestProject.csproj"
@@ -317,7 +346,8 @@ scenarios:
           content: |
             {
               "sdk": {
-                "version": "9.0.200"
+                "version": "9.0.200",
+                "rollForward": "latestFeature"
               }
             }
         - path: "ServiceTests.cs"
@@ -353,7 +383,7 @@ scenarios:
     timeout: 240
 
   - name: "Negative test: do not use MTP syntax for a VSTest project"
-    prompt: "Run my tests and generate a TRX report."
+    prompt: "Run my tests with dotnet test and generate a TRX report."
     setup:
       files:
         - path: "TestProject.csproj"

@@ -2,7 +2,8 @@
 name: "DevOps Health — Deep Investigation"
 description: >
   Worker agent that performs deep root-cause analysis on a single
-  health check finding. Dispatched by the health check orchestrator.
+  health check finding (pipeline, infrastructure, or resource).
+  Dispatched by the health check orchestrator.
 
 on:
   workflow_dispatch:
@@ -11,7 +12,7 @@ on:
         description: "Fingerprint ID of the finding to investigate"
         required: true
       finding_type:
-        description: "Category: pipeline | quality | pr | infra | resource"
+        description: "Category: pipeline | infra | resource"
         required: true
       finding_title:
         description: "Human-readable title of the finding"
@@ -29,8 +30,19 @@ on:
         description: "Unique ID linking this investigation to the health check run"
         required: true
 
+  # Run the imported pat_pool job before the activation gate so its pat_number
+  # output is available to the activation and agent jobs (which consume it in
+  # engine.env). See: shared/pat_pool.README.md.
+  needs: [pat_pool]
+
 concurrency:
   group: gh-aw-${{ github.workflow }}-${{ inputs.finding_id }}
+
+engine:
+  id: copilot
+  env:
+    # If none of the COPILOT_GITHUB_TOKEN[_#] pool secrets were selected, the default COPILOT_GITHUB_TOKEN is used.
+    COPILOT_GITHUB_TOKEN: ${{ case(needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_GITHUB_TOKEN, needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_GITHUB_TOKEN_2, needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_GITHUB_TOKEN_3, needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_GITHUB_TOKEN_4, needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_GITHUB_TOKEN_5, needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_GITHUB_TOKEN_6, needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_GITHUB_TOKEN_7, needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_GITHUB_TOKEN_8, secrets.COPILOT_GITHUB_TOKEN) }}
 
 permissions:
   contents: read
@@ -38,7 +50,13 @@ permissions:
   issues: read
   pull-requests: read
 
+# ###############################################################
+# Select a PAT from the pool and override COPILOT_GITHUB_TOKEN.
+# When org-level billing is available, this will be removed.
+# See `shared/pat_pool.README.md` for more information.
+# ###############################################################
 imports:
+  - shared/pat_pool.md
   - ../aw/shared/devops-investigate.lock.md
 
 tools:
@@ -50,8 +68,6 @@ safe-outputs:
   add-comment:
     max: 1
   noop:
-    report-as-issue: false
-  failure:
     report-as-issue: false
 
 network:
@@ -72,7 +88,7 @@ Investigate the finding identified by the inputs provided to this workflow run. 
 ## Inputs Available
 
 - `finding_id`: `${{ inputs.finding_id }}` — The fingerprint ID of the finding
-- `finding_type`: `${{ inputs.finding_type }}` — Category (pipeline, quality, pr, infra, resource)
+- `finding_type`: `${{ inputs.finding_type }}` — Category (pipeline, infra, resource)
 - `finding_title`: `${{ inputs.finding_title }}` — Human-readable title
 - `finding_severity`: `${{ inputs.finding_severity }}` — Severity level
 - `resource_url`: `${{ inputs.resource_url }}` — URL to the primary resource
@@ -88,8 +104,6 @@ Investigate the finding identified by the inputs provided to this workflow run. 
 Based on `finding_type`, follow the appropriate investigation playbook from the compiled knowledge file:
 
 - **pipeline** → Pipeline Investigation Playbook
-- **quality** → Quality Investigation Playbook
-- **pr** → PR Investigation Playbook
 - **infra** → Infrastructure Investigation Playbook
 - **resource** → Resource Investigation Playbook
 

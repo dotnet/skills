@@ -1,6 +1,7 @@
 ---
 name: msbuild-modernization
 description: "Guide for modernizing and migrating MSBuild project files to SDK-style format. Only activate in MSBuild/.NET build context. USE FOR: converting legacy .csproj/.vbproj with verbose XML to SDK-style, migrating packages.config to PackageReference, removing Properties/AssemblyInfo.cs in favor of auto-generation, eliminating explicit <Compile Include> lists via implicit globbing, consolidating shared settings into Directory.Build.props. Indicators of legacy projects: ToolsVersion attribute, <Import Project=\"$(MSBuildToolsPath)\">, .csproj files > 50 lines for simple projects. DO NOT USE FOR: projects already in SDK-style format, non-.NET build systems (npm, Maven, CMake), .NET Framework projects that cannot move to SDK-style. INVOKES: dotnet try-convert, upgrade-assistant tools."
+license: MIT
 ---
 
 # MSBuild Modernization: Legacy to SDK-style Migration
@@ -281,13 +282,12 @@ After migration, consider enabling modern C# features:
   <TargetFramework>net8.0</TargetFramework>
   <Nullable>enable</Nullable>
   <ImplicitUsings>enable</ImplicitUsings>
-  <LangVersion>latest</LangVersion>
 </PropertyGroup>
 ```
 
 - `<Nullable>enable</Nullable>` — enables nullable reference type analysis
 - `<ImplicitUsings>enable</ImplicitUsings>` — auto-imports common namespaces (.NET 6+)
-- `<LangVersion>latest</LangVersion>` — uses the latest C# language version (or specify e.g. `12.0`)
+- **Avoid `<LangVersion>latest`** — the effective language version is determined by the SDK/compiler defaults, not just the TFM, so builds can silently vary across machines with different SDKs installed. Omit `<LangVersion>` unless you need to pin a specific version. For reproducible builds, pin the SDK version repo-wide with `global.json` (which indirectly fixes the default language version), or set an explicit numeric `<LangVersion>` (e.g. `<LangVersion>12</LangVersion>`) per project to directly control the language version.
 
 ## Complete Before/After Example
 

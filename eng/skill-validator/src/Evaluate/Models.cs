@@ -4,6 +4,30 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Evaluate;
 
+// --- Failure classification ---
+
+[JsonConverter(typeof(JsonStringEnumConverter<FailureKind>))]
+public enum FailureKind
+{
+    [JsonStringEnumMemberName("no_scenarios")]
+    NoScenarios,
+
+    [JsonStringEnumMemberName("completion_regression")]
+    CompletionRegression,
+
+    [JsonStringEnumMemberName("threshold")]
+    Threshold,
+
+    [JsonStringEnumMemberName("spec_conformance_failure")]
+    SpecConformanceFailure,
+
+    [JsonStringEnumMemberName("skill_not_activated")]
+    SkillNotActivated,
+
+    [JsonStringEnumMemberName("noise_degradation")]
+    NoiseDegradation,
+}
+
 // --- Assertion types ---
 
 public enum AssertionType
@@ -162,6 +186,37 @@ public sealed class RunMetrics
     public string AgentOutput { get; set; } = "";
     public List<AgentEvent> Events { get; set; } = [];
     public string WorkDir { get; set; } = "";
+
+    /// <summary>
+    /// Creates a per-run copy.  Scalar fields are copied by value and the mutable
+    /// collections are re-wrapped in fresh instances so mutating the clone (e.g.
+    /// accumulating judge tokens) never affects the source.  This is essential when a
+    /// cached baseline is reused concurrently across parallel target evaluations: each
+    /// evaluation works on its own copy instead of sharing one mutable instance.
+    /// </summary>
+    public RunMetrics Clone() => new()
+    {
+        TokenEstimate = TokenEstimate,
+        InputTokens = InputTokens,
+        OutputTokens = OutputTokens,
+        CacheReadTokens = CacheReadTokens,
+        CacheWriteTokens = CacheWriteTokens,
+        JudgeInputTokens = JudgeInputTokens,
+        JudgeOutputTokens = JudgeOutputTokens,
+        JudgeCacheReadTokens = JudgeCacheReadTokens,
+        JudgeCacheWriteTokens = JudgeCacheWriteTokens,
+        ToolCallCount = ToolCallCount,
+        ToolCallBreakdown = new Dictionary<string, int>(ToolCallBreakdown),
+        TurnCount = TurnCount,
+        WallTimeMs = WallTimeMs,
+        ErrorCount = ErrorCount,
+        TimedOut = TimedOut,
+        AssertionResults = [.. AssertionResults],
+        TaskCompleted = TaskCompleted,
+        AgentOutput = AgentOutput,
+        Events = [.. Events],
+        WorkDir = WorkDir,
+    };
 }
 
 public sealed record RunResult(
@@ -256,6 +311,10 @@ public sealed class ScenarioComparison
     public MetricBreakdown? PluginBreakdown { get; init; }
     public PairwiseJudgeResult? PairwiseResult { get; init; }
     public IReadOnlyList<double>? PerRunScores { get; set; }
+    /// <summary>True when the coefficient of variation across runs exceeds the high-variance threshold.</summary>
+    public bool HighVariance { get; set; }
+    /// <summary>Coefficient of variation across per-run scores. Null when fewer than 2 runs.</summary>
+    public double? VarianceCV { get; set; }
     public SkillActivationInfo? SkillActivationIsolated { get; set; }
     public SkillActivationInfo? SkillActivationPlugin { get; set; }
     public SubagentActivationInfo? SubagentActivationIsolated { get; set; }
@@ -265,6 +324,10 @@ public sealed class ScenarioComparison
     public int? TimeoutSeconds { get; set; }
     /// <summary>When false, non-activation is expected (negative test) and should not flag the verdict.</summary>
     public bool ExpectActivation { get; set; } = true;
+    /// <summary>Number of individual runs that failed with exceptions and were excluded from aggregation.</summary>
+    public int FailedRunCount { get; set; }
+    /// <summary>Non-null when the entire scenario failed with an execution error (not a timeout).</summary>
+    public string? ExecutionError { get; set; }
 
     // Backward-compatible aliases for JSON deserialization of older results files.
     [JsonPropertyName("withSkill")]
@@ -289,7 +352,7 @@ public sealed class SkillVerdict
     public double? PluginScore { get; set; }
     public required string Reason { get; set; }
     /// <summary>Categorizes why the verdict failed, if it did.</summary>
-    public string? FailureKind { get; set; }
+    public FailureKind? FailureKind { get; set; }
     public bool SkillNotActivated { get; set; }
     public OverfittingResult? OverfittingResult { get; set; }
     public NoiseTestResult? NoiseTestResult { get; set; }
@@ -395,6 +458,19 @@ public sealed record ValidatorConfig
     public string? NoiseSkillsDir { get; init; }
     public double NoiseDegradationLimit { get; init; } = 0.2;
     public double NoiseMaxScenarioDegradation { get; init; } = 0.4;
+
+    /// <summary>When set, persist each scenario's averaged baseline to this file after the run.</summary>
+    public string? BaselineOut { get; init; }
+
+    /// <summary>When set, reuse the precomputed baseline from this file instead of re-running the baseline arm.</summary>
+    public string? BaselineFrom { get; init; }
+
+    /// <summary>
+    /// When set, run the requested agent arms and persist sessions/metrics but skip all judging.
+    /// Judging is deferred to a later <c>rejudge</c>/<c>judge</c> step. Implies session persistence
+    /// and does not require a baseline.
+    /// </summary>
+    public bool NoJudge { get; init; }
 }
 
 public static class DefaultWeights

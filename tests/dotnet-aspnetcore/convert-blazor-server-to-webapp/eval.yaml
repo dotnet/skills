@@ -1,0 +1,114 @@
+scenarios:
+  - name: "Blazor Server app with CascadingAuthenticationState"
+    prompt: |
+      Convert this .NET 7 Blazor Server app to a .NET 8 Blazor Web App. The app uses
+      authentication with CascadingAuthenticationState. Provide the complete updated files.
+      The app should no longer use AddServerSideBlazor or MapBlazorHub.
+
+      Program.cs:
+      ```csharp
+      using BlazorAuthApp;
+
+      var builder = WebApplication.CreateBuilder(args);
+
+      builder.Services.AddRazorPages();
+      builder.Services.AddServerSideBlazor();
+
+      var app = builder.Build();
+
+      if (!app.Environment.IsDevelopment())
+      {
+          app.UseExceptionHandler("/Error");
+          app.UseHsts();
+      }
+
+      app.UseHttpsRedirection();
+      app.UseStaticFiles();
+      app.UseRouting();
+
+      app.UseAuthentication();
+      app.UseAuthorization();
+
+      app.MapControllers();
+      app.MapBlazorHub();
+      app.MapFallbackToPage("/_Host");
+
+      app.Run();
+      ```
+
+      App.razor:
+      ```razor
+      <CascadingAuthenticationState>
+          <Router AppAssembly="@typeof(Program).Assembly">
+              <Found Context="routeData">
+                  <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                      <NotAuthorized>
+                          <RedirectToLogin />
+                      </NotAuthorized>
+                  </AuthorizeRouteView>
+                  <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+              </Found>
+              <NotFound>
+                  <LayoutView Layout="@typeof(MainLayout)">
+                      <p>Sorry, there's nothing at this address.</p>
+                  </LayoutView>
+              </NotFound>
+          </Router>
+      </CascadingAuthenticationState>
+      ```
+
+      Pages/_Host.cshtml:
+      ```html
+      @page "/"
+      @using Microsoft.AspNetCore.Components.Web
+      @namespace BlazorAuthApp.Pages
+      @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <base href="~/" />
+          <link href="BlazorAuthApp.styles.css" rel="stylesheet" />
+          <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
+      </head>
+      <body>
+          <component type="typeof(App)" render-mode="ServerPrerendered" />
+
+          <div id="blazor-error-ui">
+              <environment include="Staging,Production">
+                  An error has occurred. This application may no longer respond until reloaded.
+              </environment>
+              <environment include="Development">
+                  An unhandled exception has occurred. See browser dev tools for details.
+              </environment>
+              <a href="" class="reload">Reload</a>
+              <a class="dismiss">🗙</a>
+          </div>
+
+          <script src="_framework/blazor.server.js"></script>
+      </body>
+      </html>
+      ```
+    assertions:
+      - type: output_contains
+        value: "AddCascadingAuthenticationState"
+      - type: output_contains
+        value: "AddRazorComponents"
+      - type: output_contains
+        value: "MapRazorComponents"
+      - type: output_contains
+        value: "UseAntiforgery"
+      - type: output_not_matches
+        pattern: "AddServerSideBlazor\\s*\\("
+      - type: output_not_matches
+        pattern: "MapBlazorHub\\s*\\("
+      - type: exit_success
+    rubric:
+      - "Removes the CascadingAuthenticationState component wrapper from App.razor/Routes.razor"
+      - "Adds builder.Services.AddCascadingAuthenticationState() to Program.cs"
+      - "Places UseAntiforgery after UseAuthentication and UseAuthorization in the middleware pipeline"
+      - "Keeps AuthorizeRouteView in the Routes component"
+      - "Does NOT switch to static rendering — preserves interactive server rendering"
+    timeout: 120

@@ -1,13 +1,15 @@
 ---
 name: crap-score
 description: >
-  Calculates CRAP (Change Risk Anti-Patterns) score for .NET methods, classes,
-  or files. Use when the user asks to assess test quality, identify risky
-  untested code, compute CRAP scores, or evaluate whether complex methods have
-  sufficient test coverage. Requires code coverage data (Cobertura XML) and
-  cyclomatic complexity analysis.
-  DO NOT USE FOR: writing tests, general test execution unrelated to coverage/CRAP
-  analysis, or general code coverage reporting without CRAP context.
+  Calculates targeted CRAP (Change Risk Anti-Patterns) scores for a named .NET
+  method, class, or single source file. Use when the user explicitly asks to
+  compute CRAP scores or assess risky untested code for a specific target,
+  combining Cobertura coverage data with cyclomatic complexity analysis.
+  DO NOT USE FOR: project-wide coverage analysis, coverage plateau or "stuck
+  coverage" diagnosis, what's blocking coverage, or where to add tests across
+  a project (use coverage-analysis); writing tests; running tests without
+  CRAP context.
+license: MIT
 ---
 
 # CRAP Score Analysis
@@ -21,6 +23,7 @@ The CRAP score combines **cyclomatic complexity** and **code coverage** into a s
 $$\text{CRAP}(m) = \text{comp}(m)^2 \times (1 - \text{cov}(m))^3 + \text{comp}(m)$$
 
 Where:
+
 - $\text{comp}(m)$ = cyclomatic complexity of method $m$
 - $\text{cov}(m)$ = code coverage ratio (0.0 to 1.0) of method $m$
 
@@ -111,7 +114,7 @@ $$\text{CRAP}(m) = \text{comp}(m)^2 \times (1 - \text{cov}(m))^3 + \text{comp}(m
 
 Present a sorted table (highest CRAP first):
 
-```
+```text
 | Method                          | Complexity | Coverage | CRAP Score | Risk     |
 |---------------------------------|------------|----------|------------|----------|
 | OrderService.ProcessOrder       | 12         | 45%      | 28.4       | High     |
@@ -120,6 +123,7 @@ Present a sorted table (highest CRAP first):
 ```
 
 Include:
+
 - **Summary**: total methods analyzed, how many in each risk category
 - **Top offenders**: methods with CRAP > 30, with specific recommendations
 - **Quick wins**: methods with high complexity but where small coverage improvements would drop the score significantly
