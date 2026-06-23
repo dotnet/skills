@@ -1,4 +1,4 @@
-# dotnet
+# dotnet-util
 
 Core .NET and C# skills for coding agents.
 
