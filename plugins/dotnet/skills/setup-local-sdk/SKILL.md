@@ -205,6 +205,11 @@ it refuses to overwrite the file and prints the settings to merge manually.
 Adapt script variables to the install choice from Step 1: exact versions should
 use `--version` / `-Version` and `rollForward: "disable"`; channel installs should
 use channel/quality and only set `allowPrerelease: true` for prerelease SDKs.
+If `global.json` already pins `sdk.version` and the user mainly needs team
+scripts, reuse that version in the scripts and update `global.json` first; do
+not start a long SDK download just to discover the version. When the user asks
+for both setup and scripts, create the scripts/config before any long install so
+the reproducible setup exists even if download or workload installation is slow.
 
 **install-dotnet.sh:**
 

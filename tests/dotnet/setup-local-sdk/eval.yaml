@@ -73,13 +73,15 @@ scenarios:
     timeout: 600
 
   - name: "Create team install scripts"
-    prompt: "Set up a local .NET 11 preview SDK and create install scripts so teammates can reproduce the setup on any OS."
+    prompt: "This repo already has a global.json for a .NET 11 preview. Create install scripts and repo configuration, including a clear missing-SDK message, so teammates can reproduce the project-local SDK setup on any OS after cloning. Preserve the existing global.json sections. Don't download the SDK now."
     setup:
       files:
         - path: "global.json"
           content: |
             {
               "sdk": {
+                "version": "11.0.100-preview.3.26207.106",
+                "allowPrerelease": true,
                 "rollForward": "latestFeature"
               },
               "msbuild-sdks": {
@@ -110,14 +112,25 @@ scenarios:
       - type: "file_contains"
         path: "global.json"
         value: "tools"
+      - type: "file_contains"
+        path: "global.json"
+        value: "errorMessage"
       - type: "output_matches"
         pattern: "(merge|preserve|backup|back up|existing)"
+      - type: "output_matches"
+        pattern: "(teammates|team|clone|after cloning)"
+      - type: "file_not_contains"
+        path: "install*.sh"
+        value: "export PATH"
+      - type: "file_not_contains"
+        path: "install*.ps1"
+        value: "$env:PATH"
     rubric:
       - "The agent created cross-platform scripts that teammates can run after cloning"
       - "The agent configured missing-SDK guidance that points teammates to the install scripts"
       - "The agent avoided dropping existing global.json settings"
-      - "The agent explained that teammates run the script after cloning"
-    timeout: 600
+      - "The agent made the setup reproducible without requiring teammates to change PATH"
+    timeout: 300
 
   - name: "Detect incompatible .NET host version"
     prompt: "I already ran dotnet --version and it printed 9.0.306. I want to set up a local .NET 11 preview SDK for my project using the global.json SDK paths feature. Is that possible?"
