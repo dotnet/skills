@@ -12,9 +12,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-vstest/TestProject.csproj"
+          source: "fixtures/mstest-vstest/TestProject.csproj"
         - path: "CalculatorTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-vstest/CalculatorTests.cs"
+          source: "fixtures/mstest-vstest/CalculatorTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(EnableMSTestRunner|MSTest\\.Sdk)"
@@ -42,9 +42,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/nunit-vstest/TestProject.csproj"
+          source: "fixtures/nunit-vstest/TestProject.csproj"
         - path: "CalculatorTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/nunit-vstest/CalculatorTests.cs"
+          source: "fixtures/nunit-vstest/CalculatorTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(EnableNUnitRunner|NUnit.*runner)"
@@ -71,9 +71,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/xunit-vstest/TestProject.csproj"
+          source: "fixtures/xunit-vstest/TestProject.csproj"
         - path: "CalculatorTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/xunit-vstest/CalculatorTests.cs"
+          source: "fixtures/xunit-vstest/CalculatorTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(YTest\\.MTP\\.XUnit2|MTP.*xunit)"
@@ -99,11 +99,11 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-ci-pipeline/TestProject.csproj"
+          source: "fixtures/mstest-ci-pipeline/TestProject.csproj"
         - path: "ServiceTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-ci-pipeline/ServiceTests.cs"
+          source: "fixtures/mstest-ci-pipeline/ServiceTests.cs"
         - path: "azure-pipelines.yml"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-ci-pipeline/azure-pipelines.yml"
+          source: "fixtures/mstest-ci-pipeline/azure-pipelines.yml"
     assertions:
       - type: "output_matches"
         pattern: "(DotNetCoreCLI|dotnet test)"
@@ -130,9 +130,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-sdk-vstest/TestProject.csproj"
+          source: "fixtures/mstest-sdk-vstest/TestProject.csproj"
         - path: "AppTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-sdk-vstest/AppTests.cs"
+          source: "fixtures/mstest-sdk-vstest/AppTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(UseVSTest|remove|delete)"
@@ -157,9 +157,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-vstest/TestProject.csproj"
+          source: "fixtures/mstest-vstest/TestProject.csproj"
         - path: "CalculatorTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-vstest/CalculatorTests.cs"
+          source: "fixtures/mstest-vstest/CalculatorTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(report-trx|--report-trx)"
@@ -348,9 +348,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-vstest/TestProject.csproj"
+          source: "fixtures/mstest-vstest/TestProject.csproj"
         - path: "CalculatorTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-vstest/CalculatorTests.cs"
+          source: "fixtures/mstest-vstest/CalculatorTests.cs"
     assertions:
       - type: "output_contains"
         value: "MSBuildProjectName"
@@ -376,9 +376,9 @@ scenarios:
     setup:
       files:
         - path: "TestProject.csproj"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-vstest/TestProject.csproj"
+          source: "fixtures/mstest-vstest/TestProject.csproj"
         - path: "CalculatorTests.cs"
-          source: "../../../../tests/dotnet-test/migrate-vstest-to-mtp/fixtures/mstest-vstest/CalculatorTests.cs"
+          source: "fixtures/mstest-vstest/CalculatorTests.cs"
     assertions:
       - type: "output_matches"
         pattern: "(EnableMSTestRunner|MSTest.*runner)"

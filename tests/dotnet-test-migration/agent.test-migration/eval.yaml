@@ -16,7 +16,6 @@ scenarios:
         - path: "OrderTests/OrderServiceTests.cs"
           source: "fixtures/mstest-v2-vstest/OrderServiceTests.cs"
       additional_required_skills:
-        - platform-detection
         - migrate-mstest-v1v2-to-v3
         - migrate-mstest-v3-to-v4
         - migrate-vstest-to-mtp
@@ -52,7 +51,6 @@ scenarios:
         - path: "CalcTests/CalculatorTests.cs"
           source: "fixtures/xunit-v2/CalculatorTests.cs"
       additional_required_skills:
-        - platform-detection
         - migrate-xunit-to-xunit-v3
     assertions:
       - type: "output_matches"
