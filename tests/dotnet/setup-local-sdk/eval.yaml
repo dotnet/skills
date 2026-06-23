@@ -20,7 +20,7 @@ scenarios:
     timeout: 300
 
   - name: "Install a specific SDK version locally"
-    prompt: "Install .NET SDK version 10.0.100 locally for my project."
+    prompt: "Install .NET SDK version 10.0.100 just for this repo so it is used here automatically instead of relying on a machine-wide SDK."
     assertions:
       - type: "output_contains"
         value: "10.0.100"
@@ -32,10 +32,27 @@ scenarios:
         pattern: '("paths"|global\.json.{0,80}paths|paths.{0,80}global\.json)'
       - type: "output_matches"
         pattern: '("rollForward".{0,40}"disable"|disable.{0,80}rollForward)'
+      - type: "output_matches"
+        pattern: '(dotnet\s+--version|normal dotnet commands|SDK resolution|resolves? to).{0,120}10\.0\.100|10\.0\.100.{0,120}(dotnet\s+--version|normal dotnet commands|SDK resolution|resolves? to)'
+      - type: "output_not_matches"
+        pattern: "(export\\s+PATH|setx\\s+PATH|\\$env:PATH\\s*=|set\\s+PATH=)"
+      - type: "file_contains"
+        path: "global.json"
+        value: "10.0.100"
+      - type: "file_contains"
+        path: "global.json"
+        value: "paths"
+      - type: "file_contains"
+        path: "global.json"
+        value: "rollForward"
+      - type: "file_contains"
+        path: "global.json"
+        value: "disable"
     rubric:
       - "The agent selected the exact requested SDK version rather than a moving latest preview"
-      - "The agent configured SDK resolution for the exact local version"
-      - "The agent confirmed the locally installed version matches the request"
+      - "The agent made regular dotnet commands in the project resolve to the local SDK without requiring PATH changes"
+      - "The agent prevented roll-forward to any SDK version other than the one requested"
+      - "The agent confirmed project-level SDK resolution returns the requested version"
     timeout: 300
 
   - name: "Set up local SDK with MAUI workload"
