@@ -1,6 +1,6 @@
 # dotnet-util
 
-Core .NET and C# skills for coding agents.
+Utility / niche .NET and C# skills for coding agents.
 
 ## Includes
 
