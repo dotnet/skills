@@ -35,7 +35,7 @@ The result is a fully isolated SDK that:
 | Input | Required | Default | Notes |
 |---|---|---|---|
 | Channel or version | No | `11.0` | e.g. `11.0`, `STS`, `LTS`, or an exact version like `11.0.100-preview.2.26159.112` |
-| Quality | No | `preview` | One of: `daily`, `preview`, `GA` |
+| Quality | No | `preview` | One of: `daily`, `preview`, `ga` |
 | jq | No | — | Optional for bash team scripts when patching an existing `global.json`; without it, do not overwrite the file |
 
 ### Prerequisites
@@ -107,8 +107,8 @@ finally {
 ```
 
 For exact versions: use `--version <VERSION>` (bash) or `-Version <VERSION>` (PowerShell)
-instead of channel/quality flags. The install script is from Microsoft's official
-URL (https://dot.net/v1/dotnet-install.sh).
+instead of channel/quality flags. The install scripts are from Microsoft's official
+URLs: `https://dot.net/v1/dotnet-install.sh` and `https://dot.net/v1/dotnet-install.ps1`.
 
 ### Step 6 — Identify the installed version
 
