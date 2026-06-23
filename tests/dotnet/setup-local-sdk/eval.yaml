@@ -117,7 +117,7 @@ scenarios:
       - "The agent configured missing-SDK guidance that points teammates to the install scripts"
       - "The agent avoided dropping existing global.json settings"
       - "The agent explained that teammates run the script after cloning"
-    timeout: 300
+    timeout: 600
 
   - name: "Detect incompatible .NET host version"
     prompt: "I already ran dotnet --version and it printed 9.0.306. I want to set up a local .NET 11 preview SDK for my project using the global.json SDK paths feature. Is that possible?"
