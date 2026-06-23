@@ -4,7 +4,7 @@ scenarios:
   # ============================================================================
 
   - name: "Run tests in a VSTest MSTest project"
-    prompt: "I need to run all the tests in this project. Can you help me?"
+    prompt: "I need to run all the tests in this project. Can you help me? Show me the exact command to use."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -23,7 +23,7 @@ scenarios:
     timeout: 180
 
   - name: "Run tests with trx reporting on MTP project (SDK 9)"
-    prompt: "I have an MSTest project using Microsoft.Testing.Platform. I need to run the tests and produce a TRX report. I'm on .NET SDK 9."
+    prompt: "I have an MSTest project using Microsoft.Testing.Platform. I need to run the tests and produce a TRX report. I'm on .NET SDK 9. Show me the exact command."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -47,7 +47,7 @@ scenarios:
     timeout: 480
 
   - name: "Run tests with blame-hang on MTP project (SDK 10)"
-    prompt: "My tests are occasionally hanging. I want to run them with dotnet test using a hang timeout of 5 minutes to detect the culprit. Here's my project."
+    prompt: "My tests are occasionally hanging. I want to run them with dotnet test using a hang timeout of 5 minutes to detect the culprit. Here's my project. Show me the exact command."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -73,7 +73,7 @@ scenarios:
     timeout: 420
 
   - name: "Run tests on a specific TFM with TRX in a multi-TFM MTP project (SDK 9)"
-    prompt: "This MSTest project uses Microsoft.Testing.Platform and targets both net8.0 and net9.0. I'm on .NET SDK 9. I want to run only the net9.0 tests and produce a TRX report."
+    prompt: "This MSTest project uses Microsoft.Testing.Platform and targets both net8.0 and net9.0. I'm on .NET SDK 9. I want to run only the net9.0 tests and produce a TRX report. Show me the exact command."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -102,6 +102,7 @@ scenarios:
   - name: "Filter MSTest tests by category on VSTest"
     prompt: "I only want to run the integration tests using dotnet test. How do I filter by the Integration category?"
     setup:
+      additional_required_skills: ["filter-syntax"]
       files:
         - path: "TestProject.csproj"
           source: "fixtures/vstest-mstest/TestProject.csproj"
@@ -124,6 +125,7 @@ scenarios:
   - name: "Filter NUnit tests by class name on VSTest"
     prompt: "I want to run only the ReportExporterTests class using dotnet test, not the ReportGeneratorTests. How do I do that?"
     setup:
+      additional_required_skills: ["filter-syntax"]
       files:
         - path: "TestProject.csproj"
           source: "fixtures/vstest-nunit/TestProject.csproj"
@@ -146,6 +148,7 @@ scenarios:
   - name: "Filter xUnit v3 tests by class on MTP"
     prompt: "I need to run only the ShoppingCartTests class using dotnet test, not the InventoryServiceTests. Can you show me the command?"
     setup:
+      additional_required_skills: ["filter-syntax"]
       files:
         - path: "TestProject.csproj"
           source: "fixtures/mtp-xunit-v3/TestProject.csproj"
@@ -170,6 +173,7 @@ scenarios:
   - name: "Filter xUnit v3 tests by trait on MTP"
     prompt: "I want to run only the tests with the Category=Integration trait in this xUnit project using dotnet test."
     setup:
+      additional_required_skills: ["filter-syntax"]
       files:
         - path: "TestProject.csproj"
           source: "fixtures/mtp-xunit-v3/TestProject.csproj"
@@ -194,6 +198,7 @@ scenarios:
   - name: "Filter xUnit v3 tests by class pattern and trait using query filter language"
     prompt: "I have an xUnit v3 project with several test classes. I need to run only the Smoke tests from classes whose name contains 'Integration' — I want a single combined filter expression for dotnet test rather than separate flags."
     setup:
+      additional_required_skills: ["filter-syntax"]
       files:
         - path: "TestProject.csproj"
           source: "fixtures/mtp-xunit-v3/TestProject.csproj"
@@ -205,7 +210,7 @@ scenarios:
       - type: "output_matches"
         pattern: "--\\s+--filter-query"
       - type: "output_matches"
-        pattern: '--filter-query\\s+"(?=[^"]*Integration)(?=[^"]*\\[Category=Smoke\\])[^"]+"'
+        pattern: '--filter-query\s+"(?=[^"]*Integration)(?=[^"]*\[Category=Smoke\])[^"]+"'
       - type: "exit_success"
     rubric:
       - "Recognized that xUnit v3 on MTP supports a query filter language for complex combined expressions"
@@ -219,6 +224,7 @@ scenarios:
   - name: "Filter TUnit tests by class using treenode-filter"
     prompt: "I want to run only the SmsNotificationTests from this TUnit project using dotnet test. What's the command?"
     setup:
+      additional_required_skills: ["filter-syntax"]
       files:
         - path: "TestProject.csproj"
           source: "fixtures/mtp-tunit/TestProject.csproj"
@@ -242,6 +248,7 @@ scenarios:
   - name: "Combine multiple filter criteria on VSTest MSTest"
     prompt: "I want to run only the unit tests in the OrderServiceTests class using dotnet test. How do I combine these two filter conditions?"
     setup:
+      additional_required_skills: ["filter-syntax"]
       files:
         - path: "TestProject.csproj"
           source: "fixtures/vstest-mstest/TestProject.csproj"
@@ -270,7 +277,7 @@ scenarios:
   # ============================================================================
 
   - name: "MTP project on SDK 9 must use -- separator for args"
-    prompt: "I want to run these tests with dotnet test and collect a crash dump if any test crashes the host."
+    prompt: "I want to run these tests with dotnet test and collect a crash dump if any test crashes the host. Show me the exact command."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -294,7 +301,7 @@ scenarios:
     timeout: 240
 
   - name: "MTP project on SDK 10 passes args directly"
-    prompt: "I want to run these tests with dotnet test and produce a TRX report."
+    prompt: "I want to run these tests with dotnet test and produce a TRX report. Show me the exact command."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -320,8 +327,9 @@ scenarios:
     timeout: 300
 
   - name: "Detect test platform from Directory.Build.props"
-    prompt: "I want to run the integration tests in this project with dotnet test. Can you figure out which test platform it uses and run them?"
+    prompt: "I want to run the integration tests in this project with dotnet test. Can you figure out which test platform it uses and run them? Show me the exact command you run."
     setup:
+      additional_required_skills: ["platform-detection", "filter-syntax"]
       files:
         - path: "TestProject.csproj"
           content: |
@@ -383,7 +391,7 @@ scenarios:
     timeout: 240
 
   - name: "Negative test: do not use MTP syntax for a VSTest project"
-    prompt: "Run my tests with dotnet test and generate a TRX report."
+    prompt: "Run my tests with dotnet test and generate a TRX report. Show me the exact command."
     setup:
       files:
         - path: "TestProject.csproj"
