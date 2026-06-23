@@ -1,5 +1,6 @@
 ---
 name: setup-local-sdk
+license: MIT
 description: >
   Install a .NET SDK locally for safe preview testing, specific-version pinning, or
   reproducible team setups — without modifying the system-wide installation.
@@ -165,7 +166,7 @@ grep -qxF '.dotnet/' .gitignore 2>/dev/null || echo '.dotnet/' >> .gitignore
 **Windows (PowerShell):**
 
 ```powershell
-if (-not (Test-Path .gitignore) -or -not (Select-String -Path .gitignore -Pattern '^\\.dotnet/$' -Quiet)) {
+if (-not (Test-Path .gitignore) -or -not (Select-String -Path .gitignore -Pattern '^\.dotnet/$' -Quiet)) {
     Add-Content -Path .gitignore -Value '.dotnet/'
 }
 ```
@@ -295,7 +296,7 @@ foreach ($entry in $updates.GetEnumerator()) {
     }
 }
 $globalJson | ConvertTo-Json -Depth 10 | Set-Content -Path 'global.json' -Encoding UTF8
-if (-not (Test-Path .gitignore) -or -not (Select-String -Path .gitignore -Pattern '^\\.dotnet/$' -Quiet)) {
+if (-not (Test-Path .gitignore) -or -not (Select-String -Path .gitignore -Pattern '^\.dotnet/$' -Quiet)) {
     Add-Content -Path .gitignore -Value '.dotnet/'
 }
 if ($Workloads.Count -gt 0) { & "$installDir\dotnet.exe" workload install @Workloads }
