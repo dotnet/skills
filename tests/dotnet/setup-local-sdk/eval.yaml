@@ -8,10 +8,10 @@ scenarios:
         value: "global.json"
       - type: "output_contains"
         value: ".dotnet"
-      - type: "output_contains"
-        value: "paths"
-      - type: "output_contains"
-        value: "$host$"
+      - type: "output_matches"
+        pattern: '("paths"|global\.json.{0,80}paths|paths.{0,80}global\.json)'
+      - type: "output_matches"
+        pattern: "(.gitignore|gitignore|source control|committed|commit)"
     rubric:
       - "The agent set up a project-local SDK without changing the system-wide installation"
       - "The agent configured SDK resolution so the local SDK is preferred and the host install remains available as fallback"
@@ -20,48 +20,81 @@ scenarios:
     timeout: 300
 
   - name: "Install a specific SDK version locally"
-    prompt: "Install .NET SDK version 11.0.100-preview.2.26159.112 locally using global.json paths."
+    prompt: "Install .NET SDK version 10.0.100 locally for my project."
     assertions:
       - type: "output_contains"
-        value: "11.0.100-preview.2.26159.112"
+        value: "10.0.100"
       - type: "output_contains"
         value: "global.json"
       - type: "output_matches"
-        pattern: "(--version|-Version)"
-      - type: "output_contains"
-        value: "paths"
+        pattern: "(--version|-Version).{0,40}10\\.0\\.100|10\\.0\\.100.{0,40}(--version|-Version)"
+      - type: "output_matches"
+        pattern: '("paths"|global\.json.{0,80}paths|paths.{0,80}global\.json)'
+      - type: "output_matches"
+        pattern: '("rollForward".{0,40}"disable"|disable.{0,80}rollForward)'
     rubric:
       - "The agent selected the exact requested SDK version rather than a moving latest preview"
       - "The agent configured SDK resolution for the exact local version"
-      - "The agent verified the installed version matches the request"
+      - "The agent confirmed the locally installed version matches the request"
     timeout: 300
 
   - name: "Set up local SDK with MAUI workload"
-    prompt: "I need to test my .NET MAUI app with the latest .NET 11 preview. Set up a local SDK with the MAUI workload installed."
+    prompt: "I'm on Linux and need to test my .NET MAUI Android app with the latest .NET 11 preview. Set up a local SDK with the MAUI Android workload installed."
     assertions:
       - type: "output_contains"
         value: "workload"
-      - type: "output_contains"
-        value: ".dotnet"
       - type: "output_matches"
-        pattern: '(\./\.dotnet/dotnet|\.\\\.dotnet\\dotnet\.exe).{0,80}workload|workload.{0,80}(\./\.dotnet/dotnet|\.\\\.dotnet\\dotnet\.exe)'
+        pattern: '(maui-android|MAUI Android|Android.{0,40}workload)'
+      - type: "output_matches"
+        pattern: '(\./[^\s]*/dotnet|\.\\[^\s]+\\dotnet\.exe).{0,120}workload|workload.{0,120}(\./[^\s]*/dotnet|\.\\[^\s]+\\dotnet\.exe)'
+      - type: "output_contains"
+        value: "global.json"
     rubric:
-      - "The agent installed the SDK locally and the MAUI workload"
+      - "The agent installed a project-local SDK and either completed the MAUI Android workload install or reported a concrete platform/feed blocker after the base setup was usable"
       - "The agent ensured workload installation targeted the local SDK rather than the global installation"
-      - "The agent configured global.json with paths"
-    timeout: 300
+      - "The agent configured SDK resolution to use the local SDK"
+    timeout: 600
 
   - name: "Create team install scripts"
     prompt: "Set up a local .NET 11 preview SDK and create install scripts so teammates can reproduce the setup on any OS."
+    setup:
+      files:
+        - path: "global.json"
+          content: |
+            {
+              "sdk": {
+                "rollForward": "latestFeature"
+              },
+              "msbuild-sdks": {
+                "Example.Sdk": "1.2.3"
+              },
+              "tools": {
+                "dotnet-example": "4.5.6"
+              }
+            }
     assertions:
-      - type: "output_contains"
-        value: "install-dotnet.sh"
-      - type: "output_contains"
-        value: "install-dotnet.ps1"
-      - type: "output_contains"
-        value: "errorMessage"
+      - type: "file_exists"
+        path: "install*.sh"
+      - type: "file_exists"
+        path: "install*.ps1"
       - type: "output_matches"
-        pattern: "(merge|preserve|backup|back up)"
+        pattern: "install[^\\s]*\\.sh"
+      - type: "output_matches"
+        pattern: "install[^\\s]*\\.ps1"
+      - type: "file_contains"
+        path: "global.json"
+        value: "paths"
+      - type: "file_contains"
+        path: "global.json"
+        value: "version"
+      - type: "file_contains"
+        path: "global.json"
+        value: "msbuild-sdks"
+      - type: "file_contains"
+        path: "global.json"
+        value: "tools"
+      - type: "output_matches"
+        pattern: "(merge|preserve|backup|back up|existing)"
     rubric:
       - "The agent created cross-platform scripts that teammates can run after cloning"
       - "The agent configured missing-SDK guidance that points teammates to the install scripts"
@@ -70,14 +103,19 @@ scenarios:
     timeout: 300
 
   - name: "Detect incompatible .NET host version"
-    prompt: "Set up a local .NET 11 preview SDK for my project. My dotnet --version shows 9.0.306."
+    prompt: "I already ran dotnet --version and it printed 9.0.306. I want to set up a local .NET 11 preview SDK for my project using the global.json SDK paths feature. Is that possible?"
+    reject_tools: ["bash", "powershell"]
     assertions:
       - type: "output_contains"
-        value: ".NET 10+"
-      - type: "output_contains"
-        value: "paths"
+        value: "9.0.306"
+      - type: "output_matches"
+        pattern: "(\\.NET 10\\+|\\.NET 10 or later|10 or higher|10 or later|requires.{0,40}10|version 10)"
+      - type: "output_matches"
+        pattern: '("paths"|global\.json.{0,80}paths|paths.{0,80}global\.json)'
+      - type: "output_matches"
+        pattern: "(install|upgrade).{0,80}(\\.NET 10|10)"
     rubric:
       - "The agent detected that version 9.0.306 is below the .NET 10 requirement"
       - "The agent explained that .NET 10+ is required for the paths feature"
       - "The agent told the user to install .NET 10+ system-wide first"
-    timeout: 120
+    timeout: 60

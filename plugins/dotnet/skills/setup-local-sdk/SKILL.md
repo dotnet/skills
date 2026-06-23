@@ -53,11 +53,18 @@ Map the answer to `--channel`/`--quality` or `--version` flags.
 
 ### Step 2 — Verify .NET 10+ host
 
+If the user already provided `dotnet --version` output, treat that as the
+authoritative version for their machine. Do not override it with the agent
+workspace's version; if the two differ, explain that the workspace differs and
+continue advising for the user's machine.
+
 ```bash
 dotnet --version
 ```
 
-If major version < 10, stop: the `paths` feature requires .NET 10+.
+If major version < 10, stop before downloading anything: the `paths` feature
+requires a .NET 10+ host SDK. Tell the user to install .NET 10 or later
+system-wide first, then return to the local SDK setup.
 
 ### Step 3 — Detect operating system
 
@@ -112,23 +119,7 @@ URL (https://dot.net/v1/dotnet-install.sh).
 
 Record the exact version string (e.g., `11.0.100-preview.2.26159.112`) for `global.json`.
 
-### Step 7 — Install workloads (if requested)
-
-If the user mentioned MAUI, mobile, workload, Blazor WASM, or cross-platform,
-install using the **local** binary (no sudo needed):
-
-```bash
-./.dotnet/dotnet workload install <workload>       # macOS/Linux
-.\.dotnet\dotnet.exe workload install <workload>   # Windows
-```
-
-Verify: `./.dotnet/dotnet workload list` (or `.\.dotnet\dotnet.exe workload list`).
-
-> **Always use the local dotnet binary for workload commands.** Workload metadata
-> is stored relative to the host process's dotnet root. The system `dotnet` puts
-> metadata in the wrong location. (See [dotnet/sdk#49825](https://github.com/dotnet/sdk/issues/49825).)
-
-### Step 8 — Create or update global.json
+### Step 7 — Create or update global.json
 
 ```json
 {
@@ -143,7 +134,8 @@ Verify: `./.dotnet/dotnet workload list` (or `.\.dotnet\dotnet.exe workload list
 ```
 
 - `paths`: `.dotnet` first (local priority), `$host$` = system-wide fallback.
-- `rollForward: "latestFeature"`: rolls forward across feature bands, not just patches.
+- `rollForward: "latestFeature"`: use for latest-preview or floating feature-band installs.
+- Exact version requests: use `rollForward: "disable"` so SDK resolution doesn't move to a different feature band.
 - `allowPrerelease`: set to `true` only when installing a prerelease SDK. Omit for stable versions.
 - `errorMessage`: include only when team install scripts are created (Step 10). Otherwise omit.
 
@@ -155,7 +147,7 @@ isn't lost. Always back up the original file (e.g., `global.json.bak`) before mo
 **Minimal config** (when version pinning isn't needed):
 `{"sdk":{"paths":[".dotnet","$host$"]}}`
 
-### Step 9 — Update .gitignore
+### Step 8 — Update .gitignore
 
 **macOS / Linux (or Git Bash):**
 
@@ -171,12 +163,40 @@ if (-not (Test-Path .gitignore) -or -not (Select-String -Path .gitignore -Patter
 }
 ```
 
+### Step 9 — Install workloads (if requested)
+
+Only do this after `global.json` and `.gitignore` are complete, so a slow or
+platform-limited workload install does not prevent the base local SDK setup from
+being usable.
+
+If the user mentioned MAUI, mobile, workload, Blazor WASM, or cross-platform,
+install using the **local** binary (no sudo needed):
+
+```bash
+./.dotnet/dotnet workload install <workload>       # macOS/Linux
+.\.dotnet\dotnet.exe workload install <workload>   # Windows
+```
+
+Verify: `./.dotnet/dotnet workload list` (or `.\.dotnet\dotnet.exe workload list`).
+
+For MAUI, pick a workload supported by the current OS and target platform. On
+Linux, the full `maui` meta-workload is not available; use a supported workload
+such as `maui-android` when Android is the target, or explain the platform
+limitation and ask which target to configure.
+
+> **Always use the local dotnet binary for workload commands.** Workload metadata
+> is stored relative to the host process's dotnet root. The system `dotnet` puts
+> metadata in the wrong location. (See [dotnet/sdk#49825](https://github.com/dotnet/sdk/issues/49825).)
+
 ### Step 10 — Create team install scripts
 
 Create if user mentioned "team", "share", "CI", "scripts", etc. Otherwise offer.
 These examples back up `global.json` and preserve existing settings. The bash script
 uses `jq` when an existing `global.json` must be patched; if `jq` is unavailable,
 it refuses to overwrite the file and prints the settings to merge manually.
+Adapt script variables to the install choice from Step 1: exact versions should
+use `--version` / `-Version` and `rollForward: "disable"`; channel installs should
+use channel/quality and only set `allowPrerelease: true` for prerelease SDKs.
 
 **install-dotnet.sh:**
 
@@ -186,6 +206,9 @@ set -euo pipefail
 INSTALL_DIR=".dotnet"
 CHANNEL="11.0"
 QUALITY="preview"
+VERSION=""
+ROLL_FORWARD="latestFeature"
+ALLOW_PRERELEASE="true"
 WORKLOADS=("${@}")
 ERROR_MESSAGE="Required .NET SDK not found. Run ./install-dotnet.sh (or .ps1) to install it locally."
 INSTALL_SCRIPT="$(mktemp)"
@@ -196,7 +219,14 @@ cleanup() {
 }
 trap cleanup EXIT
 curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$INSTALL_SCRIPT"
-bash "$INSTALL_SCRIPT" --channel "$CHANNEL" --quality "$QUALITY" --install-dir "$INSTALL_DIR"
+INSTALL_ARGS=(--install-dir "$INSTALL_DIR")
+if [ -n "$VERSION" ]; then
+    INSTALL_ARGS+=(--version "$VERSION")
+    ROLL_FORWARD="disable"
+else
+    INSTALL_ARGS+=(--channel "$CHANNEL" --quality "$QUALITY")
+fi
+bash "$INSTALL_SCRIPT" "${INSTALL_ARGS[@]}"
 SDK_VERSION=$("$INSTALL_DIR/dotnet" --version)
 write_global_json() {
     if [ -f global.json ]; then
@@ -208,8 +238,8 @@ write_global_json() {
 {
   "sdk": {
     "version": "$SDK_VERSION",
-    "allowPrerelease": true,
-    "rollForward": "latestFeature",
+    "allowPrerelease": $ALLOW_PRERELEASE,
+    "rollForward": "$ROLL_FORWARD",
     "paths": [".dotnet", "\$host\$"],
     "errorMessage": "$ERROR_MESSAGE"
   }
@@ -218,11 +248,11 @@ EOF
             exit 1
         fi
         GLOBAL_JSON_TMP="$(mktemp)"
-        jq --arg version "$SDK_VERSION" --arg errorMessage "$ERROR_MESSAGE" '
+        jq --arg version "$SDK_VERSION" --arg rollForward "$ROLL_FORWARD" --argjson allowPrerelease "$ALLOW_PRERELEASE" --arg errorMessage "$ERROR_MESSAGE" '
           .sdk = ((.sdk // {}) + {
             version: $version,
-            allowPrerelease: true,
-            rollForward: "latestFeature",
+            allowPrerelease: $allowPrerelease,
+            rollForward: $rollForward,
             paths: [".dotnet", "$host$"],
             errorMessage: $errorMessage
           })
@@ -234,8 +264,8 @@ EOF
 {
   "sdk": {
     "version": "$SDK_VERSION",
-    "allowPrerelease": true,
-    "rollForward": "latestFeature",
+    "allowPrerelease": $ALLOW_PRERELEASE,
+    "rollForward": "$ROLL_FORWARD",
     "paths": [".dotnet", "\$host\$"],
     "errorMessage": "$ERROR_MESSAGE"
   }
@@ -259,11 +289,19 @@ chmod +x install-dotnet.sh
 param([string[]]$Workloads = @())
 $ErrorActionPreference = 'Stop'
 $installDir = '.dotnet'; $channel = '11.0'; $quality = 'preview'
+$version = ''; $rollForward = 'latestFeature'; $allowPrerelease = $true
 $errorMessage = 'Required .NET SDK not found. Run ./install-dotnet.sh (or .ps1) to install it locally.'
 $installScript = Join-Path $env:TEMP "dotnet-install-$([guid]::NewGuid()).ps1"
 try {
     Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile $installScript
-    & $installScript -Channel $channel -Quality $quality -InstallDir $installDir
+    $installArgs = @('-InstallDir', $installDir)
+    if ($version) {
+        $installArgs += @('-Version', $version)
+        $rollForward = 'disable'
+    } else {
+        $installArgs += @('-Channel', $channel, '-Quality', $quality)
+    }
+    & $installScript @installArgs
 }
 finally {
     if (Test-Path -LiteralPath $installScript) {
@@ -282,8 +320,8 @@ if (-not $globalJson.PSObject.Properties['sdk']) {
 }
 $updates = [ordered]@{
     version = $sdkVersion
-    allowPrerelease = $true
-    rollForward = 'latestFeature'
+    allowPrerelease = $allowPrerelease
+    rollForward = $rollForward
     paths = @('.dotnet', '$host$')
     errorMessage = $errorMessage
 }
@@ -318,7 +356,11 @@ location, `paths` array contents, host dotnet version ≥ 10.
 
 Tell the user: SDK installed, global.json configured, .dotnet/ gitignored, system
 install untouched. Cleanup: delete `.dotnet/`, remove `paths`/`errorMessage` from
-global.json, optionally delete install scripts.
+global.json, optionally delete install scripts. Include the final `global.json`
+`sdk` values (or a short snippet) so the user can see the configured version,
+`paths`, and any `errorMessage`. If workloads were requested, include the local
+`dotnet workload install ...` command used and the workload verification result
+or the exact blocker if the workload could not be installed.
 
 ## Common pitfalls
 
