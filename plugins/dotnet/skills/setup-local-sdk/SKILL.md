@@ -152,7 +152,7 @@ isn't lost. Always back up the original file (e.g., `global.json.bak`) before mo
 **macOS / Linux (or Git Bash):**
 
 ```bash
-grep -qxF '.dotnet/' .gitignore 2>/dev/null || echo '.dotnet/' >> .gitignore
+grep -qxF '.dotnet/' .gitignore 2>/dev/null || printf '\n.dotnet/\n' >> .gitignore
 ```
 
 **Windows (PowerShell):**
@@ -274,7 +274,7 @@ EOF
     fi
 }
 write_global_json
-grep -qxF '.dotnet/' .gitignore 2>/dev/null || echo '.dotnet/' >> .gitignore
+grep -qxF '.dotnet/' .gitignore 2>/dev/null || printf '\n.dotnet/\n' >> .gitignore
 [ ${#WORKLOADS[@]} -gt 0 ] && "$INSTALL_DIR/dotnet" workload install "${WORKLOADS[@]}"
 echo "Done. SDK: $SDK_VERSION"
 ```

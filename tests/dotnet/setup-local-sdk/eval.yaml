@@ -104,7 +104,7 @@ scenarios:
 
   - name: "Detect incompatible .NET host version"
     prompt: "I already ran dotnet --version and it printed 9.0.306. I want to set up a local .NET 11 preview SDK for my project using the global.json SDK paths feature. Is that possible?"
-    reject_tools: ["bash", "powershell"]
+    reject_tools: ["bash", "powershell", "web_fetch"]
     assertions:
       - type: "output_contains"
         value: "9.0.306"
@@ -114,8 +114,11 @@ scenarios:
         pattern: '("paths"|global\.json.{0,80}paths|paths.{0,80}global\.json)'
       - type: "output_matches"
         pattern: "(install|upgrade).{0,80}(\\.NET 10|10)"
+      - type: "output_not_matches"
+        pattern: "(dotnet-install|--install-dir|Let me download|Downloading and installing)"
     rubric:
       - "The agent detected that version 9.0.306 is below the .NET 10 requirement"
       - "The agent explained that .NET 10+ is required for the paths feature"
       - "The agent told the user to install .NET 10+ system-wide first"
+      - "The agent did not proceed with local SDK installation commands before the host SDK prerequisite was met"
     timeout: 60
