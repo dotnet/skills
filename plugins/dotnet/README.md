@@ -17,4 +17,4 @@ Prerequisites:
 
 ## Skills
 
-- nuget-trusted-publishing
+N/A
