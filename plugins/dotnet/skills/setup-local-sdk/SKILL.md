@@ -74,8 +74,16 @@ If it fails (native Windows without Git Bash) → use PowerShell/`dotnet-install
 
 ### Step 4 — Check for existing local SDK
 
+**macOS / Linux:**
+
 ```bash
 test -d .dotnet && echo "exists" || echo "not found"
+```
+
+**Windows (PowerShell):**
+
+```powershell
+if (Test-Path -LiteralPath .\.dotnet) { "exists" } else { "not found" }
 ```
 
 If `.dotnet/` exists, ask: update with the new version, or skip and keep it?

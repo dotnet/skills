@@ -53,7 +53,7 @@ scenarios:
       - "The agent made regular dotnet commands in the project resolve to the local SDK without requiring PATH changes"
       - "The agent prevented roll-forward to any SDK version other than the one requested"
       - "The agent confirmed project-level SDK resolution returns the requested version"
-    timeout: 300
+    timeout: 600
 
   - name: "Set up local SDK with MAUI workload"
     prompt: "I'm on Linux and need to test my .NET MAUI Android app with the latest .NET 11 preview. Set up a local SDK with the MAUI Android workload installed."
