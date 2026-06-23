@@ -4,8 +4,7 @@ Core .NET and C# skills for coding agents.
 
 ## Includes
 
-- Common .NET development skills
-- A C# language server integration for `.cs` files
+- .NET skills to help with specific .NET development scenarios
 
 ## Skills
 
