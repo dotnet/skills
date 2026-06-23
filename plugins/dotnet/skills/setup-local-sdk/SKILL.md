@@ -93,7 +93,7 @@ If `.dotnet/` exists, ask: update with the new version, or skip and keep it?
 **macOS / Linux:**
 
 ```bash
-INSTALL_SCRIPT="$(mktemp)"
+INSTALL_SCRIPT="$(mktemp "${TMPDIR:-/tmp}/dotnet-install.XXXXXX")"
 trap 'rm -f "$INSTALL_SCRIPT"' EXIT
 curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$INSTALL_SCRIPT"
 bash "$INSTALL_SCRIPT" --channel <CHANNEL> --quality <QUALITY> --install-dir .dotnet
@@ -224,7 +224,7 @@ ROLL_FORWARD="latestFeature"
 ALLOW_PRERELEASE="true"
 WORKLOADS=("${@}")
 ERROR_MESSAGE="Required .NET SDK not found. Run ./install-dotnet.sh (or .ps1) to install it locally."
-INSTALL_SCRIPT="$(mktemp)"
+INSTALL_SCRIPT="$(mktemp "${TMPDIR:-/tmp}/dotnet-install.XXXXXX")"
 GLOBAL_JSON_TMP=""
 cleanup() {
     rm -f "$INSTALL_SCRIPT"
@@ -260,7 +260,7 @@ write_global_json() {
 EOF
             exit 1
         fi
-        GLOBAL_JSON_TMP="$(mktemp)"
+        GLOBAL_JSON_TMP="$(mktemp "${TMPDIR:-/tmp}/global-json.XXXXXX")"
         jq --arg version "$SDK_VERSION" --arg rollForward "$ROLL_FORWARD" --argjson allowPrerelease "$ALLOW_PRERELEASE" --arg errorMessage "$ERROR_MESSAGE" '
           .sdk = ((.sdk // {}) + {
             version: $version,
