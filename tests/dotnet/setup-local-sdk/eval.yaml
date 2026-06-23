@@ -1,0 +1,83 @@
+scenarios:
+  - name: "Basic local SDK setup with .NET 11 preview"
+    prompt: "I want to try the latest .NET 11 preview in my project without affecting my global install. Set it up locally for me."
+    assertions:
+      - type: "output_contains"
+        value: "dotnet-install"
+      - type: "output_contains"
+        value: "global.json"
+      - type: "output_contains"
+        value: ".dotnet"
+      - type: "output_contains"
+        value: "paths"
+      - type: "output_contains"
+        value: "$host$"
+    rubric:
+      - "The agent set up a project-local SDK without changing the system-wide installation"
+      - "The agent configured SDK resolution so the local SDK is preferred and the host install remains available as fallback"
+      - "The agent excluded the local SDK directory from source control"
+      - "The agent explained how to clean up"
+    timeout: 300
+
+  - name: "Install a specific SDK version locally"
+    prompt: "Install .NET SDK version 11.0.100-preview.2.26159.112 locally using global.json paths."
+    assertions:
+      - type: "output_contains"
+        value: "11.0.100-preview.2.26159.112"
+      - type: "output_contains"
+        value: "global.json"
+      - type: "output_matches"
+        pattern: "(--version|-Version)"
+      - type: "output_contains"
+        value: "paths"
+    rubric:
+      - "The agent selected the exact requested SDK version rather than a moving latest preview"
+      - "The agent configured SDK resolution for the exact local version"
+      - "The agent verified the installed version matches the request"
+    timeout: 300
+
+  - name: "Set up local SDK with MAUI workload"
+    prompt: "I need to test my .NET MAUI app with the latest .NET 11 preview. Set up a local SDK with the MAUI workload installed."
+    assertions:
+      - type: "output_contains"
+        value: "workload"
+      - type: "output_contains"
+        value: ".dotnet"
+      - type: "output_matches"
+        pattern: '(\./\.dotnet/dotnet|\.\\\.dotnet\\dotnet\.exe).{0,80}workload|workload.{0,80}(\./\.dotnet/dotnet|\.\\\.dotnet\\dotnet\.exe)'
+    rubric:
+      - "The agent installed the SDK locally and the MAUI workload"
+      - "The agent ensured workload installation targeted the local SDK rather than the global installation"
+      - "The agent configured global.json with paths"
+    timeout: 300
+
+  - name: "Create team install scripts"
+    prompt: "Set up a local .NET 11 preview SDK and create install scripts so teammates can reproduce the setup on any OS."
+    assertions:
+      - type: "output_contains"
+        value: "install-dotnet.sh"
+      - type: "output_contains"
+        value: "install-dotnet.ps1"
+      - type: "output_contains"
+        value: "errorMessage"
+      - type: "output_matches"
+        pattern: "(merge|preserve|backup|back up)"
+    rubric:
+      - "The agent created cross-platform scripts that teammates can run after cloning"
+      - "The agent configured missing-SDK guidance that points teammates to the install scripts"
+      - "The agent avoided dropping existing global.json settings"
+      - "The agent explained that teammates run the script after cloning"
+    timeout: 300
+
+  - name: "Detect incompatible .NET host version"
+    prompt: "Set up a local .NET 11 preview SDK for my project. My dotnet --version shows 9.0.306."
+    assertions:
+      - type: "output_contains"
+        value: ".NET 10+"
+      - type: "output_contains"
+        value: "paths"
+    rubric:
+      - "The agent detected that version 9.0.306 is below the .NET 10 requirement"
+      - "The agent explained that .NET 10+ is required for the paths feature"
+      - "The agent told the user to install .NET 10+ system-wide first"
+    timeout: 120
