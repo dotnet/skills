@@ -1,6 +1,6 @@
-# dotnet-util
+# dotnet-specialized
 
-Utility / niche .NET and C# skills for coding agents.
+Specialized .NET and C# skills for niche scenarios and coding agents.
 
 ## Includes
 
