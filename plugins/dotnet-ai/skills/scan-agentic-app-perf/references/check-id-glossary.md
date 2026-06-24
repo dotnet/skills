@@ -49,7 +49,7 @@ report reader can decode the codes without opening the skill repo.
 
 | `ref:` value                      | Skill to run next                |
 |-----------------------------------|----------------------------------|
-| `skill:select-agent-models`       | Per-agent model recommendations  |
+| `skill:configure-agentic-perf-rules` | Install/update the always-on perf rules (role-aware model selection lives in rule #3) |
 | `skill:setup-maf-evals`           | Wire eval reports + telemetry    |
 | `skill:configure-agentic-perf-rules` | Install always-on rules block |
 

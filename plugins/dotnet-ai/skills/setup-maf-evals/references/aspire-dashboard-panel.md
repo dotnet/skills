@@ -56,9 +56,8 @@ setInterval(tick, 2000); tick();
 - The panel reads only the latest `telemetry.json`; it does not
   retain history across runs.
 - If the AppHost project does not already enable static files, the
-  skill adds `app.UseStaticFiles()` (in apply mode only, with the
-  same diff-preview-and-confirm flow as `select-agent-models` apply
-  mode).
+  skill adds `app.UseStaticFiles()` (in apply mode only, with a
+  standard diff-preview-and-confirm flow).
 
 ## Future v2
 

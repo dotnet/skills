@@ -1,6 +1,6 @@
 ---
 name: configure-agentic-perf-rules
-version: 0.1.0
+version: 0.2.0
 description: >
   Installs or updates an always-on rules block in a .NET agentic app that makes coding
   agents volunteer perf and cost concerns by default — agent count, handoff edges,
@@ -43,7 +43,6 @@ clobbering user-edited threshold values.
 - The user wants the agent to actually audit existing code right now — use
   `scan-agentic-app-perf` instead. This skill only installs guidance.
 - The user wants to measure tokens, latency, or quality scores — use `setup-maf-evals`.
-- The user wants to pick or change per-agent model assignments — use `select-agent-models`.
 - Generic prompt-engineering or non-perf coding-agent rules (keep those in the user's own
   instructions section, outside the managed block).
 
@@ -160,7 +159,8 @@ Each rule is in the form **"Before X, justify Y."** Categories, in order:
    deterministic edge or a conditional `WorkflowBuilder` branch will not work. Default
    ceiling: 2 LLM-routed edges traversed per user turn.
 3. **Model selection.** Before defaulting to a frontier model (e.g. `gpt-4o`), name the
-   agent's role and pick from the role→model matrix in the `select-agent-models` skill.
+   agent's role and pick from the role table inside rule #3 of the managed block.
+   Routers/validators/formatters/workers → small-fast; planners → reasoning-class.
 4. **Message-history strategy.** Before sending the full conversation history to an
    agent, state the bound — turn count, token cap, summarization point, or retrieval
    strategy. Default warning when unbounded full-history is used in a multi-turn workflow.
@@ -238,4 +238,4 @@ If `AGENTS.md` was updated, also confirm the stub line is present exactly once.
 - `references/threshold-defaults.md` — default numeric values and the rationale for each.
 - `references/rule-rationales.md` — long-form prose for each of the six rule categories,
   with examples and counter-examples.
-- Companion skills: `scan-agentic-app-perf`, `select-agent-models`, `setup-maf-evals`.
+- Companion skills: `scan-agentic-app-perf`, `setup-maf-evals`.

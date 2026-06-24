@@ -42,7 +42,7 @@ Project: {{ relative_project_path }}
 
 ## Next steps
 
-- If you want to fix the model assignments above, run `select-agent-models`.
+- If you want to fix the model assignments above, see rule #3 in `.github/copilot-instructions.md` (managed by `configure-agentic-perf-rules`).
 - If you want to capture token/quality numbers before vs after, run
   `setup-maf-evals`.
 - If you do not yet have always-on rules to prevent regressions, run

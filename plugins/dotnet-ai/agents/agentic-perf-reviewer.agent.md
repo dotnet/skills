@@ -1,5 +1,5 @@
 ---
-description: "Reviews .NET agentic applications (Microsoft Agent Framework + Aspire + Foundry) for performance, cost, and reliability issues across topology, tools, message history, prompts, parallelism, OTel coverage, and per-agent model selection. Orchestrates scan-agentic-app-perf, select-agent-models, setup-maf-evals, and configure-agentic-perf-rules to produce a single end-to-end review with actionable recommendations. Use when reviewing an MAF agentic app for perf or cost, when an agent app feels slow, or after non-trivial topology changes. Do NOT use for non-agentic .NET performance reviews (hot-path optimization, allocations, LINQ, async, serialization, general code perf) — use optimizing-dotnet-performance instead."
+description: "Reviews .NET agentic applications (Microsoft Agent Framework + Aspire + Foundry) for performance, cost, and reliability issues across topology, tools, message history, prompts, parallelism, OTel coverage, and per-agent model selection. Orchestrates scan-agentic-app-perf, setup-maf-evals, and configure-agentic-perf-rules to produce a single end-to-end review with actionable recommendations. Use when reviewing an MAF agentic app for perf or cost, when an agent app feels slow, or after non-trivial topology changes. Do NOT use for non-agentic .NET performance reviews (hot-path optimization, allocations, LINQ, async, serialization, general code perf) — use optimizing-dotnet-performance instead."
 name: agentic-perf-reviewer
 tools: ['read', 'search', 'task', 'skill', 'ask_user']
 license: MIT
@@ -53,8 +53,11 @@ triage. Do not ask whether to proceed.
    prefix encodes the category — `T*` topology, `TI*` tool inventory,
    `MH*` message history, `PW*` prompt weight, `P*` parallelism, `O*`
    OTel coverage, `MA*` model assignment. Routing rules:
-   - Any `MA*` finding (model assignment) → suggest loading
-     `select-agent-models` in recommend mode.
+   - Any `MA*` finding (model assignment) → suggest installing/updating
+     `configure-agentic-perf-rules` so rule #3 (role-aware model
+     selection) steers future agent code. If the managed block already
+     exists, point the user at rule #3 in the rendered
+     `.github/copilot-instructions.md`.
    - Any `O*` finding (OTel coverage) → suggest loading
      `setup-maf-evals` so telemetry/cost are surfaced going forward.
    - If the project has no `.github/copilot-instructions.md` managed
@@ -81,11 +84,10 @@ After Pass 2, produce a single prioritized action list:
    skills now. Render only the lettered options whose target skill is
    actually referenced in the synthesis, e.g.:
    > Want me to run any of these now?
-   > - **A.** `select-agent-models` (recommend mode) for the model
-   >   findings.
+   > - **A.** `configure-agentic-perf-rules` to install/update the
+   >   always-on rules (rule #3 covers model selection).
    > - **B.** `setup-maf-evals` to capture token/quality numbers.
-   > - **C.** `configure-agentic-perf-rules` to install always-on rules.
-   > - **D.** No — leave the report and stop.
+   > - **C.** No — leave the report and stop.
    If the user picks a letter, hand off to that skill with the audit
    report path as context. The invoked skill still owns its own
    diff-and-confirm flow — do not pre-confirm on the user's behalf
@@ -96,7 +98,9 @@ After Pass 2, produce a single prioritized action list:
 - **Do not edit source.** This agent has no `edit` tool. If a fix
   requires file modifications, route to a skill that owns the
   diff-and-confirm flow.
-- Do not pick models without running `select-agent-models`.
+- Do not pick specific model ids without consulting rule #3 of the
+  managed block in `.github/copilot-instructions.md` (installed by
+  `configure-agentic-perf-rules`).
 - Do not recommend a model downgrade without recommending a
   `setup-maf-evals` quality follow-up.
 - Cite findings by `check_id` and `file:line`; do not summarize the
@@ -104,9 +108,9 @@ After Pass 2, produce a single prioritized action list:
 - **Apply-mode chaining:** if the user says something like "apply the
   fixes" in the same turn as invoking this agent, treat that as
   *intent* but not as *confirmation*. The invoked skill (e.g.
-  `select-agent-models` apply mode) must still present its own diff
-  and obtain its own confirmation before any write. Do not pre-confirm
-  on the user's behalf.
+  `configure-agentic-perf-rules` apply mode) must still present its
+  own diff and obtain its own confirmation before any write. Do not
+  pre-confirm on the user's behalf.
 - Do not apply this agent to non-agentic .NET apps. If detection in
   Pass 1 fails, say so and stop.
 
@@ -123,9 +127,8 @@ Keep reports concise and actionable.
 ## Skills used
 
 - `scan-agentic-app-perf` — read-only audit, the workhorse of Pass 2.
-- `select-agent-models` — per-agent model recommendations.
 - `setup-maf-evals` — telemetry / quality / compare harness.
-- `configure-agentic-perf-rules` — install always-on rules.
+- `configure-agentic-perf-rules` — install always-on rules (rule #3 covers role-aware model selection).
 
 ## Common pitfalls
 
@@ -153,8 +156,8 @@ target apps used during dogfooding.
   re-read each finding's `file:line`, then write the synthesis.
 - **Pre-confirming a fix on the user's behalf.** When the user says
   "audit and apply the fixes" in one turn, treat it as INTENT but
-  not as CONFIRMATION. The invoked skill (e.g. `select-agent-models`
-  apply mode, `configure-agentic-perf-rules`) must present its OWN
+  not as CONFIRMATION. The invoked skill (e.g.
+  `configure-agentic-perf-rules` apply mode) must present its OWN
   diff and obtain its OWN confirmation before any write. Pre-
   confirming with "since you said apply, I'll go ahead" is a real
   source of regressions.
@@ -168,12 +171,10 @@ target apps used during dogfooding.
   "this will save 40% latency" without a `setup-maf-evals` compare
   report you can cite. Replace with "should lower per-turn token
   cost" or "may reduce critical-path latency".
-- **Single-agent apps reaching Pass 2.** Pass 2 will route to
-  `select-agent-models`, which then aborts (single-agent apps don't
-  benefit from per-agent model selection). When Pass 1 detects only
-  1 agent, skip the `select-agent-models` route in Pass 3's
-  follow-up offer — keep only the routes that actually apply
-  (typically `setup-maf-evals` + `configure-agentic-perf-rules`).
+- **Single-agent apps.** Model-selection findings (MA*) still apply
+  to single-agent apps — the `configure-agentic-perf-rules` rule #3
+  table covers single agents too. There's no separate "abort if <2
+  agents" gate to skip in Pass 3.
 - **Forgetting `configure-agentic-perf-rules` when no managed
   block exists.** Pass 2 step 3 mandates this check. If the project
   has no `.github/copilot-instructions.md` managed block, list it

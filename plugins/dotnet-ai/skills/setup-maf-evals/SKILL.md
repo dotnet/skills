@@ -1,7 +1,7 @@
 ---
 name: setup-maf-evals
 description: |
-  Scaffold an `<App>.Evals.Tests` MSTest project alongside a .NET agentic app (MAF + Aspire + Foundry) wired to the GA `Microsoft.Extensions.AI.Evaluation.Reporting` pipeline. Three evaluator categories: **NLP** (deterministic BLEU/GLEU/F1, no API key), **Quality** (LLM-as-judge Relevance/Coherence/Fluency, etc.), **Safety** (Hate/Violence/SelfHarm/Sexual via Azure AI Foundry). Auto-installs the `aieval` dotnet tool, detects the app's `IChatClient` registration and generates a factory so `EVAL_USE_REAL_AGENT=1` works without manual wiring, and emits an HTML report at `.copilot/perf-reports/evals/<ts>/report.html`. Optional GitHub Actions workflow runs the evals on every PR. WHEN: user asks "set up evals", "add evaluation harness", "measure my agent perf", "validate quality after a model change", "compare gpt-4o vs gpt-4o-mini", "add safety evaluators", "generate eval report". NOT-WHEN: one-shot audit (use scan-agentic-app-perf), install rules (configure-agentic-perf-rules), pick models (select-agent-models).
+  Scaffold an `<App>.Evals.Tests` MSTest project alongside a .NET agentic app (MAF + Aspire + Foundry) wired to the GA `Microsoft.Extensions.AI.Evaluation.Reporting` pipeline. Three evaluator categories: **NLP** (deterministic BLEU/GLEU/F1, no API key), **Quality** (LLM-as-judge Relevance/Coherence/Fluency, etc.), **Safety** (Hate/Violence/SelfHarm/Sexual via Azure AI Foundry). Auto-installs the `aieval` dotnet tool, detects the app's `IChatClient` registration and generates a factory so `EVAL_USE_REAL_AGENT=1` works without manual wiring, and emits an HTML report at `.copilot/perf-reports/evals/<ts>/report.html`. Optional GitHub Actions workflow runs the evals on every PR. WHEN: user asks "set up evals", "add evaluation harness", "measure my agent perf", "validate quality after a model change", "compare gpt-4o vs gpt-4o-mini", "add safety evaluators", "generate eval report". NOT-WHEN: one-shot audit (use scan-agentic-app-perf), install rules (configure-agentic-perf-rules).
 ---
 
 # setup-maf-evals
@@ -214,8 +214,8 @@ zero-config sanity check and Safety/Compare as additions.
 6. **CLI invocations.** `dotnet test`, `dotnet tool run aieval report`,
    and the IChatClient detection result so the user knows what was
    auto-wired.
-7. **Follow-up recommendation.** "Re-run after applying a
-   `select-agent-models` recommendation to confirm no quality
+7. **Follow-up recommendation.** "Re-run after swapping a model per
+   rule #3 of `configure-agentic-perf-rules` to confirm no quality
    regression."
 8. **Cache payoff.** "First `dotnet test` populates `_store/cache/` and
    takes the full ~60s. Every subsequent run against unchanged inputs

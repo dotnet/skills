@@ -1,7 +1,7 @@
 ---
 name: scan-agentic-app-perf
 description: |
-  Scan a .NET agentic application (Microsoft Agent Framework + Aspire + Foundry) for performance, cost, and reliability issues across seven check categories: topology, tool inventory, message-history strategy, prompt weight, parallelism, OTel coverage, and per-agent model assignment. Produces a Markdown report at .copilot/perf-reports/scan-<timestamp>.md (plus latest-scan.md) with severity-tagged findings (critical/warn/info), file:line citations, evidence, and concrete next actions that can route into select-agent-models, setup-maf-evals, or configure-agentic-perf-rules. WHEN: user asks "why is my agent slow", "scan my agentic app", "audit my agentic app", "find perf issues", "is my topology too complex", or has just modified an agent topology. NOT-WHEN: user wants to install always-on rules (use configure-agentic-perf-rules), pick models per role (use select-agent-models), or wire up evaluations (use setup-maf-evals); not for non-agentic .NET apps. Read-only — never edits source files.
+  Scan a .NET agentic application (Microsoft Agent Framework + Aspire + Foundry) for performance, cost, and reliability issues across seven check categories: topology, tool inventory, message-history strategy, prompt weight, parallelism, OTel coverage, and per-agent model assignment. Produces a Markdown report at .copilot/perf-reports/scan-<timestamp>.md (plus latest-scan.md) with severity-tagged findings (critical/warn/info), file:line citations, evidence, and concrete next actions that can route into configure-agentic-perf-rules or setup-maf-evals. WHEN: user asks "why is my agent slow", "scan my agentic app", "audit my agentic app", "find perf issues", "is my topology too complex", or has just modified an agent topology. NOT-WHEN: user wants to install always-on rules (use configure-agentic-perf-rules), or wire up evaluations (use setup-maf-evals); not for non-agentic .NET apps. Read-only — never edits source files.
 ---
 
 # scan-agentic-app-perf
@@ -57,7 +57,7 @@ line:     1-based line number, or null
 evidence: 1-3 line code snippet or measurement (must be present in the cited file)
 why:      one paragraph explaining the impact
 next:     concrete action the developer can take next
-ref:      optional cross-skill route (e.g. "skill:select-agent-models")
+ref:      optional cross-skill route (e.g. "skill:configure-agentic-perf-rules")
 ```
 
 The `check_id` prefix encodes the category — there is no separate
@@ -130,7 +130,7 @@ diff-and-confirm flow.
 1. Aggregate the unique `ref:` values across all findings.
 2. If the set is non-empty, print one prompt of the form:
    > Want me to follow up on any of these?
-   > - **A.** Run `select-agent-models` (recommend mode) for the `MA*` findings.
+   > - **A.** Install/update perf rules via `configure-agentic-perf-rules` to enforce role-aware model selection on future code.
    > - **B.** Run `setup-maf-evals` to capture token/quality numbers.
    > - **C.** Run `configure-agentic-perf-rules` to install always-on rules.
    > - **D.** No — just leave the report.

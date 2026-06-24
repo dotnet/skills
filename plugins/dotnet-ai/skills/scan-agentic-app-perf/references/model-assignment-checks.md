@@ -14,11 +14,13 @@ Detect single-model defaulting and role-model mismatch.
 needs. A single default usually overspends on cheap roles and
 underspends on hard roles.
 
-**Next:** "Run `select-agent-models` to get a per-role recommendation.
-Common improvement: use a small/fast model for the router and a
-reasoning-strong model only for the planner."
+**Next:** "See rule #3 in `.github/copilot-instructions.md` (managed by
+`configure-agentic-perf-rules`) — most apps want a small-fast model
+for routers/validators/workers and a reasoning-class model only for
+planners. If both agents are workers on the same cheap model, this is
+expected and can be downgraded to info."
 
-**Ref:** `skill:select-agent-models`
+**Ref:** `skill:configure-agentic-perf-rules`
 
 ### MA2. Reasoning-strong model on a deterministic agent (warn)
 
@@ -29,10 +31,11 @@ is using a frontier reasoning model.
 **Why:** the marginal quality is near-zero; you are paying for unused
 capability and per-call latency.
 
-**Next:** "Downgrade `<agent>` to a small model. Validate via
-`setup-maf-evals` quality mode."
+**Next:** "Downgrade `<agent>` to a small-fast model per rule #3 in
+`.github/copilot-instructions.md`. Validate via `setup-maf-evals`
+quality mode."
 
-**Ref:** `skill:select-agent-models`
+**Ref:** `skill:configure-agentic-perf-rules`
 
 ### MA3. Cheap model on a planner / decomposer (warn)
 
@@ -42,10 +45,11 @@ on a small model while leaf workers are on a large one.
 **Why:** plan-quality drives every downstream call. A bad plan from a
 cheap planner makes the expensive workers run more turns.
 
-**Next:** "Promote the planner to a reasoning-strong model; consider
-demoting one or more workers."
+**Next:** "Promote the planner to a reasoning-class model per rule #3
+in `.github/copilot-instructions.md`; consider demoting one or more
+workers."
 
-**Ref:** `skill:select-agent-models`
+**Ref:** `skill:configure-agentic-perf-rules`
 
 ### MA4. Hard-coded model id outside config (info)
 

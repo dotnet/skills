@@ -62,27 +62,39 @@ runs, always go back to interviewer"), use a deterministic edge.
 ## 3. Model selection
 
 **Rule.** Before defaulting to a frontier model (e.g. `gpt-4o`), name the agent's role
-and pick from the role→model matrix in the `select-agent-models` skill.
+and pick from the table below. If unsure which role applies, **stop and ask the user**
+— do not silently default to `gpt-4o`.
 
 **Why it matters.** A frontier model on a router/triage agent costs roughly 10x more
 per token than `gpt-4o-mini` and is often *worse* at the routing job (frontier models
 are tuned for nuanced generation, not cheap classification). The default-everything-to-
 gpt-4o pattern is the largest single source of unnecessary spend in agentic apps.
 
-**Quick role mapping (full matrix in `select-agent-models`):**
+**Role → model class:**
 
-| Role | Recommended class |
-|------|-------------------|
-| Router / triage / "is this done?" | small-fast (gpt-4o-mini, gpt-5-mini, phi-4) |
-| Classifier / scorer with structured JSON | small + JSON mode + low temp |
-| Summarizer / extraction | small with high context |
-| Open-ended reasoning / planning | reasoning class (o1, o3-mini) |
-| Tool-heavy specialist | mid-tier with strong function-calling fidelity |
-| Creative generation / nuanced writing | frontier (gpt-4o) |
+| Role                                | Pick                                                  | Why                                                   |
+|-------------------------------------|-------------------------------------------------------|--------------------------------------------------------|
+| Router / triage / "is this done?"   | small-fast (`gpt-4o-mini`, current cheap-fast id)     | Classification, not generation; latency dominates      |
+| Validator / scorer / structured JSON| small-fast + JSON mode + low temp                     | Deterministic output; cache-friendly                   |
+| Formatter (Markdown / JSON shape)   | small-fast, pinned                                    | Output stability matters more than peak quality        |
+| Worker / summarizer / extraction    | small-fast, **or** Foundry `model-router` if prompt length varies | Most calls happen here; latency dominates    |
+| Planner / decomposer / reasoning    | reasoning-class (`o4-mini`, current reasoning id)     | Output drives N downstream calls; quality matters most |
+| Creative / nuanced generation       | frontier (`gpt-4o`, current frontier id)              | Genuinely needs frontier capability                    |
 
 **When frontier is justified.** The agent's job is genuinely creative or nuanced
-generation, or it must follow complex instructions reliably. Routers and scorers
-almost never fall in this bucket.
+generation, or it must follow complex instructions reliably. Routers, validators,
+formatters, and most workers almost never fall in this bucket.
+
+**Specific model ids age fast.** The table above uses `gpt-4o-mini`, `o4-mini`, and
+`gpt-4o` as anchor examples. Before pinning, check your Foundry catalog
+(https://learn.microsoft.com/azure/foundry/openai/concepts/models) for the current
+cheap-fast, reasoning-class, and frontier ids. Foundry's `model-router` deployment is
+the recommended pick whenever the prompt length or complexity genuinely varies per
+request and you don't need cache stability (typical: worker tier).
+
+**State the why in code.** When you pick a frontier or reasoning model, leave a
+one-line comment naming the role and why the cheaper tier wouldn't work. This makes
+the choice auditable and the next person can challenge it.
 
 ---
 

@@ -46,10 +46,20 @@ conditional `WorkflowBuilder` branch will not work. Default ceiling:
 
 ### 3. Model selection
 
-Before defaulting to a frontier model (e.g. `gpt-4o`), name the agent's role and pick
-from the role→model matrix in the `select-agent-models` skill. Routers, classifiers,
-and summarizers usually want a smaller/faster model; reasoning steps may want a
-reasoning-class model.
+Before defaulting to a frontier model like `gpt-4o`, name the agent's role and pick
+from the table below. Routers, validators, formatters, and workers almost never need
+a frontier model; defaulting to one is the largest single source of unnecessary spend.
+
+| Role                                | Pick                                                                              |
+|-------------------------------------|-----------------------------------------------------------------------------------|
+| router / validator / formatter      | small-fast model (e.g. `gpt-4o-mini` or current cheap-fast in your Foundry catalog) |
+| worker / summarizer / extraction    | small-fast model, **or** Foundry `model-router` deployment if prompt length varies |
+| planner / decomposer / open reasoning | reasoning-class model (e.g. `o4-mini` or current reasoning model) — state *why* in a code comment |
+| creative / nuanced generation       | frontier (e.g. `gpt-4o`) — state *why* in a code comment                          |
+
+If unsure which role applies, **stop and ask the user** — do not default to `gpt-4o`.
+Specific model ids age fast; check your Foundry catalog for the current cheap-fast,
+reasoning-class, and frontier ids before pinning.
 
 ### 4. Message-history strategy
 

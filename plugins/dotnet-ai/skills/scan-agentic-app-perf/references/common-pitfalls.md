@@ -78,7 +78,7 @@ dogfooding (interview-coach v1/v2, ELI5Agent, behavioral-interview-coach).
   said "audit and fix it", this skill's job ends at the routing
   prompt. The follow-up skill is responsible for its own
   diff-and-confirm flow. Never call into `configure-agentic-perf-rules`
-  or `select-agent-models` (apply mode) without the user explicitly
+  (apply mode) without the user explicitly
   picking that letter at the prompt.
 - **Listing routes for skills not actually referenced.** Step 6 says
   to render only letters whose target skill is named in some
