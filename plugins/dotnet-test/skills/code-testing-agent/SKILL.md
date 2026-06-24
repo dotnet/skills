@@ -4,13 +4,13 @@ description: >-
   Generates and writes new unit tests for any programming language —
   scaffolds .NET test projects, pytest suites, Vitest/Jest suites,
   Go test files, and JUnit suites, and configures coverage tooling
-  (coverlet, pytest-cov, @vitest/coverage-v8) as part of test
-  generation. Use when asked to generate tests, generate pytest
-  tests, generate Vitest tests, write unit tests, add tests, improve
-  coverage, comprehensive tests, or scaffold a new test project or
-  suite for an app, service, library, REST API, blueprint, or
-  package — including project-wide, multi-file test generation
-  across services, repositories, routes, and modules. Supports
+  (coverlet, pytest-cov, @vitest/coverage-v8). Use when asked to
+  generate tests, generate pytest tests, generate Vitest tests, write
+  unit tests, add tests, improve coverage, comprehensive tests, or
+  scaffold a new test project or suite for an app, service, library,
+  REST API, or package — including project-wide, multi-file test
+  generation across services, repositories, routes, and modules.
+  Supports
   C#/.NET, Python (pytest, Flask/Django), TypeScript/JavaScript
   (Vitest, Jest, Mocha), Go, Rust, Java (JUnit). Runs a research,
   planning, and implementation pipeline so tests compile and pass.

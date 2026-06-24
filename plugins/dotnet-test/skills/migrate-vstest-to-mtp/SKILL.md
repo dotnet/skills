@@ -11,9 +11,8 @@ description: >
   properties in Directory.Build.props.
   Supports MSTest, NUnit, xUnit.net v2 (via YTest.MTP.XUnit2), and
   xUnit.net v3 (native MTP). Covers runner enablement, CLI argument
-  translation, xUnit.net v3 filter migration (--filter-class,
-  --filter-trait, --filter-query), Directory.Build.props and global.json
-  config, CI/CD pipeline updates, and MTP extension packages.
+  translation, xUnit.net v3 filter migration, Directory.Build.props and
+  global.json config, CI/CD pipeline updates, and MTP extension packages.
   DO NOT USE FOR: migrating between test frameworks (MSTest/xUnit/NUnit),
   xUnit.net v2 to v3 API migration, MSTest version upgrades, TFM upgrades,
   or UWP/WinUI test projects.

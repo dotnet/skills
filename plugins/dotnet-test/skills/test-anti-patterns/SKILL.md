@@ -3,10 +3,8 @@ name: test-anti-patterns
 description: >
   Audits existing test code in any language for anti-patterns and quality
   issues — produces a severity-ranked report (Critical / Warning / Info)
-  with concrete code-level fixes. Polyglot: .NET (MSTest/xUnit/NUnit/
-  TUnit), Python (pytest/unittest), TS/JS (Jest/Vitest/Mocha/node:test),
-  Java (JUnit/TestNG), Go, Ruby (RSpec/Minitest), Rust, Swift, Kotlin
-  (JUnit/Kotest), PowerShell (Pester), C++ (GoogleTest/Catch2).
+  with concrete code-level fixes. Polyglot: .NET, Python, TS/JS, Java, Go,
+  Ruby, Rust, Swift, Kotlin, PowerShell, C++.
   INVOKE when asked to audit, review, rank, or find problems in existing
   tests — "audit my tests", "test smell audit", "rank by severity", tests
   that pass but verify nothing, no/missing assertions, swallowed

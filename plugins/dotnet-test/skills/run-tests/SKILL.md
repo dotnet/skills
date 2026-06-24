@@ -11,9 +11,7 @@ description: >
   --treenode-filter); TRX/reporting (--report-trx vs --logger trx);
   blame/hang/crash diagnostics (--blame-hang-timeout, --blame-crash); running
   tests against a single target framework when a project targets multiple
-  TFMs (e.g., `<TargetFrameworks>net8.0;net9.0</TargetFrameworks>`,
-  `--framework <TFM>`); and avoiding MTP/VSTest argument mixups (--logger
-  trx on MTP, --report-trx on VSTest, --blame on MTP).
+  TFMs (`--framework <TFM>`); and avoiding MTP/VSTest argument mixups.
   DO NOT USE FOR: writing/generating test code, CI/CD config, or debugging
   failing test logic.
 license: MIT

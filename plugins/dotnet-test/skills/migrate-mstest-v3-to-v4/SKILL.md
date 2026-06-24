@@ -10,7 +10,6 @@ description: >
   Contains to ContainsKey, Assert.ThrowsException to ThrowsExactly,
   Assert.IsInstanceOfType out parameter removal, ExpectedExceptionAttribute
   removal, TestTimeout enum removal, [TestMethod("name")] to DisplayName syntax,
-  TreatDiscoveryWarningsAsErrors, TestContext.TestName in ClassInitialize,
   MSTest.Sdk MTP changes, dropped TFMs (net6.0/net7.0 to net8.0+).
   DO NOT USE FOR: migrating from MSTest v1/v2 to v3 (use migrate-mstest-v1v2-to-v3
   first), migrating between test frameworks, or general .NET upgrades.
