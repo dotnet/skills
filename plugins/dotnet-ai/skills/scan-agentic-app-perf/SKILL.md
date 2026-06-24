@@ -180,6 +180,12 @@ After running:
   `configure-agentic-perf-rules` instead.
 - **Running on non-agentic apps.** If no agent registrations are found,
   abort cleanly. Do not invent an audit for a plain web API.
+- **Recommending a model downgrade without an eval gate.** Any MA*
+  finding that says "downgrade Agent X from gpt-4o to gpt-4o-mini"
+  must be paired in the `next:` field with "validate via
+  `setup-maf-evals` quality mode before shipping". Apparent free wins
+  on cost frequently regress quality on edge cases — the eval gate
+  protects against that.
 
 ## References
 
