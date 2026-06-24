@@ -9,12 +9,13 @@ managed block. The managed block itself is intentionally terse; this file is the
 ## 1. Agent count
 
 **Rule.** Before adding a new agent to a workflow, justify why the new responsibility
-cannot be a tool call on an existing agent. Default ceiling: 3 agents per workflow.
+cannot be a tool call on an existing agent. **No hard ceiling** — the answer "this needs
+a clearly different system prompt, toolset, or output style" is a valid justification.
 
-**Why it matters.** Each additional agent multiplies the routing surface area: the
-LLM has to decide whether *this* turn should go to *that* agent, and decision quality
-falls off as choices grow. Real-world failure mode: a 5-specialist workflow where the
-router constantly mis-handoffs because too many specialists have overlapping domains.
+**Why it matters.** Each additional agent multiplies the routing surface area (the LLM
+has to decide whether *this* turn should go to *that* agent) AND inflates per-turn
+input-token cost: every agent's system prompt + tool descriptions are paid on every
+turn the agent participates in. Decision quality degrades as choices grow.
 
 **When a new agent is justified.** The new responsibility involves a meaningfully
 different *system prompt*, *toolset*, or *output style* that would muddy the existing
@@ -26,22 +27,23 @@ agent's instructions if folded in. Examples:
   whatever agent needs the data, not its own agent.
 - **No, just a tool:** A "Formatter" agent that reformats output. Again, a tool.
 
-**When you must add a 4th+ agent.** Surface the trade-off to the user. Mention the
-default ceiling, why it exists, and what mitigations apply (e.g. tighter routing
-prompts, explicit `WorkflowBuilder` branches instead of free-form handoffs).
+**On thresholds.** Earlier versions of this rule had an `agent_count_max: 3` numeric
+ceiling. It was removed because legitimate designs (e.g. specialist-handoff
+interview/coaching workflows with 4-5 well-scoped agents) tripped it as often as
+genuine bloat did. The justify-the-add gate is the actual mechanism; a number was
+illusory precision.
 
 ---
 
 ## 2. Handoff edges
 
 **Rule.** Before adding an LLM-routed handoff edge, justify why a deterministic edge or
-a conditional `WorkflowBuilder` branch will not work. Default ceiling: 2 LLM-routed
-edges traversed per user turn.
+a conditional `WorkflowBuilder` branch will not work. **No hard ceiling.**
 
 **Why it matters.** Every LLM-routed edge is an additional LLM call before the user
-gets a response. Two routed decisions per turn (e.g. "router → specialist", "specialist
-→ done-or-continue") is the practical latency ceiling before users notice.
-Free-form-everywhere graphs also amplify decision-quality variance.
+gets a response. Deterministic routing — "after Coach runs, always return to
+Interviewer" expressed as a `WorkflowBuilder` edge — costs zero extra latency and zero
+extra tokens. Free-form LLM routing also amplifies decision-quality variance.
 
 **When LLM routing is justified.** The decision genuinely requires reading the user's
 intent — for example, "is this answer detailed enough to grade?" or "which specialist
@@ -56,6 +58,11 @@ runs, always go back to interviewer"), use a deterministic edge.
 **Concrete pattern (bad):**
 - Five specialists in a fully-connected handoff graph where every transition is
   LLM-routed. Symptom: Copilot constantly proposes new edges as the workflow grows.
+
+**On thresholds.** Earlier versions of this rule had an
+`llm_routed_edges_max_per_turn: 2` numeric ceiling. Same reason as rule #1: the gate
+is the justification, not the number. A 4-hop deterministic chain with one LLM-routed
+intent decision is fine; two LLM-routed edges per turn in a misdesigned graph is not.
 
 ---
 

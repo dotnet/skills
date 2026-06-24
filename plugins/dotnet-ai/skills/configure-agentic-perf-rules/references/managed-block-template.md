@@ -18,8 +18,6 @@ interpreted as closing it.
 ```yaml
 # thresholds — edit values below to override per-project defaults
 thresholds:
-  agent_count_max: 3
-  llm_routed_edges_max_per_turn: 2
   per_turn_input_token_warn: 8000
   per_turn_output_token_warn: 2000
   baseline_token_increase_warn_pct: 20
@@ -33,16 +31,19 @@ form **"Before X, justify Y."** When you cannot justify, prefer the safer altern
 ### 1. Agent count
 
 Before adding a new agent to a workflow, justify why the new responsibility cannot be a
-tool call on an existing agent. Default ceiling: **`agent_count_max`** agents per
-workflow. If the workflow already has that many agents, do not add another without
-explicit user direction.
+tool call on an existing agent. Each additional agent multiplies the routing surface and
+inflates per-turn token cost (system prompts + tool descriptions are paid per agent).
+**There is no hard ceiling** — the answer "this needs a clearly different system prompt,
+toolset, or output style" is a valid justification. If you cannot articulate one, prefer
+adding a tool to an existing agent.
 
 ### 2. Handoff edges
 
 Before adding an LLM-routed handoff edge (e.g. via
 `AgentWorkflowBuilder.CreateHandoffBuilderWith`), justify why a deterministic edge or a
-conditional `WorkflowBuilder` branch will not work. Default ceiling:
-**`llm_routed_edges_max_per_turn`** LLM-routed edges traversed per user turn.
+conditional `WorkflowBuilder` branch will not work. Every LLM-routed edge is an extra LLM
+call before the user gets a response. Deterministic routing is faster and cheaper; reserve
+LLM routing for decisions that genuinely require reading user intent.
 
 ### 3. Model selection
 

@@ -1,6 +1,6 @@
 ---
 name: configure-agentic-perf-rules
-version: 0.2.0
+version: 0.3.0
 description: >
   Installs or updates an always-on rules block in a .NET agentic app that makes coding
   agents volunteer perf and cost concerns by default — agent count, handoff edges,
@@ -112,7 +112,7 @@ The current skill version is the `version:` field at the top of this SKILL.md.
    If parsing fails, refuse to edit and ask the user to repair the YAML manually.
 2. Construct the new defaults map `new_defaults` from `references/threshold-defaults.md`.
 3. For each known key in `new_defaults`, override with the value from `prev_user` if
-   present and the value passes type validation (e.g. integer for `agent_count_max`).
+   present and the value passes type validation (e.g. integer for `per_turn_input_token_warn`).
 4. Drop unknown keys from `prev_user` with a chat warning naming each dropped key.
 5. The merged map becomes the new managed block's `thresholds:` content.
 

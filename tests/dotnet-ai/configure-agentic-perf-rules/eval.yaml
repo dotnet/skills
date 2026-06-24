@@ -38,7 +38,7 @@ scenarios:
         value: "END: managed by configure-agentic-perf-rules"
       - type: "file_contains"
         path: ".github/copilot-instructions.md"
-        value: "agent_count_max"
+        value: "per_turn_input_token_warn"
       - type: "file_contains"
         path: ".github/copilot-instructions.md"
         value: "Agent count"
@@ -113,14 +113,12 @@ scenarios:
           content: |
             # Project notes
 
-            <!-- BEGIN: managed by configure-agentic-perf-rules v0.1.0 -->
+            <!-- BEGIN: managed by configure-agentic-perf-rules v0.3.0 -->
 
             ## Agentic Performance Rules
 
             ```yaml
             thresholds:
-              agent_count_max: 3
-              llm_routed_edges_max_per_turn: 2
               per_turn_input_token_warn: 8000
               per_turn_output_token_warn: 2000
               baseline_token_increase_warn_pct: 20
@@ -133,7 +131,7 @@ scenarios:
     assertions:
       - type: "file_contains"
         path: ".github/copilot-instructions.md"
-        value: "v0.1.0"
+        value: "v0.3.0"
       - type: "exit_success"
     rubric:
       - "Detected the existing managed block at the current skill version"
@@ -153,8 +151,6 @@ scenarios:
 
             ```yaml
             thresholds:
-              agent_count_max: 3
-              llm_routed_edges_max_per_turn: 2
               per_turn_input_token_warn: 25000
               per_turn_output_token_warn: 2000
               baseline_token_increase_warn_pct: 20
@@ -174,6 +170,44 @@ scenarios:
       - "Replaced the block with the current-version template"
       - "Preserved the user-edited per_turn_input_token_warn value of 25000 in the new block — did NOT reset to the 8000 default"
       - "Showed the user a diff or summary of what changed before applying"
+    timeout: 360
+
+  - name: "Update from v0.2.0 — drops deprecated agent_count_max and llm_routed_edges_max_per_turn with warning"
+    prompt: "Update the agentic-perf rules in this project to the latest version."
+    setup:
+      files:
+        - path: ".github/copilot-instructions.md"
+          content: |
+            <!-- BEGIN: managed by configure-agentic-perf-rules v0.2.0 -->
+
+            ## Agentic Performance Rules
+
+            ```yaml
+            thresholds:
+              agent_count_max: 5
+              llm_routed_edges_max_per_turn: 3
+              per_turn_input_token_warn: 12000
+              per_turn_output_token_warn: 2000
+              baseline_token_increase_warn_pct: 20
+              unbounded_history_warn: true
+            ```
+
+            (older content)
+
+            <!-- END: managed by configure-agentic-perf-rules -->
+    assertions:
+      - type: "file_contains"
+        path: ".github/copilot-instructions.md"
+        value: "per_turn_input_token_warn: 12000"
+      - type: "exit_success"
+    rubric:
+      - "Detected the existing managed block at v0.2.0"
+      - "Replaced the block with the current-version template (v0.3.0+)"
+      - "Preserved per_turn_input_token_warn: 12000 (user override) — did NOT reset to default"
+      - "Dropped the deprecated `agent_count_max` key from the rendered YAML (no longer a threshold in current schema)"
+      - "Dropped the deprecated `llm_routed_edges_max_per_turn` key from the rendered YAML"
+      - "Emitted a chat warning naming each dropped key (`agent_count_max`, `llm_routed_edges_max_per_turn`) so the user has an audit trail"
+      - "Did NOT silently retain the dropped keys in the new managed block"
     timeout: 360
 
   - name: "AGENTS.md stub when both instructions files exist"

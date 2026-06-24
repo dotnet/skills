@@ -35,7 +35,7 @@ no-op re-run, ELI5Agent fresh install).
   a chat warning naming the dropped key. Silent drops break audit
   trails — the user needs to know their override no longer applies.
 - **Type-validating with `Convert.ToInt32` instead of strict parse.**
-  `agent_count_max: "three"` should fail validation, not coerce to
+  `per_turn_input_token_warn: "eight thousand"` should fail validation, not coerce to
   some default. Use strict numeric parsing; on failure, keep the
   default and warn.
 
