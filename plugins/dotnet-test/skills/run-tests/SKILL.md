@@ -1,21 +1,19 @@
 ---
 name: run-tests
 description: >
-  For `dotnet test`: figures out which test platform (VSTest vs
-  Microsoft.Testing.Platform) a project uses from `Directory.Build.props`,
-  `global.json`, and `.csproj`, then picks the matching command syntax. USE
-  FOR: running, filtering, or troubleshooting `dotnet test`; identifying the
-  test runner/platform from project files; `--` separator rules on .NET SDK
-  8/9 vs 10+; choosing the right filter syntax for MSTest / xUnit / NUnit /
-  TUnit (--filter, --filter-class, --filter-trait, --filter-query,
-  --treenode-filter); TRX/reporting (--report-trx vs --logger trx);
-  blame/hang/crash diagnostics (--blame-hang-timeout, --blame-crash); running
-  tests against a single target framework when a project targets multiple
-  TFMs (e.g., `<TargetFrameworks>net8.0;net9.0</TargetFrameworks>`,
-  `--framework <TFM>`); and avoiding MTP/VSTest argument mixups (--logger
-  trx on MTP, --report-trx on VSTest, --blame on MTP).
-  DO NOT USE FOR: writing/generating test code, CI/CD config, or debugging
-  failing test logic.
+  Run, filter, or troubleshoot .NET tests with `dotnet test`. USE FOR:
+  running all tests in a project or solution; running only a subset (a
+  specific test class, category, or trait) via filters; running a single
+  target framework in a multi-TFM project (`--framework`); producing TRX
+  reports; collecting crash or hang dumps; diagnosing why `dotnet test`
+  fails or uses the wrong argument syntax. Detects the test platform
+  (VSTest vs Microsoft.Testing.Platform) and framework
+  (MSTest/xUnit/NUnit/TUnit), then picks the matching command: the `--`
+  separator on .NET SDK 8/9 vs 10+, the right filter flag (--filter,
+  --filter-class, --filter-trait, --filter-query, --treenode-filter), and
+  TRX/blame flags. DO NOT USE FOR: writing test code (use
+  code-testing-agent), iterating on failing tests without rebuilding (use
+  mtp-hot-reload), CI/CD config, or debugging test logic.
 license: MIT
 ---
 
@@ -216,7 +214,7 @@ See the `filter-syntax` skill for the complete filter syntax for each platform a
 
 - **VSTest** (MSTest, xUnit v2, NUnit): `dotnet test --filter <EXPRESSION>` with `=`, `!=`, `~`, `!~` operators
 - **MTP -- MSTest and NUnit**: Same `--filter` syntax as VSTest; pass after `--` on SDK 8/9, directly on SDK 10+
-- **MTP -- xUnit v3**: Uses `--filter-class`, `--filter-method`, `--filter-trait` (not VSTest expression syntax)
+- **MTP -- xUnit v3**: Uses `--filter-class`, `--filter-method`, `--filter-trait` (not VSTest expression syntax). For a **single combined expression** (e.g., a class-name pattern AND a trait), use `--filter-query` with the xUnit v3 query filter language: path segments `/<assembly>/<namespace>/<class>/<method>` with `*` wildcards and a `[Trait=Value]` qualifier — for example `dotnet test -- --filter-query "/*/*/*IntegrationTests*/*[Category=Smoke]"`. See the `filter-syntax` skill for the full query language.
 - **MTP -- TUnit**: Uses `--treenode-filter` with path-based syntax
 
 #### When the user names a test category, trait, or group

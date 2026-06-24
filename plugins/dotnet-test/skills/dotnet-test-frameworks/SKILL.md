@@ -2,6 +2,7 @@
 name: dotnet-test-frameworks
 description: "Reference data for .NET test framework detection patterns, assertion APIs, skip annotations, setup/teardown methods, and common test smell indicators across MSTest, xUnit, NUnit, and TUnit. Loaded by test analysis skills (test-anti-patterns) as framework-specific lookup tables."
 user-invocable: false
+disable-model-invocation: true
 license: MIT
 ---
 

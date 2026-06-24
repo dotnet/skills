@@ -164,16 +164,13 @@ scenarios:
 
   - name: "Polyglot: evaluate shallow assertions in a Jest/TypeScript OrderService suite"
     prompt: |
-      Audit the assertion quality and depth of `tests/order.test.ts`. The
-      production code is `src/order.ts`. This is a Jest/TypeScript suite,
-      not .NET — apply the same assertion quality catalog using
-      Jest equivalents (`toBeDefined()`, `toBeTruthy()`, `not.toBeNull()`,
-      `toBe()`, `.resolves`, `toThrow()`).
-
-      Specifically check for: shallow / trivial-only assertions, always-true
-      assertions, missing `await` on async assertion chains (a silent-pass
-      smell), identity / self-comparing assertions, and call out any tests
-      that ARE well-targeted. Do not edit the files — read-only review.
+      Can you audit the assertion quality and depth of my Jest/TypeScript
+      test suite? The tests are in `tests/order.test.ts` and the production
+      code is in `src/order.ts`. Several tests look like they pass without
+      really verifying much — shallow or always-true checks — and I'm not
+      sure the async ones actually await their assertions. Please flag the
+      weak spots and call out the tests that ARE genuinely well-targeted.
+      Read-only review — don't edit the files.
     setup:
       files:
         - path: "package.json"
