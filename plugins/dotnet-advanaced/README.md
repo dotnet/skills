@@ -1,6 +1,6 @@
-# dotnet-specialized
+# dotnet-advanaced
 
-Specialized .NET and C# skills for niche scenarios and coding agents.
+Advanced .NET and C# skills for niche scenarios and coding agents.
 
 ## Includes
 
