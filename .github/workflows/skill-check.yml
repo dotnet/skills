@@ -15,20 +15,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
         with:
           persist-credentials: false
 
       - name: Cache validator archive
         id: cache-validator
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v4
         with:
           path: skill-validator-dist.tar.gz
           key: skill-validator-${{ runner.os }}-${{ hashFiles('eng/skill-validator/src/**', 'eng/skill-validator/Directory.Build.props', 'global.json') }}
 
       - name: Setup .NET SDK
         if: steps.cache-validator.outputs.cache-hit != 'true'
-        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        uses: actions/setup-dotnet@9a946fdbd5fb07b82b2f5a4466058b876ab72bb2 # v5
         with:
           global-json-file: global.json
 
