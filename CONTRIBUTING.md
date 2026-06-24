@@ -224,7 +224,7 @@ See the [skill-validator README](eng/skill-validator/src/README.md) for the full
 
 ### Running tests locally
 
-Prerequisites: .NET 10 SDK or later and `gh auth login`.
+Prerequisites: the .NET SDK version specified by `global.json` (or a newer compatible SDK) and `gh auth login`.
 
 ```bash
 # Run tests for a single plugin

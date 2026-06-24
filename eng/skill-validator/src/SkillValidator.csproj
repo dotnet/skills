@@ -35,12 +35,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.7" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.7" />
-    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.9" />
     <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
     <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.0.0" />
-    <PackageReference Include="System.CommandLine" Version="2.0.7" />
+    <PackageReference Include="System.CommandLine" Version="2.0.9" />
     <!-- external -->
     <PackageReference Include="GitHub.Copilot.SDK" Version="0.3.0" />
     <PackageReference Include="YamlDotNet" Version="18.0.0" />
@@ -60,6 +60,16 @@
       the v2 line as of 2.5.301.  Drop this once the upstream chain bumps past it.
     -->
     <PackageReference Include="MessagePack" Version="2.5.301" />
+
+    <!--
+      Transitive pin: Microsoft.Data.Sqlite 10.0.7 -> SQLitePCLRaw.bundle_e_sqlite3
+      drags in the native SQLitePCLRaw.lib.e_sqlite3 2.1.11, which bundles a
+      SQLite older than 3.50.2 and carries a known high-severity vulnerability
+      (GHSA-2m69-gcr7-jv3q / CVE-2025-6965). 3.50.3 ships the patched SQLite
+      native library and is API-compatible with the 2.1.x managed provider.
+      Drop this once Microsoft.Data.Sqlite bumps past it.
+    -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.50.3" />
   </ItemGroup>
 
 </Project>
