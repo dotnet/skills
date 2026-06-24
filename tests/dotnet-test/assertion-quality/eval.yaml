@@ -97,15 +97,15 @@ scenarios:
 
   - name: "Identify self-referential assertions in identity and round-trip tests"
     prompt: |
-      I want an assertion-quality analysis of my Config tests. They all pass
+      I want an assertion quality analysis of my Config tests. They all pass
       but I'm not sure they'd catch real bugs. Analyze the assertion quality
       and depth in `ConfigService.Tests/ConfigTests.cs` — specifically
       identify self-referential or tautological assertions where the test
       asserts the output equals the input on identity / round-trip
-      operations. Report assertion-quality metrics (how many tests are
+      operations. Report assertion quality metrics (how many tests are
       self-referential, which ones), explain why each flagged test fails to
       verify real behavior, and recommend concrete improvements. Do not
-      edit the files — this is a read-only assertion-quality review.
+      edit the files — this is a read-only assertion quality review.
     setup:
       files:
         - path: "ConfigService.Tests/ConfigService.Tests.csproj"
@@ -164,16 +164,13 @@ scenarios:
 
   - name: "Polyglot: evaluate shallow assertions in a Jest/TypeScript OrderService suite"
     prompt: |
-      Audit the assertion quality and depth of `tests/order.test.ts`. The
-      production code is `src/order.ts`. This is a Jest/TypeScript suite,
-      not .NET — apply the same assertion-quality catalog using
-      Jest equivalents (`toBeDefined`, `toBeTruthy`, `not.toBeNull`,
-      `toBe`, `.resolves`, `toThrow`).
-
-      Specifically check for: shallow / trivial-only assertions, always-true
-      assertions, missing `await` on async assertion chains (a silent-pass
-      smell), identity / self-comparing assertions, and call out any tests
-      that ARE well-targeted. Do not edit the files — read-only review.
+      Can you audit the assertion quality and depth of my Jest/TypeScript
+      test suite? The tests are in `tests/order.test.ts` and the production
+      code is in `src/order.ts`. Several tests look like they pass without
+      really verifying much — shallow or always-true checks — and I'm not
+      sure the async ones actually await their assertions. Please flag the
+      weak spots and call out the tests that ARE genuinely well-targeted.
+      Read-only review — don't edit the files.
     setup:
       files:
         - path: "package.json"

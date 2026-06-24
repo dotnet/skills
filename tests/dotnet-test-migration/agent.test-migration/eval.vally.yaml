@@ -16,9 +16,9 @@ stimuli:
           dest: OrderTests/OrderServiceTests.cs
       skills:
         - ../../plugins/dotnet-test/skills/platform-detection
-        - ../../plugins/dotnet-test/skills/migrate-mstest-v1v2-to-v3
-        - ../../plugins/dotnet-test/skills/migrate-mstest-v3-to-v4
-        - ../../plugins/dotnet-test/skills/migrate-vstest-to-mtp
+        - ../../plugins/dotnet-test-migration/skills/migrate-mstest-v1v2-to-v3
+        - ../../plugins/dotnet-test-migration/skills/migrate-mstest-v3-to-v4
+        - ../../plugins/dotnet-test-migration/skills/migrate-vstest-to-mtp
     graders:
       - type: output-matches
         config:
@@ -53,7 +53,7 @@ stimuli:
           dest: CalcTests/CalculatorTests.cs
       skills:
         - ../../plugins/dotnet-test/skills/platform-detection
-        - ../../plugins/dotnet-test/skills/migrate-xunit-to-xunit-v3
+        - ../../plugins/dotnet-test-migration/skills/migrate-xunit-to-xunit-v3
     graders:
       - type: output-matches
         config:
@@ -83,7 +83,7 @@ stimuli:
         - src: fixtures/mstest-v2-vstest/OrderServiceTests.cs
           dest: OrderTests/OrderServiceTests.cs
       skills:
-        - ../../plugins/dotnet-test/skills/migrate-mstest-v1v2-to-v3
+        - ../../plugins/dotnet-test-migration/skills/migrate-mstest-v1v2-to-v3
     graders:
       - type: file-contains
         config:

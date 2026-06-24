@@ -35,11 +35,11 @@ Based on the request scope, pick exactly one strategy and follow it:
 
 | Strategy | When to use | What to do |
 | ---------- | ------------- | ------------ |
-| **Direct** | A small, self-contained request (e.g., tests for a single function or class) that you can complete without sub-agents | Follow the codebase conventions on test file structure, naming, style, and testing approaches. Reuse existing test projects and test files when possible — if the code under test already has tests, add new tests to the same file or test project. Only create a new test file when no canonical file is named or discoverable for the symbol under test. Write the tests immediately. **Run them right away** — if any test fails, read the production code, fix the assertion, and re-run before writing more tests. Skip Steps 3-5 (research, plan, implement sub-agents). Then proceed to Steps 6-9 for validation and reporting. |
+| **Direct** | A small, self-contained request (e.g., tests for a single function or class) that you can complete without sub-agents | Follow the codebase conventions on test file structure, naming, style, and testing approaches. Reuse existing test projects and test files when possible — if the code under test already has tests, add new tests to the same file or test project. Only create a new test file when no canonical file is named or discoverable for the symbol under test. Write the tests immediately. **Run them right away** — if any test fails, read the production code, fix the assertion, and re-run before writing more tests. Skip Steps 3-5 (research, plan, implement sub-agents). Then proceed to Steps 6-9 for validation and reporting — **Direct skips only the sub-agents, never the Step 7 pre-completion gate** (which still runs per its own threshold in Step 7 — i.e. for any non-trivial addition: ≥5 tests, or any request that enumerates behaviors/scenarios to verify). |
 | **Single pass** | A moderate scope (couple projects or modules) that a single Research → Plan → Implement cycle can cover | Execute Steps 3-8 once, then proceed to Step 9. |
 | **Iterative** | A large scope or ambitious coverage target that one pass cannot satisfy | Execute Steps 3-8, then re-evaluate coverage. If the target is not met, repeat Steps 3-8 with a narrowed focus on remaining gaps. Use unique names for each iteration's `.testagent/` documents (e.g., `research-2.md`, `plan-2.md`) so earlier results are not overwritten. Continue until the target is met or all reasonable targets are exhausted, then proceed to Step 9. |
 
-**Default to Direct** unless the request explicitly mentions multiple files, modules, or an entire project. Most test generation requests — including "generate tests for function X", "add tests covering these scenarios", and "write unit tests for this class" — should use Direct strategy. The full Research → Plan → Implement pipeline is only needed when the scope spans multiple unrelated source files.
+**Default to Direct** unless the request explicitly mentions multiple files, modules, or an entire project. Most test generation requests — including "generate tests for function X", "add tests covering these scenarios", and "write unit tests for this class" — should use Direct strategy. The full Research → Plan → Implement pipeline is only needed when the scope spans multiple unrelated source files. **Choosing Direct trades away only the sub-agent pipeline (Steps 3-5); it never trades away the Step 7 pre-completion gate.** When a request enumerates specific behaviors/scenarios (e.g., "add 1 test for each of these scenarios"), treat that list as the spec: target the exact symbol named, cover every enumerated scenario, and run the Step 7 gate before reporting completion.
 
 **Strategy decision examples:**
 
@@ -52,7 +52,7 @@ Based on the request scope, pick exactly one strategy and follow it:
 | "Generate comprehensive tests for my ASP.NET app" | Single pass | If the app has fewer than 10 controllers/services/files in scope, one R→P→I cycle should cover it |
 | "Generate comprehensive tests for my large ASP.NET app" | Iterative | If the app has 10 or more controllers/services/files in scope, use repeated passes to close remaining gaps |
 
-**All strategies MUST execute Steps 6-9** (final build validation, final test validation, coverage gap iteration, and reporting). These steps are never skipped.
+**All strategies MUST execute Steps 6-9** (final build validation, final test validation, coverage gap iteration, and reporting), and the Step 7 pre-completion gate within them. These steps are never skipped — including for Direct.
 
 ### Step 3: Research Phase
 
@@ -110,9 +110,26 @@ Run tests from the **full workspace scope** with a fresh build (never use `--no-
 - **Environment-dependent** — remove tests that call external URLs, bind ports, or depend on timing. Prefer mocked unit tests.
 - **Pre-existing failures** — note them but don't block.
 
-**Verify tests are implementation-specific:**
+**Verify tests pin down behavior (mandatory pre-completion gate):**
 
-- Each test should assert on **concrete values** returned by the function — not just type checks, non-null checks, or other assertions that would still pass if the function body were empty or returned a default value. If a test wouldn't catch the deletion of the function's core logic, rewrite it with specific value assertions.
+For any non-trivial test addition (≥5 generated tests, or any task whose prompt describes specific behaviors to verify), run a quick self-review pass *before* reporting completion — and **after** any Step 8 coverage-gap iteration that adds or modifies tests, so the gate always runs against the final test set. The first two checks below use skills that ship in this plugin; the third is a self-review against the prompt:
+
+1. **Pseudo-mutation check** — invoke the `test-gap-analysis` skill against the source file(s) you tested and the test file(s) you produced. The skill reasons about plausible mutations (boundary flips, dropped null checks, removed exceptions, sign flips) and reports which would slip past your tests. For every gap it flags, either strengthen the existing assertion or add a follow-up test. Re-run until no gap is reported, or until the remaining gaps are explicitly out of scope (e.g., production bugs you cannot fix in a test-only PR).
+
+2. **Assertion-depth check** — invoke the `assertion-quality` skill against the test file(s) you produced. If it flags trivial-only assertions (`IsNotNull` / `toBeDefined` / `assert x is not None`-only tests, tautological round-trip assertions, single-observable tests where the production code touches multiple observables), revise those tests — replace existence checks with concrete-value assertions, and add a secondary observable per behavior-radius guidance.
+
+3. **Prompt-scenario coverage check** — when the prompt enumerates specific behaviors or scenarios to verify, map each one to a dedicated test before reporting completion. This guards against the common failure of testing an *adjacent* function and leaving the requested behavior uncovered:
+   - **Target the exact function/feature named in the objective**, not a neighboring helper that merely looks related. Test the named symbol directly — do not substitute a similarly-named sibling and assume it transitively covers the target. Prefer extending the canonical existing test file for that feature over creating a new, narrower file.
+   - **Cover the full range each scenario's wording implies, not a single representative case.** Phrasing like "when the dimensions stay the same *or* change", "wider *or* narrower", or "first character *or* anywhere in the string" calls for multiple variations — exercise each variation (and combine them in one test when the wording groups them) rather than asserting a single instance.
+   - **Honor positional and structural qualifiers literally.** When a scenario pins a condition to a specific position or shape (e.g. "the *first* character after the prefix", "a filename containing a literal space"), construct an input that satisfies that exact qualifier — an input where the condition merely appears *somewhere* does not cover it.
+
+Skip the gate only for trivially small tasks — fewer than 5 generated tests *and* no behaviors specified in the prompt (the exact inverse of the threshold above). For every other run, the gate is mandatory: a test that passes vacuously — that would still pass if the function body were emptied or returned a default — is a bug, not a test.
+
+Additional self-review heuristics (still required, even when running the skills):
+
+- Each test should assert on **concrete values** returned by the function — not just type checks, non-null checks, or other assertions that would still pass if the function body were empty or returned a default value.
+- Each test should assert on at least one **secondary observable** (related state, log output, neighboring field, retry counter) when the operation under test touches more than just its return value.
+- No test should be tautological — never assert that a value you just wrote can be read back unchanged on an identity/round-trip operation.
 
 ### Step 8: Coverage Gap Iteration
 
@@ -123,6 +140,7 @@ After the previous phases complete, check for uncovered source files:
 3. Identify source files with no corresponding test file.
 4. Generate tests for each uncovered file, build, test, and fix.
 5. Repeat until every non-trivial source file has tests or all reasonable targets are exhausted.
+6. If this step added or modified any tests, re-run the full Step 7 pre-completion gate (`test-gap-analysis` + `assertion-quality` + prompt-scenario coverage) on the new/changed tests before reporting completion — Step 8 output must not bypass the gate.
 
 ### Step 9: Report Results
 
@@ -179,6 +197,6 @@ All state is stored in `.testagent/` folder:
 8. **Fix assertions, don't skip tests** — when tests fail, read production code and fix the expected value; never `[Ignore]` or `[Skip]`
 9. **Clean up `.testagent/`** — after pipeline completion, delete the `.testagent/` folder or advise the user to add it to `.gitignore` so ephemeral state is not committed
 10. **Read language extensions first** — always call the `code-testing-extensions` skill and read the relevant extension file before writing any code; it contains critical project registration and build validation steps
-11. **Always validate** — final build, final test, coverage-gap review, and reporting are mandatory for ALL strategies including Direct; never skip final validation
+11. **Always validate** — final build, final test, coverage-gap review, and reporting are mandatory for ALL strategies including Direct; never skip final validation. The pre-completion self-review gate from Step 7 (`test-gap-analysis` + `assertion-quality` skills, plus the prompt-scenario coverage check) is mandatory for every non-trivial test addition and may be skipped only for trivially small tasks (fewer than 5 generated tests *and* no behaviors specified in the prompt), per Step 7
 12. **Preserve existing tests** — never delete or overwrite existing test files; create new files or append to existing ones
 13. **Never mutate version control** — your only outputs are additive test files plus minimal build-manifest edits to register a new test project. Any command that reverts, restores, resets, stashes, or cleans the tree, or deletes tracked files, is out of scope — even when the workspace looks broken or incomplete.

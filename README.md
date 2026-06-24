@@ -19,7 +19,8 @@ This repository contains the .NET team's curated set of core skills and custom a
 | [dotnet-maui](plugins/dotnet-maui/) | Skills for .NET MAUI development: environment setup, diagnostics, and troubleshooting. |
 | [dotnet-ai](plugins/dotnet-ai/) | AI and ML skills for .NET: technology selection, LLM integration, agentic workflows, RAG pipelines, MCP, and classic ML with ML.NET. |
 | [dotnet-template-engine](plugins/dotnet-template-engine/) | .NET Template Engine skills: template discovery, project scaffolding, and template authoring. |
-| [dotnet-test](plugins/dotnet-test/) | Skills for running, diagnosing, and migrating .NET tests: test execution, filtering, platform detection, and MSTest workflows. |
+| [dotnet-test](plugins/dotnet-test/) | Skills for running, generating, analyzing, and improving .NET tests: test execution, filtering, platform detection, coverage, testability, and MSTest workflows. |
+| [dotnet-test-migration](plugins/dotnet-test-migration/) | Skills and an orchestrator agent for migrating .NET test frameworks and platforms: MSTest and xUnit version upgrades, xUnit-to-MSTest conversion, and VSTest to Microsoft.Testing.Platform. |
 | [dotnet-aspnetcore](plugins/dotnet-aspnetcore/) | ASP.NET Core web development skills including middleware, endpoints, real-time communication, and API patterns. |
 | [dotnet-blazor](plugins/dotnet-blazor/) | Skills for Blazor development: component authoring, interactivity, and web application patterns. |
 | [dotnet11](plugins/dotnet11/) | Skills for new .NET 11 APIs and language features. |
