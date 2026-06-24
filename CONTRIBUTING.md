@@ -50,6 +50,7 @@ To create a new plugin:
 
 1. Add `plugins/<plugin-name>/plugin.json` and a `skills/` directory beneath it.
 2. Add a matching entry in `.github/plugin/marketplace.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`, and `.agents/plugins/marketplace.json`. Keep plugin entries consistent across all marketplace manifests (including `plugins[].source` format) to reduce drift and make future updates safer.
+   Also add a `plugins/<plugin-name>/version.json` (copy an existing one) so the plugin participates in automated versioning. Start its `plugin.json` version at `0.1.0`.
 3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
 4. Add the plugin to the **What's Included** table in the root `README.md`.
 5. Create a `tests/<plugin-name>/` directory for skill tests.
@@ -67,6 +68,30 @@ Skills in `dotnet-experimental`:
 - Should eventually graduate to a stable plugin or be retired. When a skill has proven itself, move it to the appropriate domain plugin and update tests accordingly.
 
 Place experimental skills under `plugins/dotnet-experimental/skills/` with matching tests in `tests/dotnet-experimental/`.
+
+## Plugin versioning
+
+Each plugin is versioned independently. The version lives in two byte-identical files —
+`plugins/<plugin>/plugin.json` and `plugins/<plugin>/.codex-plugin/plugin.json` — and consumers
+(Copilot CLI, Claude, Codex, Cursor) read it directly from this repository.
+
+Versioning is automated with [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning).
+A per-plugin `plugins/<plugin>/version.json` scopes the git height to that plugin's subtree, so the
+**patch** number is derived from history — you do not edit it by hand.
+
+What this means when you contribute:
+
+- **Don't hand-edit the `version` field** in either `plugin.json`. The patch number is computed and
+  stamped automatically, and a manual edit will be overwritten.
+- **The only version field you may change is the base** (`"version"`) in `plugins/<plugin>/version.json`,
+  and only to declare a deliberate **minor or major** release of that plugin (e.g. `0.1` → `0.2` or `1.0`).
+  Changing the base resets the patch number to `0`.
+- After a PR changes a plugin's content, bumping its version is optional:
+  - A maintainer can comment **`/version-bump`** on a same-repo PR to stamp the new version onto the branch.
+  - Otherwise the **weekly version sync** opens a PR that stamps any plugin whose content changed without a
+    version bump, explaining each change. Nothing is ever missed.
+
+Version-only changes do not trigger skill evaluations.
 
 ## Before you start
 
