@@ -71,7 +71,7 @@ Place experimental skills under `plugins/dotnet-experimental/skills/` with match
 
 ## Plugin versioning
 
-Each plugin is versioned independently. The version lives in two byte-identical files —
+Each plugin is versioned independently. The same version is duplicated in two manifest files —
 `plugins/<plugin>/plugin.json` and `plugins/<plugin>/.codex-plugin/plugin.json` — and consumers
 (Copilot CLI, Claude, Codex, Cursor) read it directly from this repository.
 

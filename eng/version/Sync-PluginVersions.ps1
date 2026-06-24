@@ -99,9 +99,17 @@ function Get-NbgvInfo {
     param([string] $PluginDir, [string] $Commit)
     $nbgvArgs = @('nbgv', 'get-version', '-p', $PluginDir, '-f', 'json')
     if ($Commit) { $nbgvArgs += $Commit }
-    $json = & dotnet @nbgvArgs 2>$null
-    if ($LASTEXITCODE -ne 0 -or -not $json) {
-        throw "nbgv get-version failed for $PluginDir (commit '$Commit')"
+    # Capture stderr separately so a failure surfaces the real NBGV/dotnet error
+    # in CI logs, while stdout stays clean JSON for ConvertFrom-Json.
+    $errFile = New-TemporaryFile
+    try {
+        $json = & dotnet @nbgvArgs 2>$errFile.FullName
+        if ($LASTEXITCODE -ne 0 -or -not $json) {
+            $stderr = (Get-Content $errFile.FullName -Raw).Trim()
+            throw "nbgv get-version failed for $PluginDir (commit '$Commit'): $stderr"
+        }
+    } finally {
+        Remove-Item $errFile.FullName -ErrorAction SilentlyContinue
     }
     return ($json | ConvertFrom-Json)
 }

@@ -63,8 +63,7 @@ jobs:
             $range = if ($lastStamp) { "$lastStamp..HEAD" } else { 'HEAD' }
             $commits = git log --format='- %h %s' $range -- "plugins/$name" `
               ":(exclude)plugins/$name/plugin.json" `
-              ":(exclude)plugins/$name/.codex-plugin/plugin.json" `
-              ":(exclude)plugins/$name/version.json"
+              ":(exclude)plugins/$name/.codex-plugin/plugin.json"
             $why = if ($commits) { ($commits -join "`n") } else { '- (no attributable commits found)' }
             @(
               "### ``$name``: $($r.current) → $($r.computed)"
