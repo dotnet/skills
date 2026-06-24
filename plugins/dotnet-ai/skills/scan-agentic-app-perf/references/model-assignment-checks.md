@@ -4,11 +4,12 @@ Detect single-model defaulting and role-model mismatch.
 
 ## Checks
 
-### MA1. All agents on the same model (warn)
+### `model.same-default` (warn)
 
 **Detect:** every agent is constructed with the same model id (e.g.
 `gpt-4o-mini`). Look at the AppHost connection string or the
-`IChatClient` builder per agent service.
+`IChatClient` builder per agent service. Requires ≥2 agents — skip on
+single-agent apps.
 
 **Why:** different agent roles have different latency and quality
 needs. A single default usually overspends on cheap roles and
@@ -22,7 +23,7 @@ expected and can be downgraded to info."
 
 **Ref:** `skill:configure-agentic-perf-rules`
 
-### MA2. Reasoning-strong model on a deterministic agent (warn)
+### `model.reasoning-on-deterministic` (warn)
 
 **Detect:** an agent whose prompt and tool list indicate a
 deterministic role (formatter, validator, classifier with ≤3 outputs)
@@ -37,7 +38,7 @@ quality mode."
 
 **Ref:** `skill:configure-agentic-perf-rules`
 
-### MA3. Cheap model on a planner / decomposer (warn)
+### `model.cheap-on-planner` (warn)
 
 **Detect:** the agent that decides the plan or decomposes the task is
 on a small model while leaf workers are on a large one.
@@ -51,13 +52,15 @@ workers."
 
 **Ref:** `skill:configure-agentic-perf-rules`
 
-### MA4. Hard-coded model id outside config (info)
+### `model.hardcoded` (info)
 
 **Detect:** model id literal (e.g. `"gpt-4o-mini"`) appears inside an
 agent service `.cs` file rather than `appsettings.json` or AppHost
-parameters.
+parameters. AppHost code that declares model ids via
+`foundry.AddDeployment(...)` is the canonical Aspire pattern and does
+NOT trigger this check.
 
 **Why:** swapping models for an A/B becomes a code change.
 
 **Next:** "Move model ids into `appsettings.json` and bind them via
-`IOptions<...>`."
+`IOptions<...>`, or declare them in the AppHost as Aspire deployments."

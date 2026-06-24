@@ -50,7 +50,8 @@ Every finding is a dict with these fields:
 
 ```yaml
 severity: critical | warn | info
-check_id: T1 | T2 | T3 | T4 | TI1 | TI2 | TI3 | TI4 | MH1 | MH2 | MH3 | PW1 | PW2 | PW3 | P1 | P2 | P3 | O1 | O2 | O3 | O4 | MA1 | MA2 | MA3 | MA4
+check:    one of the slugs listed in references/check-glossary.md
+          (e.g. model.same-default, history.full-share, otel.missing-sdk)
 title:    short imperative phrase
 file:     path relative to repo root
 line:     1-based line number, or null
@@ -60,19 +61,22 @@ next:     concrete action the developer can take next
 ref:      optional cross-skill route (e.g. "skill:configure-agentic-perf-rules")
 ```
 
-The `check_id` prefix encodes the category — there is no separate
-`category` field. Prefix glossary (also rendered at the top of the
+The `check` field is a dotted slug: `<category>.<descriptor>`. The
+prefix before the dot encodes the category — there is no separate
+`category` field. Category card (also rendered at the top of the
 report's `## Findings` section):
 
-| Prefix | Category                | Reference                              |
-|--------|-------------------------|----------------------------------------|
-| `T`    | topology                | `references/topology-checks.md`        |
-| `TI`   | tool inventory          | `references/tool-inventory-checks.md`  |
-| `MH`   | message history         | `references/message-history-checks.md` |
-| `PW`   | prompt weight           | `references/prompt-weight-checks.md`   |
-| `P`    | parallelism             | `references/parallelism-checks.md`     |
-| `O`    | OTel coverage           | `references/otel-coverage-checks.md`   |
-| `MA`   | model assignment        | `references/model-assignment-checks.md`|
+| Category   | Coverage                | Reference                              |
+|------------|-------------------------|----------------------------------------|
+| `topology` | agent graph shape       | `references/topology-checks.md`        |
+| `tools`    | per-agent tool list     | `references/tool-inventory-checks.md`  |
+| `history`  | chat history strategy   | `references/message-history-checks.md` |
+| `prompt`   | system prompt size/reuse| `references/prompt-weight-checks.md`   |
+| `parallel` | concurrent invocations  | `references/parallelism-checks.md`     |
+| `otel`     | instrumentation         | `references/otel-coverage-checks.md`   |
+| `model`    | per-agent model id      | `references/model-assignment-checks.md`|
+
+See `references/check-glossary.md` for the full slug→description table.
 
 **Evidence gate** — before adding a finding to the report, re-open the
 cited file and confirm the `evidence` snippet is present at or near
@@ -89,16 +93,17 @@ Severity rules:
 
 ### 4. Aggregate and write the report
 
-Sort findings by severity (critical → warn → info), then by `check_id`
-(stable lexical order so `T1` < `T2` < `TI1` < `MH1` < ...). Write to:
+Sort findings by severity (critical → warn → info), then by `check`
+slug (stable lexical order so `history.*` < `model.*` < `otel.*` <
+`parallel.*` < `prompt.*` < `tools.*` < `topology.*`). Write to:
 
 - `.copilot/perf-reports/scan-<UTC-timestamp>.md` (timestamped, kept)
 - `.copilot/perf-reports/latest-scan.md` (overwritten each run)
-- `.copilot/perf-reports/check-id-glossary.md` (overwritten each run)
-  — a one-line-per-code reference card so first-time readers of a
-  report can decode `T1`/`TI3`/`MA4` without opening the skill repo.
+- `.copilot/perf-reports/check-glossary.md` (overwritten each run)
+  — a one-line-per-check reference card so first-time readers of a
+  report can see the full check catalog without opening the skill repo.
   Source: copy the "Reference card" section verbatim from
-  `references/check-id-glossary.md`.
+  `references/check-glossary.md`.
 
 See `references/report-template.md` for the exact layout.
 
@@ -114,7 +119,7 @@ it from this skill.
 Print:
 
 1. Total counts (critical / warn / info).
-2. The first up to 3 critical findings with title + check_id + file:line + next action.
+2. The first up to 3 critical findings with title + `check` slug + file:line + next action.
 3. The full report path.
 4. If any findings have a `ref:` field, list the suggested follow-up skills.
 
@@ -196,5 +201,5 @@ After running:
 - `references/parallelism-checks.md` — sequential calls that could fan out.
 - `references/otel-coverage-checks.md` — Aspire dashboard, token/cost telemetry.
 - `references/model-assignment-checks.md` — single-model defaulting, role mismatch.
-- `references/check-id-glossary.md` — the reference card written alongside each report.
+- `references/check-glossary.md` — the reference card written alongside each report.
 - `references/report-template.md` — exact Markdown layout for the report.

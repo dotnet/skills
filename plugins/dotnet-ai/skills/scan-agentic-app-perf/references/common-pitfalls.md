@@ -7,7 +7,7 @@ dogfooding (interview-coach v1/v2, ELI5Agent, behavioral-interview-coach).
 
 - **Editing source code.** This skill is read-only. The ONLY write
   paths it owns are `.copilot/perf-reports/scan-<ts>.md`,
-  `latest-scan.md`, and `check-id-glossary.md`. Never touch
+  `latest-scan.md`, and `check-glossary.md`. Never touch
   `.gitignore`, source files, config files, AppHost, or
   `*.csproj`. If a check tempts you to fix the issue inline, stop and
   add it as a finding instead — the user opts into the fix through
@@ -33,44 +33,40 @@ dogfooding (interview-coach v1/v2, ELI5Agent, behavioral-interview-coach).
   Re-read the cited region right before writing each finding, not
   before the entire batch.
 - **Absence-of-X findings without searched-pattern evidence.** When
-  a finding fires because something is *missing* (e.g. O3 "no token
+  a finding fires because something is *missing* (e.g. `otel.no-token-cost` "no token
   surfacing"), the `evidence` field MUST list the exact files and
   patterns that were searched — not a snippet. This is what lets the
   user reproduce the negative result.
 
 ## False positives we keep seeing
 
-- **MA4 (hard-coded model id) firing on AppHost code.** MA4 is about
+- **`model.hardcoded` firing on AppHost code.** This check is about
   model ids living in *agent service* files (`*.Agent/Program.cs`
   etc.) where swapping requires a code change. Model ids declared in
   the AppHost via `foundry.AddDeployment("chat", FoundryModel.OpenAI.Gpt4oMini)`
   are the **canonical Aspire-native place** — that's not a defect.
-  When you encounter this pattern, either suppress MA4 entirely or
-  downgrade to `info` with a "no action required" `next:`.
-- **MA1 (single-model) on single-agent apps.** MA1 explicitly assumes
-  ≥2 agents (different roles, different needs). Do not fire on
+  When you encounter this pattern, either suppress `model.hardcoded`
+  entirely or downgrade to `info` with a "no action required" `next:`.
+- **`model.same-default` on single-agent apps.** The check explicitly
+  assumes ≥2 agents (different roles, different needs). Do not fire on
   1-agent apps; the check is trivially "satisfied" with one model.
-- **O3 (no token surfacing) when `Microsoft.Extensions.AI` activity
+- **`otel.no-token-cost` when `Microsoft.Extensions.AI` activity
   source is registered.** MEAI emits `gen_ai.usage.*` activity tags
   automatically; if `AddSource("Microsoft.Extensions.AI")` is wired in
-  OTel and an OTLP exporter is configured, O3 should NOT fire. The
-  check is for codebases that strip the source or wrap MEAI behind
-  custom infrastructure that loses the tags.
+  OTel and an OTLP exporter is configured, this check should NOT
+  fire. The check is for codebases that strip the source or wrap MEAI
+  behind custom infrastructure that loses the tags.
 
 ## Per-check sharpening
 
-- **T2 (handoff edges per turn).** Count statically-resolvable edges
-  only. Don't try to simulate dynamic LLM-routed handoff at scan
-  time; the count is "edges declared in `CreateHandoffBuilderWith`",
-  not "edges executed".
-- **PW1 (system prompt > 2K tokens).** Use a rough token estimator
-  (chars/4) or `cl100k_base` if available. Never claim an exact
-  token count without naming the encoder you used.
-- **TI2 (duplicate tool functionality).** Compare tool *descriptions*
-  (the `[Description("...")]` attribute), not method names. Two tools
-  with the same method name but different descriptions are usually
-  fine; two tools with different names and a copy-pasted description
-  are usually a refactor candidate.
+- **`prompt.oversized`.** Use a rough token estimator (chars/4) or
+  `cl100k_base` if available. Never claim an exact token count without
+  naming the encoder you used.
+- **`tools.duplicate`.** Compare tool *descriptions* (the
+  `[Description("...")]` attribute), not method names. Two tools with
+  the same method name but different descriptions are usually fine;
+  two tools with different names and a copy-pasted description are
+  usually a refactor candidate.
 
 ## Routing offer (step 6)
 
