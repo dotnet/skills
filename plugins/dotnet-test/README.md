@@ -1,12 +1,14 @@
 # dotnet-test
 
-Skills and agents for running, generating, analyzing, migrating, and improving tests. Originally built for .NET (MSTest, xUnit, NUnit, TUnit) and platforms (VSTest, Microsoft.Testing.Platform); the test-generation pipeline and the six test-analysis skills (anti-patterns, smells, assertion quality, gap analysis, tagging, grade tests) plus the `test-quality-auditor` agent are **polyglot** and also work with Python (pytest/unittest), TypeScript/JavaScript (Jest/Vitest/Mocha/Jasmine/node:test), Java (JUnit 4/5/TestNG), Go (testing/testify), Ruby (RSpec/Minitest), Rust (built-in/proptest), Swift (XCTest/Swift Testing), Kotlin (JUnit/Kotest), PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
+Skills and agents for running, generating, analyzing, and improving tests. Originally built for .NET (MSTest, xUnit, NUnit, TUnit) and platforms (VSTest, Microsoft.Testing.Platform); the test-generation pipeline and the six test-analysis skills (anti-patterns, smells, assertion quality, gap analysis, tagging, grade tests) plus the `test-quality-auditor` agent are **polyglot** and also work with Python (pytest/unittest), TypeScript/JavaScript (Jest/Vitest/Mocha/Jasmine/node:test), Java (JUnit 4/5/TestNG), Go (testing/testify), Ruby (RSpec/Minitest), Rust (built-in/proptest), Swift (XCTest/Swift Testing), Kotlin (JUnit/Kotest), PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
+
+> **Test framework/platform migration** (MSTest/xUnit upgrades, xUnit → MSTest, VSTest → Microsoft.Testing.Platform) lives in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.
 
 ## When to use this plugin
 
 - **Run tests** *(.NET only)* — execute `dotnet test` with automatic platform/framework detection and filter syntax
 - **Generate tests** *(polyglot)* — scaffold comprehensive unit tests for any language via a multi-agent pipeline
-- **Migrate tests** *(.NET only)* — upgrade MSTest v1/v2 → v3 → v4, xUnit v2 → v3, xUnit (v2 or v3) → MSTest v4, or VSTest → Microsoft.Testing.Platform
+- **Migrate tests** *(.NET only)* — see the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin (MSTest v1/v2 → v3 → v4, xUnit v2 → v3, xUnit → MSTest, VSTest → Microsoft.Testing.Platform)
 - **Audit test quality** *(polyglot)* — detect anti-patterns, test smells, assertion gaps, and (for .NET) coverage risks
 - **Improve testability** *(.NET only)* — find static dependencies, generate wrappers, and migrate call sites to injectable abstractions
 - **Measure coverage** *(.NET only)* — collect code coverage, compute CRAP scores, and surface risk hotspots
@@ -29,13 +31,7 @@ Skills and agents for running, generating, analyzing, migrating, and improving t
 
 ### Test migration
 
-| Skill | Description |
-|---|---|
-| **migrate-mstest-v1v2-to-v3** | Upgrade MSTest v1 (assembly refs) or v2 (NuGet 1.x–2.x) to v3 |
-| **migrate-mstest-v3-to-v4** | Upgrade MSTest v3 to v4 — handles all source and behavioral breaking changes |
-| **migrate-xunit-to-xunit-v3** | Upgrade xUnit.net v2 to v3 |
-| **migrate-xunit-to-mstest** | Convert xUnit.net (v2 or v3) test projects to MSTest v4 — attributes, assertions, fixtures, lifecycle, output, parallelization |
-| **migrate-vstest-to-mtp** | Migrate from VSTest runner to Microsoft.Testing.Platform |
+Moved to the [`dotnet-test-migration`](../dotnet-test-migration/) plugin (`migrate-mstest-v1v2-to-v3`, `migrate-mstest-v3-to-v4`, `migrate-xunit-to-xunit-v3`, `migrate-xunit-to-mstest`, `migrate-vstest-to-mtp`, and the `test-migration` orchestrator agent).
 
 ### Test quality & analysis *(polyglot)*
 
@@ -86,9 +82,10 @@ These are the entry-point agents you invoke directly:
 | Agent | Purpose |
 |---|---|
 | **code-testing-generator** | Orchestrates the full test generation pipeline (research → plan → implement → build → test → fix → lint) |
-| **test-migration** | Auto-detects framework/version and routes to the correct migration skill |
 | **test-quality-auditor** | Runs multi-skill audit pipelines for comprehensive test suite assessment |
 | **testability-migration** | End-to-end testability improvement: detect → generate wrappers → migrate call sites |
+
+> **Test framework/platform migration** is handled by the `test-migration` agent in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.
 
 ### Internal subagents
 

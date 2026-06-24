@@ -8,6 +8,7 @@ description: >
   without tests, build a test-pairing map.
   DO NOT USE FOR: coverage (use `coverage-analysis`), CRAP risk ranking,
   assertion gaps.
+disable-model-invocation: true
 license: MIT
 ---
 
