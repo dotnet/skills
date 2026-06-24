@@ -10,7 +10,7 @@ This repository contains the .NET team's curated set of core skills and custom a
 
 | Plugin | Description |
 |--------|-------------|
-| [dotnet](plugins/dotnet/) | C# language server (LSP) integration for coding agents (skills moved to dotnet-advanaced). |
+| [dotnet](plugins/dotnet/) | C# language server (LSP) integration for coding agents and high-level .NET development skills. |
 | [dotnet-advanaced](plugins/dotnet-advanaced/) | Collection of .NET skills for handling specific .NET tasks for special scenarios. |
 | [dotnet-data](plugins/dotnet-data/) | Skills for .NET data access and Entity Framework related tasks. |
 | [dotnet-diag](plugins/dotnet-diag/) | Skills for .NET performance investigations, debugging, and incident analysis. |
