@@ -1,4 +1,4 @@
-# dotnet-advanaced
+# dotnet-advanced
 
 Advanced .NET and C# skills for niche scenarios and coding agents.
 
