@@ -5,20 +5,19 @@ dogfooding (interview-coach v1/v2, ELI5Agent, behavioral-interview-coach).
 
 ## Output discipline
 
-- **Editing source code.** This skill is read-only. The ONLY write
-  paths it owns are `.copilot/perf-reports/scan-<ts>.md`,
-  `latest-scan.md`, and `check-glossary.md`. Never touch
-  `.gitignore`, source files, config files, AppHost, or
-  `*.csproj`. If a check tempts you to fix the issue inline, stop and
-  add it as a finding instead — the user opts into the fix through
-  the step-6 routing prompt.
+- **Editing source code.** This skill is read-only. The ONLY write path
+  it owns is `.copilot/perf-reports/scan.md`. Never touch `.gitignore`,
+  source files, config files, AppHost, or `*.csproj`. If a check tempts
+  you to fix the issue inline, stop and add it as a finding instead —
+  the user opts into the fix through the step-6 routing prompt.
 - **Surfacing more than 3 critical findings in chat.** Step 5 caps
   chat output at 3 critical findings + counts + report path. Anything
-  beyond that goes in the report file only. Pasting the entire
-  report into chat defeats the "single file you can re-open" UX.
-- **Forgetting `latest-scan.md`.** The timestamped report is for
-  history; `latest-scan.md` is what tooling and humans will actually
-  open first. They must be byte-for-byte identical for the same run.
+  beyond that goes in the report file only. Pasting the entire report
+  into chat defeats the "single file you can re-open" UX.
+- **Generating extra report files.** One file: `scan.md`. Do not
+  write timestamped copies, `latest-*` mirrors, glossary files, or
+  any other artifact. Git is the history mechanism if the user wants
+  one.
 
 ## Evidence integrity
 
@@ -84,10 +83,11 @@ dogfooding (interview-coach v1/v2, ELI5Agent, behavioral-interview-coach).
 ## Inventory edge cases
 
 - **Multiple AppHost projects.** If a solution has more than one
-  `*.AppHost.csproj`, scan each one and emit one report per host
-  with the host name in the filename
-  (`scan-<host>-<ts>.md`). Do NOT merge — the topology, model set,
-  and OTel wiring belong to each host independently.
+  `*.AppHost.csproj`, scan each one and emit one report per host as
+  `.copilot/perf-reports/scan-<host>.md` (e.g. `scan-WebApp.md`,
+  `scan-Worker.md`). Do NOT merge — the topology, model set, and
+  OTel wiring belong to each host independently. Each per-host file
+  is still overwritten on each scan; no timestamp suffixes.
 - **Agent registered via DI lambda without `AddAIAgent`.** Patterns
   like `services.AddSingleton<IAgent>(...)` or custom factories also
   count as agents. The detection in step 1 must include any path

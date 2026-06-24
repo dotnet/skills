@@ -1,10 +1,11 @@
 # Report template
 
-The exact Markdown layout written to
-`.copilot/perf-reports/scan-<timestamp>.md` and `latest-scan.md`.
+The exact Markdown layout written to `.copilot/perf-reports/scan.md`.
+This file is **overwritten on every run**. Git provides history; the
+skill does not maintain timestamped copies or `latest-*` mirrors.
 
 ```markdown
-# Agentic perf audit — {{ project_name }}
+# Agentic perf scan — {{ project_name }}
 
 Run: {{ utc_timestamp }}
 Project: {{ relative_project_path }}
@@ -26,7 +27,13 @@ Project: {{ relative_project_path }}
 
 ## Findings
 
-> **Categories:** `topology` · `tools` · `history` · `prompt` · `parallel` · `otel` · `model`. See `check-glossary.md` for the full slug→description table.
+> **Slug format:** `<category>.<descriptor>` — categories are
+> `topology` (graph shape) · `tools` (per-agent tool list) ·
+> `history` (chat history strategy) · `prompt` (system prompt
+> size/reuse) · `parallel` (concurrent invocations) · `otel`
+> (instrumentation) · `model` (per-agent model id). Severities:
+> `critical` (likely to break a flow or blow the budget) ·
+> `warn` (measurable cost/perf regression) · `info` (observation).
 
 ### [critical] [`{{ check }}`] {{ title }}
 - **File:** `{{ file }}:{{ line }}`
@@ -51,5 +58,6 @@ Project: {{ relative_project_path }}
 
 ## Empty-report contract
 
-If there are zero findings, the `## Findings` section still appears with the
-literal text `_No findings._`. The `## Summary` section shows zeros.
+If there are zero findings, the `## Findings` section still appears
+(after the legend blockquote) with the literal text `_No findings._`.
+The `## Summary` section shows zeros.

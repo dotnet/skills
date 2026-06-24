@@ -1,23 +1,14 @@
-# Check glossary
+# Check glossary (dev-facing)
 
-This file is the source of truth for the human-readable check card
-that `scan-agentic-app-perf` writes alongside every report.
+Canonical catalog of every `check` slug the skill can emit. This file
+is for **skill maintainers** — adding or renaming a check requires a
+row here. It is **not copied** into user repositories; the slugs are
+self-describing in the report itself.
 
-When the skill runs, it copies the "Reference card" section verbatim
-to `.copilot/perf-reports/check-glossary.md` so a first-time report
-reader can see the full check catalog without opening the skill repo.
+If you change this table, also update the matching `*-checks.md`
+reference file with the per-check detection logic.
 
-## Reference card
-
-> **Categories:** `topology` (agent graph shape) · `tools` (per-agent
-> tool list) · `history` (chat history strategy) · `prompt` (system
-> prompt size + reuse) · `parallel` (concurrent agent invocations) ·
-> `otel` (instrumentation coverage) · `model` (per-agent model
-> selection).
->
-> **Severity:** `critical` = likely to break a flow or blow the
-> budget · `warn` = measurable cost/perf regression · `info` =
-> observation only.
+## Catalog
 
 | Check                              | Sev      | What it catches |
 |------------------------------------|----------|-----------------|
@@ -42,20 +33,9 @@ reader can see the full check catalog without opening the skill repo.
 | `model.cheap-on-planner`           | warn     | Small model on the planner, larger on workers |
 | `model.hardcoded`                  | info     | Model id literal in agent service `.cs` |
 
-## Cross-skill routes embedded in `ref:` fields
+## Cross-skill routes
 
 | `ref:` value                         | Skill to run next                                          |
 |--------------------------------------|------------------------------------------------------------|
 | `skill:configure-agentic-perf-rules` | Install/update the always-on perf rules (rule #3 covers role-aware model selection) |
 | `skill:setup-maf-evals`              | Wire eval reports + telemetry                              |
-
-## Notes for skill implementation
-
-- When generating a report, write a copy of the "Reference card" section
-  (the table and the legend immediately above it) to
-  `.copilot/perf-reports/check-glossary.md`. Overwrite each run; the
-  content is static within a skill version and does not depend on findings.
-- The glossary file is per-repo (one file regardless of how many runs);
-  the timestamped `scan-<ts>.md` reports link to it relatively.
-- Keep this table in lockstep with the per-category reference files.
-  Adding a new check in any `*-checks.md` file REQUIRES a row here.

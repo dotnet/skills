@@ -95,24 +95,23 @@ Severity rules:
 
 Sort findings by severity (critical → warn → info), then by `check`
 slug (stable lexical order so `history.*` < `model.*` < `otel.*` <
-`parallel.*` < `prompt.*` < `tools.*` < `topology.*`). Write to:
+`parallel.*` < `prompt.*` < `tools.*` < `topology.*`).
 
-- `.copilot/perf-reports/scan-<UTC-timestamp>.md` (timestamped, kept)
-- `.copilot/perf-reports/latest-scan.md` (overwritten each run)
-- `.copilot/perf-reports/check-glossary.md` (overwritten each run)
-  — a one-line-per-check reference card so first-time readers of a
-  report can see the full check catalog without opening the skill repo.
-  Source: copy the "Reference card" section verbatim from
-  `references/check-glossary.md`.
+Write a **single file**: `.copilot/perf-reports/scan.md`, overwritten
+on every run. Git provides whatever history you want; the skill does
+not maintain timestamped copies or `latest-*` mirrors.
 
-See `references/report-template.md` for the exact layout.
+The category legend (one-liners describing what each prefix covers) is
+inlined into the report itself — see `references/report-template.md`.
+There is no separate glossary file. The slug encodes the check (e.g.
+`history.full-share`, `topology.cycle`); readers don't need a lookup
+table.
 
 Create `.copilot/perf-reports/` if it does not exist.
 
 This skill never touches `.gitignore`. If the user wants the report
-folder ignored, recommend in chat that they add
-`.copilot/perf-reports/` to their `.gitignore` themselves; do not edit
-it from this skill.
+ignored, recommend in chat that they add `.copilot/perf-reports/` to
+their `.gitignore` themselves; do not edit it from this skill.
 
 ### 5. Surface top findings in chat
 
@@ -160,19 +159,18 @@ ends here.
 
 After running:
 
-- A new file exists at `.copilot/perf-reports/scan-<timestamp>.md`.
-- `latest-scan.md` exists in the same folder and matches the timestamped
-  file byte-for-byte.
+- A file exists at `.copilot/perf-reports/scan.md` (overwritten if it
+  was there before).
 - The report has a `## Findings` section, even if empty (containing
   `_No findings._`).
 - The summary counts in the report match the chat output.
 
 ## Common pitfalls
 
-- **Editing source code.** This skill is read-only and only writes to
-  `.copilot/perf-reports/`. Never edit `.gitignore`, source files,
-  config files, or anything else. If a check tempts you to fix the
-  issue inline, stop and add it as a finding instead.
+- **Editing source code.** This skill is read-only. The ONLY write path
+  it owns is `.copilot/perf-reports/scan.md`. Never edit `.gitignore`,
+  source files, config files, or anything else. If a check tempts you
+  to fix the issue inline, stop and add it as a finding instead.
 - **Hallucinating findings.** Every finding must cite a real file and
   (where applicable) a real line. Before adding a finding to the
   report, re-open the cited file and verify the snippet exists at the
@@ -201,5 +199,5 @@ After running:
 - `references/parallelism-checks.md` — sequential calls that could fan out.
 - `references/otel-coverage-checks.md` — Aspire dashboard, token/cost telemetry.
 - `references/model-assignment-checks.md` — single-model defaulting, role mismatch.
-- `references/check-glossary.md` — the reference card written alongside each report.
-- `references/report-template.md` — exact Markdown layout for the report.
+- `references/check-glossary.md` — dev-facing catalog of all check slugs (NOT copied to user repos; for skill maintainers).
+- `references/report-template.md` — exact Markdown layout for `scan.md`.
