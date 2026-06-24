@@ -2,61 +2,6 @@
   "entries": {
     "Efficiency": [
       {
-        "tool": "customSmallerIsBetter",
-        "model": "claude-opus-4.6",
-        "date": 1780973874655,
-        "commit": {
-          "message": "Rename ASP.NET Core plugin from `dotnet-aspnet` to `dotnet-aspnetcore` (#711)",
-          "url": "https://github.com/dotnet/skills/commit/2d163bb6003b74973c8a6e90f06011abf502dd32",
-          "timestamp": "2026-06-08T16:20:31+00:00",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Copilot"
-          },
-          "id": "2d163bb6003b74973c8a6e90f06011abf502dd32"
-        },
-        "benches": [
-          {
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
-            "overfittingScore": 0.22,
-            "value": 11.3
-          },
-          {
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
-            "overfittingScore": 0.22,
-            "value": 18965.0
-          },
-          {
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time",
-            "overfittingScore": 0.22,
-            "value": 21.5
-          },
-          {
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In",
-            "overfittingScore": 0.22,
-            "value": 21922.0
-          },
-          {
-            "unit": "seconds",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time",
-            "value": 12.0
-          },
-          {
-            "unit": "tokens",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In",
-            "value": 13055.0
-          }
-        ]
-      },
-      {
         "benches": [
           {
             "overfittingScore": 0.31,
@@ -599,45 +544,64 @@
         "model": "claude-opus-4.6",
         "date": 1782183249819,
         "tool": "customSmallerIsBetter"
+      },
+      {
+        "model": "claude-opus-4.6",
+        "date": 1782267246522,
+        "benches": [
+          {
+            "value": 21.0,
+            "unit": "seconds",
+            "overfittingScore": 0.24,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 27887.0,
+            "unit": "tokens",
+            "overfittingScore": 0.24,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 29.7,
+            "unit": "seconds",
+            "overfittingScore": 0.24,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 27829.0,
+            "unit": "tokens",
+            "overfittingScore": 0.24,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 16.5,
+            "unit": "seconds",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time"
+          },
+          {
+            "value": 13001.0,
+            "unit": "tokens",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In"
+          }
+        ],
+        "tool": "customSmallerIsBetter",
+        "commit": {
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Amaury Levé"
+          },
+          "id": "35ace775b36f0cb1c032b43e84d85a8fade2f631",
+          "timestamp": "2026-06-23T15:19:32+00:00",
+          "message": "Add dotnet-test-migration plugin and move migration skills there (#808)",
+          "url": "https://github.com/dotnet/skills/commit/35ace775b36f0cb1c032b43e84d85a8fade2f631"
+        }
       }
     ],
     "Quality": [
-      {
-        "tool": "customBiggerIsBetter",
-        "model": "claude-opus-4.6",
-        "date": 1780973874655,
-        "commit": {
-          "message": "Rename ASP.NET Core plugin from `dotnet-aspnet` to `dotnet-aspnetcore` (#711)",
-          "url": "https://github.com/dotnet/skills/commit/2d163bb6003b74973c8a6e90f06011abf502dd32",
-          "timestamp": "2026-06-08T16:20:31+00:00",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Copilot"
-          },
-          "id": "2d163bb6003b74973c8a6e90f06011abf502dd32"
-        },
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
-            "overfittingScore": 0.22,
-            "value": 8.399999618530273
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality",
-            "overfittingScore": 0.22,
-            "value": 9.199999809265137
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality",
-            "value": 10.0
-          }
-        ]
-      },
       {
         "benches": [
           {
@@ -994,9 +958,45 @@
         "model": "claude-opus-4.6",
         "date": 1782183249819,
         "tool": "customBiggerIsBetter"
+      },
+      {
+        "model": "claude-opus-4.6",
+        "date": 1782267246522,
+        "benches": [
+          {
+            "value": 8.800000190734863,
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.24,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 8.800000190734863,
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.24,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality"
+          }
+        ],
+        "tool": "customBiggerIsBetter",
+        "commit": {
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Amaury Levé"
+          },
+          "id": "35ace775b36f0cb1c032b43e84d85a8fade2f631",
+          "timestamp": "2026-06-23T15:19:32+00:00",
+          "message": "Add dotnet-test-migration plugin and move migration skills there (#808)",
+          "url": "https://github.com/dotnet/skills/commit/35ace775b36f0cb1c032b43e84d85a8fade2f631"
+        }
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1782183249819
+  "lastUpdate": 1782267246522
 }
