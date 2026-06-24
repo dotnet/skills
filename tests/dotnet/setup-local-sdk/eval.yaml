@@ -1,0 +1,154 @@
+scenarios:
+  - name: "Basic local SDK setup with .NET 11 preview"
+    prompt: "I want to try the latest .NET 11 preview in my project without affecting my global install. Set it up locally for me."
+    assertions:
+      - type: "output_contains"
+        value: "dotnet-install"
+      - type: "output_contains"
+        value: "global.json"
+      - type: "output_contains"
+        value: ".dotnet"
+      - type: "output_matches"
+        pattern: '("paths"|global\.json.{0,80}paths|paths.{0,80}global\.json)'
+      - type: "output_matches"
+        pattern: "(.gitignore|gitignore|source control|committed|commit)"
+    rubric:
+      - "The agent set up a project-local SDK without changing the system-wide installation"
+      - "The agent configured SDK resolution so the local SDK is preferred and the host install remains available as fallback"
+      - "The agent excluded the local SDK directory from source control"
+      - "The agent explained how to clean up"
+    timeout: 300
+
+  - name: "Install a specific SDK version locally"
+    prompt: "Install .NET SDK version 10.0.100 just for this repo so it is used here automatically instead of relying on a machine-wide SDK."
+    assertions:
+      - type: "output_contains"
+        value: "10.0.100"
+      - type: "output_contains"
+        value: "global.json"
+      - type: "output_matches"
+        pattern: "(--version|-Version).{0,40}10\\.0\\.100|10\\.0\\.100.{0,40}(--version|-Version)"
+      - type: "output_matches"
+        pattern: '("paths"|global\.json.{0,80}paths|paths.{0,80}global\.json)'
+      - type: "output_matches"
+        pattern: '("rollForward".{0,40}"disable"|disable.{0,80}rollForward)'
+      - type: "output_matches"
+        pattern: '(dotnet\s+--version|normal dotnet commands|SDK resolution|resolves? to).{0,120}10\.0\.100|10\.0\.100.{0,120}(dotnet\s+--version|normal dotnet commands|SDK resolution|resolves? to)'
+      - type: "output_not_matches"
+        pattern: "(export\\s+PATH|setx\\s+PATH|\\$env:PATH\\s*=|set\\s+PATH=)"
+      - type: "file_contains"
+        path: "global.json"
+        value: "10.0.100"
+      - type: "file_contains"
+        path: "global.json"
+        value: "paths"
+      - type: "file_contains"
+        path: "global.json"
+        value: "rollForward"
+      - type: "file_contains"
+        path: "global.json"
+        value: "disable"
+    rubric:
+      - "The agent selected the exact requested SDK version rather than a moving latest preview"
+      - "The agent made regular dotnet commands in the project resolve to the local SDK without requiring PATH changes"
+      - "The agent prevented roll-forward to any SDK version other than the one requested"
+      - "The agent confirmed project-level SDK resolution returns the requested version"
+    timeout: 600
+
+  - name: "Set up local SDK with MAUI workload"
+    prompt: "I'm on Linux and need to test my .NET MAUI Android app with the latest .NET 11 preview. Set up a local SDK with the MAUI Android workload installed."
+    assertions:
+      - type: "output_contains"
+        value: "workload"
+      - type: "output_matches"
+        pattern: '(maui-android|MAUI Android|Android.{0,40}workload)'
+      - type: "output_matches"
+        pattern: '(\./[^\s]*/dotnet|\.\\[^\s]+\\dotnet\.exe).{0,120}workload|workload.{0,120}(\./[^\s]*/dotnet|\.\\[^\s]+\\dotnet\.exe)'
+      - type: "output_contains"
+        value: "global.json"
+    rubric:
+      - "The agent installed a project-local SDK and either completed the MAUI Android workload install or reported a concrete platform/feed blocker after the base setup was usable"
+      - "The agent ensured workload installation targeted the local SDK rather than the global installation"
+      - "The agent configured SDK resolution to use the local SDK"
+    timeout: 600
+
+  - name: "Create team install scripts"
+    prompt: "This repo already has a global.json for a .NET 11 preview. Create install scripts and repo configuration, including a clear missing-SDK message, so teammates can reproduce the project-local SDK setup on any OS after cloning. Preserve the existing global.json sections. Don't download the SDK now."
+    setup:
+      files:
+        - path: "global.json"
+          content: |
+            {
+              "sdk": {
+                "version": "11.0.100-preview.3.26207.106",
+                "allowPrerelease": true,
+                "rollForward": "latestFeature"
+              },
+              "msbuild-sdks": {
+                "Example.Sdk": "1.2.3"
+              },
+              "tools": {
+                "dotnet-example": "4.5.6"
+              }
+            }
+    assertions:
+      - type: "file_exists"
+        path: "install*.sh"
+      - type: "file_exists"
+        path: "install*.ps1"
+      - type: "output_matches"
+        pattern: "install[^\\s]*\\.sh"
+      - type: "output_matches"
+        pattern: "install[^\\s]*\\.ps1"
+      - type: "file_contains"
+        path: "global.json"
+        value: "paths"
+      - type: "file_contains"
+        path: "global.json"
+        value: "version"
+      - type: "file_contains"
+        path: "global.json"
+        value: "msbuild-sdks"
+      - type: "file_contains"
+        path: "global.json"
+        value: "tools"
+      - type: "file_contains"
+        path: "global.json"
+        value: "errorMessage"
+      - type: "output_matches"
+        pattern: "(merge|preserve|backup|back up|existing)"
+      - type: "output_matches"
+        pattern: "(teammates|team|clone|after cloning)"
+      - type: "file_not_contains"
+        path: "install*.sh"
+        value: "export PATH"
+      - type: "file_not_contains"
+        path: "install*.ps1"
+        value: "$env:PATH"
+    rubric:
+      - "The agent created cross-platform scripts that teammates can run after cloning"
+      - "The agent configured missing-SDK guidance that points teammates to the install scripts"
+      - "The agent avoided dropping existing global.json settings"
+      - "The agent made the setup reproducible without requiring teammates to change PATH"
+    timeout: 300
+
+  - name: "Detect incompatible .NET host version"
+    prompt: "I already ran dotnet --version and it printed 9.0.306. I want to set up a local .NET 11 preview SDK for my project using the global.json SDK paths feature. Is that possible?"
+    reject_tools: ["bash", "powershell", "web_fetch"]
+    assertions:
+      - type: "output_contains"
+        value: "9.0.306"
+      - type: "output_matches"
+        pattern: "(\\.NET 10\\+|\\.NET 10 or later|10 or higher|10 or later|requires.{0,40}10|version 10)"
+      - type: "output_matches"
+        pattern: '("paths"|global\.json.{0,80}paths|paths.{0,80}global\.json)'
+      - type: "output_matches"
+        pattern: "(install|upgrade).{0,80}(\\.NET 10|10)"
+      - type: "output_not_matches"
+        pattern: "(dotnet-install|--install-dir|Let me download|Downloading and installing)"
+    rubric:
+      - "The agent detected that version 9.0.306 is below the .NET 10 requirement"
+      - "The agent explained that .NET 10+ is required for the paths feature"
+      - "The agent told the user to install .NET 10+ system-wide first"
+      - "The agent did not proceed with local SDK installation commands before the host SDK prerequisite was met"
+    timeout: 60
