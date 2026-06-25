@@ -2,61 +2,6 @@
   "entries": {
     "Efficiency": [
       {
-        "benches": [
-          {
-            "overfittingScore": 0.31,
-            "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
-            "unit": "seconds",
-            "value": 17.2
-          },
-          {
-            "overfittingScore": 0.31,
-            "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 24957.0
-          },
-          {
-            "overfittingScore": 0.31,
-            "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time",
-            "unit": "seconds",
-            "value": 16.4
-          },
-          {
-            "overfittingScore": 0.31,
-            "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 16027.0
-          },
-          {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time",
-            "unit": "seconds",
-            "value": 10.8
-          },
-          {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 13036.0
-          }
-        ],
-        "model": "claude-opus-4.6",
-        "date": 1781061363872,
-        "tool": "customSmallerIsBetter",
-        "commit": {
-          "message": "Fix dotnet-msbuild Codex plugin install by externalizing mcpServers (#740)",
-          "url": "https://github.com/dotnet/skills/commit/c85a2d8d9f1bbb8258038e5be22f8b723dc778cc",
-          "author": {
-            "name": "Abhitej John",
-            "username": "JanKrivanek"
-          },
-          "timestamp": "2026-06-10T00:07:14+00:00",
-          "id": "c85a2d8d9f1bbb8258038e5be22f8b723dc778cc"
-        }
-      },
-      {
         "model": "claude-opus-4.6",
         "date": 1781147352202,
         "tool": "customSmallerIsBetter",
@@ -599,45 +544,64 @@
           "message": "Add dotnet-test-migration plugin and move migration skills there (#808)",
           "url": "https://github.com/dotnet/skills/commit/35ace775b36f0cb1c032b43e84d85a8fade2f631"
         }
-      }
-    ],
-    "Quality": [
+      },
       {
         "benches": [
           {
-            "overfittingScore": 0.31,
             "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 9.199999809265137
+            "value": 16.5,
+            "unit": "seconds",
+            "overfittingScore": 0.26,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time"
           },
           {
-            "overfittingScore": 0.31,
             "overfitting": "moderate",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 9.199999809265137
+            "value": 27859.0,
+            "unit": "tokens",
+            "overfittingScore": 0.26,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In"
           },
           {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 9.600000381469727
+            "overfitting": "moderate",
+            "value": 18.3,
+            "unit": "seconds",
+            "overfittingScore": 0.26,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 27822.0,
+            "unit": "tokens",
+            "overfittingScore": 0.26,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In"
+          },
+          {
+            "value": 10.3,
+            "unit": "seconds",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time"
+          },
+          {
+            "value": 12970.0,
+            "unit": "tokens",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In"
           }
         ],
-        "model": "claude-opus-4.6",
-        "date": 1781061363872,
-        "tool": "customBiggerIsBetter",
         "commit": {
-          "message": "Fix dotnet-msbuild Codex plugin install by externalizing mcpServers (#740)",
-          "url": "https://github.com/dotnet/skills/commit/c85a2d8d9f1bbb8258038e5be22f8b723dc778cc",
+          "message": "Add setup-local-sdk skill for global.json paths feature (#508)",
           "author": {
-            "name": "Abhitej John",
-            "username": "JanKrivanek"
+            "username": "JanKrivanek",
+            "name": "Gerald Versluis"
           },
-          "timestamp": "2026-06-10T00:07:14+00:00",
-          "id": "c85a2d8d9f1bbb8258038e5be22f8b723dc778cc"
-        }
-      },
+          "id": "72c0d2c7b72b13e0f1981cc3b2fb0c47ddbdee96",
+          "timestamp": "2026-06-24T17:05:32+00:00",
+          "url": "https://github.com/dotnet/skills/commit/72c0d2c7b72b13e0f1981cc3b2fb0c47ddbdee96"
+        },
+        "tool": "customSmallerIsBetter",
+        "model": "claude-opus-4.6",
+        "date": 1782353452147
+      }
+    ],
+    "Quality": [
       {
         "model": "claude-opus-4.6",
         "date": 1781147352202,
@@ -994,9 +958,45 @@
           "message": "Add dotnet-test-migration plugin and move migration skills there (#808)",
           "url": "https://github.com/dotnet/skills/commit/35ace775b36f0cb1c032b43e84d85a8fade2f631"
         }
+      },
+      {
+        "benches": [
+          {
+            "overfitting": "moderate",
+            "value": 8.399999618530273,
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.26,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 9.199999809265137,
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.26,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality"
+          }
+        ],
+        "commit": {
+          "message": "Add setup-local-sdk skill for global.json paths feature (#508)",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Gerald Versluis"
+          },
+          "id": "72c0d2c7b72b13e0f1981cc3b2fb0c47ddbdee96",
+          "timestamp": "2026-06-24T17:05:32+00:00",
+          "url": "https://github.com/dotnet/skills/commit/72c0d2c7b72b13e0f1981cc3b2fb0c47ddbdee96"
+        },
+        "tool": "customBiggerIsBetter",
+        "model": "claude-opus-4.6",
+        "date": 1782353452147
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1782267246522
+  "lastUpdate": 1782353452147
 }
