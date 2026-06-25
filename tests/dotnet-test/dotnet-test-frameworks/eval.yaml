@@ -157,6 +157,8 @@ scenarios:
       - type: "output_matches"
         pattern: "\\[TestMethod\\].*Assert\\.Throws(Exactly)?<|Assert\\.Throws(Exactly)?<.*AreEqual"
       - type: "output_matches"
+        pattern: "Assert\\.AreEqual"
+      - type: "output_matches"
         pattern: "\\[Fact\\].*Assert\\.Throws<|Assert\\.Throws<.*Assert\\.Equal"
       - type: "output_matches"
         pattern: "Throws\\.TypeOf<InvalidOperationException>|Assert\\.That\\(.*Throws"
