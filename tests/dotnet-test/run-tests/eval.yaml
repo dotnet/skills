@@ -17,8 +17,7 @@ scenarios:
       - type: "exit_success"
     rubric:
       - "Identifies the project as a VSTest project (Microsoft.NET.Test.Sdk + MSTest.TestAdapter)"
-      - "Uses the correct `dotnet test` invocation for the detected platform and SDK version (plain VSTest invocation, no MTP arguments or '--' separator)"
-      - "Uses 'dotnet test' without MTP-specific arguments or '--' separator"
+      - "Uses the correct `dotnet test` invocation for the detected platform and SDK version — a plain VSTest invocation with no MTP-specific arguments or '--' separator"
       - "Does not suggest MTP-style arguments like --report-trx or --treenode-filter"
     expect_tools: ["bash"]
     timeout: 180
