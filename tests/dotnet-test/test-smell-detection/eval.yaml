@@ -210,7 +210,7 @@ scenarios:
           source: "fixtures/skip-and-magic/Inventory.Tests/InventoryServiceTests.cs"
     assertions:
       - type: "output_matches"
-        pattern: "(Sleep|Thread\\.Sleep|sleepy|delay)"
+        pattern: "(Thread\\.Sleep|sleepy test|sleepy)"
       - type: "output_matches"
         pattern: "(no assert|assertion.free|without.*assert|verifies nothing)"
       - type: "output_matches"
@@ -224,6 +224,6 @@ scenarios:
       - "Justified each severity level with a concrete rationale tied to the risk, rather than assigning severity arbitrarily"
       - "For every finding, included a concrete fix example showing the corrected code, not just a vague 'fix this' instruction"
       - "Flagged the Thread.Sleep(3000) in Replenish_AsyncJob_Completes as a Sleepy Test and Audit_RunsWithoutError as Assertion-Free"
-    reject_tools: ["edit", "create"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 180
 
