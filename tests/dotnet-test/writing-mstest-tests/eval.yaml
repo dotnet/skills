@@ -480,6 +480,22 @@ scenarios:
       - type: file_contains
         path: "tests/*.cs"
         value: "Assert.IsNotEmpty"
+      # Guard the substring-based file_contains checks above against the legacy
+      # CollectionAssert/StringAssert helpers (e.g. "CollectionAssert.Contains"
+      # also contains the substring "Assert.Contains"). Rejecting them keeps the
+      # scenario a deterministic check for the modern Assert.* API.
+      - type: file_not_contains
+        path: "tests/*.cs"
+        value: "CollectionAssert.Contains"
+      - type: file_not_contains
+        path: "tests/*.cs"
+        value: "CollectionAssert.DoesNotContain"
+      - type: file_not_contains
+        path: "tests/*.cs"
+        value: "StringAssert.Contains"
+      - type: file_not_contains
+        path: "tests/*.cs"
+        value: "StringAssert.DoesNotContain"
     rubric:
       - "Verifies reference identity (same object instance, not just value equality) using Assert.AreSame when testing that resolving a registered service returns the exact object that was registered"
       - "Checks that resolving an unregistered service type returns null, using Assert.IsNull rather than a boolean check"
