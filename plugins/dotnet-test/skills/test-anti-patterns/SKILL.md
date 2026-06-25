@@ -5,18 +5,15 @@ description: >
   and quality issues — produces a severity-ranked report
   (Critical/Warning/Info). INVOKE whenever asked to audit or review tests,
   find what's wrong with a suite, judge whether tests are any good, or
-  check tests for: tests that pass but verify nothing, no/missing
-  assertions, swallowed exceptions, self-comparing/self-referential/
-  tautological assertions (output==input on round-trip/identity ops),
-  coverage-touching tests (every method called but nothing verified),
-  broad exceptions, flaky or order-dependent tests (Thread.Sleep,
-  DateTime.Now, time.sleep, shared state, reflection coupling),
-  duplicated tests, magic values — in .NET, Python/pytest, TS/Jest, Java,
-  Go, Ruby or C++. DO NOT USE FOR: writing new tests (use
-  code-testing-agent); running tests (use run-tests); migration;
-  assertion-diversity metrics (use assertion-quality); coverage/CRAP
-  metrics (use coverage-analysis); the testsmells.org academic catalog
-  (use test-smell-detection).
+  check for: tests that pass but verify nothing, missing assertions,
+  swallowed exceptions, self-comparing / tautological assertions,
+  coverage-touching tests, broad exceptions, flaky or order-dependent tests
+  (Thread.Sleep, DateTime.Now, shared state), duplicated tests, or magic
+  values — in .NET, Python/pytest, TS/Jest, Java, Go, Ruby or C++. DO NOT
+  USE FOR: writing new tests (use code-testing-agent); running tests (use
+  run-tests); migration; assertion-diversity metrics (use assertion-quality);
+  coverage/CRAP metrics (use coverage-analysis); the testsmells.org academic
+  catalog (use test-smell-detection).
 license: MIT
 ---
 

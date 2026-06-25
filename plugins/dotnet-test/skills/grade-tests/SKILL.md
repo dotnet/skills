@@ -6,12 +6,10 @@ description: >
   score band, and a one-line note — designed to be posted as a PR comment.
   Use when the caller wants per-test feedback on a curated list of methods
   (for example, the new or modified tests in a pull request), not a
-  suite-wide audit. Polyglot: .NET (MSTest/xUnit/NUnit/TUnit), Python
-  (pytest/unittest), TS/JS (Jest/Vitest/Mocha/node:test), Java (JUnit/TestNG),
-  Go, Ruby (RSpec/Minitest), Rust, Swift (XCTest/Swift Testing), Kotlin
-  (JUnit/Kotest), PowerShell (Pester), C++ (GoogleTest/Catch2/doctest).
-  Input is a list of test methods (or method bodies / file+line spans);
-  output is a compact markdown table plus a short summary. DO NOT USE FOR:
+  suite-wide audit. Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust,
+  Swift, Kotlin, PowerShell, C++. Input is a list of test methods (or method
+  bodies / file+line spans); output is a compact markdown table plus a short
+  summary. DO NOT USE FOR:
   full suite audits (use test-quality-auditor agent or test-anti-patterns),
   writing new tests (use code-testing-generator agent or writing-mstest-tests),
   fixing failures, or measuring code coverage.

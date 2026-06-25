@@ -125,3 +125,101 @@ scenarios:
       - "Optionally pointed the user at `test-quality-auditor` agent or `test-anti-patterns` skill for full-suite analysis"
     reject_tools: ["edit", "create"]
     timeout: 120
+
+  # ==========================================================================
+  # Scenario 4: Go table-driven tests — idiomatic loop must NOT be flagged as
+  # conditional logic, and every grade must rest on an observable signal
+  # ==========================================================================
+
+  - name: "Grade Go table-driven tests without misreading the loop as branching"
+    prompt: |
+      Please grade each of the following Go test functions individually for
+      test quality and produce a compact per-test table (one row per test)
+      plus a short summary. They live in `calculator_test.go` and the code
+      under test is in `calculator.go`. Do not modify any files.
+
+      Test functions to grade:
+        - TestAdd_TableDriven
+        - TestDivide_ByZero
+        - TestParse_NoError
+        - TestReset_NoAssertions
+    setup:
+      files:
+        - path: "go.mod"
+          source: "fixtures/go-table-driven/go.mod"
+        - path: "calculator.go"
+          source: "fixtures/go-table-driven/calculator.go"
+        - path: "calculator_test.go"
+          source: "fixtures/go-table-driven/calculator_test.go"
+    assertions:
+      - type: "output_matches"
+        pattern: "(\\|\\s*Test\\s*\\|\\s*Grade\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(TestAdd_TableDriven.*\\|\\s*A\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(TestDivide_ByZero.*\\|\\s*A\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(TestParse_NoError.*\\|\\s*C\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(TestReset_NoAssertions.*\\|\\s*F\\s*\\|)"
+      - type: "exit_success"
+    rubric:
+      - "Detected Go and its standard `testing` package and loaded the Go language extension before grading"
+      - "Graded `TestAdd_TableDriven` as A — recognized the idiomatic table-driven subtests driven by `t.Run`"
+      - "Did NOT flag the Go table-driven `for ... range` / `if got != tt.want` loop as conditional logic or branching — it is the idiomatic assertion pattern and incurs no deduction"
+      - "Graded `TestDivide_ByZero` as A — the returned error is checked, which is a complete assertion of the error path"
+      - "Graded `TestParse_NoError` as C — only checks that no error came back and never verifies the parsed value (trivial assertion)"
+      - "Graded `TestReset_NoAssertions` as F — calls the function but never asserts via `t.Error`/`t.Fatal`"
+      - "Justified every grade with at least one observable signal from the captured test body rather than a speculative or hypothetical deduction"
+      - "Did NOT inflate deductions to justify a lower grade — started each test at A and deducted only for observable issues"
+    reject_tools: ["edit", "create"]
+    timeout: 300
+
+  # ==========================================================================
+  # Scenario 5: Production code unavailable — behavioral concerns are Unverified,
+  # not deductions, and the PR-comment report stays compact
+  # ==========================================================================
+
+  - name: "Grade tests when the production code under test is unavailable"
+    prompt: |
+      Please grade each of the following test methods individually for test
+      quality and produce a compact per-test table (one row per test) plus a
+      short summary that we can post as a PR comment. They live in
+      `Payments.Tests/PaymentGatewayTests.cs`. The production project
+      `Payments.Core` is not in this workspace, so its source is unavailable.
+      Do not modify any files.
+
+      Test methods to grade:
+        - Payments.Tests.PaymentGatewayTests.Charge_ValidCard_ReturnsApprovedResult
+        - Payments.Tests.PaymentGatewayTests.Charge_NegativeAmount_ThrowsArgumentOutOfRange
+        - Payments.Tests.PaymentGatewayTests.Refund_ExistingCharge_ReturnsReceipt
+        - Payments.Tests.PaymentGatewayTests.Settle_PendingBatch_Runs
+    setup:
+      files:
+        - path: "Payments.Tests/Payments.Tests.csproj"
+          source: "fixtures/production-unavailable/Payments.Tests/Payments.Tests.csproj"
+        - path: "Payments.Tests/PaymentGatewayTests.cs"
+          source: "fixtures/production-unavailable/Payments.Tests/PaymentGatewayTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(\\|\\s*Test\\s*\\|\\s*Grade\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(Charge_ValidCard_ReturnsApprovedResult.*\\|\\s*A\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(Charge_NegativeAmount_ThrowsArgumentOutOfRange.*\\|\\s*A\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(Refund_ExistingCharge_ReturnsReceipt.*\\|\\s*C\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(Settle_PendingBatch_Runs.*\\|\\s*F\\s*\\|)"
+      - type: "output_matches"
+        pattern: "(?i)(unverified)"
+      - type: "exit_success"
+    rubric:
+      - "Did NOT penalize the tests because the production code under test (`Payments.Core`) is unavailable — marked behavioral concerns about uncovered behaviors as `Unverified` instead of deducting"
+      - "Graded `Charge_ValidCard_ReturnsApprovedResult` as A on the observable signal of its equality assertions, without inventing weaknesses that would need the unavailable production source to judge"
+      - "Graded `Charge_NegativeAmount_ThrowsArgumentOutOfRange` as A — the exception assertion is complete on its own"
+      - "Graded `Refund_ExistingCharge_ReturnsReceipt` as C — only a trivial `IsNotNull` on the receipt"
+      - "Graded `Settle_PendingBatch_Runs` as F — no assertions at all"
+      - "Kept the report compact and PR-comment-friendly — did not spill a giant (e.g. 500-row) table into the PR comment, and noted that any overflow would collapse into a `<details>` block per the row cap"
+    reject_tools: ["edit", "create"]
+    timeout: 300

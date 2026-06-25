@@ -157,6 +157,8 @@ scenarios:
       - type: "output_matches"
         pattern: "\\[TestMethod\\].*Assert\\.Throws(Exactly)?<|Assert\\.Throws(Exactly)?<.*AreEqual"
       - type: "output_matches"
+        pattern: "Assert\\.AreEqual\\([^)]*\\.Message"
+      - type: "output_matches"
         pattern: "\\[Fact\\].*Assert\\.Throws<|Assert\\.Throws<.*Assert\\.Equal"
       - type: "output_matches"
         pattern: "Throws\\.TypeOf<InvalidOperationException>|Assert\\.That\\(.*Throws"
@@ -165,7 +167,7 @@ scenarios:
       - "Replaced the MSTest try/catch with Assert.ThrowsExactly<T> or Assert.Throws<T>"
       - "Replaced the xUnit try/catch with Assert.Throws<T>"
       - "Replaced the NUnit try/catch with the constraint-model pattern or Assert.Throws<T>"
-      - "Preserved exception message verification in all three refactored versions"
+      - "Preserved exception message verification in all three refactored versions (e.g. `Assert.AreEqual(\"...\", ex.Message)` for MSTest)"
     reject_tools: ["bash", "edit", "create"]
     timeout: 120
 

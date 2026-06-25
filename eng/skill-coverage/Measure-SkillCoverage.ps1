@@ -216,7 +216,7 @@ function Get-CodePatterns([string]$content) {
         if ($inCode) { $block += "$line`n" }
     }
 
-    $seen.Values | ForEach-Object {
+    $seen.get_Values() | ForEach-Object {
         [PSCustomObject]@{
             Category    = 'CodePattern'
             Description = $_[0]
@@ -257,7 +257,7 @@ function Get-BlockPatterns([string]$code) {
         if ($code -match $_.Value) { $found[$_.Key.ToLower()] = $_.Key }
     }
 
-    $found.Values
+    $found.get_Values()
 }
 
 function Get-SignificantTerms([string]$text) {
@@ -283,7 +283,10 @@ function Get-SignificantTerms([string]$text) {
         }
     }
 
-    [string[]]$terms.Keys
+    # Use get_Keys() rather than .Keys: if a significant term is literally
+    # "keys", PowerShell's hashtable member access returns that entry's value
+    # instead of the key collection, collapsing the keyword set.
+    [string[]]$terms.get_Keys()
 }
 
 # ═══════════════════════════════════════════════════════════
