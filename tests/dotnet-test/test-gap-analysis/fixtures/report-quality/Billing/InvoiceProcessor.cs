@@ -1,6 +1,6 @@
 namespace Billing;
 
-public class InvoiceProcessor
+public partial class InvoiceProcessor
 {
     // Trivial auto-properties and a simple getter — no logic to mutate.
     public string CustomerName { get; set; } = string.Empty;
