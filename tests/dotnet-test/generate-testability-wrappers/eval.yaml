@@ -94,10 +94,10 @@ scenarios:
 
   - name: "Provide ambient context alternative when DI is unavailable"
     prompt: |
-      I have a small class library with no dependency injection container and I
-      don't want to add one. A few classes read DateTimeOffset.UtcNow directly,
-      which makes my tests flaky and order-dependent. How can I make the current
-      time controllable in tests without introducing DI?
+      I maintain a small class library. A few classes read DateTimeOffset.UtcNow
+      directly, which makes my tests flaky and order-dependent. The library has no
+      dependency injection set up. What's the lightest way to make the current
+      time controllable in my tests?
     setup:
       files:
         - path: "InvoiceLib/InvoiceCalculator.cs"
