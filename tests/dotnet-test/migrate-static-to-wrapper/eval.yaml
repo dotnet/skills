@@ -106,6 +106,7 @@ scenarios:
         - path: "BillingApp.Tests/InvoiceServiceTests.cs"
           content: |
             using Xunit;
+            using BillingApp;
 
             namespace BillingApp.Tests;
 
@@ -177,6 +178,7 @@ scenarios:
     prompt: |
       Replace all File.ReadAllText calls in my project with IFileSystem. Just do
       the bulk replacement across all files.
+    expect_activation: false
     setup:
       files:
         - path: "MyProject/MyProject.csproj"
