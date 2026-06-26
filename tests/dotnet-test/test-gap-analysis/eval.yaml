@@ -141,3 +141,75 @@ scenarios:
       - "Wrote test methods for the ShoppingCart class"
       - "Covered the AddItem and GetTotal methods"
     timeout: 120
+
+  # ==========================================================================
+  # Scenario 5: Report quality — exclude trivial/generated code, trace call
+  # chains, prioritize by risk, and report strengths alongside gaps
+  # ==========================================================================
+
+  - name: "Produce a risk-prioritized report that excludes trivial and generated code"
+    prompt: |
+      Here's my Billing project and its tests. Before I ship, I want to know
+      whether the tests would actually catch a subtle bug in the money math.
+      Walk me through where the tests are blind and how serious each gap is.
+    setup:
+      files:
+        - path: "Billing/Billing.csproj"
+          source: "fixtures/report-quality/Billing/Billing.csproj"
+        - path: "Billing/InvoiceProcessor.cs"
+          source: "fixtures/report-quality/Billing/InvoiceProcessor.cs"
+        - path: "Billing/InvoiceProcessor.g.cs"
+          source: "fixtures/report-quality/Billing/InvoiceProcessor.g.cs"
+        - path: "Billing.Tests/Billing.Tests.csproj"
+          source: "fixtures/report-quality/Billing.Tests/Billing.Tests.csproj"
+        - path: "Billing.Tests/InvoiceProcessorTests.cs"
+          source: "fixtures/report-quality/Billing.Tests/InvoiceProcessorTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(late.?fee|tax|ComputeAmountDue|ApplyLateFee|ComputeTax)"
+      - type: "output_matches"
+        pattern: "(risk|priorit|high.*risk|business)"
+      - type: "output_matches"
+        pattern: "(generated|auto.?generated|\\.g\\.cs)"
+      - type: "output_matches"
+        pattern: "(surviv|not.*caught|gap|blind|miss)"
+      - type: "exit_success"
+    rubric:
+      - "Recognized that analyzing trivial code — the auto-properties (CustomerName, InvoiceId) and the simple IsPaid getter — is not useful and excluded that trivial code from the mutation analysis"
+      - "Did not over-count mutations in the generated code: skipped the auto-generated InvoiceProcessor.g.cs file rather than reporting its branches as gaps"
+      - "Traced the call chain into the private helpers ApplyLateFee and ComputeTax, which are reachable from the public ComputeAmountDue method, instead of ignoring those call chains as unreachable"
+      - "Prioritized the findings by business risk — the high-risk late-fee and tax calculation gaps first — rather than just listing them in source order"
+      - "Reported the suite's strengths, noting the killed mutations such as the negative-subtotal guard that the tests already catch, alongside the surviving gaps"
+      - "Correctly labeled each reported mutation with its category (for example boundary, arithmetic, or exception removal)"
+      - "Identified that the late-fee tier boundaries (0, 30 days) and the tax-exempt path are survived mutations the current assertions would not catch"
+    timeout: 300
+
+  # ==========================================================================
+  # Scenario 6: Rust error propagation via the `?` operator
+  # ==========================================================================
+
+  - name: "Flag the Rust ? operator propagation as an unobserved mutation point"
+    prompt: |
+      I have a small Rust library that parses order lines. I'm not confident my
+      tests would notice if the error handling broke. Could a subtle change to
+      how errors propagate slip past the current tests?
+    setup:
+      files:
+        - path: "Cargo.toml"
+          source: "fixtures/rust-error-propagation/Cargo.toml"
+        - path: "src/lib.rs"
+          source: "fixtures/rust-error-propagation/src/lib.rs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(\\?|operator|propagat|Err|unwrap|panic)"
+      - type: "output_matches"
+        pattern: "(parse_line_total|error.*path|invalid)"
+      - type: "output_matches"
+        pattern: "(surviv|not.*caught|gap|blind|miss|not.*observ)"
+      - type: "exit_success"
+    rubric:
+      - "Recognized Rust's `?` operator on the parse calls in parse_line_total as a short-circuit that propagates the Err to the caller"
+      - "Flagged that mutating `expr?` to `expr.unwrap()` would panic instead of returning the error, classifying it as an Exception/Panic mutation point"
+      - "Identified that no test exercises the error path, so the `?` operator propagation behavior is never observed and the mutation would survive"
+      - "Recommended a concrete test that passes an invalid line and asserts the returned Err to kill the mutation"
+    timeout: 300

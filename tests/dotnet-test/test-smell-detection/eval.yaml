@@ -188,3 +188,42 @@ scenarios:
     reject_tools: ["bash", "edit", "create"]
     timeout: 180
 
+  # ==========================================================================
+  # Scenario: Skip calibration, magic-number context, fix examples & severity
+  # ==========================================================================
+
+  - name: "Distinguish reasoned skips, spare obvious numbers, justify severity"
+    prompt: |
+      Please review the xUnit tests in
+      Inventory.Tests/InventoryServiceTests.cs for quality problems.
+
+      For every problem you find, give it a severity (high/medium/low) and
+      tell me WHY that severity — I don't want a number pulled out of thin
+      air. And for each one, show me the corrected code, not just "go fix
+      it". A couple of these tests are disabled; let me know how worried I
+      should actually be about each. This is a read-only review.
+    setup:
+      files:
+        - path: "Inventory.Tests/Inventory.Tests.csproj"
+          source: "fixtures/skip-and-magic/Inventory.Tests/Inventory.Tests.csproj"
+        - path: "Inventory.Tests/InventoryServiceTests.cs"
+          source: "fixtures/skip-and-magic/Inventory.Tests/InventoryServiceTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(Thread\\.Sleep|sleepy test|sleepy)"
+      - type: "output_matches"
+        pattern: "(no assert|assertion.free|without.*assert|verifies nothing)"
+      - type: "output_matches"
+        pattern: "(skip|disabled|ignored|#1487)"
+      - type: "output_matches"
+        pattern: "(severity|high|medium|low)"
+      - type: "exit_success"
+    rubric:
+      - "Treated the reasoned skip annotation on Reserve_AcrossWarehouses_BalancesStock (Skip with the #1487 tracking reason) as less concerning than the bare skip on Restock_FromSupplier_UpdatesQuantities, which gives no reason — did not lump the two skips together as equally bad"
+      - "Did not flag the contextually obvious numbers (count is 3 after three adds, 1 after removing one of two items) as magic numbers, because their meaning is self-evident from the surrounding test"
+      - "Justified each severity level with a concrete rationale tied to the risk, rather than assigning severity arbitrarily"
+      - "For every finding, included a concrete fix example showing the corrected code, not just a vague 'fix this' instruction"
+      - "Flagged the Thread.Sleep(3000) in Replenish_AsyncJob_Completes as a Sleepy Test and Audit_RunsWithoutError as Assertion-Free"
+    reject_tools: ["bash", "edit", "create"]
+    timeout: 180
+

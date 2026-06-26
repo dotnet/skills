@@ -60,8 +60,13 @@ These rules apply to every language and override any pattern an existing test fi
 
 - **Existing test files are append-only.** When growing an existing test file, insert new test methods/cases at the end of the relevant class/describe-block/module. Do not reformat, reorder, rename, or remove any existing line — even whitespace-only churn counts as a destructive edit.
 - **Do not modify non-test source files.** If a class, method, or symbol is hard to test (sealed, internal, no seam, tightly coupled), record the gap in `.testagent/plan.md` as a follow-up. Do not edit production code to make it testable as part of test generation — that is the scope of the `testability-migration` agent, not this one.
+- **Never revert or clean the working tree.** Do not run `git checkout`, `git restore`, `git reset`, `git clean`, `git stash`, `git rm`, or delete tracked files. Generate tests against the workspace exactly as delivered, even if the source looks synthetic, deleted, gutted, or incomplete — that state is intentional, not corruption.
 - **Prefer new test files over edits to existing ones** when both options are equally valid (e.g., a new feature, a separate concern, or any case where the existing file isn't strictly required). A new file is always purely additive.
 - **One exception**: build-system manifests (`.csproj`/`.sln`/`pom.xml`/`build.gradle`/`Cargo.toml`/`package.json`/etc.) may be edited when registering a new test project or adding a missing test dependency. Keep these edits minimal and limited to the registration/dependency change.
+
+#### Test depth (cross-language invariants)
+
+Coverage alone gives false confidence — every test must *pin down behavior* so it would fail under a plausible bug. Apply the `code-testing-agent` skill's `unit-test-generation.prompt.md` → "Write Tests That Pin Down Behavior" section: mutation thinking (each assertion fails under a plausible mutation), no tautological round-trip assertions, property intersections, at least one secondary observable per test, and realistic (non-degenerate) fixtures. This is a depth requirement on top of the happy/edge/error-path and mocking rules above, and applies to every language.
 
 ### 5. Verify with Build
 

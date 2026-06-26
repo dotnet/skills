@@ -73,6 +73,37 @@ public class BaselineStoreTests
     }
 
     [Fact]
+    public void ComputeScenarioKey_IsDeterministicAndSensitive()
+    {
+        var a = BaselineStore.ComputeScenarioKey(Scenario("s", "prompt one"), null);
+        var a2 = BaselineStore.ComputeScenarioKey(Scenario("s", "prompt one"), null);
+        var diffPrompt = BaselineStore.ComputeScenarioKey(Scenario("s", "prompt two"), null);
+        var diffTarget = BaselineStore.ComputeScenarioKey(Scenario("s", "prompt one") with { Rubric = ["x"] }, null);
+
+        Assert.Equal(a, a2);                  // stable for identical inputs
+        Assert.NotEqual(a, diffPrompt);       // sensitive to prompt (prompt SHA)
+        Assert.NotEqual(a, diffTarget);       // sensitive to evaluation criteria (target SHA)
+
+        // The key embeds both the prompt SHA and the target SHA.
+        Assert.Contains(BaselineStore.ComputePromptSha("prompt one"), a);
+        Assert.Contains(BaselineStore.ComputeTargetSha(Scenario("s", "prompt one"), null), a);
+    }
+
+    [Fact]
+    public void ComputeScenarioKeyCached_MatchesStaticAndIsStableAcrossCalls()
+    {
+        var cache = BaselineStore.ForKeyCache();
+        var scenario = Scenario("s", "prompt one");
+
+        var expected = BaselineStore.ComputeScenarioKey(scenario, null);
+        var first = cache.ComputeScenarioKeyCached(scenario, null);
+        var second = cache.ComputeScenarioKeyCached(scenario, null);
+
+        Assert.Equal(expected, first);   // cached variant equals the canonical static computation
+        Assert.Equal(first, second);     // repeated lookups (memoized) stay identical
+    }
+
+    [Fact]
     public void Load_ThrowsOnModelMismatch()
     {
         var path = TempPath();

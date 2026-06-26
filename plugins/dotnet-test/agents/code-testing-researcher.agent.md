@@ -104,6 +104,8 @@ Locate all existing test files and analyze what they cover:
   - Whether tests cover only happy paths or also edge cases and error paths
 - Record the estimated coverage level per source file so the planner can prioritize gaps
 
+**For C# / .NET repos**, before manually pairing source ↔ test files, invoke the `find-untested-sources` skill (when available in the workspace). It parses every `.cs` file with Roslyn — no build, no `Compilation`, no `MetadataReferences` — and returns a deterministic JSON map: `source_to_tests` (which test files reference which source), an `untested` list ordered by API surface (`decl_count`) descending, and a `suggested_test_path` derived from existing `<ProjectReference>` edges. Use its `untested` list as your prioritized worklist instead of walking the test tree; use `source_to_tests` to fill the "Existing Tests & Estimated Coverage" section. The skill is parse-only and intentionally cheap — runs in seconds even on multi-thousand-file repos. Fall back to manual discovery when the skill is not installed or for non-C# code.
+
 ### 8. Generate Research Document
 
 Create `.testagent/research.md` with this structure:

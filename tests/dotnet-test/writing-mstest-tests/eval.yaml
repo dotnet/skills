@@ -407,7 +407,7 @@ scenarios:
   # ============================================================================
 
   - name: "Write tests with collection, null, and reference assertions"
-    prompt: "Write MSTest tests for my ServiceRegistry class using the most appropriate assertion for each check. I need tests that verify registration, resolution returning the same instance, null for unregistered services, clearing all services, and removal."
+    prompt: "Write MSTest tests for my ServiceRegistry class using the most appropriate assertion for each check. I need tests that verify: registering a service and resolving it returns the exact same instance; resolving an unregistered service returns null; the GetAll list contains a registered service and does not contain it after removal; and GetAll is empty before any registration but not empty afterwards."
     setup:
       files:
         - path: "src/ServiceRegistry.cs"
@@ -462,11 +462,45 @@ scenarios:
       - type: file_contains
         path: "tests/*.cs"
         value: "[TestClass]"
+      - type: file_contains
+        path: "tests/*.cs"
+        value: "Assert.AreSame"
+      - type: file_contains
+        path: "tests/*.cs"
+        value: "Assert.IsNull"
+      - type: file_contains
+        path: "tests/*.cs"
+        value: "Assert.Contains"
+      - type: file_contains
+        path: "tests/*.cs"
+        value: "Assert.DoesNotContain"
+      - type: file_contains
+        path: "tests/*.cs"
+        value: "Assert.IsEmpty"
+      - type: file_contains
+        path: "tests/*.cs"
+        value: "Assert.IsNotEmpty"
+      # Guard the substring-based file_contains checks above against the legacy
+      # CollectionAssert/StringAssert helpers (e.g. "CollectionAssert.Contains"
+      # also contains the substring "Assert.Contains"). Rejecting them keeps the
+      # scenario a deterministic check for the modern Assert.* API.
+      - type: file_not_contains
+        path: "tests/*.cs"
+        value: "CollectionAssert.Contains"
+      - type: file_not_contains
+        path: "tests/*.cs"
+        value: "CollectionAssert.DoesNotContain"
+      - type: file_not_contains
+        path: "tests/*.cs"
+        value: "StringAssert.Contains"
+      - type: file_not_contains
+        path: "tests/*.cs"
+        value: "StringAssert.DoesNotContain"
     rubric:
-      - "Verifies reference identity (same object instance, not just value equality) when testing that resolving a registered service returns the exact object that was registered"
-      - "Checks that resolving an unregistered service type returns null, using a null-specific assertion rather than a boolean check"
-      - "Asserts the collection is empty after calling Clear, using a dedicated empty-collection assertion rather than checking count manually"
-      - "Verifies that a removed service is no longer resolvable after calling Remove (e.g., returns null or is absent from the collection)"
+      - "Verifies reference identity (same object instance, not just value equality) using Assert.AreSame when testing that resolving a registered service returns the exact object that was registered"
+      - "Checks that resolving an unregistered service type returns null, using Assert.IsNull rather than a boolean check"
+      - "Uses Assert.Contains to verify the GetAll collection includes a registered service, and Assert.DoesNotContain to verify it is absent after Remove"
+      - "Asserts the collection is empty with Assert.IsEmpty before registration and not empty with Assert.IsNotEmpty afterwards, rather than checking count manually"
       - "The written tests reference correct class and method names from the provided source code"
     timeout: 180
 

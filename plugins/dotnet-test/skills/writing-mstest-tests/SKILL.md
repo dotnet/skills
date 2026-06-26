@@ -1,21 +1,19 @@
 ---
 name: writing-mstest-tests
 description: >
-  Write new MSTest unit tests and fix existing MSTest code using MSTest 3.x/4.x
-  modern APIs and best practices.
-  USE FOR: write or create MSTest unit tests, fix or modernize MSTest assertions,
-  better MSTest assertion than Assert.IsTrue, replace hard cast with MSTest type assertion,
-  MSTest assertion APIs (IsInstanceOfType, Contains, ContainsSingle, HasCount,
-  IsEmpty, IsNotEmpty, DoesNotContain, StartsWith, EndsWith, MatchesRegex,
-  IsGreaterThan, IsInRange, IsNull),
-  fix swapped Assert.AreEqual arguments, replace ExpectedException with Assert.Throws,
-  data-driven tests (DataRow, DynamicData, ValueTuples),
-  test lifecycle (sealed classes, TestInitialize, TestCleanup),
-  async tests and cancellation tokens, test parallelization (Parallelize / DoNotParallelize),
-  MSTest.Sdk project setup.
-  DO NOT USE FOR: broad test quality audits (use test-anti-patterns),
-  running tests (use run-tests), MSTest version migration (use migrate-mstest-v1v2-to-v3
-  or migrate-mstest-v3-to-v4), xUnit/NUnit/TUnit, or non-.NET languages.
+  Write, create, modernize, or fix comprehensive MSTest unit tests with MSTest 3.x/4.x APIs.
+  USE FOR: write or create MSTest unit tests, fix/modernize MSTest assertions,
+  better MSTest assertion than Assert.IsTrue, replace hard cast with type check (IsInstanceOfType),
+  MSTest assertion APIs (Contains, ContainsSingle, HasCount, IsEmpty, IsNotEmpty, DoesNotContain,
+  AreSame, IsNull, StartsWith, EndsWith, MatchesRegex, IsGreaterThan, IsLessThan, IsInRange),
+  swapped Assert.AreEqual args, replace ExpectedException with Assert.Throws,
+  data-driven (DataRow, DynamicData, ValueTuples),
+  lifecycle (TestInitialize, TestCleanup, TestContext),
+  async tests and cancellation tokens, conditional execution/retry/cleanup (OSCondition, Retry),
+  parallelization (Parallelize/DoNotParallelize), MSTest.Sdk setup, MSTESTxxxx analyzer fixes.
+  DO NOT USE FOR: test quality audits (use test-anti-patterns),
+  running tests (use run-tests), MSTest version migration (use the migrate-mstest skills),
+  xUnit/NUnit/TUnit, or non-.NET languages.
 license: MIT
 ---
 
@@ -33,6 +31,7 @@ Help users write effective, modern unit tests with MSTest 3.x/4.x using current 
 - User needs help fixing a specific MSTest test bug or failing assertion
 - User asks to fix swapped `Assert.AreEqual` argument order (expected first, actual second)
 - User asks to convert `DynamicData` from `IEnumerable<object[]>` to ValueTuple-based data
+- User asks to fix or understand an MSTest analyzer diagnostic (an `MSTESTxxxx` warning/error)
 
 ## When Not to Use
 
@@ -366,3 +365,46 @@ public void LocalOnly_InteractiveTest() { }
 [DoNotParallelize]  // Opt out specific classes
 public sealed class DatabaseIntegrationTests { }
 ```
+
+### Step 8: Fix MSTest analyzer diagnostics (MSTESTxxxx)
+
+The `MSTest.Analyzers` package reports `MSTESTxxxx` diagnostics during build and in the IDE. The analyzers come in automatically with the modern `MSTest` metapackage and `MSTest.Sdk` (and are bundled with `MSTest.TestFramework` 3.7+); for other setups, reference `MSTest.Analyzers` explicitly. Most rules have an automated code fix (light bulb) in Visual Studio. When fixing one by hand, apply the idiomatic change below rather than suppressing the rule.
+
+When asked to "fix MSTESTxxxx", look it up in the table of common diagnostics below, apply the fix, and rebuild to confirm the diagnostic is gone. The table is not exhaustive — for any rule it does not list, consult the full reference and apply the documented guidance: <https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/overview>.
+
+#### Common diagnostics and their fixes
+
+| Rule | Problem | Fix |
+|---|---|---|
+| MSTEST0006 | `[ExpectedException]` used | Replace with `Assert.Throws<T>` / `Assert.ThrowsExactly<T>` (Step 3) |
+| MSTEST0017 | `Assert.AreEqual` args swapped | Put `expected` first, `actual` second |
+| MSTEST0023 | Negated boolean assertion (`Assert.IsTrue(!x)`) | Use `Assert.IsFalse(x)` |
+| MSTEST0025 | Always-false condition asserted | Use `Assert.Fail("reason")` |
+| MSTEST0032 | Always-true assert condition | Remove or correct the assertion |
+| MSTEST0037 | Sub-optimal assert (`IsTrue(x == null)`) | Use the specific assert (`Assert.IsNull`, `HasCount`, etc.) (Step 3) |
+| MSTEST0038 | `Assert.AreSame` on value types | Use `Assert.AreEqual` (value types box to distinct references) |
+| MSTEST0039 | Legacy `Assert.ThrowsException` | Use `Assert.Throws` / `Assert.ThrowsExactly` (+ `Async` variants) |
+| MSTEST0044 | `[DataTestMethod]` used | Replace with `[TestMethod]` (it now supports data rows) |
+| MSTEST0046 | `StringAssert` used | Use the equivalent `Assert` method (`Assert.Contains`, `StartsWith`, ...) |
+| MSTEST0052 | Explicit `DynamicDataSourceType` | Drop it — the source type is inferred |
+| MSTEST0042 / MSTEST0060 | Duplicate `[DataRow]` / `[TestMethod]` | Remove the duplicate attribute |
+| MSTEST0024 | Static `TestContext` field | Make it an instance member (Step 5) |
+| MSTEST0045 / MSTEST0049 / MSTEST0054 | Timeout/token not cooperative | Flow `TestContext.CancellationToken` into the awaited call (Step 6) |
+| MSTEST0036 | Member shadows a base test member | Rename or use `override` instead of `new` |
+| MSTEST0061 | Runtime OS check inside a test | Use `[OSCondition(...)]` (Step 7) |
+| MSTEST0002 / MSTEST0003 / MSTEST0005 / MSTEST0007–0014 | Invalid test class / method / fixture / `TestContext` / data-source layout | Correct the signature named by the rule (e.g. make it public, fix the return type and parameters, add `static` where required) |
+
+#### Tuning which rules are enforced
+
+Use the `MSTestAnalysisMode` MSBuild property (MSTest 3.8+) to control the rule set globally:
+
+```xml
+<PropertyGroup>
+  <!-- None | Default | Recommended | All -->
+  <MSTestAnalysisMode>Recommended</MSTestAnalysisMode>
+</PropertyGroup>
+```
+
+- `Recommended` escalates info-level rules to warnings and is the mode most projects should adopt.
+- A handful of rules are completely opt-in (e.g. MSTEST0015, MSTEST0019–0022); enable them per project via `.editorconfig` when you want their convention enforced.
+- Prefer fixing the underlying code over suppressing a diagnostic. Suppress only with a documented justification.

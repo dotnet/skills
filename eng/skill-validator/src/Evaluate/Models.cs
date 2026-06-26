@@ -464,6 +464,13 @@ public sealed record ValidatorConfig
 
     /// <summary>When set, reuse the precomputed baseline from this file instead of re-running the baseline arm.</summary>
     public string? BaselineFrom { get; init; }
+
+    /// <summary>
+    /// When set, run the requested agent arms and persist sessions/metrics but skip all judging.
+    /// Judging is deferred to a later <c>rejudge</c>/<c>judge</c> step. Implies session persistence
+    /// and does not require a baseline.
+    /// </summary>
+    public bool NoJudge { get; init; }
 }
 
 public static class DefaultWeights

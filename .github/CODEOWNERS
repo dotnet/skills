@@ -1,5 +1,5 @@
 # Default owners for everything in the repo
-* @timheuer @dbreshears
+* @webreidi @AbhitejJohn
 
 # Engineering and CI/CD
 /eng/ @ViktorHofer @JanKrivanek
@@ -21,19 +21,22 @@
 /plugins/dotnet/skills/nuget-trusted-publishing/ @lewing @kartheekp-ms @dotnet/skills-csharp-language-reviewers
 /tests/dotnet/nuget-trusted-publishing/ @lewing @kartheekp-ms @dotnet/skills-csharp-language-reviewers
 
+/plugins/dotnet/skills/setup-local-sdk/ @jfversluis @Redth @dotnet/skills-csharp-language-reviewers
+/tests/dotnet/setup-local-sdk/ @jfversluis @Redth @dotnet/skills-csharp-language-reviewers
+
 /plugins/dotnet/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel
 
-/plugins/dotnet-ai/skills/mcp-csharp-create/ @leslierichardson95 @mikekistler
-/tests/dotnet-ai/mcp-csharp-create/ @leslierichardson95 @mikekistler
+/plugins/dotnet-ai/skills/mcp-csharp-create/ @leslierichardson95 @cathysull
+/tests/dotnet-ai/mcp-csharp-create/ @leslierichardson95 @cathysull
 
-/plugins/dotnet-ai/skills/mcp-csharp-debug/ @leslierichardson95 @mikekistler
-/tests/dotnet-ai/mcp-csharp-debug/ @leslierichardson95 @mikekistler
+/plugins/dotnet-ai/skills/mcp-csharp-debug/ @leslierichardson95 @cathysull
+/tests/dotnet-ai/mcp-csharp-debug/ @leslierichardson95 @cathysull
 
-/plugins/dotnet-ai/skills/mcp-csharp-publish/ @leslierichardson95 @mikekistler
-/tests/dotnet-ai/mcp-csharp-publish/ @leslierichardson95 @mikekistler
+/plugins/dotnet-ai/skills/mcp-csharp-publish/ @leslierichardson95 @cathysull
+/tests/dotnet-ai/mcp-csharp-publish/ @leslierichardson95 @cathysull
 
-/plugins/dotnet-ai/skills/mcp-csharp-test/ @leslierichardson95 @mikekistler
-/tests/dotnet-ai/mcp-csharp-test/ @leslierichardson95 @mikekistler
+/plugins/dotnet-ai/skills/mcp-csharp-test/ @leslierichardson95 @cathysull
+/tests/dotnet-ai/mcp-csharp-test/ @leslierichardson95 @cathysull
 
 /plugins/dotnet-ai/skills/configure-agentic-perf-rules/ @leslierichardson95 @cathysull
 /tests/dotnet-ai/configure-agentic-perf-rules/ @leslierichardson95 @cathysull
@@ -48,18 +51,18 @@
 /plugins/dotnet-upgrade/skills/thread-abort-migration/ @dotnet/appmodel @dotnet/skills-upgrade-reviewers
 /tests/dotnet-upgrade/thread-abort-migration/ @dotnet/appmodel @dotnet/skills-upgrade-reviewers
 
-/plugins/dotnet-upgrade/skills/migrate-nullable-references/ @danmoseley @agocke @dotnet/skills-upgrade-reviewers
-/tests/dotnet-upgrade/migrate-nullable-references/ @danmoseley @agocke @dotnet/skills-upgrade-reviewers
+/plugins/dotnet-upgrade/skills/migrate-nullable-references/ @agocke @dotnet/skills-upgrade-reviewers
+/tests/dotnet-upgrade/migrate-nullable-references/ @agocke @dotnet/skills-upgrade-reviewers
 
 /plugins/dotnet-upgrade/skills/dotnet-aot-compat/ @agocke @dotnet/appmodel @dotnet/skills-upgrade-reviewers
 /tests/dotnet-upgrade/dotnet-aot-compat/ @agocke @dotnet/appmodel @dotnet/skills-upgrade-reviewers
 
-/plugins/dotnet-upgrade/skills/migrate-dotnet9-to-dotnet10/ @danmoseley @dotnet/compat
-/tests/dotnet-upgrade/migrate-dotnet9-to-dotnet10/ @danmoseley @dotnet/compat
-/plugins/dotnet-upgrade/skills/migrate-dotnet10-to-dotnet11/ @danmoseley @dotnet/compat
-/tests/dotnet-upgrade/migrate-dotnet10-to-dotnet11/ @danmoseley @dotnet/compat
-/plugins/dotnet-upgrade/skills/migrate-dotnet8-to-dotnet9/ @danmoseley @dotnet/compat
-/tests/dotnet-upgrade/migrate-dotnet8-to-dotnet9/ @danmoseley @dotnet/compat
+/plugins/dotnet-upgrade/skills/migrate-dotnet9-to-dotnet10/ @dotnet/compat
+/tests/dotnet-upgrade/migrate-dotnet9-to-dotnet10/ @dotnet/compat
+/plugins/dotnet-upgrade/skills/migrate-dotnet10-to-dotnet11/ @dotnet/compat
+/tests/dotnet-upgrade/migrate-dotnet10-to-dotnet11/ @dotnet/compat
+/plugins/dotnet-upgrade/skills/migrate-dotnet8-to-dotnet9/ @dotnet/compat
+/tests/dotnet-upgrade/migrate-dotnet8-to-dotnet9/ @dotnet/compat
 
 # dotnet-diag (perf investigations, debugging, incident analysis)
 /plugins/dotnet-diag/skills/analyzing-dotnet-performance/ @dotnet/dotnet-diag @dotnet/skills-diag-reviewers
@@ -106,8 +109,12 @@
 /plugins/dotnet-test/ @dotnet/dotnet-testing
 /tests/dotnet-test/ @dotnet/dotnet-testing
 
+# dotnet-test-migration (test framework/platform migration)
+/plugins/dotnet-test-migration/ @dotnet/dotnet-testing
+/tests/dotnet-test-migration/ @dotnet/dotnet-testing
+
 # dotnet-experimental (skills under active evaluation)
-/plugins/dotnet-experimental/plugin.json @JanKrivanek @ViktorHofer @Evangelink @ManishJayaswal @AbhitejJohn
+/plugins/dotnet-experimental/plugin.json @JanKrivanek @ViktorHofer @Evangelink @AbhitejJohn
 
 # dotnet-experimental-tests (everything experimental test related)
 
@@ -151,5 +158,5 @@
 /plugins/dotnet11/ @ManishJayaswal @JanKrivanek @ViktorHofer
 /tests/dotnet11/ @ManishJayaswal @JanKrivanek @ViktorHofer
 
-/plugins/dotnet11/skills/system-text-json-net11/ @ManishJayaswal @JanKrivanek @ViktorHofer
-/tests/dotnet11/system-text-json-net11/ @ManishJayaswal @JanKrivanek @ViktorHofer
+/plugins/dotnet11/skills/system-text-json-net11/ @JanKrivanek @ViktorHofer
+/tests/dotnet11/system-text-json-net11/ @JanKrivanek @ViktorHofer

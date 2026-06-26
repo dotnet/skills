@@ -32,4 +32,15 @@
   <Target Name="PrintVersion" BeforeTargets="Build">
     <Exec Command="echo Building version 1.0.0" />
   </Target>
+
+  <!-- BUG (AP-22): publish-on-build re-invokes this same project through the <MSBuild>
+       task with a path-neutral global property (_IsPublishing). That forks a second
+       project instance (path + {_IsPublishing=true}) which still resolves to this
+       project's OutputPath/IntermediateOutputPath, so the project builds twice and the
+       two instances can race writing the same files. Should set _IsPublishing as a
+       static property and run Publish via DependsOnTargets in the SAME instance, with a
+       cycle guard. -->
+  <Target Name="PublishOnBuild" AfterTargets="Build">
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties="_IsPublishing=true" />
+  </Target>
 </Project>

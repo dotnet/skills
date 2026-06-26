@@ -154,6 +154,8 @@ skill-validator check --json --plugin ./plugins/my-plugin
 | `--verbose` | `false` | Show tool calls and agent events during runs |
 | `--reporter <spec>` | `console`, `json`, `markdown` | Output format: `console`, `json`, `junit`, `markdown`. |
 | `--results-dir <path>` | `.skill-validator-results` | Directory for file reporter output. |
+| `--keep-sessions` | `false` | Preserve agent session data (`sessions.db`) in the results directory for later `rejudge`. Requires `--results-dir`. |
+| `--no-judge` | `false` | Run the requested agent arms and persist `sessions.db`, but skip **all** judging. No baseline file is required. Use this to run baseline and treatment arms in parallel, then judge later with `rejudge`. Requires `--results-dir`; mutually exclusive with `--baseline-out`/`--baseline-from`. |
 
 Models are validated on startup — invalid model names fail fast with a list of available models.
 
@@ -171,6 +173,21 @@ The baseline file records the `--model` **and** `--judge-model`, and per scenari
 > **Note:** Setup `commands` are fingerprinted by their text (the recipe), not the artifacts they produce, so baseline reuse assumes setup commands are deterministic/hermetic — a command whose output changes between runs (e.g. fetching `latest`) will not invalidate a cached baseline.
 
 The two options are mutually exclusive.
+
+### Decoupled runs and judging (parallel run pool → central judge)
+
+The expensive part of an evaluation is the agent investigation, not the judging. The baseline and treatment **runs** have no dependency on each other — only the judge step pairs them. You can therefore split a run into two phases so baseline and treatment arms execute in one parallel pool, with judging deferred to a final barrier:
+
+1. **Run** every arm with `skill-validator evaluate --no-judge --results-dir <dir>`. This runs the requested agent arms, persists `sessions.db` (including each run's baseline key — the prompt-plus-target SHA used for pairing), and performs **no** judge calls. It does not require a baseline file and exits `0` on successful runs. Run the baseline directory and each treatment directory concurrently.
+2. **Judge** with `rejudge`, pointing it at a treatment results directory and the separate baseline results directory:
+
+   ```bash
+   skill-validator evaluate rejudge <treatment-results-dir> --baseline-dir <baseline-results-dir>
+   ```
+
+   `rejudge` pairs each treatment scenario with its baseline by the shared key (prompt SHA + target SHA), runs the same pairwise/independent judges `evaluate` runs inline, writes the reports, and applies the usual pass/fail gates (`--min-improvement`, `--require-completion`, …). Baseline and treatment must share the same `--model`; the judge model defaults to the value persisted in the treatment `sessions.db` (then the baseline's), and a mismatch between the two persisted judge models is rejected unless you pass `--judge-model`.
+
+Without `--baseline-dir`, `rejudge` keeps its original single-directory behavior: it re-judges baseline+treatment runs that live in the **same** `sessions.db`.
 
 ## Output
 

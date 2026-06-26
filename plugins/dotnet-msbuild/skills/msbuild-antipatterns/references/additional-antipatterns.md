@@ -171,6 +171,62 @@ For a detailed explanation of MSBuild's evaluation and execution phases, see [Bu
 
 ---
 
+## AP-22: Forking a Project Instance via `<MSBuild>` with Path-Neutral Global Properties
+
+**Smell**: A target uses the `<MSBuild>` task to build or publish a project, passing extra `Properties` that don't change that project's output path. Two common shapes:
+
+```xml
+<!-- (a) the SAME project re-invokes itself (publish-on-build) -->
+<MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties="_IsPublishing=true" />
+
+<!-- (b) project A invokes Build/Publish on ANOTHER project B it consumes
+        (e.g. a test or layout project publishing a tool) -->
+<MSBuild Projects="..\tool\tool.csproj" Targets="Publish" Properties="_IsPublishing=true" />
+```
+
+**Why it's bad**: An MSBuild project instance is identified by its path **plus its global properties**. Passing an extra global property creates a *distinct* instance of the target project — `(project, {_IsPublishing=true})` — that still resolves to the same `OutputPath`/`IntermediateOutputPath` as the instance the solution/graph already builds, `(project, {})`. That project is then built twice, and in a parallel/graph build the two instances can write the same files concurrently (PDBs, `*.sourcelink` and other NativeAOT intermediates, `project.assets.json`), producing `The process cannot access the file because it is being used by another process` or intermittent file-lock failures. This applies whether the offending `<MSBuild>` call is in the target project itself or in some other project in the same build. Use the `check-bin-obj-clash` skill to confirm two evaluations of that project differ only by a path-neutral property while sharing an output path.
+
+```xml
+<!-- BAD (a): forks a second instance (path + {_IsPublishing=true}) that shares this project's bin/obj -->
+<Target Name="PublishOnBuild" AfterTargets="Build">
+  <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties="_IsPublishing=true" />
+</Target>
+```
+
+```xml
+<!-- GOOD (a): set the flag as a normal (non-global) property and run the target in the SAME instance -->
+<PropertyGroup>
+  <!-- Capture whether the entry point already invoked publish (it sets _IsPublishing as a global prop). -->
+  <_PublishWasInvokedDirectly Condition="'$(_IsPublishing)' == 'true'">true</_PublishWasInvokedDirectly>
+  <_IsPublishing>true</_IsPublishing>
+</PropertyGroup>
+
+<Target Name="PublishOnBuild"
+        AfterTargets="Build"
+        DependsOnTargets="Publish"
+        Condition="'$(_PublishWasInvokedDirectly)' != 'true'" />
+```
+
+For (a), the static property keeps everything in one instance (one output path, nothing to race); running `Publish` via `DependsOnTargets` (or `CallTarget`) reuses that instance instead of forking. The `_PublishWasInvokedDirectly` guard breaks the target cycle when publish is the entry point (e.g. `dotnet publish`, which sets `_IsPublishing=true` as a global property and would otherwise re-trigger `PublishOnBuild`).
+
+```xml
+<!-- BAD (b): A forks a publish instance of B that races B's own build in the graph -->
+<MSBuild Projects="..\tool\tool.csproj" Targets="Publish" Properties="_IsPublishing=true" />
+
+<!-- GOOD (b): make B publish as part of its OWN build (the (a) fix in tool.csproj), then have A
+     just sequence B and consume B's already-produced publish output — never re-publish it. -->
+<ItemGroup>
+  <ProjectReference Include="..\tool\tool.csproj" ReferenceOutputAssembly="false" />
+</ItemGroup>
+<!-- A then reads tool's publish dir; it does not invoke Publish on tool. -->
+```
+
+For (b), the consumer must not fork the producer with path-neutral global properties. Let the producer publish itself (one instance), reference it only to sequence the build, and read its output.
+
+**When extra global properties ARE fine**: only when the output path encodes the discriminator (`RuntimeIdentifier`, `TargetFramework`, `Configuration`, `Platform`) so each instance writes to a distinct directory. If you must invoke a project with a path-neutral property, give that build its own `BaseIntermediateOutputPath`/output path so it can't collide.
+
+---
+
 ## Quick-Reference Checklist
 
 When reviewing an MSBuild file, scan for these in order:
@@ -180,6 +236,7 @@ When reviewing an MSBuild file, scan for these in order:
 | AP-02 | Unquoted conditions | 🔴 Error-prone |
 | AP-19 | Side effects in evaluation | 🔴 Dangerous |
 | AP-21 | Property conditioned on TargetFramework in .props | 🔴 Silent failure |
+| AP-22 | Forking a project instance via `<MSBuild>` with path-neutral global properties (self or cross-project) | 🔴 Race/duplicate build |
 | AP-03 | Hardcoded absolute paths | 🔴 Broken on other machines |
 | AP-06 | `<Reference>` with HintPath for NuGet | 🟡 Legacy |
 | AP-07 | Missing `PrivateAssets="all"` on tools | 🟡 Leaks to consumers |

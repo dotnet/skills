@@ -82,6 +82,44 @@ public class DiscoverSkillsTests
     }
 }
 
+public class ParseFrontmatterTests
+{
+    [Fact]
+    public void DisableModelInvocation_True_WhenTopLevelKeySet()
+    {
+        var content = "---\nname: my-skill\ndescription: A skill.\ndisable-model-invocation: true\n---\nBody";
+        var (metadata, _) = SkillDiscovery.ParseFrontmatter(content);
+        Assert.True(metadata.DisableModelInvocation);
+    }
+
+    [Fact]
+    public void DisableModelInvocation_False_WhenKeyAbsent()
+    {
+        var content = "---\nname: my-skill\ndescription: A skill.\n---\nBody";
+        var (metadata, _) = SkillDiscovery.ParseFrontmatter(content);
+        Assert.False(metadata.DisableModelInvocation);
+    }
+
+    [Fact]
+    public void DisableModelInvocation_False_WhenKeyAppearsInsideBlockScalarDescription()
+    {
+        // Regression: a previous regex-based check matched any line in the YAML,
+        // so a block-scalar description that merely mentions the key on its own
+        // line was wrongly treated as disabling model invocation. Proper YAML
+        // parsing must not be fooled by indented block-scalar content.
+        var content =
+            "---\n" +
+            "name: my-skill\n" +
+            "description: |\n" +
+            "  This skill explains config options.\n" +
+            "  disable-model-invocation: true\n" +
+            "---\n" +
+            "Body";
+        var (metadata, _) = SkillDiscovery.ParseFrontmatter(content);
+        Assert.False(metadata.DisableModelInvocation);
+    }
+}
+
 public class PluginDiscoveryTests
 {
     [Fact]
