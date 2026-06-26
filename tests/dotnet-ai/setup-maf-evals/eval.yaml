@@ -45,28 +45,28 @@ scenarios:
         path: fixture/MyApp.Evals.Tests/Compare/CompareTests.cs
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/MyApp.Evals.Tests.csproj
-        text: "Microsoft.Extensions.AI.Evaluation.Reporting"
+        value: "Microsoft.Extensions.AI.Evaluation.Reporting"
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/MyApp.Evals.Tests.csproj
-        text: "Microsoft.Extensions.AI.Evaluation.NLP"
+        value: "Microsoft.Extensions.AI.Evaluation.NLP"
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/MyApp.Evals.Tests.csproj
-        text: "MSTest"
+        value: "MSTest"
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/dotnet-tools.json
-        text: "microsoft.extensions.ai.evaluation.console"
+        value: "microsoft.extensions.ai.evaluation.console"
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Quality/QualityTests.cs
-        text: "DiskBasedReportingConfiguration"
+        value: "DiskBasedReportingConfiguration"
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Quality/QualityTests.cs
-        text: "BLEUEvaluator"
+        value: "BLEUEvaluator"
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Quality/golden.json
-        text: "reference_response"
+        value: "reference_response"
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Quality/golden.json
-        text: "schema_version"
+        value: "schema_version"
       - type: file_contains
         path: fixture/.gitignore
         value: ".copilot/perf-reports/evals/"
