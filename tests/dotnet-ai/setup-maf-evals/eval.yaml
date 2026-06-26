@@ -344,7 +344,7 @@ scenarios:
       - type: output_contains
         value: "max_completion_tokens"
       - type: output_matches
-        value: "(?i)reasoning model"
+        pattern: "(?i)reasoning model"
 
   - name: pitfalls-doc-warns-stylistic-agents-fail-completeness
     timeout: 180
@@ -358,7 +358,7 @@ scenarios:
       - type: output_contains
         value: "CompletenessEvaluator"
       - type: output_matches
-        value: "(?i)(equivalence|rubric|drop)"
+        pattern: "(?i)(equivalence|rubric|drop)"
 
   - name: compare-mode-is-opt-in-not-default
     timeout: 180
@@ -369,5 +369,5 @@ scenarios:
     assertions:
       # Assert on the agent's answer, not on out-of-sandbox repo files.
       - type: output_matches
-        value: "(?i)opt[- ]?in"
+        pattern: "(?i)opt[- ]?in"
 
