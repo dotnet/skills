@@ -13,7 +13,8 @@ description: >
   USE FOR: writing new tests (use code-testing-agent); running tests (use
   run-tests); migration; assertion-diversity metrics (use assertion-quality);
   coverage/CRAP metrics (use coverage-analysis); the testsmells.org academic
-  catalog (use test-smell-detection).
+  catalog (use test-smell-detection); fixing or modernizing MSTest tests,
+  assertions, attributes, or lifecycle (use writing-mstest-tests).
 license: MIT
 ---
 
