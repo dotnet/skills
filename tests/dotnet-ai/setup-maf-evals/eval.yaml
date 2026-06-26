@@ -124,10 +124,10 @@ scenarios:
         path: fixture/.github/workflows/evals.yml
       - type: file_contains
         path: fixture/.github/workflows/evals.yml
-        text: "aieval report"
+        value: "aieval report"
       - type: file_contains
         path: fixture/.github/workflows/evals.yml
-        text: "upload-artifact"
+        value: "upload-artifact"
 
   - name: ichatclient-detection-azure-openai
     prompt: |
