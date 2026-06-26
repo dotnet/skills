@@ -13,6 +13,30 @@ each with a concrete next action.
 This skill is **read-only**. It never edits source. The output is a report file
 plus a short chat summary of top findings.
 
+## When to Use
+
+- The user asks "why is my agent slow", "scan my agentic app", "audit my
+  agentic app", "find perf issues", or "is my topology too complex".
+- The user has just modified an agent topology (added an agent, added a
+  handoff edge, swapped a model, added tools) and wants a sanity check
+  before merging.
+- A coding agent is about to make a non-trivial change to a `.NET`
+  agentic app and wants the current perf/cost baseline to compare
+  against post-change.
+
+## When Not to Use
+
+- The user wants to install **always-on** rules so future agent work
+  surfaces perf concerns by default — use `configure-agentic-perf-rules`.
+- The user wants to wire **runtime** measurement (latency, tokens,
+  cost, quality scores) into the project — use `setup-maf-evals`.
+- The project is not a .NET agentic app — use `optimizing-dotnet-performance`
+  for general .NET performance guidance.
+- The user wants the skill to **fix** the findings, not just report
+  them — this skill is read-only by design; route fixes through
+  `configure-agentic-perf-rules` (for guard-rails) or normal coding
+  agent work (for code changes).
+
 ## Supported topologies
 
 The skill targets any .NET project using Microsoft Agent Framework

@@ -11,6 +11,31 @@ token usage, cost, quality, and safety on every change to a .NET
 agentic app — and produces the proper Microsoft.Extensions.AI.Evaluation
 HTML report by default.
 
+## When to Use
+
+- The user asks to "set up evals", "add an evaluation harness", "wire
+  up MEAI evaluation", or "measure my agent's quality".
+- The user wants to **validate quality** after a model change ("does
+  swapping gpt-4o → gpt-4o-mini regress responses?") and needs a
+  reproducible baseline.
+- The user wants to **compare** model assignments side-by-side
+  ("compare gpt-4o vs gpt-4o-mini across my agents").
+- The user wants to **add safety evaluators** (Hate/Violence/SelfHarm/
+  Sexual via Azure AI Foundry) to an existing agent.
+- The user wants a recurring eval run wired into CI (the optional
+  GitHub Actions workflow).
+
+## When Not to Use
+
+- The user wants a **one-shot audit** of existing code without scaffolding
+  a new test project — use `scan-agentic-app-perf` instead.
+- The user wants **always-on perf guard-rails** in the project's
+  agent-instructions file — use `configure-agentic-perf-rules`.
+- The project is not a .NET agentic app, or the user is not using
+  `Microsoft.Extensions.AI` / `Microsoft.Agents.AI`.
+- The user explicitly does not want an MSTest dependency and is not
+  willing to use the opt-in `--shape console` runner.
+
 ## Supported topologies
 
 The skill targets any .NET project using Microsoft Agent Framework
