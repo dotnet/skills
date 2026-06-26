@@ -40,6 +40,17 @@ Avoid them when scaffolding `<App>.Evals.Tests`.
   `executionName` to `DiskBasedReportingConfiguration.Create(...)`.
   Hit/Miss never affects correctness; it just tells you whether the
   LLM was actually called this run.
+- **Snake_case JSON deserialized with default STJ options.** `inputs.json`,
+  `matrix.json`, `prices.json`, and `golden.json` all use snake_case keys
+  by template convention, but the C# records use PascalCase. The loaders
+  (`InputsLoader`, `MatrixLoader`, `PriceTable.Load`, `GoldenLoader`)
+  **must** specify
+  `JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower, PropertyNameCaseInsensitive = true }`,
+  or properties bind to `null`. Quality mode fails loudly (rubric/golden
+  evaluator throws); telemetry mode can fail **silently** (zeroed records
+  whose null fields are never read), which corrupts cost rollups. See
+  `references/telemetry-capture.md` and `references/compare-mode.md` for
+  the canonical loader sketches.
 
 ## Clients (agent vs judge vs stub)
 

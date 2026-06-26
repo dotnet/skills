@@ -78,6 +78,39 @@ exposes an overload accepting per-agent model assignments — useful when
 the app uses multiple deployment aliases or supports model swapping
 via `ChatOptions.ModelId`.
 
+## `MatrixLoader` (snake_case JSON, PascalCase records)
+
+`matrix.json` uses snake_case keys (`schema_version`, `model_assignments`)
+that bind to PascalCase C# properties (`SchemaVersion`, `ModelAssignments`).
+The loader **must** opt into snake_case-aware deserialization or the
+properties come back `null` and `CompareTests` crashes on enumeration:
+
+```csharp
+internal static class MatrixLoader
+{
+    private static readonly JsonSerializerOptions s_options = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        PropertyNameCaseInsensitive = true,
+    };
+
+    public static List<MatrixEntry> Load()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Compare", "matrix.json");
+        var root = JsonSerializer.Deserialize<MatrixRoot>(
+            File.ReadAllText(path), s_options);
+        return root?.Entries ?? new();
+    }
+}
+
+internal sealed record MatrixRoot(int SchemaVersion, List<MatrixEntry> Entries);
+internal sealed record MatrixEntry(string Name, Dictionary<string, string> ModelAssignments);
+```
+
+Reuse the same `s_options` for `InputsLoader`, `PriceTable.Load()`, and
+`GoldenLoader.Load()` — STJ defaults will silently null-out PascalCase
+properties bound to snake_case JSON.
+
 ## Compare-specific report
 
 `compare.md` (still emitted, in addition to the aggregated

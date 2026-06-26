@@ -109,3 +109,36 @@ internal sealed class TelemetryCapturingChatClient(IChatClient inner, PriceTable
 ```
 
 Edit freely — costs change. The price table is **never** baked into source.
+
+## `InputsLoader` (the deserializer the test uses)
+
+`inputs.json` is snake_case; the C# records (`TelemetryInput`, etc.) are
+PascalCase. The loader **must** specify a `JsonSerializerOptions` with
+`PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower` and
+`PropertyNameCaseInsensitive = true`, or properties deserialize to
+`null` and tests fail (or, worse, silently produce zeroed records when
+the property is never read — telemetry mode is especially prone to
+this because it never accesses some fields).
+
+```csharp
+internal static class InputsLoader
+{
+    private static readonly JsonSerializerOptions s_options = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        PropertyNameCaseInsensitive = true,
+    };
+
+    public static List<TelemetryInput> Load()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Telemetry", "inputs.json");
+        return JsonSerializer.Deserialize<List<TelemetryInput>>(
+            File.ReadAllText(path), s_options) ?? new();
+    }
+}
+```
+
+Same applies to `PriceTable.Load()` (`prices.json`), `MatrixLoader.Load()`
+(`matrix.json`), and `GoldenLoader.Load()` (`golden.json`). Use a shared
+options instance — do NOT rely on STJ defaults.
+
