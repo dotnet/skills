@@ -186,7 +186,7 @@ dotnet user-secrets set "ConnectionStrings:<alias>" `
 # on the resource for the signed-in identity.
 
 # Option C — env var (works in CI without a secrets file)
-$env:ConnectionStrings__<alias> = "Endpoint=https://...;DeploymentId=<alias>"
+$env:ConnectionStrings__<alias> = "Endpoint=<endpoint-url>;DeploymentId=<alias>"
 ```
 
 **Two endpoint gotchas to call out in chat:**

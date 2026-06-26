@@ -141,4 +141,3 @@ internal static class InputsLoader
 Same applies to `PriceTable.Load()` (`prices.json`), `MatrixLoader.Load()`
 (`matrix.json`), and `GoldenLoader.Load()` (`golden.json`). Use a shared
 options instance — do NOT rely on STJ defaults.
-
