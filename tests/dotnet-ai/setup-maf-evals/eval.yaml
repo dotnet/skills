@@ -340,12 +340,11 @@ scenarios:
       uses a reasoning model (o1-style). What do I need to know about the
       max_tokens / MaxOutputTokens parameter so the evals don't silently break?
     assertions:
-      - type: file_contains
-        path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
-        value: "max_tokens"
-      - type: file_contains
-        path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
-        value: "EVAL_JUDGE_DEPLOYMENT_NAME"
+      # Assert on the agent's answer, not on out-of-sandbox repo files.
+      - type: output_contains
+        value: "max_completion_tokens"
+      - type: output_matches
+        value: "(?i)reasoning model"
 
   - name: pitfalls-doc-warns-stylistic-agents-fail-completeness
     timeout: 180
@@ -355,15 +354,11 @@ scenarios:
       with no factual claims — which quality evaluators will systematically fail it, and
       how should I account for that?
     assertions:
-      - type: file_contains
-        path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
-        value: "Tuning Quality for stylistic agents"
-      - type: file_contains
-        path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
+      # Assert on the agent's answer, not on out-of-sandbox repo files.
+      - type: output_contains
         value: "CompletenessEvaluator"
-      - type: file_contains
-        path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/evaluators-catalog.md
-        value: "RubricEvaluator"
+      - type: output_matches
+        value: "(?i)(equivalence|rubric|drop)"
 
   - name: compare-mode-is-opt-in-not-default
     timeout: 180
@@ -372,10 +367,7 @@ scenarios:
       I'm adding an evaluation harness to my .NET agentic app. Is compare mode
       (A/B model matrix) on by default, or is it opt-in?
     assertions:
-      - type: file_contains
-        path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/SKILL.md
-        value: "Wire compare mode (opt-in)"
-      - type: file_contains
-        path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/SKILL.md
-        value: "Compare mode is opt-in"
+      # Assert on the agent's answer, not on out-of-sandbox repo files.
+      - type: output_matches
+        value: "(?i)opt[- ]?in"
 

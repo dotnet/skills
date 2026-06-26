@@ -90,9 +90,16 @@ review and merge manually.
 older than the current template, offer to migrate (additive only —
 preserves existing rows, adds the new fields as nullable).
 
-### 2. Confirm scope with the user
+### 2. Resolve scope (proceed with defaults — do not block)
 
-Present the detection summary, then confirm:
+This is an **autonomous scaffold**. Do **not** stop and wait for the user
+to answer before scaffolding. Print a one-line detection summary, apply
+the defaults below, scaffold immediately, then state any assumptions you
+made so the user can adjust. Honor any modes/categories the user *did*
+specify; otherwise use the defaults. The only actions that require explicit
+confirmation **first** are the genuinely destructive/irreversible ones
+called out elsewhere — overwriting an existing infra file in update mode
+(step 1a) and the Aspire dashboard panel's AppHost edit. Defaults:
 
 1. **Project shape** (default: MSTest). Alternative: console runner
    (legacy v1 shape) — only emit if user explicitly asks for it.
@@ -102,7 +109,7 @@ Present the detection summary, then confirm:
    |------|-----------|------|-------|---------|
    | **Quality** *(headline)* | Relevance, Coherence, Fluency, Completeness, Equivalence, Groundedness; agent: IntentResolution, TaskAdherence, ToolCallAccuracy | per-call judge tokens | real `IChatClient` + `EVAL_USE_REAL_JUDGE=1` | **ON** (stubbed until judge wired) |
    | NLP (zero-config sanity) | BLEU, GLEU, F1, Words | free | reference responses in golden.json | ON |
-   | Safety | `ContentHarmEvaluator` (Hate+SelfHarm+Violence+Sexual single-shot), ProtectedMaterial, IndirectAttack, CodeVulnerability, UngroundedAttributes, GroundednessPro | Foundry evaluation service charges | Azure AI Foundry endpoint + `EVAL_USE_FOUNDRY_SAFETY=1` | **OFF** — prompt the user: "Wire safety evaluators too? (y/N)" |
+   | Safety | `ContentHarmEvaluator` (Hate+SelfHarm+Violence+Sexual single-shot), ProtectedMaterial, IndirectAttack, CodeVulnerability, UngroundedAttributes, GroundednessPro | Foundry evaluation service charges | Azure AI Foundry endpoint + `EVAL_USE_FOUNDRY_SAFETY=1` | **OFF** by default — scaffold only when the user explicitly asks for safety evaluators (do not block to ask) |
 
    Frame Quality as the headline evaluation; NLP is the zero-config
    first-run experience that emits a real `report.html` before any
@@ -110,13 +117,13 @@ Present the detection summary, then confirm:
 
 3. **IChatClient detection result.** Show what was detected (e.g., "Found
    `AddAzureOpenAIChatClient` in `AppHost.cs:41` with deployment alias `chat`").
-   Ask the user to confirm or override. If detection failed, generate a
-   stub factory the user will fill in.
+   State the detected registration and proceed; if detection failed, generate
+   a stub factory the user will fill in (do not block to confirm).
 4. **Run modes to scaffold.** Telemetry (default ON) and Quality (default
-   ON). **Compare mode is opt-in** — prompt the user: "Wire compare
-   mode for side-by-side matrix.json runs? (y/N)". Compare adds the
-   largest scaffold (extra runner + matrix.json + delta-table generator)
-   and is the least commonly used surface.
+   ON). **Compare mode is opt-in and OFF by default** — scaffold it only
+   when the user explicitly asks for a side-by-side matrix.json run. Compare
+   adds the largest scaffold (extra runner + matrix.json + delta-table
+   generator) and is the least commonly used surface. Do not block to ask.
 5. **Optional add-ons:** Aspire dashboard panel, GitHub Actions workflow.
 
 ### 3. Scaffold the project
