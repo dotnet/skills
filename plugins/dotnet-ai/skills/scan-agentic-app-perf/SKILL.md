@@ -138,8 +138,14 @@ Sort findings by severity (critical → warn → info), then by `check`
 slug (stable lexical order so `history.*` < `model.*` < `otel.*` <
 `parallel.*` < `prompt.*` < `tools.*` < `topology.*`).
 
-Write a **single file**: `.copilot/perf-reports/scan.md`, overwritten
-on every run. Git provides whatever history you want; the skill does
+**Always write the report** — even for a read-only audit and even when
+zero criticals are found (an empty-findings report is still the
+deliverable; writing it is not a source edit). Write it to
+`.copilot/perf-reports/scan.md` **relative to the scanned app's root** —
+the directory that contains the solution / `*.AppHost.csproj`, or the
+path the user pointed you at (e.g. auditing `./fixture` writes
+`fixture/.copilot/perf-reports/scan.md`). Overwrite it on every run.
+Git provides whatever history you want; the skill does
 not maintain timestamped copies or `latest-*` mirrors. (Exception: when
 a solution has multiple `*.AppHost.csproj` projects, write one report
 per host as `scan-<host>.md` — see `references/common-pitfalls.md`.)
