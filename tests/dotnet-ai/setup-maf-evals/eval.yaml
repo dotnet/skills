@@ -96,13 +96,13 @@ scenarios:
         path: fixture/MyApp.Evals.Tests/Safety/SafetyTests.cs
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Safety/SafetyTests.cs
-        text: "ContentHarmEvaluator"
+        value: "ContentHarmEvaluator"
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Safety/SafetyTests.cs
-        text: "Assert.Inconclusive"
+        value: "Assert.Inconclusive"
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/MyApp.Evals.Tests.csproj
-        text: "Microsoft.Extensions.AI.Evaluation.Safety"
+        value: "Microsoft.Extensions.AI.Evaluation.Safety"
 
   - name: scaffold-with-ci-workflow
     prompt: |
