@@ -106,29 +106,14 @@ MyPackage/
 
 ### Forwarding chain: `buildTransitive/` → `build/` → shared
 
-The conventional ownership chain is `buildTransitive/ → build/ → (shared location)`. A `buildTransitive/*.props` should forward to the corresponding `build/*.props` rather than jumping straight to a shared/`buildMultiTargeting/` file. This keeps a clear ownership chain and makes it explicit that transitive consumers receive a subset of what direct consumers see:
+Forward `buildTransitive/*.props` through the sibling `build/*.props` (chain `buildTransitive → build → shared`) instead of importing `buildMultiTargeting/` directly — this keeps a clear ownership chain and makes explicit that transitive consumers get a subset of what direct consumers see.
 
-```xml
-<!-- buildTransitive/MyPackage.props -->
-<Project>
-  <Import Project="$(MSBuildThisFileDirectory)..\build\MyPackage.props" />
-</Project>
-```
-
-#### Mind the target framework when `build/` is TFM-specific
-
-`build/*.props` are frequently packed **per-TFM** under `build/<tfm>/` (via `TfmSpecificPackageFile`, a per-TFM `<PackagePath>build/net8.0/…`, or SDK conventions), whereas `buildMultiTargeting/` is **not** TFM-specific. When the forwarder lives in `buildTransitive/<tfm>/` and points at a TFM-specific `build/`, the import **must include the TFM segment** — `..\..\build\<tfm>\MyPackage.props`. Omitting it resolves to a non-existent package-root `build\MyPackage.props` and fails with **`MSB4019`** for transitive consumers.
-
-**Derive the TFM from the file's own folder, not `$(TargetFramework)`.** NuGet nearest-match means a consumer (e.g. `net10.0`) can be served the `net9.0` asset folder, so `$(TargetFramework)` may name a folder that was never restored. The current file's own directory always points at a folder that exists:
+When `build/` is packed **per-TFM** (`build/<tfm>/`, via `TfmSpecificPackageFile`, a per-TFM `<PackagePath>`, or SDK conventions) while `buildMultiTargeting/` is not, a `buildTransitive/<tfm>/` forwarder **must include the TFM segment** — dropping it resolves to a non-existent package-root `build\MyPackage.props` and fails transitive consumers with **`MSB4019`**. Derive the segment from the file's own folder, never `$(TargetFramework)` (NuGet nearest-match can serve a `net10.0` consumer the `net9.0` folder, so `$(TargetFramework)` may name a folder that was never restored):
 
 ```xml
 <!-- buildTransitive/<tfm>/MyPackage.props -->
-<Project>
-  <Import Project="$(MSBuildThisFileDirectory)..\..\build\$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName($(MSBuildThisFileDirectory)))))\MyPackage.props" />
-</Project>
+<Import Project="$(MSBuildThisFileDirectory)..\..\build\$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName($(MSBuildThisFileDirectory)))))\MyPackage.props" />
 ```
-
-`MSBuildThisFileDirectory` ends in a trailing separator, so `GetDirectoryName(...)` yields `…\buildTransitive\<tfm>` and `GetFileName(...)` of that is the `<tfm>` segment — the same TFM folder the forwarder lives in.
 
 ## Source Tree vs Packed Layout
 
