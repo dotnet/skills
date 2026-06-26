@@ -108,7 +108,7 @@ MyPackage/
 
 Forward `buildTransitive/*.props` through the sibling `build/*.props` (chain `buildTransitive → build → shared`) instead of importing `buildMultiTargeting/` directly — this keeps a clear ownership chain and makes explicit that transitive consumers get a subset of what direct consumers see.
 
-When `build/` is packed **per-TFM** (`build/<tfm>/`, via `TfmSpecificPackageFile`, a per-TFM `<PackagePath>`, or SDK conventions) while `buildMultiTargeting/` is not, a `buildTransitive/<tfm>/` forwarder **must include the TFM segment** — dropping it resolves to a non-existent package-root `build\MyPackage.props` and fails transitive consumers with **`MSB4019`**. Derive the segment from the file's own folder, never `$(TargetFramework)` (NuGet nearest-match can serve a `net10.0` consumer the `net9.0` folder, so `$(TargetFramework)` may name a folder that was never restored):
+When `build/` is packed **per-TFM** (`build/<tfm>/`, via `TfmSpecificPackageFile`, a per-TFM `<PackagePath>`, or SDK conventions) while `buildMultiTargeting/` is not, a `buildTransitive/<tfm>/` forwarder **must include the TFM segment** — dropping it resolves to a non-existent package-root `build/MyPackage.props` and fails transitive consumers with **`MSB4019`**. Derive the segment from the file's own folder, never `$(TargetFramework)` (NuGet nearest-match can serve a `net10.0` consumer the `net9.0` folder, so `$(TargetFramework)` may name a folder that was never restored):
 
 ```xml
 <!-- buildTransitive/<tfm>/MyPackage.props -->
