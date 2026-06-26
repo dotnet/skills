@@ -69,10 +69,10 @@ scenarios:
         text: "schema_version"
       - type: file_contains
         path: fixture/.gitignore
-        text: ".copilot/perf-reports/evals/"
+        value: ".copilot/perf-reports/evals/"
       - type: file_contains
         path: fixture/.gitignore
-        text: "_store/"
+        value: "_store/"
 
   - name: scaffold-with-safety-tier
     prompt: |
