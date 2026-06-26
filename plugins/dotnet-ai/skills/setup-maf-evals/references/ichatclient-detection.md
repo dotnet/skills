@@ -16,15 +16,27 @@ directories**. Match (case-insensitive, multi-line):
 | `AddOpenAIChatClient\s*\(` | OpenAI direct | `Program.cs` |
 | `AddOllamaChatClient\s*\(` | Ollama | `Program.cs` |
 | `AddAIInference\s*\(` (Foundry deployment alias) | Azure AI Foundry | `AppHost.cs` |
-| `AddAzureChatCompletionsClient\s*\([^)]*\)\s*\.AddChatClient\s*\(` | Aspire `Aspire.Azure.AI.Inference` (Foundry-routed) | `Program.cs` |
+| `AddAzureChatCompletionsClient\s*\([^)]*\)\s*\.AddChatClient\s*\(` | Aspire `Aspire.Azure.AI.Inference` (Foundry-routed, **legacy — see deprecation note below**) | `Program.cs` |
+| `AddOpenAIClient\s*\([^)]*\)\s*\.AddChatClient\s*\(` | Aspire OpenAI/v1 (Foundry-routed via the OpenAI SDK) | `Program.cs` |
 | `services\.AddSingleton<IChatClient>` (any explicit registration) | custom | varies |
 | `\.AsIChatClient\(\)` (after an SDK client) | manual wrap | varies |
 
 > The `AddAzureChatCompletionsClient(...).AddChatClient(...)` chain is the
-> standard Aspire 13.2 way of wiring an `IChatClient` against a Foundry chat
-> deployment. The argument is the **connection-string name**, which Aspire's
-> AppHost populates automatically (`AddDeployment("chat", ...)` -> connection
-> string `chat`). The factory mirrors both calls verbatim.
+> Aspire 13.2 way of wiring an `IChatClient` against a Foundry chat
+> deployment via the `Azure.AI.Inference` beta SDK. The argument is the
+> **connection-string name**, which Aspire's AppHost populates
+> automatically (`AddDeployment("chat", ...)` -> connection string `chat`).
+> The factory mirrors both calls verbatim.
+>
+> ⚠️ **Deprecation note (as of 2026):** the `Azure.AI.Inference` beta SDK
+> is being retired on **August 26, 2026** in favor of the GA OpenAI/v1
+> API + stable OpenAI SDK. New apps should prefer the
+> `AddOpenAIClient(...).AddChatClient(...)` pattern against an OpenAI/v1
+> endpoint, which avoids several quirks (notably the reasoning-model
+> `max_tokens` rejection documented in
+> `references/common-pitfalls.md`). The skill still detects and supports
+> the legacy pattern unchanged. See the
+> [Foundry migration guide](https://learn.microsoft.com/en-us/azure/foundry/how-to/model-inference-to-openai-migration).
 
 Capture the deployment alias / model id literal if present (e.g.,
 `builder.AddAIInference("chat", "gpt-4o-mini")` → alias `chat`).
