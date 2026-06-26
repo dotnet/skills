@@ -4,6 +4,7 @@ required_skills:
 
 scenarios:
   - name: scaffold-evals-tests-project-fresh
+    timeout: 480
     prompt: |
       Set up evals for the agentic app at ./fixture. Wire telemetry,
       quality, and compare modes. Skip Safety, Aspire panel, and CI workflow.
@@ -75,6 +76,7 @@ scenarios:
         value: "_store/"
 
   - name: scaffold-with-safety-tier
+    timeout: 480
     prompt: |
       Add an evaluation harness for the agentic app at ./fixture, including safety evaluators.
     setup:
@@ -105,6 +107,7 @@ scenarios:
         value: "Microsoft.Extensions.AI.Evaluation.Safety"
 
   - name: scaffold-with-ci-workflow
+    timeout: 480
     prompt: |
       Add evals for the agentic app at ./fixture, and include a GitHub Actions workflow that runs them on every PR.
     setup:
@@ -130,6 +133,7 @@ scenarios:
         value: "upload-artifact"
 
   - name: ichatclient-detection-azure-openai
+    timeout: 480
     prompt: |
       Add evaluation coverage for the agentic app at ./fixture.
     setup:
@@ -156,6 +160,7 @@ scenarios:
         value: "AppHost.cs"
 
   - name: ichatclient-detection-missing-emits-stub
+    timeout: 480
     prompt: |
       Add an evaluation harness for the agentic app at ./fixture.
     setup:
@@ -178,6 +183,7 @@ scenarios:
         value: "no registration found"
 
   - name: skip-when-no-app-host
+    timeout: 480
     prompt: |
       Add evaluation coverage for the .NET project at ./fixture.
     setup:
@@ -190,6 +196,7 @@ scenarios:
         value: "agentic"
 
   - name: update-mode-preserves-user-data
+    timeout: 480
     prompt: |
       Refresh the evaluation harness for the agentic app at ./fixture. A MyApp.Evals.Tests project
       already exists with a custom rubric and golden.json. Do not overwrite either.
@@ -223,6 +230,7 @@ scenarios:
         value: "preserve me"
 
   - name: tier-banner-surfaces-in-chat-output
+    timeout: 480
     prompt: |
       Add an evaluation harness for the agentic app at ./fixture.
     setup:
@@ -246,6 +254,7 @@ scenarios:
         value: "EVAL_USE_FOUNDRY_SAFETY"
 
   - name: scaffold-emits-metrics-glossary
+    timeout: 480
     prompt: |
       Set up evals for the agentic app at ./fixture.
     setup:
@@ -273,6 +282,7 @@ scenarios:
         value: "metrics-glossary.md"
 
   - name: factory-emits-friendly-secrets-diagnostic
+    timeout: 480
     prompt: |
       Add evaluation coverage for the agentic app at ./fixture.
     setup:
@@ -298,6 +308,7 @@ scenarios:
         value: "ConnectionStrings"
 
   - name: factory-loads-user-secrets-explicitly
+    timeout: 480
     prompt: |
       Set up an evaluation harness for the agentic app at ./fixture.
     setup:
@@ -322,9 +333,12 @@ scenarios:
         value: "AddUserSecrets"
 
   - name: pitfalls-doc-warns-reasoning-models-reject-max-tokens
+    timeout: 180
+    reject_tools: ["bash"]
     prompt: |
-      When wiring an evaluation harness for an agentic .NET app against a reasoning model (o1-style),
-      what should I know about the max_tokens / MaxOutputTokens parameter?
+      I'm adding an evaluation harness to my .NET agentic app, and the agent under test
+      uses a reasoning model (o1-style). What do I need to know about the
+      max_tokens / MaxOutputTokens parameter so the evals don't silently break?
     assertions:
       - type: file_contains
         path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
@@ -334,9 +348,12 @@ scenarios:
         value: "EVAL_JUDGE_DEPLOYMENT_NAME"
 
   - name: pitfalls-doc-warns-stylistic-agents-fail-completeness
+    timeout: 180
+    reject_tools: ["bash"]
     prompt: |
-      When an agentic .NET app produces stylistic-only text (no factual claims), which quality
-      evaluators will systematically fail it, and why?
+      I'm setting up evals for my .NET agentic app. It mostly produces stylistic prose
+      with no factual claims — which quality evaluators will systematically fail it, and
+      how should I account for that?
     assertions:
       - type: file_contains
         path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
@@ -349,9 +366,11 @@ scenarios:
         value: "RubricEvaluator"
 
   - name: compare-mode-is-opt-in-not-default
+    timeout: 180
+    reject_tools: ["bash"]
     prompt: |
-      When adding an evaluation harness to an agentic .NET app, is compare mode
-      (A/B model matrix) opt-in or on by default?
+      I'm adding an evaluation harness to my .NET agentic app. Is compare mode
+      (A/B model matrix) on by default, or is it opt-in?
     assertions:
       - type: file_contains
         path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/SKILL.md

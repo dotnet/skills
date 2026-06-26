@@ -4,6 +4,7 @@ required_skills:
 
 scenarios:
   - name: clean-project-zero-criticals
+    timeout: 360
     prompt: |
       Audit the agentic .NET app at ./fixture for perf, cost, and reliability issues.
       Read-only — don't edit any source files.
@@ -44,6 +45,7 @@ scenarios:
         value: "critical: 0"
 
   - name: sprawl-fixture-flags-topology
+    timeout: 360
     prompt: |
       My agent app at ./fixture feels too complex. Find the perf and topology issues.
     setup:
@@ -76,6 +78,7 @@ scenarios:
         value: "critical"
 
   - name: full-history-fixture-flags-message-history
+    timeout: 360
     prompt: |
       Why is the agent app at ./fixture slow on multi-turn conversations? Find the perf issues.
     setup:
@@ -95,6 +98,7 @@ scenarios:
         value: "history"
 
   - name: prompt-bloat-fixture-flags-prompt-weight
+    timeout: 360
     prompt: |
       Audit the agent app at ./fixture for perf and cost issues.
     setup:
@@ -111,6 +115,7 @@ scenarios:
         value: "prompt"
 
   - name: missing-otel-fixture-flags-otel-coverage
+    timeout: 360
     prompt: |
       Find the observability and perf issues in the agent app at ./fixture.
     setup:
