@@ -1,7 +1,7 @@
 ---
 name: scan-agentic-app-perf
 description: |
-  Scan a .NET agentic application (Microsoft Agent Framework + Aspire + Foundry) for performance, cost, and reliability issues across seven check categories: topology, tool inventory, message-history strategy, prompt weight, parallelism, OTel coverage, and per-agent model assignment. Produces a Markdown report at .copilot/perf-reports/scan-<timestamp>.md (plus latest-scan.md) with severity-tagged findings (critical/warn/info), file:line citations, evidence, and concrete next actions that can route into configure-agentic-perf-rules or setup-maf-evals. WHEN: user asks "why is my agent slow", "scan my agentic app", "audit my agentic app", "find perf issues", "is my topology too complex", or has just modified an agent topology. NOT-WHEN: user wants to install always-on rules (use configure-agentic-perf-rules), or wire up evaluations (use setup-maf-evals); not for non-agentic .NET apps. Read-only — never edits source files.
+  Scan a .NET agentic application (MAF; Aspire/Foundry optional) across seven perf/cost/reliability categories — topology, tool inventory, message history, prompt weight, parallelism, OTel coverage, per-agent model assignment. Writes .copilot/perf-reports/scan-<timestamp>.md with severity-tagged findings (critical/warn/info), file:line citations, evidence, and next actions routing into configure-agentic-perf-rules or setup-maf-evals. Topologies: Aspire AppHost, plain console, ASP.NET Core, worker service. WHEN: user asks "why is my agent slow", "scan/audit my agentic app", "find perf issues", "is my topology too complex", or just changed a topology. NOT-WHEN: install always-on rules (use configure-agentic-perf-rules), wire evaluations (use setup-maf-evals); not for non-agentic .NET apps. Read-only. Supported topologies: Aspire AppHost, plain console, ASP.NET Core, worker service (Aspire-specific checks such as the AppHost-only model literal apply only when an AppHost is detected).
 ---
 
 # scan-agentic-app-perf
@@ -12,6 +12,23 @@ each with a concrete next action.
 
 This skill is **read-only**. It never edits source. The output is a report file
 plus a short chat summary of top findings.
+
+## Supported topologies
+
+The skill targets any .NET project using Microsoft Agent Framework
+(`Microsoft.Agents.AI`), regardless of how it's hosted:
+
+- **Aspire AppHost** (`*.AppHost.csproj` orchestrating agent services) — the most
+  common shape; enables AppHost-specific checks such as the "model literal lives
+  only in the AppHost" check.
+- **Plain console / worker service** — `Microsoft.Agents.AI` registered directly
+  against an OpenAI or Foundry client without an Aspire AppHost.
+- **ASP.NET Core minimal API** — agents registered via the same DI patterns.
+
+AppHost-specific checks (those that depend on `*.AppHost.csproj` being present)
+are silently skipped when no AppHost is detected. All other checks (topology,
+tool inventory, message history, prompt weight, parallelism, OTel coverage,
+per-agent model assignment) apply to every topology.
 
 ## Workflow
 

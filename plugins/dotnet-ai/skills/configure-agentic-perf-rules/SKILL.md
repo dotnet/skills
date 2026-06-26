@@ -8,11 +8,11 @@ description: >
   post-change measurement. The rules are written into the project's agent-instructions
   file (`.github/copilot-instructions.md` by default) inside a sentinel-delimited managed
   block that is idempotent and version-aware on update.
-  USE FOR: a .NET project using Microsoft Agent Framework (`Microsoft.Agents.AI`),
-  optionally with Aspire/Foundry, where the user reports "Copilot doesn't catch perf
+  WHEN: a .NET project using Microsoft Agent Framework (`Microsoft.Agents.AI`) — with
+  or without Aspire/Foundry — where the user reports "Copilot doesn't catch perf
   issues", wants up-front guard-rails before adding more agents/handoffs/tools, or is
   scaffolding a new agentic .NET app.
-  DO NOT USE FOR: non-agentic .NET projects (use `optimizing-dotnet-performance`),
+  NOT-WHEN: non-agentic .NET projects (use `optimizing-dotnet-performance`),
   non-.NET agentic projects, auditing existing code (use `scan-agentic-app-perf`), or
   measuring runtime telemetry (use `setup-maf-evals`).
 license: MIT
@@ -28,11 +28,10 @@ clobbering user-edited threshold values.
 
 ## When to Use
 
-- A .NET project uses Microsoft Agent Framework (`Microsoft.Agents.AI`) — typically with
-  Aspire (`Aspire.Hosting.*`) and Microsoft Foundry deployments — and the user wants
-  default-on perf guidance.
-- Scaffolding a new MAF/Aspire/Foundry agentic .NET app and the user wants to start with
-  perf guard-rails in place.
+- A .NET project uses Microsoft Agent Framework (`Microsoft.Agents.AI`) — with or
+  without Aspire/Foundry — and the user wants default-on perf guidance.
+- Scaffolding a new MAF agentic .NET app (Aspire-hosted or plain console / ASP.NET
+  Core / worker service) and the user wants to start with perf guard-rails in place.
 - The user reports that the coding agent is not catching perf issues until prompted.
 - The user wants to update an existing managed block to a newer version of the rules.
 

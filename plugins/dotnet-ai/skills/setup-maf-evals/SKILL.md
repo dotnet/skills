@@ -1,7 +1,7 @@
 ---
 name: setup-maf-evals
 description: |
-  Scaffold an `<App>.Evals.Tests` MSTest project alongside a .NET agentic app (MAF + Aspire + Foundry) wired to the GA `Microsoft.Extensions.AI.Evaluation.Reporting` pipeline. Three evaluator categories: **NLP** (deterministic BLEU/GLEU/F1, no API key), **Quality** (LLM-as-judge Relevance/Coherence/Fluency, etc.), **Safety** (Hate/Violence/SelfHarm/Sexual via Azure AI Foundry). Auto-installs the `aieval` dotnet tool, detects the app's `IChatClient` registration and generates a factory so `EVAL_USE_REAL_AGENT=1` works without manual wiring, and emits an HTML report at `.copilot/perf-reports/evals/<ts>/report.html`. Optional GitHub Actions workflow runs the evals on every PR. WHEN: user asks "set up evals", "add evaluation harness", "measure my agent perf", "validate quality after a model change", "compare gpt-4o vs gpt-4o-mini", "add safety evaluators", "generate eval report". NOT-WHEN: one-shot audit (use scan-agentic-app-perf), install rules (configure-agentic-perf-rules).
+  Scaffold an `<App>.Evals.Tests` MSTest project alongside a .NET agentic app (MAF; Aspire/Foundry optional) wired to the GA `Microsoft.Extensions.AI.Evaluation.Reporting` pipeline. Three evaluator categories: **NLP** (deterministic BLEU/GLEU/F1, no API key), **Quality** (LLM-as-judge Relevance/Coherence/Fluency, etc.), **Safety** (Hate/Violence/SelfHarm/Sexual via Foundry). Auto-installs the `aieval` tool, detects the app's `IChatClient` registration and generates a factory so `EVAL_USE_REAL_AGENT=1` works without manual wiring, and emits an HTML report at `.copilot/perf-reports/evals/<ts>/report.html`. Optional GitHub Actions workflow runs evals on every PR. Topologies: Aspire AppHost, plain console, ASP.NET Core, worker service. WHEN: user asks "set up evals", "add evaluation harness", "validate quality after a model change", "compare gpt-4o vs gpt-4o-mini", "add safety evaluators". NOT-WHEN: one-shot audit (use scan-agentic-app-perf), install rules (use configure-agentic-perf-rules).
 ---
 
 # setup-maf-evals
@@ -10,6 +10,24 @@ Scaffold an `<App>.Evals.Tests` MSTest project that measures latency,
 token usage, cost, quality, and safety on every change to a .NET
 agentic app — and produces the proper Microsoft.Extensions.AI.Evaluation
 HTML report by default.
+
+## Supported topologies
+
+The skill targets any .NET project using Microsoft Agent Framework
+(`Microsoft.Agents.AI`), regardless of how it's hosted:
+
+- **Aspire AppHost** (`*.AppHost.csproj` orchestrating agent services) — the
+  most common shape; the generated `AgentChatClientFactory` mirrors the
+  AppHost's connection-string-driven `IChatClient` registration.
+- **Plain console / worker service** — `Microsoft.Agents.AI` registered
+  directly against an OpenAI or Foundry client without an Aspire AppHost.
+  The factory mirrors the app's direct registration (e.g. `AddOpenAIClient`
+  or `AddAzureOpenAIChatClient` at the host level).
+- **ASP.NET Core minimal API** — agents registered via the same DI patterns.
+
+`IChatClient` detection (see `references/ichatclient-detection.md`) works
+the same way across all topologies; only the AppHost-vs-Program.cs search
+locations differ.
 
 ## Workflow
 
