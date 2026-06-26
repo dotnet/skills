@@ -45,6 +45,7 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore tools
+        working-directory: {{AppName}}.Evals.Tests
         run: dotnet tool restore
 
       - name: Azure login (only if creds present)
@@ -79,11 +80,12 @@ jobs:
 
       - name: Generate report (already invoked by [AssemblyCleanup], this is a safety net)
         if: always()
+        working-directory: {{AppName}}.Evals.Tests
         run: |
-          mkdir -p .copilot/perf-reports/evals/${{ env.EVAL_REPORT_FOLDER }}
+          mkdir -p $GITHUB_WORKSPACE/.copilot/perf-reports/evals/${{ env.EVAL_REPORT_FOLDER }}
           dotnet tool run aieval report \
-            --path  {{AppName}}.Evals.Tests/_store \
-            --output .copilot/perf-reports/evals/${{ env.EVAL_REPORT_FOLDER }}/report.html
+            --path  _store \
+            --output $GITHUB_WORKSPACE/.copilot/perf-reports/evals/${{ env.EVAL_REPORT_FOLDER }}/report.html
 
       - name: Upload report
         if: always()

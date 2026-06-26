@@ -92,8 +92,10 @@ Scan the target file. If a managed block is present, parse its version from the
 4. If zero, multiple, mismatched, or out-of-order sentinels are detected, **refuse to
    edit** and report the malformed state to the user. Do not attempt to repair the file
    automatically.
-5. Versions are compared numerically as semver triples; a leading `v` is optional in
-   either side of the comparison.
+5. Versions are compared numerically as semver triples. The `v` prefix is a
+   literal part of the BEGIN sentinel (required by rule #1's regex), so the
+   captured `<ver>` group never includes it; the skill's `version:` field
+   likewise carries no `v`. Compare the two bare triples directly.
 
 The current skill version is the `version:` field at the top of this SKILL.md.
 

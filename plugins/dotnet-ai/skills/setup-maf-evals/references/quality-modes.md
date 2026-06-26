@@ -48,7 +48,12 @@ judge model or chat options changed, or (d) it's the first run.
 internal static class ReportingConfig
 {
     public static readonly string StorageRoot =
-        Path.Combine(RepoRoot.Find(), "_store");
+    // _store lives next to the test project (the directory that holds
+    // .config/dotnet-tools.json) so the runtime AssemblyCleanup report
+    // call, the CI safety-net step, and `dotnet tool run aieval` — all
+    // executed from the project directory — resolve the same store.
+    public static readonly string StorageRoot =
+        Path.Combine(ProjectRoot.Find(), "_store");
 
     public static ReportingConfiguration ForQuality()
     {
@@ -182,7 +187,7 @@ public static class AievalReport
         var psi = new ProcessStartInfo("dotnet",
             $"tool run aieval report --path \"{ReportingConfig.StorageRoot}\" --output \"{html}\"")
         {
-            WorkingDirectory = RepoRoot.Find(),
+            WorkingDirectory = ProjectRoot.Find(),
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,

@@ -31,7 +31,7 @@ scenarios:
       - type: file_exists
         path: fixture/MyApp.Evals.Tests/MyApp.Evals.Tests.csproj
       - type: file_exists
-        path: fixture/MyApp.Evals.Tests/dotnet-tools.json
+        path: fixture/MyApp.Evals.Tests/.config/dotnet-tools.json
       - type: file_exists
         path: fixture/MyApp.Evals.Tests/Reporting/ReportingConfig.cs
       - type: file_exists
@@ -54,7 +54,7 @@ scenarios:
         path: fixture/MyApp.Evals.Tests/MyApp.Evals.Tests.csproj
         value: "MSTest"
       - type: file_contains
-        path: fixture/MyApp.Evals.Tests/dotnet-tools.json
+        path: fixture/MyApp.Evals.Tests/.config/dotnet-tools.json
         value: "microsoft.extensions.ai.evaluation.console"
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Quality/QualityTests.cs

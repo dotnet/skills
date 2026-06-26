@@ -26,9 +26,16 @@ evals reproducible across machines and CI runs.
 }
 ```
 
-Place at `<App>.Evals.Tests/dotnet-tools.json` (not the repo root) so
-the manifest follows the project. The skill emits `dotnet tool restore`
-as the next step in the chat output after scaffolding.
+Place at `<App>.Evals.Tests/.config/dotnet-tools.json` — the standard
+local-manifest location, discoverable by `dotnet tool restore` /
+`dotnet tool run` when those commands run from the `<App>.Evals.Tests/`
+directory (not the repo root). Running them from the repo root would
+walk *up* and never find a manifest that lives in a child directory, so
+every tool invocation — the CI `Restore tools` step, the `aieval report`
+safety-net step, and the runtime `AssemblyCleanup` report call — uses
+the test-project directory as its working directory. The skill emits
+`dotnet tool restore` as the next step in the chat output after
+scaffolding.
 
 ## Why `rollForward: false`
 

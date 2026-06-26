@@ -14,7 +14,7 @@ nothing else.
 
 ### `Words`
 - **Custom evaluator** scaffolded by this skill (see `evaluators-catalog.md`).
-- **What it measures:** raw token count of the response text.
+- **What it measures:** word count of the response text (whitespace-separated tokens, per `WordCountEvaluator`).
 - **Scale:** integer ≥ 0.
 - **Interpretation:** `< 5` → Poor (response too short / empty). `5–500` → Good. `> 500` → Average (response unusually long).
 - **Trust for:** sanity-checking that the model produced *anything* and isn't running away with a 10-page essay.

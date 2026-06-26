@@ -16,7 +16,7 @@ out of the box, and Test Explorer integration is automatic.
 ```
 <App>.Evals.Tests/
   <App>.Evals.Tests.csproj
-  dotnet-tools.json
+  .config/dotnet-tools.json
   GlobalUsings.cs
   Reporting/
     ReportingConfig.cs              # DiskBasedReportingConfiguration factory; tier-aware evaluator list
@@ -103,7 +103,7 @@ out of the box, and Test Explorer integration is automatic.
 - `Microsoft.Extensions.AI.Evaluation.{NLP,Safety}` are still preview (track the latest `10.7.0-preview.*` build). NLP is opt-in-on; Safety is opt-in-off. The csproj `<PackageReference>` blocks above pin a known-good preview build — bump them when a newer preview ships.
 - `Microsoft.Extensions.Hosting` and `Microsoft.Extensions.Configuration.*` must be `10.0.1` (not `10.0.0`) to satisfy the transitive constraint from `Microsoft.Agents.AI.Hosting`. Pinning `10.0.0` produces `NU1605`.
 
-## `dotnet-tools.json`
+## `.config/dotnet-tools.json`
 
 ```json
 {
