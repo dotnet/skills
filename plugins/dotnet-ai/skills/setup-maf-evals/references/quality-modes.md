@@ -190,7 +190,7 @@ public static class AievalReport
         };
         using var p = Process.Start(psi)!;
         p.WaitForExit();
-        TestContext.Out?.WriteLine($"Eval report: {html}");
+        Console.WriteLine($"Eval report: {html}");
     }
 }
 ```
