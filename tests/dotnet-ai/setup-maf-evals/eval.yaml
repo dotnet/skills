@@ -151,9 +151,9 @@ scenarios:
         path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
-        text: "AddAzureOpenAIChatClient"
+        value: "AddAzureOpenAIChatClient"
       - type: output_contains
-        text: "AppHost.cs"
+        value: "AppHost.cs"
 
   - name: ichatclient-detection-missing-emits-stub
     prompt: |
