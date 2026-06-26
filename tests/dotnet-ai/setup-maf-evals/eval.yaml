@@ -173,9 +173,9 @@ scenarios:
     assertions:
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
-        text: "NotImplementedException"
+        value: "NotImplementedException"
       - type: output_contains
-        text: "no registration found"
+        value: "no registration found"
 
   - name: skip-when-no-app-host
     prompt: |
@@ -187,7 +187,7 @@ scenarios:
             <Project Sdk="Microsoft.NET.Sdk.Web"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>
     assertions:
       - type: output_contains
-        text: "agentic"
+        value: "agentic"
 
   - name: update-mode-preserves-user-data
     prompt: |
@@ -217,10 +217,10 @@ scenarios:
     assertions:
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Quality/rubric.md
-        text: "DO NOT OVERWRITE"
+        value: "DO NOT OVERWRITE"
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Quality/golden.json
-        text: "preserve me"
+        value: "preserve me"
 
   - name: tier-banner-surfaces-in-chat-output
     prompt: |
@@ -239,11 +239,11 @@ scenarios:
           content: "var b = DistributedApplication.CreateBuilder(args); b.AddAzureOpenAIChatClient(\"chat\", \"gpt-4o-mini\");"
     assertions:
       - type: output_contains
-        text: "EVAL_USE_REAL_AGENT"
+        value: "EVAL_USE_REAL_AGENT"
       - type: output_contains
-        text: "EVAL_USE_REAL_JUDGE"
+        value: "EVAL_USE_REAL_JUDGE"
       - type: output_contains
-        text: "EVAL_USE_FOUNDRY_SAFETY"
+        value: "EVAL_USE_FOUNDRY_SAFETY"
 
   - name: scaffold-emits-metrics-glossary
     prompt: |
@@ -265,12 +265,12 @@ scenarios:
         path: fixture/MyApp.Evals.Tests/Reporting/MetricsGlossary.cs
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Reporting/MetricsGlossary.cs
-        text: "metrics-glossary.md"
+        value: "metrics-glossary.md"
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Reporting/MetricsGlossary.cs
-        text: "[AssemblyCleanup]"
+        value: "[AssemblyCleanup]"
       - type: output_contains
-        text: "metrics-glossary.md"
+        value: "metrics-glossary.md"
 
   - name: factory-emits-friendly-secrets-diagnostic
     prompt: |
@@ -292,10 +292,10 @@ scenarios:
     assertions:
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
-        text: "dotnet user-secrets"
+        value: "dotnet user-secrets"
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
-        text: "ConnectionStrings"
+        value: "ConnectionStrings"
 
   - name: factory-loads-user-secrets-explicitly
     prompt: |
@@ -319,7 +319,7 @@ scenarios:
       # because the entry assembly is testhost.exe, not the test project.
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Wire/AgentChatClientFactory.cs
-        text: "AddUserSecrets"
+        value: "AddUserSecrets"
 
   - name: pitfalls-doc-warns-reasoning-models-reject-max-tokens
     prompt: |
@@ -327,10 +327,10 @@ scenarios:
     assertions:
       - type: file_contains
         path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
-        text: "max_tokens"
+        value: "max_tokens"
       - type: file_contains
         path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
-        text: "EVAL_JUDGE_DEPLOYMENT_NAME"
+        value: "EVAL_JUDGE_DEPLOYMENT_NAME"
 
   - name: pitfalls-doc-warns-stylistic-agents-fail-completeness
     prompt: |
@@ -338,13 +338,13 @@ scenarios:
     assertions:
       - type: file_contains
         path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
-        text: "Tuning Quality for stylistic agents"
+        value: "Tuning Quality for stylistic agents"
       - type: file_contains
         path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
-        text: "CompletenessEvaluator"
+        value: "CompletenessEvaluator"
       - type: file_contains
         path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/evaluators-catalog.md
-        text: "RubricEvaluator"
+        value: "RubricEvaluator"
 
   - name: compare-mode-is-opt-in-not-default
     prompt: |
@@ -352,8 +352,8 @@ scenarios:
     assertions:
       - type: file_contains
         path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/SKILL.md
-        text: "Wire compare mode (opt-in)"
+        value: "Wire compare mode (opt-in)"
       - type: file_contains
         path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/SKILL.md
-        text: "Compare mode is opt-in"
+        value: "Compare mode is opt-in"
 

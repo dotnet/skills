@@ -1,7 +1,7 @@
 ---
 name: scan-agentic-app-perf
 description: |
-  Scan a .NET agentic application (MAF; Aspire/Foundry optional) across seven perf/cost/reliability categories — topology, tool inventory, message history, prompt weight, parallelism, OTel coverage, per-agent model assignment. Writes .copilot/perf-reports/scan-<timestamp>.md with severity-tagged findings (critical/warn/info), file:line citations, evidence, and next actions routing into configure-agentic-perf-rules or setup-maf-evals. Topologies: Aspire AppHost, plain console, ASP.NET Core, worker service. WHEN: user asks "why is my agent slow", "scan/audit my agentic app", "find perf issues", "is my topology too complex", or just changed a topology. NOT-WHEN: install always-on rules (use configure-agentic-perf-rules), wire evaluations (use setup-maf-evals); not for non-agentic .NET apps. Read-only. Supported topologies: Aspire AppHost, plain console, ASP.NET Core, worker service (Aspire-specific checks such as the AppHost-only model literal apply only when an AppHost is detected).
+  Scan a .NET agentic application (MAF; Aspire/Foundry optional) across seven perf/cost/reliability categories — topology, tool inventory, message history, prompt weight, parallelism, OTel coverage, per-agent model assignment. Writes .copilot/perf-reports/scan.md (overwritten each run) with severity-tagged findings (critical/warn/info), file:line citations, evidence, and next actions routing into configure-agentic-perf-rules or setup-maf-evals. Topologies: Aspire AppHost, plain console, ASP.NET Core, worker service. WHEN: user asks "why is my agent slow", "scan/audit my agentic app", "find perf issues", "is my topology too complex", or just changed a topology. NOT-WHEN: install always-on rules (use configure-agentic-perf-rules), wire evaluations (use setup-maf-evals); not for non-agentic .NET apps. Read-only. Supported topologies: Aspire AppHost, plain console, ASP.NET Core, worker service (Aspire-specific checks such as the AppHost-only model literal apply only when an AppHost is detected).
 ---
 
 # scan-agentic-app-perf
@@ -140,7 +140,9 @@ slug (stable lexical order so `history.*` < `model.*` < `otel.*` <
 
 Write a **single file**: `.copilot/perf-reports/scan.md`, overwritten
 on every run. Git provides whatever history you want; the skill does
-not maintain timestamped copies or `latest-*` mirrors.
+not maintain timestamped copies or `latest-*` mirrors. (Exception: when
+a solution has multiple `*.AppHost.csproj` projects, write one report
+per host as `scan-<host>.md` — see `references/common-pitfalls.md`.)
 
 The category legend (one-liners describing what each prefix covers) is
 inlined into the report itself — see `references/report-template.md`.

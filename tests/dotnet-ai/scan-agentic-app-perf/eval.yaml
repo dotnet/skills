@@ -35,13 +35,13 @@ scenarios:
             { "Model": "gpt-4o-mini" }
     assertions:
       - type: file_exists
-        path: fixture/.copilot/perf-reports/latest-scan.md
+        path: fixture/.copilot/perf-reports/scan.md
       - type: file_contains
-        path: fixture/.copilot/perf-reports/latest-scan.md
-        text: "## Findings"
+        path: fixture/.copilot/perf-reports/scan.md
+        value: "## Findings"
       - type: file_contains
-        path: fixture/.copilot/perf-reports/latest-scan.md
-        text: "critical: 0"
+        path: fixture/.copilot/perf-reports/scan.md
+        value: "critical: 0"
 
   - name: sprawl-fixture-flags-topology
     prompt: |
@@ -68,12 +68,12 @@ scenarios:
             agent.AddHandoff("c"); agent.AddHandoff("d");
     assertions:
       - type: file_exists
-        path: fixture/.copilot/perf-reports/latest-scan.md
+        path: fixture/.copilot/perf-reports/scan.md
       - type: file_contains
-        path: fixture/.copilot/perf-reports/latest-scan.md
-        text: "topology"
+        path: fixture/.copilot/perf-reports/scan.md
+        value: "topology"
       - type: output_contains
-        text: "critical"
+        value: "critical"
 
   - name: full-history-fixture-flags-message-history
     prompt: |
@@ -91,8 +91,8 @@ scenarios:
             await critic.RunAsync(history, cancellationToken);
     assertions:
       - type: file_contains
-        path: fixture/.copilot/perf-reports/latest-scan.md
-        text: "history"
+        path: fixture/.copilot/perf-reports/scan.md
+        value: "history"
 
   - name: prompt-bloat-fixture-flags-prompt-weight
     prompt: |
@@ -107,8 +107,8 @@ scenarios:
             const string HUGE_PROMPT = @"...PLACEHOLDER 12000 CHARS OF RULES AND EXAMPLES...";
     assertions:
       - type: file_contains
-        path: fixture/.copilot/perf-reports/latest-scan.md
-        text: "prompt"
+        path: fixture/.copilot/perf-reports/scan.md
+        value: "prompt"
 
   - name: missing-otel-fixture-flags-otel-coverage
     prompt: |
@@ -122,5 +122,5 @@ scenarios:
             builder.Build().Run();
     assertions:
       - type: file_contains
-        path: fixture/.copilot/perf-reports/latest-scan.md
-        text: "otel"
+        path: fixture/.copilot/perf-reports/scan.md
+        value: "otel"

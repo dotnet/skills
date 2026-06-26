@@ -152,11 +152,11 @@ threshold frontmatter format and section ordering.
 Each rule is in the form **"Before X, justify Y."** Categories, in order:
 
 1. **Agent count.** Before adding a new agent to a workflow, justify why the new
-   responsibility cannot be a tool call on an existing agent. Default ceiling: 3 agents
-   per workflow.
+   responsibility cannot be a tool call on an existing agent. No hard ceiling —
+   the rule is "every agent earns its keep"; see `references/rule-rationales.md`.
 2. **Handoff edges.** Before adding an LLM-routed handoff edge, justify why a
-   deterministic edge or a conditional `WorkflowBuilder` branch will not work. Default
-   ceiling: 2 LLM-routed edges traversed per user turn.
+   deterministic edge or a conditional `WorkflowBuilder` branch will not work. No
+   hard ceiling on edges per turn; each LLM-routed hop has to pay for itself.
 3. **Model selection.** Before defaulting to a frontier model (e.g. `gpt-4o`), name the
    agent's role and pick from the role table inside rule #3 of the managed block.
    Routers/validators/formatters/workers → small-fast; planners → reasoning-class.
