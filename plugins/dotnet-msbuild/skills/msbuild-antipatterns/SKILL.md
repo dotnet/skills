@@ -344,7 +344,7 @@ See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, a
 
 Before flagging an unguarded `<Import>` inside a `build/` or `buildTransitive/` folder, **resolve it against the packed layout** — read every `*.nuspec` in the project directory **and its immediate parent directory** (shared nuspecs are common in mono-repos; do not walk further up), and any `<PackagePath>` metadata on `<None>`/`<Content>` items in the `.csproj`. Only flag if the target path is missing from **both** the source tree *and* the projected package layout. The `dotnet-msbuild/extension-points` skill — *Source tree vs packed layout* — documents the full cross-check procedure.
 
-**Mind the target framework when forwarding `buildTransitive/` → `build/`.** Forward a `buildTransitive/*.props` through the corresponding `build/*.props` (chain `buildTransitive → build → shared`), not directly to `buildMultiTargeting/`. Since `build/` is commonly packed **per-TFM** (`build/<tfm>/`) while `buildMultiTargeting/` is not, a `buildTransitive/<tfm>/` forwarder **must include the TFM segment** and derive it from the file's own folder, *not* `$(TargetFramework)` (NuGet nearest-match can serve a different folder); dropping it fails transitive consumers with `MSB4019`. See the `extension-points` skill — *Forwarding chain* — for the derivation expression.
+**Forwarding `buildTransitive/` → `build/`:** forward through the sibling `build/*` file (not directly to `buildMultiTargeting/`); when `build/` is per-TFM (`build/<tfm>/`), include the TFM segment derived from the file's own folder (not `$(TargetFramework)`), or transitive consumers hit `MSB4019`. See the `extension-points` skill — *Forwarding chain* — for the rule and derivation expression.
 
 ---
 
