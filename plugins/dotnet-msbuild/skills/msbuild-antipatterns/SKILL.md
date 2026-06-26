@@ -344,6 +344,8 @@ See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, a
 
 Before flagging an unguarded `<Import>` inside a `build/` or `buildTransitive/` folder, **resolve it against the packed layout** — read every `*.nuspec` in the project directory **and its immediate parent directory** (shared nuspecs are common in mono-repos; do not walk further up), and any `<PackagePath>` metadata on `<None>`/`<Content>` items in the `.csproj`. Only flag if the target path is missing from **both** the source tree *and* the projected package layout. The `dotnet-msbuild/extension-points` skill — *Source tree vs packed layout* — documents the full cross-check procedure.
 
+**Mind the target framework when forwarding `buildTransitive/` → `build/`.** A `buildTransitive/*.props` should forward through the corresponding `build/*.props` (ownership chain `buildTransitive → build → shared`) rather than jumping directly to a shared/`buildMultiTargeting/` file. But `build/*.props` are commonly packed **per-TFM** under `build/<tfm>/` while `buildMultiTargeting/` is not, so a forwarder in `buildTransitive/<tfm>/` **must include the TFM segment** (`..\..\build\<tfm>\Pkg.props`) — and derive `<tfm>` from the file's own folder, *not* `$(TargetFramework)` (NuGet nearest-match can serve a different folder). Dropping the segment resolves to a non-existent package-root `build\Pkg.props` and fails with `MSB4019`. See the `dotnet-msbuild/extension-points` skill — *Forwarding chain* — for the exact derivation expression.
+
 ---
 
 ## AP-14: Backslashes in Paths — Where It Matters
@@ -404,4 +406,4 @@ MSBuild's evaluator normalizes `\` → `/` on Unix-like systems before resolving
 
 ---
 
-For additional anti-patterns (AP-16 through AP-22) and a quick-reference checklist, see [additional-antipatterns.md](references/additional-antipatterns.md).
+For additional anti-patterns (AP-16 through AP-21) and a quick-reference checklist, see [additional-antipatterns.md](references/additional-antipatterns.md).
