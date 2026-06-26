@@ -106,7 +106,7 @@ scenarios:
     timeout: 360
 
   - name: "Idempotent re-install — current-version managed block is a no-op"
-    prompt: "Run configure-agentic-perf-rules on this project."
+    prompt: "The agentic-perf rules block is already installed in this project — re-run the install to confirm it's a no-op (no diff on second run)."
     setup:
       files:
         - path: ".github/copilot-instructions.md"

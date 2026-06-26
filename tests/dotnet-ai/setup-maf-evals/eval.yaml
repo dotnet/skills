@@ -5,7 +5,7 @@ required_skills:
 scenarios:
   - name: scaffold-evals-tests-project-fresh
     prompt: |
-      Run setup-maf-evals on the project at ./fixture. Wire telemetry,
+      Set up evals for the agentic app at ./fixture. Wire telemetry,
       quality, and compare modes. Skip Safety, Aspire panel, and CI workflow.
     setup:
       files:
@@ -76,7 +76,7 @@ scenarios:
 
   - name: scaffold-with-safety-tier
     prompt: |
-      Run setup-maf-evals on the project at ./fixture. Include the Safety tier.
+      Add an evaluation harness for the agentic app at ./fixture, including safety evaluators.
     setup:
       files:
         - path: fixture/MyApp.slnx
@@ -106,7 +106,7 @@ scenarios:
 
   - name: scaffold-with-ci-workflow
     prompt: |
-      Run setup-maf-evals on the project at ./fixture. Include the GitHub Actions workflow.
+      Add evals for the agentic app at ./fixture, and include a GitHub Actions workflow that runs them on every PR.
     setup:
       files:
         - path: fixture/MyApp.slnx
@@ -131,7 +131,7 @@ scenarios:
 
   - name: ichatclient-detection-azure-openai
     prompt: |
-      Run setup-maf-evals on the project at ./fixture.
+      Add evaluation coverage for the agentic app at ./fixture.
     setup:
       files:
         - path: fixture/MyApp.slnx
@@ -157,7 +157,7 @@ scenarios:
 
   - name: ichatclient-detection-missing-emits-stub
     prompt: |
-      Run setup-maf-evals on the project at ./fixture.
+      Add an evaluation harness for the agentic app at ./fixture.
     setup:
       files:
         - path: fixture/MyApp.slnx
@@ -179,7 +179,7 @@ scenarios:
 
   - name: skip-when-no-app-host
     prompt: |
-      Run setup-maf-evals on the project at ./fixture.
+      Add evaluation coverage for the .NET project at ./fixture.
     setup:
       files:
         - path: fixture/PlainApi/PlainApi.csproj
@@ -191,7 +191,7 @@ scenarios:
 
   - name: update-mode-preserves-user-data
     prompt: |
-      Run setup-maf-evals on the project at ./fixture. A MyApp.Evals.Tests project
+      Refresh the evaluation harness for the agentic app at ./fixture. A MyApp.Evals.Tests project
       already exists with a custom rubric and golden.json. Do not overwrite either.
     setup:
       files:
@@ -224,7 +224,7 @@ scenarios:
 
   - name: tier-banner-surfaces-in-chat-output
     prompt: |
-      Run setup-maf-evals on the project at ./fixture.
+      Add an evaluation harness for the agentic app at ./fixture.
     setup:
       files:
         - path: fixture/MyApp.slnx
@@ -247,7 +247,7 @@ scenarios:
 
   - name: scaffold-emits-metrics-glossary
     prompt: |
-      Run setup-maf-evals on the project at ./fixture.
+      Set up evals for the agentic app at ./fixture.
     setup:
       files:
         - path: fixture/MyApp.slnx
@@ -274,7 +274,7 @@ scenarios:
 
   - name: factory-emits-friendly-secrets-diagnostic
     prompt: |
-      Run setup-maf-evals on the project at ./fixture.
+      Add evaluation coverage for the agentic app at ./fixture.
     setup:
       files:
         - path: fixture/MyApp.slnx
@@ -299,7 +299,7 @@ scenarios:
 
   - name: factory-loads-user-secrets-explicitly
     prompt: |
-      Run setup-maf-evals on the project at ./fixture.
+      Set up an evaluation harness for the agentic app at ./fixture.
     setup:
       files:
         - path: fixture/MyApp.slnx
@@ -323,7 +323,8 @@ scenarios:
 
   - name: pitfalls-doc-warns-reasoning-models-reject-max-tokens
     prompt: |
-      Read references/common-pitfalls.md from the setup-maf-evals skill.
+      When wiring an evaluation harness for an agentic .NET app against a reasoning model (o1-style),
+      what should I know about the max_tokens / MaxOutputTokens parameter?
     assertions:
       - type: file_contains
         path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
@@ -334,7 +335,8 @@ scenarios:
 
   - name: pitfalls-doc-warns-stylistic-agents-fail-completeness
     prompt: |
-      Read references/common-pitfalls.md and references/evaluators-catalog.md from setup-maf-evals.
+      When an agentic .NET app produces stylistic-only text (no factual claims), which quality
+      evaluators will systematically fail it, and why?
     assertions:
       - type: file_contains
         path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/references/common-pitfalls.md
@@ -348,7 +350,8 @@ scenarios:
 
   - name: compare-mode-is-opt-in-not-default
     prompt: |
-      Read SKILL.md for setup-maf-evals; what's the default for compare mode?
+      When adding an evaluation harness to an agentic .NET app, is compare mode
+      (A/B model matrix) opt-in or on by default?
     assertions:
       - type: file_contains
         path: ../../../plugins/dotnet-ai/skills/setup-maf-evals/SKILL.md
