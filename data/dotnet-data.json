@@ -2,61 +2,6 @@
   "entries": {
     "Efficiency": [
       {
-        "model": "claude-opus-4.6",
-        "benches": [
-          {
-            "unit": "seconds",
-            "value": 19.1,
-            "overfitting": "moderate",
-            "overfittingScore": 0.3,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 24935.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.3,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 23.6,
-            "overfitting": "moderate",
-            "overfittingScore": 0.3,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 18949.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.3,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 12.1,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 12963.0,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In"
-          }
-        ],
-        "tool": "customSmallerIsBetter",
-        "date": 1781234133787,
-        "commit": {
-          "id": "8b7867331c3c8f64862b9be45f921ec35cd8ca39",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Abhitej John"
-          },
-          "message": "Pin github/gh-aw-actions to commit SHA and add pinning guard (#749)",
-          "url": "https://github.com/dotnet/skills/commit/8b7867331c3c8f64862b9be45f921ec35cd8ca39",
-          "timestamp": "2026-06-11T17:26:52+00:00"
-        }
-      },
-      {
         "commit": {
           "id": "c8be21018fc4ee4c566ed65a313cea56690f8cab",
           "message": "Fix evaluation.yml: quote run-name so '#' is not parsed as a YAML comment (#759)",
@@ -599,45 +544,64 @@
           }
         ],
         "model": "claude-opus-4.6"
+      },
+      {
+        "model": "claude-opus-4.6",
+        "tool": "customSmallerIsBetter",
+        "commit": {
+          "timestamp": "2026-06-26T10:11:27+00:00",
+          "id": "691cd472a108927024b575e4599d273bca62c60c",
+          "author": {
+            "name": "Amaury Levé",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/691cd472a108927024b575e4599d273bca62c60c",
+          "message": "Fix writing-mstest-tests activation by deflecting sibling skills (#835)"
+        },
+        "date": 1782526163696,
+        "benches": [
+          {
+            "value": 20.8,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.3,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 27881.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.3,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 27.6,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.3,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 27896.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.3,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 13.7,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 12985.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In",
+            "unit": "tokens"
+          }
+        ]
       }
     ],
     "Quality": [
-      {
-        "model": "claude-opus-4.6",
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "overfitting": "moderate",
-            "overfittingScore": 0.3,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.199999809265137,
-            "overfitting": "moderate",
-            "overfittingScore": 0.3,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality"
-          }
-        ],
-        "tool": "customBiggerIsBetter",
-        "date": 1781234133787,
-        "commit": {
-          "id": "8b7867331c3c8f64862b9be45f921ec35cd8ca39",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Abhitej John"
-          },
-          "message": "Pin github/gh-aw-actions to commit SHA and add pinning guard (#749)",
-          "url": "https://github.com/dotnet/skills/commit/8b7867331c3c8f64862b9be45f921ec35cd8ca39",
-          "timestamp": "2026-06-11T17:26:52+00:00"
-        }
-      },
       {
         "commit": {
           "id": "c8be21018fc4ee4c566ed65a313cea56690f8cab",
@@ -994,9 +958,45 @@
           }
         ],
         "model": "claude-opus-4.6"
+      },
+      {
+        "model": "claude-opus-4.6",
+        "tool": "customBiggerIsBetter",
+        "commit": {
+          "timestamp": "2026-06-26T10:11:27+00:00",
+          "id": "691cd472a108927024b575e4599d273bca62c60c",
+          "author": {
+            "name": "Amaury Levé",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/691cd472a108927024b575e4599d273bca62c60c",
+          "message": "Fix writing-mstest-tests activation by deflecting sibling skills (#835)"
+        },
+        "date": 1782526163696,
+        "benches": [
+          {
+            "value": 9.199999809265137,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.3,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 9.600000381469727,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.3,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 10.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality",
+            "unit": "Score (0-10)"
+          }
+        ]
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1782440902216
+  "lastUpdate": 1782526163696
 }
