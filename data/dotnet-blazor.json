@@ -2,929 +2,6 @@
   "entries": {
     "Efficiency": [
       {
-        "model": "claude-opus-4.6",
-        "benches": [
-          {
-            "unit": "seconds",
-            "value": 107.1,
-            "name": "collect-user-input/Event registration with custom validation - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 175422.0,
-            "name": "collect-user-input/Event registration with custom validation - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 107.4,
-            "name": "collect-user-input/Event registration with custom validation - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 172383.0,
-            "name": "collect-user-input/Event registration with custom validation - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 96.5,
-            "name": "collect-user-input/Event registration with custom validation - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 139273.0,
-            "name": "collect-user-input/Event registration with custom validation - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 115.3,
-            "name": "collect-user-input/Multi-step booking form with cross-field validation - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 166409.0,
-            "name": "collect-user-input/Multi-step booking form with cross-field validation - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 117.3,
-            "name": "collect-user-input/Multi-step booking form with cross-field validation - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 176457.0,
-            "name": "collect-user-input/Multi-step booking form with cross-field validation - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 111.5,
-            "name": "collect-user-input/Multi-step booking form with cross-field validation - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 138802.0,
-            "name": "collect-user-input/Multi-step booking form with cross-field validation - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 202.9,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/University course catalog with enrollment form - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 401805.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/University course catalog with enrollment form - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 317.5,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/University course catalog with enrollment form - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 707042.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/University course catalog with enrollment form - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 101.9,
-            "name": "create-blazor-project/University course catalog with enrollment form - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 193207.0,
-            "name": "create-blazor-project/University course catalog with enrollment form - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 147.6,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 230147.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 194.9,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 346217.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 93.8,
-            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 104785.0,
-            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 411.2,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/Global logistics tracking for worldwide users - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 808170.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/Global logistics tracking for worldwide users - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 472.4,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/Global logistics tracking for worldwide users - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 800050.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/Global logistics tracking for worldwide users - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 162.5,
-            "name": "create-blazor-project/Global logistics tracking for worldwide users - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 371543.0,
-            "name": "create-blazor-project/Global logistics tracking for worldwide users - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 83.2,
-            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 173657.0,
-            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 71.2,
-            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 196970.0,
-            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 65.7,
-            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 120450.0,
-            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 137.5,
-            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 328774.0,
-            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 126.9,
-            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 313316.0,
-            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 125.3,
-            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 260014.0,
-            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 96.9,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 235572.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 92.7,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 247034.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 92.4,
-            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 191253.0,
-            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 83.2,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 215668.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 76.1,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 216029.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 80.3,
-            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 167680.0,
-            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 32.0,
-            "name": "author-component/Author a data-loading search component - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 74132.0,
-            "name": "author-component/Author a data-loading search component - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 30.7,
-            "name": "author-component/Author a data-loading search component - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 72232.0,
-            "name": "author-component/Author a data-loading search component - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 22.5,
-            "name": "author-component/Author a data-loading search component - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 28026.0,
-            "name": "author-component/Author a data-loading search component - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 36.1,
-            "name": "author-component/Author a multi-step wizard with async validation and shared state - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 82105.0,
-            "name": "author-component/Author a multi-step wizard with async validation and shared state - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 35.7,
-            "name": "author-component/Author a multi-step wizard with async validation and shared state - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 92712.0,
-            "name": "author-component/Author a multi-step wizard with async validation and shared state - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 28.6,
-            "name": "author-component/Author a multi-step wizard with async validation and shared state - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 42408.0,
-            "name": "author-component/Author a multi-step wizard with async validation and shared state - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 24.7,
-            "name": "author-component/Author a generic data table component - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 57044.0,
-            "name": "author-component/Author a generic data table component - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 23.3,
-            "name": "author-component/Author a generic data table component - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 65701.0,
-            "name": "author-component/Author a generic data table component - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 14.7,
-            "name": "author-component/Author a generic data table component - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 26478.0,
-            "name": "author-component/Author a generic data table component - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 24.4,
-            "name": "author-component/Author a real-time notification badge component - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 68439.0,
-            "name": "author-component/Author a real-time notification badge component - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 23.4,
-            "name": "author-component/Author a real-time notification badge component - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 70121.0,
-            "name": "author-component/Author a real-time notification badge component - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 14.3,
-            "name": "author-component/Author a real-time notification badge component - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 26448.0,
-            "name": "author-component/Author a real-time notification badge component - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 22.7,
-            "name": "author-component/Author a sortable list with code-behind pattern - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 57402.0,
-            "name": "author-component/Author a sortable list with code-behind pattern - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 20.3,
-            "name": "author-component/Author a sortable list with code-behind pattern - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 50312.0,
-            "name": "author-component/Author a sortable list with code-behind pattern - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 18.5,
-            "name": "author-component/Author a sortable list with code-behind pattern - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 32122.0,
-            "name": "author-component/Author a sortable list with code-behind pattern - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 107.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "name": "support-prerendering/Equipment inventory loaded once - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 253309.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "name": "support-prerendering/Equipment inventory loaded once - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 83.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "name": "support-prerendering/Equipment inventory loaded once - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 240588.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "name": "support-prerendering/Equipment inventory loaded once - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 101.0,
-            "name": "support-prerendering/Equipment inventory loaded once - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 183286.0,
-            "name": "support-prerendering/Equipment inventory loaded once - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 127.6,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "name": "support-prerendering/Notifications page with live polling - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 327189.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "name": "support-prerendering/Notifications page with live polling - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 111.7,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "name": "support-prerendering/Notifications page with live polling - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 296310.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "name": "support-prerendering/Notifications page with live polling - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 112.8,
-            "name": "support-prerendering/Notifications page with live polling - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 198889.0,
-            "name": "support-prerendering/Notifications page with live polling - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 152.5,
-            "name": "configure-auth/Login and account management in a globally interactive app - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 322466.0,
-            "name": "configure-auth/Login and account management in a globally interactive app - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 161.3,
-            "name": "configure-auth/Login and account management in a globally interactive app - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 405854.0,
-            "name": "configure-auth/Login and account management in a globally interactive app - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 175.1,
-            "name": "configure-auth/Login and account management in a globally interactive app - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 337719.0,
-            "name": "configure-auth/Login and account management in a globally interactive app - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 149.8,
-            "name": "configure-auth/Multi-tier app with WebAssembly auth - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 333092.0,
-            "name": "configure-auth/Multi-tier app with WebAssembly auth - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 175.7,
-            "name": "configure-auth/Multi-tier app with WebAssembly auth - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 463251.0,
-            "name": "configure-auth/Multi-tier app with WebAssembly auth - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 173.8,
-            "name": "configure-auth/Multi-tier app with WebAssembly auth - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 305404.0,
-            "name": "configure-auth/Multi-tier app with WebAssembly auth - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 106.1,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Project management Kanban board - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 241550.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Project management Kanban board - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 138.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Project management Kanban board - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 376757.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Project management Kanban board - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 64.3,
-            "name": "plan-ui-change/Project management Kanban board - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 120667.0,
-            "name": "plan-ui-change/Project management Kanban board - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 105.2,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 230025.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 129.9,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 289763.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 70.7,
-            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 109616.0,
-            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 211.5,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Multi-step job application wizard - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 386017.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Multi-step job application wizard - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 223.3,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Multi-step job application wizard - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 457501.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Multi-step job application wizard - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 127.3,
-            "name": "plan-ui-change/Multi-step job application wizard - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 239835.0,
-            "name": "plan-ui-change/Multi-step job application wizard - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 158.3,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Application settings page with nested tab panels - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 280113.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Application settings page with nested tab panels - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 161.3,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Application settings page with nested tab panels - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 300309.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Application settings page with nested tab panels - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 166.7,
-            "name": "plan-ui-change/Application settings page with nested tab panels - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 241204.0,
-            "name": "plan-ui-change/Application settings page with nested tab panels - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 146.8,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Team chat interface with message threads - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 283663.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Team chat interface with message threads - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 136.8,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Team chat interface with message threads - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 265571.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Team chat interface with message threads - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 104.1,
-            "name": "plan-ui-change/Team chat interface with message threads - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 151892.0,
-            "name": "plan-ui-change/Team chat interface with message threads - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 66.2,
-            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 150252.0,
-            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 59.4,
-            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 135648.0,
-            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 47.6,
-            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 85152.0,
-            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 53.7,
-            "name": "use-js-interop/User activity tracker that detects idle timeout - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 102812.0,
-            "name": "use-js-interop/User activity tracker that detects idle timeout - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 48.6,
-            "name": "use-js-interop/User activity tracker that detects idle timeout - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 111433.0,
-            "name": "use-js-interop/User activity tracker that detects idle timeout - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 37.4,
-            "name": "use-js-interop/User activity tracker that detects idle timeout - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 72019.0,
-            "name": "use-js-interop/User activity tracker that detects idle timeout - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 56.2,
-            "name": "use-js-interop/Responsive layout that adapts to screen size - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 119479.0,
-            "name": "use-js-interop/Responsive layout that adapts to screen size - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 46.8,
-            "name": "use-js-interop/Responsive layout that adapts to screen size - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 111694.0,
-            "name": "use-js-interop/Responsive layout that adapts to screen size - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 59.8,
-            "name": "use-js-interop/Responsive layout that adapts to screen size - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 129630.0,
-            "name": "use-js-interop/Responsive layout that adapts to screen size - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 50.7,
-            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 111969.0,
-            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 50.3,
-            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 133460.0,
-            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 42.2,
-            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 92445.0,
-            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Vanilla Tokens In"
-          }
-        ],
-        "tool": "customSmallerIsBetter",
-        "date": 1781234133742,
-        "commit": {
-          "id": "8b7867331c3c8f64862b9be45f921ec35cd8ca39",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Abhitej John"
-          },
-          "message": "Pin github/gh-aw-actions to commit SHA and add pinning guard (#749)",
-          "url": "https://github.com/dotnet/skills/commit/8b7867331c3c8f64862b9be45f921ec35cd8ca39",
-          "timestamp": "2026-06-11T17:26:52+00:00"
-        }
-      },
-      {
         "commit": {
           "id": "c8be21018fc4ee4c566ed65a313cea56690f8cab",
           "message": "Fix evaluation.yml: quote run-name so '#' is not parsed as a YAML comment (#759)",
@@ -10217,479 +9294,932 @@
           }
         ],
         "model": "claude-opus-4.6"
+      },
+      {
+        "model": "claude-opus-4.6",
+        "tool": "customSmallerIsBetter",
+        "commit": {
+          "timestamp": "2026-06-26T10:11:27+00:00",
+          "id": "691cd472a108927024b575e4599d273bca62c60c",
+          "author": {
+            "name": "Amaury Levé",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/691cd472a108927024b575e4599d273bca62c60c",
+          "message": "Fix writing-mstest-tests activation by deflecting sibling skills (#835)"
+        },
+        "date": 1782526163620,
+        "benches": [
+          {
+            "value": 53.9,
+            "name": "collect-user-input/Event registration with custom validation - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 115985.0,
+            "name": "collect-user-input/Event registration with custom validation - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 74.8,
+            "name": "collect-user-input/Event registration with custom validation - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 193685.0,
+            "name": "collect-user-input/Event registration with custom validation - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 62.2,
+            "name": "collect-user-input/Event registration with custom validation - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 104338.0,
+            "name": "collect-user-input/Event registration with custom validation - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 103.9,
+            "name": "collect-user-input/Multi-step booking form with cross-field validation - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 198332.0,
+            "name": "collect-user-input/Multi-step booking form with cross-field validation - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 93.5,
+            "name": "collect-user-input/Multi-step booking form with cross-field validation - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 177533.0,
+            "name": "collect-user-input/Multi-step booking form with cross-field validation - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 83.0,
+            "name": "collect-user-input/Multi-step booking form with cross-field validation - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 135298.0,
+            "name": "collect-user-input/Multi-step booking form with cross-field validation - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 186.9,
+            "name": "create-blazor-project/University course catalog with enrollment form - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 405868.0,
+            "name": "create-blazor-project/University course catalog with enrollment form - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 276.5,
+            "name": "create-blazor-project/University course catalog with enrollment form - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 769547.0,
+            "name": "create-blazor-project/University course catalog with enrollment form - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 83.2,
+            "name": "create-blazor-project/University course catalog with enrollment form - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 129202.0,
+            "name": "create-blazor-project/University course catalog with enrollment form - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 88.5,
+            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 139079.0,
+            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 231.2,
+            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 489507.0,
+            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 88.6,
+            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 127861.0,
+            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 105.0,
+            "name": "create-blazor-project/Global logistics tracking for worldwide users - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 193096.0,
+            "name": "create-blazor-project/Global logistics tracking for worldwide users - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 335.4,
+            "name": "create-blazor-project/Global logistics tracking for worldwide users - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 817803.0,
+            "name": "create-blazor-project/Global logistics tracking for worldwide users - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 102.0,
+            "name": "create-blazor-project/Global logistics tracking for worldwide users - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 222703.0,
+            "name": "create-blazor-project/Global logistics tracking for worldwide users - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 70.7,
+            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 159112.0,
+            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 65.7,
+            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 163049.0,
+            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 63.5,
+            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 123450.0,
+            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 129.3,
+            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 272984.0,
+            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 131.4,
+            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 353775.0,
+            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 116.3,
+            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 219752.0,
+            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 94.3,
+            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 227237.0,
+            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 91.4,
+            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 241068.0,
+            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 93.6,
+            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 195190.0,
+            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 80.0,
+            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 232976.0,
+            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 77.3,
+            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 224707.0,
+            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 90.2,
+            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 183759.0,
+            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 33.4,
+            "name": "author-component/Author a data-loading search component - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 81515.0,
+            "name": "author-component/Author a data-loading search component - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 32.3,
+            "name": "author-component/Author a data-loading search component - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 84258.0,
+            "name": "author-component/Author a data-loading search component - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 21.8,
+            "name": "author-component/Author a data-loading search component - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 27939.0,
+            "name": "author-component/Author a data-loading search component - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 35.1,
+            "name": "author-component/Author a multi-step wizard with async validation and shared state - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 85706.0,
+            "name": "author-component/Author a multi-step wizard with async validation and shared state - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 36.5,
+            "name": "author-component/Author a multi-step wizard with async validation and shared state - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 88757.0,
+            "name": "author-component/Author a multi-step wizard with async validation and shared state - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 27.7,
+            "name": "author-component/Author a multi-step wizard with async validation and shared state - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 42211.0,
+            "name": "author-component/Author a multi-step wizard with async validation and shared state - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 23.8,
+            "name": "author-component/Author a generic data table component - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 59887.0,
+            "name": "author-component/Author a generic data table component - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 22.6,
+            "name": "author-component/Author a generic data table component - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 62420.0,
+            "name": "author-component/Author a generic data table component - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 13.8,
+            "name": "author-component/Author a generic data table component - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 26327.0,
+            "name": "author-component/Author a generic data table component - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 24.9,
+            "name": "author-component/Author a real-time notification badge component - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 68695.0,
+            "name": "author-component/Author a real-time notification badge component - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 23.8,
+            "name": "author-component/Author a real-time notification badge component - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 70103.0,
+            "name": "author-component/Author a real-time notification badge component - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 14.8,
+            "name": "author-component/Author a real-time notification badge component - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 26427.0,
+            "name": "author-component/Author a real-time notification badge component - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 23.2,
+            "name": "author-component/Author a sortable list with code-behind pattern - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 57272.0,
+            "name": "author-component/Author a sortable list with code-behind pattern - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 22.3,
+            "name": "author-component/Author a sortable list with code-behind pattern - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 62855.0,
+            "name": "author-component/Author a sortable list with code-behind pattern - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 16.5,
+            "name": "author-component/Author a sortable list with code-behind pattern - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 29418.0,
+            "name": "author-component/Author a sortable list with code-behind pattern - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 93.5,
+            "name": "support-prerendering/Equipment inventory loaded once - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 243537.0,
+            "name": "support-prerendering/Equipment inventory loaded once - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 82.3,
+            "name": "support-prerendering/Equipment inventory loaded once - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 250767.0,
+            "name": "support-prerendering/Equipment inventory loaded once - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 85.9,
+            "name": "support-prerendering/Equipment inventory loaded once - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 160170.0,
+            "name": "support-prerendering/Equipment inventory loaded once - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 97.8,
+            "name": "support-prerendering/Notifications page with live polling - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 269927.0,
+            "name": "support-prerendering/Notifications page with live polling - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 86.9,
+            "name": "support-prerendering/Notifications page with live polling - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 233739.0,
+            "name": "support-prerendering/Notifications page with live polling - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 69.0,
+            "name": "support-prerendering/Notifications page with live polling - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 143605.0,
+            "name": "support-prerendering/Notifications page with live polling - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 147.1,
+            "name": "configure-auth/Login and account management in a globally interactive app - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 355039.0,
+            "name": "configure-auth/Login and account management in a globally interactive app - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 139.6,
+            "name": "configure-auth/Login and account management in a globally interactive app - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 363651.0,
+            "name": "configure-auth/Login and account management in a globally interactive app - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 157.1,
+            "name": "configure-auth/Login and account management in a globally interactive app - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 314258.0,
+            "name": "configure-auth/Login and account management in a globally interactive app - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 136.1,
+            "name": "configure-auth/Multi-tier app with WebAssembly auth - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 393288.0,
+            "name": "configure-auth/Multi-tier app with WebAssembly auth - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 145.7,
+            "name": "configure-auth/Multi-tier app with WebAssembly auth - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 442390.0,
+            "name": "configure-auth/Multi-tier app with WebAssembly auth - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 152.3,
+            "name": "configure-auth/Multi-tier app with WebAssembly auth - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 371423.0,
+            "name": "configure-auth/Multi-tier app with WebAssembly auth - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 125.2,
+            "name": "plan-ui-change/Project management Kanban board - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 257397.0,
+            "name": "plan-ui-change/Project management Kanban board - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 153.4,
+            "name": "plan-ui-change/Project management Kanban board - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 429930.0,
+            "name": "plan-ui-change/Project management Kanban board - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 80.4,
+            "name": "plan-ui-change/Project management Kanban board - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 157808.0,
+            "name": "plan-ui-change/Project management Kanban board - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 109.2,
+            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 212300.0,
+            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 132.7,
+            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 302365.0,
+            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 79.8,
+            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 116502.0,
+            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 162.4,
+            "name": "plan-ui-change/Multi-step job application wizard - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 285332.0,
+            "name": "plan-ui-change/Multi-step job application wizard - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 205.1,
+            "name": "plan-ui-change/Multi-step job application wizard - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 522838.0,
+            "name": "plan-ui-change/Multi-step job application wizard - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 87.8,
+            "name": "plan-ui-change/Multi-step job application wizard - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 121003.0,
+            "name": "plan-ui-change/Multi-step job application wizard - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 151.7,
+            "name": "plan-ui-change/Application settings page with nested tab panels - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 253916.0,
+            "name": "plan-ui-change/Application settings page with nested tab panels - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 153.0,
+            "name": "plan-ui-change/Application settings page with nested tab panels - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 280407.0,
+            "name": "plan-ui-change/Application settings page with nested tab panels - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 157.9,
+            "name": "plan-ui-change/Application settings page with nested tab panels - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 240680.0,
+            "name": "plan-ui-change/Application settings page with nested tab panels - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 136.7,
+            "name": "plan-ui-change/Team chat interface with message threads - Skilled Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 243349.0,
+            "name": "plan-ui-change/Team chat interface with message threads - Skilled Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 144.1,
+            "name": "plan-ui-change/Team chat interface with message threads - Plugin Time",
+            "unit": "seconds",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 313296.0,
+            "name": "plan-ui-change/Team chat interface with message threads - Plugin Tokens In",
+            "unit": "tokens",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 99.5,
+            "name": "plan-ui-change/Team chat interface with message threads - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 134375.0,
+            "name": "plan-ui-change/Team chat interface with message threads - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 59.4,
+            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 113232.0,
+            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 61.8,
+            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 125916.0,
+            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 57.6,
+            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 98475.0,
+            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 62.8,
+            "name": "use-js-interop/User activity tracker that detects idle timeout - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 111047.0,
+            "name": "use-js-interop/User activity tracker that detects idle timeout - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 60.5,
+            "name": "use-js-interop/User activity tracker that detects idle timeout - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 132010.0,
+            "name": "use-js-interop/User activity tracker that detects idle timeout - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 49.7,
+            "name": "use-js-interop/User activity tracker that detects idle timeout - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 74864.0,
+            "name": "use-js-interop/User activity tracker that detects idle timeout - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 57.6,
+            "name": "use-js-interop/Responsive layout that adapts to screen size - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 120883.0,
+            "name": "use-js-interop/Responsive layout that adapts to screen size - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 57.4,
+            "name": "use-js-interop/Responsive layout that adapts to screen size - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 122903.0,
+            "name": "use-js-interop/Responsive layout that adapts to screen size - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 54.0,
+            "name": "use-js-interop/Responsive layout that adapts to screen size - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 87111.0,
+            "name": "use-js-interop/Responsive layout that adapts to screen size - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 48.3,
+            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 124028.0,
+            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 49.4,
+            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 129809.0,
+            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 48.6,
+            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 116856.0,
+            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Vanilla Tokens In",
+            "unit": "tokens"
+          }
+        ]
       }
     ],
     "Quality": [
-      {
-        "model": "claude-opus-4.6",
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "value": 9.600000381469727,
-            "name": "collect-user-input/Event registration with custom validation - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "name": "collect-user-input/Event registration with custom validation - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "collect-user-input/Event registration with custom validation - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "collect-user-input/Multi-step booking form with cross-field validation - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "collect-user-input/Multi-step booking form with cross-field validation - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.599999904632568,
-            "name": "collect-user-input/Multi-step booking form with cross-field validation - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.800000190734863,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/University course catalog with enrollment form - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.600000381469727,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/University course catalog with enrollment form - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 2.799999952316284,
-            "name": "create-blazor-project/University course catalog with enrollment form - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.800000190734863,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.600000381469727,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 4.800000190734863,
-            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/Global logistics tracking for worldwide users - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "overfitting": "moderate",
-            "overfittingScore": 0.28,
-            "name": "create-blazor-project/Global logistics tracking for worldwide users - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 3.5999999046325684,
-            "name": "create-blazor-project/Global logistics tracking for worldwide users - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.599999904632568,
-            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.199999809265137,
-            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.600000381469727,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.599999904632568,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 3.200000047683716,
-            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "author-component/Author a data-loading search component - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "author-component/Author a data-loading search component - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "author-component/Author a data-loading search component - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "author-component/Author a multi-step wizard with async validation and shared state - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "author-component/Author a multi-step wizard with async validation and shared state - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.199999809265137,
-            "name": "author-component/Author a multi-step wizard with async validation and shared state - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "name": "author-component/Author a generic data table component - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "name": "author-component/Author a generic data table component - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "author-component/Author a generic data table component - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "name": "author-component/Author a real-time notification badge component - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "name": "author-component/Author a real-time notification badge component - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 4.0,
-            "name": "author-component/Author a real-time notification badge component - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.199999809265137,
-            "name": "author-component/Author a sortable list with code-behind pattern - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "name": "author-component/Author a sortable list with code-behind pattern - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "author-component/Author a sortable list with code-behind pattern - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "name": "support-prerendering/Equipment inventory loaded once - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "name": "support-prerendering/Equipment inventory loaded once - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.199999809265137,
-            "name": "support-prerendering/Equipment inventory loaded once - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.599999904632568,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "name": "support-prerendering/Notifications page with live polling - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21,
-            "name": "support-prerendering/Notifications page with live polling - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "support-prerendering/Notifications page with live polling - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "configure-auth/Login and account management in a globally interactive app - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "configure-auth/Login and account management in a globally interactive app - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "configure-auth/Login and account management in a globally interactive app - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "configure-auth/Multi-tier app with WebAssembly auth - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "name": "configure-auth/Multi-tier app with WebAssembly auth - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.199999809265137,
-            "name": "configure-auth/Multi-tier app with WebAssembly auth - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.800000190734863,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Project management Kanban board - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Project management Kanban board - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 4.0,
-            "name": "plan-ui-change/Project management Kanban board - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.800000190734863,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 4.400000095367432,
-            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Multi-step job application wizard - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Multi-step job application wizard - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 4.0,
-            "name": "plan-ui-change/Multi-step job application wizard - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Application settings page with nested tab panels - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Application settings page with nested tab panels - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.400000095367432,
-            "name": "plan-ui-change/Application settings page with nested tab panels - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Team chat interface with message threads - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "overfitting": "moderate",
-            "overfittingScore": 0.24,
-            "name": "plan-ui-change/Team chat interface with message threads - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.599999904632568,
-            "name": "plan-ui-change/Team chat interface with message threads - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.599999904632568,
-            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "name": "use-js-interop/User activity tracker that detects idle timeout - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "name": "use-js-interop/User activity tracker that detects idle timeout - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "use-js-interop/User activity tracker that detects idle timeout - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "use-js-interop/Responsive layout that adapts to screen size - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "use-js-interop/Responsive layout that adapts to screen size - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "use-js-interop/Responsive layout that adapts to screen size - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Vanilla Quality"
-          }
-        ],
-        "tool": "customBiggerIsBetter",
-        "date": 1781234133742,
-        "commit": {
-          "id": "8b7867331c3c8f64862b9be45f921ec35cd8ca39",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Abhitej John"
-          },
-          "message": "Pin github/gh-aw-actions to commit SHA and add pinning guard (#749)",
-          "url": "https://github.com/dotnet/skills/commit/8b7867331c3c8f64862b9be45f921ec35cd8ca39",
-          "timestamp": "2026-06-11T17:26:52+00:00"
-        }
-      },
       {
         "commit": {
           "id": "c8be21018fc4ee4c566ed65a313cea56690f8cab",
@@ -15421,9 +14951,479 @@
           }
         ],
         "model": "claude-opus-4.6"
+      },
+      {
+        "model": "claude-opus-4.6",
+        "tool": "customBiggerIsBetter",
+        "commit": {
+          "timestamp": "2026-06-26T10:11:27+00:00",
+          "id": "691cd472a108927024b575e4599d273bca62c60c",
+          "author": {
+            "name": "Amaury Levé",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/691cd472a108927024b575e4599d273bca62c60c",
+          "message": "Fix writing-mstest-tests activation by deflecting sibling skills (#835)"
+        },
+        "date": 1782526163620,
+        "benches": [
+          {
+            "value": 6.400000095367432,
+            "name": "collect-user-input/Event registration with custom validation - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.800000190734863,
+            "name": "collect-user-input/Event registration with custom validation - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 6.800000190734863,
+            "name": "collect-user-input/Event registration with custom validation - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "collect-user-input/Multi-step booking form with cross-field validation - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "collect-user-input/Multi-step booking form with cross-field validation - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 6.0,
+            "name": "collect-user-input/Multi-step booking form with cross-field validation - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 5.599999904632568,
+            "name": "create-blazor-project/University course catalog with enrollment form - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 10.0,
+            "name": "create-blazor-project/University course catalog with enrollment form - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 2.4000000953674316,
+            "name": "create-blazor-project/University course catalog with enrollment form - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 4.800000190734863,
+            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 9.199999809265137,
+            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 4.800000190734863,
+            "name": "create-blazor-project/Recipe community with interactive ratings on static pages - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 3.5999999046325684,
+            "name": "create-blazor-project/Global logistics tracking for worldwide users - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 8.399999618530273,
+            "name": "create-blazor-project/Global logistics tracking for worldwide users - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 3.200000047683716,
+            "name": "create-blazor-project/Global logistics tracking for worldwide users - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 6.800000190734863,
+            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 6.0,
+            "name": "fetch-and-send-data/Recipe browser with resilient data loading - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 9.199999809265137,
+            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "fetch-and-send-data/Real-time shipment tracker with Auto interactivity - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.800000190734863,
+            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 9.600000381469727,
+            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 8.800000190734863,
+            "name": "coordinate-components/Warehouse dashboard with site selector and live stock alerts - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 10.0,
+            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 3.200000047683716,
+            "name": "coordinate-components/Multi-tenant notification hub with cross-component fan-out - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "author-component/Author a data-loading search component - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "author-component/Author a data-loading search component - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 6.0,
+            "name": "author-component/Author a data-loading search component - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.399999618530273,
+            "name": "author-component/Author a multi-step wizard with async validation and shared state - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "author-component/Author a multi-step wizard with async validation and shared state - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "author-component/Author a multi-step wizard with async validation and shared state - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.800000190734863,
+            "name": "author-component/Author a generic data table component - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.800000190734863,
+            "name": "author-component/Author a generic data table component - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "author-component/Author a generic data table component - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.399999618530273,
+            "name": "author-component/Author a real-time notification badge component - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.800000190734863,
+            "name": "author-component/Author a real-time notification badge component - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 4.400000095367432,
+            "name": "author-component/Author a real-time notification badge component - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 9.199999809265137,
+            "name": "author-component/Author a sortable list with code-behind pattern - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.800000190734863,
+            "name": "author-component/Author a sortable list with code-behind pattern - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "author-component/Author a sortable list with code-behind pattern - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.800000190734863,
+            "name": "support-prerendering/Equipment inventory loaded once - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 9.199999809265137,
+            "name": "support-prerendering/Equipment inventory loaded once - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 8.800000190734863,
+            "name": "support-prerendering/Equipment inventory loaded once - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 6.400000095367432,
+            "name": "support-prerendering/Notifications page with live polling - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 9.199999809265137,
+            "name": "support-prerendering/Notifications page with live polling - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.22,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 6.0,
+            "name": "support-prerendering/Notifications page with live polling - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "configure-auth/Login and account management in a globally interactive app - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "configure-auth/Login and account management in a globally interactive app - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "configure-auth/Login and account management in a globally interactive app - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 9.199999809265137,
+            "name": "configure-auth/Multi-tier app with WebAssembly auth - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "configure-auth/Multi-tier app with WebAssembly auth - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 5.599999904632568,
+            "name": "configure-auth/Multi-tier app with WebAssembly auth - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 7.199999809265137,
+            "name": "plan-ui-change/Project management Kanban board - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 8.0,
+            "name": "plan-ui-change/Project management Kanban board - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 4.400000095367432,
+            "name": "plan-ui-change/Project management Kanban board - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 8.800000190734863,
+            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 4.800000190734863,
+            "name": "plan-ui-change/E-commerce product catalog with filters and pagination - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 5.599999904632568,
+            "name": "plan-ui-change/Multi-step job application wizard - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 8.0,
+            "name": "plan-ui-change/Multi-step job application wizard - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 3.200000047683716,
+            "name": "plan-ui-change/Multi-step job application wizard - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.399999618530273,
+            "name": "plan-ui-change/Application settings page with nested tab panels - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 8.0,
+            "name": "plan-ui-change/Application settings page with nested tab panels - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 5.199999809265137,
+            "name": "plan-ui-change/Application settings page with nested tab panels - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 7.599999904632568,
+            "name": "plan-ui-change/Team chat interface with message threads - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 7.599999904632568,
+            "name": "plan-ui-change/Team chat interface with message threads - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.29,
+            "overfitting": "moderate"
+          },
+          {
+            "value": 4.800000190734863,
+            "name": "plan-ui-change/Team chat interface with message threads - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 7.199999809265137,
+            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 5.599999904632568,
+            "name": "use-js-interop/Auto-saving notepad that survives page reloads - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.399999618530273,
+            "name": "use-js-interop/User activity tracker that detects idle timeout - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.800000190734863,
+            "name": "use-js-interop/User activity tracker that detects idle timeout - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 7.199999809265137,
+            "name": "use-js-interop/User activity tracker that detects idle timeout - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 7.599999904632568,
+            "name": "use-js-interop/Responsive layout that adapts to screen size - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "use-js-interop/Responsive layout that adapts to screen size - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 7.199999809265137,
+            "name": "use-js-interop/Responsive layout that adapts to screen size - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.0,
+            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 7.599999904632568,
+            "name": "use-js-interop/Infinite scroll list using IntersectionObserver - Vanilla Quality",
+            "unit": "Score (0-10)"
+          }
+        ]
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1782440902150
+  "lastUpdate": 1782526163620
 }
