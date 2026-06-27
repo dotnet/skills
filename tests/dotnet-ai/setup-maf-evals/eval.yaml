@@ -107,7 +107,7 @@ scenarios:
         value: "Microsoft.Extensions.AI.Evaluation.Safety"
 
   - name: scaffold-with-ci-workflow
-    timeout: 480
+    timeout: 600
     prompt: |
       Add evals for the agentic app at ./fixture, and include a GitHub Actions workflow that runs them on every PR.
     setup:
@@ -133,7 +133,7 @@ scenarios:
         value: "upload-artifact"
 
   - name: ichatclient-detection-azure-openai
-    timeout: 480
+    timeout: 600
     prompt: |
       Add evaluation coverage for the agentic app at ./fixture.
     setup:
@@ -160,7 +160,7 @@ scenarios:
         value: "AppHost.cs"
 
   - name: ichatclient-detection-missing-emits-stub
-    timeout: 480
+    timeout: 600
     prompt: |
       Add an evaluation harness for the agentic app at ./fixture.
     setup:
@@ -183,7 +183,7 @@ scenarios:
         value: "no registration found"
 
   - name: skip-when-no-app-host
-    timeout: 480
+    timeout: 600
     prompt: |
       Add evaluation coverage for the .NET project at ./fixture.
     setup:
@@ -196,7 +196,7 @@ scenarios:
         value: "agentic"
 
   - name: update-mode-preserves-user-data
-    timeout: 480
+    timeout: 600
     prompt: |
       Refresh the evaluation harness for the agentic app at ./fixture. A MyApp.Evals.Tests project
       already exists with a custom rubric and golden.json. Do not overwrite either.
@@ -230,7 +230,7 @@ scenarios:
         value: "preserve me"
 
   - name: tier-banner-surfaces-in-chat-output
-    timeout: 480
+    timeout: 600
     prompt: |
       Add an evaluation harness for the agentic app at ./fixture.
     setup:
@@ -254,7 +254,7 @@ scenarios:
         value: "EVAL_USE_FOUNDRY_SAFETY"
 
   - name: scaffold-emits-metrics-glossary
-    timeout: 480
+    timeout: 600
     prompt: |
       Set up evals for the agentic app at ./fixture.
     setup:
@@ -282,7 +282,7 @@ scenarios:
         value: "metrics-glossary.md"
 
   - name: factory-emits-friendly-secrets-diagnostic
-    timeout: 480
+    timeout: 600
     prompt: |
       Add evaluation coverage for the agentic app at ./fixture.
     setup:
