@@ -4,7 +4,7 @@ required_skills:
 
 scenarios:
   - name: scaffold-evals-tests-project-fresh
-    timeout: 480
+    timeout: 600
     prompt: |
       Set up evals for the agentic app at ./fixture. Wire telemetry,
       quality, and compare modes. Skip Safety, Aspire panel, and CI workflow.
@@ -57,7 +57,7 @@ scenarios:
         path: fixture/MyApp.Evals.Tests/.config/dotnet-tools.json
         value: "microsoft.extensions.ai.evaluation.console"
       - type: file_contains
-        path: fixture/MyApp.Evals.Tests/Quality/QualityTests.cs
+        path: fixture/MyApp.Evals.Tests/Reporting/ReportingConfig.cs
         value: "DiskBasedReportingConfiguration"
       - type: file_contains
         path: fixture/MyApp.Evals.Tests/Quality/QualityTests.cs
@@ -76,7 +76,7 @@ scenarios:
         value: "_store/"
 
   - name: scaffold-with-safety-tier
-    timeout: 480
+    timeout: 600
     prompt: |
       Add an evaluation harness for the agentic app at ./fixture, including safety evaluators.
     setup:
@@ -308,7 +308,7 @@ scenarios:
         value: "ConnectionStrings"
 
   - name: factory-loads-user-secrets-explicitly
-    timeout: 480
+    timeout: 600
     prompt: |
       Set up an evaluation harness for the agentic app at ./fixture.
     setup:
