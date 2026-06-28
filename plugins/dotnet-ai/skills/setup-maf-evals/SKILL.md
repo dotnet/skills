@@ -1,7 +1,7 @@
 ---
 name: setup-maf-evals
 description: |
-  Scaffold an `<App>.Evals.Tests` MSTest project alongside a .NET agentic app (MAF; Aspire/Foundry optional) wired to the GA `Microsoft.Extensions.AI.Evaluation.Reporting` pipeline. Three evaluator categories: **NLP** (deterministic BLEU/GLEU/F1, no API key), **Quality** (LLM-as-judge Relevance/Coherence/Fluency, etc.), **Safety** (Hate/Violence/SelfHarm/Sexual via Foundry). Auto-installs the `aieval` tool, detects the app's `IChatClient` registration and generates a factory so `EVAL_USE_REAL_AGENT=1` works without manual wiring, and emits an HTML report at `.copilot/perf-reports/evals/<ts>/report.html`. Optional GitHub Actions workflow runs evals on every PR. Topologies: Aspire AppHost, plain console, ASP.NET Core, worker service. WHEN: user asks "set up evals", "add evaluation harness", "validate quality after a model change", "compare gpt-4o vs gpt-4o-mini", "add safety evaluators". NOT-WHEN: one-shot audit (use scan-agentic-app-perf), install rules (use configure-agentic-perf-rules).
+  Scaffold an `<App>.Evals.Tests` MSTest project alongside a .NET agentic app (MAF; Aspire/Foundry optional), wired to the GA MEAI.Evaluation.Reporting pipeline. Categories: **NLP** (BLEU/GLEU/F1, no key), **Quality** (LLM-as-judge), **Safety** (content-harm via Foundry). Auto-installs `aieval`, detects `IChatClient`, generates a factory (`EVAL_USE_REAL_AGENT=1` works unwired), emits an HTML report; optional PR workflow. Topologies: Aspire/console/ASP.NET/worker. WHEN: "set up evals", "add evaluation harness/coverage", "validate quality after a model change", "compare gpt-4o vs gpt-4o-mini", "add safety evaluators"; or troubleshooting an eval setup — "why are my Quality columns erroring/empty", "reasoning model breaks evals / max_tokens vs max_completion_tokens", "which evaluators fail my stylistic/summarizer agent". NOT-WHEN: one-shot audit (scan-agentic-app-perf), install rules (configure-agentic-perf-rules), reasoning-model questions unrelated to evals, or running an existing suite (dotnet test).
 ---
 
 # setup-maf-evals
@@ -24,6 +24,11 @@ HTML report by default.
   Sexual via Azure AI Foundry) to an existing agent.
 - The user wants a recurring eval run wired into CI (the optional
   GitHub Actions workflow).
+- The user is **troubleshooting an eval setup** — "why are my Quality
+  columns erroring or empty?", "my reasoning model rejects `max_tokens`
+  in evals", "which evaluators will systematically fail my stylistic /
+  summarizer agent?". The skill owns these answers; see
+  `references/common-pitfalls.md`.
 
 ## When Not to Use
 
@@ -35,6 +40,10 @@ HTML report by default.
   `Microsoft.Extensions.AI` / `Microsoft.Agents.AI`.
 - The user explicitly does not want an MSTest dependency and is not
   willing to use the opt-in `--shape console` runner.
+- The user asks a **general model-behavior question unrelated to
+  evaluation** (e.g. how reasoning models work in production), or just
+  wants to **run an existing eval suite** (`dotnet test`) — no
+  scaffolding or eval-specific guidance is needed.
 
 ## Supported topologies
 
@@ -245,12 +254,14 @@ zero-config sanity check and Safety/Compare as additions.
    some resources, (b) key auth is often disabled → drop the `Key=`
    segment and rely on `DefaultAzureCredential`, (c) **the judge
    deployment must be a non-reasoning model** (gpt-4o / gpt-4o-mini /
-   gpt-4-turbo). Reasoning models (gpt-5*, o-series) reject `max_tokens`
-   with HTTP 400 and MEAI silently records that as a per-metric error
-   row. If the production model is a reasoning one, set
-   `EVAL_JUDGE_DEPLOYMENT_NAME=<non-reasoning-alias>` so the judge
-   points at a different deployment than the agent. Full details in
-   `references/ichatclient-detection.md`.
+   gpt-4-turbo) — reasoning models (gpt-5*, o-series) reject `max_tokens`
+   and MEAI silently records every Quality metric as an error row. If the
+   production model is a reasoning one, set
+   `EVAL_JUDGE_DEPLOYMENT_NAME=<non-reasoning-alias>` so the judge points
+   at a different deployment than the agent. Endpoint specifics in
+   `references/ichatclient-detection.md`; the full reasoning-model
+   footgun — including `max_completion_tokens` and the durable SDK-migration
+   fix — is the canonical writeup in `references/common-pitfalls.md`.
 3. **NLP (zero-config sanity).** "`report.html` already populates with
    Words / BLEU / GLEU / F1 from `golden.json` without any creds — run
    `dotnet test` now to see it."
