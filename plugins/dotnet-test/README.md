@@ -101,6 +101,14 @@ These are pipeline stages invoked automatically by the agents above (`user-invoc
 | **code-testing-fixer** | code-testing-implementer | Fixes compilation errors in source or test files |
 | **code-testing-linter** | code-testing-implementer | Runs code formatting and linting |
 
+> **VS Code — enabling full multi-level fan-out:** The pipeline delegates in two levels: `code-testing-generator` → researcher / planner / implementer, and `code-testing-implementer` → builder / tester / fixer / linter. VS Code gates *nested* delegation (a subagent spawning its own subagents) behind a setting that is **off by default**, so the first level runs out of the box but the second one does not. For large scopes — many files or modules, where parallel build/test/fix/lint workers help — enable it in your VS Code settings:
+>
+> ```jsonc
+> "chat.subagents.allowInvocationsFromSubagents": true
+> ```
+>
+> Without it, `code-testing-implementer` still builds, tests, fixes, and lints — it just does that work inline instead of delegating to the worker subagents, so results are unaffected. The GitHub Copilot CLI has no such gate and always fans out.
+
 ## Prerequisites
 
 ### For polyglot skills and agents
