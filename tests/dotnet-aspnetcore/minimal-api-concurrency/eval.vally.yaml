@@ -1,0 +1,63 @@
+name: minimal-api-concurrency
+description: Evaluates the dotnet-aspnetcore/minimal-api-concurrency skill
+type: capability
+config:
+  timeout: 14m
+stimuli:
+  - name: Protect order updates against concurrent edits
+    prompt: |
+      In the StoreApi project, the endpoint that updates an order's status can be called by two users at once. Make order updates safe against conflicting concurrent edits: if a client submits an update based on a stale version of the order, the update must be rejected instead of silently overwriting the other user's change. Use the StoreDbContext. Add whatever model and endpoint changes are needed.
+    environment:
+      files:
+        - src: ./fixture/StoreApi
+          dest: StoreApi
+    graders:
+      - type: file-contains
+        config:
+          path: StoreApi/**/*.cs
+          value: Map
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - A concurrency token is introduced on the order (a database rowversion via [Timestamp], or an application-managed concurrency token such as [ConcurrencyCheck] or a version property configured with IsConcurrencyToken) so that concurrent modifications can be detected
+      - The update flow compares the client's expected version against the stored one, so a stale update does not overwrite a newer change
+      - A detected conflict surfaces as a distinct response (409 Conflict, or 412 Precondition Failed when driven by a conditional request header) rather than succeeding silently
+      - The DbUpdateConcurrencyException that EF Core raises on a conflicting SaveChanges is handled rather than allowed to escape as a 500
+  - name: Conditional GET for an order
+    prompt: |
+      Add caching support to the StoreApi project's get-order-by-id endpoint so that a client which already has the latest copy of an order can revalidate cheaply and avoid re-downloading unchanged data. Use the StoreDbContext.
+    environment:
+      files:
+        - src: ./fixture/StoreApi
+          dest: StoreApi
+    graders:
+      - type: file-contains
+        config:
+          path: StoreApi/**/*.cs
+          value: MapGet
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The response carries an ETag header derived from the order's current version or a hash of its content
+      - The endpoint reads the request's If-None-Match header and returns 304 Not Modified (with no body) when the client's ETag still matches the current version
+      - When the ETag does not match (or none was sent), the endpoint returns 200 with the order and the current ETag
+      - The validator value is quoted per the ETag header format
+  - name: Require the latest version before updating a product price
+    prompt: |
+      Add a minimal API endpoint to the StoreApi project that updates a product's price, but only if the client proves it holds the latest version of that product; if the client's version is stale, the update must be refused. Use the StoreDbContext.
+    environment:
+      files:
+        - src: ./fixture/StoreApi
+          dest: StoreApi
+    graders:
+      - type: file-contains
+        config:
+          path: StoreApi/**/*.cs
+          value: Map
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The endpoint reads the If-Match request header carrying the client's expected version of the product
+      - When the supplied version does not match the current stored version, the update is refused with 412 Precondition Failed and the price is not changed
+      - When the version matches, the price is updated and the response reflects the new current version (a fresh ETag)
+      - A missing If-Match on an endpoint that requires it is handled deliberately (for example 428 Precondition Required or a documented default) rather than silently updating
