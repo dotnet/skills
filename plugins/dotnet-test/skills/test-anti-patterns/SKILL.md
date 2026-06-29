@@ -10,10 +10,12 @@ description: >
   coverage-touching tests, broad exceptions, flaky or order-dependent tests
   (Thread.Sleep, DateTime.Now, shared state), duplicated tests, or magic
   values — in .NET, Python/pytest, TS/Jest, Java, Go, Ruby or C++. DO NOT
-  USE FOR: writing new tests (use code-testing-agent); running tests (use
+  USE FOR: writing new tests (use code-testing-agent, or writing-mstest-tests
+  for MSTest); running tests (use
   run-tests); migration; assertion-diversity metrics (use assertion-quality);
   coverage/CRAP metrics (use coverage-analysis); the testsmells.org academic
-  catalog (use test-smell-detection).
+  catalog (use test-smell-detection); fixing or modernizing MSTest tests,
+  assertions, attributes, or lifecycle (use writing-mstest-tests).
 license: MIT
 ---
 
