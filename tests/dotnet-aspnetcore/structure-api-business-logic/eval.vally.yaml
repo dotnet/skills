@@ -1,0 +1,67 @@
+name: structure-api-business-logic
+description: Evaluates the dotnet-aspnetcore/structure-api-business-logic skill
+type: capability
+config:
+  timeout: 14m
+stimuli:
+  - name: Place an order operation
+    prompt: |
+      In the StoreApi project, add an endpoint that places an order for a customer.
+      The request provides the customer id and a list of items, each with a product id and a quantity.
+      The operation must check that the customer exists, that the item list is not empty, that every referenced product exists, and that every quantity is at least 1. Capture each product's current price as the line item's unit price. On success create the order (status Pending) with its line items and return the created order. Add the endpoint and any supporting code to the StoreApi project.
+    environment:
+      files:
+        - src: ./fixture/StoreApi
+          dest: StoreApi
+    graders:
+      - type: file-contains
+        config:
+          path: StoreApi/**/*.cs
+          value: Map
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The order-placement business logic lives in a separate service/application class, not inline in the route handler; the endpoint does not query or save through DbContext directly
+      - The service reports its outcome with a hand-rolled result type that distinguishes success from a semantic failure kind (such as not-found vs invalid-input), rather than throwing exceptions for these expected outcomes
+      - The service does not return ASP.NET result types (IResult / Results / TypedResults); HTTP translation stays in the endpoint, which maps the service outcome to the matching typed result (201 created on success, 404 for a missing customer or product, 400 ProblemDetails for empty items or a non-positive quantity)
+      - The service receives a request DTO or command object, not an Entity Framework entity; mapping from the request shape to the Order/OrderItem entities is explicit hand-written mapping (no reflection-based mapper library)
+      - Each product's stored price is read on the server and used as the unit price, rather than trusting a price sent by the caller
+  - name: Cancel an order with a state rule
+    prompt: |
+      Add an endpoint to the StoreApi project that cancels an existing order.
+      An order may only be cancelled while its status is Pending or Paid. Attempting to cancel an order that is already Shipped, Delivered, or Cancelled must fail with a clear, distinct outcome rather than silently succeeding. On a successful cancel, set the order's status to Cancelled.
+    environment:
+      files:
+        - src: ./fixture/StoreApi
+          dest: StoreApi
+    graders:
+      - type: file-contains
+        config:
+          path: StoreApi/**/*.cs
+          value: Cancel
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The cancel logic lives in a service/application method, not inline in the handler, and the handler does not touch DbContext directly
+      - The invalid-state-transition case is reported as its own outcome on the result type (a conflict kind), distinct from not-found and from success, instead of throwing or returning a generic failure
+      - The endpoint maps a missing order to 404, an illegal transition to 409 Conflict, and success to 200 or 204
+      - The status rule (only Pending or Paid may cancel) is enforced inside the service before persisting, not in the endpoint
+  - name: Share order-creation logic across two endpoints
+    prompt: |
+      The StoreApi project needs two endpoints that both create an order: the existing place-order endpoint, and a new "reorder" endpoint that recreates an order from a previous order's items for the same customer (look up the previous order, copy its product ids and quantities, and place a new order). Both must apply the same validation and order-building rules. Implement the reorder endpoint and make sure the shared order-creation logic is not duplicated.
+    environment:
+      files:
+        - src: ./fixture/StoreApi
+          dest: StoreApi
+    graders:
+      - type: file-contains
+        config:
+          path: StoreApi/**/*.cs
+          value: Map
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The order-creation and validation logic is defined once in a service/application method and called by both the place-order and reorder endpoints, not copy-pasted into each handler
+      - Both endpoints stay thin: they translate the request and the service's result outcome into HTTP responses and do not contain the creation/validation rules themselves
+      - The reorder path reports a missing previous order as a not-found outcome that the endpoint maps to 404
+      - The shared operation continues to surface its outcomes through the hand-rolled result type so both endpoints translate them consistently
