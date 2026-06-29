@@ -1,0 +1,73 @@
+name: author-controller-endpoints
+description: Evaluates the dotnet-aspnetcore/author-controller-endpoints skill
+type: capability
+config:
+  timeout: 12m
+stimuli:
+  - name: CRUD controller for orders
+    prompt: |
+      In the StoreApi project (which uses controllers: AddControllers and MapControllers are already wired up), add a controller-based Web API for orders backed by the existing StoreDbContext:
+      - list all orders
+      - get a single order by id
+      - create a new order for a customer
+      - update an existing order's status
+      - delete an order
+      Add the controller to the StoreApi project.
+    environment:
+      files:
+        - src: ./fixture/StoreApi
+          dest: StoreApi
+    graders:
+      - type: file-contains
+        config:
+          path: StoreApi/**/*.cs
+          value: Controller
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The controller derives from ControllerBase and is annotated with [ApiController] and attribute routing ([Route]/[HttpGet]/[HttpPost] etc.)
+      - Action methods return ActionResult<T> (or IActionResult) using the typed helpers, not raw objects
+      - The create action returns 201 Created with a Location header via CreatedAtAction/CreatedAtRoute, not 200 with the entity
+      - Get, update, and delete return 404 NotFound when the id does not exist; delete returns 204 NoContent on success
+      - Response types are declared for discoverability (ActionResult<T> return type and/or [ProducesResponseType]) so the produced status codes are described
+      - Database access is asynchronous (async actions, ToListAsync/FindAsync/SaveChangesAsync)
+  - name: Product listing with filter and pagination
+    prompt: |
+      Add a controller action to the StoreApi project that lists products from the StoreDbContext, filtered by an optional category id and paged with a page number and page size. Return the matching products.
+    environment:
+      files:
+        - src: ./fixture/StoreApi
+          dest: StoreApi
+    graders:
+      - type: file-contains
+        config:
+          path: StoreApi/**/*.cs
+          value: Controller
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The category id, page number, and page size are bound from the query string (inferred or [FromQuery])
+      - Pagination is applied in the database query (Skip/Take), not after loading all rows
+      - Invalid paging input (non-positive page or page size, or an excessively large page size) is rejected with a 400 problem response rather than silently accepted
+      - The action returns 200 OK with an explicit ActionResult<T> response type
+      - The query runs asynchronously and uses no-tracking reads for a read-only listing
+  - name: Add a line item to an order
+    prompt: |
+      Add a controller action to the StoreApi project that adds a line item (a product and a quantity) to an existing order using the StoreDbContext. If the order or the product does not exist, return a clear error. The quantity must be at least 1.
+    environment:
+      files:
+        - src: ./fixture/StoreApi
+          dest: StoreApi
+    graders:
+      - type: file-contains
+        config:
+          path: StoreApi/**/*.cs
+          value: Controller
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - Returns 404 NotFound when the order id or product id does not exist
+      - Returns a 400 validation problem when the quantity is less than 1, rather than persisting an invalid line item
+      - Returns a success status reflecting creation of a sub-resource (201 Created, or 200 with the updated order) on the happy path
+      - Validation of the quantity is enforced (model validation annotations with [ApiController] auto-400, or an explicit check)
+      - Input is validated before touching the database
