@@ -22,7 +22,19 @@
     {
       "name": "dotnet-msbuild",
       "source": "./plugins/dotnet-msbuild",
-      "description": "Comprehensive MSBuild and .NET build skills: failure diagnosis, performance optimization, code quality, and modernization."
+      "description": "Comprehensive MSBuild and .NET build skills: failure diagnosis, performance optimization, code quality, and modernization.",
+      "mcpServers": {
+        "binlog": {
+          "type": "stdio",
+          "command": "dotnet",
+          "args": [
+            "dnx",
+            "Microsoft.AITools.BinlogMcp",
+            "--yes"
+          ],
+          "tools": ["*"]
+        }
+      }
     },
     {
       "name": "dotnet-nuget",
