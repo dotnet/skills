@@ -17,8 +17,4 @@ Prerequisites:
 
 ## Skills
 
-<<<<<<< HEAD
-- setup-local-sdk
-=======
 - [setup-local-sdk](skills/setup-local-sdk/SKILL.md)
->>>>>>> ab0a55e88071c0d0fb62e4f0b70e6fda3c02dade
