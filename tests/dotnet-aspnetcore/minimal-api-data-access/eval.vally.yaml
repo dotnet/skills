@@ -1,0 +1,43 @@
+name: minimal-api-data-access
+description: Evaluates the dotnet-aspnetcore/minimal-api-data-access skill
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: An efficient list of queues
+    prompt: |
+      In the MessagingApi project (which uses minimal APIs), add an endpoint that lists the queues in a namespace, backed by MessagingDbContext. This endpoint is called very frequently and a namespace can hold a large number of queues, so make sure it performs well and returns only what a client needs.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Map
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The read query does not track entities (AsNoTracking or an equivalent no-tracking read), since it only reads
+      - The result set is paginated (for example Skip/Take) with a bounded page size rather than returning every queue in the namespace
+      - The query projects to the fields the client needs (a Select projection) rather than materializing full Queue entities and their owned collections
+      - The query is shaped so it runs on the database (no client-side evaluation and no per-item follow-up queries that would cause N+1)
+  - name: Fetching a single namespace with its summary
+    prompt: |
+      In the MessagingApi project, add an endpoint that gets a single namespace by name along with a count of how many queues and topics it has, backed by MessagingDbContext. It should be efficient and not load data it does not need.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Map
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The read uses no-tracking and does not load the full queue and topic collections into memory just to count them (the counts are computed in the query, for example via a projection that uses Count)
+      - The lookup returns 404 when the namespace is absent rather than throwing
+      - The query avoids fetching the namespace's owned collections when only counts and scalar fields are needed
