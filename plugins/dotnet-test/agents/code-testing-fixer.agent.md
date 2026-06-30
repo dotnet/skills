@@ -6,7 +6,7 @@ description: >-
   imports, correcting type mismatches, fixing compilation failures.
 name: code-testing-fixer
 user-invocable: false
-tools: ["read", "search", "edit", "execute"]
+tools: ["skill", "read", "search", "edit", "execute"]
 license: MIT
 ---
 
