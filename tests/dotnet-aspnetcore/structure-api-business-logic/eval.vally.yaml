@@ -2,66 +2,44 @@ name: structure-api-business-logic
 description: Evaluates the dotnet-aspnetcore/structure-api-business-logic skill
 type: capability
 config:
-  timeout: 14m
+  timeout: 16m
 stimuli:
-  - name: Place an order operation
+  - name: Create a queue with the rules that govern it
     prompt: |
-      In the StoreApi project, add an endpoint that places an order for a customer.
-      The request provides the customer id and a list of items, each with a product id and a quantity.
-      The operation must check that the customer exists, that the item list is not empty, that every referenced product exists, and that every quantity is at least 1. Capture each product's current price as the line item's unit price. On success create the order (status Pending) with its line items and return the created order. Add the endpoint and any supporting code to the StoreApi project.
+      In the MessagingApi project, add the ability to create a queue inside a namespace. A queue can only be created when its parent namespace exists and is not deleted, the queue name must be unique within that namespace, and a namespace is capped at 100 queues. When one of those conditions is not met the caller needs to be able to tell which one failed and get the right HTTP status; on success they get the created queue. Use MessagingDbContext.
     environment:
       files:
-        - src: ./fixture/StoreApi
-          dest: StoreApi
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
     graders:
       - type: file-contains
         config:
-          path: StoreApi/**/*.cs
-          value: Map
+          path: MessagingApi/**/*.cs
+          value: Queue
       - type: prompt
       - type: pairwise
     rubric:
-      - The order-placement business logic lives in a separate service/application class, not inline in the route handler; the endpoint does not query or save through DbContext directly
-      - The service reports its outcome with a hand-rolled result type that distinguishes success from a semantic failure kind (such as not-found vs invalid-input), rather than throwing exceptions for these expected outcomes
-      - The service does not return ASP.NET result types (IResult / Results / TypedResults); HTTP translation stays in the endpoint, which maps the service outcome to the matching typed result (201 created on success, 404 for a missing customer or product, 400 ProblemDetails for empty items or a non-positive quantity)
-      - The service receives a request DTO or command object, not an Entity Framework entity; mapping from the request shape to the Order/OrderItem entities is explicit hand-written mapping (no reflection-based mapper library)
-      - Each product's stored price is read on the server and used as the unit price, rather than trusting a price sent by the caller
-  - name: Cancel an order with a state rule
+      - The creation logic (parent-exists, not-deleted, unique-name, and quota checks) lives in a dedicated service or application class rather than inline in the route handler or controller action
+      - Each distinct failure (missing or deleted namespace, duplicate name, quota exceeded) is reported as a distinct semantic outcome that the endpoint maps to the correct status code (for example 404 vs 409 vs 400/422), not collapsed into one generic error
+      - The operation reports success-or-failure through a returned result value carrying an error kind, not by throwing exceptions for these expected business outcomes and not by returning bare tuples
+      - The service is HTTP-agnostic: it does not return IResult/IActionResult/TypedResults or set status codes itself; the endpoint translates the outcome to HTTP
+      - The endpoint stays thin and does not use MessagingDbContext directly to perform the rule checks once the service exists
+  - name: Decommission a namespace and everything it owns
     prompt: |
-      Add an endpoint to the StoreApi project that cancels an existing order.
-      An order may only be cancelled while its status is Pending or Paid. Attempting to cancel an order that is already Shipped, Delivered, or Cancelled must fail with a clear, distinct outcome rather than silently succeeding. On a successful cancel, set the order's status to Cancelled.
+      In the MessagingApi project, add an operation that decommissions a namespace: it should soft-delete the namespace together with all the queues and topics it owns in one consistent step, refuse to run when the namespace is already deleted, and let the caller distinguish "no such namespace" from "already decommissioned". Use MessagingDbContext.
     environment:
       files:
-        - src: ./fixture/StoreApi
-          dest: StoreApi
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
     graders:
       - type: file-contains
         config:
-          path: StoreApi/**/*.cs
-          value: Cancel
+          path: MessagingApi/**/*.cs
+          value: Namespace
       - type: prompt
       - type: pairwise
     rubric:
-      - The cancel logic lives in a service/application method, not inline in the handler, and the handler does not touch DbContext directly
-      - The invalid-state-transition case is reported as its own outcome on the result type (a conflict kind), distinct from not-found and from success, instead of throwing or returning a generic failure
-      - The endpoint maps a missing order to 404, an illegal transition to 409 Conflict, and success to 200 or 204
-      - The status rule (only Pending or Paid may cancel) is enforced inside the service before persisting, not in the endpoint
-  - name: Share order-creation logic across two endpoints
-    prompt: |
-      The StoreApi project needs two endpoints that both create an order: the existing place-order endpoint, and a new "reorder" endpoint that recreates an order from a previous order's items for the same customer (look up the previous order, copy its product ids and quantities, and place a new order). Both must apply the same validation and order-building rules. Implement the reorder endpoint and make sure the shared order-creation logic is not duplicated.
-    environment:
-      files:
-        - src: ./fixture/StoreApi
-          dest: StoreApi
-    graders:
-      - type: file-contains
-        config:
-          path: StoreApi/**/*.cs
-          value: Map
-      - type: prompt
-      - type: pairwise
-    rubric:
-      - The order-creation and validation logic is defined once in a service/application method and called by both the place-order and reorder endpoints, not copy-pasted into each handler
-      - Both endpoints stay thin: they translate the request and the service's result outcome into HTTP responses and do not contain the creation/validation rules themselves
-      - The reorder path reports a missing previous order as a not-found outcome that the endpoint maps to 404
-      - The shared operation continues to surface its outcomes through the hand-rolled result type so both endpoints translate them consistently
+      - The multi-entity decommission logic (soft-deleting the namespace and cascading to its child queues and topics) lives in a service or application class, not inline in the endpoint
+      - A missing namespace and an already-decommissioned namespace are reported as two distinct outcomes that map to different HTTP responses (for example 404 vs 409), rather than a single ambiguous result
+      - The outcome is returned as a result value with an error kind rather than signalled by throwing exceptions for these expected cases or by returning bare tuples
+      - The service does not depend on HTTP types; the endpoint is responsible for turning the outcome into a status code
