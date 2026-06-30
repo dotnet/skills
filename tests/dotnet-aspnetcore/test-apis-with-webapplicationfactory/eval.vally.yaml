@@ -2,15 +2,15 @@ name: test-apis-with-webapplicationfactory
 description: Evaluates the dotnet-aspnetcore/test-apis-with-webapplicationfactory skill
 type: capability
 config:
-  timeout: 16m
+  timeout: 18m
 stimuli:
-  - name: Integration tests for the product endpoints
+  - name: Integration tests for the namespaces API
     prompt: |
-      The StoreApi project is a working ASP.NET Core API. Add integration tests that exercise its product endpoints end to end over HTTP: GET /products returns the list, GET /products/{id} returns a product (200) or 404 when the id does not exist. Set up whatever test project and infrastructure is needed.
+      The MessagingApi project has a working Web API for messaging namespaces (a NamespacesController backed by MessagingDbContext, with create, get-by-name, list, update, and delete). Add automated tests that exercise this API end to end over HTTP, covering creating a namespace and reading it back, getting one that does not exist, listing, and deleting.
     environment:
       files:
-        - src: ./fixture/StoreApi
-          dest: StoreApi
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
     graders:
       - type: file-contains
         config:
@@ -19,45 +19,9 @@ stimuli:
       - type: prompt
       - type: pairwise
     rubric:
-      - The tests use WebApplicationFactory<Program> (directly or via a custom subclass) to host the app in memory and obtain an HttpClient, rather than starting an external server or calling endpoint handlers directly
-      - The app's Program is made reachable from the test project (a public partial class Program declaration, or InternalsVisibleTo), since a minimal API with top-level statements otherwise has an inaccessible Program
-      - Each test asserts both the HTTP status code and the response body (deserializing the JSON and checking values), not just that the call did not throw
-      - A new test project is created referencing Microsoft.AspNetCore.Mvc.Testing and a test framework, wired to reference the StoreApi project
-  - name: Test the create-order flow
-    prompt: |
-      Add integration tests for the StoreApi project's POST /orders endpoint that cover the three outcomes: a successful create returns 201 with the new order, an invalid customer id returns 400, and a non-existent customer returns 404. Use HTTP end-to-end testing.
-    environment:
-      files:
-        - src: ./fixture/StoreApi
-          dest: StoreApi
-    graders:
-      - type: file-contains
-        config:
-          path: "**/*.cs"
-          value: WebApplicationFactory
-      - type: prompt
-      - type: pairwise
-    rubric:
-      - The tests drive the endpoint over HTTP through a WebApplicationFactory-provided HttpClient and post a JSON body
-      - All three outcomes are covered (201 success with the created order asserted, 400 for an invalid customer id, 404 for a missing customer)
-      - The test that expects 201 ensures the customer it references actually exists by seeding it, rather than depending on incidental data
-      - The status code and the response payload are both asserted
-  - name: Keep integration tests isolated
-    prompt: |
-      Make the StoreApi project's integration tests reliable and independent: they must not share database state with each other or with the app's normal database, so they can run in any order and repeatedly without interfering. Adjust the test setup accordingly.
-    environment:
-      files:
-        - src: ./fixture/StoreApi
-          dest: StoreApi
-    graders:
-      - type: file-contains
-        config:
-          path: "**/*.cs"
-          value: WebApplicationFactory
-      - type: prompt
-      - type: pairwise
-    rubric:
-      - The factory overrides the app's service registrations (WithWebHostBuilder/ConfigureTestServices or a custom factory) to replace the DbContext with one pointing at an isolated test database, rather than using the app's configured database as-is
-      - Each test class or test gets a fresh database state (for example a uniquely named in-memory database, or the context is reset/seeded per test), so tests do not leak data into one another
-      - The existing DbContext registration is removed before the test one is added, so there is a single, test-controlled provider
-      - Seeding happens within a scope created from the factory's services, and tests assert against that known seeded state
+      - The tests drive the API through WebApplicationFactory (an in-memory test host) and a real HttpClient that sends HTTP requests, rather than instantiating the controller and calling its methods directly or mocking the pipeline
+      - The application's registered DbContext registration is replaced for the tests with an isolated test database, so the tests do not hit the app's configured database and do not share state with it
+      - The tests are isolated from one another, with seeding and database state arranged so one test's writes do not make another test pass or fail (a fresh or uniquely-named database per factory or per test)
+      - Each test asserts both the HTTP status code and the deserialized response body where there is one, not just the status code
+      - The create path is verified by reading the resource back through the API (a round trip), and the missing-resource path asserts 404
+      - The test project is set up to make the app's Program reachable to WebApplicationFactory and references the testing host package (Microsoft.AspNetCore.Mvc.Testing)

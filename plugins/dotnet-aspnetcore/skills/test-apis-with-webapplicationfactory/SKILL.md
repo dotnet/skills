@@ -18,38 +18,45 @@ Drive the real HTTP pipeline in memory, against an isolated database, and assert
 
 ## Host the app and get a client
 
-Add `Microsoft.AspNetCore.Mvc.Testing` to the test project (`dotnet add package Microsoft.AspNetCore.Mvc.Testing`) and a reference to the API project. A minimal API built from top-level statements has an inaccessible generated `Program`, so expose it: add `public partial class Program;` at the end of `Program.cs` (or use `[assembly: InternalsVisibleTo("YourTests")]` in the API project). Use xUnit's `IClassFixture<StoreApiFactory>` so the factory is shared across tests in the class, then call `factory.CreateClient()` to get an `HttpClient` wired to the in-process host.
+Add `Microsoft.AspNetCore.Mvc.Testing` to the test project (`dotnet add package Microsoft.AspNetCore.Mvc.Testing`) and a reference to the API project. A minimal API built from top-level statements has an inaccessible generated `Program`, so expose it: add `public partial class Program;` at the end of `Program.cs` (or use `[assembly: InternalsVisibleTo("YourTests")]` in the API project).
+
+Give each test its own factory rather than sharing one across the class. xUnit constructs a fresh instance of the test class for every test method, so a factory created in the constructor (and disposed after) yields a separate in-memory database per test, and tests cannot see each other's writes. Reach for `IClassFixture<T>` only when the tests in a class are read-only or seed uniquely-keyed data, since a shared factory means a shared database.
 
 ```csharp
-public class StoreApiFactory : WebApplicationFactory<Program>
+public class MessagingApiFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder) =>
         builder.ConfigureTestServices(services =>
         {
-            services.RemoveAll<DbContextOptions<StoreDbContext>>();
-            services.AddDbContext<StoreDbContext>(o => o.UseInMemoryDatabase($"test-{Guid.NewGuid()}"));
+            services.RemoveAll<DbContextOptions<MessagingDbContext>>();
+            services.AddDbContext<MessagingDbContext>(o => o.UseInMemoryDatabase($"test-{Guid.NewGuid()}"));
         });
 }
 
-public class OrdersTests(StoreApiFactory factory) : IClassFixture<StoreApiFactory>
+public class NamespacesTests : IDisposable
 {
-    private readonly HttpClient _client = factory.CreateClient();
+    private readonly MessagingApiFactory _factory = new();
+    private readonly HttpClient _client;
+
+    public NamespacesTests() => _client = _factory.CreateClient();
+
+    public void Dispose() => _factory.Dispose();
 }
 ```
 
 ## Replace the database with an isolated one
 
-`RemoveAll<DbContextOptions<StoreDbContext>>()` is the key step: adding a second `AddDbContext` without removing the first leaves the app's original provider in place. The `Guid.NewGuid()` database name ensures each factory instance gets a separate store — tests never share state with each other or with the app.
+`RemoveAll<DbContextOptions<MessagingDbContext>>()` is the key step: adding a second `AddDbContext` without removing the first leaves the app's original provider in place. The `Guid.NewGuid()` database name gives each factory its own store. With a per-test factory this means a clean database for every test, so tests never share state with each other or with the app.
 
 ## Seed exactly what each test asserts
 
 A test must not depend on data seeded at app startup or by another test. Before acting, seed the specific rows this test needs through a scope from the factory's services; then call the endpoint and assert.
 
 ```csharp
-using (var scope = factory.Services.CreateScope())
+using (var scope = _factory.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<StoreDbContext>();
-    db.Customers.Add(new Customer { Name = "Test", Email = "t@example.com" });
+    var db = scope.ServiceProvider.GetRequiredService<MessagingDbContext>();
+    db.Namespaces.Add(new MessagingNamespace { Name = "ns-test", Location = "eastus" });
     await db.SaveChangesAsync();
 }
 ```
@@ -62,10 +69,10 @@ using (var scope = factory.Services.CreateScope())
 Assert the status code and the deserialized body, not merely that the call did not throw.
 
 ```csharp
-var response = await client.PostAsJsonAsync("/orders", new { customerId = 1 });
+var response = await _client.PostAsJsonAsync("/namespaces", new { name = "ns-1", location = "eastus", sku = "Standard" });
 Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-var order = await response.Content.ReadFromJsonAsync<OrderDto>();
-Assert.Equal(1, order!.CustomerId);
+var created = await response.Content.ReadFromJsonAsync<NamespaceResponse>();
+Assert.Equal("ns-1", created!.Name);
 ```
 
 ❌ Asserting only `response.IsSuccessStatusCode`.
