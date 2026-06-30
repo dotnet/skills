@@ -1,0 +1,26 @@
+name: minimal-api-endpoint-filters
+description: Probe — minimal API endpoint filters for cross-cutting validation
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: Cross-cutting validation across a route group
+    prompt: |
+      In the MessagingApi project (minimal APIs), tighten up the namespace endpoints. The create and update requests must be rejected with a 400 when the name is missing or blank or the SKU is not a known value. Separately, every namespace endpoint must require callers to send a non-empty "x-api-version" request header and reject requests that do not. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Map
+      - type: prompt
+      - type: pairwise
+    rubric:
+      - The cross-cutting concerns are implemented as endpoint filters (IEndpointFilter or AddEndpointFilter) applied to the route group, not as code duplicated inside each handler
+      - The validation filter short-circuits with a 400 problem response (for example TypedResults.ValidationProblem or Results.Problem) and does not invoke the handler when input is invalid
+      - The header-check filter rejects requests lacking a non-empty x-api-version header before the handler runs, with an appropriate status code
+      - The filters are attached at the group level so they apply uniformly to all namespace endpoints
+      - The handlers themselves stay focused on their work and do not re-implement the validation or header checks that the filters already perform
