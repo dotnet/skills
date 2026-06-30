@@ -37,7 +37,9 @@
         base-change commit, so NBGV resets the patch to 0);
       * the plugin is newly added (no version.json at the merge base) => <newBase>.0;
       * otherwise (ordinary content change) => <base>.(heightAtBase + 1), because the squash adds
-        exactly one height-bearing commit on top of the merge base.
+        exactly one height-bearing commit on top of the merge base. A PR that edits only version.json
+        without changing the base (e.g. a pathFilters tweak) changes no height-bearing file, so the
+        height is unchanged (=> <base>.heightAtBase) and no spurious bump is predicted.
 
 .PARAMETER OnlyChanged
     Emit/stamp only plugins whose computed version differs from the value currently in
@@ -70,6 +72,18 @@ if ($HeadCommit -and -not $BaseCommit) {
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
 $pluginsRoot = Join-Path $repoRoot 'plugins'
+
+# The files excluded from NBGV git height for every plugin: the two stamped manifests (which are
+# outputs, not inputs) plus version.json itself. This is the single source of truth, mirrored by
+# each plugin's version.json `pathFilters`, by Test-HeightBearingChange, and by the canonical-
+# filter guard in the main loop. Keeping one list avoids the three drifting apart.
+$HeightExcludedFiles = @('plugin.json', '.codex-plugin/plugin.json', 'version.json')
+
+# The canonical `pathFilters` array every plugin's version.json must contain: include the whole
+# plugin subtree ('.') minus the height-excluded files above.
+function Get-CanonicalFilters {
+    @('.') + ($HeightExcludedFiles | ForEach-Object { ":!$_" })
+}
 
 # Replace only the "version" value so the rest of the manifest stays byte-identical
 # (avoids reflow/key-reorder noise that a full ConvertTo-Json round-trip would cause).
@@ -126,6 +140,18 @@ function Get-VersionBase {
     return (Get-Content (Join-Path $pluginsRoot $Plugin 'version.json') -Raw | ConvertFrom-Json).version
 }
 
+# Whether the BaseCommit..HeadCommit diff touches any *height-bearing* file for a plugin — a
+# file NBGV counts toward git height. The git pathspec excludes mirror the plugin's canonical
+# version.json pathFilters (built from $HeightExcludedFiles), so a version.json-only edit that
+# leaves the base unchanged is correctly treated as height-neutral. The main loop guarantees the
+# pathFilters are canonical, so these excludes always match what NBGV actually computes.
+function Test-HeightBearingChange {
+    param([string] $Plugin, [string] $From, [string] $To)
+    $excludes = $HeightExcludedFiles | ForEach-Object { ":(exclude)plugins/$Plugin/$_" }
+    $touched = git diff --name-only --diff-filter=ACMRD $From $To -- "plugins/$Plugin" @excludes
+    return [bool]$touched
+}
+
 # Plugins whose version-affecting files changed between two commits. The two stamped manifests
 # (plugin.json, .codex-plugin/plugin.json) are output, not input, so they're excluded; everything
 # else under the plugin counts — including version.json, since a base bump (0.1 -> 0.2) with no
@@ -172,17 +198,46 @@ foreach ($name in $Plugins) {
         (Get-Content $codexManifest -Raw | ConvertFrom-Json).version
     } else { $null }
 
+    # The version.json base must be major.minor (e.g. "0.1"); a malformed or 3-part base
+    # (e.g. "0.1.0") would otherwise pass through the non-predict path because NBGV normalizes
+    # it into a 3-part SimpleVersion that satisfies the computed-value guard below, silently
+    # producing a wrong/fixed version. Validate it here so both paths fail loudly instead.
+    $base = Get-VersionBase -Plugin $name
+    if ($base -notmatch '^\d+\.\d+$') {
+        throw "version.json base '$base' for plugin '$name' must be major.minor (e.g. 0.1) — check plugins/$name/version.json"
+    }
+
+    # pathFilters must stay exactly canonical. The predict-mode height math assumes version.json
+    # and the two stamped manifests are excluded from NBGV height (so a version.json-only edit is
+    # height-neutral) and that the filter set is identical at the merge base and head. A hand-edited
+    # pathFilters would silently break that assumption — the post-merge NBGV height would diverge
+    # from the prediction — so reject anything but the generated canonical set in both paths.
+    $canonicalFilters = @(Get-CanonicalFilters | Sort-Object)
+    $filtersProp = (Get-Content (Join-Path $pluginsRoot $name 'version.json') -Raw |
+        ConvertFrom-Json).PSObject.Properties['pathFilters']
+    $actualFilters = if ($filtersProp) { @($filtersProp.Value | Sort-Object) } else { @() }
+    if (($actualFilters -join "`n") -ne ($canonicalFilters -join "`n")) {
+        throw "version.json pathFilters for plugin '$name' must be the canonical set [$((Get-CanonicalFilters) -join ', ')] — check plugins/$name/version.json"
+    }
+
     if ($PredictSquashMerge) {
-        $newBase = Get-VersionBase -Plugin $name
         $oldBase = Get-VersionBase -Plugin $name -Commit $BaseCommit
-        if (-not $oldBase -or $oldBase -ne $newBase) {
+        if (-not $oldBase -or $oldBase -ne $base) {
             # Base bumped in this PR, or brand-new plugin: the squashed commit becomes the
             # version-origin commit, so NBGV resets the patch to 0.
-            $computed = "$newBase.0"
+            $computed = "$base.0"
         }
         else {
-            $heightAtBase = (Get-NbgvInfo -PluginDir $pluginDir -Commit $BaseCommit).VersionHeight
-            $computed = "$newBase.$([int]$heightAtBase + 1)"
+            $heightAtBase = [int](Get-NbgvInfo -PluginDir $pluginDir -Commit $BaseCommit).VersionHeight
+            # The squash adds a height-bearing commit only if the PR actually changed a
+            # height-bearing file. A version.json-only edit that doesn't touch the base (e.g. a
+            # pathFilters/$schema/whitespace tweak) excludes itself from NBGV height, so it adds
+            # none — predicting +1 there would over-bump, and the weekly sync would later compute
+            # the true (lower) height and correct it downward: a visible version regression.
+            $bumps = if ($HeadCommit) {
+                [int](Test-HeightBearingChange -Plugin $name -From $BaseCommit -To $HeadCommit)
+            } else { 1 }
+            $computed = "$base.$($heightAtBase + $bumps)"
         }
     }
     else {

@@ -91,7 +91,9 @@ What this means when you contribute:
   - Otherwise the **weekly version sync** opens a PR that stamps any plugin whose content changed without a
     version bump, explaining each change. Nothing is ever missed.
 
-Version-only changes do not trigger skill evaluations.
+Patch numbers are predicted from git history, so two PRs bumped concurrently can land the same patch
+number for a plugin; the weekly sync recomputes the authoritative height on `main` and reconciles any
+collision. Version-only changes do not trigger skill evaluations.
 
 ## Before you start
 

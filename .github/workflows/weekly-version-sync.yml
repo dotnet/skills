@@ -38,6 +38,10 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
         with:
+          # nbgv targets net8.0; global.json pins an SDK that ships only a preview runtime, onto
+          # which a release-targeted tool will not roll forward. Install an 8.0.x runtime so nbgv
+          # has a runtime to execute on, alongside the global.json SDK.
+          dotnet-version: '8.0.x'
           global-json-file: global.json
 
       - name: Restore tools
