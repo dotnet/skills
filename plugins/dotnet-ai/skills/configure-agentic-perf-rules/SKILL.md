@@ -102,10 +102,17 @@ The current skill version is the `version:` field at the top of this SKILL.md.
 | Detected state | Action |
 |----------------|--------|
 | No block present | Append a new managed block at the end of the file |
-| Block present, same version, structurally valid (all six rule headings present, threshold YAML parses) | No-op — report "already current" and stop |
-| Block present, same version, structurally invalid | Treat as "older version": show diff and offer to repair after explicit user confirmation |
+| Block present, same version | **No-op — report "already current (vX.Y.Z)" and stop.** A matching version marker is the idempotency source of truth: do not re-validate or rewrite the body. If rule sections look missing, elided, or otherwise customized, note it informationally but leave the block untouched — the user may have intentionally trimmed or edited it. Restore default sections only when the user explicitly asks (e.g. "reinstall" / "restore defaults"). |
 | Block present, older version | Show a diff to the user; replace the block on confirm; preserve any user-edited threshold values from the existing frontmatter |
 | Block present, newer version than this skill | Refuse to downgrade — report version mismatch and stop |
+
+**Idempotency is keyed on the version marker, not body equality.** Once the
+sentinels are well-formed (Step 2 rules #1–#4) and the captured version equals
+this skill's `version:`, the run is a no-op regardless of the body's contents.
+The skill never repairs or rewrites a same-version block on its own — doing so
+would clobber legitimate user customizations (trimmed sections, hand-tuned
+wording). Structural validation only gates the freshly *written* block on
+install/update runs (see Validation), never a same-version detection.
 
 **Threshold preservation algorithm** (used in the older-version path):
 
@@ -209,7 +216,10 @@ After the skill runs, the agent must verify:
 2. **Sentinel comments present** with matching `BEGIN`/`END` markers and a parseable
    version in the `BEGIN` comment.
 3. **Threshold frontmatter parses** as valid YAML (no syntax errors introduced).
+   *(Applies only when the skill wrote or updated the block this run.)*
 4. **All six rule sections** are present, in the canonical order.
+   *(Applies only when the skill wrote or updated the block this run; a detected
+   same-version no-op leaves a customized or elided block as-is and is still valid.)*
 5. **Round-trip:** re-running the skill against the now-updated file is a no-op (reports
    "already current"). If a second run produces any modification, the install was not
    idempotent and the skill failed.
@@ -220,6 +230,11 @@ If `AGENTS.md` was updated, also confirm the stub line is present exactly once.
 
 - **Managing user-authored content.** Never modify content outside the sentinel block.
   All edits stay strictly between `BEGIN` and `END` markers.
+- **Re-validating a same-version block.** Idempotency keys on the version marker, not
+  byte-for-byte body equality. If a re-run finds a block whose version already matches
+  this skill, report "already current" and stop — never flag elided or user-customized
+  sections as "needs repair" or silently rewrite them. Restoring default sections is
+  opt-in (the user explicitly asks to reinstall / restore defaults).
 - **Threshold preservation on update.** When updating to a newer version of the rules,
   preserve any user-edited values in the threshold frontmatter rather than resetting to
   defaults. Diff against the old defaults to detect user edits.
