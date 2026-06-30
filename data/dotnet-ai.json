@@ -2,651 +2,6 @@
   "entries": {
     "Efficiency": [
       {
-        "commit": {
-          "timestamp": "2026-06-12T18:27:44+00:00",
-          "message": "Fix evaluation.yml: quote run-name so '#' is not parsed as a YAML comment (#759)",
-          "url": "https://github.com/dotnet/skills/commit/c8be21018fc4ee4c566ed65a313cea56690f8cab",
-          "author": {
-            "name": "YuliiaKovalova",
-            "username": "JanKrivanek"
-          },
-          "id": "c8be21018fc4ee4c566ed65a313cea56690f8cab"
-        },
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "overfitting": "moderate",
-            "value": 285.6,
-            "name": "technology-selection/ML.NET classification on tabular data - Skilled Time",
-            "unit": "seconds",
-            "overfittingScore": 0.39,
-            "timedOut": true
-          },
-          {
-            "overfitting": "moderate",
-            "value": 758607.0,
-            "name": "technology-selection/ML.NET classification on tabular data - Skilled Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.39,
-            "timedOut": true
-          },
-          {
-            "overfitting": "moderate",
-            "value": 276.5,
-            "name": "technology-selection/ML.NET classification on tabular data - Plugin Time",
-            "unit": "seconds",
-            "overfittingScore": 0.39,
-            "timedOut": true
-          },
-          {
-            "overfitting": "moderate",
-            "value": 753007.0,
-            "name": "technology-selection/ML.NET classification on tabular data - Plugin Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.39,
-            "timedOut": true
-          },
-          {
-            "unit": "seconds",
-            "value": 230.0,
-            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 498139.0,
-            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Tokens In"
-          },
-          {
-            "notActivated": true,
-            "value": 62.8,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Time",
-            "unit": "seconds",
-            "overfittingScore": 0.39,
-            "overfitting": "moderate"
-          },
-          {
-            "notActivated": true,
-            "value": 145767.0,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.39,
-            "overfitting": "moderate"
-          },
-          {
-            "notActivated": true,
-            "value": 76.7,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Time",
-            "unit": "seconds",
-            "overfittingScore": 0.39,
-            "overfitting": "moderate"
-          },
-          {
-            "notActivated": true,
-            "value": 211142.0,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.39,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "value": 59.1,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 131660.0,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "value": 135.9,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/Reject LLM for tabular classification - Skilled Time"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "value": 453690.0,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/Reject LLM for tabular classification - Skilled Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "value": 117.6,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/Reject LLM for tabular classification - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "value": 439353.0,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/Reject LLM for tabular classification - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 81.4,
-            "name": "technology-selection/Reject LLM for tabular classification - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 236772.0,
-            "name": "technology-selection/Reject LLM for tabular classification - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 202.4,
-            "name": "technology-selection/Agentic workflow with guardrails - Skilled Time",
-            "unit": "seconds",
-            "overfittingScore": 0.39,
-            "timedOut": true
-          },
-          {
-            "overfitting": "moderate",
-            "value": 713264.0,
-            "name": "technology-selection/Agentic workflow with guardrails - Skilled Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.39,
-            "timedOut": true
-          },
-          {
-            "overfitting": "moderate",
-            "value": 241.6,
-            "name": "technology-selection/Agentic workflow with guardrails - Plugin Time",
-            "unit": "seconds",
-            "overfittingScore": 0.39,
-            "timedOut": true
-          },
-          {
-            "overfitting": "moderate",
-            "value": 1078787.0,
-            "name": "technology-selection/Agentic workflow with guardrails - Plugin Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.39,
-            "timedOut": true
-          },
-          {
-            "unit": "seconds",
-            "value": 73.6,
-            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 112332.0,
-            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "value": 120.8,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Time"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "value": 263248.0,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "value": 110.7,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "value": 249620.0,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 80.8,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 146825.0,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "value": 76.2,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/RAG pipeline with vector search - Skilled Time"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "value": 198395.0,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/RAG pipeline with vector search - Skilled Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "value": 43.7,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/RAG pipeline with vector search - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "value": 101185.0,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/RAG pipeline with vector search - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 96.4,
-            "name": "technology-selection/RAG pipeline with vector search - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 151762.0,
-            "name": "technology-selection/RAG pipeline with vector search - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 15.7,
-            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 28787.0,
-            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 19.5,
-            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 30479.0,
-            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 12.9,
-            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 12802.0,
-            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 26.0,
-            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 60510.0,
-            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 21.3,
-            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 37085.0,
-            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 9.8,
-            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 12691.0,
-            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 22.0,
-            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 28766.0,
-            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 19.9,
-            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 30372.0,
-            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 18.9,
-            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 12972.0,
-            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 26.7,
-            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 62627.0,
-            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 28.4,
-            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 65982.0,
-            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 20.4,
-            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 28335.0,
-            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 28.2,
-            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 44453.0,
-            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 26.3,
-            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 50547.0,
-            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 14.3,
-            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 12960.0,
-            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 23.3,
-            "name": "mcp-csharp-publish/Publish to the MCP Registry - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 29411.0,
-            "name": "mcp-csharp-publish/Publish to the MCP Registry - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 19.7,
-            "name": "mcp-csharp-publish/Publish to the MCP Registry - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 42339.0,
-            "name": "mcp-csharp-publish/Publish to the MCP Registry - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 28.8,
-            "name": "mcp-csharp-publish/Publish to the MCP Registry - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 61600.0,
-            "name": "mcp-csharp-publish/Publish to the MCP Registry - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 151.5,
-            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 275565.0,
-            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 33.0,
-            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 61447.0,
-            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 121.4,
-            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 188707.0,
-            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 176.9,
-            "timedOut": true,
-            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 479528.0,
-            "timedOut": true,
-            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 177.3,
-            "timedOut": true,
-            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 442249.0,
-            "timedOut": true,
-            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 337.1,
-            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 1022919.0,
-            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 148.6,
-            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 220935.0,
-            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 137.0,
-            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 276989.0,
-            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 268.7,
-            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 728342.0,
-            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "value": 30.2,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Skilled Time"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "value": 45045.0,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Skilled Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "value": 25.1,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "value": 47791.0,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 14.3,
-            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 13109.0,
-            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "value": 23.7,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Skilled Time"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "value": 44958.0,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Skilled Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "value": 19.6,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "value": 47612.0,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 18.5,
-            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 13287.0,
-            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "value": 19.1,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Create evaluations for an MCP server - Skilled Time"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "value": 43902.0,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Create evaluations for an MCP server - Skilled Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "value": 16.3,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Create evaluations for an MCP server - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "value": 46463.0,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Create evaluations for an MCP server - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 32.9,
-            "name": "mcp-csharp-test/Create evaluations for an MCP server - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 52130.0,
-            "name": "mcp-csharp-test/Create evaluations for an MCP server - Vanilla Tokens In"
-          }
-        ],
-        "date": 1781405212695,
-        "model": "claude-opus-4.6"
-      },
-      {
         "date": 1781579838167,
         "benches": [
           {
@@ -5873,340 +5228,646 @@
         "model": "claude-opus-4.6",
         "tool": "customSmallerIsBetter",
         "date": 1782613811527
-      }
-    ],
-    "Quality": [
+      },
       {
-        "commit": {
-          "timestamp": "2026-06-12T18:27:44+00:00",
-          "message": "Fix evaluation.yml: quote run-name so '#' is not parsed as a YAML comment (#759)",
-          "url": "https://github.com/dotnet/skills/commit/c8be21018fc4ee4c566ed65a313cea56690f8cab",
-          "author": {
-            "name": "YuliiaKovalova",
-            "username": "JanKrivanek"
-          },
-          "id": "c8be21018fc4ee4c566ed65a313cea56690f8cab"
-        },
-        "tool": "customBiggerIsBetter",
         "benches": [
           {
             "overfitting": "moderate",
-            "value": 8.0,
-            "name": "technology-selection/ML.NET classification on tabular data - Skilled Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.39,
-            "timedOut": true
-          },
-          {
-            "overfitting": "moderate",
-            "value": 8.0,
-            "name": "technology-selection/ML.NET classification on tabular data - Plugin Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.39,
-            "timedOut": true
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 4.400000095367432,
-            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Quality"
-          },
-          {
-            "notActivated": true,
-            "value": 2.0,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.39,
-            "overfitting": "moderate"
-          },
-          {
-            "notActivated": true,
-            "value": 2.0,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.39,
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 2.0,
-            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "value": 9.199999809265137,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/Reject LLM for tabular classification - Skilled Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "value": 9.199999809265137,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/Reject LLM for tabular classification - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "technology-selection/Reject LLM for tabular classification - Vanilla Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 6.0,
-            "name": "technology-selection/Agentic workflow with guardrails - Skilled Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.39,
-            "timedOut": true
-          },
-          {
-            "overfitting": "moderate",
-            "value": 4.800000190734863,
-            "name": "technology-selection/Agentic workflow with guardrails - Plugin Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.39,
-            "timedOut": true
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 4.0,
-            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "value": 6.800000190734863,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "value": 7.199999809265137,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.800000190734863,
-            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "value": 9.199999809265137,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/RAG pipeline with vector search - Skilled Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "value": 9.600000381469727,
-            "overfittingScore": 0.39,
-            "name": "technology-selection/RAG pipeline with vector search - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "technology-selection/RAG pipeline with vector search - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.600000381469727,
-            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.199999809265137,
-            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.600000381469727,
-            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.600000381469727,
-            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.199999809265137,
-            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.800000190734863,
-            "name": "mcp-csharp-publish/Publish to the MCP Registry - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.599999904632568,
-            "name": "mcp-csharp-publish/Publish to the MCP Registry - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.400000095367432,
-            "name": "mcp-csharp-publish/Publish to the MCP Registry - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.800000190734863,
-            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.600000381469727,
-            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.400000095367432,
-            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
+            "value": 314.9,
             "timedOut": true,
-            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Skilled Quality"
+            "overfittingScore": 0.4,
+            "unit": "seconds",
+            "name": "technology-selection/ML.NET classification on tabular data - Skilled Time"
           },
           {
-            "unit": "Score (0-10)",
-            "value": 9.199999809265137,
+            "overfitting": "moderate",
+            "value": 675751.0,
             "timedOut": true,
-            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.199999809265137,
-            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Vanilla Quality"
+            "overfittingScore": 0.4,
+            "unit": "tokens",
+            "name": "technology-selection/ML.NET classification on tabular data - Skilled Tokens In"
           },
           {
             "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Skilled Quality"
+            "value": 238.9,
+            "timedOut": true,
+            "overfittingScore": 0.4,
+            "unit": "seconds",
+            "name": "technology-selection/ML.NET classification on tabular data - Plugin Time"
           },
           {
             "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Plugin Quality"
+            "value": 564331.0,
+            "timedOut": true,
+            "overfittingScore": 0.4,
+            "unit": "tokens",
+            "name": "technology-selection/ML.NET classification on tabular data - Plugin Tokens In"
           },
           {
-            "unit": "Score (0-10)",
-            "value": 4.0,
-            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Vanilla Quality"
+            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Time",
+            "value": 333.1,
+            "unit": "seconds"
           },
           {
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Skilled Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.199999809265137,
-            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Vanilla Quality"
+            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Tokens In",
+            "value": 572031.0,
+            "unit": "tokens"
           },
           {
             "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Create evaluations for an MCP server - Skilled Quality"
+            "value": 59.4,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Time",
+            "notActivated": true,
+            "overfittingScore": 0.4,
+            "unit": "seconds"
           },
           {
             "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfittingScore": 0.26,
-            "name": "mcp-csharp-test/Create evaluations for an MCP server - Plugin Quality"
+            "value": 133342.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Tokens In",
+            "notActivated": true,
+            "overfittingScore": 0.4,
+            "unit": "tokens"
           },
           {
-            "unit": "Score (0-10)",
-            "value": 4.0,
-            "name": "mcp-csharp-test/Create evaluations for an MCP server - Vanilla Quality"
+            "overfitting": "moderate",
+            "value": 69.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Time",
+            "notActivated": true,
+            "overfittingScore": 0.4,
+            "unit": "seconds"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 172081.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Tokens In",
+            "notActivated": true,
+            "overfittingScore": 0.4,
+            "unit": "tokens"
+          },
+          {
+            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Time",
+            "value": 62.8,
+            "unit": "seconds"
+          },
+          {
+            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Tokens In",
+            "value": 143312.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "technology-selection/Reject LLM for tabular classification - Skilled Time",
+            "overfitting": "moderate",
+            "value": 101.1,
+            "overfittingScore": 0.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "technology-selection/Reject LLM for tabular classification - Skilled Tokens In",
+            "overfitting": "moderate",
+            "value": 320839.0,
+            "overfittingScore": 0.4,
+            "unit": "tokens"
+          },
+          {
+            "name": "technology-selection/Reject LLM for tabular classification - Plugin Time",
+            "overfitting": "moderate",
+            "value": 113.0,
+            "overfittingScore": 0.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "technology-selection/Reject LLM for tabular classification - Plugin Tokens In",
+            "overfitting": "moderate",
+            "value": 345505.0,
+            "overfittingScore": 0.4,
+            "unit": "tokens"
+          },
+          {
+            "name": "technology-selection/Reject LLM for tabular classification - Vanilla Time",
+            "value": 62.7,
+            "unit": "seconds"
+          },
+          {
+            "name": "technology-selection/Reject LLM for tabular classification - Vanilla Tokens In",
+            "value": 134259.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "technology-selection/Agentic workflow with guardrails - Skilled Time",
+            "overfitting": "moderate",
+            "value": 305.4,
+            "overfittingScore": 0.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "technology-selection/Agentic workflow with guardrails - Skilled Tokens In",
+            "overfitting": "moderate",
+            "value": 1320102.0,
+            "overfittingScore": 0.4,
+            "unit": "tokens"
+          },
+          {
+            "name": "technology-selection/Agentic workflow with guardrails - Plugin Time",
+            "overfitting": "moderate",
+            "value": 244.4,
+            "overfittingScore": 0.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "technology-selection/Agentic workflow with guardrails - Plugin Tokens In",
+            "overfitting": "moderate",
+            "value": 1160659.0,
+            "overfittingScore": 0.4,
+            "unit": "tokens"
+          },
+          {
+            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Time",
+            "value": 95.8,
+            "unit": "seconds"
+          },
+          {
+            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Tokens In",
+            "value": 244395.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Time",
+            "overfitting": "moderate",
+            "value": 49.2,
+            "overfittingScore": 0.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Tokens In",
+            "overfitting": "moderate",
+            "value": 110690.0,
+            "overfittingScore": 0.4,
+            "unit": "tokens"
+          },
+          {
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Time",
+            "overfitting": "moderate",
+            "value": 83.9,
+            "overfittingScore": 0.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Tokens In",
+            "overfitting": "moderate",
+            "value": 229240.0,
+            "overfittingScore": 0.4,
+            "unit": "tokens"
+          },
+          {
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Time",
+            "value": 48.9,
+            "unit": "seconds"
+          },
+          {
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Tokens In",
+            "value": 81008.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "technology-selection/RAG pipeline with vector search - Skilled Time",
+            "overfitting": "moderate",
+            "value": 33.5,
+            "overfittingScore": 0.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "technology-selection/RAG pipeline with vector search - Skilled Tokens In",
+            "overfitting": "moderate",
+            "value": 63628.0,
+            "overfittingScore": 0.4,
+            "unit": "tokens"
+          },
+          {
+            "name": "technology-selection/RAG pipeline with vector search - Plugin Time",
+            "overfitting": "moderate",
+            "value": 27.6,
+            "overfittingScore": 0.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "technology-selection/RAG pipeline with vector search - Plugin Tokens In",
+            "overfitting": "moderate",
+            "value": 50249.0,
+            "overfittingScore": 0.4,
+            "unit": "tokens"
+          },
+          {
+            "name": "technology-selection/RAG pipeline with vector search - Vanilla Time",
+            "value": 28.9,
+            "unit": "seconds"
+          },
+          {
+            "name": "technology-selection/RAG pipeline with vector search - Vanilla Tokens In",
+            "value": 44942.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Skilled Time",
+            "value": 20.0,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Skilled Tokens In",
+            "value": 28671.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Plugin Time",
+            "value": 22.1,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Plugin Tokens In",
+            "value": 30233.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Vanilla Time",
+            "value": 13.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Vanilla Tokens In",
+            "value": 12743.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Skilled Time",
+            "value": 25.2,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Skilled Tokens In",
+            "value": 47823.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Plugin Time",
+            "value": 18.0,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Plugin Tokens In",
+            "value": 30196.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Vanilla Time",
+            "value": 11.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Vanilla Tokens In",
+            "value": 12648.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Skilled Time",
+            "value": 30.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Skilled Tokens In",
+            "value": 28653.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Plugin Time",
+            "value": 20.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Plugin Tokens In",
+            "value": 30280.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Vanilla Time",
+            "value": 16.5,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Vanilla Tokens In",
+            "value": 12876.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Skilled Time",
+            "overfitting": "moderate",
+            "value": 21.9,
+            "overfittingScore": 0.22,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Skilled Tokens In",
+            "overfitting": "moderate",
+            "value": 59252.0,
+            "overfittingScore": 0.22,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Plugin Time",
+            "overfitting": "moderate",
+            "value": 19.0,
+            "overfittingScore": 0.22,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Plugin Tokens In",
+            "overfitting": "moderate",
+            "value": 58930.0,
+            "overfittingScore": 0.22,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Vanilla Time",
+            "value": 19.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Vanilla Tokens In",
+            "value": 38378.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Skilled Time",
+            "value": 21.6,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Skilled Tokens In",
+            "value": 47546.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Plugin Time",
+            "value": 24.2,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Plugin Tokens In",
+            "value": 68395.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Vanilla Time",
+            "value": 14.1,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Vanilla Tokens In",
+            "value": 12896.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish to the MCP Registry - Skilled Time",
+            "overfitting": "moderate",
+            "value": 19.1,
+            "overfittingScore": 0.22,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish to the MCP Registry - Skilled Tokens In",
+            "overfitting": "moderate",
+            "value": 36533.0,
+            "overfittingScore": 0.22,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish to the MCP Registry - Plugin Time",
+            "overfitting": "moderate",
+            "value": 17.7,
+            "overfittingScore": 0.22,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish to the MCP Registry - Plugin Tokens In",
+            "overfitting": "moderate",
+            "value": 42217.0,
+            "overfittingScore": 0.22,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish to the MCP Registry - Vanilla Time",
+            "value": 11.2,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish to the MCP Registry - Vanilla Tokens In",
+            "value": 12688.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Skilled Time",
+            "value": 31.7,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Skilled Tokens In",
+            "value": 54710.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Plugin Time",
+            "value": 26.0,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Plugin Tokens In",
+            "value": 49746.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Vanilla Time",
+            "value": 136.6,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Vanilla Tokens In",
+            "value": 267182.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Skilled Time",
+            "value": 124.3,
+            "timedOut": true,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Skilled Tokens In",
+            "value": 208063.0,
+            "timedOut": true,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Plugin Time",
+            "value": 120.5,
+            "timedOut": true,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Plugin Tokens In",
+            "value": 229601.0,
+            "timedOut": true,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Vanilla Time",
+            "value": 311.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Vanilla Tokens In",
+            "value": 756089.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Skilled Time",
+            "value": 140.4,
+            "timedOut": true,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Skilled Tokens In",
+            "value": 256178.0,
+            "timedOut": true,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Plugin Time",
+            "value": 139.4,
+            "timedOut": true,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Plugin Tokens In",
+            "value": 240220.0,
+            "timedOut": true,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Vanilla Time",
+            "value": 290.1,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Vanilla Tokens In",
+            "value": 694867.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Skilled Time",
+            "value": 21.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Skilled Tokens In",
+            "value": 38400.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Plugin Time",
+            "value": 23.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Plugin Tokens In",
+            "value": 47387.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Vanilla Time",
+            "value": 14.2,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Vanilla Tokens In",
+            "value": 13117.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Skilled Time",
+            "value": 22.1,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Skilled Tokens In",
+            "value": 44868.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Plugin Time",
+            "value": 21.8,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Plugin Tokens In",
+            "value": 47473.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Vanilla Time",
+            "value": 14.9,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Vanilla Tokens In",
+            "value": 13149.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-test/Create evaluations for an MCP server - Skilled Time",
+            "value": 17.6,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-test/Create evaluations for an MCP server - Skilled Tokens In",
+            "value": 43866.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-test/Create evaluations for an MCP server - Plugin Time",
+            "value": 16.1,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-test/Create evaluations for an MCP server - Plugin Tokens In",
+            "value": 46317.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "mcp-csharp-test/Create evaluations for an MCP server - Vanilla Time",
+            "value": 27.6,
+            "unit": "seconds"
+          },
+          {
+            "name": "mcp-csharp-test/Create evaluations for an MCP server - Vanilla Tokens In",
+            "value": 59534.0,
+            "unit": "tokens"
           }
         ],
-        "date": 1781405212695,
-        "model": "claude-opus-4.6"
-      },
+        "commit": {
+          "message": "Moving niche skills to dotnet-advanced (#807)",
+          "timestamp": "2026-06-29T22:25:44+00:00",
+          "url": "https://github.com/dotnet/skills/commit/4975793af043e1f4ddd75c86778bd9bbcc94d7dd",
+          "id": "4975793af043e1f4ddd75c86778bd9bbcc94d7dd",
+          "author": {
+            "name": "Wendy Breiding",
+            "username": "JanKrivanek"
+          }
+        },
+        "model": "claude-opus-4.6",
+        "tool": "customSmallerIsBetter",
+        "date": 1782787125628
+      }
+    ],
+    "Quality": [
       {
         "date": 1781579838167,
         "benches": [
@@ -8888,9 +8549,336 @@
         "model": "claude-opus-4.6",
         "tool": "customBiggerIsBetter",
         "date": 1782613811527
+      },
+      {
+        "benches": [
+          {
+            "overfitting": "moderate",
+            "value": 6.800000190734863,
+            "timedOut": true,
+            "overfittingScore": 0.4,
+            "unit": "Score (0-10)",
+            "name": "technology-selection/ML.NET classification on tabular data - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 6.400000095367432,
+            "timedOut": true,
+            "overfittingScore": 0.4,
+            "unit": "Score (0-10)",
+            "name": "technology-selection/ML.NET classification on tabular data - Plugin Quality"
+          },
+          {
+            "name": "technology-selection/ML.NET classification on tabular data - Vanilla Quality",
+            "value": 4.800000190734863,
+            "unit": "Score (0-10)"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 2.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Skilled Quality",
+            "notActivated": true,
+            "overfittingScore": 0.4,
+            "unit": "Score (0-10)"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 2.0,
+            "name": "technology-selection/LLM integration with MEAI abstraction - Plugin Quality",
+            "notActivated": true,
+            "overfittingScore": 0.4,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "technology-selection/LLM integration with MEAI abstraction - Vanilla Quality",
+            "value": 2.4000000953674316,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "technology-selection/Reject LLM for tabular classification - Skilled Quality",
+            "overfitting": "moderate",
+            "value": 8.800000190734863,
+            "overfittingScore": 0.4,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "technology-selection/Reject LLM for tabular classification - Plugin Quality",
+            "overfitting": "moderate",
+            "value": 8.399999618530273,
+            "overfittingScore": 0.4,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "technology-selection/Reject LLM for tabular classification - Vanilla Quality",
+            "value": 5.599999904632568,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "technology-selection/Agentic workflow with guardrails - Skilled Quality",
+            "overfitting": "moderate",
+            "value": 6.0,
+            "overfittingScore": 0.4,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "technology-selection/Agentic workflow with guardrails - Plugin Quality",
+            "overfitting": "moderate",
+            "value": 6.0,
+            "overfittingScore": 0.4,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "technology-selection/Agentic workflow with guardrails - Vanilla Quality",
+            "value": 4.800000190734863,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Skilled Quality",
+            "overfitting": "moderate",
+            "value": 8.800000190734863,
+            "overfittingScore": 0.4,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Plugin Quality",
+            "overfitting": "moderate",
+            "value": 8.0,
+            "overfittingScore": 0.4,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "technology-selection/Natural-language scenario decomposition — RAG chatbot - Vanilla Quality",
+            "value": 6.400000095367432,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "technology-selection/RAG pipeline with vector search - Skilled Quality",
+            "overfitting": "moderate",
+            "value": 9.199999809265137,
+            "overfittingScore": 0.4,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "technology-selection/RAG pipeline with vector search - Plugin Quality",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "technology-selection/RAG pipeline with vector search - Vanilla Quality",
+            "value": 7.599999904632568,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Skilled Quality",
+            "value": 8.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Plugin Quality",
+            "value": 8.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug an MCP server with MCP Inspector - Vanilla Quality",
+            "value": 8.399999618530273,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Skilled Quality",
+            "value": 8.800000190734863,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Plugin Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-debug/Configure VS Code to use an MCP server - Vanilla Quality",
+            "value": 8.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Skilled Quality",
+            "value": 8.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Plugin Quality",
+            "value": 8.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-debug/Debug a failing MCP server tool - Vanilla Quality",
+            "value": 7.599999904632568,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Skilled Quality",
+            "overfitting": "moderate",
+            "value": 7.199999809265137,
+            "overfittingScore": 0.22,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Plugin Quality",
+            "overfitting": "moderate",
+            "value": 8.0,
+            "overfittingScore": 0.22,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish an MCP server as a NuGet tool package - Vanilla Quality",
+            "value": 6.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Skilled Quality",
+            "value": 9.600000381469727,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Plugin Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-publish/Deploy an HTTP MCP server to Azure Container Apps - Vanilla Quality",
+            "value": 6.800000190734863,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish to the MCP Registry - Skilled Quality",
+            "overfitting": "moderate",
+            "value": 8.0,
+            "overfittingScore": 0.22,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish to the MCP Registry - Plugin Quality",
+            "overfitting": "moderate",
+            "value": 8.399999618530273,
+            "overfittingScore": 0.22,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-publish/Publish to the MCP Registry - Vanilla Quality",
+            "value": 2.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Skilled Quality",
+            "value": 9.600000381469727,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Plugin Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-create/Implement MCP tools with proper attributes and DI - Vanilla Quality",
+            "value": 7.599999904632568,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Skilled Quality",
+            "value": 9.199999809265137,
+            "timedOut": true,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Plugin Quality",
+            "value": 8.800000190734863,
+            "timedOut": true,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-create/Create an HTTP MCP server with tools and resources - Vanilla Quality",
+            "value": 6.400000095367432,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Skilled Quality",
+            "value": 9.199999809265137,
+            "timedOut": true,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Plugin Quality",
+            "value": 8.399999618530273,
+            "timedOut": true,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-create/Create an MCP server with tools, prompts, and proper logging - Vanilla Quality",
+            "value": 6.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Skilled Quality",
+            "value": 8.399999618530273,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Plugin Quality",
+            "value": 8.800000190734863,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-test/Write unit and integration tests for an MCP server - Vanilla Quality",
+            "value": 5.599999904632568,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Skilled Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Plugin Quality",
+            "value": 9.600000381469727,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-test/Test an HTTP MCP server with WebApplicationFactory - Vanilla Quality",
+            "value": 7.199999809265137,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-test/Create evaluations for an MCP server - Skilled Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-test/Create evaluations for an MCP server - Plugin Quality",
+            "value": 9.600000381469727,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "mcp-csharp-test/Create evaluations for an MCP server - Vanilla Quality",
+            "value": 4.0,
+            "unit": "Score (0-10)"
+          }
+        ],
+        "commit": {
+          "message": "Moving niche skills to dotnet-advanced (#807)",
+          "timestamp": "2026-06-29T22:25:44+00:00",
+          "url": "https://github.com/dotnet/skills/commit/4975793af043e1f4ddd75c86778bd9bbcc94d7dd",
+          "id": "4975793af043e1f4ddd75c86778bd9bbcc94d7dd",
+          "author": {
+            "name": "Wendy Breiding",
+            "username": "JanKrivanek"
+          }
+        },
+        "model": "claude-opus-4.6",
+        "tool": "customBiggerIsBetter",
+        "date": 1782787125628
       }
     ]
   },
-  "lastUpdate": 1782613811527,
+  "lastUpdate": 1782787125628,
   "repoUrl": ""
 }
