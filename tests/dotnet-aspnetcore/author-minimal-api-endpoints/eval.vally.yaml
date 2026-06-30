@@ -1,100 +1,43 @@
 name: author-minimal-api-endpoints
-description: Evaluates the dotnet-aspnetcore/author-minimal-api-endpoints skill
+description: Evaluates the dotnet-aspnetcore/author-minimal-api-endpoints skill (endpoint-authoring scope)
 type: capability
 config:
-  timeout: 12m
+  timeout: 16m
 stimuli:
-  - name: CRUD endpoints for orders
+  - name: A minimal API for messaging namespaces
     prompt: |
-      In the StoreApi project, add minimal API endpoints for orders backed by the existing StoreDbContext:
-      - list all orders
-      - get a single order by id
-      - create a new order for a customer
-      - update an existing order's status
-      - delete an order
-      Register the endpoints in the app. Just add the endpoint code to the StoreApi project; you don't need to run it.
+      Add a minimal API to the MessagingApi project for managing messaging namespaces, backed by MessagingDbContext (the project uses minimal APIs). Clients need to create a namespace, update an existing one, get a namespace by its name, list all namespaces, change a namespace's tags, and delete a namespace.
     environment:
       files:
-        - src: ./fixture/StoreApi
-          dest: StoreApi
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
     graders:
       - type: file-contains
         config:
-          path: StoreApi/**/*.cs
-          value: MapPost
-      - type: file-contains
-        config:
-          path: StoreApi/**/*.cs
-          value: MapDelete
-      - type: prompt
-      - type: pairwise
-    rubric:
-      - The create (POST) endpoint returns 201 Created with a Location header pointing at the new order (for example via CreatedAtRoute or TypedResults.Created), not 200 with the entity
-      - Get, update, and delete return 404 Not Found when the order id does not exist
-      - The delete endpoint returns 204 No Content on success
-      - Endpoints declare explicit response types using Results<...> union return types or TypedResults rather than untyped Results/IResult, so each status code is discoverable
-      - The order endpoints are grouped under a single route group (for example MapGroup("/orders")) instead of repeating the path prefix on every call
-      - Database access is awaited asynchronously (async handlers, ToListAsync/FindAsync/SaveChangesAsync)
-  - name: Product listing with filter and pagination
-    prompt: |
-      Add a minimal API endpoint to the StoreApi project that lists products from the StoreDbContext.
-      It should let the caller filter by category id and page through the results with a page number and page size. Return the matching products.
-    environment:
-      files:
-        - src: ./fixture/StoreApi
-          dest: StoreApi
-    graders:
-      - type: file-contains
-        config:
-          path: StoreApi/**/*.cs
-          value: MapGet
-      - type: prompt
-      - type: pairwise
-    rubric:
-      - The category id, page number, and page size are bound from the query string
-      - Pagination is actually applied to the query (Skip/Take) instead of materializing every product and filtering in memory
-      - Invalid paging input (non-positive page or page size, or an excessively large page size) is rejected with a 400 ProblemDetails / ValidationProblem rather than silently accepted
-      - The endpoint returns 200 OK and declares its response type via TypedResults or a Results<...> union
-      - The query is executed asynchronously (ToListAsync) and uses no-tracking reads for a read-only listing
-  - name: Add a line item to an order
-    prompt: |
-      Add a minimal API endpoint to the StoreApi project that adds a line item (a product and a quantity) to an existing order using the StoreDbContext.
-      If the order or the product does not exist, the caller should get a clear error. The quantity must be at least 1.
-    environment:
-      files:
-        - src: ./fixture/StoreApi
-          dest: StoreApi
-    graders:
-      - type: file-contains
-        config:
-          path: StoreApi/**/*.cs
+          path: MessagingApi/**/*.cs
           value: Map
       - type: prompt
       - type: pairwise
     rubric:
-      - Returns 404 Not Found when the order id or the product id does not exist
-      - Returns a 400 ProblemDetails / ValidationProblem when the quantity is less than 1, rather than persisting an invalid line item
-      - Returns a success status that reflects creation of a sub-resource (201 Created, or 200 with the updated order) on the happy path
-      - Uses a Results<...> union or TypedResults that covers the success and both error outcomes so every status code is explicit
-      - Validates the input before touching the database rather than trusting the request body
-  - name: Manage a customer's single shipping address
+      - The namespace endpoints are grouped together (for example with MapGroup) rather than scattered, and each handler declares a strongly typed Results union so the produced statuses are explicit
+      - Creating a namespace returns 201 with a Location header pointing at the new resource, and updating an existing one returns 200 or 204; the namespace is addressed by its name in the route
+      - Changing tags is exposed as a focused partial update with its own route, returning the right status code, rather than requiring a full-resource replacement
+      - Handlers return TypedResults with correct status codes, returning 404 when a namespace is absent and the right success codes otherwise, and invalid input is rejected with a 400 problem response
+  - name: A minimal API for the queues in a namespace
     prompt: |
-      A customer in the StoreApi project has at most one shipping address (a one-to-one relationship).
-      Add minimal API endpoints to get a customer's address and to set it, where setting creates the address if the customer doesn't have one yet or updates it if they do. Use the StoreDbContext.
+      Add a minimal API to the MessagingApi project for the queues that live in a messaging namespace, backed by MessagingDbContext. Clients need to create a queue, update it, get a queue, list the queues in a namespace, and delete a queue.
     environment:
       files:
-        - src: ./fixture/StoreApi
-          dest: StoreApi
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
     graders:
       - type: file-contains
         config:
-          path: StoreApi/**/*.cs
-          value: MapGet
+          path: MessagingApi/**/*.cs
+          value: MapGroup
       - type: prompt
       - type: pairwise
     rubric:
-      - The address is modeled as a single nested resource (for example /customers/{id}/address), not as a collection
-      - The set operation uses PUT semantics so it is idempotent create-or-update, returning 204 No Content (or 200) on success
-      - Both endpoints return 404 Not Found when the customer does not exist (and GET returns 404 when no address has been set)
-      - Endpoints declare explicit response types via Results<...> unions or TypedResults
-      - The create-or-update logic correctly distinguishes the missing-address case from the existing-address case instead of always inserting
+      - The queue endpoints are reached through their owning namespace, with the namespace as part of the route and the queue identified within it, rather than a flat top-level queues resource
+      - A request for a queue under a namespace that does not exist returns 404
+      - Each handler declares a strongly typed Results union covering the statuses it returns, with create returning 201 and a Location header, update returning 200 or 204, and 404 when the queue is absent

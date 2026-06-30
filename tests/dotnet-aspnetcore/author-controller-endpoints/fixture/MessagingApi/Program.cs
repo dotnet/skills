@@ -1,10 +1,10 @@
 using Microsoft.EntityFrameworkCore;
-using StoreApi.Data;
+using MessagingApi.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<StoreDbContext>(options =>
-    options.UseInMemoryDatabase("StoreDb"));
+builder.Services.AddDbContext<MessagingDbContext>(options =>
+    options.UseInMemoryDatabase("MessagingDb"));
 builder.Services.AddControllers();
 
 var app = builder.Build();

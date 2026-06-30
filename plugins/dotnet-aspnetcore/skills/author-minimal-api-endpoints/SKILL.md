@@ -55,13 +55,17 @@ group.MapPost("/{orderId:int}/items",
         int orderId, AddItemRequest req, StoreDbContext db) =>
 {
     if (req.Quantity < 1)
+    {
         return TypedResults.ValidationProblem(new Dictionary<string, string[]>
         {
             ["quantity"] = ["Quantity must be at least 1."]
         });
+    }
 
     if (await db.Orders.FindAsync(orderId) is null || await db.Products.FindAsync(req.ProductId) is null)
+    {
         return TypedResults.NotFound();
+    }
 
     var item = new OrderItem { OrderId = orderId, ProductId = req.ProductId, Quantity = req.Quantity };
     db.OrderItems.Add(item);

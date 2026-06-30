@@ -65,8 +65,13 @@ public async Task<ActionResult<OrderDto>> CreateOrder(CreateOrderRequest req)
 public async Task<IActionResult> DeleteOrder(int id)
 {
     var order = await db.Orders.FindAsync(id);
-    if (order is null) return NotFound();
-    db.Orders.Remove(order);
+    if (order is null)
+    {
+        return NotFound();
+    }
+
+    // Delete maps to 204 / 404 regardless of mechanism; a soft-deletable resource marks itself deleted rather than being removed.
+    order.MarkDeleted();            // db.Orders.Remove(order) only when the resource is not soft-deletable
     await db.SaveChangesAsync();
     return NoContent();
 }
