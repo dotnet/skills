@@ -1,106 +1,177 @@
 ---
 name: minimal-api-concurrency
 description: >
-  Add optimistic concurrency and HTTP conditional requests to ASP.NET Core minimal API endpoints.
-  USE FOR: protecting updates against concurrent edits and lost updates; adding a concurrency token
-  (a database rowversion / [Timestamp], or an app-managed [ConcurrencyCheck] version) to an entity;
-  emitting and validating ETag headers; honoring If-None-Match with 304 Not Modified and If-Match with
-  412 Precondition Failed; handling DbUpdateConcurrencyException; conditional GET and conditional
-  update handlers.
+  Add optimistic concurrency and HTTP conditional requests to ASP.NET Core minimal API endpoints, using
+  both validators a resource can offer.
+  USE FOR: protecting updates against concurrent edits and lost updates; exposing an ETag and a
+  Last-Modified header from a resource; honoring If-Match and If-None-Match (the content/ETag validator)
+  and If-Modified-Since and If-Unmodified-Since (the time/Last-Modified validator); returning 304, 412,
+  or 428; handling DbUpdateConcurrencyException; conditional GET and conditional update handlers.
   DO NOT USE FOR: basic endpoint result types and status codes (use author-minimal-api-endpoints);
   controller-based APIs (use controller-concurrency); general EF Core querying or pagination (use the
-  data-access skills); service-layer structure and the Result pattern (use
-  structure-api-business-logic).
+  data-access skills); service-layer structure and the Result pattern (use structure-api-business-logic).
 license: MIT
 ---
 
 # Minimal API Concurrency and Conditional Requests
 
-Drive both optimistic concurrency and HTTP conditional requests from one concurrency token: expose it as an `ETag`, validate it on reads with `If-None-Match` and on writes with `If-Match`, and let EF Core enforce it on save.
+A resource can carry two independent validators, and a complete implementation offers both: an **ETag** for content and a **Last-Modified** for time. Emit both on reads and honor both on writes.
 
-## Add a concurrency token and derive the ETag from it
+- **ETag** comes from the concurrency token (a database rowversion mapped with `[Timestamp]`, or an app-managed version). It changes only when the resource's content changes. It drives `If-Match` (write precondition: stale write to 412) and `If-None-Match` (read: unchanged to 304; `*` means create-only).
+- **Last-Modified** comes from the resource's last-modified timestamp. It is the time-based validator. It drives `If-Modified-Since` (read: not changed since to 304) and `If-Unmodified-Since` (write precondition: changed since to 412).
 
-Give the entity a concurrency token. On a relational database use a rowversion; on a provider without one (for example the in-memory provider) use an application-managed token that you change on every update.
+A resource that has a last-modified timestamp must offer `Last-Modified`, not only an `ETag`. The two answer different questions ("is it the exact same version" versus "has it changed since this time") and clients rely on each.
+
+## Give the entity a concurrency token
+
+On a relational database use a rowversion; on a provider without one (for example the in-memory provider) use an application-managed token that you change on every update.
 
 ```csharp
-public class Product
+public class Resource
 {
     // ...
-    [Timestamp] public byte[] RowVersion { get; set; } = [];   // relational rowversion
-    // Provider without rowversion: [ConcurrencyCheck] public Guid Version { get; set; }  (assign Guid.NewGuid() on each update)
+    public DateTimeOffset LastModifiedAt { get; set; }
+    [Timestamp] public byte[] RowVersion { get; set; } = []; // relational rowversion
+    // Provider without rowversion: [ConcurrencyCheck] public Guid Version { get; set; } (assign Guid.NewGuid() on each update)
 }
 ```
 
-The ETag is the token, base64-encoded and quoted per the header format:
+## One helper that reads both validators off the entity
 
 ```csharp
-static string ETagFor(byte[] rowVersion) => $"\"{Convert.ToBase64String(rowVersion)}\"";
+public static class ConditionalRequest
+{
+    public static string ETag(byte[] rowVersion)
+    {
+        return $"\"{Convert.ToBase64String(rowVersion)}\"";
+    }
+
+    public static string LastModified(DateTimeOffset lastModifiedAt)
+    {
+        return lastModifiedAt.ToString("R");
+    }
+
+    public static void WriteValidators(HttpResponse response, byte[] rowVersion, DateTimeOffset lastModifiedAt)
+    {
+        response.Headers.ETag = ETag(rowVersion);
+        response.Headers.LastModified = LastModified(lastModifiedAt);
+    }
+
+    public static bool IsNotModified(HttpRequest request, byte[] rowVersion, DateTimeOffset lastModifiedAt)
+    {
+        var ifNoneMatch = request.Headers.IfNoneMatch.ToString();
+        if (!string.IsNullOrEmpty(ifNoneMatch))
+        {
+            return string.Equals(ifNoneMatch, ETag(rowVersion), StringComparison.Ordinal);
+        }
+
+        if (DateTimeOffset.TryParse(request.Headers.IfModifiedSince, out var since))
+        {
+            // HTTP-date has one-second resolution.
+            return lastModifiedAt <= since.AddSeconds(1);
+        }
+
+        return false;
+    }
+
+    public static bool PreconditionFailed(HttpRequest request, byte[] rowVersion, DateTimeOffset lastModifiedAt)
+    {
+        var ifMatch = request.Headers.IfMatch.ToString();
+        if (!string.IsNullOrEmpty(ifMatch) && !string.Equals(ifMatch, "*", StringComparison.Ordinal))
+        {
+            return !string.Equals(ifMatch, ETag(rowVersion), StringComparison.Ordinal);
+        }
+
+        if (DateTimeOffset.TryParse(request.Headers.IfUnmodifiedSince, out var limit))
+        {
+            return lastModifiedAt > limit.AddSeconds(1);
+        }
+
+        return false;
+    }
+}
 ```
 
-## Conditional GET: ETag plus If-None-Match returns 304
+Compare ETag and header tokens with `StringComparison.Ordinal`, never the culture-sensitive default.
 
-Emit the `ETag` on the response. When the request's `If-None-Match` already matches the current token, return 304 Not Modified with no body; otherwise return 200 with the body and the current `ETag`.
+## Conditional GET
 
 ```csharp
-products.MapGet("/{id:int}", async Task<Results<Ok<ProductDto>, NotFound, StatusCodeHttpResult>> (
-    int id, HttpContext http, StoreDbContext db) =>
+resources.MapGet("/{id:int}", async Task<Results<Ok<ResourceDto>, NotFound, StatusCodeHttpResult>> (
+    int id, HttpContext http, AppDbContext db) =>
 {
-    var product = await db.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
-    if (product is null) return TypedResults.NotFound();
+    var resource = await db.Resources.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id);
+    if (resource is null)
+    {
+        return TypedResults.NotFound();
+    }
 
-    var etag = ETagFor(product.RowVersion);
-    http.Response.Headers.ETag = etag;
-    if (http.Request.Headers.IfNoneMatch == etag)
+    if (ConditionalRequest.IsNotModified(http.Request, resource.RowVersion, resource.LastModifiedAt))
+    {
         return TypedResults.StatusCode(StatusCodes.Status304NotModified);
+    }
 
-    return TypedResults.Ok(product.ToDto());
+    ConditionalRequest.WriteValidators(http.Response, resource.RowVersion, resource.LastModifiedAt);
+    return TypedResults.Ok(resource.ToDto());
 });
 ```
 
-## Conditional update: If-Match returns 412 when stale
-
-Require `If-Match` on an update that must not clobber a newer change. When it is missing, return 428 Precondition Required; when it is stale, return 412 Precondition Failed and do not change anything; when it matches, apply the change.
+## Conditional update
 
 ```csharp
-products.MapPut("/{id:int}/price", async Task<Results<NoContent, NotFound, StatusCodeHttpResult>> (
-    int id, UpdatePriceRequest req, HttpContext http, StoreDbContext db) =>
+resources.MapPut("/{id:int}", async Task<Results<Ok<ResourceDto>, NotFound, StatusCodeHttpResult>> (
+    int id, UpdateResourceRequest req, HttpContext http, AppDbContext db) =>
 {
-    var ifMatch = http.Request.Headers.IfMatch.ToString();
-    if (string.IsNullOrEmpty(ifMatch))
+    var resource = await db.Resources.FindAsync(id);
+    if (resource is null)
+    {
+        return TypedResults.NotFound();
+    }
+
+    // An endpoint that requires a precondition refuses a blind write.
+    if (string.IsNullOrEmpty(http.Request.Headers.IfMatch) && string.IsNullOrEmpty(http.Request.Headers.IfUnmodifiedSince))
+    {
         return TypedResults.StatusCode(StatusCodes.Status428PreconditionRequired);
+    }
 
-    var product = await db.Products.FindAsync(id);
-    if (product is null) return TypedResults.NotFound();
-
-    if (ETagFor(product.RowVersion) != ifMatch)
-        return TypedResults.StatusCode(StatusCodes.Status412PreconditionFailed);
-
-    product.Price = req.Price;
-    try { await db.SaveChangesAsync(); }
-    catch (DbUpdateConcurrencyException)
+    if (ConditionalRequest.PreconditionFailed(http.Request, resource.RowVersion, resource.LastModifiedAt))
     {
         return TypedResults.StatusCode(StatusCodes.Status412PreconditionFailed);
     }
 
-    http.Response.Headers.ETag = ETagFor(product.RowVersion);
-    return TypedResults.NoContent();
+    Apply(resource, req);
+    resource.LastModifiedAt = DateTimeOffset.UtcNow; // bump the time validator on every content change
+
+    try
+    {
+        await db.SaveChangesAsync();
+    }
+    catch (DbUpdateConcurrencyException)
+    {
+        // Two writers raced past the header check; the rowversion in the UPDATE caught it.
+        return TypedResults.StatusCode(StatusCodes.Status412PreconditionFailed);
+    }
+
+    ConditionalRequest.WriteValidators(http.Response, resource.RowVersion, resource.LastModifiedAt);
+    return TypedResults.Ok(resource.ToDto());
 });
 ```
 
-Two concurrent requests can both pass the header check and then race at `SaveChanges`. For a tracked entity loaded via `FindAsync`, EF Core automatically includes the rowversion in the SQL `UPDATE`; a concurrent change causes zero rows to match and throws `DbUpdateConcurrencyException`. Map that exception to 412 for an `If-Match` flow, or 409 Conflict for an endpoint that takes concurrent edits without a conditional header. Never let it surface as a 500.
+The header check rejects the obvious stale write; the tracked entity's rowversion still backstops the race at `SaveChanges`, raising `DbUpdateConcurrencyException`. Catch it and map it to 412 (or 409 for an endpoint with no conditional header); never let it surface as a 500.
 
 ## Verify
 
-- The entity has a concurrency token and the GET emits a quoted `ETag`.
-- `If-None-Match` returns 304 with no body when the token is unchanged.
-- `If-Match` returns 412 when stale, 428 when required but missing, and applies the change when current.
-- A `SaveChanges` race is caught as `DbUpdateConcurrencyException` and returned as 412 or 409, never a 500.
+- A read emits **both** `ETag` and `Last-Modified`; `If-None-Match` returns 304 and `If-Modified-Since` returns 304, each independently.
+- A write honors **both** `If-Match` (412 when stale) and `If-Unmodified-Since` (412 when changed since); a write that requires a precondition but receives none returns 428 Precondition Required.
+- A 304 response has no body.
+- The `ETag` is quoted and reflects the rowversion (content); `Last-Modified` reflects the timestamp; ETag comparisons are ordinal.
+- A `SaveChanges` race is caught as `DbUpdateConcurrencyException` and returned as 412 or 409.
 
-❌ Updating a record without checking any version (last-writer-wins silently loses the other user's change).
-✅ Require `If-Match` or a concurrency token and reject stale writes.
+❌ Offering only an `ETag` when the resource also carries a last-modified timestamp.
+✅ Emit and honor both the `ETag` and `Last-Modified` validators.
 
-❌ Pre-checking the version in the handler but not handling the `SaveChanges` race.
-✅ Catch `DbUpdateConcurrencyException` after the header pre-check; for a tracked entity loaded via `FindAsync`, EF Core enforces the rowversion in the SQL `UPDATE` automatically.
+❌ Comparing ETags or header values with the culture-sensitive default `==`.
+✅ `string.Equals(..., StringComparison.Ordinal)`.
 
-❌ An unquoted `ETag` value.
-✅ Quote the validator per the header format.
+❌ Checking the precondition header but not handling the `SaveChanges` race.
+✅ Catch `DbUpdateConcurrencyException` as well.
