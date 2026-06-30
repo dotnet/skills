@@ -77,7 +77,11 @@ Each plugin is versioned independently. The same version is duplicated in two ma
 
 Versioning is automated with [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning).
 A per-plugin `plugins/<plugin>/version.json` scopes the git height to that plugin's subtree, so the
-**patch** number is derived from history — you do not edit it by hand.
+**patch** number is derived from history — you do not edit it by hand. The two generated manifests
+(`plugin.json`, `.codex-plugin/plugin.json`) and `version.json` itself are excluded from that height
+via the `pathFilters`, so editing only manifest metadata (anything other than a deliberate base bump
+in `version.json`) does **not** change the patch number and is **not** picked up by `/version-bump` or
+the weekly sync. Touch a skill or other plugin content to bump the version.
 
 What this means when you contribute:
 
