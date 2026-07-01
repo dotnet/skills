@@ -1,3 +1,4 @@
+using System.Security.Authentication;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Auth.Tests;
@@ -5,6 +6,8 @@ namespace Auth.Tests;
 [TestClass]
 public sealed class TokenServiceTests
 {
+    private static readonly DateTimeOffset FixedNow = new(2024, 1, 1, 12, 0, 0, TimeSpan.Zero);
+
     [TestMethod]
     [DataRow("user@example.com", "admin", DisplayName = "Admin user gets full-access token")]
     [DataRow("viewer@example.com", "viewer", DisplayName = "Viewer gets read-only token")]
@@ -17,7 +20,7 @@ public sealed class TokenServiceTests
 
         Assert.IsNotNull(token);
         Assert.AreEqual(role, token.Role);
-        Assert.IsTrue(token.ExpiresAt > DateTime.UtcNow);
+        Assert.AreEqual(FixedNow.AddHours(1), token.ExpiresAt);
     }
 
     [TestMethod]
@@ -54,9 +57,7 @@ public sealed class TokenServiceTests
 
     private static TokenService CreateTokenService(TimeSpan? clockOffset = null)
     {
-        var clock = clockOffset.HasValue
-            ? new FakeClock(DateTimeOffset.UtcNow + clockOffset.Value)
-            : new FakeClock(DateTimeOffset.UtcNow);
+        var clock = new FakeClock(FixedNow + (clockOffset ?? TimeSpan.Zero));
         return new TokenService(clock, new InMemoryTokenStore());
     }
 }
