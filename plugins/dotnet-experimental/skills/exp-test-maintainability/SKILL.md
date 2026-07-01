@@ -1,6 +1,6 @@
 ---
 name: exp-test-maintainability
-description: "Detects duplicate boilerplate, copy-paste tests, and structural maintainability issues across .NET test suites. Use when the user asks to reduce repetition, consolidate similar test methods, convert copy-paste tests to data-driven parameterized tests, suggest a better test structure, parameterize repetitive test methods, avoid writing a whole new test method for each case, reduce the number of near-identical test methods, or identify refactoring opportunities. Also use when the user has many similar test methods that differ only by input/expected values and wants a cleaner structure — even if they phrase it as \"adding more test cases\". Identifies repeated construction, assertion patterns, copy-paste methods convertible to DataRow/Theory/TestCase, redundant setup/teardown, and shared infrastructure. Produces an analysis report with concrete before/after suggestions. Works with MSTest, xUnit, NUnit, and TUnit. DO NOT USE FOR: writing brand-new tests for untested code (use writing-mstest-tests), reviewing test quality or anti-patterns (use test-anti-patterns), or deep mock auditing (use exp-mock-usage-analysis)."
+description: "Detects duplicate boilerplate, copy-paste tests, and structural maintainability issues across .NET test suites. Use when the user asks to reduce repetition, consolidate similar test methods, convert copy-paste tests to data-driven parameterized tests, suggest a better test structure, or identify refactoring opportunities. Identifies repeated construction, assertion patterns, copy-paste methods convertible to DataRow/Theory/TestCase, redundant setup/teardown, and shared infrastructure. Produces an analysis report with concrete before/after suggestions. Works with MSTest, xUnit, NUnit, and TUnit. DO NOT USE FOR: writing new tests (use writing-mstest-tests), reviewing test quality or anti-patterns (use test-anti-patterns), or deep mock auditing (use exp-mock-usage-analysis)."
 license: MIT
 ---
 
@@ -16,7 +16,6 @@ Analyze .NET test code for maintainability issues: duplicated boilerplate, copy-
 - User asks for refactoring opportunities in a test suite
 - User wants to identify shared setup or teardown candidates
 - User asks "what patterns repeat across my tests?"
-- User has many similar test methods that differ only by input/expected values and wants a better structure — even when phrased as "each new case needs its own method" or "I want to add more test cases"
 - User wants to centralize test data, introduce builders or helpers
 
 ## When Not to Use
