@@ -1,12 +1,12 @@
 name: minimal-api-endpoint-filters
-description: Probe — minimal API endpoint filters for cross-cutting validation
+description: Evaluates the dotnet-aspnetcore/minimal-api-endpoint-filters skill
 type: capability
 config:
   timeout: 16m
 stimuli:
-  - name: Cross-cutting validation across a route group
+  - name: Normalize on write and field-select on read
     prompt: |
-      In the MessagingApi project (minimal APIs), tighten up the namespace endpoints. The create and update requests must be rejected with a 400 when the name is missing or blank or the SKU is not a known value. Separately, every namespace endpoint must require callers to send a non-empty "x-api-version" request header and reject requests that do not. Use MessagingDbContext.
+      In the MessagingApi project (minimal APIs), the namespace endpoints need two behaviors applied across all of them. First, the namespace name sent on create or update is normalized (trimmed and lowercased) before it is stored, so the persisted name is always canonical. Second, on the read endpoints (get and list) a client can ask for only certain fields with a "fields" query value (for example ?fields=name,location) and get back just those fields. Use MessagingDbContext.
     environment:
       files:
         - src: ./fixture/MessagingApi
@@ -19,8 +19,9 @@ stimuli:
       - type: prompt
       - type: pairwise
     rubric:
-      - The cross-cutting concerns are implemented as endpoint filters (IEndpointFilter or AddEndpointFilter) applied to the route group, not as code duplicated inside each handler
-      - The validation filter short-circuits with a 400 problem response (for example TypedResults.ValidationProblem or Results.Problem) and does not invoke the handler when input is invalid
-      - The header-check filter rejects requests lacking a non-empty x-api-version header before the handler runs, with an appropriate status code
-      - The filters are attached at the group level so they apply uniformly to all namespace endpoints
-      - The handlers themselves stay focused on their work and do not re-implement the validation or header checks that the filters already perform
+      - Name normalization is applied in one shared place across the write endpoints by rewriting the bound request argument (an endpoint filter that mutates the bound arguments before the handler), rather than the trim/lowercase being copied into each handler
+      - The normalization happens before the value is persisted, so the stored namespace name is trimmed and lowercased
+      - Field selection is implemented by transforming the result after the handler runs (an endpoint filter that reshapes the returned value using the requested fields), applied across the read endpoints rather than coded into each handler
+      - A request without a fields value returns the full representation, and a problem or not-found result is left unshaped rather than being mangled
+      - The behaviors use endpoint filters, which can see the bound arguments and the handler result, rather than middleware (which cannot access the bound arguments or the typed result) or duplicated inline logic
+      - Input validation, if any is added, is not hand-rolled as a filter when the built-in minimal API validation would cover it
