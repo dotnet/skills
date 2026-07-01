@@ -61,7 +61,9 @@ If your provider cannot translate `>` on the mapped rowversion, run the range pr
 
 ## The response: multipart, so entity payloads stay unchanged
 
-Return the changes as a `multipart/mixed` body whose parts are each an `application/http` sub-response (RFC 9112). An added or updated entity is a `200` part carrying its **normal representation**; a removed entity is a `410 Gone` part with no body - the status code itself is the tombstone, and `Content-Location` identifies which resource. Nothing is wrapped and no entity gains a `removed` field. The change-tracking link travels in the response `Link` header.
+Return the changes as a `multipart/mixed` body whose parts are each an `application/http` sub-response (RFC 9112). An added or updated entity is a `200 OK` part carrying its **normal representation**; a removed entity is a body-less `204 No Content` part - the client reads "body present" as upsert and "no body" as remove, and `Content-Location` identifies which resource. This keeps every part in the success range (a `204` mirrors a successful `DELETE`) rather than using a `4xx` for a resource that is legitimately gone. Nothing is wrapped and no entity gains a `removed` field. The change-tracking link travels in the response `Link` header.
+
+Add and update are both `200` with the current representation, so the client upserts (no local copy means add, otherwise update). Distinguishing them is only possible, and only worth it, if you keep a **creation marker separate from the last-change marker**: then you may return `201 Created` for an entity whose creation is past the client's watermark and `200` for one merely updated. Without that separate marker, `200` covers both.
 
 ```csharp
 public sealed record DeltaItem(string SelfUrl, bool Removed, object? Body);
@@ -90,7 +92,8 @@ public static class DeltaResponse
             await writer.WriteAsync($"\r\n--{boundary}\r\nContent-Type: application/http\r\n\r\n");
             if (item.Removed)
             {
-                await writer.WriteAsync($"HTTP/1.1 410 Gone\r\nContent-Location: {item.SelfUrl}\r\n\r\n");
+                // No body: 204 keeps the part in the success range and reads as a DELETE-style outcome.
+                await writer.WriteAsync($"HTTP/1.1 204 No Content\r\nContent-Location: {item.SelfUrl}\r\n\r\n");
             }
             else
             {
@@ -147,6 +150,36 @@ A minimal API handler is identical apart from the entry point: take `string? tok
 
 **No changes** falls out naturally: `changed` is empty, so the body is an empty multipart and the `Link` header still carries a refreshed `deltaLink` at the same watermark - the client learns "nothing new, come back with this."
 
+## What it looks like on the wire
+
+One added or updated resource (both `200` with the representation) and one removed resource (`204`, no body):
+
+```http
+HTTP/1.1 200 OK
+Content-Type: multipart/mixed; boundary="delta_9f2c1a7b"
+Link: </contacts/delta?token=eyJ2IjoiQTNGMiJ9>; rel="deltaLink"
+
+--delta_9f2c1a7b
+Content-Type: application/http
+
+HTTP/1.1 200 OK
+Content-Location: /contacts/1042
+Content-Type: application/json
+ETag: "0x000000000000A3E1"
+
+{"id":1042,"name":"Ada Lovelace","email":"ada@example.com"}
+
+--delta_9f2c1a7b
+Content-Type: application/http
+
+HTTP/1.1 204 No Content
+Content-Location: /contacts/993
+
+--delta_9f2c1a7b--
+```
+
+When the change set spans pages, every page but the last carries `rel="next"`; only the final page carries `rel="deltaLink"`. A no-changes response is just the closing boundary plus a refreshed `deltaLink`. The optional `ETag` on a `200` part is the resource's rowversion, letting the client do conditional requests on it later.
+
 ## Advancing the watermark safely
 
 The token is **opaque** to the client (an encoded watermark); only the server reads it. The subtlety is not losing changes at the boundary.
@@ -164,16 +197,16 @@ Everything else - soft-delete tombstones, the multipart response, the `deltaLink
 
 ## Standards basis
 
-This uses only general HTTP: `multipart/mixed` (RFC 2046) of `application/http` messages (RFC 9112), the `Link` header with `rel="next"`/`rel="self"` and an extension `rel="deltaLink"` (RFC 8288), and `410 Gone` for a removed resource or an expired token. A simpler, less strict alternative keeps a bare JSON array and marks deletions inline (`{ "id": "...", "removed": true }`) with the links in the `Link` header; prefer that only when a multipart body is impractical for the client.
+This uses only general HTTP: `multipart/mixed` (RFC 2046) of `application/http` messages (RFC 9112), the `Link` header with `rel="next"`/`rel="self"` and an extension `rel="deltaLink"` (RFC 8288), `204 No Content` for a removed resource (a DELETE-style outcome, kept in the success range), and `410 Gone` for an expired change-tracking token. A simpler, less strict alternative keeps a bare JSON array and marks deletions inline (`{ "id": "...", "removed": true }`) with the links in the `Link` header; prefer that only when a multipart body is impractical for the client.
 
 ## Verify
 
 - Changes are found by a monotonic per-entity change marker - a rowversion by default (mapped order-preserving so `> watermark` is valid), or an app-maintained timestamp when no rowversion exists - returning only entities past the client's watermark, not a full rescan.
-- Deletions are reported: soft-deleted rows are included and surface as `410 Gone` tombstones, so the client stops keeping them; a hard delete would make the deletion invisible.
+- Deletions are reported: soft-deleted rows are included and surface as body-less `204 No Content` tombstones (the client removes them), so the client stops keeping them; a hard delete would make the deletion invisible.
 - The client gets an opaque change-tracking link back via the `Link` header (`rel="deltaLink"`), and a `next` link when the delta spans pages.
 - The delta is ordered by `(marker, id)`; the watermark advances deterministically and the boundary hazard is handled (rowversion in-flight commits via `MIN_ACTIVE_ROWVERSION`; timestamp via `>=` overlap and dedup).
 - No-changes returns an empty delta plus a refreshed `deltaLink`; a stale/unknown token returns `410 Gone` so the client resyncs.
 - Entity payloads are unchanged - added/updated entities carry their normal representation, not an envelope or an added field.
 
 ❌ Query `LastModifiedAt > since` with no tiebreaker, hard deletes, and a body that just omits removed rows - the client never learns about deletions and can miss changes at the boundary.
-✅ A monotonic marker ordered `(marker, id)`, soft-delete tombstones reported as `410` parts, an opaque `deltaLink`, and boundary-safe watermark advancement.
+✅ A monotonic marker ordered `(marker, id)`, soft-delete tombstones reported as body-less `204` parts, an opaque `deltaLink`, and boundary-safe watermark advancement.
