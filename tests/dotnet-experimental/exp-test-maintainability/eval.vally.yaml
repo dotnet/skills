@@ -30,6 +30,11 @@ stimuli:
       - Recommended labeling parameterized test cases so that test runner output identifies which case failed
       - Showed concrete refactored code with clear test case labels
       - Acknowledged that the tests are otherwise well-structured (focused, clear assertions, proper naming)
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
   - name: Recognize well-maintained tests that need minimal changes
     prompt: |
       Can you review my Auth.Tests project for maintainability? I want to make sure
@@ -53,6 +58,11 @@ stimuli:
       - Acknowledged that parameterized tests are well-labeled and effectively structured
       - Did not recommend over-engineered patterns disproportionate to the test complexity
       - If any suggestions were made, they were minor and clearly labeled as optional polish
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
   - name: Detect repeated object construction and setup across test methods
     prompt: |
       I feel like my test code has a lot of copy-paste. Can you analyze
@@ -82,6 +92,11 @@ stimuli:
       - Noted that OrderValidatorTests also repeats the same Order construction pattern as OrderProcessorTests, suggesting a cross-class shared helper
       - Provided concrete before/after code showing how at least one extraction would look
       - Did not recommend removing all duplication indiscriminately — acknowledged trade-offs between DRY and test readability
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
   - name: Recognize tests with minimal boilerplate that need no refactoring
     prompt: |
       Can you check my Calculator.Tests project for any repeated code patterns
@@ -104,3 +119,8 @@ stimuli:
       - Identified that ScientificCalculatorTests has individual test methods that could be consolidated into parameterized tests (e.g., SquareRoot positive/zero cases, Power squared/zero/negative exponent cases)
       - Noted that the overall code is well-structured and any suggestions are minor improvements, not critical refactorings
       - Did not recommend over-engineered patterns like base classes or shared fixtures for these simple test classes
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
