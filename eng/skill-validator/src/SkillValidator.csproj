@@ -42,7 +42,7 @@
     <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.0.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.9" />
     <!-- external -->
-    <PackageReference Include="GitHub.Copilot.SDK" Version="0.3.0" />
+    <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.4" />
     <PackageReference Include="YamlDotNet" Version="18.0.0" />
     <PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="18.0.0" />
 
@@ -51,7 +51,7 @@
       1.0.2 which has a known high-severity vulnerability (GHSA-2cwq-pwfr-wcw3).
       Fixed in 1.1.62.  Drop this once the upstream chain bumps past 1.1.62.
     -->
-    <PackageReference Include="Nerdbank.MessagePack" Version="1.2.4" />
+    <PackageReference Include="Nerdbank.MessagePack" Version="1.2.30" />
 
     <!--
       Transitive pin: GitHub.Copilot.SDK -> StreamJsonRpc 2.24.84 drags in
@@ -59,7 +59,7 @@
       (GHSA-hv8m-jj95-wg3x, out-of-bounds read in LZ4 decompression). Patched in
       the v2 line as of 2.5.301.  Drop this once the upstream chain bumps past it.
     -->
-    <PackageReference Include="MessagePack" Version="2.5.301" />
+    <PackageReference Include="MessagePack" Version="3.1.7" />
 
     <!--
       Transitive pin: Microsoft.Data.Sqlite 10.0.7 -> SQLitePCLRaw.bundle_e_sqlite3
