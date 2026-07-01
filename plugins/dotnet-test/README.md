@@ -71,7 +71,6 @@ For non-.NET languages, use the native coverage tool: `coverage.py`/`pytest-cov`
 | **test-analysis-extensions** | Language-specific guidance loaded by the polyglot analysis skills (test markers, assertion APIs, sleeps, skips, mystery-guest indicators, integration markers, tag-support capability) |
 | **platform-detection** *(.NET)* | Detect VSTest vs MTP and identify the test framework from project files |
 | **filter-syntax** *(.NET)* | Test filter syntax reference for VSTest and MTP across all frameworks |
-| **dotnet-test-frameworks** *(.NET)* | Framework detection patterns, assertion APIs, skip annotations, and lifecycle methods (kept for backward compatibility with .NET-only skills like `writing-mstest-tests`) |
 
 ## Agents
 
