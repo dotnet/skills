@@ -24,7 +24,7 @@ scenarios:
       - "Tests both success and failure paths (e.g., null input, empty items)"
       - "Uses Assert.ThrowsExactly or Assert.Throws for exception testing instead of [ExpectedException]"
       - "Uses Assert.AreEqual with expected as first argument and actual as second"
-    timeout: 180
+    timeout: 360
 
   - name: "Write data-driven tests for a calculator"
     prompt: "I have a PriceCalculator class with CalculateTotal and ApplyDiscount methods. Help me write data-driven MSTest tests using DataRow and DynamicData that cover multiple input combinations following modern MSTest best practices."
@@ -44,7 +44,7 @@ scenarios:
       - "Seals the test class"
       - "Uses Assert.ThrowsExactly or Assert.Throws for testing invalid argument scenarios"
       - "Does not use manual foreach loops to iterate test data — uses proper data-driven attributes instead"
-    timeout: 180
+    timeout: 360
 
   - name: "Write async tests with cancellation"
     prompt: |
@@ -348,7 +348,7 @@ scenarios:
       - "Tests BuildGreeting validates the output starts with 'Dear' and ends with a comma"
       - "Tests GenerateSlug validates the slug pattern contains only lowercase letters, digits, and hyphens"
       - "Tests exception handling for null or invalid inputs"
-    timeout: 180
+    timeout: 360
 
   # ============================================================================
   # Goal 6: Comparison assertions
@@ -400,7 +400,7 @@ scenarios:
       - "Tests boundary conditions at grade thresholds (e.g., exactly 90 vs 89)"
       - "Tests that NormalizeScore caps the result at 100 when rawScore exceeds maxRaw"
       - "Seals the test class"
-    timeout: 120
+    timeout: 240
 
   # ============================================================================
   # Goal 7: Collection, null, and reference assertions

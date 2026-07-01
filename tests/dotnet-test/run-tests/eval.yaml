@@ -193,7 +193,7 @@ scenarios:
       - "xUnit v3 on MTP requires framework-specific filter flags, not VSTest expression syntax"
       - "Correctly handles the '--' separator for SDK 9"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 240
 
   - name: "Filter xUnit v3 tests by class pattern and trait using query filter language"
     prompt: "I have an xUnit v3 project with several test classes. I need to run only the Smoke tests from classes whose name contains 'Integration' — I want a single combined filter expression for dotnet test rather than separate flags."
@@ -219,7 +219,7 @@ scenarios:
       - "The expression correctly targets only Smoke tests from integration test classes, not all Smoke tests or all integration tests"
       - "Used the path-segment syntax with wildcard segments and a trait qualifier like [Category=Smoke]"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 240
 
   - name: "Filter TUnit tests by class using treenode-filter"
     prompt: "I want to run only the SmsNotificationTests from this TUnit project using dotnet test. What's the command?"

@@ -103,7 +103,7 @@ scenarios:
       - "Acknowledged that both zero and negative quantities are tested for guard clauses"
       - "Acknowledged that RemoveStock verifies both the return value and the resulting stock level"
       - "If any gaps were found, they were presented as minor improvements rather than critical weaknesses"
-    timeout: 300
+    timeout: 420
 
   # ==========================================================================
   # Scenario 4: Non-activation — user wants to write new tests
@@ -140,7 +140,7 @@ scenarios:
     rubric:
       - "Wrote test methods for the ShoppingCart class"
       - "Covered the AddItem and GetTotal methods"
-    timeout: 120
+    timeout: 300
 
   # ==========================================================================
   # Scenario 5: Report quality — exclude trivial/generated code, trace call

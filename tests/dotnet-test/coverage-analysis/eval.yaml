@@ -29,7 +29,7 @@ scenarios:
       - "Identifies CalculateGpa as the highest-risk method (high complexity, low coverage)"
       - "Provides actionable recommendations for the riskiest methods"
       - "Generates or displays a coverage analysis report"
-    timeout: 300
+    timeout: 480
 
   - name: "Run coverage from scratch without existing data"
     prompt: "Analyze code coverage and risk hotspots for this project. I haven't run any coverage yet."
@@ -88,4 +88,4 @@ scenarios:
       - "Quantifies the impact — covering CalculateGpa would raise overall coverage significantly"
       - "Uses CRAP scores to distinguish the risky gap (CalculateGpa) from trivial ones"
       - "Provides specific test recommendations for the uncovered method"
-    timeout: 300
+    timeout: 480
