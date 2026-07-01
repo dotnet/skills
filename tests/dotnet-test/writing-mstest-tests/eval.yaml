@@ -205,9 +205,9 @@ scenarios:
       - type: output_matches
         pattern: "ContainsSingle|Assert\\.IsNotNull"
     rubric:
-      - "The non-empty validation no longer relies on a generic Assert.IsTrue boolean check — it uses a dedicated assertion that clearly reports 'collection was empty' on failure"
-      - "The exact-count validation uses a count-specific or equality assertion rather than wrapping the comparison in Assert.IsTrue"
-      - "The single-element lookup uses an assertion that produces a meaningful failure message when zero or multiple elements match, rather than throwing an unrelated exception"
+      - "The non-empty validation no longer relies on a generic Assert.IsTrue boolean check — it uses a dedicated assertion such as the real MSTest 3.8+ `Assert.IsNotEmpty(collection)` (or `Assert.AreNotEqual(0, x.Count)`) that clearly reports 'collection was empty' on failure. Grading note: `Assert.IsNotEmpty`, `Assert.IsEmpty`, `Assert.HasCount`, `Assert.ContainsSingle`, `Assert.Contains`, and `Assert.DoesNotContain` are real assertion methods introduced in MSTest 3.8+ (Microsoft.Testing) — do not penalize them as non-existent or fabricated."
+      - "The exact-count validation uses a count-specific assertion such as the real MSTest 3.8+ `Assert.HasCount(3, collection)` (or `Assert.AreEqual(3, x.Count)`) rather than wrapping the comparison in Assert.IsTrue"
+      - "The single-element lookup uses an assertion that produces a meaningful failure message when zero or multiple elements match — such as the real MSTest 3.8+ `Assert.ContainsSingle(...)` — rather than `Single()` followed by Assert.IsTrue, which throws an unrelated exception"
       - "The null check uses a null-specific assertion rather than Assert.IsTrue with a boolean null comparison"
       - "Explains why specialized assertions produce better failure diagnostics than generic Assert.IsTrue"
     timeout: 120
