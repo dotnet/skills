@@ -4,9 +4,9 @@ type: capability
 config:
   timeout: 16m
 stimuli:
-  - name: An efficient list of queues
+  - name: An efficient, robust list of queues
     prompt: |
-      In the MessagingApi project (which uses controllers), add an endpoint that lists the queues in a namespace, backed by MessagingDbContext. This endpoint is called very frequently and a namespace can hold a large number of queues, so make sure it performs well and returns only what a client needs.
+      In the MessagingApi project (which uses controllers), add an endpoint to page through the queues in a namespace, backed by MessagingDbContext. A namespace can hold a very large number of queues, and queues are constantly being created and deleted while clients page through them. Make paging efficient and keep it correct even though the collection changes between requests: a client walking the pages should not miss a queue or see the same queue twice because of concurrent inserts and deletes. Also give clients a straightforward way to fetch the next page, and return only what a client needs.
     environment:
       files:
         - src: ./fixture/MessagingApi
@@ -19,10 +19,11 @@ stimuli:
       - type: prompt
       - type: pairwise
     rubric:
-      - The read query does not track entities (AsNoTracking or an equivalent no-tracking read), since it only reads
-      - The result set is paginated (for example Skip/Take) with a bounded page size rather than returning every queue in the namespace
-      - The query projects to the fields the client needs (a Select projection) rather than materializing full Queue entities and their owned collections
-      - The query is shaped so it runs on the database (no client-side evaluation and no per-item follow-up queries that would cause N+1)
+      - The read query does not track entities (AsNoTracking) and projects to the fields the client needs (a Select projection), running on the database with no client-side evaluation or N+1
+      - Results are ordered by a deterministic total order whose final key is a unique column (for example ThenBy the id), so ties in the sort field cannot cause rows to repeat or be skipped across pages
+      - Paging uses a keyset/cursor comparison against the last item's key (such as (sortKey, id) greater than (lastSortKey, lastId)) rather than Skip/OFFSET, so inserts and deletes between requests do not shift a positional window and cause duplicates or skips
+      - The ordering/cursor key is an immutable or monotonic column, so a row is not re-emitted if a mutable sort field changes after it was returned
+      - The next-page link is delivered via the standard Link header (RFC 8288) with rel=next and the body is the collection itself, and the page size is bounded, rather than an ad-hoc page-number or offset scheme the client must assemble
   - name: Fetching a single namespace with its summary
     prompt: |
       In the MessagingApi project, add an endpoint that gets a single namespace by name along with a count of how many queues and topics it has, backed by MessagingDbContext. It should be efficient and not load data it does not need.
