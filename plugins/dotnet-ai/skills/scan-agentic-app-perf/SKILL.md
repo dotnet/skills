@@ -61,27 +61,30 @@ per-agent model assignment) apply to every topology.
 
 ## Workflow
 
-> **Execution discipline — lead with the user's concern; the report is the deliverable.**
-> - **Your FIRST write is the report file — create it right after inventory,
->   before running any category check.** Using the `create` tool, write
->   `.copilot/perf-reports/scan.md` (at the scanned app's root — see step 4 for
->   the path rule) with the `references/report-template.md` header and an empty
->   `## Findings` section as soon as step 1 is done. Then append findings as you
->   confirm each category. This is the skill's only guaranteed write; a run cut
->   short must still leave a report on disk. **If you have finished inventory and
->   not yet created the file, stop and create it now** — running detection
->   scripts is not a substitute for writing the report.
+> **Execution discipline — the user asked a question; answer it in chat.**
+> - **Your chat response is the primary deliverable.** The user asked you to
+>   audit their app; they read your answer in the chat, not a file on disk. Your
+>   final message **must** present the findings (see step 5) — total counts plus
+>   the top findings with file:line and next action. `scan.md` is a persisted
+>   copy of that same analysis, not a substitute for it. A run that writes the
+>   file but ends with an empty or one-line chat message has failed the user.
+> - **Analyze first, then write both.** Inspect the sources, reason about the
+>   findings, then (a) present them in chat and (b) persist the same findings to
+>   `.copilot/perf-reports/scan.md`. Do not open an empty report file up front
+>   and treat filling it as the goal — that starves the chat answer. Both the
+>   chat summary and the file are required; the chat summary is the last thing
+>   you do.
 > - **Anchor on what the user asked.** If the prompt names a concern
 >   (topology / "too complex", history / "slow on multi-turn", cost / prompt
->   weight, observability / OTel), evaluate and **lead the report and chat
->   summary with that category** — never bury it under an unrelated one. Still
->   run the full seven-category sweep, but the user's stated problem is the
->   headline finding.
-> - **Don't over-read.** Do **not** pre-read all seven category reference docs.
->   Categories 1/6/7 are seeded by the step-1 detection scripts; the rest are
->   judged by inspecting the cited sources directly. Open a category's reference
->   doc only when a candidate finding needs confirmation. On a small app (a
->   handful of files) the direct source inspection is enough on its own.
+>   weight, observability / OTel), **lead both the chat answer and the report
+>   with that category** — never bury it under an unrelated one. Still run the
+>   full seven-category sweep, but the user's stated problem is the headline.
+> - **Stay lean; don't over-tool.** On a small app (a handful of source files)
+>   **read the files directly and skip the detection scripts** — the PowerShell
+>   detectors and per-category reference docs are accelerators for large
+>   codebases, not a mandatory gauntlet, and running them on a tiny fixture just
+>   burns your turn budget before you can answer. Never pre-read all seven
+>   reference docs; open one only to confirm a specific candidate finding.
 
 ### 1. Inventory the app
 
@@ -95,9 +98,11 @@ Detect and record:
 - Agent count, handoff edges, tool count per agent
 - OTel wiring (`AddOpenTelemetry`, Aspire dashboard reference)
 
-**Automated detection.** For the topology, OTel-coverage, and model-assignment
-categories, prefer the deterministic detection scripts over reading every source
-file by hand. Invoke each as
+**Automated detection (large apps).** For the topology, OTel-coverage, and
+model-assignment categories on a **larger codebase**, the deterministic detection
+scripts save you from reading every source file by hand. **On a small app (a
+handful of files), skip them and read the sources directly** — invoking them on a
+tiny fixture costs more than it saves. When you do use them, invoke each as
 `& "<skill-directory>/scripts/<Name>.ps1" -Path <app-root> -Json` and parse the
 JSON:
 
@@ -118,17 +123,13 @@ for the exact contract.
 If no agentic app is detected, abort and tell the user this skill does not
 apply. Do not attempt to audit a non-agentic .NET project.
 
-**Now create the report file** at `.copilot/perf-reports/scan.md` (see step 4
-for the exact path rule) with the `references/report-template.md` header and an
-empty `## Findings` section, using the `create` tool. Do this before running any
-category check — it is the skill's first and only guaranteed write.
-
 ### 2. Run the seven check classes
 
-Evaluate the seven categories below, appending findings to the report file you
-just created. **Do not pre-read all seven reference docs** — that read-everything
-pass is the top cause of a run that ends with no report written. Open a
-category's reference doc only to confirm a specific candidate finding.
+Evaluate the seven categories below and collect the confirmed findings; you will
+present them in chat (step 5) and persist them to the report (step 4). **Do not
+pre-read all seven reference docs** and **do not open an empty report file first**
+— reason about the findings before you write anything. Open a category's
+reference doc only to confirm a specific candidate finding.
 
 | # | Category          | Reference                                  |
 |---|-------------------|--------------------------------------------|
@@ -197,16 +198,15 @@ Severity rules:
 
 ### 4. Aggregate and write the report
 
-The report file should already exist from the early-write (see the execution
-discipline above); this step finalizes it with the sorted, confirmed findings.
-
-Sort findings by severity (critical → warn → info), then by `check`
-slug (stable lexical order so `history.*` < `model.*` < `otel.*` <
-`parallel.*` < `prompt.*` < `tools.*` < `topology.*`).
+Once you have the confirmed findings, sort them by severity (critical → warn →
+info), then by `check` slug (stable lexical order so `history.*` < `model.*` <
+`otel.*` < `parallel.*` < `prompt.*` < `tools.*` < `topology.*`) and write them
+to the report with the `create` tool. This is a persisted copy of the analysis
+you present in chat (step 5) — not the primary deliverable, but always written.
 
 **Always write the report** — even for a read-only audit and even when
-zero criticals are found (an empty-findings report is still the
-deliverable; writing it is not a source edit). Write it to
+zero criticals are found (an empty-findings report is still worth persisting;
+writing it is not a source edit). Write it to
 `.copilot/perf-reports/scan.md` **relative to the scanned app's root** —
 the directory that contains the solution / `*.AppHost.csproj`, or the
 path the user pointed you at (e.g. auditing `./fixture` writes
@@ -228,9 +228,10 @@ This skill never touches `.gitignore`. If the user wants the report
 ignored, recommend in chat that they add `.copilot/perf-reports/` to
 their `.gitignore` themselves; do not edit it from this skill.
 
-### 5. Surface top findings in chat
+### 5. Surface top findings in chat (required — this is your answer)
 
-Print:
+This step is the primary deliverable. Your final chat message **must** contain
+the analysis, even after you have written `scan.md`. Print:
 
 1. Total counts (critical / warn / info).
 2. **The finding(s) in the user's stated concern category first** (e.g. topology
@@ -239,7 +240,8 @@ Print:
 3. The full report path.
 4. If any findings have a `ref:` field, list the suggested follow-up skills.
 
-Do not paste the entire report into chat.
+Do not paste the entire report into chat, but never end with an empty or
+one-line message — a saved file is not a substitute for answering the user.
 
 ### 6. Offer to route into follow-up skills
 
