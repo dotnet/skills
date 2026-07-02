@@ -34,7 +34,6 @@ stimuli:
           pattern: (VSTest|vstest|Microsoft\.Testing\.Platform|MTP)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Correctly identified the project uses MSTest v2 (2.2.10)
       - Detected the project is running on VSTest (not MTP)
@@ -66,7 +65,6 @@ stimuli:
           pattern: (VSTest|vstest|Microsoft\.Testing\.Platform|MTP)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified the project uses xUnit.net v2 (2.9.3)
       - Recommended migrating to xUnit.net v3
@@ -95,7 +93,6 @@ stimuli:
           value: "2.2.10"
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Updated MSTest package versions from 2.2.10 to a 3.x version in the project file
       - Addressed or warned about the Assert.AreEqual object overload removal
@@ -118,7 +115,6 @@ stimuli:
           pattern: (out.*scope|not.*cover|cannot|does not|writ.*test|generat|different)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Did not attempt to perform any test framework migration
       - Recognized that writing new tests is outside the migration scope

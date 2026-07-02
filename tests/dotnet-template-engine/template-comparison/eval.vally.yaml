@@ -27,7 +27,6 @@ stimuli:
         config:
           pattern: (?i)controllers
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent used the template-comparison skill to compare the two templates
       - The agent inspected each template with `dotnet new <template> --help`
@@ -48,7 +47,6 @@ stimuli:
         config:
           pattern: (?i)blazorwasm
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent used the template-comparison skill to compare both Blazor templates
       - The agent inspected each template's parameters via `dotnet new <template> --help`
@@ -68,7 +66,6 @@ stimuli:
         config:
           pattern: (?i)console
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent used the template-comparison skill rather than just creating a project
       - The agent compared worker and console templates side by side

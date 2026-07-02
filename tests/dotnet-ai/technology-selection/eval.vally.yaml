@@ -29,7 +29,6 @@ stimuli:
           substring: TrainTestSplit
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses ML.NET (Microsoft.ML) for classification — does NOT use an LLM for this structured data task
       - Sets a random seed on MLContext for reproducibility
@@ -63,7 +62,6 @@ stimuli:
           substring: apiKey = "
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses Microsoft.Extensions.AI (IChatClient) as the abstraction layer — does not call Azure.AI.OpenAI or OpenAI
         SDK directly in business logic
@@ -89,7 +87,6 @@ stimuli:
           substring: ML.NET
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Redirects the user away from using GPT-4/LLM for this tabular classification task
       - Recommends ML.NET as the appropriate technology with a clear rationale (faster, cheaper, deterministic)
@@ -116,7 +113,6 @@ stimuli:
           substring: Microsoft.Extensions.AI
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses Microsoft Agent Framework (Microsoft.Agents.AI) for orchestration — not raw LLM calls in a loop
       - Builds on top of Microsoft.Extensions.AI (IChatClient) as the foundation layer
@@ -142,7 +138,6 @@ stimuli:
           substring: Microsoft.Extensions.AI
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Presents a plan or architecture breakdown before diving into code — decomposes the vague request into
         identifiable capability needs (chat, document ingestion, vector search, embedding, UI)
@@ -180,7 +175,6 @@ stimuli:
           substring: embedding
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Describes a chunking strategy for documents (semantic or paragraph-based, not naive fixed-size)
       - Selects Microsoft.Extensions.VectorData or a vector database for storing and querying embeddings

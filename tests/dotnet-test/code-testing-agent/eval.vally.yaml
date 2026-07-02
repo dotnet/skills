@@ -37,7 +37,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
-      - type: pairwise
     rubric:
       - Achieved high line coverage (>70%) across the ContosoUniversity source files as reported by the Cobertura XML in
         TestResults/
@@ -103,7 +102,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
-      - type: pairwise
     rubric:
       - Created at least one test file under fixtures/python-flask-tasks/tests/ named test_*.py
       - Uses Flask's test_client() (or werkzeug Client) for route tests rather than starting a real HTTP server
@@ -187,7 +185,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
-      - type: pairwise
     rubric:
       - Created at least one `*.test.ts` file under fixtures/typescript-vitest-cart/tests/
       - Mocks DiscountPolicy, TaxCalculator, and ShippingCalculator (e.g. via vi.fn() or hand-rolled stubs) when
@@ -261,7 +258,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
-      - type: pairwise
     rubric:
       - Generated passing pytest tests for the synthstr module under fixtures/python-workspace-integrity/tests/,
         treating the module on disk as the unit under test

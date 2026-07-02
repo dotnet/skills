@@ -15,7 +15,6 @@ stimuli:
         config:
           pattern: (kubectl|container|pod)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends dotnet-trace as the preferred approach when the user can exec into the container
       - Provides specific commands to install or download dotnet-trace inside the container (e.g., aka.ms links or
@@ -34,7 +33,6 @@ stimuli:
         config:
           pattern: (admin|privilege|elevated)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that PerfView is the primary diagnostic tool for .NET Framework but requires admin privileges
       - Clearly states there is no trace-based fallback for .NET Framework without admin access
@@ -52,7 +50,6 @@ stimuli:
         config:
           pattern: (native|kernel)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends dotnet-trace collect-linux as the preferred tool for .NET 10+ with root
       - Explains that collect-linux uses perf_events for richer traces including native call stacks and kernel events
@@ -69,7 +66,6 @@ stimuli:
         config:
           pattern: (dotnet-trace|dotnet trace)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends capturing two dumps at different points during memory growth for heap diffing
       - Invokes the dump-collect skill for dump collection rather than providing direct dotnet-dump commands
@@ -90,7 +86,6 @@ stimuli:
         config:
           pattern: (BufferSizeMB|CircularMB)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends PerfView with the /ThreadTime argument to capture thread-level wait and block detail
       - Includes /BufferSizeMB and /CircularMB for larger buffers since thread time traces generate more data
@@ -111,7 +106,6 @@ stimuli:
         config:
           pattern: --profile\s+gc-verbose
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends dotnet-trace with the gc-verbose profile for capturing GC events on Linux
       - Explains that a trace is required to analyze GC events, pause times, and allocation patterns — a dump is not
@@ -130,7 +124,6 @@ stimuli:
         config:
           pattern: (thread|stack)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends starting with a trace to understand what threads are doing (livelock, thread starvation, or partial
         forward progress)
@@ -149,7 +142,6 @@ stimuli:
         config:
           pattern: (EnableEventsInContainers|container)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends PerfView from the host with /EnableEventsInContainers for process-isolation Windows containers
       - "Explains the two analysis options: analyze locally while container is running, or merge symbols before
@@ -167,7 +159,6 @@ stimuli:
         config:
           pattern: (StopOn|CircularMB|BufferSizeMB)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends PerfView with a /StopOn trigger that fires on the symptom (e.g., /StopOnPerfCounter)
       - Includes /CircularMB and /BufferSizeMB for a circular buffer that keeps only the most recent data
@@ -184,7 +175,6 @@ stimuli:
         config:
           pattern: (native|perf)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends perfcollect for capturing native call stacks on Linux with pre-.NET 10
       - Explains that perfcollect requires root/admin access
@@ -202,7 +192,6 @@ stimuli:
         config:
           substring: PerfView collect
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends PerfView as the preferred tool for Windows with admin access
       - Provides the specific PerfView collect command to run
@@ -218,7 +207,6 @@ stimuli:
         config:
           pattern: (dump|dumps)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends capturing two process dumps at different points during memory growth for diffing
       - Provides dump collection commands directly (e.g., procdump -ma) since dump-collect does not support .NET
@@ -234,7 +222,6 @@ stimuli:
         config:
           pattern: (dotnet-trace|dotnet trace)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends dotnet-trace (console tool) as the preferred option since the user has console access to the container
       - Provides the specific dotnet-trace collect command to run inside the container
@@ -247,7 +234,6 @@ stimuli:
         config:
           pattern: (aka.ms|curl|wget)
       - type: prompt
-      - type: pairwise
     rubric:
       - Mentions the aka.ms direct download links as a way to get dotnet-trace without the SDK
       - Provides the curl or wget command to download dotnet-trace for the appropriate platform
@@ -265,7 +251,6 @@ stimuli:
         config:
           pattern: System\.Net\.Http
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends dotnet-trace with networking providers (at minimum System.Net.Http)
       - Explains that System.Net.Http events include HTTP status codes in RequestStop events, allowing identification of
@@ -285,7 +270,6 @@ stimuli:
         config:
           pattern: System\.Net
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends PerfView with /ThreadTime and networking providers as Additional Providers
       - Lists the networking providers to enable (System.Net.Http, and optionally System.Net.NameResolution,
@@ -305,7 +289,6 @@ stimuli:
         config:
           pattern: (assemblyloader|assembly.?load|loader|binder)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends dotnet-trace with --clrevents assemblyloader or --providers Microsoft-Windows-DotNETRuntime:0x4:4 to
         capture assembly loader binder events

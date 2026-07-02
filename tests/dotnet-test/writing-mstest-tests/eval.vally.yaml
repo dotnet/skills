@@ -24,7 +24,6 @@ stimuli:
         config:
           pattern: Assert\.ThrowsExactly|Assert\.Throws
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses [TestClass] and [TestMethod] attributes correctly
       - Seals the test class with the 'sealed' keyword
@@ -51,7 +50,6 @@ stimuli:
         config:
           pattern: Assert\.ThrowsExactly|Assert\.Throws
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses [DataRow] for simple inline test data or [DynamicData] for complex data
       - If using DynamicData, prefers ValueTuple return type over IEnumerable<object[]>
@@ -94,7 +92,6 @@ stimuli:
         config:
           pattern: CancellationToken
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses async Task test methods (not async void)
       - Uses TestContext.CancellationToken or mentions its importance for cooperative timeout
@@ -133,7 +130,6 @@ stimuli:
         config:
           pattern: Assert\.AreEqual\(0
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies the swapped arguments in Assert.AreEqual — expected should be first, actual second
       - Fixes to Assert.AreEqual(5, result) and Assert.AreEqual(0, result)
@@ -164,7 +160,6 @@ stimuli:
         config:
           pattern: IsInstanceOfType
       - type: prompt
-      - type: pairwise
     rubric:
       - Seals the test class (adds 'sealed' keyword)
       - Replaces [ExpectedException] with Assert.ThrowsExactly or Assert.Throws
@@ -196,7 +191,6 @@ stimuli:
         config:
           substring: "[ExpectedException]"
       - type: prompt
-      - type: pairwise
     rubric:
       - Replaces [ExpectedException] with Assert.ThrowsExactly<ArgumentNullException> or
         Assert.Throws<ArgumentNullException>
@@ -240,7 +234,6 @@ stimuli:
         config:
           pattern: ContainsSingle|Assert\.IsNotNull
       - type: prompt
-      - type: pairwise
     rubric:
       - Replaces Assert.IsTrue(users.Count > 0) with Assert.IsNotEmpty(users) or similar
       - Replaces Assert.IsTrue(users.Count() == 3) with Assert.HasCount(3, users)
@@ -274,7 +267,6 @@ stimuli:
         config:
           pattern: IsInstanceOfType
       - type: prompt
-      - type: pairwise
     rubric:
       - Replaces hard cast (EmailHandler)result with Assert.IsInstanceOfType<EmailHandler>(result)
       - Shows how to use the typed result from IsInstanceOfType for further assertions
@@ -304,7 +296,6 @@ stimuli:
         config:
           pattern: \[TestInitialize\]|TestInitialize
       - type: prompt
-      - type: pairwise
     rubric:
       - Always initializes in the constructor — enables readonly fields and satisfies nullability analyzers (fields
         guaranteed non-null after construction)
@@ -342,7 +333,6 @@ stimuli:
         config:
           pattern: IEnumerable<\(
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends switching from IEnumerable<object[]> to IEnumerable<(string input, bool expected)> ValueTuples
       - Explains that ValueTuples provide compile-time type safety
@@ -398,7 +388,6 @@ stimuli:
         config:
           pattern: \bsealed\b
       - type: prompt
-      - type: pairwise
     rubric:
       - Validates string format structure using targeted string assertions like StartsWith, EndsWith, or MatchesRegex
         rather than only exact equality checks
@@ -459,7 +448,6 @@ stimuli:
         config:
           pattern: \bsealed\b
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses comparison assertions like IsGreaterThan, IsLessThan, or IsInRange for validating numeric bounds instead
         of Assert.IsTrue with manual comparisons
@@ -487,7 +475,6 @@ stimuli:
         config:
           path: tests/*.cs
       - type: prompt
-      - type: pairwise
     rubric:
       - Verifies reference identity (same object instance, not just value equality) when testing that resolving a
         registered service returns the exact object that was registered
@@ -520,7 +507,6 @@ stimuli:
         config:
           pattern: TestCleanup|IDisposable
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses an OS condition attribute to restrict the registry test to Windows only
       - Uses a CICondition attribute to exclude the GPU test from CI environments
@@ -551,7 +537,6 @@ stimuli:
         config:
           pattern: DoNotParallelize
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends MSTest.Sdk for the simplest possible project file
       - Shows assembly-level Parallelize attribute configuration with Workers and Scope

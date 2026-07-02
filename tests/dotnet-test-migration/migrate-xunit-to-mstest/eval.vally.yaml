@@ -54,7 +54,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 3m
       - type: prompt
-      - type: pairwise
     rubric:
       - Removes xunit, xunit.runner.visualstudio package references
       - Adds the MSTest metapackage (Microsoft.NET.Test.Sdk stays for VSTest)
@@ -99,7 +98,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 3m
       - type: prompt
-      - type: pairwise
     rubric:
       - Removes all xunit.v3.* and xunit.runner.visualstudio packages and adds MSTest
       - Converts [Theory] + [InlineData(...)] to [TestMethod] + [DataRow(...)]
@@ -119,7 +117,6 @@ stimuli:
         config:
           pattern: (net7\.0|net6\.0|net8\.0|unsupported|not supported|upgrade.{0,30}target.{0,10}framework|target.{0,10}framework.{0,30}upgrade|MSTest v?3)
       - type: prompt
-      - type: pairwise
     rubric:
       - 'Identifies net7.0 as unsupported by MSTest v4 (supported: net8.0, net9.0, net462+, etc.)'
       - Stops or pauses for user confirmation -- does NOT silently retarget the TFM
@@ -156,7 +153,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 3m
       - type: prompt
-      - type: pairwise
     rubric:
       - Removes 'IClassFixture<DbFixture>' from the class declaration
       - Adds a static field holding the fixture and a [ClassInitialize] method that constructs it
@@ -195,7 +191,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 3m
       - type: prompt
-      - type: pairwise
     rubric:
       - Preserves serialization of the two classes by adding [DoNotParallelize] (matches DisableParallelization = true)
       - Preserves the shared fixture by either an [AssemblyInitialize] singleton or a static Lazy<T> helper used from each class's [ClassInitialize]
@@ -235,7 +230,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 3m
       - type: prompt
-      - type: pairwise
     rubric:
       - Removes the ITestOutputHelper constructor parameter and replaces with TestContext (constructor injection or property)
       - Replaces _output.WriteLine(...) with _testContext.WriteLine(...) (or TestContext.WriteLine via the property)
@@ -271,7 +265,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 3m
       - type: prompt
-      - type: pairwise
     rubric:
       - Maps xUnit Assert.Throws<T> to MSTest Assert.ThrowsExactly<T> (preserves exact-type semantics)
       - Maps xUnit Assert.ThrowsAny<T> to MSTest Assert.Throws<T> (preserves derived-type semantics)
@@ -307,7 +300,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 3m
       - type: prompt
-      - type: pairwise
     rubric:
       - Replaces [MemberData(nameof(Cases))] with [DynamicData(nameof(Cases))]
       - Converts [Theory] to [TestMethod] (or keeps [DataTestMethod])
@@ -351,7 +343,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 3m
       - type: prompt
-      - type: pairwise
     rubric:
       - Converts [Fact(Skip = ...)] to [TestMethod] + [Ignore(...)] (both attributes required -- [Ignore] alone does not discover the test)
       - Converts [Trait("Category", X)] to [TestCategory(X)]
@@ -391,7 +382,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 3m
       - type: prompt
-      - type: pairwise
     rubric:
       - 'Adds [assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)] to preserve xUnit''s class-level parallelization'
       - Does NOT pick ExecutionScope.MethodLevel (which is more aggressive than xUnit)
@@ -427,7 +417,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 3m
       - type: prompt
-      - type: pairwise
     rubric:
       - Replaces 'TestContext.Current.CancellationToken' with the instance TestContext's CancellationToken
       - Uses MSTest's instance TestContext (constructor injection or property) rather than a static 'Current'
@@ -452,7 +441,6 @@ stimuli:
           path: '**/*.csproj'
           value: PackageReference Include="xunit
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognizes the project already references MSTest packages -- no xUnit present
       - Does NOT make changes (no destructive 'migration' of MSTest tests)

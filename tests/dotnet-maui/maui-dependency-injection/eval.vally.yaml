@@ -25,7 +25,6 @@ stimuli:
         config:
           pattern: (?i)builder\.Services
       - type: prompt
-      - type: pairwise
     rubric:
       - Registers the data service as Singleton because it holds shared state or is expensive to create
       - Registers ViewModels as Transient so each navigation gets a fresh instance
@@ -48,7 +47,6 @@ stimuli:
         config:
           pattern: GoToAsync
       - type: prompt
-      - type: pairwise
     rubric:
       - Shows registering both DetailPage and DetailViewModel as Transient in MauiProgram.cs
       - Shows Routing.RegisterRoute for the DetailPage
@@ -73,7 +71,6 @@ stimuli:
         config:
           pattern: (?i)fallback|#else|all platform
       - type: prompt
-      - type: pairwise
     rubric:
       - "Uses #if / #elif preprocessor directives for each platform"
       - Covers Android, iOS/Mac Catalyst, and Windows
@@ -95,7 +92,6 @@ stimuli:
         config:
           pattern: (?i)(no|not|doesn.t|lacks|without).*(built.?in|request|http).*(scope|pipeline)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that MAUI has no built-in request scope like ASP.NET Core's HTTP pipeline
       - States that AddScoped without a manually created IServiceScope behaves like Singleton

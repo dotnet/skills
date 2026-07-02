@@ -36,7 +36,6 @@ stimuli:
         config:
           pattern: '"Age"'
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses the new built-in JsonNamingPolicy.PascalCase static property (added in .NET 11) and does not implement a
         custom JsonNamingPolicy subclass
@@ -78,7 +77,6 @@ stimuli:
         config:
           pattern: (True|False|found|Found|JsonTypeInfo)
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses the new generic JsonSerializerOptions.GetTypeInfo<T>() overload (added in .NET 11) for the typed-access part
       - Uses the new generic JsonSerializerOptions.TryGetTypeInfo<T>(out JsonTypeInfo<T>? info) overload (added in .NET
@@ -119,7 +117,6 @@ stimuli:
         config:
           pattern: '"age"'
       - type: prompt
-      - type: pairwise
     rubric:
       - Solves the task using only pre-.NET 11 APIs (JsonNamingPolicy.CamelCase, standard JsonSerializer.Serialize)
       - Does NOT load or reference the system-text-json-net11 skill — none of its APIs are needed here

@@ -22,7 +22,6 @@ stimuli:
         config:
           pattern: XC0022|XC0025|WarningsAsErrors
       - type: prompt
-      - type: pairwise
     rubric:
       - Places x:DataType on the ContentPage root element pointing to SettingsViewModel
       - Does not scatter x:DataType on child elements or use x:DataType='x:Object'
@@ -45,7 +44,6 @@ stimuli:
         config:
           pattern: (?i)RelayCommand|ICommand
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses CommunityToolkit.Mvvm ObservableObject with [ObservableProperty] or implements INotifyPropertyChanged
         manually
@@ -69,7 +67,6 @@ stimuli:
         config:
           pattern: (?i)StaticResource|x:Key
       - type: prompt
-      - type: pairwise
     rubric:
       - Implements IValueConverter with a Convert method that maps each enum value to a Color
       - Declares the converter in XAML resources with an x:Key
@@ -97,7 +94,6 @@ stimuli:
         config:
           pattern: (?i)x:DataType
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that BindingContext is never set on the page
       - Shows how to set BindingContext either in XAML or code-behind

@@ -31,7 +31,6 @@ stimuli:
         config:
           pattern: msdl\.microsoft\.com
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that the tombstone contains .NET runtime frames from libmonosgen-2.0.so
       - Extracted the BuildId 1eb39fc72918c7c6c0c610b79eb3d3d47b2f81be from the backtrace
@@ -55,7 +54,6 @@ stimuli:
         config:
           pattern: (libc\.so|libart\.so|libutils\.so|libnativeapp\.so)
       - type: prompt
-      - type: pairwise
     rubric:
       - Correctly identified that the tombstone contains no .NET runtime libraries (no libmonosgen-2.0.so or
         libcoreclr.so)
@@ -83,7 +81,6 @@ stimuli:
         config:
           pattern: (0x)?0*3a81f0
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that the tombstone contains .NET runtime frames from libcoreclr.so
       - Extracted the BuildId 4ca7e2f19b3d605847a1c8e3f5b7d9a2c4e6f801 from the backtrace
@@ -108,7 +105,6 @@ stimuli:
         config:
           pattern: elf-buildid-sym-5e7c2a4b6d8e0f2138b2d4f6a1c3e5079a1b3d5f
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognized that this is a NativeAOT app — the runtime is statically linked into the app binary
         (libNativeAotApp.so), not a separate libcoreclr.so or libmonosgen-2.0.so
@@ -141,7 +137,6 @@ stimuli:
         config:
           pattern: llvm-symbolizer
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified .NET frames from the crashing thread and at least one background thread (SGen worker or Finalizer)
       - Recognized that the SGen worker and Finalizer threads also contain libmonosgen-2.0.so frames
@@ -163,7 +158,6 @@ stimuli:
           pattern: (no BuildId|no.build.?id|missing BuildId|without
             BuildId|BuildId.*(not|missing|absent|unavailable)|cannot.*(symbolicate|download|resolve))
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that the tombstone contains .NET runtime frames from libmonosgen-2.0.so
       - Recognized that the .NET frames do NOT have BuildId metadata
@@ -198,7 +192,6 @@ stimuli:
         config:
           pattern: msdl\.microsoft\.com
       - type: prompt
-      - type: pairwise
     rubric:
       - "Identified .NET frames from multiple libraries: libmonosgen-2.0.so, libSystem.Native.so, and
         libSystem.Globalization.Native.so"
@@ -216,7 +209,6 @@ stimuli:
         config:
           pattern: (iOS|iPhone|Apple|not.*(Android|tombstone)|wrong.*(format|type)|different.*(format|process))
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognized that this is an iOS crash log, not an Android tombstone
       - Did NOT attempt to apply the Android tombstone symbolication workflow

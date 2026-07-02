@@ -30,7 +30,6 @@ stimuli:
         config:
           pattern: (ZipArchive|CreateAsync|eager)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains GZipStream/DeflateStream now writes headers and footers even for empty payloads; zero-length check
         needs updating
@@ -84,7 +83,6 @@ stimuli:
         config:
           pattern: (with|collection expression|@with|constructor)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies the Span collection expression safe-context change to declaration-block; recommends using array type
         or moving expression to outer scope
@@ -134,7 +132,6 @@ stimuli:
         config:
           pattern: (Cosmos|always throws|no.*opt.in|removed)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that sync I/O via Cosmos DB provider is fully removed in EF Core 11 with no opt-in
       - "Recommends converting all sync methods to async: ToList→ToListAsync, First→FirstAsync, Count→CountAsync,
@@ -157,7 +154,6 @@ stimuli:
         config:
           pattern: (SSE4|POPCNT|SSSE3)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains .NET 11 raised the x86/x64 minimum from x86-64-v1 to x86-64-v2, requiring SSE4.1, SSE4.2, POPCNT, etc.
       - Notes hardware from 2012 may lack x86-64-v2 support — need to upgrade or keep on .NET 10
@@ -177,7 +173,6 @@ stimuli:
         config:
           pattern: (ECDSA|RSA|alternative|replacement)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains DSA has been removed from macOS in .NET 11
       - Notes DSA still works on Windows and Linux
@@ -201,7 +196,6 @@ stimuli:
         config:
           pattern: (Dockerfile|sdk:11\.0|aspnet:11\.0)
       - type: prompt
-      - type: pairwise
     rubric:
       - Updates TargetFramework from net10.0 to net11.0
       - Updates global.json SDK version to 11.0.x
@@ -255,7 +249,6 @@ stimuli:
         config:
           pattern: (ref readonly|InAttribute|CS0518)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that interface types as left operand of && with dynamic right operand now produces CS7083 at compile
         time
@@ -278,7 +271,6 @@ stimuli:
         config:
           pattern: (ZipArchive|CRC32|InvalidDataException|checksum)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that unhandled BackgroundService exceptions now propagate and stop the host; recommends adding
         try/catch in ExecuteAsync()
@@ -302,7 +294,6 @@ stimuli:
         config:
           pattern: (Design|Tools|transitive|explicit)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains Microsoft.Data.SqlClient updated to 7.0 and Entra ID auth dependencies were removed from the core
         package; recommends adding Microsoft.Data.SqlClient.Extensions.Azure
@@ -327,7 +318,6 @@ stimuli:
         config:
           pattern: OverscanCount.*(3|15)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains Microsoft.OpenApi updated from v2 to v3 with breaking API changes; recommends following the v3
         upgrade guide
@@ -346,7 +336,6 @@ stimuli:
         config:
           pattern: (AIA|certificate|download|disabled|chain)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains AIA certificate downloads are now disabled by default during client-certificate validation
       - Recommends pre-installing the full certificate chain, having clients send intermediates, or re-enabling

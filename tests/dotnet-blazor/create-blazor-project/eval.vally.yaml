@@ -32,7 +32,6 @@ stimuli:
         config:
           pattern: (Static SSR|no.interactive|None.*interactivity)
       - type: prompt
-      - type: pairwise
     rubric:
       - Correct template and configuration — single-project structure (no .Client project), Program.cs calls AddRazorComponents() without any AddInteractive* chains, App.razor does NOT set @rendermode on Routes or HeadOutlet
       - Recognizes that Static SSR uses standard HTML POST forms and enhanced navigation — no interactivity needed for a course catalog with enrollment
@@ -70,7 +69,6 @@ stimuli:
         config:
           pattern: (per.page|per-page|opt.in)
       - type: prompt
-      - type: pairwise
     rubric:
       - Correct template and configuration — Program.cs registers AddInteractiveServerComponents() and AddInteractiveServerRenderMode(), App.razor does NOT set @rendermode on Routes so interactivity is per-page opt-in
       - Static pages (browse, homepage, recipe content) remain SSR for performance while interactive components (rating widget, comments) opt in with @rendermode InteractiveServer
@@ -110,7 +108,6 @@ stimuli:
         config:
           pattern: (\.Client|Auto.*mode|dual.*execution)
       - type: prompt
-      - type: pairwise
     rubric:
       - Correct template and configuration — two-project structure with .Client project, Server Program.cs registers both AddInteractiveServerComponents() and AddInteractiveWebAssemblyComponents(), interactive components live in .Client
       - Components cannot directly access server resources — all data through HTTP APIs, both server and client Program.cs register matching services, component code must not assume execution environment

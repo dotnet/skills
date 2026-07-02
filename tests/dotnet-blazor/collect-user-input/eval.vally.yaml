@@ -45,7 +45,6 @@ stimuli:
           path: '**/Register.razor'
           value: DataAnnotationsValidator
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses a custom validator component (or ValidationMessageStore directly) to display server-returned field-specific errors — the email duplicate error appears next to the email field via ValidationMessage, not as a generic message
       - Model uses data annotation attributes for basic validation (Required, EmailAddress, Range) with DataAnnotationsValidator
@@ -106,7 +105,6 @@ stimuli:
           path: '**/BookAppointment.razor'
           value: ValidationMessage
       - type: prompt
-      - type: pairwise
     rubric:
       - Server-returned errors appear next to the specific field via ValidationMessage — uses ValidationMessageStore or equivalent to add field-level errors from the service response, not manual conditional divs
       - After server validation failure, the user can change the flagged field and resubmit — errors clear on the relevant field without losing other form data

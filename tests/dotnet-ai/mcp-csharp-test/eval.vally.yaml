@@ -20,7 +20,6 @@ stimuli:
         config:
           pattern: (CallToolAsync|McpClient)
       - type: prompt
-      - type: pairwise
     rubric:
       - Creates a test project with xUnit and references the server project
       - Shows how to mock HttpClient or external dependencies
@@ -39,7 +38,6 @@ stimuli:
         config:
           pattern: (initialize|MCP|jsonrpc)
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses WebApplicationFactory<Program> for in-process HTTP testing
       - Shows how to send an MCP initialize request to verify the server responds
@@ -58,7 +56,6 @@ stimuli:
         config:
           pattern: (read.only|non.destructive|deterministic|verifiable)
       - type: prompt
-      - type: pairwise
     rubric:
       - Shows the XML evaluation format with qa_pair elements
       - Explains that questions should require multiple tool calls and reasoning

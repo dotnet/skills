@@ -30,7 +30,6 @@ stimuli:
           pattern: (TimeProvider|IFileSystem|System\.IO\.Abstractions|wrapper|abstraction)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified the static dependencies in SubscriptionManager (time, filesystem, environment, console)
       - Recommended TimeProvider for replacing DateTime.UtcNow calls
@@ -60,7 +59,6 @@ stimuli:
           value: DateTime.UtcNow
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Replaced all DateTime.UtcNow calls in SubscriptionManager with TimeProvider equivalents
       - Added TimeProvider as a dependency to SubscriptionManager via constructor injection

@@ -34,7 +34,6 @@ stimuli:
           pattern: (express|heavy|10.*kg|coupon|minimum|floor|1\.00)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that no test exercises the exact discount tier boundaries (1000, 500, 100) — mutations like >= to >
         at those points would survive
@@ -73,7 +72,6 @@ stimuli:
           pattern: (surviv|not.*caught|not.*detected|gap|miss|blind|weak)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that Guest access denial is never tested — removing the default deny branch would survive
       - Identified that User's CanWrite=false is never asserted — flipping it to true would survive
@@ -101,7 +99,6 @@ stimuli:
           pattern: (strong|solid|good|well.tested|thorough|effective|high.*kill|most.*killed|most.*caught)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognized that the test suite has good mutation coverage — most mutations at boundaries and guards would be
         caught
@@ -123,7 +120,6 @@ stimuli:
         config:
           pattern: (TestMethod|TestClass|\[Fact\]|test)
       - type: prompt
-      - type: pairwise
     rubric:
       - Wrote test methods for the ShoppingCart class
       - Covered the AddItem and GetTotal methods

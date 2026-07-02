@@ -18,7 +18,6 @@ stimuli:
           pattern: dotnet test
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies the project as a VSTest project (Microsoft.NET.Test.Sdk + MSTest.TestAdapter)
       - Uses 'dotnet test' without MTP-specific arguments or '--' separator
@@ -48,7 +47,6 @@ stimuli:
           pattern: --\s+--report-trx
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Detects TestingPlatformDotnetTestSupport property in the csproj indicating MTP
       - Recognizes that SDK 9 requires MTP arguments after the '--' separator
@@ -82,7 +80,6 @@ stimuli:
           pattern: -- --blame
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Detects MTP via the global.json runner setting (Microsoft.Testing.Platform)
       - Recognizes that SDK 10 passes MTP arguments directly without '--' separator
@@ -108,7 +105,6 @@ stimuli:
           pattern: --framework\s+net9\.0
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognizes the multi-TFM project from the TargetFrameworks (plural) property
       - Uses '--framework net9.0' to target the specific framework
@@ -135,7 +131,6 @@ stimuli:
           pattern: TestCategory=Integration
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses the VSTest --filter flag with the TestCategory property
       - 'Uses the correct syntax: --filter "TestCategory=Integration"'
@@ -163,7 +158,6 @@ stimuli:
           pattern: (FullyQualifiedName~ReportExporterTests|ClassName=.*ReportExporterTests)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies NUnit on VSTest (NUnit + NUnit3TestAdapter + Microsoft.NET.Test.Sdk)
       - Uses --filter with FullyQualifiedName or ClassName property to select the class
@@ -193,7 +187,6 @@ stimuli:
           pattern: ShoppingCartTests
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Detects xUnit v3 on MTP (xunit.v3 package + TestingPlatformDotnetTestSupport)
       - Uses --filter-class instead of the VSTest --filter expression syntax
@@ -223,7 +216,6 @@ stimuli:
           pattern: Category=Integration
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Detects xUnit v3 on MTP from the project references
       - Uses --filter-trait "Category=Integration" instead of VSTest --filter "Traits.Category=Integration"
@@ -255,7 +247,6 @@ stimuli:
           pattern: '--filter-query\s+"(?=[^"]*Integration)(?=[^"]*\[Category=Smoke\])[^"]+"'
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognized that xUnit v3 on MTP supports a query filter language for complex combined expressions
       - Uses SDK 9 MTP argument passing with '-- --filter-query'
@@ -284,7 +275,6 @@ stimuli:
           pattern: SmsNotificationTests
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies TUnit as MTP-only (no VSTest support)
       - Uses --treenode-filter with the path-based syntax to filter by class name
@@ -319,7 +309,6 @@ stimuli:
           substring: "&"
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Combines ClassName and TestCategory filters using the '&' (AND) operator
       - 'Uses correct VSTest expression syntax: --filter "ClassName~OrderServiceTests&TestCategory=Unit"'
@@ -349,7 +338,6 @@ stimuli:
           pattern: --\s+--blame-crash
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Detects TestingPlatformDotnetTestSupport in the csproj indicating MTP
       - Recognizes that SDK 9 requires MTP arguments after the '--' separator
@@ -380,7 +368,6 @@ stimuli:
           pattern: -- --report-trx
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Detects MTP via global.json runner setting and SDK 10
       - Passes --report-trx directly without the '--' separator
@@ -415,7 +402,6 @@ stimuli:
           pattern: -- --filter
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Reads Directory.Build.props (not just the csproj) and finds TestingPlatformDotnetTestSupport=true
       - Correctly identifies this as an MTP project even though the csproj alone looks like VSTest
@@ -445,7 +431,6 @@ stimuli:
           substring: --report-trx
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies this as a VSTest project (Microsoft.NET.Test.Sdk without MTP signals)
       - Uses '--logger trx' which is the VSTest way to produce TRX output

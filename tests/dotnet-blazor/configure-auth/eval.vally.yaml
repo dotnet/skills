@@ -54,7 +54,6 @@ stimuli:
           path: '**/*ogin*'
           value: SignInManager
       - type: prompt
-      - type: pairwise
     rubric:
       - Login and register pages use [ExcludeFromInteractiveRouting] to render as static SSR — explains that SignInManager and UserManager need HttpContext which is unavailable in interactive components
       - App.razor conditionally applies the render mode using HttpContext.AcceptsInteractiveRouting() — returns null for excluded pages and InteractiveServer for everything else
@@ -99,7 +98,6 @@ stimuli:
           path: '**/*.razor'
           value: '[Authorize'
       - type: prompt
-      - type: pairwise
     rubric:
       - Server Program.cs calls AddAuthenticationStateSerialization so auth state is serialized into the prerendered HTML — without this the WebAssembly runtime starts with an anonymous user
       - Client Program.cs calls AddAuthenticationStateDeserialization so the WASM runtime can reconstitute the auth state from the serialized data
