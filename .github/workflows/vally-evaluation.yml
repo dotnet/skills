@@ -34,8 +34,10 @@ on:
         type: string
 
 env:
-  MODEL: claude-opus-4.6
-  JUDGE_MODEL: claude-opus-4.6
+  # Fallback model/judge used only if the experiment file's `overrides:` block
+  # can't be parsed. The experiment file is the source of truth (see below).
+  FALLBACK_MODEL: claude-opus-4.6
+  FALLBACK_JUDGE_MODEL: claude-opus-4.6
 
 permissions:
   contents: read
@@ -133,8 +135,7 @@ jobs:
             echo "has_evals=false" >> $GITHUB_OUTPUT
           else
             echo "has_evals=true" >> $GITHUB_OUTPUT
-            echo "$EVALS" > /tmp/eval-specs.txt
-            echo "Found $(wc -l < /tmp/eval-specs.txt) eval specs"
+            echo "Found $(echo "$EVALS" | wc -l | tr -d ' ') eval specs"
           fi
 
       - name: Run vally evaluations
@@ -144,58 +145,62 @@ jobs:
           RESULTS_DIR: artifacts/TestResults/vally/${{ matrix.entry.name }}
         run: |
           PLUGIN="${{ matrix.entry.plugin }}"
+          SKILLS_PATH="${{ matrix.entry.skills_path }}"
 
-          # Build the explicit eval set for this plugin. Each eval targets a
-          # single skill named after the eval folder. Evals that do not map 1:1
-          # to a skill (e.g. `agent.*` evals that exercise multi-skill
-          # orchestrator agents and declare their own `environment.skills`) are
-          # skipped — they are out of scope for the skill-vs-baseline pipeline.
-          EVAL_ARGS=()
-          while IFS= read -r EVAL_SPEC; do
-            EVAL_NAME=$(basename "$(dirname "$EVAL_SPEC")")
-            case "$EVAL_NAME" in
-              agent.*)
-                echo "::warning::Skipping $EVAL_NAME — agent eval (not supported by the skill-isolation pipeline)"
-                continue
-                ;;
-            esac
-            # The skilled variant loads plugins/<plugin>/skills/<skill>; vally
-            # fails fast if that directory is missing.
-            if [ ! -d "plugins/$PLUGIN/skills/$EVAL_NAME" ]; then
-              echo "::warning::Skipping $EVAL_NAME — no skill dir at plugins/$PLUGIN/skills/$EVAL_NAME"
-              continue
-            fi
-            EVAL_ARGS+=("$EVAL_SPEC")
-          done < /tmp/eval-specs.txt
-
-          if [ ${#EVAL_ARGS[@]} -eq 0 ]; then
-            echo "::warning::No skill-backed evals to run for $PLUGIN"
-            exit 0
+          # Scope the canonical experiment with --eval-filter (repeatable),
+          # which intersects each pattern with the experiment's `evals:` glob.
+          # `agent.*` evals are excluded by that glob, so they drop out
+          # automatically; a missing plugins/<plugin>/skills/<skill> dir surfaces
+          # as a skilled-variant failure that adapt.mjs warns on.
+          #
+          # Honor the matrix entry's skills_path so per-skill PR entries and
+          # sharded entries run only their targeted skills, not the whole plugin:
+          #   plugins/<plugin>/skills            -> tests/<plugin>/**   (whole plugin)
+          #   plugins/<plugin>/skills/<skill>    -> tests/<plugin>/<skill>
+          # A workflow_dispatch skill input overrides to that single skill.
+          FILTER_ARGS=()
+          if [ -n "${{ inputs.skill }}" ]; then
+            FILTER_ARGS=(--eval-filter "tests/$PLUGIN/${{ inputs.skill }}/eval.vally.yaml")
+          else
+            for token in $SKILLS_PATH; do
+              rel="${token#plugins/}"       # <plugin>/skills[/<skill>]
+              tp="${rel%%/skills*}"         # <plugin>
+              skill="${rel#*/skills}"       # "" or "/<skill>"
+              skill="${skill#/}"            # "" or "<skill>"
+              if [ -n "$skill" ]; then
+                FILTER_ARGS+=(--eval-filter "tests/$tp/$skill/eval.vally.yaml")
+              else
+                FILTER_ARGS+=(--eval-filter "tests/$tp/**/eval.vally.yaml")
+              fi
+            done
+          fi
+          if [ ${#FILTER_ARGS[@]} -eq 0 ]; then
+            FILTER_ARGS=(--eval-filter "tests/$PLUGIN/**/eval.vally.yaml")
           fi
 
-          # Scope the canonical experiment to this plugin's evals and pin the
-          # model/judge. The scoped file lives at the repo root because vally
-          # resolves eval and skill paths relative to the experiment file's dir.
-          SCOPED_EXPERIMENT=".vally-experiment-scoped.yaml"
-          node eng/vally-adapter/scope-experiment.mjs \
-            --base dotnet-skills.experiment.yaml \
-            --out "$SCOPED_EXPERIMENT" \
-            --model "${{ env.MODEL }}" \
-            --judge-model "${{ env.JUDGE_MODEL }}" \
-            --runs 1 \
-            "${EVAL_ARGS[@]}"
+          # Model + comparison-judge model come from the experiment file's
+          # `overrides:` block (single source of truth), matching run-vally-evals.sh.
+          read_override() {
+            awk -v k="$1" '
+              /^overrides:/ { f = 1; next }
+              /^[^[:space:]]/ { f = 0 }
+              f && $1 == k":" { print $2; exit }
+            ' dotnet-skills.experiment.yaml
+          }
+          MODEL="$(read_override model)"; MODEL="${MODEL:-${{ env.FALLBACK_MODEL }}}"
+          JUDGE_MODEL="$(read_override judge_model)"; JUDGE_MODEL="${JUDGE_MODEL:-${{ env.FALLBACK_JUDGE_MODEL }}}"
 
           # Run baseline (no skills) + skilled (the one skill) in a single
           # experiment pass. The baseline is a true skill-free control because
-          # vally 0.6.0 does no ambient skill discovery — skills load only from
+          # vally does no ambient skill discovery — skills load only from
           # environment.skills.
           EXPERIMENT_OUT="$RESULTS_DIR/_experiment"
           mkdir -p "$EXPERIMENT_OUT"
-          vally experiment run "$SCOPED_EXPERIMENT" \
+          vally experiment run dotnet-skills.experiment.yaml \
+            "${FILTER_ARGS[@]}" \
             --output-dir "$EXPERIMENT_OUT" \
             --workers 5 \
             2>&1 || echo "::warning::vally experiment run reported failures for $PLUGIN"
-          rm -f "$SCOPED_EXPERIMENT"
 
           RUN_DIR=$(find "$EXPERIMENT_OUT" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)
           if [ -z "$RUN_DIR" ]; then
@@ -203,22 +208,21 @@ jobs:
             exit 0
           fi
 
-          # Split the per-variant experiment output into the per-skill
-          # results.json the shadow summary (and skill-validator) consume.
+          # Split the per-variant experiment output by eval and run `vally
+          # compare` per skill (in the adapter) to produce the per-skill
+          # results.json the shadow summary consumes. `vally` is on PATH here.
           node eng/vally-adapter/adapt.mjs \
             --experiment-dir "$RUN_DIR" \
             --output-root "$RESULTS_DIR" \
-            --model "${{ env.MODEL }}" \
-            --judge-model "${{ env.JUDGE_MODEL }}"
+            --vally "vally" \
+            --model "$MODEL" \
+            --judge-model "$JUDGE_MODEL"
 
-          # vally adapts whatever it produced, so surface any shortfall between
-          # the verdicts written and the evals we asked for. This is the
-          # informational shadow job, so a gap is an annotation, not a failure.
+          # Informational shadow job: surface how many verdicts were produced.
           PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')
-          EXPECTED=${#EVAL_ARGS[@]}
-          echo "Produced $PRODUCED of $EXPECTED expected skill verdict(s) for $PLUGIN"
-          if [ "$PRODUCED" -lt "$EXPECTED" ]; then
-            echo "::warning::vally produced $PRODUCED of $EXPECTED expected skill verdicts for $PLUGIN — some evals failed to run or validate (see logs above)"
+          echo "Produced $PRODUCED skill verdict(s) for $PLUGIN"
+          if [ "$PRODUCED" -eq 0 ]; then
+            echo "::warning::vally produced no skill verdicts for $PLUGIN — evals failed to run or validate (see logs above)"
           fi
 
       - name: Upload results
@@ -235,13 +239,14 @@ jobs:
         run: |
           echo "## 🔬 Vally Shadow Results: ${{ matrix.entry.name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Skilled vs baseline, judged head-to-head by \`vally compare\`. A skill passes only on a credible improvement (mean preference > 0 with its 95% CI above 0)." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
           RESULTS_DIR="artifacts/TestResults/vally/${{ matrix.entry.name }}"
           while IFS= read -r RESULTS_JSON; do
             if [ ! -f "$RESULTS_JSON" ]; then continue; fi
             EVAL_NAME=$(basename $(dirname "$RESULTS_JSON"))
 
-            # Extract verdict from JSON
             PASSED=$(node -e "const r=JSON.parse(require('fs').readFileSync('$RESULTS_JSON','utf-8')); console.log(r.verdicts[0].passed)")
             REASON=$(node -e "const r=JSON.parse(require('fs').readFileSync('$RESULTS_JSON','utf-8')); console.log(r.verdicts[0].reason)")
             ICON=$([ "$PASSED" = "true" ] && echo "✅" || echo "❌")
@@ -250,16 +255,17 @@ jobs:
             echo "$REASON" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            # Per-scenario table
-            echo "| Scenario | Assertions | Improvement |" >> $GITHUB_STEP_SUMMARY
-            echo "|----------|------------|-------------|" >> $GITHUB_STEP_SUMMARY
+            # Per-scenario table: mean preference score and win/tie/loss.
+            echo "| Scenario | Mean preference | Trials (W/T/L) |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-----------------|----------------|" >> $GITHUB_STEP_SUMMARY
             node -e "
               const r = JSON.parse(require('fs').readFileSync('$RESULTS_JSON', 'utf-8'));
               for (const s of r.verdicts[0].scenarios) {
-                const allPass = s.withSkill.metrics.assertionResults.every(a => a.passed);
-                const icon = allPass ? '✔' : '✘';
-                const pct = (s.improvementScore * 100).toFixed(1);
-                console.log('| ' + icon + ' ' + s.scenarioName + ' | ' + s.withSkill.metrics.assertionResults.length + ' passed | ' + pct + '% |');
+                const icon = s.meanScore > 0 ? '▲' : s.meanScore < 0 ? '▼' : '=';
+                const pct = (s.meanScore >= 0 ? '+' : '') + (s.meanScore * 100).toFixed(1) + '%';
+                let w=0,t=0,l=0;
+                for (const tr of (s.trials||[])) { if (tr.score>0) w++; else if (tr.score<0) l++; else t++; }
+                console.log('| ' + icon + ' ' + s.scenarioName + ' | ' + pct + ' | ' + w + '/' + t + '/' + l + ' |');
               }
             " >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY

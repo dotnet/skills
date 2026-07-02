@@ -8,17 +8,15 @@
 #   tests/<plugin>/<skill>/eval.vally.yaml -> plugins/<plugin>/skills/<skill>
 # i.e. ${eval.grandparent}=<plugin> and ${eval.parent}=<skill>.
 #
-# Requires a Vally build with no ambient skill discovery (skills load only
-# from environment.skills), so the baseline is genuinely skill-free.
-#
 # The `agent.*` evals are excluded: they exercise orchestrator agents and do
 # not map to a single plugins/<plugin>/skills/<skill> directory.
 name: dotnet-skills
 evals:
   - tests/*/!(agent.*)/eval.vally.yaml
 overrides:
-  model: claude-sonnet-4.6
-  judge_model: claude-sonnet-4.6
+  model: claude-opus-4.6
+  judge_model: claude-opus-4.6
+  runs: 1
 vary:
   - /environment/skills
 baseline: baseline
