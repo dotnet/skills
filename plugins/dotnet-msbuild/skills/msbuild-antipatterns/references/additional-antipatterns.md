@@ -257,17 +257,18 @@ Note the healthy contrast: the P2P protocol itself does **not** inject `TargetFr
 
 2. **Deliberately overriding a single-targeting project's TFM to a *different* value** — you can use `SetTargetFramework` on a single-targeting reference to build it under a TFM *other than* the one it declares. This is only valid when the passed-in TFM **differs** from what the project single-targets: because the injected `TargetFramework` then changes the output path (`obj\<config>\<different-tfm>\`), the instance no longer collides with the `(project, {})` build. It is **only** the redundant case — passing the *same* TFM the project already targets (path-neutral) — that causes the clash.
 
-   When the referencing and referenced projects are **framework-incompatible** (e.g. a `.NETFramework` test project referencing a single-targeting `.NETCoreApp` project), overriding the TFM alone isn't enough. The P2P protocol's `GetTargetFrameworkProperties` negotiation will fail because the frameworks aren't compatible, so you must also set:
-   - `SkipGetTargetFrameworkProperties="true"` — bypass the automatic TFM-compatibility negotiation, and
-   - `ReferenceOutputAssembly="false"` — because a `.NETCoreApp` assembly can't be consumed as a reference by a `.NETFramework` project; you only want to trigger the build / sequence it, not reference its output.
+**Related: referencing a framework-incompatible project.** Independently of the clash above, whenever the referencing and referenced projects target **incompatible frameworks** (e.g. a `.NETFramework` project referencing a `.NETCoreApp` project, or vice-versa) — **regardless of whether either side is single- or multi-targeting** — you must set both:
+- `SkipGetTargetFrameworkProperties="true"` — bypass the P2P `GetTargetFrameworkProperties` negotiation, which would otherwise fail because the frameworks aren't compatible, and
+- `ReferenceOutputAssembly="false"` — because an assembly built for an incompatible framework can't be consumed as a reference; you only want to trigger/sequence the build, not reference its output.
 
-   ```xml
-   <!-- OK: .NETFramework test project builds a single-targeting .NETCoreApp tool without referencing its assembly -->
-   <ProjectReference Include="..\Tool\Tool.csproj"
-                     SetTargetFramework="TargetFramework=net8.0"
-                     SkipGetTargetFrameworkProperties="true"
-                     ReferenceOutputAssembly="false" />
-   ```
+```xml
+<!-- OK: .NETFramework project builds an incompatible .NETCoreApp tool without referencing its assembly -->
+<ProjectReference Include="..\Tool\Tool.csproj"
+                  SkipGetTargetFrameworkProperties="true"
+                  ReferenceOutputAssembly="false" />
+```
+
+Add `SetTargetFramework` on top of these **only** if you also need to pin the referenced build to a specific TFM (a multi-targeting project, or a single-targeting project you're overriding to a *different* TFM per case 2 above).
 
 ---
 

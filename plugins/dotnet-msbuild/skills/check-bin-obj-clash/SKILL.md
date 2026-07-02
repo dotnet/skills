@@ -386,14 +386,15 @@ Injecting the TFM the project already targets is **path-neutral** — the projec
 
 - **Multi-targeting reference** — the referenced project uses `<TargetFrameworks>` and you need one specific TFM. Each TFM has a distinct output path, so no clash.
 - **Overriding to a *different* TFM** — you may use `SetTargetFramework` on a single-targeting project to build it under a TFM *other than* the one it declares. Because the injected TFM then changes the output path (`obj\<config>\<different-tfm>\`), the instance no longer collides with `(project, {})`. Only the *same-TFM* case is path-neutral and clashing.
-- **Framework-incompatible override** — when the referencing and referenced projects are incompatible (e.g. a `.NETFramework` test project referencing a single-targeting `.NETCoreApp` project), also set `SkipGetTargetFrameworkProperties="true"` (the automatic TFM-compatibility negotiation would otherwise fail) and `ReferenceOutputAssembly="false"` (a `.NETCoreApp` assembly can't be consumed by a `.NETFramework` project — you only want to trigger/sequence the build):
+- **Framework-incompatible reference** — whenever the referencing and referenced projects target **incompatible frameworks** (e.g. a `.NETFramework` project referencing a `.NETCoreApp` project, or vice-versa) — **regardless of single- or multi-targeting on either side** — set `SkipGetTargetFrameworkProperties="true"` (the P2P `GetTargetFrameworkProperties` negotiation would otherwise fail) and `ReferenceOutputAssembly="false"` (an assembly built for an incompatible framework can't be consumed as a reference — you only want to trigger/sequence the build):
 
   ```xml
   <ProjectReference Include="..\Tool\Tool.csproj"
-                    SetTargetFramework="TargetFramework=net8.0"
                     SkipGetTargetFrameworkProperties="true"
                     ReferenceOutputAssembly="false" />
   ```
+
+  Add `SetTargetFramework` on top only if you also need to pin the referenced build to a specific TFM.
 
 See the `msbuild-antipatterns` skill (AP-23) for the authoring-time smell and rationale.
 
