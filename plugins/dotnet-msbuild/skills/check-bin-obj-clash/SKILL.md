@@ -360,29 +360,42 @@ Either way this forks a distinct instance of the target project (`path` + `{_IsP
 
 See the `msbuild-antipatterns` skill (AP-22) for the authoring-time smell and rationale.
 
-### `SetTargetFramework` on a `ProjectReference` to a non-multi-targeting project
+### `SetTargetFramework` re-injecting a single-targeting project's own TFM on a `ProjectReference`
 
-**Problem:** A `ProjectReference` sets `SetTargetFramework="TargetFramework=<tfm>"` metadata pointing at a **single-targeting** project (one that uses singular `<TargetFramework>`, not `<TargetFrameworks>`). `SetTargetFramework` injects `TargetFramework` as a **global property** on the referenced project's build.
+**Problem:** A `ProjectReference` sets `SetTargetFramework="TargetFramework=<tfm>"` metadata pointing at a **single-targeting** project (one that uses singular `<TargetFramework>`, not `<TargetFrameworks>`), where the injected `<tfm>` **equals the TFM the project already targets**. `SetTargetFramework` injects `TargetFramework` as a **global property** on the referenced project's build.
 
 ```xml
-<!-- BAD: Tool.csproj single-targets net8.0 -->
+<!-- BAD: Tool.csproj single-targets net8.0 and we inject that SAME net8.0 -->
 <ProjectReference Include="..\Tool\Tool.csproj" SetTargetFramework="TargetFramework=net8.0" />
 ```
 
-For a single-targeting project that extra `TargetFramework` global property is **path-neutral** — the project already resolves to `bin\<config>\net8.0\` and `obj\<config>\net8.0\` on its own. So it doesn't change the output path; it only forks a distinct instance `(project, {TargetFramework=net8.0})`. The solution/graph builds the very same project as `(project, {})`. Both share the same `OutputPath`/`IntermediateOutputPath`, so the project is **built twice** to the same location — a bin/obj clash under parallel builds.
+Injecting the TFM the project already targets is **path-neutral** — the project already resolves to `bin\<config>\net8.0\` and `obj\<config>\net8.0\` on its own. So it doesn't change the output path; it only forks a distinct instance `(project, {TargetFramework=net8.0})`. The solution/graph builds the very same project as `(project, {})`. Both share the same `OutputPath`/`IntermediateOutputPath`, so the project is **built twice** to the same location — a bin/obj clash under parallel builds.
 
 **How to detect:** Follow the Primary workflow above. The `evaluations` and `evaluation_global_properties` tools surface two evaluations of the referenced project that share the same `OutputPath`/`IntermediateOutputPath` and differ only by a `TargetFramework` global property, while the project itself is single-targeting (its own `TargetFramework` already equals the injected value). The `double_writes` tool flags the resulting shared-file writes directly.
 
 **Note:** The P2P protocol itself does **not** inject `TargetFramework` for a non-multi-targeting reference — the clash comes specifically from the explicit `SetTargetFramework` metadata overriding that safe default.
 
-**Fix:** Remove `SetTargetFramework` from references to single-targeting projects:
+**Fix:** Remove the redundant `SetTargetFramework` when it just restates the project's own single TFM:
 
 ```xml
 <!-- GOOD -->
 <ProjectReference Include="..\Tool\Tool.csproj" />
 ```
 
-Only use `SetTargetFramework` when the referenced project is **multi-targeting** (`<TargetFrameworks>`) and you deliberately need one specific TFM — there each TFM has a distinct output path, so no clash. See the `msbuild-antipatterns` skill (AP-23) for the authoring-time smell and rationale.
+**When `SetTargetFramework` is legitimate (not a clash):**
+
+- **Multi-targeting reference** — the referenced project uses `<TargetFrameworks>` and you need one specific TFM. Each TFM has a distinct output path, so no clash.
+- **Overriding to a *different* TFM** — you may use `SetTargetFramework` on a single-targeting project to build it under a TFM *other than* the one it declares. Because the injected TFM then changes the output path (`obj\<config>\<different-tfm>\`), the instance no longer collides with `(project, {})`. Only the *same-TFM* case is path-neutral and clashing.
+- **Framework-incompatible override** — when the referencing and referenced projects are incompatible (e.g. a `.NETFramework` test project referencing a single-targeting `.NETCoreApp` project), also set `SkipGetTargetFrameworkProperties="true"` (the automatic TFM-compatibility negotiation would otherwise fail) and `ReferenceOutputAssembly="false"` (a `.NETCoreApp` assembly can't be consumed by a `.NETFramework` project — you only want to trigger/sequence the build):
+
+  ```xml
+  <ProjectReference Include="..\Tool\Tool.csproj"
+                    SetTargetFramework="TargetFramework=net8.0"
+                    SkipGetTargetFrameworkProperties="true"
+                    ReferenceOutputAssembly="false" />
+  ```
+
+See the `msbuild-antipatterns` skill (AP-23) for the authoring-time smell and rationale.
 
 ## Example Workflow
 
@@ -425,7 +438,7 @@ When multiple evaluations share an output path, compare these global properties 
 
 | Property | Affects OutputPath? | Notes |
 |----------|---------------------|-------|
-| `TargetFramework` | Yes | Different TFMs should have different paths. **Exception:** injecting it (e.g. via `SetTargetFramework`) on a *single-targeting* project is path-neutral — it forks a redundant instance sharing the output path (see "`SetTargetFramework` on a `ProjectReference`...") |
+| `TargetFramework` | Yes | Different TFMs should have different paths. **Exception:** re-injecting a *single-targeting* project's own TFM (e.g. via `SetTargetFramework` with the same value) is path-neutral — it forks a redundant instance sharing the output path (see "`SetTargetFramework` re-injecting...") |
 | `RuntimeIdentifier` | Yes | Different RIDs should have different paths |
 | `Configuration` | Yes | Debug vs Release |
 | `Platform` | Yes | AnyCPU vs x64 etc. |

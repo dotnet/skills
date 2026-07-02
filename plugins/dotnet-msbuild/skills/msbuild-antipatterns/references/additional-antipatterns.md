@@ -229,10 +229,10 @@ For (b), the consumer must not fork the producer with path-neutral global proper
 
 ## AP-23: `SetTargetFramework` Metadata on a `ProjectReference` to a Non-Multi-Targeting Project
 
-**Smell**: A `<ProjectReference>` carries `SetTargetFramework="TargetFramework=net8.0"` (or similar) metadata, but the referenced project is **single-targeting** (uses singular `<TargetFramework>`, not `<TargetFrameworks>`).
+**Smell**: A `<ProjectReference>` carries `SetTargetFramework="TargetFramework=net8.0"` (or similar) metadata, the referenced project is **single-targeting** (uses singular `<TargetFramework>`, not `<TargetFrameworks>`), **and the injected TFM equals the TFM the project already targets**.
 
 ```xml
-<!-- BAD: referenced project single-targets net8.0; SetTargetFramework is redundant AND harmful -->
+<!-- BAD: Tool.csproj single-targets net8.0 and we inject that SAME net8.0 — redundant AND harmful -->
 <ItemGroup>
   <ProjectReference Include="..\Tool\Tool.csproj" SetTargetFramework="TargetFramework=net8.0" />
 </ItemGroup>
@@ -240,7 +240,7 @@ For (b), the consumer must not fork the producer with path-neutral global proper
 
 **Why it's bad**: `SetTargetFramework` injects `TargetFramework` as a **global property** on the referenced project's build. That mechanism exists so a consumer can pick *one specific TFM* of a **multi-targeting** project — different TFM values produce different output paths, so each build is distinct and safe.
 
-For a **single-targeting** project the injected `TargetFramework` global property is **path-neutral**: the project already resolves to `bin\<config>\net8.0\` and `obj\<config>\net8.0\` on its own, so the extra global property doesn't change the output path — it only creates a *distinct* MSBuild project instance `(project, {TargetFramework=net8.0})`. Meanwhile the solution/graph builds that same project as `(project, {})` with no global properties. Both instances resolve to the **same** `OutputPath`/`IntermediateOutputPath`, so the project is **built twice** and the two instances write the same files (assemblies, PDBs, `project.assets.json`, etc.). Under a parallel build this is a classic bin/obj clash — `The process cannot access the file because it is being used by another process` or intermittent, retry-flaky failures.
+For a **single-targeting** project, injecting the TFM it **already targets** is **path-neutral**: the project already resolves to `bin\<config>\net8.0\` and `obj\<config>\net8.0\` on its own, so the extra global property doesn't change the output path — it only creates a *distinct* MSBuild project instance `(project, {TargetFramework=net8.0})`. Meanwhile the solution/graph builds that same project as `(project, {})` with no global properties. Both instances resolve to the **same** `OutputPath`/`IntermediateOutputPath`, so the project is **built twice** and the two instances write the same files (assemblies, PDBs, `project.assets.json`, etc.). Under a parallel build this is a classic bin/obj clash — `The process cannot access the file because it is being used by another process` or intermittent, retry-flaky failures. (Injecting a *different* TFM changes the output path and is a legitimate override — see below.)
 
 Note the healthy contrast: the P2P protocol itself does **not** inject `TargetFramework` when it sees a non-multi-targeting reference — it correctly omits the global property. `SetTargetFramework` overrides that safe default and is what reintroduces the clash. Use the `check-bin-obj-clash` skill to confirm two evaluations of the referenced project differ only by a path-neutral `TargetFramework` global property while sharing an output path.
 
@@ -251,7 +251,23 @@ Note the healthy contrast: the P2P protocol itself does **not** inject `TargetFr
 </ItemGroup>
 ```
 
-**When `SetTargetFramework` IS appropriate**: only when the referenced project is **multi-targeting** (`<TargetFrameworks>`) and you deliberately need to consume a specific TFM. There, each TFM has its own output path, so the forked instance doesn't collide.
+**When `SetTargetFramework` IS appropriate**:
+
+1. **Multi-targeting reference** — the referenced project is multi-targeting (`<TargetFrameworks>`) and you deliberately need to consume a specific TFM. Each TFM has its own output path, so the forked instance doesn't collide.
+
+2. **Deliberately overriding a single-targeting project's TFM to a *different* value** — you can use `SetTargetFramework` on a single-targeting reference to build it under a TFM *other than* the one it declares. This is only valid when the passed-in TFM **differs** from what the project single-targets: because the injected `TargetFramework` then changes the output path (`obj\<config>\<different-tfm>\`), the instance no longer collides with the `(project, {})` build. It is **only** the redundant case — passing the *same* TFM the project already targets (path-neutral) — that causes the clash.
+
+   When the referencing and referenced projects are **framework-incompatible** (e.g. a `.NETFramework` test project referencing a single-targeting `.NETCoreApp` project), overriding the TFM alone isn't enough. The P2P protocol's `GetTargetFrameworkProperties` negotiation will fail because the frameworks aren't compatible, so you must also set:
+   - `SkipGetTargetFrameworkProperties="true"` — bypass the automatic TFM-compatibility negotiation, and
+   - `ReferenceOutputAssembly="false"` — because a `.NETCoreApp` assembly can't be consumed as a reference by a `.NETFramework` project; you only want to trigger the build / sequence it, not reference its output.
+
+   ```xml
+   <!-- OK: .NETFramework test project builds a single-targeting .NETCoreApp tool without referencing its assembly -->
+   <ProjectReference Include="..\Tool\Tool.csproj"
+                     SetTargetFramework="TargetFramework=net8.0"
+                     SkipGetTargetFrameworkProperties="true"
+                     ReferenceOutputAssembly="false" />
+   ```
 
 ---
 
@@ -265,7 +281,7 @@ When reviewing an MSBuild file, scan for these in order:
 | AP-19 | Side effects in evaluation | 🔴 Dangerous |
 | AP-21 | Property conditioned on TargetFramework in .props | 🔴 Silent failure |
 | AP-22 | Forking a project instance via `<MSBuild>` with path-neutral global properties (self or cross-project) | 🔴 Race/duplicate build |
-| AP-23 | `SetTargetFramework` on a `ProjectReference` to a non-multi-targeting project | 🔴 Race/duplicate build |
+| AP-23 | `SetTargetFramework` re-injecting a single-targeting project's own TFM on a `ProjectReference` | 🔴 Race/duplicate build |
 | AP-03 | Hardcoded absolute paths | 🔴 Broken on other machines |
 | AP-06 | `<Reference>` with HintPath for NuGet | 🟡 Legacy |
 | AP-07 | Missing `PrivateAssets="all"` on tools | 🟡 Leaks to consumers |
