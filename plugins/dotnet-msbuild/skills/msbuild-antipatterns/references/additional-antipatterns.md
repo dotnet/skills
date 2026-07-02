@@ -268,7 +268,19 @@ Note the healthy contrast: the P2P protocol itself does **not** inject `TargetFr
                   ReferenceOutputAssembly="false" />
 ```
 
-Add `SetTargetFramework` on top of these **only** if you also need to pin the referenced build to a specific TFM (a multi-targeting project, or a single-targeting project you're overriding to a *different* TFM per case 2 above).
+**⚠️ Prevent the referencing project's `TargetFramework` from leaking.** When `SkipGetTargetFrameworkProperties="true"` bypasses the negotiation, nothing stops the referencing project's own `TargetFramework` **global property** (present whenever the referencing project is being built for a specific TFM — e.g. it is multi-targeting) from flowing down into the referenced project. If it flows into a **single-targeting** referenced project, that project builds under the *wrong* TFM (and to a different, wrong output path). Guard against it one of two ways:
+- set `SetTargetFramework="TargetFramework=<tfm>"` to explicitly pin the referenced build's TFM (also required for multi-targeting references), **or**
+- for a single-targeting referenced project you want to build as-declared, set `UndefineProperties="TargetFramework"` to strip the inherited global property so the project uses its own `<TargetFramework>`.
+
+```xml
+<!-- OK: strip the referencing project's TargetFramework so the single-targeting tool builds as it declares -->
+<ProjectReference Include="..\Tool\Tool.csproj"
+                  SkipGetTargetFrameworkProperties="true"
+                  UndefineProperties="TargetFramework"
+                  ReferenceOutputAssembly="false" />
+```
+
+Add `SetTargetFramework` on top of these **only** if you also need to pin the referenced build to a specific TFM (a multi-targeting project, or a single-targeting project you're overriding to a *different* TFM per case 2 above). Use `SetTargetFramework` **or** `UndefineProperties="TargetFramework"`, not both — the former sets the property, the latter removes it.
 
 ---
 

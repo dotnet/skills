@@ -394,7 +394,14 @@ Injecting the TFM the project already targets is **path-neutral** — the projec
                     ReferenceOutputAssembly="false" />
   ```
 
-  Add `SetTargetFramework` on top only if you also need to pin the referenced build to a specific TFM.
+  With `SkipGetTargetFrameworkProperties="true"`, the negotiation no longer stops the **referencing** project's own `TargetFramework` global property (present when it builds for a specific TFM, e.g. it is multi-targeting) from flowing into the referenced project. For a **single-targeting** referenced project that would force it to build under the wrong TFM / output path. Prevent it by either setting `SetTargetFramework="TargetFramework=<tfm>"` (pin the TFM) **or** `UndefineProperties="TargetFramework"` (strip the inherited global property so the project builds as it declares) — use one, not both:
+
+  ```xml
+  <ProjectReference Include="..\Tool\Tool.csproj"
+                    SkipGetTargetFrameworkProperties="true"
+                    UndefineProperties="TargetFramework"
+                    ReferenceOutputAssembly="false" />
+  ```
 
 See the `msbuild-antipatterns` skill (AP-23) for the authoring-time smell and rationale.
 
