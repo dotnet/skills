@@ -1,7 +1,7 @@
 ---
 name: scan-agentic-app-perf
 description: |
-  Scan a .NET agentic application (MAF; Aspire/Foundry optional) across seven perf/cost/reliability categories — topology, tool inventory, message history, prompt weight, parallelism, OTel coverage, per-agent model assignment. Writes .copilot/perf-reports/scan.md (overwritten each run) with severity-tagged findings (critical/warn/info), file:line citations, evidence, and next actions routing into configure-agentic-perf-rules or setup-maf-evals. Topologies: Aspire AppHost, plain console, ASP.NET Core, worker service. WHEN: user asks "why is my agent slow", "scan/audit my agentic app", "find perf issues", "is my topology too complex", or just changed a topology. NOT-WHEN: install always-on rules (use configure-agentic-perf-rules), wire evaluations (use setup-maf-evals); not for non-agentic .NET apps. Read-only. Supported topologies: Aspire AppHost, plain console, ASP.NET Core, worker service (Aspire-specific checks such as the AppHost-only model literal apply only when an AppHost is detected).
+  Scan a .NET agentic application (MAF; Aspire/Foundry optional) across seven perf/cost/reliability categories — topology, tool inventory, message history, prompt weight, parallelism, OTel coverage, per-agent model assignment. Writes .copilot/perf-reports/scan.md (overwritten each run) with severity-tagged findings (critical/warn/info), file:line citations, evidence, and next actions routing into configure-agentic-perf-rules or setup-maf-evals. Topologies: Aspire AppHost, plain console, ASP.NET Core, worker service. WHEN: user asks "why is my agent slow", "scan/audit my agentic app", "find perf issues", "is my topology too complex", or just changed a topology. NOT-WHEN: install always-on rules (use configure-agentic-perf-rules), wire evaluations (use setup-maf-evals); not for non-agentic .NET apps. Read-only. Supported topologies: Aspire AppHost, plain console, ASP.NET Core, worker service (Aspire-specific checks such as the AppHost-only model literal apply only when an AppHost is detected). INVOKES: scripts/Detect-Topology.ps1, Detect-OtelCoverage.ps1, Detect-ModelLiterals.ps1 (deterministic detectors; pwsh 7+).
 ---
 
 # scan-agentic-app-perf
@@ -73,6 +73,26 @@ Detect and record:
 - Agent count, handoff edges, tool count per agent
 - OTel wiring (`AddOpenTelemetry`, Aspire dashboard reference)
 
+**Automated detection.** For the topology, OTel-coverage, and model-assignment
+categories, prefer the deterministic detection scripts over reading every source
+file by hand. Invoke each as
+`& "<skill-directory>/scripts/<Name>.ps1" -Path <app-root> -Json` and parse the
+JSON:
+
+- `Detect-Topology.ps1` — agent nodes, handoff edges, orphaned agents, per-file
+  fan-out.
+- `Detect-OtelCoverage.ps1` — presence of Aspire service defaults, the OTel SDK,
+  an OTLP exporter, tracing/metrics builders, and `gen_ai.*` token telemetry.
+- `Detect-ModelLiterals.ps1` — model-id literals and Foundry enum refs, split by
+  AppHost vs service file, with a distinct-id count.
+
+The scripts parse source text, so they also cover a file-based AppHost. They do
+**detection only** — they never assign severity. Feed their output into the check
+classes in step 2, then apply the evidence gate and severity rules yourself. If a
+script errors or emits nothing, fall back to reading the reference doc and
+scanning by hand (graceful degradation). See `references/detection-scripts.md`
+for the exact contract.
+
 If no agentic app is detected, abort and tell the user this skill does not
 apply. Do not attempt to audit a non-agentic .NET project.
 
@@ -92,6 +112,11 @@ and finding templates are in `references/`:
 | 7 | Model assignment  | `references/model-assignment-checks.md`    |
 
 For each check, record any findings with the schema in step 3.
+
+Categories 1 (topology), 6 (OTel coverage), and 7 (model assignment) are seeded
+by the detection scripts run in step 1 — read the parsed JSON, then confirm each
+candidate against its reference doc. The remaining categories are evaluated by
+reading their `references/` doc and inspecting the cited sources directly.
 
 ### 3. Finding schema
 
@@ -256,5 +281,6 @@ After running:
 - `references/parallelism-checks.md` — sequential calls that could fan out.
 - `references/otel-coverage-checks.md` — Aspire dashboard, token/cost telemetry.
 - `references/model-assignment-checks.md` — single-model defaulting, role mismatch.
+- `references/detection-scripts.md` — contract for the `scripts/Detect-*.ps1` detectors (topology, OTel, model).
 - `references/check-glossary.md` — dev-facing catalog of all check slugs (NOT copied to user repos; for skill maintainers).
 - `references/report-template.md` — exact Markdown layout for `scan.md`.
