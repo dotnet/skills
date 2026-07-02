@@ -1,7 +1,7 @@
 ---
 name: setup-maf-evals
 description: |
-  Scaffold an `<App>.Evals.Tests` MSTest project alongside a .NET agentic app (MAF; Aspire/Foundry optional), wired to the GA MEAI.Evaluation.Reporting pipeline. Categories: **NLP** (BLEU/GLEU/F1, no key), **Quality** (LLM-as-judge), **Safety** (content-harm via Foundry). Auto-installs `aieval`, detects `IChatClient`, generates a factory (`EVAL_USE_REAL_AGENT=1` works unwired), emits an HTML report; optional PR workflow. Topologies: Aspire/console/ASP.NET/worker. WHEN: "set up evals", "add evaluation harness/coverage", "validate quality after a model change", "compare gpt-4o vs gpt-4o-mini", "add safety evaluators"; or troubleshooting an eval setup — "why are my Quality columns erroring/empty", "reasoning model breaks evals / max_tokens vs max_completion_tokens", "which evaluators fail my stylistic/summarizer agent". NOT-WHEN: one-shot audit (scan-agentic-app-perf), install rules (configure-agentic-perf-rules), reasoning-model questions unrelated to evals, or running an existing suite (dotnet test).
+  Scaffold an `<App>.Evals.Tests` MSTest project alongside a .NET agentic app (MAF; Aspire/Foundry optional), wired to the GA Microsoft.Extensions.AI.Evaluation (MEAI) reporting pipeline. Categories: **NLP** (BLEU/GLEU/F1, no key), **Quality** (LLM-as-judge), **Safety** (content-harm via Foundry). Auto-installs `aieval`, detects `IChatClient`, generates a factory (`EVAL_USE_REAL_AGENT=1`), emits an HTML report; optional PR workflow. Topologies: Aspire/console/ASP.NET/worker. WHEN: "set up evals", "add evaluation harness/coverage", "validate quality after a model change", "compare gpt-4o vs gpt-4o-mini", "add safety evaluators"; or troubleshooting — "why are my Quality columns erroring/empty", "reasoning model breaks evals / max_tokens vs max_completion_tokens", "which evaluators fail my stylistic/summarizer agent". NOT-WHEN: one-shot audit (scan-agentic-app-perf), install rules (configure-agentic-perf-rules), reasoning-model questions unrelated to evals, or running an existing suite (dotnet test).
 ---
 
 # setup-maf-evals
@@ -87,13 +87,15 @@ File classes:
 
 | Class            | Files                                                                  | Behavior on update         |
 |------------------|------------------------------------------------------------------------|----------------------------|
-| **infra**        | `*.Evals.Tests.csproj`, `dotnet-tools.json`, `Reporting/*`, `Wire/*`, test class skeletons | merge package refs; create file if missing; do **not** overwrite |
+| **infra**        | `*.Evals.Tests.csproj`, `dotnet-tools.json`, `Reporting/*`, `Wire/*`, test class skeletons | update to current template; merge package refs; create if missing |
 | **user data**    | `Quality/rubric.md`, `Quality/golden.json`, `Compare/matrix.json`, `Telemetry/inputs.json`, `Telemetry/prices.json`, `quality.thresholds.json`, `.github/workflows/evals.yml` | never overwrite; create if missing |
 | **generated**    | `.copilot/perf-reports/evals/`                                         | regenerate freely          |
 
-If an existing infra file differs from the current template, surface
-the diff in the chat output but do not overwrite. Recommend the user
-review and merge manually.
+If an existing infra file differs from the current template, **update it to the
+current template** — that is the update the user asked for. Merge in any user-added
+package references, report what changed in the chat output, and never touch the
+**user data** files above. Only user data is sacrosanct; infra is skill-owned
+scaffolding, and Git preserves history if the user wants to review or revert.
 
 `golden.json` has a `schema_version` field. If the detected version is
 older than the current template, offer to migrate (additive only —
@@ -105,10 +107,11 @@ This is an **autonomous scaffold**. Do **not** stop and wait for the user
 to answer before scaffolding. Print a one-line detection summary, apply
 the defaults below, scaffold immediately, then state any assumptions you
 made so the user can adjust. Honor any modes/categories the user *did*
-specify; otherwise use the defaults. The only actions that require explicit
-confirmation **first** are the genuinely destructive/irreversible ones
-called out elsewhere — overwriting an existing infra file in update mode
-(step 1a) and the Aspire dashboard panel's AppHost edit. Defaults:
+specify; otherwise use the defaults. The only action that requires explicit
+confirmation **first** is the genuinely destructive/irreversible one called out
+elsewhere — the Aspire dashboard panel's AppHost edit. Updating infra files in
+update mode (step 1a) is the expected, non-destructive action — just do it
+(user data is preserved and Git keeps history). Defaults:
 
 1. **Project shape** (default: MSTest). Alternative: console runner
    (legacy v1 shape) — only emit if user explicitly asks for it.
