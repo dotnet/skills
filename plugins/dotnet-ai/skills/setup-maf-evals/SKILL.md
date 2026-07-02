@@ -149,30 +149,58 @@ update mode (step 1a) is the expected, non-destructive action — just do it
 
 ### 3. Scaffold the project
 
-Generate the deterministic project shell with `dotnet new`, then overlay the
-eval-specific files. This keeps the SDK boilerplate (`.csproj`,
-test-SDK / Microsoft.Testing.Platform wiring, implicit usings) current instead of
-hand-maintaining it, and confines the skill's authored surface to the eval logic.
-`references/project-template.md` remains the source of truth for the final file
-tree and the exact package versions.
+> **Execution discipline — the scaffold is the deliverable (files on disk, not a plan).**
+> - **Write files as you go; never batch all reference reads first.** For each
+>   enabled mode, read its *one* reference doc, then immediately `create` that
+>   mode's files. Reading every reference up front exhausts the turn budget
+>   before anything is written — the top cause of an empty scaffold.
+> - **Only read references for enabled modes** (defaults: Telemetry, Quality,
+>   NLP). Skip `compare-mode.md`, `safety-mode.md`, `ci-workflow.md`, and
+>   `aspire-dashboard-panel.md` entirely unless the user opted in.
+> - **Create the source/data files (they need no network) before any build.** A
+>   slow or offline SDK must never leave you with nothing on disk.
+> - **Do not print the chat summary (step 11) or end the turn until every
+>   default-mode file in `references/project-template.md` exists.**
 
-1. **Create the base test project** (default MSTest shape; skip this whole
-   `dotnet new` step only when the user asked for `--shape console`):
+Order matters: create the shell, **overlay every eval file (the deliverable)**,
+then add packages and wire the solution. `references/project-template.md` is the
+source of truth for the file tree and package **set** (never for pinned versions).
+
+1. **Create the base test project shell** (default MSTest; skip only when the
+   user asked for `--shape console`). The template is local (needs no network)
+   and emits a current `.csproj` + test-SDK / Microsoft.Testing.Platform wiring
+   (on .NET 10, the MTP-native `MSTest` metapackage) plus a placeholder test:
 
    ```pwsh
    dotnet new mstest -n <App>.Evals.Tests -o <App>.Evals.Tests
    ```
 
-   The template emits a current `.csproj` (the MSTest test-SDK packages and
-   Microsoft.Testing.Platform wiring correct for the installed SDK — on .NET 10
-   that is the MTP-native `MSTest` metapackage) plus a placeholder test. Let the
-   template own those test-SDK `<PackageReference>` lines — do **not** hand-write
-   them. Delete the placeholder `Test1.cs` / `UnitTest1.cs`.
+   Let the template own the test-SDK `<PackageReference>` lines — do **not**
+   hand-write them. Delete the placeholder `Test1.cs` / `UnitTest1.cs`.
 
-2. **Add the eval + hosting packages** (no hand-pinned versions — let NuGet
-   resolve current). GA packages take the latest stable; the still-preview
-   evaluators use `--prerelease`. See `references/project-template.md` for the
-   version policy and the one floor constraint:
+2. **Overlay the eval files now — this is the deliverable, and it needs no
+   network.** Using the `create` tool, emit for the enabled modes:
+   `Reporting/{ReportingConfig.cs, Tier.cs, AievalReport.cs, WordCountEvaluator.cs,
+   MetricsGlossary.cs}`, `Wire/{AgentChatClientFactory.cs, StubChatClient.cs}`,
+   `Quality/{QualityTests.cs, rubric.md, golden.json}`,
+   `Telemetry/{TelemetryTests.cs, inputs.json, prices.json}`,
+   `quality.thresholds.json`, `GlobalUsings.cs`. Emit
+   `Compare/{CompareTests.cs, matrix.json}`, `Safety/SafetyTests.cs`, and
+   `.github/workflows/evals.yml` **only** for opted-in modes (steps 2 #4, 7, 9).
+   Reconcile the `.csproj`: `<TargetFramework>net10.0</TargetFramework>`, the
+   `<None Update="…" CopyToOutputDirectory="PreserveNewest" />` data-file item,
+   and a `<ProjectReference>` to each detected agent service project. Also
+   pre-list the eval + hosting package **set** as **version-less**
+   `<PackageReference Include="…" />` entries (no `Version` attribute — step 3's
+   `dotnet add package` stamps the resolved version). This keeps the correct
+   package set on disk even before restore runs, without authoring a version
+   literal. Append the `.gitignore` entries `.copilot/perf-reports/evals/` and
+   `<App>.Evals.Tests/_store/`.
+
+3. **Add the eval + hosting packages** (network step; no hand-pinned versions —
+   let NuGet resolve current). GA packages take the latest stable; the
+   still-preview evaluators use `--prerelease`. See `references/project-template.md`
+   for the version policy and the one floor constraint:
 
    ```pwsh
    cd <App>.Evals.Tests
@@ -193,40 +221,19 @@ tree and the exact package versions.
    ```
 
    `dotnet add package` writes the resolved version into the `.csproj`; the skill
-   never authors a version literal. Then reconcile the `.csproj` with
-   `references/project-template.md`: ensure `<TargetFramework>net10.0</TargetFramework>`,
-   add the `<None Update="…" CopyToOutputDirectory="PreserveNewest" />` item for the
-   JSON/rubric data files, and add a `<ProjectReference>` to each detected agent
-   service project.
+   never authors a version literal.
 
-3. **Overlay the eval files.** Always emit: `Reporting/{ReportingConfig.cs,
-   Tier.cs, AievalReport.cs, WordCountEvaluator.cs, MetricsGlossary.cs}`,
-   `Wire/{AgentChatClientFactory.cs, StubChatClient.cs}`,
-   `Quality/{QualityTests.cs, rubric.md, golden.json}`,
-   `Telemetry/{TelemetryTests.cs, inputs.json, prices.json}`,
-   `quality.thresholds.json`, `GlobalUsings.cs`. Emit
-   `Compare/{CompareTests.cs, matrix.json}` only if the user opted into
-   compare mode (step 2 #4). Emit `Safety/SafetyTests.cs` and
-   `.github/workflows/evals.yml` only if the user opted in (steps 7 and 9).
-
-   Do **not** hand-write the `aieval` tool manifest — generate it (also
-   unpinned):
+4. **Generate the `aieval` tool manifest** (network step; also unpinned — do not
+   hand-write a version), then wire the solution + restore:
 
    ```pwsh
    dotnet new tool-manifest                                          # if none exists yet
    dotnet tool install microsoft.extensions.ai.evaluation.console    # latest; provides `aieval`
+   # Add to the solution when one exists; a file-based AppHost may have none —
+   # skip this line in that case (the ProjectReference is enough to build).
+   dotnet sln <SolutionFile> add <App>.Evals.Tests/<App>.Evals.Tests.csproj
+   dotnet tool restore                  # restores aieval from the generated manifest
    ```
-
-After writing files:
-
-```pwsh
-# Add to the solution when one exists; a file-based AppHost may have none —
-# skip this line in that case (the ProjectReference is enough to build).
-dotnet sln <SolutionFile> add <App>.Evals.Tests/<App>.Evals.Tests.csproj
-dotnet tool restore                  # restores aieval from the generated manifest
-# .gitignore additions
-echo ".copilot/perf-reports/evals/`n<App>.Evals.Tests/_store/" >> .gitignore
-```
 
 ### 4. Wire telemetry mode
 
@@ -279,6 +286,11 @@ judge; `AZURE_AI_FOUNDRY_ENDPOINT` → safety), and uploads
 `report.html` as a workflow artifact.
 
 ### 10. Validation
+
+Run **after** every file is on disk (step 3.2). Build and test are the final,
+best-effort validation — if the SDK or network is unavailable, report that they
+were skipped; **never delete or withhold the scaffolded files** because a build
+couldn't run.
 
 - `dotnet build <App>.Evals.Tests.csproj` exits 0.
 - `dotnet test <App>.Evals.Tests.csproj` exits 0 in stub tier (no creds needed).
@@ -359,7 +371,27 @@ means.
 
 ## Common pitfalls
 
-See `references/common-pitfalls.md`.
+Full detail in `references/common-pitfalls.md`. The three that most often break
+an eval run are answered inline here so a troubleshooting question doesn't
+require digging into the reference:
+
+- **Reasoning models reject `max_tokens`.** A reasoning model (o1/o3/o-series,
+  gpt-5*) used as the **judge** rejects `max_tokens` and requires
+  `max_completion_tokens`; otherwise MEAI records every Quality metric as an
+  error row. Fix: point the judge at a non-reasoning deployment via
+  `EVAL_JUDGE_DEPLOYMENT_NAME`, or upgrade the client so it emits
+  `max_completion_tokens`. See
+  `references/common-pitfalls.md#clients-agent-vs-judge-vs-stub`.
+- **Stylistic agents fail completeness-style evaluators.** Agents that produce
+  deliberate stylistic prose (brevity, persona, format adherence) score low on
+  `CompletenessEvaluator` and `EquivalenceEvaluator` even when working as
+  designed, because those evaluators expect factual overlap with a reference.
+  Fix: drop or override them in the rubric for stylistic agents rather than
+  chasing the score. See
+  `references/common-pitfalls.md#tuning-quality-for-stylistic-agents`.
+- **Compare mode is opt-in.** The A/B model-matrix (compare) mode is **opt-in**
+  and OFF by default; scaffold it only when the user explicitly asks. Telemetry
+  and Quality are the defaults.
 
 ## References
 

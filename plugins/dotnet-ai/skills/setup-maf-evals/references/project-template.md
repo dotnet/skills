@@ -141,6 +141,15 @@ produces is authoritative; the skill never rewrites it.
 skill never authors those numbers. The versions shown in the block above are an
 illustrative snapshot from one scaffold run, not values to keep in sync.
 
+> **Version-less pre-listing (scaffold determinism).** SKILL.md step 3.2 may
+> pre-list the eval + hosting package **IDs** as version-less
+> `<PackageReference Include="…" />` entries (no `Version` attribute) while
+> creating files, so the correct package *set* is on disk before the
+> network-bound `dotnet add package` (step 3.3) stamps each resolved version.
+> This is still "no hand-authored version" — a version-less ref carries no
+> literal, and `dotnet add package <id>` updates the existing entry in place
+> rather than duplicating it.
+
 ## Tool manifest (`dotnet-tools.json`)
 
 Do **not** hand-write this file with a pinned version. Generate it (unpinned):
