@@ -1,0 +1,24 @@
+<Project>
+
+  <Import Sdk="Microsoft.NET.Sdk" Project="Sdk.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- CLASH: ToolLib single-targets net8.0. Re-injecting that SAME net8.0 via
+       SetTargetFramework is path-neutral (ToolLib already resolves to obj/bin\Debug\net8.0
+       on its own), so it does not change the output path. It only forks a distinct instance
+       (ToolLib + {TargetFramework=net8.0}) that shares ToolLib's bin/obj with the instance the
+       solution already builds (ToolLib + {}). ToolLib is built twice to the same location.
+       SetTargetFramework here is redundant and should be removed — it is only appropriate for a
+       multi-targeting reference, or to deliberately override to a DIFFERENT target framework. -->
+  <ItemGroup>
+    <ProjectReference Include="..\ToolLib\ToolLib.csproj" SetTargetFramework="TargetFramework=net8.0" />
+  </ItemGroup>
+
+  <Import Sdk="Microsoft.NET.Sdk" Project="Sdk.targets" />
+
+</Project>
