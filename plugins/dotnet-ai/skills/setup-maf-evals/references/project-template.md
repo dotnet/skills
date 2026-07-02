@@ -1,5 +1,11 @@
 # Project template (MSTest shape)
 
+> **For the default scaffold, read `references/default-scaffold.md` instead** —
+> it consolidates the complete, copy-pasteable body of every default-mode file
+> (Telemetry + Quality + NLP + Reporting + Wire) into one doc so you create the
+> whole project from a single read. This file remains the reference for the file
+> tree, the `.csproj` layout, and the version policy.
+
 The scaffold creates `<App>.Evals.Tests` as a **MSTest** project. This
 matches the
 [upstream Learn doc tutorial](https://learn.microsoft.com/en-us/dotnet/ai/evaluation/evaluate-with-reporting)

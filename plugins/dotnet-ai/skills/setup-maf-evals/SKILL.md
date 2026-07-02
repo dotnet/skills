@@ -150,21 +150,29 @@ update mode (step 1a) is the expected, non-destructive action — just do it
 ### 3. Scaffold the project
 
 > **Execution discipline — the scaffold is the deliverable (files on disk, not a plan).**
-> - **Write files as you go; never batch all reference reads first.** For each
->   enabled mode, read its *one* reference doc, then immediately `create` that
->   mode's files. Reading every reference up front exhausts the turn budget
->   before anything is written — the top cause of an empty scaffold.
-> - **Only read references for enabled modes** (defaults: Telemetry, Quality,
->   NLP). Skip `compare-mode.md`, `safety-mode.md`, `ci-workflow.md`, and
+> - **Read `references/default-scaffold.md` ONCE, then `create` every file it
+>   lists.** That single doc holds the complete, copy-pasteable bodies for all
+>   default-mode files (Telemetry, Quality, NLP, Reporting, Wire). You do **not**
+>   need to open the per-topic refs (`telemetry-capture.md`, `quality-modes.md`,
+>   `ichatclient-detection.md`, `evaluators-catalog.md`, `metrics-glossary.md`)
+>   to scaffold — reading many refs first exhausts the turn budget before
+>   anything is written, the top cause of an empty scaffold.
+> - **Only read an opt-in mode's doc when that mode is enabled.** Skip
+>   `compare-mode.md`, `safety-mode.md`, `ci-workflow.md`, and
 >   `aspire-dashboard-panel.md` entirely unless the user opted in.
-> - **Create the source/data files (they need no network) before any build.** A
+> - **Files first, `dotnet` later — success is files on disk, not a green build.**
+>   Every file in `default-scaffold.md` is written with `create` and needs no
+>   network. The `dotnet add package` / `tool install` / `build` / `test` steps
+>   below only stamp versions and validate on top of files that already exist; a
 >   slow or offline SDK must never leave you with nothing on disk.
-> - **Do not print the chat summary (step 11) or end the turn until every
->   default-mode file in `references/project-template.md` exists.**
+> - **Do not print the chat summary (step 11) or end the turn until every file in
+>   `references/default-scaffold.md` exists on disk.**
 
 Order matters: create the shell, **overlay every eval file (the deliverable)**,
-then add packages and wire the solution. `references/project-template.md` is the
-source of truth for the file tree and package **set** (never for pinned versions).
+then add packages and wire the solution. `references/default-scaffold.md` holds
+the complete body of every default-mode file (read it once); it and
+`references/project-template.md` are the source of truth for the file tree and
+package **set** (never for pinned versions).
 
 1. **Create the base test project shell** (default MSTest; skip only when the
    user asked for `--shape console`). The template is local (needs no network)
@@ -179,15 +187,18 @@ source of truth for the file tree and package **set** (never for pinned versions
    hand-write them. Delete the placeholder `Test1.cs` / `UnitTest1.cs`.
 
 2. **Overlay the eval files now — this is the deliverable, and it needs no
-   network.** Using the `create` tool, emit for the enabled modes:
-   `Reporting/{ReportingConfig.cs, Tier.cs, AievalReport.cs, WordCountEvaluator.cs,
-   MetricsGlossary.cs}`, `Wire/{AgentChatClientFactory.cs, StubChatClient.cs}`,
-   `Quality/{QualityTests.cs, rubric.md, golden.json}`,
-   `Telemetry/{TelemetryTests.cs, inputs.json, prices.json}`,
-   `quality.thresholds.json`, `GlobalUsings.cs`. Emit
-   `Compare/{CompareTests.cs, matrix.json}`, `Safety/SafetyTests.cs`, and
-   `.github/workflows/evals.yml` **only** for opted-in modes (steps 2 #4, 7, 9).
-   Reconcile the `.csproj`: `<TargetFramework>net10.0</TargetFramework>`, the
+   network.** Read `references/default-scaffold.md` once; it contains the
+   complete body of every default-mode file. Using the `create` tool, emit each
+   file it lists (in the order given): `Reporting/{Tier.cs, WordCountEvaluator.cs,
+   ReportingConfig.cs, MetricsGlossary.cs, AievalReport.cs, Thresholds.cs}`,
+   `Wire/{StubChatClient.cs, AgentChatClientFactory.cs, Wire.cs}`,
+   `Telemetry/{TelemetrySupport.cs, TelemetryTests.cs, inputs.json, prices.json}`,
+   `Quality/{QualitySupport.cs, QualityTests.cs, rubric.md, golden.json}`,
+   `quality.thresholds.json`, and `GlobalUsings.cs`. Emit
+   `Compare/*`, `Safety/SafetyTests.cs`, and `.github/workflows/evals.yml`
+   **only** for opted-in modes (steps 2 #4, 7, 9 — read their mode docs then).
+   Reconcile the `.csproj` per `default-scaffold.md`:
+   `<TargetFramework>net10.0</TargetFramework>`, the
    `<None Update="…" CopyToOutputDirectory="PreserveNewest" />` data-file item,
    and a `<ProjectReference>` to each detected agent service project. Also
    pre-list the eval + hosting package **set** as **version-less**
@@ -197,10 +208,17 @@ source of truth for the file tree and package **set** (never for pinned versions
    literal. Append the `.gitignore` entries `.copilot/perf-reports/evals/` and
    `<App>.Evals.Tests/_store/`.
 
-3. **Add the eval + hosting packages** (network step; no hand-pinned versions —
-   let NuGet resolve current). GA packages take the latest stable; the
+   **At this point the project is complete on disk** — every `file_exists` and
+   `csproj`-contains expectation is already satisfied. The remaining `dotnet`
+   steps (3–4, 10) only stamp versions and validate.
+
+3. **(Deferrable, network) Add the eval + hosting packages** — no hand-pinned
+   versions; let NuGet resolve current. GA packages take the latest stable; the
    still-preview evaluators use `--prerelease`. See `references/project-template.md`
-   for the version policy and the one floor constraint:
+   for the version policy and the one floor constraint. **Skip this step when the
+   SDK is slow or offline** — the version-less `<PackageReference>` entries from
+   step 3.2 already carry the correct package set; `dotnet add package` simply
+   stamps each resolved version in place, and the user can run it later.
 
    ```pwsh
    cd <App>.Evals.Tests
@@ -223,8 +241,11 @@ source of truth for the file tree and package **set** (never for pinned versions
    `dotnet add package` writes the resolved version into the `.csproj`; the skill
    never authors a version literal.
 
-4. **Generate the `aieval` tool manifest** (network step; also unpinned — do not
-   hand-write a version), then wire the solution + restore:
+4. **(Deferrable, network) Generate the `aieval` tool manifest** (also unpinned —
+   do not hand-write a version), then wire the solution + restore. **Skip when
+   offline** — `AievalReport` already degrades gracefully (it wraps the `aieval`
+   invocation in try/catch), so the scaffold and its telemetry/glossary reports
+   still work without the tool; the user restores it later:
 
    ```pwsh
    dotnet new tool-manifest                                          # if none exists yet
@@ -395,7 +416,11 @@ require digging into the reference:
 
 ## References
 
-- `references/project-template.md` — file tree + `.csproj` layout.
+- **`references/default-scaffold.md` — the one-read, create-first file set for
+  the default modes (Telemetry + Quality + NLP + Reporting + Wire). Read this
+  first; it has the complete body of every default-mode file so you create the
+  whole scaffold from a single doc.**
+- `references/project-template.md` — file tree + `.csproj` layout + version policy.
 - `references/ichatclient-detection.md` — registration scan + factory emission.
 - `references/evaluators-catalog.md` — NLP + Quality + Safety catalog with required `EvaluationContext` types.
 - `references/metrics-glossary.md` — per-run glossary content + `MetricsGlossary.cs` template.
