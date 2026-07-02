@@ -62,20 +62,26 @@ per-agent model assignment) apply to every topology.
 ## Workflow
 
 > **Execution discipline — lead with the user's concern; the report is the deliverable.**
+> - **Your FIRST write is the report file — create it right after inventory,
+>   before running any category check.** Using the `create` tool, write
+>   `.copilot/perf-reports/scan.md` (at the scanned app's root — see step 4 for
+>   the path rule) with the `references/report-template.md` header and an empty
+>   `## Findings` section as soon as step 1 is done. Then append findings as you
+>   confirm each category. This is the skill's only guaranteed write; a run cut
+>   short must still leave a report on disk. **If you have finished inventory and
+>   not yet created the file, stop and create it now** — running detection
+>   scripts is not a substitute for writing the report.
 > - **Anchor on what the user asked.** If the prompt names a concern
 >   (topology / "too complex", history / "slow on multi-turn", cost / prompt
 >   weight, observability / OTel), evaluate and **lead the report and chat
 >   summary with that category** — never bury it under an unrelated one. Still
 >   run the full seven-category sweep, but the user's stated problem is the
 >   headline finding.
-> - **Write `.copilot/perf-reports/scan.md` early, then append.** Create the
->   report with its `## Findings` scaffold as soon as inventory (step 1) is done,
->   and add findings as you confirm each category. Never defer the only write to
->   the very end — a truncated run must still leave a report on disk.
-> - **Don't over-read.** On a small app (a handful of files) inspect the sources
->   directly; the detection scripts and per-category reference docs are
->   accelerators for larger apps, not a mandatory gauntlet. Open a category's
->   reference doc only when a candidate finding needs confirmation.
+> - **Don't over-read.** Do **not** pre-read all seven category reference docs.
+>   Categories 1/6/7 are seeded by the step-1 detection scripts; the rest are
+>   judged by inspecting the cited sources directly. Open a category's reference
+>   doc only when a candidate finding needs confirmation. On a small app (a
+>   handful of files) the direct source inspection is enough on its own.
 
 ### 1. Inventory the app
 
@@ -112,10 +118,17 @@ for the exact contract.
 If no agentic app is detected, abort and tell the user this skill does not
 apply. Do not attempt to audit a non-agentic .NET project.
 
+**Now create the report file** at `.copilot/perf-reports/scan.md` (see step 4
+for the exact path rule) with the `references/report-template.md` header and an
+empty `## Findings` section, using the `create` tool. Do this before running any
+category check — it is the skill's first and only guaranteed write.
+
 ### 2. Run the seven check classes
 
-Each check class lives in a reference doc and is run in turn. Detection logic
-and finding templates are in `references/`:
+Evaluate the seven categories below, appending findings to the report file you
+just created. **Do not pre-read all seven reference docs** — that read-everything
+pass is the top cause of a run that ends with no report written. Open a
+category's reference doc only to confirm a specific candidate finding.
 
 | # | Category          | Reference                                  |
 |---|-------------------|--------------------------------------------|
@@ -132,7 +145,8 @@ For each check, record any findings with the schema in step 3.
 Categories 1 (topology), 6 (OTel coverage), and 7 (model assignment) are seeded
 by the detection scripts run in step 1 — read the parsed JSON, then confirm each
 candidate against its reference doc. The remaining categories are evaluated by
-reading their `references/` doc and inspecting the cited sources directly.
+inspecting the cited sources directly; consult their `references/` doc only when
+a candidate finding needs confirmation.
 
 ### 3. Finding schema
 
