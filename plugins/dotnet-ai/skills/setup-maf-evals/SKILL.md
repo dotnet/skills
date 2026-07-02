@@ -161,9 +161,17 @@ update mode (step 1a) is the expected, non-destructive action — just do it
 >   `aspire-dashboard-panel.md` entirely unless the user opted in.
 > - **Files first, `dotnet` later — success is files on disk, not a green build.**
 >   Every file in `default-scaffold.md` is written with `create` and needs no
->   network. The `dotnet add package` / `tool install` / `build` / `test` steps
->   below only stamp versions and validate on top of files that already exist; a
->   slow or offline SDK must never leave you with nothing on disk.
+>   network. The `dotnet add package` / `tool install` steps below only stamp
+>   versions on top of files that already exist; a slow or offline SDK must never
+>   leave you with nothing on disk.
+> - **Do NOT run `dotnet build`, `dotnet test`, `dotnet run`, or `dotnet restore`
+>   as part of scaffolding.** They are slow, network-bound, and not required —
+>   the scaffold is complete when the files exist, and the version-less
+>   `<PackageReference>` entries already satisfy the package set. Running them
+>   proactively to "verify" burns the whole turn budget (often 600s+) and is the
+>   top cause of a scaffold that never finishes. Instead, **hand the build/test
+>   commands to the user** as their next step (step 10). Only run them yourself
+>   if the user explicitly asks you to verify the build.
 > - **Do not print the chat summary (step 11) or end the turn until every file in
 >   `references/default-scaffold.md` exists on disk.**
 
@@ -305,21 +313,26 @@ auto-detects tier from repo secrets (`AZURE_OPENAI_ENDPOINT` →
 judge; `AZURE_AI_FOUNDRY_ENDPOINT` → safety), and uploads
 `report.html` as a workflow artifact.
 
-### 10. Validation
+### 10. Validation (hand to the user — do not run inline)
 
-Run **after** every file is on disk (step 3.2). Build and test are the final,
-best-effort validation — if the SDK or network is unavailable, report that they
-were skipped; **never delete or withhold the scaffolded files** because a build
-couldn't run.
+The scaffold is validated by the files existing on disk, not by a build. **Do
+not run `dotnet build` / `dotnet test` / `dotnet run` as part of scaffolding** —
+they are slow and network-bound and the project is already complete. Instead,
+**give the user the commands to run** and describe what a passing run looks like.
+Only run them yourself if the user explicitly asks you to verify the build; if
+you do, and the SDK or network is unavailable, report that they were skipped and
+**never delete or withhold the scaffolded files** because a build couldn't run.
 
-- `dotnet build <App>.Evals.Tests.csproj` exits 0.
-- `dotnet test <App>.Evals.Tests.csproj` exits 0 in stub tier (no creds needed).
-  - Stub tier must emit a `report.html` with **≥ 4 distinct metric columns**
+Commands to hand to the user:
+
+- `dotnet build <App>.Evals.Tests.csproj` — should exit 0.
+- `dotnet test <App>.Evals.Tests.csproj` — should exit 0 in stub tier (no creds
+  needed).
+  - Stub tier emits a `report.html` with **≥ 4 distinct metric columns**
     (Words, BLEU, GLEU, F1) across all scenarios in golden.json.
-  - All scenarios must produce non-null metric values (no "—" placeholders).
-- If `EVAL_USE_REAL_JUDGE=1` and an `IChatClient` is wired,
-  `dotnet test` must additionally produce ≥ 3 Quality metrics (Relevance,
-  Coherence, Fluency).
+  - All scenarios produce non-null metric values (no "—" placeholders).
+- With `EVAL_USE_REAL_JUDGE=1` and an `IChatClient` wired, `dotnet test`
+  additionally produces ≥ 3 Quality metrics (Relevance, Coherence, Fluency).
 
 ### 11. Surface in chat
 
