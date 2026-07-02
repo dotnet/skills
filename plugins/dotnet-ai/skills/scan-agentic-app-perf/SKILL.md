@@ -61,6 +61,22 @@ per-agent model assignment) apply to every topology.
 
 ## Workflow
 
+> **Execution discipline — lead with the user's concern; the report is the deliverable.**
+> - **Anchor on what the user asked.** If the prompt names a concern
+>   (topology / "too complex", history / "slow on multi-turn", cost / prompt
+>   weight, observability / OTel), evaluate and **lead the report and chat
+>   summary with that category** — never bury it under an unrelated one. Still
+>   run the full seven-category sweep, but the user's stated problem is the
+>   headline finding.
+> - **Write `.copilot/perf-reports/scan.md` early, then append.** Create the
+>   report with its `## Findings` scaffold as soon as inventory (step 1) is done,
+>   and add findings as you confirm each category. Never defer the only write to
+>   the very end — a truncated run must still leave a report on disk.
+> - **Don't over-read.** On a small app (a handful of files) inspect the sources
+>   directly; the detection scripts and per-category reference docs are
+>   accelerators for larger apps, not a mandatory gauntlet. Open a category's
+>   reference doc only when a candidate finding needs confirmation.
+
 ### 1. Inventory the app
 
 Detect and record:
@@ -167,6 +183,9 @@ Severity rules:
 
 ### 4. Aggregate and write the report
 
+The report file should already exist from the early-write (see the execution
+discipline above); this step finalizes it with the sorted, confirmed findings.
+
 Sort findings by severity (critical → warn → info), then by `check`
 slug (stable lexical order so `history.*` < `model.*` < `otel.*` <
 `parallel.*` < `prompt.*` < `tools.*` < `topology.*`).
@@ -200,7 +219,9 @@ their `.gitignore` themselves; do not edit it from this skill.
 Print:
 
 1. Total counts (critical / warn / info).
-2. The first up to 3 critical findings with title + `check` slug + file:line + next action.
+2. **The finding(s) in the user's stated concern category first** (e.g. topology
+   when they said "too complex"), then the first up to 3 critical findings —
+   each with title + `check` slug + file:line + next action.
 3. The full report path.
 4. If any findings have a `ref:` field, list the suggested follow-up skills.
 
