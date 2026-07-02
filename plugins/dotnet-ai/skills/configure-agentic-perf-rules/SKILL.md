@@ -1,20 +1,7 @@
 ---
 name: configure-agentic-perf-rules
 version: 0.3.0
-description: >
-  Installs or updates an always-on rules block in a .NET agentic app that makes coding
-  agents volunteer perf and cost concerns by default — agent count, handoff edges,
-  per-agent model selection, message-history strategy, per-turn token cost, and
-  post-change measurement. The rules are written into the project's agent-instructions
-  file (`.github/copilot-instructions.md` by default) inside a sentinel-delimited managed
-  block that is idempotent and version-aware on update.
-  WHEN: a .NET project using Microsoft Agent Framework (`Microsoft.Agents.AI`) — with
-  or without Aspire/Foundry — where the user reports "Copilot doesn't catch perf
-  issues", wants up-front guard-rails before adding more agents/handoffs/tools, or is
-  scaffolding a new agentic .NET app.
-  NOT-WHEN: non-agentic .NET projects (use `optimizing-dotnet-performance`),
-  non-.NET agentic projects, auditing existing code (use `scan-agentic-app-perf`), or
-  measuring runtime telemetry (use `setup-maf-evals`).
+description: "Installs or updates an always-on agentic-perf rules block in a .NET Microsoft Agent Framework (Microsoft.Agents.AI) app so coding agents volunteer perf and cost concerns by default: agent count, handoff edges, per-agent model choice, message-history strategy, per-turn token cost, and post-change measurement. Written into the project's agent-instructions file (.github/copilot-instructions.md by default) inside a sentinel-delimited, version-aware managed block. WHEN: adding or reviewing agents, handoffs, tools, or models in a Microsoft.Agents.AI project; scaffolding a new MAF app (Aspire, console, ASP.NET Core, or worker); or the user says Copilot misses perf/cost issues or wants up-front agentic guard-rails. NOT-WHEN: non-agentic .NET (use optimizing-dotnet-performance), non-.NET agentic projects, auditing existing code now (use scan-agentic-app-perf), or measuring runtime telemetry (use setup-maf-evals)."
 license: MIT
 ---
 
@@ -50,7 +37,6 @@ clobbering user-edited threshold values.
 | Input | Required | Description |
 |-------|----------|-------------|
 | Target project root | Yes | Repository root containing the .NET solution |
-| Existing instructions file | No | Path to existing `.github/copilot-instructions.md` or `AGENTS.md` if non-default |
 | Custom thresholds | No | Per-project override values for agent count, handoff edges, token warn levels |
 
 ## Workflow
@@ -58,17 +44,18 @@ clobbering user-edited threshold values.
 > **Outcome:** the project's agent-instructions file contains an up-to-date managed
 > rules block. Re-running this skill is safe and idempotent.
 
-### Step 1: Locate or create the target instructions file
+### Step 1: Locate the target instructions file
 
-In priority order, look for:
+Look for `.github/copilot-instructions.md` (preferred) and `AGENTS.md` at the repo root,
+and scan whichever exist for an existing managed block (Step 2) so you never create a
+duplicate.
 
-1. `.github/copilot-instructions.md` (preferred — GitHub Copilot native location).
-2. `AGENTS.md` at repository root (cross-tool standard).
-3. None of the above — create `.github/copilot-instructions.md`. Create the `.github/`
-   directory if it does not exist.
-
-If both `copilot-instructions.md` and `AGENTS.md` exist, the managed block goes in
-`copilot-instructions.md` and a one-line stub is written to `AGENTS.md` pointing to it.
+- **Neither exists** — create `.github/copilot-instructions.md` (create the `.github/`
+  directory if needed).
+- **Only one exists** — use it.
+- **Both exist** — put the managed block in `.github/copilot-instructions.md` and write a
+  one-line stub in `AGENTS.md` pointing to it. If the existing block currently lives in
+  `AGENTS.md`, move it to `.github/copilot-instructions.md` and replace it with the stub.
 
 ### Step 2: Detect any existing managed block
 
@@ -103,7 +90,7 @@ The current skill version is the `version:` field at the top of this SKILL.md.
 |----------------|--------|
 | No block present | Append a new managed block at the end of the file |
 | Block present, same version | **No-op — report "already current (vX.Y.Z)" and stop.** A matching version marker is the idempotency source of truth: do not re-validate or rewrite the body. If rule sections look missing, elided, or otherwise customized, note it informationally but leave the block untouched — the user may have intentionally trimmed or edited it. Restore default sections only when the user explicitly asks (e.g. "reinstall" / "restore defaults"). |
-| Block present, older version | Show a diff to the user; replace the block on confirm; preserve any user-edited threshold values from the existing frontmatter |
+| Block present, older version | Replace the block in place, preserving any user-edited threshold values from the existing frontmatter (see Threshold preservation). |
 | Block present, newer version than this skill | Refuse to downgrade — report version mismatch and stop |
 
 **Idempotency is keyed on the version marker, not body equality.** Once the
@@ -128,17 +115,6 @@ install/update runs (see Validation), never a same-version detection.
 Refuse to write to any path outside the project root (after normalization, including
 following symlinks). Reject absolute paths and paths containing `..` segments unless
 they normalize back inside the project root.
-
-### Target-file selection (when both `.github/copilot-instructions.md` and `AGENTS.md` exist)
-
-Scan **both** files for an existing managed block before choosing a target.
-
-| Situation | Action |
-|-----------|--------|
-| Neither file has a block | Write the managed block into `.github/copilot-instructions.md`; add a one-line stub to `AGENTS.md` if it exists |
-| Only `AGENTS.md` has a block | Migrate it to `.github/copilot-instructions.md` (with diff + user confirmation), then replace the `AGENTS.md` block with the stub |
-| Only `.github/copilot-instructions.md` has a block | Update there as usual; add a stub to `AGENTS.md` if it exists and is missing one |
-| Both have a block | Refuse to edit and ask the user to consolidate; report which file was last modified |
 
 ### Step 3: Render the managed block
 
@@ -194,19 +170,6 @@ contains (or has appended) a single line:
 
 This avoids duplicating the rules across files while keeping cross-tool agents pointed
 at the right source.
-
-### Step 6: Commit guidance
-
-If the project is a Git repository and the user wants the change committed, use a single
-commit message of the form:
-
-```
-Install configure-agentic-perf-rules vX.Y.Z
-
-Adds always-on agentic-perf guidance to .github/copilot-instructions.md.
-```
-
-Do not commit on the user's behalf without confirmation.
 
 ## Validation
 
