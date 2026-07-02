@@ -45,6 +45,11 @@ The skill targets any .NET project using Microsoft Agent Framework
 - **Aspire AppHost** (`*.AppHost.csproj` orchestrating agent services) — the most
   common shape; enables AppHost-specific checks such as the "model literal lives
   only in the AppHost" check.
+- **File-based AppHost** (.NET 10) — a single `apphost.cs` (or similarly named
+  `.cs`) that carries `#:sdk Aspire.AppHost.Sdk` / `#:package` directives and a
+  `DistributedApplication.CreateBuilder(...)` call, run via `dotnet run apphost.cs`
+  with **no** `.csproj`/`.sln`. Detected by parsing source text (see step 1), so
+  the same checks and detection scripts apply.
 - **Plain console / worker service** — `Microsoft.Agents.AI` registered directly
   against an OpenAI or Foundry client without an Aspire AppHost.
 - **ASP.NET Core minimal API** — agents registered via the same DI patterns.
@@ -60,7 +65,10 @@ per-agent model assignment) apply to every topology.
 
 Detect and record:
 
-- AppHost project (`*.AppHost.csproj`) and agent service projects
+- AppHost project (`*.AppHost.csproj`), **or** a file-based AppHost — a bare
+  `.cs` (commonly `apphost.cs`) with `#:sdk Aspire.AppHost.Sdk` /
+  `#:package Aspire.Hosting.*` directives and a `DistributedApplication.CreateBuilder`
+  call and no `.csproj`/`.sln` — and agent service projects
 - Agent registrations (`AddAgent`, `ChatClientAgent`, `IChatClient` builders)
 - Agent count, handoff edges, tool count per agent
 - OTel wiring (`AddOpenTelemetry`, Aspire dashboard reference)

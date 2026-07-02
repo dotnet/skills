@@ -53,6 +53,12 @@ The skill targets any .NET project using Microsoft Agent Framework
 - **Aspire AppHost** (`*.AppHost.csproj` orchestrating agent services) — the
   most common shape; the generated `AgentChatClientFactory` mirrors the
   AppHost's connection-string-driven `IChatClient` registration.
+- **File-based AppHost** (.NET 10) — a single `apphost.cs` (with
+  `#:sdk Aspire.AppHost.Sdk` / `#:package` directives, run via
+  `dotnet run apphost.cs`, no `.csproj`/`.sln`). Detection reads the `.cs`
+  source directly, and the Evals project references the agent service
+  project(s) it can find; if the host itself is file-based with no referenced
+  service project, the factory falls back to a direct client registration.
 - **Plain console / worker service** — `Microsoft.Agents.AI` registered
   directly against an OpenAI or Foundry client without an Aspire AppHost.
   The factory mirrors the app's direct registration (e.g. `AddOpenAIClient`
@@ -70,7 +76,10 @@ locations differ.
 Detect:
 
 - Solution file (`*.sln` / `*.slnx`)
-- AppHost project name (`*.AppHost.csproj`)
+- AppHost project name (`*.AppHost.csproj`), **or** a file-based AppHost — a bare
+  `.cs` (commonly `apphost.cs`) with `#:sdk Aspire.AppHost.Sdk` / `#:package`
+  directives and a `DistributedApplication.CreateBuilder` call and no
+  `.csproj`/`.sln`
 - Agent service projects
 - Existing test / eval projects (avoid clobbering)
 - **`IChatClient` registration** (scan AppHost + agent projects for
