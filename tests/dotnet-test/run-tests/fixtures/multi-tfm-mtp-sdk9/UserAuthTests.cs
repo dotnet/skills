@@ -6,11 +6,14 @@ namespace Contoso.Auth.Tests;
 public class UserAuthTests
 {
     [TestMethod]
+    [TestCategory("Integration")]
     public void Login_ValidCredentials_ReturnsToken() { Assert.IsTrue(true); }
 
     [TestMethod]
+    [TestCategory("Unit")]
     public void Login_InvalidPassword_ReturnsUnauthorized() { Assert.IsTrue(true); }
 
     [TestMethod]
+    [TestCategory("Integration")]
     public void Login_LockedAccount_ReturnsLocked() { Assert.IsTrue(true); }
 }

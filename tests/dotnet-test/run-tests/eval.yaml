@@ -73,8 +73,9 @@ scenarios:
     timeout: 420
 
   - name: "Run tests on a specific TFM with TRX in a multi-TFM MTP project (SDK 9)"
-    prompt: "This MSTest project uses Microsoft.Testing.Platform and targets both net8.0 and net9.0. I'm on .NET SDK 9. I want to run only the net9.0 tests and produce a TRX report saved as net9-results.trx. Show me the exact command."
+    prompt: "This MSTest project uses Microsoft.Testing.Platform and targets both net8.0 and net9.0. I'm on .NET SDK 9. I want to run only the net9.0 tests that are in the Integration category, and produce a TRX report saved as net9-integration.trx. Show me the exact command."
     setup:
+      additional_required_skills: ["filter-syntax"]
       files:
         - path: "TestProject.csproj"
           source: "fixtures/multi-tfm-mtp-sdk9/TestProject.csproj"
@@ -84,16 +85,23 @@ scenarios:
           source: "fixtures/multi-tfm-mtp-sdk9/UserAuthTests.cs"
     assertions:
       - type: "output_matches"
-        pattern: "dotnet test[^\\r\\n]*--framework\\s+net9\\.0[^\\r\\n]*--\\s+--report-trx"
+        pattern: "dotnet test[^\\r\\n]*--framework\\s+net9\\.0"
       - type: "output_matches"
-        pattern: "--report-trx-filename\\s+\"?net9-results\\.trx"
+        pattern: "--\\s+(?:--filter|--report-trx)"
+      - type: "output_matches"
+        pattern: "TestCategory=Integration"
+      - type: "output_matches"
+        pattern: "--report-trx-filename\\s+\"?net9-integration\\.trx"
+      - type: "output_not_matches"
+        pattern: "--framework\\s+net9\\.0[^\\r\\n]*--filter[^\\r\\n]*--\\s"
       - type: "exit_success"
     rubric:
       - "Runs only the net9.0 target framework rather than both TFMs"
       - "Identifies that the project uses MTP (TestingPlatformDotnetTestSupport) with SDK 9 argument-separator behavior"
-      - "Keeps '--framework net9.0' before the '--' separator (built-in dotnet test flag)"
-      - "Passes BOTH MTP extension flags after the single '--' separator: '--report-trx' and '--report-trx-filename net9-results.trx' — it does not split them across the separator or drop the '--report-trx-filename' extension"
-      - "Avoids VSTest-style TRX syntax such as '--logger trx'"
+      - "Keeps the built-in '--framework net9.0' flag BEFORE the '--' separator (it drives host/build selection, not the test platform)"
+      - "Places the MTP filter AFTER the '--' separator — 'dotnet test --framework net9.0 -- --filter \"TestCategory=Integration\" ...' — not a VSTest-style '--filter' before the separator, which SDK 9 MTP would misinterpret"
+      - "Passes both TRX extension flags ('--report-trx' and '--report-trx-filename net9-integration.trx') after the '--' separator, alongside the filter"
+      - "Avoids VSTest-style syntax such as '--logger trx' or putting MTP arguments before '--'"
     expect_tools: ["bash"]
     timeout: 480
 
