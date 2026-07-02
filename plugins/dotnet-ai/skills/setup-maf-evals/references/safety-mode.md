@@ -5,7 +5,8 @@ Off by default. Enabled in step 2 of the workflow when the user picks
 
 When enabled, the skill:
 
-1. Adds `Microsoft.Extensions.AI.Evaluation.Safety` (preview 10.7.0) to the csproj.
+1. Adds `Microsoft.Extensions.AI.Evaluation.Safety` (preview) to the csproj via
+   `dotnet add package Microsoft.Extensions.AI.Evaluation.Safety --prerelease`.
 2. Generates `Safety/SafetyTests.cs` using `ContentHarmEvaluator` as the
    default bundle (4 metrics in 1 Foundry call), plus
    `ProtectedMaterialEvaluator`, `IndirectAttackEvaluator`,

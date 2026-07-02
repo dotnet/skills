@@ -10,7 +10,20 @@ evals reproducible across machines and CI runs.
 - CI-friendly: `dotnet tool restore` in the workflow is one line.
 - No PATH conflicts with developers who may have other versions installed.
 
-## Template
+## Generation (do not hand-write the version)
+
+Generate the manifest instead of authoring a pinned version literal:
+
+```pwsh
+cd <App>.Evals.Tests
+dotnet new tool-manifest                                          # if none exists
+dotnet tool install microsoft.extensions.ai.evaluation.console    # latest; provides `aieval`
+```
+
+`dotnet tool install` (no `--version`) records the **current** tool version into
+the manifest and defaults to `rollForward: false`, so you still get a pinned,
+reproducible entry — but NuGet chose the number, not the skill. The resulting
+manifest looks like this (version shown is an illustrative snapshot):
 
 ```json
 {
@@ -26,16 +39,16 @@ evals reproducible across machines and CI runs.
 }
 ```
 
-Place at `<App>.Evals.Tests/.config/dotnet-tools.json` — the standard
-local-manifest location, discoverable by `dotnet tool restore` /
-`dotnet tool run` when those commands run from the `<App>.Evals.Tests/`
-directory (not the repo root). Running them from the repo root would
-walk *up* and never find a manifest that lives in a child directory, so
-every tool invocation — the CI `Restore tools` step, the `aieval report`
-safety-net step, and the runtime `AssemblyCleanup` report call — uses
-the test-project directory as its working directory. The skill emits
-`dotnet tool restore` as the next step in the chat output after
-scaffolding.
+`dotnet new tool-manifest` places the file per the SDK default — conventionally
+`<App>.Evals.Tests/.config/dotnet-tools.json`, though newer SDKs may write a
+repo-root-style `dotnet-tools.json` in the current directory. Either way, run
+`dotnet tool restore` / `dotnet tool run` **from the `<App>.Evals.Tests/`
+directory** so discovery finds the manifest. Running them from the repo root
+would walk *up* and could miss a manifest that lives in a child directory, so the
+CI `Restore tools` step, the `aieval report` safety-net step, and the runtime
+`AssemblyCleanup` report call all use the test-project directory as their working
+directory. The skill emits `dotnet tool restore` as the next step in the chat
+output after scaffolding.
 
 ## Why `rollForward: false`
 

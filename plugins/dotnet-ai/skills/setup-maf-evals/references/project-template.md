@@ -54,6 +54,24 @@ out of the box, and Test Explorer integration is automatic.
 
 ## `.csproj` template
 
+The `.csproj` is **not hand-written**. SKILL.md step 3 generates the shell with
+`dotnet new mstest` (which owns the MSTest / Microsoft.Testing.Platform
+references at their SDK-current versions) and then adds the eval + hosting
+packages with `dotnet add package` **without hand-authored versions** (see the
+version policy below). The listing here is an **illustrative expected result** —
+the source of truth for the *eval + hosting* package **set** (not their exact
+versions) — and the reconciliation target (TFM, data-file
+`CopyToOutputDirectory`, and the agent `ProjectReference`) after `dotnet new`
+runs. Do not paste it verbatim over the generated file; let the template own the
+test-SDK lines and only add/adjust what is shown.
+
+**The test-SDK line(s) vary by installed SDK — do not hand-maintain them.** On
+.NET 10 (`dotnet new mstest`) the template emits a single MTP-native
+`MSTest` metapackage (e.g. `4.0.1`) and **no** `Microsoft.NET.Test.Sdk`
+reference; on older SDKs it emits `MSTest` 3.x **plus** `Microsoft.NET.Test.Sdk`.
+The block below shows the .NET 10 single-package form. Whatever the template
+produces is authoritative; the skill never rewrites it.
+
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
@@ -65,26 +83,33 @@ out of the box, and Test Explorer integration is automatic.
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- MSTest -->
-    <PackageReference Include="MSTest" Version="3.6.4" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <!-- Test SDK — owned by `dotnet new mstest`; versions track the installed
+         SDK (on .NET 10, the MTP-native `MSTest` metapackage, no
+         Microsoft.NET.Test.Sdk). Shown for reference; do not hand-edit. -->
+    <PackageReference Include="MSTest" Version="4.0.1" />
 
-    <!-- MEAI Evaluation: GA -->
+    <!-- Eval + hosting packages are added by `dotnet add package` with NO
+         hand-authored version (see the version policy below). The Version
+         attributes are written by NuGet at scaffold time; the values here are
+         only an illustrative snapshot, not a pin to maintain. -->
+
+    <!-- MEAI Evaluation: GA (latest stable) -->
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.7.0" />
     <PackageReference Include="Microsoft.Extensions.AI.Evaluation" Version="10.7.0" />
     <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Quality" Version="10.7.0" />
     <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Reporting" Version="10.7.0" />
 
-    <!-- MEAI Evaluation: preview (still useful — NLP works without an API key) -->
-    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.NLP" Version="10.7.0-preview.1.26309.5" />
+    <!-- MEAI Evaluation: preview via `--prerelease` (NLP works without an API key) -->
+    <PackageReference Include="Microsoft.Extensions.AI.Evaluation.NLP" Version="10.7.0-preview.1.26309.7" />
 
-    <!-- Safety: only added when user opts in -->
-    <!-- <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Safety" Version="10.7.0-preview.1.26309.5" /> -->
+    <!-- Safety: only added (with `--prerelease`) when the user opts in -->
+    <!-- <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Safety" Version="10.7.0-preview.*" /> -->
 
-    <!-- Hosting (matches existing app pkgs to avoid NU1605) -->
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.1" />
+    <!-- Hosting/config: latest stable resolves to >= 10.0.1 automatically,
+         which is the floor that avoids the NU1605 downgrade (see below) -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.9" />
   </ItemGroup>
 
   <ItemGroup>
@@ -97,13 +122,39 @@ out of the box, and Test Explorer integration is automatic.
 </Project>
 ```
 
-**Why these versions:**
+**Version policy (no hand-authored version literals):**
 
-- `Microsoft.Extensions.AI.Evaluation.{Reporting,Quality,Console}` are GA at `10.7.0`.
-- `Microsoft.Extensions.AI.Evaluation.{NLP,Safety}` are still preview (track the latest `10.7.0-preview.*` build). NLP is opt-in-on; Safety is opt-in-off. The csproj `<PackageReference>` blocks above pin a known-good preview build — bump them when a newer preview ships.
-- `Microsoft.Extensions.Hosting` and `Microsoft.Extensions.Configuration.*` must be `10.0.1` (not `10.0.0`) to satisfy the transitive constraint from `Microsoft.Agents.AI.Hosting`. Pinning `10.0.0` produces `NU1605`.
+- **GA** packages — `Microsoft.Extensions.AI`, `Microsoft.Extensions.AI.Evaluation`,
+  `.Quality`, `.Reporting` — are added with `dotnet add package <id>` (no
+  `--version`), so they resolve to the **latest stable**.
+- **Preview** packages — `.NLP` (opt-in-on) and `.Safety` (opt-in-off) — have no
+  stable release yet, so they are added with `dotnet add package <id> --prerelease`
+  (**latest prerelease**). No specific preview build is pinned.
+- **Hosting/config** — `Microsoft.Extensions.Hosting` and
+  `Microsoft.Extensions.Configuration.*` — are also added at latest stable. They
+  must resolve to **>= 10.0.1** (not `10.0.0`) to satisfy the transitive
+  constraint from `Microsoft.Agents.AI.Hosting`; a pin at `10.0.0` produces
+  `NU1605`. Latest stable is always >= that floor, so no explicit pin is needed —
+  this is a *floor*, not a hand-maintained version.
 
-## `.config/dotnet-tools.json`
+`dotnet add package` writes the concrete resolved version into the `.csproj`; the
+skill never authors those numbers. The versions shown in the block above are an
+illustrative snapshot from one scaffold run, not values to keep in sync.
+
+## Tool manifest (`dotnet-tools.json`)
+
+Do **not** hand-write this file with a pinned version. Generate it (unpinned):
+
+```pwsh
+dotnet new tool-manifest                                          # if none exists
+dotnet tool install microsoft.extensions.ai.evaluation.console    # latest; provides `aieval`
+```
+
+`dotnet tool install` (no `--version`) records the current tool version in the
+manifest. `dotnet new tool-manifest` places it per the SDK default (a
+`.config/dotnet-tools.json`, or a repo-root `dotnet-tools.json` on newer SDKs);
+`dotnet tool restore` finds it either way. The illustrative manifest below shows
+the resulting shape:
 
 ```json
 {

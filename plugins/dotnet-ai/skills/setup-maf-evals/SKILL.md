@@ -149,25 +149,81 @@ update mode (step 1a) is the expected, non-destructive action — just do it
 
 ### 3. Scaffold the project
 
-See `references/project-template.md` for the file tree, csproj, and
-`GlobalUsings.cs` template. The project is **MSTest** by default
-(`<App>.Evals.Tests`); a console-runner shape is available behind an
-explicit `--shape console` flag.
+Generate the deterministic project shell with `dotnet new`, then overlay the
+eval-specific files. This keeps the SDK boilerplate (`.csproj`,
+test-SDK / Microsoft.Testing.Platform wiring, implicit usings) current instead of
+hand-maintaining it, and confines the skill's authored surface to the eval logic.
+`references/project-template.md` remains the source of truth for the final file
+tree and the exact package versions.
 
-Always emit: `Reporting/{ReportingConfig.cs, Tier.cs, AievalReport.cs,
-WordCountEvaluator.cs, MetricsGlossary.cs}`, `Wire/{AgentChatClientFactory.cs,
-StubChatClient.cs}`, `Quality/{QualityTests.cs, rubric.md, golden.json}`,
-`Telemetry/{TelemetryTests.cs, inputs.json, prices.json}`,
-`quality.thresholds.json`, `GlobalUsings.cs`, `dotnet-tools.json`.
-Emit `Compare/{CompareTests.cs, matrix.json}` only if the user opted into
-compare mode (step 2 #4). Emit `Safety/SafetyTests.cs` and
-`.github/workflows/evals.yml` only if the user opted in (steps 7 and 9).
+1. **Create the base test project** (default MSTest shape; skip this whole
+   `dotnet new` step only when the user asked for `--shape console`):
+
+   ```pwsh
+   dotnet new mstest -n <App>.Evals.Tests -o <App>.Evals.Tests
+   ```
+
+   The template emits a current `.csproj` (the MSTest test-SDK packages and
+   Microsoft.Testing.Platform wiring correct for the installed SDK — on .NET 10
+   that is the MTP-native `MSTest` metapackage) plus a placeholder test. Let the
+   template own those test-SDK `<PackageReference>` lines — do **not** hand-write
+   them. Delete the placeholder `Test1.cs` / `UnitTest1.cs`.
+
+2. **Add the eval + hosting packages** (no hand-pinned versions — let NuGet
+   resolve current). GA packages take the latest stable; the still-preview
+   evaluators use `--prerelease`. See `references/project-template.md` for the
+   version policy and the one floor constraint:
+
+   ```pwsh
+   cd <App>.Evals.Tests
+   # GA — latest stable:
+   dotnet add package Microsoft.Extensions.AI
+   dotnet add package Microsoft.Extensions.AI.Evaluation
+   dotnet add package Microsoft.Extensions.AI.Evaluation.Quality
+   dotnet add package Microsoft.Extensions.AI.Evaluation.Reporting
+   # Hosting/config — latest stable (>= 10.0.1 automatically, avoiding the
+   # NU1605 downgrade from Microsoft.Agents.AI.Hosting):
+   dotnet add package Microsoft.Extensions.Hosting
+   dotnet add package Microsoft.Extensions.Configuration.Json
+   dotnet add package Microsoft.Extensions.Configuration.UserSecrets
+   # Preview — latest prerelease:
+   dotnet add package Microsoft.Extensions.AI.Evaluation.NLP --prerelease
+   # Safety — only if the user opted in (step 2):
+   # dotnet add package Microsoft.Extensions.AI.Evaluation.Safety --prerelease
+   ```
+
+   `dotnet add package` writes the resolved version into the `.csproj`; the skill
+   never authors a version literal. Then reconcile the `.csproj` with
+   `references/project-template.md`: ensure `<TargetFramework>net10.0</TargetFramework>`,
+   add the `<None Update="…" CopyToOutputDirectory="PreserveNewest" />` item for the
+   JSON/rubric data files, and add a `<ProjectReference>` to each detected agent
+   service project.
+
+3. **Overlay the eval files.** Always emit: `Reporting/{ReportingConfig.cs,
+   Tier.cs, AievalReport.cs, WordCountEvaluator.cs, MetricsGlossary.cs}`,
+   `Wire/{AgentChatClientFactory.cs, StubChatClient.cs}`,
+   `Quality/{QualityTests.cs, rubric.md, golden.json}`,
+   `Telemetry/{TelemetryTests.cs, inputs.json, prices.json}`,
+   `quality.thresholds.json`, `GlobalUsings.cs`. Emit
+   `Compare/{CompareTests.cs, matrix.json}` only if the user opted into
+   compare mode (step 2 #4). Emit `Safety/SafetyTests.cs` and
+   `.github/workflows/evals.yml` only if the user opted in (steps 7 and 9).
+
+   Do **not** hand-write the `aieval` tool manifest — generate it (also
+   unpinned):
+
+   ```pwsh
+   dotnet new tool-manifest                                          # if none exists yet
+   dotnet tool install microsoft.extensions.ai.evaluation.console    # latest; provides `aieval`
+   ```
 
 After writing files:
 
 ```pwsh
+# Add to the solution when one exists; a file-based AppHost may have none —
+# skip this line in that case (the ProjectReference is enough to build).
 dotnet sln <SolutionFile> add <App>.Evals.Tests/<App>.Evals.Tests.csproj
-dotnet tool restore                  # installs aieval
+dotnet tool restore                  # restores aieval from the generated manifest
 # .gitignore additions
 echo ".copilot/perf-reports/evals/`n<App>.Evals.Tests/_store/" >> .gitignore
 ```

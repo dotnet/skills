@@ -13,8 +13,8 @@ Avoid them when scaffolding `<App>.Evals.Tests`.
   declared as its own. Wrap the chained call in a `try / catch` so a
   glossary-write failure never masks the report.
 - **Hand-rolling reports instead of using the Reporting pipeline.**
-  The whole point of GA `Microsoft.Extensions.AI.Evaluation.Reporting`
-  10.7.0 is `DiskBasedReportingConfiguration` + `aieval`. Never write
+  The whole point of the GA `Microsoft.Extensions.AI.Evaluation.Reporting`
+  package is `DiskBasedReportingConfiguration` + `aieval`. Never write
   a hand-rolled markdown report and call it the "quality report" —
   that's an MEAI report (HTML) vs a cost/latency capture (markdown).
 - **Treating telemetry / compare / quality as separate report
@@ -193,10 +193,12 @@ contract.
   `quality.thresholds.json` (which maps to real MEAI metric names like
   `Relevance` / `BLEU` / `F1` and `EvaluationRating` levels), then
   setting `hard_fail: true`.
-- **Wrong `Microsoft.Extensions.Hosting` version.** Must be `10.0.1`
-  (not `10.0.0`) to satisfy the transitive constraint from
-  `Microsoft.Agents.AI.Hosting` 1.x. Pinning `10.0.0` produces
-  `NU1605` (treated as error in the agentic-app project graph).
+- **Hand-pinning `Microsoft.Extensions.Hosting` too low.** Add it with
+  `dotnet add package Microsoft.Extensions.Hosting` (no `--version`) so it
+  resolves to the latest stable, which is always `>= 10.0.1`. A hand-pinned
+  `10.0.0` produces `NU1605` (treated as error in the agentic-app project
+  graph) because `Microsoft.Agents.AI.Hosting` 1.x requires `>= 10.0.1`. Do not
+  author a version literal here — let NuGet satisfy the floor.
 - **Forgetting `.gitignore` entries.** Must include both
   `.copilot/perf-reports/evals/` and `<App>.Evals.Tests/_store/`.
   Otherwise reports pollute history and the persistent `_store/`

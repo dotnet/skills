@@ -8,7 +8,7 @@ Source: [learn.microsoft.com/en-us/dotnet/ai/evaluation/libraries](https://learn
 
 ## Tier 1 — NLP (deterministic, no LLM)
 
-Package: `Microsoft.Extensions.AI.Evaluation.NLP` (preview 10.7.0).
+Package: `Microsoft.Extensions.AI.Evaluation.NLP` (preview — added via `--prerelease`).
 
 | Evaluator | Metric | Context type needed | Notes |
 |-----------|--------|---------------------|-------|
@@ -61,7 +61,7 @@ public sealed class WordCountEvaluator : IEvaluator
 
 ## Tier 2 — Quality (LLM-as-judge)
 
-Package: `Microsoft.Extensions.AI.Evaluation.Quality` (GA 10.7.0).
+Package: `Microsoft.Extensions.AI.Evaluation.Quality` (GA — latest stable).
 
 Requires `EVAL_USE_REAL_JUDGE=1` and a real `IChatClient`. The skill
 wires the following by default:
@@ -90,7 +90,7 @@ to RAG pipelines — separate skill territory).
 
 ## Tier 3 — Safety (Foundry Evaluation service)
 
-Package: `Microsoft.Extensions.AI.Evaluation.Safety` (preview 10.7.0).
+Package: `Microsoft.Extensions.AI.Evaluation.Safety` (preview — added via `--prerelease`).
 
 Off by default. Enabled when user opts in during step 2 of the
 workflow. Requires `EVAL_USE_FOUNDRY_SAFETY=1` and an Azure AI Foundry
