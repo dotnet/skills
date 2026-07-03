@@ -129,6 +129,26 @@ scenarios:
             var builder = DistributedApplication.CreateBuilder(args);
             builder.AddProject<Projects.Coach>("coach");
             builder.Build().Run();
+        - path: fixture/Coach/Program.cs
+          content: |
+            var builder = WebApplication.CreateBuilder(args);
+            // No builder.AddServiceDefaults() and no OpenTelemetry wiring at all:
+            // no tracing, no metrics, no OTLP exporter, no gen_ai.* token telemetry.
+            builder.AddAzureOpenAIClient("openai");
+            builder.Services.AddSingleton<IChatClient>(sp =>
+                sp.GetRequiredService<AzureOpenAIClient>()
+                  .GetChatClient(builder.Configuration["Model"])
+                  .AsIChatClient());
+            builder.Services.AddSingleton(sp => new ChatClientAgent(
+                sp.GetRequiredService<IChatClient>(),
+                instructions: "You are a helpful coach."));
+            var app = builder.Build();
+            app.MapPost("/chat", async (ChatClientAgent agent, string message) =>
+                await agent.RunAsync(message));
+            app.Run();
+        - path: fixture/Coach/appsettings.json
+          content: |
+            { "Model": "gpt-4o-mini" }
     assertions:
       - type: file_contains
         path: fixture/.copilot/perf-reports/scan.md
