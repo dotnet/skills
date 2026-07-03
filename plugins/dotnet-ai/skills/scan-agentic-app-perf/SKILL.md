@@ -80,11 +80,15 @@ per-agent model assignment) apply to every topology.
 >   with that category** — never bury it under an unrelated one. Still run the
 >   full seven-category sweep, but the user's stated problem is the headline.
 > - **Stay lean; don't over-tool.** On a small app (a handful of source files)
->   **read the files directly and skip the detection scripts** — the PowerShell
->   detectors and per-category reference docs are accelerators for large
->   codebases, not a mandatory gauntlet, and running them on a tiny fixture just
->   burns your turn budget before you can answer. Never pre-read all seven
->   reference docs; open one only to confirm a specific candidate finding.
+>   **read each source file once, skip the detection scripts, and open no
+>   reference docs.** The PowerShell detectors and per-category reference docs are
+>   accelerators for large codebases, not a mandatory gauntlet; running them on a
+>   tiny fixture just burns your turn budget and adds nothing a direct read
+>   doesn't already give you. Concretely, for an app of ~5 files or fewer, aim to
+>   finish inventory + all seven categories in **well under ~10 tool calls** —
+>   read the files, reason, answer. Do not re-open a file you already read, never
+>   pre-read all seven reference docs, and open one only to confirm a specific
+>   candidate finding you can't resolve from the source.
 
 ### 1. Inventory the app
 
