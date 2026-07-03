@@ -256,12 +256,13 @@ public class ExternalDependencyCheckerTests
     // ========================================
 
     [Fact]
-    public void AgentPortability_WithBothHostSpellings_NoWarning()
+    public void AgentPortability_WithAllThreeHostSpellings_NoWarning()
     {
         var agent = MakeAgent(tools: new[]
         {
             "skill", "read", "search", "edit", "execute",
-            "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash"
+            "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash",
+            "read_file", "replace", "write_file", "glob", "grep_search", "run_shell_command"
         });
 
         var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
@@ -269,27 +270,38 @@ public class ExternalDependencyCheckerTests
     }
 
     [Fact]
-    public void AgentPortability_CopilotOnly_FlagsMissingClaudeEquivalents()
+    public void AgentPortability_CopilotOnly_FlagsMissingClaudeAndGeminiEquivalents()
     {
         var agent = MakeAgent(tools: new[] { "read", "search", "edit", "execute", "skill" });
 
         var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
 
-        Assert.Contains(findings, f => f.Contains("read files") && f.Contains("Read") && f.Contains("not Claude Code"));
-        Assert.Contains(findings, f => f.Contains("search") && f.Contains("Glob") && f.Contains("Grep"));
-        Assert.Contains(findings, f => f.Contains("run commands") && f.Contains("Bash"));
+        Assert.Contains(findings, f => f.Contains("read files") && f.Contains("Read") && f.Contains("read_file"));
+        Assert.Contains(findings, f => f.Contains("search") && f.Contains("Glob") && f.Contains("grep_search"));
+        Assert.Contains(findings, f => f.Contains("run commands") && f.Contains("Bash") && f.Contains("run_shell_command"));
     }
 
     [Fact]
-    public void AgentPortability_ClaudeOnly_FlagsMissingCopilotEquivalents()
+    public void AgentPortability_ClaudeOnly_FlagsMissingCopilotAndGeminiEquivalents()
     {
         var agent = MakeAgent(tools: new[] { "Read", "Glob", "Grep", "Edit", "Write", "Bash", "Skill" });
 
         var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
 
-        Assert.Contains(findings, f => f.Contains("search") && f.Contains("not the Copilot CLI / VS Code") && f.Contains("search"));
-        Assert.Contains(findings, f => f.Contains("run commands") && f.Contains("execute"));
-        Assert.Contains(findings, f => f.Contains("modify files") && f.Contains("edit, create"));
+        Assert.Contains(findings, f => f.Contains("search") && f.Contains("not the Copilot CLI / VS Code") && f.Contains("search") && f.Contains("glob, grep_search"));
+        Assert.Contains(findings, f => f.Contains("run commands") && f.Contains("execute") && f.Contains("run_shell_command"));
+        Assert.Contains(findings, f => f.Contains("modify files") && f.Contains("edit, create") && f.Contains("replace, write_file"));
+    }
+
+    [Fact]
+    public void AgentPortability_MissingGeminiOnly_FlagsGeminiEquivalents()
+    {
+        var agent = MakeAgent(tools: new[] { "read", "Read", "edit", "Edit", "Write" });
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
+
+        Assert.Contains(findings, f => f.Contains("read files") && f.Contains("not Gemini CLI") && f.Contains("read_file"));
+        Assert.Contains(findings, f => f.Contains("modify files") && f.Contains("replace, write_file for Gemini CLI"));
     }
 
     [Fact]
@@ -304,11 +316,13 @@ public class ExternalDependencyCheckerTests
     [Fact]
     public void AgentPortability_SubagentFanOutOnlyCopilot_FlagsTask()
     {
-        var agent = MakeAgent(tools: new[] { "agent", "read", "Read" });
+        var agent = MakeAgent(tools: new[] { "agent", "read", "Read", "read_file" });
 
         var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
 
         Assert.Contains(findings, f => f.Contains("invoke subagents") && f.Contains("Task"));
+        // Gemini has no tools-level subagent spelling, so it must not be demanded.
+        Assert.DoesNotContain(findings, f => f.Contains("invoke subagents") && f.Contains("Gemini CLI"));
     }
 
     [Fact]
