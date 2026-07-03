@@ -114,6 +114,24 @@ You can also install individual skills using the `skill-installer` CLI with the 
 $ skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<plugin>/skills/<skill-name>
 ```
 
+### Autohand Code
+
+Autohand Code users can install the indexed aggregate skill or individual .NET plugin entries from the Autohand catalog:
+
+```bash
+# Install the aggregate dotnet/skills entry globally
+autohand --skill-install dotnet-skills
+
+# Or install a focused plugin entry
+autohand --skill-install dotnet-test
+autohand --skill-install dotnet-msbuild
+
+# Use --project for a workspace-level install
+autohand --skill-install dotnet-test --project
+```
+
+Autohand Code reads global skills from `~/.autohand/skills/` and project skills from `<project>/.autohand/skills/`.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and how to add a new plugin.
