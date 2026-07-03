@@ -6,7 +6,7 @@ description: >-
   checking test results and failures.
 name: code-testing-tester
 user-invocable: false
-tools: ["skill", "read", "search", "edit", "execute"]
+tools: ["skill", "read", "search", "edit", "execute", "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash"]
 license: MIT
 ---
 
