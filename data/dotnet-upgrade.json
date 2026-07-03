@@ -2,1385 +2,6 @@
   "entries": {
     "Efficiency": [
       {
-        "date": 1781753428879,
-        "tool": "customSmallerIsBetter",
-        "model": "claude-opus-4.6",
-        "benches": [
-          {
-            "value": 82.0,
-            "unit": "seconds",
-            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Skilled Time"
-          },
-          {
-            "value": 198065.0,
-            "unit": "tokens",
-            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Skilled Tokens In"
-          },
-          {
-            "value": 76.0,
-            "unit": "seconds",
-            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Plugin Time"
-          },
-          {
-            "value": 183436.0,
-            "unit": "tokens",
-            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Plugin Tokens In"
-          },
-          {
-            "value": 55.1,
-            "unit": "seconds",
-            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Vanilla Time"
-          },
-          {
-            "value": 92610.0,
-            "unit": "tokens",
-            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Vanilla Tokens In"
-          },
-          {
-            "value": 44.9,
-            "notActivated": true,
-            "unit": "seconds",
-            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Skilled Time"
-          },
-          {
-            "value": 90063.0,
-            "notActivated": true,
-            "unit": "tokens",
-            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Skilled Tokens In"
-          },
-          {
-            "value": 50.6,
-            "notActivated": true,
-            "unit": "seconds",
-            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Plugin Time"
-          },
-          {
-            "value": 107739.0,
-            "notActivated": true,
-            "unit": "tokens",
-            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Plugin Tokens In"
-          },
-          {
-            "value": 57.6,
-            "unit": "seconds",
-            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Vanilla Time"
-          },
-          {
-            "value": 107924.0,
-            "unit": "tokens",
-            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Vanilla Tokens In"
-          },
-          {
-            "value": 79.1,
-            "notActivated": true,
-            "unit": "seconds",
-            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Skilled Time"
-          },
-          {
-            "value": 116209.0,
-            "notActivated": true,
-            "unit": "tokens",
-            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Skilled Tokens In"
-          },
-          {
-            "value": 75.8,
-            "notActivated": true,
-            "unit": "seconds",
-            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Plugin Time"
-          },
-          {
-            "value": 107426.0,
-            "notActivated": true,
-            "unit": "tokens",
-            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Plugin Tokens In"
-          },
-          {
-            "value": 70.3,
-            "unit": "seconds",
-            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Vanilla Time"
-          },
-          {
-            "value": 108846.0,
-            "unit": "tokens",
-            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Vanilla Tokens In"
-          },
-          {
-            "value": 56.1,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Skilled Time"
-          },
-          {
-            "value": 115453.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Skilled Tokens In"
-          },
-          {
-            "value": 108.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Plugin Time"
-          },
-          {
-            "value": 310919.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Plugin Tokens In"
-          },
-          {
-            "value": 39.8,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Vanilla Time"
-          },
-          {
-            "value": 42380.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Vanilla Tokens In"
-          },
-          {
-            "value": 28.4,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Skilled Time"
-          },
-          {
-            "value": 50434.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Skilled Tokens In"
-          },
-          {
-            "value": 37.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Plugin Time"
-          },
-          {
-            "value": 50671.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Plugin Tokens In"
-          },
-          {
-            "value": 34.3,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Vanilla Time"
-          },
-          {
-            "value": 14087.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Vanilla Tokens In"
-          },
-          {
-            "value": 123.6,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Skilled Time"
-          },
-          {
-            "value": 344182.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Skilled Tokens In"
-          },
-          {
-            "value": 118.8,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Plugin Time"
-          },
-          {
-            "value": 416483.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Plugin Tokens In"
-          },
-          {
-            "value": 134.5,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Vanilla Time"
-          },
-          {
-            "value": 285581.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Vanilla Tokens In"
-          },
-          {
-            "value": 66.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Skilled Time"
-          },
-          {
-            "value": 207801.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Skilled Tokens In"
-          },
-          {
-            "value": 55.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Plugin Time"
-          },
-          {
-            "value": 174534.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Plugin Tokens In"
-          },
-          {
-            "value": 62.6,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Vanilla Time"
-          },
-          {
-            "value": 129000.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Vanilla Tokens In"
-          },
-          {
-            "value": 110.5,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Skilled Time"
-          },
-          {
-            "value": 258802.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Skilled Tokens In"
-          },
-          {
-            "value": 135.0,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Plugin Time"
-          },
-          {
-            "value": 339408.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Plugin Tokens In"
-          },
-          {
-            "value": 97.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Vanilla Time"
-          },
-          {
-            "value": 183385.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Vanilla Tokens In"
-          },
-          {
-            "value": 99.2,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Skilled Time"
-          },
-          {
-            "value": 217738.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Skilled Tokens In"
-          },
-          {
-            "value": 119.1,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Plugin Time"
-          },
-          {
-            "value": 286139.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Plugin Tokens In"
-          },
-          {
-            "value": 91.1,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Vanilla Time"
-          },
-          {
-            "value": 125227.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Vanilla Tokens In"
-          },
-          {
-            "value": 25.1,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Skilled Time"
-          },
-          {
-            "value": 19260.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Skilled Tokens In"
-          },
-          {
-            "value": 46.1,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Plugin Time"
-          },
-          {
-            "value": 74031.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Plugin Tokens In"
-          },
-          {
-            "value": 23.4,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Vanilla Time"
-          },
-          {
-            "value": 21185.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Vanilla Tokens In"
-          },
-          {
-            "value": 114.2,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Skilled Time"
-          },
-          {
-            "value": 319745.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Skilled Tokens In"
-          },
-          {
-            "value": 79.1,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Plugin Time"
-          },
-          {
-            "value": 235117.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Plugin Tokens In"
-          },
-          {
-            "value": 59.7,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Vanilla Time"
-          },
-          {
-            "value": 98274.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Vanilla Tokens In"
-          },
-          {
-            "value": 38.4,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Skilled Time"
-          },
-          {
-            "value": 102892.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Skilled Tokens In"
-          },
-          {
-            "value": 48.6,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Plugin Time"
-          },
-          {
-            "value": 128596.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Plugin Tokens In"
-          },
-          {
-            "value": 37.7,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Vanilla Time"
-          },
-          {
-            "value": 56345.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Vanilla Tokens In"
-          },
-          {
-            "value": 70.6,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Skilled Time"
-          },
-          {
-            "value": 194674.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Skilled Tokens In"
-          },
-          {
-            "value": 72.3,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Plugin Time"
-          },
-          {
-            "value": 215341.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Plugin Tokens In"
-          },
-          {
-            "value": 99.4,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Vanilla Time"
-          },
-          {
-            "value": 218720.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Vanilla Tokens In"
-          },
-          {
-            "value": 80.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Skilled Time"
-          },
-          {
-            "value": 325450.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Skilled Tokens In"
-          },
-          {
-            "value": 63.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Plugin Time"
-          },
-          {
-            "value": 249660.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Plugin Tokens In"
-          },
-          {
-            "value": 28.5,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Vanilla Time"
-          },
-          {
-            "value": 53696.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Vanilla Tokens In"
-          },
-          {
-            "value": 48.0,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Skilled Time"
-          },
-          {
-            "value": 121636.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Skilled Tokens In"
-          },
-          {
-            "value": 44.1,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Plugin Time"
-          },
-          {
-            "value": 132050.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Plugin Tokens In"
-          },
-          {
-            "value": 35.7,
-            "unit": "seconds",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Vanilla Time"
-          },
-          {
-            "value": 65206.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Vanilla Tokens In"
-          },
-          {
-            "value": 848.4,
-            "unit": "seconds",
-            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Skilled Time",
-            "timedOut": true
-          },
-          {
-            "value": 4232367.0,
-            "unit": "tokens",
-            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Skilled Tokens In",
-            "timedOut": true
-          },
-          {
-            "value": 950.1,
-            "unit": "seconds",
-            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Plugin Time",
-            "timedOut": true
-          },
-          {
-            "value": 5815259.0,
-            "unit": "tokens",
-            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Plugin Tokens In",
-            "timedOut": true
-          },
-          {
-            "value": 182.2,
-            "unit": "seconds",
-            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Vanilla Time"
-          },
-          {
-            "value": 1341096.0,
-            "unit": "tokens",
-            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Vanilla Tokens In"
-          },
-          {
-            "value": 19.6,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Skilled Time"
-          },
-          {
-            "value": 50728.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Skilled Tokens In"
-          },
-          {
-            "value": 19.4,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Plugin Time"
-          },
-          {
-            "value": 54264.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Plugin Tokens In"
-          },
-          {
-            "value": 77.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Vanilla Time"
-          },
-          {
-            "value": 382706.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Vanilla Tokens In"
-          },
-          {
-            "value": 21.4,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Skilled Time"
-          },
-          {
-            "value": 70107.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Skilled Tokens In"
-          },
-          {
-            "value": 18.8,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Plugin Time"
-          },
-          {
-            "value": 62475.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Plugin Tokens In"
-          },
-          {
-            "value": 35.0,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Vanilla Time"
-          },
-          {
-            "value": 14230.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Vanilla Tokens In"
-          },
-          {
-            "value": 19.3,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Skilled Time"
-          },
-          {
-            "value": 50172.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Skilled Tokens In"
-          },
-          {
-            "value": 18.5,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Plugin Time"
-          },
-          {
-            "value": 53979.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Plugin Tokens In"
-          },
-          {
-            "value": 17.2,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Vanilla Time"
-          },
-          {
-            "value": 13385.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Vanilla Tokens In"
-          },
-          {
-            "value": 15.7,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Skilled Time"
-          },
-          {
-            "value": 27818.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Skilled Tokens In"
-          },
-          {
-            "value": 17.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Plugin Time"
-          },
-          {
-            "value": 53122.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Plugin Tokens In"
-          },
-          {
-            "value": 12.6,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Vanilla Time"
-          },
-          {
-            "value": 12885.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Vanilla Tokens In"
-          },
-          {
-            "value": 19.2,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Skilled Time"
-          },
-          {
-            "value": 45303.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Skilled Tokens In"
-          },
-          {
-            "value": 15.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Plugin Time"
-          },
-          {
-            "value": 36887.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Plugin Tokens In"
-          },
-          {
-            "value": 27.8,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Vanilla Time"
-          },
-          {
-            "value": 13642.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Vanilla Tokens In"
-          },
-          {
-            "value": 13.5,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Skilled Time"
-          },
-          {
-            "value": 30647.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Skilled Tokens In"
-          },
-          {
-            "value": 13.8,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Plugin Time"
-          },
-          {
-            "value": 33014.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Plugin Tokens In"
-          },
-          {
-            "value": 7.2,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Vanilla Time"
-          },
-          {
-            "value": 12735.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Vanilla Tokens In"
-          },
-          {
-            "value": 25.4,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Skilled Time"
-          },
-          {
-            "value": 58926.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Skilled Tokens In"
-          },
-          {
-            "value": 17.7,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Plugin Time"
-          },
-          {
-            "value": 54054.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Plugin Tokens In"
-          },
-          {
-            "value": 34.8,
-            "unit": "seconds",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Vanilla Time"
-          },
-          {
-            "value": 14130.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Vanilla Tokens In"
-          },
-          {
-            "value": 26.8,
-            "unit": "seconds",
-            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Skilled Time"
-          },
-          {
-            "value": 34076.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Skilled Tokens In"
-          },
-          {
-            "value": 25.6,
-            "unit": "seconds",
-            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Plugin Time"
-          },
-          {
-            "value": 33165.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Plugin Tokens In"
-          },
-          {
-            "value": 23.0,
-            "unit": "seconds",
-            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Vanilla Time"
-          },
-          {
-            "value": 13823.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Vanilla Tokens In"
-          },
-          {
-            "value": 23.6,
-            "unit": "seconds",
-            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Skilled Time"
-          },
-          {
-            "value": 30311.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Skilled Tokens In"
-          },
-          {
-            "value": 23.1,
-            "unit": "seconds",
-            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Plugin Time"
-          },
-          {
-            "value": 32844.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Plugin Tokens In"
-          },
-          {
-            "value": 19.2,
-            "unit": "seconds",
-            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Vanilla Time"
-          },
-          {
-            "value": 13569.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Vanilla Tokens In"
-          },
-          {
-            "value": 33.4,
-            "unit": "seconds",
-            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Skilled Time"
-          },
-          {
-            "value": 41128.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Skilled Tokens In"
-          },
-          {
-            "value": 24.7,
-            "unit": "seconds",
-            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Plugin Time"
-          },
-          {
-            "value": 29621.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Plugin Tokens In"
-          },
-          {
-            "value": 21.4,
-            "unit": "seconds",
-            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Vanilla Time"
-          },
-          {
-            "value": 13766.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Vanilla Tokens In"
-          },
-          {
-            "value": 26.8,
-            "unit": "seconds",
-            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Skilled Time"
-          },
-          {
-            "value": 37245.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Skilled Tokens In"
-          },
-          {
-            "value": 25.4,
-            "unit": "seconds",
-            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Plugin Time"
-          },
-          {
-            "value": 32981.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Plugin Tokens In"
-          },
-          {
-            "value": 20.8,
-            "unit": "seconds",
-            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Vanilla Time"
-          },
-          {
-            "value": 13627.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Vanilla Tokens In"
-          },
-          {
-            "value": 14.8,
-            "unit": "seconds",
-            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Skilled Time"
-          },
-          {
-            "value": 19770.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Skilled Tokens In"
-          },
-          {
-            "value": 12.5,
-            "unit": "seconds",
-            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Plugin Time"
-          },
-          {
-            "value": 32043.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Plugin Tokens In"
-          },
-          {
-            "value": 14.3,
-            "unit": "seconds",
-            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Vanilla Time"
-          },
-          {
-            "value": 13004.0,
-            "unit": "tokens",
-            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Vanilla Tokens In"
-          },
-          {
-            "value": 26.5,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Skilled Time"
-          },
-          {
-            "value": 79648.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Skilled Tokens In"
-          },
-          {
-            "value": 26.3,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Plugin Time"
-          },
-          {
-            "value": 97590.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Plugin Tokens In"
-          },
-          {
-            "value": 21.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Vanilla Time"
-          },
-          {
-            "value": 50545.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Vanilla Tokens In"
-          },
-          {
-            "value": 27.0,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Skilled Time"
-          },
-          {
-            "value": 90466.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Skilled Tokens In"
-          },
-          {
-            "value": 27.4,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Plugin Time"
-          },
-          {
-            "value": 119462.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Plugin Tokens In"
-          },
-          {
-            "value": 30.0,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Vanilla Time"
-          },
-          {
-            "value": 13998.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Vanilla Tokens In"
-          },
-          {
-            "value": 26.6,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Skilled Time"
-          },
-          {
-            "value": 76080.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Skilled Tokens In"
-          },
-          {
-            "value": 22.8,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Plugin Time"
-          },
-          {
-            "value": 75414.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Plugin Tokens In"
-          },
-          {
-            "value": 22.2,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Vanilla Time"
-          },
-          {
-            "value": 13552.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Vanilla Tokens In"
-          },
-          {
-            "value": 25.6,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Skilled Time"
-          },
-          {
-            "value": 75887.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Skilled Tokens In"
-          },
-          {
-            "value": 23.5,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Plugin Time"
-          },
-          {
-            "value": 79918.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Plugin Tokens In"
-          },
-          {
-            "value": 19.8,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Vanilla Time"
-          },
-          {
-            "value": 13963.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Vanilla Tokens In"
-          },
-          {
-            "value": 20.5,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Skilled Time"
-          },
-          {
-            "value": 54101.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Skilled Tokens In"
-          },
-          {
-            "value": 19.1,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Plugin Time"
-          },
-          {
-            "value": 57477.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Plugin Tokens In"
-          },
-          {
-            "value": 15.1,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Vanilla Time"
-          },
-          {
-            "value": 13107.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Vanilla Tokens In"
-          },
-          {
-            "value": 21.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Skilled Time"
-          },
-          {
-            "value": 55483.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Skilled Tokens In"
-          },
-          {
-            "value": 20.5,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Plugin Time"
-          },
-          {
-            "value": 58544.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Plugin Tokens In"
-          },
-          {
-            "value": 25.7,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Vanilla Time"
-          },
-          {
-            "value": 25172.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Vanilla Tokens In"
-          },
-          {
-            "value": 26.1,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Skilled Time"
-          },
-          {
-            "value": 82581.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Skilled Tokens In"
-          },
-          {
-            "value": 22.8,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Plugin Time"
-          },
-          {
-            "value": 82072.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Plugin Tokens In"
-          },
-          {
-            "value": 14.8,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Vanilla Time"
-          },
-          {
-            "value": 27359.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Vanilla Tokens In"
-          },
-          {
-            "value": 21.6,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Skilled Time"
-          },
-          {
-            "value": 53755.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Skilled Tokens In"
-          },
-          {
-            "value": 20.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Plugin Time"
-          },
-          {
-            "value": 57002.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Plugin Tokens In"
-          },
-          {
-            "value": 30.1,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Vanilla Time"
-          },
-          {
-            "value": 22136.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Vanilla Tokens In"
-          },
-          {
-            "value": 22.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Skilled Time"
-          },
-          {
-            "value": 53532.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Skilled Tokens In"
-          },
-          {
-            "value": 20.8,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Plugin Time"
-          },
-          {
-            "value": 57200.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Plugin Tokens In"
-          },
-          {
-            "value": 18.7,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Vanilla Time"
-          },
-          {
-            "value": 13504.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Vanilla Tokens In"
-          },
-          {
-            "value": 24.0,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Skilled Time"
-          },
-          {
-            "value": 53519.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Skilled Tokens In"
-          },
-          {
-            "value": 23.7,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Plugin Time"
-          },
-          {
-            "value": 56697.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Plugin Tokens In"
-          },
-          {
-            "value": 24.6,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Vanilla Time"
-          },
-          {
-            "value": 16413.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Vanilla Tokens In"
-          },
-          {
-            "value": 19.7,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Skilled Time"
-          },
-          {
-            "value": 54376.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Skilled Tokens In"
-          },
-          {
-            "value": 17.3,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Plugin Time"
-          },
-          {
-            "value": 56659.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Plugin Tokens In"
-          },
-          {
-            "value": 13.5,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Vanilla Time"
-          },
-          {
-            "value": 13169.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Vanilla Tokens In"
-          },
-          {
-            "value": 20.2,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Skilled Time"
-          },
-          {
-            "value": 53667.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Skilled Tokens In"
-          },
-          {
-            "value": 18.4,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Plugin Time"
-          },
-          {
-            "value": 56788.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Plugin Tokens In"
-          },
-          {
-            "value": 27.9,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Vanilla Time"
-          },
-          {
-            "value": 13952.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Vanilla Tokens In"
-          },
-          {
-            "value": 23.5,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Skilled Time"
-          },
-          {
-            "value": 54304.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Skilled Tokens In"
-          },
-          {
-            "value": 23.6,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Plugin Time"
-          },
-          {
-            "value": 58601.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Plugin Tokens In"
-          },
-          {
-            "value": 16.2,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Vanilla Time"
-          },
-          {
-            "value": 13505.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Vanilla Tokens In"
-          },
-          {
-            "value": 18.0,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Skilled Time"
-          },
-          {
-            "value": 45051.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Skilled Tokens In"
-          },
-          {
-            "value": 14.6,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Plugin Time"
-          },
-          {
-            "value": 34599.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Plugin Tokens In"
-          },
-          {
-            "value": 16.6,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Vanilla Time"
-          },
-          {
-            "value": 13225.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Vanilla Tokens In"
-          },
-          {
-            "value": 33.3,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Skilled Time"
-          },
-          {
-            "value": 110092.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Skilled Tokens In"
-          },
-          {
-            "value": 31.4,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Plugin Time"
-          },
-          {
-            "value": 102016.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Plugin Tokens In"
-          },
-          {
-            "value": 18.6,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Vanilla Time"
-          },
-          {
-            "value": 13408.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Vanilla Tokens In"
-          },
-          {
-            "value": 24.4,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Skilled Time"
-          },
-          {
-            "value": 75879.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Skilled Tokens In"
-          },
-          {
-            "value": 22.1,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Plugin Time"
-          },
-          {
-            "value": 75403.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Plugin Tokens In"
-          },
-          {
-            "value": 24.3,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Vanilla Time"
-          },
-          {
-            "value": 14031.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Vanilla Tokens In"
-          },
-          {
-            "value": 31.1,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Skilled Time"
-          },
-          {
-            "value": 80687.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Skilled Tokens In"
-          },
-          {
-            "value": 30.2,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Plugin Time"
-          },
-          {
-            "value": 89753.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Plugin Tokens In"
-          },
-          {
-            "value": 36.7,
-            "unit": "seconds",
-            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Vanilla Time"
-          },
-          {
-            "value": 14658.0,
-            "unit": "tokens",
-            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Vanilla Tokens In"
-          }
-        ],
-        "commit": {
-          "timestamp": "2026-06-17T13:58:52+00:00",
-          "url": "https://github.com/dotnet/skills/commit/0c2b9710ee62109a3e92b4161e545174843e6ca9",
-          "message": "Fix activation for OutputType=Exe Directory.Build.props scenario (#785)",
-          "author": {
-            "name": "Amaury Levé",
-            "username": "JanKrivanek"
-          },
-          "id": "0c2b9710ee62109a3e92b4161e545174843e6ca9"
-        }
-      },
-      {
         "tool": "customSmallerIsBetter",
         "date": 1781840297626,
         "commit": {
@@ -15181,707 +13802,1388 @@
           }
         ],
         "tool": "customSmallerIsBetter"
-      }
-    ],
-    "Quality": [
+      },
       {
-        "date": 1781753428879,
-        "tool": "customBiggerIsBetter",
-        "model": "claude-opus-4.6",
         "benches": [
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Skilled Time",
+            "value": 85.9
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Skilled Tokens In",
+            "value": 180116.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Plugin Time",
+            "value": 91.8
           },
           {
-            "value": 10.0,
-            "notActivated": true,
-            "unit": "Score (0-10)",
-            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Plugin Tokens In",
+            "value": 189155.0
           },
           {
-            "value": 10.0,
-            "notActivated": true,
-            "unit": "Score (0-10)",
-            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Vanilla Time",
+            "value": 64.4
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Vanilla Tokens In",
+            "value": 92405.0
           },
           {
-            "value": 8.0,
-            "notActivated": true,
-            "unit": "Score (0-10)",
-            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Skilled Time",
+            "value": 64.5,
+            "notActivated": true
           },
           {
-            "value": 9.600000381469727,
-            "notActivated": true,
-            "unit": "Score (0-10)",
-            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Skilled Tokens In",
+            "value": 104810.0,
+            "notActivated": true
           },
           {
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Plugin Time",
+            "value": 69.3,
+            "notActivated": true
           },
           {
-            "value": 6.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Plugin Tokens In",
+            "value": 101293.0,
+            "notActivated": true
           },
           {
-            "value": 7.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Vanilla Time",
+            "value": 60.0
           },
           {
-            "value": 6.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Vanilla Tokens In",
+            "value": 87308.0
           },
           {
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Skilled Time",
+            "value": 98.7,
+            "notActivated": true
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Skilled Tokens In",
+            "value": 119950.0,
+            "notActivated": true
           },
           {
-            "value": 6.400000095367432,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Plugin Time",
+            "value": 95.5,
+            "notActivated": true
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Plugin Tokens In",
+            "value": 130705.0,
+            "notActivated": true
           },
           {
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Vanilla Time",
+            "value": 92.2
           },
           {
-            "value": 5.599999904632568,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Vanilla Tokens In",
+            "value": 105369.0
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Skilled Time",
+            "value": 129.6
           },
           {
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Skilled Tokens In",
+            "value": 225069.0
           },
           {
-            "value": 7.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Plugin Time",
+            "value": 104.5
           },
           {
-            "value": 4.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Plugin Tokens In",
+            "value": 235377.0
           },
           {
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Vanilla Time",
+            "value": 49.2
           },
           {
-            "value": 6.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Vanilla Tokens In",
+            "value": 42450.0
           },
           {
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Skilled Time",
+            "value": 41.1
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Skilled Tokens In",
+            "value": 50322.0
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Plugin Time",
+            "value": 35.2
           },
           {
-            "value": 3.5999999046325684,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Plugin Tokens In",
+            "value": 46494.0
           },
           {
-            "value": 7.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Vanilla Time",
+            "value": 45.4
           },
           {
-            "value": 2.799999952316284,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Vanilla Tokens In",
+            "value": 17000.0
           },
           {
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Skilled Time",
+            "value": 164.9
           },
           {
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Skilled Tokens In",
+            "value": 461578.0
           },
           {
-            "value": 6.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Plugin Time",
+            "value": 145.1
           },
           {
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Plugin Tokens In",
+            "value": 377712.0
           },
           {
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Vanilla Time",
+            "value": 102.1
           },
           {
-            "value": 7.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Vanilla Tokens In",
+            "value": 174270.0
           },
           {
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Skilled Time",
+            "value": 68.6
           },
           {
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Skilled Tokens In",
+            "value": 199513.0
           },
           {
-            "value": 6.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Plugin Time",
+            "value": 64.1
           },
           {
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Plugin Tokens In",
+            "value": 174994.0
           },
           {
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Vanilla Time",
+            "value": 56.9
           },
           {
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Vanilla Tokens In",
+            "value": 104442.0
           },
           {
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Skilled Time",
+            "value": 93.2
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Skilled Tokens In",
+            "value": 228859.0
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Plugin Time",
+            "value": 131.3
           },
           {
-            "value": 4.0,
-            "unit": "Score (0-10)",
-            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Skilled Quality",
-            "timedOut": true
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Plugin Tokens In",
+            "value": 352413.0
           },
           {
-            "value": 7.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Plugin Quality",
-            "timedOut": true
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Vanilla Time",
+            "value": 70.9
           },
           {
-            "value": 2.799999952316284,
-            "unit": "Score (0-10)",
-            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Vanilla Tokens In",
+            "value": 117179.0
           },
           {
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Skilled Time",
+            "value": 119.5
           },
           {
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Skilled Tokens In",
+            "value": 246325.0
           },
           {
-            "value": 7.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Plugin Time",
+            "value": 96.7
           },
           {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Plugin Tokens In",
+            "value": 255262.0
           },
           {
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Vanilla Time",
+            "value": 99.7
           },
           {
-            "value": 6.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Vanilla Tokens In",
+            "value": 158119.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Skilled Time",
+            "value": 31.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Skilled Tokens In",
+            "value": 38393.0
           },
           {
-            "value": 7.599999904632568,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Plugin Time",
+            "value": 40.0
           },
           {
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Plugin Tokens In",
+            "value": 79707.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Vanilla Time",
+            "value": 32.9
           },
           {
-            "value": 6.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Vanilla Tokens In",
+            "value": 46654.0
           },
           {
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Skilled Time",
+            "value": 111.6
           },
           {
-            "value": 7.599999904632568,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Skilled Tokens In",
+            "value": 265347.0
           },
           {
-            "value": 7.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Plugin Time",
+            "value": 88.8
           },
           {
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Plugin Tokens In",
+            "value": 225134.0
           },
           {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Vanilla Time",
+            "value": 109.7
           },
           {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Vanilla Tokens In",
+            "value": 192583.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Skilled Time",
+            "value": 43.1
           },
           {
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Skilled Tokens In",
+            "value": 94263.0
           },
           {
-            "value": 5.599999904632568,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Plugin Time",
+            "value": 45.8
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Plugin Tokens In",
+            "value": 119131.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Vanilla Time",
+            "value": 37.6
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Vanilla Tokens In",
+            "value": 56063.0
           },
           {
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Skilled Time",
+            "value": 90.6
           },
           {
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Skilled Tokens In",
+            "value": 203550.0
           },
           {
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Plugin Time",
+            "value": 84.9
           },
           {
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Plugin Tokens In",
+            "value": 216521.0
           },
           {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Vanilla Time",
+            "value": 115.2
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Vanilla Tokens In",
+            "value": 248789.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Skilled Time",
+            "value": 78.4
           },
           {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Skilled Tokens In",
+            "value": 295853.0
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Plugin Time",
+            "value": 55.9
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Plugin Tokens In",
+            "value": 202502.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Vanilla Time",
+            "value": 30.7
           },
           {
-            "value": 7.599999904632568,
-            "unit": "Score (0-10)",
-            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Vanilla Tokens In",
+            "value": 59690.0
           },
           {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Skilled Time",
+            "value": 46.7
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Skilled Tokens In",
+            "value": 108552.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Plugin Time",
+            "value": 44.8
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Plugin Tokens In",
+            "value": 122667.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Vanilla Time",
+            "value": 41.7
           },
           {
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Vanilla Tokens In",
+            "value": 68519.0
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Skilled Quality"
+            "unit": "seconds",
+            "timedOut": true,
+            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Skilled Time",
+            "value": 1024.6
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Plugin Quality"
+            "unit": "tokens",
+            "timedOut": true,
+            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Skilled Tokens In",
+            "value": 4306996.0
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Vanilla Quality"
+            "unit": "seconds",
+            "timedOut": true,
+            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Plugin Time",
+            "value": 1015.3
           },
           {
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Skilled Quality"
+            "unit": "tokens",
+            "timedOut": true,
+            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Plugin Tokens In",
+            "value": 4579233.0
           },
           {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Plugin Quality"
+            "unit": "seconds",
+            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Vanilla Time",
+            "value": 732.5
           },
           {
-            "value": 6.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Vanilla Quality"
+            "unit": "tokens",
+            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Vanilla Tokens In",
+            "value": 4125334.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Skilled Time",
+            "value": 20.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Skilled Tokens In",
+            "value": 50641.0
           },
           {
-            "value": 4.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Plugin Time",
+            "value": 19.4
           },
           {
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Plugin Tokens In",
+            "value": 54230.0
           },
           {
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Vanilla Time",
+            "value": 95.8
           },
           {
-            "value": 5.599999904632568,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Vanilla Tokens In",
+            "value": 395290.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Skilled Time",
+            "value": 21.2
           },
           {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Skilled Tokens In",
+            "value": 62345.0
           },
           {
-            "value": 6.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Plugin Time",
+            "value": 19.4
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Plugin Tokens In",
+            "value": 66432.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Vanilla Time",
+            "value": 32.2
           },
           {
-            "value": 6.400000095367432,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Vanilla Tokens In",
+            "value": 14140.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Skilled Time",
+            "value": 20.7
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Skilled Tokens In",
+            "value": 50464.0
           },
           {
-            "value": 6.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Plugin Time",
+            "value": 19.0
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Plugin Tokens In",
+            "value": 54142.0
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Vanilla Time",
+            "value": 15.5
           },
           {
-            "value": 6.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Vanilla Tokens In",
+            "value": 13251.0
           },
           {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Skilled Time",
+            "value": 18.7
           },
           {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Skilled Tokens In",
+            "value": 35170.0
           },
           {
-            "value": 4.400000095367432,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Plugin Time",
+            "value": 18.7
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Plugin Tokens In",
+            "value": 53078.0
           },
           {
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Vanilla Time",
+            "value": 13.0
           },
           {
-            "value": 4.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Vanilla Tokens In",
+            "value": 12888.0
           },
           {
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Skilled Time",
+            "value": 19.0
           },
           {
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Skilled Tokens In",
+            "value": 49261.0
           },
           {
-            "value": 6.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Plugin Time",
+            "value": 17.6
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Plugin Tokens In",
+            "value": 36918.0
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Vanilla Time",
+            "value": 23.2
           },
           {
-            "value": 4.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Vanilla Tokens In",
+            "value": 13436.0
           },
           {
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Skilled Time",
+            "value": 13.2
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Skilled Tokens In",
+            "value": 30590.0
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Plugin Time",
+            "value": 13.5
           },
           {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Skilled Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Plugin Tokens In",
+            "value": 32935.0
           },
           {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Plugin Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Vanilla Time",
+            "value": 7.2
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Vanilla Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Vanilla Tokens In",
+            "value": 12711.0
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Skilled Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Skilled Time",
+            "value": 20.7
           },
           {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Plugin Quality"
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Skilled Tokens In",
+            "value": 61477.0
           },
           {
-            "value": 6.0,
-            "unit": "Score (0-10)",
-            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Vanilla Quality"
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Plugin Time",
+            "value": 18.1
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Plugin Tokens In",
+            "value": 62168.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Vanilla Time",
+            "value": 39.3
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Vanilla Tokens In",
+            "value": 14387.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Skilled Time",
+            "value": 32.2
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Skilled Tokens In",
+            "value": 37518.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Plugin Time",
+            "value": 29.7
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Plugin Tokens In",
+            "value": 36845.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Vanilla Time",
+            "value": 24.1
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Vanilla Tokens In",
+            "value": 13769.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Skilled Time",
+            "value": 25.3
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Skilled Tokens In",
+            "value": 30274.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Plugin Time",
+            "value": 24.6
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Plugin Tokens In",
+            "value": 32714.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Vanilla Time",
+            "value": 20.8
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Vanilla Tokens In",
+            "value": 13511.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Skilled Time",
+            "value": 32.9
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Skilled Tokens In",
+            "value": 34265.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Plugin Time",
+            "value": 28.5
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Plugin Tokens In",
+            "value": 33159.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Vanilla Time",
+            "value": 25.1
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Vanilla Tokens In",
+            "value": 13787.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Skilled Time",
+            "value": 26.7
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Skilled Tokens In",
+            "value": 33797.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Plugin Time",
+            "value": 23.9
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Plugin Tokens In",
+            "value": 32908.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Vanilla Time",
+            "value": 22.1
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Vanilla Tokens In",
+            "value": 13637.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Skilled Time",
+            "value": 13.4
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Skilled Tokens In",
+            "value": 22969.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Plugin Time",
+            "value": 11.7
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Plugin Tokens In",
+            "value": 32030.0
+          },
+          {
+            "unit": "seconds",
+            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Vanilla Time",
+            "value": 11.6
+          },
+          {
+            "unit": "tokens",
+            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Vanilla Tokens In",
+            "value": 12947.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Skilled Time",
+            "value": 27.5
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Skilled Tokens In",
+            "value": 75314.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Plugin Time",
+            "value": 28.7
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Plugin Tokens In",
+            "value": 93289.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Vanilla Time",
+            "value": 23.2
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Vanilla Tokens In",
+            "value": 50476.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Skilled Time",
+            "value": 29.5
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Skilled Tokens In",
+            "value": 100010.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Plugin Time",
+            "value": 25.7
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Plugin Tokens In",
+            "value": 96947.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Vanilla Time",
+            "value": 45.6
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Vanilla Tokens In",
+            "value": 14762.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Skilled Time",
+            "value": 26.9
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Skilled Tokens In",
+            "value": 71553.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Plugin Time",
+            "value": 24.0
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Plugin Tokens In",
+            "value": 79959.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Vanilla Time",
+            "value": 19.1
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Vanilla Tokens In",
+            "value": 13342.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Skilled Time",
+            "value": 25.9
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Skilled Tokens In",
+            "value": 75976.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Plugin Time",
+            "value": 23.4
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Plugin Tokens In",
+            "value": 75314.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Vanilla Time",
+            "value": 16.9
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Vanilla Tokens In",
+            "value": 13699.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Skilled Time",
+            "value": 19.3
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Skilled Tokens In",
+            "value": 54112.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Plugin Time",
+            "value": 19.3
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Plugin Tokens In",
+            "value": 57304.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Vanilla Time",
+            "value": 14.3
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Vanilla Tokens In",
+            "value": 13044.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Skilled Time",
+            "value": 21.3
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Skilled Tokens In",
+            "value": 55408.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Plugin Time",
+            "value": 21.6
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Plugin Tokens In",
+            "value": 58535.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Vanilla Time",
+            "value": 27.2
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Vanilla Tokens In",
+            "value": 29080.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Skilled Time",
+            "value": 24.8
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Skilled Tokens In",
+            "value": 87859.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Plugin Time",
+            "value": 24.6
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Plugin Tokens In",
+            "value": 86818.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Vanilla Time",
+            "value": 13.8
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Vanilla Tokens In",
+            "value": 20501.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Skilled Time",
+            "value": 21.5
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Skilled Tokens In",
+            "value": 53799.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Plugin Time",
+            "value": 21.2
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Plugin Tokens In",
+            "value": 56910.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Vanilla Time",
+            "value": 32.0
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Vanilla Tokens In",
+            "value": 25714.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Skilled Time",
+            "value": 21.7
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Skilled Tokens In",
+            "value": 53425.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Plugin Time",
+            "value": 21.3
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Plugin Tokens In",
+            "value": 57184.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Vanilla Time",
+            "value": 23.3
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Vanilla Tokens In",
+            "value": 24407.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Skilled Time",
+            "value": 24.2
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Skilled Tokens In",
+            "value": 53436.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Plugin Time",
+            "value": 24.0
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Plugin Tokens In",
+            "value": 56659.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Vanilla Time",
+            "value": 26.4
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Vanilla Tokens In",
+            "value": 31137.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Skilled Time",
+            "value": 21.9
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Skilled Tokens In",
+            "value": 59237.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Plugin Time",
+            "value": 18.0
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Plugin Tokens In",
+            "value": 56543.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Vanilla Time",
+            "value": 13.7
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Vanilla Tokens In",
+            "value": 13131.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Skilled Time",
+            "value": 19.7
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Skilled Tokens In",
+            "value": 53595.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Plugin Time",
+            "value": 19.2
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Plugin Tokens In",
+            "value": 56726.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Vanilla Time",
+            "value": 26.1
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Vanilla Tokens In",
+            "value": 13853.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Skilled Time",
+            "value": 22.5
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Skilled Tokens In",
+            "value": 53934.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Plugin Time",
+            "value": 24.3
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Plugin Tokens In",
+            "value": 58287.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Vanilla Time",
+            "value": 16.6
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Vanilla Tokens In",
+            "value": 13485.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Skilled Time",
+            "value": 15.9
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Skilled Tokens In",
+            "value": 40475.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Plugin Time",
+            "value": 13.9
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Plugin Tokens In",
+            "value": 34541.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Vanilla Time",
+            "value": 16.0
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Vanilla Tokens In",
+            "value": 13223.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Skilled Time",
+            "value": 34.0
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Skilled Tokens In",
+            "value": 104916.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Plugin Time",
+            "value": 29.3
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Plugin Tokens In",
+            "value": 91385.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Vanilla Time",
+            "value": 15.0
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Vanilla Tokens In",
+            "value": 13121.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Skilled Time",
+            "value": 24.4
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Skilled Tokens In",
+            "value": 63349.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Plugin Time",
+            "value": 23.4
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Plugin Tokens In",
+            "value": 75328.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Vanilla Time",
+            "value": 23.9
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Vanilla Tokens In",
+            "value": 13943.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Skilled Time",
+            "value": 31.3
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Skilled Tokens In",
+            "value": 89797.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Plugin Time",
+            "value": 31.5
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Plugin Tokens In",
+            "value": 84241.0
+          },
+          {
+            "unit": "seconds",
+            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Vanilla Time",
+            "value": 27.7
+          },
+          {
+            "unit": "tokens",
+            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Vanilla Tokens In",
+            "value": 14147.0
           }
         ],
+        "date": 1783045436601,
+        "tool": "customSmallerIsBetter",
+        "model": "claude-opus-4.6",
         "commit": {
-          "timestamp": "2026-06-17T13:58:52+00:00",
-          "url": "https://github.com/dotnet/skills/commit/0c2b9710ee62109a3e92b4161e545174843e6ca9",
-          "message": "Fix activation for OutputType=Exe Directory.Build.props scenario (#785)",
+          "timestamp": "2026-07-01T15:09:04+00:00",
+          "id": "ce75c355694bb358162464058081121645767d6f",
           "author": {
             "name": "Amaury Levé",
             "username": "JanKrivanek"
           },
-          "id": "0c2b9710ee62109a3e92b4161e545174843e6ca9"
+          "url": "https://github.com/dotnet/skills/commit/ce75c355694bb358162464058081121645767d6f",
+          "message": "dotnet-test: raise timeouts for chronic-timeout eval scenarios (#850)"
         }
-      },
+      }
+    ],
+    "Quality": [
       {
         "tool": "customBiggerIsBetter",
         "date": 1781840297626,
@@ -22867,9 +22169,707 @@
           }
         ],
         "tool": "customBiggerIsBetter"
+      },
+      {
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-nullable-references/Enable NRT in a small library with mixed nullability - Vanilla Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Skilled Quality",
+            "value": 10.0,
+            "notActivated": true
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Plugin Quality",
+            "value": 10.0,
+            "notActivated": true
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-nullable-references/File-by-file migration: only modify the targeted file - Vanilla Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Skilled Quality",
+            "value": 8.0,
+            "notActivated": true
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Plugin Quality",
+            "value": 7.599999904632568,
+            "notActivated": true
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-nullable-references/Enable NRT in ASP.NET Core Web API with EF Core - Vanilla Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Skilled Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Plugin Quality",
+            "value": 7.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/App with empty environment variables, ZIP encoding, and keyed DI services - Vanilla Quality",
+            "value": 6.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Skilled Quality",
+            "value": 8.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Plugin Quality",
+            "value": 8.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/C# 13 compiler breaking changes — InlineArray on record, iterator safe context, collection expressions - Vanilla Quality",
+            "value": 6.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Skilled Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Plugin Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/ASP.NET Core app with DI validation, forwarded headers, and HttpClientFactory casting - Vanilla Quality",
+            "value": 4.400000095367432
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Skilled Quality",
+            "value": 8.399999618530273
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Plugin Quality",
+            "value": 8.399999618530273
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core app with migration patterns and Cosmos DB discriminator - Vanilla Quality",
+            "value": 7.599999904632568
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Skilled Quality",
+            "value": 6.400000095367432
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Plugin Quality",
+            "value": 8.399999618530273
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with existing documents and composite id format - Vanilla Quality",
+            "value": 4.400000095367432
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Plugin Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/App with JsonDocument null deserialization and BinaryFormatter fallback - Vanilla Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Skilled Quality",
+            "value": 4.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Plugin Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/CI pipeline with Terminal Logger parsing and version constraints - Vanilla Quality",
+            "value": 4.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Skilled Quality",
+            "value": 8.399999618530273
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Plugin Quality",
+            "value": 9.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/WinForms app with custom UserControls and PictureBox URL loading - Vanilla Quality",
+            "value": 7.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Skilled Quality",
+            "value": 9.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Plugin Quality",
+            "value": 9.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with zlib dependency and runtime configuration - Vanilla Quality",
+            "value": 7.599999904632568
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Skilled Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Plugin Quality",
+            "value": 8.399999618530273
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/EF Core Cosmos DB app with discriminator and sync I/O - Vanilla Quality",
+            "value": 7.599999904632568
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Skilled Quality",
+            "value": 8.399999618530273
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Plugin Quality",
+            "value": 8.399999618530273
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/Library with String.Trim span overload, keyed services, and InlineArray - Vanilla Quality",
+            "value": 9.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Skilled Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Plugin Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet8-to-dotnet9/Containerized app with env var precedence reversal and zlib removal - Vanilla Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "timedOut": true,
+            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Skilled Quality",
+            "value": 5.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "timedOut": true,
+            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Plugin Quality",
+            "value": 4.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "dotnet-aot-compat/Make Azure.ResourceManager AOT-compatible - Vanilla Quality",
+            "value": 3.200000047683716
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Skilled Quality",
+            "value": 8.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Plugin Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/Console app with compression and TAR operations - Vanilla Quality",
+            "value": 5.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Skilled Quality",
+            "value": 9.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Plugin Quality",
+            "value": 9.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 compiler breaking changes — Span safe-context, nameof, with() - Vanilla Quality",
+            "value": 6.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/EF Core app with Cosmos DB provider using sync APIs - Vanilla Quality",
+            "value": 7.599999904632568
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Skilled Quality",
+            "value": 8.399999618530273
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/Deployment to older hardware with minimum requirement changes - Vanilla Quality",
+            "value": 7.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Skilled Quality",
+            "value": 8.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Plugin Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/Cryptography app using DSA on macOS - Vanilla Quality",
+            "value": 7.599999904632568
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Skilled Quality",
+            "value": 8.399999618530273
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Plugin Quality",
+            "value": 9.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/Basic TFM update with Docker and global.json - Vanilla Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Plugin Quality",
+            "value": 8.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet10-to-dotnet11/C# 15 dynamic operator and ref readonly delegate issues - Vanilla Quality",
+            "value": 6.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/Worker thread with abort-based cancellation - Vanilla Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Plugin Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/Timeout enforcement via Thread.Abort - Vanilla Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Plugin Quality",
+            "value": 9.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/Blocking WaitHandle with Thread.Interrupt - Vanilla Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/ASP.NET Response.End and Response.Redirect with Thread.Abort - Vanilla Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "thread-abort-migration/Thread.Join and Thread.Sleep only — should not migrate - Vanilla Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Skilled Quality",
+            "value": 8.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Plugin Quality",
+            "value": 9.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Console app with System.Linq.Async, SIGTERM, and BufferedStream - Vanilla Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Skilled Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Expression tree code broken by C# 14 span overload resolution - Vanilla Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Skilled Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Plugin Quality",
+            "value": 8.399999618530273
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with WebHostBuilder, OpenAPI, and forwarded headers - Vanilla Quality",
+            "value": 6.400000095367432
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Skilled Quality",
+            "value": 8.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Plugin Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/ASP.NET Core app with OpenAPI transformers using Microsoft.OpenApi v1 APIs - Vanilla Quality",
+            "value": 6.400000095367432
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Skilled Quality",
+            "value": 8.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with Azure SQL JSON columns and parameterized collections - Vanilla Quality",
+            "value": 4.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Skilled Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Plugin Quality",
+            "value": 8.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/EF Core app with dynamic ExecuteUpdate and complex types - Vanilla Quality",
+            "value": 6.400000095367432
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Plugin Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/SQLite app with DateTimeOffset timezone handling - Vanilla Quality",
+            "value": 5.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Worker service with config null array binding and ProviderAlias assembly change - Vanilla Quality",
+            "value": 6.400000095367432
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Skilled Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Cryptography app with OpenSSL, X.509, and Rfc2898DeriveBytes - Vanilla Quality",
+            "value": 6.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Skilled Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Plugin Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/SDK and NuGet obscure tooling changes - Vanilla Quality",
+            "value": 6.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/JSON polymorphism with conflicting property names and XmlSerializer - Vanilla Quality",
+            "value": 4.400000095367432
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Skilled Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Plugin Quality",
+            "value": 8.800000190734863
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/WinForms and WPF desktop app with System.Drawing and DynamicResource - Vanilla Quality",
+            "value": 4.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Skilled Quality",
+            "value": 9.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Containerized single-file app with P/Invoke and IDispatchEx - Vanilla Quality",
+            "value": 6.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/App using SslStream properties and SystemEvents - Vanilla Quality",
+            "value": 4.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Skilled Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Library with NuGet auditing, transitive deps, and InlineArray - Vanilla Quality",
+            "value": 7.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Skilled Quality",
+            "value": 9.600000381469727
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/C# 14 compiler breaking changes — field keyword, extension keyword, disposal - Vanilla Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Skilled Quality",
+            "value": 7.199999809265137
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Plugin Quality",
+            "value": 8.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "migrate-dotnet9-to-dotnet10/Blazor WASM app with generic math shift masking and tar operations - Vanilla Quality",
+            "value": 5.199999809265137
+          }
+        ],
+        "date": 1783045436601,
+        "tool": "customBiggerIsBetter",
+        "model": "claude-opus-4.6",
+        "commit": {
+          "timestamp": "2026-07-01T15:09:04+00:00",
+          "id": "ce75c355694bb358162464058081121645767d6f",
+          "author": {
+            "name": "Amaury Levé",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/ce75c355694bb358162464058081121645767d6f",
+          "message": "dotnet-test: raise timeouts for chronic-timeout eval scenarios (#850)"
+        }
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1782960024667
+  "lastUpdate": 1783045436601
 }
