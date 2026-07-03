@@ -124,8 +124,16 @@ script errors or emits nothing, fall back to reading the reference doc and
 scanning by hand (graceful degradation). See `references/detection-scripts.md`
 for the exact contract.
 
-If no agentic app is detected, abort and tell the user this skill does not
-apply. Do not attempt to audit a non-agentic .NET project.
+Only abort if the project has **no agent/AI surface at all** — no Aspire
+AppHost, no `Microsoft.Agents.AI` / `ChatClientAgent`, and no `IChatClient` or
+OpenAI/Foundry client anywhere. An Aspire AppHost that orchestrates services, or
+any file that wires an `IChatClient` or agent, is in scope — proceed and run the
+checks (the OTel-coverage, topology, and model-assignment categories all apply to
+an Aspire app even before you open a service file). **Do not refuse to analyze a
+project just because it does not reference `Microsoft.Agents.AI` specifically** —
+plain `IChatClient` / Azure OpenAI / Foundry apps are supported topologies. Only
+a genuinely non-AI .NET project (no AI clients, no agents, no Aspire) is out of
+scope.
 
 ### 2. Run the seven check classes
 
@@ -147,11 +155,13 @@ reference doc only to confirm a specific candidate finding.
 
 For each check, record any findings with the schema in step 3.
 
-Categories 1 (topology), 6 (OTel coverage), and 7 (model assignment) are seeded
-by the detection scripts run in step 1 — read the parsed JSON, then confirm each
-candidate against its reference doc. The remaining categories are evaluated by
-inspecting the cited sources directly; consult their `references/` doc only when
-a candidate finding needs confirmation.
+Categories 1 (topology), 6 (OTel coverage), and 7 (model assignment) can be
+seeded by the detection scripts **if you ran them** (large apps) — read the
+parsed JSON, then confirm each candidate against its reference doc. **On a small
+app you skipped the scripts**, so evaluate these three the same way as the rest:
+by reading the source directly. All remaining categories are evaluated by
+inspecting the cited sources directly; consult a `references/` doc only when a
+candidate finding needs confirmation.
 
 ### 3. Finding schema
 
