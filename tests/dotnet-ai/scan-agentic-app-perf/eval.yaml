@@ -13,23 +13,27 @@ scenarios:
         - path: fixture/MyApp.AppHost/Program.cs
           content: |
             var builder = DistributedApplication.CreateBuilder(args);
-            builder.AddServiceDefaults();
             var openai = builder.AddConnectionString("openai");
             builder.AddProject<Projects.MyApp_Coach>("coach")
-                   .WithReference(openai);
+                   .WithReference(openai)
+                   .WaitFor(openai);
             builder.Build().Run();
         - path: fixture/MyApp.Coach/Program.cs
           content: |
             var builder = WebApplication.CreateBuilder(args);
             builder.AddServiceDefaults();
-            builder.Services.AddOpenTelemetry();
+            builder.AddAzureOpenAIClient("openai");
             builder.Services.AddSingleton<IChatClient>(sp =>
-                new ChatClient(model: builder.Configuration["Model"], apiKey: "..."));
+                sp.GetRequiredService<AzureOpenAIClient>()
+                  .GetChatClient(builder.Configuration["Model"])
+                  .AsIChatClient());
             builder.Services.AddSingleton(sp => new ChatClientAgent(
                 sp.GetRequiredService<IChatClient>(),
                 instructions: "You are a concise coach."));
             var app = builder.Build();
             app.MapDefaultEndpoints();
+            app.MapPost("/chat", async (ChatClientAgent agent, string message) =>
+                await agent.RunAsync(message));
             app.Run();
         - path: fixture/MyApp.Coach/appsettings.json
           content: |
