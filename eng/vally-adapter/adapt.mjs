@@ -18,7 +18,7 @@
  *      mean preference > 0 with its 95% CI entirely above 0.
  *
  * Usage:
- *   node adapt.mjs --experiment-dir <run-dir> --output-root <dir> \
+ *   node adapt.mjs --experiment-dir <run-dir> [--output-root <dir>] \
  *     [--vally "<cmd>"] [--judge-model <model>] [--model <model>]
  */
 
@@ -35,7 +35,7 @@ import { parseArgs } from "node:util";
 const { values: opts } = parseArgs({
   options: {
     "experiment-dir": { type: "string" },
-    "output-root": { type: "string" },
+    "output-root": { type: "string", default: "vally-results" },
     "baseline-variant": { type: "string", default: "baseline" },
     "skilled-variant": { type: "string", default: "skilled" },
     // The vally CLI invocation used to run `compare` (may be multi-token, e.g.
@@ -50,7 +50,7 @@ const { values: opts } = parseArgs({
 
 if (opts.help || !opts["experiment-dir"]) {
   console.log(`Usage:
-  node adapt.mjs --experiment-dir <run-dir> --output-root <dir> [options]
+  node adapt.mjs --experiment-dir <run-dir> [--output-root <dir>] [options]
 
 Splits a 'vally experiment run' output by eval file, runs 'vally compare' per
 eval (baseline vs skilled), and writes the per-skill results.json each verdict.
@@ -225,7 +225,7 @@ function verdictSummaryLine(v) {
 
 function main() {
   const runDir = resolve(opts["experiment-dir"]);
-  const outputRoot = resolve(opts["output-root"] ?? "vally-results");
+  const outputRoot = resolve(opts["output-root"]);
   const baselineFile = join(runDir, opts["baseline-variant"], "results.jsonl");
   const skilledFile = join(runDir, opts["skilled-variant"], "results.jsonl");
 
