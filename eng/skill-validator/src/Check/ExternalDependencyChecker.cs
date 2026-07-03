@@ -147,28 +147,40 @@ public static partial class ExternalDependencyChecker
 
     /// <summary>
     /// A capability an agent can grant through its <c>tools:</c> list, together
-    /// with the tool names each supported host uses to expose it. Every host
-    /// (Copilot CLI / VS Code, Claude Code, Gemini CLI) matches tool names by
-    /// exact spelling, so an agent that lists only one host's spelling silently
-    /// loses the capability on the others. A host with an empty list has no
-    /// <c>tools:</c>-level spelling for the capability and is not required.
+    /// with the tool names each supported host uses to expose it. Each host's
+    /// array holds interchangeable spellings for the <em>same</em> capability
+    /// (any one suffices on that host) — complementary tools that do different
+    /// things belong to separate capabilities. Every host (Copilot CLI / VS Code,
+    /// Claude Code, Gemini CLI) matches tool names by exact spelling, so an agent
+    /// that lists only one host's spelling silently loses the capability on the
+    /// others. A host with an empty list has no <c>tools:</c>-level spelling for
+    /// the capability and is not required.
     /// </summary>
     private sealed record ToolCapability(string Name, string[] CopilotCli, string[] ClaudeCode, string[] GeminiCli);
 
     /// <summary>
-    /// Cross-host tool-name equivalences. Only capabilities whose host spellings
-    /// actually differ are listed — names that are identical modulo case
-    /// (e.g. <c>read</c>/<c>Read</c>, <c>bash</c>/<c>Bash</c>) still need every
-    /// spelling because the hosts match case-sensitively. "invoke subagents" and
-    /// "invoke skills" have no Gemini CLI <c>tools:</c> entry (Gemini delegates
-    /// via <c>@agent</c> and loads skills implicitly), so their Gemini list is
-    /// empty and not enforced.
+    /// Cross-host tool-name equivalences. Each entry is an <em>atomic</em>
+    /// capability: a host's list holds only interchangeable spellings for that
+    /// one capability, so "any present" correctly means the host can perform it.
+    /// Where one host exposes a capability through a single broad tool while
+    /// another splits it in two, the capability is split to match the finer
+    /// granularity — e.g. the Copilot CLI's single <c>search</c> covers both
+    /// "find files" and "search file contents", which Claude Code and Gemini CLI
+    /// expose as separate tools (<c>Glob</c>/<c>Grep</c>, <c>glob</c>/
+    /// <c>grep_search</c>). This lets the check flag a partial declaration such
+    /// as <c>Glob</c> without <c>Grep</c>. Names identical modulo case
+    /// (e.g. <c>read</c>/<c>Read</c>) still need every spelling because the hosts
+    /// match case-sensitively. "invoke subagents" and "invoke skills" have no
+    /// Gemini CLI <c>tools:</c> entry (Gemini delegates via <c>@agent</c> and
+    /// loads skills implicitly), so their Gemini list is empty and not enforced.
     /// </summary>
     private static readonly ToolCapability[] ToolCapabilities =
     [
         new("read files", ["read"], ["Read"], ["read_file"]),
-        new("modify files", ["edit", "create"], ["Edit", "Write"], ["replace", "write_file"]),
-        new("search", ["search"], ["Glob", "Grep"], ["glob", "grep_search"]),
+        new("edit files", ["edit"], ["Edit"], ["replace"]),
+        new("create files", ["create", "edit"], ["Write"], ["write_file"]),
+        new("find files", ["search"], ["Glob"], ["glob"]),
+        new("search file contents", ["search"], ["Grep"], ["grep_search"]),
         new("run commands", ["execute"], ["Bash"], ["run_shell_command"]),
         new("invoke subagents", ["agent"], ["Task"], []),
         new("invoke skills", ["skill"], ["Skill"], []),

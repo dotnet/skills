@@ -277,7 +277,8 @@ public class ExternalDependencyCheckerTests
         var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
 
         Assert.Contains(findings, f => f.Contains("read files") && f.Contains("Read") && f.Contains("read_file"));
-        Assert.Contains(findings, f => f.Contains("search") && f.Contains("Glob") && f.Contains("grep_search"));
+        Assert.Contains(findings, f => f.Contains("find files") && f.Contains("Glob") && f.Contains("glob"));
+        Assert.Contains(findings, f => f.Contains("search file contents") && f.Contains("Grep") && f.Contains("grep_search"));
         Assert.Contains(findings, f => f.Contains("run commands") && f.Contains("Bash") && f.Contains("run_shell_command"));
     }
 
@@ -288,9 +289,28 @@ public class ExternalDependencyCheckerTests
 
         var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
 
-        Assert.Contains(findings, f => f.Contains("search") && f.Contains("not the Copilot CLI / VS Code") && f.Contains("search") && f.Contains("glob, grep_search"));
+        Assert.Contains(findings, f => f.Contains("find files") && f.Contains("not the Copilot CLI / VS Code") && f.Contains("search") && f.Contains("glob"));
+        Assert.Contains(findings, f => f.Contains("search file contents") && f.Contains("search") && f.Contains("grep_search"));
         Assert.Contains(findings, f => f.Contains("run commands") && f.Contains("execute") && f.Contains("run_shell_command"));
-        Assert.Contains(findings, f => f.Contains("modify files") && f.Contains("edit, create") && f.Contains("replace, write_file"));
+        Assert.Contains(findings, f => f.Contains("create files") && f.Contains("create, edit") && f.Contains("write_file"));
+    }
+
+    [Fact]
+    public void AgentPortability_PartialClaudeSearch_FlagsMissingContentSearch()
+    {
+        // Glob (file-name search) present, but Grep (content search) missing —
+        // the atomic "search file contents" capability must still be flagged.
+        var agent = MakeAgent(tools: new[]
+        {
+            "search", "Glob", "glob",
+            "read", "Read", "read_file"
+        });
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
+
+        Assert.Contains(findings, f => f.Contains("search file contents") && f.Contains("Grep") && f.Contains("grep_search"));
+        Assert.DoesNotContain(findings, f => f.Contains("find files"));
+        Assert.DoesNotContain(findings, f => f.Contains("read files"));
     }
 
     [Fact]
@@ -301,7 +321,8 @@ public class ExternalDependencyCheckerTests
         var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
 
         Assert.Contains(findings, f => f.Contains("read files") && f.Contains("not Gemini CLI") && f.Contains("read_file"));
-        Assert.Contains(findings, f => f.Contains("modify files") && f.Contains("replace, write_file for Gemini CLI"));
+        Assert.Contains(findings, f => f.Contains("edit files") && f.Contains("replace for Gemini CLI"));
+        Assert.Contains(findings, f => f.Contains("create files") && f.Contains("write_file for Gemini CLI"));
     }
 
     [Fact]
@@ -332,7 +353,8 @@ public class ExternalDependencyCheckerTests
         var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "agent-tool-portability:test-agent:read files",
-            "agent-tool-portability:test-agent:modify files"
+            "agent-tool-portability:test-agent:edit files",
+            "agent-tool-portability:test-agent:create files"
         };
 
         var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent, allowed);
