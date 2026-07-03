@@ -18,6 +18,13 @@ public static partial class ExternalDependencyChecker
         "read", "search", "edit", "create", "task", "skill", "web_search", "web_fetch",
         "ask_user", "bash", "powershell", "grep", "glob", "view", "sql",
         "report_intent", "store_memory", "fetch_copilot_cli_documentation",
+        // Cross-harness spellings that are not case-insensitive matches of the
+        // names above: "agent" is the Copilot CLI / VS Code subagent fan-out
+        // tool (Claude Code spells it "task"); "write" is the Claude Code
+        // file-creation tool (the Copilot CLI / VS Code spelling is "create");
+        // "execute" is the Copilot CLI / VS Code run-command tool (Claude Code
+        // spells it "bash").
+        "agent", "write", "execute",
     };
 
     private static readonly HashSet<string> ScriptExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -127,6 +134,75 @@ public static partial class ExternalDependencyChecker
                         findings.Add($"Non-built-in tool '{tool}' in tools list — review needed: verify this tool is intentional and available in the target environment. (allow: {key})");
                 }
             }
+        }
+
+        return findings;
+    }
+
+    /// <summary>
+    /// A capability an agent can grant through its <c>tools:</c> list, together
+    /// with the tool names each supported host uses to expose it. The Copilot
+    /// CLI / VS Code and Claude Code both match tool names by exact spelling, so
+    /// an agent that lists only one host's spelling silently loses the
+    /// capability on the other host.
+    /// </summary>
+    private sealed record ToolCapability(string Name, string[] CopilotCli, string[] ClaudeCode);
+
+    /// <summary>
+    /// Cross-host tool-name equivalences. Only capabilities whose host spellings
+    /// actually differ are listed — names that are identical modulo case
+    /// (e.g. <c>read</c>/<c>Read</c>, <c>bash</c>/<c>Bash</c>) still need both
+    /// spellings because the hosts match case-sensitively.
+    /// </summary>
+    private static readonly ToolCapability[] ToolCapabilities =
+    [
+        new("read files", ["read"], ["Read"]),
+        new("modify files", ["edit", "create"], ["Edit", "Write"]),
+        new("search", ["search"], ["Glob", "Grep"]),
+        new("run commands", ["execute"], ["Bash"]),
+        new("invoke subagents", ["agent"], ["Task"]),
+        new("invoke skills", ["skill"], ["Skill"]),
+    ];
+
+    /// <summary>
+    /// Check that an agent's <c>tools:</c> list is portable across every
+    /// supported host. When a capability is granted for one host (e.g. the
+    /// Copilot CLI alias <c>edit</c>) but the equivalent for another host
+    /// (Claude Code's <c>Edit</c>) is absent, the agent works on one host and is
+    /// silently tool-less on the other. Returns advisory messages for human
+    /// review. Entries matching the allowlist are skipped.
+    /// </summary>
+    public static IReadOnlyList<string> CheckAgentToolPortability(AgentInfo agent, IReadOnlySet<string>? allowed = null)
+    {
+        var findings = new List<string>();
+
+        if (agent.Tools is null || agent.Tools.Count == 0)
+            return findings;
+
+        // Hosts resolve tool names by exact spelling, so compare case-sensitively.
+        var declared = new HashSet<string>(agent.Tools, StringComparer.Ordinal);
+
+        foreach (var capability in ToolCapabilities)
+        {
+            bool copilotPresent = Array.Exists(capability.CopilotCli, declared.Contains);
+            bool claudePresent = Array.Exists(capability.ClaudeCode, declared.Contains);
+
+            // Portable (declared for both hosts) or unused (declared for neither).
+            if (copilotPresent == claudePresent)
+                continue;
+
+            var key = $"agent-tool-portability:{agent.Name}:{capability.Name}";
+            if (allowed?.Contains(key) == true)
+                continue;
+
+            string haveHost = copilotPresent ? "the Copilot CLI / VS Code" : "Claude Code";
+            string missingHost = copilotPresent ? "Claude Code" : "the Copilot CLI / VS Code";
+            string[] missingSource = copilotPresent ? capability.ClaudeCode : capability.CopilotCli;
+            string missing = string.Join(", ", Array.FindAll(missingSource, name => !declared.Contains(name)));
+
+            findings.Add(
+                $"Agent tool '{capability.Name}' is declared for {haveHost} but not {missingHost} — " +
+                $"add {missing} to the tools list so the agent works across all supported hosts. (allow: {key})");
         }
 
         return findings;

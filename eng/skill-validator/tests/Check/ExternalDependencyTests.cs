@@ -252,6 +252,80 @@ public class ExternalDependencyCheckerTests
     }
 
     // ========================================
+    // Agent: Cross-host tool portability
+    // ========================================
+
+    [Fact]
+    public void AgentPortability_WithBothHostSpellings_NoWarning()
+    {
+        var agent = MakeAgent(tools: new[]
+        {
+            "skill", "read", "search", "edit", "execute",
+            "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash"
+        });
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
+        Assert.Empty(findings);
+    }
+
+    [Fact]
+    public void AgentPortability_CopilotOnly_FlagsMissingClaudeEquivalents()
+    {
+        var agent = MakeAgent(tools: new[] { "read", "search", "edit", "execute", "skill" });
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
+
+        Assert.Contains(findings, f => f.Contains("read files") && f.Contains("Read") && f.Contains("not Claude Code"));
+        Assert.Contains(findings, f => f.Contains("search") && f.Contains("Glob") && f.Contains("Grep"));
+        Assert.Contains(findings, f => f.Contains("run commands") && f.Contains("Bash"));
+    }
+
+    [Fact]
+    public void AgentPortability_ClaudeOnly_FlagsMissingCopilotEquivalents()
+    {
+        var agent = MakeAgent(tools: new[] { "Read", "Glob", "Grep", "Edit", "Write", "Bash", "Skill" });
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
+
+        Assert.Contains(findings, f => f.Contains("search") && f.Contains("not the Copilot CLI / VS Code") && f.Contains("search"));
+        Assert.Contains(findings, f => f.Contains("run commands") && f.Contains("execute"));
+        Assert.Contains(findings, f => f.Contains("modify files") && f.Contains("edit, create"));
+    }
+
+    [Fact]
+    public void AgentPortability_NoToolsArray_NoWarning()
+    {
+        var agent = MakeAgent(tools: null);
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
+        Assert.Empty(findings);
+    }
+
+    [Fact]
+    public void AgentPortability_SubagentFanOutOnlyCopilot_FlagsTask()
+    {
+        var agent = MakeAgent(tools: new[] { "agent", "read", "Read" });
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
+
+        Assert.Contains(findings, f => f.Contains("invoke subagents") && f.Contains("Task"));
+    }
+
+    [Fact]
+    public void AgentPortability_WithAllowedGap_NoWarning()
+    {
+        var agent = MakeAgent(tools: new[] { "read", "edit" });
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "agent-tool-portability:test-agent:read files",
+            "agent-tool-portability:test-agent:modify files"
+        };
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent, allowed);
+        Assert.Empty(findings);
+    }
+
+    // ========================================
     // Plugin: MCP server detection
     // ========================================
 
