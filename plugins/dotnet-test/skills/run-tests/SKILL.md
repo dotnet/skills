@@ -40,7 +40,7 @@ Detect the test platform and framework, run tests, and apply filters using `dotn
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Project or solution path | No | Path to the test project (.csproj) or solution (.sln). Defaults to current directory. |
+| Project or solution path | No | Path to the test project (.csproj) or solution (.sln, .slnf, .slnx). Defaults to current directory. |
 | Filter expression | No | Filter expression to select specific tests |
 | Target framework | No | Target framework moniker to run against (e.g., `net8.0`) |
 
@@ -154,6 +154,8 @@ dotnet test --project path/to/
 
 # Run all tests in a solution (sln, slnf, slnx)
 dotnet test --solution path/to/MySolution.sln
+dotnet test --solution path/to/MySolution.slnf
+dotnet test --solution path/to/MySolution.slnx
 
 # Run all tests in a directory containing a solution
 dotnet test --solution path/to/
