@@ -50,6 +50,18 @@ When the task specifies particular test scenarios or behaviors to cover:
 3. **Fewer focused tests beat many shallow ones** — 5 tests that thoroughly exercise the function are better than 20 that only check surface behavior
 4. **Every test must pass** — run tests after writing them; fix immediately if they fail
 
+## Write Tests That Pin Down Behavior
+
+A test that passes coincidentally gives a false signal. Beyond covering code, every test must *pin down behavior* — it should fail under a plausible bug. These principles are language-agnostic (MSTest, xUnit, NUnit, pytest, Jest, Go `testing`, JUnit, RSpec, ...):
+
+- **Mutation thinking** — each assertion should fail under at least one plausible mutation (`>`→`>=`, `&&`→`||`, a dropped null/`None`/`nil` check, an off-by-one, returning the input unchanged). If it survives every mutation, replace weak checks (`IsNotNull`/`toBeDefined`) with a concrete expected value.
+- **No tautologies** — never assert that a value you just wrote reads back unchanged; assert on the *transformation* the code performs, not that storage works.
+- **Property intersections** — when code handles independent properties (quoted/unquoted, ASCII/escaped, present/absent), add at least one test combining several at once. Bugs live at intersections, not on single axes.
+- **Behavior radius** — assert on at least one *secondary* observable (related state, log output, neighboring field, retry counter, event), not only the return value.
+- **Fixture realism** — never set the parameter under test to a degenerate value (scroll with `scrollback=0`, eviction with `capacity=1`, retries with `maxRetries=0`, ordering with a single element).
+
+Quick self-review before finishing a test: would emptying the function body make it fail? If not, the assertions are too weak.
+
 ## Parameterization
 
 - Prefer parameterized tests (e.g., `[DataRow]`, `[Theory]`, `@pytest.mark.parametrize`) over multiple similar methods

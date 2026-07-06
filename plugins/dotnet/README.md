@@ -12,11 +12,9 @@ Core .NET and C# skills for coding agents.
 This plugin declares a C# LSP server that is launched through the .NET CLI.
 
 Prerequisites:
-- .NET SDK installed
+- .NET 10 SDK installed
 - `dotnet` available on PATH
 
 ## Skills
 
-- csharp-scripts
-- dotnet-pinvoke
-- nuget-trusted-publishing
+- [setup-local-sdk](skills/setup-local-sdk/SKILL.md)

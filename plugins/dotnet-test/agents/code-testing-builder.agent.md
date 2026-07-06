@@ -6,6 +6,7 @@ description: >-
   errors, verifying project builds successfully.
 name: code-testing-builder
 user-invocable: false
+tools: ["skill", "read", "search", "edit", "execute"]
 license: MIT
 ---
 

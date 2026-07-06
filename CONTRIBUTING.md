@@ -49,7 +49,7 @@ If your skill does not fit any existing plugin, consider creating a new one.
 To create a new plugin:
 
 1. Add `plugins/<plugin-name>/plugin.json` and a `skills/` directory beneath it.
-2. Add a matching entry in `.github/plugin/marketplace.json`, `.claude-plugin/marketplace.json`, and `.cursor-plugin/marketplace.json`. Keep plugin entries consistent across all marketplace manifests (including `plugins[].source` format) to reduce drift and make future updates safer.
+2. Add a matching entry in `.github/plugin/marketplace.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`, and `.agents/plugins/marketplace.json`. Keep plugin entries consistent across all marketplace manifests (including `plugins[].source` format) to reduce drift and make future updates safer.
 3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
 4. Add the plugin to the **What's Included** table in the root `README.md`.
 5. Create a `tests/<plugin-name>/` directory for skill tests.
@@ -224,7 +224,7 @@ See the [skill-validator README](eng/skill-validator/src/README.md) for the full
 
 ### Running tests locally
 
-Prerequisites: .NET 10 SDK or later and `gh auth login`.
+Prerequisites: the .NET SDK version specified by `global.json` (or a newer compatible SDK) and `gh auth login`.
 
 ```bash
 # Run tests for a single plugin

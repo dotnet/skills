@@ -1,15 +1,17 @@
 # dotnet-test
 
-Skills and agents for running, generating, analyzing, migrating, and improving .NET tests across all major frameworks (MSTest, xUnit, NUnit, TUnit) and platforms (VSTest, Microsoft.Testing.Platform).
+Skills and agents for running, generating, analyzing, and improving tests. Originally built for .NET (MSTest, xUnit, NUnit, TUnit) and platforms (VSTest, Microsoft.Testing.Platform); the test-generation pipeline and the six test-analysis skills (anti-patterns, smells, assertion quality, gap analysis, tagging, grade tests) plus the `test-quality-auditor` agent are **polyglot** and also work with Python (pytest/unittest), TypeScript/JavaScript (Jest/Vitest/Mocha/Jasmine/node:test), Java (JUnit 4/5/TestNG), Go (testing/testify), Ruby (RSpec/Minitest), Rust (built-in/proptest), Swift (XCTest/Swift Testing), Kotlin (JUnit/Kotest), PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
+
+> **Test framework/platform migration** (MSTest/xUnit upgrades, xUnit → MSTest, VSTest → Microsoft.Testing.Platform) lives in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.
 
 ## When to use this plugin
 
-- **Run tests** — execute `dotnet test` with automatic platform/framework detection and filter syntax
-- **Generate tests** — scaffold comprehensive unit tests for any language via a multi-agent pipeline
-- **Migrate tests** — upgrade MSTest v1/v2 → v3 → v4, xUnit v2 → v3, or VSTest → Microsoft.Testing.Platform
-- **Audit test quality** — detect anti-patterns, test smells, assertion gaps, and coverage risks
-- **Improve testability** — find static dependencies, generate wrappers, and migrate call sites to injectable abstractions
-- **Measure coverage** — collect code coverage, compute CRAP scores, and surface risk hotspots
+- **Run tests** *(.NET only)* — execute `dotnet test` with automatic platform/framework detection and filter syntax
+- **Generate tests** *(polyglot)* — scaffold comprehensive unit tests for any language via a multi-agent pipeline
+- **Migrate tests** *(.NET only)* — see the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin (MSTest v1/v2 → v3 → v4, xUnit v2 → v3, xUnit → MSTest, VSTest → Microsoft.Testing.Platform)
+- **Audit test quality** *(polyglot)* — detect anti-patterns, test smells, assertion gaps, and (for .NET) coverage risks
+- **Improve testability** *(.NET only)* — find static dependencies, generate wrappers, and migrate call sites to injectable abstractions
+- **Measure coverage** *(.NET only)* — collect code coverage, compute CRAP scores, and surface risk hotspots
 
 ## Skills
 
@@ -29,31 +31,31 @@ Skills and agents for running, generating, analyzing, migrating, and improving .
 
 ### Test migration
 
-| Skill | Description |
-|---|---|
-| **migrate-mstest-v1v2-to-v3** | Upgrade MSTest v1 (assembly refs) or v2 (NuGet 1.x–2.x) to v3 |
-| **migrate-mstest-v3-to-v4** | Upgrade MSTest v3 to v4 — handles all source and behavioral breaking changes |
-| **migrate-xunit-to-xunit-v3** | Upgrade xUnit.net v2 to v3 |
-| **migrate-vstest-to-mtp** | Migrate from VSTest runner to Microsoft.Testing.Platform |
+Moved to the [`dotnet-test-migration`](../dotnet-test-migration/) plugin (`migrate-mstest-v1v2-to-v3`, `migrate-mstest-v3-to-v4`, `migrate-xunit-to-xunit-v3`, `migrate-xunit-to-mstest`, `migrate-vstest-to-mtp`, and the `test-migration` orchestrator agent).
 
-### Test quality & analysis
+### Test quality & analysis *(polyglot)*
+
+These six skills are all polyglot. They work across all supported languages by loading a per-language reference file from `test-analysis-extensions`. `grade-tests` additionally embeds its own scoring rubric (sub-grades, weighting, anti-pattern catalog) so the per-test grades stay consistent across calls.
 
 | Skill | Description |
 |---|---|
-| **test-anti-patterns** | Quick pragmatic scan for ~15 common test quality issues with severity ranking |
-| **test-smell-detection** | Deep formal audit using academic test smell taxonomy (19 smell types) |
-| **assertion-quality** | Measure assertion variety and depth — find shallow tests that barely verify anything |
-| **test-gap-analysis** | Pseudo-mutation analysis to find test blind spots that coverage numbers miss |
-| **test-tagging** | Tag tests with standardized traits (smoke, regression, boundary, critical-path, etc.) |
+| **test-anti-patterns** | Quick pragmatic scan for common test quality issues with severity ranking (any language) |
+| **test-smell-detection** | Deep formal audit using academic test smell taxonomy (19 smell types, any language) |
+| **assertion-quality** | Measure assertion variety and depth — find shallow tests that barely verify anything (any language) |
+| **test-gap-analysis** | Pseudo-mutation analysis to find test blind spots that coverage numbers miss (any language) |
+| **test-tagging** | Tag tests with standardized traits (smoke, regression, boundary, critical-path, etc.); auto-edits where the framework has canonical syntax, report-only otherwise |
+| **grade-tests** | Grade a curated list of test methods individually and produce a compact, PR-comment-friendly table of letter grades (A–F), score bands, and one-line notes — designed for per-PR test-quality feedback (any language) |
 
-### Coverage & risk
+### Coverage & risk *(.NET only)*
 
 | Skill | Description |
 |---|---|
 | **coverage-analysis** | Project-wide code coverage collection with CRAP score computation and risk hotspot reporting |
 | **crap-score** | Calculate CRAP (Change Risk Anti-Patterns) scores for individual methods, classes, or files |
 
-### Testability improvement
+For non-.NET languages, use the native coverage tool: `coverage.py`/`pytest-cov` (Python), `jest --coverage`/`c8`/`nyc`/`vitest --coverage` (JS/TS), JaCoCo (Java), `go test -coverprofile` (Go), SimpleCov (Ruby), `cargo-tarpaulin`/`cargo-llvm-cov` (Rust), `xcrun llvm-cov` (Swift), Kover (Kotlin), Pester's built-in code coverage (PowerShell), `gcov`/`llvm-cov` (C++).
+
+### Testability improvement *(.NET only)*
 
 | Skill | Description |
 |---|---|
@@ -65,10 +67,10 @@ Skills and agents for running, generating, analyzing, migrating, and improving .
 
 | Skill | Description |
 |---|---|
-| **code-testing-extensions** | Language-specific guidance files loaded by the code-testing pipeline |
-| **platform-detection** | Detect VSTest vs MTP and identify the test framework from project files |
-| **filter-syntax** | Test filter syntax reference for VSTest and MTP across all frameworks |
-| **dotnet-test-frameworks** | Framework detection patterns, assertion APIs, skip annotations, and lifecycle methods |
+| **code-testing-extensions** | Language-specific guidance loaded by the code-testing pipeline (test generation) |
+| **test-analysis-extensions** | Language-specific guidance loaded by the polyglot analysis skills (test markers, assertion APIs, sleeps, skips, mystery-guest indicators, integration markers, tag-support capability) |
+| **platform-detection** *(.NET)* | Detect VSTest vs MTP and identify the test framework from project files |
+| **filter-syntax** *(.NET)* | Test filter syntax reference for VSTest and MTP across all frameworks |
 
 ## Agents
 
@@ -79,9 +81,10 @@ These are the entry-point agents you invoke directly:
 | Agent | Purpose |
 |---|---|
 | **code-testing-generator** | Orchestrates the full test generation pipeline (research → plan → implement → build → test → fix → lint) |
-| **test-migration** | Auto-detects framework/version and routes to the correct migration skill |
 | **test-quality-auditor** | Runs multi-skill audit pipelines for comprehensive test suite assessment |
 | **testability-migration** | End-to-end testability improvement: detect → generate wrappers → migrate call sites |
+
+> **Test framework/platform migration** is handled by the `test-migration` agent in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.
 
 ### Internal subagents
 
@@ -97,7 +100,21 @@ These are pipeline stages invoked automatically by the agents above (`user-invoc
 | **code-testing-fixer** | code-testing-implementer | Fixes compilation errors in source or test files |
 | **code-testing-linter** | code-testing-implementer | Runs code formatting and linting |
 
+> **VS Code — enabling full multi-level fan-out:** The pipeline delegates in two levels: `code-testing-generator` → researcher / planner / implementer, and `code-testing-implementer` → builder / tester / fixer / linter. VS Code gates *nested* delegation (a subagent spawning its own subagents) behind a setting that is **off by default**, so the first level runs out of the box but the second one does not. For large scopes — many files or modules, where parallel build/test/fix/lint workers help — enable it in your VS Code settings:
+>
+> ```jsonc
+> "chat.subagents.allowInvocationsFromSubagents": true
+> ```
+>
+> Without it, `code-testing-implementer` still builds, tests, fixes, and lints — it just does that work inline instead of delegating to the worker subagents, so results are unaffected. The GitHub Copilot CLI has no such gate and always fans out.
+
 ## Prerequisites
 
+### For polyglot skills and agents
+
+The test-generation pipeline (`code-testing-generator` and friends) and the six test-analysis skills (`test-anti-patterns`, `test-smell-detection`, `assertion-quality`, `test-gap-analysis`, `test-tagging`, `grade-tests`) plus the `test-quality-auditor` agent work with any of the supported languages above. You just need a working test runtime for the language you're targeting (e.g., `python` + `pytest`, `node` + `npm test`, `mvn` / `gradle`, `go`, `bundle exec rspec`, `cargo test`, `swift test`, `pwsh` + Pester, `cmake` + your C++ test runner). The skills will detect the framework automatically.
+
+### For .NET-only skills and agents
+
 - .NET SDK installed (`dotnet` on PATH)
-- A project with an existing test framework (MSTest, xUnit, NUnit, or TUnit) for execution and analysis skills
+- A project with an existing test framework (MSTest, xUnit, NUnit, or TUnit) for execution, migration, coverage, CRAP, testability, and the experimental `dotnet-experimental` skills.

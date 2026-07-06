@@ -1,0 +1,137 @@
+scenarios:
+  # ============================================================================
+  # xUnit v3 trait-based filtering (attribute + --filter-trait)
+  # ============================================================================
+
+  - name: "Filter xUnit v3 tests by trait and show how to tag them"
+    prompt: |
+      I have an xUnit v3 test project that runs on Microsoft.Testing.Platform.
+      I want to mark some of my tests as belonging to a "Category" of "Integration"
+      and then run only those tests with dotnet test. How do I annotate the tests
+      and what command runs just the Integration ones? I'm on .NET SDK 9.
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net9.0</TargetFramework>
+                <IsPackable>false</IsPackable>
+                <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+                <PackageReference Include="xunit.v3" Version="1.0.1" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="3.0.1" />
+              </ItemGroup>
+            </Project>
+        - path: "global.json"
+          content: |
+            {
+              "sdk": {
+                "version": "9.0.200",
+                "rollForward": "latestFeature"
+              }
+            }
+        - path: "OrderTests.cs"
+          content: |
+            using Xunit;
+
+            namespace MyApp.Tests;
+
+            public class OrderTests
+            {
+                [Fact]
+                public void Total_IsComputed() => Assert.True(true);
+
+                [Fact]
+                public void Order_PersistsToDatabase() => Assert.True(true);
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "\\[[Tt]rait"
+      - type: "output_matches"
+        pattern: "\\[Trait\\(\"Category\",\\s*\"Integration\"\\)\\]"
+      - type: "output_matches"
+        pattern: "--\\s+--filter-trait"
+      - type: "output_matches"
+        pattern: "Category=Integration"
+      - type: "exit_success"
+    rubric:
+      - "Shows how to tag xUnit tests with a Category/Integration trait using the trait attribute"
+      - "Uses the xUnit v3 framework-specific trait filter flag rather than the VSTest --filter expression syntax"
+      - "Correctly passes the MTP filter argument after the '--' separator since this is .NET SDK 9"
+      - "Targets only the Integration-tagged tests rather than running the whole suite and post-filtering"
+    expect_tools: ["bash"]
+    timeout: 180
+
+  # ============================================================================
+  # xUnit v3 query filter language (combined class pattern + trait qualifier)
+  # ============================================================================
+
+  - name: "Combine an xUnit v3 class pattern and a trait in one query filter"
+    prompt: |
+      My xUnit v3 project (on Microsoft.Testing.Platform, .NET SDK 9) has several
+      test classes. I want to run only the Smoke tests that live in classes whose
+      name contains "Integration", using a single combined filter expression for
+      dotnet test instead of several separate flags. What expression should I use?
+    setup:
+      files:
+        - path: "TestProject.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net9.0</TargetFramework>
+                <IsPackable>false</IsPackable>
+                <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+                <PackageReference Include="xunit.v3" Version="1.0.1" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="3.0.1" />
+              </ItemGroup>
+            </Project>
+        - path: "global.json"
+          content: |
+            {
+              "sdk": {
+                "version": "9.0.200",
+                "rollForward": "latestFeature"
+              }
+            }
+        - path: "EcommerceTests.cs"
+          content: |
+            using Xunit;
+
+            namespace Contoso.Ecommerce.Tests;
+
+            public class CheckoutIntegrationTests
+            {
+                [Fact]
+                [Trait("Category", "Smoke")]
+                public void Checkout_HappyPath_Succeeds() => Assert.True(true);
+
+                [Fact]
+                [Trait("Category", "Regression")]
+                public void Checkout_ExpiredCard_Fails() => Assert.True(true);
+            }
+
+            public class CatalogUnitTests
+            {
+                [Fact]
+                [Trait("Category", "Smoke")]
+                public void Search_ReturnsResults() => Assert.True(true);
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "--\\s+--filter-query"
+      - type: "output_matches"
+        pattern: '--filter-query\s+"(?=[^"]*Integration)(?=[^"]*\[Category=Smoke\])[^"]+"'
+      - type: "exit_success"
+    rubric:
+      - "Recognizes that xUnit v3 on MTP offers a query filter language for combined expressions"
+      - "Produces a path-segment expression that pairs a class-name pattern with a trait qualifier in square brackets"
+      - "The expression targets only Smoke tests from Integration classes, not all Smoke tests or all Integration tests"
+      - "Passes the query filter after the '--' separator since this is .NET SDK 9"
+    expect_tools: ["bash"]
+    timeout: 180

@@ -10,7 +10,7 @@
     the merged set.
 
 .PARAMETER ExistingDir
-    Path to existing session data from the dashboard-session-data branch.
+    Path to existing session data from the dashboard-session-data branch on dotnet/skills-data.
 
 .PARAMETER NewDir
     Path to new session data from the current pipeline run.

@@ -9,9 +9,10 @@ description: >
   USE FOR: coverage stuck, coverage plateau, can't increase coverage, what's
   blocking coverage, coverage gap, CRAP scores, risk hotspots, where to add
   tests, coverage analysis, coverage report.
-  DO NOT USE FOR: targeted single-method CRAP analysis (use crap-score),
-  writing tests, running tests without coverage, or troubleshooting test
-  execution (use run-tests).
+  DO NOT USE FOR: targeted single-method CRAP analysis (use crap-score);
+  auditing test code for coverage-touching or other anti-patterns (use
+  test-anti-patterns); writing tests; running tests (use run-tests). Requires
+  or produces coverage (Cobertura) and CRAP metrics.
 license: MIT
 ---
 

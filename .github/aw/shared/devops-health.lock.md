@@ -231,6 +231,7 @@ If no previous fingerprints exist in `cache-memory`:
 |-----|----------|---------|
 | `health-check-fingerprints` | Map of fingerprint → finding (with occurrences, first_seen) | Every run |
 | `health-check-history` | Array of daily summaries (date, counts by diff type and severity) | Appended each run |
+| `health-dashboard-issue` | Issue number of the canonical health dashboard issue. Used to update the dashboard **by number** so it stays stable even when GitHub's label search/list index drops the issue (which otherwise causes a duplicate dashboard to be created). | Every run |
 | `known-noise` | Array of fingerprint patterns to demote to Info | Manual edit |
 
 ### 7.4 Graceful Degradation

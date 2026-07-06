@@ -10,7 +10,12 @@
     {
       "name": "dotnet",
       "source": "./plugins/dotnet",
-      "description": "Collection of core .NET skills for handling common .NET coding tasks."
+      "description": "C# language server (LSP) integration for coding agents and high-level .NET development skills."
+    },
+    { 
+      "name": "dotnet-advanced",
+      "source": "./plugins/dotnet-advanced",
+      "description": "Advanced .NET and C# skills for niche scenarios that are not part of the core dotnet plugin."
     },
     {
       "name": "dotnet-data",
@@ -55,12 +60,22 @@
     {
       "name": "dotnet-test",
       "source": "./plugins/dotnet-test",
-      "description": "Skills for running, diagnosing, and migrating .NET tests: test execution, filtering, platform detection, and MSTest workflows."
+      "description": "Skills for running, generating, analyzing, and improving .NET tests: test execution, filtering, platform detection, coverage, testability, and MSTest workflows."
     },
     {
-      "name": "dotnet-aspnet",
-      "source": "./plugins/dotnet-aspnet",
+      "name": "dotnet-test-migration",
+      "source": "./plugins/dotnet-test-migration",
+      "description": "Skills and an orchestrator agent for migrating .NET test frameworks and platforms: MSTest and xUnit version upgrades, xUnit-to-MSTest conversion, and VSTest to Microsoft.Testing.Platform."
+    },
+    {
+      "name": "dotnet-aspnetcore",
+      "source": "./plugins/dotnet-aspnetcore",
       "description": "ASP.NET Core web development skills including middleware, endpoints, real-time communication, and API patterns."
+    },
+    {
+      "name": "dotnet-blazor",
+      "source": "./plugins/dotnet-blazor",
+      "description": "Skills for Blazor development: component authoring, interactivity, and web application patterns."
     },
     {
       "name": "dotnet11",

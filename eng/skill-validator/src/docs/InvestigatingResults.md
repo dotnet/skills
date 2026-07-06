@@ -4,7 +4,7 @@ This guide is intended primarily for AI agents investigating skill evaluation fa
 
 ## Using this guide with an AI agent
 
-This document is designed to be read by AI coding agents. When a skill evaluation has failures, the workflow summary includes a ready-to-use prompt — just copy and paste it to your AI agent. The agent will download the artifacts, read this guide, analyze the results, and suggest fixes.
+This document is designed to be read by AI coding agents. When a skill evaluation has failures, the PR comment includes a ready-to-use prompt — just copy and paste it to your AI agent. The agent will download the artifacts, read this guide, analyze the results, and suggest fixes.
 
 If you need to run the investigation manually, follow the [Quick start](#quick-start) below.
 
@@ -82,6 +82,10 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 | `perRunScores` | Per-run improvement scores as a flat array of numbers (one per run); when a plugin run is present, each value is `min(isolated, plugin)` for that run; when no plugin run is present (`skilledPlugin` is null), each value is the isolated improvement score for that run |
 
 > **Note:** Scenarios do not have a `passed` field. To determine pass/fail for an individual scenario, check whether `improvementScore >= 0`. This is the effective score: when no plugin run is present it equals `isolatedImprovementScore`; when a plugin run is present it is the min of isolated and plugin scores. The `passed` field exists only at the verdict level (per-skill).
+
+> **Reused baselines:** When the run was invoked with `--baseline-from`, the `baseline` arm is not executed — its `metrics` and `judgeResult` come from the shared baseline file produced earlier with `--baseline-out` (computed once, honoring `--runs`). Such scenarios are reported with the `baseline-reused` session phase and a `reused` baseline status. The baseline file is keyed on `--model` and `--judge-model` plus, per scenario, a SHA-256 of the prompt and a composite SHA-256 over its setup inputs (copied test files, explicit setup files, and setup commands) and its evaluation criteria (rubric, assertions, expect/reject tools, and turn/token/timeout limits); reuse fails fast if the agent model, judge model, or any prompt-plus-setup-plus-criteria identity is missing, so the baseline you compare against is always identity-matched and a shared prompt across cases with different fixtures or rubrics cannot cross-contaminate. Because the baseline output is identical across every skill/agent that consumes the same file, this acts as a shared control group and removes baseline run-to-run variance from cross-skill comparisons.
+
+> **Decoupled runs and judging:** `evaluate --no-judge` runs the agent arms and persists `sessions.db` but performs no judging and needs no baseline file, so baseline and treatment arms can run in one parallel pool. Each persisted session row carries a `baseline_key` column — the same prompt-SHA-plus-target-SHA identity used for baseline reuse. A later `rejudge <treatment-dir> --baseline-dir <baseline-dir>` pairs each treatment run with its baseline run by that key (preferring the matching run index), runs the same judges and gates an inline `evaluate` would, and writes baseline judge/pairwise results back to the baseline `sessions.db` and treatment judge results to the treatment `sessions.db`. Baseline and treatment must share `--model`; the judge model resolves to `--judge-model`, else the treatment DB's persisted judge model, else the baseline DB's, and a mismatch between the two persisted judge models (without an explicit override) is rejected.
 
 ### Breakdown fields
 
@@ -211,6 +215,37 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 - Update the skill's `description` in SKILL.md frontmatter to better match the scenario prompt
 - Make sure the description includes keywords from the scenario
 - Check the scenario itself has sufficient information that the agent can reason that it needs the skill. (It should not cheat and suggest the skill.)
+
+> **Plugin-arm-only non-activation (skill-menu budget overflow).** If a skill
+> activates reliably in the **isolated** arm but consistently fails to activate
+> in the **plugin** arm (`skillActivationIsolated.activated: true` but
+> `skillActivationPlugin.activated: false`, with empty `detectedSkills`), the
+> cause is usually *not* the description text — it may never be shown. The
+> Copilot CLI renders the model-facing `<available_skills>` menu under a hard
+> **15,000-character budget** (the agent SDK's `SKILL_CHAR_BUDGET`, default
+> `15e3`). Skills are listed **alphabetically by name** and emitted with their
+> full `<description>` only until the budget is exhausted; every skill past the
+> cut-off collapses to a **bare name with no description** and can no longer be
+> reliably model-activated. In a large plugin, an alphabetically-late skill
+> (e.g. `run-tests`, `test-*`) silently loses its description in the plugin
+> menu even though it is fine in isolation.
+>
+> Fixes for this case (description tuning will *not* help — the text is not in
+> the menu):
+> - Mark reference / agent-orchestrated skills that are never meant to be
+>   model-invoked from a user prompt with `disable-model-invocation: true`.
+>   The CLI drops them from the menu entirely, freeing budget for the skills
+>   that should be discoverable. (They remain invocable by explicit name.)
+> - Reduce the plugin's aggregate skill-menu footprint so its model-invocable
+>   skills fit under the budget. The `check` command enforces this via
+>   `SkillProfiler.MaxRenderedSkillMenuLength` (15,000), summing each
+>   model-invocable skill's **rendered `<skill>` block** (name + description +
+>   location + markup, via `SkillProfiler.RenderedSkillMenuCost`) — not just the
+>   raw description — and counting only skills *without*
+>   `disable-model-invocation: true`. Counting the rendered block makes passing
+>   `check` a faithful proxy for "fits in the real CLI menu budget".
+> - As a last resort, consolidate overlapping skills so the plugin exposes
+>   fewer model-invocable entries.
 
 ### 6. Rubric penalizes valid alternatives
 

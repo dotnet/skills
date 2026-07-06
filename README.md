@@ -10,7 +10,8 @@ This repository contains the .NET team's curated set of core skills and custom a
 
 | Plugin | Description |
 |--------|-------------|
-| [dotnet](plugins/dotnet/) | Collection of core .NET skills for handling common .NET coding tasks. |
+| [dotnet](plugins/dotnet/) | C# language server (LSP) integration for coding agents and high-level .NET development skills. |
+| [dotnet-advanced](plugins/dotnet-advanced/) | Collection of .NET skills for handling specific .NET tasks for special scenarios. |
 | [dotnet-data](plugins/dotnet-data/) | Skills for .NET data access and Entity Framework related tasks. |
 | [dotnet-diag](plugins/dotnet-diag/) | Skills for .NET performance investigations, debugging, and incident analysis. |
 | [dotnet-msbuild](plugins/dotnet-msbuild/) | Comprehensive MSBuild and .NET build skills: failure diagnosis, performance optimization, code quality, and modernization. |
@@ -19,8 +20,10 @@ This repository contains the .NET team's curated set of core skills and custom a
 | [dotnet-maui](plugins/dotnet-maui/) | Skills for .NET MAUI development: environment setup, diagnostics, and troubleshooting. |
 | [dotnet-ai](plugins/dotnet-ai/) | AI and ML skills for .NET: technology selection, LLM integration, agentic workflows, RAG pipelines, MCP, and classic ML with ML.NET. |
 | [dotnet-template-engine](plugins/dotnet-template-engine/) | .NET Template Engine skills: template discovery, project scaffolding, and template authoring. |
-| [dotnet-test](plugins/dotnet-test/) | Skills for running, diagnosing, and migrating .NET tests: test execution, filtering, platform detection, and MSTest workflows. |
-| [dotnet-aspnet](plugins/dotnet-aspnet/) | ASP.NET Core web development skills including middleware, endpoints, real-time communication, and API patterns. |
+| [dotnet-test](plugins/dotnet-test/) | Skills for running, generating, analyzing, and improving .NET tests: test execution, filtering, platform detection, coverage, testability, and MSTest workflows. |
+| [dotnet-test-migration](plugins/dotnet-test-migration/) | Skills and an orchestrator agent for migrating .NET test frameworks and platforms: MSTest and xUnit version upgrades, xUnit-to-MSTest conversion, and VSTest to Microsoft.Testing.Platform. |
+| [dotnet-aspnetcore](plugins/dotnet-aspnetcore/) | ASP.NET Core web development skills including middleware, endpoints, real-time communication, and API patterns. |
+| [dotnet-blazor](plugins/dotnet-blazor/) | Skills for Blazor development: component authoring, interactivity, and web application patterns. |
 | [dotnet11](plugins/dotnet11/) | Skills for new .NET 11 APIs and language features. |
 
 ## Installation
@@ -83,7 +86,29 @@ For local development or unpublished changes, import plugins from a local checko
 Skills in this repository follow the [agentskills.io](https://agentskills.io) open standard
 and are compatible with [OpenAI Codex](https://developers.openai.com/codex/skills).
 
-Install individual skills using the `skill-installer` CLI with the GitHub URL:
+#### Plugin marketplace (recommended)
+
+Codex CLI v0.121.0 and later supports a [plugin marketplace](https://developers.openai.com/codex/plugins).
+This repository ships a Codex-native marketplace manifest at `.agents/plugins/marketplace.json`,
+so you can register `dotnet/skills` as a marketplace and install plugins from it directly.
+
+1. Add the marketplace:
+   ```bash
+   codex plugin marketplace add dotnet/skills
+   ```
+2. Launch Codex and open the plugin browser:
+   ```
+   /plugins
+   ```
+3. Browse the `dotnet-agent-skills` tab and install the desired plugins.
+4. Update plugins on demand:
+   ```bash
+   codex plugin marketplace upgrade dotnet-agent-skills
+   ```
+
+#### Individual skills
+
+You can also install individual skills using the `skill-installer` CLI with the GitHub URL:
 
 ```bash
 $ skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<plugin>/skills/<skill-name>

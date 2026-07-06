@@ -10,76 +10,26 @@ description: >
   PR review status.
 
 on:
+  permissions: {}
   schedule:
     - cron: "0 3 * * *"  # 03:00 UTC daily
   workflow_dispatch:
 
-  # ###############################################################
-  # Override the COPILOT_GITHUB_TOKEN secret usage for the workflow
-  # with a randomly-selected token from a pool of secrets.
-  #
-  # As soon as organization-level billing is offered for Agentic
-  # Workflows, this stop-gap approach will be removed.
-  #
-  # See: /.github/actions/select-copilot-pat/README.md
-  # ###############################################################
-  steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      name: Checkout the select-copilot-pat action folder
-      with:
-        persist-credentials: false
-        sparse-checkout: .github/actions/select-copilot-pat
-        sparse-checkout-cone-mode: true
-        fetch-depth: 1
-
-    - id: select-copilot-pat
-      name: Select Copilot token from pool
-      uses: ./.github/actions/select-copilot-pat
-      env:
-        # If the secret names are changed here, they must also be changed
-        # in the `engine: env` case expression below
-        SECRET_0: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-        SECRET_1: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
-        SECRET_2: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
-        SECRET_3: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
-        SECRET_4: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
-        SECRET_5: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
-        SECRET_6: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
-        SECRET_7: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
-
 # Don't run scheduled triggers on forked repositories — forks lack the
 # secrets and context required, and scheduled runs would consume the
 # fork owner's minutes.
-if: ${{ !(github.event_name == 'schedule' && github.event.repository.fork) }}
-
-# Add the pre-activation output of the randomly selected PAT
-jobs:
-  pre-activation:
-    outputs:
-      copilot_pat_number: ${{ steps.select-copilot-pat.outputs.copilot_pat_number }}
-
-# Override the COPILOT_GITHUB_TOKEN expression used in the activation job
-# Consume the PAT number from the pre-activation step and select the corresponding secret
-engine:
-  id: copilot
-  env:
-    # We cannot use line breaks in this expression as it leads to a syntax error in the compiled workflow
-    # If none of the `COPILOT_GITHUB_TOKEN_#` secrets were selected, then the default COPILOT_GITHUB_TOKEN is used
-    COPILOT_GITHUB_TOKEN: ${{ case(needs.pre_activation.outputs.copilot_pat_number == '0', secrets.COPILOT_GITHUB_TOKEN, needs.pre_activation.outputs.copilot_pat_number == '1', secrets.COPILOT_GITHUB_TOKEN_2, needs.pre_activation.outputs.copilot_pat_number == '2', secrets.COPILOT_GITHUB_TOKEN_3, needs.pre_activation.outputs.copilot_pat_number == '3', secrets.COPILOT_GITHUB_TOKEN_4, needs.pre_activation.outputs.copilot_pat_number == '4', secrets.COPILOT_GITHUB_TOKEN_5, needs.pre_activation.outputs.copilot_pat_number == '5', secrets.COPILOT_GITHUB_TOKEN_6, needs.pre_activation.outputs.copilot_pat_number == '6', secrets.COPILOT_GITHUB_TOKEN_7, needs.pre_activation.outputs.copilot_pat_number == '7', secrets.COPILOT_GITHUB_TOKEN_8, secrets.COPILOT_GITHUB_TOKEN) }}
+if: ${{ (!(github.event_name == 'schedule' && github.event.repository.fork)) }}
 
 permissions:
   contents: read
   actions: read
   issues: read
 
-imports:
-  - ../aw/shared/devops-health.lock.md
-
 tools:
   github:
     toolsets: [repos, issues, actions]
   cache-memory:
-  bash: ["cat", "grep", "head", "tail", "find", "ls", "wc", "jq", "date", "sort", "uniq", "diff"]
+  bash: ["cat", "grep", "head", "tail", "find", "ls", "wc", "jq", "date", "sort", "uniq", "diff", "sed", "git"]
   edit:
 
 safe-outputs:
@@ -103,6 +53,39 @@ network:
     - defaults
 
 timeout-minutes: 60
+
+# ###############################################################
+# Select a PAT from the pool and override COPILOT_GITHUB_TOKEN.
+# Run agentic jobs in an isolated `copilot-pat-pool` environment.
+#
+# When org-level billing is available, this will be removed.
+# See `shared/pat_pool.README.md` for more information.
+# ###############################################################
+imports:
+  - uses: shared/pat_pool.md
+    with:
+      environment: copilot-pat-pool
+  - ../aw/shared/devops-health.lock.md
+
+environment: copilot-pat-pool
+
+engine:
+  id: copilot
+  env:
+    COPILOT_GITHUB_TOKEN: |
+      ${{ case(
+        needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_PAT_0,
+        needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_PAT_1,
+        needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_PAT_2,
+        needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_PAT_3,
+        needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_PAT_4,
+        needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_PAT_5,
+        needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_PAT_6,
+        needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_PAT_7,
+        needs.pat_pool.outputs.pat_number == '8', secrets.COPILOT_PAT_8,
+        needs.pat_pool.outputs.pat_number == '9', secrets.COPILOT_PAT_9,
+        'NO COPILOT PAT AVAILABLE')
+      }}
 ---
 
 # DevOps Daily Health Check — Orchestrator
@@ -323,14 +306,53 @@ Using the classified findings, generate:
 
 ## Step 4: Output
 
-### 4.1 Find or Create the Pinned Issue
+### 4.1 Find or Create the Dashboard Issue
 
-Search for open issues with label `devops-health`:
-- If exactly one exists → update it
-- If none exist → create one with title `🏥 Repository Health Dashboard` and label `devops-health`
-- If multiple exist → update the most recently created one, close the others
+The dashboard MUST be the **same issue on every run**. GitHub's label search and
+issue-list APIs occasionally drop an open, correctly-labeled issue from their
+index — when that happens to the dashboard, searching by label alone returns
+nothing and a **duplicate dashboard gets created**, abandoning the real (often
+pinned) one. To be resilient, resolve the dashboard issue in this priority order:
 
-Before creating/updating, ensure the `devops-health` label exists. If not, create it with color `#0E8A16` and description `Daily automated health check report`.
+1. **Cached issue number (validated).** Load the `health-dashboard-issue`
+   key from `cache-memory`. If it holds a number, fetch that issue **directly by
+   number** (`GET /repos/{owner}/{repo}/issues/{number}`) — this works **even
+   when the issue is missing from label search/list results**. Accept it as the
+   dashboard ONLY if it passes every check below:
+   - the fetch succeeds (treat `404`/`410` as a **cache miss**),
+   - the issue is **open**, and
+   - it still looks like the dashboard — it carries the `devops-health` label
+     **or** its title is `🏥 Repository Health Dashboard`.
+   If any check fails (the number was deleted, closed, or now points at an
+   unrelated issue), discard the cached number, treat it as a **cache miss**, and
+   fall through to discovery (step 2). This prevents a stale or corrupted cache
+   from silently overwriting an unrelated open issue on every run.
+2. **Label search + pinned issues.** If there is no cached number (first run or
+   cache loss) or the cached number failed validation above, build the candidate
+   set two ways and union them: (a) search open issues with the `devops-health` label; and
+   (b) if the GitHub tools expose pinned issues, include any open pinned issue
+   titled `🏥 Repository Health Dashboard`. Pinned-issue lookup does not use the
+   label index, so it finds dashboards that label search misses.
+3. **Create.** Only if no dashboard issue is found by any method above, create
+   one titled `🏥 Repository Health Dashboard` with the `devops-health` label.
+
+**Never leave two open dashboards.** If more than one distinct open dashboard is
+found, choose a single canonical issue — prefer the cached number, else the
+pinned one, else the oldest — update only that one, and close each other with a
+one-line comment: `Superseded by #{canonical} — duplicate health dashboard.`
+
+**Persist every run.** After resolving, always save the canonical dashboard's
+number back to `cache-memory` under `health-dashboard-issue`, so future runs
+update it directly by number and never create a duplicate — even if the label
+index drops it again.
+
+> This workflow cannot pin issues itself. If the canonical dashboard is **not**
+> currently pinned, surface a one-line pin request **inside** the body template
+> (immediately below the Status / Since-yesterday block — see §4.2), never above
+> the `# 🏥 Daily Health Check — {date}` header. Keep exactly one dashboard pinned.
+
+Before creating/updating, ensure the `devops-health` label exists. If not, create
+it with color `#0E8A16` and description `Daily automated health check report`.
 
 ### 4.2 Issue Body Format
 
@@ -341,6 +363,9 @@ Replace the entire issue body with the following structure:
 
 **Status:** 🔴 {critical_count} critical · 🟡 {warning_count} warnings · 🔵 {info_count} info
 **Since yesterday:** 🆕 {new_count} new · ✅ {resolved_count} resolved · 📌 {existing_count} unchanged
+
+{Pin request — include this line ONLY when the dashboard issue is not currently pinned; omit it entirely when already pinned:}
+> 📌 **Maintainer action needed:** please pin this issue as the canonical health dashboard and unpin/close any stale duplicate.
 
 ---
 
@@ -481,12 +506,15 @@ Before finishing, verify:
 ## Guidelines
 
 - **Time budget**: You have a 60-minute timeout. Prioritize reaching Steps 4 and 5 (issue update + dispatch). Do NOT write intermediate scripts or analysis files. Work through each check, collect findings in memory, and proceed directly to output. Aim to complete data collection (Step 1) within 30 minutes.
+- **`cache-memory` persists automatically — do NOT manage it with `git`**: The `cache-memory` tool loads and saves state on its own. Never run `git` commands (e.g. `git config`, `git -C /tmp/gh-aw/cache-memory log/add/commit`) against the cache directory to inspect or persist state — use the `cache-memory` load/save operations described in Step 2. Manual git plumbing is unnecessary and only burns the effective-token budget.
+- **Token budget — don't retry denied commands**: The bash tool only permits the commands in the `bash:` allowlist. If a command is denied, do NOT re-issue the same or a slightly reworded command in a loop — repeated denials re-process the full context and exhaust the effective-token budget, failing the run. Use an allowed alternative (`jq`/`grep`/`sed`) or skip that sub-step and note it, then move on.
 - **Efficiency**: Process API responses in memory. Do NOT create Python/bash scripts to analyze data — parse JSON directly using `jq` or inline analysis. Do NOT write intermediate files unless explicitly required by the output format.
 - **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **complete, literal issue body text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. Pass the body directly as the string value.
 - **CRITICAL — Investigation Results section**: The `## 🔍 Investigation Results` section MUST always appear in the issue body template. The downstream [grooming workflow](../workflows/devops-health-groom.md) manages this section via a `replace-island` block — so the health-check must **preserve existing rows** from the previous issue body (look inside `<!-- gh-aw-island-start:devops-health-groom -->` markers if present, and copy those table rows into the new section). Do NOT wrap the section in island markers yourself — the groom adds those. Only append new "🔄 Dispatched" rows for findings dispatched in the current run.
 - **Be data-driven**: Include specific numbers, durations, percentages, and links.
 - **Be precise with fingerprints**: Use the exact fingerprint formulas from the knowledge file. Consistency is critical — the same finding MUST produce the same fingerprint across runs.
 - **First run handling**: If `cache-memory` has no previous state, note: "⚠️ This is the first health check run. All findings appear as new. Diff will resume from next run."
+- **Stable dashboard (don't duplicate)**: Always reuse the existing dashboard issue and update it **by number** (see §4.1). Persist its number in `cache-memory` (`health-dashboard-issue`) every run. Never create a second dashboard just because a label search came back empty — the issue may simply be missing from GitHub's search index.
 - **Graceful degradation**: If an API call fails, skip that check category and note the skip in the output. Don't fail the entire workflow.
 - **Noise awareness**: Demote known-noise findings (matching patterns in `cache-memory` `known-noise` list) to 🔵 Info severity, but still show them in the output for audit.
 - **Issue body limit**: Keep under 60k characters. Truncate EXISTING section if needed.

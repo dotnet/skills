@@ -8,7 +8,8 @@
   }
 
   // AGENTVIZ session replay configuration
-  const sessionManifestUrl = 'https://raw.githubusercontent.com/dotnet/skills/dashboard-session-data/data/manifest.json';
+  // Session data lives in the standalone dotnet/skills-data repo to keep this repo small.
+  const sessionManifestUrl = 'https://raw.githubusercontent.com/dotnet/skills-data/dashboard-session-data/data/manifest.json';
   const replayBaseUrl = 'replay/index.html';
 
   // Fetch plugin manifest
@@ -532,9 +533,16 @@
             data: vanTimeData,
             borderColor: '#8b949e',
             borderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            // Hollow diamond markers keep vanilla visible when it overlaps the
+            // isolated/plugin lines. Vanilla is pushed last, so it draws on top.
+            pointStyle: 'rectRot',
+            pointBackgroundColor: 'transparent',
+            pointBorderColor: '#8b949e',
+            pointBorderWidth: 1.5,
+            pointRadius: 5,
+            pointHoverRadius: 7,
             tension: 0.3,
+            borderDash: [8, 6],
             fill: false,
             yAxisID: 'y'
           });
@@ -543,10 +551,14 @@
             data: vanTokenData,
             borderColor: '#8b949e',
             borderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            pointStyle: 'rectRot',
+            pointBackgroundColor: 'transparent',
+            pointBorderColor: '#8b949e',
+            pointBorderWidth: 1.5,
+            pointRadius: 5,
+            pointHoverRadius: 7,
             tension: 0.3,
-            borderDash: [5, 5],
+            borderDash: [8, 6],
             fill: false,
             yAxisID: 'y1'
           });
@@ -711,10 +723,18 @@
             borderColor: colorC,
             backgroundColor: colorC + '20',
             borderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            // Hollow diamond markers (slightly larger than the round markers of
+            // the other series) so the vanilla series stays visible even when its
+            // value coincides exactly with another line. Vanilla is the last
+            // dataset, so it is drawn on top of the others.
+            pointStyle: 'rectRot',
+            pointBackgroundColor: 'transparent',
+            pointBorderColor: colorC,
+            pointBorderWidth: 1.5,
+            pointRadius: 5,
+            pointHoverRadius: 7,
             tension: 0.3,
-            borderDash: [5, 5],
+            borderDash: [8, 6],
             fill: false
           }
         ]
@@ -836,10 +856,18 @@
             borderColor: colorB,
             backgroundColor: colorB + '20',
             borderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            // Hollow diamond markers (slightly larger than the round markers of
+            // the other series) so the vanilla series stays visible even when its
+            // value coincides exactly with the other line. Vanilla is the last
+            // dataset, so it is drawn on top.
+            pointStyle: 'rectRot',
+            pointBackgroundColor: 'transparent',
+            pointBorderColor: colorB,
+            pointBorderWidth: 1.5,
+            pointRadius: 5,
+            pointHoverRadius: 7,
             tension: 0.3,
-            borderDash: [5, 5],
+            borderDash: [8, 6],
             fill: false
           }
         ]

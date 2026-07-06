@@ -73,6 +73,10 @@ skill-validator evaluate --model gpt-5.3-codex --judge-model claude-opus-4.6-fas
 # Multiple runs for stability
 skill-validator evaluate --runs 5 --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
+# Compute a shared baseline once, then reuse it across multiple skills/agents
+skill-validator evaluate --baseline-out baseline.json --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills/skill-a
+skill-validator evaluate --baseline-from baseline.json --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills/skill-b
+
 # Override the default results directory (.skill-validator-results)
 skill-validator evaluate --results-dir ./my-results --tests-dir ./tests/my-plugin ./plugins/my-plugin/skills
 
@@ -106,6 +110,9 @@ skill-validator check --plugin ./plugins/my-plugin --allowed-external-deps ./eng
 
 # Verbose output
 skill-validator check --verbose --plugin ./plugins/my-plugin
+
+# Emit machine-readable JSON to stdout
+skill-validator check --json --plugin ./plugins/my-plugin
 ```
 
 ## `check` flags
@@ -118,6 +125,7 @@ skill-validator check --verbose --plugin ./plugins/my-plugin
 | `--allowed-external-deps <path>` | *(none)* | Path to allowed-external-deps.txt; when omitted the external-deps check is skipped |
 | `--known-domains <path>` | *(none)* | Path to known-domains.txt for reference scanning; when omitted the reference scan is skipped |
 | `--verbose` | `false` | Show detailed output |
+| `--json` | `false` | Write a machine-readable JSON report to stdout |
 
 > `--plugin` must be used alone. `--skills` and `--agents` can be combined.
 
@@ -138,14 +146,48 @@ skill-validator check --verbose --plugin ./plugins/my-plugin
 | `--confidence-level <n>` | `0.95` | Confidence level for statistical intervals (0–1) |
 | `--judge-timeout <n>` | `300` | Judge LLM timeout in seconds |
 | `--require-completion` | `true` | Fail if skill regresses task completion |
+| `--baseline-out <path>` | *(none)* | After running, persist each scenario's averaged baseline (no-skill/no-agent reference) to this file for reuse. Mutually exclusive with `--baseline-from`. |
+| `--baseline-from <path>` | *(none)* | Reuse a precomputed baseline from this file instead of re-running the baseline arm. Must match `--model`, `--judge-model`, and every scenario's prompt, setup inputs, and evaluation criteria. Mutually exclusive with `--baseline-out`. |
 | `--verdict-warn-only` | `false` | Treat verdict failures as warnings (exit 0). Execution errors still fail. |
 | `--no-overfitting-check` | `false` | Disable the LLM-based overfitting analysis (on by default) |
 | `--overfitting-fix` | `false` | Generate `eval.fixed.yaml` with improved rubric items/assertions |
 | `--verbose` | `false` | Show tool calls and agent events during runs |
 | `--reporter <spec>` | `console`, `json`, `markdown` | Output format: `console`, `json`, `junit`, `markdown`. |
 | `--results-dir <path>` | `.skill-validator-results` | Directory for file reporter output. |
+| `--keep-sessions` | `false` | Preserve agent session data (`sessions.db`) in the results directory for later `rejudge`. Requires `--results-dir`. |
+| `--no-judge` | `false` | Run the requested agent arms and persist `sessions.db`, but skip **all** judging. No baseline file is required. Use this to run baseline and treatment arms in parallel, then judge later with `rejudge`. Requires `--results-dir`; mutually exclusive with `--baseline-out`/`--baseline-from`. |
 
 Models are validated on startup — invalid model names fail fast with a list of available models.
+
+### Shared baseline reuse
+
+Every evaluation runs each scenario through a **baseline arm** (the agent with no skill / no agent loaded) to establish a reference the skill-enhanced run is compared against. When you evaluate many skills or agents against the same test scenarios, that baseline arm is re-run every time — redundant work that also introduces run-to-run variance into the comparison.
+
+`--baseline-out` and `--baseline-from` let you compute the baseline **once** and reuse it as a shared control group:
+
+1. **Produce** a baseline file with `--baseline-out baseline.json`. After the run, each scenario's averaged baseline result (honoring `--runs`) is written to the file.
+2. **Reuse** it with `--baseline-from baseline.json` on subsequent runs. The baseline arm is skipped entirely; the cached baseline is used for assertions, pairwise/independent judging, and metric deltas.
+
+The baseline file records the `--model` **and** `--judge-model`, and per scenario a SHA-256 of the prompt plus a composite SHA-256 over (a) its setup inputs — the fixtures copied via `copy_test_files`, explicit setup files, and setup commands — and (b) the evaluation criteria that shape the stored result (rubric, assertions, expect/reject tools, and the turn/token/timeout limits). This is the analog of a target/input SHA. On reuse the validator fails fast if the agent model, the judge model, or any scenario's prompt-plus-setup-plus-criteria identity is missing from the file, so a stale or mismatched baseline can never be silently applied — and two scenarios that share a prompt but feed the agent different fixtures (e.g. a different `build.binlog`) or use different rubrics never reuse each other's baseline. Scenarios reused from the file are reported with the `baseline-reused` session phase and a `reused` baseline status.
+
+> **Note:** Setup `commands` are fingerprinted by their text (the recipe), not the artifacts they produce, so baseline reuse assumes setup commands are deterministic/hermetic — a command whose output changes between runs (e.g. fetching `latest`) will not invalidate a cached baseline.
+
+The two options are mutually exclusive.
+
+### Decoupled runs and judging (parallel run pool → central judge)
+
+The expensive part of an evaluation is the agent investigation, not the judging. The baseline and treatment **runs** have no dependency on each other — only the judge step pairs them. You can therefore split a run into two phases so baseline and treatment arms execute in one parallel pool, with judging deferred to a final barrier:
+
+1. **Run** every arm with `skill-validator evaluate --no-judge --results-dir <dir>`. This runs the requested agent arms, persists `sessions.db` (including each run's baseline key — the prompt-plus-target SHA used for pairing), and performs **no** judge calls. It does not require a baseline file and exits `0` on successful runs. Run the baseline directory and each treatment directory concurrently.
+2. **Judge** with `rejudge`, pointing it at a treatment results directory and the separate baseline results directory:
+
+   ```bash
+   skill-validator evaluate rejudge <treatment-results-dir> --baseline-dir <baseline-results-dir>
+   ```
+
+   `rejudge` pairs each treatment scenario with its baseline by the shared key (prompt SHA + target SHA), runs the same pairwise/independent judges `evaluate` runs inline, writes the reports, and applies the usual pass/fail gates (`--min-improvement`, `--require-completion`, …). Baseline and treatment must share the same `--model`; the judge model defaults to the value persisted in the treatment `sessions.db` (then the baseline's), and a mismatch between the two persisted judge models is rejected unless you pass `--judge-model`.
+
+Without `--baseline-dir`, `rejudge` keeps its original single-directory behavior: it re-judges baseline+treatment runs that live in the **same** `sessions.db`.
 
 ## Output
 
@@ -367,7 +409,7 @@ The complexity tier is derived from the BPE token count:
 | standard | 2,501 – 5,000 | Approaching diminishing returns |
 | comprehensive | > 5,000 | ✗ Performance degrades |
 
-> **Note:** The `check` command outputs to the console only — it does not write result files. Warnings about skill size are always printed; the full profile line requires `--verbose`.
+> **Note:** The `check` command writes to stdout. Use the default console output for human-readable summaries, or `--json` for a machine-readable payload you can pipe to a file or another tool. Warnings about skill size are always printed in console mode; the full profile line requires `--verbose`.
 
 ## Metrics & scoring
 

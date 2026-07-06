@@ -6,6 +6,7 @@ description: >-
   discovering test frameworks and build commands, producing .testagent/research.md.
 name: code-testing-researcher
 user-invocable: false
+tools: ["skill", "read", "search", "edit", "execute"]
 license: MIT
 ---
 
@@ -25,22 +26,28 @@ Analyze a codebase and produce a comprehensive research document that will guide
 
 Search for key files:
 
-- Project files: `*.csproj`, `*.vcxproj`, `*.sln`, `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`
+- Project files: `*.csproj`, `*.vcxproj`, `*.sln`, `package.json`, `pyproject.toml`, `setup.cfg`, `setup.py`, `requirements*.txt`, `tox.ini`, `noxfile.py`, `uv.lock`, `poetry.lock`, `pdm.lock`, `Pipfile`, `Pipfile.lock`, `go.mod`, `go.work`, `Cargo.toml`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `settings.gradle*`, `Gemfile`, `Gemfile.lock`, `Package.swift`, `*.xcodeproj`, `CMakeLists.txt`, `BUILD.bazel`, `meson.build`, `Makefile`, `Taskfile.yml`
 - Property and Target files: `*.props`, `*.targets`
-- Source files: `*.cs`, `*.ts`, `*.py`, `*.go`, `*.rs`, `*.cpp`, `*.h`
-- Existing tests: `*test*`, `*Test*`, `*spec*`
-- Config files: `README*`, `Makefile`, `*.config`
+- Source files: `*.cs`, `*.ts`, `*.tsx`, `*.js`, `*.jsx`, `*.mts`, `*.cts`, `*.py`, `*.go`, `*.rs`, `*.cpp`, `*.cc`, `*.h`, `*.hpp`, `*.java`, `*.kt`, `*.kts`, `*.swift`, `*.rb`, `*.ps1`, `*.psm1`
+- Test runner config: `vitest.config.*`, `jest.config.*`, `mocha.config.*`, `pytest.ini`, `conftest.py`, `phpunit.xml`, `karma.conf.*`, `playwright.config.*`
+- Existing tests: `*test*`, `*Test*`, `*spec*`, `*_test.go`
+- Config files: `README*`, `Makefile`, `*.config`, `*.editorconfig`
 
 ### 2. Identify the Language and Framework
 
 Based on files found:
 
-- **C#/.NET**: `*.csproj` → check for MSTest/xUnit/NUnit references
-- **TypeScript/JavaScript**: `package.json` → check for Jest/Vitest/Mocha
-- **Python**: `pyproject.toml` or `pytest.ini` → check for pytest/unittest
-- **Go**: `go.mod` → tests use `*_test.go` pattern
-- **Rust**: `Cargo.toml` → tests go in same file or `tests/` directory
-- **C++**: `*.vcxproj` → check for GoogleTest (gtest) references
+- **C#/.NET**: `*.csproj` → check for MSTest/xUnit/NUnit/TUnit references
+- **TypeScript/JavaScript**: `package.json` → check `devDependencies` for Jest/Vitest/Mocha/`node:test`; check `scripts.test`; check for `vitest.config.*` / `jest.config.*`
+- **Python**: `pyproject.toml` / `setup.cfg` / `pytest.ini` / `tox.ini` / `noxfile.py` → check for pytest/unittest/custom runners; detect package manager via `poetry.lock` / `pdm.lock` / `uv.lock` / `Pipfile.lock`
+- **Go**: `go.mod` → tests use `*_test.go` pattern; `go.work` indicates a multi-module workspace
+- **Rust**: `Cargo.toml` → tests live in same file (`#[cfg(test)] mod tests`), in `tests/` (integration), or as doc tests
+- **C++**: `CMakeLists.txt` / `BUILD.bazel` / `meson.build` / `*.vcxproj` / `Makefile` → check for GoogleTest (`gtest`), Catch2, doctest, or Boost.Test
+- **Java**: `pom.xml` (Maven) or `build.gradle[.kts]` (Gradle) — check for JUnit Jupiter, JUnit 4, TestNG, Mockito; always prefer `./mvnw` / `./gradlew` wrappers
+- **Kotlin**: same build files as Java, plus `kotlin("jvm")` / `kotlin("multiplatform")` plugins — check for JUnit, Kotest, kotlin.test, MockK
+- **Ruby**: `Gemfile` / `Gemfile.lock` — check for RSpec (`spec/`) or Minitest (`test/`)
+- **Swift**: `Package.swift` (SPM) or `*.xcodeproj`/`*.xcworkspace` (Xcode) — distinguish XCTest vs Swift Testing
+- **PowerShell**: `*.ps1`/`*.psm1` files alongside `*.Tests.ps1` — Pester is the dominant framework
 
 ### 3. Identify the Scope of Testing
 
@@ -82,6 +89,11 @@ Search for commands in:
 - `README.md` instructions
 - Project files
 
+Identify **two** test commands and record both in `.testagent/research.md`:
+
+1. **Scoped test command** — what the implementer should run during fix cycles (e.g., `dotnet test <test.csproj>`, `bundle exec rspec spec/foo_spec.rb`, `Invoke-Pester -Path ./Tests/Foo.Tests.ps1`). Optimized for speed and locality.
+2. **Harness-equivalent discovery command** — what a generic CI/benchmark verifier would run from the repo root with no args (e.g., `dotnet test <solution> --list-tests`, `bundle exec rspec --dry-run`, `Invoke-Pester` with default config, `pytest --collect-only -q`). This is the command the implementer's "Verify Harness Discovery" step uses to confirm new tests are visible to outside tooling. Call the `code-testing-extensions` skill and consult the "Harness Discovery Check" section of the relevant language extension.
+
 ### 7. Discover Preexisting Tests
 
 Locate all existing test files and analyze what they cover:
@@ -92,6 +104,8 @@ Locate all existing test files and analyze what they cover:
   - Number of test methods vs. number of public methods in the source
   - Whether tests cover only happy paths or also edge cases and error paths
 - Record the estimated coverage level per source file so the planner can prioritize gaps
+
+**For C# / .NET repos**, before manually pairing source ↔ test files, invoke the `find-untested-sources` skill (when available in the workspace). It parses every `.cs` file with Roslyn — no build, no `Compilation`, no `MetadataReferences` — and returns a deterministic JSON map: `source_to_tests` (which test files reference which source), an `untested` list ordered by API surface (`decl_count`) descending, and a `suggested_test_path` derived from existing `<ProjectReference>` edges. Use its `untested` list as your prioritized worklist instead of walking the test tree; use `source_to_tests` to fill the "Existing Tests & Estimated Coverage" section. The skill is parse-only and intentionally cheap — runs in seconds even on multi-thousand-file repos. Fall back to manual discovery when the skill is not installed or for non-C# code.
 
 ### 8. Generate Research Document
 
@@ -113,7 +127,8 @@ Create `.testagent/research.md` with this structure:
 
 ## Build & Test Commands
 - **Build**: `[command]`
-- **Test**: `[command]`
+- **Test (scoped — fix cycles)**: `[command run on the specific test project/file]`
+- **Test (harness-equivalent — discovery check)**: `[command run from repo root that mirrors what a CI/benchmark verifier sees]`
 - **Lint**: `[command]` (if available)
 
 ## Project Structure
@@ -160,4 +175,4 @@ For each test project found, list:
 
 Write the research document to `.testagent/research.md` in the workspace root.
 
-> **Concrete example**: For a filled-in research document showing real file paths, detected frameworks, and prioritized file tables, call the `code-testing-extensions` skill and read `dotnet-examples.md` ("Sample Research Output" section).
+> **Concrete example**: For a filled-in research document showing real file paths, detected frameworks, and prioritized file tables, call the `code-testing-extensions` skill and read the matching `<language>-examples.md` file when one exists — `dotnet-examples.md`, `python-examples.md`, `typescript-examples.md`, `go-examples.md`, `java-examples.md` ("Sample Research Output" section). For other languages, adapt the closest example.

@@ -1,0 +1,78 @@
+name: "PR Triage — Worker"
+
+# Per-PR triage worker. Recomputes the PR's state at runtime from GitHub API
+# data and applies one action: state-label reconciliation, eval-trigger,
+# author-ping, or maintainer-ping. Cool-downs are enforced inside the script.
+#
+# Triggered by:
+#   - workflow_dispatch (orchestrator and manual reruns)
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to triage."
+        required: true
+        type: string
+      intended_state:
+        description: "State the orchestrator computed (informational; worker re-validates)."
+        required: false
+        type: string
+      cooldown_days:
+        description: "Per-action cool-down in days. Default 4."
+        required: false
+        type: string
+        default: "4"
+      first_ping_age_min:
+        description: "Suppress first ping while PR.created_at age < N minutes (bypassed once any prior ping marker exists). Default 30."
+        required: false
+        type: string
+        default: "30"
+      dry_run:
+        description: "If 'true', log intended actions without making writes."
+        required: false
+        type: string
+        default: "false"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  statuses: read
+  # actions: write lets the worker dispatch evaluation.yml via `gh workflow run`
+  # (the GITHUB_TOKEN-exempt trigger that replaces the bot-applied `evaluate-now`
+  # label). It also covers the runs/jobs reads in eval_run_exists_for_head.
+  actions: write
+
+concurrency:
+  group: pr-triage-${{ inputs.pr_number }}
+  cancel-in-progress: false
+
+run-name: "Triage PR #${{ inputs.pr_number }} (intended: ${{ inputs.intended_state || 'auto' }}${{ inputs.dry_run == 'true' && ', dry-run' || '' }})"
+
+jobs:
+  triage:
+    if: ${{ !github.event.repository.fork }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout scripts and CODEOWNERS
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts
+            .github/CODEOWNERS
+          sparse-checkout-cone-mode: false
+
+      - name: Run pr-triage-act.sh
+        env:
+          GH_TOKEN:           ${{ github.token }}
+          PR_NUMBER:          ${{ inputs.pr_number }}
+          INTENDED_STATE:     ${{ inputs.intended_state }}
+          COOLDOWN_DAYS:      ${{ inputs.cooldown_days }}
+          FIRST_PING_AGE_MIN: ${{ inputs.first_ping_age_min }}
+          DRY_RUN:            ${{ inputs.dry_run }}
+        run: |
+          chmod +x .github/scripts/pr-triage-act.sh
+          ./.github/scripts/pr-triage-act.sh
