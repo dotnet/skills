@@ -338,6 +338,12 @@ GC.KeepAlive(callback); // prevent collection — fnPtr does not root the delega
 Use `NativeLibrary.SetDllImportResolver` for complex scenarios, or conditional compilation for simple cases. Use `CLong`/`CULong` for C `long`/`unsigned long`. Note: `CLong`/`CULong` with `LibraryImport` requires `[assembly: DisableRuntimeMarshalling]`.
 
 ```csharp
+// Trivial: use platform naming convention
+// The default naming convention adds corresponding prefix and extension when
+// searching the nativelibrary. The resultant file name will be mylib.dll on
+// Windows, libmylib.so on Linux and libmylib.dylib on macOS.
+private const string LibName = "mylib";
+
 // Simple: conditional compilation
 // WINDOWS, LINUX, MACOS are predefined only when targeting an OS-specific TFM
 // (e.g., net8.0-windows). For portable TFMs (e.g., net8.0), these symbols are
@@ -351,13 +357,15 @@ Use `NativeLibrary.SetDllImportResolver` for complex scenarios, or conditional c
 #endif
 
 // Complex: runtime resolver
+// When targeting netstandard2.0 or other frameworks when OperatingSystem.IsXXX
+// is not available, use RuntimeInformation.IsOSPlatform(OSPlatform.XXX) api.
 NativeLibrary.SetDllImportResolver(typeof(MyLib).Assembly,
     (name, assembly, searchPath) =>
     {
         if (name != "mylib") return IntPtr.Zero;
-        string libName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        string libName = OperatingSystem.IsWindows()
             ? "mylib.dll"
-            : RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+            : OperatingSystem.IsMacOS()
                 ? "libmylib.dylib" : "libmylib.so";
         NativeLibrary.TryLoad(libName, assembly, searchPath, out var handle);
         return handle;

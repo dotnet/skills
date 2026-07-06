@@ -6,6 +6,15 @@ description: >-
   coverage plateaus or project-wide coverage/CRAP analysis without writing tests
   (use coverage-analysis); targeted method/class CRAP scores (use crap-score).
 name: code-testing-generator
+tools: ["agent", "skill", "read", "search", "edit", "execute"]
+agents:
+  - code-testing-researcher
+  - code-testing-planner
+  - code-testing-implementer
+  - code-testing-builder
+  - code-testing-tester
+  - code-testing-fixer
+  - code-testing-linter
 license: MIT
 ---
 
@@ -56,40 +65,25 @@ Based on the request scope, pick exactly one strategy and follow it:
 
 ### Step 3: Research Phase
 
-Call the `code-testing-researcher` subagent:
+Delegate to the `code-testing-researcher` subagent with this task:
 
-```text
-runSubagent({
-  agent: "code-testing-researcher",
-  prompt: "Research the codebase at [PATH] for test generation. Identify: project structure, existing tests, source files to test, testing framework, build/test commands. Build a dependency graph and estimate preexisting coverage."
-})
-```
+> Research the codebase at [PATH] for test generation. Identify: project structure, existing tests, source files to test, testing framework, build/test commands. Build a dependency graph and estimate preexisting coverage.
 
 Output: `.testagent/research.md`
 
 ### Step 4: Planning Phase
 
-Call the `code-testing-planner` subagent:
+Delegate to the `code-testing-planner` subagent with this task:
 
-```text
-runSubagent({
-  agent: "code-testing-planner",
-  prompt: "Create a test implementation plan based on .testagent/research.md. Create phased approach with specific files and test cases."
-})
-```
+> Create a test implementation plan based on .testagent/research.md. Create phased approach with specific files and test cases.
 
 Output: `.testagent/plan.md`
 
 ### Step 5: Implementation Phase
 
-Execute each phase by calling the `code-testing-implementer` subagent — once per phase, sequentially:
+Execute each phase by delegating to the `code-testing-implementer` subagent — once per phase, sequentially. For each phase, delegate with this task:
 
-```text
-runSubagent({
-  agent: "code-testing-implementer",
-  prompt: "Implement Phase N from .testagent/plan.md: [phase description]. Ensure tests compile and pass."
-})
-```
+> Implement Phase N from .testagent/plan.md: [phase description]. Ensure tests compile and pass.
 
 ### Step 6: Final Build Validation
 

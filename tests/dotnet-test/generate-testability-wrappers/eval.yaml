@@ -13,6 +13,8 @@ scenarios:
         pattern: "(FakeTimeProvider|fake.*time|mock.*time|test.*time)"
       - type: "output_matches"
         pattern: "(AddSingleton|Register|services\\.Add)"
+      - type: "output_matches"
+        pattern: "Assert\\.True"
       - type: "exit_success"
     rubric:
       - "Recommended TimeProvider as the built-in abstraction since the project targets .NET 10"
@@ -34,11 +36,14 @@ scenarios:
         pattern: "(interface|IEnvironment)"
       - type: "output_matches"
         pattern: "(GetEnvironmentVariable|MachineName)"
+      - type: "output_matches"
+        pattern: "\\bsealed\\b"
       - type: "exit_success"
     rubric:
       - "Generated an interface with methods for GetEnvironmentVariable and MachineName"
       - "Generated a default implementation that delegates to the real Environment static class"
       - "Provided DI registration code for the wrapper"
+      - "Registered the stateless wrapper with AddSingleton rather than AddTransient, noting that transient suits stateful wrappers"
       - "Only wrapped the two members actually used in the code, not every Environment member"
     timeout: 240
 
@@ -53,6 +58,8 @@ scenarios:
         pattern: "(System\\.IO\\.Abstractions|IFileSystem)"
       - type: "output_matches"
         pattern: "(MockFileSystem|mock.*file)"
+      - type: "output_matches"
+        pattern: "Assert\\.Equal"
       - type: "exit_success"
     rubric:
       - "Recommended System.IO.Abstractions NuGet package instead of writing a custom wrapper"
@@ -84,3 +91,35 @@ scenarios:
       - "Did not generate a redundant wrapper interface"
       - "May have suggested other improvements but did not create duplicate abstractions"
     timeout: 120
+
+  - name: "Provide ambient context alternative when DI is unavailable"
+    prompt: |
+      I maintain a small class library. A few classes read DateTimeOffset.UtcNow
+      directly, which makes my tests flaky and order-dependent. The library has no
+      dependency injection set up. What's the lightest way to make the current
+      time controllable in my tests?
+    setup:
+      files:
+        - path: "InvoiceLib/InvoiceCalculator.cs"
+          content: |
+            namespace InvoiceLib;
+            public class InvoiceCalculator
+            {
+                public bool IsOverdue(DateTimeOffset dueDate)
+                    => DateTimeOffset.UtcNow > dueDate;
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "AsyncLocal"
+      - type: "output_matches"
+        pattern: "\\breadonly\\b"
+      - type: "output_matches"
+        pattern: "(IDisposable|Dispose)"
+      - type: "exit_success"
+    rubric:
+      - "Offered an ambient context alternative because the codebase does not use dependency injection"
+      - "Implemented the ambient context using AsyncLocal so that parallel tests do not interfere with each other"
+      - "Provided scoped disposal that resets the ambient override when the scope is disposed"
+      - "Explained the trade-offs of the ambient context approach, such as the per-call null check cost in production"
+      - "Used AsyncLocal rather than ThreadStatic so the ambient context survives across async and await boundaries"
+    timeout: 240

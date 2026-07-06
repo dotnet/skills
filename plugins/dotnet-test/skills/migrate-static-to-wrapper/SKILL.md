@@ -6,12 +6,11 @@ description: >
   Performs codemod-style bulk replacement of DateTime.UtcNow to TimeProvider.GetUtcNow(),
   File.ReadAllText to IFileSystem, and similar transformations. Adds constructor
   injection parameters and updates DI registration.
-  USE FOR: replace DateTime.UtcNow with TimeProvider, replace DateTime.Now with
-  TimeProvider, migrate static calls to wrapper, bulk replace File.* with IFileSystem,
-  codemod static to injectable, add constructor injection for time provider,
-  mechanical migration of statics, refactor DateTime to TimeProvider, swap static
-  for injected dependency, convert static calls to use abstraction, replace statics
-  in a class, migrate one file to TimeProvider, scoped migration, update call sites.
+  USE FOR: replace DateTime.Now/UtcNow with TimeProvider, migrate static calls
+  to wrapper, bulk replace File.* with IFileSystem, codemod static to
+  injectable, add constructor injection for a dependency, mechanical or scoped
+  migration of statics, convert static calls to use an abstraction, update call
+  sites.
   DO NOT USE FOR: detecting statics (use detect-static-dependencies), generating
   wrappers (use generate-testability-wrappers), migrating between test frameworks.
 license: MIT

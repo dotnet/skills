@@ -29,6 +29,7 @@ scenarios:
       - "Noted that no tests verify collection contents in GetTransactionHistory — only the count is checked"
       - "Recommended specific additional assertion types that would improve coverage (exception, collection, structural)"
       - "Provided concrete examples of assertions that could be added to specific test methods"
+      - "Reported assertion metrics that are computed correctly — the per-category counts add up and are internally consistent with the total number of assertions"
     timeout: 120
 
   # ==========================================================================
@@ -89,6 +90,7 @@ scenarios:
       - "Acknowledged the negative assertions (Assert.IsNull for non-existent user, Assert.IsFalse for failed delete, Assert.AreNotEqual for role change)"
       - "Acknowledged the exception assertions with specific exception types and parameter name verification"
       - "If any gaps were identified, they were presented as minor enhancement opportunities rather than problems"
+      - "Because the suite already has good diversity, the report explicitly acknowledges this strength instead of inventing problems"
     timeout: 300
 
   # ==========================================================================

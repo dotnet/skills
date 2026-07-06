@@ -18,7 +18,10 @@ scenarios:
       - "Replaced all DateTime.UtcNow calls in CouponService.cs with TimeProvider calls"
       - "Added TimeProvider as a constructor parameter to CouponService"
       - "Stored TimeProvider in a readonly field following the class's existing naming convention"
-      - "Did not change the behavior of any method — only the time source changed"
+      - "Added any required `using` directives so the migrated file still compiles"
+      - "Left the project in a state where the build still succeeds after the migration"
+      - "Introduced no behavioral changes — the migrated code delegates directly to the injected TimeProvider in place of the static DateTime.UtcNow"
+      - "Did not break the original static class or alter it in a way that breaks existing callers"
       - "Did not modify Program.cs DI registration since TimeProvider was already registered"
     timeout: 180
 
@@ -40,8 +43,135 @@ scenarios:
     rubric:
       - "Migrated DateTime.UtcNow to TimeProvider in CouponService.cs"
       - "Left AuditLogger.cs completely untouched with DateTime.UtcNow calls still present"
+      - "Migrated incrementally rather than too much at once, keeping the change to the single file the user scoped"
       - "Respected the scope boundary the user specified"
       - "Reported what was migrated and what remains to be done"
+    timeout: 180
+
+  - name: "Update test doubles when migrating a service to TimeProvider"
+    prompt: |
+      Please migrate DateTime.UtcNow to TimeProvider in my InvoiceService, and
+      update the unit tests so they use a controllable time source and stay
+      deterministic. TimeProvider is already registered in my DI container.
+    setup:
+      files:
+        - path: "BillingApp/BillingApp.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+            </Project>
+        - path: "BillingApp/InvoiceService.cs"
+          content: |
+            namespace BillingApp;
+
+            public class InvoiceService
+            {
+                public Invoice Create(decimal amount)
+                {
+                    return new Invoice
+                    {
+                        Amount = amount,
+                        IssuedAt = DateTime.UtcNow
+                    };
+                }
+            }
+
+            public class Invoice
+            {
+                public decimal Amount { get; set; }
+                public DateTimeOffset IssuedAt { get; set; }
+            }
+        - path: "BillingApp.Tests/BillingApp.Tests.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+                <PackageReference Include="xunit" Version="2.9.2" />
+                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+                <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.0.0" />
+              </ItemGroup>
+              <ItemGroup>
+                <ProjectReference Include="..\BillingApp\BillingApp.csproj" />
+              </ItemGroup>
+            </Project>
+        - path: "BillingApp.Tests/InvoiceServiceTests.cs"
+          content: |
+            using Xunit;
+            using BillingApp;
+
+            namespace BillingApp.Tests;
+
+            public class InvoiceServiceTests
+            {
+                [Fact]
+                public void Create_SetsIssuedAt()
+                {
+                    var service = new InvoiceService();
+
+                    var invoice = service.Create(100m);
+
+                    Assert.True(invoice.IssuedAt <= DateTimeOffset.UtcNow);
+                }
+            }
+    assertions:
+      - type: "file_contains"
+        path: "**/InvoiceService.cs"
+        value: "TimeProvider"
+      - type: "file_not_contains"
+        path: "**/InvoiceService.cs"
+        value: "DateTime.UtcNow"
+      - type: "file_contains"
+        path: "**/InvoiceServiceTests.cs"
+        value: "TimeProvider"
+      - type: "exit_success"
+    rubric:
+      - "Updated the affected test files with an appropriate test double for the time source (such as FakeTimeProvider) instead of relying on the real clock"
+      - "Kept the migrated production code free of behavioral changes — it delegates directly to the injected TimeProvider rather than the static DateTime.UtcNow"
+      - "Left both the production and test projects in a state where the build still succeeds after the migration"
+      - "Added any required `using` directives to the files it changed"
+    timeout: 240
+
+  - name: "Handle a genuinely static class that cannot take constructor injection"
+    prompt: |
+      I want to migrate DateTime.UtcNow to TimeProvider in my TimestampFormatter
+      helper. It's a static class with only static members. TimeProvider is
+      registered in DI. How should I do this?
+    setup:
+      files:
+        - path: "Utils/Utils.csproj"
+          content: |
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+                <ImplicitUsings>enable</ImplicitUsings>
+              </PropertyGroup>
+            </Project>
+        - path: "Utils/TimestampFormatter.cs"
+          content: |
+            namespace Utils;
+
+            public static class TimestampFormatter
+            {
+                public static string Now() => DateTime.UtcNow.ToString("O");
+            }
+    assertions:
+      - type: "output_matches"
+        pattern: "(static class|ambient|constructor|TimeProvider)"
+      - type: "exit_success"
+    rubric:
+      - "Recognized that the static class cannot receive constructor injection without breaking it"
+      - "Used an ambient context approach for the time source instead of adding a constructor to the static class"
+      - "Did not produce code that fails to compile by adding instance constructors or fields to a static class"
     timeout: 180
 
   - name: "Decline migration when wrapper does not exist yet"

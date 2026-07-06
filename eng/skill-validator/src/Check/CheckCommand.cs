@@ -14,6 +14,12 @@ public static class CheckCommand
         ? StringComparer.OrdinalIgnoreCase
         : StringComparer.Ordinal;
 
+    // A skill with `disable-model-invocation: true` in its frontmatter is
+    // dropped from the Copilot CLI's model-facing skill menu and therefore does
+    // not consume the skill-menu character budget tracked by
+    // SkillProfiler.MaxRenderedSkillMenuLength. The flag is parsed once during
+    // discovery and surfaced on SkillInfo.DisableModelInvocation.
+
     public static Command Create()
     {
         var pluginOpt = new Option<string[]>("--plugin") { Description = "Plugin directories to check (discovers skills, agents, plugin.json)", AllowMultipleArgumentsPerToken = true };
@@ -219,14 +225,26 @@ public static class CheckCommand
 
         foreach (var (pluginDirectoryPath, skills) in pluginSkills)
         {
-            int totalChars = skills.Sum(s => s.Description.Length);
-            if (totalChars <= SkillProfiler.MaxAggregateDescriptionLength)
+            // Sum each model-invocable skill's RENDERED menu cost — the full
+            // <skill> block the Copilot CLI emits (name + description + location
+            // + markup), via SkillProfiler.RenderedSkillMenuCost — so this
+            // mirrors the real SKILL_CHAR_BUDGET rather than just the raw
+            // description length.
+            //
+            // Skills hidden from the model-facing skill menu via
+            // `disable-model-invocation: true` do not consume that budget, so
+            // they are excluded from the aggregate (see
+            // SkillProfiler.MaxRenderedSkillMenuLength).
+            int totalChars = skills
+                .Where(s => !s.DisableModelInvocation)
+                .Sum(SkillProfiler.RenderedSkillMenuCost);
+            if (totalChars <= SkillProfiler.MaxRenderedSkillMenuLength)
                 continue;
 
             var pluginResult = builder.Plugins.FirstOrDefault(p => string.Equals(p.DirectoryPath, pluginDirectoryPath, s_pathComparison));
             var pluginLabel = pluginResult?.Name
                 ?? Path.GetFileName(pluginDirectoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            var message = $"Plugin '{pluginLabel}' aggregate description size is {totalChars:N0} characters — maximum is {SkillProfiler.MaxAggregateDescriptionLength:N0}.";
+            var message = $"Plugin '{pluginLabel}' rendered skill-menu size is {totalChars:N0} characters — maximum is {SkillProfiler.MaxRenderedSkillMenuLength:N0}.";
             if (pluginResult is not null)
                 pluginResult.Errors.Add(message);
             else

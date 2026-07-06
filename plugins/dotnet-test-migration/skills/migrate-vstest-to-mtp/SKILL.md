@@ -8,12 +8,12 @@ description: >
   EnableNUnitRunner, or UseMicrosoftTestingPlatformRunner.
   USE FOR: MTP behavioral differences vs VSTest (exit code 8, zero tests
   discovered, --ignore-exit-code, TESTINGPLATFORM_EXITCODE_IGNORE);
-  centralizing MTP properties in Directory.Build.props and conditioning
-  OutputType=Exe to only test projects via MSBuildProjectName, not
-  IsTestProject.
+  centralizing MTP properties and OutputType=Exe on test projects via
+  MSBuildProjectName, not IsTestProject.
   Supports MSTest, NUnit, xUnit.net v2 (via YTest.MTP.XUnit2), and
   xUnit.net v3. Covers runner enablement, CLI argument and filter
-  translation, global.json config, CI/CD updates, and extension packages.
+  translation (--filter-class/--filter-trait/--filter-query),
+  global.json config, CI/CD updates, and extension packages.
   DO NOT USE FOR: migrating between test frameworks (MSTest/xUnit/NUnit),
   xUnit.net v2 to v3 API migration, MSTest version upgrades, TFM upgrades,
   or UWP/WinUI test projects.

@@ -77,7 +77,8 @@ public static class SkillDiscovery
             Path: dirPath,
             SkillMdPath: skillMdPath,
             SkillMdContent: skillMdContent,
-            Compatibility: compatibility);
+            Compatibility: compatibility,
+            DisableModelInvocation: metadata.DisableModelInvocation);
     }
 
     internal static (SkillFrontmatter Metadata, string Body) ParseFrontmatter(string content)
