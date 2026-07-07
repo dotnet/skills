@@ -1,0 +1,57 @@
+scenarios:
+  # --- Scenario 1: Run and capture output in .NET 11 ---
+  - name: "Run and capture process output in .NET 11"
+    prompt: |
+      I'm writing a .NET 11 command-line tool that needs to run an external CLI (e.g. 'git status') and capture both stdout and stderr.
+      I want to make sure I don't run into any OS pipe deadlock issues, and I want to write it in the cleanest way possible using new .NET 11 features.
+      Show me the C# program and the `.csproj` XML targeting `net11.0` for this tool. Print both in your response.
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "Process\\.RunAndCaptureText(Async)?"
+      - type: "output_matches"
+        pattern: "net11\\.0"
+      - type: "output_not_matches"
+        pattern: "RedirectStandardOutput\\s*=\\s*true"
+    rubric:
+      - "Uses the new built-in Process.RunAndCaptureText or Process.RunAndCaptureTextAsync static method"
+      - "Targets net11.0 in the project file"
+      - "Avoids manual redirection setup boilerplate (like RedirectStandardOutput = true, BeginOutputReadLine, etc.)"
+    timeout: 180
+
+  # --- Scenario 2: Auto-teardown child processes on parent exit ---
+  - name: "Auto-teardown child processes on parent exit in .NET 11"
+    prompt: |
+      In a .NET 11 application, I need to spawn a background daemon process.
+      To prevent orphan processes, I want to ensure that this daemon process is automatically killed by the operating system if my main parent process crashes or exits.
+      How do I configure this in .NET 11 using ProcessStartInfo? Show me a minimal example, and show the `.csproj` XML targeting `net11.0` in your response.
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "KillOnParentExit\\s*=\\s*true"
+      - type: "output_matches"
+        pattern: "net11\\.0"
+    rubric:
+      - "Uses the new KillOnParentExit property on ProcessStartInfo set to true"
+      - "Targets net11.0"
+    timeout: 180
+
+  # --- Scenario 3: Negative — skill should NOT activate ---
+  - name: "Non-activation: Running a process on .NET 8"
+    prompt: |
+      I have a .NET 8 console app and I need to start a process 'notepad.exe'.
+      Show me a minimal C# program and the `.csproj` XML targeting `net8.0` that starts this process using the traditional Process.Start. Print both in your response.
+    expect_activation: false
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "net8\\.0"
+      - type: "output_matches"
+        pattern: "Process\\.Start\\("
+      - type: "output_not_matches"
+        pattern: "Process\\.RunAndCaptureText"
+    rubric:
+      - "Solves the task using standard pre-.NET 11 APIs (Process.Start)"
+      - "Does NOT load or reference the process-api-net11 skill"
+      - "Targets net8.0"
+    timeout: 180
