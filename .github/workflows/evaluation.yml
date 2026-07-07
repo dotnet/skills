@@ -587,6 +587,24 @@ jobs:
             $entries = @($plugins | ForEach-Object { Get-PluginShardEntries -plugin $_ })
           }
 
+          # Validate every entry against a strict allowlist before it enters
+          # the matrix consumed by both skill-validator and vally.
+          $namePattern = '\A[A-Za-z0-9._-]+\z'
+          $pathPattern = '\Aplugins/[A-Za-z0-9._-]+/skills(/[A-Za-z0-9._-]+)?\z'
+          foreach ($e in $entries) {
+            if ("$($e.plugin)" -notmatch $namePattern -or "$($e.plugin)" -match '\.\.') {
+              throw "Refusing unsafe matrix entry: plugin '$($e.plugin)' must match $namePattern and not contain '..'"
+            }
+            if ("$($e.name)" -notmatch $namePattern -or "$($e.name)" -match '\.\.') {
+              throw "Refusing unsafe matrix entry: name '$($e.name)' must match $namePattern and not contain '..'"
+            }
+            foreach ($sp in ("$($e.skills_path)" -split ' ')) {
+              if ($sp -and ($sp -notmatch $pathPattern -or $sp -match '\.\.')) {
+                throw "Refusing unsafe matrix entry: skills_path segment '$sp' must match $pathPattern and not contain '..'"
+              }
+            }
+          }
+
           # Output entries for evaluate matrix
           if (-not $entries -or $entries.Count -eq 0) {
             Write-Host "No entries to evaluate"
@@ -861,7 +879,10 @@ jobs:
     with:
       entries: ${{ needs.discover.outputs.entries }}
       head_sha: ${{ needs.gate.outputs.head_sha }}
-    secrets: inherit
+    # The copilot-pat-pool secrets are injected via the environment inside the
+    # reusable workflow; only the fallback token is passed across the boundary.
+    secrets:
+      COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
 
   # ==========================================================================
   # COMMENT ON PR

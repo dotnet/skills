@@ -21,6 +21,26 @@ on:
         required: false
         type: string
         default: ''
+    secrets:
+      # These are NOT passed by the caller — the copilot-pat-pool secrets are
+      # injected at runtime via the vally-evaluate job's `environment:`. They are
+      # declared here only so actionlint can type the `secrets.COPILOT_PAT_*`
+      # references; without this block the actionlint CI gate fails with
+      # "property is not defined in object type". No wildcard exists, so GitHub
+      # requires each name (0..9) enumerated, matching shared/pat_pool.md. Names
+      # with no backing secret simply resolve empty and are skipped by the selector.
+      COPILOT_PAT_0: { required: false }
+      COPILOT_PAT_1: { required: false }
+      COPILOT_PAT_2: { required: false }
+      COPILOT_PAT_3: { required: false }
+      COPILOT_PAT_4: { required: false }
+      COPILOT_PAT_5: { required: false }
+      COPILOT_PAT_6: { required: false }
+      COPILOT_PAT_7: { required: false }
+      COPILOT_PAT_8: { required: false }
+      COPILOT_PAT_9: { required: false }
+      # Fallback token used only when the copilot-pat-pool environment is empty.
+      COPILOT_GITHUB_TOKEN: { required: false }
   # Manual trigger for testing
   workflow_dispatch:
     inputs:
@@ -51,14 +71,26 @@ jobs:
       entries: ${{ steps.build.outputs.entries }}
     steps:
       - id: build
+        env:
+          PLUGIN: ${{ inputs.plugin }}
+          SKILL: ${{ inputs.skill }}
         run: |
-          PLUGIN="${{ inputs.plugin }}"
-          SKILL="${{ inputs.skill }}"
-          if [ -n "$SKILL" ]; then
-            echo "entries=[{\"name\":\"${PLUGIN}--${SKILL}\",\"plugin\":\"${PLUGIN}\",\"skills_path\":\"plugins/${PLUGIN}/skills/${SKILL}\"}]" >> $GITHUB_OUTPUT
-          else
-            echo "entries=[{\"name\":\"${PLUGIN}\",\"plugin\":\"${PLUGIN}\",\"skills_path\":\"plugins/${PLUGIN}/skills\"}]" >> $GITHUB_OUTPUT
+          # Validate inputs against a strict allowlist and build JSON with jq.
+          name_re='^[A-Za-z0-9._-]+$'
+          if ! [[ "$PLUGIN" =~ $name_re ]] || [[ "$PLUGIN" == *".."* ]]; then
+            echo "::error::Invalid plugin '$PLUGIN' (must match $name_re and not contain '..')"; exit 1
           fi
+          if [ -n "$SKILL" ] && { ! [[ "$SKILL" =~ $name_re ]] || [[ "$SKILL" == *".."* ]]; }; then
+            echo "::error::Invalid skill '$SKILL' (must match $name_re and not contain '..')"; exit 1
+          fi
+          if [ -n "$SKILL" ]; then
+            ENTRIES=$(jq -cn --arg p "$PLUGIN" --arg s "$SKILL" \
+              '[{name: ($p + "--" + $s), plugin: $p, skills_path: ("plugins/" + $p + "/skills/" + $s)}]')
+          else
+            ENTRIES=$(jq -cn --arg p "$PLUGIN" \
+              '[{name: $p, plugin: $p, skills_path: ("plugins/" + $p + "/skills")}]')
+          fi
+          echo "entries=$ENTRIES" >> "$GITHUB_OUTPUT"
 
   # --------------------------------------------------------------------------
   # Run vally evaluation (shadow mode)
@@ -67,6 +99,7 @@ jobs:
     needs: [prepare]
     if: always() && !cancelled()
     runs-on: ubuntu-latest
+    environment: copilot-pat-pool
     timeout-minutes: 180
     continue-on-error: true
     name: vally (${{ matrix.entry.name }})
@@ -76,6 +109,27 @@ jobs:
         entry: ${{ fromJson(inputs.entries || needs.prepare.outputs.entries || '[]') }}
 
     steps:
+      - name: Validate matrix entry
+        # Validate matrix values against a strict allowlist before use.
+        env:
+          ENTRY_PLUGIN: ${{ matrix.entry.plugin }}
+          ENTRY_NAME: ${{ matrix.entry.name }}
+          ENTRY_SKILLS_PATH: ${{ matrix.entry.skills_path }}
+        run: |
+          set -f
+          name_re='^[A-Za-z0-9._-]+$'
+          path_re='^plugins/[A-Za-z0-9._-]+/skills(/[A-Za-z0-9._-]+)?$'
+          for val in "$ENTRY_PLUGIN" "$ENTRY_NAME"; do
+            if ! [[ "$val" =~ $name_re ]] || [[ "$val" == *".."* ]]; then
+              echo "::error::Invalid matrix value '$val' (must match $name_re and not contain '..')"; exit 1
+            fi
+          done
+          for seg in $ENTRY_SKILLS_PATH; do
+            if ! [[ "$seg" =~ $path_re ]] || [[ "$seg" == *".."* ]]; then
+              echo "::error::Invalid skills_path segment '$seg' (must match $path_re and not contain '..')"; exit 1
+            fi
+          done
+
       - name: Checkout skills content
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -90,20 +144,34 @@ jobs:
       - name: Install vally
         run: npm install -g @microsoft/vally-cli
 
-      - name: Select Copilot token
+      - name: Select Copilot token from pool
         id: select-token
         env:
-          TOKEN_1: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+          COPILOT_PAT_0: ${{ secrets.COPILOT_PAT_0 }}
+          COPILOT_PAT_1: ${{ secrets.COPILOT_PAT_1 }}
+          COPILOT_PAT_2: ${{ secrets.COPILOT_PAT_2 }}
+          COPILOT_PAT_3: ${{ secrets.COPILOT_PAT_3 }}
+          COPILOT_PAT_4: ${{ secrets.COPILOT_PAT_4 }}
+          COPILOT_PAT_5: ${{ secrets.COPILOT_PAT_5 }}
+          COPILOT_PAT_6: ${{ secrets.COPILOT_PAT_6 }}
+          COPILOT_PAT_7: ${{ secrets.COPILOT_PAT_7 }}
+          COPILOT_PAT_8: ${{ secrets.COPILOT_PAT_8 }}
+          COPILOT_PAT_9: ${{ secrets.COPILOT_PAT_9 }}
+          FALLBACK_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
         run: |
+          # Prefer the copilot-pat-pool secrets (COPILOT_PAT_0..9); fall back to
+          # COPILOT_GITHUB_TOKEN only when the pool is empty.
           TOKENS=()
-          for i in 1 2; do
-            var="TOKEN_$i"
+          for i in $(seq 0 9); do
+            var="COPILOT_PAT_$i"
             val="${!var}"
             if [ -n "$val" ]; then TOKENS+=("$val"); fi
           done
+          if [ ${#TOKENS[@]} -eq 0 ] && [ -n "$FALLBACK_TOKEN" ]; then
+            TOKENS+=("$FALLBACK_TOKEN")
+          fi
           if [ ${#TOKENS[@]} -eq 0 ]; then
-            echo "::error::No COPILOT_GITHUB_TOKEN secrets are configured"
+            echo "::error::No copilot-pat-pool entries (COPILOT_PAT_0..9) or COPILOT_GITHUB_TOKEN fallback are configured"
             exit 1
           fi
           IDX=$(( ${RANDOM} % ${#TOKENS[@]} ))
@@ -114,22 +182,23 @@ jobs:
         id: find-evals
         env:
           DISPATCH_SKILL: ${{ inputs.skill }}
+          PLUGIN: ${{ matrix.entry.plugin }}
         run: |
           # For workflow_dispatch targeting a specific skill, only run that one
           # eval. Otherwise run every eval discovered under the plugin's tests
           # directory.
           if [ -n "$DISPATCH_SKILL" ]; then
-            CANDIDATE="tests/${{ matrix.entry.plugin }}/${DISPATCH_SKILL}/eval.vally.yaml"
+            CANDIDATE="tests/$PLUGIN/$DISPATCH_SKILL/eval.vally.yaml"
             if [ ! -f "$CANDIDATE" ]; then
-              echo "::error::workflow_dispatch requested skill '${DISPATCH_SKILL}' in plugin '${{ matrix.entry.plugin }}' but no eval spec exists at '${CANDIDATE}'. Check the skill name (case-sensitive) and that the eval file is present."
+              echo "::error::workflow_dispatch requested skill '${DISPATCH_SKILL}' in plugin '${PLUGIN}' but no eval spec exists at '${CANDIDATE}'. Check the skill name (case-sensitive) and that the eval file is present."
               exit 1
             fi
             EVALS="$CANDIDATE"
           else
-            EVALS=$(find tests/${{ matrix.entry.plugin }} -name "eval.vally.yaml" -type f | sort)
+            EVALS=$(find -- "tests/$PLUGIN" -name "eval.vally.yaml" -type f | sort)
           fi
           if [ -z "$EVALS" ]; then
-            echo "No eval.vally.yaml files found for ${{ matrix.entry.plugin }}"
+            echo "No eval.vally.yaml files found for ${PLUGIN}"
             echo "has_evals=false" >> $GITHUB_OUTPUT
           else
             echo "has_evals=true" >> $GITHUB_OUTPUT
@@ -142,9 +211,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_DIR: artifacts/TestResults/vally/${{ matrix.entry.name }}
+          PLUGIN: ${{ matrix.entry.plugin }}
         run: |
-          PLUGIN="${{ matrix.entry.plugin }}"
-
           while IFS= read -r EVAL_SPEC; do
             EVAL_NAME=$(basename $(dirname "$EVAL_SPEC"))
             echo "::group::Evaluating $EVAL_NAME"
@@ -229,11 +297,13 @@ jobs:
 
       - name: Write summary
         if: always() && steps.find-evals.outputs.has_evals == 'true'
+        env:
+          ENTRY_NAME: ${{ matrix.entry.name }}
         run: |
-          echo "## 🔬 Vally Shadow Results: ${{ matrix.entry.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔬 Vally Shadow Results: $ENTRY_NAME" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          RESULTS_DIR="artifacts/TestResults/vally/${{ matrix.entry.name }}"
+          RESULTS_DIR="artifacts/TestResults/vally/$ENTRY_NAME"
           for RESULTS_JSON in "$RESULTS_DIR"/*/results.json; do
             if [ ! -f "$RESULTS_JSON" ]; then continue; fi
             EVAL_NAME=$(basename $(dirname "$RESULTS_JSON"))
