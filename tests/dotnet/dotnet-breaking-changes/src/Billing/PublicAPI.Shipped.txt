@@ -1,0 +1,7 @@
+#nullable enable
+Billing.AppSettingsHelper
+static Billing.AppSettingsHelper.ParseIntSetting(string? raw, int fallback) -> int
+static Billing.AppSettingsHelper.ParseBoolSetting(string? raw, bool fallback) -> bool
+Billing.ConfigReader
+static Billing.ConfigReader.ReadInt(string? raw, int fallback) -> int
+static Billing.ConfigReader.ReadBool(string? raw, bool fallback) -> bool
