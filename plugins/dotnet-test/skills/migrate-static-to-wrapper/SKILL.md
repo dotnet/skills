@@ -105,8 +105,23 @@ public static class TimestampFormatter
 ```
 
 - Production: leave `Clock` at its `TimeProvider.System` default, or assign the DI-resolved `TimeProvider` once at startup (`TimestampFormatter.Clock = app.Services.GetRequiredService<TimeProvider>();`).
-- Tests: assign a `FakeTimeProvider` to `TimestampFormatter.Clock` before exercising the code (reset it afterward to avoid cross-test leakage).
-- The same seam works for other statics (`IFileSystem`, custom wrappers): a `public static <Abstraction> X { get; set; }` defaulting to the real implementation.
+- Tests: override `Clock` with a `FakeTimeProvider` and **always restore it in a `finally`** so a failing assertion can't leak the fake into other tests:
+
+  ```csharp
+  var original = TimestampFormatter.Clock;
+  TimestampFormatter.Clock = new FakeTimeProvider(instant);
+  try
+  {
+      // exercise code under test
+  }
+  finally
+  {
+      TimestampFormatter.Clock = original;
+  }
+  ```
+
+- **Parallelism caveat**: a mutable static seam is process-global. Tests that mutate it must **not** run in parallel with each other (or with code that reads it) — put them in a non-parallel collection/class (e.g. xUnit `[Collection]` with parallelization disabled, or MSTest `[DoNotParallelize]`). If tests must run in parallel, prefer constructor injection (convert the caller) over an ambient static.
+- The same seam works for other statics (`IFileSystem`, custom wrappers): a `public static <Abstraction> X { get; set; }` defaulting to the real implementation, with the same restore-in-`finally` and non-parallel discipline.
 
 ### Step 4: Replace call sites
 
