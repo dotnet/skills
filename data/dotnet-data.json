@@ -2,61 +2,6 @@
   "entries": {
     "Efficiency": [
       {
-        "tool": "customSmallerIsBetter",
-        "date": 1781840278841,
-        "commit": {
-          "id": "a7a744ce18951bf30a73769217abbd7165203be9",
-          "timestamp": "2026-06-18T17:51:09+00:00",
-          "url": "https://github.com/dotnet/skills/commit/a7a744ce18951bf30a73769217abbd7165203be9",
-          "message": "Make owner adjustments (#790)",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Wendy Breiding"
-          }
-        },
-        "benches": [
-          {
-            "unit": "seconds",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
-            "overfittingScore": 0.37,
-            "overfitting": "moderate",
-            "value": 13.6
-          },
-          {
-            "unit": "tokens",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
-            "overfittingScore": 0.37,
-            "overfitting": "moderate",
-            "value": 18972.0
-          },
-          {
-            "unit": "seconds",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time",
-            "overfittingScore": 0.37,
-            "overfitting": "moderate",
-            "value": 21.9
-          },
-          {
-            "unit": "tokens",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In",
-            "overfittingScore": 0.37,
-            "overfitting": "moderate",
-            "value": 27838.0
-          },
-          {
-            "unit": "seconds",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time",
-            "value": 10.6
-          },
-          {
-            "unit": "tokens",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In",
-            "value": 13007.0
-          }
-        ],
-        "model": "claude-opus-4.6"
-      },
-      {
         "commit": {
           "author": {
             "name": "Amaury Levé",
@@ -601,45 +546,66 @@
           "url": "https://github.com/dotnet/skills/commit/ce75c355694bb358162464058081121645767d6f",
           "message": "dotnet-test: raise timeouts for chronic-timeout eval scenarios (#850)"
         }
+      },
+      {
+        "model": "claude-opus-4.6",
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "value": 11.2,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
+            "overfitting": "moderate",
+            "notActivated": true,
+            "overfittingScore": 0.33,
+            "unit": "seconds"
+          },
+          {
+            "value": 13025.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
+            "overfitting": "moderate",
+            "notActivated": true,
+            "overfittingScore": 0.33,
+            "unit": "tokens"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "value": 13.9,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time",
+            "overfittingScore": 0.33
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "value": 15944.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In",
+            "overfittingScore": 0.33
+          },
+          {
+            "unit": "seconds",
+            "value": 19.7,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 12947.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In"
+          }
+        ],
+        "date": 1783391391899,
+        "commit": {
+          "timestamp": "2026-07-06T22:27:33+00:00",
+          "id": "17bd25bec422a7c49badfc27c116d7d80e7d6dde",
+          "author": {
+            "name": "misdolicc",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/17bd25bec422a7c49badfc27c116d7d80e7d6dde",
+          "message": "Add pull request template (#686)"
+        }
       }
     ],
     "Quality": [
-      {
-        "tool": "customBiggerIsBetter",
-        "date": 1781840278841,
-        "commit": {
-          "id": "a7a744ce18951bf30a73769217abbd7165203be9",
-          "timestamp": "2026-06-18T17:51:09+00:00",
-          "url": "https://github.com/dotnet/skills/commit/a7a744ce18951bf30a73769217abbd7165203be9",
-          "message": "Make owner adjustments (#790)",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Wendy Breiding"
-          }
-        },
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
-            "overfittingScore": 0.37,
-            "overfitting": "moderate",
-            "value": 8.399999618530273
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality",
-            "overfittingScore": 0.37,
-            "overfitting": "moderate",
-            "value": 8.800000190734863
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality",
-            "value": 10.0
-          }
-        ],
-        "model": "claude-opus-4.6"
-      },
       {
         "commit": {
           "author": {
@@ -997,9 +963,46 @@
           "url": "https://github.com/dotnet/skills/commit/ce75c355694bb358162464058081121645767d6f",
           "message": "dotnet-test: raise timeouts for chronic-timeout eval scenarios (#850)"
         }
+      },
+      {
+        "model": "claude-opus-4.6",
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "value": 9.600000381469727,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
+            "overfitting": "moderate",
+            "notActivated": true,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "value": 9.199999809265137,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality",
+            "overfittingScore": 0.33
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality"
+          }
+        ],
+        "date": 1783391391899,
+        "commit": {
+          "timestamp": "2026-07-06T22:27:33+00:00",
+          "id": "17bd25bec422a7c49badfc27c116d7d80e7d6dde",
+          "author": {
+            "name": "misdolicc",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/17bd25bec422a7c49badfc27c116d7d80e7d6dde",
+          "message": "Add pull request template (#686)"
+        }
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1783045417178
+  "lastUpdate": 1783391391899
 }
