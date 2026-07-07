@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="Coupons.g.cs.template" />
+  </ItemGroup>
+
+  <Target Name="GenerateCouponsPartial" BeforeTargets="CoreCompile">
+    <Copy SourceFiles="Coupons.g.cs.template"
+          DestinationFiles="$(IntermediateOutputPath)Coupons.g.cs"
+          SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)Coupons.g.cs" />
+    </ItemGroup>
+  </Target>
+
+</Project>
