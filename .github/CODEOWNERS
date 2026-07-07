@@ -10,22 +10,21 @@
 /tests/dotnet-msbuild/ @ViktorHofer @JanKrivanek @dotnet/skills-msbuild-reviewers
 
 # dotnet (common everyday C#/.NET)
-/plugins/dotnet/skills/csharp-scripts/ @dotnet/run-file @dotnet/skills-csharp-language-reviewers
-/tests/dotnet/csharp-scripts/ @dotnet/run-file @dotnet/skills-csharp-language-reviewers
-
+/plugins/dotnet/skills/setup-local-sdk/ @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
+/tests/dotnet/setup-local-sdk/ @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
 /plugins/dotnet/lsp.json @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
 
-/plugins/dotnet/skills/dotnet-pinvoke/ @dotnet/appmodel @dotnet/skills-csharp-language-reviewers
-/tests/dotnet/dotnet-pinvoke/ @dotnet/appmodel @dotnet/skills-csharp-language-reviewers
+# dotnet-advanced (advanced .NET development skills)
+/plugins/dotnet-advanced/skills/csharp-scripts/ @dotnet/run-file @dotnet/skills-csharp-language-reviewers
+/tests/dotnet-advanced/csharp-scripts/ @dotnet/run-file @dotnet/skills-csharp-language-reviewers
 
-/plugins/dotnet/skills/nuget-trusted-publishing/ @lewing @kartheekp-ms @dotnet/skills-csharp-language-reviewers
-/tests/dotnet/nuget-trusted-publishing/ @lewing @kartheekp-ms @dotnet/skills-csharp-language-reviewers
+/plugins/dotnet-advanced/skills/dotnet-pinvoke/ @dotnet/appmodel @dotnet/skills-csharp-language-reviewers
+/tests/dotnet-advanced/dotnet-pinvoke/ @dotnet/appmodel @dotnet/skills-csharp-language-reviewers
 
-/plugins/dotnet/skills/setup-local-sdk/ @jfversluis @Redth @dotnet/skills-csharp-language-reviewers
-/tests/dotnet/setup-local-sdk/ @jfversluis @Redth @dotnet/skills-csharp-language-reviewers
+/plugins/dotnet-advanced/skills/nuget-trusted-publishing/ @lewing @kartheekp-ms @dotnet/skills-csharp-language-reviewers
+/tests/dotnet-advanced/nuget-trusted-publishing/ @lewing @kartheekp-ms @dotnet/skills-csharp-language-reviewers
 
-/plugins/dotnet/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel
-
+# dotnet-ai (AI generation development)
 /plugins/dotnet-ai/skills/mcp-csharp-create/ @leslierichardson95 @cathysull
 /tests/dotnet-ai/mcp-csharp-create/ @leslierichardson95 @cathysull
 

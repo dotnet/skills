@@ -71,7 +71,6 @@ For non-.NET languages, use the native coverage tool: `coverage.py`/`pytest-cov`
 | **test-analysis-extensions** | Language-specific guidance loaded by the polyglot analysis skills (test markers, assertion APIs, sleeps, skips, mystery-guest indicators, integration markers, tag-support capability) |
 | **platform-detection** *(.NET)* | Detect VSTest vs MTP and identify the test framework from project files |
 | **filter-syntax** *(.NET)* | Test filter syntax reference for VSTest and MTP across all frameworks |
-| **dotnet-test-frameworks** *(.NET)* | Framework detection patterns, assertion APIs, skip annotations, and lifecycle methods (kept for backward compatibility with .NET-only skills like `writing-mstest-tests`) |
 
 ## Agents
 
@@ -100,6 +99,14 @@ These are pipeline stages invoked automatically by the agents above (`user-invoc
 | **code-testing-tester** | code-testing-implementer | Runs test commands and reports pass/fail results |
 | **code-testing-fixer** | code-testing-implementer | Fixes compilation errors in source or test files |
 | **code-testing-linter** | code-testing-implementer | Runs code formatting and linting |
+
+> **VS Code — enabling full multi-level fan-out:** The pipeline delegates in two levels: `code-testing-generator` → researcher / planner / implementer, and `code-testing-implementer` → builder / tester / fixer / linter. VS Code gates *nested* delegation (a subagent spawning its own subagents) behind a setting that is **off by default**, so the first level runs out of the box but the second one does not. For large scopes — many files or modules, where parallel build/test/fix/lint workers help — enable it in your VS Code settings:
+>
+> ```jsonc
+> "chat.subagents.allowInvocationsFromSubagents": true
+> ```
+>
+> Without it, `code-testing-implementer` still builds, tests, fixes, and lints — it just does that work inline instead of delegating to the worker subagents, so results are unaffected. The GitHub Copilot CLI has no such gate and always fans out.
 
 ## Prerequisites
 

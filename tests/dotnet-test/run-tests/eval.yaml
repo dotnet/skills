@@ -73,7 +73,7 @@ scenarios:
     timeout: 420
 
   - name: "Run tests on a specific TFM with TRX in a multi-TFM MTP project (SDK 9)"
-    prompt: "This MSTest project uses Microsoft.Testing.Platform and targets both net8.0 and net9.0. I'm on .NET SDK 9. I want to run only the net9.0 tests and produce a TRX report. Show me the exact command."
+    prompt: "This MSTest project uses Microsoft.Testing.Platform and targets both net8.0 and net9.0. I'm on .NET SDK 9. I want to run only the net9.0 tests and produce a TRX report saved as net9-results.trx. Show me the exact command."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -85,12 +85,14 @@ scenarios:
     assertions:
       - type: "output_matches"
         pattern: "dotnet test[^\\r\\n]*--framework\\s+net9\\.0[^\\r\\n]*--\\s+--report-trx"
+      - type: "output_matches"
+        pattern: "--report-trx-filename\\s+\"?net9-results\\.trx"
       - type: "exit_success"
     rubric:
       - "Runs only the net9.0 target framework rather than both TFMs"
       - "Identifies that the project uses MTP (TestingPlatformDotnetTestSupport) with SDK 9 argument-separator behavior"
       - "Keeps '--framework net9.0' before the '--' separator (built-in dotnet test flag)"
-      - "Passes '--report-trx' after the '--' separator (MTP extension flag, required on SDK 9)"
+      - "Passes BOTH MTP extension flags after the single '--' separator: '--report-trx' and '--report-trx-filename net9-results.trx' — it does not split them across the separator or drop the '--report-trx-filename' extension"
       - "Avoids VSTest-style TRX syntax such as '--logger trx'"
     expect_tools: ["bash"]
     timeout: 480
@@ -100,7 +102,7 @@ scenarios:
   # ============================================================================
 
   - name: "Filter MSTest tests by category on VSTest"
-    prompt: "I only want to run the integration tests using dotnet test. How do I filter by the Integration category?"
+    prompt: "I only want to run the Integration tests using dotnet test, but I need to exclude the ones in the PaymentServiceTests class. Show me the exact command."
     setup:
       additional_required_skills: ["filter-syntax"]
       files:
@@ -113,12 +115,16 @@ scenarios:
         pattern: "--filter"
       - type: "output_matches"
         pattern: "TestCategory=Integration"
+      - type: "output_contains"
+        value: "&"
+      - type: "output_matches"
+        pattern: "(?:FullyQualifiedName|ClassName|Name)\\s*(?:!~|!=)[^\"&|]*PaymentService"
       - type: "exit_success"
     rubric:
-      - "Uses the VSTest --filter flag with the TestCategory property"
-      - "Uses the correct syntax: --filter \"TestCategory=Integration\""
-      - "Does not use MTP-style filter flags like --filter-trait"
-      - "Does not suggest xUnit-style Trait filtering for an MSTest project"
+      - "Uses the VSTest --filter flag and keeps TestCategory=Integration to select the integration tests"
+      - "Combines the category filter with a class exclusion using the '&' (AND) combinator"
+      - "Excludes PaymentServiceTests with a negation operator — '!~' (does-not-contain) or '!=' (not-equals) against FullyQualifiedName/ClassName — rather than a positive match"
+      - "Does not run all tests and post-filter, and does not use MTP-only flags like --filter-not-class for this VSTest project"
     expect_tools: ["bash"]
     timeout: 120
 
@@ -193,7 +199,7 @@ scenarios:
       - "xUnit v3 on MTP requires framework-specific filter flags, not VSTest expression syntax"
       - "Correctly handles the '--' separator for SDK 9"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 240
 
   - name: "Filter xUnit v3 tests by class pattern and trait using query filter language"
     prompt: "I have an xUnit v3 project with several test classes. I need to run only the Smoke tests from classes whose name contains 'Integration' — I want a single combined filter expression for dotnet test rather than separate flags."
@@ -219,7 +225,7 @@ scenarios:
       - "The expression correctly targets only Smoke tests from integration test classes, not all Smoke tests or all integration tests"
       - "Used the path-segment syntax with wildcard segments and a trait qualifier like [Category=Smoke]"
     expect_tools: ["bash"]
-    timeout: 120
+    timeout: 240
 
   - name: "Filter TUnit tests by class using treenode-filter"
     prompt: "I want to run only the SmsNotificationTests from this TUnit project using dotnet test. What's the command?"

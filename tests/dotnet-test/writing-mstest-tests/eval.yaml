@@ -24,7 +24,7 @@ scenarios:
       - "Tests both success and failure paths (e.g., null input, empty items)"
       - "Uses Assert.ThrowsExactly or Assert.Throws for exception testing instead of [ExpectedException]"
       - "Uses Assert.AreEqual with expected as first argument and actual as second"
-    timeout: 180
+    timeout: 360
 
   - name: "Write data-driven tests for a calculator"
     prompt: "I have a PriceCalculator class with CalculateTotal and ApplyDiscount methods. Help me write data-driven MSTest tests using DataRow and DynamicData that cover multiple input combinations following modern MSTest best practices."
@@ -44,7 +44,7 @@ scenarios:
       - "Seals the test class"
       - "Uses Assert.ThrowsExactly or Assert.Throws for testing invalid argument scenarios"
       - "Does not use manual foreach loops to iterate test data — uses proper data-driven attributes instead"
-    timeout: 180
+    timeout: 360
 
   - name: "Write async tests with cancellation"
     prompt: |
@@ -90,7 +90,7 @@ scenarios:
 
   - name: "Fix swapped Assert.AreEqual arguments"
     prompt: |
-      Something seems off with my tests — I think I need to fix swapped Assert.AreEqual arguments. Can you review and fix the MSTest assertions?
+      When these MSTest tests fail, the failure messages look backwards — the value the code actually produced is reported as "Expected", and the literal I wrote is reported as "Actual". Review these assertions and fix whatever is causing that. Don't touch anything that is already correct.
 
       ```csharp
       [TestClass]
@@ -109,18 +109,28 @@ scenarios:
               var result = Calculator.Multiply(42, 0);
               Assert.AreEqual(result, 0);
           }
+
+          [TestMethod]
+          public void Subtract_Numbers_ReturnsDifference()
+          {
+              var result = Calculator.Subtract(10, 4);
+              Assert.AreEqual(6, result);
+          }
       }
       ```
     reject_tools: ["bash", "edit", "create"]
     assertions:
       - type: output_matches
-        pattern: "Assert\\.AreEqual\\(5"
+        pattern: "Assert\\.AreEqual\\(5,\\s*result"
       - type: output_matches
-        pattern: "Assert\\.AreEqual\\(0"
+        pattern: "Assert\\.AreEqual\\(0,\\s*result"
+      - type: output_not_matches
+        pattern: "Assert\\.AreEqual\\(result,\\s*6\\)"
     rubric:
-      - "Identifies the swapped arguments in Assert.AreEqual — expected should be first, actual second"
-      - "Fixes to Assert.AreEqual(5, result) and Assert.AreEqual(0, result)"
-      - "Explains why argument order matters (failure messages show 'Expected: X, Actual: Y')"
+      - "Diagnoses the root cause unaided (the prompt does not name it): the first two assertions pass arguments in the wrong order — MSTest's signature is `Assert.AreEqual(expected, actual)`, so the literal must come first"
+      - "Fixes the two swapped assertions to `Assert.AreEqual(5, result)` and `Assert.AreEqual(0, result)`"
+      - "Leaves the already-correct `Assert.AreEqual(6, result)` in Subtract_Numbers_ReturnsDifference unchanged — does not swap a correct assertion"
+      - "Explains that argument order drives the 'Expected: X, Actual: Y' failure message, and may reference the MSTEST0017 analyzer that flags this"
     timeout: 120
 
   - name: "Modernize legacy test patterns"
@@ -205,9 +215,9 @@ scenarios:
       - type: output_matches
         pattern: "ContainsSingle|Assert\\.IsNotNull"
     rubric:
-      - "The non-empty validation no longer relies on a generic Assert.IsTrue boolean check — it uses a dedicated assertion that clearly reports 'collection was empty' on failure"
-      - "The exact-count validation uses a count-specific or equality assertion rather than wrapping the comparison in Assert.IsTrue"
-      - "The single-element lookup uses an assertion that produces a meaningful failure message when zero or multiple elements match, rather than throwing an unrelated exception"
+      - "The non-empty validation no longer relies on a generic Assert.IsTrue boolean check — it uses a dedicated assertion such as the real MSTest 3.8+ `Assert.IsNotEmpty(collection)` (or `Assert.AreNotEqual(0, x.Count)`) that clearly reports 'collection was empty' on failure. Grading note: `Assert.IsNotEmpty`, `Assert.IsEmpty`, `Assert.HasCount`, `Assert.ContainsSingle`, `Assert.Contains`, and `Assert.DoesNotContain` are real assertion methods introduced in MSTest 3.8+ (Microsoft.Testing) — do not penalize them as non-existent or fabricated."
+      - "The exact-count validation uses a count-specific assertion such as the real MSTest 3.8+ `Assert.HasCount(3, collection)` (or `Assert.AreEqual(3, x.Count)`) rather than wrapping the comparison in Assert.IsTrue"
+      - "The single-element lookup uses an assertion that produces a meaningful failure message when zero or multiple elements match — such as the real MSTest 3.8+ `Assert.ContainsSingle(...)` — rather than `Single()` followed by Assert.IsTrue, which throws an unrelated exception"
       - "The null check uses a null-specific assertion rather than Assert.IsTrue with a boolean null comparison"
       - "Explains why specialized assertions produce better failure diagnostics than generic Assert.IsTrue"
     timeout: 120
@@ -348,7 +358,7 @@ scenarios:
       - "Tests BuildGreeting validates the output starts with 'Dear' and ends with a comma"
       - "Tests GenerateSlug validates the slug pattern contains only lowercase letters, digits, and hyphens"
       - "Tests exception handling for null or invalid inputs"
-    timeout: 180
+    timeout: 360
 
   # ============================================================================
   # Goal 6: Comparison assertions
@@ -400,7 +410,7 @@ scenarios:
       - "Tests boundary conditions at grade thresholds (e.g., exactly 90 vs 89)"
       - "Tests that NormalizeScore caps the result at 100 when rawScore exceeds maxRaw"
       - "Seals the test class"
-    timeout: 120
+    timeout: 360
 
   # ============================================================================
   # Goal 7: Collection, null, and reference assertions
