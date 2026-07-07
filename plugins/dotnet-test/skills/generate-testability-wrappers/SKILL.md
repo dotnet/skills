@@ -10,8 +10,9 @@ description: >
   mock-friendly interface, mock time in tests, create the right abstraction to mock,
   how to mock DateTime, test code using File.ReadAllText, what abstraction for Environment,
   how to make statics injectable, adopt System.IO.Abstractions, make file calls testable.
-  DO NOT USE FOR: detecting statics (use detect-static-dependencies), migrating call
-  sites (use migrate-static-to-wrapper), general interface design not about testability.
+  DO NOT USE FOR: detecting statics (use detect-static-dependencies), migrating
+  call sites or replacing existing usages when the abstraction is already created
+  or registered in DI (use migrate-static-to-wrapper), general interface design.
 license: MIT
 ---
 

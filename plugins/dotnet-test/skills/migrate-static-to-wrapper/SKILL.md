@@ -10,7 +10,8 @@ description: >
   to wrapper, bulk replace File.* with IFileSystem, codemod static to
   injectable, add constructor injection for a dependency, mechanical or scoped
   migration of statics, convert static calls to use an abstraction, update call
-  sites.
+  sites, replace all call sites and add the constructor parameter when the
+  abstraction is already registered in DI, migrate statics in only scoped files.
   DO NOT USE FOR: detecting statics (use detect-static-dependencies), generating
   wrappers (use generate-testability-wrappers), migrating between test frameworks.
 license: MIT
