@@ -124,6 +124,9 @@ jobs:
               echo "::error::Invalid matrix value '$val' (must match $name_re and not contain '..')"; exit 1
             fi
           done
+          if [ -z "$ENTRY_SKILLS_PATH" ]; then
+            echo "::error::Empty skills_path in matrix entry"; exit 1
+          fi
           for seg in $ENTRY_SKILLS_PATH; do
             if ! [[ "$seg" =~ $path_re ]] || [[ "$seg" == *".."* ]]; then
               echo "::error::Invalid skills_path segment '$seg' (must match $path_re and not contain '..')"; exit 1
@@ -214,7 +217,7 @@ jobs:
           PLUGIN: ${{ matrix.entry.plugin }}
         run: |
           while IFS= read -r EVAL_SPEC; do
-            EVAL_NAME=$(basename $(dirname "$EVAL_SPEC"))
+            EVAL_NAME=$(basename "$(dirname "$EVAL_SPEC")")
             echo "::group::Evaluating $EVAL_NAME"
 
             BASELINE_DIR="$RESULTS_DIR/$EVAL_NAME/baseline"
