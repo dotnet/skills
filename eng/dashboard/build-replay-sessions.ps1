@@ -161,8 +161,15 @@ if (-not $artifactDirs) {
 }
 
 foreach ($artifactDir in $artifactDirs) {
-    # Extract plugin name from artifact directory name (skill-validator-results-<plugin> or skill-validator-results-<plugin>--<skill>)
+    # Extract plugin name from artifact directory name
+    # (skill-validator-results-<plugin> or skill-validator-results-<plugin>--<skill>).
     $entryName = $artifactDir.Name -replace '^skill-validator-results-', ''
+    # Artifact names carry a trailing "@<model>" suffix so the per-model legs do
+    # not collide on one artifact name. The model is also recorded per-row in
+    # sessions.db (and drives the output filename below), so strip the suffix
+    # here to recover the real <entry>. Plugin/skill names match
+    # ^[a-zA-Z0-9._-]+$ and can never contain '@', so splitting on '@' is safe.
+    $entryName = ($entryName -split '@')[0]
     $pluginName = ($entryName -split '--')[0]
 
     # Find timestamped result directory
@@ -229,6 +236,11 @@ foreach ($artifactDir in $artifactDirs) {
         # Map role to tag
         $roleTag = if ($roleMap.ContainsKey($role)) { $roleMap[$role] } else { $role }
 
+        # Guard against older sessions.db rows with no model recorded so the
+        # filename never collapses to an empty segment (which would break the
+        # '--'-delimited parser in purge-replay-sessions.ps1).
+        if ([string]::IsNullOrWhiteSpace($model)) { $model = 'unknown' }
+
         # Find events.jsonl: sessions/<sessionId>/session-state/*/events.jsonl
         $sessionDir = Join-Path $runDir.FullName "sessions/$sessionId"
         $eventsFiles = @(Get-ChildItem -Path $sessionDir -Recurse -Filter 'events.jsonl' -ErrorAction SilentlyContinue)
@@ -240,9 +252,12 @@ foreach ($artifactDir in $artifactDirs) {
 
         $eventsFile = $eventsFiles[0]
 
-        # Build output filename: <scenario>--<role>--run<N>.jsonl
+        # Build output filename: <scenario>--<role>--<model>--run<N>.jsonl
+        # The model segment keeps the three model legs from overwriting each
+        # other (Copy-Item -Force) and from being de-duplicated by id downstream.
         $safeScenario = ($scenarioName -replace '[^a-zA-Z0-9_-]', '-').ToLower()
-        $outFileName = "$safeScenario--$roleTag--run$runIndex.jsonl"
+        $safeModel = ($model -replace '[^a-zA-Z0-9_-]', '-').ToLower()
+        $outFileName = "$safeScenario--$roleTag--$safeModel--run$runIndex.jsonl"
 
         # Plugin subdirectory
         $pluginOutDir = Join-Path $sessionsOutDir $pluginName
@@ -256,10 +271,10 @@ foreach ($artifactDir in $artifactDirs) {
 
         # Build manifest entry
         $relativeUrl = "sessions/$subDir/$pluginName/$outFileName"
-        $displayName = "$pluginName / $scenarioName ($roleTag, run $runIndex)"
-        $id = "$subDir/$pluginName/$safeScenario--$roleTag--run$runIndex"
+        $displayName = "$pluginName / $scenarioName ($roleTag, $model, run $runIndex)"
+        $id = "$subDir/$pluginName/$safeScenario--$roleTag--$safeModel--run$runIndex"
 
-        $tags = @($Source, $pluginName, $roleTag, $safeScenario)
+        $tags = @($Source, $pluginName, $roleTag, $safeScenario, $safeModel)
         if ($Source -eq 'pr' -and $PrNumber -gt 0) {
             $tags += "pr-$PrNumber"
         }

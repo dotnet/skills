@@ -14,7 +14,7 @@ public static class EvaluateCommand
         var requireCompletionOpt = new Option<bool>("--require-completion") { Description = "Fail if skill regresses task completion", DefaultValueFactory = _ => true };
         var verdictWarnOnlyOpt = new Option<bool>("--verdict-warn-only") { Description = "Treat verdict failures as warnings (exit 0). Execution errors still fail." };
         var verboseOpt = new Option<bool>("--verbose") { Description = "Show detailed per-scenario breakdowns" };
-        var modelOpt = new Option<string>("--model") { Description = "Model to use for agent runs", DefaultValueFactory = _ => "claude-opus-4.6" };
+        var modelOpt = new Option<string>("--model") { Description = "Model to use for agent runs", DefaultValueFactory = _ => "claude-opus-4.8" };
         var judgeModelOpt = new Option<string?>("--judge-model") { Description = "Model to use for judging (defaults to --model)" };
         var judgeModeOpt = new Option<string>("--judge-mode") { Description = "Judge mode: pairwise, independent, or both", DefaultValueFactory = _ => "pairwise" }
             .AcceptOnlyFromAmong("pairwise", "independent", "both");
@@ -96,8 +96,8 @@ public static class EvaluateCommand
                 MinImprovement = parseResult.GetValue(minImprovementOpt),
                 RequireCompletion = parseResult.GetValue(requireCompletionOpt),
                 Verbose = parseResult.GetValue(verboseOpt),
-                Model = parseResult.GetValue(modelOpt) ?? "claude-opus-4.6",
-                JudgeModel = parseResult.GetValue(judgeModelOpt) ?? parseResult.GetValue(modelOpt) ?? "claude-opus-4.6",
+                Model = parseResult.GetValue(modelOpt) ?? "claude-opus-4.8",
+                JudgeModel = parseResult.GetValue(judgeModelOpt) ?? parseResult.GetValue(modelOpt) ?? "claude-opus-4.8",
                 JudgeMode = judgeMode,
                 Runs = Math.Max(1, parseResult.GetValue(runsOpt)),
                 ParallelSkills = Math.Max(1, parseResult.GetValue(parallelSkillsOpt)),

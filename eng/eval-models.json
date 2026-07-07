@@ -1,0 +1,25 @@
+{
+  "$comment": "Single source of truth for the models the skill-evaluation infra runs against and how a judge is chosen. Consumed by resolve-judge.mjs, which the evaluation and vally-evaluation workflows and eng/vally-adapter/run-vally-evals.sh call. Bump the IDs here (verified against the CI Copilot token's ListModels output) to roll models forward everywhere at once.",
+
+  "latest": {
+    "opus": "claude-opus-4.8",
+    "sonnet": "claude-sonnet-4.6",
+    "gpt": "gpt-5.5"
+  },
+
+  "$comment_gating": "Agent model used for PR (gating) skill-validator runs. Kept to a single model for stable, comparable-to-history gating. Judge is still resolved via the judge rules below so the judge is never the same model as the agent.",
+  "gatingModel": "claude-opus-4.8",
+
+  "$comment_matrix": "Agent models used for non-gating (nightly/scheduled) skill-validator runs and for all vally runs. Each is judged by the model resolved from the rules below.",
+  "matrix": [
+    "claude-opus-4.8",
+    "gpt-5.5",
+    "claude-sonnet-4.6"
+  ],
+
+  "$comment_judge": "Judge selection: the judge defaults to defaultJudge (latest Opus). When the agent model IS the defaultJudge (or otherwise appears in judgeOverrides), the override is used so a model never judges itself. Every resolved judge is asserted to differ from the agent model.",
+  "defaultJudge": "claude-opus-4.8",
+  "judgeOverrides": {
+    "claude-opus-4.8": "gpt-5.5"
+  }
+}

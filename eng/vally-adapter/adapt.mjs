@@ -30,7 +30,7 @@ const { values: opts } = parseArgs({
     "skill-name": { type: "string", default: "unknown" },
     "skill-path": { type: "string", default: "" },
     model: { type: "string", default: "claude-sonnet-4.6" },
-    "judge-model": { type: "string", default: "claude-sonnet-4.6" },
+    "judge-model": { type: "string", default: "claude-opus-4.8" },
     help: { type: "boolean", default: false },
   },
   strict: true,
@@ -45,7 +45,7 @@ Options:
   --skill-name <name>    Skill name for the verdict (default: unknown)
   --skill-path <path>    Skill path for the verdict
   --model <model>        Agent model (default: claude-sonnet-4.6)
-  --judge-model <model>  Judge model (default: claude-sonnet-4.6)
+  --judge-model <model>  Judge model (default: claude-opus-4.8)
   --output <path>        Output file (default: results.json)
   --help                 Show this help`);
   process.exit(opts.help ? 0 : 1);

@@ -16,6 +16,15 @@ If you need to run the investigation manually, follow the [Quick start](#quick-s
 4. **Identify the failure pattern** using the categories below — most failures match multiple patterns; fix them in priority order (timeouts first, then activation, then quality/rubric issues)
 5. **Apply the fix** and re-run with `/evaluate`
 
+> **No artifacts at all?** If the workflow went red but produced **no** `skill-validator-results-*`
+> artifacts, the run likely failed *before* evaluation. Check the **`preflight-models`** job: it runs
+> `skill-validator list-models --require <ids>` once, up front, and fails fast if any configured model id
+> (agent **or** judge, from `eng/eval-models.json`) is unavailable to the CI Copilot token. Its log names
+> the missing id(s) only (plus an available *count* — the full model roster is deliberately withheld from
+> logs). Fix `eng/eval-models.json` (the single source of truth
+> for model/judge ids) and re-run — there is nothing to investigate in `results.json` for this class of
+> failure because the eval matrix never started.
+
 ## Finding the artifacts
 
 ### Via CLI (recommended for AI agents)

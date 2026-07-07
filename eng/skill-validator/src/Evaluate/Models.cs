@@ -438,8 +438,8 @@ public sealed record ValidatorConfig
     public double MinImprovement { get; init; } = 0.1;
     public bool RequireCompletion { get; init; } = true;
     public bool Verbose { get; init; }
-    public string Model { get; init; } = "claude-opus-4.6";
-    public string JudgeModel { get; init; } = "claude-opus-4.6";
+    public string Model { get; init; } = "claude-opus-4.8";
+    public string JudgeModel { get; init; } = "claude-opus-4.8";
     public JudgeMode JudgeMode { get; init; } = JudgeMode.Pairwise;
     public int Runs { get; init; } = 5;
     public int ParallelSkills { get; init; } = 1;

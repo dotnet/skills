@@ -4,6 +4,13 @@
 # workflow_call, or can be triggered manually. Results are informational
 # only — they never gate PRs.
 #
+# Multi-model: vally runs every discovered eval against each agent model in
+# eng/eval-models.json (`matrix`) — latest Opus, GPT and Sonnet. The judge for
+# each leg is resolved by eng/resolve-judge.mjs so the judge is never the same
+# model as the agent (default judge = latest Opus; the Opus leg is judged by
+# GPT). Results are published, model-keyed, to dotnet/skills-data so the
+# dashboard can carry vally history forward per model.
+#
 # NOTE: This is a transitional workflow for the replat. It will be removed
 # once vally fully replaces skill-validator.
 name: vally-evaluation
@@ -21,6 +28,11 @@ on:
         required: false
         type: string
         default: ''
+      pr_number:
+        description: 'PR number (empty for scheduled/main runs). Controls where session data is published.'
+        required: false
+        type: string
+        default: ''
   # Manual trigger for testing
   workflow_dispatch:
     inputs:
@@ -34,13 +46,53 @@ on:
         type: string
 
 env:
-  MODEL: claude-opus-4.6
-  JUDGE_MODEL: claude-opus-4.6
+  # Pin the vally CLI so shadow results are reproducible run-to-run. Bump
+  # deliberately alongside eval-models.json changes.
+  VALLY_VERSION: '0.7.0'
+  # Copilot SDK used only by the model preflight (eng/preflight-models.mjs).
+  # This is the version @microsoft/vally-cli@0.7.0 bundles; keep it in sync when
+  # bumping VALLY_VERSION so the preflight enumerates models the same way the
+  # eval does.
+  COPILOT_SDK_VERSION: '1.0.5'
 
 permissions:
   contents: read
 
 jobs:
+  # --------------------------------------------------------------------------
+  # Resolve the agent/judge model matrix from eng/eval-models.json.
+  # Emits [{ model, judge }, ...] — one leg per model, judge != model.
+  # --------------------------------------------------------------------------
+  models:
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    outputs:
+      pairs: ${{ steps.resolve.outputs.pairs }}
+      required: ${{ steps.resolve.outputs.required }}
+    steps:
+      - name: Checkout skills content
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ inputs.head_sha || '' }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+
+      - name: Resolve model/judge matrix
+        id: resolve
+        run: |
+          # Fail loudly if the config is broken (judge == agent, etc.).
+          node eng/resolve-judge.mjs selftest
+          PAIRS=$(node eng/resolve-judge.mjs matrix --nightly)
+          REQUIRED=$(node eng/resolve-judge.mjs required --nightly)
+          echo "pairs=$PAIRS" >> "$GITHUB_OUTPUT"
+          echo "required=$REQUIRED" >> "$GITHUB_OUTPUT"
+          echo "Model/judge matrix: $PAIRS"
+          echo "Required model ids: $REQUIRED"
+
   # --------------------------------------------------------------------------
   # For workflow_dispatch: build a single-entry matrix
   # --------------------------------------------------------------------------
@@ -61,19 +113,130 @@ jobs:
           fi
 
   # --------------------------------------------------------------------------
-  # Run vally evaluation (shadow mode)
+  # For workflow_call: collapse discover's entries down to one entry per plugin.
+  # discover may emit several `<plugin>--shard-*` legs for a single plugin
+  # (sharding is a skill-validator runner-time optimization). vally does not
+  # shard — find-evals runs every eval under a plugin — so passing shard legs
+  # through unchanged would evaluate the full plugin once per shard (× every
+  # model). Deduplicating by plugin keeps vally cost at one full run per
+  # (plugin × model).
+  normalize:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      entries: ${{ steps.dedup.outputs.entries }}
+    steps:
+      - id: dedup
+        env:
+          ENTRIES: ${{ inputs.entries }}
+        run: |
+          node -e '
+            let entries = [];
+            try { entries = JSON.parse(process.env.ENTRIES || "[]"); } catch { entries = []; }
+            const byPlugin = new Map();
+            for (const e of entries) {
+              const plugin = e.plugin || String(e.name || "").split("--")[0];
+              if (!plugin) continue;
+              if (!byPlugin.has(plugin)) {
+                byPlugin.set(plugin, { name: plugin, plugin, skills_path: "plugins/" + plugin + "/skills" });
+              }
+            }
+            const out = [...byPlugin.values()];
+            require("fs").appendFileSync(process.env.GITHUB_OUTPUT, "entries=" + JSON.stringify(out) + "\n");
+            console.log("Normalized to unique plugins: " + out.map(e => e.name).join(", "));
+          '
+
+  # --------------------------------------------------------------------------
+  # Preflight: fail fast if any model the matrix depends on (agent ∪ judge) is
+  # unavailable to the Copilot token. vally has no `models` subcommand, so this
+  # uses the Copilot SDK's listModels() — the same path the eval takes — via
+  # eng/preflight-models.mjs. Non-gating to PRs (this whole workflow is), but it
+  # stops the (entry × model) matrix from fanning out on a bad/renamed id.
+  # --------------------------------------------------------------------------
+  preflight-models:
+    needs: [models]
+    if: always() && !cancelled() && needs.models.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout skills content
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ inputs.head_sha || '' }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+
+      - name: Install Copilot SDK
+        run: npm install --no-save "@github/copilot-sdk@${COPILOT_SDK_VERSION}"
+
+      - name: Select Copilot token
+        id: select-token
+        env:
+          TOKEN_1: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+          TOKEN_3: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+          TOKEN_4: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
+          TOKEN_5: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
+          TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
+          TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
+          TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
+        run: |
+          # Collect all non-empty token secrets (same 8-token pool as the
+          # skill-validator evaluation workflow, so both spread load identically).
+          TOKENS=()
+          NAMES=()
+          for i in 1 2 3 4 5 6 7 8; do
+            var="TOKEN_$i"
+            val="${!var}"
+            if [ -n "$val" ]; then
+              TOKENS+=("$val")
+              if [ "$i" -eq 1 ]; then
+                NAMES+=("COPILOT_GITHUB_TOKEN")
+              else
+                NAMES+=("COPILOT_GITHUB_TOKEN_$i")
+              fi
+            fi
+          done
+          if [ ${#TOKENS[@]} -eq 0 ]; then
+            echo "::error::No COPILOT_GITHUB_TOKEN secrets are configured"
+            exit 1
+          fi
+          IDX=$((RANDOM % ${#TOKENS[@]}))
+          echo "Selected ${NAMES[$IDX]} (1 of ${#TOKENS[@]} available tokens)"
+          echo "::add-mask::${TOKENS[$IDX]}"
+          echo "token=${TOKENS[$IDX]}" >> $GITHUB_OUTPUT
+
+      - name: Verify required models are available
+        env:
+          GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
+          REQUIRED_MODELS: ${{ needs.models.outputs.required }}
+        run: |
+          if [ -z "$REQUIRED_MODELS" ]; then
+            echo "::error::No required models were resolved; the models job did not emit them."
+            exit 1
+          fi
+          echo "Required models for this run: $REQUIRED_MODELS"
+          node eng/preflight-models.mjs --require "$REQUIRED_MODELS"
+
+  # --------------------------------------------------------------------------
+  # Run vally evaluation (shadow mode) — one leg per (entry × model).
   # --------------------------------------------------------------------------
   vally-evaluate:
-    needs: [prepare]
-    if: always() && !cancelled()
+    needs: [models, prepare, normalize, preflight-models]
+    if: always() && !cancelled() && needs.models.result == 'success' && needs.preflight-models.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     continue-on-error: true
-    name: vally (${{ matrix.entry.name }})
+    name: vally (${{ matrix.entry.name }} · ${{ matrix.pair.model }})
     strategy:
       fail-fast: false
       matrix:
-        entry: ${{ fromJson(inputs.entries || needs.prepare.outputs.entries || '[]') }}
+        entry: ${{ fromJson(needs.normalize.outputs.entries || needs.prepare.outputs.entries || '[]') }}
+        pair: ${{ fromJson(needs.models.outputs.pairs) }}
 
     steps:
       - name: Checkout skills content
@@ -88,25 +251,42 @@ jobs:
           node-version: 22
 
       - name: Install vally
-        run: npm install -g @microsoft/vally-cli
+        run: npm install -g "@microsoft/vally-cli@${VALLY_VERSION}"
 
       - name: Select Copilot token
         id: select-token
         env:
           TOKEN_1: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+          TOKEN_3: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+          TOKEN_4: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
+          TOKEN_5: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
+          TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
+          TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
+          TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
         run: |
+          # Collect all non-empty token secrets (same 8-token pool as the
+          # skill-validator evaluation workflow, so both spread load identically).
           TOKENS=()
-          for i in 1 2; do
+          NAMES=()
+          for i in 1 2 3 4 5 6 7 8; do
             var="TOKEN_$i"
             val="${!var}"
-            if [ -n "$val" ]; then TOKENS+=("$val"); fi
+            if [ -n "$val" ]; then
+              TOKENS+=("$val")
+              if [ "$i" -eq 1 ]; then
+                NAMES+=("COPILOT_GITHUB_TOKEN")
+              else
+                NAMES+=("COPILOT_GITHUB_TOKEN_$i")
+              fi
+            fi
           done
           if [ ${#TOKENS[@]} -eq 0 ]; then
             echo "::error::No COPILOT_GITHUB_TOKEN secrets are configured"
             exit 1
           fi
-          IDX=$(( ${RANDOM} % ${#TOKENS[@]} ))
+          IDX=$((RANDOM % ${#TOKENS[@]}))
+          echo "Selected ${NAMES[$IDX]} (1 of ${#TOKENS[@]} available tokens)"
           echo "::add-mask::${TOKENS[$IDX]}"
           echo "token=${TOKENS[$IDX]}" >> $GITHUB_OUTPUT
 
@@ -114,22 +294,23 @@ jobs:
         id: find-evals
         env:
           DISPATCH_SKILL: ${{ inputs.skill }}
+          PLUGIN: ${{ matrix.entry.plugin }}
         run: |
           # For workflow_dispatch targeting a specific skill, only run that one
           # eval. Otherwise run every eval discovered under the plugin's tests
           # directory.
           if [ -n "$DISPATCH_SKILL" ]; then
-            CANDIDATE="tests/${{ matrix.entry.plugin }}/${DISPATCH_SKILL}/eval.vally.yaml"
+            CANDIDATE="tests/${PLUGIN}/${DISPATCH_SKILL}/eval.vally.yaml"
             if [ ! -f "$CANDIDATE" ]; then
-              echo "::error::workflow_dispatch requested skill '${DISPATCH_SKILL}' in plugin '${{ matrix.entry.plugin }}' but no eval spec exists at '${CANDIDATE}'. Check the skill name (case-sensitive) and that the eval file is present."
+              echo "::error::workflow_dispatch requested skill '${DISPATCH_SKILL}' in plugin '${PLUGIN}' but no eval spec exists at '${CANDIDATE}'. Check the skill name (case-sensitive) and that the eval file is present."
               exit 1
             fi
             EVALS="$CANDIDATE"
           else
-            EVALS=$(find tests/${{ matrix.entry.plugin }} -name "eval.vally.yaml" -type f | sort)
+            EVALS=$(find "tests/${PLUGIN}" -name "eval.vally.yaml" -type f | sort)
           fi
           if [ -z "$EVALS" ]; then
-            echo "No eval.vally.yaml files found for ${{ matrix.entry.plugin }}"
+            echo "No eval.vally.yaml files found for ${PLUGIN}"
             echo "has_evals=false" >> $GITHUB_OUTPUT
           else
             echo "has_evals=true" >> $GITHUB_OUTPUT
@@ -141,13 +322,18 @@ jobs:
         if: steps.find-evals.outputs.has_evals == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
-          RESULTS_DIR: artifacts/TestResults/vally/${{ matrix.entry.name }}
+          # model is safe (validated ids) but keep matrix values out of the
+          # script body as data, consistent with the rest of the pipeline.
+          PLUGIN: ${{ matrix.entry.plugin }}
+          MODEL: ${{ matrix.pair.model }}
+          JUDGE_MODEL: ${{ matrix.pair.judge }}
+          RESULTS_DIR: artifacts/TestResults/vally/${{ matrix.entry.name }}/${{ matrix.pair.model }}
         run: |
-          PLUGIN="${{ matrix.entry.plugin }}"
+          echo "Agent model: $MODEL   judge: $JUDGE_MODEL"
 
           while IFS= read -r EVAL_SPEC; do
             EVAL_NAME=$(basename $(dirname "$EVAL_SPEC"))
-            echo "::group::Evaluating $EVAL_NAME"
+            echo "::group::Evaluating $EVAL_NAME ($MODEL)"
 
             BASELINE_DIR="$RESULTS_DIR/$EVAL_NAME/baseline"
             SKILLED_DIR="$RESULTS_DIR/$EVAL_NAME/skilled"
@@ -176,24 +362,26 @@ jobs:
             vally eval \
               --eval-spec "$EVAL_SPEC" \
               --skill-dir "$EMPTY_SKILL_DIR" \
-              --model ${{ env.MODEL }} \
+              --model "$MODEL" \
               --runs 1 --workers 3 \
               --skip-validate \
-              --judge-model ${{ env.JUDGE_MODEL }} \
+              --judge-model "$JUDGE_MODEL" \
               --output-dir "$BASELINE_DIR" \
-              2>&1 || echo "::warning::Baseline eval failed for $EVAL_NAME"
+              > "$BASELINE_DIR/vally.log" 2>&1 \
+              || { echo "::warning::Baseline eval failed for $EVAL_NAME"; tail -n 60 "$BASELINE_DIR/vally.log"; }
 
             # Skilled run (exactly the one skill under evaluation)
             echo "--- Skilled run ---"
             vally eval \
               --eval-spec "$EVAL_SPEC" \
               --skill-dir "$PER_SKILL_DIR" \
-              --model ${{ env.MODEL }} \
+              --model "$MODEL" \
               --runs 1 --workers 3 \
               --skip-validate \
-              --judge-model ${{ env.JUDGE_MODEL }} \
+              --judge-model "$JUDGE_MODEL" \
               --output-dir "$SKILLED_DIR" \
-              2>&1 || echo "::warning::Skilled eval failed for $EVAL_NAME"
+              > "$SKILLED_DIR/vally.log" 2>&1 \
+              || { echo "::warning::Skilled eval failed for $EVAL_NAME"; tail -n 60 "$SKILLED_DIR/vally.log"; }
 
             rm -rf "$EMPTY_SKILL_DIR"
 
@@ -208,8 +396,8 @@ jobs:
                 --skilled "$(dirname "$SKILLED_JSONL")" \
                 --skill-name "$EVAL_NAME" \
                 --skill-path "plugins/$PLUGIN/skills/$EVAL_NAME" \
-                --model "${{ env.MODEL }}" \
-                --judge-model "${{ env.JUDGE_MODEL }}" \
+                --model "$MODEL" \
+                --judge-model "$JUDGE_MODEL" \
                 --output "$RESULTS_DIR/$EVAL_NAME/results.json"
             else
               echo "::warning::Skipping adapt for $EVAL_NAME — missing JSONL output"
@@ -222,18 +410,23 @@ jobs:
         if: always() && steps.find-evals.outputs.has_evals == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: vally-results-${{ matrix.entry.name }}
-          path: artifacts/TestResults/vally/${{ matrix.entry.name }}/
+          name: vally-results-${{ matrix.entry.name }}-${{ matrix.pair.model }}
+          path: artifacts/TestResults/vally/${{ matrix.entry.name }}/${{ matrix.pair.model }}/
           include-hidden-files: true
           retention-days: 14
 
       - name: Write summary
         if: always() && steps.find-evals.outputs.has_evals == 'true'
+        env:
+          RESULTS_DIR: artifacts/TestResults/vally/${{ matrix.entry.name }}/${{ matrix.pair.model }}
+          MODEL: ${{ matrix.pair.model }}
+          JUDGE_MODEL: ${{ matrix.pair.judge }}
         run: |
-          echo "## 🔬 Vally Shadow Results: ${{ matrix.entry.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔬 Vally Shadow Results: ${{ matrix.entry.name }} · $MODEL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_Agent model \`$MODEL\`, judged by \`$JUDGE_MODEL\`._" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          RESULTS_DIR="artifacts/TestResults/vally/${{ matrix.entry.name }}"
           for RESULTS_JSON in "$RESULTS_DIR"/*/results.json; do
             if [ ! -f "$RESULTS_JSON" ]; then continue; fi
             EVAL_NAME=$(basename $(dirname "$RESULTS_JSON"))
@@ -261,3 +454,102 @@ jobs:
             " >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           done
+
+  # --------------------------------------------------------------------------
+  # Publish vally results to dotnet/skills-data (model-keyed).
+  # Vally shadow history lives on its own branch so it never mixes with the
+  # skill-validator AGENTVIZ session replays (different trajectory format).
+  # Runs only in the workflow_call context (evaluation.yml) where the
+  # SKILLS_DATA_TOKEN secret is available.
+  # --------------------------------------------------------------------------
+  publish-vally-data:
+    needs: [models, vally-evaluate]
+    if: >-
+      always() && !cancelled() &&
+      github.event_name != 'workflow_dispatch' &&
+      needs.vally-evaluate.result != 'skipped'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: publish-vally-data
+      cancel-in-progress: false
+    steps:
+      - name: Checkout skills content
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ inputs.head_sha || '' }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+
+      - name: Download vally result artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: vally-results-*
+          path: all-vally-results/
+          merge-multiple: false
+        continue-on-error: true
+
+      - name: Flatten vally results (model-keyed)
+        id: flatten
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          SRC="all-vally-results"
+          if [ ! -d "$SRC" ]; then
+            echo "No vally results downloaded; nothing to publish."
+            echo "has_data=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -n "$PR_NUMBER" ]; then
+            SUBDIR="pr/$PR_NUMBER"
+          else
+            SUBDIR="scheduled/$(date -u +%Y-%m-%d)"
+          fi
+          node eng/vally-adapter/publish-vally-data.mjs \
+            --input "$SRC" \
+            --subdir "$SUBDIR" \
+            --output staging \
+            && echo "has_data=true" >> "$GITHUB_OUTPUT" \
+            || echo "has_data=false" >> "$GITHUB_OUTPUT"
+
+      - name: Push to dashboard-vally-data branch (dotnet/skills-data)
+        if: steps.flatten.outputs.has_data == 'true'
+        env:
+          SKILLS_DATA_TOKEN: ${{ secrets.SKILLS_DATA_TOKEN }}
+        run: |
+          if [ -z "$SKILLS_DATA_TOKEN" ]; then
+            echo "::warning::SKILLS_DATA_TOKEN not set; skipping vally data publish."
+            exit 0
+          fi
+          cd "$GITHUB_WORKSPACE"
+          REPO_URL="https://x-access-token:${SKILLS_DATA_TOKEN}@github.com/dotnet/skills-data.git"
+          rm -rf /tmp/vally-deploy
+          if git ls-remote --exit-code --heads "$REPO_URL" dashboard-vally-data > /dev/null 2>&1; then
+            git clone --branch dashboard-vally-data --single-branch --depth 1 "$REPO_URL" /tmp/vally-deploy
+          else
+            mkdir /tmp/vally-deploy && cd /tmp/vally-deploy && git init && git checkout -b dashboard-vally-data
+            git remote add origin "$REPO_URL"
+            cd "$GITHUB_WORKSPACE"
+          fi
+
+          cd /tmp/vally-deploy
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Merge new model-keyed results and purge entries older than 14 days.
+          node "$GITHUB_WORKSPACE/eng/vally-adapter/publish-vally-data.mjs" \
+            --merge "$GITHUB_WORKSPACE/staging" \
+            --into /tmp/vally-deploy/data \
+            --retention-days 14
+
+          git add data/
+          git diff --cached --quiet && echo "No changes to deploy" && exit 0
+          if [ -n "${{ inputs.pr_number }}" ]; then
+            git commit -m "Update vally shadow data (PR #${{ inputs.pr_number }})"
+          else
+            git commit -m "Update scheduled vally shadow data"
+          fi
+          git push origin dashboard-vally-data

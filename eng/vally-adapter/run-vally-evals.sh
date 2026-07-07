@@ -11,8 +11,8 @@
 #   PARALLEL=8        Max concurrent evals (default: 8)
 #   RUNS=1            Trials per stimulus (default: 1)
 #   WORKERS=3         Concurrent stimuli within an eval (default: 3)
-#   MODEL             Agent model (default: claude-sonnet-4.6)
-#   JUDGE_MODEL       Judge model (default: claude-sonnet-4.6)
+#   MODEL             Agent model (default: latest Sonnet from eng/eval-models.json)
+#   JUDGE_MODEL       Judge model (default: resolved from MODEL so judge != agent)
 #   SKIP_EVALS=""     Override skip list (default: reads skip-evals.txt)
 #
 # Prerequisites:
@@ -26,8 +26,13 @@ set -euo pipefail
 SKILLS_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 VALLY="${VALLY:-npx @microsoft/vally-cli}"
 RESULTS_ROOT="${RESULTS_DIR:-$SKILLS_ROOT/vally-results}"
+# Default the agent to the latest Sonnet (cheapest leg) from the central config;
+# fall back to a literal if node/config is unavailable.
+MODEL="${MODEL:-$(node -e 'try{process.stdout.write(require("'"$SKILLS_ROOT"'/eng/eval-models.json").latest.sonnet)}catch{}' 2>/dev/null || true)}"
 MODEL="${MODEL:-claude-sonnet-4.6}"
-JUDGE_MODEL="${JUDGE_MODEL:-claude-sonnet-4.6}"
+# Resolve the judge from the agent model so the judge is never the same model.
+JUDGE_MODEL="${JUDGE_MODEL:-$(node "$SKILLS_ROOT/eng/resolve-judge.mjs" judge "$MODEL" 2>/dev/null || true)}"
+JUDGE_MODEL="${JUDGE_MODEL:-claude-opus-4.8}"
 RUNS="${RUNS:-1}"
 WORKERS="${WORKERS:-3}"
 PARALLEL="${PARALLEL:-8}"

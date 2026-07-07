@@ -182,17 +182,19 @@ foreach ($file in $orphanedFiles) {
     $plugin = $parts[-2]  # plugin name (parent of file)
     $fileName = [IO.Path]::GetFileNameWithoutExtension($parts[-1])
 
-    # Parse filename: <scenario>--<role>--run<N>
+    # Parse filename: <scenario>--<role>--<model>--run<N>
+    # (scenario may itself contain '--', so index the fixed fields from the end).
     $fileParts = $fileName -split '--'
-    if ($fileParts.Count -lt 3) { continue }
+    if ($fileParts.Count -lt 4) { continue }
 
-    $roleTag = $fileParts[-2]
-    $safeScenario = ($fileParts[0..($fileParts.Count - 3)] -join '--')
+    $roleTag = $fileParts[-3]
+    $safeModel = $fileParts[-2]
+    $safeScenario = ($fileParts[0..($fileParts.Count - 4)] -join '--')
 
     $sessionUrl = "sessions/$relPath"
     $sessionId = ($relPath -replace '\.jsonl$', '')
 
-    $tags = @($source, $plugin, $roleTag, $safeScenario)
+    $tags = @($source, $plugin, $roleTag, $safeScenario, $safeModel)
     if ($source -eq 'pr' -and $parts.Count -ge 3 -and $parts[1] -match '^\d+$') {
         $tags += "pr-$($parts[1])"
     }
@@ -200,7 +202,7 @@ foreach ($file in $orphanedFiles) {
         $tags += $parts[1]
     }
 
-    $displayName = "$plugin / $safeScenario ($roleTag)"
+    $displayName = "$plugin / $safeScenario ($roleTag, $safeModel)"
     $mtime = [long]([DateTimeOffset]::new($file.LastWriteTimeUtc, [TimeSpan]::Zero).ToUnixTimeMilliseconds())
 
     $allSessions += @{

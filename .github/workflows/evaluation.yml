@@ -85,8 +85,9 @@ concurrency:
 
 env:
   DASHBOARD_RETENTION_DAYS: 14
-  MODEL: claude-opus-4.6
-  JUDGE_MODEL: claude-opus-4.6
+  # Agent/judge models are resolved per-leg from eng/eval-models.json via
+  # eng/resolve-judge.mjs (see the discover job's "Resolve model/judge matrix"
+  # step). The judge is never the same model as the agent.
 
 permissions:
   contents: write
@@ -383,6 +384,14 @@ jobs:
       is_infra: ${{ steps.find.outputs.is_infra }}
       plugins: ${{ steps.find.outputs.plugins }}
       has_plugins: ${{ steps.find.outputs.has_plugins }}
+      # Model/judge fan-out. Gating (PR) stays single-model (the gating model)
+      # with a resolved judge != agent; nightly (schedule) fans out to the full
+      # matrix. Both come from eng/eval-models.json via eng/resolve-judge.mjs.
+      model_pairs: ${{ steps.models.outputs.pairs }}
+      models: ${{ steps.models.outputs.models }}
+      # Union of every agent model and its resolved judge for the active scope —
+      # the exact set the ListModels preflight must find on the CI token.
+      required_models: ${{ steps.models.outputs.required }}
     steps:
       - name: Check for new commits since last evaluation
         if: github.event_name == 'schedule'
@@ -610,6 +619,30 @@ jobs:
           }
         shell: pwsh
 
+      - name: Resolve model/judge matrix
+        if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true' || github.event_name == 'workflow_dispatch'
+        id: models
+        shell: bash
+        env:
+          PR_NUMBER: ${{ needs.gate.outputs.pr_number }}
+        run: |
+          # Fail loudly if eng/eval-models.json is broken (judge == agent, etc.)
+          node eng/resolve-judge.mjs selftest
+          # Gating (a PR is in context) stays single-model; nightly/main fans out.
+          if [ -n "$PR_NUMBER" ]; then
+            SCOPE="--gating"
+          else
+            SCOPE="--nightly"
+          fi
+          PAIRS=$(node eng/resolve-judge.mjs matrix $SCOPE)
+          MODELS=$(node eng/resolve-judge.mjs models $SCOPE)
+          REQUIRED=$(node eng/resolve-judge.mjs required $SCOPE)
+          echo "pairs=$PAIRS" >> "$GITHUB_OUTPUT"
+          echo "models=$MODELS" >> "$GITHUB_OUTPUT"
+          echo "required=$REQUIRED" >> "$GITHUB_OUTPUT"
+          echo "Model/judge pairs ($SCOPE): $PAIRS"
+          echo "Required model ids ($SCOPE): $REQUIRED"
+
   # ==========================================================================
   # BUILD VALIDATOR
   # Build the skill-validator from the appropriate ref.
@@ -671,21 +704,115 @@ jobs:
           retention-days: 1
 
   # ==========================================================================
-  # EVALUATE
-  # Run skill-validator across changed skills (matrix).
+  # PREFLIGHT MODELS
+  # Fail fast if any model id the active scope depends on (agent ∪ judge, from
+  # eng/eval-models.json) is unavailable to the CI Copilot token. Runs ONCE,
+  # before the evaluate matrix fans out across every plugin × model, so a bad
+  # or renamed model id surfaces in seconds instead of after N parallel jobs
+  # each hit the same "Invalid model" error mid-run. Uses the same
+  # skill-validator binary and the same ListModelsAsync() call the eval makes.
   # ==========================================================================
-  evaluate:
+  preflight-models:
     needs: [gate, discover, build-validator]
     if: always() && !cancelled() && needs.build-validator.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ needs.gate.outputs.is_fork != 'true' && needs.gate.outputs.head_sha || '' }}
+          persist-credentials: false
+
+      - name: Restore cached validator
+        id: cache-validator
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
+        with:
+          path: skill-validator-dist.tar.gz
+          key: ${{ needs.build-validator.outputs.cache-key }}
+
+      - name: Download built validator
+        if: steps.cache-validator.outputs.cache-hit != 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: skill-validator-dist.tar.gz
+
+      - name: Extract validator
+        run: |
+          mkdir -p artifacts/publish/SkillValidator/release
+          tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
+
+      - name: Select random Copilot token
+        id: select-token
+        env:
+          TOKEN_1: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+          TOKEN_3: ${{ secrets.COPILOT_GITHUB_TOKEN_3 }}
+          TOKEN_4: ${{ secrets.COPILOT_GITHUB_TOKEN_4 }}
+          TOKEN_5: ${{ secrets.COPILOT_GITHUB_TOKEN_5 }}
+          TOKEN_6: ${{ secrets.COPILOT_GITHUB_TOKEN_6 }}
+          TOKEN_7: ${{ secrets.COPILOT_GITHUB_TOKEN_7 }}
+          TOKEN_8: ${{ secrets.COPILOT_GITHUB_TOKEN_8 }}
+        run: |
+          # Collect all non-empty token secrets
+          TOKENS=()
+          NAMES=()
+          for i in 1 2 3 4 5 6 7 8; do
+            var="TOKEN_$i"
+            val="${!var}"
+            if [ -n "$val" ]; then
+              TOKENS+=("$val")
+              if [ "$i" -eq 1 ]; then
+                NAMES+=("COPILOT_GITHUB_TOKEN")
+              else
+                NAMES+=("COPILOT_GITHUB_TOKEN_$i")
+              fi
+            fi
+          done
+
+          if [ ${#TOKENS[@]} -eq 0 ]; then
+            echo "::error::No COPILOT_GITHUB_TOKEN secrets are configured"
+            exit 1
+          fi
+
+          IDX=$((RANDOM % ${#TOKENS[@]}))
+          echo "Selected ${NAMES[$IDX]} (1 of ${#TOKENS[@]} available tokens)"
+          echo "::add-mask::${TOKENS[$IDX]}"
+          echo "token=${TOKENS[$IDX]}" >> $GITHUB_OUTPUT
+
+      - name: Verify required models are available
+        env:
+          GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
+          # JSON array of required ids from the resolver, passed via env so the
+          # shell never parses the brackets/quotes; list-models tolerates JSON.
+          REQUIRED_MODELS: ${{ needs.discover.outputs.required_models }}
+        run: |
+          if [ -z "$REQUIRED_MODELS" ]; then
+            echo "::error::No required models were resolved; discover job did not run the model resolver."
+            exit 1
+          fi
+          echo "Required models for this run: $REQUIRED_MODELS"
+          artifacts/publish/SkillValidator/release/skill-validator list-models --require "$REQUIRED_MODELS"
+
+  # ==========================================================================
+  # EVALUATE
+  # Run skill-validator across changed skills (matrix).
+  # ==========================================================================
+  evaluate:
+    needs: [gate, discover, build-validator, preflight-models]
+    if: always() && !cancelled() && needs.build-validator.result == 'success' && needs.preflight-models.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 180
-    name: evaluate (${{ matrix.entry.name }})
+    name: evaluate (${{ matrix.entry.name }} · ${{ matrix.pair.model }})
     strategy:
       fail-fast: false
       matrix:
         entry: ${{ fromJson(needs.discover.outputs.entries || '[]') }}
+        pair: ${{ fromJson(needs.discover.outputs.model_pairs || '[]') }}
 
     steps:
       - name: Checkout skills content
@@ -791,8 +918,8 @@ jobs:
           # from being interpreted at parse time.
           PLUGIN: ${{ matrix.entry.plugin }}
           SKILLS_PATH: ${{ matrix.entry.skills_path }}
-          MODEL: ${{ env.MODEL }}
-          JUDGE_MODEL: ${{ env.JUDGE_MODEL }}
+          MODEL: ${{ matrix.pair.model }}
+          JUDGE_MODEL: ${{ matrix.pair.judge }}
           # When a plugin declares MCP servers, every session spawns extra
           # `dotnet dnx <mcp-package>` child processes. Two failure modes
           # we mitigate independently:
@@ -841,7 +968,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: skill-validator-results-${{ matrix.entry.name }}
+          # `@<model>` suffix keeps the three model legs from colliding on one
+          # artifact name. `@` is a safe separator: plugin/skill/shard names
+          # match ^[a-zA-Z0-9._-]+$ and can never contain it, so publish jobs
+          # split on the LAST `@` to recover (entry, model) unambiguously.
+          name: skill-validator-results-${{ matrix.entry.name }}@${{ matrix.pair.model }}
           path: artifacts/TestResults/skill-validator/${{ matrix.entry.name }}/
           include-hidden-files: true
           retention-days: 30
@@ -861,6 +992,7 @@ jobs:
     with:
       entries: ${{ needs.discover.outputs.entries }}
       head_sha: ${{ needs.gate.outputs.head_sha }}
+      pr_number: ${{ needs.gate.outputs.pr_number }}
     secrets: inherit
 
   # ==========================================================================
@@ -1128,12 +1260,20 @@ jobs:
           $source = if ("${{ needs.gate.outputs.pr_number }}" -ne "") { "pr" } else { "scheduled" }
           $plugins = '${{ needs.discover.outputs.plugins }}' | ConvertFrom-Json
           foreach ($plugin in $plugins) {
-            # For scheduled runs and infra-change PRs, artifacts are named
-            # skill-validator-results-$plugin. For individual skill-change PRs,
-            # artifacts are named skill-validator-results-${plugin}--${skill}.
-            # Search for both patterns so token data is captured in all cases.
+            # Artifact names are "skill-validator-results-<entry>@<model>", where
+            # <entry> is "<plugin>" (scheduled / infra / full-plugin PR) or
+            # "<plugin>--<skill>" (skill-change PR). We split on the LAST '@' to
+            # recover <entry> (plugin/skill names cannot contain '@'), then match
+            # the plugin. Every matching artifact is processed — each results.json
+            # carries its own `model`, so token entries are model-tagged already
+            # and the three model legs never overwrite each other.
             $artifactDirs = @(Get-ChildItem -Path "all-results" -Directory -ErrorAction SilentlyContinue |
-              Where-Object { $_.Name -eq "skill-validator-results-$plugin" -or $_.Name -like "skill-validator-results-$plugin--*" })
+              Where-Object {
+                $at = $_.Name.LastIndexOf('@')
+                if ($at -lt 0) { return $false }
+                $entry = $_.Name.Substring(0, $at)
+                $entry -eq "skill-validator-results-$plugin" -or $entry -like "skill-validator-results-$plugin--*"
+              })
             if ($artifactDirs.Count -eq 0) {
               Write-Warning "No artifacts found for $plugin, skipping"
               continue
@@ -1371,75 +1511,86 @@ jobs:
           } | ConvertTo-Json -Compress
 
           $plugins = '${{ needs.discover.outputs.plugins }}' | ConvertFrom-Json
+          $models = '${{ needs.discover.outputs.models }}' | ConvertFrom-Json
           foreach ($plugin in $plugins) {
-            # A plugin may have been fanned out into multiple shards by the
-            # discover job (artifact names "skill-validator-results-<plugin>--shard-<tag>"),
-            # or it may be a single artifact ("skill-validator-results-<plugin>").
-            # Collect the latest run dir from every matching artifact and
-            # merge their verdicts into a single results.json so the dashboard
-            # records ONE datapoint per plugin per scheduled run.
-            $artifactDirs = @(Get-ChildItem -Path "all-results" -Directory -ErrorAction SilentlyContinue |
-              Where-Object { $_.Name -eq "skill-validator-results-$plugin" -or $_.Name -like "skill-validator-results-$plugin--shard-*" })
+            # Fan out one datapoint per (plugin, model). Artifacts are named
+            # "skill-validator-results-<entry>@<model>" where <entry> is
+            # "<plugin>" or "<plugin>--shard-<tag>". For each model we take only
+            # that model's artifacts (matched by the "@<model>" suffix; '@' can
+            # never appear in a plugin/shard name), shard-merge them into ONE
+            # synthetic results.json, and append a single model-tagged datapoint
+            # to <plugin>.json. Existing single-model history stays valid — new
+            # entries are simply tagged with their model.
+            foreach ($model in $models) {
+              $suffix = "@$model"
+              $artifactDirs = @(Get-ChildItem -Path "all-results" -Directory -ErrorAction SilentlyContinue |
+                Where-Object {
+                  if (-not $_.Name.EndsWith($suffix)) { return $false }
+                  $entry = $_.Name.Substring(0, $_.Name.Length - $suffix.Length)
+                  $entry -eq "skill-validator-results-$plugin" -or $entry -like "skill-validator-results-$plugin--shard-*"
+                })
 
-            if ($artifactDirs.Count -eq 0) {
-              Write-Warning "No run results found for $plugin, skipping"
-              continue
-            }
-
-            $resultsFiles = @()
-            foreach ($ad in $artifactDirs) {
-              $runDir = Get-ChildItem -Path $ad.FullName -Directory -ErrorAction SilentlyContinue |
-                Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
-                Sort-Object Name -Descending |
-                Select-Object -First 1
-              if ($runDir) {
-                $rf = Join-Path $runDir.FullName "results.json"
-                if (Test-Path $rf) { $resultsFiles += $rf }
+              if ($artifactDirs.Count -eq 0) {
+                Write-Warning "No run results found for $plugin ($model), skipping"
+                continue
               }
-            }
 
-            if ($resultsFiles.Count -eq 0) {
-              Write-Warning "No results.json found in any artifact for $plugin, skipping"
-              continue
-            }
-
-            if ($resultsFiles.Count -eq 1) {
-              $resultsFile = $resultsFiles[0]
-            } else {
-              # Merge shard verdicts into a single synthetic results.json.
-              # Schema: { model, verdicts[], ... }. We concat verdicts arrays
-              # and keep top-level scalars from the first shard.
-              Write-Host "Merging $($resultsFiles.Count) shard results.json files for $plugin"
-              $merged = $null
-              $allVerdicts = [System.Collections.Generic.List[object]]::new()
-              foreach ($rf in ($resultsFiles | Sort-Object)) {
-                $r = Get-Content $rf -Raw | ConvertFrom-Json
-                if ($null -eq $merged) { $merged = $r }
-                if ($r.verdicts) { foreach ($v in $r.verdicts) { $allVerdicts.Add($v) } }
+              $resultsFiles = @()
+              foreach ($ad in $artifactDirs) {
+                $runDir = Get-ChildItem -Path $ad.FullName -Directory -ErrorAction SilentlyContinue |
+                  Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
+                  Sort-Object Name -Descending |
+                  Select-Object -First 1
+                if ($runDir) {
+                  $rf = Join-Path $runDir.FullName "results.json"
+                  if (Test-Path $rf) { $resultsFiles += $rf }
+                }
               }
-              $merged.verdicts = $allVerdicts.ToArray()
-              $mergedDir = "all-results/_merged"
-              New-Item -ItemType Directory -Force -Path $mergedDir | Out-Null
-              $resultsFile = Join-Path $mergedDir "$plugin.results.json"
-              $merged | ConvertTo-Json -Depth 100 | Out-File -FilePath $resultsFile -Encoding utf8
-              Write-Host "  Merged verdict count: $($allVerdicts.Count) -> $resultsFile"
-            }
 
-            Write-Host "`n=== Generating benchmark data for: $plugin ==="
-            $existingFile = "/tmp/eval-data/data/$plugin.json"
-            $params = @{
-              ResultsFile    = $resultsFile
-              PluginName     = $plugin
-              OutputDir      = "/tmp/eval-data/data"
-              CommitJson     = $commitJson
-              RetentionDays  = $env:DASHBOARD_RETENTION_DAYS
-              Source         = 'scheduled'
-              SkipTokenUsage = $true
+              if ($resultsFiles.Count -eq 0) {
+                Write-Warning "No results.json found in any artifact for $plugin ($model), skipping"
+                continue
+              }
+
+              if ($resultsFiles.Count -eq 1) {
+                $resultsFile = $resultsFiles[0]
+              } else {
+                # Merge shard verdicts (same model) into a single results.json.
+                Write-Host "Merging $($resultsFiles.Count) shard results.json files for $plugin ($model)"
+                $merged = $null
+                $allVerdicts = [System.Collections.Generic.List[object]]::new()
+                foreach ($rf in ($resultsFiles | Sort-Object)) {
+                  $r = Get-Content $rf -Raw | ConvertFrom-Json
+                  if ($null -eq $merged) { $merged = $r }
+                  if ($r.verdicts) { foreach ($v in $r.verdicts) { $allVerdicts.Add($v) } }
+                }
+                $merged.verdicts = $allVerdicts.ToArray()
+                $mergedDir = "all-results/_merged"
+                New-Item -ItemType Directory -Force -Path $mergedDir | Out-Null
+                $resultsFile = Join-Path $mergedDir "$plugin$suffix.results.json"
+                $merged | ConvertTo-Json -Depth 100 | Out-File -FilePath $resultsFile -Encoding utf8
+                Write-Host "  Merged verdict count: $($allVerdicts.Count) -> $resultsFile"
+              }
+
+              Write-Host "`n=== Generating benchmark data for: $plugin ($model) ==="
+              # Re-check existence each model iteration: the previous model's
+              # call has already written <plugin>.json, so this model appends to
+              # the up-to-date file rather than clobbering the earlier entry.
+              $existingFile = "/tmp/eval-data/data/$plugin.json"
+              $params = @{
+                ResultsFile    = $resultsFile
+                PluginName     = $plugin
+                OutputDir      = "/tmp/eval-data/data"
+                CommitJson     = $commitJson
+                RetentionDays  = $env:DASHBOARD_RETENTION_DAYS
+                Source         = 'scheduled'
+                SkipTokenUsage = $true
+              }
+              if ((Test-Path $existingFile) -and (Get-Content $existingFile -Raw -ErrorAction SilentlyContinue)) {
+                $params.ExistingDataFile = $existingFile
+              }
+              & ./eng/dashboard/generate-benchmark-data.ps1 @params
             }
-            if ((Test-Path $existingFile) -and (Get-Content $existingFile -Raw -ErrorAction SilentlyContinue)) {
-              $params.ExistingDataFile = $existingFile
-            }
-            & ./eng/dashboard/generate-benchmark-data.ps1 @params
           }
 
           # Purge entries older than retention window

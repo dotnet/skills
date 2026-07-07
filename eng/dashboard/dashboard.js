@@ -180,15 +180,38 @@
       return;
     }
 
-    const qualityEntries = data.entries['Quality'] || [];
-    const efficiencyEntries = data.entries['Efficiency'] || [];
+    const allQualityEntries = data.entries['Quality'] || [];
+    const allEfficiencyEntries = data.entries['Efficiency'] || [];
+
+    // Distinct models present in this plugin's data, most-recent first. History
+    // predating multi-model runs carries a single model, so the selector is
+    // hidden and rendering is identical to the pre-multi-model dashboard.
+    const modelOrder = [];
+    const seenModels = new Set();
+    const collectModels = (entries) => {
+      for (let i = entries.length - 1; i >= 0; i--) {
+        const m = entries[i].model || 'unknown';
+        if (!seenModels.has(m)) { seenModels.add(m); modelOrder.push(m); }
+      }
+    };
+    collectModels(allQualityEntries);
+    collectModels(allEfficiencyEntries);
+    if (modelOrder.length === 0) modelOrder.push('unknown');
+    const selectedModel = modelOrder[0];
 
     const replayHref = `${replayBaseUrl}?manifest=${encodeURIComponent(sessionManifestUrl)}&tag=${encodeURIComponent(plugin)}`;
+
+    const modelSelectorHtml = modelOrder.length > 1 ? `
+        <label style="color:#8b949e;font-size:13px;">Model:
+          <select id="model-select-${plugin}" style="background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:2px 6px;font-size:13px;margin-left:4px;">
+            ${modelOrder.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('')}
+          </select>
+        </label>` : '';
 
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:8px;">
         <a href="${escapeHtml(replayHref)}" target="_blank" rel="noopener"
-           style="color:#58a6ff;font-size:13px;text-decoration:none;">&#9654; Sessions Visualisation</a>
+           style="color:#58a6ff;font-size:13px;text-decoration:none;">&#9654; Sessions Visualisation</a>${modelSelectorHtml}
       </div>
       <div class="summary-cards" id="summary-${plugin}"></div>
       <h2 class="section-title">Quality Over Time</h2>
@@ -196,6 +219,16 @@
       <h2 class="section-title">Efficiency Over Time</h2>
       <div class="charts-grid" id="efficiency-${plugin}"></div>
     `;
+
+    // Render (or re-render) all cards + charts for a single selected model.
+    // Filtering by model keeps the three model legs from being averaged
+    // together or interleaved on the time-series charts.
+    function renderBody(selectedModel) {
+    const qualityEntries = allQualityEntries.filter(e => (e.model || 'unknown') === selectedModel);
+    const efficiencyEntries = allEfficiencyEntries.filter(e => (e.model || 'unknown') === selectedModel);
+    document.getElementById(`summary-${plugin}`).innerHTML = '';
+    document.getElementById(`quality-${plugin}`).innerHTML = '';
+    document.getElementById(`efficiency-${plugin}`).innerHTML = '';
 
     // Summary cards — compute averages across the last 50 entries
     const summaryDiv = document.getElementById(`summary-${plugin}`);
@@ -615,6 +648,13 @@
         appendLegendNotes(div, legendFlags);
       });
     }
+    }
+
+    const modelSelect = document.getElementById(`model-select-${plugin}`);
+    if (modelSelect) {
+      modelSelect.addEventListener('change', () => renderBody(modelSelect.value));
+    }
+    renderBody(selectedModel);
   }
 
   // Helper: create a triple line chart with three series (e.g., Skill / Plugin / Vanilla quality)
