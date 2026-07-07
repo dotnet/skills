@@ -90,6 +90,24 @@ Add the new dependency following the class's existing pattern:
 - **Primary constructor** (C# 12+): Add parameter to primary constructor: `public class OrderProcessor(ILogger<OrderProcessor> logger, TimeProvider timeProvider)`
 - **Traditional constructor**: Add `private readonly` field + constructor parameter, matching the existing field naming convention (`_camelCase` or `m_camelCase`)
 
+#### Static classes: use ambient context (no constructor injection)
+
+A `static` class with only static members **cannot** receive constructor injection — adding an instance constructor or instance field would break it. Do **not** convert it to a non-static class just to inject the dependency; that changes its design and every call site. Instead, apply the **ambient context** pattern: expose a static, settable seam that defaults to the real implementation and is overridden once at composition/test setup.
+
+```csharp
+public static class TimestampFormatter
+{
+    // Ambient seam — defaults to the real clock, swap in tests.
+    public static TimeProvider Clock { get; set; } = TimeProvider.System;
+
+    public static string Now() => Clock.GetUtcNow().ToString("O");
+}
+```
+
+- Production: leave `Clock` at its `TimeProvider.System` default, or assign the DI-resolved `TimeProvider` once at startup (`TimestampFormatter.Clock = app.Services.GetRequiredService<TimeProvider>();`).
+- Tests: assign a `FakeTimeProvider` to `TimestampFormatter.Clock` before exercising the code (reset it afterward to avoid cross-test leakage).
+- The same seam works for other statics (`IFileSystem`, custom wrappers): a `public static <Abstraction> X { get; set; }` defaulting to the real implementation.
+
 ### Step 4: Replace call sites
 
 Perform each replacement mechanically. For each call site:
@@ -172,7 +190,7 @@ Summarize what was done:
 | Pitfall | Solution |
 |---------|----------|
 | Replacing statics in test code | Only replace in production code; tests should use fakes/mocks |
-| Breaking static classes | Static classes can't have constructors — use ambient context for these |
+| Breaking static classes | Static classes can't have constructors — use the ambient context seam (Step 3) instead of converting them to non-static |
 | Missing `FakeTimeProvider` NuGet | Add `Microsoft.Extensions.TimeProvider.Testing` to test project |
 | Replacing in expression-bodied members without updating return type | `DateTime` → `DateTimeOffset` when using `TimeProvider.GetUtcNow()` — verify type compatibility |
 | Migrating too much at once | Stick to the defined scope — one project or namespace per run |

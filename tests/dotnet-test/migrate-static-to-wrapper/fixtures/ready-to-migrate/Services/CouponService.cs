@@ -29,6 +29,13 @@ public class CouponService
         return true;
     }
 
+    public bool IsRedeemableToday(Coupon coupon)
+    {
+        // Uses the storefront's LOCAL calendar day on purpose — a coupon that
+        // expires today should still redeem regardless of UTC offset.
+        return coupon.ExpiresAt.Date >= DateTime.Now.Date;
+    }
+
     public TimeSpan TimeUntilExpiry(Coupon coupon)
     {
         var remaining = coupon.ExpiresAt - DateTime.UtcNow;
