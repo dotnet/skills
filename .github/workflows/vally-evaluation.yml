@@ -190,10 +190,16 @@ jobs:
         env:
           DISPATCH_SKILL: ${{ inputs.skill }}
           PLUGIN: ${{ matrix.entry.plugin }}
+          SKILLS_PATH: ${{ matrix.entry.skills_path }}
         run: |
+          set -f
           # For workflow_dispatch targeting a specific skill, only run that one
-          # eval. Otherwise run every eval discovered under the plugin's tests
-          # directory.
+          # eval. Otherwise select specs from the matrix entry's skills_path so a
+          # sharded plugin leg runs only its own skills — otherwise every shard
+          # would re-run every eval under the plugin, multiplying runner time and
+          # PAT-pool token usage. A whole-plugin entry (skills_path is exactly
+          # plugins/<plugin>/skills) keeps the recursive find. skills_path is
+          # validated upstream, so word-splitting the space-separated list is safe.
           if [ -n "$DISPATCH_SKILL" ]; then
             CANDIDATE="tests/$PLUGIN/$DISPATCH_SKILL/eval.vally.yaml"
             if [ ! -f "$CANDIDATE" ]; then
@@ -202,7 +208,26 @@ jobs:
             fi
             EVALS="$CANDIDATE"
           else
-            EVALS=$(find -- "tests/$PLUGIN" -name "eval.vally.yaml" -type f | sort)
+            EVALS=""
+            for SP in $SKILLS_PATH; do
+              # SP is plugins/<plugin>/skills or plugins/<plugin>/skills/<skill>.
+              SKILL="${SP#plugins/$PLUGIN/skills}"
+              SKILL="${SKILL#/}"
+              if [ -z "$SKILL" ]; then
+                # Whole-plugin entry: every eval spec under the plugin.
+                FOUND=$(find -- "tests/$PLUGIN" -name "eval.vally.yaml" -type f)
+              else
+                # Sharded entry: only this skill's eval spec, if one exists
+                # (skills without a vally spec are simply skipped).
+                CANDIDATE="tests/$PLUGIN/$SKILL/eval.vally.yaml"
+                FOUND=""
+                [ -f "$CANDIDATE" ] && FOUND="$CANDIDATE"
+              fi
+              if [ -n "$FOUND" ]; then
+                EVALS="${EVALS}${FOUND}"$'\n'
+              fi
+            done
+            EVALS=$(printf '%s' "$EVALS" | sed '/^$/d' | sort -u)
           fi
           if [ -z "$EVALS" ]; then
             echo "No eval.vally.yaml files found for ${PLUGIN}"
@@ -313,7 +338,7 @@ jobs:
           RESULTS_DIR="artifacts/TestResults/vally/$ENTRY_NAME"
           for RESULTS_JSON in "$RESULTS_DIR"/*/results.json; do
             if [ ! -f "$RESULTS_JSON" ]; then continue; fi
-            EVAL_NAME=$(basename $(dirname "$RESULTS_JSON"))
+            EVAL_NAME=$(basename "$(dirname "$RESULTS_JSON")")
 
             # Extract verdict from JSON
             PASSED=$(node -e "const r=JSON.parse(require('fs').readFileSync('$RESULTS_JSON','utf-8')); console.log(r.verdicts[0].passed)")

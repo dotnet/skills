@@ -598,8 +598,15 @@ jobs:
             if ("$($e.name)" -notmatch $namePattern -or "$($e.name)" -match '\.\.') {
               throw "Refusing unsafe matrix entry: name '$($e.name)' must match $namePattern and not contain '..'"
             }
-            foreach ($sp in ("$($e.skills_path)" -split ' ')) {
-              if ($sp -and ($sp -notmatch $pathPattern -or $sp -match '\.\.')) {
+            # skills_path is a space-separated list of one or more path segments.
+            # An empty value must hard-fail: it is later used to build CLI
+            # arguments, so a blank entry is a configuration error, not a no-op.
+            $spSegments = @("$($e.skills_path)" -split ' ' | Where-Object { $_ })
+            if ($spSegments.Count -eq 0) {
+              throw "Refusing unsafe matrix entry: skills_path for entry '$($e.name)' is empty"
+            }
+            foreach ($sp in $spSegments) {
+              if ($sp -notmatch $pathPattern -or $sp -match '\.\.') {
                 throw "Refusing unsafe matrix entry: skills_path segment '$sp' must match $pathPattern and not contain '..'"
               }
             }
