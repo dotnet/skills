@@ -599,9 +599,11 @@ jobs:
               throw "Refusing unsafe matrix entry: name '$($e.name)' must match $namePattern and not contain '..'"
             }
             # skills_path is a space-separated list of one or more path segments.
-            # An empty value must hard-fail: it is later used to build CLI
-            # arguments, so a blank entry is a configuration error, not a no-op.
-            $spSegments = @("$($e.skills_path)" -split ' ' | Where-Object { $_ })
+            # An empty or whitespace-only value must hard-fail: it is later used
+            # to build CLI arguments, so a blank entry is a configuration error,
+            # not a no-op. Filter on the trimmed value so whitespace-only
+            # segments count as empty (matching the bash validation step).
+            $spSegments = @("$($e.skills_path)" -split ' ' | Where-Object { $_.Trim() })
             if ($spSegments.Count -eq 0) {
               throw "Refusing unsafe matrix entry: skills_path for entry '$($e.name)' is empty"
             }

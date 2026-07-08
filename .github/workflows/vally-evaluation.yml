@@ -131,10 +131,17 @@ jobs:
               echo "::error::Invalid matrix value '$val' (must match $name_re and not contain '..')"; exit 1
             fi
           done
-          if [ -z "$ENTRY_SKILLS_PATH" ]; then
-            echo "::error::Empty skills_path in matrix entry"; exit 1
+          # Collect path segments via word-splitting (set -f prevents globbing).
+          # A whitespace-only value word-splits to zero segments and must
+          # hard-fail exactly like a truly empty one — a bare `-z` test would let
+          # e.g. a single space slip past and then skip the per-segment loop,
+          # leaving an effectively-empty skills_path to reach CLI-arg building.
+          segs=()
+          for seg in $ENTRY_SKILLS_PATH; do segs+=("$seg"); done
+          if [ ${#segs[@]} -eq 0 ]; then
+            echo "::error::Empty or whitespace-only skills_path in matrix entry"; exit 1
           fi
-          for seg in $ENTRY_SKILLS_PATH; do
+          for seg in "${segs[@]}"; do
             if ! [[ "$seg" =~ $path_re ]] || [[ "$seg" == *".."* ]]; then
               echo "::error::Invalid skills_path segment '$seg' (must match $path_re and not contain '..')"; exit 1
             fi
