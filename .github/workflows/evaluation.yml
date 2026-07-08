@@ -879,10 +879,8 @@ jobs:
     with:
       entries: ${{ needs.discover.outputs.entries }}
       head_sha: ${{ needs.gate.outputs.head_sha }}
-    # The copilot-pat-pool secrets are injected via the environment inside the
-    # reusable workflow; only the fallback token is passed across the boundary.
-    secrets:
-      COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+    # No secrets are passed — the copilot-pat-pool secrets are injected via the
+    # `environment:` on the reusable workflow's job, not across this boundary.
 
   # ==========================================================================
   # COMMENT ON PR

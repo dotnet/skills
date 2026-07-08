@@ -39,8 +39,6 @@ on:
       COPILOT_PAT_7: { required: false }
       COPILOT_PAT_8: { required: false }
       COPILOT_PAT_9: { required: false }
-      # Fallback token used only when the copilot-pat-pool environment is empty.
-      COPILOT_GITHUB_TOKEN: { required: false }
   # Manual trigger for testing
   workflow_dispatch:
     inputs:
@@ -76,6 +74,9 @@ jobs:
           SKILL: ${{ inputs.skill }}
         run: |
           # Validate inputs against a strict allowlist and build JSON with jq.
+          # bash's [[ =~ ]] (POSIX ERE, no REG_NEWLINE) anchors ^/$ to the true
+          # start/end of the string, unlike .NET's $ which matches before a
+          # trailing newline — so ^...$ is sufficient here without \A/\z.
           name_re='^[A-Za-z0-9._-]+$'
           if ! [[ "$PLUGIN" =~ $name_re ]] || [[ "$PLUGIN" == *".."* ]]; then
             echo "::error::Invalid plugin '$PLUGIN' (must match $name_re and not contain '..')"; exit 1
@@ -117,6 +118,8 @@ jobs:
           ENTRY_SKILLS_PATH: ${{ matrix.entry.skills_path }}
         run: |
           set -f
+          # See the `prepare` job above for why bash's ^/$ anchors (unlike .NET's
+          # \A/\z equivalents) are safe here without a multi-line-string bypass.
           name_re='^[A-Za-z0-9._-]+$'
           path_re='^plugins/[A-Za-z0-9._-]+/skills(/[A-Za-z0-9._-]+)?$'
           for val in "$ENTRY_PLUGIN" "$ENTRY_NAME"; do
@@ -160,21 +163,18 @@ jobs:
           COPILOT_PAT_7: ${{ secrets.COPILOT_PAT_7 }}
           COPILOT_PAT_8: ${{ secrets.COPILOT_PAT_8 }}
           COPILOT_PAT_9: ${{ secrets.COPILOT_PAT_9 }}
-          FALLBACK_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
         run: |
-          # Prefer the copilot-pat-pool secrets (COPILOT_PAT_0..9); fall back to
-          # COPILOT_GITHUB_TOKEN only when the pool is empty.
+          # Select from the copilot-pat-pool secrets (COPILOT_PAT_0..9). There is
+          # no fallback secret to plumb through and track usage of — an empty
+          # pool is a hard configuration failure.
           TOKENS=()
           for i in $(seq 0 9); do
             var="COPILOT_PAT_$i"
             val="${!var}"
             if [ -n "$val" ]; then TOKENS+=("$val"); fi
           done
-          if [ ${#TOKENS[@]} -eq 0 ] && [ -n "$FALLBACK_TOKEN" ]; then
-            TOKENS+=("$FALLBACK_TOKEN")
-          fi
           if [ ${#TOKENS[@]} -eq 0 ]; then
-            echo "::error::No copilot-pat-pool entries (COPILOT_PAT_0..9) or COPILOT_GITHUB_TOKEN fallback are configured"
+            echo "::error::No copilot-pat-pool entries (COPILOT_PAT_0..9) are configured"
             exit 1
           fi
           IDX=$(( ${RANDOM} % ${#TOKENS[@]} ))
