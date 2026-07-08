@@ -44,38 +44,120 @@ permissions:
 
 jobs:
   # --------------------------------------------------------------------------
-  # For workflow_dispatch: build a single-entry matrix
+  # Group the matrix entries by plugin so we don't storm the Copilot backend.
+  #
+  # On a PR, discover emits one entry per changed (plugin, skill) — 85+ on a
+  # large PR. Matrixing a CI job over each, every job running `vally experiment
+  # run --workers 5` from only two Copilot tokens, trips rate limits. The vally
+  # run step already accepts a whitespace-separated skills_path and adapt.mjs
+  # already splits a multi-skill experiment back into per-skill verdicts, so we
+  # can coalesce those per-skill entries into ONE entry per plugin (a single
+  # experiment run) without changing anything downstream.
+  #
+  # Entries that already cover a whole plugin or an executionShard group (a
+  # bare plugins/<p>/skills dir, or a whitespace-joined skills_path) are passed
+  # through untouched — that's how scheduled runs arrive, and it preserves the
+  # executionShard sharding discover applies there. For workflow_dispatch we
+  # synthesize the single entry the inputs describe.
   # --------------------------------------------------------------------------
-  prepare:
-    if: github.event_name == 'workflow_dispatch'
+  group:
     runs-on: ubuntu-latest
     outputs:
       entries: ${{ steps.build.outputs.entries }}
+      has_entries: ${{ steps.build.outputs.has_entries }}
     steps:
+      - name: Checkout skills content
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ inputs.head_sha || '' }}
+          persist-credentials: false
+
       - id: build
+        shell: pwsh
+        env:
+          ENTRIES_JSON: ${{ inputs.entries }}
+          DISPATCH_PLUGIN: ${{ inputs.plugin }}
+          DISPATCH_SKILL: ${{ inputs.skill }}
         run: |
-          PLUGIN="${{ inputs.plugin }}"
-          SKILL="${{ inputs.skill }}"
-          if [ -n "$SKILL" ]; then
-            echo "entries=[{\"name\":\"${PLUGIN}--${SKILL}\",\"plugin\":\"${PLUGIN}\",\"skills_path\":\"plugins/${PLUGIN}/skills/${SKILL}\"}]" >> $GITHUB_OUTPUT
-          else
-            echo "entries=[{\"name\":\"${PLUGIN}\",\"plugin\":\"${PLUGIN}\",\"skills_path\":\"plugins/${PLUGIN}/skills\"}]" >> $GITHUB_OUTPUT
-          fi
+          # Raw entries: synthesized for workflow_dispatch, otherwise straight
+          # from discover.
+          $raw = @()
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $p = $env:DISPATCH_PLUGIN
+            $s = $env:DISPATCH_SKILL
+            if ($s) {
+              $raw = @([pscustomobject]@{ name = "$p--$s"; plugin = $p; skills_path = "plugins/$p/skills/$s" })
+            } else {
+              $raw = @([pscustomobject]@{ name = $p; plugin = $p; skills_path = "plugins/$p/skills" })
+            }
+          } elseif ($env:ENTRIES_JSON) {
+            $raw = @(ConvertFrom-Json $env:ENTRIES_JSON)
+          }
+
+          # Split into single-skill entries (to coalesce by plugin) and
+          # everything else (passed through unchanged).
+          $perSkill = @()
+          $passthrough = @()
+          foreach ($e in $raw) {
+            # Never coalesce an executionShard bucket that discover already
+            # produced (named "<plugin>--shard-<bucket>"), even if it holds a
+            # single skill — that would undo the shard split.
+            if ($e.name -match '--shard-') { $passthrough += $e; continue }
+            $tokens = @([string]$e.skills_path -split '\s+' | Where-Object { $_ })
+            if ($tokens.Count -eq 1 -and $tokens[0] -match '^plugins/([^/]+)/skills/(.+)$') {
+              $plugin = $Matches[1]; $skill = $Matches[2]
+              # agent.* skills are excluded from the experiment's evals: glob, and
+              # a skill without a vally eval would make --eval-filter match
+              # nothing and fail the whole plugin run — drop both here.
+              if ($skill -like 'agent.*') { continue }
+              if (-not (Test-Path "tests/$plugin/$skill/eval.vally.yaml")) {
+                Write-Host "Skipping $plugin/$skill — no tests/$plugin/$skill/eval.vally.yaml"
+                continue
+              }
+              $perSkill += [pscustomobject]@{ plugin = $plugin; skills_path = $tokens[0] }
+            } else {
+              $passthrough += $e
+            }
+          }
+
+          $grouped = @($perSkill | Group-Object -Property plugin | ForEach-Object {
+            [pscustomobject]@{
+              name        = $_.Name
+              plugin      = $_.Name
+              skills_path = (($_.Group | ForEach-Object { $_.skills_path }) -join ' ')
+            }
+          })
+
+          $entries = @($grouped) + @($passthrough)
+          if (-not $entries -or $entries.Count -eq 0) {
+            Write-Host "No vally entries to evaluate"
+            "entries=[]" >> $env:GITHUB_OUTPUT
+            "has_entries=false" >> $env:GITHUB_OUTPUT
+          } else {
+            $json = $entries | ConvertTo-Json -Compress -AsArray
+            Write-Host "Grouped $($raw.Count) discover entr(y/ies) into $($entries.Count) vally job(s):"
+            Write-Host $json
+            "entries=$json" >> $env:GITHUB_OUTPUT
+            "has_entries=true" >> $env:GITHUB_OUTPUT
+          }
 
   # --------------------------------------------------------------------------
   # Run vally evaluation (shadow mode)
   # --------------------------------------------------------------------------
   vally-evaluate:
-    needs: [prepare]
-    if: always() && !cancelled()
+    needs: [group]
+    if: always() && !cancelled() && needs.group.outputs.has_entries == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     continue-on-error: true
     name: vally (${{ matrix.entry.name }})
     strategy:
       fail-fast: false
+      # Cap concurrent Copilot sessions: max-parallel jobs * --workers per job.
+      # vally has only two tokens, so keep this well below skill-validator's fan-out.
+      max-parallel: 4
       matrix:
-        entry: ${{ fromJson(inputs.entries || needs.prepare.outputs.entries || '[]') }}
+        entry: ${{ fromJson(needs.group.outputs.entries) }}
 
     steps:
       - name: Checkout skills content
