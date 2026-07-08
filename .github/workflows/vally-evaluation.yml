@@ -74,9 +74,11 @@ jobs:
           SKILL: ${{ inputs.skill }}
         run: |
           # Validate inputs against a strict allowlist and build JSON with jq.
+          # LC_ALL=C avoids locale-dependent collation quirks in [A-Za-z] ranges.
           # bash's [[ =~ ]] (POSIX ERE, no REG_NEWLINE) anchors ^/$ to the true
           # start/end of the string, unlike .NET's $ which matches before a
           # trailing newline — so ^...$ is sufficient here without \A/\z.
+          export LC_ALL=C
           name_re='^[A-Za-z0-9._-]+$'
           if ! [[ "$PLUGIN" =~ $name_re ]] || [[ "$PLUGIN" == *".."* ]]; then
             echo "::error::Invalid plugin '$PLUGIN' (must match $name_re and not contain '..')"; exit 1
@@ -118,8 +120,10 @@ jobs:
           ENTRY_SKILLS_PATH: ${{ matrix.entry.skills_path }}
         run: |
           set -f
+          # LC_ALL=C avoids locale-dependent collation quirks in [A-Za-z] ranges.
           # See the `prepare` job above for why bash's ^/$ anchors (unlike .NET's
           # \A/\z equivalents) are safe here without a multi-line-string bypass.
+          export LC_ALL=C
           name_re='^[A-Za-z0-9._-]+$'
           path_re='^plugins/[A-Za-z0-9._-]+/skills(/[A-Za-z0-9._-]+)?$'
           for val in "$ENTRY_PLUGIN" "$ENTRY_NAME"; do
