@@ -171,7 +171,7 @@ jobs:
               skill="${skill#/}"            # "" or "<skill>"
               if [ -n "$skill" ]; then
                 if [[ "$skill" == agent.* ]]; then
-                  echo "Skipping $tp/$skill (agent.* evals are excluded from dotnet-skills.experiment.yaml)"
+                  echo "Skipping $tp/$skill (agent.* evals are excluded from the vally experiment)"
                   continue
                 fi
                 candidate="tests/$tp/$skill/eval.vally.yaml"
@@ -190,6 +190,34 @@ jobs:
             exit 0
           fi
 
+          # Prefer the repo's canonical experiment file when present (PR 854+).
+          # On main, that file does not exist yet, so synthesize an equivalent
+          # temporary experiment that scopes each eval to its single skill.
+          EXPERIMENT_FILE="dotnet-skills.experiment.yaml"
+          if [ ! -f "$EXPERIMENT_FILE" ]; then
+            EXPERIMENT_FILE="$RUNNER_TEMP/dotnet-skills.experiment.yaml"
+            cat > "$EXPERIMENT_FILE" <<'EOF'
+          name: dotnet-skills
+          evals:
+            - tests/*/!(agent.*)/eval.vally.yaml
+          overrides:
+            model: claude-opus-4.6
+            judge_model: claude-opus-4.6
+            runs: 1
+          vary:
+            - /environment/skills
+          baseline: baseline
+          variants:
+            baseline:
+              environment:
+                skills: []
+            skilled:
+              environment:
+                skills:
+                  - plugins/${eval.grandparent}/skills/${eval.parent}
+          EOF
+          fi
+
           # Model + comparison-judge model come from the experiment file's
           # `overrides:` block (single source of truth), matching run-vally-evals.sh.
           read_override() {
@@ -197,7 +225,7 @@ jobs:
               /^overrides:/ { f = 1; next }
               /^[^[:space:]]/ { f = 0 }
               f && $1 == k":" { print $2; exit }
-            ' dotnet-skills.experiment.yaml
+            ' "$EXPERIMENT_FILE"
           }
           MODEL="$(read_override model)"; MODEL="${MODEL:-${{ env.FALLBACK_MODEL }}}"
           JUDGE_MODEL="$(read_override judge_model)"; JUDGE_MODEL="${JUDGE_MODEL:-${{ env.FALLBACK_JUDGE_MODEL }}}"
@@ -208,7 +236,7 @@ jobs:
           # environment.skills.
           EXPERIMENT_OUT="$RESULTS_DIR/_experiment"
           mkdir -p "$EXPERIMENT_OUT"
-          vally experiment run dotnet-skills.experiment.yaml \
+          vally experiment run "$EXPERIMENT_FILE" \
             "${FILTER_ARGS[@]}" \
             --output-dir "$EXPERIMENT_OUT" \
             --workers 5 \
