@@ -1,6 +1,6 @@
 ---
 name: csharp-refactoring
-description: "Performs safe, behavior-preserving refactoring of C#/.NET code, verified with build, tests, and analyzers. Use when the user wants to refactor, rename, restructure, clean up, modernize, or reorganize C# code WITHOUT changing behavior: rename a symbol/type/file across a solution; move a type or static members to another file/namespace/project; extract a method, interface, or base class; pull members up; inline a method or local; split a large class/file; consolidate or de-duplicate copy-pasted code; sync namespaces to folders; modernize to current C# idioms (file-scoped namespaces, primary constructors, collection expressions, target-typed new, pattern matching); or enable nullable reference annotations. Prefers Roslyn-backed edits over text find/replace, and defers .NET compatibility hazards to the companion dotnet-breaking-changes skill. DO NOT USE FOR: adding features, fixing bugs, writing new tests, upgrading frameworks or NuGet versions (use dotnet-upgrade), or formatting-only passes (use dotnet format)."
+description: "Performs safe, behavior-preserving refactoring of C#/.NET code, verified with build, tests, and analyzers. USE FOR: any request to rename, move, extract, split, modernize, or otherwise restructure C# code without changing behavior, including small requests like 'rename X to Y': rename a symbol/type/file across a solution; move a type or static members to another file/namespace/project; extract a method, interface, or base class; pull members up; inline a method or local; split a large class/file; consolidate or de-duplicate copy-pasted code; sync namespaces to folders; modernize to current C# idioms (file-scoped namespaces, primary constructors, collection expressions, target-typed new, pattern matching); or enable nullable reference annotations. DO NOT USE FOR: adding features, fixing bugs, writing new tests, upgrading frameworks or NuGet versions (use dotnet-upgrade), or formatting-only passes (use dotnet format)."
 license: MIT
 ---
 
@@ -92,6 +92,7 @@ Halt and ask the user before continuing when:
 ## When to use
 
 - "Rename this method/type everywhere safely" / "rename across the solution"
+- Short requests such as "rename X to Y" or "rename this class"
 - "Extract this block into a method" / "extract an interface from this class"
 - "Move this type into its own file / into project X / into namespace Y"
 - "This class is too big — split it" / "consolidate these two near-identical implementations"
