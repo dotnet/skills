@@ -97,22 +97,38 @@ jobs:
       - name: Select Copilot token
         id: select-token
         env:
-          TOKEN_1: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          TOKEN_2: ${{ secrets.COPILOT_GITHUB_TOKEN_2 }}
+          # Expose every inherited secret as JSON so the token pool scales to any
+          # number of COPILOT_GITHUB_TOKEN[_N] entries without hard-coding each
+          # one here. The caller passes `secrets: inherit`, so all repo/org
+          # secrets are visible, and GitHub masks every secret value in logs.
+          ALL_SECRETS: ${{ toJson(secrets) }}
         run: |
-          TOKENS=()
-          for i in 1 2; do
-            var="TOKEN_$i"
-            val="${!var}"
-            if [ -n "$val" ]; then TOKENS+=("$val"); fi
-          done
+          # Collect every secret named COPILOT_GITHUB_TOKEN or
+          # COPILOT_GITHUB_TOKEN_<N> (case-insensitive), sorted by name for a
+          # stable, reproducible pool order.
+          mapfile -t TOKENS < <(
+            printf '%s' "$ALL_SECRETS" \
+              | jq -r 'to_entries
+                       | map(select(.key | test("^COPILOT_GITHUB_TOKEN(_[0-9]+)?$"; "i")))
+                       | sort_by(.key)[]
+                       | .value'
+          )
           if [ ${#TOKENS[@]} -eq 0 ]; then
             echo "::error::No COPILOT_GITHUB_TOKEN secrets are configured"
             exit 1
           fi
-          IDX=$(( ${RANDOM} % ${#TOKENS[@]} ))
+          # Assign deterministically by matrix job-index so jobs spread evenly
+          # across the pool and avoid random collisions; fall back to RANDOM when
+          # job-index is unavailable (e.g. workflow_dispatch single job).
+          JOB_INDEX="${{ strategy.job-index }}"
+          if [ -n "$JOB_INDEX" ]; then
+            IDX=$(( JOB_INDEX % ${#TOKENS[@]} ))
+          else
+            IDX=$(( RANDOM % ${#TOKENS[@]} ))
+          fi
+          echo "Selected token $((IDX + 1)) of ${#TOKENS[@]} available (job-index=${JOB_INDEX:-random})"
           echo "::add-mask::${TOKENS[$IDX]}"
-          echo "token=${TOKENS[$IDX]}" >> $GITHUB_OUTPUT
+          echo "token=${TOKENS[$IDX]}" >> "$GITHUB_OUTPUT"
 
       - name: Find eval specs
         id: find-evals
