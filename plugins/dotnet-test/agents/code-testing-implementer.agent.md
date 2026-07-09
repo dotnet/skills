@@ -7,7 +7,7 @@ description: >-
   running build-test-fix cycle for generated tests.
 name: code-testing-implementer
 user-invocable: false
-tools: ["agent", "skill", "read", "search", "edit", "execute"]
+tools: ["agent", "skill", "read", "search", "edit", "execute", "Task", "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash", "read_file", "replace", "write_file", "glob", "grep_search", "run_shell_command"]
 agents:
   - code-testing-builder
   - code-testing-tester

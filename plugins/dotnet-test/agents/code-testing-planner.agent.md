@@ -6,7 +6,7 @@ description: >-
   creating .testagent/plan.md from research.
 name: code-testing-planner
 user-invocable: false
-tools: ["skill", "read", "search", "edit", "execute"]
+tools: ["skill", "read", "search", "edit", "execute", "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash", "read_file", "replace", "write_file", "glob", "grep_search", "run_shell_command"]
 license: MIT
 ---
 

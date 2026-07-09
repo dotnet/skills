@@ -2,17 +2,18 @@
 name: writing-mstest-tests
 description: >
   Write, create, modernize, or fix comprehensive MSTest unit tests with MSTest 3.x/4.x APIs.
-  USE FOR: write or create MSTest unit tests, fix/modernize MSTest assertions,
-  better MSTest assertion than Assert.IsTrue, replace hard cast with type check (IsInstanceOfType),
+  USE FOR: write, create, review, or modernize MSTest tests and assertions,
+  better MSTest assertion than Assert.IsTrue, replace hard cast with IsInstanceOfType,
   MSTest assertion APIs (Contains, ContainsSingle, HasCount, IsEmpty, IsNotEmpty, DoesNotContain,
   AreSame, IsNull, StartsWith, EndsWith, MatchesRegex, IsGreaterThan, IsLessThan, IsInRange),
-  swapped Assert.AreEqual args, replace ExpectedException with Assert.Throws,
+  swapped/reversed Assert.AreEqual args (Expected/Actual backwards),
+  replace ExpectedException with Assert.Throws,
   data-driven (DataRow, DynamicData, ValueTuples),
   lifecycle (TestInitialize, TestCleanup, TestContext),
-  async tests and cancellation tokens, conditional execution/retry/cleanup (OSCondition, Retry),
+  async and cancellation tests, conditional execution/retry/cleanup (OSCondition, Retry),
   parallelization (Parallelize/DoNotParallelize), MSTest.Sdk setup, MSTESTxxxx analyzer fixes.
   DO NOT USE FOR: test quality audits (use test-anti-patterns),
-  running tests (use run-tests), MSTest version migration (use the migrate-mstest skills),
+  running tests (use run-tests), MSTest version migration (use migrate-mstest skills),
   xUnit/NUnit/TUnit, or non-.NET languages.
 license: MIT
 ---
