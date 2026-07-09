@@ -24,12 +24,45 @@ public sealed record RunOptions(
 
 public static class AgentRunner
 {
-    private static readonly ConcurrentDictionary<string, CopilotClient> _pluginClients = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>
+    /// A bounded, round-robin pool of <see cref="CopilotClient"/>s that share the same
+    /// logical configuration but each own a distinct CLI process and a distinct
+    /// <c>SessionStatePath</c>. This splits the CLI's per-process, per-logical-path
+    /// events.jsonl append mutex across the pool so concurrent sessions stop contending
+    /// on a single lock ("timeout while waiting for mutex to become available").
+    /// </summary>
+    private sealed class ClientPool(CopilotClient[] clients)
+    {
+        private int _cursor = -1;
+        public CopilotClient[] Clients { get; } = clients;
+
+        public CopilotClient Next()
+        {
+            if (Clients.Length == 1) return Clients[0];
+            var i = (int)((uint)Interlocked.Increment(ref _cursor) % (uint)Clients.Length);
+            return Clients[i];
+        }
+    }
+
+    private static readonly ConcurrentDictionary<string, ClientPool> _pluginPools = new(StringComparer.OrdinalIgnoreCase);
     private static readonly SemaphoreSlim _clientLock = new(1, 1);
     private static readonly ConcurrentBag<string> _workDirs = [];
     private static readonly ConcurrentBag<string> _configDirs = [];
     private static string? _capturedGitHubToken;
     private static bool _tokenCaptured;
+
+    // Number of CopilotClient (CLI) processes per plugin-root key. Default 1 preserves
+    // the historical single-client behavior exactly; larger values split the events.jsonl
+    // mutex across that many CLI processes + distinct session-state paths. Set via
+    // ConfigurePoolSize (wired to the --client-pool-size flag) before any client is created.
+    private static volatile int _poolSize = 1;
+
+    /// <summary>
+    /// Sets the per-plugin-root client pool size. Must be called before the first
+    /// <see cref="GetPluginClient"/> call to take effect for that key; later calls only
+    /// affect pool keys not yet materialized. Values &lt; 1 are clamped to 1.
+    /// </summary>
+    public static void ConfigurePoolSize(int size) => _poolSize = Math.Max(1, size);
 
     /// <summary>
     /// Capture GITHUB_TOKEN once at startup so multiple clients can share it
@@ -45,47 +78,60 @@ public static class AgentRunner
     }
 
     /// <summary>
-    /// Returns a shared CopilotClient, keyed by plugin root for future
-    /// per-plugin configuration. Currently all clients share the same
-    /// options because --plugin-dir is NOT honored by the SDK; plugin
-    /// skills are loaded via SkillDirectories in BuildSessionConfig.
+    /// Returns a <see cref="CopilotClient"/> from the pool for the given plugin root,
+    /// round-robining across the pool so concurrent sessions spread over multiple CLI
+    /// processes / session-state paths. The pool for a key is created once (lazily) and
+    /// reused. Plugin and no-plugin clients live under separate keys and never mix.
     /// </summary>
     public static async Task<CopilotClient> GetPluginClient(
         string? pluginRoot, bool verbose)
     {
         var key = pluginRoot ?? "";
 
-        if (_pluginClients.TryGetValue(key, out var existing))
-            return existing;
+        if (_pluginPools.TryGetValue(key, out var existing))
+            return existing.Next();
 
         await _clientLock.WaitAsync();
         try
         {
-            if (_pluginClients.TryGetValue(key, out existing))
-                return existing;
+            if (_pluginPools.TryGetValue(key, out existing))
+                return existing.Next();
 
             CaptureGitHubToken();
 
-            var options = new CopilotClientOptions
+            var size = Math.Max(1, _poolSize);
+            var clients = new CopilotClient[size];
+            for (var k = 0; k < size; k++)
             {
-                LogLevel = verbose ? "info" : "none",
-                SessionFs = new SessionFsConfig
+                // Distinct SessionStatePath per pooled client so that even if the CLI keys
+                // its append mutex on the logical path, pooled clients never collide.
+                // Keep the historical "session-state" name for the single-client default.
+                var statePath = size == 1 ? "session-state" : $"session-state-{k}";
+
+                var options = new CopilotClientOptions
                 {
-                    InitialCwd = Environment.CurrentDirectory,
-                    SessionStatePath = "session-state",
-                    Conventions = OperatingSystem.IsWindows()
-                        ? GitHub.Copilot.SDK.Rpc.SessionFsSetProviderConventions.Windows
-                        : GitHub.Copilot.SDK.Rpc.SessionFsSetProviderConventions.Posix,
-                },
-            };
+                    LogLevel = verbose ? "info" : "none",
+                    SessionFs = new SessionFsConfig
+                    {
+                        InitialCwd = Environment.CurrentDirectory,
+                        SessionStatePath = statePath,
+                        Conventions = OperatingSystem.IsWindows()
+                            ? GitHub.Copilot.SDK.Rpc.SessionFsSetProviderConventions.Windows
+                            : GitHub.Copilot.SDK.Rpc.SessionFsSetProviderConventions.Posix,
+                    },
+                };
 
-            if (!string.IsNullOrEmpty(_capturedGitHubToken))
-                options.GitHubToken = _capturedGitHubToken;
+                if (!string.IsNullOrEmpty(_capturedGitHubToken))
+                    options.GitHubToken = _capturedGitHubToken;
 
-            var client = new CopilotClient(options);
-            await client.StartAsync();
-            _pluginClients[key] = client;
-            return client;
+                var client = new CopilotClient(options);
+                await client.StartAsync();
+                clients[k] = client;
+            }
+
+            var pool = new ClientPool(clients);
+            _pluginPools[key] = pool;
+            return pool.Next();
         }
         finally
         {
@@ -94,21 +140,24 @@ public static class AgentRunner
     }
 
     /// <summary>
-    /// Backward-compatible alias — returns the no-plugin client.
-    /// Used by judge sessions that don't need plugin loading.
+    /// Backward-compatible alias — returns a no-plugin client (round-robined across the
+    /// no-plugin pool). Used by judge sessions that don't need plugin loading.
     /// </summary>
     public static Task<CopilotClient> GetSharedClient(bool verbose)
         => GetPluginClient(null, verbose);
 
-    /// <summary>Stop all plugin clients (including the no-plugin client).</summary>
+    /// <summary>Stop all pooled clients (including the no-plugin pool).</summary>
     public static async Task StopAllClients()
     {
-        foreach (var (key, client) in _pluginClients)
+        foreach (var (key, pool) in _pluginPools)
         {
-            try { await client.StopAsync(); }
-            catch (Exception ex) { Console.Error.WriteLine($"Warning: failed to stop client '{key}': {ex.Message}"); }
+            foreach (var client in pool.Clients)
+            {
+                try { await client.StopAsync(); }
+                catch (Exception ex) { Console.Error.WriteLine($"Warning: failed to stop client '{key}': {ex.Message}"); }
+            }
         }
-        _pluginClients.Clear();
+        _pluginPools.Clear();
     }
 
     /// <summary>Remove all temporary working directories created during runs.</summary>

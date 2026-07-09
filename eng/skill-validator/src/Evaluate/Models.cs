@@ -457,6 +457,17 @@ public sealed record ValidatorConfig
     public int ParallelSkills { get; init; } = 1;
     public int ParallelScenarios { get; init; } = 1;
     public int ParallelRuns { get; init; } = 1;
+
+    /// <summary>
+    /// Number of Copilot CLI client processes to pool per plugin root. Each pooled client
+    /// owns its own CLI process and a distinct session-state path, which splits the CLI's
+    /// per-process events.jsonl append mutex across the pool and relieves the
+    /// "timeout while waiting for mutex to become available" contention seen under high
+    /// parallelism. Default 1 preserves the historical single-client behavior. Recommended
+    /// value: roughly the peak concurrent sessions per plugin root
+    /// (~ParallelScenarios * ParallelRuns, capped for resource use).
+    /// </summary>
+    public int ClientPoolSize { get; init; } = 1;
     public int JudgeTimeout { get; init; } = 300_000;
     public double ConfidenceLevel { get; init; } = 0.95;
     public IReadOnlyList<ReporterSpec> Reporters { get; init; } = [];
