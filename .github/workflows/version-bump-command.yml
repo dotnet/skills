@@ -35,7 +35,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ACTOR: ${{ github.event.comment.user.login }}
         run: |
-          PERMISSION=$(gh api "repos/${{ github.repository }}/collaborators/${ACTOR}/permission" --jq '.permission')
+          # A non-collaborator's permission lookup returns 404, which makes `gh api` exit non-zero and
+          # (under the default `set -eo pipefail` shell) would abort this step before the friendly
+          # denial comment below ever runs. Default to "none" on any API failure so the denial path
+          # always fires instead.
+          PERMISSION=$(gh api "repos/${{ github.repository }}/collaborators/${ACTOR}/permission" --jq '.permission' 2>/dev/null || echo "none")
           echo "Actor ${ACTOR} has permission: $PERMISSION"
           if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "write" && "$PERMISSION" != "maintain" ]]; then
             echo "::error::/version-bump requires write access"
@@ -179,6 +183,9 @@ jobs:
             .config/dotnet-tools.json \
             global.json || true
           git add plugins/*/plugin.json plugins/*/.codex-plugin/plugin.json
+          # The optional Claude manifest may match zero plugins in the future; keep this add
+          # non-fatal so an empty glob can't fail the step.
+          git add plugins/*/.claude-plugin/plugin.json 2>/dev/null || true
           git commit -m "Stamp plugin versions via /version-bump"
           git push origin "HEAD:${HEAD_REF}"
 

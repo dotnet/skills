@@ -81,11 +81,16 @@ $pluginsRoot = Join-Path $repoRoot 'plugins'
 # repository owns the caller's cwd and silently compute the wrong height.
 Set-Location -LiteralPath $repoRoot
 
-# The files excluded from NBGV git height for every plugin: the two stamped manifests (which are
-# outputs, not inputs) plus version.json itself. This is the single source of truth, mirrored by
-# each plugin's version.json `pathFilters`, by Test-HeightBearingChange, and by the canonical-
-# filter guard in the main loop. Keeping one list avoids the three drifting apart.
-$HeightExcludedFiles = @('plugin.json', '.codex-plugin/plugin.json', 'version.json')
+# The files excluded from NBGV git height for every plugin: the stamped manifests (which are
+# outputs, not inputs) plus version.json itself. plugin.json and .codex-plugin/plugin.json exist
+# for every plugin; .claude-plugin/plugin.json is optional (only plugins that need an inline Claude
+# manifest, e.g. dotnet-msbuild's binlog MCP server, carry one). Excluding a manifest a given plugin
+# doesn't have is a harmless no-op for that plugin, and keeping it in the universal list means any
+# plugin that later adds a .claude-plugin manifest is already height-neutral (won't self-bump when
+# stamped). This is the single source of truth, mirrored by each plugin's version.json `pathFilters`,
+# by Test-HeightBearingChange, and by the canonical-filter guard in the main loop. Keeping one list
+# avoids the pieces drifting apart.
+$HeightExcludedFiles = @('plugin.json', '.codex-plugin/plugin.json', '.claude-plugin/plugin.json', 'version.json')
 
 # The canonical `pathFilters` array every plugin's version.json must contain: include the whole
 # plugin subtree ('.') minus the height-excluded files above.
@@ -160,10 +165,11 @@ function Test-HeightBearingChange {
     return [bool]$touched
 }
 
-# Plugins whose version-affecting files changed between two commits. The two stamped manifests
-# (plugin.json, .codex-plugin/plugin.json) are output, not input, so they're excluded; everything
-# else under the plugin counts — including version.json, since a base bump (0.1 -> 0.2) with no
-# other change must still be detected so /version-bump can stamp the reset patch.
+# Plugins whose version-affecting files changed between two commits. The stamped manifests
+# (plugin.json, .codex-plugin/plugin.json, and the optional .claude-plugin/plugin.json) are output,
+# not input, so they're excluded; everything else under the plugin counts — including version.json,
+# since a base bump (0.1 -> 0.2) with no other change must still be detected so /version-bump can
+# stamp the reset patch.
 # Used by /version-bump to scope -PredictSquashMerge to exactly the plugins the PR touched.
 function Get-ChangedPlugins {
     param([string] $From, [string] $To)
@@ -171,7 +177,8 @@ function Get-ChangedPlugins {
         Where-Object {
             $_ -match '^plugins/[^/]+/' -and
             $_ -notmatch '^plugins/[^/]+/plugin\.json$' -and
-            $_ -notmatch '^plugins/[^/]+/\.codex-plugin/plugin\.json$'
+            $_ -notmatch '^plugins/[^/]+/\.codex-plugin/plugin\.json$' -and
+            $_ -notmatch '^plugins/[^/]+/\.claude-plugin/plugin\.json$'
         } |
         ForEach-Object { ($_ -split '/')[1] } |
         Sort-Object -Unique
@@ -204,6 +211,11 @@ foreach ($name in $Plugins) {
     $pluginDir = Join-Path $pluginsRoot $name
     $manifest = Join-Path $pluginDir 'plugin.json'
     $codexManifest = Join-Path $pluginDir '.codex-plugin' 'plugin.json'
+    # Optional third manifest: some clients (e.g. Claude Code) need an inline plugin.json rather than
+    # the reference form the Codex manifest uses, so a plugin may carry .claude-plugin/plugin.json.
+    # Only plugins that need it have one (dotnet-msbuild today), so it's stamped when present rather
+    # than required.
+    $claudeManifest = Join-Path $pluginDir '.claude-plugin' 'plugin.json'
 
     # A shipped plugin (one with a plugin.json) must define a version base; fail loudly rather than
     # silently skipping it — symmetric with the weekly enumerate guard above, so /version-bump can't
@@ -227,6 +239,15 @@ foreach ($name in $Plugins) {
     # Read the Codex manifest too so we detect (and repair) the case where the two manifests have
     # drifted apart — e.g. a hand-edit updated one but not the other.
     $currentCodex = (Get-Content $codexManifest -Raw | ConvertFrom-Json).version
+    # The optional Claude manifest, read only when the plugin carries one. Track presence separately
+    # from the version value: keying "is it present?" off $currentClaude would conflate an absent file
+    # with a present-but-malformed one (missing/empty "version"). By gating on $hasClaudeManifest, a
+    # present manifest is always considered and stamped — and a missing/empty "version" fails loudly
+    # (the strict-mode read or Set-ManifestVersion throws) rather than being silently skipped.
+    $hasClaudeManifest = Test-Path $claudeManifest
+    $currentClaude = if ($hasClaudeManifest) {
+        (Get-Content $claudeManifest -Raw | ConvertFrom-Json).version
+    } else { $null }
 
     # The version.json base must be major.minor (e.g. "0.1"); a malformed or 3-part base
     # (e.g. "0.1.0") would otherwise pass through the non-predict path because NBGV normalizes
@@ -280,15 +301,22 @@ foreach ($name in $Plugins) {
         throw "Computed version '$computed' for plugin '$name' is not a valid major.minor.patch — check plugins/$name/version.json"
     }
 
-    # Both manifests are guaranteed to exist (guarded above), so a mismatch in either — vs. the
-    # computed version — means the plugin drifted and needs a rewrite.
-    $changed = ($computed -ne $current) -or ($computed -ne $currentCodex)
+    # Both required manifests are guaranteed to exist (guarded above); the Claude manifest is optional.
+    # A mismatch in any present manifest — vs. the computed version — means the plugin drifted and
+    # needs a rewrite. Gate the Claude check on presence (not on its version value) so a present-but-
+    # malformed manifest still forces a rewrite and fails loudly at stamp time.
+    $changed = ($computed -ne $current) -or ($computed -ne $currentCodex) -or
+               ($hasClaudeManifest -and $computed -ne $currentClaude)
 
     if ($OnlyChanged -and -not $changed) { continue }
 
     if ($Write -and $changed) {
         [void](Set-ManifestVersion -Path $manifest -Version $computed)
         [void](Set-ManifestVersion -Path $codexManifest -Version $computed)
+        # Stamp the optional Claude manifest only when the plugin actually has one.
+        if ($hasClaudeManifest) {
+            [void](Set-ManifestVersion -Path $claudeManifest -Version $computed)
+        }
     }
 
     $results.Add([ordered]@{
