@@ -217,11 +217,16 @@ foreach ($name in $Plugins) {
     }
 
     $current = (Get-Content $manifest -Raw | ConvertFrom-Json).version
-    # Also read the Codex-facing manifest so we can detect (and repair) the case where
-    # the two manifests have drifted apart — e.g. a hand-edit updated one but not the other.
-    $currentCodex = if (Test-Path $codexManifest) {
-        (Get-Content $codexManifest -Raw | ConvertFrom-Json).version
-    } else { $null }
+    # Both manifests must exist: the version is duplicated across plugin.json and the Codex-facing
+    # .codex-plugin/plugin.json, and every consumer reads one of them. If the Codex manifest were
+    # missing we'd silently stamp only plugin.json and ship mismatched versions across clients, so
+    # fail fast instead.
+    if (-not (Test-Path $codexManifest)) {
+        throw "plugins/$name is missing .codex-plugin/plugin.json — the version must be stamped into both manifests. Add plugins/$name/.codex-plugin/plugin.json."
+    }
+    # Read the Codex manifest too so we detect (and repair) the case where the two manifests have
+    # drifted apart — e.g. a hand-edit updated one but not the other.
+    $currentCodex = (Get-Content $codexManifest -Raw | ConvertFrom-Json).version
 
     # The version.json base must be major.minor (e.g. "0.1"); a malformed or 3-part base
     # (e.g. "0.1.0") would otherwise pass through the non-predict path because NBGV normalizes
@@ -275,8 +280,9 @@ foreach ($name in $Plugins) {
         throw "Computed version '$computed' for plugin '$name' is not a valid major.minor.patch — check plugins/$name/version.json"
     }
 
-    $changed = ($computed -ne $current) -or
-               ($null -ne $currentCodex -and $computed -ne $currentCodex)
+    # Both manifests are guaranteed to exist (guarded above), so a mismatch in either — vs. the
+    # computed version — means the plugin drifted and needs a rewrite.
+    $changed = ($computed -ne $current) -or ($computed -ne $currentCodex)
 
     if ($OnlyChanged -and -not $changed) { continue }
 

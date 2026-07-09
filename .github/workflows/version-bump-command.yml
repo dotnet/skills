@@ -105,6 +105,16 @@ jobs:
             eng/version/nuget.config \
             .config/dotnet-tools.json \
             global.json
+          # `git checkout <ref> -- <paths>` writes the overlay into the index as well as the working
+          # tree, i.e. it STAGES these files. Unstage them immediately so the index only ever holds
+          # HEAD's copies: the tooling still runs from the overlaid working tree, but a later commit
+          # can never include the main-overlaid tooling even if the cleanup step below is skipped or
+          # fails. This is the actual guarantee that trusted tooling isn't committed to the PR branch.
+          git reset -q HEAD -- \
+            eng/version/Sync-PluginVersions.ps1 \
+            eng/version/nuget.config \
+            .config/dotnet-tools.json \
+            global.json
 
       - name: Setup .NET SDK
         if: steps.pr.outputs.is_fork == 'false'
@@ -158,13 +168,16 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Drop the main-overlaid tooling so only the regenerated manifests are committed;
-          # the PR's own versions of these files are restored to the working tree + index.
+          # Worktree hygiene: restore HEAD's copies of the overlaid tooling. The overlay was already
+          # unstaged when it was checked out, so this is NOT what prevents a leak (the index is already
+          # clean); it just tidies the working tree. It is non-fatal (`|| true`) so an older PR branch
+          # that predates some of these files (e.g. has no global.json in its head commit) doesn't fail
+          # the whole command on a "pathspec did not match" error.
           git checkout HEAD -- \
             eng/version/Sync-PluginVersions.ps1 \
             eng/version/nuget.config \
             .config/dotnet-tools.json \
-            global.json
+            global.json || true
           git add plugins/*/plugin.json plugins/*/.codex-plugin/plugin.json
           git commit -m "Stamp plugin versions via /version-bump"
           git push origin "HEAD:${HEAD_REF}"
