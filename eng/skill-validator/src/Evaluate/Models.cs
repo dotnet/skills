@@ -442,6 +442,18 @@ public sealed record ValidatorConfig
     public string JudgeModel { get; init; } = "claude-opus-4.6";
     public JudgeMode JudgeMode { get; init; } = JudgeMode.Pairwise;
     public int Runs { get; init; } = 5;
+
+    /// <summary>Opt-in: run <see cref="InitialRuns"/> first and escalate only borderline scenarios to <see cref="MaxRuns"/>.</summary>
+    public bool AdaptiveRuns { get; init; }
+    /// <summary>Initial run count for the first adaptive pass. Only used when <see cref="AdaptiveRuns"/> is set.</summary>
+    public int InitialRuns { get; init; } = 3;
+    /// <summary>Maximum run count an escalated scenario may reach. Only used when <see cref="AdaptiveRuns"/> is set.</summary>
+    public int MaxRuns { get; init; } = 5;
+    /// <summary>Coefficient-of-variation threshold above which a scenario is considered high-variance for escalation.</summary>
+    public double EscalateCv { get; init; } = 0.5;
+    /// <summary>Absolute distance from the pass/fail threshold within which a score is "near the boundary" for escalation.</summary>
+    public double EscalateMargin { get; init; } = 0.05;
+
     public int ParallelSkills { get; init; } = 1;
     public int ParallelScenarios { get; init; } = 1;
     public int ParallelRuns { get; init; } = 1;

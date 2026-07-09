@@ -37,4 +37,17 @@ public class EvaluateCommandTests
 
         Assert.Equal(1, exitCode);
     }
+
+    // Adaptive escalation needs headroom above the initial pass. When --max-runs is below
+    // --initial-runs there is nothing to escalate to, so Run must reject up front (before any
+    // model/network call).
+    [Fact]
+    public async Task Run_RejectsAdaptiveRunsWithMaxBelowInitial()
+    {
+        var config = new ValidatorConfig { AdaptiveRuns = true, InitialRuns = 5, MaxRuns = 3 };
+
+        var exitCode = await EvaluateCommand.Run(config, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, exitCode);
+    }
 }
