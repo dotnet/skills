@@ -22,6 +22,7 @@ public static class EvaluateCommand
         var parallelSkillsOpt = new Option<int>("--parallel-skills") { Description = "Max concurrent skills to evaluate", DefaultValueFactory = _ => 3 };
         var parallelScenariosOpt = new Option<int>("--parallel-scenarios") { Description = "Max concurrent scenarios per skill", DefaultValueFactory = _ => 3 };
         var parallelRunsOpt = new Option<int>("--parallel-runs") { Description = "Max concurrent runs per scenario", DefaultValueFactory = _ => 3 };
+        var clientPoolSizeOpt = new Option<int>("--client-pool-size") { Description = "Number of Copilot CLI client processes to pool per plugin root. Each pooled client uses a distinct session-state path, splitting the CLI events.jsonl append mutex across processes to relieve 'timeout while waiting for mutex' contention under high parallelism. Default 1 (single client, historical behavior).", DefaultValueFactory = _ => 1 };
         var judgeTimeoutOpt = new Option<int>("--judge-timeout") { Description = "Judge timeout in seconds", DefaultValueFactory = _ => 300 };
         var confidenceLevelOpt = new Option<double>("--confidence-level") { Description = "Confidence level for statistical intervals (0-1)", DefaultValueFactory = _ => 0.95 };
         var resultsDirOpt = new Option<string>("--results-dir") { Description = "Directory to save results to", DefaultValueFactory = _ => ".skill-validator-results" };
@@ -51,6 +52,7 @@ public static class EvaluateCommand
             parallelSkillsOpt,
             parallelScenariosOpt,
             parallelRunsOpt,
+            clientPoolSizeOpt,
             judgeTimeoutOpt,
             confidenceLevelOpt,
             resultsDirOpt,
@@ -103,6 +105,7 @@ public static class EvaluateCommand
                 ParallelSkills = Math.Max(1, parseResult.GetValue(parallelSkillsOpt)),
                 ParallelScenarios = Math.Max(1, parseResult.GetValue(parallelScenariosOpt)),
                 ParallelRuns = Math.Max(1, parseResult.GetValue(parallelRunsOpt)),
+                ClientPoolSize = Math.Max(1, parseResult.GetValue(clientPoolSizeOpt)),
                 JudgeTimeout = parseResult.GetValue(judgeTimeoutOpt) * 1000,
                 ConfidenceLevel = parseResult.GetValue(confidenceLevelOpt),
                 VerdictWarnOnly = parseResult.GetValue(verdictWarnOnlyOpt),
@@ -168,6 +171,11 @@ public static class EvaluateCommand
                 return 1;
             }
         }
+
+        // Size the per-plugin-root CLI client pool before any client is materialized so
+        // pooled clients (distinct processes + session-state paths) split the events.jsonl
+        // append mutex. Default 1 keeps historical single-client behavior.
+        AgentRunner.ConfigurePoolSize(config.ClientPoolSize);
 
         // Validate model early
         try

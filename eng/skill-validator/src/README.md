@@ -143,6 +143,7 @@ skill-validator check --json --plugin ./plugins/my-plugin
 | `--parallel-skills <n>` | `3` | Max concurrent skills to evaluate |
 | `--parallel-scenarios <n>` | `3` | Max concurrent scenarios per skill |
 | `--parallel-runs <n>` | `3` | Max concurrent runs per scenario |
+| `--client-pool-size <n>` | `1` | Copilot CLI client processes pooled per plugin root. Each pooled client uses a distinct session-state path, splitting the CLI's `events.jsonl` append mutex across processes to relieve *"timeout while waiting for mutex to become available"* contention under high parallelism. Default `1` (historical single-client behavior); raise toward the peak concurrent sessions per plugin root (≈ `--parallel-scenarios` × `--parallel-runs`) when you see mutex errors. Higher values spawn more CLI processes (more memory/CPU). |
 | `--confidence-level <n>` | `0.95` | Confidence level for statistical intervals (0–1) |
 | `--judge-timeout <n>` | `300` | Judge LLM timeout in seconds |
 | `--require-completion` | `true` | Fail if skill regresses task completion |
