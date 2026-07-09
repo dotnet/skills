@@ -190,6 +190,16 @@ The expensive part of an evaluation is the agent investigation, not the judging.
 
 Without `--baseline-dir`, `rejudge` keeps its original single-directory behavior: it re-judges baseline+treatment runs that live in the **same** `sessions.db`.
 
+### Fast evaluation profiles (orchestration)
+
+For large sweeps, [`docs/FastEvaluation.md`](./docs/FastEvaluation.md) describes three
+orchestration levers — split execute/judge (#4), a fast first-pass judge profile (#5), and
+shared-baseline reuse (#2) — and a ready-made runner,
+[`eng/skill-validator/scripts/Invoke-FastEval.ps1`](../scripts/Invoke-FastEval.ps1)
+(with a bash twin, `invoke-fast-eval.sh`), that chains
+`evaluate --no-judge` → `rejudge` → `consolidate` (or `--baseline-out`/`--baseline-from`)
+with a `-Fast` switch. No core-engine changes; all built on the flags documented above.
+
 ## Output
 
 Results are displayed in the console with color-coded scores and metric deltas. By default, `json` and `markdown` reporters are enabled and write to `.skill-validator-results/` (override with `--results-dir`). File reporters write to that directory:
