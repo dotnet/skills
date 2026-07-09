@@ -612,15 +612,17 @@ jobs:
           }
 
           # Validate every entry against a strict allowlist before it enters
-          # the matrix consumed by both skill-validator and vally.
+          # the matrix consumed by both skill-validator and vally. A lone-dot
+          # component ('.') matches the charset and holds no '..', but it is a
+          # path-normalization token, so reject it for names and path segments.
           $namePattern = '\A[A-Za-z0-9._-]+\z'
           $pathPattern = '\Aplugins/[A-Za-z0-9._-]+/skills(/[A-Za-z0-9._-]+)?\z'
           foreach ($e in $entries) {
-            if ("$($e.plugin)" -notmatch $namePattern -or "$($e.plugin)" -match '\.\.') {
-              throw "Refusing unsafe matrix entry: plugin '$($e.plugin)' must match $namePattern and not contain '..'"
+            if ("$($e.plugin)" -notmatch $namePattern -or "$($e.plugin)" -match '\.\.' -or "$($e.plugin)" -eq '.') {
+              throw "Refusing unsafe matrix entry: plugin '$($e.plugin)' must match $namePattern, not be '.', and not contain '..'"
             }
-            if ("$($e.name)" -notmatch $namePattern -or "$($e.name)" -match '\.\.') {
-              throw "Refusing unsafe matrix entry: name '$($e.name)' must match $namePattern and not contain '..'"
+            if ("$($e.name)" -notmatch $namePattern -or "$($e.name)" -match '\.\.' -or "$($e.name)" -eq '.') {
+              throw "Refusing unsafe matrix entry: name '$($e.name)' must match $namePattern, not be '.', and not contain '..'"
             }
             # skills_path is a space-separated list of one or more path segments.
             # An empty or whitespace-only value must hard-fail: it is later used
@@ -640,6 +642,10 @@ jobs:
             foreach ($sp in $spSegments) {
               if ($sp -notmatch $pathPattern -or $sp -match '\.\.') {
                 throw "Refusing unsafe matrix entry: skills_path segment '$sp' must match $pathPattern and not contain '..'"
+              }
+              # Reject a lone-dot path component ('plugins/./skills' or '.../skills/.').
+              if ($sp -match '/\./' -or $sp -match '/\.$') {
+                throw "Refusing unsafe matrix entry: skills_path segment '$sp' contains a '.' path component"
               }
               if ($sp -cne $skillsPrefix -and -not $sp.StartsWith("$skillsPrefix/", [System.StringComparison]::Ordinal)) {
                 throw "Refusing unsafe matrix entry: skills_path segment '$sp' does not belong to plugin '$($e.plugin)'"
