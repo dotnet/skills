@@ -44,7 +44,7 @@ permissions:
 
 jobs:
   prepare:
-    if: inputs.entries == ''
+    if: ${{ !inputs.entries }}
     runs-on: ubuntu-latest
     outputs:
       entries: ${{ steps.build.outputs.entries }}
@@ -219,13 +219,20 @@ jobs:
           fi
 
           # Model + comparison-judge model come from the experiment file's
-          # `overrides:` block (single source of truth), matching run-vally-evals.sh.
+          # `overrides:` block (single source of truth).
           read_override() {
-            awk -v k="$1" '
+            value="$(
+              awk -v k="$1" '
               /^overrides:/ { f = 1; next }
               /^[^[:space:]]/ { f = 0 }
               f && $1 == k":" { print $2; exit }
-            ' "$EXPERIMENT_FILE"
+              ' "$EXPERIMENT_FILE"
+            )"
+            case "$value" in
+              \"*\") value="${value#\"}"; value="${value%\"}" ;;
+              \'*\') value="${value#\'}"; value="${value%\'}" ;;
+            esac
+            printf '%s\n' "$value"
           }
           MODEL="$(read_override model)"; MODEL="${MODEL:-${{ env.FALLBACK_MODEL }}}"
           JUDGE_MODEL="$(read_override judge_model)"; JUDGE_MODEL="${JUDGE_MODEL:-${{ env.FALLBACK_JUDGE_MODEL }}}"
