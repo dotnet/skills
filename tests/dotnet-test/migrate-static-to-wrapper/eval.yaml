@@ -1,9 +1,10 @@
 scenarios:
   - name: "Migrate DateTime.UtcNow to TimeProvider in a service class"
     prompt: |
-      I have a CouponService that uses DateTime.UtcNow in several places. TimeProvider
-      is already registered in my DI container. Can you replace all the DateTime.UtcNow
-      calls with TimeProvider and add the constructor parameter?
+      I have a CouponService that uses DateTime.UtcNow and DateTime.Now in
+      several places. TimeProvider is already registered in my DI container.
+      Can you replace all the DateTime calls with TimeProvider and add the
+      constructor parameter?
     setup:
       copy_test_files: true
     assertions:
@@ -13,9 +14,13 @@ scenarios:
       - type: "file_not_contains"
         path: "**/CouponService.cs"
         value: "DateTime.UtcNow"
+      - type: "file_not_contains"
+        path: "**/CouponService.cs"
+        value: "DateTime.Now"
       - type: "exit_success"
     rubric:
-      - "Replaced all DateTime.UtcNow calls in CouponService.cs with TimeProvider calls"
+      - "Replaced all DateTime.Now and DateTime.UtcNow calls in CouponService.cs with TimeProvider calls"
+      - "Preserved local-vs-UTC time semantics — the local-time call (DateTime.Now) maps to a local TimeProvider call and the UTC calls map to a UTC call, rather than conflating them (which would silently change IsRedeemableToday's behavior across time zones)"
       - "Added TimeProvider as a constructor parameter to CouponService"
       - "Stored TimeProvider in a readonly field following the class's existing naming convention"
       - "Added any required `using` directives so the migrated file still compiles"
@@ -27,21 +32,28 @@ scenarios:
 
   - name: "Migrate only in scoped files, leaving others untouched"
     prompt: |
-      I want to migrate DateTime.UtcNow to TimeProvider, but only in CouponService.cs
-      for now. Don't touch AuditLogger.cs yet — I'll do that in a separate pass.
-      TimeProvider is already in my DI container.
+      I want to migrate DateTime.Now and DateTime.UtcNow to TimeProvider, but
+      only in CouponService.cs for now. Don't touch AuditLogger.cs yet — I'll do
+      that in a separate pass. TimeProvider is already in my DI container.
     setup:
       copy_test_files: true
     assertions:
       - type: "file_contains"
         path: "**/CouponService.cs"
         value: "TimeProvider"
+      - type: "file_not_contains"
+        path: "**/CouponService.cs"
+        value: "DateTime.UtcNow"
+      - type: "file_not_contains"
+        path: "**/CouponService.cs"
+        value: "DateTime.Now"
       - type: "file_contains"
         path: "**/AuditLogger.cs"
         value: "DateTime.UtcNow"
       - type: "exit_success"
     rubric:
-      - "Migrated DateTime.UtcNow to TimeProvider in CouponService.cs"
+      - "Migrated DateTime.Now and DateTime.UtcNow to TimeProvider in CouponService.cs"
+      - "Preserved local-vs-UTC time semantics — the local-time call (DateTime.Now) maps to a local TimeProvider call and the UTC calls map to a UTC call, rather than conflating them"
       - "Left AuditLogger.cs completely untouched with DateTime.UtcNow calls still present"
       - "Migrated incrementally rather than too much at once, keeping the change to the single file the user scoped"
       - "Respected the scope boundary the user specified"

@@ -19,6 +19,11 @@ public static class EvaluateCommand
         var judgeModeOpt = new Option<string>("--judge-mode") { Description = "Judge mode: pairwise, independent, or both", DefaultValueFactory = _ => "pairwise" }
             .AcceptOnlyFromAmong("pairwise", "independent", "both");
         var runsOpt = new Option<int>("--runs") { Description = "Number of runs per scenario for averaging", DefaultValueFactory = _ => 5 };
+        var adaptiveRunsOpt = new Option<bool>("--adaptive-runs") { Description = "Run --initial-runs first and escalate only borderline scenarios (high variance/unresolved AND near the pass/fail line) up to --max-runs. Stable clear pass/fail scenarios keep the initial run count." };
+        var initialRunsOpt = new Option<int>("--initial-runs") { Description = "Initial run count for the adaptive first pass (only with --adaptive-runs)", DefaultValueFactory = _ => 3 };
+        var maxRunsOpt = new Option<int>("--max-runs") { Description = "Maximum run count an escalated scenario may reach (only with --adaptive-runs)", DefaultValueFactory = _ => 5 };
+        var escalateCvOpt = new Option<double>("--escalate-cv") { Description = "Coefficient-of-variation threshold above which a scenario is treated as high-variance for escalation (only with --adaptive-runs)", DefaultValueFactory = _ => 0.5 };
+        var escalateMarginOpt = new Option<double>("--escalate-margin") { Description = "Absolute distance from the pass/fail threshold within which a score is considered near the boundary for escalation (only with --adaptive-runs)", DefaultValueFactory = _ => 0.05 };
         var parallelSkillsOpt = new Option<int>("--parallel-skills") { Description = "Max concurrent skills to evaluate", DefaultValueFactory = _ => 3 };
         var parallelScenariosOpt = new Option<int>("--parallel-scenarios") { Description = "Max concurrent scenarios per skill", DefaultValueFactory = _ => 3 };
         var parallelRunsOpt = new Option<int>("--parallel-runs") { Description = "Max concurrent runs per scenario", DefaultValueFactory = _ => 3 };
@@ -48,6 +53,11 @@ public static class EvaluateCommand
             judgeModelOpt,
             judgeModeOpt,
             runsOpt,
+            adaptiveRunsOpt,
+            initialRunsOpt,
+            maxRunsOpt,
+            escalateCvOpt,
+            escalateMarginOpt,
             parallelSkillsOpt,
             parallelScenariosOpt,
             parallelRunsOpt,
@@ -100,6 +110,11 @@ public static class EvaluateCommand
                 JudgeModel = parseResult.GetValue(judgeModelOpt) ?? parseResult.GetValue(modelOpt) ?? "claude-opus-4.8",
                 JudgeMode = judgeMode,
                 Runs = Math.Max(1, parseResult.GetValue(runsOpt)),
+                AdaptiveRuns = parseResult.GetValue(adaptiveRunsOpt),
+                InitialRuns = Math.Max(1, parseResult.GetValue(initialRunsOpt)),
+                MaxRuns = Math.Max(1, parseResult.GetValue(maxRunsOpt)),
+                EscalateCv = parseResult.GetValue(escalateCvOpt),
+                EscalateMargin = parseResult.GetValue(escalateMarginOpt),
                 ParallelSkills = Math.Max(1, parseResult.GetValue(parallelSkillsOpt)),
                 ParallelScenarios = Math.Max(1, parseResult.GetValue(parallelScenariosOpt)),
                 ParallelRuns = Math.Max(1, parseResult.GetValue(parallelRunsOpt)),
@@ -167,6 +182,14 @@ public static class EvaluateCommand
                     $"--no-judge cannot be combined with {string.Join(" or ", incompatible)} (these require judging; defer them to the rejudge step).");
                 return 1;
             }
+        }
+
+        // Adaptive escalation requires max >= initial, otherwise there is no headroom to escalate.
+        if (config.AdaptiveRuns && config.MaxRuns < config.InitialRuns)
+        {
+            Console.Error.WriteLine(
+                $"--max-runs ({config.MaxRuns}) must be >= --initial-runs ({config.InitialRuns}) when --adaptive-runs is set.");
+            return 1;
         }
 
         // Validate model early
@@ -327,7 +350,9 @@ public static class EvaluateCommand
                 McpServers: mcpServers));
         }
 
-        if (config.Runs < 5)
+        if (config.AdaptiveRuns)
+            Console.WriteLine($"{Ansi.Cyan}⚙  Adaptive runs enabled: starting at n={config.InitialRuns}, escalating borderline scenarios up to n={config.MaxRuns} (CV>{config.EscalateCv:0.##}, margin ±{config.EscalateMargin * 100:0.#}%).{Ansi.Reset}");
+        else if (config.Runs < 5)
             Console.WriteLine($"{Ansi.Yellow}⚠  Running with {config.Runs} run(s). For statistically significant results, use --runs 5 or higher.{Ansi.Reset}");
 
         bool usePairwise = config.JudgeMode is JudgeMode.Pairwise or JudgeMode.Both;
@@ -693,135 +718,56 @@ public static class EvaluateCommand
         // files are hashed at most once across every run and arm of the evaluation.
         var baselineKey = sessionDb is not null ? scenarioKeyCache.ComputeScenarioKeyCached(scenario, target.EvalPath) : null;
 
-        var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
-            runLimit.RunAsync(async () =>
-            {
-                try
-                {
-                    return (Result: await ExecuteAgentRun(i, scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha, baselineStore, baselineKey, cancellationToken), Error: (Exception?)null);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
-                {
-                    scenarioLog($"{Ansi.Yellow}⚠️  Run {i + 1} failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
-                    return (Result: (RunExecutionResult?)null, Error: ex);
-                }
-            }, cancellationToken));
-        var settledRuns = await Task.WhenAll(runTasks);
-        var runResults = settledRuns.Where(s => s.Result is not null).Select(s => s.Result!).ToArray();
-        var failedRunCount = settledRuns.Count(s => s.Error is not null);
-        if (failedRunCount > 0)
-            scenarioLog($"{Ansi.Yellow}⚠️  {failedRunCount}/{config.Runs} run(s) failed{Ansi.Reset}");
-        if (runResults.Length == 0)
-            throw new InvalidOperationException($"All {config.Runs} run(s) failed for scenario '{scenario.Name}'");
+        // Adaptive runs: start at the initial run count, escalate borderline scenarios below.
+        int initialRunCount = config.AdaptiveRuns ? Math.Min(config.InitialRuns, config.MaxRuns) : config.Runs;
 
-        scenarioLog($"✓ {runResults.Length}/{config.Runs} run(s) complete");
+        // Launches [count] runs starting at run index [startIndex], collecting successes/failures.
+        // Reused for the initial pass and any adaptive escalation so the concurrency limit is shared.
+        async Task<(RunExecutionResult[] Results, int Failed)> RunBatch(int startIndex, int count)
+        {
+            var tasks = Enumerable.Range(startIndex, count).Select(i =>
+                runLimit.RunAsync(async () =>
+                {
+                    try
+                    {
+                        return (Result: await ExecuteAgentRun(i, scenario, target, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, targetSha, baselineStore, baselineKey, cancellationToken), Error: (Exception?)null);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                    {
+                        scenarioLog($"{Ansi.Yellow}⚠️  Run {i + 1} failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
+                        return (Result: (RunExecutionResult?)null, Error: ex);
+                    }
+                }, cancellationToken));
+            var settled = await Task.WhenAll(tasks);
+            return (settled.Where(s => s.Result is not null).Select(s => s.Result!).ToArray(),
+                settled.Count(s => s.Error is not null));
+        }
+
+        var (initialResults, failedRunCount) = await RunBatch(0, initialRunCount);
+        var runResults = initialResults.ToList();
+        if (failedRunCount > 0)
+            scenarioLog($"{Ansi.Yellow}⚠️  {failedRunCount}/{initialRunCount} run(s) failed{Ansi.Reset}");
+        if (runResults.Count == 0)
+            throw new InvalidOperationException($"All {initialRunCount} run(s) failed for scenario '{scenario.Name}'");
+
+        scenarioLog($"✓ {runResults.Count}/{initialRunCount} run(s) complete");
 
         // --no-judge: runs executed and persisted; no judging/comparison is performed.
         if (config.NoJudge)
             return UnjudgedScenarioComparison(scenario, runResults[0]);
 
-        var baselineRuns = runResults.Select(r => r.Baseline).ToList();
-        var isolatedRuns = runResults.Select(r => r.SkilledIsolated).ToList();
-        var pluginRuns = runResults.Select(r => r.SkilledPlugin).ToList();
-        var perRunPairwise = runResults.Select(r => r.Pairwise).ToList();
+        // Agent scenarios do not stamp TimeoutSeconds onto the comparison (timeoutSeconds: null).
+        var comparison = BuildScenarioComparison(scenario, runResults.ToArray(), failedRunCount, timeoutSeconds: null);
 
-        var perRunIsolatedScores = new List<double>();
-        var perRunPluginScores = new List<double>();
-        for (int i = 0; i < baselineRuns.Count; i++)
-        {
-            var pw = perRunPairwise[i];
-            bool pairwiseFromPlugin = runResults[i].PairwiseFromPlugin;
-            var isoComp = Comparator.CompareScenario(scenario.Name, baselineRuns[i], isolatedRuns[i],
-                pairwiseFromPlugin ? null : pw);
-            var plgComp = Comparator.CompareScenario(scenario.Name, baselineRuns[i], pluginRuns[i],
-                pairwiseFromPlugin ? pw : null);
-            perRunIsolatedScores.Add(isoComp.ImprovementScore);
-            perRunPluginScores.Add(plgComp.ImprovementScore);
-        }
+        // Adaptive escalation: re-run only borderline scenarios and re-aggregate over all runs.
+        (comparison, runResults, failedRunCount) = await MaybeEscalateRuns(
+            scenario, comparison, runResults, failedRunCount, initialRunCount, timeoutSeconds: null,
+            config, scenarioLog, RunBatch);
 
-        var perRunScores = perRunIsolatedScores
-            .Zip(perRunPluginScores, (iso, plg) => Math.Min(iso, plg))
-            .ToList();
-
-        var avgBaseline = AverageResults(baselineRuns);
-        var avgIsolated = AverageResults(isolatedRuns);
-        var avgPlugin = AverageResults(pluginRuns);
-
-        // Persist the averaged baseline (skill/agent-independent) for shared reuse.
+        // Persist the averaged baseline (skill/agent-independent) for shared reuse — once, over the
+        // final run set.
         if (baselineStore is { IsReuse: false })
-            baselineStore.Record(scenario, runResults.Length, avgBaseline, target.EvalPath);
-
-        int bestPairwiseIdx = -1;
-        for (int i = 0; i < perRunPairwise.Count; i++)
-        {
-            if (perRunPairwise[i]?.PositionSwapConsistent == true) { bestPairwiseIdx = i; break; }
-        }
-        if (bestPairwiseIdx < 0)
-        {
-            for (int i = 0; i < perRunPairwise.Count; i++)
-            {
-                if (perRunPairwise[i] is not null) { bestPairwiseIdx = i; break; }
-            }
-        }
-        var bestPairwise = bestPairwiseIdx >= 0 ? perRunPairwise[bestPairwiseIdx] : null;
-        bool aggPairwiseFromPlugin = bestPairwiseIdx >= 0 && runResults[bestPairwiseIdx].PairwiseFromPlugin;
-
-        var isoComparison = Comparator.CompareScenario(scenario.Name, avgBaseline, avgIsolated,
-            aggPairwiseFromPlugin ? null : bestPairwise);
-        var plgComparison = Comparator.CompareScenario(scenario.Name, avgBaseline, avgPlugin,
-            aggPairwiseFromPlugin ? bestPairwise : null);
-
-        var comparison = new ScenarioComparison
-        {
-            ScenarioName = scenario.Name,
-            Baseline = avgBaseline,
-            SkilledIsolated = avgIsolated,
-            SkilledPlugin = avgPlugin,
-            ImprovementScore = Math.Min(isoComparison.ImprovementScore, plgComparison.ImprovementScore),
-            IsolatedImprovementScore = isoComparison.ImprovementScore,
-            PluginImprovementScore = plgComparison.ImprovementScore,
-            Breakdown = isoComparison.ImprovementScore <= plgComparison.ImprovementScore
-                ? isoComparison.Breakdown : plgComparison.Breakdown,
-            IsolatedBreakdown = isoComparison.Breakdown,
-            PluginBreakdown = plgComparison.Breakdown,
-            PairwiseResult = bestPairwise,
-        };
-        comparison.PerRunScores = perRunScores;
-        comparison.VarianceCV = Statistics.CoefficientOfVariation(perRunScores);
-        comparison.HighVariance = comparison.VarianceCV is > 0.5;
-
-        // Aggregate subagent activation across runs (primary activation signal for agents)
-        var allIsoSubagents = runResults.Select(r => r.SubagentActivationIsolated).ToList();
-        var allPlgSubagents = runResults.Select(r => r.SubagentActivationPlugin).ToList();
-
-        comparison.SubagentActivationIsolated = new SubagentActivationInfo(
-            InvokedAgents: allIsoSubagents.SelectMany(a => a.InvokedAgents).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-            SubagentEventCount: allIsoSubagents.Sum(a => a.SubagentEventCount));
-
-        comparison.SubagentActivationPlugin = new SubagentActivationInfo(
-            InvokedAgents: allPlgSubagents.SelectMany(a => a.InvokedAgents).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-            SubagentEventCount: allPlgSubagents.Sum(a => a.SubagentEventCount));
-
-        // Also aggregate skill activation (agents may route to skills)
-        var allIsoActivations = runResults.Select(r => r.SkillActivationIsolated).ToList();
-        var allPlgActivations = runResults.Select(r => r.SkillActivationPlugin).ToList();
-
-        comparison.SkillActivationIsolated = new SkillActivationInfo(
-            Activated: allIsoActivations.Any(a => a.Activated),
-            DetectedSkills: allIsoActivations.SelectMany(a => a.DetectedSkills).Distinct().ToList(),
-            ExtraTools: allIsoActivations.SelectMany(a => a.ExtraTools).Distinct().ToList(),
-            SkillEventCount: allIsoActivations.Sum(a => a.SkillEventCount));
-
-        comparison.SkillActivationPlugin = new SkillActivationInfo(
-            Activated: allPlgActivations.Any(a => a.Activated),
-            DetectedSkills: allPlgActivations.SelectMany(a => a.DetectedSkills).Distinct().ToList(),
-            ExtraTools: allPlgActivations.SelectMany(a => a.ExtraTools).Distinct().ToList(),
-            SkillEventCount: allPlgActivations.Sum(a => a.SkillEventCount));
-
-        comparison.TimedOut = runResults.Any(r =>
-            r.Baseline.Metrics.TimedOut || r.SkilledIsolated.Metrics.TimedOut || r.SkilledPlugin.Metrics.TimedOut);
-        comparison.ExpectActivation = scenario.ExpectActivation;
-        comparison.FailedRunCount = failedRunCount;
+            baselineStore.Record(scenario, runResults.Count, comparison.Baseline, target.EvalPath);
 
         return comparison;
     }
@@ -1253,147 +1199,55 @@ public static class EvaluateCommand
         // files are hashed at most once across every run and arm of the evaluation.
         var baselineKey = sessionDb is not null ? scenarioKeyCache.ComputeScenarioKeyCached(scenario, evalSkill.EvalPath) : null;
 
-        var runTasks = Enumerable.Range(0, config.Runs).Select(i =>
-            runLimit.RunAsync(async () =>
-            {
-                try
-                {
-                    return (Result: await ExecuteRun(i, scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha, baselineStore, baselineKey, cancellationToken), Error: (Exception?)null);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
-                {
-                    scenarioLog($"{Ansi.Yellow}⚠️  Run {i + 1} failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
-                    return (Result: (RunExecutionResult?)null, Error: ex);
-                }
-            }, cancellationToken));
-        var settledRuns = await Task.WhenAll(runTasks);
-        var runResults = settledRuns.Where(s => s.Result is not null).Select(s => s.Result!).ToArray();
-        var failedRunCount = settledRuns.Count(s => s.Error is not null);
-        if (failedRunCount > 0)
-            scenarioLog($"{Ansi.Yellow}⚠️  {failedRunCount}/{config.Runs} run(s) failed{Ansi.Reset}");
-        if (runResults.Length == 0)
-            throw new InvalidOperationException($"All {config.Runs} run(s) failed for scenario '{scenario.Name}'");
+        // Adaptive runs: start at the initial run count, escalate borderline scenarios below.
+        int initialRunCount = config.AdaptiveRuns ? Math.Min(config.InitialRuns, config.MaxRuns) : config.Runs;
 
-        scenarioLog($"✓ {runResults.Length}/{config.Runs} run(s) complete");
+        // Launches [count] runs starting at run index [startIndex], collecting successes/failures.
+        // Reused for the initial pass and any adaptive escalation so the concurrency limit is shared.
+        async Task<(RunExecutionResult[] Results, int Failed)> RunBatch(int startIndex, int count)
+        {
+            var tasks = Enumerable.Range(startIndex, count).Select(i =>
+                runLimit.RunAsync(async () =>
+                {
+                    try
+                    {
+                        return (Result: await ExecuteRun(i, scenario, evalSkill, config, usePairwise, singleScenario, spinner, sessionsDir, sessionDb, skillSha, baselineStore, baselineKey, cancellationToken), Error: (Exception?)null);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                    {
+                        scenarioLog($"{Ansi.Yellow}⚠️  Run {i + 1} failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
+                        return (Result: (RunExecutionResult?)null, Error: ex);
+                    }
+                }, cancellationToken));
+            var settled = await Task.WhenAll(tasks);
+            return (settled.Where(s => s.Result is not null).Select(s => s.Result!).ToArray(),
+                settled.Count(s => s.Error is not null));
+        }
+
+        var (initialResults, failedRunCount) = await RunBatch(0, initialRunCount);
+        var runResults = initialResults.ToList();
+        if (failedRunCount > 0)
+            scenarioLog($"{Ansi.Yellow}⚠️  {failedRunCount}/{initialRunCount} run(s) failed{Ansi.Reset}");
+        if (runResults.Count == 0)
+            throw new InvalidOperationException($"All {initialRunCount} run(s) failed for scenario '{scenario.Name}'");
+
+        scenarioLog($"✓ {runResults.Count}/{initialRunCount} run(s) complete");
 
         // --no-judge: runs executed and persisted; no judging/comparison is performed.
         if (config.NoJudge)
             return UnjudgedScenarioComparison(scenario, runResults[0]);
 
-        var baselineRuns = runResults.Select(r => r.Baseline).ToList();
-        var isolatedRuns = runResults.Select(r => r.SkilledIsolated).ToList();
-        var pluginRuns = runResults.Select(r => r.SkilledPlugin).ToList();
-        var perRunPairwise = runResults.Select(r => r.Pairwise).ToList();
+        var comparison = BuildScenarioComparison(scenario, runResults.ToArray(), failedRunCount, scenario.Timeout);
 
-        // Per-run improvement scores — effective score is min(isolated, plugin)
-        // Pairwise result is generated against the worse-scoring run (isolated
-        // or plugin).  Apply it only to that matching comparison so it does not
-        // skew the other one.
-        var perRunIsolatedScores = new List<double>();
-        var perRunPluginScores = new List<double>();
-        for (int i = 0; i < baselineRuns.Count; i++)
-        {
-            var pw = perRunPairwise[i];
-            bool pairwiseFromPlugin = runResults[i].PairwiseFromPlugin;
-            var isoComp = Comparator.CompareScenario(scenario.Name, baselineRuns[i], isolatedRuns[i],
-                pairwiseFromPlugin ? null : pw);
-            var plgComp = Comparator.CompareScenario(scenario.Name, baselineRuns[i], pluginRuns[i],
-                pairwiseFromPlugin ? pw : null);
-            perRunIsolatedScores.Add(isoComp.ImprovementScore);
-            perRunPluginScores.Add(plgComp.ImprovementScore);
-        }
+        // Adaptive escalation: re-run only borderline scenarios and re-aggregate over all runs.
+        (comparison, runResults, failedRunCount) = await MaybeEscalateRuns(
+            scenario, comparison, runResults, failedRunCount, initialRunCount, scenario.Timeout,
+            config, scenarioLog, RunBatch);
 
-        var perRunScores = perRunIsolatedScores
-            .Zip(perRunPluginScores, (iso, plg) => Math.Min(iso, plg))
-            .ToList();
-
-        var avgBaseline = AverageResults(baselineRuns);
-        var avgIsolated = AverageResults(isolatedRuns);
-        var avgPlugin = AverageResults(pluginRuns);
-        // Persist the averaged baseline (skill/agent-independent) for shared reuse.
+        // Persist the averaged baseline (skill/agent-independent) for shared reuse — once, over the
+        // final run set.
         if (baselineStore is { IsReuse: false })
-            baselineStore.Record(scenario, runResults.Length, avgBaseline, evalSkill.EvalPath);
-        // Select the best pairwise result and track which run it came from
-        int bestPairwiseIdx = -1;
-        for (int i = 0; i < perRunPairwise.Count; i++)
-        {
-            if (perRunPairwise[i]?.PositionSwapConsistent == true) { bestPairwiseIdx = i; break; }
-        }
-        if (bestPairwiseIdx < 0)
-        {
-            for (int i = 0; i < perRunPairwise.Count; i++)
-            {
-                if (perRunPairwise[i] is not null) { bestPairwiseIdx = i; break; }
-            }
-        }
-        var bestPairwise = bestPairwiseIdx >= 0 ? perRunPairwise[bestPairwiseIdx] : null;
-
-        // Two comparisons — apply pairwise only to the matching one,
-        // using the source run's flag (not any-run) to avoid misattribution.
-        bool aggPairwiseFromPlugin = bestPairwiseIdx >= 0 && runResults[bestPairwiseIdx].PairwiseFromPlugin;
-        var isoComparison = Comparator.CompareScenario(scenario.Name, avgBaseline, avgIsolated,
-            aggPairwiseFromPlugin ? null : bestPairwise);
-        var plgComparison = Comparator.CompareScenario(scenario.Name, avgBaseline, avgPlugin,
-            aggPairwiseFromPlugin ? bestPairwise : null);
-
-        // Build the combined ScenarioComparison
-        var comparison = new ScenarioComparison
-        {
-            ScenarioName = scenario.Name,
-            Baseline = avgBaseline,
-            SkilledIsolated = avgIsolated,
-            SkilledPlugin = avgPlugin,
-            ImprovementScore = Math.Min(isoComparison.ImprovementScore, plgComparison.ImprovementScore),
-            IsolatedImprovementScore = isoComparison.ImprovementScore,
-            PluginImprovementScore = plgComparison.ImprovementScore,
-            Breakdown = isoComparison.ImprovementScore <= plgComparison.ImprovementScore
-                ? isoComparison.Breakdown : plgComparison.Breakdown,
-            IsolatedBreakdown = isoComparison.Breakdown,
-            PluginBreakdown = plgComparison.Breakdown,
-            PairwiseResult = bestPairwise,
-        };
-        comparison.PerRunScores = perRunScores;
-        comparison.VarianceCV = Statistics.CoefficientOfVariation(perRunScores);
-        comparison.HighVariance = comparison.VarianceCV is > 0.5;
-
-        // Aggregate skill activation — BOTH skilled runs independently
-        var allIsoActivations = runResults.Select(r => r.SkillActivationIsolated).ToList();
-        var allPlgActivations = runResults.Select(r => r.SkillActivationPlugin).ToList();
-
-        comparison.SkillActivationIsolated = new SkillActivationInfo(
-            Activated: allIsoActivations.Any(a => a.Activated),
-            DetectedSkills: allIsoActivations.SelectMany(a => a.DetectedSkills).Distinct().ToList(),
-            ExtraTools: allIsoActivations.SelectMany(a => a.ExtraTools).Distinct().ToList(),
-            SkillEventCount: allIsoActivations.Sum(a => a.SkillEventCount));
-
-        comparison.SkillActivationPlugin = new SkillActivationInfo(
-            Activated: allPlgActivations.Any(a => a.Activated),
-            DetectedSkills: allPlgActivations.SelectMany(a => a.DetectedSkills).Distinct().ToList(),
-            ExtraTools: allPlgActivations.SelectMany(a => a.ExtraTools).Distinct().ToList(),
-            SkillEventCount: allPlgActivations.Sum(a => a.SkillEventCount));
-
-        // Aggregate subagent activation across runs
-        var allIsoSubagents = runResults.Select(r => r.SubagentActivationIsolated).ToList();
-        var allPlgSubagents = runResults.Select(r => r.SubagentActivationPlugin).ToList();
-
-        comparison.SubagentActivationIsolated = new SubagentActivationInfo(
-            InvokedAgents: allIsoSubagents.SelectMany(a => a.InvokedAgents).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-            SubagentEventCount: allIsoSubagents.Sum(a => a.SubagentEventCount));
-
-        comparison.SubagentActivationPlugin = new SubagentActivationInfo(
-            InvokedAgents: allPlgSubagents.SelectMany(a => a.InvokedAgents).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-            SubagentEventCount: allPlgSubagents.Sum(a => a.SubagentEventCount));
-
-        // Propagate timeout info from any run
-        comparison.TimedOut = runResults.Any(r =>
-            r.Baseline.Metrics.TimedOut ||
-            r.SkilledIsolated.Metrics.TimedOut ||
-            r.SkilledPlugin.Metrics.TimedOut);
-
-        // Propagate timeout and expect_activation from scenario config
-        comparison.TimeoutSeconds = scenario.Timeout;
-        comparison.ExpectActivation = scenario.ExpectActivation;
-        comparison.FailedRunCount = failedRunCount;
+            baselineStore.Record(scenario, runResults.Count, comparison.Baseline, evalSkill.EvalPath);
 
         return comparison;
     }
@@ -1956,6 +1810,175 @@ public static class EvaluateCommand
         metrics.JudgeOutputTokens += tokens.OutputTokens;
         metrics.JudgeCacheReadTokens += tokens.CacheReadTokens;
         metrics.JudgeCacheWriteTokens += tokens.CacheWriteTokens;
+    }
+
+    /// <summary>
+    /// Aggregate the completed runs for one scenario into a <see cref="ScenarioComparison"/>:
+    /// per-run improvement scores, averaged arms, variance, and activation/timeout rollups.
+    /// This is pure (no persistence side effects) so it can be re-invoked after adaptive
+    /// escalation adds more runs. Callers own persisting the averaged baseline.
+    /// </summary>
+    private static ScenarioComparison BuildScenarioComparison(
+        EvalScenario scenario,
+        RunExecutionResult[] runResults,
+        int failedRunCount,
+        int? timeoutSeconds)
+    {
+        var baselineRuns = runResults.Select(r => r.Baseline).ToList();
+        var isolatedRuns = runResults.Select(r => r.SkilledIsolated).ToList();
+        var pluginRuns = runResults.Select(r => r.SkilledPlugin).ToList();
+        var perRunPairwise = runResults.Select(r => r.Pairwise).ToList();
+
+        // Per-run improvement scores — effective score is min(isolated, plugin).
+        // Pairwise result is generated against the worse-scoring run (isolated or plugin).
+        // Apply it only to that matching comparison so it does not skew the other one.
+        var perRunIsolatedScores = new List<double>();
+        var perRunPluginScores = new List<double>();
+        for (int i = 0; i < baselineRuns.Count; i++)
+        {
+            var pw = perRunPairwise[i];
+            bool pairwiseFromPlugin = runResults[i].PairwiseFromPlugin;
+            var isoComp = Comparator.CompareScenario(scenario.Name, baselineRuns[i], isolatedRuns[i],
+                pairwiseFromPlugin ? null : pw);
+            var plgComp = Comparator.CompareScenario(scenario.Name, baselineRuns[i], pluginRuns[i],
+                pairwiseFromPlugin ? pw : null);
+            perRunIsolatedScores.Add(isoComp.ImprovementScore);
+            perRunPluginScores.Add(plgComp.ImprovementScore);
+        }
+
+        var perRunScores = perRunIsolatedScores
+            .Zip(perRunPluginScores, (iso, plg) => Math.Min(iso, plg))
+            .ToList();
+
+        var avgBaseline = AverageResults(baselineRuns);
+        var avgIsolated = AverageResults(isolatedRuns);
+        var avgPlugin = AverageResults(pluginRuns);
+
+        // Select the best pairwise result and track which run it came from.
+        int bestPairwiseIdx = -1;
+        for (int i = 0; i < perRunPairwise.Count; i++)
+        {
+            if (perRunPairwise[i]?.PositionSwapConsistent == true) { bestPairwiseIdx = i; break; }
+        }
+        if (bestPairwiseIdx < 0)
+        {
+            for (int i = 0; i < perRunPairwise.Count; i++)
+            {
+                if (perRunPairwise[i] is not null) { bestPairwiseIdx = i; break; }
+            }
+        }
+        var bestPairwise = bestPairwiseIdx >= 0 ? perRunPairwise[bestPairwiseIdx] : null;
+
+        // Two comparisons — apply pairwise only to the matching one, using the source run's flag.
+        bool aggPairwiseFromPlugin = bestPairwiseIdx >= 0 && runResults[bestPairwiseIdx].PairwiseFromPlugin;
+        var isoComparison = Comparator.CompareScenario(scenario.Name, avgBaseline, avgIsolated,
+            aggPairwiseFromPlugin ? null : bestPairwise);
+        var plgComparison = Comparator.CompareScenario(scenario.Name, avgBaseline, avgPlugin,
+            aggPairwiseFromPlugin ? bestPairwise : null);
+
+        var comparison = new ScenarioComparison
+        {
+            ScenarioName = scenario.Name,
+            Baseline = avgBaseline,
+            SkilledIsolated = avgIsolated,
+            SkilledPlugin = avgPlugin,
+            ImprovementScore = Math.Min(isoComparison.ImprovementScore, plgComparison.ImprovementScore),
+            IsolatedImprovementScore = isoComparison.ImprovementScore,
+            PluginImprovementScore = plgComparison.ImprovementScore,
+            Breakdown = isoComparison.ImprovementScore <= plgComparison.ImprovementScore
+                ? isoComparison.Breakdown : plgComparison.Breakdown,
+            IsolatedBreakdown = isoComparison.Breakdown,
+            PluginBreakdown = plgComparison.Breakdown,
+            PairwiseResult = bestPairwise,
+        };
+        comparison.PerRunScores = perRunScores;
+        comparison.VarianceCV = Statistics.CoefficientOfVariation(perRunScores);
+        comparison.HighVariance = comparison.VarianceCV is > 0.5;
+
+        // Aggregate skill activation — BOTH skilled runs independently.
+        var allIsoActivations = runResults.Select(r => r.SkillActivationIsolated).ToList();
+        var allPlgActivations = runResults.Select(r => r.SkillActivationPlugin).ToList();
+
+        comparison.SkillActivationIsolated = new SkillActivationInfo(
+            Activated: allIsoActivations.Any(a => a.Activated),
+            DetectedSkills: allIsoActivations.SelectMany(a => a.DetectedSkills).Distinct().ToList(),
+            ExtraTools: allIsoActivations.SelectMany(a => a.ExtraTools).Distinct().ToList(),
+            SkillEventCount: allIsoActivations.Sum(a => a.SkillEventCount));
+
+        comparison.SkillActivationPlugin = new SkillActivationInfo(
+            Activated: allPlgActivations.Any(a => a.Activated),
+            DetectedSkills: allPlgActivations.SelectMany(a => a.DetectedSkills).Distinct().ToList(),
+            ExtraTools: allPlgActivations.SelectMany(a => a.ExtraTools).Distinct().ToList(),
+            SkillEventCount: allPlgActivations.Sum(a => a.SkillEventCount));
+
+        // Aggregate subagent activation across runs.
+        var allIsoSubagents = runResults.Select(r => r.SubagentActivationIsolated).ToList();
+        var allPlgSubagents = runResults.Select(r => r.SubagentActivationPlugin).ToList();
+
+        comparison.SubagentActivationIsolated = new SubagentActivationInfo(
+            InvokedAgents: allIsoSubagents.SelectMany(a => a.InvokedAgents).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            SubagentEventCount: allIsoSubagents.Sum(a => a.SubagentEventCount));
+
+        comparison.SubagentActivationPlugin = new SubagentActivationInfo(
+            InvokedAgents: allPlgSubagents.SelectMany(a => a.InvokedAgents).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            SubagentEventCount: allPlgSubagents.Sum(a => a.SubagentEventCount));
+
+        comparison.TimedOut = runResults.Any(r =>
+            r.Baseline.Metrics.TimedOut ||
+            r.SkilledIsolated.Metrics.TimedOut ||
+            r.SkilledPlugin.Metrics.TimedOut);
+
+        if (timeoutSeconds is not null)
+            comparison.TimeoutSeconds = timeoutSeconds;
+        comparison.ExpectActivation = scenario.ExpectActivation;
+        comparison.FailedRunCount = failedRunCount;
+
+        return comparison;
+    }
+
+    /// <summary>
+    /// When adaptive runs are enabled, decides whether a scenario should escalate to additional
+    /// runs and, if so, runs them and re-aggregates over the full (initial + escalated) run set.
+    /// Returns the possibly-updated comparison, the full run list, and the cumulative failure count.
+    /// </summary>
+    private static async Task<(ScenarioComparison Comparison, List<RunExecutionResult> Runs, int FailedRunCount)> MaybeEscalateRuns(
+        EvalScenario scenario,
+        ScenarioComparison comparison,
+        List<RunExecutionResult> runResults,
+        int failedRunCount,
+        int initialRunCount,
+        int? timeoutSeconds,
+        ValidatorConfig config,
+        Action<string> scenarioLog,
+        Func<int, int, Task<(RunExecutionResult[] Results, int Failed)>> runBatch)
+    {
+        if (!config.AdaptiveRuns || runResults.Count >= config.MaxRuns)
+            return (comparison, runResults, failedRunCount);
+
+        var ci = Statistics.BootstrapConfidenceInterval(
+            comparison.PerRunScores ?? [comparison.ImprovementScore], config.ConfidenceLevel);
+        var decision = AdaptiveRuns.Decide(
+            comparison.ImprovementScore, config.MinImprovement, comparison.VarianceCV, ci,
+            config.EscalateCv, config.EscalateMargin, runResults.Count, config.MaxRuns);
+
+        if (!decision.ShouldEscalate)
+        {
+            if (config.Verbose)
+                scenarioLog($"⚖  resolved at n={runResults.Count} — {decision.Reason}");
+            return (comparison, runResults, failedRunCount);
+        }
+
+        int extra = config.MaxRuns - runResults.Count;
+        scenarioLog($"↗  escalating n={runResults.Count}→{config.MaxRuns}: {decision.Reason}");
+
+        // Continue run indices after the initial attempts to avoid session-id/index collisions.
+        var (extraResults, extraFailed) = await runBatch(initialRunCount, extra);
+        runResults.AddRange(extraResults);
+        failedRunCount += extraFailed;
+        scenarioLog($"✓ {runResults.Count} run(s) after escalation");
+
+        comparison = BuildScenarioComparison(scenario, runResults.ToArray(), failedRunCount, timeoutSeconds);
+        return (comparison, runResults, failedRunCount);
     }
 
     private static RunResult AverageResults(List<RunResult> runs)

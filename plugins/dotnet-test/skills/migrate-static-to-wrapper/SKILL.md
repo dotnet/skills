@@ -1,18 +1,19 @@
 ---
 name: migrate-static-to-wrapper
 description: >
-  Mechanically replace static dependency call sites with wrapper or built-in
-  abstraction calls across a bounded scope (file, project, or namespace).
-  Performs codemod-style bulk replacement of DateTime.UtcNow to TimeProvider.GetUtcNow(),
-  File.ReadAllText to IFileSystem, and similar transformations. Adds constructor
-  injection parameters and updates DI registration.
-  USE FOR: replace DateTime.Now/UtcNow with TimeProvider, migrate static calls
-  to wrapper, bulk replace File.* with IFileSystem, codemod static to
-  injectable, add constructor injection for a dependency, mechanical or scoped
-  migration of statics, convert static calls to use an abstraction, update call
-  sites.
-  DO NOT USE FOR: detecting statics (use detect-static-dependencies), generating
-  wrappers (use generate-testability-wrappers), migrating between test frameworks.
+  Replace existing static dependency call sites with wrapper or built-in
+  abstraction calls when the abstraction already exists or is already registered
+  in DI. Codemod-style bulk replacement of DateTime.Now/UtcNow to TimeProvider,
+  File.ReadAllText to IFileSystem, and similar, across a bounded scope (file,
+  project, or namespace). Adds the constructor injection parameter to affected classes.
+  USE FOR: replace all DateTime.UtcNow/DateTime.Now calls with TimeProvider and add
+  the constructor parameter, TimeProvider already registered in DI so migrate the call
+  sites, migrate static calls to wrapper, bulk replace File.* with IFileSystem, codemod
+  static to injectable, add constructor injection for an existing dependency, scoped
+  migration of statics, migrate statics in only certain scoped files.
+  DO NOT USE FOR: detecting statics (use detect-static-dependencies), creating the
+  wrapper or registering it when it does not exist yet (use
+  generate-testability-wrappers), migrating between test frameworks.
 license: MIT
 ---
 
@@ -88,6 +89,39 @@ Add the new dependency following the class's existing pattern:
 
 - **Primary constructor** (C# 12+): Add parameter to primary constructor: `public class OrderProcessor(ILogger<OrderProcessor> logger, TimeProvider timeProvider)`
 - **Traditional constructor**: Add `private readonly` field + constructor parameter, matching the existing field naming convention (`_camelCase` or `m_camelCase`)
+
+#### Static classes: use ambient context (no constructor injection)
+
+A `static` class with only static members **cannot** receive constructor injection — adding an instance constructor or instance field would break it. Do **not** convert it to a non-static class just to inject the dependency; that changes its design and every call site. Instead, apply the **ambient context** pattern: expose a static, settable seam that defaults to the real implementation and is overridden once at composition/test setup.
+
+```csharp
+public static class TimestampFormatter
+{
+    // Ambient seam — defaults to the real clock, swap in tests.
+    public static TimeProvider Clock { get; set; } = TimeProvider.System;
+
+    public static string Now() => Clock.GetUtcNow().ToString("O");
+}
+```
+
+- Production: leave `Clock` at its `TimeProvider.System` default, or assign the DI-resolved `TimeProvider` once at startup (`TimestampFormatter.Clock = app.Services.GetRequiredService<TimeProvider>();`).
+- Tests: override `Clock` with a `FakeTimeProvider` and **always restore it in a `finally`** so a failing assertion can't leak the fake into other tests:
+
+  ```csharp
+  var original = TimestampFormatter.Clock;
+  TimestampFormatter.Clock = new FakeTimeProvider(instant);
+  try
+  {
+      // exercise code under test
+  }
+  finally
+  {
+      TimestampFormatter.Clock = original;
+  }
+  ```
+
+- **Parallelism caveat**: a mutable static seam is process-global. Tests that mutate it must **not** run in parallel with each other (or with code that reads it) — put them in a non-parallel collection/class (e.g. xUnit `[Collection]` with parallelization disabled, or MSTest `[DoNotParallelize]`). If tests must run in parallel, prefer constructor injection (convert the caller) over an ambient static.
+- The same seam works for other statics (`IFileSystem`, custom wrappers): a `public static <Abstraction> X { get; set; }` defaulting to the real implementation, with the same restore-in-`finally` and non-parallel discipline.
 
 ### Step 4: Replace call sites
 
@@ -171,7 +205,7 @@ Summarize what was done:
 | Pitfall | Solution |
 |---------|----------|
 | Replacing statics in test code | Only replace in production code; tests should use fakes/mocks |
-| Breaking static classes | Static classes can't have constructors — use ambient context for these |
+| Breaking static classes | Static classes can't have constructors — use the ambient context seam (Step 3) instead of converting them to non-static |
 | Missing `FakeTimeProvider` NuGet | Add `Microsoft.Extensions.TimeProvider.Testing` to test project |
 | Replacing in expression-bodied members without updating return type | `DateTime` → `DateTimeOffset` when using `TimeProvider.GetUtcNow()` — verify type compatibility |
 | Migrating too much at once | Stick to the defined scope — one project or namespace per run |

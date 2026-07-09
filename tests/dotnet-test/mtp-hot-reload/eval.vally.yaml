@@ -33,9 +33,6 @@ stimuli:
       - Instructs setting TESTINGPLATFORM_HOTRELOAD_ENABLED=1 environment variable
       - Uses 'dotnet run --project' to run the test host, not 'dotnet test'
       - "Explains the iterative workflow: edit code, hot reload picks up changes, re-runs tests"
-    constraints:
-      expect_tools:
-        - bash
   - name: Suggest hot reload for failing test in MTP project (SDK 10)
     prompt: My RemoveStock_ExceedsAvailable_ThrowsException test is failing. I want to iterate fixes rapidly. How can I set
       up hot reload for this test project?
