@@ -6,12 +6,12 @@ description: >
   from the research literature (Assertion Roulette, Duplicate Assert,
   Mystery Guest, Eager Test, Sensitive Equality, Conditional Test Logic,
   Sleepy Test, Magic Number Test, etc.) with research-backed severity.
-  Polyglot: .NET (MSTest/xUnit/NUnit/TUnit), Python, TS/JS, Java, Go,
-  Ruby, Rust, Swift, Kotlin, PowerShell, C++.
-  INVOKE when explicitly asked for the testsmells.org 19-smell academic
-  catalog or citable smell names from the literature, or when asked to
-  audit a suite and classify each finding as a named test smell with a
-  justified, research-backed severity rather than an arbitrary rating.
+  Polyglot: .NET (MSTest/xUnit/NUnit/TUnit), Python (pytest/unittest),
+  TS/JS (Jest/Vitest/Mocha/node:test), Java (JUnit/TestNG), Go, Ruby
+  (RSpec/Minitest), Rust, Swift, Kotlin (JUnit/Kotest), PowerShell
+  (Pester), C++ (GoogleTest/Catch2).
+  INVOKE ONLY when explicitly asked for the testsmells.org 19-smell
+  academic catalog or citable smell names from the literature.
   DO NOT USE FOR: general or pragmatic audits — use test-anti-patterns;
   writing new tests (use code-testing-agent, or writing-mstest-tests for
   MSTest); running tests (use run-tests); framework migration.
