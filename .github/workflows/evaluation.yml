@@ -607,9 +607,18 @@ jobs:
             if ($spSegments.Count -eq 0) {
               throw "Refusing unsafe matrix entry: skills_path for entry '$($e.name)' is empty"
             }
+            # Each segment must also belong to THIS entry's plugin: $pathPattern
+            # only checks the generic shape, so bind the prefix to $e.plugin via
+            # ordinal string comparison. This blocks a mismatched entry such as
+            # plugin=foo + skills_path=plugins/bar/skills, which downstream steps
+            # assume shares the entry's plugin prefix.
+            $skillsPrefix = "plugins/$($e.plugin)/skills"
             foreach ($sp in $spSegments) {
               if ($sp -notmatch $pathPattern -or $sp -match '\.\.') {
                 throw "Refusing unsafe matrix entry: skills_path segment '$sp' must match $pathPattern and not contain '..'"
+              }
+              if ($sp -cne $skillsPrefix -and -not $sp.StartsWith("$skillsPrefix/", [System.StringComparison]::Ordinal)) {
+                throw "Refusing unsafe matrix entry: skills_path segment '$sp' does not belong to plugin '$($e.plugin)'"
               }
             }
           }

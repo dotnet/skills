@@ -141,9 +141,19 @@ jobs:
           if [ ${#segs[@]} -eq 0 ]; then
             echo "::error::Empty or whitespace-only skills_path in matrix entry"; exit 1
           fi
+          # Each segment must additionally belong to THIS entry's plugin: the
+          # generic path_re only checks the shape, so bind the prefix to
+          # ENTRY_PLUGIN via literal comparison (ENTRY_PLUGIN is already
+          # allowlist-validated above). This blocks a mismatched entry like
+          # plugin=foo + skills_path=plugins/bar/skills, which Find eval specs
+          # would otherwise turn into nonsense paths under tests/foo.
+          skills_prefix="plugins/$ENTRY_PLUGIN/skills"
           for seg in "${segs[@]}"; do
             if ! [[ "$seg" =~ $path_re ]] || [[ "$seg" == *".."* ]]; then
               echo "::error::Invalid skills_path segment '$seg' (must match $path_re and not contain '..')"; exit 1
+            fi
+            if [[ "$seg" != "$skills_prefix" && "$seg" != "$skills_prefix"/* ]]; then
+              echo "::error::skills_path segment '$seg' does not belong to plugin '$ENTRY_PLUGIN'"; exit 1
             fi
           done
 
