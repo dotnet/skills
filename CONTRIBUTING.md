@@ -85,6 +85,9 @@ the weekly sync. Touch a skill or other plugin content to bump the version.
 
 What this means when you contribute:
 
+- **Every plugin carries its own `plugins/<plugin>/version.json`.** It declares the plugin's version
+  base; the weekly sync fails fast if a plugin ships a `plugin.json` without one, so none is ever
+  left unversioned.
 - **Don't hand-edit the `version` field** in either `plugin.json`. The patch number is computed and
   stamped automatically, and a manual edit will be overwritten.
 - **The only version field you may change is the base** (`"version"`) in `plugins/<plugin>/version.json`,

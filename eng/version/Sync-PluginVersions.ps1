@@ -66,12 +66,20 @@ $ErrorActionPreference = 'Stop'
 if ($PredictSquashMerge -and -not $BaseCommit) {
     throw '-PredictSquashMerge requires -BaseCommit (the PR merge base).'
 }
+if ($PredictSquashMerge -and -not $HeadCommit) {
+    throw '-PredictSquashMerge requires -HeadCommit (the PR head) so the bump is scoped to the plugins the PR actually changed; without it the script would predict a +1 patch for every plugin.'
+}
 if ($HeadCommit -and -not $BaseCommit) {
     throw '-HeadCommit requires -BaseCommit (the diff is BaseCommit..HeadCommit).'
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
 $pluginsRoot = Join-Path $repoRoot 'plugins'
+
+# Every git command below uses repo-root-relative paths (e.g. "plugins/<name>"), so pin the working
+# directory. Invoked from any other directory, git show/diff/log would otherwise operate on whatever
+# repository owns the caller's cwd and silently compute the wrong height.
+Set-Location -LiteralPath $repoRoot
 
 # The files excluded from NBGV git height for every plugin: the two stamped manifests (which are
 # outputs, not inputs) plus version.json itself. This is the single source of truth, mirrored by
@@ -176,10 +184,18 @@ if ($HeadCommit) {
     $Plugins = @(Get-ChangedPlugins -From $BaseCommit -To $HeadCommit)
 }
 else {
+    # Weekly backstop: reconcile every real plugin. Enumerate by plugin.json (the marker of a
+    # shipped plugin) rather than version.json, and fail fast if any plugin is missing version.json,
+    # so a plugin can never be silently dropped from automated versioning.
     $Plugins = Get-ChildItem -Path $pluginsRoot -Directory |
-        Where-Object { Test-Path (Join-Path $_.FullName 'version.json') } |
+        Where-Object { Test-Path (Join-Path $_.FullName 'plugin.json') } |
         Select-Object -ExpandProperty Name |
         Sort-Object
+    foreach ($p in $Plugins) {
+        if (-not (Test-Path (Join-Path $pluginsRoot $p 'version.json'))) {
+            throw "plugins/$p ships a plugin.json but has no version.json — every plugin must define a version base. Add plugins/$p/version.json (base = its current major.minor, e.g. 0.2)."
+        }
+    }
 }
 
 $results = [System.Collections.Generic.List[object]]::new()
@@ -189,7 +205,16 @@ foreach ($name in $Plugins) {
     $manifest = Join-Path $pluginDir 'plugin.json'
     $codexManifest = Join-Path $pluginDir '.codex-plugin' 'plugin.json'
 
-    if (-not (Test-Path (Join-Path $pluginDir 'version.json'))) { continue }
+    # A shipped plugin (one with a plugin.json) must define a version base; fail loudly rather than
+    # silently skipping it — symmetric with the weekly enumerate guard above, so /version-bump can't
+    # let a plugin.json-without-version.json reach main. A dir with no plugin.json (a deleted plugin,
+    # or a non-plugin helper dir surfaced by the diff) is genuinely not versioned, so skip it.
+    if (-not (Test-Path (Join-Path $pluginDir 'version.json'))) {
+        if (Test-Path $manifest) {
+            throw "plugins/$name ships a plugin.json but has no version.json — every plugin must define a version base. Add plugins/$name/version.json (base = its current major.minor, e.g. 0.2)."
+        }
+        continue
+    }
 
     $current = (Get-Content $manifest -Raw | ConvertFrom-Json).version
     # Also read the Codex-facing manifest so we can detect (and repair) the case where
@@ -229,14 +254,13 @@ foreach ($name in $Plugins) {
         }
         else {
             $heightAtBase = [int](Get-NbgvInfo -PluginDir $pluginDir -Commit $BaseCommit).VersionHeight
-            # The squash adds a height-bearing commit only if the PR actually changed a
-            # height-bearing file. A version.json-only edit that doesn't touch the base (e.g. a
-            # pathFilters/$schema/whitespace tweak) excludes itself from NBGV height, so it adds
-            # none — predicting +1 there would over-bump, and the weekly sync would later compute
-            # the true (lower) height and correct it downward: a visible version regression.
-            $bumps = if ($HeadCommit) {
-                [int](Test-HeightBearingChange -Plugin $name -From $BaseCommit -To $HeadCommit)
-            } else { 1 }
+            # The squash adds a height-bearing commit only if the PR actually changed a height-bearing
+            # file. -PredictSquashMerge requires -HeadCommit (guarded above), so the +1 is always scoped
+            # to that. A version.json-only edit that doesn't touch the base (e.g. a pathFilters/$schema/
+            # whitespace tweak) excludes itself from NBGV height, so it adds none — predicting +1 there
+            # would over-bump, and the weekly sync would later compute the true (lower) height and
+            # correct it downward: a visible version regression.
+            $bumps = [int](Test-HeightBearingChange -Plugin $name -From $BaseCommit -To $HeadCommit)
             $computed = "$base.$($heightAtBase + $bumps)"
         }
     }
