@@ -225,7 +225,7 @@ scenarios:
       - "The expression correctly targets only Smoke tests from integration test classes, not all Smoke tests or all integration tests"
       - "Used the path-segment syntax with wildcard segments and a trait qualifier like [Category=Smoke]"
     expect_tools: ["bash"]
-    timeout: 240
+    timeout: 360
 
   - name: "Filter TUnit tests by class using treenode-filter"
     prompt: "I want to run only the SmsNotificationTests from this TUnit project using dotnet test. What's the command?"

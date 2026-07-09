@@ -131,6 +131,9 @@ scenarios:
       - "Fixes the two swapped assertions to `Assert.AreEqual(5, result)` and `Assert.AreEqual(0, result)`"
       - "Leaves the already-correct `Assert.AreEqual(6, result)` in Subtract_Numbers_ReturnsDifference unchanged — does not swap a correct assertion"
       - "Explains that argument order drives the 'Expected: X, Actual: Y' failure message, and may reference the MSTEST0017 analyzer that flags this"
+    # The scenario is deliberately solvable unaided — the rubric requires diagnosing
+    # the root cause without the prompt naming it, so no skill invocation is expected.
+    expect_activation: false
     timeout: 120
 
   - name: "Modernize legacy test patterns"

@@ -63,6 +63,9 @@ scenarios:
       - "Correctly passes the MTP filter argument after the '--' separator since this is .NET SDK 9"
       - "Targets only the Integration-tagged tests rather than running the whole suite and post-filtering"
     expect_tools: ["bash"]
+    # filter-syntax is a reference skill (disable-model-invocation: true, user-invocable: false)
+    # loaded by run-tests/mtp-hot-reload/migrate-vstest-to-mtp; it can never self-activate.
+    expect_activation: false
     timeout: 180
 
   # ============================================================================
@@ -134,4 +137,7 @@ scenarios:
       - "The expression targets only Smoke tests from Integration classes, not all Smoke tests or all Integration tests"
       - "Passes the query filter after the '--' separator since this is .NET SDK 9"
     expect_tools: ["bash"]
+    # filter-syntax is a reference skill (disable-model-invocation: true, user-invocable: false)
+    # loaded by run-tests/mtp-hot-reload/migrate-vstest-to-mtp; it can never self-activate.
+    expect_activation: false
     timeout: 180
