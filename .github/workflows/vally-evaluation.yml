@@ -168,14 +168,29 @@ jobs:
               skill="${rel#*/skills}"       # "" or "/<skill>"
               skill="${skill#/}"            # "" or "<skill>"
               if [ -n "$skill" ]; then
-                FILTER_ARGS+=(--eval-filter "tests/$tp/$skill/eval.vally.yaml")
+                # agent.* evals are excluded from the experiment's `evals:` glob,
+                # and a skill without an eval.vally.yaml has nothing to run — skip
+                # both so we never pass a filter that matches zero evals.
+                if [[ "$skill" == agent.* ]]; then
+                  echo "Skipping $tp/$skill (agent.* evals are excluded from the vally experiment)"
+                  continue
+                fi
+                candidate="tests/$tp/$skill/eval.vally.yaml"
+                if [ ! -f "$candidate" ]; then
+                  echo "Skipping $tp/$skill (no eval.vally.yaml)"
+                  continue
+                fi
+                FILTER_ARGS+=(--eval-filter "$candidate")
               else
                 FILTER_ARGS+=(--eval-filter "tests/$tp/**/eval.vally.yaml")
               fi
             done
           fi
           if [ ${#FILTER_ARGS[@]} -eq 0 ]; then
-            FILTER_ARGS=(--eval-filter "tests/$PLUGIN/**/eval.vally.yaml")
+            # Every targeted skill was skipped above (agent.* or eval-less), so
+            # there is nothing to evaluate for this entry.
+            echo "No matching vally eval filters for $PLUGIN"
+            exit 0
           fi
 
           # Model + comparison-judge model come from the experiment file's

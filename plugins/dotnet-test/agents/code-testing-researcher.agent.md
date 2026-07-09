@@ -6,7 +6,7 @@ description: >-
   discovering test frameworks and build commands, producing .testagent/research.md.
 name: code-testing-researcher
 user-invocable: false
-tools: ["skill", "read", "search", "edit", "execute"]
+tools: ["skill", "read", "search", "edit", "execute", "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash", "read_file", "replace", "write_file", "glob", "grep_search", "run_shell_command"]
 license: MIT
 ---
 

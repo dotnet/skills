@@ -450,6 +450,8 @@ public static class CheckCommand
         {
             foreach (var warning in ExternalDependencyChecker.CheckAgent(agent, allowed))
                 builder.ExternalDependencies.Add(new ExternalDependencyResult(ExternalDependencyKind.Agent, agent.Name, agent.Path, warning));
+            foreach (var warning in ExternalDependencyChecker.CheckAgentToolPortability(agent, allowed))
+                builder.ExternalDependencies.Add(new ExternalDependencyResult(ExternalDependencyKind.Agent, agent.Name, agent.Path, warning));
         }
 
         foreach (var plugin in plugins)
