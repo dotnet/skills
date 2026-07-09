@@ -109,7 +109,7 @@ jobs:
           mapfile -t TOKENS < <(
             printf '%s' "$ALL_SECRETS" \
               | jq -r 'to_entries
-                       | map(select(.key | test("^COPILOT_GITHUB_TOKEN(_[0-9]+)?$"; "i")))
+                       | map(select(.key | test("^COPILOT_GITHUB_TOKEN(_[0-9]+)?$"; "i")) | select(.value != ""))
                        | sort_by(.key)[]
                        | .value'
           )
