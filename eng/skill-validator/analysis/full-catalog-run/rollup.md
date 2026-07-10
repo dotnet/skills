@@ -1,12 +1,12 @@
 # Full-catalog cross-family rollup
 
-Generated: 2026-07-09T17:12:51.0566902-07:00
+Generated: 2026-07-09T19:30:32.6697969-07:00
 
 ## Summary per executor
 
 | executor | judge | skills | passed | pass% | avgScore |
 |---|---|---:|---:|---:|---:|
-| claude-opus-4.8 | gpt-5.5 | 15 | 0 | 0% | -0.1149 |
+| claude-opus-4.8 | gpt-5.5 | 19 | 2 | 10.5% | -0.066 |
 
 ## Per-skill x per-executor
 
@@ -27,4 +27,8 @@ Generated: 2026-07-09T17:12:51.0566902-07:00
 | configure-auth | claude-opus-4.8 | gpt-5.5 | False | -0.379 | -0.214 | False | 2 | 234 | 11933077 | 2 | True |
 | configuring-opentelemetry-dotnet | claude-opus-4.8 | gpt-5.5 | False | 0.074 | 0.7 | False | 3 | 15 | 353522 | 0 | False |
 | convert-blazor-server-to-webapp | claude-opus-4.8 | gpt-5.5 | False | -0.215 | -2.333 | True | 1 | 5 | 128018 | 0 | False |
+| convert-to-cpm | claude-opus-4.8 | gpt-5.5 | True | 0.236 | 0.483 | True | 8 | 272 | 8214518 | 0 | True |
+| coordinate-components | claude-opus-4.8 | gpt-5.5 | False | -0.018 | 0.224 | True | 2 | 147 | 6422576 | 0 | False |
+| coverage-analysis | claude-opus-4.8 | gpt-5.5 | True | 0.178 | 0.806 | True | 3 | 75 | 2699723 | 0 | False |
+| crap-score | claude-opus-4.8 | gpt-5.5 | False | 0.074 | 0.544 | False | 3 | 74 | 2286550 | 0 | False |
 
