@@ -1,12 +1,12 @@
 # Full-catalog cross-family rollup
 
-Generated: 2026-07-09T19:30:32.6697969-07:00
+Generated: 2026-07-09T21:05:19.7719233-07:00
 
 ## Summary per executor
 
 | executor | judge | skills | passed | pass% | avgScore |
 |---|---|---:|---:|---:|---:|
-| claude-opus-4.8 | gpt-5.5 | 19 | 2 | 10.5% | -0.066 |
+| claude-opus-4.8 | gpt-5.5 | 22 | 3 | 13.6% | -0.0571 |
 
 ## Per-skill x per-executor
 
@@ -31,4 +31,7 @@ Generated: 2026-07-09T19:30:32.6697969-07:00
 | coordinate-components | claude-opus-4.8 | gpt-5.5 | False | -0.018 | 0.224 | True | 2 | 147 | 6422576 | 0 | False |
 | coverage-analysis | claude-opus-4.8 | gpt-5.5 | True | 0.178 | 0.806 | True | 3 | 75 | 2699723 | 0 | False |
 | crap-score | claude-opus-4.8 | gpt-5.5 | False | 0.074 | 0.544 | False | 3 | 74 | 2286550 | 0 | False |
+| create-blazor-project | claude-opus-4.8 | gpt-5.5 | True | 0.137 | 0.592 | False | 3 | 357 | 18916469 | 0 | True |
+| csharp-scripts | claude-opus-4.8 | gpt-5.5 | False | -0.022 | 0.122 | False | 3 | 60 | 1557387 | 1 | True |
+| detect-static-dependencies | claude-opus-4.8 | gpt-5.5 | False | -0.118 | 0.394 | True | 6 | 96 | 2614789 | 0 | False |
 

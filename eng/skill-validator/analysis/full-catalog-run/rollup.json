@@ -302,5 +302,53 @@
     "timedOut": false,
     "failureKind": "threshold",
     "skillNotActivated": false
+  },
+  {
+    "skill": "create-blazor-project",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": true,
+    "overallImprovementScore": 0.13694881776836063,
+    "normalizedGain": 0.5916666666666667,
+    "isSignificant": false,
+    "scenarioCount": 3,
+    "turnCount": 357,
+    "totalTokens": 18916469,
+    "errorCount": 0,
+    "timedOut": true,
+    "failureKind": null,
+    "skillNotActivated": false
+  },
+  {
+    "skill": "csharp-scripts",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": -0.02154300799721087,
+    "normalizedGain": 0.12247173116738341,
+    "isSignificant": false,
+    "scenarioCount": 3,
+    "turnCount": 60,
+    "totalTokens": 1557387,
+    "errorCount": 1,
+    "timedOut": true,
+    "failureKind": "threshold",
+    "skillNotActivated": false
+  },
+  {
+    "skill": "detect-static-dependencies",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": -0.11840008157785255,
+    "normalizedGain": 0.39444444444444415,
+    "isSignificant": true,
+    "scenarioCount": 6,
+    "turnCount": 96,
+    "totalTokens": 2614789,
+    "errorCount": 0,
+    "timedOut": false,
+    "failureKind": "threshold",
+    "skillNotActivated": false
   }
 ]
