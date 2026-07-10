@@ -718,5 +718,53 @@
     "timedOut": false,
     "failureKind": null,
     "skillNotActivated": false
+  },
+  {
+    "skill": "mtp-hot-reload",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": 0.21621980484880785,
+    "normalizedGain": 0.41346235463882525,
+    "isSignificant": true,
+    "scenarioCount": 7,
+    "turnCount": 204,
+    "totalTokens": 6499332,
+    "errorCount": 11,
+    "timedOut": true,
+    "failureKind": "completion_regression",
+    "skillNotActivated": false
+  },
+  {
+    "skill": "nuget-trusted-publishing",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": true,
+    "overallImprovementScore": 0.15115557603160193,
+    "normalizedGain": 0.4888888888888889,
+    "isSignificant": true,
+    "scenarioCount": 3,
+    "turnCount": 50,
+    "totalTokens": 1246011,
+    "errorCount": 0,
+    "timedOut": false,
+    "failureKind": null,
+    "skillNotActivated": false
+  },
+  {
+    "skill": "optimizing-ef-core-queries",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": -0.23063454376163875,
+    "normalizedGain": -0.07499999999999996,
+    "isSignificant": true,
+    "scenarioCount": 1,
+    "turnCount": 5,
+    "totalTokens": 109585,
+    "errorCount": 0,
+    "timedOut": false,
+    "failureKind": "threshold",
+    "skillNotActivated": false
   }
 ]
