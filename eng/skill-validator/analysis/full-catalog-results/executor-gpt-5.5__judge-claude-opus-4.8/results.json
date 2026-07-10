@@ -1,11 +1,283 @@
 {
   "executor": "gpt-5.5",
   "judge": "claude-opus-4.8",
-  "generatedAt": "2026-07-10T09:54:54.2107180-07:00",
-  "skillCount": 1,
+  "generatedAt": "2026-07-10T10:42:28.3213243-07:00",
+  "skillCount": 3,
   "passCount": 0,
-  "failCount": 1,
+  "failCount": 3,
   "skills": [
+    {
+      "skill": "android-tombstone-symbolication",
+      "passed": false,
+      "overallImprovementScore": -0.16775421533645232,
+      "isolatedScore": null,
+      "pluginScore": null,
+      "isSignificant": true,
+      "normalizedGain": -0.18403122612681425,
+      "failureKind": "completion_regression",
+      "skillNotActivated": false,
+      "reason": "Skill regressed on task completion in one or more scenarios",
+      "overfittingScore": 0.12,
+      "overfittingSeverity": "Low",
+      "scenarioCount": 8,
+      "scenarios": [
+        {
+          "name": "Symbolicate .NET frames in an Android tombstone",
+          "improvementScore": 0.19303605561014342,
+          "pluginImprovementScore": 0.30541125888523424,
+          "isolatedImprovementScore": 0.19303605561014342,
+          "highVariance": true,
+          "varianceCV": 2.9805411519632212,
+          "timedOut": true,
+          "timeoutSeconds": 300,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "android-tombstone-symbolication"
+            ],
+            "extraTools": [
+              "skill"
+            ],
+            "skillEventCount": 5
+          }
+        },
+        {
+          "name": "Recognize tombstone with no .NET frames",
+          "improvementScore": 0.010736132762706595,
+          "pluginImprovementScore": 0.010736132762706595,
+          "isolatedImprovementScore": 0.12133908062413207,
+          "highVariance": true,
+          "varianceCV": 1.2598234459254214,
+          "timedOut": false,
+          "timeoutSeconds": 300,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "android-tombstone-symbolication"
+            ],
+            "extraTools": [
+              "skill",
+              "powershell"
+            ],
+            "skillEventCount": 6
+          }
+        },
+        {
+          "name": "Symbolicate CoreCLR frames in an Android tombstone",
+          "improvementScore": -0.0884775114205771,
+          "pluginImprovementScore": -0.0884775114205771,
+          "isolatedImprovementScore": 0.17208886545005453,
+          "highVariance": true,
+          "varianceCV": 2.105181511568112,
+          "timedOut": false,
+          "timeoutSeconds": 300,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "android-tombstone-symbolication"
+            ],
+            "extraTools": [
+              "skill"
+            ],
+            "skillEventCount": 9
+          }
+        },
+        {
+          "name": "Recognize NativeAOT tombstone with app binary and libSystem.Native.so",
+          "improvementScore": -0.2176594198544684,
+          "pluginImprovementScore": -0.2176594198544684,
+          "isolatedImprovementScore": -0.1645629709416475,
+          "highVariance": false,
+          "varianceCV": 0.3904721758582853,
+          "timedOut": false,
+          "timeoutSeconds": 300,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "android-tombstone-symbolication"
+            ],
+            "extraTools": [
+              "skill",
+              "glob"
+            ],
+            "skillEventCount": 6
+          }
+        },
+        {
+          "name": "Symbolicate multi-thread tombstone",
+          "improvementScore": -0.866428705104695,
+          "pluginImprovementScore": 0.05927782730816017,
+          "isolatedImprovementScore": -0.866428705104695,
+          "highVariance": false,
+          "varianceCV": 0.3398557689833535,
+          "timedOut": false,
+          "timeoutSeconds": 300,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "android-tombstone-symbolication"
+            ],
+            "extraTools": [
+              "skill",
+              "read_powershell",
+              "stop_powershell"
+            ],
+            "skillEventCount": 6
+          }
+        },
+        {
+          "name": "Handle .NET frames with no BuildId metadata",
+          "improvementScore": -0.2945406674534817,
+          "pluginImprovementScore": -0.2945406674534817,
+          "isolatedImprovementScore": -0.10179364830977523,
+          "highVariance": false,
+          "varianceCV": 0.38351826925512816,
+          "timedOut": false,
+          "timeoutSeconds": 300,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "android-tombstone-symbolication"
+            ],
+            "extraTools": [
+              "skill",
+              "powershell",
+              "glob"
+            ],
+            "skillEventCount": 6
+          }
+        },
+        {
+          "name": "Symbolicate tombstone with multiple .NET libraries and different BuildIds",
+          "improvementScore": 0.19164146453670072,
+          "pluginImprovementScore": 0.33577004253714565,
+          "isolatedImprovementScore": 0.19164146453670072,
+          "highVariance": true,
+          "varianceCV": 1.737851832350133,
+          "timedOut": true,
+          "timeoutSeconds": 300,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "android-tombstone-symbolication"
+            ],
+            "extraTools": [
+              "skill",
+              "report_intent",
+              "view",
+              "powershell",
+              "stop_powershell"
+            ],
+            "skillEventCount": 6
+          }
+        },
+        {
+          "name": "Reject iOS crash log as wrong format",
+          "improvementScore": -0.270341071767947,
+          "pluginImprovementScore": -0.270341071767947,
+          "isolatedImprovementScore": -0.12070143696899309,
+          "highVariance": false,
+          "varianceCV": 0.4104603000118785,
+          "timedOut": false,
+          "timeoutSeconds": 300,
+          "skillActivationPlugin": {
+            "activated": false,
+            "detectedSkills": [
+              "apple-crash-symbolication"
+            ],
+            "extraTools": [
+              "skill"
+            ],
+            "skillEventCount": 6
+          }
+        }
+      ]
+    },
+    {
+      "skill": "apple-crash-symbolication",
+      "passed": false,
+      "overallImprovementScore": -0.08572047713295046,
+      "isolatedScore": 0.19740025212740153,
+      "pluginScore": -0.02288789967209463,
+      "isSignificant": false,
+      "normalizedGain": 0.3633156966490299,
+      "failureKind": "threshold",
+      "skillNotActivated": false,
+      "reason": "Improvement score -8.6% below threshold of 10.0% (not statistically significant) [high variance in: Parse .NET frames and locate dSYMs from an iOS crash log, Investigate root cause of a .NET MAUI iOS crash, Reject Android tombstone passed as iOS crash log]",
+      "overfittingScore": 0.13,
+      "overfittingSeverity": "Low",
+      "scenarioCount": 3,
+      "scenarios": [
+        {
+          "name": "Parse .NET frames and locate dSYMs from an iOS crash log",
+          "improvementScore": 0.09837089363002273,
+          "pluginImprovementScore": 0.2868686260125902,
+          "isolatedImprovementScore": 0.09837089363002273,
+          "highVariance": true,
+          "varianceCV": 3.71561739582663,
+          "timedOut": true,
+          "timeoutSeconds": 300,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "apple-crash-symbolication"
+            ],
+            "extraTools": [
+              "skill",
+              "report_intent",
+              "view",
+              "rg",
+              "powershell"
+            ],
+            "skillEventCount": 10
+          }
+        },
+        {
+          "name": "Investigate root cause of a .NET MAUI iOS crash",
+          "improvementScore": 0.09150000000000001,
+          "pluginImprovementScore": 0.09150000000000001,
+          "isolatedImprovementScore": 0.2555350649553798,
+          "highVariance": true,
+          "varianceCV": 1.6275363998920722,
+          "timedOut": false,
+          "timeoutSeconds": 300,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "apple-crash-symbolication"
+            ],
+            "extraTools": [
+              "skill",
+              "powershell",
+              "stop_powershell",
+              "read_powershell",
+              "glob"
+            ],
+            "skillEventCount": 10
+          }
+        },
+        {
+          "name": "Reject Android tombstone passed as iOS crash log",
+          "improvementScore": -0.44703232502887413,
+          "pluginImprovementScore": -0.44703232502887413,
+          "isolatedImprovementScore": 0.23829479779680204,
+          "highVariance": true,
+          "varianceCV": 3.4883340232533797,
+          "timedOut": true,
+          "timeoutSeconds": 300,
+          "skillActivationPlugin": {
+            "activated": false,
+            "detectedSkills": [
+              "android-tombstone-symbolication"
+            ],
+            "extraTools": [
+              "skill"
+            ],
+            "skillEventCount": 5
+          }
+        }
+      ]
+    },
     {
       "skill": "filter-syntax",
       "passed": false,
@@ -13,6 +285,7 @@
       "isolatedScore": 0.6213044399893204,
       "pluginScore": 0.5104712322987859,
       "isSignificant": false,
+      "normalizedGain": 1,
       "failureKind": "skill_not_activated",
       "skillNotActivated": true,
       "reason": "Improvement score 51.0% meets threshold of 10.0% (not statistically significant) [high variance in: Filter xUnit v3 tests by trait and show how to tag them, Combine an xUnit v3 class pattern and a trait in one query filter] [NOT ACTIVATED (isolated) in 2 scenario(s)] [NOT ACTIVATED (plugin) in 2 scenario(s)]",
@@ -24,17 +297,41 @@
           "name": "Filter xUnit v3 tests by trait and show how to tag them",
           "improvementScore": 0.2878507291465563,
           "pluginImprovementScore": 0.2878507291465563,
+          "isolatedImprovementScore": 0.5035733652050579,
           "highVariance": true,
+          "varianceCV": 3.7258484620831256,
           "timedOut": true,
-          "timeoutSeconds": 180
+          "timeoutSeconds": 180,
+          "skillActivationPlugin": {
+            "activated": false,
+            "detectedSkills": [
+              "run-tests"
+            ],
+            "extraTools": [
+              "skill"
+            ],
+            "skillEventCount": 6
+          }
         },
         {
           "name": "Combine an xUnit v3 class pattern and a trait in one query filter",
           "improvementScore": 0.7330917354510156,
           "pluginImprovementScore": 0.7330917354510156,
+          "isolatedImprovementScore": 0.7390355147735828,
           "highVariance": true,
+          "varianceCV": 2.7741553231173595,
           "timedOut": true,
-          "timeoutSeconds": 180
+          "timeoutSeconds": 180,
+          "skillActivationPlugin": {
+            "activated": false,
+            "detectedSkills": [
+              "run-tests"
+            ],
+            "extraTools": [
+              "skill"
+            ],
+            "skillEventCount": 6
+          }
         }
       ]
     }
