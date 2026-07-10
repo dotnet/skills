@@ -1,12 +1,12 @@
 # Full-catalog cross-family rollup
 
-Generated: 2026-07-10T05:30:42.4537517-07:00
+Generated: 2026-07-10T07:10:28.9209527-07:00
 
 ## Summary per executor
 
 | executor | judge | skills | passed | pass% | avgScore |
 |---|---|---:|---:|---:|---:|
-| claude-opus-4.8 | gpt-5.5 | 40 | 5 | 12.5% | -0.066 |
+| claude-opus-4.8 | gpt-5.5 | 42 | 5 | 11.9% | -0.0603 |
 
 ## Per-skill x per-executor
 
@@ -52,4 +52,6 @@ Generated: 2026-07-10T05:30:42.4537517-07:00
 | migrate-nullable-references | claude-opus-4.8 | gpt-5.5 | False | -0.255 | -0.025 | True | 3 | 85 | 2728652 | 0 | False |
 | migrate-static-to-wrapper | claude-opus-4.8 | gpt-5.5 | False | -0.051 | 0.464 | False | 5 | 99 | 2785033 | 0 | False |
 | migrate-vstest-to-mtp | claude-opus-4.8 | gpt-5.5 | False | -0.045 | -0.153 | False | 11 | 222 | 7042127 | 3 | True |
+| migrate-xunit-to-mstest | claude-opus-4.8 | gpt-5.5 | False | 0.078 | 0.353 | False | 12 | 212 | 7423571 | 0 | False |
+| migrate-xunit-to-xunit-v3 | claude-opus-4.8 | gpt-5.5 | False | 0.028 | 0.013 | False | 12 | 306 | 9391099 | 0 | False |
 
