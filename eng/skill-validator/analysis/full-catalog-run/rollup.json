@@ -670,5 +670,53 @@
     "timedOut": false,
     "failureKind": "threshold",
     "skillNotActivated": false
+  },
+  {
+    "skill": "msbuild-antipatterns",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": -0.05359058112452172,
+    "normalizedGain": 0,
+    "isSignificant": true,
+    "scenarioCount": 4,
+    "turnCount": 75,
+    "totalTokens": 1985987,
+    "errorCount": 0,
+    "timedOut": false,
+    "failureKind": "skill_not_activated",
+    "skillNotActivated": true
+  },
+  {
+    "skill": "msbuild-modernization",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": 0.038581107830004846,
+    "normalizedGain": 0.49999999999999944,
+    "isSignificant": false,
+    "scenarioCount": 1,
+    "turnCount": 21,
+    "totalTokens": 640439,
+    "errorCount": 0,
+    "timedOut": false,
+    "failureKind": "threshold",
+    "skillNotActivated": false
+  },
+  {
+    "skill": "msbuild-server",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": true,
+    "overallImprovementScore": 0.28359127653482574,
+    "normalizedGain": 0.823529411764706,
+    "isSignificant": true,
+    "scenarioCount": 1,
+    "turnCount": 15,
+    "totalTokens": 396951,
+    "errorCount": 0,
+    "timedOut": false,
+    "failureKind": null,
+    "skillNotActivated": false
   }
 ]
