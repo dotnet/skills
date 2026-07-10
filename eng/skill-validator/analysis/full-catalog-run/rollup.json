@@ -606,5 +606,37 @@
     "timedOut": false,
     "failureKind": "skill_not_activated",
     "skillNotActivated": true
+  },
+  {
+    "skill": "migrate-static-to-wrapper",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": -0.051384297199807326,
+    "normalizedGain": 0.4642857142857143,
+    "isSignificant": false,
+    "scenarioCount": 5,
+    "turnCount": 99,
+    "totalTokens": 2785033,
+    "errorCount": 0,
+    "timedOut": false,
+    "failureKind": "completion_regression",
+    "skillNotActivated": false
+  },
+  {
+    "skill": "migrate-vstest-to-mtp",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": -0.045298109968161256,
+    "normalizedGain": -0.15316399286987553,
+    "isSignificant": false,
+    "scenarioCount": 11,
+    "turnCount": 222,
+    "totalTokens": 7042127,
+    "errorCount": 3,
+    "timedOut": true,
+    "failureKind": "completion_regression",
+    "skillNotActivated": false
   }
 ]
