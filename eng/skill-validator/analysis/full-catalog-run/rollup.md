@@ -1,12 +1,12 @@
 # Full-catalog cross-family rollup
 
-Generated: 2026-07-09T23:45:00.9771822-07:00
+Generated: 2026-07-10T00:25:39.5702894-07:00
 
 ## Summary per executor
 
 | executor | judge | skills | passed | pass% | avgScore |
 |---|---|---:|---:|---:|---:|
-| claude-opus-4.8 | gpt-5.5 | 27 | 3 | 11.1% | -0.07 |
+| claude-opus-4.8 | gpt-5.5 | 30 | 4 | 13.3% | -0.0739 |
 
 ## Per-skill x per-executor
 
@@ -39,4 +39,7 @@ Generated: 2026-07-09T23:45:00.9771822-07:00
 | dotnet-maui-doctor | claude-opus-4.8 | gpt-5.5 | False | 0.172 | 0.433 | False | 8 | 113 | 3653796 | 2 | True |
 | dotnet-pinvoke | claude-opus-4.8 | gpt-5.5 | False | -0.141 | -0.564 | True | 2 | 22 | 591063 | 0 | True |
 | dotnet-trace-collect | claude-opus-4.8 | gpt-5.5 | False | 0.172 | 0.713 | True | 17 | 116 | 3276546 | 0 | False |
+| dotnet-webapi | claude-opus-4.8 | gpt-5.5 | True | 0.29 | 0.733 | True | 3 | 175 | 6531977 | 0 | False |
+| eval-performance | claude-opus-4.8 | gpt-5.5 | False | -0.666 | -0.325 | True | 1 | 12 | 299604 | 0 | False |
+| exp-mock-usage-analysis | claude-opus-4.8 | gpt-5.5 | False | 0.05 | 0.109 | False | 6 | 53 | 1292035 | 0 | False |
 
