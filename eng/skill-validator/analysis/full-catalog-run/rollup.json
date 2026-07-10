@@ -382,5 +382,53 @@
     "timedOut": true,
     "failureKind": "threshold",
     "skillNotActivated": false
+  },
+  {
+    "skill": "dotnet-maui-doctor",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": 0.17239279740512237,
+    "normalizedGain": 0.43298461276402456,
+    "isSignificant": false,
+    "scenarioCount": 8,
+    "turnCount": 113,
+    "totalTokens": 3653796,
+    "errorCount": 2,
+    "timedOut": true,
+    "failureKind": "completion_regression",
+    "skillNotActivated": false
+  },
+  {
+    "skill": "dotnet-pinvoke",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": -0.14078912342957117,
+    "normalizedGain": -0.5642857142857142,
+    "isSignificant": true,
+    "scenarioCount": 2,
+    "turnCount": 22,
+    "totalTokens": 591063,
+    "errorCount": 0,
+    "timedOut": true,
+    "failureKind": "threshold",
+    "skillNotActivated": false
+  },
+  {
+    "skill": "dotnet-trace-collect",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": 0.17213038694259225,
+    "normalizedGain": 0.7125942684766214,
+    "isSignificant": true,
+    "scenarioCount": 17,
+    "turnCount": 116,
+    "totalTokens": 3276546,
+    "errorCount": 0,
+    "timedOut": false,
+    "failureKind": "skill_not_activated",
+    "skillNotActivated": true
   }
 ]

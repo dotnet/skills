@@ -1,12 +1,12 @@
 # Full-catalog cross-family rollup
 
-Generated: 2026-07-09T22:25:14.3346478-07:00
+Generated: 2026-07-09T23:45:00.9771822-07:00
 
 ## Summary per executor
 
 | executor | judge | skills | passed | pass% | avgScore |
 |---|---|---:|---:|---:|---:|
-| claude-opus-4.8 | gpt-5.5 | 24 | 3 | 12.5% | -0.0873 |
+| claude-opus-4.8 | gpt-5.5 | 27 | 3 | 11.1% | -0.07 |
 
 ## Per-skill x per-executor
 
@@ -36,4 +36,7 @@ Generated: 2026-07-09T22:25:14.3346478-07:00
 | detect-static-dependencies | claude-opus-4.8 | gpt-5.5 | False | -0.118 | 0.394 | True | 6 | 96 | 2614789 | 0 | False |
 | directory-build-organization | claude-opus-4.8 | gpt-5.5 | False | -0.752 | -0.3 | False | 1 | 32 | 1215861 | 0 | True |
 | dotnet-aot-compat | claude-opus-4.8 | gpt-5.5 | False | -0.086 | 0 | False | 1 | 67 | 3106844 | 3 | True |
+| dotnet-maui-doctor | claude-opus-4.8 | gpt-5.5 | False | 0.172 | 0.433 | False | 8 | 113 | 3653796 | 2 | True |
+| dotnet-pinvoke | claude-opus-4.8 | gpt-5.5 | False | -0.141 | -0.564 | True | 2 | 22 | 591063 | 0 | True |
+| dotnet-trace-collect | claude-opus-4.8 | gpt-5.5 | False | 0.172 | 0.713 | True | 17 | 116 | 3276546 | 0 | False |
 
