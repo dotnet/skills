@@ -1,12 +1,12 @@
 # Full-catalog cross-family rollup
 
-Generated: 2026-07-10T00:25:39.5702894-07:00
+Generated: 2026-07-10T01:49:36.4677676-07:00
 
 ## Summary per executor
 
 | executor | judge | skills | passed | pass% | avgScore |
 |---|---|---:|---:|---:|---:|
-| claude-opus-4.8 | gpt-5.5 | 30 | 4 | 13.3% | -0.0739 |
+| claude-opus-4.8 | gpt-5.5 | 33 | 5 | 15.2% | -0.0624 |
 
 ## Per-skill x per-executor
 
@@ -42,4 +42,7 @@ Generated: 2026-07-10T00:25:39.5702894-07:00
 | dotnet-webapi | claude-opus-4.8 | gpt-5.5 | True | 0.29 | 0.733 | True | 3 | 175 | 6531977 | 0 | False |
 | eval-performance | claude-opus-4.8 | gpt-5.5 | False | -0.666 | -0.325 | True | 1 | 12 | 299604 | 0 | False |
 | exp-mock-usage-analysis | claude-opus-4.8 | gpt-5.5 | False | 0.05 | 0.109 | False | 6 | 53 | 1292035 | 0 | False |
+| exp-simd-vectorization | claude-opus-4.8 | gpt-5.5 | False | -0.026 | 0.038 | False | 5 | 126 | 3399297 | 6 | True |
+| exp-test-maintainability | claude-opus-4.8 | gpt-5.5 | True | 0.217 | 0.603 | True | 4 | 59 | 1439028 | 0 | True |
+| extension-points | claude-opus-4.8 | gpt-5.5 | False | -0.034 | 0.37 | False | 3 | 98 | 2974782 | 5 | True |
 

@@ -478,5 +478,53 @@
     "timedOut": false,
     "failureKind": "threshold",
     "skillNotActivated": false
+  },
+  {
+    "skill": "exp-simd-vectorization",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": -0.025683777141171937,
+    "normalizedGain": 0.03805860805860818,
+    "isSignificant": false,
+    "scenarioCount": 5,
+    "turnCount": 126,
+    "totalTokens": 3399297,
+    "errorCount": 6,
+    "timedOut": true,
+    "failureKind": "skill_not_activated",
+    "skillNotActivated": true
+  },
+  {
+    "skill": "exp-test-maintainability",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": true,
+    "overallImprovementScore": 0.21684286643667472,
+    "normalizedGain": 0.6029411764705883,
+    "isSignificant": true,
+    "scenarioCount": 4,
+    "turnCount": 59,
+    "totalTokens": 1439028,
+    "errorCount": 0,
+    "timedOut": true,
+    "failureKind": null,
+    "skillNotActivated": false
+  },
+  {
+    "skill": "extension-points",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": -0.03392143543003847,
+    "normalizedGain": 0.36985236985236986,
+    "isSignificant": false,
+    "scenarioCount": 3,
+    "turnCount": 98,
+    "totalTokens": 2974782,
+    "errorCount": 5,
+    "timedOut": true,
+    "failureKind": "threshold",
+    "skillNotActivated": false
   }
 ]
